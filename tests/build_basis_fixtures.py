@@ -4,9 +4,18 @@ These are FROZEN reference fixtures (iteration contract): do not regenerate to
 make a test pass. Re-running this script is only for adding a case, and the
 change is logged in docs/claude-log.md.
 
+JEG-1073 (Jeremy, 2026-10-25: "Keep adj trade chart avg as the main ddf and
+projections as an alt."): the default DDF Value is now the equal-weight mean of
+the trade charts' Adjusted values, so the default-path fixtures (basis_default,
+basis_with_override) were regenerated ONCE from the new engine. This is the
+rule change, not a test bent to go green. The hand check
+(test_default_fixture_is_the_chart_mean) and the two independent Python
+references (changed separately) must reproduce the regenerated numbers.
+
 How each is made:
-* basis_default.json is the pre-change engine's output (origin/main at
-  61ecb39e, `git show`), so the default path is pinned to today's numbers.
+* basis_default.json is the JEG-1073 engine's output with no basis. Before
+  JEG-1073 it was the pre-change engine at origin/main 61ecb39e (the
+  projection mean, JEG-804); BASELINE_SHA records that history only.
 * the others are the JS engine's output with the named basis/overrides; the
   test (tests/test_basis_overrides.py) then requires BOTH Python references to
   reproduce each one independently, and checks the hand formulas of spec 7.1.
@@ -31,11 +40,11 @@ BASELINE_SHA = "61ecb39e"   # origin/main before JEG-1044
 # "c1" stands in for a trade chart (FantasyCalc), "p1" for a projection (ESPN).
 CASES = [
     {"case": "default", "split": "training", "basis": None, "overrides": {},
-     "note": "Default path, pinned to the pre-change engine."},
+     "note": "Default path (JEG-1073): equal-weight mean of the trade charts' Adjusted values."},
     {"case": "fantasycalc_only", "split": "held-out", "basis": {"mode": "single", "source": "c1"}, "overrides": {},
      "note": "Single trade-chart source (c1 stands in for FantasyCalc)."},
     {"case": "projections_only", "split": "held-out", "basis": {"mode": "single", "source": "p1"}, "overrides": {},
-     "note": "Single projection source (p1 stands in for ESPN)."},
+     "note": "Explicit projection basis (p1 stands in for ESPN); it was the default before JEG-1073."},
     {"case": "blend_50_50", "split": "training",
      "basis": {"mode": "blend", "sources": ["p1", "c1"], "weights": {"p1": 50, "c1": 50}}, "overrides": {},
      "note": "Cross-family 50/50 blend."},
@@ -86,12 +95,14 @@ def main() -> int:
         base_model = Path(tmp) / "value-model.js"
         base_model.write_text(baseline, encoding="utf-8")
         for case in CASES:
-            model = base_model if case["case"] == "default" else VALUE_MODEL
+            # JEG-1073: every case, the default included, now comes from the current engine.
+            model = VALUE_MODEL
             out = run_driver(model, case["basis"], case["overrides"])
             doc = {"schema": "basis-fixture/1", "case": case["case"], "split": case["split"],
                    "note": case["note"], "source_fixture": SOURCE.name, "basis": case["basis"],
                    "overrides": case["overrides"],
-                   "generated_by": f"engine at {BASELINE_SHA} (pre-change)" if model is base_model
+                   "generated_by": "value-model.js (JEG-1073: default = Adjusted trade chart average)"
+                   if case["case"] in ("default", "with_override")
                    else "value-model.js with basisConfig (JEG-1044)",
                    "expected": compact(out)}
             path = FIXDIR / f"basis_{case['case']}.json"

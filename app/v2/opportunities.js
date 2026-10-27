@@ -5,7 +5,7 @@
 // flattens them into rows with the eight columns, labels each row's overall fit, and ranks the rows.
 //
 // Decisions (Jeremy, 2026-10-24, JEG-1021):
-//   * ranking = fit tiers first (natural, value, market-only, force), then the fundamentals edge (DDF Value receive - give);
+//   * ranking = fit tiers first (natural, market supported, force; JEG-1108 retired Value fit), then the fundamentals edge (DDF Value receive - give);
 //   * default order is best first; force fits are shown, labelled, with a one-click Hide force fits.
 // Defaults chosen here, to log in docs/math-review-agenda.md: at most PER_PAIRING trades per pairing (the finder's LIMIT),
 // at most MAX_OPPONENTS opponents per run.
@@ -15,48 +15,56 @@
   const MAX_OPPONENTS = 20;
   const OUR_KEY = "ddf_value";
   const MARKET_KEY = "chart_avg";
-  const TIERS = {natural: 0, value: 1, market: 2, force: 3};
+  const PROJ_KEY = "ddf_value_projections";
+  const TIERS = {natural: 0, market: 1, force: 2};
   const UNJUDGED_TIER = 4;
   const CACHE_LIMIT = 400;
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const finder = () => (typeof module !== "undefined" && module.exports ? require("./finder.js") : root.TradeValueFinder);
   const shown = n => Math.round(n * 10) / 10;
   const asShown = n => (Math.abs(n) < 0.05 ? 0 : n);
-  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const listJoin = items => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-  // ---------- the labels (section 4.2 / 4.3) ----------
-  // Our team's fit, from tradeFit's reading of our side in DDF Value: served and moving toward expected depth = natural; served = value.
+  // ---------- the labels (JEG-1108: rewritten) ----------
+  // tradeFit already computes the final label (natural / market / force). These helpers extract sub-signals for columns.
   function ourFitOf(fit) {
+    if (fit.yourValueOk && fit.constructionOk) return {label: "natural", detail: "total rises, starters hold, construction OK"};
+    if (fit.yourValueOk) return {label: "partial", detail: "total rises but construction issue"};
     const us = fit.us;
-    if (!us.ok) return {label: "force", detail: us.down ? "loses value" : us.away ? `moves away from depth at ${listJoin(us.awayAt)}` : "no measurable gain"};
-    if (us.toward) return {label: "natural", detail: us.towardAt.length ? `fills ${listJoin(us.towardAt)}` : "fills a starting slot"};
-    return {label: "value", detail: "gain, depth unchanged"};
+    return {label: "force", detail: us.down ? "loses value" : us.flat ? "no measurable gain" : "starters drop"};
   }
-  // Their team's fit, from tradeFit's reading of their side in the Trade chart average.
   function theirFitOf(fit) {
     const them = fit.them;
-    if (them.down || them.away) {
-      return {label: "hurts", detail: them.away && them.awayAt.length ? `loses ${listJoin(them.awayAt)} depth` : "loses value"};
-    }
-    if (them.toward) return {label: "fills", detail: them.towardAt.length ? `fills ${listJoin(them.towardAt)} need` : "fills a starting slot"};
-    return {label: "neutral", detail: "neutral"};
+    if (fit.marketSupported) return {label: "favorable", detail: "trade charts favor them"};
+    if (them.net >= -them.tau) return {label: "neutral", detail: "within noise floor"};
+    return {label: "hurts", detail: "loses value on trade charts"};
   }
-  // The truth table of section 4.3, a pure function of columns 4 to 6.
-  //   ourLabel: natural | value | force; marketOk: enough charts call it fair; chartEdge: the chart-average edge for them (null when unpriced);
-  //   theirLabel: fills | neutral | hurts.
-  function overallFit(ourLabel, marketOk, chartEdge, theirLabel) {
+  // JEG-1108: the overall fit now comes straight from tradeFit's label. The overallFit function bridges older callers.
+  function overallFit(ourLabel, marketOk, chartEdge, theirLabel, fit) {
+    // When we have the tradeFit result, use its label directly.
+    if (fit && fit.label) return fit.label;
+    // Fallback for callers without the full fit object.
     if (ourLabel === "force") return "force";
     if (!marketOk) return "force";
-    if (chartEdge !== null && asShown(chartEdge) < 0) return "market";
-    return theirLabel === "fills" ? "natural" : "value";
+    if (chartEdge !== null && asShown(chartEdge) >= 0) return "market";
+    return "force";
   }
-  const FIT_WORD = {natural: "Natural fit", value: "Value fit", market: "Market fit", force: "Force fit"};
+  // JEG-1081: does DDF Value (projections) back the trade? projEdge = what you receive minus what you give in that view (the
+  // same direction as the DDF Value capture). true: it gains you 0.05 or more; false: it loses you 0.05 or more; null: level or no
+  // projection for a player in the package (never counted as 0).
+  function projAgreement(projEdge) {
+    if (!finite(projEdge)) return null;
+    if (projEdge >= 0.05) return true;
+    if (projEdge <= -0.05) return false;
+    return null;
+  }
+  const FIT_WORD = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
 
   // ---------- one pairing ----------
   const rowsFor = (entries, rowsByKey) => (entries || []).map(e => rowsByKey.get(String(e.key))).filter(Boolean);
-  const rowSig = r => `${r.player_key}:${[OUR_KEY].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;
+  const rowSig = r => `${r.player_key}:${[OUR_KEY, "ddf_value_projections"].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;
   const sigOf = rows => rows.map(rowSig).sort().join(";");
   // Everything besides the two rosters that changes a pairing's answer.
   function contextSig(ctx) {
@@ -94,13 +102,17 @@
       const recvAvg = market ? sumOf(recv, MARKET_KEY) : null;
       const chartEdge = giveAvg !== null && recvAvg !== null ? giveAvg - recvAvg : null;
       const marketOk = t.pricedCharts >= Math.min(F.MIN_CHARTS, ctx.charts.length) && t.rivalOkCount >= Math.min(F.MIN_CHARTS, ctx.charts.length);
+      const sumAll = (list, key) => list.reduce((n, r) => (n === null || !r.values || !finite(r.values[key]) ? null : n + r.values[key]), 0);
+      const projGive = sumAll(give, PROJ_KEY);
+      const projRecv = sumAll(recv, PROJ_KEY);
+      const projEdge = projGive !== null && projRecv !== null ? projRecv - projGive : null;
       const ours = fit ? ourFitOf(fit) : null;
       const theirs = fit ? theirFitOf(fit) : null;
-      const overall = fit ? overallFit(ours.label, marketOk, chartEdge, theirs.label) : null;
+      const overall = fit ? overallFit(ours.label, marketOk, chartEdge, theirs.label, fit) : null;
       const core = F.coreOf(t.receive, OUR_KEY);
       return {id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
     });
     return {opponentId: opp.id, rows, total: res.total, partial, evaluated: theirRows.length, searched: {mine: res.mine, theirs: res.theirs}, sanityDropped: res.sanityDropped};
   }
@@ -151,21 +163,22 @@
       const rows = result.rows.map(r => ({...r, opponentId: opp.id, opponent: opp.name, id: `${opp.id}|${r.id.split("|").slice(1).join("|")}`}));
       out.rows.push(...rows);
       out.perOpponent.push({id: opp.id, name: opp.name, count: rows.length, partial: result.partial, evaluated: result.evaluated, sanityDropped: result.sanityDropped,
-        natural: rows.filter(r => r.overall === "natural").length, value: rows.filter(r => r.overall === "value").length,
+        natural: rows.filter(r => r.overall === "natural").length,
         market: rows.filter(r => r.overall === "market").length, force: rows.filter(r => r.overall === "force").length});
     }
     out.rows = rankRows(out.rows);
     return out;
   }
 
-  // ---------- filters (section 4.7) ----------
-  // filters: {fit: "all" | "natural" | "naturalValue", opponent: "all" | id, minCapture: points, minCharts: count}; hideForce: boolean.
+  // ---------- filters (section 4.7, JEG-1108: value retired) ----------
+  // filters: {fit: "all" | "natural" | "naturalMarket", opponent: "all" | id, minCapture: points, minCharts: count}; hideForce: boolean.
   function filterRows(rows, filters, hideForce) {
     const f = filters || {};
     return rows.filter(r => {
       if (hideForce && r.overall === "force") return false;
       if (f.fit === "natural" && r.overall !== "natural") return false;
-      if (f.fit === "naturalValue" && r.overall !== "natural" && r.overall !== "value") return false;
+      // Legacy "naturalValue" now means natural + market supported.
+      if ((f.fit === "naturalMarket" || f.fit === "naturalValue") && r.overall !== "natural" && r.overall !== "market") return false;
       if (f.opponent && f.opponent !== "all" && r.opponentId !== f.opponent) return false;
       if (f.minCapture && !(r.edge >= f.minCapture)) return false;
       if (f.minCharts && !(r.rivalOkCount >= f.minCharts)) return false;
@@ -182,17 +195,17 @@
     const opponents = result.perOpponent.length;
     if (!rows.length) return opponents ? `No trade opportunities found across ${plural(opponents, "opponent")}.` : "";
     const natural = rows.find(r => r.overall === "natural");
-    const counts = ["natural", "value", "market", "force"].map(k => ({k, n: rows.filter(r => r.overall === k).length}));
+    const counts = ["natural", "market", "force"].map(k => ({k, n: rows.filter(r => r.overall === k).length}));
     const head = `${plural(rows.length, "trade opportunity").replace("opportunitys", "opportunities")} across ${plural(opponents, "opponent")}.`;
     const best = natural ? ` Best natural fit: ${tradeSentence(natural)}.`
-      : ` No natural fits found: ${counts.filter(c => c.k !== "natural" && c.n).map(c => `${c.n} ${c.k === "market" ? "market-only" : c.k} fit${c.n === 1 ? "" : "s"}`).join(", ") || "none judged"}.`;
+      : ` No natural fits found: ${counts.filter(c => c.k !== "natural" && c.n).map(c => `${c.n} ${c.k === "market" ? "market supported" : c.k} fit${c.n === 1 ? "" : "s"}`).join(", ") || "none judged"}.`;
     const bal = mineBalance && (mineBalance.over.length || mineBalance.under.length)
       ? ` Your roster is ${[mineBalance.over.length ? `overweight at ${listJoin(mineBalance.over)}` : "", mineBalance.under.length ? `underweight at ${listJoin(mineBalance.under)}` : ""].filter(Boolean).join(" and ")}.` : "";
     return `${head}${best}${bal}`;
   }
   // One opponent's line, from its counts and its depth ({under: [pos]} of their roster).
   function opponentHeadline(entry, theirBalance) {
-    const parts = [["natural", "natural fit"], ["value", "value fit"], ["market", "market-only fit"], ["force", "force fit"]].filter(([k]) => entry[k]).map(([k, w]) => `${entry[k]} ${w}${entry[k] === 1 ? "" : "s"}`);
+    const parts = [["natural", "natural fit"], ["market", "market supported"], ["force", "force fit"]].filter(([k]) => entry[k]).map(([k, w]) => `${entry[k]} ${w}${entry[k] === 1 ? "" : "s"}`);
     const need = theirBalance && theirBalance.under.length ? ` Their roster is short at ${listJoin(theirBalance.under)}.` : "";
     return `vs ${entry.name}: ${parts.length ? parts.join(", ") : "no trades found"}.${need}${entry.partial ? " (partial roster)" : ""}`;
   }
@@ -201,15 +214,16 @@
   const OPP_COLUMNS = [
     {id: "rank", label: "Opportunity rank", type: "number", first: "asc", rank: true, get: r => r.rank},
     {id: "opponent", label: "Opponent", type: "text", first: "asc", get: r => r.opponent},
-    {id: "capture", label: "Fundamentals capture", type: "number", first: "desc", get: r => r.edge},
+    {id: "capture", label: "DDF Value capture", type: "number", first: "desc", get: r => r.edge},
     {id: "market", label: "Market perception", type: "number", first: "desc", get: r => r.chartEdge},
+    {id: "proj", label: "Projections agree", type: "number", first: "desc", get: r => (r.projAgrees === null || r.projAgrees === undefined ? null : r.projAgrees ? 1 : 0)},
     {id: "fair", label: "Charts fair", type: "number", first: "desc", get: r => r.rivalOkCount},
     {id: "overall", label: "Overall fit", type: "number", first: "asc", rank: true, get: r => (r.overall ? r.tier : null)}
   ];
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;

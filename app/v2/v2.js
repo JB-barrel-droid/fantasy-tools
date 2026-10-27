@@ -44,13 +44,13 @@
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   let RESCALED_TO = "";   // JEG-1044: " to FantasyCalc" under a reader basis (syncBasisLabels), so "rescaled" never misleads
-  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "Value above waivers"};
+  const SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
+  const PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player: the projection sources you keep on in the DDF blend, averaged for your league."},
+      note: "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
@@ -181,10 +181,11 @@
   // link is allowed, links to the resolution issue. It sits where the prior-week badge sits, never hides a
   // source and never blocks anything. Own value series (Data Driven Football) and VORP columns carry none.
   let divergence = {};
+  // Jeremy, 2026-10-25: the live dashboard has no links to Linear. A bare ticket id or a linear.app URL is internal
+  // bookkeeping, so only a public http(s) page can be linked.
   const resolutionHref = issue => {
     const text = String(issue || "").trim();
-    if (/^https?:\/\//.test(text)) return text;
-    return /^[A-Z]+-\d+$/.test(text) ? `https://linear.app/jegabee/issue/${text}` : "";
+    return /^https?:\/\//.test(text) && !/^https?:\/\/([^/]+\.)?linear\.app(\/|$)/i.test(text) ? text : "";
   };
   function divergenceChip(key, opts) {
     const publisher = sourceMeta(key).publisher;
@@ -288,17 +289,18 @@
   // JEG-471: the DDF Value (engine key "ddf_value") is our composite. It lives on the engine's rows,
   // not in its source toggles, so v2 keeps whether it is shown (ddfShown) and draws it first and heavier.
   const DDF_KEY = "ddf_value";
-  // JEG-542 / GL-09: the DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the trade chart
-  // average is off until picked. `field` is the engine's row.ddfByVersion key.
-  // JEG-863 (Jeremy, 2026-10-22): after JEG-804 DDF Value is the projection sources only, so "DDF Value" and the
-  // engine's projections-only version are one series. The names say what each is; the ids stay (saved selections
-  // and links carry them). The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads
-  // as the visible one (ddfPickKey). `blend`: the version the DDF blend tab's inputs build (the charts one is not).
+  // JEG-542 / GL-09: the DDF Value versions. Blended (DDF_KEY) is shown and ranked by default; the projections
+  // alternate is off until picked. `field` is the engine's row.ddfByVersion key.
+  // JEG-1073 (Jeremy, 2026-10-25): DDF Value is the Adjusted trade chart average, so "DDF Value" and the engine's
+  // charts version are one series, and the projections version is the alternate. (JEG-863 hid the projections id
+  // for the same reason after JEG-804; this is the mirror.) The ids stay (saved selections and links carry them).
+  // The duplicate id is hidden from every picker (`sameAs`), and a saved pick of it reads as the visible one
+  // (ddfPickKey). `blend`: the version the reader's basis builds (the projections one is not).
   const DDF_VERSIONS = {
     ddf_value: {field: "blended", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B", blend: true},
-    ddf_value_charts: {field: "charts", label: "Trade chart average", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false},
-    ddf_value_projections: {field: "projections", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B",
-      blend: true, sameAs: "ddf_value"}
+    ddf_value_charts: {field: "charts", label: "DDF Value", symbol: "★", light: "#A84410", dark: "#F28C5B",
+      blend: true, sameAs: "ddf_value"},
+    ddf_value_projections: {field: "projections", label: "DDF Value (projections)", symbol: "✦", light: "#8A5A00", dark: "#E6B450", blend: false}
   };
   const DDF_KEYS = Object.keys(DDF_VERSIONS);
   const isDdfKey = key => Object.prototype.hasOwnProperty.call(DDF_VERSIONS, key);
@@ -375,7 +377,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -404,10 +406,9 @@
     $("v2Manifesto").hidden = !onManifesto;
     $("v2Research").hidden = !onResearch;
     if (onResearch) showResearchPage();
-    $("v2League").hidden = onText;
+    $("v2Context").hidden = onText;
     if (!C) {
       $("v2State").hidden = onText;
-      if (onText) $("v2Methods").hidden = true;
     }
   }
 
@@ -451,7 +452,7 @@
     return info;
   }
   // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").
-  const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };
+  const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };
 
   // JEG-502 (Jeremy, 2026-10-09): every active NFL player is searchable. A player no source
   // prices (engine universe_only) appears only in search results, never in a table or chart,
@@ -772,6 +773,13 @@
     const reason = estimatedReason(row, key);
     if (reason) parent.appendChild(estimatedNode(reason));
   }
+  // JEG-1059: the badge that marks a value the reader set on the Overrides tab. It sits next to the value
+  // itself, on every view that shows one.
+  function appendOverrideFlag(parent, row) {
+    const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(row) : null;
+    if (badge) parent.appendChild(badge);
+    return badge;
+  }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
@@ -875,7 +883,7 @@
   function sourceLabelFor(key) {
     const meta = sourceMeta(key);
     const item = view.infoByKey[key];
-    const week = item && item.week ? (isNarrow() ? ` · W${item.week}` : ` · Week ${item.week}`) : "";
+    const week = item && item.week ? ` · Week ${item.week}` : "";
     return `${meta.short}${week}`;
   }
 
@@ -933,6 +941,10 @@
       ? `⚠ ${[calendarNote, `${stuck === roots.length && stuck > 1 ? "all " : ""}${stuck} source${stuck === 1 ? "" : "s"} not updating`].filter(Boolean).join(" · ")}`
       : updatingNote ? [updatingNote, ...freshNotes].join(" · ")
       : `${weekText}${freshNotes.join(" · ") || "all sources current"}`;
+    // Phone header: a short form ("Week 7", with a warning mark when anything needs attention) shown under 420 px,
+    // so the button stays beside the site name. The full text stays in the label, the aria-label and the panel.
+    const flagged = stuck > 0 || behind > 0 || unknown > 0 || held > 0;
+    $("v2FreshnessShort").textContent = view.refWeek ? `Week ${view.refWeek}${flagged ? " ⚠" : ""}` : $("v2FreshnessLabel").textContent;
     $("v2Freshness").classList.toggle("is-older", older || behind > 0 || unknown > 0 || held > 0);
     $("v2Freshness").classList.toggle("is-failing", stuck > 0);
     $("v2Freshness").setAttribute("aria-label", `Source freshness: ${$("v2FreshnessLabel").textContent}`);
@@ -947,7 +959,7 @@
     // JEG-850: the line also says when the DDF blend is customized and when the chart legend has turned a line off.
     const customBlend = page === "values" && C.getBasis ? !C.getBasis().isDefault : false;
     const legendHidden = page === "values" ? shownKeys.filter(key => key !== view.rankKey && state.hiddenSeries.has(key)).length : 0;
-    // JEG-863: one DDF version on its own is named ("DDF Value", "Trade chart average").
+    // JEG-863: one DDF version on its own is named ("DDF Value", "DDF Value (projections)").
     const oneDdf = shownKeys.filter(isDdfKey);
     $("v2ShowingText").textContent = `${counts.map(c => (c.g.id === "ddf" && c.n === 1 ? sourceMeta(oneDdf[0]).label : `${c.n} ${c.n === 1 ? c.g.one : c.g.many}`)
       + (c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")).join(" + ") || "nothing selected"}`
@@ -987,7 +999,7 @@
     // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
     const stamp = pageStampText();
     $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${stamp ? ` · ${stamp}` : ""}`;
-    $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
+    $("v2DeltaBtn").textContent = `Prior week change · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
     const notes = [];
@@ -1004,7 +1016,7 @@
         const prior = priorCache.get(key);
         return prior.available ? `${sourceMeta(key).short} vs Week ${prior.priorWeek}` : `${sourceMeta(key).short}: Δ —, ${prior.reason}`;
       });
-      notes.push(`Δ = prior-week change for the same source at your league settings; a player with no prior value shows Δ —, never zero.${parts.length ? ` ${parts.join(". ")}.` : " Recomputing last week…"}`);
+      notes.push(`Change (Δ in the table) = prior-week change for the same source at your league settings; a player with no prior value shows Δ —, never zero.${parts.length ? ` ${parts.join(". ")}.` : " Recomputing last week…"}`);
     }
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
@@ -1407,14 +1419,14 @@
     const row = hoveredRow();
     if (!row || !mainChart) { tip.hidden = true; return; }
     const keys = view.plotKeys.concat(view.vorpKeys).filter(isSeriesOn);
-    const weekNote = view.refWeek ? ` · W${view.refWeek}` : "";
+    const weekNote = view.refWeek ? ` · Week ${view.refWeek}` : "";
     tip.innerHTML = "";
     const h = document.createElement("h3");
     h.textContent = row.name;
     appendEspnZero(h, row);
     const meta = document.createElement("span");
     meta.className = "v2-meta";
-    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${valuesTier(row)}${weekNote}`;
+    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "Free agent"} · ${valuesTier(row)}${weekNote}`;
     tip.append(h, meta);
     keys.forEach(key => {
       const m = sourceMeta(key);
@@ -1448,7 +1460,7 @@
     const hint = document.createElement("span");
     hint.className = "v2-meta";
     hint.style.marginTop = "8px";
-    hint.textContent = "Click for player details ↗";
+    hint.textContent = "Click for player details";
     tip.appendChild(hint);
     tip.hidden = false;
     const box = $("v2Chart").getBoundingClientRect();
@@ -1601,7 +1613,7 @@
       {id: "rank", label: "#", cls: "rank", get: row => row.rank},
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
-      {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
+      {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "Free agent", text: true},
       {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
@@ -1683,12 +1695,15 @@
   // "Not enough players to fit an adjustment"), then row.ddfReason for the DDF Value (JEG-479), then a
   // generic line. A finite 0 is a value ("0.0"), never missing.
   // JEG-850: when a DDF Value version has no source turned on, say that, not "No source prices this player".
-  // JEG-921: DDF Value is projections-only (JEG-804); with every projection source paused it shows no value, never a chart fallback.
+  // JEG-921 / JEG-1073: DDF Value is the trade charts (JEG-804's projections-only rule was reversed); with every
+  // trade chart paused it shows no value, never a projection fallback. The projections alternate says the same of
+  // the projection sources.
   const ALL_PROJECTIONS_PAUSED = "All projection sources are paused this week";
+  const ALL_CHARTS_PAUSED = "Every trade chart source is paused this week";
   function ddfNoInputsReason(key) {
     const info = C.getCompositeInputs ? C.getCompositeInputs(key) : null;
     if (!info || (info.series || []).length) return "";
-    return (info.inputs || []).length ? (key === "ddf_value_charts" ? "Every trade chart source is paused this week" : ALL_PROJECTIONS_PAUSED)
+    return (info.inputs || []).length ? (key === "ddf_value_projections" ? ALL_PROJECTIONS_PAUSED : ALL_CHARTS_PAUSED)
       : "No sources are turned on for this DDF Value (see Overrides)";
   }
   function missingReason(key, row) {
@@ -1779,6 +1794,8 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, col.source);
+            // JEG-1059: the badge next to the value the reader set (our DDF Value only).
+            if (col.source === DDF_KEY) appendOverrideFlag(td, row);
             const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
             if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
             // JEG-457: a rescaled trade chart's cell shows the published number and the factor on hover, focus or tap.
@@ -1828,7 +1845,7 @@
             td.appendChild(nameSpan(row));
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
-            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
+            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "Free agent"),
               state.metaCols.tier !== false && valuesTier(row)].filter(Boolean);
             if (parts.length) {
               const sub = document.createElement("span");
@@ -1851,13 +1868,13 @@
     }
     const more = $("v2ShowMore");
     more.hidden = rows.length <= state.shown;
-    more.textContent = `Show more players (${Math.min(state.shown, rows.length)} of ${rows.length})`;
+    more.textContent = "Show more players";
     const weeks = [...new Set(cols.filter(col => col.source && !view.infoByKey[col.source]?.stale)
       .map(col => view.infoByKey[col.source]?.week).filter(Boolean))];
     const hidden = TABLE_GROUPS.filter(([g]) => state.hiddenGroups.has(g)).length;
     const [lo, hi] = state.window;
     const valueText = view.rangeOn ? ` · values ${fmt(state.range.min ?? view.yScale.lo)}–${fmt(state.range.max ?? view.yScale.hi)}` : "";
-    $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
+    $("v2TableMeta").textContent = `${rows.length} players · ranks ${lo}–${hi}${valueText}`
       + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
       + " · tint = above or below the ranking value";
     if (expanded === "table") $("v2ExpandMeta").textContent = $("v2TableMeta").textContent;
@@ -1872,7 +1889,7 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];
+  const METHOD_COLUMNS = [["dda", "DDF Value"], ["indexed", "Market"], ["vorp", "Value above waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "Value above waivers"};
 
   function drawerSection(title, sub) {
@@ -1902,7 +1919,7 @@
     const eyebrow = document.createElement("p");
     eyebrow.className = "v2-eyebrow";
     const methodName = METHOD_FULL[meta.method];
-    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · W${item.week}` : ""}`;
+    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · Week ${item.week}` : ""}`;
     const big = document.createElement("p");
     big.className = "v2-dhero-value";
     big.dataset.source = key;
@@ -1910,6 +1927,8 @@
     if (Number.isFinite(v)) {
       big.textContent = fmt(v);
       appendLowConfidence(big, row, key);
+      // JEG-1059: the badge next to the value the reader set.
+      if (key === DDF_KEY) appendOverrideFlag(big, row);
     }
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
@@ -1988,6 +2007,16 @@
     });
     toggle.append(box, document.createTextNode("Show all sources"));
     section.appendChild(toggle);
+    // JEG-1059: the reader's own value, above the source breakdown. The source values themselves are untouched.
+    if (row.valueOverride !== null && row.valueOverride !== undefined) {
+      const own = document.createElement("p");
+      own.className = "v2-meta v2-doverride";
+      own.textContent = `Your override: ${fmt(row.valueOverride)}`;
+      const unchanged = document.createElement("p");
+      unchanged.className = "v2-meta";
+      unchanged.textContent = "Individual source values are unchanged.";
+      section.append(own, unchanged);
+    }
     const listed = drawerSourceRows(row, drawerAllSources);
     if (!listed.length) {
       const none = document.createElement("p");
@@ -2024,7 +2053,7 @@
         th.append(document.createTextNode(meta.label));
       } else {
         th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
-        th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(item.week ? ` · W${item.week}` : ""));
+        th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(item.week ? ` · Week ${item.week}` : ""));
       }
       const provText = ddf ? "" : withWaiverNote(freshnessText(item), item);
       if (provText && provText !== `Week ${item.week}`) {
@@ -2042,6 +2071,8 @@
       td.dataset.source = item.key;
       td.textContent = fmt(value);
       appendLowConfidence(td, row, item.key);
+      // JEG-1059: the badge on our composite, which is the value the reader set.
+      if (ddf && item.key === DDF_KEY) appendOverrideFlag(td, row);
       tr.append(th, kind, td);
       tbody.appendChild(tr);
     });
@@ -2059,7 +2090,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "Free agent"} · Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -2120,7 +2151,7 @@
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
+    meta.textContent = `${row.pos} · ${row.team || "Free agent"} · ${drawerTier(row)}`;
     const tagged = tagChip(row);
     if (tagged) meta.append(" ", tagged);
     titles.append(title, meta);
@@ -2170,7 +2201,7 @@
       const open = document.createElement("a");
       open.className = "v2-link";
       open.href = "v2/#compare-trade";
-      open.textContent = "Open Compare a trade ↗";
+      open.textContent = "Open Compare a trade";
       open.addEventListener("click", closeDrawer);
       box.append(p, open);
       return box;
@@ -2407,14 +2438,14 @@
   // pipeline strings. JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered
   // on this device. Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
   const DIALOG_GROUPS = [
-    {id: "ddf", title: "Our values", note: ""},
+    {id: "ddf", title: "DDF Value", note: ""},
     {id: "pub", title: "Published trade charts", note: "What the major sites say each player is worth, adjusted to your league's scale."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our value: the projection sources on the DDF blend tab, averaged for your league.",
-    ddf_value_charts: "The trade charts, rescaled to your league and averaged. A chart line, not a DDF Value input.",
-    ddf_value_projections: "Our methodology: ESPN, CBS rest of season and Razzball, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
+    ddf_value: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value_charts: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value_projections: "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -2435,7 +2466,7 @@
     const hasBlend = onValues && typeof C.getCompositeInputs === "function";
     const legendHid = key => onValues && key !== view.rankKey && view.active.includes(key) && state.hiddenSeries.has(key);
     // JEG-930 / JEG-863: how many sources feed a DDF version this week (null: not a blend-built version).
-    const versionUsable = versionKey => (versionKey === "ddf_value_charts" || DDF_VERSIONS[versionKey].blend
+    const versionUsable = versionKey => (versionKey === "ddf_value_projections" || DDF_VERSIONS[versionKey].blend
       ? ((C.getCompositeInputs && C.getCompositeInputs(versionKey).series) || []).length : null);
     openPanel(anchor || $("v2EditSources"), "Customize values", `Choose what appears on ${PAGE_NAMES[page]}.`, pop => {
       const body = panelBody(pop);
@@ -2553,7 +2584,7 @@
           });
           head.appendChild(all);
           section.appendChild(head);
-          const noteText = g.id === "ddf" ? (onValues ? "" : "The projection sources that build DDF Value are set on Player values.") : g.note;
+          const noteText = g.id === "ddf" ? (onValues ? "" : "The trade charts that build DDF Value are set on Player values.") : g.note;
           if (noteText) {
             const note = document.createElement("p");
             note.className = "v2-meta";
@@ -2746,6 +2777,94 @@
     try { C.setLineupSettings(changed); } catch (error) { return error.message || "Those advanced settings are not valid."; }
     return "";
   }
+  // The reader's league settings are kept in this browser, like their rosters (ddf.v2.workspaces). One record holds what
+  // the engine has: scoring, teams, roster slots, season weeks, advanced, position shares. A record equal to the site
+  // defaults is not kept, so a reader who never changed anything keeps getting the current defaults. A shared link's
+  // settings apply for the visit and are not saved until the reader changes something themselves.
+  const LEAGUE_SAVE_KEY = "ddf.v2.league-settings";
+  const SHARE_POSITIONS = ["QB", "RB", "WR", "TE"];
+  // source: "default" | "saved" | "link"; notes: what a saved record could not carry over; storage: "ok" | "unavailable" | "full".
+  const leagueInputs = {source: "default", savedAt: null, notes: [], storage: "ok"};
+  let leagueDefaultSnapshot = "";
+  function leagueSnapshot() {
+    const st = C.getState();
+    const snap = {v: 1, scoring: st.scoring, teams: st.teams, roster: {...C.getRosterShape()}};
+    const w = seasonWeeksState(false);
+    if (w) snap.weeks = {build: w.build, content: w.content, regularEnd: w.regularEnd, playoffLo: w.playoffLo, playoffHi: w.playoffHi, optimize: w.optimize};
+    const adv = advancedState(false);
+    if (adv) snap.adv = adv;
+    // Shares only when the reader changed them (the same rule as a shared link): the engine's defaults move with the league.
+    const shares = C.getPositionWeights ? C.getPositionWeights() : null;
+    const defaults = C.getDefaultPositionWeights ? C.getDefaultPositionWeights() : null;
+    if (shares && defaults && SHARE_POSITIONS.some(pos => Math.abs(Number(shares[pos]) - Number(defaults[pos])) > 5e-4)) {
+      snap.shares = Object.fromEntries(SHARE_POSITIONS.map(pos => [pos, Number(Number(shares[pos]).toFixed(4))]));
+    }
+    return snap;
+  }
+  function announceInputs() {
+    try { document.dispatchEvent(new CustomEvent("ddf:inputs-changed")); } catch (error) { /* a listener must not stop the page */ }
+  }
+  function saveLeagueSettings() {
+    let text = "";
+    try { text = JSON.stringify(leagueSnapshot()); } catch (error) { return; }
+    const isDefault = text === leagueDefaultSnapshot;
+    leagueInputs.notes = [];
+    try {
+      if (isDefault) localStorage.removeItem(LEAGUE_SAVE_KEY);
+      else localStorage.setItem(LEAGUE_SAVE_KEY, JSON.stringify({...JSON.parse(text), savedAt: Date.now()}));
+      leagueInputs.storage = "ok";
+    } catch (error) {
+      leagueInputs.storage = error && (error.name === "QuotaExceededError" || error.code === 22 || error.code === 1014) ? "full" : "unavailable";
+    }
+    leagueInputs.source = isDefault ? "default" : "saved";
+    leagueInputs.savedAt = isDefault ? null : Date.now();
+    announceInputs();
+  }
+  // Called once, before the first view renders and after the defaults were read. Each part is applied on its own, so one
+  // setting the engine no longer accepts (a source or league shape that changed) does not lose the others.
+  function restoreLeagueSettings() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(LEAGUE_SAVE_KEY) || "null"); }
+    catch (error) { leagueInputs.storage = "unavailable"; return; }
+    if (!saved || saved.v !== 1) return;
+    const notes = [];
+    const attempt = (label, fn) => { try { fn(); } catch (error) { notes.push(`${label} could not be restored (${(error && error.message) || "not accepted"}).`); } };
+    attempt("Scoring", () => { if (saved.scoring && saved.scoring !== C.getState().scoring) C.setScoring(saved.scoring); });
+    attempt("Team count", () => { if (Number.isInteger(saved.teams) && saved.teams !== C.getState().teams) C.setTeams(saved.teams); });
+    attempt("Roster slots", () => {
+      const shape = C.getRosterShape();
+      ROSTER_SLOTS.forEach(([key]) => {
+        const want = saved.roster && saved.roster[key];
+        if (Number.isInteger(want) && key in shape && want !== C.getRosterShape()[key]) C.setRosterSpot(key, want);
+      });
+    });
+    attempt("Season weeks", () => {
+      const now = seasonWeeksState(false);
+      if (!now || !saved.weeks) return;
+      // A saved "count from week N" belongs to the build it was made on; on a newer build the current week is used.
+      const sameBuild = saved.weeks.build === now.build;
+      if (!sameBuild && saved.weeks.content !== saved.weeks.build) notes.push("Your saved season week was reset: the projections moved to a newer week.");
+      const error = applySeasonWeeks({build: now.build, content: sameBuild ? saved.weeks.content : now.build, regularEnd: saved.weeks.regularEnd,
+        playoffLo: saved.weeks.playoffLo, playoffHi: saved.weeks.playoffHi, optimize: saved.weeks.optimize});
+      if (error) throw new Error(error);
+    });
+    attempt("Advanced settings", () => {
+      if (!saved.adv || !hasAdvanced()) return;
+      const error = applyAdvanced(saved.adv);
+      if (error) throw new Error(error);
+    });
+    // Shares last: a league change resets them to that league's defaults.
+    attempt("Position shares", () => {
+      const s = saved.shares;
+      if (!s || !C.setPositionWeights || !SHARE_POSITIONS.every(pos => Number.isFinite(s[pos]))) return;
+      const result = C.setPositionWeights(s);
+      if (result && !result.ok) throw new Error("outside the allowed range");
+    });
+    leagueInputs.source = "saved";
+    leagueInputs.savedAt = Number(saved.savedAt) || null;
+    leagueInputs.notes = notes;
+  }
+
   // JEG-1020 (Jeremy, 2026-10-24: "Don't require hitting accept or save when league settings are changed"): every control
   // here applies as it changes. Rapid taps coalesce into one recompute (LEAGUE_DEBOUNCE_MS); the recompute runs off the
   // input handler; an invalid intermediate state is refused by the engine, the last valid result stays and one inline line
@@ -2932,16 +3051,11 @@
         });
         stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
         eyebrow(content, "Optimize for");
-        content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
-          w.optimize, v => { w.optimize = v; queue(); }));
-        // JEG-1023: the playoffs option has not been reviewed (Jeremy, 2026-10-24); plain text, tied to the button.
-        const optimizeCaption = document.createElement("p");
-        optimizeCaption.className = "v2-meta v2-optimize-caption";
-        optimizeCaption.id = "v2OptimizeNotReviewed";
-        optimizeCaption.textContent = "Playoffs: not reviewed, may not work as expected";
-        content.appendChild(optimizeCaption);
-        const playoffsButton = content.querySelector('.v2-pseg button[data-value="playoffs"]');
-        if (playoffsButton) playoffsButton.setAttribute("aria-describedby", optimizeCaption.id);
+        // JEG-1119: the Playoffs option is hidden (not reviewed, likely not working). A league already saved on it
+        // still shows it, so that reader can see the setting and switch away.
+        const optimizeOptions = [["season", "Whole season"], ["regular", "Regular season"]];
+        if (w.optimize === "playoffs") optimizeOptions.push(["playoffs", "Playoffs"]);
+        content.appendChild(segmented("Optimize for", optimizeOptions, w.optimize, v => { w.optimize = v; queue(); }));
         const lo =w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
@@ -3013,6 +3127,7 @@
         }
         lastMs = performance.now() - t0;
         (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
+        saveLeagueSettings();
         showMsg("");
         if (error) {
           showIssue(`Not applied: ${error} The results still show the last valid settings.`);
@@ -3080,7 +3195,9 @@
   }
   const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
   function openWeights() {
-    openPanel($("v2Weights"), "Position weights", "Applies across tabs", pop => {
+    // JEG-1119: Position weights sits in the ⋯ menu; with the menu closed the panel anchors (and returns focus) to ⋯.
+    const anchor = $("v2Weights").offsetParent ? $("v2Weights") : $("v2ContextMore");
+    openPanel(anchor, "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench share");
       const readoutBox = document.createElement("div");
@@ -3099,6 +3216,7 @@
       resetLink.addEventListener("click", () => {
         if (C.setBenchShareOverride) C.setBenchShareOverride(null);
         refresh();
+        saveLeagueSettings();
         syncReadout();
         announceLeagueChange("bench");
       });
@@ -3238,6 +3356,7 @@
         }
         Object.keys(edited).forEach(pos => delete edited[pos]);
         resetShares = false;
+        saveLeagueSettings();
         lastMs = performance.now() - t0;
         (window.__leagueApplyLog = window.__leagueApplyLog || []).push(Math.round(lastMs));
         msg.textContent = note;
@@ -3639,13 +3758,16 @@
   const INDEXED_INFO = INDEXED_INFO_DEFAULT;
   // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
-  // JEG-863: two names. DDF Value is the projection sources averaged (JEG-804); the trade chart average is the market.
+  // JEG-863 / JEG-1073: two names. DDF Value is the Adjusted trade charts averaged (Jeremy, 2026-10-25); the trade
+  // chart average is the published charts rescaled (Indexed) and averaged, the market. The projections version is
+  // the alternate, named for the deal read's production check.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],
+    ["DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."],
     ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
-  // The deal read's nets (DEAL_NETS) by the name they define themselves with. After JEG-804 DDF Value = projections,
-  // so "value" and "projections" are the same series; the net itself is trade.js's.
-  const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: NAME_DEFS[0]};
+  // The deal read's nets (DEAL_NETS) by the name they define themselves with. Since JEG-1073 the projections net is
+  // the alternate version, not DDF Value; the net itself is trade.js's.
+  const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."];
+  const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: PROJECTIONS_DEF};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
     indexed: {kind: "indexed", what: "rescaled", title: "Rescaled values", lines: [INDEXED_INFO]},   // syncBasisLabels rewrites the line
@@ -3697,7 +3819,7 @@
         const link = document.createElement("a");
         link.className = "v2-link";
         link.href = "v2/#writing/how-values";
-        link.textContent = "How values work ↗";
+        link.textContent = "How values work";
         link.addEventListener("click", () => closePopover());
         const close = document.createElement("button");
         close.type = "button";
@@ -3889,6 +4011,8 @@
       return;
     }
     cell.appendChild(document.createTextNode(fmt(p.ours)));
+    // JEG-1059: the badge next to the value the reader set.
+    if (targetsView.ours === DDF_KEY) appendOverrideFlag(cell, p.row);
     if (isDdfKey(targetsView.ours)) {
       const count = ddfCountNode(p.row, targetsView.ours);
       if (count) cell.appendChild(count);
@@ -3931,8 +4055,9 @@
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
     // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
-    describe(diff, diff.title = "Our value against the market consensus");
-    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
+    describe(diff, diff.title = "Market consensus minus our value: the same difference and sign as the Gap");
+    // JEG-977: the same sign as the Gap column (market minus ours): "+3.3" means the market is 3.3 above our value.
+    diff.textContent = fmtGap(-m.diff);
     cell.append(diff, count);
   }
 
@@ -4235,7 +4360,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
@@ -4320,7 +4445,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -4455,7 +4580,7 @@
       const actionCopy = sc
         ? (side === "sell" ? `Against one chart: ${scName}. ${scName} pays more than our value.` : `Against one chart: ${scName}. ${scName} ranks them lower than we do.`)
         : (side === "sell" ? `Offer them: most of ${chartsWord} pay more than our value.` : `Ask for them: ${chartsWord} rank them lower than we do.`);
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
     // JEG-833: players the charts price below our value but rank where we do are the scale, not a mispricing.
@@ -4517,7 +4642,7 @@
       link.classList.add("v2-srclink-open");
       chartLink.appendChild(link);
     }
-    // JEG-863: DDF Value is the projection sources averaged; the trade chart average is the charts, not a DDF input.
+    // JEG-1073: DDF Value is the Adjusted trade charts averaged; the projections version is the alternate.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
       ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league"}`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
@@ -4538,7 +4663,7 @@
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
       footEl.append(
-        document.createTextNode("Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
+        document.createTextNode("Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is "),
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,
@@ -4582,7 +4707,7 @@
     const parts = [];
     if (h.over) parts.push(`the consensus prices ${weightGroupName(h.over)} ${pct(h.over)} above DDF Value (${h.over.consensus.n} players)`);
     if (h.under) parts.push(`${h.over ? "and " : "the consensus prices "}${weightGroupName(h.under)} ${pct(h.under)} below it (${h.under.consensus.n} players)`);
-    const lead = h.over && h.under ? "Best group arbitrage: " : "Largest group gap: ";
+    const lead = h.over && h.under ? "Biggest pricing gap between two groups: " : "Largest group gap: ";
     return `${lead}${parts.join(" ")}.`;
   }
 
@@ -4828,19 +4953,16 @@
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
-    // JEG-505: "Will they accept?" reads the published value charts: the as-published (rescaled) series.
+    // JEG-505: the Deal read counts the published value charts: the as-published (rescaled) series.
     const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
-    const lowConfidence = giveRows.concat(receiveRows).some(row => isLowConfidence(row, isDdfKey(verdictSeries) ? verdictSeries : DDF_KEY));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
     // series keeps its own (those scales are not comparable).
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
-    // JEG-841: compute deal read before headlines so the propose line can use DDF Value + Projections.
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
     compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
-      headlines: ready && verdictKey() ? TC.tradeHeadlines(points.concat(vorp), verdictKey(), {chartKeys, lowConfidence, deal}) : null,
       deal,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
@@ -4910,6 +5032,8 @@
           b.textContent = fmt(v);
           line.appendChild(b);
           appendLowConfidence(line, row, result.key);
+          // JEG-1059: the badge next to the value the reader set.
+          if (result.key === DDF_KEY) appendOverrideFlag(line, row);
         } else {
           line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
@@ -5188,7 +5312,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
-        : `${row.pos} · ${row.team || "FA"} · ${tierText(row, verdictKey(), compareTierScope())}`;
+        : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
@@ -5197,6 +5321,8 @@
       if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
+        // JEG-1059: the badge next to the value the reader set.
+        if (shown === DDF_KEY) appendOverrideFlag(value, row);
       } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
@@ -5285,7 +5411,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       const v = row.values[view.rankKey];
-      sub.textContent = ` ${row.pos} · ${row.team || "FA"} · ${sourceMeta(view.rankKey).short} ${Number.isFinite(v) ? fmt(v) : "—"}`;
+      sub.textContent = ` ${row.pos} · ${row.team || "Free agent"} · ${sourceMeta(view.rankKey).short} ${Number.isFinite(v) ? fmt(v) : "—"}`;
       button.append(name, sub);
       if (on) {
         button.disabled = true;
@@ -5390,7 +5516,7 @@
   const DEAL_NETS = [
     ["value", "DDF Value", "Are you getting real value?"],
     ["market", "Trade chart average", "Does the market think you are winning?"],
-    ["projections", "DDF Value", "Is the value backed by projected production?"]];
+    ["projections", "DDF Value (projections)", "Is the value backed by projected production?"]];
   const DEAL_SIDE_WORD = {win: "You win", even: "Even", lose: "You lose"};
   function renderDeal() {
     const box = $("v2CDeal");
@@ -5407,7 +5533,7 @@
     }
     const TC = window.TradeValueTrade;
     const dealTitle = deal.kind === "read"
-      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Arbitrage: send it" + "Send it").
+      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Value win, charts say you lose: send it" + "Send it").
       ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
       : "";
     $("v2CDealRead").textContent = dealTitle;
@@ -5538,73 +5664,7 @@
     return {kind: v.kind, sym: "=", title: `${name}: an even trade, 0.0`, text: parts.join(" ") + notCounted};
   }
 
-  // JEG-505: two plain lines above the verdict, each an answer (symbol + word) and a confidence
-  // (symbol + word), with the reasons on a second muted line. Never colour alone.
-  const HEAD_QUESTIONS = {propose: "Should you propose or accept?", accept: "Will they accept?"};
-  // JEG-888: the Unclear glyph is not "?": the question already ends with one and the line read "…accept? ? Unclear".
-  const HEAD_SYMBOLS = {Yes: "▲", No: "▼", Even: "=", Unclear: "–", Likely: "▲", Unlikely: "▼", "Toss-up": "≈"};
-  const CONFIDENCE_SYMBOLS = {High: "●●●", Medium: "●●○", Low: "●○○"};
-  // JEG-895 (Jeremy, 2026-10-22): the level is named for what it measures, never "confidence".
-  // propose: the margins on DDF Value; accept: the share of charts on the answer's side.
-  const LEVEL_LABELS = {
-    propose: {High: "Our value: strong", Medium: "Our value: moderate", Low: "Our value: weak"},
-    accept: {High: "Charts agree: strongly", Medium: "Charts agree: mostly", Low: "Charts agree: weakly"},
-  };
-  // The chart count ("N of M trade charts agree") is its own line, so it is never read as the level.
-  const CHART_COUNT_REASON = / trade charts agree$/;
-  function renderHeadlines() {
-    const box = $("v2CHeads");
-    const heads = compareView.headlines;
-    box.hidden = !heads;
-    if (!heads) {
-      // JEG-808: an empty or changed trade must not keep the last answer in the hidden box.
-      box.querySelectorAll(".v2-chead").forEach(p => { p.replaceChildren(); p.dataset.answer = "none"; p.dataset.confidence = "none"; });
-      return;
-    }
-    ["propose", "accept"].forEach(line => {
-      const p = box.querySelector(`[data-line="${line}"]`);
-      const h = heads[line];
-      p.replaceChildren();
-      p.dataset.answer = h.answer || "none";
-      p.dataset.confidence = h.confidence || "none";
-      const q = document.createElement("span");
-      q.className = "q";
-      q.textContent = `${HEAD_QUESTIONS[line]} `;
-      p.appendChild(q);
-      const a = document.createElement("b");
-      a.className = "a";
-      if (!h.answer) {
-        a.textContent = "Not yet";
-        p.append(a, document.createTextNode(line === "propose"
-          ? " A value is missing, so DDF Value cannot score this trade."
-          : " No trade chart prices every player in this trade."));
-        return;
-      }
-      const sym = document.createElement("span");
-      sym.setAttribute("aria-hidden", "true");
-      sym.textContent = `${HEAD_SYMBOLS[h.answer]} `;
-      a.append(sym, document.createTextNode(h.answer));
-      const c = document.createElement("span");
-      c.className = "c";
-      const cs = document.createElement("span");
-      cs.setAttribute("aria-hidden", "true");
-      cs.textContent = `${CONFIDENCE_SYMBOLS[h.confidence]} `;
-      c.append(cs, document.createTextNode(LEVEL_LABELS[line][h.confidence]));
-      const why = document.createElement("span");
-      why.className = "why";
-      why.textContent = h.reasons.filter(r => !CHART_COUNT_REASON.test(r)).join("; ");
-      p.append(a, document.createTextNode(" · "), c, why);
-      h.reasons.filter(r => CHART_COUNT_REASON.test(r)).forEach(r => {
-        const charts = document.createElement("span");
-        charts.className = "why charts";
-        charts.textContent = r;
-        p.appendChild(charts);
-      });
-    });
-  }
-
   function renderVerdict() {
-    renderHeadlines();
     const copy = verdictCopy();
     const card = $("v2CVerdict");
     card.dataset.verdict = copy.kind;
@@ -5700,7 +5760,7 @@
 
   // Shareable trade: the sides live in the hash, so a copied link opens the same trade.
   // A shared trade also carries the sender's scoring and roster (Jeremy, 2026-10-08: the receiver
-  // is assumed to be in the same league). Team count is not carried yet.
+  // is assumed to be in the same league). JEG-1026: and the team count (links written before it have none: the reader's stays).
   const LINK_ROSTER = [["QB", "QB"], ["RB", "RB"], ["WR", "WR"], ["TE", "TE"], ["FLEX", "FLEX"], ["SUPERFLEX", "SF"], ["BENCH", "BN"]];
   const LINK_SCORING = ["standard", "half_ppr", "ppr"];
   // The league settings a shared link carries (scoring, roster, position shares, season weeks, advanced); JEG-1022: the
@@ -5709,6 +5769,7 @@
     const parts = [];
     const shape = C.getRosterShape();
     parts.push(`scoring=${C.getState().scoring}`);
+    parts.push(`teams=${C.getState().teams}`);   // JEG-1026: the team count travels too (it priced the sender's league)
     parts.push(`roster=${LINK_ROSTER.map(([key, code]) => `${code}${shape[key] || 0}`).join(".")}`);
     // Position shares only when the sender changed them (back end: encode when not default).
     const shares = C.getPositionWeights();
@@ -5766,6 +5827,9 @@
     const shape = C.getRosterShape();
     const scoringChange = LINK_SCORING.includes(scoring) && scoring !== C.getState().scoring;
     const rosterChange = Object.entries(roster).filter(([key, value]) => key in shape && shape[key] !== value);
+    // JEG-1026: a link's team count (8, 10, 12 or 14, the engine's own choices); anything else is ignored.
+    const teams = Number(params.get("teams"));
+    const teamsChange = [8, 10, 12, 14].includes(teams) && teams !== C.getState().teams;
     // JEG-537: advanced settings. A link that carries a league carries all three (missing ones mean the defaults).
     // Old links: bench=0.150 (the old default) means no override; any other bench= without bso= is the sender's override.
     let advChange = null;
@@ -5804,14 +5868,17 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    leagueInputs.source = "link";
+    leagueInputs.notes = [];
     if (weeksChange) {
       const error = applySeasonWeeks(weeksChange);
       if (error) console.warn("Link season weeks ignored:", error);
     }
-    if (scoringChange || rosterChange.length) {
+    if (scoringChange || teamsChange || rosterChange.length) {
       leagueChange(() => {
         if (scoringChange) C.setScoring(scoring);
+        if (teamsChange) C.setTeams(teams);
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
@@ -5824,6 +5891,7 @@
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
+    announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
@@ -5831,10 +5899,28 @@
     clearTimeout(statusTimer);
     statusTimer = setTimeout(() => setStatus(""), 8000);
   }
+  // JEG-1026: the three routes a DDF state's `view` can name (docs/design/llm-site-state.md), and the link parameters that
+  // only the shared-state reader (ddf-assist.js) handles: a Find a trade link's rosters, a Trade targets link's player.
+  const STATE_ROUTES = ["#compare-trade", "#trade-targets", "#find-trade"];
+  const STATE_VIEW_ROUTE = {compare: "#compare-trade", targets: "#trade-targets", finder: "#find-trade"};
   function readTradeHash() {
-    const [base, query] = location.hash.split("?");
-    if ((base !== "#compare-trade" && base !== "#waivers") || !query) return;
-    const params = new URLSearchParams(query);
+    let [base, query] = location.hash.split("?");
+    if (!query || !STATE_ROUTES.includes(base) && base !== "#waivers") return;
+    let params = new URLSearchParams(query);
+    // A link whose `view` names another of the three routes opens that route (the address says so, Back still works).
+    const named = STATE_VIEW_ROUTE[params.get("view")];
+    if (named && STATE_ROUTES.includes(base) && named !== base) {
+      base = named;
+      try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
+    }
+    if (base !== "#compare-trade" && base !== "#waivers") {   // Find a trade and Trade targets links
+      if (window.DDFAssist) window.DDFAssist.applyLink(query);
+      return;
+    }
+    if (base === "#compare-trade" && (params.has("mine") || params.has("theirs") || params.has("target")) && window.DDFAssist) {
+      window.DDFAssist.applyLink(query);   // a state with more than the trade: the codec reads all of it
+      return;
+    }
     if (base === "#waivers") { applyLinkLeague(params); return; }   // JEG-1022: the Waivers tab reads its own players from the link
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     const seen = new Set();
@@ -5862,7 +5948,7 @@
     const dropped = shareDroppedOverrides && window.DDFOverrides ? ` ${window.DDFOverrides.dropOverridesNote()}` : "";
     try {
       await navigator.clipboard.writeText(url);
-      note.textContent = "✓ Link copied. It opens this trade with your scoring, roster, bench share and position shares; the team count stays the reader's."
+      note.textContent = "✓ Link copied. It opens this trade with your scoring, team count, roster, bench share and position shares."
         + carries + dropped;
     } catch (error) {
       note.textContent = `Copy this link: ${url}${dropped}`;
@@ -6055,7 +6141,7 @@
       R.series = (ticked.find(c => c.prior.available) || choices.find(c => c.key === RISERS_DEFAULT && c.prior.available)
         || choices.find(c => c.prior.available) || choices[0]).key;
     }
-    renderSeriesPicker($("v2RSeries"), choices.map(({key, prior}) => ({key,
+    renderSeriesPicker($("v2RSeries"), choices.filter(({key}) => ddfPickKey(key) === key).map(({key, prior}) => ({key,
       reason: prior.available ? null : view.infoByKey[key] && !view.infoByKey[key].available ? prior.reason
         : `no prior week: ${prior.reason || "not saved"}`})), R.series);
     $("v2RPosition").value = view.state.position;
@@ -6108,27 +6194,27 @@
     const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(blendSeries)
       ? ` · ${prior.sources.filter(key => blendSeries.includes(key)).length} of ${blendSeries.length} sources have a prior week` : "";
     $("v2RMeta").textContent = v.available
-      ? `${label}${ddfInputs} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
+      ? `${label}${ddfInputs} · Change = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
         + (group === "ddf" ? "A riser is worth more in a trade than last week; a faller is worth less."
           : group === "proj" ? "A projection moving is a change in that source's outlook."
             : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
-      : `No Δ for ${label}: ${v.reason}.`;
+      : `No change to show for ${label}: ${v.reason}.`;
     // One bar scale for both lists, so a bar's length means the same number of points on either side.
     const shownItems = v.risers.slice(0, R.shown.rise).concat(v.fallers.slice(0, R.shown.fall));
     const scale = shownItems.reduce((max, item) => Math.max(max, Math.abs(item.delta)), 0);
     renderMoverList("rise", v.risers, scale);
     renderMoverList("fall", v.fallers, scale);
     $("v2RScale").textContent = scale > 0
-      ? `Bars share a scale of ${scale.toFixed(1)} value points (the largest change shown). Δ — for missing history: never a zero change.`
-      : "Δ — for missing history: never a zero change.";
+      ? `Bars share a scale of ${scale.toFixed(1)} value points (the largest change shown). Missing history shows a dash: never a zero change.`
+      : "Missing history shows a dash: never a zero change.";
     const notes = [];
-    if (v.noPrior) notes.push(`${v.noPrior} player${v.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${v.priorWeek}, so no Δ.`);
+    if (v.noPrior) notes.push(`${v.noPrior} player${v.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${v.priorWeek}, so no change.`);
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
-    if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
+    if (v.unchanged) notes.push(`${v.unchanged} unchanged (0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
     renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
-      notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+      notes.push(`Left out of both weeks of this DDF Value change: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
     const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
     const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
@@ -6139,7 +6225,7 @@
     note.textContent = notes.join(" ");
   }
 
-  // JEG-488 (RF-02): the two lists where Δ Trade chart average and Δ DDF Value disagree. Always the served
+  // JEG-488 (RF-02): the two lists where Δ DDF Value and Δ DDF Value (projections) disagree (JEG-1073 names). Always the served
   // week pair for those two series (the Movement picker and the week pair above do not apply).
   const DISAGREE_SHOWN = 10;
   function renderDisagreements(M, rows) {
@@ -6168,7 +6254,7 @@
         name.textContent = row.name;
         const sub = document.createElement("span");
         sub.className = "v2-meta";
-        sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+        sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
         who.append(name, sub);
         const big = document.createElement("div");
         big.className = `big ${item.direction === "up" ? "up" : "down"}`;
@@ -6184,8 +6270,8 @@
           span.textContent = `${label} ${fmtGap(delta)}`;
           return span;
         };
-        vals.append(part("Trade chart average", item.market.delta, "market"), document.createTextNode(" · "),
-          part("DDF Value", item.projections.delta, "projections"));
+        vals.append(part("DDF Value", item.market.delta, "market"), document.createTextNode(" · "),
+          part("DDF Value (projections)", item.projections.delta, "projections"));
         const read = document.createElement("div");
         read.className = "v2-dread";
         read.dataset.col = "read";
@@ -6226,7 +6312,7 @@
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+      sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
       who.append(name, sub);
       const big = document.createElement("div");
       big.className = `big ${item.delta > 0 ? "up" : "down"}`;
@@ -6259,7 +6345,7 @@
     const empty = $(ids.empty);
     empty.hidden = v.available && list.length > 0;
     if (v.available && v.searchMiss) renderNoMatch(empty, R.search, "v2RSearch");
-    else empty.textContent = !v.available ? "No Δ for this source: see the note above."
+    else empty.textContent = !v.available ? "No change to show for this source: see the note above."
       : `No player ${side === "rise" ? "rose" : "fell"} in ${priorLabel(R.series)} for this selection.`;
     const more = $(ids.more);
     more.hidden = list.length <= R.shown[side];
@@ -6291,10 +6377,11 @@
   const hashBase = () => canonicalBase(location.hash.split("?")[0]);
   // JEG-913: a hash no route claims (viewFor() gives null) lands on the default route and the address says so
   // (replaceState, so Back still works); its query goes with it. An empty hash is the landing page, not unknown.
-  const DEFAULT_ROUTE = "#trade-targets";
+  const DEFAULT_ROUTE = "#player-values";   // JEG-1106: new visitors land on the value chart (Jeremy, 2026-10-25)
   function canonicalizeHash() {
     const [base, ...query] = location.hash.split("?");
-    const legacy = canonicalBase(base);
+    // JEG-1094: a league share link (#find-trade?workspace=) now belongs to the league-wide screen.
+    const legacy = base === "#find-trade" && /^workspace=/.test(query[0] || "") ? "#find-league" : canonicalBase(base);
     const unknown = base !== "" && viewFor(legacy) === null;
     const next = unknown ? DEFAULT_ROUTE : legacy;
     if (next === base) return;
@@ -6312,16 +6399,17 @@
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
+    : base === "#find-league" ? "league"
     : base === "#waivers" ? "waivers"
     : base === "#value-overrides" ? "overrides"
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
-  const currentView = () => viewFor(hashBase()) || "targets";   // landing: Trade targets (Jeremy, 2026-10-08)
+  const currentView = () => viewFor(hashBase()) || "values";   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade", waivers: "Waivers", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6347,21 +6435,30 @@
     $("v2Compare").hidden = v !== "compare";
     $("v2Risers").hidden = v !== "risers";
     $("v2FindTrade").hidden = v !== "find";
+    $("v2FindLeague").hidden = v !== "league";
     $("v2Waivers").hidden = v !== "waivers";   // JEG-1022
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
-    // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
-    // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "waivers" || v === "overrides";
-    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
-    document.querySelectorAll(".v2-tab[data-view]").forEach(tab => {
-      const on = tab.dataset.view === v;
+    // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
+    // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
+    // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    $("v2EditSources").hidden = noShowing;
+    document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
+    // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
+    // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
+    const navKey = v === "writing" ? "writing/" + writingSection()
+      : v === "audit" ? "audit/" + (hashBase().startsWith("#values-auditing/single-source") ? "single-source" : "health-check") : v;
+    let navLabel = "";
+    document.querySelectorAll(".v2-tab[data-key]").forEach(tab => {
+      const on = tab.dataset.key === navKey;
       tab.classList.toggle("is-active", on);
-      if (on) tab.setAttribute("aria-current", "page");
+      if (on) { tab.setAttribute("aria-current", "page"); navLabel = tab.textContent.trim(); }
       else tab.removeAttribute("aria-current");
     });
+    $("v2NavCurrent").textContent = navLabel;
     closePopover();
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
@@ -6418,15 +6515,17 @@
     } else if (keys.length === 1) {
       text = `Only one series is selected (${sourceMeta(keys[0]).short}). Choose another source to see where the sources disagree.`;
     }
-    $("v2Notice").hidden = !text;
+    if (text !== noticeDismissedText) { noticeDismissedText = ""; }
+    $("v2Notice").hidden = !text || noticeDismissedText === text;
     $("v2NoticeText").textContent = text;
   }
+  let noticeDismissedText = "";
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
   // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
   // one it always was; with another basis a "Rescaled" value says which basis it is rescaled to, and DDF Value says
   // it is not ours, so a reader is never misled about what a number means.
-  const OURS_DEFAULT = "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league";
+  const OURS_DEFAULT = "the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged";
   function currentBasis() { return C && C.getBasis ? C.getBasis() : null; }
   function basisPhrase() {
     const b = currentBasis();
@@ -6439,16 +6538,16 @@
     const custom = Boolean(b && !b.isDefault);
     const to = custom ? ` (to ${b.label})` : "";
     RESCALED_TO = custom ? ` to ${b.label}` : "";
-    SHORT_METHOD.indexed = `Rescaled${to}`;
-    PLAIN_METHOD.indexed = `Rescaled chart${to}`;
-    METHOD_COLUMNS[1][1] = `Rescaled chart${to}`;
-    METHOD_FULL.indexed = `Rescaled${to}`;
+    SHORT_METHOD.indexed = `Market${to}`;
+    PLAIN_METHOD.indexed = `Market${to}`;
+    METHOD_COLUMNS[1][1] = `Market${to}`;
+    METHOD_FULL.indexed = `Market${to}`;
     const pub = SERIES_GROUPS.find(g => g.id === "pub");
     pub.title = custom ? `Trade charts (rescaled${to})` : "Trade charts (rescaled)";
     pub.note = custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis). Their ranking order is unchanged.`
       : "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
     SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `Our value for each player, following your basis: ${basisPhrase()}.`
-      : "Our value for each player: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league.";
+      : "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.";
     DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `Our value: ${OURS_DEFAULT}.`;
     INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not our methodology). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
     NAME_DEFS[0][1] = custom ? `Your estimate of what a player is worth, following your basis: ${basisPhrase()}.`
@@ -6467,7 +6566,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
-    else if (currentView() === "writing" || currentView() === "find") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -6719,6 +6818,7 @@
     $("v2Reset").addEventListener("click", resetValues);
     $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
+    $("v2NoticeClose").addEventListener("click", () => { noticeDismissedText = $("v2NoticeText").textContent; $("v2Notice").hidden = true; });
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
       button.addEventListener("click", () => {
         const what = button.dataset.clear;
@@ -6731,6 +6831,24 @@
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
+    // JEG-1119: the context row's ⋯ menu (Position weights, Copy / Paste for ChatGPT/Claude).
+    const setContextMenu = open => {
+      $("v2ContextMenu").hidden = !open;
+      $("v2ContextMore").setAttribute("aria-expanded", String(open));
+    };
+    $("v2ContextMore").addEventListener("click", () => {
+      const open = $("v2ContextMenu").hidden;
+      setContextMenu(open);
+      if (open) { const first = [...$("v2ContextMenu").querySelectorAll("button")].find(b => b.offsetParent); if (first) first.focus(); }
+    });
+    // Capture phase: the menu closes before the item's own handler runs, so Position weights anchors to ⋯.
+    $("v2ContextMenu").addEventListener("click", event => { if (event.target.closest("button")) setContextMenu(false); }, true);
+    $("v2ContextMenu").addEventListener("keydown", event => {
+      if (event.key === "Escape") { setContextMenu(false); $("v2ContextMore").focus(); }
+    });
+    document.addEventListener("click", event => {
+      if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
+    });
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
@@ -6747,7 +6865,23 @@
         else if (returnFocus) toggle.focus();
       };
       toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
-      $("v2Tabs").addEventListener("click", event => { if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false); });
+      $("v2Tabs").addEventListener("click", event => {
+        const item = event.target.closest(".v2-tab");
+        if (item && header.classList.contains("is-open")) setNav(false, false);
+        if (item && item.dataset.action === "customize") openSources(toggle);   // Settings > Customize opens the sources dialog
+      });
+      // Arrow keys move through the entries (Home / End jump); Down on the closed button opens the menu.
+      header.addEventListener("keydown", event => {
+        const open = header.classList.contains("is-open");
+        if (event.key === "ArrowDown" && !open && document.activeElement === toggle) { event.preventDefault(); setNav(true, false); return; }
+        if (!open || !["ArrowDown", "ArrowUp", "Home", "End"].includes(event.key)) return;
+        const items = [...document.querySelectorAll("#v2Tabs .v2-tab")];
+        const at = items.indexOf(document.activeElement);
+        const next = event.key === "Home" ? 0 : event.key === "End" ? items.length - 1
+          : event.key === "ArrowDown" ? (at + 1) % items.length : (at <= 0 ? items.length - 1 : at - 1);
+        event.preventDefault();
+        items[next].focus();
+      });
       document.addEventListener("keydown", event => {
         if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);
       });
@@ -6984,6 +7118,41 @@
     bindRisers();
   }
 
+  // JEG-1026: what ddf-assist.js (Copy for ChatGPT/Claude, the paste box, state links) may read and change on this page.
+  // A narrow set of hooks, so the assist code never reaches into this file's state.
+  function attachAssist() {
+    if (!window.DDFAssist) return;
+    const VIEW_NAME = {compare: "compare", targets: "targets", find: "finder"};
+    window.DDFAssist.attach({
+      engine: C,
+      view: () => VIEW_NAME[currentView()] || "",
+      leagueQuery: () => leagueLinkParts().join("&"),
+      applyLinkLeague,
+      leagueText: () => `${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}`,
+      sources: () => C.getActiveSources(),
+      getTrade: () => ({give: TR.give.map(p => ({...p})), get: TR.receive.map(p => ({...p}))}),
+      setTrade: (give, get) => { TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
+      getTarget: () => T.search,
+      setTarget: name => {
+        T.search = name;
+        $("v2TSearch").value = name;
+        T.shown = {sell: TARGETS_TOP, buy: TARGETS_TOP};
+        T.expanded = {sell: new Set(), buy: new Set()};
+        if (currentView() === "targets") renderTargets();
+      },
+      // Show the route and re-render it (the same hash does not fire hashchange).
+      go: route => {
+        if (location.hash.split("?")[0] === route) { applyRoute(); return; }
+        location.hash = route;
+      },
+      say: (text, ms) => {
+        setStatus(text);
+        clearTimeout(statusTimer);
+        statusTimer = setTimeout(() => setStatus(""), ms || 8000);
+      },
+    });
+  }
+
   async function start() {
     document.body.classList.add("v2");
     canonicalizeHash();
@@ -6997,11 +7166,14 @@
     // JEG-1035: saved value overrides apply before the first view renders, so every tab shows them from the start.
     if (window.DDFOverrides) window.DDFOverrides.boot(C);
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
+    try { leagueDefaultSnapshot = JSON.stringify(leagueSnapshot()); } catch (error) { leagueDefaultSnapshot = ""; }
+    restoreLeagueSettings();
     applyStartSelection();
     loadPipeline();
     loadSourcePages();
     bind();
     setStatus("");
+    attachAssist();   // JEG-1026: before the link is read, which may carry a whole DDF state
     readTradeHash();   // may set a status: a shared link's league settings were applied
     $("v2State").hidden = true;
     applyRoute();
@@ -7009,6 +7181,8 @@
       compare: () => compareView, tradeState: TR,
       // JEG-1022: the Waivers link carries the same league settings as a shared trade.
       leagueQuery: () => leagueLinkParts().join("&"), applyLinkLeague,
+      // Where the league settings in force came from, for the status strip at the top (inputs-status.js).
+      leagueInputs: () => ({...leagueInputs, notes: leagueInputs.notes.slice(), label: $("v2LeagueName").textContent}),
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
@@ -7019,6 +7193,7 @@
       setShown: keys => { applyShown(keys); refresh(); },
       // JEG-498: the other pages' Customize lists (what their Done saves).
       pageKeys, setPageKeys: (page, keys) => { savePageKeys(page, keys); refresh(); }};
+    announceInputs();   // after the object above: the status strip reads TradeValueV2.leagueInputs()
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

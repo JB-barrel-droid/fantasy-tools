@@ -52,7 +52,7 @@ def check(overrides=None) -> list[str]:
         go(page, "overrides")
         page.click('[data-preset="single:usatoday"]')
         page.wait_for_timeout(500)
-        go(page, "find")
+        go(page, "league")
         after = snapshot(page)
         # Fundamental follows the basis: shown values equal an independent recomputation from the rows, and moved.
         for r in after["summary"]:
@@ -90,7 +90,7 @@ def check(overrides=None) -> list[str]:
         go(page, "overrides")
         page.click('[data-preset="default"]')
         page.wait_for_timeout(400)
-        go(page, "find")
+        go(page, "league")
         again = snapshot(page)
         if [r["rosterF"] for r in again["summary"]] != [r["rosterF"] for r in before["summary"]]:
             problems.append("roster values did not return to our methodology")

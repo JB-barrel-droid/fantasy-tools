@@ -7,7 +7,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 - One folder per topic once a topic has 3 or more files (`health/`, `audits/`, `contract/`, `planning/`, `design/`, `decisions/`). Single standing pages stay at the top level.
 - File names are lowercase kebab-case: `topic-subject.md`. Exceptions kept for history: `MODULES.md`, `QA_FRAMEWORKS.md`, `SUPABASE_WRITER_AUDIT.md`, `TRADE_DASHBOARD_QA_ROUND1.md` (rename when next edited).
 - Ticket-bound write-ups carry the ticket id as a prefix: `jeg-123-short-subject.md`. They are records, not maintained pages.
-- Session logs go in `claude-log/YYYY-MM-DD-slug.md`, one file per PR. `claude-log.md` is frozen (old entries only).
+- Every session that changes anything writes a log in `claude-log/YYYY-MM-DD-slug.md`, one file per PR (required by `CLAUDE.md`, Jeremy 2026-10-23). `claude-log.md` is frozen (old entries only).
 - Every page opens with a title, then a one-paragraph purpose, then a status or "Last updated" line when it can go stale.
 - Every page needs one line in this index. Superseded or finished docs move to `archive/` (repo root) with a dated README; nothing is deleted.
 - Staleness rule: a Maintained page names its owner ticket and a last-verified date; any Maintained page not verified in 30 days is stale and gets a refresh ticket (JEG-583).
@@ -35,6 +35,9 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [math-review-questions-2026-10-12.md](math-review-questions-2026-10-12.md) | Record | - | - | Judgment calls left for Jeremy after the 2026-10-15 verification of the math review agenda (JEG-450). |
 | [player-scenario-regression-tests.md](player-scenario-regression-tests.md) | Maintained | unknown | unknown | Football-question scenarios used as regression tests on current players. |
 | [QA_FRAMEWORKS.md](QA_FRAMEWORKS.md) | Maintained | unknown | unknown | Systematic QA frameworks for whole dimensions of the dashboard. |
+| [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
+| [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
+| [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
 
 ## Architecture and data
 
@@ -50,6 +53,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [design/vorp-reweight.md](design/vorp-reweight.md) | Record | - | - | Eight-group VORP reweight design (JEG-209/231), with `reweight_example.py` and a desktop mockup PNG. |
 | [design/fidelity-all-hold.md](design/fidelity-all-hold.md) | Record | JEG-799 | 2026-10-22 | Why a week boundary holds every source and fails the chain closed (GAP-FIDELITY-ALL-HOLD); options A/B/C with measured evidence, recommendation (a hold applies to the build it measured), decision for Jeremy. |
 | [design/llm-site-state.md](design/llm-site-state.md) | Maintained | JEG-1025 | 2026-10-24 | The DDF state object and its two encodings (URL query, pasteable block) that move work between LLM chats and the site; reader rules and open gaps (JEG-1025, JEG-1024). |
+| [design/2026-10-direction.md](design/2026-10-direction.md) | Proposal | - | - | October 2026 proposal: paste-only launch, approved voice, and a Check a trade verdict with DDF Charted Value and DDF Projected Value beside the Market. Preview in `app/v2-concept/`. |
 | [product/jeg-303-dashboard-ideas.md](product/jeg-303-dashboard-ideas.md) | Record | - | - | Dashboard idea scoping (JEG-303). |
 | [v2-design-notes.md](v2-design-notes.md) | Maintained | JEG-602 | 2026-10-22 | v2 front end design notes and back-end contracts; dated build-log sections archived 2026-10-15 (JEG-602); nav structure, sub-routes, DDFAudit registry, Value pie, Writing tab, Customize tabs, shared search, chips and links, single-source compare, roster paste parser as merged 2026-10-22 (JEG-874). |
 | [health-check-thresholds.md](health-check-thresholds.md) | Maintained | JEG-1011 | 2026-10-24 | Health check (Values auditing) flag limits: how each was derived from the engine on training weeks, validated on held-out weeks, and what is information only. |

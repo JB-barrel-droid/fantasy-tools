@@ -97,8 +97,13 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-tab.is-soon::after { content: "soon"; font-size: 10px; margin-left: 6px; padding: 1px 6px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; }
 .v2-freshness { background: none; border: 0; color: rgba(255,255,255,.85); font-size: 12px; display: inline-flex; gap: 8px; align-items: center; cursor: pointer; min-height: 44px; white-space: nowrap; }
 /* JEG-675: with seven tabs the long "prior week" label squeezed the tab row, and Research slid under the freshness
-   button. The tabs keep their width; the label gives way with an ellipsis. */
-.v2-freshness { flex: 0 1 auto; min-width: 0; }
+   button. The tabs keep their width; the label gives way with an ellipsis.
+   JEG-1056: the tabs never shrank (flex: 1 0 auto), so once the label was gone a wider face pushed the page sideways:
+   without Inter (DejaVu Sans, as on GitHub's runner) the eight tabs are 872 px and the page scrolled 113/37/48 px at
+   1024/1100/1280; even Inter scrolled 28 px at 1024. Now the tab row may shrink and scroll inside itself, but only
+   after the label: its huge shrink weight leaves the tabs about 0.01 px of any deficit until it hits its minimum. */
+.v2-tabs { flex-shrink: 1; min-width: 0; }
+.v2-freshness { flex: 0 100000 auto; min-width: 0; }
 .v2-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; }
 @media (min-width: 1024px) { .v2-nav-inner { gap: 24px; } .v2-tab { padding: 8px 12px; } }
 @media (min-width: 1024px) and (max-width: 1279px) {
@@ -113,9 +118,59 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-dot { width: 8px; height: 8px; border-radius: 50%; background: #9BE3C1; display: inline-block; }
 .v2-freshness.is-older .v2-dot { background: var(--v2-older); }
 
-/* League bar */
+/* Compact context row (JEG-1119): league summary, value basis and freshness. One 48 px row, sticky, from 1024 px;
+   below that it wraps and scrolls away with the page. Position weights and Copy / Paste sit in the ⋯ menu. */
+.v2-context { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
+.v2-context[hidden] { display: none; }
+.v2-context-inner { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; padding-block: 8px; }
+/* Below 1024 px: league summary and freshness on the first line, the buttons on the second, the basis on the third. */
+.v2-context-inner::before { content: ""; order: 2; flex-basis: 100%; height: 0; }
+.v2-context-inner > * { order: 3; }
+.v2-context-inner > .v2-ctx-league { order: 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 0; overflow: hidden; }
+.v2-ctx-league strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; flex-shrink: 0; max-width: 60%; }
+.v2-ctx-roster { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
+.v2-context-inner > .v2-ctx-basis { display: flex; align-items: center; gap: 6px; order: 10; flex: 1 1 100%; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
+.v2-ctx-basis > #v2ShowingText { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+.v2-ctx-basis.is-off { display: none; }
+.v2-context .v2-ctx-freshness { order: 1; flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; justify-content: flex-start; text-align: left; }
+.v2-ctx-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
+/* The short label ("Week 7") below 1440 px: the full sentence no longer fits beside the basis (JEG-1119 item 5).
+   The full one stays in the button's aria-label and in the freshness dialog. */
+@media (max-width: 1439px) {
+  .v2-context .v2-freshness #v2FreshnessLabel { display: none; }
+  .v2-context .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
+}
+.v2-ctx-menuwrap { position: relative; flex-shrink: 0; }
+.v2-ctx-more { padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
+.v2-ctx-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  min-width: 240px; padding: 8px; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-card); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.v2-ctx-menu[hidden] { display: none; }
+.v2-app .v2-context .v2-btn[hidden] { display: none; }
+.v2-ctx-menu .v2-assist-actions { flex-direction: column; align-items: stretch; gap: 6px; }
+.v2-app .v2-ctx-menu .v2-btn { flex: 0 0 auto; justify-content: flex-start; text-align: left; white-space: nowrap; }
+.v2-app .v2-ctx-menu .v2-assist-actions { flex: 0 0 auto; }
+@media (min-width: 1024px) {
+  .v2-context { position: sticky; top: 0; z-index: 30; }
+  .v2-context-inner { flex-wrap: nowrap; min-height: 48px; padding-block: 0; }
+  .v2-context-inner::before { content: none; }
+  .v2-context-inner > *, .v2-context .v2-ctx-freshness { order: 0; }
+  .v2-context-inner > .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
+  .v2-context-inner > .v2-ctx-basis { order: 0; flex: 1 1 0; }
+}
+/* Small button variant */
+.v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
+
+/* League bar (kept for backwards compat with any panels that reference it) */
 .v2-league { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-league-inner { display: flex; align-items: center; gap: 24px; min-height: 64px; flex-wrap: wrap; }
+/* JEG-1084: with the Copy / Paste buttons (JEG-1026) the row no longer fits one line in a wide fallback face (DejaVu Sans
+   on GitHub's runner), and the second 68 px row pushed Compare's trade boxes past the 1366x768 fold. The roster line has
+   a small flex-basis so the row breaks only when the buttons cannot fit; it then wraps inside its own cell. */
+/* Jeremy, 2026-10-25 ("Trim the league row height"): from 768 px the row shrinks to its content (44 px buttons plus
+   6 px above and below) instead of holding a 64 px minimum, which saves 8 px on every tab. */
+@media (min-width: 768px) { .v2-league-inner > .v2-meta { flex: 1 1 120px; min-width: 0; } .v2-league-inner { min-height: 0; padding-block: 6px; } }
 
 /* Buttons and fields */
 .v2-app .v2-btn { border: 1px solid var(--v2-field-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 10px 16px; min-height: 44px; cursor: pointer; font-weight: 600; }
@@ -383,7 +438,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
    height only, and the top-5 fold is checked at 1366 and 1440 (JEG-675). */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .v2-ttable td.best .t-score { display: block; margin-left: 0; }
-  .v2-ttable td.t-avg .t-diff { white-space: normal; }   /* "▼ 3.3 below" may wrap rather than widen the table */
+  .v2-ttable td.t-avg .t-diff { white-space: normal; }   /* "+3.3" may wrap rather than widen the table */
 }
 @media (max-width: 1023px) {
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
@@ -456,6 +511,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
    (frame 17) without changing how it looks, by extending the link's box above and below the chip. */
 a.v2-div-chip { position: relative; z-index: 1; }
 a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: -15px; bottom: -15px; }
+/* JEG-1116: legend rows are about 20 px apart on a wide window, so the 15 px extension above and below a linked chip covered the
+   source link in the row above or below (a tap on that link opened the review page). With a fine pointer the legend chip keeps its own box. */
+@media (min-width: 768px) and (pointer: fine) { .v2-showing-legend a.v2-div-chip::after { top: 0; bottom: 0; } }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 @media (hover: hover) { a.v2-div-chip:hover { text-decoration: underline; } }
 /* JEG-1048: a "Reviewed" / "Excluded" chip is a link to its resolution issue (JEG-609). It was 74-79 x 18-19 (24 x 24 in Customize).
@@ -471,6 +529,10 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-tcompare .v2-info { margin: 0 -8px; }
 /* Not a sort button: no sort arrow, and its own 44 px box is the hit area. */
 .v2-table th .v2-info::after, .v2-table th .v2-info::before { content: none; }
+/* JEG-1116: in a column head the info button follows a source link. Its default -10px left margin pulled its 44 px box
+   8 px over the link's last letters (a tap there opened the info card, not the publisher's page). The box now starts
+   where the link ends, and the link's touch padding (rule below) stops on that side too. */
+.v2-table th .v2-info { margin-left: 0; }
 .v2-popover.v2-info-pop { width: min(360px, calc(100vw - 32px)); }
 .v2-popover.v2-info-pop h2 { font-size: 16px; }
 .v2-info-text { font-size: 13px; margin-top: 6px !important; }
@@ -796,6 +858,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; border: 1px solid var(--v2-older); background: var(--v2-surface); border-radius: var(--v2-radius-card); padding: 10px 16px; margin-top: 8px; }
 .v2-notice[hidden] { display: none; }
 .v2-notice p::before { content: "! "; font-weight: 800; color: var(--v2-older); }
+.v2-notice-close { background: none; border: 0; cursor: pointer; padding: 4px 8px; color: var(--v2-muted); font-size: 14px; line-height: 1; margin-left: auto; min-height: 32px; }
 /* JEG-909: an echoed search query (no spaces, any length) wraps instead of widening the page. */
 #v2EmptyText, .v2-t-empty { overflow-wrap: anywhere; max-width: 100%; }
 .v2-empty-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
@@ -935,15 +998,30 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 #v2Compare .v2-card { padding: clamp(14px, 1.2vw, 16px); margin-top: var(--v2-cgap); }
 #v2Compare .v2-card-head h2, #v2Compare .v2-trade-side h2 { font-size: 16px; }
 .v2-chead { display: flex; justify-content: space-between; align-items: center; gap: 8px 16px; flex-wrap: wrap; }
-/* Compare card head only: the verdict's headline rows (.v2-cheads > .v2-chead, JEG-505) share the class name and must flow as text. */
 .v2-chead .v2-title h1 { font-size: 27px; }
 .v2-chead .v2-title p { margin-top: 2px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #v2Compare.has-trade .v2-chead .v2-title p { display: none; }
 .v2-chead .v2-ctoolbar { margin-top: 0; justify-content: flex-end; flex: 0 1 auto; }
-.v2-cexample { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: 8px !important; font-size: 13px; color: var(--v2-muted); }
+.v2-cexample { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; margin-top: 0 !important; font-size: 13px; color: var(--v2-muted); }
 .v2-cexample[hidden] { display: none; }
 .v2-cexample .v2-pill, .v2-cverdict.is-example .v2-eyebrow { color: var(--v2-older); }
 .v2-cexample .v2-pill { background: var(--v2-surface); border: 1px solid var(--v2-older); }
+/* JEG-1112: the Example banner sits inside .v2-chead (full width below 1280 px, as before). From 1280 px, where the verdict
+   sits beside the two sides and the fold matters, a new visitor's header is two lines instead of four: the title and the
+   Example chip share a row with the Use this example button and the picker, and the subtitle, the week and the
+   sample-trade sentence share the second line. Other tabs' headers are not touched. */
+#v2Compare .v2-cexample { flex: 1 1 100%; }
+@media (min-width: 1280px) {
+  #v2Compare .v2-chead { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto auto; align-items: center; gap: 2px 12px; }
+  #v2Compare .v2-chead .v2-title, #v2Compare .v2-chead .v2-cexample:not([hidden]) { display: contents; }
+  #v2Compare .v2-chead .v2-title h1 { grid-row: 1; grid-column: 1; }
+  #v2Compare .v2-chead .v2-title p { grid-row: 2; grid-column: 1; margin: 0; min-width: 0; }
+  #v2Compare .v2-chead .v2-title .v2-asof { grid-column: 2; white-space: nowrap; }
+  #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
+  #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
+  #v2Compare .v2-chead .v2-cexample .v2-link { grid-row: 1; grid-column: 4; }
+  #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
+}
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
 
 /* Inputs side by side with the verdict (>= 1280), the verdict as a strip below them (768–1279). */
@@ -969,14 +1047,6 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-cverdict[data-verdict="win"] { border-left-color: var(--v2-action); }
 .v2-cverdict[data-verdict="lose"] { border-left-color: var(--v2-negative); }
 .v2-cverdict[data-verdict="incomplete"] { border-left-color: var(--v2-older); }
-/* JEG-505: the two headline answers above the verdict. */
-.v2-cheads { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 6px; }
-.v2-cheads[hidden] { display: none; }
-#v2Compare .v2-cheads .v2-chead { display: block; margin: 0 !important; font-size: 15px; font-weight: 400; }
-.v2-chead .q { font-weight: 700; }
-.v2-chead .a, .v2-chead .c { font-weight: 800; white-space: nowrap; }
-.v2-chead .c { font-weight: 600; }
-.v2-chead .why { display: block; margin-top: 2px; font-size: 12px; font-weight: 400; color: var(--v2-muted); }
 .v2-cverdict h2 { font-size: 20px; font-weight: 800; line-height: 1.25; }
 .v2-cverdict[data-verdict="win"] .v2-cverdict-sym { color: var(--v2-action-strong); }
 .v2-cverdict[data-verdict="lose"] .v2-cverdict-sym { color: var(--v2-negative); }
@@ -992,9 +1062,8 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 #v2Compare .v2-cstory p { margin-top: 2px !important; font-size: 13px; color: var(--v2-muted); }
 @media (min-width: 1280px) {
   #v2Compare .v2-trade-sides { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(420px, 1.6fr); }
-  /* With the two headline answers (JEG-505) the verdict card must still end above the fold at 1366x768. */
+  /* The verdict card must still end above the fold at 1366x768. */
   #v2Compare .v2-cverdict { gap: 3px; }
-  #v2Compare .v2-cverdict .v2-cheads { gap: 4px; margin-bottom: 2px; }
   #v2Compare .v2-cverdict > div > p { margin-top: 4px !important; font-size: 13px; line-height: 1.4; }
   #v2Compare .v2-cverdict h2 { font-size: 18px; }
   #v2Compare .v2-cstory summary { min-height: 28px; }
@@ -1016,14 +1085,11 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   .v2-chead .v2-title h1 { font-size: 23px; }
   .v2-main { padding-top: 16px; }
   #v2Compare .v2-cverdict { gap: 2px; }
-  #v2Compare .v2-cverdict .v2-cheads { gap: 2px; margin-bottom: 0; }
   #v2Compare .v2-cverdict > div > p { margin-top: 2px !important; }
   #v2Compare .v2-cverdict h2 { font-size: 16px; }
   #v2Compare .v2-deal { margin-top: 4px; padding-top: 4px; }
   /* JEG-932: the three net chips wrapped one per line (216 + 389 + 20px gap > 617px); a tighter gap lets two share a row, ~28px shorter. */
   #v2Compare .v2-deal-nets { gap: 2px 6px; margin: 2px 0; }
-  /* JEG-1048: wrapped net rows sit 26 px apart, so the 44 px info buttons crossed (a click in the lower row's top landed on the upper one). Here the hit box is the row pitch, as for the chart legend below. */
-  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }
   #v2Compare .v2-cstory { padding-top: 4px; margin-top: 0; }
 }
 
@@ -1099,6 +1165,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 @media (min-width: 768px) {
   #v2Main .v2-toolbar { position: sticky; top: 0; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
 }
+@media (min-width: 1024px) { #v2Main .v2-toolbar { top: 49px; } }   /* JEG-1119: under the sticky context row (48 px + border) */
 
 /* Chart card: title and legend on one line, the line-style key inside the legend. */
 .v2-chart-head { align-items: center; justify-content: flex-start; gap: 0 14px; flex-wrap: wrap; min-height: 44px; }   /* JEG-926: keeps the card's 44 px controls inside the head */
@@ -1538,6 +1605,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    equal negative side margin cancels it, so no line or chip moves. */
 @media (max-width: 767px), (pointer: coarse) {
   .v2-srclink { padding: 15px; margin: -15px; }
+  .v2-table th .v2-srclink { padding-right: 0; margin-right: 0; }   /* JEG-1116: the info button beside it owns that side */
   /* The extended link hit area reaches into the next row; a value cell with a math tip sits above it so a tap on
      the number opens its tip instead of the publisher's page (JEG-725: Targets cards at 390 px). */
   .has-math { position: relative; z-index: 1; }
@@ -1711,29 +1779,52 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    Phone = under 768 px wide, or a landscape phone (up to 932 px wide and 500 px tall, e.g. 844x390). There the tab
    row collapses into a menu opened by a 44x44 button. Desktop and tablet keep the tab row. Keep this block last: it
    overrides the older short-label and wrap rules above with higher specificity. */
-.v2-nav-toggle { display: none; }
+/* JEG-1106: the button and the grouped menu are the navigation at every width. The top bar keeps the button, the
+   site name, the name of the page on show, and the freshness button. On a wide screen the menu is a panel under the
+   bar; on a phone it opens in the bar (rules below). One quiet accent (the freshness dot's green) marks the page on show. */
+.v2-nav-toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 1px solid rgba(255,255,255,.3); border-radius: var(--v2-radius-btn); background: none; color: #fff; cursor: pointer; }
+.v2-nav.is-open .v2-nav-toggle { background: rgba(255,255,255,.12); }
+.v2-nav-toggle:focus-visible, .v2-nav .v2-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.v2-nav-current { color: rgba(255,255,255,.85); font-size: 15px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; padding-left: 16px; border-left: 1px solid rgba(255,255,255,.25); line-height: 24px; }
+.v2-nav-current:empty { display: none; }
+.v2-nav-group { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.v2-nav-grouphead { margin: 0; padding: 8px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.62); }
+.v2-nav .v2-tab { background: none; border: 0; font: inherit; font-weight: 400; cursor: pointer; text-align: left; width: 100%; }
+.v2-nav .v2-tab.is-active { background: rgba(255,255,255,.12); font-weight: 600; }
+.v2-nav .v2-tab.is-active::after { content: "\2713"; margin-left: auto; padding-left: 12px; color: #9BE3C1; }
+@media (hover: hover) { .v2-nav .v2-tab:hover { background: rgba(255,255,255,.08); color: #fff; } }
+@media (min-width: 768px) and (min-height: 501px), (min-width: 933px) {
+  .v2-nav .v2-nav-inner { position: relative; flex-wrap: nowrap; gap: 16px; padding-top: 0; }
+  .v2-nav .v2-brand { font-size: 20px; flex: 0 0 auto; }
+  .v2-nav .v2-freshness { margin-left: auto; }
+  .v2-nav .v2-tabs { display: none; position: absolute; z-index: 50; left: 48px; top: calc(100% - 6px); width: min(720px, calc(100vw - 32px)); max-height: calc(100vh - 80px); overflow-y: auto;
+    padding: 8px 12px 12px; gap: 4px 16px; background: var(--v2-nav); border: 1px solid rgba(255,255,255,.2); border-radius: var(--v2-radius-card); box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+  .v2-nav.is-open .v2-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; }
+}
+@media (min-width: 768px) and (min-height: 501px) and (max-width: 1279px), (min-width: 933px) and (max-width: 1279px) { .v2-nav .v2-nav-inner { padding: 0 24px; } .v2-nav .v2-tabs { left: 24px; } }
 @media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
   .v2-nav .v2-nav-inner { flex-wrap: wrap; gap: 0 12px; padding-top: 8px; padding-bottom: 8px; }
   .v2-nav .v2-brand { order: 0; }
   .v2-nav .v2-freshness { order: 1; margin-left: auto; flex: 1 1 0; }
-  .v2-nav .v2-nav-toggle { order: 2; display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; flex: 0 0 44px; padding: 0; border: 1px solid rgba(255,255,255,.3); border-radius: var(--v2-radius-btn); background: none; color: #fff; cursor: pointer; }
-  .v2-nav.is-open .v2-nav-toggle { background: rgba(255,255,255,.12); }
-  .v2-nav-toggle:focus-visible, .v2-nav .v2-tab:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .v2-nav .v2-nav-toggle { order: 2; }
+  .v2-nav .v2-nav-current { display: none; }
   .v2-nav .v2-tabs { order: 3; flex: 1 0 100%; display: none; flex-direction: column; flex-wrap: nowrap; overflow: visible; gap: 2px; padding: 4px 0 8px; border-top: 1px solid rgba(255,255,255,.18); }
   .v2-nav.is-open .v2-tabs { display: flex; }
   .v2-nav .v2-tabs .v2-tab { flex: 0 0 auto; justify-content: flex-start; width: 100%; min-height: 44px; padding: 8px 12px; font-size: 16px; }
   .v2-nav .v2-tabs .v2-tab::before { content: none; }
   .v2-nav .v2-tabs .v2-tab .v2-tab-full { display: inline; }
-  .v2-nav .v2-tabs .v2-tab.is-active::after { content: "\2713"; margin-left: auto; padding-left: 12px; }
 }
+.v2-freshness-short { display: none; }
 @media (max-width: 419px) {
-  /* The wordmark and button fill the first row; the freshness line takes its own row instead of a sliver. */
-  .v2-nav .v2-nav-toggle { order: 1; margin-left: auto; }
-  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; text-align: left; margin-left: 0; min-height: 44px; /* JEG-947: 44 px tap target (was 36) */ }
+  /* Decision 2026-10-25: the freshness button stays beside the site name with a short label ("Week 7"), so the
+     header stays at most 120 px tall (JEG-887) and the button keeps its 44 px height (JEG-947). */
+  .v2-nav .v2-freshness { flex: 0 1 auto; min-width: 0; }
+  .v2-nav .v2-freshness #v2FreshnessLabel { display: none; }
+  .v2-nav .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
 }
 @media (max-height: 500px) and (min-width: 600px) {
   /* Landscape phone: two columns keep the seven items inside a 390 px tall screen. */
-  .v2-nav.is-open .v2-tabs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 12px; }
+  .v2-nav.is-open .v2-tabs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); column-gap: 12px; align-items: start; max-height: calc(100vh - 132px); overflow-y: auto; }   /* JEG-1106: 14 entries in three columns, scrolling, with a strip of page left to tap outside */
 }
 @media (max-width: 767px) { .v2-nav.is-open .v2-tabs { max-height: calc(100vh - 72px); overflow-y: auto; } }
 /* ===== end JEG-953 ================================================================================================ */
@@ -1764,6 +1855,19 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-impact { display: grid; gap: 4px; margin: 6px 0 0; padding: 8px 0 0; border-top: 1px dashed var(--v2-border); }
 .v2-find-impact-lines { display: grid; gap: 2px; }
 .v2-find-impact-lines p { margin: 0; }
+/* JEG-1081: the projections view is a subdued third group; under 1024px it waits behind "Show projections"; the impact's other views wait behind "Show other views" under 768px. */
+.v2-find-proj-col { color: var(--v2-muted); }
+.v2-find-assess-table td.v2-find-flag { min-width: 5em; }
+.v2-find-proj-toggle { display: none; margin: 0 0 6px; position: sticky; left: 0; }
+.v2-find-impact-more { display: none; min-height: 44px; text-align: left; }
+@media (max-width: 1023px) {
+  .v2-find-proj-toggle { display: inline-flex; min-height: 44px; align-items: center; }
+  .v2-find-table-wrap:not([data-show-proj="1"]) .v2-find-proj-col { display: none; }
+}
+@media (max-width: 767px) {
+  .v2-find-impact-more { display: inline-flex; align-items: center; }
+  .v2-find-impact:not([data-expanded="1"]) .v2-find-impact-secondary { display: none; }
+}
 .v2-find-impact-details summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
 .v2-find-impact-body { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); }
 .v2-find-table-wrap { overflow-x: auto; min-width: 0; }
@@ -1802,6 +1906,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-headline { margin: 12px 0 0; padding: 10px 12px; border: 1px solid var(--v2-border); border-left-width: 4px; border-radius: var(--v2-radius-btn); font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
 .v2-find-headline[data-state="natural"] { border-left-color: var(--v2-action); }
 .v2-find-headline[data-state="natural"] b { color: var(--v2-action-strong); }
+.v2-find-headline-sub { display: block; margin-top: 2px; font-size: 13px; color: var(--v2-muted); }
 .v2-find-headline[data-state="none"] b { color: var(--v2-older); }
 .v2-find-assess { margin: 12px 0 0; }
 .v2-find-assess[hidden] { display: none; }
@@ -1886,6 +1991,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-table { min-width: 0; }
 .v2-lg-table thead th { vertical-align: bottom; }
 .v2-lg-table td.num, .v2-lg-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.v2-lg-proj { white-space: nowrap; position: relative; }
+.v2-lg-proj.is-agree { color: var(--v2-action-strong); }
+.v2-lg-proj.is-disagree { color: var(--v2-older); }
+.v2-lg-proj.is-level { color: var(--v2-muted); }
 .v2-lg-sort { background: none; border: 0; padding: 4px 2px; min-height: 32px; font: inherit; font-size: 12px; font-weight: 600; color: var(--v2-ink); cursor: pointer; text-align: left; }
 .v2-lg-sort.is-active { color: var(--v2-action-strong); }
 .v2-lg-sort + .v2-lg-sort { display: block; font-weight: 500; color: var(--v2-muted); }
@@ -1909,7 +2018,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-phonesort { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
 .v2-lg-phonesort .v2-btn { min-height: 44px; }
 .v2-lg-phonesort select, .v2-lg-filters select { min-height: 44px; max-width: 100%; }
-@media (max-width: 720px) {
+/* JEG-1090: the label is as wide as the longest option, so on a 320 px phone it ran 1 px (Inter) to 14 px (fallback fonts) past the edge; it shrinks and the select with it. */
+.v2-lg-phonesort .v2-field { min-width: 0; max-width: 100%; }
+.v2-lg-phonesort .v2-field select { min-width: 0; }
+@media (max-width: 767px) {
   .v2-lg-tablewrap { display: none; }
   .v2-lg-cards { display: grid; }
   .v2-lg-saved { margin-left: 0; flex-basis: 100%; }
@@ -1919,3 +2031,57 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-table td.num, .v2-lg-table th.num { white-space: nowrap; }
 .v2-lg-opp[data-overall="natural"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-action); }
 .v2-lg-opp[data-overall="force"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-older); }
+
+/* JEG-1026: the ChatGPT / Claude line in the footer of every tab; Copy and Paste sit in the league strip. */
+.v2-assist { border-top: 1px solid var(--v2-border); margin-top: var(--v2-pad-section); padding: 16px 0 28px; color: var(--v2-muted); font-size: 13px; }
+.v2-assist-line { margin: 0; }
+.v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.v2-assist-actions .v2-btn[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
+.v2-assist-panel:empty { display: none; }
+.v2-assist-paste, .v2-assist-note { min-width: 0; }
+.v2-assist-paste { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0 0 12px; }
+.v2-assist-note { padding: 0 0 12px; font-size: 13px; color: var(--v2-muted); }
+.v2-assist-text { box-sizing: border-box; width: 100%; max-width: 100%; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--v2-ink); background: var(--v2-surface); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn); padding: 8px; }
+.v2-assist-note p { margin: 0 0 6px; overflow-wrap: anywhere; }
+.v2-assist-note strong { color: var(--v2-ink); }
+.v2-assist-paste .v2-field-label { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
+@media (max-width: 767px) {
+  .v2-assist-actions { flex-basis: 100%; }
+  .v2-assist-actions .v2-btn { flex: 1 1 140px; white-space: normal; }
+}
+
+/* Inputs status strip (inputs-status.js): soft notes under the league row. */
+.v2-inputs[hidden] { display: none; }
+.v2-inputs-note { background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
+.v2-inputs-note.is-info { background: var(--v2-surface); }
+.v2-inputs-note.is-quiet .v2-inputs-text { color: var(--v2-muted); }
+/* JEG-1084: one slim line (about 28 px) on desktop so Compare's trade boxes stay above the 1366x768 fold (the strip was
+   45 px and pushed them to y=775 / 792 in the CI font). The text gives way with an ellipsis (the full note is in its
+   title) before the strip wraps; phones may wrap and keep 44 px buttons. */
+.v2-inputs-in { display: flex; align-items: center; flex-wrap: nowrap; gap: 12px; padding-block: 1px; margin-inline: auto; font-size: 13px; line-height: 20px; }
+.v2-inputs-text { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.v2-inputs-in .v2-link { flex: none; white-space: nowrap; }
+.v2-app .v2-inputs-note .v2-btn { flex: none; min-height: 24px; padding: 0 10px; font-size: 12px; line-height: 20px; white-space: nowrap; }
+@media (max-width: 767px) {
+  .v2-inputs-in { flex-wrap: wrap; gap: 4px 12px; padding-block: 6px; }
+  .v2-inputs-text { flex: 1 1 100%; overflow: visible; white-space: normal; }
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
+
+/* JEG-1095: what a league paste understood */
+.v2-lg-parsed { border: 1px solid var(--v2-line, #d0d4da); border-radius: 8px; padding: 12px 14px; margin: 8px 0; }
+.v2-lg-parsed[hidden] { display: none; }
+.v2-lg-parsed[data-state="error"] { border-color: var(--v2-bad, #b3261e); }
+.v2-lg-parsed h3 { margin: 0 0 6px; font-size: 1rem; }
+.v2-lg-parsed-teams { margin: 6px 0; padding-left: 18px; }
+.v2-lg-parsed-teams li { overflow-wrap: anywhere; margin: 2px 0; }
+.v2-lg-parsed-teams li.is-mine { font-weight: 600; }
+.v2-lg-parsed-miss { margin: 2px 0 6px; padding-left: 18px; font-weight: 400; }
+
+/* JEG-1099: the two-team panel under the opportunities table */
+.v2-lg-opp { cursor: pointer; }
+.v2-lg-opp.is-selected > *, .v2-lg-card.is-selected { background: var(--v2-selected, rgba(168, 68, 16, 0.12)); }
+.v2-lg-oppsides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.v2-lg-oppside h4 { margin: 0 0 6px; }
+@media (max-width: 720px) { .v2-lg-oppsides { grid-template-columns: minmax(0, 1fr); } }

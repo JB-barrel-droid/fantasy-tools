@@ -1739,6 +1739,28 @@ the trade-target views; not covered.
 - Q3 GAP-CBSROS-DIRECTION-RED (VA-7): retire the CBS ROS and Razzball direction and markup checks; they judge starter/bench scales that price nothing those sources display. Keep any check that still guards displayed values.
 - Q4 OC-8: keep zeros counted in the Indexed factor (option A, confirmed).
 
+## MR-32 - DDF Value aggregation weights: equal vs data-driven (JEG-969, 2026-10-23)
+
+**Question:** should DDF Value use unequal weights across the three projection
+sources (ESPN, CBS ROS, Razzball) based on their predictive accuracy?
+
+**Current state:** equal weights (1/3 each). JEG-969 lane B tested aggregators
+1-7 from post 10's protocol against all available data:
+- 5 weeks ROS projections vs 2026 actuals (n=1,122 aligned player-weeks)
+- 8 seasons of RotoWire week-ahead (n=31,437; single-source only)
+- ESPN vs RotoWire head-to-head (n=1,812 paired player-weeks, 2026)
+
+**Finding (2026-10-23):** no aggregator beats equal weights with a 95% CI that
+excludes zero. Bias correction is significantly worse (+0.107 MAE). The data
+cannot distinguish sources. Equal weights are the correct default.
+
+**Blocked on:** three-source week-ahead captures (JEG-944). When 8+ weeks of
+week-ahead projections from all three sources are stored, re-run
+`tools/research/aggregator_retest_check.py`. Earliest: ~week 16 of 2026
+(December 2026). Robust comparison needs a full 2027 season.
+
+**Depends on:** JEG-944 capture pipeline.
+
 ## Outside this review
 
 - K/DST: being removed from the pipeline (kdst lane, Jeremy's decision).

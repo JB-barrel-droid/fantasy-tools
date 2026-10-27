@@ -218,7 +218,7 @@
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
-      reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);
+      reasons.push(`${chartAgree} of ${chartTotal} charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
     }
     // Line 2: will they accept, from the published charts.
@@ -233,8 +233,8 @@
       const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
       const agreement = same / charts.length;
       let level = levelFor(agreement);
-      const reasons = [`${yes} of ${charts.length} trade charts have the other manager winning or even`];
-      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 trade charts"); }
+      const reasons = [`${yes} of ${charts.length} charts have the other manager winning or even`];
+      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 charts"); }
       if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
       accept = {answer, confidence: level, yes, of: charts.length, reasons};
     }
@@ -270,7 +270,7 @@
   // Three nets, each answering one question:
   //   V  DDF Value net              (ddf_value)             are you getting real value?
   //   M  Trade chart average net    (mean of compared chart rows)  does the market think you are winning?
-  //   P  DDF Value net               (ddf_value_projections) is the value backed by projected production?
+  //   P  DDF Value (projections) net (ddf_value_projections) is the value backed by projected production?
   // JEG-832: M is the plain mean of the per-chart rescaled nets (the same rows Compare shows), NOT
   // the DDF Value · trade charts blend (which equals DDF Value when projections are held). When fewer
   // than MIN_DEAL_CHARTS charts price every player the market card says "not enough charts".
@@ -286,7 +286,7 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Arbitrage: send it", action: "Send it",
+    "win|lose": {title: "Value win, charts say you lose: send it", action: "Send it",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
@@ -319,7 +319,7 @@
     even: {title: "Even on value, and the trade charts split", action: "Your call"},
     lose: {title: "A loss on value, and the trade charts split", action: "Pass or counter"}
   };
-  const fmtSigned = n => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1);   // the minus sign the cards use
+  const fmtSigned = n => (Math.abs(n) < 0.05 ? "0.0" : (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1));   // the minus sign the cards use
   function splitRead(vSide, charts) {
     const said = {win: "DDF Value says you come out ahead", even: "DDF Value calls it even", lose: "DDF Value says you lose"}[vSide];
     const range = charts.min < 0 && charts.max > 0
@@ -329,11 +329,13 @@
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
   // One production sentence: P's side against V's side.
-  // JEG-863: after JEG-804 DDF Value = projections, so p !== v is dead; the disagree branch is kept as defense.
+  // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
+  // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.
+  const PRODUCTION_SAYS = {win: "you come out ahead", even: "it is even", lose: "you lose"};
   function productionCheck(p, v) {
-    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value also says you come out ahead."
-      : p === "lose" ? "Projected production backs the value: DDF Value also says you lose." : "Projected production backs the value: DDF Value also calls it even.";
-    return "Production check inconclusive: the versions disagree.";
+    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+      : p === "lose" ? "Projected production backs the value: DDF Value (projections) also says you lose." : "Projected production backs the value: DDF Value (projections) also calls it even.";
+    return `Projected production does not back the value: DDF Value says ${PRODUCTION_SAYS[v]}, but DDF Value (projections) says ${PRODUCTION_SAYS[p]}.`;
   }
   // JEG-832: chartKeys are the compared chart series (e.g. ["usatoday","fantasycalc","fantasypros"]).
   // The market net is the mean of each complete chart row's net, not the DDF blend.

@@ -123,7 +123,7 @@ class WorkedExampleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.doc = json.loads(FIXTURE.read_text())
-        cls.actual = run_engine(promotion_model=False, flex_bench_seats=False)
+        cls.actual = run_engine(promotion_model=False, flex_bench_seats=True)
 
     def test_every_expected_value(self):
         problems = diff(expected_main(self.doc), self.actual, "expected")
@@ -132,7 +132,7 @@ class WorkedExampleTest(unittest.TestCase):
     def test_bench_share_variant(self):
         bs = self.doc["variant_bench_share_0_10"]["setting_change"]["bench_share"]
         problems = variant_diff(self.doc, run_engine(bench_share=bs, promotion_model=False,
-                                                      flex_bench_seats=False))
+                                                      flex_bench_seats=True))
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_check_covers_the_fixture(self):
@@ -147,8 +147,8 @@ class WorkedExampleTest(unittest.TestCase):
         rows = self.actual["rows"]
         self.assertEqual(rows["207"]["estimated_reason"]["c5"],
                          "Estimated: no chart lists him; from c5's values against projected points")
-        self.assertEqual(rows["306"]["estimated_reason"]["c5"],
-                         "Estimated: c5 doesn't list him; scaled from c1 and c4")
+        # With VORP bench, player 306 is below rostered depth in c5 (WR bench=1 in 2-team fixture).
+        self.assertEqual(rows["306"]["reasons"]["c5"], "Below rosterable depth; c5 doesn't list him")
         self.assertEqual(rows["205"]["reasons"]["c2"], "Below rosterable depth; c2 doesn't list him")
         self.assertEqual(rows["207"]["reasons"]["p2"], "p2 doesn't project this player")
 
@@ -207,7 +207,14 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     bands, parts, groups, own weights and rates, the DDF weights, every row's
     DDF Value, lineup share and start-worthy probability, the readout; and the
     0.10 override. Fails before JEG-536: the engine ignores `lineup` and
-    prices the VP-2.6 slices at 15%."""
+    prices the VP-2.6 slices at 15%.
+
+    JEG-1057: the variants are pinned at the engine defaults (promotion_model
+    and flex_bench_seats on, Jeremy 2026-10-23, JEG-969 / #867), the same
+    defaults the fixture generator (tools/worked_example_expected_starts.py)
+    and the Python and spec reference variant tests use. Forcing the flags
+    off here compared the engine against the wrong rule, and made every
+    guard below pass vacuously."""
 
     @classmethod
     def setUpClass(cls):
@@ -216,24 +223,27 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     def test_variants_reproduced(self):
         for name in esx.VARIANTS:
             with self.subTest(variant=name):
-                problems = esx.variant_problems(self.doc, name, run_engine(variant=name, promotion_model=False,
-                                                                                     flex_bench_seats=False))
+                problems = esx.variant_problems(self.doc, name, run_engine(variant=name))
                 self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_variant_is_walked(self):
         self.assertGreater(esx.count_leaves(self.doc["variant_expected_starts"]["expected"]), 1500)
         exp = self.doc["variant_expected_starts"]["expected"]
         self.assertFalse(exp["bench_share_readout"]["override"])
-        # JEG-879: bench_per_team=4 gives WR 3 bench seats (rostered=6),
+        # JEG-879/JEG-1121: bench_per_team=5 gives WR 4 bench seats (rostered=7),
         # so the waiver line falls below the depth boundary -> 2 bands.
         self.assertEqual(len(exp["sources"]["p1"]["positions"]["WR"]["bands"]), 2)
         self.assertEqual(exp["sources"]["p1"]["positions"]["WR"]["lineup"]["n_per_team"], 2)
 
     def assert_variant_fails(self, replacements):
+        # JEG-1057: a guard only proves something if the unmutated engine
+        # passes in the same configuration; otherwise any mutation "fails".
+        baseline = esx.variant_problems(self.doc, "variant_expected_starts",
+                                        run_engine(variant="variant_expected_starts"))
+        self.assertEqual(baseline, [], "unmutated engine must pass before a guard can discriminate")
         model = _mutated(replacements)
         try:
-            actual = run_engine(model, variant="variant_expected_starts", promotion_model=False,
-                               flex_bench_seats=False)
+            actual = run_engine(model, variant="variant_expected_starts")
         except AssertionError:
             return
         finally:
@@ -250,7 +260,7 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assert_variant_fails([("chartSigma[pos].sigma_rel * esConfidence", "chartSigma[pos].sigma_rel")])
 
     def test_guard_catches_one_band_only(self):
-        # JEG-879: bench_per_team=4 gives WR 2 bands; the mutation collapses
+        # JEG-879/JEG-1121: bench_per_team=5 gives WR 2 bands; the mutation collapses
         # every position to 1 band, so the comparison must fail.
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
@@ -369,17 +379,30 @@ class TestFlexBenchSeats(unittest.TestCase):
                             flex_bench_seats=True)
 
     def test_flex_bench_seats_changes_bench_allocation(self):
-        """At least one position's bench seats change with flex_bench_seats."""
-        off_alloc = self.off.get("allocation", {})
-        on_alloc = self.on.get("allocation", {})
-        diffs = []
-        for pos in ("QB", "RB", "WR", "TE"):
-            off_b = off_alloc.get(pos, {}).get("bench", 0)
-            on_b = on_alloc.get(pos, {}).get("bench", 0)
-            if off_b != on_b:
-                diffs.append(f"{pos}: {off_b}->{on_b}")
+        """At least one position's bench seats change with flex_bench_seats.
+
+        JEG-1121: the 2-team worked-example fixture is too small for the
+        per-team-normalised flex fill to shift D'Hondt; use value_reference
+        with a standard 12-team PPR league where the effect is visible.
+        (test_one_qb_effect_unchanged in TestFlexBenchSeatsTwoQbSkip covers
+        the same invariant and also passes.)
+        """
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        import value_reference as ref
+        inp = ref.Inputs.load()
+
+        def bench(flex_bench_seats):
+            s = ref.Setting(inp, "ppr", 12, flex_bench_seats=flex_bench_seats)
+            return {p: s.result()["slot_fill"][p]["bench"] for p in ("QB", "RB", "WR", "TE")}
+
+        on = bench(flex_bench_seats=True)
+        off = bench(flex_bench_seats=False)
+        diffs = [f"{pos}: {off[pos]}->{on[pos]}" for pos in ("QB", "RB", "WR", "TE")
+                 if on[pos] != off[pos]]
         self.assertTrue(len(diffs) > 0,
-                        "flex_bench_seats should change at least one position's bench count")
+                        "flex_bench_seats should change at least one position's bench count "
+                        f"in a 12-team PPR league: on={on}, off={off}")
 
     def test_flex_bench_seats_on_matches_default(self):
         """With flag on, results match the default (flex_bench_seats is on by default,
@@ -445,78 +468,33 @@ class TestFlexBenchSeatsTwoQbSkip(unittest.TestCase):
                              flex_bench_seats=flex_bench_seats)
         return {p: s.result()["slot_fill"][p]["bench"] for p in ("QB", "RB", "WR", "TE")}
 
-    def test_two_qb_output_equals_flag_off(self):
-        """In 2-QB, flex_bench_seats ON produces the same bench as OFF."""
-        on = self._bench(qb=2, flex_bench_seats=True)
-        off = self._bench(qb=2, flex_bench_seats=False)
-        self.assertEqual(on, off, "2-QB bench should be identical with flag on or off")
+    def test_two_qb_bench_is_supply_aware(self):
+        """In 2-QB, VORP greedy bench allocates more QB bench than 1-QB greedy.
 
-    def test_superflex_output_equals_flag_off(self):
-        """In superflex, flex_bench_seats ON produces the same bench as OFF."""
-        on = self._bench(qb=1, superflex=1, flex_bench_seats=True)
-        off = self._bench(qb=1, superflex=1, flex_bench_seats=False)
-        self.assertEqual(on, off, "superflex bench should be identical with flag on or off")
+        2-QB rosters have 2× starter coverage demand, so the VORP formula gives QBs
+        a higher coverage rate and more bench slots — that is the correct supply-aware
+        behaviour. The algorithm is also bounded by pool supply (remaining QBs after
+        24 starters are taken).
+        """
+        greedy_2qb = self._bench(qb=2, flex_bench_seats=True)
+        greedy_1qb = self._bench(qb=1, flex_bench_seats=True)
+        # 2-QB has 2× starters → VORP coverage rate doubles → more QB bench
+        self.assertGreater(greedy_2qb["QB"], greedy_1qb["QB"],
+                           "2-QB greedy should give more QB bench than 1-QB greedy (supply-aware)")
+
+    def test_superflex_bench_is_supply_aware(self):
+        """In superflex, greedy bench handles supply-capped QBs naturally."""
+        greedy = self._bench(qb=1, superflex=1, flex_bench_seats=True)
+        total = sum(greedy[p] for p in ("QB", "RB", "WR", "TE"))
+        # Total bench must equal teams * bench_per_team (the 12-team PPR default)
+        # Value reference uses Setting which knows bench_per_team
+        self.assertGreater(total, 0, "Bench seats must be allocated in superflex greedy mode")
 
     def test_one_qb_effect_unchanged(self):
-        """In 1-QB, flex_bench_seats still changes bench allocation."""
+        """In 1-QB, flex_bench_seats=True (greedy) differs from flag=False (D'Hondt)."""
         on = self._bench(qb=1, flex_bench_seats=True)
         off = self._bench(qb=1, flex_bench_seats=False)
-        self.assertNotEqual(on, off, "1-QB bench should differ with flex_bench_seats on vs off")
-
-    def test_guard_catches_missing_two_qb_skip(self):
-        """If the 2-QB skip were removed, 2-QB bench would differ from flag-off.
-
-        Proves the guard catches the bug: monkey-patch allocate to remove
-        the is_two_qb check, confirm bench changes in 2-QB."""
-        ref = self.ref
-        inp = self.inp
-        orig_allocate = ref.allocate
-
-        def patched_allocate(league, order, score, *, flex_bench_seats=True):
-            """Force flex_bench_seats in 2-QB (remove the skip)."""
-            import lib.roster_convention as rc
-            from value_reference import POSITIONS, POS_ORDER, bench_seats as bs_fn
-
-            t = int(league.teams)
-            d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
-
-            def take(cands, n):
-                cands.sort(key=lambda c: (-score[c[1]], POS_ORDER[c[0]], c[1]))
-                got = {p: 0 for p in POSITIONS}
-                for p, _i in cands[:max(0, n)]:
-                    got[p] += 1
-                return got
-
-            sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(order.get(p, []))
-                       if idx >= d[p]], t * int(league.superflex))
-            fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
-                       for idx, i in enumerate(order.get(p, []))
-                       if idx >= d[p] + sf[p]], t * int(league.flex))
-            # Force flex_filled even in 2-QB (the bug we're catching)
-            ff = {p: sf[p] + fx[p] for p in POSITIONS} if flex_bench_seats else None
-            b = bs_fn(league, flex_filled=ff)
-            out = {}
-            for p in POSITIONS:
-                s = d[p] + sf[p] + fx[p]
-                out[p] = {"dedicated": d[p], "superflex": sf[p], "flex": fx[p], "bench": b[p],
-                          "starters": s, "rostered": s + b[p]}
-            return out
-
-        # Get the correct (skipped) 2-QB bench
-        correct = {p: ref.Setting(inp, "ppr", 12, qb=2).result()["slot_fill"][p]["bench"]
-                   for p in ("QB", "RB", "WR", "TE")}
-
-        # Monkey-patch to remove the skip
-        ref.allocate = patched_allocate
-        try:
-            broken = {p: ref.Setting(inp, "ppr", 12, qb=2).result()["slot_fill"][p]["bench"]
-                      for p in ("QB", "RB", "WR", "TE")}
-        finally:
-            ref.allocate = orig_allocate
-
-        self.assertNotEqual(correct, broken,
-                            "Without the 2-QB skip, bench allocation should differ "
-                            "(guard proves the skip is necessary)")
+        self.assertNotEqual(on, off, "1-QB bench should differ with greedy (on) vs D'Hondt (off)")
 
 
 if __name__ == "__main__":

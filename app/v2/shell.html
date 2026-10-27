@@ -3,24 +3,42 @@
   <span class="v2-sr" id="v2OpenHint">Opens player details. Press Enter or Space.</span>
   <header class="v2-nav">
     <div class="v2-nav-inner">
-      <a class="v2-brand" href="v2/#trade-targets">Data Driven Football</a>
       <button type="button" class="v2-nav-toggle" id="v2NavToggle" aria-expanded="false" aria-controls="v2Tabs" aria-label="Menu">
         <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false"><path d="M3 6h18M3 12h18M3 18h18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
       </button>
-      <nav class="v2-tabs" id="v2Tabs" aria-label="Views">
-        <a class="v2-tab" href="v2/#writing" data-view="writing" data-short="Writing"><span class="v2-tab-full">Writing</span></a>
-        <a class="v2-tab" href="v2/#player-values" data-view="values" data-short="Values"><span class="v2-tab-full">Player values</span></a>
-        <a class="v2-tab is-active" href="v2/#trade-targets" data-view="targets" aria-current="page" data-short="Targets"><span class="v2-tab-full">Trade targets</span></a>
-        <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-short="Movers"><span class="v2-tab-full">Risers &amp; fallers</span></a>
-        <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-short="Trade"><span class="v2-tab-full">Compare a trade</span></a>
-        <a class="v2-tab" href="v2/#find-trade" data-view="find" data-short="Find"><span class="v2-tab-full">Find a trade</span></a>
-        <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-short="Waivers"><span class="v2-tab-full">Waivers</span></a>
-        <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-short="Overrides"><span class="v2-tab-full">Overrides</span></a>
-        <a class="v2-tab" href="v2/#values-auditing" data-view="audit" data-short="Audit"><span class="v2-tab-full">Values auditing</span></a>
+      <a class="v2-brand" href="v2/#player-values">Data Driven Football</a>
+      <span class="v2-nav-current" id="v2NavCurrent">Value chart</span>
+      <nav class="v2-tabs" id="v2Tabs" aria-label="Pages">
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG1">
+          <p class="v2-nav-grouphead" id="v2NavG1">Trade</p>
+          <a class="v2-tab" href="v2/#player-values" data-view="values" data-key="values"><span class="v2-tab-full">Value chart</span></a>
+          <a class="v2-tab" href="v2/#compare-trade" data-view="compare" data-key="compare"><span class="v2-tab-full">Compare a trade</span></a>
+          <a class="v2-tab" href="v2/#find-trade" data-view="find" data-key="find"><span class="v2-tab-full">Find a trade: your team</span></a>
+          <a class="v2-tab" href="v2/#find-league" data-view="league" data-key="league"><span class="v2-tab-full">Find a trade: league-wide</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG2">
+          <p class="v2-nav-grouphead" id="v2NavG2">Players</p>
+          <a class="v2-tab" href="v2/#risers-fallers" data-view="risers" data-key="risers"><span class="v2-tab-full">Risers and fallers</span></a>
+          <a class="v2-tab" href="v2/#waivers" data-view="waivers" data-key="waivers"><span class="v2-tab-full">Waivers</span></a>
+          <a class="v2-tab" href="v2/#trade-targets" data-view="targets" data-key="targets"><span class="v2-tab-full">Trade targets</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG3">
+          <p class="v2-nav-grouphead" id="v2NavG3">Auditing</p>
+          <a class="v2-tab" href="v2/#values-auditing/health-check" data-view="audit" data-key="audit/health-check"><span class="v2-tab-full">Value pie</span></a>
+          <a class="v2-tab" href="v2/#values-auditing/single-source" data-view="audit" data-key="audit/single-source"><span class="v2-tab-full">Source build-up</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG4">
+          <p class="v2-nav-grouphead" id="v2NavG4">Our approach</p>
+          <a class="v2-tab" href="v2/#writing/how-values" data-view="writing" data-key="writing/how-values"><span class="v2-tab-full">Methodology</span></a>
+          <a class="v2-tab" href="v2/#writing/research" data-view="writing" data-key="writing/research"><span class="v2-tab-full">Research</span></a>
+          <a class="v2-tab" href="v2/#writing/manifesto" data-view="writing" data-key="writing/manifesto"><span class="v2-tab-full">Manifesto</span></a>
+        </div>
+        <div class="v2-nav-group" role="group" aria-labelledby="v2NavG5">
+          <p class="v2-nav-grouphead" id="v2NavG5">Settings</p>
+          <button type="button" class="v2-tab" data-action="customize" aria-haspopup="dialog"><span class="v2-tab-full">Customize</span></button>
+          <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-key="overrides"><span class="v2-tab-full">Overrides</span></a>
+        </div>
       </nav>
-      <button type="button" class="v2-freshness" id="v2Freshness" aria-haspopup="dialog">
-        <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span>
-      </button>
     </div>
     <div class="v2-topnote" id="v2SeasonNote">
       <div class="v2-topnote-inner">
@@ -34,7 +52,6 @@
           <li>It is designed for season-long value.</li>
           <li>It is not designed for weekly start/sit decisions.</li>
           <li>It is not designed for playoff optimization.</li>
-          <li>The &ldquo;Optimize for playoffs&rdquo; setting has not been reviewed and likely is not working.</li>
           <li>Defenses and kickers are not yet accounted for.</li>
         </ul>
       </div>
@@ -49,24 +66,44 @@
     </nav>
   </div>
 
-  <section class="v2-league" id="v2League" aria-label="League settings">
-    <div class="v2-wrap v2-league-inner">
-      <strong id="v2LeagueName">—</strong>
-      <span class="v2-meta" id="v2RosterLine">—</span>
-      <div class="v2-league-actions">
-        <button type="button" class="v2-btn v2-btn-primary" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
-        <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+  <!-- Context row: compact sticky bar with league summary, value basis, freshness (JEG-1119) -->
+  <div class="v2-context" id="v2Context">
+    <div class="v2-wrap v2-context-inner">
+      <div class="v2-ctx-league">
+        <strong id="v2LeagueName">—</strong>
+        <span class="v2-meta v2-ctx-roster" id="v2RosterLine">—</span>
+      </div>
+      <button type="button" class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague" aria-haspopup="dialog">Edit league</button>
+      <div class="v2-ctx-basis">
+        <b class="v2-sr" id="v2ShowingLabel">On the chart:</b>
+        <span id="v2ShowingText">—</span><span id="v2NamesInfoSlot"></span>
+        <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
+      </div>
+      <button type="button" class="v2-btn v2-btn-sm v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+      <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
+        <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span><span id="v2FreshnessShort" class="v2-freshness-short" aria-hidden="true"></span>
+      </button>
+      <div class="v2-ctx-menuwrap">
+        <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-expanded="false" aria-controls="v2ContextMenu" aria-label="More settings">⋯</button>
+        <!-- JEG-1119: Position weights and Copy / Paste for ChatGPT/Claude live in the overflow menu. -->
+        <div class="v2-ctx-menu" id="v2ContextMenu" hidden>
+          <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+          <div class="v2-assist-actions" id="v2AssistActions">
+            <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
+            <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+          </div>
+        </div>
       </div>
     </div>
-  </section>
-
-  <section class="v2-methods" id="v2Methods" aria-label="Values shown">
-    <div class="v2-wrap v2-methods-row">
-      <p class="v2-showing"><b id="v2ShowingLabel">On the chart:</b> <span id="v2ShowingText">—</span><span id="v2NamesInfoSlot"></span></p>
-      <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
-      <button type="button" class="v2-btn v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+  </div>
+  <div class="v2-wrap v2-assist-panel">
+    <div class="v2-assist-paste" id="v2AssistPaste" hidden>
+      <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
+      <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+      <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
     </div>
-  </section>
+    <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
+  </div>
 
   <div class="v2-wrap v2-state-wrap" id="v2State">
     <section class="v2-card v2-state" data-state="loading" aria-labelledby="v2StateTitle" aria-live="polite">
@@ -86,7 +123,7 @@
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
     <div class="v2-title v2-title-row">
-      <h1>Every value. Your league.</h1>
+      <h1>Value chart</h1>
       <p id="v2ValueLine">Trade values for every player, tuned to your league</p>
     </div>
 
@@ -119,7 +156,7 @@
       <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank by</span>
         <select id="v2RankBy"></select>
       </label>
-      <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Δ Prior week · Off</button>
+      <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Prior week change · Off</button>
       <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
       <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
@@ -131,6 +168,7 @@
     <div class="v2-notice" id="v2Notice" role="status" hidden>
       <p id="v2NoticeText"></p>
       <button type="button" class="v2-btn" id="v2NoticeBtn">Choose sources</button>
+      <button type="button" class="v2-notice-close" id="v2NoticeClose" aria-label="Dismiss">✕</button>
     </div>
 
     <div class="v2-values-grid">
@@ -248,14 +286,14 @@
       </div>
     </div>
 
-    <p class="v2-footnote">DDF Value is our value: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">DDF Value is our value: <span data-basis-ours>the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
 
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
-      <h1 id="v2TargetsTitle">Where the trade market is wrong this week</h1>
+      <h1 id="v2TargetsTitle">Trade targets</h1>
       <p id="v2TIntro">We check the trade charts against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -280,7 +318,7 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">Our value:</span>
+      <label class="v2-field v2-field-rank v2-field-ours"><span class="v2-field-label">DDF Value:</span>
         <select id="v2TOurs"></select>
       </label>
       <div class="v2-tcompare">
@@ -343,13 +381,13 @@
         <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. In between is fairly priced. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
       </details>
     </section>
-    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
     <div class="v2-title">
-      <h1 id="v2RisersTitle">Risers &amp; fallers.</h1>
+      <h1 id="v2RisersTitle">Risers and fallers</h1>
       <p>Value-point changes. One source. Two snapshots.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -396,18 +434,18 @@
     </div>
 
     <section class="v2-disagree" id="v2RDisagree" aria-labelledby="v2RDisagreeTitle">
-      <h2 id="v2RDisagreeTitle">Where the market and the projections disagree</h2><span id="v2RDisagreeInfoSlot"></span>
+      <h2 id="v2RDisagreeTitle">Where DDF Value and the projections disagree</h2><span id="v2RDisagreeInfoSlot"></span>
       <p class="v2-meta" id="v2RDisagreeMeta">One moved and the other did not, so one of the two is wrong.</p>
       <div class="v2-movers">
         <section class="v2-card" aria-labelledby="v2RMktTitle">
-          <h3 id="v2RMktTitle" class="v2-mhead">Market moved, projections didn't</h3>
-          <p class="v2-meta">Trade chart average moved 2.5 points or more; DDF Value moved 1.0 or less</p>
+          <h3 id="v2RMktTitle" class="v2-mhead">DDF Value moved, projections didn't</h3>
+          <p class="v2-meta">DDF Value moved 2.5 points or more; DDF Value (projections) moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RMkt" aria-labelledby="v2RMktTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RMktEmpty" hidden></p>
         </section>
         <section class="v2-card" aria-labelledby="v2RProjTitle">
-          <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, market didn't</h3>
-          <p class="v2-meta">DDF Value moved 2.5 points or more; Trade chart average moved 1.0 or less</p>
+          <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, DDF Value didn't</h3>
+          <p class="v2-meta">DDF Value (projections) moved 2.5 points or more; DDF Value moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RProj" aria-labelledby="v2RProjTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RProjEmpty" hidden></p>
         </section>
@@ -415,14 +453,14 @@
     </section>
 
     <p class="v2-footnote" id="v2RScale"></p>
-    <p class="v2-footnote">Δ = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no Δ and is left out, never shown as zero.</p>
+    <p class="v2-footnote">Change (Δ in the tables) = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no change and is left out, never shown as zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Compare" hidden aria-labelledby="v2CompareTitle">
     <div class="v2-chead">
       <div class="v2-title">
-        <h1 id="v2CompareTitle">Build a better offer.</h1>
+        <h1 id="v2CompareTitle">Compare a trade</h1>
         <p id="v2CSub">See the deal through every selected source.</p>
       <p class="v2-asof" data-page-asof></p>
       </div>
@@ -435,8 +473,8 @@
           <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
         </div>
       </div>
+      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
     </div>
-    <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
 
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
@@ -463,10 +501,6 @@
       </section>
       <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
         <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
-        <div class="v2-cheads" id="v2CHeads" hidden>
-          <p class="v2-chead" data-line="propose"></p>
-          <p class="v2-chead" data-line="accept"></p>
-        </div>
         <div aria-live="polite">
           <h2 id="v2CVerdictTitle">No verdict yet</h2>
           <p id="v2CVerdictText"></p>
@@ -530,8 +564,17 @@
 
   <main class="v2-wrap v2-main" id="v2FindTrade" hidden aria-labelledby="v2FindPageTitle">
     <div class="v2-title">
-      <h1 id="v2FindPageTitle">Find a trade to propose.</h1>
-      <p>Paste in your roster and another manager's, and see the trades they are likely to take. Already have a trade in mind? Check it in Compare a trade.</p>
+      <h1 id="v2FindPageTitle">Find a trade: your team</h1>
+      <p>Paste in your roster and another manager's, and see the trades they are likely to take. Already have a trade in mind? Check it in Compare a trade. Want the best trades across every team in your league? Use <a class="v2-link" href="v2/#find-league">Find a trade: league-wide</a>.</p>
+      <p class="v2-asof" data-page-asof></p>
+    </div>
+    <p class="v2-footnote v2-brandline">Data Driven Football</p>
+  </main>
+
+  <main class="v2-wrap v2-main" id="v2FindLeague" hidden aria-labelledby="v2FindLeagueTitle">
+    <div class="v2-title">
+      <h1 id="v2FindLeagueTitle">Find a trade: league-wide</h1>
+      <p>Paste in every team in your league, mark yours, and see the best trades for your team against all of them. Only have one other manager in mind? Use <a class="v2-link" href="v2/#find-trade">Find a trade: your team</a>.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -539,7 +582,7 @@
 
   <main class="v2-wrap v2-main" id="v2Waivers" hidden aria-labelledby="v2WaiversTitle">
     <div class="v2-title">
-      <h1 id="v2WaiversTitle">Should you pick anyone up?</h1>
+      <h1 id="v2WaiversTitle">Waivers</h1>
       <p>Enter your roster and the top waiver options, as many as you like. See who to pick up and who to drop, from your starting lineup, your bench depth and DDF Value, with the market value beside each.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -548,7 +591,7 @@
 
   <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
     <div class="v2-title">
-      <h1 id="v2HowTitle"><span class="v2-wide">Know what the numbers mean.</span><span class="v2-narrow">Know your values.</span></h1>
+      <h1 id="v2HowTitle">Methodology</h1>
       <p><span class="v2-wide">Three methods. Visible source context. Your league settings.</span><span class="v2-narrow">Three methods. One clear comparison.</span></p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -556,12 +599,12 @@
     <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
       <h2 id="v2HowNamesTitle">Two numbers for every player</h2>
       <ul class="v2-how-primaries">
-        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: <span data-basis-ours>the projection sources ESPN, CBS rest of season and Razzball, averaged for your league</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
+        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: <span data-basis-ours>the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
         <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
       </ul>
       <h3>Where the edge comes from</h3>
       <p>Buy below DDF Value and sell above it. The best deals are the ones where DDF Value says you win and the market says you lose: the manager across the table is trading off the market, so they see a win too.</p>
-      <p class="v2-meta">When DDF Value and the Trade chart average disagree, one of the two is wrong. Risers &amp; fallers lists the players where one moved and the other did not.</p>
+      <p class="v2-meta">When DDF Value and the Trade chart average disagree, one of the two is wrong. When DDF Value and the projections (DDF Value (projections)) disagree, one of those two is wrong. Risers &amp; fallers lists the players where one moved and the other did not.</p>
     </section>
 
     <h2 class="v2-how-sub">The sources behind them</h2>
@@ -611,6 +654,12 @@
       </div>
     </section>
 
+    <section class="v2-card v2-how-logic" aria-labelledby="v2HowLogicTitle">
+      <h2 id="v2HowLogicTitle">The full value logic</h2>
+      <p>Every step from a source's own numbers to a DDF Value, with the engine's own figures for a standard league: the checks, the curves, the weights, each source's recipe, and a player traced through every source. Rebuilt on every deploy.</p>
+      <p class="v2-how-links"><a class="v2-link" href="value-logic/">Open DDF Value Logic</a></p>
+    </section>
+
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
       <h2 id="v2HowRulesTitle">Read the evidence, then make the call.</h2>
       <ul class="v2-how-rules">
@@ -621,7 +670,7 @@
         <li><b>Week changes compare one source.</b> Risers and fallers compare the same source and method across two snapshots.</li>
         <li><b>Label and symbol.</b> Each publisher keeps one color, one symbol and its name everywhere, so color is never the only cue.</li>
       </ul>
-      <p class="v2-how-links"><a class="v2-link" href="v2/#player-values">See every value ↗</a> <a class="v2-link" href="v2/#trade-targets">Find trade targets ↗</a> <a class="v2-link" href="v2/#compare-trade">Compare a trade ↗</a></p>
+      <p class="v2-how-links"><a class="v2-link" href="v2/#player-values">See every value</a> <a class="v2-link" href="v2/#trade-targets">Find trade targets</a> <a class="v2-link" href="v2/#compare-trade">Compare a trade</a></p>
     </section>
 
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -795,7 +844,7 @@
   <!-- JEG-1035 / JEG-1044: the basis and the player overrides. app/v2/overrides.js fills the four mounts. -->
   <main class="v2-wrap v2-main" id="v2Overrides" hidden aria-labelledby="v2OverridesTitle">
     <div class="v2-title">
-      <h1 id="v2OverridesTitle">Overrides.</h1>
+      <h1 id="v2OverridesTitle">Overrides</h1>
       <p>Choose what our value means, then adjust single players. Everything here applies on every tab, right away. Our methodology is the default.</p>
     </div>
     <section class="v2-card v2-ov-card" id="v2OvBasis" aria-labelledby="v2OvBasisTitle"></section>
@@ -826,6 +875,14 @@
       </div>
     </section>
   </main>
+
+  <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it).
+       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy / Paste buttons live in the league strip. -->
+  <footer class="v2-assist" id="v2Assist" aria-label="ChatGPT and Claude">
+    <div class="v2-wrap v2-assist-inner">
+      <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Connect the tool</a></p>
+    </div>
+  </footer>
 
   <div class="v2-status" id="v2Status" role="status" hidden></div>
   <div class="v2-sr" id="v2LeagueLive" role="status" aria-live="polite" aria-atomic="true"></div>

@@ -111,7 +111,7 @@ def check(snap, tag) -> list[str]:
                 errors.append(f"{tag}{name} player {w[0]}: in the wrong list ({g['moved']})")
     if "Week 5 → Week 6" not in snap["meta"] or "like for like" not in snap["meta"] or "compared" not in snap["meta"]:
         errors.append(f"{tag}meta line {snap['meta']!r}")
-    if snap["h2"] != "Where the market and the projections disagree":
+    if snap["h2"] != "Where DDF Value and the projections disagree":   # JEG-1073 name
         errors.append(f"{tag}heading {snap['h2']!r}")
     return errors
 

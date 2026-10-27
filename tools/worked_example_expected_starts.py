@@ -44,13 +44,15 @@ LINEUP = {
     },
 }
 OVERRIDE = 0.10
-# Bench 4 per team gives WR three bench seats over two teams (rostered = 6),
+# Bench 5 per team gives WR four bench seats over two teams (rostered = 7),
 # so the waiver line falls below the depth boundary and a second depth band
-# (ES-3.2) is exercised; n_per_team = 2 (round half to even of 3 / 2);
+# (ES-3.2) is exercised; n_per_team = 2 (floor of 4 / 2);
 # projection confidence 1.5 scales the chart sigma (ES-14).
-# (JEG-879: bench 3 gave WR bench = 2 / rostered = 5 under the current
-# allocation, making starters + teams == rostered and collapsing to 1 band.)
-SETTING_CHANGE = {"bench_per_team": 4}
+# (JEG-879: bench 3 gave WR bench = 2 / rostered = 5 under the old D'Hondt
+# allocation, making starters + teams == rostered and collapsing to 1 band.
+# JEG-1121 revised: bench 4 now gives WR bench = 2 / rostered = 5 under
+# greedy pool fill; bench 5 gives WR bench = 4 / rostered = 7.)
+SETTING_CHANGE = {"bench_per_team": 5}
 
 
 def r6(x):

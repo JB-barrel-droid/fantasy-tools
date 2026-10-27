@@ -242,7 +242,7 @@ TABLE_VS_ENGINE_JS = """() => {
       if (!td) return;  // the Columns menu can hide a group
       cells++;
       const v = row.values[key];
-      const want = !Number.isFinite(v) ? "—" : (v.toFixed(1) === "-0.0" ? "0.0" : v.toFixed(1));  // JEG-912: v2 never prints -0.0
+      const want = !Number.isFinite(v) ? "—" : (v.toFixed(1) === "-0.0" ? "0.0" : v.toFixed(1).replace("-", "\u2212"));  // JEG-912: v2 never prints -0.0; JEG-977: U+2212 minus
       const got = text(td);
       if (got !== want) problems.push(`${row.name} ${key}: table ${got}, engine ${want}`);
     });
@@ -284,6 +284,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
 
     def _table_vs_engine(self, browser, url, v2_body=None):
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.add_init_script(_render_env.pin_data_week_script())
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         if v2_body is not None:
             page.route("**/v2/v2.js*", lambda route: route.fulfill(
@@ -304,9 +305,9 @@ class FrontDoorRenderedTests(unittest.TestCase):
         except Exception as exc:
             raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
         v2_js = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
-        fmt = 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };'
+        fmt = 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };'
         self.assertIn(fmt, v2_js, "mutation anchor for v2's number format is stale")
-        drifted = v2_js.replace(fmt, 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = (v * 1.02).toFixed(1); return text === "-0.0" ? "0.0" : text; };', 1)
+        drifted = v2_js.replace(fmt, 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = (v * 1.02).toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };', 1)
         with _pages_server(DIST) as base, sync_playwright() as playwright:
             browser = self._browser(playwright)
             try:
@@ -336,6 +337,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
             try:
                 def open_page(url):
                     page = browser.new_page(viewport={"width": 1440, "height": 1000})
+                    page.add_init_script(_render_env.pin_data_week_script())
                     errors = []
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -350,17 +352,18 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # Root: the v2 page itself, branded, canonical, no page errors.
                 page, errors, _ = open_page(base)
                 engine_ready(page)
-                # Landing tab is Trade targets (Jeremy, 2026-10-08).
-                page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
+                # Landing page is the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08).
+                page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
                 self.assertEqual([], errors)
-                self.assertTitleNamesRoute("Trade targets", page.title())
+                self.assertTitleNamesRoute("Player values", page.title())
                 self.assertEqual(SITE, page.eval_on_selector('link[rel="canonical"]', "e => e.href"))
                 v2_rows = page.evaluate(ROWS_JS)
                 self.assertGreater(len(v2_rows), 100)
                 # A tab click stays on the root page.
-                page.click('.v2-tab[data-view="values"]')
-                page.wait_for_selector("#v2Main:not([hidden])", timeout=30000)
-                self.assertEqual(base + "#player-values", page.url)
+                page.click("#v2NavToggle")
+                page.click('.v2-tab[data-view="targets"]')
+                page.wait_for_selector("#v2Targets:not([hidden])", timeout=30000)
+                self.assertEqual(base + "#trade-targets", page.url)
                 # Links v2.js builds at runtime as "v2/#view" (the drawer's
                 # "Open Compare a trade") also stay on the root page.
                 page.evaluate("""() => { const a = document.createElement('a');
@@ -374,7 +377,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 page.close()
 
                 # /v2/ and its deep links still work.
-                for url, shown in ((base + "v2/", "#v2Targets"), (base + "v2/#player-values", "#v2Main")):
+                for url, shown in ((base + "v2/", "#v2Main"), (base + "v2/#trade-targets", "#v2Targets")):
                     page, errors, response = open_page(url)
                     self.assertEqual(200, response.status, url)
                     page.wait_for_selector(f"{shown}:not([hidden])", timeout=60000)
@@ -385,12 +388,13 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # /classic/ (JEG-453): retired; old links land on the root page.
                 for url in (base + "classic/", base + "classic/#weightsSection"):
                     page = browser.new_page()
+                    page.add_init_script(_render_env.pin_data_week_script())
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                     response = page.goto(url, wait_until="commit", timeout=60000)
                     self.assertEqual(200, response.status, url)
                     page.wait_for_url(lambda u: u.split("#")[0] == base, timeout=30000)
-                    page.wait_for_selector("#v2Targets:not([hidden])", timeout=60000)
-                    self.assertTitleNamesRoute("Trade targets", page.title())
+                    page.wait_for_selector("#v2Main:not([hidden])", timeout=60000)
+                    self.assertTitleNamesRoute("Player values", page.title())
                     page.close()
 
                 # The engine alone (the build-only engine page, no v2 around

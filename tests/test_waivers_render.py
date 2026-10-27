@@ -284,7 +284,7 @@ def chrome_checks(page, tag) -> list[str]:
       active: document.querySelector('.v2-tab[aria-current=page]') && document.querySelector('.v2-tab[aria-current=page]').dataset.view})""")
     if not t["title"].startswith("Waivers"):
         errors.append(tag + f"title {t['title']!r}")
-    if t["tabs"][-3:] != ["Waivers", "Overrides", "Values auditing"] or t["tabs"].index("Waivers") != 6 or t["active"] != "waivers":
+    if t["tabs"].index("Waivers") != 5 or t["tabs"][4:7] != ["Risers and fallers", "Waivers", "Trade targets"] or t["active"] != "waivers":   # JEG-1106: Waivers sits in the Players group
         errors.append(tag + f"nav {t}")
     return errors
 

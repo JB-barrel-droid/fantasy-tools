@@ -20,7 +20,7 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma`, `esApplyPromotionModel` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma`, `_apply_promotion_model` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. **Promotion/demotion model (JEG-969, on by default since 2026-10-23):** after computing the base ES parts, the lineup share is adjusted for persistent role-change probability — bench players gain a promotion bonus scaled by depth-specific rates and weeks remaining; marginal starters lose a demotion penalty. Rates from `config/promotion_rates.json` (measured from 2015-2025 nflverse actuals). Set `promotion_model=false` / `setting.promotion_model = false` to disable. |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
-| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of **projection** Adjusted values only (JEG-804); Indexed is display only and never feeds DDF. |
+| Rows, DDF Value, Indexed | VP-6 | "VP-6 rows", "VP-6.4 Indexed" | `_rows`, `_ddf`, `_indexed` | DDF Value is the equal-weight mean of the **trade charts'** Adjusted values (JEG-1073, reversing JEG-804); the projections version is the alternate; Indexed is display only and never feeds DDF. |
 | Tiers and ranking | VP-7 | "VP-7 slot fill, tiers, ranking" | `_tiers` | Tier basis is the blended DDF value, with seat counts from the allocation above (`slot_fill`). |
 | Weeks and change since last week | VP-8 | `valuePipelineDiagnostics`, prior-week run | `History`, `history_entry` | Each week's own inputs and weights. |
 
@@ -30,7 +30,7 @@ Checks that the table is true: at b3fc2612 `pipelines/value_check.py compare --s
 
 Live:
 
-- **DDF Value from projections only (JEG-804, merged #814).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended `ddf_value` is the equal-weight mean of the projection sources' Adjusted values (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and value-above-waivers comparison views and in `ddf_value_charts`. Verified in code: `pipelines/value_reference.py` `DDF_FAMILY = {"blended": "projection", "charts": "chart", "projections": "projection"}`. The explainer-text follow-up is JEG-863 (#845 open).
+- **DDF Value from the Adjusted trade charts (JEG-1073, 2026-10-25; reverses JEG-804, merged #814).** Jeremy, 2026-10-25: "Keep adj trade chart avg as the main ddf and projections as an alt. The weight adjustments can be the product and that covers more considerations." The blended `ddf_value` is now the equal-weight mean of the four charts' Adjusted values (FantasyCalc, USA Today, FantasyPros, CBS), not their Indexed values; `ddf_value_projections` (ESPN, CBS rest of season, Razzball) is the alternate; with no chart in `I` DDF Value is unavailable, never a fallback to projections (Jeremy, 2026-10-25); a reader's per-player override replaces `ddf_value` only; Indexed stays display-only scaling and its basis follows the displayed DDF Value (Jeremy, 2026-10-25: "Index is just the scaling"). `DDF_FAMILY = {"blended": "chart", "charts": "chart", "projections": "projection"}`. **The paragraph that follows is the superseded JEG-804 record.** **DDF Value from projections only (JEG-804, merged #814).** Jeremy, 2026-10-22, on JEG-613 Q4: "Out of DDF Value": the blended `ddf_value` is the equal-weight mean of the projection sources' Adjusted values (ESPN, CBS rest of season, Razzball); trade charts stay on the Indexed and value-above-waivers comparison views and in `ddf_value_charts`. Verified in code: `pipelines/value_reference.py` `DDF_FAMILY = {"blended": "projection", "charts": "chart", "projections": "projection"}`. The explainer-text follow-up is JEG-863 (#845 open).
 - **Held-source wording (JEG-787, merged #815).** A red or `promotionHold` source is hidden from DDF Value and the Indexed basis but stays in the pipeline for allocation, weights and the pie (VP-1 "Held sources"); #815 reconciled the "Two Implementations" sentence with that. In v2 one predicate decides held: `heldReason` in `app/v2/v2.js` (engine `excludedReason` starting "held"); a held source is hidden but still counted in the pipeline pool, and the user-facing counts read the blend (JEG-807, JEG-906).
 - **Naming (JEG-861, merged #842).** User-facing copy says "Value above waivers"; "VORP" remains in this document's prose, code identifiers (`vorp`, `PURE_VORP_KEYS`), tests and code comments. Where this document says "VORP vs waivers" it means the view the site labels "Value above waivers". The browser's short method names are `{dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"}` (`SHORT_METHOD`, `app/v2/v2.js`).
 - **Razzball sentinel (JEG-807, merged #816, fidelity not methodology).** The pulse's star-player bands are derived from the other projection sources' half-PPR per-game mean (`SENTINEL_LOW_RATIO` 0.55, `SENTINEL_HIGH_RATIO` 1.50, fixed fallback bands when no other source prices the player). Values are unchanged; only what holds a projection source.
@@ -63,9 +63,9 @@ implementation follows the rule as written.
 - Pipeline order. Each source goes from its native values to implied value
   above waivers (VORP). Every source then uses the same logic (flex, bench
   share, league settings) to get from VORP to Adjusted values. DDF Value is
-  the equal-weight mean of **projection** Adjusted values only (JEG-804,
-  Jeremy Q4, 2026-10-22). Indexed exists only for display and never feeds
-  DDF.
+  the equal-weight mean of the **trade charts'** Adjusted values (JEG-1073,
+  Jeremy, 2026-10-25, reversing JEG-804 of 2026-10-22). Indexed exists only
+  for display and never feeds DDF.
 - "Build the weights at the source level based on VORP and league settings
   and size logic. Then use the average weights at the DDF level; generally
   speaking do as much work as possible at the source level before
@@ -374,12 +374,15 @@ rules, except that only charts are filled in (VP-2.4).
    - A projection that does not list `i`: null, "<label> doesn't project this
      player".
    - `no_players` at `p`: null, "<label> doesn't price <pos>".
-3. **DDF Value, three versions** (JEG-497, JEG-804). Each is one number
+3. **DDF Value, three versions** (JEG-497, JEG-1073). Each is one number
    across every view and tab.
-   - `ddf_value` (blended): the **projections** in `I` (JEG-804, Jeremy
-     Q4 answer 2026-10-22: "Out of DDF Value" for trade charts; DDF Value
-     is the fundamental estimate, charts are market prices).
-   - `ddf_value_charts`: the charts in `I`.
+   - `ddf_value` (blended): the **charts** in `I`, Adjusted values, equal
+     weight (JEG-1073, Jeremy 2026-10-25: "Keep adj trade chart avg as the
+     main ddf and projections as an alt"; this reverses the JEG-804 answer
+     to JEG-613 Q4 of 2026-10-22). No chart in `I`: null, never a fallback
+     to projections.
+   - `ddf_value_charts`: the charts in `I` (equal to `ddf_value` unless a
+     reader basis or override is set).
    - `ddf_value_projections`: the projections in `I`.
 
    **Reader basis (JEG-1044, Jeremy 2026-10-24).** The default is the
@@ -396,9 +399,21 @@ rules, except that only charts are filled in (VP-2.4).
    methodology and says so (`basis.fellBackToDefault`). `ddf_value_charts` and
    `ddf_value_projections` ignore the basis (the projections version stays the
    equal-weight reference). A reader's per-player override is a row-level
-   overlay after the pipeline: it replaces the blended and projections values on
-   that row only and is never an input to any Adjusted value, Indexed factor,
-   pie total or the charts-only version. The basis is the reader's, so the
+   overlay after the pipeline: it replaces the blended value on that row only
+   (JEG-1073: the projections version is a separate alternate and is not
+   overridden) and is never an input to any Adjusted value, Indexed factor,
+   pie total or the charts-only and projections versions. It comes in two kinds
+   (JEG-1058): an absolute value ("worth 58.0") or an adjustment ("+5", "-3")
+   added to the pipeline's own value for that player, clamped to the 0-100
+   value scale; a player no source prices has no pipeline value, so an
+   adjustment is his value. An override that arrives from outside the editor
+   (a share link, an import, a saved record) is put on the same scale: an
+   absolute value above 100 is capped, and an adjustment is capped to the span
+   of the scale, so the value the reader sees is the value that is applied.
+   Everywhere the overridden value shows it carries a
+   badge (JEG-1059) that says what the reader set and what it was before, and
+   the player detail panel shows "Your override: 58.0" above the unchanged
+   source breakdown. The basis is the reader's, so the
    prior week is run on it too.
 
    (Before JEG-1044, "narrowed by the reader's selection": the Customize DDF

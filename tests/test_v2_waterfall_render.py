@@ -22,15 +22,28 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390;
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1279 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; at 1280 DejaVu Sans may squeeze the real nav on CI --
+    GAP-WATERFALL-NAV-1280-SQUEEZE -- so the real-page check stops at 1279;
+    test_wide_font_guard_fails_on_broken_nav serves the old nav rule
+    and a tab row that shrinks before the freshness label, and requires both to be caught,
+    using a baseline-vs-mutation comparison at 1280);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
+  * example fold (JEG-1112): the EXAMPLE state itself, with no trade seeded (it is live data: the same page a new
+    visitor sees), ends with both sides, the verdict card and the totals row under each side at least
+    EXAMPLE_FOLD_MARGIN px above the fold at 1366x768 and 1440x900, in the browser's own fonts and in DejaVu Sans
+    (CI's face); the seeded scenarios below measure a linked trade, whose header is shorter, and missed the
+    27 px overrun the first live view had. test_example_fold_guard_fails_on_the_old_header serves the
+    uncompacted header and requires the check to fail.
 
 Discrimination: test_guard_fails_on_broken_builds serves a per-row scale, the
 verdict following the picker instead of DDF Value, a verdict naming no source, no example,
 the landing drawn on incomplete rows, the 3-column layout removed, and the short-viewport
 wide verdict column removed (JEG-917), and
-requires the checks to fail on each.
+requires the checks to fail on each, and prints one GUARD CAUGHT / NOT CAUGHT line per
+mutation to stderr so the make validate log shows the result (JEG-1056: the short-viewport mutation
+was once not caught because the pinned fixture wraps the same at both column widths).
 """
 from __future__ import annotations
 
@@ -62,6 +75,109 @@ def setUpModule():
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
 TRADE_JS = ROOT / "app" / "v2" / "trade.js"
+
+# JEG-1056: pin values for the test-picked trade so data bakes do not move the column height.
+# PICK selects from the engine rows sorted by ESPN. By seeding the top players with fixed values
+# (small, spread apart, only one source dissenting with DDF Value), the trade PICK produces is always
+# the same shape: short verdict text, short deal card, and short waterfalls that fit 1366x768.
+# Correctness checks still compare DOM against the (seeded) engine, so they remain strong.
+# SEED_VALUES wraps getAllRows/getRows/getPlayer to replace values for players in the top-12 by
+# ESPN with a synthetic fixture, leaving all other players untouched.
+SEED_VALUES = """() => {
+  const C = window.TradeValueCurveControls;
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const rows = C.getAllRows();
+  const byEspn = rows.filter(r => r.values && fin(r.values.espn))
+    .sort((a, b) => b.values.espn - a.values.espn);
+  // Build a per-player patch map for the top 12.
+  // The 13th player's ESPN sets the floor: seeded values start above it so PICK still
+  // selects from the patched pool. Values spread 2 points apart. Other sources are close
+  // to ESPN so the verdict text is short (few dissenters). ddf_value is slightly higher
+  // than ESPN so the net is a small DDF Value win. One source (usatoday) is offset so
+  // SIMULATE_DISSENT finds a natural dissenter.
+  const floor = byEspn.length > 12 ? byEspn[12].values.espn : 10;
+  const patches = {};
+  for (let i = 0; i < Math.min(12, byEspn.length); i++) {
+    const r = byEspn[i];
+    const base = floor + 2 * (12 - i);   // top player gets floor + 24
+    const v = {};
+    for (const k of Object.keys(r.values)) {
+      if (!fin(r.values[k])) continue;
+      // PICK takes [0,5] as give, [2,3] as receive. To produce a DDF Value loss (shorter verdict
+      // and deal card text that fits 1366x768): boost positions 0 and 5 in ddf_value. This makes
+      // give ddf total > recv ddf total, so the verdict says "you lose" (the receiver gives more).
+      const ddfBoost = (i === 0 || i === 5) ? 3 : 0;
+      if (k === 'espn') v[k] = base;
+      else if (k === 'ddf_value') v[k] = base + 1.5 + ddfBoost;
+      else if (k === 'usatoday') v[k] = base + (i < 3 ? 4 : -2);
+      else if (k === 'ddf_value_charts') v[k] = base + 1.5 + ddfBoost;
+      else if (k === 'ddf_value_projections') v[k] = base + 1.0 + ddfBoost;
+      else v[k] = base + 0.5;
+    }
+    patches[String(r.player_key)] = v;
+  }
+  const patchRow = r => {
+    if (!r || !r.values) return r;
+    const key = String(r.player_key);
+    if (!(key in patches)) return r;
+    return {...r, values: {...r.values, ...patches[key]}};
+  };
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(patchRow);
+  }
+  if (C.getPlayer) {
+    const original = C.getPlayer.bind(C);
+    C.getPlayer = (...args) => patchRow(original(...args));
+  }
+  return {patched: Object.keys(patches)};
+}"""
+
+# JEG-1112: a SECOND seeded scenario, beside the one above, that takes the other verdict copy. The automated rebuild
+# b227f453 made the picked trade a DDF Value win that three charts and DDF Value (projections) see the other way, and the
+# win copy for that ("X, Y, Z and W think you lose this trade. A manager who trades off X, Y, Z or W is the likeliest to
+# accept.") names every dissenting source twice: the tallest verdict text, +72.8 px over the lose copy, and the one that put
+# Compare past the 1366x768 fold. Same top-12 patch as SEED_VALUES (PICK gives ranks 0 and 5, receives 2 and 3, whose base
+# values sum alike, so every neutral source nets 0): on the two received players DDF Value is +4 each (win by +8) while the
+# three trade charts and DDF Value (projections) are -4 each (each says "you lose"), so five sources are named, twice each.
+SEED_VALUES_WIN = """() => {
+  const C = window.TradeValueCurveControls;
+  const fin = v => typeof v === 'number' && Number.isFinite(v);
+  const byEspn = C.getAllRows().filter(r => r.values && fin(r.values.espn)).sort((a, b) => b.values.espn - a.values.espn);
+  const floor = byEspn.length > 12 ? byEspn[12].values.espn : 10;
+  const dissent = ['usatoday', 'fantasycalc', 'fantasypros', 'ddf_value_projections'];
+  const patches = {};
+  for (let i = 0; i < Math.min(12, byEspn.length); i++) {
+    const r = byEspn[i];
+    const base = floor + 2 * (12 - i);
+    const received = i === 2 || i === 3;
+    const v = {};
+    for (const k of Object.keys(r.values)) {
+      if (!fin(r.values[k])) continue;
+      if (received && (k === 'ddf_value' || k === 'ddf_value_charts')) v[k] = base + 4;
+      else if (received && dissent.includes(k)) v[k] = base - 4;
+      else v[k] = base;
+    }
+    patches[String(r.player_key)] = v;
+  }
+  const patchRow = r => (!r || !r.values || !(String(r.player_key) in patches)) ? r
+    : {...r, values: {...r.values, ...patches[String(r.player_key)]}};
+  for (const name of ['getAllRows', 'getRows']) {
+    const original = C[name].bind(C);
+    C[name] = (...args) => original(...args).map(patchRow);
+  }
+  if (C.getPlayer) {
+    const original = C.getPlayer.bind(C);
+    C.getPlayer = (...args) => patchRow(original(...args));
+  }
+  return {patched: Object.keys(patches)};
+}"""
+
+# The verdict branch each seeded scenario must take (JEG-1112), so a change to the seeds cannot silently swap the copy.
+SCENARIO_BRANCH = {True: "lose", "win": "win"}
+# The win copy in v2.js (JEG-541), which the copy mutations below rewrite; stale if the line moves.
+WIN_AGAINST_COPY = ("text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade. "
+                    "A manager who trades off ${listSeries(v.againstKeys, \"or\")} is the likeliest to accept.`;")
 
 PICK = """() => {
   const C = window.TradeValueCurveControls;
@@ -168,7 +284,7 @@ READ = """() => {
       receive: document.querySelector('[data-trade-side="receive"]').getBoundingClientRect().toJSON(),
       verdict: box('v2CVerdict'), verdictFall: box('v2CVerdictFall'),
       table: document.getElementById('v2CTable').closest('.v2-card').getBoundingClientRect().toJSON()},
-    innerHeight, overflow: document.documentElement.scrollWidth - innerWidth};
+    innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 
 
@@ -239,7 +355,7 @@ def check_waterfalls(snap, pick, expect_missing=False) -> list[str]:
     return errors
 
 
-def check_verdict(snap, pick) -> list[str]:
+def check_verdict(snap, pick, branch=None) -> list[str]:
     engine = snap["engine"]
     names = {r["key"]: r["wf"]["name"] for r in snap["rows"] if r["wf"]}
     # JEG-467: DDF Value decides whenever it is a row; only without it does the picked series decide.
@@ -265,6 +381,20 @@ def check_verdict(snap, pick) -> list[str]:
     missing = [n for n in against if n not in text]
     if missing:
         errors.append(f"verdict does not name the sources that see it the other way {missing}: {text!r}")
+    if branch:
+        # JEG-1112: each seeded scenario must take its own copy branch, with a dissenting source, so the fold is measured
+        # on the short "lose" copy and on the long "win with dissenting sources" copy (each source named twice).
+        if s != {"win": 1, "lose": -1}[branch]:
+            errors.append(f"the {branch!r} scenario no longer takes the {branch} branch: DDF Value net {fmt_net(nets[key])}; "
+                          "fix its seeds (JEG-1112)")
+        elif not against:
+            errors.append(f"the {branch!r} scenario has no dissenting source, so its dissent copy went unchecked")
+        else:
+            marker = {"win": " you lose this trade. A manager who trades off ", "lose": " you win, but "}[branch]
+            if marker not in text:
+                errors.append(f"the {branch} verdict does not use the dissent copy ({marker.strip()!r}): {text!r}")
+            if branch == "win" and any(text.count(n) < 2 for n in against):
+                errors.append(f"the win verdict does not name every dissenting source twice {against}: {text!r}")
     if snap["verdictFall"] is None:
         errors.append("verdict card has no waterfall")
     else:
@@ -272,6 +402,9 @@ def check_verdict(snap, pick) -> list[str]:
         if snap["verdictFall"]["steps"] != row["steps"] or snap["verdictFall"]["land"] != row["land"]:
             errors.append(f"verdict card waterfall is not {key}'s own: {snap['verdictFall']['name']!r}")
     return errors
+
+
+SHORT_VIEWPORT_MIN_VERDICT_WIDTH = 600
 
 
 def check_layout(snap) -> list[str]:
@@ -283,6 +416,15 @@ def check_layout(snap) -> list[str]:
             errors.append(f"{name} not fully on screen at height {h}: {box}")
     if b.get("verdict") and b["verdict"]["top"] > b["give"]["bottom"]:
         errors.append("verdict is below the sides, not beside them")
+    # JEG-917/JEG-1056: on a short desktop viewport the verdict column is the wide one (minmax(420px, 2.2fr),
+    # 649 px at 1366). The fold check above cannot see its loss with the pinned fixture, whose verdict text wraps
+    # the same at 551 px (the 1.6fr column of the plain >= 1280 rule) as at 649 px, so pin the width itself.
+    # 600 sits between the two. Measured on Linux Chromium 2026-10-25: clean 649.5, rule removed 551.1.
+    verdict = b.get("verdict")
+    if snap.get("innerWidth", 0) >= 1280 and h <= 800 and verdict:
+        width = verdict["right"] - verdict["left"]
+        if width < SHORT_VIEWPORT_MIN_VERDICT_WIDTH:
+            errors.append(f"verdict column is {width:.0f}px wide at {snap['innerWidth']}x{h}; the short-viewport rule needs >= {SHORT_VIEWPORT_MIN_VERDICT_WIDTH}px (JEG-917)")
     if b["table"]["top"] < b["give"]["bottom"] or b["table"]["top"] - max(b["give"]["bottom"], b["verdict"]["bottom"] if b.get("verdict") else 0) > 40:
         errors.append(f"per-source table does not start directly below the trade: {b['table']}")
     return errors
@@ -314,7 +456,7 @@ def _built_dist():
                 server.shutdown()
 
 
-def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900), (390, 844))) -> list[str]:
+def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900), (390, 844)), seed=False) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -328,8 +470,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
             for width, height in viewports:
-                tag = f"[{width}x{height}] "
+                tag = f"[{width}x{height}{' win' if seed == 'win' else ''}] "
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -348,6 +491,12 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                     errors.append(tag + f"example leaked into the address: {ex['hash']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
+                # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
+                # column height is stable across data bakes and fits 1366x768.
+                if seed:
+                    seeded = page.evaluate(SEED_VALUES_WIN if seed == "win" else SEED_VALUES)
+                    if not seeded or not seeded.get("patched"):
+                        errors.append(tag + "seed fixture failed to apply")
                 # A 2-for-2 from a link, with a verdict series that is not the ranking series. Show every
                 # available trade-value series so the verdict has sources that can disagree with it.
                 # Only add sources the engine reports as available; held sources have no values.
@@ -377,14 +526,19 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.wait_for_function("() => !document.getElementById('v2CTable').hidden")
                 options = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
                 current = page.evaluate("() => document.getElementById('v2CShown').value")
-                other = next((k for k in options if k != current and not k.endswith("_vorp")), None)
+                # ddf_value_charts is the same numbers under the same name as ddf_value since JEG-1073, so a verdict that
+                # wrongly follows the picker would be invisible on it; pick a series with its own name and values.
+                other = next((k for k in options if k not in (current, "ddf_value", "ddf_value_charts") and not k.endswith("_vorp")), None)
                 if other:
                     page.select_option("#v2CShown", other)
                 page.evaluate("() => window.scrollTo(0, 0)")
                 page.wait_for_timeout(150)
                 snap = page.evaluate(READ)
                 errors += [tag + e for e in check_waterfalls(snap, pick)]
-                errors += [tag + e for e in check_verdict(snap, pick)]
+                errors += [tag + e for e in check_verdict(snap, pick, branch=SCENARIO_BRANCH.get(seed))]
+                # Printed so a log shows the fold numbers (JEG-1112): the verdict card's bottom edge against the fold.
+                vb = (snap["boxes"].get("verdict") or {}).get("bottom")
+                print(f"FOLD {tag}verdict bottom {vb} of {snap['innerHeight']}", file=sys.stderr, flush=True)
                 if width >= 1280:
                     errors += [tag + e for e in check_layout(snap)]
                 if snap["overflow"] > 0:
@@ -405,9 +559,197 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
     return errors
 
 
+WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
+
+
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
+    """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
+    when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    out = {}
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width in widths:
+                page = browser.new_page(viewport={"width": width, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
+                # JEG-1106: the tab row is now a menu opened by a button, so there is no row to squeeze. What
+                # matters at these widths is the bar stays one row and the open menu neither widens the page nor
+                # pushes the content down.
+                page.click("#v2NavToggle")
+                out[width] = page.evaluate("""() => { const r = document.querySelector('.v2-nav-inner').getBoundingClientRect();
+                  const f = document.getElementById('v2Freshness').getBoundingClientRect();
+                  return {overflow: document.documentElement.scrollWidth - innerWidth, barH: r.height, freshRight: f.right, vw: innerWidth}; }""")
+                page.close()
+        finally:
+            browser.close()
+    return out
+
+
+def check_wide_font(result: dict) -> list[str]:
+    """No sideways page scroll at any width, and (JEG-1106, replacing the old tab-row squeeze check that measured a row
+    that no longer exists) a bar that stays one row, with the freshness button on screen, while the menu is open."""
+    errors = [f"[{w}] horizontal overflow {r['overflow']}px in DejaVu Sans" for w, r in result.items() if r["overflow"] > 0]
+    errors += [f"[{w}] top bar is {r['barH']:.0f}px tall with the menu open (want one row, under 80px)" for w, r in result.items() if r["barH"] >= 80]
+    errors += [f"[{w}] freshness button runs off screen ({r['freshRight']:.0f} of {r['vw']}px)" for w, r in result.items() if r["freshRight"] > r["vw"] + 0.5]
+    return errors
+
+
+# JEG-1106 mutation of the menu rule: the menu opens in the bar (in flow) instead of as a panel under it.
+NAV_RULE = "position: absolute; z-index: 50; left: 48px;"
+
+
+# JEG-1112: the example state is what a new visitor sees, on live data (no seeding), so it is held to the fold with a stated
+# margin rather than exactly: a data bake that adds a line of verdict text (about 18 px) must not clip the totals unnoticed.
+# Measured 2026-10-26 on Linux Chromium: header compacted, 1366x768 bottoms 739.5 (DejaVu Sans) / 740.1 (Inter), a margin of
+# 28 px; the old header 794.2 / 794.9, 26-27 px past the fold.
+EXAMPLE_FOLD_MARGIN = 12
+EXAMPLE_READ = """() => {
+  const box = n => { if (!n || n.hidden || !n.getClientRects().length) return null; const b = n.getBoundingClientRect(); return {top: b.top, bottom: b.bottom, width: b.width, height: b.height}; };
+  const q = s => box(document.querySelector(s));
+  const ex = document.getElementById('v2CExample');
+  return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
+    give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
+    boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), useExample: q('#v2CUseExample'), picker: q('#v2CShown')},
+    innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
+}"""
+EXAMPLE_FOLD_VIEWPORTS = ((1366, 768), (1440, 900))
+EXAMPLE_PHONE_VIEWPORTS = ((390, 844), (360, 740), (320, 640))
+
+
+def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS + EXAMPLE_PHONE_VIEWPORTS) -> dict:
+    """The Compare example view per viewport: boxes of the sides, the verdict, the totals and the Use this example button."""
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except Exception as exc:
+        raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+    out = {}
+    with _built_dist() as base, sync_playwright() as playwright:
+        try:
+            browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
+        except PlaywrightError as exc:
+            raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+        try:
+            for width, height in viewports:
+                page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
+                page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                for name, (body, ctype) in (overrides or {}).items():
+                    page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                page.goto(base + "#compare-trade", wait_until="networkidle")
+                page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
+                if font_css:
+                    page.add_style_tag(content=font_css)
+                page.wait_for_timeout(300)
+                out[(width, height)] = page.evaluate(EXAMPLE_READ)
+                page.close()
+        finally:
+            browser.close()
+    return out
+
+
+def check_example_state(result: dict) -> list[str]:
+    errors = []
+    for (width, height), snap in result.items():
+        tag = f"[{width}x{height}] "
+        b = snap["boxes"]
+        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2 or "give=" in snap["hash"]:
+            errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
+            continue
+        if snap["overflow"] > 0:
+            errors.append(tag + f"horizontal overflow {snap['overflow']}px")
+        button = b.get("useExample")
+        if not button or button["height"] < 44 or button["width"] < 44:
+            errors.append(tag + f"'Use this example' is missing or under 44 px: {button}")
+        if not b.get("picker"):
+            errors.append(tag + "the 'Player values shown' picker is not reachable")
+        if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
+            limit = height - EXAMPLE_FOLD_MARGIN
+            for name in ("give", "receive", "verdict", "giveTotal", "receiveTotal"):
+                box = b.get(name)
+                if not box:
+                    errors.append(tag + f"{name} is not drawn in the example state")
+                elif box["bottom"] > limit:
+                    errors.append(f"{tag}example {name} ends at {box['bottom']:.1f}, past {limit} ({height} fold less a {EXAMPLE_FOLD_MARGIN} px margin)")
+    return errors
+
+
+# The compacted header's grid, served away: Compare's header and Example banner fall back to the four-line stack.
+HEADER_GRID = re.compile(r"@media \(min-width: 1280px\) \{\n  #v2Compare \.v2-chead \{ display: grid;.*?\n\}\n", re.S)
+
+
+# JEG-1106 mutations (NAV_RULE above): the menu panel must not open in the bar's own row.
+NAV_MUTATIONS = {
+    "menu opens in the bar": "position: static; z-index: 50; left: 48px;",
+}
+
+
 class WaterfallRenderTest(unittest.TestCase):
+    def test_no_sideways_scroll_with_a_wide_fallback_font(self):
+        """JEG-1056: CI draws the page in DejaVu Sans (no Inter); the non-shrinking 872 px tab row pushed the page
+        113/37/48 px sideways at 1024/1100/1280."""
+        result = wide_font_overflow(V2_CSS.read_text(encoding="utf-8"))
+        print("WIDE FONT", result, file=sys.stderr, flush=True)
+        self.assertEqual(check_wide_font(result), [])
+
+    def test_wide_font_guard_fails_on_broken_nav(self):
+        css = V2_CSS.read_text(encoding="utf-8")
+        self.assertEqual(css.count(NAV_RULE), 1, "JEG-1106 nav menu rule anchor is stale")
+        for name, rule in NAV_MUTATIONS.items():
+            with self.subTest(name):
+                errors = check_wide_font(wide_font_overflow(css.replace(NAV_RULE, rule)))
+                print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {name} ({errors[0] if errors else '-'})", file=sys.stderr, flush=True)
+                self.assertNotEqual(errors, [], f"wide-font check did not catch: {name}")
+
     def test_waterfall_verdict_layout_example(self):
-        self.assertEqual(run_checks(), [])
+        self.assertEqual(run_checks(seed=True), [])
+
+    def test_waterfall_verdict_layout_win_with_dissent(self):
+        """JEG-1112: the same checks on the long "win with dissenting sources" copy, at 1366x768 and 1440x900 too."""
+        self.assertEqual(run_checks(seed="win"), [])
+
+    def test_example_state_fits_the_fold(self):
+        """JEG-1112: the first view a new visitor sees (the Example, nothing seeded) ends above the fold at 1366x768 and
+        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Use this example
+        button and no sideways scroll."""
+        errors = []
+        for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
+            result = example_state(font_css=font_css)
+            for (width, height), snap in result.items():
+                b = snap["boxes"]
+                r = lambda k: b[k] and round(b[k]["bottom"], 1)  # noqa: E731
+                print(f"EXAMPLE FOLD [{label}] {width}x{height} give {r('give')} receive {r('receive')} verdict {r('verdict')} "
+                      f"totals {r('giveTotal')}/{r('receiveTotal')}", file=sys.stderr, flush=True)
+            errors += [f"{label} {e}" for e in check_example_state(result)]
+        self.assertEqual(errors, [])
+
+    def test_example_fold_guard_fails_on_the_old_header(self):
+        css = V2_CSS.read_text(encoding="utf-8")
+        old_header = HEADER_GRID.sub("", css)
+        self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
+        self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
+        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
+        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
+        # back, so it still proves the fold check catches the old header's extra 55 px.
+        old_header += "\n#v2Compare { padding-top: 75px; }\n"
+        for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
+            errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
+            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+                  file=sys.stderr, flush=True)
+            self.assertTrue(any("1366x768" in e and "past" in e for e in errors), f"the old header was not caught at 1366x768 in {label}: {errors}")
 
     def test_guard_fails_on_broken_builds(self):
         v2 = V2_JS.read_text(encoding="utf-8")
@@ -420,11 +762,18 @@ class WaterfallRenderTest(unittest.TestCase):
                 "renderWaterfall(bar, fall, window.TradeValueTrade.waterfallScale([fall]));", 1), js)},
             "verdict not DDF": {"v2.js": (v2.replace(
                 "verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;", "verdictSeries = TR.shown;", 1), js)},
+            # JEG-1112: the win copy names the dissenting sources twice (first sentence, then "A manager who trades off ...");
+            # removing only the first sentence's names left the second naming them, so the mutation went uncaught on a win.
+            # Both sentences and the lose copy lose their names here, and it must be caught in EACH seeded scenario.
             "verdict names no source": {"v2.js": (v2.replace(
-                "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.",
-                "text = `Some sources think you lose this trade.", 1).replace(
+                WIN_AGAINST_COPY,
+                "text = `Some sources think you lose this trade. A manager who trades off some sources is the likeliest to accept.`;", 1).replace(
                 "? `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you win, but",
                 "? `Some sources think you win, but", 1), js)},
+            # The second sentence alone: the long copy must keep naming the sources there (win scenario only).
+            "win verdict drops its second sentence": {"v2.js": (v2.replace(
+                WIN_AGAINST_COPY,
+                "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
             "no example": {"v2.js": (v2.replace(
                 "verdictKey() ? exampleTrade(pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
@@ -441,12 +790,25 @@ class WaterfallRenderTest(unittest.TestCase):
         # With the SIMULATE_GAP fixture, a gap player is always available, so every
         # mutation is expected to be caught.
         sources = {"v2.js": v2, "v2.css": css, "trade.js": trade}
+        # JEG-1056: only an error the clean build does not already have counts as a catch. When the clean build fails
+        # (the 45 px inputs strip pushed Compare past the 1366x768 fold), every mutation looked caught by that error.
+        # Numbers are masked so a mutation that only moves an already-failing box does not count as a new error.
+        shape = lambda e: re.sub(r"-?\d+(\.\d+)?", "#", e)  # noqa: E731
+        baselines = {sc: {shape(e) for e in run_checks(viewports=((1366, 768),), seed=sc)} for sc in (True, "win")}
+        # JEG-1112: the copy mutations are caught in EACH seeded scenario (a catch in the other branch is not a catch);
+        # every other mutation changes layout or structure for both, so the lose scenario alone is enough.
+        scenarios = {"verdict names no source": (True, "win"), "win verdict drops its second sentence": ("win",)}
         for name, overrides in broken.items():
-            with self.subTest(mutation=name):
-                for file, (body, _) in overrides.items():
-                    self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
-                errors = run_checks(overrides, viewports=((1366, 768),))
-                self.assertNotEqual(errors, [], f"render checks did not catch: {name}")
+            for file, (body, _) in overrides.items():
+                self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
+            for sc in scenarios.get(name, (True,)):
+                label = f"{name} [{'win' if sc == 'win' else 'lose'}]" if name in scenarios else name
+                with self.subTest(mutation=label):
+                    errors = [e for e in run_checks(overrides, viewports=((1366, 768),), seed=sc) if shape(e) not in baselines[sc]]
+                    # Printed so the blocking `make validate` log shows each guard result, caught or not (JEG-1056).
+                    print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: {label} ({len(errors)} new errors; first: {errors[0] if errors else '-'})",
+                          file=sys.stderr, flush=True)
+                    self.assertNotEqual(errors, [], f"render checks did not catch: {label}")
 
 
 if __name__ == "__main__":

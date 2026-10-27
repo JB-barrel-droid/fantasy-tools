@@ -147,10 +147,13 @@
   try { state.source = localStorage.getItem("ddf.v2.audit.source"); } catch (e) { /* storage may be blocked */ }
   if (!SOURCES.some(x => x.key === state.source)) state.source = SOURCES[0].key;
 
+  // One minus sign (U+2212) and one zero ("0.0", never "-0.0").
+  function minus(text) { return /^-0(\.0+)?$/.test(text) ? text.slice(1) : text.replace("-", "−"); }
+
   function fmtValue(v, stage, family) {
     if (v === null) return "—";
-    if (stage === "published") return family === "projection" ? v.toFixed(2) : (Number.isInteger(v) ? v.toLocaleString("en-US") : v.toFixed(1));
-    return v.toFixed(1);
+    if (stage === "published") return family === "projection" ? minus(v.toFixed(2)) : (Number.isInteger(v) ? v.toLocaleString("en-US") : minus(v.toFixed(1)));
+    return minus(v.toFixed(1));
   }
   const fullPrecision = v => (v === null ? "" : String(v));
 
@@ -376,7 +379,7 @@
       if (model.stages.indexed.exists) {
         const diff = r.adjusted !== null && r.indexed !== null ? r.adjusted - r.indexed : null;
         tr.append(h("td", {class: `as-num as-val${diff === null ? " as-missing" : ""}`, "data-col": "change", "data-value": fullPrecision(diff),
-          text: diff === null ? "—" : `${diff > 0 ? "+" : ""}${diff.toFixed(1)}`}));
+          text: diff === null ? "—" : Math.abs(diff) < 0.05 ? "0.0" : `${diff > 0 ? "+" : "−"}${Math.abs(diff).toFixed(1)}`}));
       }
       tbody.append(tr);
     });

@@ -1,7 +1,12 @@
 """Phone hamburger navigation guard (JEG-953; Jeremy, 2026-10-23, decision C2).
 
+JEG-1106 (Jeremy, 2026-10-25): desktop uses the same button and menu, now grouped (Trade, Players, Auditing, Our approach,
+Settings) with 14 entries. This file keeps the phone checks (the menu opens in the bar, full width) and checks the wider
+screens only for what they share: the button shows, the menu starts closed and the page does not scroll sideways. The
+desktop panel, keys and deep links are in test_v2_desktop_menu_render.py. The text below is the original JEG-953 note.
+
 Below the phone breakpoint (under 768 px wide, or a landscape phone up to 932 x 500) the top nav collapses to a
-44 x 44 button; the menu lists all nine tabs (Waivers added 2026-10-24, JEG-1022; Overrides, JEG-1035), marks the active one, and closes on selection, Escape (focus returns
+44 x 44 button; the menu lists all ten tabs (the finder split in two, JEG-1094) (Waivers added 2026-10-24, JEG-1022; Overrides, JEG-1035), marks the active one, and closes on selection, Escape (focus returns
 to the button) and a tap outside. 768 px and wider keep the tab row, unchanged.
 
 Discrimination (test_guard_fails_on_broken_builds): each break below must make the check fail:
@@ -24,7 +29,7 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 JS = ROOT / "app" / "v2" / "v2.js"
 PHONES = ((320, 568), (360, 740), (390, 844), (844, 390))
 WIDE = ((768, 1024), (1366, 768))
-LABELS = ["Writing", "Player values", "Trade targets", "Risers & fallers", "Compare a trade", "Find a trade", "Waivers", "Overrides", "Values auditing"]
+LABELS = ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", "Research", "Manifesto", "Customize", "Overrides"]
 
 
 def setUpModule():
@@ -103,13 +108,13 @@ def run_checks(css=None, js=None) -> list[str]:
                 if s["short"]:
                     errors.append(f"{tag}: {s['short']} menu items under 44 px tall")
                 if s["current"] != ["targets"]:
-                    errors.append(f"{tag}: active tab marked {s['current']}, want ['targets']")
+                    errors.append(f"{tag}: active tab marked {s['current']}, want ['targets']")   # the page opens on #trade-targets
                 # Select.
                 page.click('.v2-tab[data-view="values"]')
                 page.wait_for_timeout(200)
                 s = page.evaluate(STATE)
                 if s["hash"] != "#player-values" or s["current"] != ["values"]:
-                    errors.append(f"{tag}: selecting Player values gave hash {s['hash']!r}, current {s['current']}")
+                    errors.append(f"{tag}: selecting Value chart gave hash {s['hash']!r}, current {s['current']}")
                 if s["expanded"] != "false" or s["tabsShown"]:
                     errors.append(f"{tag}: menu stayed open after selection")
                 # Escape returns focus to the button.
@@ -131,10 +136,10 @@ def run_checks(css=None, js=None) -> list[str]:
                 tag = f"{size[0]}x{size[1]}"
                 page = _open_page(browser, base, size, css, js)
                 s = page.evaluate(STATE)
-                if s["toggleShown"]:
-                    errors.append(f"{tag}: hamburger shown on a non-phone width")
-                if s["tabsShown"] != len(LABELS) or s["labels"] != LABELS:
-                    errors.append(f"{tag}: desktop tab row shows {s['tabsShown']} tabs {s['labels']}")
+                if not s["toggleShown"]:
+                    errors.append(f"{tag}: hamburger missing on a wide screen")
+                if s["tabsShown"] or s["labels"] != LABELS:
+                    errors.append(f"{tag}: wide-screen menu should start closed with {len(LABELS)} entries; shows {s['tabsShown']}, labels {s['labels']}")
                 if s["over"] > 0:
                     errors.append(f"{tag}: page scrolls sideways by {s['over']}")
                 page.close()
@@ -154,11 +159,11 @@ class HamburgerNavRenderTest(unittest.TestCase):
         self.assertTrue(block, "stale mutation anchor (css block)")
         cases = {
             "no hamburger block": (css.replace(block.group(0), ""), None, "hamburger not shown"),
-            "toggle leaks onto desktop": (css.replace(".v2-nav-toggle { display: none; }\n", ""), None, "hamburger shown on a non-phone"),
+            "menu leaks open on desktop": (css.replace("  .v2-nav .v2-tabs { display: none; position: absolute;", "  .v2-nav .v2-tabs { display: grid; position: absolute;"), None, "should start closed"),
             "menu widens the page": (css.replace("flex: 1 0 100%; display: none;", "flex: 1 0 600px; display: none;"), None, "overflows"),
             "no Escape": (None, js.replace('if (event.key === "Escape" && header.classList.contains("is-open")) setNav(false, true);', ""), "Escape did not close"),
             "no outside tap": (None, js.replace('if (header.classList.contains("is-open") && !header.contains(event.target)) setNav(false, false);', ""), "outside tap did not close"),
-            "no close on selection": (None, js.replace('if (event.target.closest(".v2-tab") && header.classList.contains("is-open")) setNav(false, false);', "").replace('window.addEventListener("hashchange", () => { if (header.classList.contains("is-open")) setNav(false, false); });', ""), "stayed open after selection"),
+            "no close on selection": (None, js.replace('if (item && header.classList.contains("is-open")) setNav(false, false);', "").replace('window.addEventListener("hashchange", () => { if (header.classList.contains("is-open")) setNav(false, false); });', ""), "stayed open after selection"),
         }
         for name, (c, j, want) in cases.items():
             if c is not None:

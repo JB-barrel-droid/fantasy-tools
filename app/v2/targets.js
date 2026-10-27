@@ -38,11 +38,11 @@
   const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"].concat(CHART_KEYS);
   const OUR_KEY = OUR_KEYS[0];   // default: DDF Value
   const DDF_VALUE_KEY = "ddf_value";
-  // JEG-863: the names say what each is (DDF Value = projections only after JEG-804; ddf_value_projections is the same
-  // series and is hidden from the picker by v2.js).
-  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections",
+  // JEG-863 / JEG-1073: the names say what each is (DDF Value = the Adjusted trade charts; ddf_value_charts is the same
+  // series and is hidden from the picker by v2.js; ddf_value_projections is the alternate).
+  const OUR_NAMES = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value", ddf_value_projections: "DDF Value (projections)", espn: "ESPN projections", cbsros: "CBS rest-of-season projections", razzball: "Razzball projections",
     usatoday: "USA Today trade chart", fantasycalc: "FantasyCalc trade chart", fantasypros: "FantasyPros trade chart", cbs: "CBS Sports trade chart"};
-  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "Trade chart average", ddf_value_projections: "DDF Value", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections",
+  const OUR_SHORT = {ddf_value: "DDF Value", ddf_value_charts: "DDF Value", ddf_value_projections: "DDF Value (projections)", espn: "ESPN projections", cbsros: "CBS rest of season", razzball: "Razzball projections",
     usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "FantasyPros", cbs: "CBS Sports"};
 
   const finite = value => typeof value === "number" && Number.isFinite(value);

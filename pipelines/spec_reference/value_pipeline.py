@@ -36,6 +36,7 @@ if str(_REPO / "pipelines" / "lib") not in sys.path:
 from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
+    vorp_bench_allocate as _vorp_bench,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -51,6 +52,9 @@ PIE_PER_STARTING_SLOT = 28.0
 
 PROJECTION = "projection"
 CHART = "chart"
+# JEG-1058: the fixed-pie scale a reader override lives on (spec 3.6).
+OVERRIDE_MIN = 0.0
+OVERRIDE_MAX = 100.0
 
 
 @dataclass
@@ -181,11 +185,25 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
-    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
-    bench = dhondt_bench(setting, flex_filled=ff)
+    if flex_bench_seats:
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / T for p in POSITIONS})
+        bench = _vorp_bench(
+            _starters, _remaining, scores,
+            T, T * setting.bench_per_team,
+            {p: int(setting.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
+    else:
+        # D'Hondt bench (backward compat).
+        is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / T for p in POSITIONS} if use_flex else None
+        bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -347,7 +365,8 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
             n_listed = sum(1 for k in shared if pos_of.get(k) == p)
             ded = setting.teams * int(setting.slots.get(p, 0))
             avail = max(0, n_listed - ded)
-            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+            # JEG-1121: sf_total/fx_total/avail are league-wide; normalize to per-team.
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail) / setting.teams
     bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:
@@ -730,21 +749,74 @@ def ddf_version(values: dict, members: list, weights: dict | None = None) -> dic
     return out
 
 
+def _override_number(value):
+    """JEG-1058: a number or a numeric string, the same set the JS engine's
+    normalizeOverride accepts. None when the value cannot be a number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if math.isfinite(value) else None
+    if isinstance(value, str):
+        if value == "":
+            return None
+        try:
+            text = float(value)
+        except ValueError:
+            return None
+        return text if math.isfinite(text) else None
+    return None
+
+
+def _override_spec(override) -> dict | None:
+    """JEG-1058: what the reader set, as one record: {"type": "absolute",
+    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used.
+    A value past the top of the scale is capped and an adjustment is capped to
+    the scale's span, so an override from outside the editor lands on the same
+    numbers the editor shows."""
+    if override is None or isinstance(override, bool):
+        return None
+    if isinstance(override, (int, float, str)):
+        value = _override_number(override)
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    if isinstance(override, dict):
+        if override.get("type") == "adjustment":
+            delta = _override_number(override.get("delta"))
+            if delta is None:
+                return None
+            return {"type": "adjustment", "delta": min(OVERRIDE_MAX, max(-OVERRIDE_MAX, delta))}
+        value = _override_number(override.get("value"))
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    return None
+
+
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
-    """JEG-1035 / JEG-1044: the reader's per-player DDF Value overrides, a
-    row-level overlay applied after the pipeline. It replaces the blended and
-    projections DDF values only; Adjusted values, Indexed values, the pie and
-    the charts-only version are never touched. Absolute values."""
+    """JEG-1035 / JEG-1044 / JEG-1058: the reader's per-player DDF Value
+    overrides, a row-level overlay applied after the pipeline. It replaces the
+    blended DDF value only (JEG-1073: the projections version is a separate
+    alternate); Adjusted values, Indexed values, the pie and the charts-only and
+    projections versions are never touched. An override is an absolute value or
+    an adjustment to the pipeline's own value, clamped to the fixed-pie scale."""
     for k, row in rows.items():
         ov = overrides.get(k)
-        for field_ in ("ddf_blended", "ddf_projections"):
+        for field_ in ("ddf_blended",):
             entry = row[field_]
             entry["pipeline_value"] = entry["value"]
-            entry["overridden"] = ov is not None
-            if ov is not None:
-                entry["value"] = float(ov)
-                entry["low_confidence"] = False
-                entry.pop("reason", None)
+            spec = _override_spec(ov)
+            entry["overridden"] = spec is not None
+            if spec is None:
+                continue
+            if spec["type"] == "adjustment":
+                base = entry["pipeline_value"]
+                base = float(base) if isinstance(base, (int, float)) else 0.0
+                entry["value"] = min(OVERRIDE_MAX, max(OVERRIDE_MIN, base + spec["delta"]))
+            else:
+                entry["value"] = float(spec["value"])
+            entry["low_confidence"] = False
+            entry.pop("reason", None)
 
 
 # ---------------------------------------------------------------- one week
@@ -830,12 +902,11 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     # JEG-569 part 2 / JEG-787: hidden sources are in `inc` (so they count in
     # allocation, weights and pie) but excluded from the DDF Value blend and
     # the Indexed basis, matching value-model.js isHidden.
-    # JEG-804 (Jeremy Q4 answer, 2026-10-22): DDF Value = projection sources
-    # only.  Trade charts are out of the blended DDF Value.
+    # JEG-1073 (Jeremy, 2026-10-25): DDF Value = the Adjusted trade charts,
+    # equal weight; the projections version is the alternate. Reverses JEG-804.
     proj_members = [s for s in inc if s not in hidden_set and family[s] == PROJECTION and (sel is None or s in sel)]
-    # JEG-863 (Jeremy, 2026-10-23, option B): no fallback to charts. When no
-    # projection source is included, DDF Value is unavailable (null).
-    blended_members = proj_members
+    # No fallback to the other family: with no chart in I, DDF Value is null.
+    blended_members = [s for s in inc if s not in hidden_set and family[s] == CHART and (sel is None or s in sel)]
     blend_weights = None
     asked = normalize_basis(basis, list(sources))
     basis_out = None
@@ -930,7 +1001,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
     # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
     # projected-points order; value = blended DDF Value over I, no selection.
-    # JEG-804: uses the blended DDF Value (now projections-only), matching
+    # JEG-1073: uses the blended DDF Value (now the chart average), matching
     # the engine's indexBasis.
     readout = None
     if not degenerate:

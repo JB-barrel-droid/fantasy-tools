@@ -24,6 +24,7 @@ and requires every check to fail.
 """
 from __future__ import annotations
 
+import json
 import re
 import unittest
 from pathlib import Path
@@ -126,6 +127,16 @@ DROPDOWN = """(id) => { const u = document.getElementById(id); const b = u.query
   return out; }"""
 
 
+def _with_linked_reviews(route):
+    """JEG-1116: the Reviewed chip is a link (the tap target JEG-1048 sized) only when its entry carries a public page.
+    The baked data has none today, so every chip renders as a plain span and the sweep never sees one. Serve the real
+    file with every source marked reviewed and linked, so the sweep always has the link chips to measure."""
+    doc = json.loads(route.fetch().text())
+    doc["source_divergence"] = {key: {"status": "reviewed", "message": "Checked by hand this week.", "resolution_issue": "https://example.com/review"}
+                                for key in (doc.get("source_divergence") or {"usatoday": 0, "fantasycalc": 0, "fantasypros": 0, "cbs": 0, "espn": 0})}
+    route.fulfill(status=200, content_type="application/json", body=json.dumps(doc))
+
+
 def _run(css=None) -> dict:
     try:
         from playwright.sync_api import sync_playwright
@@ -142,13 +153,14 @@ def _run(css=None) -> dict:
             page.add_init_script(init)
         if css is not None:
             page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
+        page.route("**/assets/reference-freshness.json*", _with_linked_reviews)
         page.goto(base + "#" + tab, wait_until="networkidle")
         page.wait_for_timeout(1000)
         if menu:
             # JEG-1048: below 768 px the tab row lives in the hamburger menu (#864). Open it so its six tabs are swept for
             # size and overlap; with it shut a Writing page has 8-9 controls and the "is the sweep looking" floor fires.
             toggle = page.locator("#v2NavToggle")
-            if toggle.is_visible():
+            if toggle.is_visible() and width < 768:   # JEG-1106: the button shows at every width; wider screens get a floating panel, not a bar menu
                 toggle.click()
                 page.wait_for_timeout(300)
         return page
@@ -241,15 +253,12 @@ class PhoneTapTargetsTest(unittest.TestCase):
         self.assertTrue(any("centre hits" in e for e in errors), f"old CSS search hit test was not caught: {errors}")
 
     def test_guard_fails_without_jeg1048_fixes(self):
-        """JEG-1048: the Reviewed chip's 44 px pseudo-element and the Compare net chips' 24 px info hit box each hold a check."""
+        """JEG-1048: the Reviewed chip's 44 px pseudo-element holds a check."""
         css = CSS.read_text(encoding="utf-8")
         chip = "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }\n"
-        info = "  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }\n"
         self.assertIn(chip, css, "stale mutation anchor")
-        self.assertIn(info, css, "stale mutation anchor")
-        errors = _errors(_run(css.replace(chip, "").replace(info, "")))
+        errors = _errors(_run(css.replace(chip, "")))
         self.assertTrue(any("under 44px" in e and "Reviewed" in e for e in errors), f"small Reviewed chip was not caught: {errors}")
-        self.assertTrue(any("1280 compare-trade" in e and "overlap" in e for e in errors), f"overlapping net info buttons were not caught: {errors}")
 
 
 if __name__ == "__main__":

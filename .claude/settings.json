@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(gh pr *)",
+      "Bash(gh run *)",
+      "Bash(gh api *)",
+      "Bash(make *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(.venv/bin/pytest *)",
+      "Bash(python3 *)",
+      "Bash(pytest *)",
+      "Bash(npx playwright *)",
+      "Bash(node *)",
+      "Bash(rg *)",
+      "Bash(grep *)",
+      "Bash(ls)",
+      "Bash(ls *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(wc *)",
+      "Bash(sleep *)",
+      "Read(//Users/botcomp/code/**)",
+      "Edit(//Users/botcomp/code/fantasy-tools/**)",
+      "Edit(//Users/botcomp/code/wt/**)",
+      "WebFetch(domain:api.fantasycalc.com)",
+      "WebFetch(domain:jb-barrel-droid.github.io)",
+      "mcp__2877533f-edde-4557-a9f0-0a6c2b8109ef__*"
+    ],
+    "ask": [
+      "mcp__2cca061d-0411-439b-afab-3a663edf0821__apply_migration",
+      "Bash(supabase db push*)",
+      "Bash(supabase functions deploy*)",
+      "Bash(gh pr close*)"
+    ],
+    "deny": [
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(git push *--force*)",
+      "Bash(git push *-f)",
+      "Bash(git push *-f *)",
+      "Bash(git reset --hard*)",
+      "Bash(git clean -fdx*)",
+      "Bash(git filter-branch*)",
+      "Bash(gh repo delete*)",
+      "Bash(supabase db reset*)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(rm -rf $HOME)",
+      "Bash(sudo *)",
+      "Bash(security *)",
+      "Edit(//Users/botcomp/Projects/fantasy-tools-clean/**)"
+    ]
+  }
+}

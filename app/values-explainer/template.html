@@ -179,12 +179,11 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
 
 <div class="wrap">
   <header class="top">
-    <div class="eyebrow">Data Driven Football · internal</div>
+    <div class="eyebrow"><a href="../#writing/how-values">Data Driven Football · How values work</a></div>
     <h1>DDF Value Logic</h1>
     <p class="lede">How each source turns into a value on the trade chart, with the chart engine's own numbers. Read it to decide whether you agree with each step, and use the checks and the list at the bottom to spot what looks wrong.</p>
     <div class="strip" id="strip"></div>
     <div class="chips" id="weeks"></div>
-    <div id="reviewBanner" hidden></div>
   </header>
 
   <nav class="index" aria-label="Sections">
@@ -196,14 +195,14 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <a href="#trace">Trace a player</a>
     <a href="#compare">Compare players</a>
     <a href="#settings">League settings</a>
-    <a href="#look">Things to look at</a>
+    <a href="#review">Review</a>
   </nav>
 
   <section class="sec" id="map">
     <header>
       <div class="eyebrow">1 · The pipeline</div>
       <h2>One recipe for all seven sources</h2>
-      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball) and four published trade charts (USA Today, FantasyCalc, FantasyPros, CBS) all go through the same steps. No source is an anchor. DDF Value is the mean of the sources' Adjusted values; Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
+      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball) and four published trade charts (USA Today, FantasyCalc, FantasyPros, CBS) all go through the same steps. No source is an anchor. DDF Value is the mean of the four trade charts' Adjusted values and the projections are the alternate version; Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
     </header>
     <div class="panel"><ol class="recipe" id="pipeSteps"></ol></div>
     <h3>What each view shows</h3>
@@ -297,7 +296,10 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <div class="tablewrap"><table id="setTable"></table></div>
   </section>
 
-  <section class="sec" id="look">
+  <details class="sec fold" id="review">
+    <summary>Review: what changed and what to look at</summary>
+    <div id="reviewBanner" hidden></div>
+  <div id="look">
     <header>
       <div class="eyebrow">9 · Things to look at</div>
       <h2>Measured from this build</h2>
@@ -306,12 +308,16 @@ footer.prov { margin-top: 48px; border-top: 2px solid var(--ink); padding-top: 1
     <div class="obs" id="obsList"></div>
     <h3>Open questions in the math review</h3>
     <div class="mr" id="mrList"></div>
-  </section>
+  </div>
+
+  </details>
 
   <footer class="prov" id="prov"></footer>
 </div>
 
 <script>
+const openReview = () => { if (location.hash === "#review" || location.hash === "#look") { const r = document.getElementById("review"); if (r) r.open = true; } };
+openReview(); addEventListener("hashchange", openReview);
 const D = /*__VALUES_DATA__*/null;
 (function () {
 "use strict";
@@ -443,7 +449,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ]),
     ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
     ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
-    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price him is left out. Three versions: blended (all included, non-hidden sources), trade charts only, projections only. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value. A reader's own override (Overrides tab, off by default) replaces DDF Value on that player's row only, in that reader's browser; it never feeds the pipeline, Indexed, tiers, the trade chart average or the prior week.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price him)`],
+    ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price him is left out. Three versions: blended (the default, DDF Value: the trade charts' Adjusted values only, Jeremy 2026-10-25, JEG-1073), trade charts only (the same set), projections only (the alternate). With no trade chart available DDF Value is unavailable, never a projection fallback. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value. A reader's own override (Overrides tab, off by default) replaces DDF Value on that player's row only, in that reader's browser: either an absolute value or an adjustment (+/-) added to DDF Value, both put on the 0-100 value scale; it never feeds the pipeline, Indexed, tiers, the trade chart average or the prior week.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price him)`],
     ["Indexed (display only)", `Each chart's published values times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each publisher's own shape on our scale and never feeds DDF Value.`, `Indexed = published value × (Σ DDF Value ÷ Σ published value, over listed players)`],
   ];
   $("pipeSteps").innerHTML = steps.map(([t, body, f]) => `<li><div><b>${t}</b><p class="muted small">${body}</p>${f ? `<div class="formula">${esc(f)}</div>` : ""}</div></li>`).join("");

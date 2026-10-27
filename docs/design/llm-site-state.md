@@ -1,6 +1,6 @@
 # DDF state: one object for the site and the LLM tools
 
-Ticket JEG-1025 (part of JEG-1024). Status: spec and codec merged-ready 2026-10-24; the site controls (JEG-1026) and MCP tools (JEG-1027) are not built yet.
+Ticket JEG-1025 (part of JEG-1024). Status: spec and codec merged-ready 2026-10-24; the site controls are built (JEG-1026: `app/v2/ddf-assist.js`, footer on every tab); the MCP tools are JEG-1027.
 
 Decision (Jeremy, 2026-10-24): "Portable link and code, no accounts (Recommended)". Work moves between a chat and the site as a link or a pasteable block; nothing is stored on a server, and the format leaves room for a saved-state backend later (the same object, stored under an id).
 
@@ -45,5 +45,5 @@ A list entry is `{key, name?}` or a name-only `{name}`. Keys are the engine's `p
 ## Open gaps (found writing this; tracked on the child tickets)
 
 - **`get-values` prices the full league (JEG-1031).** It accepts the normalized `league` (roster shape, position shares, season weeks, advanced settings), maps it with the page's clamps and computes on demand with nothing stored. MCP passes `state.league` through and no longer adds the unpriced-league note.
-- **Today's trade link does not carry the team count.** The codec adds `teams`; the site writes and reads it in JEG-1026.
+- **Trade links now carry the team count** (JEG-1026): the site writes `teams` and reads it. Links written before that have none, and the reader's team count stays.
 - **`sources` and `asOf` are advisory.** The receiver's shown sources and week win unless the person asks to match the sender.

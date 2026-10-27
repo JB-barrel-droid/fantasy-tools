@@ -292,6 +292,17 @@ test("ESPN matchup page: 22/22 matched, two teams", function () {
   assert.strictEqual(result.benchIncluded, false, "bench is collapsed");
 });
 
+test("ESPN matchup page: a team named 'Bye Week ...' keeps both teams and the real Bye Week Players section (JEG-1110)", function () {
+  var text = readFixture("espn-matchup.txt").replace(/Team Zeta/g, "Bye Week Bandits");
+  var result = P.parse(text, PLAYERS);
+  assert.strictEqual(result.mode, "matchup");
+  assert.strictEqual(result.matched, 22);
+  assert.deepStrictEqual(result.teams.map(function (t) { return t.teamName; }), ["Bye Week Bandits", "My ESPN Team"]);
+  assert.strictEqual(result.teams[0].matched, 12, "9 starters, 1 injury and the 2 bye players");
+  assert.strictEqual(result.teams[1].matched, 10);
+  assert.strictEqual(result.players.filter(function (p) { return p.slot === "Bye"; }).length, 2, "the Bye Week Players section still parses");
+});
+
 test("all confidence scores are 1.0 on real fixtures", function () {
   ["yahoo-team.txt", "yahoo-matchup.txt", "espn-team.txt", "espn-matchup.txt"].forEach(function (f) {
     var text = readFixture(f);
@@ -442,6 +453,35 @@ test("unmatched lines carry their position and team, so a kicker or defense can 
     assert.ok(t.unmatched.some(function (u) { return u.pos === "K"; }), "matchup team keeps its kicker line");
     assert.ok(t.unmatched.some(function (u) { return u.pos === "DEF"; }), "matchup team keeps its defense line");
   });
+});
+
+// ===========================================================================
+//  Free-agent (waiver) pages and which list a paste is (SYNTHETIC fixtures: no real paste yet)
+// ===========================================================================
+var WAIVER_DIR = path.join(ROOT, "tests", "fixtures", "waivers_paste");
+var FA_IDS = ["noel", "perine", "miller_k", "goedert", "allen_k", "broncos", "boswell"];
+["espn-free-agents-SYNTHETIC.txt", "yahoo-free-agents-SYNTHETIC.txt"].forEach(function (name) {
+  test("free-agent page reads every row, no junk lines: " + name, function () {
+    var r = P.parse(fs.readFileSync(path.join(WAIVER_DIR, name), "utf8"), PLAYERS);
+    assert.strictEqual(r.mode, "list");
+    assert.deepStrictEqual(r.players.map(function (p) { return p.id; }).sort(), FA_IDS.slice().sort());
+    assert.strictEqual(r.unmatched.length, 0, "filter labels and headers are not listed as unmatched");
+    assert.strictEqual(P.detectListKind(fs.readFileSync(path.join(WAIVER_DIR, name), "utf8"), r), "waivers");
+  });
+});
+
+test("roster pages are detected as roster, matchups too", function () {
+  ["yahoo-team.txt", "espn-team.txt", "yahoo-matchup.txt", "espn-matchup.txt"].forEach(function (name) {
+    var text = readFixture(name);
+    assert.strictEqual(P.detectListKind(text, P.parse(text, PLAYERS)), "roster", name);
+  });
+});
+
+test("a bare list of names has no kind unless the text says which", function () {
+  assert.strictEqual(P.detectListKind("Jaylin Noel\nSamaje Perine", {mode: "extract"}), "unknown");
+  assert.strictEqual(P.detectListKind("Free Agents\nJaylin Noel\nSamaje Perine", {mode: "extract"}), "waivers");
+  assert.strictEqual(P.detectListKind("Bench\nJaylin Noel\nSamaje Perine", {mode: "extract"}), "roster");
+  assert.strictEqual(P.detectListKind("Free Agents\nBench\nJaylin Noel", {mode: "extract"}), "unknown");
 });
 
 // ===========================================================================

@@ -72,7 +72,7 @@ def open_page(browser, base, width=1366, height=768, overrides=None, errors=None
     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
     for name, body in (overrides or {}).items():
         page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/css" if name.endswith(".css") else "text/javascript"))
-    page.goto(base + "#find-trade", wait_until="networkidle")
+    page.goto(base + "#find-league", wait_until="networkidle")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && window.TradeValueCurveControls && document.getElementById('v2LgCard')", timeout=60000)
     page.wait_for_function("() => window.TradeValueLeague && window.TradeValueLeague.ui.ready", timeout=20000)
     return page

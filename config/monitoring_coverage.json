@@ -65,12 +65,15 @@
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-live",
      "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-sunday",
-     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]}
+     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
+    {"workflow": "render-sweep.yml", "scheduler": "pg_cron", "pg_cron_job": "render-sweep-daily",
+     "records": []}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
   ],
   "unmonitored_workflows": {
+    "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
     "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
     "sleeper-projections-backfill.yml": "push/manual one-off backfill of Sleeper weekly projections for measurement (JEG-540); no schedule, nothing to miss",

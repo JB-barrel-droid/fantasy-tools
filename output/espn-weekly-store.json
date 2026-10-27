@@ -1,15 +1,16 @@
 {
- "run_at": "2026-10-25T12:40:29+00:00",
+ "run_at": "2026-10-27T12:40:30+00:00",
  "season": 2026,
  "dry_run": false,
- "pulled_at": "2026-10-25T12:40:15+00:00",
+ "pulled_at": "2026-10-27T12:40:17+00:00",
  "played_weeks": [
   1,
   2,
   3,
   4,
   5,
-  6
+  6,
+  7
  ],
  "actual_weeks": [
   1,
@@ -21,19 +22,19 @@
   7
  ],
  "actuals": {
-  "rows_in": 2522,
-  "resolved": 2522,
+  "rows_in": 2864,
+  "resolved": 2864,
   "resolved_by": {
-   "espn_id->gsis_id": 378,
-   "espn_id->name": 280,
-   "name": 1864
+   "espn_id->gsis_id": 430,
+   "espn_id->name": 320,
+   "name": 2114
   },
   "n_unresolved": 0,
   "unresolved": [],
   "n_no_game": 0,
   "no_game": [],
-  "to_upsert": 578,
-  "no_offensive_line_skipped": 489,
+  "to_upsert": 830,
+  "no_offensive_line_skipped": 579,
   "comparison_with_existing": {
    "by_position": {
     "QB": {
@@ -179,16 +180,16 @@
    4,
    5,
    6,
-   7
+   7,
+   8
   ],
-  "rows_written": 307,
-  "unchanged_skipped": 10262,
+  "rows_written": 895,
+  "unchanged_skipped": 11084,
   "unresolved_rows": 0,
-  "no_game_skipped": 430
+  "no_game_skipped": 554
  },
  "captures": {
   "target_weeks": [
-   7,
    8,
    9,
    10,
@@ -201,15 +202,15 @@
    17,
    18
   ],
-  "rows": 21348,
+  "rows": 19602,
   "unresolved_rows": 0,
-  "source_week": 7,
-  "phase": "sunday",
-  "written": 21348
+  "source_week": 8,
+  "phase": "midweek",
+  "written": 19602
  },
  "resolved_share": 1.0,
  "written": {
-  "player_game_stats": 578,
-  "projection_snapshots": 307
+  "player_game_stats": 830,
+  "projection_snapshots": 895
  }
 }

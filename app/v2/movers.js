@@ -65,7 +65,8 @@
   }
 
   // ---------- JEG-488: where the market and the projections disagree (contract RF-02) ----------
-  // Δ Trade chart average (ddf_value_charts) against Δ DDF Value (ddf_value_projections), each the
+  // Δ DDF Value (ddf_value_charts, the same series as ddf_value) against Δ DDF Value (projections)
+  // (ddf_value_projections; JEG-1073 names), each the
   // engine's own like-for-like week pair (a source without a saved prior week is dropped from both weeks of
   // that series, never one). A player qualifies when one side moved at least MOVE points either way and the
   // other moved at most QUIET points: one of the two sides is wrong. The read is a fixed rule on the direction.
@@ -80,7 +81,7 @@
     "projections|down": "Market hasn't reacted: sell"
   };
   function buildDisagreements(rows, priorMarket, priorProjections) {
-    const missing = [["Trade chart average", priorMarket], ["DDF Value", priorProjections]]
+    const missing = [["DDF Value", priorMarket], ["DDF Value (projections)", priorProjections]]
       .filter(([, prior]) => !prior || !prior.available).map(([name, prior]) => `${name}: ${(prior && prior.reason) || "no prior week"}`);
     if (missing.length) return {available: false, reason: missing.join("; "), market: [], projections: [], compared: 0, noDelta: 0};
     const market = [];

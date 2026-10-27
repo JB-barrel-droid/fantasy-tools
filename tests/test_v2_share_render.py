@@ -4,10 +4,11 @@ Builds dist/v2 into a temp copy of the built dist/ and loads it headless:
 
   * build a trade on Compare a trade through the search boxes; the address
     becomes #compare-trade?give=<keys>&get=<keys>&scoring=<s>&roster=<shape>
-    (Jeremy, 2026-10-08: links carry the sender's scoring and roster, not teams);
+    (Jeremy, 2026-10-08: scoring and roster; JEG-1026 adds the team count, `teams=`, which
+    docs/design/llm-site-state.md says the site writes and reads);
   * a link with another scoring and roster opens with exactly those settings
-    in the engine (getState / getRosterShape), the reader's team count kept,
-    and says so;
+    in the engine (getState / getRosterShape), and says so; a link without `teams=` (an older
+    link) keeps the reader's team count, and one with `teams=` sets it;
   * opening that address in a fresh page shows the same players on the same
     sides and the same per-source rows (same give / get / net text);
   * a link with an unknown or repeated key does not crash: the unknown player is
@@ -116,7 +117,7 @@ def run_checks(v2_js=None) -> list[str]:
             if first["scheme"] != "light dark":
                 errors.append(f"color-scheme meta is {first['scheme']!r}, expected 'light dark'")
             league = page.evaluate("""() => { const C = window.TradeValueCurveControls; const r = C.getRosterShape();
-              return `scoring=${C.getState().scoring}&roster=QB${r.QB}.RB${r.RB}.WR${r.WR}.TE${r.TE}.FLEX${r.FLEX}.SF${r.SUPERFLEX || 0}.BN${r.BENCH}`; }""")
+              return `scoring=${C.getState().scoring}&teams=${C.getState().teams}&roster=QB${r.QB}.RB${r.RB}.WR${r.WR}.TE${r.TE}.FLEX${r.FLEX}.SF${r.SUPERFLEX || 0}.BN${r.BENCH}`; }""")
             want = f"#compare-trade?give={','.join(first['give'])}&get={','.join(first['get'])}&{league}"
             if first["hash"] != want:
                 errors.append(f"address {first['hash']!r} != {want!r}")
@@ -152,6 +153,12 @@ def run_checks(v2_js=None) -> list[str]:
             if "link's league settings" not in got["toast"]:
                 errors.append(f"no notice that the link's settings were applied: {got['toast']!r}")
             other.close()
+            # JEG-1026: a link's team count sets the reader's (the sender's league was priced with it).
+            other_teams = 8 if teams != 8 else 10
+            sized = open_page(base + f"#compare-trade?give={first['give'][0]}&get={first['get'][0]}&scoring=ppr&teams={other_teams}")
+            if sized.evaluate("() => window.TradeValueCurveControls.getState().teams") != other_teams:
+                errors.append(f"link teams={other_teams} not applied")
+            sized.close()
             odd = open_page(base + f"#compare-trade?give={first['give'][0]},{first['give'][0]},999999999&get={first['get'][0]}")
             third = odd.evaluate(READ)
             if third["give"] != [first["give"][0], "999999999"]:

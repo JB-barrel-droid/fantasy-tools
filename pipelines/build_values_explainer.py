@@ -33,6 +33,7 @@ import functools
 import hashlib
 import http.server
 import json
+import os
 import re
 import socketserver
 import subprocess
@@ -104,7 +105,7 @@ def extract() -> dict:
     script = (APP / "extract.js").read_text()
     try:
         with sync_playwright() as p:
-            browser = p.chromium.launch(args=HERMETIC_ARGS)
+            browser = p.chromium.launch(args=HERMETIC_ARGS, executable_path=os.environ.get("CHROMIUM_PATH") or None)
             page = browser.new_page(viewport={"width": 1400, "height": 1000})
             page.goto(f"http://127.0.0.1:{port}/{PAGE}", wait_until="load")
             page.wait_for_function(

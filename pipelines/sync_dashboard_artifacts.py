@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -522,6 +523,20 @@ def main() -> int:
     # engine off-screen, every input and intermediate of the value math shown.
     from build_inspector_page import build as build_inspector_page
     build_inspector_page(DIST)
+
+    # DDF Value Logic (JEG-1086): the values explainer, linked from Writing >
+    # How values work. It reads the engine headless from the dist/ built above,
+    # so it needs Playwright; without a browser it is skipped locally and a
+    # hard error where RENDER_TESTS_REQUIRED=1 (CI).
+    try:
+        import playwright.sync_api  # noqa: F401
+    except ImportError:
+        if os.environ.get("RENDER_TESTS_REQUIRED") == "1":
+            raise SystemExit("sync: Playwright is required to build value-logic/index.html")
+        print("sync: Playwright not installed; skipping value-logic/index.html")
+    else:
+        from build_values_explainer import main as build_values_explainer
+        build_values_explainer(["--skip-sync", "--out", str(DIST / "value-logic" / "index.html")])
 
     print(f"Dashboard artifacts synced to app/trade-value-chart and dist{f' (build {tag})' if tag else ''}.")
     return 0

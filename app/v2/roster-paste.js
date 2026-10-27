@@ -331,6 +331,54 @@
   }
 
   // =========================================================================
+  //  FREE-AGENT / PLAYER LIST PAGES (ESPN Add Players, Yahoo Players)
+  // =========================================================================
+  // These pages have no roster slot labels. Each row is anchored on its team and position line instead:
+  // Yahoo "Hou - WR" right under the name; ESPN a team line then a position line (optional injury tag between name and team).
+  function parsePlayerListPage(lines, site, index) {
+    var players = [];
+    var unmatched = [];
+    var seen = {};
+    function take(name, team, pos, sourceLine) {
+      var isDST = pos === "DEF";
+      var cleaned = isDST ? name.replace(/\s*D\/?ST\s*$/i, "").trim() : name;
+      var candidate = isDST
+        ? {name: cleaned, teamHint: team, posHint: "DEF", isDST: true, dstSearch: dstSearchNames(cleaned), sourceLine: sourceLine}
+        : {name: cleaned, teamHint: team, posHint: pos, isDST: false, sourceLine: sourceLine};
+      var result = matchCandidate(candidate, index, seen);
+      if (result.match) {
+        players.push({id: String(result.match.player_key), name: result.match.name, confidence: result.confidence, sourceLine: sourceLine, slot: ""});
+      } else if (result.reason !== "duplicate") {
+        unmatched.push({line: sourceLine, reason: result.reason || "not in the values", pos: pos, team: team});
+      }
+    }
+    for (var i = 1; i < lines.length; i++) {
+      var ln = lines[i].trim();
+      if (!ln) continue;
+      var tp = site !== "espn" ? parseTeamPosYahoo(ln) : null;
+      if (tp) {
+        var prev = lines[i - 1].trim();
+        if (prev && !parseTeamPosYahoo(prev)) {
+          var nm = cleanYahooName(prev);
+          if (nm) take(nm, tp.team, tp.pos, prev);
+        }
+        continue;
+      }
+      if (site !== "yahoo" && ESPN_POS_TOKENS[ln] && i >= 2) {
+        var teamLine = lines[i - 1].trim();
+        var team = normTeam(teamLine);
+        if (!team) continue;
+        var j = i - 2;
+        if (/^(Q|O|D|IR|SSPD|PUP|DOUBTFUL|QUESTIONABLE|OUT|PROBABLE)$/i.test(lines[j].trim()) && j > 0) j--;
+        var single = lines[j].trim();
+        if (!single || normTeam(single)) continue;
+        take(single, team, ESPN_POS_TOKENS[ln], single);
+      }
+    }
+    return {players: players, unmatched: unmatched, matched: players.length, total: players.length + unmatched.length};
+  }
+
+  // =========================================================================
   //  YAHOO TEAM PAGE
   // =========================================================================
   // Structure: slot-label line, name line (glued text), "Team - POS" line, game line, stats
@@ -852,14 +900,17 @@
         };
       } else {
         var yt = parseYahooTeamPage(rawLines, index);
-        return {
-          site: site,
-          players: yt.players,
-          unmatched: yt.unmatched,
-          matched: yt.matched,
-          total: yt.total,
-          mode: "team",
-        };
+        // No slot labels: a free-agent or players page. Fall through to the extractor below.
+        if (yt.matched > 0) {
+          return {
+            site: site,
+            players: yt.players,
+            unmatched: yt.unmatched,
+            matched: yt.matched,
+            total: yt.total,
+            mode: "team",
+          };
+        }
       }
     }
 
@@ -889,19 +940,28 @@
 
       // Team page
       var et = parseESPNTeamPage(rawLines, index);
-      return {
-        site: site,
-        players: et.players,
-        unmatched: et.unmatched,
-        matched: et.matched,
-        total: et.total,
-        mode: "team",
-      };
+      // No roster table (no STARTERS or slot labels): a free-agent or players page. Fall through to the extractor below.
+      if (et.matched > 0) {
+        return {
+          site: site,
+          players: et.players,
+          unmatched: et.unmatched,
+          matched: et.matched,
+          total: et.total,
+          mode: "team",
+        };
+      }
     }
 
     // ---- Unknown: try format-specific parsers, then fall back to n-gram extraction ----
-    var tryYahoo = parseYahooTeamPage(rawLines, index);
-    var tryEspn = parseESPNTeamPage(rawLines, index);
+    if (site !== "unknown") {
+      var listed = parsePlayerListPage(rawLines, site, index);
+      if (listed.matched > 0) {
+        return {site: site, players: listed.players, unmatched: listed.unmatched, matched: listed.matched, total: listed.total, mode: "list"};
+      }
+    }
+    var tryYahoo = site === "unknown" ? parseYahooTeamPage(rawLines, index) : {matched: 0};
+    var tryEspn = site === "unknown" ? parseESPNTeamPage(rawLines, index) : {matched: 0};
     var best = tryYahoo.matched >= tryEspn.matched ? tryYahoo : tryEspn;
     // If format-specific parsers found players, use the best one.
     if (best.matched > 0) {
@@ -917,7 +977,7 @@
     // Otherwise, use the source-agnostic n-gram extractor (JEG-1010).
     var extracted = extractPlayers(text, playerIndex);
     return {
-      site: "unknown",
+      site: site,
       players: extracted.players,
       unmatched: extracted.unmatched,
       matched: extracted.matched,
@@ -925,6 +985,22 @@
       ignoredLines: extracted.ignoredLines,
       mode: "extract",
     };
+  }
+
+  // ---- which list did the reader paste? ----
+  // A roster page (has slot labels, or a matchup box score) versus a free-agent / waiver page. res: the result of parse(text).
+  // Returns "roster", "waivers" or "unknown" (a bare list of names, or cues for both).
+  var WAIVER_CUES = /\b(free agents?|available players|add players|waiver (wire|order|priority|claims?)|% ?(owned|own)\b|claim)\b|^\s*add\s*$/im;
+  var ROSTER_CUES = /\b(starters|bench|my roster|my team|roster for week|set lineup|start active players)\b/i;
+  function detectListKind(text, res) {
+    if (res && res.mode === "list") return "waivers";
+    if (res && (res.mode === "team" || res.mode === "matchup")) return "roster";
+    var t = String(text || "");
+    var waiver = WAIVER_CUES.test(t);
+    var roster = ROSTER_CUES.test(t);
+    if (waiver && !roster) return "waivers";
+    if (roster && !waiver) return "roster";
+    return "unknown";
   }
 
   // ---- source-agnostic n-gram extraction (JEG-1010) ----
@@ -1247,7 +1323,8 @@
   var RECORD_INLINE_RE = /^(.{2,80}?)\s*\(\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)\s*$/;
   var RECORD_ALONE_RE = /^\(?\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)?$/;
   var TABLE_MARKER_RE = /^(SLOT|Pos|Position|Starters)(\s|$)/i;
-  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye\b.*)$/i;
+  // Only ESPN's actual section header is noise: a team is allowed to start with "Bye Week" (JEG-1110).
+  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye(?:\s+weeks?(?:\s+players)?)?)$/i;
 
   function cleanTeamName(raw) {
     var s = cleanESPNDoubled(String(raw || "").replace(/\t+/g, " ").replace(/\s+/g, " ").trim());
@@ -1437,12 +1514,12 @@
 
   // Expose for testing and for window.DDFRosterPaste
   var api = {
-    parse: parse, extractPlayers: extractPlayers, parseLeague: parseLeague,
+    parse: parse, detectListKind: detectListKind, extractPlayers: extractPlayers, parseLeague: parseLeague,
     normName: normName, normTeam: normTeam, buildIndex: buildIndex, matchCandidate: matchCandidate,
     cleanYahooName: cleanYahooName, cleanESPNDoubled: cleanESPNDoubled,
     detectSite: detectSite, isMatchupPage: isMatchupPage,
     parseTeamPosYahoo: parseTeamPosYahoo,
-    parseYahooTeamPage: parseYahooTeamPage, parseYahooMatchupPage: parseYahooMatchupPage,
+    parsePlayerListPage: parsePlayerListPage, parseYahooTeamPage: parseYahooTeamPage, parseYahooMatchupPage: parseYahooMatchupPage,
     parseESPNTeamPage: parseESPNTeamPage, parseESPNMatchupPage: parseESPNMatchupPage,
     extractTokens: extractTokens, tryNameMatch: tryNameMatch, disambiguate: disambiguate,
     lineHints: lineHints, buildFirstWords: buildFirstWords, tryDefenceOnLine: tryDefenceOnLine,

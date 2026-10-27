@@ -1,6 +1,6 @@
 # Claude session log — per-PR directory
 
-New entries go here as individual files, one per PR or session.
+Every session that changes anything writes an entry here (Jeremy, 2026-10-23, JEG-975; required by `CLAUDE.md`). New entries go here as individual files, one per PR or session.
 
 ## Naming convention
 

@@ -132,7 +132,7 @@ def rubric(session) -> dict:
     after = ddf_of(page, star["name"])
     session.open("#player-values")
     score[3] = int(before is not None and after is not None and abs(before - after) > 1e-6
-                   and "Rescaled chart (to FantasyCalc)" in page.inner_text("body"))
+                   and "Market (to FantasyCalc)" in page.inner_text("body"))
     # 7. indicator while FantasyCalc is on, on a tab that is not Overrides
     score[7] = int("Overrides active: FantasyCalc only" in page.inner_text("#v2OvBar") and page.locator("#v2OvBar").is_visible())
     # 9. Trade targets re-sorts
@@ -274,6 +274,7 @@ class RubricTest(unittest.TestCase):
             page = s.open("#player-values")
             self.assertTrue(page.evaluate("() => window.TradeValueCurveControls.getBasis().isDefault"))
             self.assertEqual(page.evaluate("() => window.TradeValueCurveControls.getValueOverrides()"), {"100": 55})
+            page.click("#v2NavToggle")
             page.click('a.v2-tab[data-view="overrides"]')
             page.click('[data-preset="single:cbs"]')
             page.wait_for_timeout(300)
@@ -312,6 +313,7 @@ class RubricTest(unittest.TestCase):
             self.assertEqual(len(page.evaluate("() => window.TradeValueCurveControls.getValueOverrides()")), 2)
             self.assertIsNone(page.evaluate("() => localStorage.getItem('ddf-v2-value-overrides')"), "a link's settings are not saved for the reader")
             # Leaving Compare by a tab click reloads the page; the link's settings (and only they) survive it.
+            page.click("#v2NavToggle")
             page.click('a.v2-tab[data-view="overrides"]')
             page.wait_for_function(READY, timeout=90000)
             page.wait_for_timeout(400)
@@ -381,6 +383,7 @@ class RubricTest(unittest.TestCase):
             # Export, then load the same file into a fresh page through Import.
             page.reload(wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)
+            page.click("#v2NavToggle")
             page.click('a.v2-tab[data-view="overrides"]')
             payload = {"v": 2, "basis": {"mode": "blend", "sources": ["espn", "bogus"], "weights": {"espn": 70, "bogus": 30}},
                        "overrides": [{"player_key": str(star["key"]), "name": star["name"], "type": "absolute", "value": 41.5},
@@ -478,7 +481,7 @@ class RubricTest(unittest.TestCase):
             url = s.base + f"/v2/#compare-trade?give={a['key']},{b['key']}&get={top_player(page, 'QB', 3)['key']}"
             # What the indicator could move is everything above the trade: measure where the Compare page starts.
             measure = """() => ({start: Math.round(document.querySelector('#v2Compare').getBoundingClientRect().top),
-                league: Math.round(document.querySelector('#v2League').getBoundingClientRect().height),
+                league: Math.round(document.querySelector('#v2Context').getBoundingClientRect().height),
                 chip: document.querySelector('#v2OvBar') && !document.querySelector('#v2OvBar').hidden})"""
             page.goto(url, wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)

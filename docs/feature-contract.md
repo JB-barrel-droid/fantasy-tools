@@ -162,18 +162,13 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **RF-01** Defaults to DDF Value, with series grouped in the picker. Counts the players it could not compare.
 
-  - **RF-02** "Where the market and the projections disagree": compares the change in Trade chart average with the change in DDF Projections, week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "Market moved, projections didn't" and "Projections moved, market didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
+  - **RF-02** "Where DDF Value and the projections disagree" (JEG-1073 names): compares the change in DDF Value (the Adjusted trade chart average) with the change in DDF Value (projections), week over week and like for like (a source without a saved prior week is left out of both weeks). Two lists: "DDF Value moved, projections didn't" and "Projections moved, DDF Value didn't". A player qualifies when one side moved 2.5 points or more either way and the other 1.0 or less. Each player gets a rule-based read: market up only, "Buying in without the production: sell"; market down only, "Panic the projections don't share: buy"; projections up only, "Market hasn't caught up: buy"; projections down only, "Market hasn't reacted: sell". With no prior week for either series it says so and lists nothing. *(JEG-488; pinned by `tests/test_v2_disagree.py` and `tests/test_v2_disagree_render.py`)*
 
 ## Compare a trade (CT)
 
   - **CT-01** Give and Receive pickers, Swap, Clear, and a shareable link that carries the league settings.
 
-  - **CT-02** The headline answers two questions in plain words, each with a three-step level named for what it measures (JEG-895, Jeremy 2026-10-22; decided by DDF Value + DDF Projections since JEG-841) *(to build: JEG-505)*:
-
-1.  Should you propose or accept this trade? Judged by DDF Value and DDF Projections. Level "Our value: strong / moderate / weak" (strong when the DDF Projections margin is also 5%+, moderate when they agree by less, weak when Unclear).
-2.  Will a competing manager accept it? Judged by the rescaled trade charts. Level "Charts agree: strongly / mostly / weakly" (75%+ of charts on the answer's side, 60%+, else weakly).
-
-The level drops one step when any DDF Value in the trade comes from one source, and to weak when the DDF margin is under 5% of the total value traded. "N of M trade charts agree" is its own line under the first answer; it never sets that answer's level. The word "confidence" is not used.
+  - **CT-02** The verdict card carries no "Should you propose or accept?" or "Will they accept?" lines, and no "Our value: ..." or "Charts agree: ..." level. The Deal read (CT-08) carries the answer. *(Jeremy, 2026-10-26, JEG-1112 option D, "drop the two 'propose / accept' heads": they repeated the Deal read and pushed the give / receive / verdict block past the fold at 1366x768 and 1440x900. Retires the JEG-505 / JEG-895 headline answers; pinned by `tests/test_v2_contract_render.py` and `tests/test_v2_compare_empty_side_render.py`)*
 
   - **CT-03** The verdict is by DDF Value:
 

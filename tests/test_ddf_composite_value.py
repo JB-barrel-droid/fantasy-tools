@@ -2,10 +2,19 @@
 
 The rule is docs/methodology.md "DDF Composite Value" (Jeremy, 2026-10-08/09):
 per player, the equal-weight mean of each included input's ADJUSTED-view
-value only -- ESPN, CBS rest of season and Razzball, and each published
-chart's Adjusted values. Three versions (JEG-497): ddf_value (all seven
-inputs), ddf_value_charts (the four charts), ddf_value_projections (the three
-projections); each is ONE number, the same in every view and tab. Exactly one
+value only. Three versions (JEG-497): ddf_value (the main one),
+ddf_value_charts (the four charts), ddf_value_projections (ESPN, CBS rest of
+season and Razzball); each is ONE number, the same in every view and tab.
+
+JEG-1073 (Jeremy, 2026-10-25: "Keep adj trade chart avg as the main ddf and
+projections as an alt."): ddf_value is the equal-weight mean of the four trade
+charts' Adjusted values (FantasyCalc, USA Today, FantasyPros, CBS); the
+projections are the alternate, ddf_value_projections. This reverses JEG-804,
+which had made ddf_value the projections. The inputs setCompositeInputs
+accepts are the four charts and it refuses projection keys; with no chart in I
+ddf_value is null (no fallback to the projections). A reader's per-player
+override replaces ddf_value only. The assertions below moved with that rule
+(projection <-> chart roles swapped), not to get green. Exactly one
 input pricing him gives that value, flagged low confidence ("Only one source
 prices this player"); none gives null with "No source prices this player". An
 input that is held or has not published the current week is never included,
@@ -42,6 +51,8 @@ from __future__ import annotations
 
 import json
 import unittest
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 from pipelines.nfl_week import content_week, content_week_start
 from tests._dist_server import DIST, serve
@@ -49,14 +60,22 @@ from tests import _render_env  # noqa: E402
 from tests._holds import HOLD_FIELDS  # noqa: E402
 
 
+def page_week() -> int:
+    """The content week the page is on: product-data.js todayIsoDay takes the
+    New York date. content_week() alone takes the machine's date (UTC on CI),
+    which says week N+1 from 00:00 UTC Tuesday while the page still says
+    week N, so the bumped charts read as a week ahead (JEG-1152)."""
+    return content_week(datetime.now(ZoneInfo("America/New_York")).date())
+
+
 def setUpModule():
     _render_env.ensure_built()
 
 
-# JEG-804: DDF Value = projection sources only (was all 7 pre-JEG-804).
-INPUTS = ["espn", "cbsros", "razzball"]
+# JEG-1073: DDF Value = the four trade charts (JEG-804 had made it the projections).
 PROJECTIONS = ["espn", "cbsros", "razzball"]
 CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
+INPUTS = list(CHARTS)
 ALL_SOURCES = PROJECTIONS + CHARTS  # all pipeline sources (for setups that need the full list)
 VERSIONS = ["ddf_value", "ddf_value_charts", "ddf_value_projections"]
 NONE = "No source prices this player"
@@ -171,11 +190,17 @@ SETTER = """async () => {""" + HELPERS + """
   window.addEventListener('trade-value-rows-change', () => { events.rows += 1; });
   window.addEventListener('trade-value-shared-change', e => { events.shared.push(e.detail.compositeInputs); });
   const baseOthers = others(), baseOthersNoCharts = othersNoCharts(), baseAdj = adjOthers(), baseDdf = ddf();
-  out.set = c.setCompositeInputs(['cbsros', 'espn', 'espn']);
-  // Two projections: players only one of them projects exercise the
-  // one-source rule (JEG-508: every chart prices every rosterable player, so
-  // the full blend rarely has a one-source player).
+  out.set = c.setCompositeInputs(['fantasypros', 'fantasycalc', 'fantasycalc']);
+  // Two charts: players only one of them prices exercise the one-source rule
+  // (JEG-508: every chart prices every rosterable player, so the full blend
+  // rarely has a one-source player).
   out.subsetShort = checkMean('subset', out.problems).short;
+  // The charts all price the same players, so a pair never has a one-source
+  // player; a single chart makes every priced player a one-source player.
+  out.singleSet = c.setCompositeInputs(['cbs'], false);
+  out.singleShort = checkMean('single chart', out.problems).short;
+  out.singleInputs = c.getCompositeInputs('ddf_value').inputs;
+  c.setCompositeInputs(['fantasypros', 'fantasycalc'], false);
   out.subsetMoved = ddf() !== baseDdf;
   out.othersSame = othersNoCharts() === baseOthersNoCharts;
   out.adjSame = adjOthers() === baseAdj;
@@ -183,17 +208,19 @@ SETTER = """async () => {""" + HELPERS + """
   out.eventsAfterSet = JSON.parse(JSON.stringify(events));
   out.get = c.getCompositeInputs();
   const before = ddf();
+  // JEG-1073: projection keys are not DDF Value inputs any more (alone or mixed with charts).
   out.invalid = [c.setCompositeInputs([]), c.setCompositeInputs(['fantasycalc_adj_values']), c.setCompositeInputs(['espn_vorp']),
-    c.setCompositeInputs(['ddf_value']), c.setCompositeInputs('espn'), c.setCompositeInputs({espn: true}),
-    c.setCompositeInputs(['espn', 'ddf_value_charts'])];
+    c.setCompositeInputs(['ddf_value']), c.setCompositeInputs('fantasycalc'), c.setCompositeInputs({fantasycalc: true}),
+    c.setCompositeInputs(['fantasycalc', 'ddf_value_charts']),
+    c.setCompositeInputs(['espn']), c.setCompositeInputs(['espn', 'cbsros', 'razzball']), c.setCompositeInputs(['fantasycalc', 'razzball'])];
   out.unchangedAfterInvalid = ddf() === before && JSON.stringify(c.getCompositeInputs()) === JSON.stringify(out.get);
   const quiet = events.shared.length;
-  out.quietSet = c.setCompositeInputs(['razzball', 'cbsros'], false);
-  checkMean('razzball + cbsros', out.problems);
+  out.quietSet = c.setCompositeInputs(['cbs', 'usatoday'], false);
+  checkMean('cbs + usatoday', out.problems);
   out.quietShared = events.shared.length - quiet;
   out.reset = c.setCompositeInputs(null);
   out.resetRestores = ddf() === baseDdf && others() === baseOthers;
-  // JEG-804: defaults == allowed == projection keys.  Passing defaults
+  // JEG-1073: defaults == allowed == chart keys.  Passing defaults
   // explicitly should be recognised as the default state (isDefault: true).
   out.explicitDefaults = c.setCompositeInputs(c.getCompositeInputs().defaults);
   out.explicitDefaultsSame = ddf() === baseDdf;
@@ -336,8 +363,10 @@ HELD = """async () => {""" + HELPERS + """
   }));
   const held = window.__heldSeries;
   const heldKey = window.__heldKey;
-  // JEG-804: only projection keys are valid setCompositeInputs arguments.
-  const isProjection = INPUTS.includes(heldKey);
+  // JEG-1073: only the chart keys are valid setCompositeInputs arguments.
+  const isChart = INPUTS.includes(heldKey);
+  // Two other chart inputs (canonical order) to request beside the held one.
+  const [A, B] = INPUTS.filter(k => k !== heldKey);
   out.load = c.getCompositeInputs();
   out.loadByVersion = Object.fromEntries(VERSIONS.map(v => [v, c.getCompositeInputs(v)]));
   // JEG-879: capture per-source excludedReason from getSourceInfo for
@@ -347,22 +376,22 @@ HELD = """async () => {""" + HELPERS + """
   );
   checkMean('load', out.problems);
   leaks('load', held);
-  if (isProjection) {
-    out.withHeld = c.setCompositeInputs([heldKey, 'espn', 'cbsros']);
+  if (isChart) {
+    out.withHeld = c.setCompositeInputs([heldKey, A, B]);
     checkMean('requested with held', out.problems);
     leaks('requested with held', held);
     out.allRequested = c.setCompositeInputs(INPUTS);
     checkMean('all requested', out.problems);
     leaks('all requested', held);
     out.onlyHeld = c.setCompositeInputs([heldKey]);
-    out.heldPlusOne = c.setCompositeInputs([heldKey, 'espn']);
+    out.heldPlusOne = c.setCompositeInputs([heldKey, A]);
     out.afterStale = c.getCompositeInputs();
   } else {
-    // Chart key: not a valid DDF Value input after JEG-804.
-    out.chartRejected = c.setCompositeInputs([heldKey, 'espn', 'cbsros']);
+    // Projection key: not a valid DDF Value input after JEG-1073.
+    out.projectionRejected = c.setCompositeInputs([heldKey, 'fantasycalc', 'usatoday']);
     out.allRequested = c.setCompositeInputs(INPUTS);
-    checkMean('all requested (chart held)', out.problems);
-    leaks('all requested (chart held)', held);
+    checkMean('all requested (projection held)', out.problems);
+    leaks('all requested (projection held)', held);
   }
   c.setCompositeInputs(null);
   c.setScoring('standard'); c.setTeams(10);
@@ -375,6 +404,22 @@ HELD = """async () => {""" + HELPERS + """
   out.weekSources = wk.sources;
   out.sourceInfo = c.getSourceInfo({includeComposite: true}).filter(i => i.composite);
   return out;
+}"""
+
+# JEG-1073 (Jeremy, 2026-10-25): with no trade chart in I the main DDF Value is
+# unavailable (null), never a fallback to the projections.
+NO_CHART = """async () => {
+  const c = window.TradeValueCurveControls;
+  const rows = c.getAllRows();
+  const info = c.getCompositeInputs('ddf_value');
+  return {
+    inputs: info.inputs,
+    ddfPriced: rows.filter(r => r.values.ddf_value !== null && r.values.ddf_value !== undefined).length,
+    blendedPriced: rows.filter(r => r.ddfByVersion.blended.value !== null).length,
+    blendedSources: rows.filter(r => r.ddfByVersion.blended.sources.length).length,
+    projectionsPriced: rows.filter(r => r.values.ddf_value_projections !== null && r.values.ddf_value_projections !== undefined).length,
+    reasons: [...new Set(rows.map(r => r.ddfByVersion.blended.reason))],
+  };
 }"""
 
 HOLD = {"reason": "engine and reference disagree", "week": 5}
@@ -406,7 +451,7 @@ def normalize_chart_weeks(fixture):
     Tests that need an unheld baseline also need charts at the current week so
     the JS freshness check doesn't mark them "not yet published".  Projections
     (ESPN, CBS ROS, Razzball) carry "rest of season" and are unaffected."""
-    week = content_week()
+    week = page_week()
     label = f"Week {week}"
     # The content_vintage for date-based sections (e.g. usatoday "2026-10-06")
     # needs a date in the current content week, not a "Week N" label.
@@ -441,7 +486,7 @@ def normalize_served_weeks(hist_index, fixture):
     as serving a stale week and excludes it.  Projections ("rest of season")
     also need bumping: they serve every week, so the history must report the
     same week as the charts for the prior-week pairing to include them."""
-    week = content_week()
+    week = page_week()
     served = hist_index.get("served") or {}
     for key in list(served):
         entry = served[key]
@@ -560,11 +605,13 @@ class DdfCompositeValueTest(unittest.TestCase):
         # VA-3: every setting derives the charts' Adjusted values live, so at
         # the load setting all four charts have a prior week and count.
         self.assertEqual(out["keys"]["ddf_value_charts"], CHARTS)
-        self.assertEqual(out["keys"]["ddf_value"], INPUTS)
+        self.assertEqual(out["keys"]["ddf_value"], CHARTS)
+        self.assertEqual(out["series"]["ddf_value"], CHARTS)
         self.assertEqual(out["series"]["ddf_value_charts"], CHARTS)
         for version in VERSIONS:
             assert_pair_or_none(self, version, out["keys"][version], out["excluded"][version])
-        self.assertTrue(set(PROJECTIONS) <= set(out["keys"]["ddf_value"]))
+        self.assertTrue(set(CHARTS) <= set(out["keys"]["ddf_value"]))
+        self.assertTrue(set(PROJECTIONS).isdisjoint(out["keys"]["ddf_value"]), "JEG-1073: no projection in DDF Value")
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertEqual(out["activeAtEnd"], "indexed")
 
@@ -573,19 +620,22 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         self.assertTrue(out["set"]["ok"], out["set"])
-        self.assertEqual(out["set"]["inputs"], ["espn", "cbsros"])
+        self.assertEqual(out["set"]["inputs"], ["fantasycalc", "fantasypros"])
         self.assertFalse(out["set"]["isDefault"])
         self.assertTrue(out["subsetMoved"])
         self.assertTrue(out["othersSame"], "a DDF Value input change moved another series (other than the charts' Indexed series)")
         self.assertTrue(out["adjSame"], "a DDF Value input change moved an Adjusted-tab series")
         self.assertTrue(out["indexedFollowsBasis"], "JEG-1044: Indexed should follow the basis, but no Indexed series moved")
-        self.assertGreater(out["subsetShort"], 0, "no player has one source, so the one-source rule went untested")
+        self.assertEqual(out["subsetShort"], 0, "charts all price the same players, so a pair has no one-source player")
+        self.assertTrue(out["singleSet"]["ok"], out["singleSet"])
+        self.assertEqual(out["singleInputs"], ["cbs"])
+        self.assertGreater(out["singleShort"], 100, "no player has one source, so the one-source rule went untested")
         self.assertGreaterEqual(out["eventsAfterSet"]["rows"], 1)
-        self.assertEqual(out["eventsAfterSet"]["shared"], [["espn", "cbsros"]])
+        self.assertEqual(out["eventsAfterSet"]["shared"], [["fantasycalc", "fantasypros"]])
         # v2 contract: a deselected input's reason is exactly one string (the only reason v2 lets a reader
         # re-tick). JEG-1044 renamed it "not selected" -> "not in your basis" (no v2 code reads the string).
         self.assertEqual({e["key"]: e["reason"] for e in out["get"]["excluded"]},
-                         {k: "not in your basis" for k in INPUTS if k not in ("espn", "cbsros")})
+                         {k: "not in your basis" for k in INPUTS if k not in ("fantasycalc", "fantasypros")})
         for refused in out["invalid"]:
             self.assertFalse(refused["ok"], refused)
             self.assertIn("error", refused)
@@ -594,7 +644,7 @@ class DdfCompositeValueTest(unittest.TestCase):
         self.assertEqual(out["quietShared"], 0, "publish=false still fired trade-value-shared-change")
         self.assertTrue(out["reset"]["ok"] and out["reset"]["isDefault"], out["reset"])
         self.assertTrue(out["resetRestores"], "null did not restore every value")
-        # JEG-804: defaults == allowed == projection keys, so passing allowed
+        # JEG-1073: defaults == allowed == chart keys, so passing allowed
         # explicitly is the same as the default state.
         self.assertTrue(out["explicitDefaults"]["ok"], out["explicitDefaults"])
         self.assertTrue(out["explicitDefaults"]["isDefault"],
@@ -638,16 +688,22 @@ class DdfCompositeValueTest(unittest.TestCase):
 
     def test_inputs_without_the_prior_week_are_left_out_of_both_weeks(self):
         def edit(index):
-            index["served"].pop("razzball")   # no saved week matches
+            index["served"].pop("usatoday")   # no saved week matches
         out = run(PRIOR, history_edit=edit)
         self.assertEqual(out["pageErrors"], [])
-        for version in ("ddf_value", "ddf_value_projections"):
+        # JEG-1073: a chart is a DDF Value input, so it leaves ddf_value (and the charts version).
+        for version in ("ddf_value", "ddf_value_charts"):
             res = out["versions"][version]
             self.assertTrue(res["available"], res)
             excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-            self.assertTrue(excluded["razzball"].startswith("no prior week: "), excluded)
-            self.assertNotIn("razzball", res["sources"])
+            self.assertTrue(excluded["usatoday"].startswith("no prior week: "), excluded)
+            self.assertNotIn("usatoday", res["sources"])
             self.assertGreater(res["compared"], 100)
+        # The projections alternate is unaffected by a chart's missing week.
+        alt = out["versions"]["ddf_value_projections"]
+        self.assertTrue(alt["available"], alt)
+        self.assertEqual(alt["excluded"], [])
+        self.assertEqual(alt["sources"], PROJECTIONS)
         # Both weeks, rows included, are means over exactly res["sources"] (checked per player).
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
 
@@ -679,8 +735,8 @@ class DdfChartPriorWeekTest(unittest.TestCase):
         out = run(PRIOR, init_script=DERIVED_SETTING)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        # JEG-804: ddf_value = projections only; charts count in ddf_value_charts.
-        want = {"ddf_value": PROJECTIONS, "ddf_value_charts": CHART_SERIES,
+        # JEG-1073: ddf_value = the four charts (same as ddf_value_charts); the projections are the alternate.
+        want = {"ddf_value": CHART_SERIES, "ddf_value_charts": CHART_SERIES,
                 "ddf_value_projections": PROJECTIONS}
         for version, res in out["versions"].items():
             self.assertTrue(res["available"], (version, res))
@@ -692,36 +748,37 @@ class DdfChartPriorWeekTest(unittest.TestCase):
     def test_chart_without_saved_prior_inputs_is_left_out_of_both_weeks(self):
         # JEG-676: use the normalized served week (content_week), not the
         # on-disk history week, since normalize_served_weeks bumps all sources.
-        prior = content_week() - 1
+        prior = page_week() - 1
 
         def drop_cbs(doc):
             doc["sources"].pop("cbs")
         out = run(PRIOR, init_script=DERIVED_SETTING, week_edit=(prior, drop_cbs))
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        # JEG-804: cbs is a chart, so it only appears in ddf_value_charts (not ddf_value).
-        res = out["versions"]["ddf_value_charts"]
-        self.assertTrue(res["available"], ("ddf_value_charts", res))
-        excluded = {e["key"]: e["reason"] for e in res["excluded"]}
-        self.assertEqual(set(excluded), {"cbs"}, ("ddf_value_charts", excluded))
-        self.assertTrue(excluded["cbs"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
-        self.assertNotIn("cbs", res["sources"])
-        self.assertEqual([s for s in res["sources"] if s in CHART_SERIES], CHART_SERIES[:3], "ddf_value_charts")
-        # ddf_value (projections only) is unaffected by dropping a chart.
-        ddf = out["versions"]["ddf_value"]
-        self.assertTrue(ddf["available"], ("ddf_value", ddf))
-        self.assertEqual(ddf["excluded"], [], "ddf_value")
-        self.assertEqual(ddf["sources"], PROJECTIONS, "ddf_value")
+        # JEG-1073: cbs is a DDF Value input, so it is out of both weeks of ddf_value and ddf_value_charts.
+        for version in ("ddf_value", "ddf_value_charts"):
+            res = out["versions"][version]
+            self.assertTrue(res["available"], (version, res))
+            excluded = {e["key"]: e["reason"] for e in res["excluded"]}
+            self.assertEqual(set(excluded), {"cbs"}, (version, excluded))
+            self.assertTrue(excluded["cbs"].startswith(f"no prior week: no Week {prior} CBS"), excluded)
+            self.assertNotIn("cbs", res["sources"])
+            self.assertEqual([s for s in res["sources"] if s in CHART_SERIES], CHART_SERIES[:3], version)
+        # The projections alternate is unaffected by dropping a chart.
+        alt = out["versions"]["ddf_value_projections"]
+        self.assertTrue(alt["available"], ("ddf_value_projections", alt))
+        self.assertEqual(alt["excluded"], [], "ddf_value_projections")
+        self.assertEqual(alt["sources"], PROJECTIONS, "ddf_value_projections")
 
     def test_saved_setup_derives_live_too(self):
         # VA-3 (Jeremy 2026-10-09, "Compute live everywhere"): the saved
         # vorp_views are retired, so at Full PPR / 12 / standard roster too
         # every chart's Adjusted values are derived live and have a prior
-        # week.  JEG-804: ddf_value = projections only.
+        # week.  JEG-1073: ddf_value = the four charts.
         out = run(PRIOR)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"]))
-        want = {"ddf_value": PROJECTIONS, "ddf_value_charts": CHART_SERIES,
+        want = {"ddf_value": CHART_SERIES, "ddf_value_charts": CHART_SERIES,
                 "ddf_value_projections": PROJECTIONS}
         for version, res in out["versions"].items():
             self.assertTrue(res["available"], (version, res))
@@ -731,9 +788,10 @@ class DdfChartPriorWeekTest(unittest.TestCase):
 
 HELD_INIT = "window.__heldKey = %s; window.__heldSeries = %s;"
 # The DDF series an input contributes (exact keys).
-# JEG-804: held-but-included tests use projection sources (the only DDF Value
-# inputs).  Chart held tests verify the chart stays in ddf_value_charts.
+# JEG-1073: held-but-included tests use chart sources (the DDF Value inputs).
+# Held projection tests verify the projection stays in ddf_value_projections only.
 HELD_SERIES = {"espn": ["espn"],
+               "fantasypros": ["fantasypros"],
                "cbsros": ["cbsros"],
                "razzball": ["razzball"],
                "fantasycalc": ["fantasycalc"],
@@ -753,24 +811,24 @@ class DdfHeldSeriesTest(unittest.TestCase):
             raise _render_env.unavailable("dist/ not built (run make sync)")
         # No held series: nothing is checked for leaking (run() strips any
         # hold the published fixture carries, JEG-569).
-        cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("espn"), "null"))
+        cls.unheld = run(HELD, init_script=HELD_INIT % (json.dumps("fantasycalc"), "null"))
 
     def held_run(self, data_edit, key):
         return run(HELD, data_edit=data_edit, init_script=HELD_INIT % (json.dumps(key), json.dumps(HELD_SERIES[key])))
 
     def assert_held_but_included(self, out, key, reason_start):
-        """JEG-569 part 2: a held PROJECTION source participates in the pipeline
+        """JEG-569 part 2: a held CHART source participates in the pipeline
         (weights, pie, universe) but is excluded from the DDF blend and hidden
         from display.  It is reported as held and in the pipeline inputs.
-        JEG-804: only called for projection sources (the DDF Value inputs)."""
-        self.assertIn(key, PROJECTIONS, "assert_held_but_included is for projections")
+        JEG-1073: only called for chart sources (the DDF Value inputs)."""
+        self.assertIn(key, CHARTS, "assert_held_but_included is for charts")
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        # The held projection IS in the pipeline inputs for ddf_value and ddf_value_projections.
-        for version in ("ddf_value", "ddf_value_projections"):
+        # The held chart IS in the pipeline inputs for ddf_value and ddf_value_charts.
+        for version in ("ddf_value", "ddf_value_charts"):
             info = out["loadByVersion"][version]
-            self.assertIn(key, info["inputs"], f"{version}: held projection should be in inputs")
-        # JEG-804: defaults = COMPOSITE_INPUT_KEYS (projections); this key IS a projection.
+            self.assertIn(key, info["inputs"], f"{version}: held chart should be in inputs")
+        # JEG-1073: defaults = COMPOSITE_INPUT_KEYS (charts); this key IS a chart.
         self.assertIn(key, out["load"]["defaults"])
         # It is reported as held.
         self.assertIn(key, out["load"]["held"])
@@ -780,25 +838,25 @@ class DdfHeldSeriesTest(unittest.TestCase):
         prior = out["prior"]
         self.assertTrue(prior["available"], prior)
 
-    def assert_held_chart_not_in_ddf_value(self, out, key, reason_start):
-        """JEG-804: a held CHART source is not in ddf_value (projections only)
-        but stays in ddf_value_charts with the 'held:' label."""
-        self.assertIn(key, CHARTS, "assert_held_chart_not_in_ddf_value is for charts")
+    def assert_held_projection_not_in_ddf_value(self, out, key, reason_start):
+        """JEG-1073: a held PROJECTION source is not in ddf_value (charts only)
+        but stays in ddf_value_projections with the 'held:' label."""
+        self.assertIn(key, PROJECTIONS, "assert_held_projection_not_in_ddf_value is for projections")
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        # The held chart is NOT in ddf_value inputs (projections only).
+        # The held projection is NOT in ddf_value inputs (charts only).
         ddf_info = out["loadByVersion"]["ddf_value"]
-        self.assertNotIn(key, ddf_info["inputs"], "ddf_value: chart should not be in projections-only inputs")
-        # The held chart IS in ddf_value_charts inputs (held but included in charts).
-        charts_info = out["loadByVersion"]["ddf_value_charts"]
-        self.assertIn(key, charts_info["inputs"], "ddf_value_charts: held chart should be in inputs")
-        # JEG-804: defaults = COMPOSITE_INPUT_KEYS = projections; chart is NOT in defaults.
+        self.assertNotIn(key, ddf_info["inputs"], "ddf_value: projection should not be in chart-only inputs")
+        # The held projection IS in ddf_value_projections inputs (held but included there).
+        alt_info = out["loadByVersion"]["ddf_value_projections"]
+        self.assertIn(key, alt_info["inputs"], "ddf_value_projections: held projection should be in inputs")
+        # JEG-1073: defaults = COMPOSITE_INPUT_KEYS = charts; projection is NOT in defaults.
         self.assertNotIn(key, out["load"]["defaults"])
-        # getCompositeInputs().held only reports projection sources.
+        # getCompositeInputs().held only reports DDF Value (chart) sources.
         self.assertNotIn(key, out["load"]["held"])
-        # The chart IS hidden from display (series) but present in inputs.
-        self.assertNotIn(key, charts_info["series"],
-                         "held chart should be hidden from display series")
+        # The projection IS hidden from display (series) but present in inputs.
+        self.assertNotIn(key, alt_info["series"],
+                         "held projection should be hidden from display series")
         # JEG-879: the held chart's reason is visible via getSourceInfo().excludedReason.
         self.assertIn(key, out["sourceExcluded"],
                       f"{key} should have excludedReason in sourceInfo")
@@ -811,7 +869,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
         base = self.unheld["loadByVersion"]
-        members = {"ddf_value": PROJECTIONS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}
+        members = {"ddf_value": CHARTS, "ddf_value_charts": CHARTS, "ddf_value_projections": PROJECTIONS}
         for version, info in out["loadByVersion"].items():
             self.assertNotIn(key, info["inputs"], version)
             if info["priorAvailable"]:
@@ -857,55 +915,70 @@ class DdfHeldSeriesTest(unittest.TestCase):
             self.assertNotIn(key, entry["inputs"])
             self.assertFalse(entry["stale"])
 
-    def test_validation_hold_on_a_projection_keeps_it_in_ddf_value(self):
-        """JEG-804: held ESPN stays in ddf_value (projections-only) inputs."""
+    def test_validation_hold_on_a_chart_keeps_it_in_ddf_value(self):
+        """JEG-1073: held FantasyCalc stays in ddf_value (trade chart) inputs."""
+        out = self.held_run(hold_on("fantasycalc"), "fantasycalc")
+        self.assert_held_but_included(out, "fantasycalc", "held: " + HOLD["reason"])
+
+    def test_promotion_hold_on_a_chart_is_a_hold_too(self):
+        out = self.held_run(hold_on("fantasypros", field="promotionHold"), "fantasypros")
+        self.assert_held_but_included(out, "fantasypros", "held: " + HOLD["reason"])
+
+    def test_a_held_chart_is_in_every_version(self):
+        """JEG-569 part 2: a held chart is still included in the pipeline."""
+        out = self.held_run(hold_on("usatoday"), "usatoday")
+        self.assert_held_but_included(out, "usatoday", "held: " + HOLD["reason"])
+
+    def test_held_projection_not_in_ddf_value_but_in_projections_version(self):
+        """JEG-1073: a held projection (espn) is NOT in ddf_value (charts
+        only) but IS in ddf_value_projections with the held label."""
         out = self.held_run(hold_on("espn"), "espn")
-        self.assert_held_but_included(out, "espn", "held: " + HOLD["reason"])
+        self.assert_held_projection_not_in_ddf_value(out, "espn", "held: " + HOLD["reason"])
 
-    def test_promotion_hold_on_a_projection_is_a_hold_too(self):
-        out = self.held_run(hold_on("cbsros", field="promotionHold"), "cbsros")
-        self.assert_held_but_included(out, "cbsros", "held: " + HOLD["reason"])
+    def test_held_projection_cbsros_not_in_ddf_value(self):
+        """JEG-1073: held CBS ROS (a projection) stays in ddf_value_projections, not ddf_value."""
+        out = self.held_run(hold_on("cbsros"), "cbsros")
+        self.assert_held_projection_not_in_ddf_value(out, "cbsros", "held: " + HOLD["reason"])
 
-    def test_a_held_projection_is_in_every_version(self):
-        """JEG-569 part 2: a held projection is still included in the pipeline."""
-        out = self.held_run(hold_on("razzball"), "razzball")
-        self.assert_held_but_included(out, "razzball", "held: " + HOLD["reason"])
-
-    def test_held_chart_not_in_ddf_value_but_in_charts_version(self):
-        """JEG-804: a held chart source (fantasycalc) is NOT in ddf_value
-        (projections only) but IS in ddf_value_charts with the held label."""
-        out = self.held_run(hold_on("fantasycalc"), "fantasycalc")
-        self.assert_held_chart_not_in_ddf_value(out, "fantasycalc", "held: " + HOLD["reason"])
-
-    def test_held_chart_cbs_not_in_ddf_value(self):
-        """JEG-804: held CBS (a chart) stays in ddf_value_charts, not ddf_value."""
-        out = self.held_run(hold_on("cbs"), "cbs")
-        self.assert_held_chart_not_in_ddf_value(out, "cbs", "held: " + HOLD["reason"])
-
-    def test_chart_key_rejected_by_set_composite_inputs(self):
-        """JEG-804: chart keys are not valid setCompositeInputs arguments."""
-        out = self.held_run(hold_on("fantasycalc"), "fantasycalc")
-        self.assertFalse(out["chartRejected"]["ok"], "chart key should be rejected")
-        self.assertIn("error", out["chartRejected"])
+    def test_projection_key_rejected_by_set_composite_inputs(self):
+        """JEG-1073: projection keys are not valid setCompositeInputs arguments."""
+        out = self.held_run(hold_on("espn"), "espn")
+        self.assertFalse(out["projectionRejected"]["ok"], "projection key should be rejected")
+        self.assertIn("error", out["projectionRejected"])
 
     def test_a_chart_not_yet_published_for_the_week_is_excluded_from_charts(self):
         out = self.held_run(older_week("usatoday"), "usatoday")
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["problems"], [], "\n".join(out["problems"][:40]))
-        # A chart source not published for the current week is excluded
-        # from ddf_value_charts.  It was never in ddf_value (projections only).
-        charts_info = out["loadByVersion"]["ddf_value_charts"]
-        self.assertNotIn("usatoday", charts_info["inputs"], "ddf_value_charts")
-        ddf_info = out["loadByVersion"]["ddf_value"]
-        self.assertNotIn("usatoday", ddf_info["inputs"], "ddf_value")
-        self.assertNotIn("usatoday", out["load"]["defaults"])
-        # JEG-804: getCompositeInputs().notPublished only reports projection
-        # sources (COMPOSITE_INPUT_KEYS).  A chart's unpublished status is
-        # visible in the ddf_value_charts excluded entries.
-        excluded_charts = {e["key"]: e["reason"] for e in charts_info["excluded"]}
-        self.assertIn("usatoday", excluded_charts, "usatoday should be excluded from ddf_value_charts")
-        self.assertTrue(excluded_charts["usatoday"].startswith("not yet published"),
-                        f"usatoday reason: {excluded_charts['usatoday']}")
+        # A chart source not published for the current week is excluded from
+        # ddf_value_charts and (JEG-1073: the charts are its inputs) ddf_value.
+        for version in ("ddf_value", "ddf_value_charts"):
+            info = out["loadByVersion"][version]
+            self.assertNotIn("usatoday", info["inputs"], version)
+            excluded = {e["key"]: e["reason"] for e in info["excluded"]}
+            self.assertIn("usatoday", excluded, f"usatoday should be excluded from {version}")
+            self.assertTrue(excluded["usatoday"].startswith("not yet published"),
+                            f"{version} usatoday reason: {excluded['usatoday']}")
+        self.assertIn("usatoday", [e if isinstance(e, str) else e.get("key") for e in out["load"]["notPublished"]])
+        # The projections alternate does not depend on it.
+        self.assertNotIn("usatoday", out["loadByVersion"]["ddf_value_projections"]["inputs"])
+        self.assertEqual(out["loadByVersion"]["ddf_value_projections"]["inputs"], PROJECTIONS)
+
+    def test_no_chart_in_the_pipeline_leaves_ddf_value_null_not_the_projections(self):
+        """JEG-1073: with every chart unpublished for the week the main DDF
+        Value is null for everyone; it does not fall back to the projections
+        (which still price players in the alternate). Fails on the JEG-804
+        fallback, where a missing projection set fell back to all sources."""
+        def all_charts_old(fixture):
+            for chart in CHARTS:
+                older_week(chart)(fixture)
+        out = run(NO_CHART, data_edit=all_charts_old)
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(out["inputs"], [])
+        self.assertEqual(out["ddfPriced"], 0)
+        self.assertEqual(out["blendedPriced"], 0)
+        self.assertEqual(out["blendedSources"], 0)
+        self.assertGreater(out["projectionsPriced"], 100, "the projections alternate should still price players")
 
     def test_unheld_fixture_has_no_held_series(self):
         out = self.unheld
@@ -917,7 +990,7 @@ class DdfHeldSeriesTest(unittest.TestCase):
         reasons = {e["key"]: e["reason"] for e in charts["excluded"]}
         for key in CHARTS:
             self.assertTrue(key in charts["inputs"] or reasons.get(key, "").startswith("no prior week"), (key, reasons))
-        # JEG-804: withHeld uses projection key (espn) in the unheld baseline.
+        # JEG-1073: withHeld uses a chart key (fantasycalc) in the unheld baseline.
         self.assertNotIn("dropped", out["withHeld"])
 
 

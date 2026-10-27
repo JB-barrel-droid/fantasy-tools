@@ -131,8 +131,9 @@ def run_checks(js_edit=None) -> list[str]:
                 page.goto(base, wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2", timeout=40000)
                 order = [t["view"] for t in page.evaluate(READ)["tabs"]]
-                if order[0] != "writing" or order[-1] != "audit" or any(v in order for v in ("how", "research", "manifesto")):
-                    errors.append(f"[{width}px] tab order {order}: Writing should be first and Values auditing last")
+                # JEG-1106: the menu lists Value pie and Source build-up (both audit) in the Auditing group, after Players.
+                if order[0] != "values" or order.count("audit") != 2 or order.index("audit") < order.index("targets"):
+                    errors.append(f"[{width}px] menu order {order}: Value chart should be first and the two audit entries follow Players")
                 page.evaluate(SPY)
                 for hash_, slug in ROUTES:
                     page.evaluate("() => { location.hash = '#trade-targets'; }")

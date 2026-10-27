@@ -86,6 +86,7 @@ def run_probe():
             try:
                 with serve(site) as base:
                     page = browser.new_page(viewport={"width": 1280, "height": 900})
+                    page.add_init_script(_render_env.pin_data_week_script())
                     errors = []
                     page.on("pageerror", lambda exc: errors.append(str(exc)))
                     page.goto(base + "/", wait_until="domcontentloaded")
@@ -158,10 +159,13 @@ class SearchPlayersUniverseTest(unittest.TestCase):
         self.assertTrue(hit["materialized"])
         # 0.0, not "not found": the fully loaded charts price him at 0.
         self.assertTrue({"usatoday", "fantasycalc", "fantasypros"} & set(out["zeros"]), out["zeros"])
-        # JEG-804: DDF Value uses projections only. A universe_only player
-        # not priced by any projection has ddf_value = null (the chart zeros
-        # no longer feed into DDF Value).  Pre-JEG-804 this was 0 via charts.
-        self.assertIsNone(hit["values"]["ddf_value"])
+        # JEG-1073 (Jeremy, 2026-10-25): DDF Value is the Adjusted trade chart
+        # average again, so the charts' zeros feed it: 0, as before JEG-804
+        # (GL-20: the user knowing they are a 0 is better than not found).
+        # JEG-804 had made it null here (projections only); the projections
+        # alternate, which no projection prices, is the one that stays null.
+        self.assertEqual(0, hit["values"]["ddf_value"])
+        self.assertIsNone(hit["values"]["ddf_value_projections"])
         self.assertIn("blended", hit["ddfByVersion"])
         # Every null has a reason (the v2 row contract).
         self.assertEqual([], out["unexplained"])

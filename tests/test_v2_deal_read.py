@@ -4,7 +4,7 @@ Three nets from engine series: DDF Value (V), Trade chart average (M: JEG-832 #7
 charts' nets, at least MIN_DEAL_CHARTS = 3 complete charts, else no read) and DDF Value
 (P, ddf_value_projections). The side of a net is win at or above max(1, 3% of the average side total of that
 series), lose at or below the negative of that, else even. The read is a fixed table on (V, M): V win with M lose is
-"Arbitrage: send it", V lose with M win is "Trap". P is a production sentence against V. These checks pin, against
+"Value win, charts say you lose: send it", V lose with M win is "Trap". P is a production sentence against V. These checks pin, against
 an independent recomputation:
 
   * the side thresholds, including the 1.0 floor and the 3% scale on a large trade, at both edges;
@@ -79,10 +79,10 @@ def case_set():
     for net, want in ((3.1, "win"), (3.0, "even"), (-2.9, "even"), (-3.0, "lose")):
         give, receive = rows_for({"v": net, "m": net, "p": net}, total=100.0)
         cases.append({"id": f"large {net}", "give": give, "receive": receive, "want_sides": [want, want, want]})
-    # P disagrees with V: dead after JEG-804 (DDF Value = projections), but kept as defense.
-    # JEG-863: the disagree branch returns "inconclusive" (distinguishable from "backs").
+    # P disagrees with V: live again since JEG-1073 (DDF Value = the Adjusted trade charts, the projections
+    # version is the alternate); the sentence says production does not back the value.
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": -5.0})
-    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "inconclusive"})
+    cases.append({"id": "p disagrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "not"})
     give, receive = rows_for({"v": 5.0, "m": -5.0, "p": 5.0})
     cases.append({"id": "p agrees", "give": give, "receive": receive, "want_cell": "win|lose", "production": "backs"})
     # Missing values.
@@ -136,8 +136,8 @@ def check(cases, results) -> list[str]:
             errors.append(f"{c['id']}: production {r['production']!r}")
     if len(set(titles.values())) != 9 or len(titles) != 9:
         errors.append(f"the nine cells need nine distinct reads: {titles}")
-    if "Arbitrage: send it" != titles.get("win|lose"):
-        errors.append(f"win|lose must be 'Arbitrage: send it', got {titles.get('win|lose')!r}")
+    if "Value win, charts say you lose: send it" != titles.get("win|lose"):
+        errors.append(f"win|lose must be 'Value win, charts say you lose: send it', got {titles.get('win|lose')!r}")
     if "Trap" != titles.get("lose|win"):
         errors.append(f"lose|win must be 'Trap', got {titles.get('lose|win')!r}")
     return errors
@@ -146,7 +146,7 @@ def check(cases, results) -> list[str]:
 MUTATIONS = {
     "floor dropped": ("const threshold = Math.max(1, 0.03 * ((give + receive) / 2));", "const threshold = 0.03 * ((give + receive) / 2);"),
     "percentage changed": ("0.03 * ((give + receive) / 2)", "0.10 * ((give + receive) / 2)"),
-    "arbitrage and trap swapped": ('"win|lose": {title: "Arbitrage: send it"', '"win|lose": {title: "Trap"'),
+    "arbitrage and trap swapped": ('"win|lose": {title: "Value win, charts say you lose: send it"', '"win|lose": {title: "Trap"'),
     "missing read as zero": ("      if (missing.length) return {key, give: null, receive: null, net: null, missing};",
                              "      if (missing.length && false) return {key, give: null, receive: null, net: null, missing};"),
     "production inverted": ("    if (p === v) return p === \"win\"", "    if (p !== v) return p === \"win\""),

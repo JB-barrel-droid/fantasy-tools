@@ -13,6 +13,7 @@ the low-contrast tint colour back, and requires the checks to fail.
 """
 from __future__ import annotations
 
+import re
 import unittest
 
 from tests import _render_env
@@ -27,6 +28,10 @@ SMALL = """() => { const out = []; for (const sel of ['#v2LgCard', '#v2LgSummary
     if (n.closest('.v2-lg-more')) return;   // an inline "+N more" inside a sentence
     if (r.height < 43.5) out.push(`${sel} ${n.tagName.toLowerCase()}.${n.className.toString().split(' ')[0]} ${(n.textContent || n.getAttribute('aria-label') || '').trim().slice(0, 24)} ${Math.round(r.width)}x${Math.round(r.height)}`); }); }
   return out; }"""
+
+# The sort the page holds, as column:direction. The fixture's default order can already match the order a card check expects, so the
+# cards alone cannot tell a working selector from a dead one (JEG-1090: the 320 px overflow error used to mask exactly that).
+ACTIVE_SORT = """(table) => [...document.querySelectorAll(table + ' thead th[aria-sort]')].filter(t => t.getAttribute('aria-sort') !== 'none').map(t => t.dataset.col + ':' + t.getAttribute('aria-sort'))"""
 
 CARDS = """(sel) => [...document.querySelectorAll(sel + ' > li')].map(li => li.innerText)"""
 
@@ -62,6 +67,9 @@ def check_phone(browser, base, overrides, errors):
         # Sort selector: bench value (DDF), both directions.
         texts = page.evaluate(CARDS, "#v2LgSummaryCards")
         page.select_option("#v2LgSummarySortBy", "benchF")
+        sorted_by = page.evaluate(ACTIVE_SORT, "#v2LgSummaryTable")
+        if sorted_by != ["benchF:descending"]:
+            errors.append(f"{tag}the sort selector did not sort the summary by bench value: {sorted_by}")
         vals = [card_numbers(t, r"bench") for t in page.evaluate(CARDS, "#v2LgSummaryCards")]
         if any(v is None for v in vals) or vals != sorted(vals, reverse=True):
             errors.append(f"{tag}summary cards after sorting by bench value: {vals}")
@@ -71,8 +79,22 @@ def check_phone(browser, base, overrides, errors):
             errors.append(f"{tag}summary cards after reversing: {vals2}")
         if page.evaluate(CARDS, "#v2LgSummaryCards") == texts:
             errors.append(f"{tag}the sort selector did not reorder the cards")
+        # By team name: the order differs from the rank order whatever today's values are (2026-10-25: bench value order matched the rank
+        # order on the rebuilt data, so a dead selector passed the check above).
+        clean = lambda texts: [re.sub(r"^#\d+\s*|★\s*| \(partial\)", "", t.split("\n")[0]).strip() for t in texts]
+        rank_order = clean(texts)   # the cards as first drawn: the rank order
+        # The sort selector's default order is the rank order; it must differ from alphabetical or this check proves nothing.
+        page.select_option("#v2LgSummarySortBy", "team")
+        names = clean(page.evaluate(CARDS, "#v2LgSummaryCards"))
+        if names != sorted(names, key=str.lower) and names != sorted(names, key=str.lower, reverse=True):
+            errors.append(f"{tag}summary cards after sorting by team: {names}")
+        if names == rank_order:
+            errors.append(f"{tag}sorting by team did not reorder the summary cards ({names}); if the fixture's rank order is alphabetical this check proves nothing")
         page.select_option("#v2LgOppsSortBy", "capture")
-        caps = [card_numbers(t, r"Fundamentals") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
+        sorted_by = page.evaluate(ACTIVE_SORT, "#v2LgOppsTable")
+        if sorted_by != ["capture:descending"]:
+            errors.append(f"{tag}the sort selector did not sort the opportunities by capture: {sorted_by}")
+        caps = [card_numbers(t, r"DDF Value") for t in page.evaluate(CARDS, "#v2LgOppsCards")]
         if any(v is None for v in caps) or caps != sorted(caps, reverse=True):
             errors.append(f"{tag}opportunity cards after sorting by capture: {caps}")
         page.context.close()

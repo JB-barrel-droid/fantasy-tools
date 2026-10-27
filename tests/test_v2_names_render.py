@@ -4,7 +4,7 @@ DDF Value and Trade chart average are defined once and shown wherever the names 
 
   * the header row reads "On the chart:" (not "Showing:") with an info button; opening it shows the three definitions
     and the edge in plain words (Esc closes it);
-  * the same info button sits beside Risers & fallers' Movement picker, on the "Where the market and the projections
+  * the same info button sits beside Risers & fallers' Movement picker, on the "Where DDF Value and the projections
     disagree" heading, on the DDF Value group in Customize, and the Compare deal-read nets open a definition that
     starts with the shared one;
   * How values work leads with the three numbers and "Where the edge comes from", with no numbers in that copy, and
@@ -36,8 +36,13 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 DEFS = [
-    ("DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."),
+    ("DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."),
     ("Trade chart average", "What the market will pay: the rescaled trade charts, averaged."),
+]
+# JEG-1073: the deal read's third net is the projections alternate; it defines itself with its own wording (not one of
+# the two shared names the popovers list).
+NET_ONLY_DEFS = [
+    ("DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."),
 ]
 EDGE = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose."
 
@@ -116,12 +121,12 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
         try:
             page = open_page("#player-values")
-            label = page.text_content(".v2-showing b").strip()
+            label = page.text_content(".v2-ctx-basis b").strip()
             if label != "On the chart:":
                 errors.append(f"[values] the row reads {label!r}, want 'On the chart:'")
             if "Showing:" in page.inner_text("#v2Main"):
                 errors.append("[values] 'Showing:' is still on the page")
-            btn = page.query_selector(".v2-showing button[data-info=names]")
+            btn = page.query_selector(".v2-ctx-basis button[data-info=names]")
             if not btn:
                 errors.append("[values] no info button beside 'On the chart:'")
             else:
@@ -155,7 +160,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
             page.wait_for_timeout(1200)
             nets = page.evaluate("""() => [...document.querySelectorAll('#v2CDealNets li')].map(li => [li.querySelector('.v2-deal-name').textContent, li.querySelector('.v2-deal-def').textContent])""")
             for name, definition in nets:
-                want = next((text for n, text in DEFS if n == name), None)
+                want = next((text for n, text in DEFS + NET_ONLY_DEFS if n == name), None)
                 if want is None or not definition.startswith(want):
                     errors.append(f"[compare] {name} defines itself as {definition!r}, want it to start with {want!r}")
             if len(nets) != 3:
@@ -194,7 +199,8 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
 
 JS_PATCHES = {
-    "definition changed": ('["DDF Value", "Our estimate of what a player is worth: the projection sources ESPN, CBS rest of season and Razzball, averaged for your league."],', '["DDF Value", "A number."],'),
+    # The page rewrites NAME_DEFS[0] from the basis on load (syncBasisLabels), so the mutation targets that line.
+    "definition changed": ("      : `Our estimate of what a player is worth: ${OURS_DEFAULT}.`;", "      : `A number.`;"),
     "customize info dropped": ('          if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));', ""),
 }
 SHELL_PATCHES = {

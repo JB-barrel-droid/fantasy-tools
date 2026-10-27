@@ -50,6 +50,7 @@ TABS = {
     "#risers-fallers": ["v2RRiseTitle", "v2RFallTitle"],
     "#compare-trade": ["v2GiveTitle", "v2GetTitle", "v2CVerdictTitle", "v2CResultTitle"],
     "#find-trade": ["v2FindTitle"],
+    "#find-league": ["v2LgTitle"],
 }
 REUSED_EXPAND = {"v2ChartTitle", "v2TableTitle"}
 

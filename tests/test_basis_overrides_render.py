@@ -8,8 +8,9 @@ projection blend):
 1. DEFAULT PATH IS BYTE-IDENTICAL. Every value and DDF field of every row on
    the default basis equals what the engine on origin/main at 61ecb39e (frozen
    in tests/fixtures/baseline_main_61ecb39e/) gives on the same data, and so do
-   setBasis(null), setBasis({mode: "default"}) and a blend of the three
-   projection sources at equal weights (all our methodology).
+   setBasis(null), setBasis({mode: "default"}) and a blend of the four
+   trade charts at equal weights (all our methodology since JEG-1073; the
+   baseline engine takes the same default-rule change, see its README).
 2. THE BASIS DOES WHAT IT SAYS. DDF Value is exactly the chosen source's
    Adjusted value (one source) or the normalised weighted mean of the chosen
    sources' Adjusted values, re-normalised over the sources that price a player;
@@ -178,7 +179,7 @@ class BasisRenderTest(unittest.TestCase):
         main = browser_run(SNAPSHOT, [COMBOS, None], baseline_files())
         for label, basis in (("untouched", None), ("null", None),
                              ("default mode", {"mode": "default"}),
-                             ("equal projection blend", {"mode": "blend", "weights": {"espn": 1, "cbsros": 1, "razzball": 1}})):
+                             ("equal chart blend", {"mode": "blend", "weights": {"fantasycalc": 1, "usatoday": 1, "fantasypros": 1, "cbs": 1}})):
             now = browser_run(SNAPSHOT, [COMBOS, basis]) if label != "untouched" else browser_run(SNAPSHOT, [COMBOS, None])
             self.assertEqual(first_difference(main, now), [], f"{label}: the default path moved")
             self.assertEqual(main, now, label)
