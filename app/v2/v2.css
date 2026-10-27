@@ -1532,6 +1532,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 #v2FindOut { margin-top: 12px; }
 .v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
+/* JEG-1043: Show viable offers only; the empty state when no group is viable. */
+.v2-find-viable-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; font-size: 14px; cursor: pointer; }
+.v2-find-viable-toggle input { width: 20px; height: 20px; margin: 0; }
+.v2-find-empty { margin: 12px 0 0; font-size: 14px; line-height: 1.45; }
 .v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }
 
 /* Player values chart: Starter / Bench / Waiver lines and labels, draggable brush fill, legend toggles (JEG-503). */
