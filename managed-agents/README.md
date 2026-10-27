@@ -6,8 +6,12 @@ Hosted Claude Managed Agent that works the `session:cma` Linear queue, turns Jer
 - `agents/ddf-builder.md`, `agents/ddf-reader.md` - Sonnet 5.5 and Haiku 5.5 workers it delegates `T2 build` / `T3 light` work to.
 - `environments/ddf-cloud.yaml` - cloud sandbox, `limited` networking.
 - `vaults/ddf.yaml` - vault container only; secrets are loaded from macOS Keychain by `scripts/setup-credentials.sh`.
-- `scripts/create-deployments.sh` - `ddf-queue` (every 2 hours) and `ddf-weekly-usage` (Mondays 7am Central), $50 cap per run.
+- `scripts/create-deployments.sh` - `ddf-queue` (hourly) and `ddf-weekly-usage` (Mondays 7am Central), $50 cap per run.
 - `scripts/idea-session.sh` - open an idea-intake session in your terminal.
 - `claude-lock.json` - resource IDs written by `ant apply`; commit it, or the next apply creates duplicates.
 
 Change the agent: edit the file, then from this directory run `ant apply --dry-run -v <files>` and `ant apply <files>`.
+
+Deployments (created by `scripts/create-deployments.sh`, not tracked in `claude-lock.json`): `ddf-queue` = `depl_0194kATtQ6xdicZiw7wnkzmT`, `ddf-weekly-usage` = `depl_01PE9v6akCH9muDEUwxdioSs`. Pause one with `ant beta:deployments pause --deployment-id <id>`; run one now with `ant beta:deployments run --deployment-id <id>`.
+
+Deployments pin the agent version they were created or last updated with. After every `ant apply` that changes `ddf-lead`, re-pin: `ant beta:deployments update --deployment-id <id> --agent agent_0115fHS9Z8D43ah95S6LYAe8`. One-off runs: `scripts/start-session.sh "<title>" "<first message>"`.

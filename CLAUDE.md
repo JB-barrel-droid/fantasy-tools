@@ -49,6 +49,13 @@ Several Claude sessions work this repo at once: the back end, and the front end 
   - its owner session is offline or idle, and the taker's own queue is empty; or
   - Jeremy says so.
 
+  The `session:cma` managed agent has a standing takeover (Jeremy, 2026-10-27,
+  JEG-1173: "You can take back any tickets assigned to other harnesses unless
+  you can tell they have sessions actively moving forward"): it may take any
+  Trade Value Chart ticket from another Session label, `muse` or `owner:*`
+  that shows no comment, commit or PR update in the last 4 hours. A session
+  that wants to keep a ticket keeps its heartbeat current.
+
   To take over:
   1. Comment `taking over from <session> · last heartbeat <time> · continuing from <branch>`.
   2. Swap the Session label.
