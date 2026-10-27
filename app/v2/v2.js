@@ -449,6 +449,20 @@
       if (series && typeof series.is_older_week === "boolean") item.stale = series.is_older_week;
       if (series && !item.week && Number.isFinite(series.vintage_week)) item.week = series.vintage_week;
     });
+    // JEG-1178 (Jeremy, 2026-10-27): inside a week view a source is labelled with the week it contributes to that view.
+    // One that already moved on to the next week still carries the newer week in its data; the view prices it on its
+    // saved copy of the viewed week, so that is the week it shows. A source left out of the view keeps its own label.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.servedWeeks && Number.isInteger(weekState.week)) {
+      info.forEach(item => {
+        if (isDdfKey(item.key)) return;
+        const served = weekState.servedWeeks[sourceMeta(item.key).publisher];
+        if (Number.isInteger(served) && served >= weekState.week) {
+          item.servedWeek = served;
+          item.week = weekState.week;
+        }
+      });
+    }
     return info;
   }
   // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").

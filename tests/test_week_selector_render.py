@@ -212,6 +212,47 @@ def check_scenario(browser, base, label, spec, width, height, errors, now=None):
     page.close()
 
 
+CONTRIBUTED = """() => {
+  const info = window.TradeValueV2.view().infoByKey;
+  const out = {};
+  ['espn', 'cbsros', 'razzball', 'fantasycalc', 'usatoday', 'fantasypros', 'cbs'].forEach(k => {
+    if (info[k]) out[k] = {week: info[k].week, served: info[k].servedWeek ?? null};
+  });
+  return out;
+}"""
+
+
+def contributed_week_checks() -> list[str]:
+    """Jeremy, 2026-10-27: viewing the older week, a source that already moved on to the newer week is labelled with the
+    week it contributes (the older one), not the newer week its data carries. Fails without the relabel in v2.js."""
+    errors: list[str] = []
+    spec = SCENARIOS["57%"]
+    moved = set(SOURCES) - set(spec["lagging"])
+    with sync_playwright() as playwright:
+        browser = launch(playwright)
+        try:
+            with served_dist({"assets/history/index.json": transition_index(spec["lagging"])}) as (base, _dist):
+                page = open_page(browser, base, 1366, 768)
+                page.select_option("#v2WeekSelect", str(OLDER))
+                page.wait_for_timeout(400)
+                older = page.evaluate(CONTRIBUTED)
+                for key, got in older.items():
+                    if got["week"] != OLDER:
+                        errors.append(f"Week {OLDER} view: {key} is labelled Week {got['week']} (serves {got['served']}), expected Week {OLDER}")
+                for key in moved:
+                    if key in older and older[key]["served"] != NEWER:
+                        errors.append(f"{key} should be a source that moved on to Week {NEWER}: {older[key]}")
+                page.select_option("#v2WeekSelect", str(NEWER))
+                page.wait_for_timeout(400)
+                for key, got in page.evaluate(CONTRIBUTED).items():
+                    if key in moved and got["week"] != NEWER:
+                        errors.append(f"Week {NEWER} view: {key} is labelled Week {got['week']}, expected Week {NEWER}")
+                page.close()
+        finally:
+            browser.close()
+    return errors
+
+
 def run_checks() -> list[str]:
     errors: list[str] = []
     with sync_playwright() as playwright:
@@ -341,6 +382,9 @@ def link_round_trip() -> list[str]:
 class WeekSelectorRenderTest(unittest.TestCase):
     def test_coverage_scenarios_phone_and_desktop(self):
         self.assertEqual(run_checks(), [])
+
+    def test_each_source_is_labelled_with_the_week_it_contributes(self):
+        self.assertEqual(contributed_week_checks(), [])
 
     def test_stale_badge_after_thursday_noon_central(self):
         self.assertEqual(stale_checks(), [])
