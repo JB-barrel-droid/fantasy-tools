@@ -145,7 +145,7 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
 PATCHES = {
     "USAT label back": {"v2_patch": ('{label: "USA Today", color', '{label: "USAT", color')},
     "Wk back": {"v2_patch": ("`Week ${item.week}`", "`Wk ${item.week}`")},
-    "old panel title": {"shell_patch": ('<h2 id="v2VorpTitle">Value over a waiver player</h2>', '<h2 id="v2VorpTitle">VORP vs waivers</h2>')},
+    "old panel title": {"shell_patch": ('<h2 id="v2VorpTitle">Value above waivers</h2>', '<h2 id="v2VorpTitle">VORP vs waivers</h2>')},
     "old research line": {"shell_patch": ("Nothing is published here yet.", "No posts are published yet.")},
     "median back": {"v2_patch": ("`middle of ${m.count} chart${m.count === 1 ? \"\" : \"s\"}", "`median of ${m.count}")},
     "page stamp not rendered": {"v2_patch": ("    renderPageStamps();\n    const s = view.state;", "    const s = view.state;")},
