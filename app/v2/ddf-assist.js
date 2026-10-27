@@ -1,9 +1,9 @@
 // JEG-1026: the site side of the LLM <-> site round trip (spec: docs/design/llm-site-state.md).
 //
-//   * "Copy for ChatGPT/Claude": the current DDF state (a ddf-state block from DDFState.encodeBlock, with an "Open on the site"
-//     link) plus a one-line prompt, on the clipboard.
-//   * "Paste from ChatGPT/Claude": a box that applies a block, bare JSON or a site link from a chat, and says what was applied
-//     and what was ignored (the codec's warnings, names that did not resolve, advisory fields).
+//   * "Copy link" (JEG-1101): the current view's site link on the clipboard. The link is the whole hand-off: the DDF MCP tool's
+//     read_state decodes the same query (league settings, rosters, trade, target), so there is no separate code to paste.
+//     Jeremy, 2026-10-26: "We should focus on copying the site link to llms and having them decode whats in it, as opposed to
+//     code from a link".
 //   * Links: #find-trade?mine=..&theirs=.. and #trade-targets?target=.. (and any route with `view`) open with the rosters and
 //     the player, through the same apply path.
 //
@@ -14,8 +14,6 @@
 
   const ROUTES = {compare: "#compare-trade", targets: "#trade-targets", finder: "#find-trade"};
   const VIEW_NAMES = {compare: "Compare a trade", targets: "Trade targets", finder: "Find a trade"};
-  const PROMPT = "This is my Data Driven Football state: my league settings and what I'm working on. Read it with the Data Driven Football tool and "
-    + "continue from it. When you finish, send back an updated ddf-state block or the Open on the site link.";
   const $ = id => document.getElementById(id);
   let H = null;   // the page's hooks
   const codec = () => root.DDFState;
@@ -82,11 +80,10 @@
     const route = ROUTES[state.work && state.work.view] || "#trade-targets";
     return location.href.split("#")[0] + route + "?" + codec().encodeQuery(state);
   }
-  function copyText() {
+  function linkText() {
     const built = buildState();
     if (!built.state) return null;
-    const url = siteLink(built.state);
-    return {text: `${PROMPT}\n\n${codec().encodeBlock(built.state, {url})}`, built, url};
+    return {text: siteLink(built.state), built};
   }
 
   // ---------- state in ----------
@@ -115,7 +112,7 @@
     return rows;
   }
 
-  // Apply a decoded state to the page. Returns {applied: [sentence], ignored: [sentence], view}.
+  // Apply a decoded state (from a link) to the page. Returns {applied: [sentence], ignored: [sentence], view}.
   function applyState(state, warnings) {
     const applied = [];
     const ignored = (warnings || []).slice();
@@ -177,13 +174,12 @@
     box.hidden = false;
     box.dataset.origin = origin;
     const where = report.view ? ` Showing ${VIEW_NAMES[report.view]}.` : "";
-    const lead = report.applied.length ? `${origin === "link" ? "Opened with" : "Applied"} the shared state.${where}` : "No usable state found.";
+    const lead = report.applied.length ? `Opened with the shared state.${where}` : "No usable state found.";
     H.say(`${lead}${report.ignored.length ? ` ${plural(report.ignored.length, "note")} below the page.` : ""}`, 9000);
   }
 
   function applyFrom(result, origin) {
     const report = applyState(result.state, result.warnings);
-    if (origin === "paste" && report.view && report.applied.length) H.go(ROUTES[report.view]);
     show(report, origin);
     return report;
   }
@@ -192,42 +188,11 @@
     if (!H || !codec()) return null;
     return applyFrom(codec().decodeQuery(query), "link");
   }
-  function applyPaste(text) {
-    if (!H || !codec()) return null;
-    return applyFrom(codec().decodeBlock(text), "paste");
-  }
-
-  // ---------- what the buttons do (JEG-1101) ----------
-  // The short line under each button is static in shell.html (its own words). The ⓘ behind it carries the how-to and
-  // the link to the MCP connect instructions: the link is read from the footer, so the two cannot drift apart.
-  const HOWTO = {
-    copy: {kind: "assist", aria: "What Copy for ChatGPT/Claude does", title: "Copy for ChatGPT/Claude",
-      lines: ["Copies your league and what you are working on, ready for the chat.",
-        "Paste it into ChatGPT or Claude, ask, then paste the answer back here."]},
-    paste: {kind: "assist", aria: "What Paste from ChatGPT/Claude does", title: "Paste from ChatGPT/Claude",
-      lines: ["Applies the answer a chat sends back, and says what it used.",
-        "Copy for ChatGPT/Claude first, paste that into the chat, then paste its reply here."]},
-  };
-  function connectHref() {
-    const link = $("v2AssistLine") && $("v2AssistLine").querySelector("a");
-    return link ? link.href : "";
-  }
-  // One button's line (unhidden) and its ⓘ. No hook or no slot: leave what is there rather than half-build it.
-  function explain(hintId, slotId, infoId, spec) {
-    const hint = $(hintId);
-    if (hint) hint.hidden = false;
-    const slot = $(slotId);
-    if (!slot || !H.infoButton) return;
-    const href = connectHref();   // no footer link: the ⓘ keeps the shared default rather than a "Connect" label to nowhere
-    const button = H.infoButton(href ? {...spec, link: {href, text: "Connect the tool ↗"}} : spec);
-    button.id = infoId;
-    slot.replaceWith(button);
-  }
 
   // ---------- controls ----------
   async function copy() {
     const note = $("v2AssistNote");
-    const built = copyText();
+    const built = linkText();
     note.hidden = false;
     note.replaceChildren();
     const say = text => { const p = document.createElement("p"); p.textContent = text; note.append(p); };
@@ -243,44 +208,29 @@
       + (built.built.capped.length ? " Lists are cut to 40 players." : "");
     try {
       await navigator.clipboard.writeText(built.text);
-      say(`✓ Copied for ChatGPT or Claude: ${what}. Paste it into the chat.${extra}`);
+      say(`✓ Copied the link: ${what}.${extra}`);
     } catch (error) {
       // No clipboard permission: show the text, selected, to copy by hand.
       const area = document.createElement("textarea");
       area.className = "v2-assist-text";
       area.readOnly = true;
       area.value = built.text;
-      area.setAttribute("aria-label", "Text to copy for ChatGPT or Claude");
-      say(`Copy this text into ChatGPT or Claude: ${what}.${extra}`);
+      area.setAttribute("aria-label", "Link to copy");
+      say(`Copy this link: ${what}.${extra}`);
       note.append(area);
       area.focus();
       area.select();
     }
-    H.say("Copied for ChatGPT or Claude.", 4000);
+    H.say("Copied the link.", 4000);
   }
 
   function bind() {
     const copyButton = $("v2AssistCopy");
-    const pasteToggle = $("v2AssistPasteToggle");
-    const pasteBox = $("v2AssistPaste");
-    const area = $("v2AssistPasteText");
-    if (!copyButton || !pasteToggle || !pasteBox || !area) return;
+    if (!copyButton) return;
     copyButton.hidden = false;
-    pasteToggle.hidden = false;
-    explain("v2AssistCopyHint", "v2AssistCopyInfoSlot", "v2AssistCopyInfo", HOWTO.copy);
-    explain("v2AssistPasteHint", "v2AssistPasteInfoSlot", "v2AssistPasteInfo", HOWTO.paste);
+    const hint = $("v2AssistCopyHint");
+    if (hint) hint.hidden = false;
     copyButton.addEventListener("click", copy);
-    pasteToggle.addEventListener("click", () => {
-      const open = pasteBox.hidden;
-      pasteBox.hidden = !open;
-      pasteToggle.setAttribute("aria-expanded", String(open));
-      if (open) area.focus();
-    });
-    $("v2AssistApply").addEventListener("click", () => {
-      if (!area.value.trim()) { show({applied: [], ignored: ["Paste a ddf-state block, its JSON or a site link first."], view: ""}, "paste"); return; }
-      const report = applyPaste(area.value);
-      if (report && report.applied.length) { area.value = ""; pasteBox.hidden = true; pasteToggle.setAttribute("aria-expanded", "false"); }
-    });
   }
 
   function attach(hooks) {
@@ -289,5 +239,5 @@
     bind();
   }
 
-  root.DDFAssist = {attach, applyLink, applyPaste, applyState, buildState, copyText};
+  root.DDFAssist = {attach, applyLink, applyState, buildState, linkText};
 })(typeof window !== "undefined" ? window : globalThis);

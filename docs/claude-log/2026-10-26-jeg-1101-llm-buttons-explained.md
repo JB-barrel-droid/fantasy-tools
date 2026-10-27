@@ -64,3 +64,35 @@ No Sleeper/ESPN/Yahoo claim, no sign-up language and no publisher name in any of
 - Merged origin/main in (no conflicts).
 - Verified (check named): `tests/test_v2_assist.py`, `tests/test_v2_assist_render.py` pass locally after the merge.
 - Claimed, not confirmed: the 1366x768 Example fold margin; the local fold test could not load the Example state from this worktree's committed `dist/`, so CI's `v2-render` is the check.
+
+## Rework to Jeremy's decision (Ba-Nana run, 2026-10-27)
+
+Jeremy, on JEG-1101 (2026-10-26 10:14 PM CT): "I don't think the chatgpt/claude buttons are good. if possible, We should
+focus on copying the site link to llms and having them decode whats in it, as opposed to code from a link".
+
+What changed (supersedes everything above: the per-button lines, the ⓘ how-tos and the `v2.js` popover hooks are reverted):
+- Removed **Copy for ChatGPT/Claude**, **Paste from ChatGPT/Claude** and the paste box (`shell.html`, `v2.css`,
+  `ddf-assist.js`: `PROMPT`, `copyText`, `applyPaste`, the JEG-1101 `explain` block). Links still open with their state (`applyLink`).
+- One **Copy link** button in the league strip (same id `v2AssistCopy`): puts the current view's plain site URL on the clipboard,
+  nothing else. One line under it (draft for Jeremy): `Opens this view. A chat with the DDF tool reads it too.`
+- Connect guide (`docs/use-ddf-in-claude-chatgpt.md`) and skill (`app/llm/skill/SKILL.md`) now say the link is the hand-off.
+- `supabase/functions/mcp/tools.ts`: `make_state` text no longer points at the removed paste box. **Not deployed**; it goes live
+  only with the next `mcp` deploy.
+
+How an LLM decodes a site link (investigated):
+- The hash query (`docs/design/llm-site-state.md`) carries the league (`scoring`, `teams`, `roster`, `shares`, weeks, `bso`) and
+  the work (`give`, `get`, `mine`, `theirs`, `target`, `view`). Players travel as site player numbers (`give=217`), or as
+  `n:<name>` when only a name is known.
+- The live MCP `read_state` already accepts a plain site link and resolves `player_key` (`tools.ts:860`): no MCP change is
+  needed for links. Without the tool, a chat can read the league settings but not the player numbers.
+- Live check 2026-10-27 through the DDF connector: `read_state` on a site link decodes the league but matches **no player**,
+  because the live `get_values` returns `players: []`. Filed as JEG-1157 (High, `session:be`); not caused by this branch.
+
+### Verified (check named)
+- `tests/test_v2_assist.py` (new `test_one_copy_link_button_and_no_chatgpt_claude_buttons`) and
+  `RENDER_TESTS_REQUIRED=1 tests/test_v2_assist_render.py`: the clipboard is the bare site link and reopens the same league
+  and trade; a hand-written name link fills Find a trade and reports the unmatched name; no ChatGPT/Claude button or paste
+  box on the page; the line sits under Copy link; no overflow at 390 px; 8 mutation guards each fail the checks.
+
+### Claimed, not confirmed
+- The live MCP decoding a site link end to end (blocked by JEG-1157).

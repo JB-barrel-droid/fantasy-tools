@@ -1990,34 +1990,22 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-assist { border-top: 1px solid var(--v2-border); margin-top: var(--v2-pad-section); padding: 16px 0 28px; color: var(--v2-muted); font-size: 13px; }
 .v2-assist-line { margin: 0; }
 .v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.v2-assist-actions .v2-btn[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
+.v2-assist-actions .v2-btn[hidden], .v2-assist-note[hidden] { display: none; }
 .v2-assist-panel:empty { display: none; }
-.v2-assist-paste, .v2-assist-note { min-width: 0; }
-.v2-assist-paste { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0 0 12px; }
+.v2-assist-note { min-width: 0; }
 .v2-assist-note { padding: 0 0 12px; font-size: 13px; color: var(--v2-muted); }
 .v2-assist-text { box-sizing: border-box; width: 100%; max-width: 100%; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--v2-ink); background: var(--v2-surface); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn); padding: 8px; }
 .v2-assist-note p { margin: 0 0 6px; overflow-wrap: anywhere; }
 .v2-assist-note strong { color: var(--v2-ink); }
-.v2-assist-paste .v2-field-label { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 767px) {
   .v2-assist-actions { flex-basis: 100%; }
   .v2-assist-actions .v2-btn { flex: 1 1 140px; white-space: normal; }
+  .v2-assist-action { flex: 1 1 140px; }
 }
-/* JEG-1101: each Copy / Paste button shows one short line under it and an ⓘ how-to beside it (the page's shared info
-   popover, so no new widget). The line is a single 11 px row: the league strip grows about 14 px, which the
-   JEG-1112 Example fold has room for at 1366x768 (this is the tightest header on the site). */
-.v2-assist-action { display: grid; grid-template-columns: auto auto; justify-content: start; align-items: center; column-gap: 4px; min-width: 0; }
-.v2-assist-action .v2-info { margin: 0; }
-/* The line is a second grid row under the button: it cannot widen the action (and so the strip), it wraps instead of
-   running off the page (a 320 px phone with enlarged text), and it adds one 11 px row to the strip. */
-.v2-assist-hint { grid-column: 1 / -1; margin: 0; font-size: 11px; line-height: 1; overflow-wrap: anywhere; color: var(--v2-muted); }
+/* JEG-1101: Copy link with one 11 px line under it; the line wraps rather than widening the league strip. */
+.v2-assist-action { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.v2-assist-hint { margin: 0; font-size: 11px; line-height: 1.1; overflow-wrap: anywhere; color: var(--v2-muted); }
 .v2-assist-hint[hidden] { display: none; }
-/* Phones: the action (button + its ⓘ) takes the button's old flex share; the button column can shrink and wrap so a
-   320 px phone with enlarged text never scrolls sideways. */
-@media (max-width: 767px) {
-  .v2-assist-action { flex: 1 1 160px; grid-template-columns: minmax(0, 1fr) auto; }
-  .v2-assist-action .v2-btn { min-width: 0; overflow-wrap: anywhere; }   /* "ChatGPT/Claude" in enlarged text is wider than the button beside its ⓘ */
-}
 
 /* Inputs status strip (inputs-status.js): soft notes under the league row. */
 .v2-inputs[hidden] { display: none; }

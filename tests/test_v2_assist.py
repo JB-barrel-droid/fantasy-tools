@@ -44,19 +44,13 @@ class AssistBuildTest(unittest.TestCase):
         self.assertLess(assist, page)
         self.assertIn("ddf-assist.js", Path(build_v2_page.__file__).read_text(encoding="utf-8"))
 
-    def test_each_button_carries_a_line_and_an_info_slot(self):
-        """JEG-1101: a short line under each button and the ⓘ slot its how-to is built into (ddf-assist.js)."""
-        for hint, slot in (("Copies your league and your work.", "v2AssistCopyInfoSlot"),
-                           ("Applies a chat's answer here.", "v2AssistPasteInfoSlot")):
-            self.assertIn(hint, SHELL)
-            self.assertIn(slot, SHELL)
-        for hint_id in ("v2AssistCopyHint", "v2AssistPasteHint"):
-            self.assertIn(f'id="{hint_id}"', SHELL)
-            # The line is the button's accessible description too, so a screen reader hears it with the label.
-            self.assertIn(f'aria-describedby="{hint_id}"', SHELL)
-        # Start hidden with the buttons: no codec, no line (bind() unhides both).
-        for tag in ('id="v2AssistCopyHint" hidden', 'id="v2AssistPasteHint" hidden'):
-            self.assertIn(tag, SHELL)
+    def test_one_copy_link_button_and_no_chatgpt_claude_buttons(self):
+        """JEG-1101 (Jeremy, 2026-10-26): the ChatGPT/Claude Copy / Paste buttons and the paste box are gone; one Copy link
+        button with one line under it, both hidden until ddf-assist.js binds them."""
+        for gone in ("Copy for ChatGPT/Claude", "Paste from ChatGPT/Claude", "v2AssistPasteToggle", 'id="v2AssistPaste"', "v2AssistApply"):
+            self.assertNotIn(gone, SHELL)
+        self.assertIn('id="v2AssistCopy" aria-describedby="v2AssistCopyHint" hidden>Copy link</button>', SHELL)
+        self.assertIn('id="v2AssistCopyHint" hidden>', SHELL)
 
     def test_the_connect_guide_the_footer_links_is_published(self):
         with tempfile.TemporaryDirectory() as tmp:

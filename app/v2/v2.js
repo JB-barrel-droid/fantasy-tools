@@ -3760,7 +3760,7 @@
     button.type = "button";
     button.className = "v2-info";
     button.dataset.info = spec.kind;
-    button.setAttribute("aria-label", spec.aria || `What ${spec.what} ${spec.kind === "names" ? "mean" : "means"}${context ? ` (${context})` : ""}`);
+    button.setAttribute("aria-label", `What ${spec.what} ${spec.kind === "names" ? "mean" : "means"}${context ? ` (${context})` : ""}`);
     button.setAttribute("aria-haspopup", "dialog");
     button.setAttribute("aria-expanded", "false");
     const glyph = document.createElement("span");
@@ -3799,8 +3799,8 @@
         foot.className = "v2-info-foot";
         const link = document.createElement("a");
         link.className = "v2-link";
-        link.href = (spec.link && spec.link.href) || "v2/#writing/how-values";   // JEG-1101: the Copy / Paste ⓘ links the connect guide
-        link.textContent = (spec.link && spec.link.text) || "How values work ↗";
+        link.href = "v2/#writing/how-values";
+        link.textContent = "How values work ↗";
         link.addEventListener("click", () => closePopover());
         const close = document.createElement("button");
         close.type = "button";
@@ -7069,15 +7069,13 @@
     bindRisers();
   }
 
-  // JEG-1026: what ddf-assist.js (Copy for ChatGPT/Claude, the paste box, state links) may read and change on this page.
+  // JEG-1026: what ddf-assist.js (Copy link, state links) may read and change on this page.
   // A narrow set of hooks, so the assist code never reaches into this file's state.
   function attachAssist() {
     if (!window.DDFAssist) return;
     const VIEW_NAME = {compare: "compare", targets: "targets", find: "finder"};
     window.DDFAssist.attach({
       engine: C,
-      // JEG-1101: the shared ⓘ popover, so the Copy / Paste how-to is the same widget as the rest of the page.
-      infoButton: spec => indexedInfoButton("", spec),
       view: () => VIEW_NAME[currentView()] || "",
       leagueQuery: () => leagueLinkParts().join("&"),
       applyLinkLeague,
