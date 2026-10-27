@@ -262,6 +262,8 @@ Option 2, chosen by Jeremy (2026-10-06, explicit): "I don't want muse owning thi
 
 Approved by Jeremy in session on 2026-10-06; recorded as `proceeded` because the format has no `approved` outcome.
 
+Amended 2026-10-26 (Jeremy, in chat: "Set it up with two tickets for now, items in backlog that are low risk"; "I gave muse the one ticket"): Muse owns Linear tickets labeled `muse` (first: JEG-1145), on `muse/*` branches, and opens PRs but never merges. Everything else above stands.
+
 ## league-settings-001: Save one league setup; derive other league settings in the browser
 - id: league-settings-001
 - created: 2026-10-06
