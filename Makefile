@@ -539,6 +539,8 @@ test-core:
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1152: engine promotion model part-for-part with the reference.
+	python3 -m unittest tests.test_promotion_model_parity
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard
@@ -701,6 +703,8 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
+	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
+	python3 -m unittest tests.test_v2_override_adjustments_render
 
 test-render-extra:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
@@ -755,6 +759,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
+	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
+	python3 -m unittest tests.test_v2_override_adjustments_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_inputs_status_render
 

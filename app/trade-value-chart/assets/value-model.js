@@ -232,12 +232,10 @@
     var slots = setting.slots || {};
     var sfSlots = Math.max(0, Number(setting.superflex) || 0);
     var flexSlots = Math.max(0, Number(setting.flex) || 0);
-    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                             {superflex: sfSlots > 0});
     var alloc = {};
     POSITION_ORDER.forEach(function (pos) {
       alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
-        bench: bench[pos], starters: 0, rostered: 0 };
+        bench: 0, starters: 0, rostered: 0 };
     });
     function takeBest(eligiblePositions, offsetOf, count) {
       var cand = [];
@@ -262,18 +260,68 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
-    // MR-28 (JEG-969): flex_bench_seats on by default (2026-10-23, Jeremy approved).
-    // Recompute bench weights counting superflex+flex starters, matching
-    // allocate_league in the ES model.  Off only when explicitly false.
-    // Skipped in 2-QB / superflex: market_bench 2-QB data already captures
-    // supply-capped QB benches (Jeremy, 2026-10-23, option A).
-    var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
-    if (setting.flex_bench_seats !== false && !isTwoQb) {
-      var ff = {};
-      POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
-      bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                           {superflex: sfSlots > 0, flexFilled: ff});
+    // JEG-1121 revised: bench allocation.
+    var benchPerTeam = Math.max(0, Number(setting.bench_per_team) || 0);
+    if (setting.flex_bench_seats === false) {
+      // D'Hondt path (backward compat; flex_bench_seats=false used by fixture tests).
+      var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      var ff = null;
+      if (!isTwoQb) {
+        ff = {};
+        POSITION_ORDER.forEach(function (pos) { ff[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams; });
+      }
+      var bench = vpBenchSeats(slots, teams, benchPerTeam, {superflex: isTwoQb, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    } else {
+      // JEG-1121 stable: bench fills by PPG × usage discount in one cross-position pass.
+      // Replacement level = 0 (any positive-PPG player competes).
+      // Discount for backup k at pos: c^(1 + floor(k / t1)), where
+      // c = starters_per_team × (bye_rate + miss_rate), t1 = round(2 × c × teams).
+      // No D'Hondt fallback; seats left unfilled if no positive-PPG candidates remain.
+      var isTwoQbVorp = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      // Starters per team for coverage rate
+      var startPT = {};
+      POSITION_ORDER.forEach(function (pos) {
+        startPT[pos] = (alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0)) / teams;
+      });
+      // miss rates (from lineup_parameters.json, rounded for Python parity)
+      var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
+      var VORP_BYE = 1.0 / 17.0;
+      // t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
+      var vorpT1 = {};
+      POSITION_ORDER.forEach(function (pos) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        vorpT1[pos] = Math.max(1, Math.round(2.0 * c * teams));
+      });
+      function vorpDiscount(pos, k) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        var tier = Math.floor(k / (vorpT1[pos] || 1));
+        return Math.pow(c, 1 + tier);
+      }
+      // Greedy bench fill: seats go to the highest PPG × discount candidate.
+      var benchCounts = {};
+      POSITION_ORDER.forEach(function (pos) { benchCounts[pos] = 0; });
+      var totalBench = vpRoundHalfUp(teams * benchPerTeam);
+      for (var bSlot = 0; bSlot < totalBench; bSlot++) {
+        var bestEff = -Infinity, bestPos = null, anyCandidate = false;
+        POSITION_ORDER.forEach(function (pos) {
+          var order = orders[pos] || [];
+          var offset = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+          var idx = offset + (benchCounts[pos] || 0);
+          if (idx >= order.length) return;
+          anyCandidate = true;
+          var raw = order[idx].score || 0;
+          var eff = Math.max(0, raw) * vorpDiscount(pos, benchCounts[pos] || 0);
+          var pi = vpPosIndex(pos), bi = bestPos !== null ? vpPosIndex(bestPos) : Infinity;
+          if (eff > bestEff || (eff === bestEff && pi < bi)) {
+            bestEff = eff; bestPos = pos;
+          }
+        });
+        if (bestPos === null || !anyCandidate) break;
+        if (bestEff <= 0) break;  // no positive-PPG candidates remain; leave seats unfilled
+        benchCounts[bestPos] = (benchCounts[bestPos] || 0) + 1;
+      }
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = benchCounts[pos] || 0; });
     }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];
@@ -511,7 +559,8 @@
         var nListed = Object.keys(sharedKeys).filter(function (k) { return posOf[k] === pos; }).length;
         var ded = teams * (Number(slots[pos]) || 0);
         var avail = Math.max(0, nListed - ded);
-        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail);
+        // JEG-1121: sfTotal/fxTotal/avail are league-wide; normalize to per-team.
+        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail) / teams;
       });
       benchOpts.flexFilled = ff;
     }
@@ -614,7 +663,7 @@
   // Apply promotion/demotion model to ES parts. Off by default; enabled
   // when setting.promotion_model is truthy. Modifies lineup share and
   // part values to reflect persistent role-change probability.
-  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining) {
+  function esApplyPromotionModel(es, work, starters, teams, pos, weeksRemaining, waiver) {
     if (!es || !es.parts || es.avail <= 0 || weeksRemaining <= 0) return es;
     var avail = es.avail;
     var nPerTeam = es.nPerTeam;
@@ -630,10 +679,16 @@
         var ratePw = esPromotionRate(pos, depth);
         var promoBonusShare = ratePw * weeksRemaining * 0.5;
         var newLs = Math.min(avail, ls + promoBonusShare * (avail - ls));
-        if (ls > 0) {
+        var v = Math.max(0, work[i].native - (waiver || 0));
+        if (ls > 0 && v > 0) {
           var scale = newLs / ls;
           sp = sp * scale;
           fp = fp * scale;
+        } else if (v > 0) {
+          // No lineup share yet but value above waivers: promotion gives some
+          // (matches value_reference._apply_promotion_model, JEG-1152).
+          sp = avail * v * promoBonusShare;
+          fp = 0;
         }
         ls = newLs;
       } else if (rank > starters - nPerTeam * teams && rank <= starters) {
@@ -704,16 +759,71 @@
     return { value: used.length ? sum / wsum : null, used: used };
   }
 
-  // JEG-1035 / JEG-1044: a reader override of DDF Value is a row-level
-  // overlay applied after the pipeline. It touches only the DDF entry it is
-  // given; Adjusted values, the pie, Indexed factors and the charts-only
-  // version are never read or written. Absolute value only. Returns the
-  // entry (mutated).
+  // JEG-1058: the fixed-pie scale an override lives on (spec 3.6).
+  var OVERRIDE_MIN = 0;
+  var OVERRIDE_MAX = 100;
+  // An override that arrives from outside the editor (a share link, an import,
+  // a saved record) is put on the scale the editor shows: an absolute value
+  // between 0 and 100, an adjustment within the scale's span. The value it
+  // produces is the same either way, because the result is capped anyway.
+  function clampOverrideValue(value) {
+    return Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, value));
+  }
+  function clampOverrideDelta(delta) {
+    return Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, delta));
+  }
+
+  // JEG-1035 / JEG-1044 / JEG-1058: a reader override of DDF Value is a
+  // row-level overlay applied after the pipeline. It touches only the DDF
+  // entry it is given; Adjusted values, the pie, Indexed factors and the
+  // charts-only version are never read or written. Returns the entry (mutated).
+  //
+  // Two kinds (spec 3.1): an absolute value ("worth 58.0") and an adjustment
+  // ("+5", "-3") added to the pipeline's own value. What the reader set is
+  // normalised first: a number is an absolute value, an object carries its
+  // type. An entry that cannot be used (not a number, an absolute below zero)
+  // is refused rather than applied; one that is past the top of the scale is
+  // capped, so the value the reader sees is the value that is applied.
+  function normalizeOverride(override) {
+    if (override === null || override === undefined) return null;
+    if (typeof override === "number") {
+      if (!Number.isFinite(override) || override < OVERRIDE_MIN) return null;
+      return {type: "absolute", value: clampOverrideValue(override)};
+    }
+    if (typeof override === "string") {
+      if (override === "") return null;
+      var text = Number(override);
+      if (!Number.isFinite(text) || text < OVERRIDE_MIN) return null;
+      return {type: "absolute", value: clampOverrideValue(text)};
+    }
+    if (typeof override !== "object") return null;
+    if (override.type === "adjustment") {
+      if (typeof override.delta !== "number" && typeof override.delta !== "string") return null;
+      if (override.delta === "") return null;
+      var delta = Number(override.delta);
+      if (!Number.isFinite(delta)) return null;
+      return {type: "adjustment", delta: clampOverrideDelta(delta)};
+    }
+    if (typeof override.value !== "number" && typeof override.value !== "string") return null;
+    if (override.value === "") return null;
+    var value = Number(override.value);
+    if (!Number.isFinite(value) || value < OVERRIDE_MIN) return null;
+    return {type: "absolute", value: clampOverrideValue(value)};
+  }
+
   function applyDdfOverride(entry, override) {
     entry.pipelineValue = entry.value;
-    entry.overridden = override !== null && override !== undefined;
-    if (!entry.overridden) return entry;
-    entry.value = override;
+    var spec = normalizeOverride(override);
+    entry.overridden = spec !== null;
+    if (!spec) return entry;
+    if (spec.type === "adjustment") {
+      // A player no source prices has no pipeline value to add to (spec 7.1
+      // test 7): the adjustment is the value.
+      var base = typeof entry.pipelineValue === "number" && Number.isFinite(entry.pipelineValue) ? entry.pipelineValue : 0;
+      entry.value = Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, base + spec.delta));
+    } else {
+      entry.value = spec.value;
+    }
     entry.reason = null;
     entry.lowConfidence = false;
     entry.confidenceNote = null;
@@ -1017,7 +1127,7 @@
           es.m = lp.m;
           // JEG-969: apply promotion/demotion model if enabled
           if (promoEnabled && promoWeeksRemaining > 0) {
-            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining);
+            es = esApplyPromotionModel(es, work, S, Number(setting.teams) || 0, pos, promoWeeksRemaining, waiver);
             es.sigmaRel = sigRel;
             es.sigmaFloor = sigFloor;
             es.m = lp.m;
@@ -1556,6 +1666,9 @@
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
     applyDdfOverride: applyDdfOverride,
+    normalizeOverride: normalizeOverride,
+    OVERRIDE_MIN: OVERRIDE_MIN,
+    OVERRIDE_MAX: OVERRIDE_MAX,
     normalizeBasis: vpNormalizeBasis,
     resolveLineupParameters: resolveLineupParameters,
     lineupWindow: lineupWindow,

@@ -64,13 +64,13 @@
 
   function fmt(v, decimals) {
     if (v == null || !Number.isFinite(v)) return "—";
-    return noNegZero(v.toFixed(decimals == null ? 1 : decimals));
+    return noNegZero(v.toFixed(decimals == null ? 1 : decimals)).replace("-", "−");
   }
 
   function fmtPct(v) {
     if (v == null || !Number.isFinite(v)) return "—";
     var text = noNegZero((v * 100).toFixed(1));
-    return (text.startsWith("-") ? "" : "+") + text + "%";
+    return (text === "0.0" ? "" : text.startsWith("-") ? "−" + text.slice(1) : "+" + text) + (text === "0.0" ? "0.0" : "") + "%";
   }
 
   function fmtSpreadPct(v) {

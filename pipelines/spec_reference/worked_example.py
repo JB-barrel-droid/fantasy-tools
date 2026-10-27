@@ -36,7 +36,7 @@ def fixture_inputs(fx: dict) -> dict:
 
 
 def run_fixture(fx: dict, setting_change: dict | None = None,
-                promotion_model: bool = False, flex_bench_seats: bool = False) -> dict:
+                promotion_model: bool = False, flex_bench_seats: bool = True) -> dict:
     inp = fixture_inputs(fx)
     s = copy.deepcopy(fx["setting"])
     s.update(setting_change or {})
