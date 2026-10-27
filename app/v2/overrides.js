@@ -297,9 +297,14 @@
     const text = activeText();
     const line = [];
     if (text) {
+      // JEG-1135: the badge sits in the league row, so it shows a compact word only. The full
+      // "Overrides active: ..." line stays in the DOM as visually-hidden text (so screen readers and
+      // inner_text still read it) and as the tooltip.
       line.push(el("a", {id: "v2OverrideBadge", class: "v2-ov-badge", href: "v2/#value-overrides", role: "status", "aria-live": "polite",
-          title: "Your basis and player values replace our methodology on every tab. Open Overrides to change them.", text}),
-        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset all",
+          title: text},
+          [el("span", {class: "v2-ov-badge-short", "aria-hidden": "true", text: "Overrides on"}),
+           el("span", {class: "v2-sr", text})]),
+        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset",
           "aria-label": "Reset to our methodology: clear the custom basis and every player override", onclick: resetAll}));
     } else if (S.undo) {
       line.push(el("span", {class: "v2-ov-bar-msg", role: "status", "aria-live": "polite", text: "Back to our methodology."}),
