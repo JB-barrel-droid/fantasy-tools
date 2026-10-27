@@ -74,3 +74,17 @@ Every local check below ran on the rebased tree (re-run on the same commit by th
   rebase onto `origin/main`, and the gate (the build, then `test-core`, `value-check-compare` and
   `test-integration`) is longer than this batch's budget -- the blocking `preview` job that runs
   it took 34 minutes on CI. It passed there on the rebased commit `4c0ec29c`.
+
+### Merge-wave review (Claude, 2026-10-26)
+
+- Fixed: the JEG-956 block re-declared `.v2-topnote-detail` at 48 px outside the season notice's
+  landscape-phone query (`max-width: 932px and max-height: 500px`), so 768-932 px landscape phones
+  lost the 16 px gutter. Added the landscape rule and `test_landscape_phone_keeps_note_gutter`
+  plus its guard in `tests/test_v2_phone_safe_area_render.py`.
+- Merged `origin/main` (`6be18a2a`), no conflicts.
+- Verified (check named): `tests.test_v2_phone_layout_collapse_render`,
+  `tests.test_v2_phone_safe_area_render` (4 tests), `tests.test_v2_phone_target_size_render`,
+  `tests.test_v2_phone_tap_targets_render` and `tests.test_v2_contract_render` pass locally with
+  `RENDER_TESTS_REQUIRED=1`.
+- `tests.test_v2_phone_header_render` fails (360 px header 148 px) on this merge and identically
+  with `origin/main`'s `v2.css`, so it is not this PR's doing.
