@@ -218,7 +218,7 @@
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
-      reasons.push(`${chartAgree} of ${chartTotal} trade charts agree`);
+      reasons.push(`${chartAgree} of ${chartTotal} charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
     }
     // Line 2: will they accept, from the published charts.
@@ -233,8 +233,8 @@
       const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
       const agreement = same / charts.length;
       let level = levelFor(agreement);
-      const reasons = [`${yes} of ${charts.length} trade charts have the other manager winning or even`];
-      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 trade charts"); }
+      const reasons = [`${yes} of ${charts.length} charts have the other manager winning or even`];
+      if (charts.length < 3) { level = capped(level, "Medium"); reasons.push("fewer than 3 charts"); }
       if (thinFlag) { level = "Low"; reasons.push("the margin is under 5% of the value traded"); }
       accept = {answer, confidence: level, yes, of: charts.length, reasons};
     }
@@ -286,7 +286,7 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Arbitrage: send it", action: "Send it",
+    "win|lose": {title: "Value win, charts say you lose: send it", action: "Send it",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
@@ -319,7 +319,7 @@
     even: {title: "Even on value, and the trade charts split", action: "Your call"},
     lose: {title: "A loss on value, and the trade charts split", action: "Pass or counter"}
   };
-  const fmtSigned = n => (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1);   // the minus sign the cards use
+  const fmtSigned = n => (Math.abs(n) < 0.05 ? "0.0" : (n < 0 ? "−" : "+") + Math.abs(n).toFixed(1));   // the minus sign the cards use
   function splitRead(vSide, charts) {
     const said = {win: "DDF Value says you come out ahead", even: "DDF Value calls it even", lose: "DDF Value says you lose"}[vSide];
     const range = charts.min < 0 && charts.max > 0

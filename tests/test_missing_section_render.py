@@ -82,6 +82,7 @@ def load(overrides, path="/classic/"):
         try:
             with serve(DIST, overrides) as base:
                 page = browser.new_page()
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.goto(base + path, wait_until="networkidle")
                 try:
                     page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=60000)
