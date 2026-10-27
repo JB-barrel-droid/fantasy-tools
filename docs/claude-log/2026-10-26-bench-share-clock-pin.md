@@ -68,3 +68,19 @@ three call sites use it. No assertion changed.
 - `TZ=UTC python -m unittest tests.test_ddf_composite_value` at 03:37 UTC:
   the old file gave `FAILED (failures=2)`, the same two tests as CI; the new
   file gave `OK` (18 tests), also `OK` under `TZ=America/Chicago`.
+
+## Third test: test_two_qb_direction
+
+Running the rest of `test-core` locally under `TZ=UTC` (the suites after the
+one CI stopped at) found `tests.test_two_qb_direction` failing (3 failures:
+"no QB priced"). Both sides share `date.today()`, so they agree, but on week 8
+against week-7 data no chart is in I, so no QB is priced. This fails in any
+timezone once the real date reaches Tuesday. Both classes now pin to
+`_fixture_today()`.
+
+### Verified (check named)
+
+- `TZ=UTC python -m unittest tests.test_two_qb_direction` at 03:39 UTC: old
+  `FAILED (failures=3)`; new `OK` (6 tests), also `OK` under Chicago.
+- The other 14 test-core suites after `test_ddf_composite_value`, plus the
+  three node tests, passed under `TZ=UTC` at 03:38 UTC.
