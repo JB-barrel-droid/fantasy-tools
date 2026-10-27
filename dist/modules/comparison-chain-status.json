@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-27T19:29:00.459681+00:00",
+  "run_at": "2026-10-27T19:58:50.809818+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -114,7 +114,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-26 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -161,8 +161,8 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-26",
-      "content_week": 7,
+      "content_vintage": "2026-10-27",
+      "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     }
@@ -176,13 +176,13 @@
       "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []"
+      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Troy Fr[1262 chars]rs)\"] != []",
+      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[693 chars]rs)\"] != []"
     ],
     "make_targets": [
       "Makefile:618: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []",
-    "recorded_at": "2026-10-27T19:54:42.452924+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Troy Fr[1262 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[693 chars]rs)\"] != []",
+    "recorded_at": "2026-10-27T20:29:56.940122+00:00"
   }
 }
