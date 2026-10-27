@@ -37,7 +37,6 @@ import threading
 import unittest
 from pathlib import Path
 from urllib.parse import urlsplit
-from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 # The synced page (`make sync` writes the same files to app/ and dist/); app/
@@ -166,8 +165,8 @@ def _chromium_executable(playwright):
 
 
 @contextlib.contextmanager
-def rendered_state(sources_edit=None, text_mutations=None):
-    """Load the built page; optionally edit the fixture or mutate served text."""
+def rendered_state(sources_edit=None, text_mutations=None, *, today="2026-10-14"):
+    """Load the built page with a fixed clock; optionally edit fixture or text."""
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -181,7 +180,6 @@ def rendered_state(sources_edit=None, text_mutations=None):
     data = json.loads((SERVE / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
     if sources_edit:
         sources_edit(data["sources"])
-    today = datetime.datetime.now(ZoneInfo("America/New_York")).date().isoformat()
     handler = functools.partial(Quiet, directory=str(SERVE))
     with socketserver.ThreadingTCPServer(("127.0.0.1", 0), handler) as server:
         server.daemon_threads = True
@@ -236,8 +234,12 @@ IGNORES_SOURCE_WEEK = {"**/assets/product-data.js*": [
 
 class FreshnessDisplayRenderTest(unittest.TestCase):
     def test_built_page_labels_match_fixture(self):
-        with rendered_state() as (state, sources, today):
-            self.assertEqual(violations(state, sources, today), [])
+        # Wednesday mid-week, then Tuesday just after the content-week flip.
+        for today, week in (("2026-10-14", 6), ("2026-10-20", 7)):
+            with self.subTest(today=today, week=week):
+                with rendered_state(today=today) as (state, sources, injected_today):
+                    self.assertEqual(state["header"].strip(), f"Week {week}")
+                    self.assertEqual(violations(state, sources, injected_today), [])
 
     def test_labels_follow_a_fixture_edit(self):
         def usatoday_week_3(sources):

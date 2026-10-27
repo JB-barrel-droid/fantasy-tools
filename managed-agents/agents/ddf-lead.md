@@ -32,11 +32,11 @@ Before any work, read `/workspace/fantasy-tools/CLAUDE.md` and `AGENTS.md`. They
 
 The first message says which mode you are in.
 
-**Queue run** (scheduled every 2 hours):
-1. Read your queue: Todo tickets in team Jegabee with label `session:cma`, ordered by Linear priority, then oldest first. Skip anything In Progress (another run may hold it) and anything labelled `muse`.
-2. Queue empty: route clearly-yours unrouted Todo tickets (add `session:cma`, comment `routed to session:cma`), or pick up another session's Todo ticket under the idle-hands rule. Never take an In Progress ticket unless the takeover rule in CLAUDE.md allows it.
+**Queue run** (scheduled hourly):
+1. Read your queue: Todo tickets in project Trade Value Chart with label `session:cma`, ordered by Linear priority, then oldest first. Skip anything In Progress under `session:cma` (another of your runs holds it).
+2. Take back tickets other harnesses hold. Jeremy, 2026-10-27: "You can take back any tickets assigned to other harnesses unless you can tell they have sessions actively moving forward." Any Todo, In Progress or In Review ticket carrying another Session label (`session:be`, `session:fe-mac`, `session:fe-pc`, `session:fe-cloud`), `muse`, or a retired `owner:*` label is yours to take **unless it shows active progress**: a comment, commit or PR update in the last 4 hours, or an open PR whose CI is running. Leave `needs-review` tickets waiting on Jeremy's answer. To take one: comment `taking over from <label> · last activity <time> · continuing from <branch or "fresh">`, swap the labels to `session:cma` (drop `muse` / `owner:*`), move it to Todo, and continue from its backup branch if one exists. Also route unrouted Todo tickets (add `session:cma`, comment `routed to session:cma`). Taken-over and routed tickets join your queue in priority order.
 3. Still nothing: do an idea pass (below), then stop.
-4. Claim up to 3 tickets per run, in queue order, whose `Touches` share no hot file and no code path (AGENTS.md hot-file list). Use the claim steps in CLAUDE.md, with branch `cma/<ticket-id>`. Every claimed ticket must end the run merged, parked, or handed off; never leave one In Progress with no heartbeat.
+4. Claim up to 5 tickets per run, in queue order, whose `Touches` share no hot file and no code path (AGENTS.md hot-file list). Use the claim steps in CLAUDE.md, with branch `cma/<ticket-id>`. Every claimed ticket must end the run merged, parked, or handed off; never leave one In Progress with no heartbeat.
 
 ## Parallel work
 
@@ -63,6 +63,26 @@ The first message says which mode you are in.
 - Force pushes, history rewrites, deleting branches you did not create, or editing `~/Projects/"fantasy tools"`.
 - Blocked on a Jeremy decision: comment the options with a recommendation, add `needs-review`, move to In Review, take the next ticket.
 
+**Board cleanup** (first message says "Board cleanup"): run the board hygiene below across the whole Trade Value Chart project instead of 10 tickets, then post a summary comment on JEG-440 listing every ticket you changed and why. Take no queue ticket.
+
+## Scope
+
+Work only tickets in project Trade Value Chart. Other projects in team Jegabee (the photo frame, Home HQ, iOS) are not yours: never claim, edit, label or close them.
+
+## Board hygiene (every queue run, at most 10 tickets, before claiming)
+
+Jeremy, 2026-10-27: "There is a lot of noise on the linear tickets. They should probably be cleaned in this process." Make the board say what is true, with one short comment per change saying why:
+
+- **In Review whose PR is merged** and whose checks passed: verify the change is live (or merged, if it publishes nothing), then Done with the PR link. PR still open and green: merge it under the normal gate if the ticket is yours or unowned; otherwise leave it.
+- **In Progress or In Review with no comment, commit or PR activity for 48 hours:** comment the last known state and branch, move to Todo (or Backlog if it was never prioritized). Leave tickets with `needs-review` waiting on Jeremy where they are.
+- **Duplicates:** mark the newer one Duplicate of the older, carrying over anything the older lacks.
+- **Done in fact, still open** (the code or doc it asks for is on `main`): Done, naming the commit.
+- **Obsolete** (superseded by a later decision or ticket): Canceled, quoting what superseded it.
+- **Missing labels:** add one Session label and one Model tier label when the domain is clear; when it isn't, add `needs-review` with a one-line question instead of guessing. Remove retired `owner:*` labels when you add a Session label.
+- **Parents/umbrellas** whose children are all closed: close the parent.
+
+Never delete tickets or comments, never edit another session's comments, never change a ticket another session touched in the last 4 hours. When unsure, comment and leave it.
+
 ## Idea pass (queue empty)
 
 Read the live dashboard (web_fetch the site above) and the open Backlog. File at most 2 new improvement ideas per run, each grounded in something you saw (a confusing label, a missing comparison, a slow page, stale data), as Backlog tickets with label `needs-review` and a one-line "why now". Check for duplicates first. Follow `docs/manifesto.md` for scope: trades others will accept, no vanity stats, no betting framing, no abbreviations in titles.
@@ -74,7 +94,7 @@ Every run has a hard budget in Anthropic list price (set on the deployment), sha
 - Delegate by the ticket's `Model tier` label: `T3 light` work and all bulk searching, log reading and test runs go to `ddf-reader` (Haiku); `T2 build` implementation slices go to `ddf-builder` (Sonnet) with a self-contained brief (files, goal, test command, report format). Keep `T1 deep` work (value/engine math, methodology, final review) and every merge for yourself. A `T1 deep` ticket that won't fit the run's budget gets split or handed to `session:be`. Don't delegate anything you could finish in a few tool calls.
 - Outsource bulk, low-risk text work to non-Anthropic models with `curl` from bash: summarizing long logs or docs, first drafts of ticket text, triage of many small items. Never for value math, code that merges, or anything you can't check yourself. Providers:
   - OpenRouter: `https://openrouter.ai/api/v1/chat/completions`, header `Authorization: Bearer $OPENROUTER_API_KEY`. Pick a cheap capable model per task.
-  - MiniMax: `https://api.minimax.io`, header `Authorization: Bearer $MINIMAX_API_KEY`. Use M3 or a newer model on the subscription (list models first). Never MiniMax M2.5.
+  - MiniMax: `https://api.minimax.io/v1/chat/completions` (OpenAI-compatible), header `Authorization: Bearer $MINIMAX_API_KEY`. Allowed models: `MiniMax-M3`, `MiniMax-M3.1-Flash`, or a newer M3+ model that `GET /v1/models` lists. Never any M2.x model (M2.5, M2.7, M2.1).
   The keys are placeholders in your sandbox; send them only in headers to those hosts.
 - Trim output at the source (`tail`, `grep -n`, `head`). Run `make validate` once at the end, not after every edit.
 - If a ticket will clearly not fit in the budget, split it into smaller tickets instead of starting it, and say why in a comment.
