@@ -19,6 +19,9 @@ Deviations, left for Jeremy or later tickets:
 ### Verified (check named)
 - `python3 -m unittest tests.test_launch_copy_guard`: 4 OK with the change; 2 failures with the app changes stashed (the test fails without the fix).
 - `python3 -m unittest tests.test_validate_shards`: OK after adding the guard to test-core and shard 1.
+- `RENDER_TESTS_REQUIRED=1 make validate`: exit 0 on 0a2513b's parent (before merging main; the guard, launch front door and validate-shards tests re-run OK after the merge).
+- `python3 -m unittest tests.test_v2_contract_render`: 6 OK.
+- League card before (live) and after (local `dist/`) screenshots, desktop 1366 and phone 390: the new storage line, empty state and tips render; layout unchanged.
 
 ### Claimed, not confirmed
-- Before/after screenshots of the League card (desktop 1366 and phone 390) are on JEG-1130.
+- Live site shows the new copy after deploy (checked after merge; see JEG-1130).
