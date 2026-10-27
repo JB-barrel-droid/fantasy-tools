@@ -812,6 +812,9 @@
     // the calendar week, the header must not claim a week it cannot back.
     const refWeek = freshness?.first_load_reference_week || C.getReferenceWeek();
     const calendarWeek = freshness?.current_content_week || null;
+    // JEG-1156 (option A): set while no trade chart has reached the calendar week, so DDF Value is
+    // the latest published week's: "Week 7 values, week 8 not published yet".
+    const valuesWeekNote = freshness?.values_week_fallback ? freshness.values_week_label : "";
     const n = rows.length;
     // A Custom that comes only from the value range keeps the remembered preset's rank window (JEG-483).
     const preset = state.windowPreset === "custom" && !state.rankZoom ? state.zoomFrom || SHOW_DEFAULT : state.windowPreset;
@@ -838,7 +841,7 @@
     const yScale = {lo: Math.floor(Math.min(0, ...rankValues)), hi: Math.max(1, Math.ceil(Math.max(0, ...rankValues)))};
     view = {info, infoByKey, active, rankKey, plotKeys, vorpKeys, rows, visible,
       tierScope: {rows: allRows, pos: C.getState().position, engineOrder: true}, totalRows: allRows.length, omittedMissing,
-      rangeOn, yScale, rankValues, refWeek, calendarWeek, state: C.getState(), roster: C.getRosterShape(), hiddenZero};
+      rangeOn, yScale, rankValues, refWeek, calendarWeek, valuesWeekNote, state: C.getState(), roster: C.getRosterShape(), hiddenZero};
   }
 
   // Frame 21 Starter / Bench / Waiver: the engine's roster boundaries (getZones, in
@@ -897,7 +900,8 @@
   // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
   function pageStampText() {
     const asOf = dataAsOfLabel();
-    return [view.refWeek ? `NFL Week ${view.refWeek}` : "", asOf ? `as of ${asOf}` : ""].filter(Boolean).join(" · ");
+    const week = view.valuesWeekNote || (view.refWeek ? `NFL Week ${view.refWeek}` : "");
+    return [week, asOf ? `as of ${asOf}` : ""].filter(Boolean).join(" · ");
   }
   function renderPageStamps() {
     const text = pageStampText();
@@ -924,9 +928,10 @@
     const weekText = view.refWeek ? `Week ${view.refWeek} · ` : "";
     // JEG-806: when the data week lags the calendar week, say so explicitly.
     // JEG-822: "updating" only when nothing is stuck; a stuck source gets the same week wording without it.
-    const calendarNote = view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
-      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}` : "";
-    const updatingNote = calendarNote ? `${calendarNote}, updating` : "";
+    // JEG-1156: when no trade chart has the calendar week yet, the line names the values week instead.
+    const calendarNote = view.valuesWeekNote || (view.calendarWeek && view.refWeek && view.calendarWeek > view.refWeek
+      ? `NFL Week ${view.calendarWeek} · data through Week ${view.refWeek}` : "");
+    const updatingNote = view.valuesWeekNote || (calendarNote ? `${calendarNote}, updating` : "");
     const freshNotes = [behind ? `⚠ ${behind} source${behind === 1 ? "" : "s"} on a prior week` : "",
       held ? `${held} source${held === 1 ? "" : "s"} held` : "",
       unknown ? (pipeline ? `⚠ ${unknown} source${unknown === 1 ? "" : "s"} unconfirmed` : "checking sources…") : ""].filter(Boolean);
@@ -6481,7 +6486,8 @@
   function renderNotice() {
     const keys = view.plotKeys.filter(key => view.infoByKey[key]?.available);
     let text = "";
-    if (keys.length && keys.every(key => view.infoByKey[key]?.stale)) {
+    // JEG-1156: on the values-week fallback no current-week source exists to choose; the header says so.
+    if (!view.valuesWeekNote && keys.length && keys.every(key => view.infoByKey[key]?.stale)) {
       text = "No current-week values are selected. The values shown are from an older week and are labeled; choose a current-week source to compare.";
     } else if (keys.length === 1) {
       text = `Only one series is selected (${sourceMeta(keys[0]).short}). Choose another source to see where the sources disagree.`;

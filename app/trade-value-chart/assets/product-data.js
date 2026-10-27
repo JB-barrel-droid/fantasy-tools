@@ -453,10 +453,17 @@
       .filter(row => row.cadence === "weekly" && row.vintage_week !== null)
       .map(row => row.vintage_week);
     const referenceWeek = weeklyWeeks.length ? Math.min(Math.max(...weeklyWeeks), currentWeek) : null;
+    // JEG-1156 (Jeremy, 2026-10-27, option A): DDF Value uses the values week, the reference week.
+    // A chart is "not yet published" only when it is older than that week, so on the Tuesday flip
+    // (no chart at the content week yet) the latest published week still prices DDF Value, labeled.
+    // With no dated weekly chart at all the content week is the bar, as before.
+    // Mirrored by supabase/functions/get-values/weeks.ts (tests/node/week_fallback_check.mjs).
+    const valuesBar = referenceWeek !== null ? referenceWeek : currentWeek;
     const excluded = [];
     Object.values(rows).forEach(row => {
       row.excluded_on_first_load = row.cadence === "weekly" && referenceWeek !== null &&
         row.vintage_week !== null && row.vintage_week < referenceWeek;
+      row.behind_values_week = row.vintage_week !== null && row.vintage_week < valuesBar;
       if (row.excluded_on_first_load) excluded.push(row.series_key);
     });
     return {
@@ -466,8 +473,21 @@
       current_content_week: currentWeek,
       first_load_reference_week: referenceWeek,
       first_load_excluded: excluded,
+      values_week: referenceWeek,
+      values_week_fallback: referenceWeek !== null && referenceWeek < currentWeek,
+      values_week_label: valuesWeekLabel(referenceWeek, currentWeek),
       series: rows,
     };
+  }
+
+  // The values-week line (JEG-1156): "Week 7 values, week 8 not published yet" while no trade
+  // chart has reached the content week; same words as get-values weeks.ts valuesWeekLabel.
+  function valuesWeekLabel(valuesWeek, currentWeek) {
+    if (valuesWeek === null || valuesWeek === undefined) return "No trade chart published yet";
+    if (currentWeek !== null && currentWeek !== undefined && valuesWeek < currentWeek) {
+      return `Week ${valuesWeek} values, week ${currentWeek} not published yet`;
+    }
+    return `Week ${valuesWeek} values`;
   }
 
   // One reader-facing freshness label per series (GAP-043). Every surface
@@ -980,6 +1000,7 @@
     getPairRegistry,
     // Pure builders, exported for tests (no DOM, no fetch).
     contentWeekForDay,
+    valuesWeekLabel,
     sourceVintage,
     buildSourceFreshness,
     freshnessLabel,

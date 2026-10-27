@@ -32,6 +32,25 @@ export interface ValuesResponse {
   players: PlayerValue[];
   sources_included: string[];
   sources_excluded: Array<{ key: string; reason: string }>;
+  // JEG-1156 / JEG-1157: the trade-chart week DDF Value is built from, and a note when it is an
+  // earlier week than the content week. Absent from a get-values deployed before this change.
+  values_week?: number | null;
+  current_week?: number | null;
+  values_week_note?: string | null;
+  sources_fallback?: Array<{ key: string; week: number; reason: string }>;
+}
+
+// The week fields every values-backed tool returns, so an answer can say "week 7 values".
+export function weekFields(data: ValuesResponse): Record<string, unknown> {
+  return {
+    values_week: data.values_week ?? null,
+    values_week_note: data.values_week_note ?? null,
+  };
+}
+
+// The text line naming the values week (none from an older get-values that does not send it).
+function weekLine(data: ValuesResponse): string[] {
+  return data.values_week_note ? [`Values week: ${data.values_week_note}`] : [];
 }
 
 export type FetchValues = (
@@ -330,6 +349,7 @@ function header(data: ValuesResponse, s: { scoring: string; teams: number; super
   return [
     data.attribution,
     `As of: ${data.as_of || "unknown"}`,
+    ...weekLine(data),
     `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
   ];
 }
@@ -382,12 +402,15 @@ export async function runTool(
     const text = [
       ...header(data, s),
       `Sources included: ${data.sources_included.join(", ")}`,
+      ...(data.sources_excluded?.length
+        ? [`Sources excluded: ${data.sources_excluded.map((e) => `${e.key} (${e.reason})`).join(", ")}`] : []),
       "",
       "Rank | Player | Pos | Value | Tier",
       ...players.map((p, i) => `${i + 1} | ${p.name} | ${p.pos} | ${p.value} | ${p.tier}`),
     ].join("\n");
     return finish(
-      ok(text, { as_of: data.as_of, setting: data.setting, sources_included: data.sources_included, players }),
+      ok(text, { as_of: data.as_of, ...weekFields(data), setting: data.setting, sources_included: data.sources_included,
+        sources_excluded: data.sources_excluded ?? [], players }),
       { prepared, deps, settings: s, view: "targets" },
     );
   }
@@ -407,7 +430,7 @@ export async function runTool(
       ),
     ].join("\n");
     const first = results.find((r) => r.player);
-    return finish(ok(text, { as_of: data.as_of, setting: data.setting, results }), {
+    return finish(ok(text, { as_of: data.as_of, ...weekFields(data), setting: data.setting, results }), {
       prepared, deps, settings: s, view: "targets",
       work: first ? { target: entry(first.input, first.player) } : undefined,
     });
@@ -440,7 +463,7 @@ export async function runTool(
       "Player | Pos | Value | Tier | Diff",
       ...targets.map((t) => `${t.name} | ${t.pos} | ${t.value} | ${t.tier} | ${t.diff >= 0 ? "+" : ""}${t.diff.toFixed(1)}`),
     ].join("\n");
-    return finish(ok(text, { as_of: data.as_of, setting: data.setting, player, targets }), {
+    return finish(ok(text, { as_of: data.as_of, ...weekFields(data), setting: data.setting, player, targets }), {
       prepared, deps, settings: s, view: "targets", work: { target: entry(String(args.player_name), player) },
     });
   }
@@ -482,7 +505,7 @@ export async function runTool(
     // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
     return finish(
       ok(text, {
-        as_of: data.as_of,
+        as_of: data.as_of, ...weekFields(data),
         setting: data.setting,
         side_a: { total: sumA, players: a },
         side_b: { total: sumB, players: b },
@@ -604,6 +627,7 @@ async function findTradesHandler(
   const lines: string[] = [
     data.attribution,
     `As of: ${data.as_of || "unknown"}`,
+    ...weekLine(data),
     `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
     "",
     `Found ${result.total} trade${result.total === 1 ? "" : "s"} (showing ${scored.length}${viableOnly ? " viable" : ""}).`,
@@ -632,7 +656,7 @@ async function findTradesHandler(
 
   // Structured output.
   const structured = {
-    as_of: data.as_of,
+    as_of: data.as_of, ...weekFields(data),
     setting: data.setting,
     trades: scored,
     total: result.total,
@@ -768,6 +792,7 @@ async function findTradesLeagueHandler(
   const lines: string[] = [
     data.attribution,
     `As of: ${data.as_of || "unknown"}`,
+    ...weekLine(data),
     `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
     "",
     `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}.`,
@@ -803,7 +828,7 @@ async function findTradesLeagueHandler(
     : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
 
   const structured = {
-    as_of: data.as_of,
+    as_of: data.as_of, ...weekFields(data),
     setting: data.setting,
     package: {
       offers: pkg.offers,
@@ -906,7 +931,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
 
   const view = typeof work.view === "string" ? work.view : inferView(work);
   return finish(
-    ok(lines.join("\n"), { as_of: data.as_of, setting: data.setting, lists, unmatched }),
+    ok(lines.join("\n"), { as_of: data.as_of, ...weekFields(data), setting: data.setting, lists, unmatched }),
     { prepared, deps, settings: s, view, work: resolvedWork },
   );
 }
@@ -941,7 +966,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
     "Saved as a DDF state. The person can paste the block below into the site's paste box, or open the link.",
     ...(unmatched.length ? [`Could not match: ${unmatched.join(", ")} (kept by name; the site will try again).`] : []),
   ].join("\n");
-  return finish(ok(text, { as_of: data.as_of, setting: data.setting, unmatched }), {
+  return finish(ok(text, { as_of: data.as_of, ...weekFields(data), setting: data.setting, unmatched }), {
     prepared, deps, settings: s, view, work, block: true,
   });
 }

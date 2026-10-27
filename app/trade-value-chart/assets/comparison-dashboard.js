@@ -544,9 +544,15 @@
     if ($("#freshness")) {
       // GAP-043: name each source on an older content week, with its own
       // week, against the reader's current content week.
-      const staleKeys = renderKeys.filter(sourceIsStale);
+      // JEG-1156: on the fallback (no chart on the content week yet) the line says so first and
+      // names only the sources behind the values week.
+      const freshness = sourceFreshness();
+      const fallback = freshness?.values_week_fallback === true;
+      const staleKeys = renderKeys.filter(fallback ? key => freshnessRow(key)?.behind_values_week === true : sourceIsStale);
       const currentWeek = activeReferenceWeek();
-      const staleLabel = staleKeys.length
+      const staleLabel = fallback
+        ? [freshness.values_week_label, ...(staleKeys.length ? [`${staleKeys.map(key => `${LABELS[key] || key} ${weekForSource(key) ? `Week ${weekForSource(key)}` : "undated"}`).join(", ")} older`] : [])].join(" · ")
+        : staleKeys.length
         ? `${staleKeys.length} source${staleKeys.length === 1 ? "" : "s"} older than Week ${currentWeek}: ${staleKeys.map(key => `${LABELS[key] || key} ${weekForSource(key) ? `Week ${weekForSource(key)}` : "undated"}`).join(", ")}`
         : (currentWeek ? `all sources on Week ${currentWeek}` : "content week unknown");
       $("#freshness").textContent = `${scoreLabel(state.scoring)} · ${state.teams} teams · ${staleLabel}`;

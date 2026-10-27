@@ -21,6 +21,14 @@ const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
 const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
 
 import { type League, type LeagueInputs, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+import { chartWeekPlan, todayIso, type WeekPlan } from "./weeks.ts";
+
+// The New York day the content week is read from. DDF_TODAY (YYYY-MM-DD) pins it for tests, as the
+// page's window.TRADE_VALUE_TODAY does.
+function contentDay(): string {
+  const pinned = Deno.env.get("DDF_TODAY");
+  return pinned && /^\d{4}-\d{2}-\d{2}$/.test(pinned) ? pinned : todayIso();
+}
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
@@ -64,63 +72,6 @@ function espnProjectsZero(player: any): boolean {
   const values = Object.values(ppg);
   return values.length > 0 && values.every((v) => typeof v === "number" && v === 0);
 }
-
-// --- Source freshness / eligibility (mirrors product-data.js + curve-widget.js)
-
-const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
-const CONTENT_WEEK_MAX = 18;
-const DAY_MS = 86400000;
-
-function contentWeekForDay(day: string | null): number | null {
-  if (!day) return null;
-  const [y, m, d] = day.split("-").map(Number);
-  const days = Math.round((Date.UTC(y, m - 1, d) - CONTENT_WEEK_1_START_UTC) / DAY_MS);
-  if (days < 0) return 1;
-  return Math.min(Math.max(Math.floor(days / 7) + 1, 1), CONTENT_WEEK_MAX);
-}
-
-function todayIso(): string {
-  try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date());
-  } catch {
-    return new Date().toISOString().slice(0, 10);
-  }
-}
-
-function isoDay(v: unknown): string | null {
-  if (!v || typeof v !== "string") return null;
-  const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
-}
-
-function parseWeekLabel(value: unknown): number | null {
-  const m = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
-  return m ? Number(m[1] || m[2]) : null;
-}
-
-// deno-lint-ignore no-explicit-any
-function sourceVintage(meta: any): { week: number | null; basis: string | null } {
-  const m = meta && typeof meta === "object" ? meta : {};
-  const designated = parseWeekLabel(m.week_designated);
-  if (designated) return { week: designated, basis: "week_designated" };
-  const vintageWeek = parseWeekLabel(m.content_vintage);
-  if (vintageWeek) return { week: vintageWeek, basis: "content_vintage" };
-  const dated: Array<[string, unknown]> = [
-    ["content_vintage", m.content_vintage],
-    ["vintage", m.vintage],
-    ["espn_snapshot", m.espn_snapshot],
-    ["lineage.raw_vintage", m.lineage?.raw_vintage],
-    ["fetched_at", m.fetched_at],
-  ];
-  const found = dated.find(([, value]) => isoDay(value));
-  if (found) return { week: contentWeekForDay(isoDay(found[1])), basis: found[0] };
-  return { week: null, basis: null };
-}
-
-// Weekly chart sources (curve-widget.js WEEKED_SOURCE_KEYS base set).
-const WEEKED_SOURCES = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
 
 // Hold fields on source sections.
 const HOLD_FIELDS = ["validationHold", "promotionHold"];
@@ -195,7 +146,7 @@ async function loadBundle(): Promise<CachedBundle> {
 }
 
 // Build the pipeline input for the given settings.
-function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
+function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs, today: string = contentDay()) {
   const { scoring, teams } = m;
   const superflex = m.setting.superflex;
   // deno-lint-ignore no-explicit-any
@@ -220,36 +171,13 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
   const sourceValidation = detail.source_validation as
     Record<string, string> | undefined;
 
-  // --- Source freshness / eligibility (mirrors curve-widget.js) ---------------
-  const currentContentWeek = contentWeekForDay(todayIso());
-
-  // Build freshness per source.
-  const freshnessRows: Record<string, { week: number | null; status: string; isWeekly: boolean }> = {};
-  for (const key of PIPELINE_SOURCE_KEYS) {
-    const sourceMeta = detail.sources?.[key];
-    if (!sourceMeta) continue;
-    const vintage = sourceVintage(sourceMeta);
-    const isWeekly = WEEKED_SOURCES.has(key);
-    const status = vintage.week === null ? "unknown"
-      : (vintage.week >= (currentContentWeek ?? 0) ? "current" : "older");
-    freshnessRows[key] = { week: vintage.week, status, isWeekly };
-  }
-
-  // first_load_reference_week: newest vintage among weekly sources, capped at current week.
-  const weeklyWeeks = Object.entries(freshnessRows)
-    .filter(([, r]) => r.isWeekly && r.week !== null)
-    .map(([, r]) => r.week!);
-  const referenceWeek = weeklyWeeks.length
-    ? Math.min(Math.max(...weeklyWeeks), currentContentWeek ?? 0)
-    : null;
-
-  // first_load_excluded: weekly sources older than reference week.
-  const firstLoadExcluded = new Set<string>();
-  for (const [key, row] of Object.entries(freshnessRows)) {
-    if (row.isWeekly && referenceWeek !== null && row.week !== null && row.week < referenceWeek) {
-      firstLoadExcluded.add(key);
-    }
-  }
+  // --- Which week of charts counts (JEG-1156 option A; mirrors product-data.js + curve-widget.js) ---
+  // A weekly chart older than the values week is left out. When no chart has reached the content
+  // week yet, the values week is the latest published one and the response labels it.
+  const weekPlan = chartWeekPlan(detail.sources, PIPELINE_SOURCE_KEYS, today);
+  const notPublished = new Map(weekPlan.not_published.map((row) => [row.key, row.reason]));
+  // Charts dropped before the pipeline runs, with the reason (the pipeline only reports its own).
+  const dropped: Array<{ key: string; reason: string }> = [];
 
   // Build sources: for each pipeline source, extract native values.
   const sources: Record<string, unknown> = {};
@@ -267,10 +195,8 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
     const svStatus = sourceValidation?.[key];
     const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-    // Staleness: chart sources older than current content week.
-    const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-    const isFirstLoadExcluded = firstLoadExcluded.has(key);
-    const isOlderWeek = isStale || isFirstLoadExcluded;
+    // Not yet published: a weekly chart older than the values week.
+    const isOlderWeek = notPublished.has(key);
 
     // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
     const snapshot = detail.snapshot as Record<string, unknown> | undefined;
@@ -281,8 +207,11 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
     // sourceMissingFromData: no source section at all.
     if (!sourceSection) continue;
 
-    // Not yet published for current week: excluded (unless held or divergence-excluded).
-    if (isOlderWeek && !hold && !isValidationHeld && !isDivergenceExcluded) continue;
+    // Not yet published for the values week: excluded (unless held or divergence-excluded).
+    if (isOlderWeek && !hold && !isValidationHeld && !isDivergenceExcluded) {
+      dropped.push({ key, reason: notPublished.get(key)! });
+      continue;
+    }
 
     let values: Record<string, number>;
 
@@ -291,7 +220,10 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
       const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, comboQbSlots);
       const combos = sourceSection?.combos as Record<string, Record<string, unknown>> | undefined;
       const combo = comboKeyStr ? combos?.[comboKeyStr] : null;
-      if (!combo || !(combo as Record<string, unknown>).native) continue;
+      if (!combo || !(combo as Record<string, unknown>).native) {
+        dropped.push({ key, reason: `no saved values for ${scoring} at 12 teams` });
+        continue;
+      }
       values = {};
       const native = (combo as Record<string, unknown>).native as Record<string, number>;
       const pkMap = detail.player_keys as Record<string, number>;
@@ -329,7 +261,10 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
       }
     }
 
-    if (Object.keys(values).length === 0) continue;
+    if (Object.keys(values).length === 0) {
+      dropped.push({ key, reason: "no player values in this build" });
+      continue;
+    }
 
     sources[key] = { family, status: "included", values, label: key };
     included.push(key);
@@ -362,6 +297,8 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
     included,
     hidden: hiddenKeys,
     lineup: resolvedLineup,
+    weekPlan,
+    dropped,
   };
 }
 
@@ -381,6 +318,8 @@ function formatResponse(
   superflex: number,
   includeCharts = false,
   custom: string[] = [],
+  weekPlan: WeekPlan | null = null,
+  dropped: Array<{ key: string; reason: string }> = [],
 ) {
   const rows = pipeline.rows || {};
   // deno-lint-ignore no-explicit-any
@@ -437,10 +376,20 @@ function formatResponse(
     sources_included: Object.keys(pipeline.sources || {}).filter(
       (k: string) => pipeline.sources[k]?.included !== false,
     ),
-    sources_excluded: pipeline.excluded?.map(
-      // deno-lint-ignore no-explicit-any
-      (e: any) => ({ key: e.key, reason: e.reason }),
-    ) || [],
+    // JEG-1157: charts dropped before the pipeline ran are listed too, so an empty answer says why.
+    sources_excluded: [
+      ...dropped,
+      ...(pipeline.excluded?.map(
+        // deno-lint-ignore no-explicit-any
+        (e: any) => ({ key: e.key, reason: e.reason }),
+      ) || []).filter((e: { key: string }) => !dropped.some((d) => d.key === e.key)),
+    ],
+    // JEG-1156 option A: the trade-chart week DDF Value is built from, and a note when it is an
+    // earlier week than the content week ("Week 7 values, week 8 not published yet").
+    values_week: weekPlan?.values_week ?? null,
+    current_week: weekPlan?.current_week ?? null,
+    values_week_note: weekPlan?.label ?? null,
+    sources_fallback: weekPlan?.fallback_charts ?? [],
   };
 }
 
@@ -580,6 +529,7 @@ Deno.serve(async (req: Request) => {
         at: Date.now(),
         body: formatResponse(
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts, mapped.custom,
+          input.weekPlan, input.dropped,
         ),
       };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);

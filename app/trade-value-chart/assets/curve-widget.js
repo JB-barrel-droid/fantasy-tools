@@ -982,10 +982,15 @@
   const COMPOSITE_VERSION_NAMES = {ddf_value: "blended", ddf_value_charts: "charts", ddf_value_projections: "projections"};
   const compositeVersionOf = key => isCompositeKey(key) ? key
     : (COMPOSITE_VERSION_KEYS.find(version => COMPOSITE_VERSION_NAMES[version] === key) || COMPOSITE_KEY);
-  // "Not yet published for the current week": the stale flag (a weekly chart
-  // older than the current content week) or the first-load rule (JEG-432 R5).
+  // "Not yet published": a weekly chart older than the values week (the newest
+  // week any chart has published, capped at the content week) or the
+  // first-load rule (JEG-432 R5). JEG-1156 (Jeremy, 2026-10-27, option A): on
+  // the Tuesday flip, before any chart reaches the new week, the latest
+  // published week still prices DDF Value; the page labels it (valuesWeekLabel).
+  // The stale flag (older than the content week) still labels each chart.
   // Projections carry no week and are always current.
-  const compositeKeyOlderWeek = key => sourceIsStale(key) || firstLoadExcluded.has(key);
+  const sourceBehindValuesWeek = key => WEEKED_SOURCE_KEYS.has(key) && freshnessRow(key)?.behind_values_week === true;
+  const compositeKeyOlderWeek = key => sourceBehindValuesWeek(key) || firstLoadExcluded.has(key);
   // JEG-479: a source held for the week is held with every series derived
   // from it. A hold is a section field the pipeline writes:
   //   validationHold: {reason, week, root, kept_week}
@@ -1369,10 +1374,14 @@
     const positionLabel = position === "ALL" ? "All positions" : position === "FLEX" ? "RB / WR / TE" : position;
     const freshness = sourceFreshness();
     const referenceWeek = freshness?.first_load_reference_week;
-    const weekLabel = referenceWeek ? `Week ${referenceWeek} references` : "references of unknown week";
+    // JEG-1156: on the fallback the line names it ("Week 7 values, week 8 not published yet") and
+    // lists only charts behind that week; each chart's own week stays on its toggle.
+    const fallback = freshness?.values_week_fallback === true;
+    const weekLabel = fallback ? freshness.values_week_label
+      : referenceWeek ? `Week ${referenceWeek} references` : "references of unknown week";
     const rosterLabel = `${rosterShape.QB}QB/${rosterShape.RB}RB/${rosterShape.WR}WR/${rosterShape.TE}TE/${rosterShape.FLEX}FLEX/` +
       `${rosterShape.SUPERFLEX ? `${rosterShape.SUPERFLEX}SF/` : ""}${rosterShape.BENCH}BN`;
-    const staleLabel = activeSourceKeys().filter(sourceIsStale)
+    const staleLabel = activeSourceKeys().filter(fallback ? sourceBehindValuesWeek : sourceIsStale)
       .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
     const benchShareText = `${(benchShare * 100).toFixed(benchShare * 100 % 1 ? 1 : 0)}% bench share`;

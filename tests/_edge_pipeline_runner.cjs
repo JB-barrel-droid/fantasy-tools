@@ -5,7 +5,8 @@
 // function. Outputs {player_key: blended_value} as JSON to stdout.
 //
 // Replicates the engine page's source eligibility logic:
-// - Chart sources are excluded if their vintage week < current content week
+// - Chart sources are excluded if their vintage week < the values week (weeks.ts: the newest
+//   published chart week, capped at the content week; JEG-1156)
 // - Held sources (validation != "live") are included but hidden
 // - Source holds (validationHold, promotionHold) override eligibility
 //
@@ -63,60 +64,10 @@ const players = playersDoc.players;
 
 // --- Source freshness / eligibility (mirrors product-data.js + curve-widget.js)
 
-// Content-week calendar (product-data.js).
-const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
-const CONTENT_WEEK_MAX = 18;
-const DAY_MS = 86400000;
-
-function contentWeekForDay(day) {
-  if (!day) return null;
-  const [y, m, d] = day.split("-").map(Number);
-  const days = Math.round((Date.UTC(y, m - 1, d) - CONTENT_WEEK_1_START_UTC) / DAY_MS);
-  if (days < 0) return 1;
-  return Math.min(Math.max(Math.floor(days / 7) + 1, 1), CONTENT_WEEK_MAX);
-}
-
-function todayIso() {
-  // ET-aware date.
-  try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date());
-  } catch (e) {
-    return new Date().toISOString().slice(0, 10);
-  }
-}
-
-function isoDay(v) {
-  if (!v || typeof v !== "string") return null;
-  const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
-}
-
-function parseWeekLabel(value) {
-  const m2 = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
-  return m2 ? Number(m2[1] || m2[2]) : null;
-}
-
-function sourceVintage(meta) {
-  const m = meta && typeof meta === "object" ? meta : {};
-  const designated = parseWeekLabel(m.week_designated);
-  if (designated) return { week: designated, basis: "week_designated" };
-  const vintageWeek = parseWeekLabel(m.content_vintage);
-  if (vintageWeek) return { week: vintageWeek, basis: "content_vintage" };
-  const dated = [
-    ["content_vintage", m.content_vintage],
-    ["vintage", m.vintage],
-    ["espn_snapshot", m.espn_snapshot],
-    ["lineage.raw_vintage", m.lineage && m.lineage.raw_vintage],
-    ["fetched_at", m.fetched_at],
-  ].find(([, value]) => isoDay(value));
-  if (dated) return { week: contentWeekForDay(isoDay(dated[1])), basis: dated[0] };
-  return { week: null, basis: null };
-}
-
-// Weekly chart sources (curve-widget.js WEEKED_SOURCE_KEYS base set).
-const WEEKED_SOURCES = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
+// JEG-1156: the week rule is the edge function's own module (supabase/functions/get-values/weeks.ts).
+// --today (YYYY-MM-DD) or TRADE_VALUE_TODAY pins the content day; otherwise the New York date.
+const { chartWeekPlan, todayIso } = require("../supabase/functions/get-values/weeks.ts");
+const contentDay = args.today || process.env.TRADE_VALUE_TODAY || todayIso();
 
 // Hold fields on source sections (validationHold, promotionHold).
 const HOLD_FIELDS = ["validationHold", "promotionHold"];
@@ -175,33 +126,9 @@ const sources = {};
 const included = [];
 const hiddenKeys = [];
 
-// Compute current content week and source freshness.
-const currentContentWeek = contentWeekForDay(todayIso());
-
-// Build freshness per source and determine first_load_excluded set.
-const freshnessRows = {};
-for (const key of PIPELINE_SOURCE_KEYS) {
-  const sourceMeta = detail.sources && detail.sources[key];
-  if (!sourceMeta) continue;
-  const vintage = sourceVintage(sourceMeta);
-  const isWeekly = WEEKED_SOURCES.has(key);
-  const status = vintage.week === null ? "unknown" : (vintage.week >= currentContentWeek ? "current" : "older");
-  freshnessRows[key] = { week: vintage.week, status, isWeekly };
-}
-
-// first_load_reference_week: newest vintage among weekly sources, capped at current week.
-const weeklyWeeks = Object.entries(freshnessRows)
-  .filter(([, r]) => r.isWeekly && r.week !== null)
-  .map(([, r]) => r.week);
-const referenceWeek = weeklyWeeks.length ? Math.min(Math.max(...weeklyWeeks), currentContentWeek) : null;
-
-// first_load_excluded: weekly sources older than reference week.
-const firstLoadExcluded = new Set();
-for (const [key, row] of Object.entries(freshnessRows)) {
-  if (row.isWeekly && referenceWeek !== null && row.week !== null && row.week < referenceWeek) {
-    firstLoadExcluded.add(key);
-  }
-}
+// Which week of charts counts (JEG-1156 option A, weeks.ts).
+const weekPlan = chartWeekPlan(detail.sources, PIPELINE_SOURCE_KEYS, contentDay);
+const notPublished = new Set(weekPlan.not_published.map((row) => row.key));
 
 for (const key of PIPELINE_SOURCE_KEYS) {
   const family = PROJECTION_SOURCE_KEYS.includes(key) ? "projection" : "chart";
@@ -214,10 +141,8 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   const svStatus = sourceValidation[key];
   const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-  // Check staleness (chart is older than current content week).
-  const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-  const isFirstLoadExcluded = firstLoadExcluded.has(key);
-  const isOlderWeek = isStale || isFirstLoadExcluded;
+  // Not yet published: a weekly chart older than the values week.
+  const isOlderWeek = notPublished.has(key);
 
   // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
   const divergenceExclusions = (detail.snapshot && Array.isArray(detail.snapshot.divergence_exclusions))
