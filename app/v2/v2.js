@@ -773,6 +773,13 @@
     const reason = estimatedReason(row, key);
     if (reason) parent.appendChild(estimatedNode(reason));
   }
+  // JEG-1059: the badge that marks a value the reader set on the Overrides tab. It sits next to the value
+  // itself, on every view that shows one.
+  function appendOverrideFlag(parent, row) {
+    const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(row) : null;
+    if (badge) parent.appendChild(badge);
+    return badge;
+  }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
@@ -1787,6 +1794,8 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, col.source);
+            // JEG-1059: the badge next to the value the reader set (our DDF Value only).
+            if (col.source === DDF_KEY) appendOverrideFlag(td, row);
             const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
             if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
             // JEG-457: a rescaled trade chart's cell shows the published number and the factor on hover, focus or tap.
@@ -1918,6 +1927,8 @@
     if (Number.isFinite(v)) {
       big.textContent = fmt(v);
       appendLowConfidence(big, row, key);
+      // JEG-1059: the badge next to the value the reader set.
+      if (key === DDF_KEY) appendOverrideFlag(big, row);
     }
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
@@ -1996,6 +2007,16 @@
     });
     toggle.append(box, document.createTextNode("Show all sources"));
     section.appendChild(toggle);
+    // JEG-1059: the reader's own value, above the source breakdown. The source values themselves are untouched.
+    if (row.valueOverride !== null && row.valueOverride !== undefined) {
+      const own = document.createElement("p");
+      own.className = "v2-meta v2-doverride";
+      own.textContent = `Your override: ${fmt(row.valueOverride)}`;
+      const unchanged = document.createElement("p");
+      unchanged.className = "v2-meta";
+      unchanged.textContent = "Individual source values are unchanged.";
+      section.append(own, unchanged);
+    }
     const listed = drawerSourceRows(row, drawerAllSources);
     if (!listed.length) {
       const none = document.createElement("p");
@@ -2050,6 +2071,8 @@
       td.dataset.source = item.key;
       td.textContent = fmt(value);
       appendLowConfidence(td, row, item.key);
+      // JEG-1059: the badge on our composite, which is the value the reader set.
+      if (ddf && item.key === DDF_KEY) appendOverrideFlag(td, row);
       tr.append(th, kind, td);
       tbody.appendChild(tr);
     });
@@ -3988,6 +4011,8 @@
       return;
     }
     cell.appendChild(document.createTextNode(fmt(p.ours)));
+    // JEG-1059: the badge next to the value the reader set.
+    if (targetsView.ours === DDF_KEY) appendOverrideFlag(cell, p.row);
     if (isDdfKey(targetsView.ours)) {
       const count = ddfCountNode(p.row, targetsView.ours);
       if (count) cell.appendChild(count);
@@ -5007,6 +5032,8 @@
           b.textContent = fmt(v);
           line.appendChild(b);
           appendLowConfidence(line, row, result.key);
+          // JEG-1059: the badge next to the value the reader set.
+          if (result.key === DDF_KEY) appendOverrideFlag(line, row);
         } else {
           line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
@@ -5294,6 +5321,8 @@
       if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
+        // JEG-1059: the badge next to the value the reader set.
+        if (shown === DDF_KEY) appendOverrideFlag(value, row);
       } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
