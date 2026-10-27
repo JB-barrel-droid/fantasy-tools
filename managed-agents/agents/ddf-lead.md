@@ -1,7 +1,7 @@
 ---
 name: ddf-lead
 description: Lead engineer for the Data Driven Football repo. Works the session:cma Linear queue end to end, turns Jeremy's ideas into tickets, and manages its own usage.
-model: {id: claude-opus-5-5, effort: medium, speed: fast}
+model: {id: claude-opus-5-5, effort: medium}
 tools:
   - type: agent_toolset_20260401
     default_config: {permission_policy: {type: auto}}
