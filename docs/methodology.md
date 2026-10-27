@@ -402,7 +402,18 @@ rules, except that only charts are filled in (VP-2.4).
    overlay after the pipeline: it replaces the blended value on that row only
    (JEG-1073: the projections version is a separate alternate and is not
    overridden) and is never an input to any Adjusted value, Indexed factor,
-   pie total or the charts-only and projections versions. The basis is the reader's, so the
+   pie total or the charts-only and projections versions. It comes in two kinds
+   (JEG-1058): an absolute value ("worth 58.0") or an adjustment ("+5", "-3")
+   added to the pipeline's own value for that player, clamped to the 0-100
+   value scale; a player no source prices has no pipeline value, so an
+   adjustment is his value. An override that arrives from outside the editor
+   (a share link, an import, a saved record) is put on the same scale: an
+   absolute value above 100 is capped, and an adjustment is capped to the span
+   of the scale, so the value the reader sees is the value that is applied.
+   Everywhere the overridden value shows it carries a
+   badge (JEG-1059) that says what the reader set and what it was before, and
+   the player detail panel shows "Your override: 58.0" above the unchanged
+   source breakdown. The basis is the reader's, so the
    prior week is run on it too.
 
    (Before JEG-1044, "narrowed by the reader's selection": the Customize DDF

@@ -25,7 +25,7 @@
   const PAGE = 10;   // JEG-1098: the opportunities list opens on the top 10; "Show 10 more" and "Show all" reveal the rest
   const OPP_DEBOUNCE_MS = 300;
   const money = n => n.toFixed(1);
-  const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || `${word}s`)}`;
   const listJoin = items => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
 
@@ -812,10 +812,11 @@
   // ---------- trade opportunities ----------
   const OPP_COLSPAN = 10;   // nine columns (JEG-1081 adds Projections agree); Market perception has two sub-columns (the chart edge and the charts that call it fair)
   const tradeNodes = (r, ctx) => {
-    const names = list => list.map(p => p.name).join(" + ");
-    const recv = r.receive.map((p, i) => (p === r.core ? el("b", {text: p.name}) : p.name)).reduce((acc, n, i) => acc.concat(i ? [" + ", n] : [n]), []);
+    // JEG-1059: the badge that marks a value the reader set, right after the player's name.
+    const badgeOf = p => (root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(p) : null);
+    const side = (list, core) => list.flatMap((p, i) => [i ? " + " : "", p === core ? el("b", {text: p.name}) : p.name, badgeOf(p)]);
     void ctx;
-    return [`Send ${names(r.give)}, get `, ...recv];
+    return ["Send ", ...side(r.give, null), ", get ", ...side(r.receive, r.core)];
   };
   // JEG-1081: does DDF Value (projections) back the trade? A tick when it gains you, a cross when it loses you, a dash when level or unpriced.
   function projText(r) {
@@ -833,10 +834,21 @@
   }
   function detailRow(r, ctx, colspan) {
     const valueLine = (list, key) => list.map(p => `${p.name} ${finite(p.values[key]) ? money(p.values[key]) : "no value"}`).join(", ");
+    // JEG-1059: the badge that marks a value the reader set, next to each player's DDF Value.
+    const ourLine = list => {
+      const out = [];
+      list.forEach((p, i) => {
+        if (i) out.push(", ");
+        out.push(`${p.name} ${finite(p.values[OUR_KEY]) ? money(p.values[OUR_KEY]) : "no value"}`);
+        const badge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(p) : null;
+        if (badge) out.push(badge);
+      });
+      return out;
+    };
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
     const box = el("div", {class: "v2-lg-detail-body"});
-    box.append(el("p", {}, el("b", {text: "You give: "}), `${valueLine(r.give, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
-      el("p", {}, el("b", {text: "You receive: "}), `${valueLine(r.receive, OUR_KEY)} (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
+    box.append(el("p", {}, el("b", {text: "You give: "}), ...ourLine(r.give), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
+      el("p", {}, el("b", {text: "You receive: "}), ...ourLine(r.receive), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
     if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);

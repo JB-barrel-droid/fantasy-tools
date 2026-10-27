@@ -44,8 +44,8 @@
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   let RESCALED_TO = "";   // JEG-1044: " to FantasyCalc" under a reader basis (syncBasisLabels), so "rescaled" never misleads
-  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "Value above waivers"};
+  const SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
+  const PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
@@ -377,7 +377,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -406,10 +406,9 @@
     $("v2Manifesto").hidden = !onManifesto;
     $("v2Research").hidden = !onResearch;
     if (onResearch) showResearchPage();
-    $("v2League").hidden = onText;
+    $("v2Context").hidden = onText;
     if (!C) {
       $("v2State").hidden = onText;
-      if (onText) $("v2Methods").hidden = true;
     }
   }
 
@@ -453,7 +452,7 @@
     return info;
   }
   // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").
-  const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };
+  const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };
 
   // JEG-502 (Jeremy, 2026-10-09): every active NFL player is searchable. A player no source
   // prices (engine universe_only) appears only in search results, never in a table or chart,
@@ -774,6 +773,13 @@
     const reason = estimatedReason(row, key);
     if (reason) parent.appendChild(estimatedNode(reason));
   }
+  // JEG-1059: the badge that marks a value the reader set on the Overrides tab. It sits next to the value
+  // itself, on every view that shows one.
+  function appendOverrideFlag(parent, row) {
+    const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(row) : null;
+    if (badge) parent.appendChild(badge);
+    return badge;
+  }
   // Player values: the Rank by series over the engine's ranked rows.
   const valuesTier = row => tierText(row, view.rankKey, view.tierScope);
 
@@ -877,7 +883,7 @@
   function sourceLabelFor(key) {
     const meta = sourceMeta(key);
     const item = view.infoByKey[key];
-    const week = item && item.week ? (isNarrow() ? ` · W${item.week}` : ` · Week ${item.week}`) : "";
+    const week = item && item.week ? ` · Week ${item.week}` : "";
     return `${meta.short}${week}`;
   }
 
@@ -993,7 +999,7 @@
     // JEG-806: show data week and "as of <date>" so a reader knows how fresh the numbers are.
     const stamp = pageStampText();
     $("v2ValueLine").textContent = `Trade values for every player, tuned to your league${stamp ? ` · ${stamp}` : ""}`;
-    $("v2DeltaBtn").textContent = `Δ Prior week · ${state.delta ? "On" : "Off"}`;
+    $("v2DeltaBtn").textContent = `Prior week change · ${state.delta ? "On" : "Off"}`;
     $("v2DeltaBtn").setAttribute("aria-pressed", String(state.delta));
     const note = $("v2FilterNote");
     const notes = [];
@@ -1010,7 +1016,7 @@
         const prior = priorCache.get(key);
         return prior.available ? `${sourceMeta(key).short} vs Week ${prior.priorWeek}` : `${sourceMeta(key).short}: Δ —, ${prior.reason}`;
       });
-      notes.push(`Δ = prior-week change for the same source at your league settings; a player with no prior value shows Δ —, never zero.${parts.length ? ` ${parts.join(". ")}.` : " Recomputing last week…"}`);
+      notes.push(`Change (Δ in the table) = prior-week change for the same source at your league settings; a player with no prior value shows Δ —, never zero.${parts.length ? ` ${parts.join(". ")}.` : " Recomputing last week…"}`);
     }
     note.hidden = !notes.length;
     note.textContent = notes.join(" ");
@@ -1413,14 +1419,14 @@
     const row = hoveredRow();
     if (!row || !mainChart) { tip.hidden = true; return; }
     const keys = view.plotKeys.concat(view.vorpKeys).filter(isSeriesOn);
-    const weekNote = view.refWeek ? ` · W${view.refWeek}` : "";
+    const weekNote = view.refWeek ? ` · Week ${view.refWeek}` : "";
     tip.innerHTML = "";
     const h = document.createElement("h3");
     h.textContent = row.name;
     appendEspnZero(h, row);
     const meta = document.createElement("span");
     meta.className = "v2-meta";
-    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "FA"} · ${valuesTier(row)}${weekNote}`;
+    meta.textContent = `#${row.rank} · ${row.pos} · ${row.team || "Free agent"} · ${valuesTier(row)}${weekNote}`;
     tip.append(h, meta);
     keys.forEach(key => {
       const m = sourceMeta(key);
@@ -1454,7 +1460,7 @@
     const hint = document.createElement("span");
     hint.className = "v2-meta";
     hint.style.marginTop = "8px";
-    hint.textContent = "Click for player details ↗";
+    hint.textContent = "Click for player details";
     tip.appendChild(hint);
     tip.hidden = false;
     const box = $("v2Chart").getBoundingClientRect();
@@ -1607,7 +1613,7 @@
       {id: "rank", label: "#", cls: "rank", get: row => row.rank},
       {id: "name", label: "Player", cls: "player", get: row => row.name, text: true},
       {id: "pos", label: "Pos", cls: "col-meta", get: row => row.pos, text: true},
-      {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "FA", text: true},
+      {id: "team", label: "Team", cls: "col-meta", get: row => row.team || "Free agent", text: true},
       {id: "tier", label: "Tier", cls: "col-meta", get: row => valuesTier(row), text: true,
         order: row => TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3}
     ].filter(col => state.metaCols[col.id] !== false)
@@ -1788,6 +1794,8 @@
           if (Number.isFinite(v)) {
             td.textContent = fmt(v);
             appendLowConfidence(td, row, col.source);
+            // JEG-1059: the badge next to the value the reader set (our DDF Value only).
+            if (col.source === DDF_KEY) appendOverrideFlag(td, row);
             const sr0 = col.source ? sourceRanks(col.source).get(String(row.player_key)) : null;
             if (sr0) td.appendChild(rankSubLabel("v2-srank", `${sr0.overall} overall · ${sr0.pos}`));
             // JEG-457: a rescaled trade chart's cell shows the published number and the factor on hover, focus or tap.
@@ -1837,7 +1845,7 @@
             td.appendChild(nameSpan(row));
             appendEspnZero(td, row);
             // Pos / Team / Tier fold into this sub-line where their columns are collapsed (below 1600 px).
-            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "FA"),
+            const parts = metaColumnsShown() ? [] : [state.metaCols.pos !== false && row.pos, state.metaCols.team !== false && (row.team || "Free agent"),
               state.metaCols.tier !== false && valuesTier(row)].filter(Boolean);
             if (parts.length) {
               const sub = document.createElement("span");
@@ -1860,13 +1868,13 @@
     }
     const more = $("v2ShowMore");
     more.hidden = rows.length <= state.shown;
-    more.textContent = `Show more players (${Math.min(state.shown, rows.length)} of ${rows.length})`;
+    more.textContent = "Show more players";
     const weeks = [...new Set(cols.filter(col => col.source && !view.infoByKey[col.source]?.stale)
       .map(col => view.infoByKey[col.source]?.week).filter(Boolean))];
     const hidden = TABLE_GROUPS.filter(([g]) => state.hiddenGroups.has(g)).length;
     const [lo, hi] = state.window;
     const valueText = view.rangeOn ? ` · values ${fmt(state.range.min ?? view.yScale.lo)}–${fmt(state.range.max ?? view.yScale.hi)}` : "";
-    $("v2TableMeta").textContent = `${rows.length} of ${view.rows.length} players · ranks ${lo}–${hi}${valueText}`
+    $("v2TableMeta").textContent = `${rows.length} players · ranks ${lo}–${hi}${valueText}`
       + `${weeks.length === 1 ? ` · Week ${weeks[0]}` : ""}${hidden ? ` · ${hidden} column group${hidden === 1 ? "" : "s"} hidden` : ""}`
       + " · tint = above or below the ranking value";
     if (expanded === "table") $("v2ExpandMeta").textContent = $("v2TableMeta").textContent;
@@ -1881,7 +1889,7 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];
+  const METHOD_COLUMNS = [["dda", "DDF Value"], ["indexed", "Market"], ["vorp", "Value above waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "Value above waivers"};
 
   function drawerSection(title, sub) {
@@ -1911,7 +1919,7 @@
     const eyebrow = document.createElement("p");
     eyebrow.className = "v2-eyebrow";
     const methodName = METHOD_FULL[meta.method];
-    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · W${item.week}` : ""}`;
+    eyebrow.textContent = `${PUBLISHER_NAMES[meta.publisher] || meta.label}${methodName ? ` · ${methodName}` : ""}${item?.week ? ` · Week ${item.week}` : ""}`;
     const big = document.createElement("p");
     big.className = "v2-dhero-value";
     big.dataset.source = key;
@@ -1919,6 +1927,8 @@
     if (Number.isFinite(v)) {
       big.textContent = fmt(v);
       appendLowConfidence(big, row, key);
+      // JEG-1059: the badge next to the value the reader set.
+      if (key === DDF_KEY) appendOverrideFlag(big, row);
     }
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
@@ -1997,6 +2007,16 @@
     });
     toggle.append(box, document.createTextNode("Show all sources"));
     section.appendChild(toggle);
+    // JEG-1059: the reader's own value, above the source breakdown. The source values themselves are untouched.
+    if (row.valueOverride !== null && row.valueOverride !== undefined) {
+      const own = document.createElement("p");
+      own.className = "v2-meta v2-doverride";
+      own.textContent = `Your override: ${fmt(row.valueOverride)}`;
+      const unchanged = document.createElement("p");
+      unchanged.className = "v2-meta";
+      unchanged.textContent = "Individual source values are unchanged.";
+      section.append(own, unchanged);
+    }
     const listed = drawerSourceRows(row, drawerAllSources);
     if (!listed.length) {
       const none = document.createElement("p");
@@ -2033,7 +2053,7 @@
         th.append(document.createTextNode(meta.label));
       } else {
         th.innerHTML = `<span style="color:${pubColor(pub)}" aria-hidden="true">${PUBLISHERS[pub].symbol}</span> `;
-        th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(item.week ? ` · W${item.week}` : ""));
+        th.append(sourceLink(pub, PUBLISHER_NAMES[pub], row.pos), document.createTextNode(item.week ? ` · Week ${item.week}` : ""));
       }
       const provText = ddf ? "" : withWaiverNote(freshnessText(item), item);
       if (provText && provText !== `Week ${item.week}`) {
@@ -2051,6 +2071,8 @@
       td.dataset.source = item.key;
       td.textContent = fmt(value);
       appendLowConfidence(td, row, item.key);
+      // JEG-1059: the badge on our composite, which is the value the reader set.
+      if (ddf && item.key === DDF_KEY) appendOverrideFlag(td, row);
       tr.append(th, kind, td);
       tbody.appendChild(tr);
     });
@@ -2068,7 +2090,7 @@
     const out = [];
     const stats = drawerSection("Stats & context");
     const p = document.createElement("p");
-    p.textContent = `Position: ${row.pos} · Team: ${row.team || "FA"} · Tier: ${drawerTier(row)}`
+    p.textContent = `Position: ${row.pos} · Team: ${row.team || "Free agent"} · Tier: ${drawerTier(row)}`
       + (row.rank ? ` · #${row.rank} by ${sourceMeta(view.rankKey).short}` : "");
     stats.appendChild(p);
     out.push(stats);
@@ -2129,7 +2151,7 @@
     title.textContent = row.name;
     const meta = document.createElement("p");
     meta.className = "v2-meta";
-    meta.textContent = `${row.pos} · ${row.team || "FA"} · ${drawerTier(row)}`;
+    meta.textContent = `${row.pos} · ${row.team || "Free agent"} · ${drawerTier(row)}`;
     const tagged = tagChip(row);
     if (tagged) meta.append(" ", tagged);
     titles.append(title, meta);
@@ -2179,7 +2201,7 @@
       const open = document.createElement("a");
       open.className = "v2-link";
       open.href = "v2/#compare-trade";
-      open.textContent = "Open Compare a trade ↗";
+      open.textContent = "Open Compare a trade";
       open.addEventListener("click", closeDrawer);
       box.append(p, open);
       return box;
@@ -2416,13 +2438,13 @@
   // pipeline strings. JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered
   // on this device. Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
   const DIALOG_GROUPS = [
-    {id: "ddf", title: "Our values", note: ""},
+    {id: "ddf", title: "DDF Value", note: ""},
     {id: "pub", title: "Published trade charts", note: "What the major sites say each player is worth, adjusted to your league's scale."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_charts: "Our value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value_charts: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
     ddf_value_projections: "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
@@ -3029,16 +3051,11 @@
         });
         stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
         eyebrow(content, "Optimize for");
-        content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
-          w.optimize, v => { w.optimize = v; queue(); }));
-        // JEG-1023: the playoffs option has not been reviewed (Jeremy, 2026-10-24); plain text, tied to the button.
-        const optimizeCaption = document.createElement("p");
-        optimizeCaption.className = "v2-meta v2-optimize-caption";
-        optimizeCaption.id = "v2OptimizeNotReviewed";
-        optimizeCaption.textContent = "Playoffs: not reviewed, may not work as expected";
-        content.appendChild(optimizeCaption);
-        const playoffsButton = content.querySelector('.v2-pseg button[data-value="playoffs"]');
-        if (playoffsButton) playoffsButton.setAttribute("aria-describedby", optimizeCaption.id);
+        // JEG-1119: the Playoffs option is hidden (not reviewed, likely not working). A league already saved on it
+        // still shows it, so that reader can see the setting and switch away.
+        const optimizeOptions = [["season", "Whole season"], ["regular", "Regular season"]];
+        if (w.optimize === "playoffs") optimizeOptions.push(["playoffs", "Playoffs"]);
+        content.appendChild(segmented("Optimize for", optimizeOptions, w.optimize, v => { w.optimize = v; queue(); }));
         const lo =w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
@@ -3178,7 +3195,9 @@
   }
   const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
   function openWeights() {
-    openPanel($("v2Weights"), "Position weights", "Applies across tabs", pop => {
+    // JEG-1119: Position weights sits in the ⋯ menu; with the menu closed the panel anchors (and returns focus) to ⋯.
+    const anchor = $("v2Weights").offsetParent ? $("v2Weights") : $("v2ContextMore");
+    openPanel(anchor, "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench share");
       const readoutBox = document.createElement("div");
@@ -3800,7 +3819,7 @@
         const link = document.createElement("a");
         link.className = "v2-link";
         link.href = "v2/#writing/how-values";
-        link.textContent = "How values work ↗";
+        link.textContent = "How values work";
         link.addEventListener("click", () => closePopover());
         const close = document.createElement("button");
         close.type = "button";
@@ -3992,6 +4011,8 @@
       return;
     }
     cell.appendChild(document.createTextNode(fmt(p.ours)));
+    // JEG-1059: the badge next to the value the reader set.
+    if (targetsView.ours === DDF_KEY) appendOverrideFlag(cell, p.row);
     if (isDdfKey(targetsView.ours)) {
       const count = ddfCountNode(p.row, targetsView.ours);
       if (count) cell.appendChild(count);
@@ -4034,8 +4055,9 @@
     diff.className = "why t-diff";
     diff.dataset.marketDiff = m.diff.toFixed(1);
     // JEG-833: said in words (ours is above / below the consensus), not as a signed number that contradicts the gap.
-    describe(diff, diff.title = "Our value against the market consensus");
-    diff.textContent = `${m.diff > 0 ? "▲" : "▼"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? "above" : "below"}`;
+    describe(diff, diff.title = "Market consensus minus our value: the same difference and sign as the Gap");
+    // JEG-977: the same sign as the Gap column (market minus ours): "+3.3" means the market is 3.3 above our value.
+    diff.textContent = fmtGap(-m.diff);
     cell.append(diff, count);
   }
 
@@ -4338,7 +4360,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
@@ -4423,7 +4445,7 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "FA"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
       who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -4558,7 +4580,7 @@
       const actionCopy = sc
         ? (side === "sell" ? `Against one chart: ${scName}. ${scName} pays more than our value.` : `Against one chart: ${scName}. ${scName} ranks them lower than we do.`)
         : (side === "sell" ? `Offer them: most of ${chartsWord} pay more than our value.` : `Ask for them: ${chartsWord} rank them lower than we do.`);
-      $(ids.meta).textContent = blocked ? "—" : `${list.length} of ${targetsView.compared} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
+      $(ids.meta).textContent = blocked ? "—" : `${list.length} players · ranked by gap × value at stake, biggest score first. ${actionCopy}`;
     });
     const notes = [];
     // JEG-833: players the charts price below our value but rank where we do are the scale, not a mispricing.
@@ -4641,7 +4663,7 @@
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
       footEl.append(
-        document.createTextNode("Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is "),
+        document.createTextNode("Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is "),
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,
@@ -4685,7 +4707,7 @@
     const parts = [];
     if (h.over) parts.push(`the consensus prices ${weightGroupName(h.over)} ${pct(h.over)} above DDF Value (${h.over.consensus.n} players)`);
     if (h.under) parts.push(`${h.over ? "and " : "the consensus prices "}${weightGroupName(h.under)} ${pct(h.under)} below it (${h.under.consensus.n} players)`);
-    const lead = h.over && h.under ? "Best group arbitrage: " : "Largest group gap: ";
+    const lead = h.over && h.under ? "Biggest pricing gap between two groups: " : "Largest group gap: ";
     return `${lead}${parts.join(" ")}.`;
   }
 
@@ -5010,6 +5032,8 @@
           b.textContent = fmt(v);
           line.appendChild(b);
           appendLowConfidence(line, row, result.key);
+          // JEG-1059: the badge next to the value the reader set.
+          if (result.key === DDF_KEY) appendOverrideFlag(line, row);
         } else {
           line.appendChild(missingNode(missingReason(result.key, row), "no value"));
         }
@@ -5288,7 +5312,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
-        : `${row.pos} · ${row.team || "FA"} · ${tierText(row, verdictKey(), compareTierScope())}`;
+        : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
@@ -5297,6 +5321,8 @@
       if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
+        // JEG-1059: the badge next to the value the reader set.
+        if (shown === DDF_KEY) appendOverrideFlag(value, row);
       } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
       if (compareView.example) {
         li.classList.add("is-example");
@@ -5385,7 +5411,7 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       const v = row.values[view.rankKey];
-      sub.textContent = ` ${row.pos} · ${row.team || "FA"} · ${sourceMeta(view.rankKey).short} ${Number.isFinite(v) ? fmt(v) : "—"}`;
+      sub.textContent = ` ${row.pos} · ${row.team || "Free agent"} · ${sourceMeta(view.rankKey).short} ${Number.isFinite(v) ? fmt(v) : "—"}`;
       button.append(name, sub);
       if (on) {
         button.disabled = true;
@@ -5507,7 +5533,7 @@
     }
     const TC = window.TradeValueTrade;
     const dealTitle = deal.kind === "read"
-      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Arbitrage: send it" + "Send it").
+      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Value win, charts say you lose: send it" + "Send it").
       ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
       : "";
     $("v2CDealRead").textContent = dealTitle;
@@ -6168,27 +6194,27 @@
     const ddfInputs = group === "ddf" && Array.isArray(prior.sources) && Array.isArray(blendSeries)
       ? ` · ${prior.sources.filter(key => blendSeries.includes(key)).length} of ${blendSeries.length} sources have a prior week` : "";
     $("v2RMeta").textContent = v.available
-      ? `${label}${ddfInputs} · Δ = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
+      ? `${label}${ddfInputs} · Change = Week ${v.currentWeek} − Week ${v.priorWeek}, both priced for your league. `
         + (group === "ddf" ? "A riser is worth more in a trade than last week; a faller is worth less."
           : group === "proj" ? "A projection moving is a change in that source's outlook."
             : "A riser now costs more from a manager who trades off this chart; a faller costs less.")
-      : `No Δ for ${label}: ${v.reason}.`;
+      : `No change to show for ${label}: ${v.reason}.`;
     // One bar scale for both lists, so a bar's length means the same number of points on either side.
     const shownItems = v.risers.slice(0, R.shown.rise).concat(v.fallers.slice(0, R.shown.fall));
     const scale = shownItems.reduce((max, item) => Math.max(max, Math.abs(item.delta)), 0);
     renderMoverList("rise", v.risers, scale);
     renderMoverList("fall", v.fallers, scale);
     $("v2RScale").textContent = scale > 0
-      ? `Bars share a scale of ${scale.toFixed(1)} value points (the largest change shown). Δ — for missing history: never a zero change.`
-      : "Δ — for missing history: never a zero change.";
+      ? `Bars share a scale of ${scale.toFixed(1)} value points (the largest change shown). Missing history shows a dash: never a zero change.`
+      : "Missing history shows a dash: never a zero change.";
     const notes = [];
-    if (v.noPrior) notes.push(`${v.noPrior} player${v.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${v.priorWeek}, so no Δ.`);
+    if (v.noPrior) notes.push(`${v.noPrior} player${v.noPrior === 1 ? "" : "s"} left out: not priced by ${label} in Week ${v.priorWeek}, so no change.`);
     if (v.noCurrent) notes.push(`${v.noCurrent} without a Week ${v.currentWeek} ${label} value.`);
-    if (v.unchanged) notes.push(`${v.unchanged} unchanged (Δ 0.0).`);
+    if (v.unchanged) notes.push(`${v.unchanged} unchanged (0.0).`);
     const unavailable = choices.filter(c => !c.prior.available);
     renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
-      notes.push(`Left out of both weeks of this DDF Value Δ: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+      notes.push(`Left out of both weeks of this DDF Value change: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
     const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
     const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
@@ -6228,7 +6254,7 @@
         name.textContent = row.name;
         const sub = document.createElement("span");
         sub.className = "v2-meta";
-        sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+        sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
         who.append(name, sub);
         const big = document.createElement("div");
         big.className = `big ${item.direction === "up" ? "up" : "down"}`;
@@ -6286,7 +6312,7 @@
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${row.pos} · ${row.team || "FA"}`;
+      sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
       who.append(name, sub);
       const big = document.createElement("div");
       big.className = `big ${item.delta > 0 ? "up" : "down"}`;
@@ -6319,7 +6345,7 @@
     const empty = $(ids.empty);
     empty.hidden = v.available && list.length > 0;
     if (v.available && v.searchMiss) renderNoMatch(empty, R.search, "v2RSearch");
-    else empty.textContent = !v.available ? "No Δ for this source: see the note above."
+    else empty.textContent = !v.available ? "No change to show for this source: see the note above."
       : `No player ${side === "rise" ? "rose" : "fell"} in ${priorLabel(R.series)} for this selection.`;
     const more = $(ids.more);
     more.hidden = list.length <= R.shown[side];
@@ -6415,10 +6441,12 @@
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
-    // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
-    // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
-    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
+    // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
+    // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
+    // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    $("v2EditSources").hidden = noShowing;
+    document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
     // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
     const navKey = v === "writing" ? "writing/" + writingSection()
@@ -6487,9 +6515,11 @@
     } else if (keys.length === 1) {
       text = `Only one series is selected (${sourceMeta(keys[0]).short}). Choose another source to see where the sources disagree.`;
     }
-    $("v2Notice").hidden = !text;
+    if (text !== noticeDismissedText) { noticeDismissedText = ""; }
+    $("v2Notice").hidden = !text || noticeDismissedText === text;
     $("v2NoticeText").textContent = text;
   }
+  let noticeDismissedText = "";
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
   // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
@@ -6508,10 +6538,10 @@
     const custom = Boolean(b && !b.isDefault);
     const to = custom ? ` (to ${b.label})` : "";
     RESCALED_TO = custom ? ` to ${b.label}` : "";
-    SHORT_METHOD.indexed = `Rescaled${to}`;
-    PLAIN_METHOD.indexed = `Rescaled chart${to}`;
-    METHOD_COLUMNS[1][1] = `Rescaled chart${to}`;
-    METHOD_FULL.indexed = `Rescaled${to}`;
+    SHORT_METHOD.indexed = `Market${to}`;
+    PLAIN_METHOD.indexed = `Market${to}`;
+    METHOD_COLUMNS[1][1] = `Market${to}`;
+    METHOD_FULL.indexed = `Market${to}`;
     const pub = SERIES_GROUPS.find(g => g.id === "pub");
     pub.title = custom ? `Trade charts (rescaled${to})` : "Trade charts (rescaled)";
     pub.note = custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis). Their ranking order is unchanged.`
@@ -6788,6 +6818,7 @@
     $("v2Reset").addEventListener("click", resetValues);
     $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
+    $("v2NoticeClose").addEventListener("click", () => { noticeDismissedText = $("v2NoticeText").textContent; $("v2Notice").hidden = true; });
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
       button.addEventListener("click", () => {
         const what = button.dataset.clear;
@@ -6800,6 +6831,24 @@
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
+    // JEG-1119: the context row's ⋯ menu (Position weights, Copy / Paste for ChatGPT/Claude).
+    const setContextMenu = open => {
+      $("v2ContextMenu").hidden = !open;
+      $("v2ContextMore").setAttribute("aria-expanded", String(open));
+    };
+    $("v2ContextMore").addEventListener("click", () => {
+      const open = $("v2ContextMenu").hidden;
+      setContextMenu(open);
+      if (open) { const first = [...$("v2ContextMenu").querySelectorAll("button")].find(b => b.offsetParent); if (first) first.focus(); }
+    });
+    // Capture phase: the menu closes before the item's own handler runs, so Position weights anchors to ⋯.
+    $("v2ContextMenu").addEventListener("click", event => { if (event.target.closest("button")) setContextMenu(false); }, true);
+    $("v2ContextMenu").addEventListener("keydown", event => {
+      if (event.key === "Escape") { setContextMenu(false); $("v2ContextMore").focus(); }
+    });
+    document.addEventListener("click", event => {
+      if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
+    });
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);

@@ -286,6 +286,13 @@ async function main() {
   const report = { ok: true, steps: [], mismatches: [], pageErrors: [] };
   try {
     const page = await browser.newPage({ viewport: { width: 1400, height: 1000 } });
+    // JEG-1152: pin the page clock to the served data's week (the workflow sets
+    // TRADE_VALUE_TODAY from tests.test_week_history._fixture_today). Unpinned,
+    // from the Tuesday flip until the new week's charts land, the page drops
+    // every chart as not yet published.
+    if (process.env.TRADE_VALUE_TODAY) {
+      await page.addInitScript(`window.TRADE_VALUE_TODAY = ${JSON.stringify(process.env.TRADE_VALUE_TODAY)};`);
+    }
     page.on("pageerror", e => report.pageErrors.push(String(e).slice(0, 240)));
     await page.goto(`http://127.0.0.1:${server.address().port}/classic/`, { waitUntil: "networkidle" });
     await page.waitForTimeout(1500);
