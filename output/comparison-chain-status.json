@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-27T15:01:24.174986+00:00",
+  "run_at": "2026-10-27T15:29:40.621349+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -87,7 +87,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-26 -> 12 DDF legs -> section; review passed (7764 values)",
+      "detail": "snapshot 2026-10-26 -> 12 DDF legs -> section; review passed (7776 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -116,8 +116,8 @@
       "lagging_one_week": true
     },
     "espn": {
-      "content_vintage": "2026-10-26",
-      "content_week": 7,
+      "content_vintage": "2026-10-27",
+      "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     },
@@ -149,13 +149,13 @@
       "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[2035 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1461 chars]rs)\"] != []"
+      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[2486 chars]rs)\"] != []",
+      "AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1464 chars]rs)\"] != []"
     ],
     "make_targets": [
-      "Makefile:611: test-core"
+      "Makefile:618: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[2035 chars]rs)\"] != []; AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1461 chars]rs)\"] != []",
-    "recorded_at": "2026-10-27T15:27:14.231133+00:00"
+    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[2486 chars]rs)\"] != []; AssertionError: Lists differ: [\"fantasypros served week != chart: ['Aaro[1464 chars]rs)\"] != []",
+    "recorded_at": "2026-10-27T15:56:50.243954+00:00"
   }
 }
