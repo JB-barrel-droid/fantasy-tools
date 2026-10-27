@@ -543,6 +543,8 @@ test-core:
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1152: engine promotion model part-for-part with the reference.
+	python3 -m unittest tests.test_promotion_model_parity
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_rank_guard
