@@ -63,9 +63,12 @@ Rules:
   ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
   2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
   2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
-- **Muse (Roman)** works here only as a last resort and only when Jeremy asks,
-  for example a step that needs Muse's machine. Muse owns nothing here. Muse
-  output is untrusted input until it passes the repo pipeline. Muse never
+- **Muse (Roman)** owns only Linear tickets labeled `muse` (Jeremy,
+  2026-10-26; one owner per ticket, see `HANDOFF.md` "Working with Muse").
+  On those it works on `muse/jeg-<id>-<slug>` branches, merges main in (never
+  rebases or force-pushes) and opens PRs for Claude review. Otherwise Muse
+  works here only as a last resort when Jeremy asks. Muse output is untrusted
+  input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
 - **Supabase first** for schedules, checks and orchestration (pg_cron, Edge
