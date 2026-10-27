@@ -1,11 +1,11 @@
-"""v2 Find a trade v2 (JEG-988), commit 4: natural / value / force fit on the groups, rendered.
+"""v2 Find a trade v2 (JEG-988), commit 4: natural / market supported / force fit on the groups, rendered.
 
 Two real roster pages (the Yahoo and ESPN team fixtures) go through Find trades at 1440 and 390 wide, with packages of up
 to 3. Checked against the finder's own pure functions run in the page:
 
-  * every group card carries a fit line ("Natural fit:", "Value fit:" or "Force fit:") that names both teams' net change in
+  * every group card carries a fit line ("Natural fit:", "Market supported:" or "Force fit:") that names both teams' net change in
     their own view (you: DDF Value, they: the trade chart average);
-  * the order is natural fits first, then value, then force; inside a tier the groups keep the edge ranking; and nothing
+  * the order is natural fits first, then market supported, then force; inside a tier the groups keep the edge ranking; and nothing
     else changes: with every group shown, the set of group edges equals the groups the search finds without the tiering
     (no group added, dropped or re-valued);
   * the thin-roster case: a team whose only RB1 is a star gives him for two RB2s from a deep team. The search lists the
@@ -74,8 +74,8 @@ THIN = """() => {
 
 
 def orientation(page, tag, swap) -> list[str]:
-    """Yahoo as mine and ESPN as theirs has no natural group on current data; the swap has several (and force ones), which is what
-    makes the tier-order assertion test something."""
+    """Yahoo as mine and ESPN as theirs has no natural group on current data; the swap lists groups of at least two different fits,
+    which is what makes the tier-order assertion test something."""
     errors = []
     tag = f"{tag}{'ESPN mine / Yahoo theirs: ' if swap else 'Yahoo mine / ESPN theirs: '}"
     say = lambda what: errors.append(tag + what)
@@ -100,24 +100,40 @@ def orientation(page, tag, swap) -> list[str]:
         say("no groups listed")
         return errors
     kinds = {g["fit"] for g in shown}
-    if swap and not ({"natural", "force"} <= kinds):
-        say(f"the swapped rosters must list natural and force groups so the tier order is exercised, got {sorted(map(str, kinds))}: the guard would test nothing")
+    if swap and len(kinds & {"natural", "market", "force"}) < 2:
+        say(f"the swapped rosters must list groups of at least two different fits so the tier order is exercised, got {sorted(map(str, kinds))}: the guard would test nothing")
     if not all(g["visible"] for g in shown):
         say("a group's fit line is not visible")
-    if any(g["fit"] is None or not re.match(r"^(Natural|Value|Force) fit:", g["line"]) for g in shown):
+    if any(g["fit"] is None or not re.match(r"^(Natural fit|Market supported|Force fit)(?: · [A-Za-z -]+ viability)?:", g["line"]) for g in shown):
         say(f"a group has no fit line: {[g['line'][:30] for g in shown if g['fit'] is None][:3]}")
     for g in shown:
-        if g["line"] and ("DDF Value" not in g["line"] or "trade chart average" not in g["line"]) and g["fit"] != "force":
-            say(f"a {g['fit']} line does not name both views: {g['line'][:140]}")
-    tiers = [{"natural": 0, "value": 1, "force": 2}[g["fit"]] for g in shown if g["fit"]]
+        if g["fit"] == "natural" and ("DDF Value" not in g["line"] or "trade chart average" not in g["line"]):
+            say(f"a natural line does not name both views: {g['line'][:140]}")
+        if g["fit"] == "market" and "trade charts favor them" not in g["line"]:
+            say(f"a market supported line does not say the charts favor them: {g['line'][:140]}")
+    tiers = [{"natural": 0, "market": 1, "force": 2}[g["fit"]] for g in shown if g["fit"]]
     if tiers != sorted(tiers):
-        say(f"tiers are not natural, value, force in order: {[g['fit'] for g in shown]}")
+        say(f"tiers are not natural, market supported, force in order: {[g['fit'] for g in shown]}")
     for tier in (0, 1, 2):
         edges = [g["edge"] for g, t in zip(shown, tiers) if t == tier]
         if edges != sorted(edges, reverse=True):
             say(f"tier {tier} is not in edge order: {[round(e, 2) for e in edges]}")
-    if sorted(round(g["edge"], 6) for g in shown) != sorted(round(e, 6) for e in base):
-        say(f"the shown group edges {sorted(round(g['edge'], 2) for g in shown)[:6]} differ from the search's {sorted(round(e, 2) for e in base)[:6]}: values changed or groups lost")
+    # The finder lists at most two groups per received player and folds the rest into a "N more for <player>" note, so
+    # the shown groups are a subset of the search's groups (none added, none re-valued) and every missing group is
+    # counted in those notes (none lost silently).
+    base_left = [round(e, 6) for e in base]
+    added = []
+    for g in shown:
+        edge = round(g["edge"], 6)
+        if edge in base_left:
+            base_left.remove(edge)
+        else:
+            added.append(round(g["edge"], 2))
+    if added:
+        say(f"shown group edges {added} are not in the search's groups: values changed or groups invented")
+    folded = sum(int(n) for n in re.findall(r"(\d+) more for ", page.locator("#v2FindOut").inner_text()))
+    if len(base_left) != folded:
+        say(f"{len(base_left)} groups are in the search but not listed, and the notes fold {folded}: groups lost or miscounted")
     return errors
 
 
@@ -198,7 +214,7 @@ def thin_case(page, tag) -> list[str]:
     if not m or float(m.group(3)) <= 0 or float(m.group(2)) <= float(m.group(1)):
         say(f"the thin team's starter value does not rise in the impact lines: {impact!r}")
     fit = card.locator(".v2-find-fit").text_content()
-    if not re.match(r"^(Natural|Value|Force) fit:", fit) or "DDF Value" not in fit:
+    if not re.match(r"^(Natural fit|Market supported|Force fit)(?: · [A-Za-z -]+ viability)?:", fit) or "DDF Value" not in fit:
         say(f"the 1-for-2 card has no fit reading: {fit[:120]!r}")
     return errors
 
@@ -243,6 +259,7 @@ class FinderFitRenderTest(unittest.TestCase):
             "tier ordering off": ("if (fitCtx) groups = tierGroups(", "if (false) groups = tierGroups("),
             "fit line not drawn": ("fitLine.hidden = !fit;", "fitLine.hidden = true;"),
             "tier order reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
+            "folded groups not counted in the note": ("folded.set(ck, (folded.get(ck) || 0) + 1);", "void 0;"),
             "two-player packages not searched": ("const mineSubs = subsets(mineP.rows.length, maxSize)", "const mineSubs = subsets(mineP.rows.length, 1)"),
         }
         for name, (old, new) in cases.items():

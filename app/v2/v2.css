@@ -467,6 +467,9 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
    (frame 17) without changing how it looks, by extending the link's box above and below the chip. */
 a.v2-div-chip { position: relative; z-index: 1; }
 a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: -15px; bottom: -15px; }
+/* JEG-1116: legend rows are about 20 px apart on a wide window, so the 15 px extension above and below a linked chip covered the
+   source link in the row above or below (a tap on that link opened the review page). With a fine pointer the legend chip keeps its own box. */
+@media (min-width: 768px) and (pointer: fine) { .v2-showing-legend a.v2-div-chip::after { top: 0; bottom: 0; } }
 .v2-div-chip.is-excluded { border-color: var(--v2-older); color: var(--v2-older); opacity: 0.7; }
 @media (hover: hover) { a.v2-div-chip:hover { text-decoration: underline; } }
 /* JEG-1048: a "Reviewed" / "Excluded" chip is a link to its resolution issue (JEG-609). It was 74-79 x 18-19 (24 x 24 in Customize).
@@ -482,6 +485,10 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-tcompare .v2-info { margin: 0 -8px; }
 /* Not a sort button: no sort arrow, and its own 44 px box is the hit area. */
 .v2-table th .v2-info::after, .v2-table th .v2-info::before { content: none; }
+/* JEG-1116: in a column head the info button follows a source link. Its default -10px left margin pulled its 44 px box
+   8 px over the link's last letters (a tap there opened the info card, not the publisher's page). The box now starts
+   where the link ends, and the link's touch padding (rule below) stops on that side too. */
+.v2-table th .v2-info { margin-left: 0; }
 .v2-popover.v2-info-pop { width: min(360px, calc(100vw - 32px)); }
 .v2-popover.v2-info-pop h2 { font-size: 16px; }
 .v2-info-text { font-size: 13px; margin-top: 6px !important; }
@@ -1038,8 +1045,6 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-deal { margin-top: 4px; padding-top: 4px; }
   /* JEG-932: the three net chips wrapped one per line (216 + 389 + 20px gap > 617px); a tighter gap lets two share a row, ~28px shorter. */
   #v2Compare .v2-deal-nets { gap: 2px 6px; margin: 2px 0; }
-  /* JEG-1048: wrapped net rows sit 26 px apart, so the 44 px info buttons crossed (a click in the lower row's top landed on the upper one). Here the hit box is the row pitch, as for the chart legend below. */
-  #v2Compare .v2-deal-nets .v2-info { height: 24px; margin-top: 0; margin-bottom: 0; }
   #v2Compare .v2-cstory { padding-top: 4px; margin-top: 0; }
 }
 
@@ -1554,6 +1559,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
    equal negative side margin cancels it, so no line or chip moves. */
 @media (max-width: 767px), (pointer: coarse) {
   .v2-srclink { padding: 15px; margin: -15px; }
+  .v2-table th .v2-srclink { padding-right: 0; margin-right: 0; }   /* JEG-1116: the info button beside it owns that side */
   /* The extended link hit area reaches into the next row; a value cell with a math tip sits above it so a tap on
      the number opens its tip instead of the publisher's page (JEG-725: Targets cards at 390 px). */
   .has-math { position: relative; z-index: 1; }
@@ -1762,10 +1768,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-nav .v2-tabs .v2-tab::before { content: none; }
   .v2-nav .v2-tabs .v2-tab .v2-tab-full { display: inline; }
 }
+.v2-freshness-short { display: none; }
 @media (max-width: 419px) {
-  /* The wordmark and button fill the first row; the freshness line takes its own row instead of a sliver. */
-  .v2-nav .v2-nav-toggle { order: 1; margin-left: auto; }
-  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; text-align: left; margin-left: 0; min-height: 44px; /* JEG-947: 44 px tap target (was 36) */ }
+  /* Decision 2026-10-25: the freshness button stays beside the site name with a short label ("Week 7"), so the
+     header stays at most 120 px tall (JEG-887) and the button keeps its 44 px height (JEG-947). */
+  .v2-nav .v2-freshness { flex: 0 1 auto; min-width: 0; }
+  .v2-nav .v2-freshness #v2FreshnessLabel { display: none; }
+  .v2-nav .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
 }
 @media (max-height: 500px) and (min-width: 600px) {
   /* Landscape phone: two columns keep the seven items inside a 390 px tall screen. */

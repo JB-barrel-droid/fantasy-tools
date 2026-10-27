@@ -47,13 +47,14 @@ def check(sources: dict[str, str], finder_js: Path) -> list[str]:
             m = RETIRED.search(code)
             if m:
                 say(f"{name}:{number} still says {m.group(0)!r}: {code.strip()[:100]}")
-    tips = {v: call(finder_js, "fitTip", v) for v in ("natural", "natural-charts", "natural-projections", "value", "force")}
-    if len(set(tips.values())) != 5:
-        say(f"fit tooltips are not five different sentences: {tips}")
-    if "DDF Value (projections)" not in tips["natural-charts"] or "does not back it" not in tips["natural-charts"]:
-        say(f"charts-only tooltip does not say the projections disagree: {tips['natural-charts']!r}")
-    if "DDF Value does not" not in tips["natural-projections"]:
-        say(f"projections-only tooltip does not say DDF Value disagrees: {tips['natural-projections']!r}")
+    # JEG-1108: the fit labels are Natural, Market supported and Force (Value fit and the charts/projections variants are retired).
+    tips = {v: call(finder_js, "fitTip", v) for v in ("natural", "market", "force")}
+    if len(set(tips.values())) != 3:
+        say(f"fit tooltips are not three different sentences: {tips}")
+    if "roster" not in tips["natural"] or "Trade chart average" not in tips["natural"]:
+        say(f"natural tooltip does not say roster construction and the other team's test: {tips['natural']!r}")
+    if "Trade chart average" not in tips["market"] or not tips["market"].startswith("Market supported"):
+        say(f"market tooltip is not the Market supported definition: {tips['market']!r}")
     if call(finder_js, "fitTip", "nonsense") != tips["force"]:
         say("an unknown fit variant should read as force")
     default = {i: call(finder_js, "viewTip", i, {"isDefault": True}) for i in ("ddf", "market", "projections")}
