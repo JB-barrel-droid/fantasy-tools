@@ -29,17 +29,21 @@ Jeremy's own ask (Oct 26), but merge and deploy rules below still hold.
   every comment starts with a header line saying who wrote it:
   `🍌 **Ba-Nana (Jeremy's AI PM)** — not written by Jeremy`, or for a run:
   `🍌 **Ba-Nana run (deepseek-v4.1-flash)** — not written by Jeremy`.
-  A successor uses the same shape with its own name, e.g.
-  `**<Agent> (Jeremy's AI PM)** — not written by Jeremy`.
+  A successor uses the same shape with its own name.
 - **Every question to Jeremy** carries a link, plain context and a
   recommendation. Batch questions; never re-ask one he has answered.
 - **After any live deploy** tell him what to check, with a direct link to the
   exact page or tab under https://jb-barrel-droid.github.io/fantasy-tools/v2/.
 
+## Working with Muse
+
+- Label `muse` on a Linear ticket = Muse owns it; Ba-Nana doesn't pick it up. One owner per ticket.
+- Muse comments on the ticket when it starts, with the PR link when done, and with any blockers.
+- Branches are `muse/jeg-<id>-<slug>`; merge main in, never rebase or force-push; PRs aren't merged by Muse.
+
 ## 3. Model routing and harness
 
-- **Harness: Claude Code CLI** (`claude -p`), on every model (Jeremy, Oct 26:
-  "Keep going with Claude code").
+- **Harness: Claude Code CLI** (`claude -p`) on every model (Jeremy, Oct 26).
 - **Cheap models** for tests, CSS, copy and small features:
   - OpenRouter `deepseek/deepseek-v4.1-flash` via the wrapper
     `~/.config/banana/claude-openrouter`. It sets `ANTHROPIC_BASE_URL=https://openrouter.ai/api`
@@ -51,8 +55,7 @@ Jeremy's own ask (Oct 26), but merge and deploy rules below still hold.
 - **Real Claude** (Jeremy's subscription) for value math and T1 review.
 - **OpenAI** (`OPENAI_API_KEY`, about $5 budget) only for second-opinion reviews.
 - **Cursor cloud agents** only for big self-contained jobs, and tell Jeremy first.
-- **Non-Claude output** goes up as a draft PR for a Claude (T1) review
-  (`AGENTS.md` rule 2).
+- **Non-Claude output** goes up as a draft PR for Claude (T1) review (`AGENTS.md` rule 2).
 - **Machines:**
   - *Mac mini:* checkout `~/code/fantasy-tools`, worktrees `~/code/wt/`. Claude
     is signed in; wrappers are in `~/.config/banana/`. macOS has no `setsid`, so
@@ -73,8 +76,7 @@ Jeremy's own ask (Oct 26), but merge and deploy rules below still hold.
      draft PR (`GITHUB_TOKEN`, fine-grained, this repo only).
   5. Out of turns: `resume.sh <JEG-n> <session-id> <n>` (finish-now prompt).
      `run-lane3.sh` is the same with 80 turns.
-- **Budget:** `credits.sh` prints the OpenRouter balance from the credits
-  endpoint. Trust it, not Claude Code's cost readout.
+- **Budget:** trust `credits.sh` (OpenRouter balance), not Claude Code's cost readout.
 - **Env var names only:** `OPENROUTER_API_KEY`, `MINIMAX_API_KEY`,
   `OPENAI_API_KEY`, `GITHUB_TOKEN`. Never print, echo or commit their values.
 
@@ -126,12 +128,10 @@ Last updated: Oct 26, 2026, 7:20 PM CT (by Ba-Nana).
 - [PR 968](https://github.com/JB-barrel-droid/fantasy-tools/pull/968), [JEG-885](https://linear.app/jegabee/issue/JEG-885): cap the first 10 only, or the whole list?
 - [PR 969](https://github.com/JB-barrel-droid/fantasy-tools/pull/969) (JEG-894) and [PR 970](https://github.com/JB-barrel-droid/fantasy-tools/pull/970) (JEG-1101): copy questions on the tickets.
 - [PR 958](https://github.com/JB-barrel-droid/fantasy-tools/pull/958) + [PR 960](https://github.com/JB-barrel-droid/fantasy-tools/pull/960): merge, then the one combined mcp deploy.
-- Older and stale: [all open PRs](https://github.com/JB-barrel-droid/fantasy-tools/pulls)
-  (959, 939, 925, 921, 920, 837; 962 has a merge conflict).
+- Older and stale: [all open PRs](https://github.com/JB-barrel-droid/fantasy-tools/pulls) (959, 939, 925, 921, 920, 837; 962 conflicts).
 
-**Open decisions** (Linear label `needs-review`, team Jegabee):
-JEG-1121, JEG-1115, JEG-1125 ("Even" band), JEG-1143 (findings),
-JEG-1142 (parked behind JEG-1144).
+**Open decisions** (label `needs-review`): JEG-1121, JEG-1115, JEG-1125
+("Even" band), JEG-1143 (findings), JEG-1142 (parked behind JEG-1144).
 
 **Next queued:** lane 4 tickets back in Todo for fresh DeepSeek runs; JEG-1144
 research if Jeremy OKs it; research post refresh after PR 957 merges.
@@ -140,8 +140,7 @@ research if Jeremy OKs it; research post refresh after PR 957 merges.
 
 ## 6. Keeping this file current (anti-bloat)
 
-- Update it whenever runs, PRs, decisions or rules change (the PM's 2-hourly
-  check-in does this).
+- Update it whenever runs, PRs, decisions or rules change (2-hourly check-in).
 - Rewrite section 5 in place and bump "Last updated". Never append a log;
   history lives in git, Linear and the PRs.
 - Delete anything resolved: merged PRs, answered decisions, finished runs.
