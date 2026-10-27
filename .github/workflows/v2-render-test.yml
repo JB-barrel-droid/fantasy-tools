@@ -5,8 +5,24 @@ name: v2 render test
 # rebuild-chain.yml do not call this workflow, so a UI test can never hold a
 # scheduled data refresh. Make this a required check on main to block merges.
 
+# JEG-1118 (Jeremy, 2026-10-26: "Run it on push to mains that affect the data"):
+# also run on pushes to main that change the baked data, so a bad data bake is
+# caught in minutes, not at the next PR (b227f453 pushed Compare 70 px past the
+# fold and nothing ran v2-render until a PR 7 hours later, JEG-1112). It runs
+# after the push, so it warns (red run on main) and cannot hold a data refresh.
+# The workflow only reads (contents: read) and never commits, so it cannot loop.
+# GITHUB_TOKEN pushes (rebuild-chain.yml) do NOT fire `push` workflows; the
+# chain therefore dispatches this workflow, like pages.yml (JEG-274), in its
+# "Dispatch v2-render" step. The `push` trigger covers human/PAT/merge pushes.
 on:
   pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "data/fixtures/current/**"
+      - "data/ddf-two-tier/**"
+      - "data/inputs/**"
+      - "config/lineup_parameters.json"
   workflow_dispatch:
 
 permissions:
@@ -34,3 +50,7 @@ jobs:
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
       - run: python3 -m unittest tests.test_v2_contract_render
+      # JEG-1056: the Compare 1366x768 fit guard (JEG-917/JEG-932) lives here, not in the deploy gate. Its
+      # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
+      # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
+      - run: python3 -m unittest -v tests.test_v2_waterfall_render

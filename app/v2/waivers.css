@@ -32,6 +32,10 @@
 #v2Waivers .v2-wv-headline[data-state="force"], #v2Waivers .v2-wv-headline[data-state="consider"], #v2Waivers .v2-wv-headline[data-state="combo"] { border-left-color: var(--v2-older); }
 #v2Waivers .v2-wv-headline[data-state="none"] b { color: var(--v2-older); }
 #v2Waivers .v2-wv-count { margin: 6px 0 0; }
+#v2Waivers .v2-wv-headctx { display: block; margin-top: 2px; font-size: 14px; font-weight: 400; color: var(--v2-muted); }
+#v2Waivers .v2-wv-headctx:empty { display: none; }
+#v2Waivers .v2-wv-viewpick { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 4px 0 0; }
+#v2Waivers .v2-wv-viewpick select { min-height: 44px; max-width: 100%; }
 #v2Waivers .v2-wv-count:empty { display: none; }
 
 /* the two inputs */

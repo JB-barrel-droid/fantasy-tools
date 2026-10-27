@@ -1,13 +1,16 @@
-"""JEG-921: with every projection source paused, DDF Value shows no value and says why.
+"""JEG-921, mirrored by JEG-1073: with every source of a DDF Value version paused, it shows no value and says why.
 
-Jeremy (2026-10-23): DDF Value is projections-only (JEG-804, #814), so when ESPN, CBS rest of season and Razzball are
-all held there is nothing to blend and no chart fallback: it must show a plain em dash and a short plain-English note
-that all projection sources are paused, never a made-up number.
+Jeremy (2026-10-23): when every source behind DDF Value is held there is nothing to blend and no fallback to the other
+family: it must show a plain em dash and a short plain-English note, never a made-up number. DDF Value was the
+projections (JEG-804) then; since JEG-1073 (Jeremy, 2026-10-25: "Keep adj trade chart avg as the main ddf and
+projections as an alt") it is the four trade charts, so the premise here is every trade chart held (the pinned CBS hold
+plus USA Today, FantasyPros and FantasyCalc). The projections alternate gets its own check: holding all three projections
+empties ddf_value_projections only, and DDF Value keeps its numbers.
 
-Headless against a temp copy of dist/ with the pinned fixture (tests/_holds.py) plus all three projections held:
+Headless against a temp copy of dist/ with the pinned fixture (tests/_holds.py) plus the extra holds:
 
   * the engine blends no series (getCompositeInputs().series is empty);
-  * the default Player values view lists no player and its empty state says all projection sources are paused;
+  * the default Player values view lists no player and its empty state says every trade chart source is paused;
   * searching shows the player with a DDF Value cell that is "—" plus the same note, no digit as a value.
 
 test_guard_fails_on_broken_build serves a v2.js that drops the note (empty state and cell) and requires the checks to fail.
@@ -33,7 +36,8 @@ from tests.test_v2_targets_render import DIST, build_v2_page, engine_path
 ROOT = Path(__file__).resolve().parents[1]
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 PROJECTIONS = ("espn", "cbsros", "razzball")
-NOTE = "All projection sources are paused this week"
+CHARTS = ("usatoday", "fantasypros", "fantasycalc", "cbs")   # cbs is held by the pinned fixture already
+NOTE = "Every trade chart source is paused this week"
 
 
 def setUpModule():
@@ -41,11 +45,11 @@ def setUpModule():
 
 
 @contextlib.contextmanager
-def _served():
+def _served(extra_held=("usatoday", "fantasypros", "fantasycalc")):
     with tempfile.TemporaryDirectory() as tmp:
         dist = Path(tmp) / "dist"
         shutil.copytree(DIST, dist, ignore=shutil.ignore_patterns("v2"))
-        pin_holds_in_dist(dist, extra_held=PROJECTIONS)
+        pin_holds_in_dist(dist, extra_held=extra_held)
         build_v2_page.build(dist)
 
         class Quiet(http.server.SimpleHTTPRequestHandler):
@@ -64,14 +68,14 @@ def _served():
                 server.shutdown()
 
 
-def read_page(v2_js=None) -> dict:
+def read_page(v2_js=None, extra_held=("usatoday", "fantasypros", "fantasycalc")) -> dict:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
     except Exception as exc:
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {"errors": []}
-    with _served() as url, sync_playwright() as pw:
+    with _served(extra_held) as url, sync_playwright() as pw:
         try:
             browser = pw.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(pw))
         except PlaywrightError as exc:
@@ -87,6 +91,7 @@ def read_page(v2_js=None) -> dict:
             page.wait_for_timeout(600)
             out["series"] = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs().series")
             out["inputs"] = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs().inputs")
+            out["proj_series"] = page.evaluate("() => window.TradeValueCurveControls.getCompositeInputs('ddf_value_projections').series")
             out["rows"] = page.evaluate("() => document.querySelectorAll('#v2Table tbody tr').length")
             out["empty_shown"] = page.evaluate("() => !document.querySelector('#v2Empty').hidden")
             out["empty_text"] = page.evaluate("() => document.querySelector('#v2EmptyText').textContent")
@@ -101,12 +106,12 @@ def read_page(v2_js=None) -> dict:
 
 def problems(got) -> list[str]:
     errors = list(got["errors"])
-    if got["series"] or sorted(got["inputs"]) != sorted(PROJECTIONS):
-        errors.append(f"premise: expected the three projections held, none blended: inputs {got['inputs']}, series {got['series']}")
+    if got["series"] or sorted(got["inputs"]) != sorted(CHARTS):
+        errors.append(f"premise: expected the four trade charts held, none blended: inputs {got['inputs']}, series {got['series']}")
     if got["rows"] or not got["empty_shown"]:
         errors.append(f"default view must list no player (rows {got['rows']}, empty state shown {got['empty_shown']})")
     if NOTE not in got["empty_text"]:
-        errors.append(f"empty state does not say all projection sources are paused: {got['empty_text']!r}")
+        errors.append(f"empty state does not say every trade chart source is paused: {got['empty_text']!r}")
     if not got["cells"]:
         errors.append("searching listed no player to check the DDF Value cell on")
     for cell in got["cells"]:
@@ -119,13 +124,22 @@ class AllProjectionsPausedRenderTest(unittest.TestCase):
     def test_all_paused_shows_dash_and_note(self):
         self.assertEqual(problems(read_page()), [])
 
+    def test_projections_paused_leaves_ddf_value_alone(self):
+        """JEG-1073: DDF Value is the charts, so holding the three projections empties only the alternate."""
+        got = read_page(extra_held=PROJECTIONS)
+        self.assertEqual(got["errors"], [])
+        self.assertTrue(got["series"], "DDF Value must keep its trade chart inputs when only projections are held")
+        self.assertFalse(got["proj_series"], f"the projections alternate must be empty: {got['proj_series']}")
+        self.assertTrue(got["rows"], "the default view must still list players")
+        self.assertFalse(got["empty_shown"])
+
     def test_guard_fails_on_broken_build(self):
         v2 = V2_JS.read_text(encoding="utf-8")
-        anchor = 'const ALL_PROJECTIONS_PAUSED = "All projection sources are paused this week";'
+        anchor = 'const ALL_CHARTS_PAUSED = "Every trade chart source is paused this week";'
         self.assertIn(anchor, v2, "stale mutation anchor")
-        broken = v2.replace(anchor, 'const ALL_PROJECTIONS_PAUSED = "No source prices this player";', 1)
+        broken = v2.replace(anchor, 'const ALL_CHARTS_PAUSED = "No source prices this player";', 1)
         errors = problems(read_page(broken))
-        self.assertTrue(any("does not say all projection sources are paused" in e for e in errors), errors)
+        self.assertTrue(any("does not say every trade chart source is paused" in e for e in errors), errors)
         self.assertTrue(any("em dash plus the note" in e for e in errors), errors)
 
 

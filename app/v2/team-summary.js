@@ -17,6 +17,9 @@
   const POSITIONS = ["QB", "RB", "WR", "TE"];
   const OUR_KEY = "ddf_value";
   const MARKET_KEY = "chart_avg";
+  const PROJ_KEY = "ddf_value_projections";   // JEG-1081: the third view, DDF Value (projections)
+  const CHARTS_KEY = "ddf_value_charts";
+  const DISAGREE_FLOOR = 2.0;                 // points; Jeremy 2026-10-25 (JEG-1081 Q1): projections vs charts listed above this gap
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const finder = () => (typeof module !== "undefined" && module.exports ? require("./finder.js") : root.TradeValueFinder);
   const shown = n => Math.round(n * 10) / 10;   // values compare as shown (one decimal)
@@ -41,9 +44,11 @@
     return `${n}${({1: "st", 2: "nd", 3: "rd"})[n % 10] || "th"}`;
   };
 
+  // The projections view needs a projection for every player who counts (a roster with a hole would be understated and ranked low).
+  const projected = rows => rows.some(r => POSITIONS.includes(r.pos)) && rows.filter(r => POSITIONS.includes(r.pos)).every(r => r.values && finite(r.values[PROJ_KEY]));
   // One team's lineup in one view. rows: the team's engine rows; null when the view is not available.
   function viewOf(F, rows, key, ctx) {
-    const source = key === MARKET_KEY ? (ctx.chartKeys ? F.withChartAverage(rows, ctx.chartKeys) : null) : rows;
+    const source = key === MARKET_KEY ? (ctx.chartKeys ? F.withChartAverage(rows, ctx.chartKeys) : null) : key === PROJ_KEY && !projected(rows) ? null : rows;
     if (!source) return null;
     const lineup = F.lineupValue(source, ctx.shape, key);
     const balance = ctx.expected ? F.rosterBalance(source, ctx.expected, key, ctx.shape) : null;
@@ -70,6 +75,25 @@
     return {under: under.sort(order), over: over.sort(order)};
   }
 
+  // JEG-1081: the players where DDF Value (projections) and the adjusted trade charts disagree: gap = projections - charts.
+  // "higher": the projections price him above the charts; "lower": below. Both views are DDF-scaled, so this is player-level, not position-level.
+  function projectionGaps(rows, floor) {
+    const higher = [];
+    const lower = [];
+    rows.forEach(r => {
+      const v = r.values || {};
+      const charts = finite(v[CHARTS_KEY]) ? v[CHARTS_KEY] : v[OUR_KEY];
+      const proj = v[PROJ_KEY];
+      if (!finite(charts) || !finite(proj)) return;
+      const gap = proj - charts;
+      const item = {key: String(r.player_key), name: r.name, pos: r.pos, charts, projections: proj, gap};
+      if (gap > floor) higher.push(item);
+      else if (gap < -floor) lower.push(item);
+    });
+    const order = (a, b) => Math.abs(b.gap) - Math.abs(a.gap) || a.name.localeCompare(b.name) || a.key.localeCompare(b.key);
+    return {higher: higher.sort(order), lower: lower.sort(order)};
+  }
+
   // teams: [{id, name, entries: [{key, name, pos}], isMine?}]. ctx: {rowsByKey: Map(key -> engine row), shape, expected, chartKeys (null when
   // there is no Trade chart average), noiseFloor?}. opts: {basis: "fund" | "market"} - the view strengths and weaknesses are judged in.
   function summarize(teams, ctx, opts) {
@@ -92,9 +116,12 @@
       const hasRoster = found.length > 0;
       const fund = hasRoster ? viewOf(F, found, OUR_KEY, ctx) : null;
       const market = hasRoster ? viewOf(F, found, MARKET_KEY, ctx) : null;
+      const proj = hasRoster ? viewOf(F, found, PROJ_KEY, ctx) : null;
+      const disagree = hasRoster ? projectionGaps(found, DISAGREE_FLOOR) : {higher: [], lower: []};
       const gaps = hasRoster && market ? marketGaps(F.withChartAverage(found, ctx.chartKeys), floor) : {under: [], over: []};
       return {id: team.id, name: team.name, isMine: Boolean(team.isMine), size: entries.length, evaluated: found.length, notEvaluated, missing, hasRoster,
-        partial: hasRoster && slots > 0 && depthPlayers < slots, fund, market, under: gaps.under, over: gaps.over, rank: {fund: null, market: null},
+        partial: hasRoster && slots > 0 && depthPlayers < slots, fund, market, proj, under: gaps.under, over: gaps.over, higher: disagree.higher, lower: disagree.lower,
+        rank: {fund: null, market: null, proj: null},
         strengths: [], weaknesses: [], positions: {}, thinBench: null};
     });
     const ranked = rows.filter(r => r.hasRoster);
@@ -106,6 +133,11 @@
         const m = denseRanks(marketTeams, r => r.market.rosterValue);
         marketTeams.forEach(r => { r.rank.market = m.get(r.id); });
       }
+    }
+    const projTeams = ranked.filter(r => r.proj);
+    if (projTeams.length >= 2) {
+      const pr = denseRanks(projTeams, r => r.proj.rosterValue);
+      projTeams.forEach(r => { r.rank.proj = pr.get(r.id); });
     }
     // Strengths and weaknesses in the basis view, against the league median of the teams that have a roster.
     const view = r => (basis === "market" ? r.market : r.fund);
@@ -133,14 +165,14 @@
         const vs = med !== null ? `starters ${money(sum)} vs median ${money(med)}` : "";
         if (strength) {
           item.margin = med !== null ? sum - med : depthGap;
-          item.text = `${pos} (${b.have} counted${b.status === "over" ? ", deep" : ""}${vs ? `, ${vs}` : `, ${b.range} expected`})`;
+          item.text = `${pos} allocation ${med !== null ? "above the league median" : "at or above the expected depth"} (${b.have} counted${b.status === "over" ? ", deep" : ""}${vs ? `, ${vs}` : `, ${b.range} expected`})`;
           r.strengths.push(item);
         }
         if (weak) {
           item.margin = med !== null ? sum - med : -(b.lo - b.have);
           const parts = [b.status === "under" ? `${b.have} counted, ${b.range} expected` : `${b.have} counted`];
           if (valueLow) parts.push(vs);
-          item.text = `${pos} (${parts.join("; ")})`;
+          item.text = `${pos} allocation ${valueLow ? "below the league median" : "below the expected depth"} (${parts.join("; ")})`;
           r.weaknesses.push(item);
         }
       });
@@ -178,11 +210,14 @@
       const strong = t.strengths.length ? best(t.strengths).pop() : null;
       const weak = t.weaknesses.length ? best(t.weaknesses)[0] : null;
       const parts = [];
-      if (strong) parts.push(`Strongest at ${strong.pos}`);
-      if (weak) parts.push(`${parts.length ? "thinnest" : "Thinnest"} at ${weak.pos}`);
-      if (t.thinBench && !weak) parts.push(`${parts.length ? "thin" : "Thin"} bench`);
-      const gap = t.under.length ? t.under[0] : null;
-      return `${parts.length ? `${parts.join(", ")}.` : ""}${gap ? ` ${gap.name} is ${subject ? "your" : "its"} most undervalued player (+${money(gap.gap)} vs market).` : ""}`.trim();
+      if (strong) parts.push(`heavy at ${strong.pos}`);
+      if (weak) parts.push(`light at ${weak.pos}`);
+      const lead = parts.length ? `Position allocation: ${parts.join(", ")}.` : "";
+      const bench = t.thinBench && !weak ? `${lead ? " " : ""}Thin bench.` : "";
+      const gaps = t.higher.concat(t.lower).sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap) || a.name.localeCompare(b.name));
+      const gap = gaps.length ? gaps[0] : null;
+      const note = gap ? ` DDF Value (projections) prices ${gap.name} ${money(Math.abs(gap.gap))} ${gap.gap > 0 ? "above" : "below"} the adjusted trade charts, the biggest gap on ${subject ? "your" : "its"} roster.` : "";
+      return `${lead}${bench}${note}`.trim();
     };
     if (ranked.length === 1) {
       const t = ranked[0];
@@ -196,13 +231,18 @@
     if (mine) {
       const f = mine.rank.fund;
       const m = mine.rank.market;
-      return `Your team ranks ${ordinal(f)} of ${ranked.length} on fundamentals${m ? ` and ${ordinal(m)} on market` : ""}. ${notes(mine)}`.trim();
+      const pj = mine.rank.proj;
+      const others = [pj ? `${ordinal(pj)} on projections` : "", m ? `${ordinal(m)} on market` : ""].filter(Boolean);
+      return `Your team ranks ${ordinal(f)} of ${ranked.length} on DDF Value${others.length ? `, ${others.join(", ")}` : ""}. ${notes(mine)}`.trim();
     }
     const top = rankOrder(summary, "fund")[0];
-    return `${top.name} ranks 1st of ${ranked.length} on fundamentals${top.rank.market ? ` and ${ordinal(top.rank.market)} on market` : ""}. Mark one team as yours to see how it compares.`;
+    const others = [top.rank.proj ? `${ordinal(top.rank.proj)} on projections` : "", top.rank.market ? `${ordinal(top.rank.market)} on market` : ""].filter(Boolean);
+    return `${top.name} ranks 1st of ${ranked.length} on DDF Value${others.length ? `, ${others.join(", ")}` : ""}. Mark one team as yours to see how it compares.`;
   }
 
   // ---------- the table's columns, for table-sort.js (section 6) ----------
+  // The gap of largest size, with its sign (higher is positive), so the column sorts on what the cell shows first; null when empty.
+  const biggestSigned = list => (list.length ? list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap : null);
   const topGap = list => (list.length ? Math.abs(list[0].gap) : null);
   function summaryColumns(basis) {
     const other = basis === "market" ? "fund" : "market";
@@ -216,7 +256,9 @@
       {id: "rosterM", label: "Roster value (market)", type: "number", first: "desc", get: money("market", "rosterValue")},
       {id: "starterM", label: "Starter value (market)", type: "number", first: "desc", get: money("market", "starterValue")},
       {id: "benchM", label: "Bench value (market)", type: "number", first: "desc", get: money("market", "benchValue")},
-      {id: "altRank", label: other === "market" ? "Market rank" : "Fundamental rank", type: "number", first: "asc", rank: true, get: t => t.rank[other]},
+      {id: "altRank", label: other === "market" ? "Trade chart average rank" : "DDF Value rank", type: "number", first: "asc", rank: true, get: t => t.rank[other]},
+      {id: "projRank", label: "DDF Value (projections) rank", type: "number", first: "asc", rank: true, get: t => t.rank.proj},
+      {id: "disagree", label: "Projections vs charts", type: "number", first: "desc", get: t => biggestSigned(t.higher.concat(t.lower))},
       {id: "under", label: "Undervalued by market", type: "number", first: "desc", get: t => topGap(t.under)},
       {id: "over", label: "Overvalued by market", type: "number", first: "desc", get: t => topGap(t.over)}
     ];
@@ -224,7 +266,7 @@
   const SUMMARY_DEFAULT = {col: "rank", dir: "asc"};
   const SUMMARY_TIES = [{get: t => (t.fund ? t.fund.starterValue : null), type: "number", dir: "desc"}, {get: t => t.name, type: "text", dir: "asc"}];
 
-  const api = {summaryColumns, SUMMARY_DEFAULT, SUMMARY_TIES, NOISE_FLOOR, MIN_MEDIAN_TEAMS, POSITIONS, median, denseRanks, ordinal, marketGaps, summarize, rankOrder, headline};
+  const api = {summaryColumns, SUMMARY_DEFAULT, SUMMARY_TIES, NOISE_FLOOR, MIN_MEDIAN_TEAMS, POSITIONS, median, denseRanks, ordinal, marketGaps, projectionGaps, DISAGREE_FLOOR, PROJ_KEY, summarize, rankOrder, headline};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueTeamSummary = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -700,8 +700,8 @@ def check_layout(lay, width, height, expanded=False) -> list[str]:
         errors.append(f"H1 is {lay['h1']!r}, expected {H1!r} (JEG-464)")
     if lay["sub"] != SUBTITLE:
         errors.append(f"subtitle is {lay['sub']!r} (JEG-464)")
-    if lay["tabFull"] != "Trade targets" or lay["tabShort"] != "Targets":
-        errors.append(f"nav tab {lay['tabFull']!r}/{lay['tabShort']!r}, expected Trade targets/Targets")
+    if lay["tabFull"] != "Trade targets":   # JEG-1106: phones use the same menu, so there is no short label
+        errors.append(f"nav tab {lay['tabFull']!r}, expected Trade targets")
     if lay["toggles"]:
         errors.append("a Sell/Buy toggle is still on the tab (JEG-461: both lists show at once)")
     if lay["older"]:

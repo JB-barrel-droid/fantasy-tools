@@ -57,6 +57,11 @@ OG_TITLE = TITLE
 OG_DESCRIPTION = ("Rest-of-season trade values for your league settings, with trade targets "
                   "where the published charts disagree with our values.")
 
+# JEG-1026: the footer line "Using ChatGPT or Claude? Connect the tool" on every tab (static HTML), linking the connect guide that
+# build_llm_surfaces.py publishes at connect/ (shell.html carries the same URL literally: the contract test needs the built page to embed it verbatim). The marker is where the footer starts in shell.html.
+ASSIST_FOOTER_MARKER = "<!-- JEG-1026: on every tab"
+CONNECT_URL = SITE_URL + "connect/"
+
 ENGINE_SCRIPT_MARKER = '<script src="assets/value-model.js'
 LAST_ENGINE_SCRIPT = '<script src="assets/comparison-dashboard.js'
 
@@ -225,6 +230,10 @@ def compose_shell(shell_html: str, posts: list[dict]) -> str:
     end = shell_html.rstrip().rfind("</div>")
     if end < 0:
         raise SystemExit("build_v2_page: shell.html has no closing </div> for #v2App")
+    # JEG-1026: the ChatGPT / Claude footer stays the last thing on the page, so the Research tab goes in before it.
+    foot = shell_html.find(ASSIST_FOOTER_MARKER)
+    if foot >= 0:
+        end = shell_html.rfind("\n", 0, foot) + 1
     return shell_html[:end] + research_html(posts) + shell_html[end:]
 
 
@@ -277,7 +286,10 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
                   '\n  <script src="v2/overrides.js" defer></script>'
+                  '\n  <script src="v2/inputs-status.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
+                  '\n  <script src="v2/ddf-state.js" defer></script>'
+                  '\n  <script src="v2/ddf-assist.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
@@ -330,7 +342,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "name-format.js", "ddf-state.js", "waivers.js", "waivers.css", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "ddf-assist.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"
 

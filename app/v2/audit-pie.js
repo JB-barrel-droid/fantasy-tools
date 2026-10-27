@@ -879,7 +879,7 @@
   var TERMS = [
     ["Adjusted", "A source's values after rescaling so its total equals the value pie. Every source's adjusted total is the same."],
     ["Rescaled", "A trade chart's native values times one factor, set so the players it lists add up to their DDF Value. This is what Player values shows for trade charts. It is not the same as Adjusted."],
-    ["DDF Value", "Our value: the equal-weight mean of the projection sources' Adjusted values. Trade charts are not part of the blend."],
+    ["DDF Value", "Our value: the equal-weight mean of the trade charts' Adjusted values (FantasyCalc, USA Today, FantasyPros, CBS). The projection sources are the alternate, DDF Value (projections)."],
     ["Filled-in", "A player the source did not list, given a fill-in value from the other charts so the math has a complete roster. Marked Estimated on the Single source tab."],
     ["Value pie", "The total value available in your league. Every source's Adjusted values add up to it. It depends on league size and roster, not on scoring."],
     ["Starter, bench, waiver", "A player's role: starter if he would start, bench if rostered but not starting, waiver if not rostered. Depends on your league settings."],

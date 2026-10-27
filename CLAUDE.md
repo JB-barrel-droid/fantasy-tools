@@ -87,9 +87,11 @@ Several Claude sessions work this repo at once: the back end, and the front end 
 - **Do not adjust tests to go green.** If a test fails, assume the code is
   wrong. Change an assertion only when the assertion itself was wrong or the
   rule it pins was changed by Jeremy, and say which in the commit message.
-- **The commit message and PR description are the record.** Say what you
-  verified (name the check) separately from what you assumed. No separate
-  session log is required; `docs/claude-log/` is kept as history.
+- **Every session that changes anything writes a log entry** in
+  `docs/claude-log/YYYY-MM-DD-slug.md` (Jeremy, 2026-10-23, JEG-975: "1 - A").
+  One file per PR, with "Verified (check named)" separate from "Claimed, not
+  confirmed"; the format is in `docs/claude-log/README.md`. The commit message
+  and PR description say the same in short.
 - **`make sync` is the single publish path** and stamps the build tag. Do not
   re-add `dist/static`, `dist/server`, `space.json` or `deploy.sh`.
 - **Do not touch `~/Projects/"fantasy tools"`** on the user's machine beyond the
@@ -113,32 +115,46 @@ projections put them. (`sourceScaleAgreement`, the peak-vs-anchor
 band on published charts, was retired 2026-10-08, GAP-026: publisher shape
 disagreement is the product.)
 
-## Values explainer (living artifact)
+## Values explainer (DDF Value Logic, part of the dashboard)
 
-Jeremy reads how every source's values are made at the claude.ai artifact
-https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW ("DDF Value Logic"). It is
-built by `make values-explainer` (`pipelines/build_values_explainer.py`, page
-template and engine extractor in `app/values-explainer/`) into
-`output/values-explainer/index.html`, and every number on it is read from the
-chart engine. Keep it current:
+Moved from a claude.ai artifact into the dashboard (Jeremy, 2026-10-25, JEG-1086:
+"Ddf value logic should migrate from a Claude artifact to part of the dashboard").
+`make sync` builds it to `dist/value-logic/index.html` (builder
+`pipelines/build_values_explainer.py`, page template and engine extractor in
+`app/values-explainer/`); How values work links to it. Every number is read
+from the chart engine at the default setting (12 teams, Full PPR). It needs
+Playwright: skipped with a notice locally, an error where `RENDER_TESTS_REQUIRED=1`.
+Keep it current:
 
 - After any change to value math (the files in `LOGIC_FILES` in the builder),
-  rebuild and republish to that URL in the same session. If the logic changed,
-  update the narrative in `template.html` to match, then
-  `make values-explainer MARK_REVIEWED=1` so the page stops flagging it.
-- A daily scheduled task rebuilds and republishes it from `main`. When the page
-  says "Logic changed since this explanation was reviewed", the narrative is
-  stale: fix the text, not the numbers.
+  update the narrative in `template.html` if the logic changed, then
+  `make values-explainer MARK_REVIEWED=1` so the review section stops flagging it.
+  The review banner and open math-review items sit in a collapsed section at the bottom.
+- The old artifact (https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW) and its daily
+  republish task stay until the dashboard page is verified live, then retire (Jeremy, 2026-10-25).
 
 ## Usage: same quality, fewer tokens (JEG-524)
 
-The general rules are in the user-level "Usage Discipline" section. For this repo:
+The general rules are in the user-level "Usage Discipline" section. For this repo
+(these override it where they differ):
 
-- Subagents: `worker` (Sonnet) for routine lanes, `deep-worker` (Opus) for value
-  or engine math, unknown-root-cause debugging, design and final review. Brief
-  them with `docs/agent-brief-template.md`; don't paste a long shared brief.
+- **Rotate the lead thread at about 200k context** (or at each GO LIVE milestone).
+  First write the handoff as a comment on the active Linear ticket (state, open
+  PRs, next step, decisions pending), then tell Jeremy to start a new thread.
+- **Wait on CI and deploys with one blocking command:** `gh pr checks <n> --watch`
+  or `gh run watch <id> --exit-status`. No `sleep`/`ps`/`until` polling loops.
+- **Read by search or line range, not whole files.** Use `rg -n` and then read
+  the lines you need. Never `cat` or fully re-read large files such as
+  `app/v2/finder.js`, `app/v2/v2.js`, `pipelines/value_reference.py` or
+  `docs/methodology.md`.
+- **Screenshots:** one per check, and do not re-read an image already taken.
+- **Models:** `deep-worker` (Opus) only for T1 tickets (see the tiers in
+  `AGENTS.md`); `worker` (Sonnet) for everything else. Brief subagents with
+  `docs/agent-brief-template.md`; don't paste a long shared brief.
+- **Keep tool output short:** `tail`, `head`, `gh ... --jq`, `--json` with
+  only the fields needed; write large results to a scratch file.
 - Read `AGENTS.md`, then only the docs your task needs.
   `docs/engineering-notes.md` holds the dated incident notes.
-- The lead session rotates at each GO LIVE milestone, or once context passes
-  about 150k tokens. Before telling Jeremy to start a new thread, post the
-  handoff as a comment on the active Linear ticket.
+- **Direction questions still go to Jeremy directly** (AskUserQuestion is fine),
+  but batch them into one ask and never repeat a question he has answered;
+  check the ticket and memory first.

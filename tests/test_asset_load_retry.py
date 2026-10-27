@@ -28,7 +28,7 @@ def setUpModule():
 
 ADJUSTED = ["fantasycalc_adjusted", "usatoday_adjusted", "fantasypros_adjusted", "cbs_adjusted"]
 # JEG-804 (VP-6.3): DDF Value = projection sources only (was all 7 pre-JEG-804).
-ALL_INPUTS = ["espn", "cbsros", "razzball"]
+ALL_INPUTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]   # JEG-1073: DDF Value inputs are the four trade charts
 DETAIL_GLOB = "**/assets/comparison-sources-data.json*"
 RETIRED_GLOB = "**/assets/adjustment-inputs.json*"
 

@@ -1,22 +1,14 @@
-"""v2 Find a trade v2 (JEG-988), commit 4: natural fit and force fit, pure rules in app/v2/finder.js.
+"""v2 Find a trade: fit labels rewrite (JEG-1108).
 
-Each team is judged in its own view (you: DDF Value; they: the Trade chart average). A team's net change is its best
-lineup's starter value plus its bench value at the engine's bench weight (never 1:1), after minus before; it counts only
-beyond the noise of the sources. Need is the distance from the expected depth band plus empty starting slots. A team is
-served when it gains and does not move away from its depth, or is level and moves toward it. Natural: both served and one
-moves toward its depth. Value fit: both served, no depth change. Force: anything else. Cases (12 teams, 1/2/2/1/1 FLEX):
+Natural fit = roster construction works for both teams (after the trade: no bench player promoted to starter, no starter
+lost without a starter coming back, no empty starting slot) AND your DDF Value total roster value (starters plus bench at
+bench weight) rises with starters not worse AND the other team's Trade chart average change is within the noise floor or positive.
 
-  * a swap of two backups that fixes both teams' bench balance with no starter gain is natural;
-  * the same swap the wrong way round (each deepens a position it is already deep at) is force, and so is a starter gain
-    that deepens a position the team is already deep at;
-  * a starter loss is not offset 1:1 by bench value: giving a 10 starter for 30 of bench value is force;
-  * a thin team giving its RB1 for two RB2s gains starter value (two slots filled), and with the deep team gaining on its
-    market view the label is natural; the deep team giving its star for two RB2s that fill no extra slot is force;
-  * they are judged on the market view: a trade that is up on DDF for them but down on the charts is force;
-  * a gain smaller than the sources' own disagreement is not a gain;
-  * tierGroups moves natural first, then value, then force, keeps every group and the order within a tier.
+Market supported = the Trade chart average says the other team's side is favorable. Independent of the roster test.
 
-Discrimination: test_checks_fail_on_broken_builds runs the same checks on copies of finder.js with a rule broken.
+Force fit = everything else. Value fit is RETIRED.
+
+Discrimination: test_checks_fail_on_broken_builds runs the same checks on mutated copies of finder.js.
 """
 from __future__ import annotations
 
@@ -62,7 +54,7 @@ def fit(finder_js, mine, theirs, give, get, **kw):
                 ctx(expected=expected, **kw))
 
 
-# A: deep at WR (8, over), short at RB (3, under). B: the reverse. Backups: A's WR5 (5) and B's RB6 (5).
+# A: deep at WR (8, over), short at RB (3, under). B: the reverse.
 A = team("a", [20, 12], [30, 25, 10], [30, 28, 15, 9, 8, 7, 6, 5], [10, 5])
 B = team("b", [22, 11], [35, 28, 14, 12, 9, 8, 5], [26, 20, 9], [11, 6])
 
@@ -70,82 +62,215 @@ B = team("b", [22, 11], [35, 28, 14, 12, 9, 8, 5], [26, 20, 9], [11, 6])
 def check(finder_js: Path) -> list[str]:
     errors = []
     say = errors.append
-    # 1. A bench swap that rebalances both teams, no starter gain: natural.
-    f = fit(finder_js, A, B, pick(A, "aWR7"), pick(B, "bRB6"))
-    if f["label"] != "natural" or not (f["us"]["toward"] and f["them"]["toward"]) or abs(f["us"]["starterDelta"]) > 1e-9 or abs(f["us"]["net"]) > 0.05:
-        say(f"bench rebalance: {f['label']} us toward {f['us']['toward']} them toward {f['them']['toward']} us starters {f['us']['starterDelta']} net {f['us']['net']}")
-    if f["us"]["towardAt"] != ["RB", "WR"] or f["them"]["towardAt"] != ["RB", "WR"]:
-        say(f"bench rebalance moves toward {f['us']['towardAt']} / {f['them']['towardAt']}, want RB and WR on both")
+
+    # 1. A starter-for-starter swap where both teams gain and construction is OK: natural.
+    # A gives low-value WR6 (6), receives a better RB from B (RB5=8). Both gain total, starters not worse,
+    # construction OK (WR6 is bench, incoming RB5 replaces on bench; no promotion).
+    # Need to construct a cleaner trade: give my bench WR for their bench RB, both gain total.
+    mine1 = team("m1", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7, 6], [10, 5])
+    theirs1 = team("t1", [22, 11], [35, 28, 14, 12, 9, 8, 5], [26, 20, 9], [11, 6])
+    # Give my WR5 (7) which is bench; receive their RB6 (5) which is bench. Both bench swaps.
+    # My total: lose 7 WR bench, gain 5 RB bench = -2 net => not natural (total must rise).
+    # Better: give bench WR worth 6, receive a higher bench RB worth 12.
+    f = fit(finder_js, mine1, theirs1, pick(mine1, "m1WR5"), pick(theirs1, "t1RB3"))
+    # My net: lose 6, gain 12 = gain. Their net on chart_avg: lose 12, gain 6 = lose (force for me).
+    # Actually for natural, their side must be within noise or positive.
+    # Let's use a trade where both sides gain in their views.
+    x = p("myGive", "WR", 10, market=25)   # I value low, market values high
+    y = p("theirGive", "RB", 25, market=10)  # I value high, market values low
+    mine_n = team("mn", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5]) + [x]
+    theirs_n = team("tn", [22, 11], [35, 28, 14, 12, 9], [26, 20, 9, 8, 7], [11, 6]) + [y]
+    f = fit(finder_js, mine_n, theirs_n, [x], [y])
+    # My DDF total rises: give 10 ddf, receive 25 ddf = +15 net.
+    # Their chart_avg: give 10 market, receive 25 market = +15 net for them.
+    # Construction: both sides are swapping bench players, no starter changes.
+    if f["label"] != "natural":
+        say(f"bench swap both gain: label={f['label']}, expected natural. us net={f['us']['net']}, them net={f['them']['net']}, constructionOk={f.get('constructionOk')}")
+    if not f.get("constructionOk"):
+        say(f"bench swap construction should be OK: myConstruction={f.get('myConstruction')}, theirConstruction={f.get('theirConstruction')}")
     text = call(finder_js, "fitText", f)
-    if not text.startswith("Natural fit:") or "You are short at RB and deep at WR; they are short at WR and deep at RB." not in text:
-        say(f"bench rebalance text: {text!r}")
-    # 2. The reverse swap deepens each side's deep position: force, though nothing is lost.
-    f = fit(finder_js, A, B, pick(A, "aRB2"), pick(B, "bWR2"))
-    if f["label"] != "force" or not (f["us"]["away"] or f["them"]["away"]):
-        say(f"deepening swap: {f['label']} us away {f['us']['away']} them away {f['them']['away']}")
-    # 3. A starter gain that deepens an already-deep position (a WR star for an RB backup): force for you.
-    A2 = A + [p("aWRx", "WR", 12)]
-    B2 = B + [p("bWRstar", "WR", 40)]
-    f = fit(finder_js, A2, B2, pick(A2, "aRB2"), pick(B2, "bWRstar"))
-    if not f["us"]["up"] or not f["us"]["away"] or f["us"]["ok"] or f["label"] != "force":
-        say(f"starter gain that deepens a deep position: {f['label']} up {f['us']['up']} away {f['us']['away']}")
-    # 4. Bench value is not 1:1: giving a 30 starter for two 25 backups costs 4 of starter value and gains 24 of bench value,
-    # which is +20 counted 1:1 but -0.4 at the bench weight (0.15).
-    mine = team("m", [20, 12], [30, 28, 27, 26], [14, 13, 6, 5, 4, 3], [8, 4])
-    theirs = team("t", [22, 11], [25, 25, 9, 8], [26, 20, 9, 6, 5, 4], [11, 6])
-    f = fit(finder_js, mine, theirs, pick(mine, "mRB0"), pick(theirs, "tRB0", "tRB1"))
-    if f["us"]["net"] >= 0 or f["us"]["starterDelta"] > -3.9 or f["label"] != "force":
-        say(f"a starter swapped for bench value: net {f['us']['net']} starters {f['us']['starterDelta']} label {f['label']} (at 1:1 it would be a gain)")
-    # 5. Thin team gives its RB1 for two RB2s: two lineup slots fill. Natural when the deep team gains on its market view.
-    thin = team("n", [20, 12], [30], [20, 18, 10, 8], [6])
-    deep = team("d", [20, 14], [35, 16, 16, 12, 9, 7, 6], [25, 22, 21, 9, 5], [11, 6])
-    f = fit(finder_js, thin, deep, pick(thin, "nRB0"), pick(deep, "dRB1", "dRB2"))
-    if not (f["us"]["starterDelta"] > 1.9 and f["us"]["starterDelta"] < 2.1) or f["label"] != "natural" or not f["them"]["up"] or not f["us"]["toward"]:
-        say(f"thin team 1-for-2: starters {f['us']['starterDelta']} label {f['label']} them up {f['them']['up']} us toward {f['us']['toward']}")
-    # 5b. The counter-example: the deep team gives its star for two RB2s that fill no extra slot.
-    f = fit(finder_js, deep, thin + [p("nRBb", "RB", 16), p("nRBc", "RB", 16)], pick(deep, "dRB0"), pick(thin + [p("nRBb", "RB", 16), p("nRBc", "RB", 16)], "nRBb", "nRBc"))
-    if not f["us"]["down"] or f["label"] != "force":
-        say(f"deep team's star for two RB2s that fill no slot: net {f['us']['net']} label {f['label']}")
-    # 6. They are judged on the market view: a gain on DDF Value for them is no help when the charts they read say they lose.
-    star = p("aRBs", "RB", 30, market=10)
-    theirs = [p("bRBs", "RB", 25, market=30)] + [r for r in B if r["player_key"] != "bRB0"]
-    mine = [r for r in A if r["player_key"] != "aRB0"] + [star]
-    f = fit(finder_js, mine, theirs, pick(mine, "aRBs"), pick(theirs, "bRBs"))
-    if f["themOther"]["net"] <= 0:
-        say("fixture: they do not gain on DDF Value")
-    if f["them"]["net"] >= 0 or f["label"] != "force":
-        say(f"market view for them: net {f['them']['net']} label {f['label']}")
-    # 7. A gain smaller than the sources' own disagreement is no gain.
-    noisy = team("z", [20, 12], [30, 25, 10, 6], [30, 28, 15, 9, 8, 7], [10, 5])
-    noisy = [p(r["player_key"], r["pos"], r["values"]["ddf_value"], noise=3.0) if r["player_key"] == "zRB1" else r for r in noisy]
-    other = [p("yRBn", "RB", 26.5, noise=3.0)] + team("y", [22, 11], [35, 28], [26, 20, 9, 8, 7], [11, 6])
-    f = fit(finder_js, noisy, other, pick(noisy, "zRB1"), pick(other, "yRBn"))
-    if f["us"]["up"] or f["us"]["tau"] <= 1.0:
-        say(f"a +1.5 gain inside the noise: up {f['us']['up']} tau {f['us']['tau']}")
-    # 7b. A value fit: both teams are balanced and both gain on their own view, one RB for one RB: no depth changes.
+    if not text.startswith("Natural fit:"):
+        say(f"natural text should start with 'Natural fit:': {text!r}")
+
+    # 2. Market supported: chart avg favors them, but our total does not rise (or construction fails).
+    # Give my starter for a lower-value player: their charts say they win.
+    ms = team("ms", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
+    ts = team("ts", [22, 11], [35, 28, 14, 12, 9], [26, 20, 9, 8, 7], [11, 6])
+    give2 = [p("msGive", "RB", 5, market=30)]  # I value low, they value high
+    recv2 = [p("tsGive", "RB", 3, market=35)]   # I value lower, they value higher
+    ms2 = ms + give2
+    ts2 = ts + recv2
+    f = fit(finder_js, ms2, ts2, give2, recv2)
+    # My DDF: give 5, receive 3 = -2 (total drops, not natural).
+    # Their charts: give 35, receive 30 = -5 for them? No wait: they give tsGive (market=35), receive msGive (market=30).
+    # That's -5 for them. Not favorable.
+    # Let me fix: my side gives something they value high, gets something they value low.
+    give2b = [p("msG", "WR", 5, market=40)]
+    recv2b = [p("tsG", "WR", 3, market=10)]
+    ms2b = ms + give2b
+    ts2b = ts + recv2b
+    f = fit(finder_js, ms2b, ts2b, give2b, recv2b)
+    # Their charts: they give tsG (market=10), they receive msG (market=40) => net +30 for them. Market supported.
+    # My DDF: give 5, receive 3 => net -2. Total drops. Not natural.
+    if f["label"] != "market":
+        say(f"market supported trade: label={f['label']}, expected market. us net={f['us']['net']}, them net={f['them']['net']}, marketSupported={f.get('marketSupported')}")
+    text = call(finder_js, "fitText", f)
+    if not text.startswith("Market supported:"):
+        say(f"market text should start with 'Market supported:': {text!r}")
+
+    # 3. Force fit: total drops and charts don't favor them.
+    give3 = [p("fg", "WR", 20, market=10)]   # I value high, market values low
+    recv3 = [p("fr", "WR", 5, market=3)]     # Both value low
+    ms3 = ms + give3
+    ts3 = ts + recv3
+    f = fit(finder_js, ms3, ts3, give3, recv3)
+    # My DDF: give 20, receive 5 = -15. Total drops.
+    # Their charts: they give 3, receive 10 = +7 for them. So they gain... that would be market supported.
+    # I need them to lose too.
+    give3b = [p("fg2", "WR", 20, market=5)]
+    recv3b = [p("fr2", "WR", 5, market=20)]
+    ms3b = ms + give3b
+    ts3b = ts + recv3b
+    f = fit(finder_js, ms3b, ts3b, give3b, recv3b)
+    # My DDF: give 20, receive 5 = -15. Total drops.
+    # Their charts: they give 20 market, receive 5 market = -15 for them. They lose.
+    if f["label"] != "force":
+        say(f"force trade: label={f['label']}, expected force. us net={f['us']['net']}, them net={f['them']['net']}")
+    text = call(finder_js, "fitText", f)
+    if not text.startswith("Force fit:"):
+        say(f"force text should start with 'Force fit:': {text!r}")
+
+    # 4. Value fit is retired: no trade should produce "value" label.
     bal_a = team("a", [20, 12], [30, 15, 12, 9, 7], [30, 28, 15, 9, 8, 7], [10, 5])
     bal_b = team("b", [22, 11], [35, 14, 12, 9, 8], [26, 20, 9, 8, 7, 6], [11, 6])
-    x = p("aX", "RB", 25, market=40)
-    y = p("bY", "RB", 30, market=20)
-    bal_a, bal_b = bal_a + [x], bal_b + [y]
-    f = fit(finder_js, bal_a, bal_b, [x], [y])
-    if f["label"] != "value" or not (f["us"]["up"] and f["them"]["up"]) or f["fillsNeed"]:
-        say(f"balanced one-for-one gain for both: {f['label']} us up {f['us']['up']} them up {f['them']['up']} fills need {f['fillsNeed']}")
-    # 8. tierGroups: natural, value, force; stable; nothing lost.
-    out = call(finder_js, "tierOrder", ["force", "natural", "value", "natural", None, "force"])
+    x4 = p("aX", "RB", 25, market=40)
+    y4 = p("bY", "RB", 30, market=20)
+    f = fit(finder_js, bal_a + [x4], bal_b + [y4], [x4], [y4])
+    if f["label"] == "value":
+        say(f"value label should be retired but got: {f['label']}")
+
+    # 5. Construction check: bench player promoted to starter = construction fails.
+    # Give my RB starter, receive a WR bench player. My RB bench must promote to starter.
+    mine5 = team("c5", [20], [30, 8], [20, 15, 10, 8], [10])  # RB0=30 is starter, RB1=8 is bench
+    theirs5 = team("t5", [22], [25, 12, 10], [18, 15, 10], [11])
+    f = fit(finder_js, mine5, theirs5, pick(mine5, "c5RB0"), pick(theirs5, "t5WR2"))
+    # Give my RB starter (30), receive their WR bench (10). My RB1 (8) must start now.
+    # Construction: bench promoted to starter = fails.
+    if f.get("constructionOk") is not False and f.get("myConstruction", {}).get("ok") is not False:
+        say(f"construction should fail for bench promotion: constructionOk={f.get('constructionOk')}, myConstruction={f.get('myConstruction')}")
+
+    # 6. Roster construction: empty starting slot after trade.
+    mine6 = team("c6", [20], [30], [20, 15], [10])
+    theirs6 = team("t6", [22], [25, 12, 10], [18, 15, 10], [11])
+    # Give the only RB; the slot is now empty.
+    f = fit(finder_js, mine6, theirs6, pick(mine6, "c6RB0"), pick(theirs6, "t6WR2"))
+    if f.get("constructionOk") is not False:
+        say(f"construction should fail for empty slot: constructionOk={f.get('constructionOk')}")
+
+    # 7. tierOrder: natural, market, force; stable; nothing lost.
+    out = call(finder_js, "tierOrder", ["force", "natural", "market", "natural", None, "force"])
     if out != [1, 3, 2, 0, 5, 4]:
-        say(f"tierGroups order {out}, want [1, 3, 2, 0, 5, 4]")
+        say(f"tierOrder {out}, want [1, 3, 2, 0, 5, 4]")
+
+    # 8. Trade where total drops (bench players lost): not natural.
+    mine8 = team("m8", [20, 12], [15, 12, 10, 8], [25, 20, 15, 10, 8], [10, 5])
+    theirs8 = team("t8", [22, 11], [35, 30, 28, 14, 12, 9], [26, 20, 9, 8, 7], [11, 6])
+    g8 = [p("m8g", "WR", 8, market=4)]
+    r8 = [p("t8g", "WR", 3, market=30)]
+    f = fit(finder_js, mine8 + g8, theirs8 + r8, g8, r8)
+    if f["label"] == "natural":
+        say(f"should not be natural when total drops: label={f['label']} net={f['us']['net']}")
+
+    # 9. Starter drop: construction OK, total rises, but starters fall => not natural.
+    # Stacked roster with one QB so no QB bench player can promote. Give QB (ddf=30), receive a
+    # worse QB (ddf=22) + 3 bench RBs (ddf=20 each). The QB downgrade (starterDelta=-8) is offset
+    # by bench gain (60*0.15=9 => net=+1), but starters are worse. Market values balanced so their
+    # side is neutral. Construction passes: arriving QB replaces departing QB; 3 RBs stay bench.
+    mine9_qb = p("m9QB0", "QB", 30, market=20)
+    mine9 = [mine9_qb] + [p(f"m9RB{i}", "RB", v) for i, v in enumerate([40, 35, 30, 25, 20])] \
+        + [p(f"m9WR{i}", "WR", v) for i, v in enumerate([45, 40, 35, 30, 25, 20])] \
+        + [p(f"m9TE{i}", "TE", v) for i, v in enumerate([15, 10])]
+    recv_qb = p("t9rQB", "QB", 22, market=20)
+    recv_rbs = [p(f"t9rRB{i}", "RB", 20, market=0.01) for i in range(3)]
+    theirs9 = team("t9", [28], [38, 33, 28, 23, 18], [43, 38, 33, 28], [13, 8]) \
+        + [recv_qb] + recv_rbs
+    g9 = [mine9_qb]
+    r9 = [recv_qb] + recv_rbs
+    f = fit(finder_js, mine9, theirs9, g9, r9)
+    if f["label"] == "natural":
+        say(f"starter drop should not be natural: starterDelta={f['us']['starterDelta']}")
+    if f.get("constructionOk") is not True:
+        say(f"test 9 construction should be OK: {f.get('myConstruction')}, {f.get('theirConstruction')}")
+    if f["us"]["net"] <= 0.05:
+        say(f"test 9 total should rise: net={f['us']['net']}")
+    if f["us"]["starterDelta"] >= -0.05:
+        say(f"test 9 starters should drop: starterDelta={f['us']['starterDelta']}")
+
+    # 10. Their loss outside noise floor: other team loses more than noise => not natural even if our value rises.
+    # Bench-for-bench WR swap on deep rosters so construction passes on both sides.
+    # m10g: low DDF, low market (bench both sides). t10g: low DDF, high market (bench both sides).
+    # My DDF: gain 3 bench = +0.45 net. Their market: give 22, receive 2 = -20 (lose).
+    mine10 = team("m10", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
+    theirs10 = team("t10", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
+    g10 = [p("m10g", "WR", 5, market=2)]
+    r10 = [p("t10g", "WR", 8, market=22)]
+    f = fit(finder_js, mine10 + g10, theirs10 + r10, g10, r10)
+    # Their charts: give 22, receive 2 = -20. Well outside noise. Not natural.
+    if f["label"] == "natural":
+        say(f"their loss outside noise should not be natural: label={f['label']} them net={f['them']['net']}")
+    if f.get("constructionOk") is not True:
+        say(f"test 10 construction should be OK: my={f.get('myConstruction')}, their={f.get('theirConstruction')}")
+
+    # 11. Noise-scaled tau: high chart disagreement makes tau large, allowing a small their-side loss.
+    # Players have high chart noise (±10) but zero DDF noise, so my tau stays small.
+    # Their market loss of -4 is within noise-scaled tau (~8) but outside NET_FLOOR (0.05).
+    # Without noise scaling: not natural (theirOk fails). With noise: natural.
+    def noisy_p(key, pos, ddf, market, chart_noise):
+        values = {"ddf_value": ddf, "chart_avg": market, "ddf_value_charts": ddf, "ddf_value_projections": ddf}
+        for i, k in enumerate(CH):
+            values[k] = market + (chart_noise if i % 2 else -chart_noise)
+        return {"player_key": key, "pos": pos, "name": key, "values": values}
+    mine11 = team("m11", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
+    theirs11 = team("t11", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
+    g11 = [noisy_p("m11g", "WR", 5, 18, chart_noise=10)]
+    r11 = [noisy_p("t11g", "WR", 25, 22, chart_noise=10)]
+    f = fit(finder_js, mine11 + g11, theirs11 + r11, g11, r11)
+    # My DDF: bench swap, give 5 receive 25, net=+3.0 (bench weight 0.15). totalUp=true.
+    # Their market: give 22, receive 18 = -4. Noise tau ~8.16. Within noise => theirOk=true.
+    if f["label"] != "natural":
+        say(f"noisy trade within noise floor should be natural: label={f['label']} them={f['them']['net']:.1f} tau={f['them']['tau']:.1f}")
+
+    # 12. Your side has no noise floor (Jeremy, 2026-10-26): a small rise that is far inside the noise still counts.
+    # Bench WR swap on the deep rosters of test 10; both moving players carry DDF noise 10 (charts vs projections), so
+    # your tau is about 14 while your rise is only +0.45. Their side is level on the charts (inside their noise floor).
+    mine12 = team("m12", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
+    theirs12 = team("t12", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
+    g12 = [p("m12g", "WR", 5, market=7, noise=10)]
+    r12 = [p("t12g", "WR", 8, market=7, noise=10)]
+    f = fit(finder_js, mine12 + g12, theirs12 + r12, g12, r12)
+    if not (f["us"]["net"] > 0.05 and f["us"]["net"] < f["us"]["tau"]):
+        say(f"test 12 setup: your rise should sit between 0.05 and your noise floor: net={f['us']['net']} tau={f['us']['tau']}")
+    if f["label"] != "natural":
+        say(f"a rise inside your noise floor should still be natural: label={f['label']} us net={f['us']['net']:.2f} tau={f['us']['tau']:.2f}")
+
+    # 13. But the rise must be a rise: +0.03 (at or under the 0.05 display floor) is not natural.
+    g13 = [p("m13g", "WR", 5, market=7, noise=10)]
+    r13 = [p("t13g", "WR", 5.2, market=7, noise=10)]
+    f = fit(finder_js, mine12 + g13, theirs12 + r13, g13, r13)
+    if f["label"] == "natural":
+        say(f"a rise of {f['us']['net']:.2f} is not a rise: label={f['label']}")
+
     return errors
 
 
 MUTANTS = {
-    "bench valued 1:1": ("const benchWeight = (weights, pos) => (weights &&", "const benchWeight = (weights, pos) => (true ? 1 : weights &&"),
-    "moving away allowed": ("ok: (up && !away) || (!up && !down && toward)", "ok: up || (!up && !down && toward)"),
-    "level team served without depth change": ("ok: (up && !away) || (!up && !down && toward)", "ok: (up && !away) || !down"),
-    "their view reads DDF": ("const them = teamFit(sides.theirs, ctx, ctx.marketKey);", "const them = teamFit(sides.theirs, ctx, ctx.ourKey);"),
+    "construction check bypassed": ("const constructionOk = myConstruction.ok && theirConstruction.ok;", "const constructionOk = true;"),
+    "starter drop allowed": ("const yourStartersOk = us.starterDelta >= -NET_FLOOR;", "const yourStartersOk = true;"),
+    "their loss allowed": ("const theirOk = theirNet >= -theirTau;", "const theirOk = true;"),
     "noise ignored": ("const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);", "const tau = NET_FLOOR;"),
-    "no need needed for natural": ('(fillsNeed ? "natural" : "value")', '"natural"'),
-    "force never": ('us.ok && them.ok ? (fillsNeed ? "natural" : "value") : "force"', "(fillsNeed ? \"natural\" : \"value\")"),
+    "your side needs the noise floor": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > us.tau;"),
+    "your side needs no rise": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > -1000;"),
+    "market always": ('const label = isNatural ? "natural" : marketSupported ? "market" : "force";', 'const label = "market";'),
     "tiers reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
     "tiers unstable": ("a.t - b.t || a.i - b.i", "a.t - b.t || b.i - a.i"),
 }

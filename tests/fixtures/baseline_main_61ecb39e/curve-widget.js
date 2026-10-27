@@ -93,7 +93,7 @@
   // setCompositeInputs and mapped to the chart (COMPOSITE_INPUT_ALIASES).
   // JEG-804 (Jeremy Q4, 2026-10-22): DDF Value = projection sources only.
   // Trade charts are out of DDF Value; they stay on the Indexed/VORP tabs.
-  const COMPOSITE_INPUT_KEYS = ["espn", "cbsros", "razzball"];
+  const COMPOSITE_INPUT_KEYS = ["fantasycalc", "usatoday", "fantasypros", "cbs"];   // JEG-1073 (baseline takes the same default rule change)
   const EXTRA_SOURCE_KEYS = [];
   // The four "*_adjusted" series are deprecated aliases (VP-11 retires them):
   // each carries its chart's Adjusted values (VP-5.5) in every tab, so the v2
@@ -951,7 +951,7 @@
   // (ddf_value_charts), each source's own values and the prior week are not
   // touched. Off (empty) by default.
   let valueOverrides = new Map();
-  const OVERRIDE_VERSIONS = ["ddf_value", "ddf_value_projections"];
+  const OVERRIDE_VERSIONS = ["ddf_value"];   // JEG-1073
   const COMPOSITE_MIN_SOURCES = 1;
   const COMPOSITE_NONE_REASON = "No source prices this player";
   const COMPOSITE_EMPTY_REASON = "No source available this week";
@@ -959,7 +959,7 @@
   const COMPOSITE_PROJECTION_INPUTS = ["espn", "cbsros", "razzball"];
   const COMPOSITE_CHART_INPUTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
   const COMPOSITE_VERSIONS = {
-    ddf_value: COMPOSITE_PROJECTION_INPUTS,
+    ddf_value: COMPOSITE_CHART_INPUTS,
     ddf_value_charts: COMPOSITE_CHART_INPUTS,
     ddf_value_projections: COMPOSITE_PROJECTION_INPUTS,
   };

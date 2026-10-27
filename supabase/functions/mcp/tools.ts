@@ -57,6 +57,7 @@ export type FetchValuesWithCharts = (
   scoring: string,
   teams: number,
   superflex: number,
+  league?: Record<string, unknown>,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -539,7 +540,7 @@ async function findTradesHandler(
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
   if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = data.players;
 
   // Resolve names to rows.
@@ -683,7 +684,7 @@ async function findTradesLeagueHandler(
   if (!opponents?.length) throw new ToolInputError("opponents is required: [{name, roster}]");
   if (opponents.length > 15) throw new ToolInputError("too many opponents (max 15)");
 
-  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex);
+  const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = data.players;
 
   const resolve = (names: string[]) => {
@@ -829,7 +830,7 @@ async function findTradesLeagueHandler(
 
 const EXPLANATIONS: Record<string, string> = {
   methodology:
-    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). Several projection sources and published trade charts are blended; a stale or held source is left out of the blend rather than counted as zero. Full method: the site's methodology pages.",
+    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four published trade charts, each adjusted to the user's league (position and bench weighting); the projection sources are an alternate version. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages.",
   sources:
     "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week.",
   value_scale:
