@@ -45,7 +45,7 @@
   const ddfOf = row => (row && row.values && finite(row.values[OUR_KEY]) ? row.values[OUR_KEY] : null);
   // The Trade chart average, or null: a player no chart prices (or prices at a shown 0.0) has no market value to show.
   const marketOf = row => (row && row.values && finite(row.values[MARKET_KEY]) && row.values[MARKET_KEY] >= USABLE_MIN ? row.values[MARKET_KEY] : null);
-  const fmt = n => (Math.abs(n) < NET_FLOOR ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < NET_FLOOR ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const settle = n => Math.round(n * 1e9) / 1e9;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
