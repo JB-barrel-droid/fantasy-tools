@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-27T19:29:00.459681+00:00",
+  "run_at": "2026-10-27T20:50:44.388385+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -114,7 +114,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-26 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -161,28 +161,69 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-26",
-      "content_week": 7,
+      "content_vintage": "2026-10-27",
+      "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
+    }
+  },
+  "source_weeks": {
+    "cbs": {
+      "served_week": 7,
+      "label_week": 7,
+      "published_at": "2026-10-22T00:35:32+00:00",
+      "basis": "section_label"
+    },
+    "cbsros": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "espn": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "fantasycalc": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27T14:25:17+00:00",
+      "basis": "section_label"
+    },
+    "fantasypros": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "razzball": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "usatoday": {
+      "served_week": 7,
+      "label_week": 7,
+      "published_at": "2026-10-20",
+      "basis": "section_label"
     }
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
+      "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []"
+      "AssertionError: Lists differ: [\"('standard', 8, 'null') usatoday: no Ind[1939 chars]nks'] != []"
     ],
     "make_targets": [
-      "Makefile:618: test-core"
+      "Makefile:554: test-core"
     ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []",
-    "recorded_at": "2026-10-27T19:54:42.452924+00:00"
+    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; AssertionError: Lists differ: [\"('standard', 8, 'null') usatoday: no Ind[1939 chars]nks'] != []",
+    "recorded_at": "2026-10-27T20:53:35.877614+00:00"
   }
 }

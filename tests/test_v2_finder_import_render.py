@@ -1,26 +1,24 @@
-"""v2 Find a trade, second slice (JEG-481), rendered: league import and roster sanity.
+"""v2 Find a trade, second slice (JEG-481), rendered: pasted-name import and roster sanity.
 
-Builds dist/v2 into a temp copy of the built dist/ and loads Compare a trade headless. The league hosts are mocked
-(the page is hermetic): a Sleeper league (rosters, users, 15 MB directory stand-in), a public ESPN league and a private
-one (401). Checks:
+JEG-1131 (Jeremy, 2026-10-27): the Sleeper/ESPN league-ID fetchers are deleted; pasted names are the only import here.
+tests/test_v2_paste_only_render.py pins that no league-ID UI or platform request exists.
 
-  * Sleeper: Load teams lists the league's teams by team name; Use this team puts that roster's players (matched to the
-    engine's rows by name) on the side, and the status says how many were added;
-  * ESPN: the same for a public league; a private league says it is private and offers pasted names instead;
-  * pasted names add to the roster; a name not in the values is reported, never added; a player already on the other
-    roster is left out and said so;
+Builds dist/v2 into a temp copy of the built dist/ and loads Compare a trade headless (hermetic). Checks:
+
+  * pasted names put those players (matched to the engine's rows by name) on each side, and the status says how many
+    were added;
+  * a pasted name not in the values is reported, never added; a player already on the other roster is left out and said so;
   * roster sanity, recomputed here from the engine's rows and the league's roster shape: with "keep my starting lineup
     filled" and "keep theirs filled" on, no listed trade leaves a side short at QB/RB/WR/TE (fewer players than the slots
     and fewer than before); with both off, the list is at least as long and a thin trade carries "Leaves you thin";
   * no page errors, no sideways scroll at 390.
 
-Discrimination: test_guard_fails_on_broken_builds serves finder.js with the keep flags ignored and with the Sleeper
-parser reading every roster as the first team's, and requires each to fail.
+Discrimination: test_guard_fails_on_broken_builds serves finder.js with the keep flags ignored and with the pasted-name
+parser dropping every name after the first, and requires each to fail.
 """
 from __future__ import annotations
 
 import functools
-import json
 import unittest
 from pathlib import Path
 
@@ -69,48 +67,11 @@ AUDIT = """(shape) => {
 }"""
 
 
-def sleeper_mock(page, pick):
-    ids = {}
-    directory = {}
-    for index, (name, pos) in enumerate(pick["mine"] + pick["theirs"]):
-        ids[name] = f"p{index}"
-        directory[f"p{index}"] = {"full_name": name, "position": pos}
-    rosters = [{"roster_id": 1, "owner_id": "u1", "players": [ids[n] for n, _ in pick["mine"]]},
-               {"roster_id": 2, "owner_id": "u2", "players": [ids[n] for n, _ in pick["theirs"]]}]
-    users = [{"user_id": "u1", "display_name": "Jeremy", "metadata": {"team_name": "Mine FC"}},
-             {"user_id": "u2", "display_name": "Rival", "metadata": {"team_name": "Their FC"}}]
-
-    def handle(route):
-        url = route.request.url
-        body = rosters if url.endswith("/rosters") else users if url.endswith("/users") else directory
-        route.fulfill(status=200, content_type="application/json", headers={"access-control-allow-origin": "*"}, body=json.dumps(body))
-    page.route("https://api.sleeper.app/**", handle)
-
-
-def espn_mock(page, pick):
-    def handle(route):
-        url = route.request.url
-        if "/leagues/9999" in url:
-            route.fulfill(status=401, content_type="application/json", headers={"access-control-allow-origin": "*"}, body="{}")
-            return
-        pos_id = {"QB": 1, "RB": 2, "WR": 3, "TE": 4}
-        entries = [{"playerPoolEntry": {"player": {"fullName": n, "defaultPositionId": pos_id[p]}}} for n, p in pick["theirs"]]
-        route.fulfill(status=200, content_type="application/json", headers={"access-control-allow-origin": "*"},
-                      body=json.dumps({"teams": [{"id": 1, "location": "Their", "nickname": "FC", "roster": {"entries": entries}}]}))
-    page.route("https://lm-api-reads.fantasy.espn.com/**", handle)
-
-
-def import_team(page, side, source, league_id, index=0):
+def paste_team(page, side, names):
     if not page.evaluate("(s) => document.querySelector(`#v2Find${s} .v2-find-import`).open", side):
         page.click(f"#v2Find{side} .v2-find-import summary")
-    page.select_option(f"#v2Find{side}Source", source)
-    page.fill(f"#v2Find{side}League", league_id)
+    page.fill(f"#v2Find{side}Paste", "\n".join(names))
     page.click(f"#v2Find{side}Load")
-    page.wait_for_function("(id) => !document.getElementById(id).hidden || /private|no league|Could not/.test(document.getElementById(id.replace('Team', 'Status')).textContent)",
-                           arg=f"v2Find{side}Team", timeout=30000)
-    if not page.evaluate("(id) => document.getElementById(id).hidden", f"v2Find{side}Team"):
-        page.select_option(f"#v2Find{side}Team", str(index))
-        page.click(f"#v2Find{side}Use")
 
 
 def names_on(page, side):
@@ -122,39 +83,21 @@ def check(page, tag, width) -> list[str]:
     page.evaluate("() => { location.hash = '#find-trade'; }")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2Find') && !document.getElementById('v2FindTrade').hidden", timeout=60000)
     pick = page.evaluate(PICK)
-    sleeper_mock(page, pick)
-    espn_mock(page, pick)
 
-    import_team(page, "Mine", "sleeper", "123", 0)
+    paste_team(page, "Mine", [n for n, _ in pick["mine"]])
     want = sorted(n for n, _ in pick["mine"])
     if sorted(names_on(page, "Mine")) != want:
-        errors.append(tag + f"Sleeper import put {sorted(names_on(page, 'Mine'))} on my roster, want {want}")
-    options = page.evaluate("() => [...document.querySelectorAll('#v2FindMineTeam option')].map(o => o.textContent)")
-    if not options or not options[0].startswith("Mine FC") or not options[1].startswith("Their FC"):
-        errors.append(tag + f"Sleeper teams listed as {options}, want team names first")
+        errors.append(tag + f"pasted names put {sorted(names_on(page, 'Mine'))} on my roster, want {want}")
     status = page.text_content("#v2FindMineStatus")
     if f"Added {len(want)}" not in status:
-        errors.append(tag + f"Sleeper status {status!r} does not say how many were added")
-
-    # The second Sleeper team is a different roster (a parser that reads every roster alike is caught here).
-    import_team(page, "Theirs", "sleeper", "123", 1)
-    if sorted(names_on(page, "Theirs")) != sorted(n for n, _ in pick["theirs"]):
-        errors.append(tag + f"Sleeper team 2 put {sorted(names_on(page, 'Theirs'))} on their roster")
-
-    # A private ESPN league says so and points to pasting names.
-    import_team(page, "Theirs", "espn", "9999")
-    status = page.text_content("#v2FindTheirsStatus")
-    if "private" not in status or "paste" not in status:
-        errors.append(tag + f"a private ESPN league reads {status!r}, want it to say private and offer pasting")
-    import_team(page, "Theirs", "espn", "4242")
+        errors.append(tag + f"paste status {status!r} does not say how many were added")
+    paste_team(page, "Theirs", [n for n, _ in pick["theirs"]])
     want_theirs = sorted(n for n, _ in pick["theirs"])
     if sorted(names_on(page, "Theirs")) != want_theirs:
-        errors.append(tag + f"ESPN import put {sorted(names_on(page, 'Theirs'))} on their roster, want {want_theirs}")
+        errors.append(tag + f"pasted names put {sorted(names_on(page, 'Theirs'))} on their roster, want {want_theirs}")
 
     # Pasted names: one is real but already on my roster, one is not a player.
-    page.select_option("#v2FindTheirsSource", "paste")
-    page.fill("#v2FindTheirsPaste", f"{pick['mine'][0][0]}\nNot A Real Player")
-    page.click("#v2FindTheirsLoad")
+    paste_team(page, "Theirs", [pick["mine"][0][0], "Not A Real Player"])
     status = page.text_content("#v2FindTheirsStatus")
     if pick["mine"][0][0] not in status or "Not A Real Player" not in status:
         errors.append(tag + f"paste status {status!r} does not report the player on the other roster and the unmatched name")
@@ -202,6 +145,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]
         try:
             for width, height in viewports:
                 context = browser.new_context(viewport={"width": width, "height": height})
+                context.add_init_script(_render_env.pin_data_week_script())   # the data's content week, not the real clock (JEG-1152)
                 page = context.new_page()
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
@@ -227,7 +171,7 @@ class FinderImportRenderTest(unittest.TestCase):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
             "keep flags ignored": ("((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "false"),
-            "every roster read as the first team's": ("entries: (r.players || []).map(id => {", "entries: ((rosters[0] || {}).players || []).map(id => {"),
+            "pasted names keep only the first": (".filter(Boolean).map(name => ({name, pos: \"\"}));", ".filter(Boolean).slice(0, 1).map(name => ({name, pos: \"\"}));"),
         }
         for name, (old, new) in broken.items():
             with self.subTest(mutation=name):
