@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 PAGES = (ROOT / ".github/workflows/pages.yml").read_text(encoding="utf-8")
 PREVIEW = (ROOT / ".github/workflows/preview.yml").read_text(encoding="utf-8")
+FULL_SUITE = (ROOT / ".github/workflows/full-suite.yml").read_text(encoding="utf-8")
 
 FORBIDDEN_IN_PREVIEW = ("deploy-pages", "upload-pages-artifact", "configure-pages",
                         "pages: write", "id-token: write")
@@ -92,14 +93,33 @@ def check_preview(preview_text, pages_text):
     for word in FORBIDDEN_IN_PREVIEW:
         if word in preview_text:
             problems.append(f"preview must not deploy or hold Pages permissions: {word!r}")
-    # JEG-978: a suite that takes the runner down fails its whole job, so the
-    # full suite lives in its own non-blocking job, never in the preview job.
-    preview_job, _, full_job = preview_text.partition("\n  full-suite:\n")
+    # JEG-978 moved the full suite out of the preview job; JEG-1169 moved it off
+    # pull requests entirely (it never finished inside 45 minutes and held a
+    # runner). preview.yml must not run make test-unit in any job.
     runs_suite = re.compile(r"^\s+(- )?(run: )?make test-unit\s*$", re.M)  # the command, not comments
-    if runs_suite.search(preview_job):
-        problems.append("make test-unit must run in the full-suite job, not the preview job")
-    if not runs_suite.search(full_job) or not re.search(r"^    continue-on-error: true$", full_job, re.M):
-        problems.append("the full-suite job must run make test-unit with job-level continue-on-error")
+    if runs_suite.search(preview_text):
+        problems.append("make test-unit must not run in preview.yml (nightly full-suite.yml owns it)")
+    if re.search(r"^  full-suite:\s*$", preview_text, re.M):
+        problems.append("the full-suite job must live in full-suite.yml, not preview.yml")
+    return problems
+
+
+def check_full_suite(text):
+    """JEG-1169: the full suite runs nightly and on demand, never on a PR, and
+    stays informational (job-level continue-on-error)."""
+    problems = []
+    on = re.search(r"^on:\s*\n((?:[ \t]+.*\n|\s*\n)+)", text, re.M)
+    on = on.group(1) if on else ""
+    if re.search(r"^  (pull_request|pull_request_target|push):", on, re.M):
+        problems.append("full-suite.yml must not run on pull requests or pushes")
+    if not re.search(r"^  schedule:\s*$", on, re.M):
+        problems.append("full-suite.yml must run on a nightly schedule")
+    if not re.search(r"^  workflow_dispatch:", on, re.M):
+        problems.append("full-suite.yml must accept workflow_dispatch")
+    if not re.search(r"^\s+make test-unit\s*$", text, re.M):
+        problems.append("full-suite.yml must run make test-unit")
+    if not re.search(r"^    continue-on-error: true$", text, re.M):
+        problems.append("the full-suite job must keep job-level continue-on-error")
     return problems
 
 
@@ -230,15 +250,34 @@ class PreviewMatchesPagesTest(unittest.TestCase):
 
     def test_full_suite_back_in_the_preview_job_is_caught(self):
         # The pre-JEG-978 shape: the suite as the preview job's last step.
-        mutated = PREVIEW.replace("\n  full-suite:\n", "\n").replace(
+        mutated = PREVIEW.replace(
             "      - uses: actions/checkout@v4", "      - run: make test-unit\n      - uses: actions/checkout@v4", 1)
         self.assertNotEqual(PREVIEW, mutated)
-        self.assertCaught(mutated, "not the preview job")
+        self.assertCaught(mutated, "must not run in preview.yml")
+
+    def test_full_suite_job_back_in_preview_is_caught(self):
+        # The JEG-978 shape: a separate full-suite job inside preview.yml.
+        mutated = PREVIEW + "\n  full-suite:\n    runs-on: ubuntu-latest\n    steps:\n      - run: |\n          make test-unit\n"
+        self.assertCaught(mutated, "must not run in preview.yml")
+        self.assertCaught(mutated, "must live in full-suite.yml")
+
+    def test_real_full_suite_is_nightly_and_informational(self):
+        self.assertEqual([], check_full_suite(FULL_SUITE))
+
+    def test_full_suite_on_pull_request_is_caught(self):
+        mutated = FULL_SUITE.replace("on:\n", "on:\n  pull_request:\n", 1)
+        self.assertNotEqual(FULL_SUITE, mutated)
+        self.assertTrue(any("pull requests" in p for p in check_full_suite(mutated)))
+
+    def test_full_suite_without_schedule_is_caught(self):
+        mutated = re.sub(r"  schedule:\n    - cron: .*\n", "", FULL_SUITE)
+        self.assertNotEqual(FULL_SUITE, mutated)
+        self.assertTrue(any("nightly schedule" in p for p in check_full_suite(mutated)))
 
     def test_blocking_full_suite_job_is_caught(self):
-        mutated = PREVIEW.replace("    continue-on-error: true\n    timeout-minutes", "    timeout-minutes", 1)
-        self.assertNotEqual(PREVIEW, mutated)
-        self.assertCaught(mutated, "job-level continue-on-error")
+        mutated = FULL_SUITE.replace("    continue-on-error: true\n    timeout-minutes", "    timeout-minutes", 1)
+        self.assertNotEqual(FULL_SUITE, mutated)
+        self.assertTrue(any("continue-on-error" in p for p in check_full_suite(mutated)))
 
     def test_any_deploy_or_pages_permission_is_caught(self):
         for word in FORBIDDEN_IN_PREVIEW:

@@ -7,8 +7,10 @@ name: Preview build
 #
 # Deliberate differences from pages.yml:
 #   - make validate is blocking here (on a PR it is the only gate);
-#   - the full test suite (make test-unit) also runs here, non-blocking, in its
-#     own job (full-suite) so it cannot turn the preview check red (JEG-978);
+#   - the full test suite (make test-unit) no longer runs on PRs: it never
+#     finished inside its 45-minute timeout and held a runner, so it moved to
+#     full-suite.yml, nightly plus workflow_dispatch (JEG-1169; JEG-978 before);
+#   - pull requests that change only docs skip this check (JEG-1169);
 #   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
 #     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
@@ -16,6 +18,18 @@ name: Preview build
 
 on:
   pull_request:
+    # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
+    # file is Markdown or under docs/. Tests-only PRs still run it. The docs
+    # the build reads (sync_dashboard_artifacts -> build_values_explainer,
+    # build_llm_surfaces) stay included.
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "docs/methodology.md"
+      - "docs/math-review-agenda.md"
+      - "docs/use-ddf-in-claude-chatgpt.md"
+      - "app/llm/**"
   workflow_dispatch:
 
 permissions:
@@ -29,6 +43,8 @@ concurrency:
 jobs:
   preview:
     runs-on: ubuntu-latest
+    # JEG-1169: the default is 6 hours. A normal run is ~45 minutes.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
@@ -41,6 +57,15 @@ jobs:
       # one they skipped and validate passed with them unrun (until
       # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
       # an error for every later step instead of a silent skip.
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
       - name: Browser for the render tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
@@ -77,7 +102,8 @@ jobs:
         id: gate
         run: |
           npm ci --prefix tests/rendered_gate
-          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          # JEG-1169: no second Chromium install. playwright-core 1.49.1 uses the
+          # browser the python playwright 1.49.1 step installed (same build, same cache dir).
           # JEG-1152: pin the gate pages' clock to the data's week.
           export TRADE_VALUE_TODAY="$(python3 -c 'from tests.test_week_history import _fixture_today; print(_fixture_today())')"
           echo "TRADE_VALUE_TODAY=$TRADE_VALUE_TODAY"
@@ -136,39 +162,3 @@ jobs:
             } else {
               await github.rest.issues.createComment({owner, repo, issue_number, body});
             }
-
-  # JEG-978: the full suite runs in its own job so it cannot fail the `preview`
-  # check. As a step in that job, a suite that took the runner down (JEG-979:
-  # a test exhausted memory, "runner lost communication") failed the whole job
-  # even with continue-on-error, after validate and the rendered gate passed.
-  # Steps use multi-line run blocks so the pages.yml parity guard
-  # (tests/test_preview_workflow_matches_pages.py) does not read them as build steps.
-  full-suite:
-    name: Full test suite (informational, non-blocking)
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 2
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      # Same setup the suite had as the preview job's last step: the render
-      # tests required, and playwright-core for the JEG-103/JEG-135 harness tests.
-      - name: Browser for the render tests
-        run: |
-          python3 -m pip install --quiet playwright==1.49.1
-          python3 -m playwright install --with-deps chromium
-          npm ci --prefix tests/rendered_gate
-          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
-          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
-      - name: Build
-        run: |
-          make sync
-      - name: make test-unit
-        run: |
-          python3 -m pip install --quiet pytest
-          make test-unit
