@@ -63,6 +63,26 @@ The first message says which mode you are in.
 - Force pushes, history rewrites, deleting branches you did not create, or editing `~/Projects/"fantasy tools"`.
 - Blocked on a Jeremy decision: comment the options with a recommendation, add `needs-review`, move to In Review, take the next ticket.
 
+**Board cleanup** (first message says "Board cleanup"): run the board hygiene below across the whole Trade Value Chart project instead of 10 tickets, then post a summary comment on JEG-440 listing every ticket you changed and why. Take no queue ticket.
+
+## Scope
+
+Work only tickets in project Trade Value Chart. Other projects in team Jegabee (the photo frame, Home HQ, iOS) are not yours: never claim, edit, label or close them.
+
+## Board hygiene (every queue run, at most 10 tickets, before claiming)
+
+Jeremy, 2026-10-27: "There is a lot of noise on the linear tickets. They should probably be cleaned in this process." Make the board say what is true, with one short comment per change saying why:
+
+- **In Review whose PR is merged** and whose checks passed: verify the change is live (or merged, if it publishes nothing), then Done with the PR link. PR still open and green: merge it under the normal gate if the ticket is yours or unowned; otherwise leave it.
+- **In Progress or In Review with no comment, commit or PR activity for 48 hours:** comment the last known state and branch, move to Todo (or Backlog if it was never prioritized). Leave tickets with `needs-review` waiting on Jeremy where they are.
+- **Duplicates:** mark the newer one Duplicate of the older, carrying over anything the older lacks.
+- **Done in fact, still open** (the code or doc it asks for is on `main`): Done, naming the commit.
+- **Obsolete** (superseded by a later decision or ticket): Canceled, quoting what superseded it.
+- **Missing labels:** add one Session label and one Model tier label when the domain is clear; when it isn't, add `needs-review` with a one-line question instead of guessing. Remove retired `owner:*` labels when you add a Session label.
+- **Parents/umbrellas** whose children are all closed: close the parent.
+
+Never delete tickets or comments, never edit another session's comments, never change a ticket labelled `muse` or one another session touched in the last 4 hours. When unsure, comment and leave it.
+
 ## Idea pass (queue empty)
 
 Read the live dashboard (web_fetch the site above) and the open Backlog. File at most 2 new improvement ideas per run, each grounded in something you saw (a confusing label, a missing comparison, a slow page, stale data), as Backlog tickets with label `needs-review` and a one-line "why now". Check for duplicates first. Follow `docs/manifesto.md` for scope: trades others will accept, no vanity stats, no betting framing, no abbreviations in titles.
