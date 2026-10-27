@@ -118,19 +118,42 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-dot { width: 8px; height: 8px; border-radius: 50%; background: #9BE3C1; display: inline-block; }
 .v2-freshness.is-older .v2-dot { background: var(--v2-older); }
 
-/* Compact context row (JEG-1119): sticky 48 px bar with league summary, value basis selector, freshness */
-.v2-context { position: sticky; top: 64px; z-index: 30; background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
-.v2-context-inner { display: flex; align-items: center; gap: 8px; min-height: 48px; flex-wrap: nowrap; overflow: hidden; }
-.v2-ctx-league { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 0 1 auto; overflow: hidden; }
-.v2-ctx-league strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; }
+/* Compact context row (JEG-1119): league summary, value basis and freshness. One 48 px row, sticky, from 1024 px;
+   below that it wraps and scrolls away with the page. Position weights and Copy / Paste sit in the ⋯ menu. */
+.v2-context { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
+.v2-context[hidden] { display: none; }
+.v2-context-inner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-block: 8px; }
+.v2-ctx-league { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.v2-ctx-league strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; flex-shrink: 0; max-width: 60%; }
 .v2-ctx-roster { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
-.v2-ctx-basis { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
-.v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; }
-.v2-ctx-basis.is-off { visibility: hidden; }
-.v2-app .v2-context .v2-btn[hidden] { display: none; }
-.v2-ctx-freshness { flex-shrink: 0; color: var(--v2-ink); }
+.v2-ctx-basis { display: flex; align-items: center; gap: 6px; order: 10; flex: 1 1 100%; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
+.v2-ctx-basis > #v2ShowingText { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
+.v2-ctx-basis.is-off { display: none; }
+.v2-ctx-freshness { flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; }
+.v2-ctx-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
-.v2-ctx-more { flex-shrink: 0; padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
+/* The short label ("Week 7") below 1440 px: the full sentence no longer fits beside the basis (JEG-1119 item 5).
+   The full one stays in the button's aria-label and in the freshness dialog. */
+@media (max-width: 1439px) {
+  .v2-context .v2-freshness #v2FreshnessLabel { display: none; }
+  .v2-context .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
+}
+.v2-ctx-menuwrap { position: relative; flex-shrink: 0; }
+.v2-ctx-more { padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
+.v2-ctx-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
+  min-width: 240px; padding: 8px; background: var(--v2-surface); border: 1px solid var(--v2-border); border-radius: var(--v2-radius-card); box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.v2-ctx-menu[hidden] { display: none; }
+.v2-app .v2-context .v2-btn[hidden] { display: none; }
+.v2-ctx-menu .v2-assist-actions { flex-direction: column; align-items: stretch; gap: 6px; }
+.v2-app .v2-ctx-menu .v2-btn { flex: 0 0 auto; justify-content: flex-start; text-align: left; white-space: nowrap; }
+.v2-app .v2-ctx-menu .v2-assist-actions { flex: 0 0 auto; }
+@media (min-width: 1024px) {
+  .v2-context { position: sticky; top: 0; z-index: 30; }
+  .v2-context-inner { flex-wrap: nowrap; min-height: 48px; padding-block: 0; }
+  .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
+  .v2-ctx-basis { order: 0; flex: 1 1 0; }
+}
 /* Small button variant */
 .v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
 
@@ -1135,8 +1158,9 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-app .v2-reset { margin-left: auto; padding: 10px 14px; }
 #v2More[aria-expanded="true"], #v2Columns[aria-expanded="true"] { border-color: var(--v2-action); }
 @media (min-width: 768px) {
-  #v2Main .v2-toolbar { position: sticky; top: 48px; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
+  #v2Main .v2-toolbar { position: sticky; top: 0; z-index: 25; background: var(--v2-canvas); padding: 4px 0; margin-top: 2px; }
 }
+@media (min-width: 1024px) { #v2Main .v2-toolbar { top: 49px; } }   /* JEG-1119: under the sticky context row (48 px + border) */
 
 /* Chart card: title and legend on one line, the line-style key inside the legend. */
 .v2-chart-head { align-items: center; justify-content: flex-start; gap: 0 14px; flex-wrap: wrap; min-height: 44px; }   /* JEG-926: keeps the card's 44 px controls inside the head */

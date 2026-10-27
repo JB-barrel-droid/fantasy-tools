@@ -40,25 +40,23 @@
         </div>
       </nav>
     </div>
+    <div class="v2-topnote" id="v2SeasonNote">
+      <div class="v2-topnote-inner">
+        <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
+        <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
+        <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
+        <p><strong>What this dashboard is for right now</strong></p>
+        <ul>
+          <li>It is designed for season-long value.</li>
+          <li>It is not designed for weekly start/sit decisions.</li>
+          <li>It is not designed for playoff optimization.</li>
+          <li>Defenses and kickers are not yet accounted for.</li>
+        </ul>
+      </div>
+    </div>
   </header>
-
-  <!-- Season notice (dismissible banner, moved out of nav): JEG-1119 -->
-  <div class="v2-topnote" id="v2SeasonNote">
-    <div class="v2-topnote-inner">
-      <p class="v2-topnote-text" id="v2SeasonNoteText">Built for season-long value, not weekly start/sit decisions or playoff optimization.</p>
-      <button type="button" class="v2-topnote-more" id="v2SeasonNoteMore" aria-expanded="false" aria-controls="v2SeasonNoteDetail">More</button>
-      <button type="button" class="v2-topnote-close" id="v2SeasonNoteClose" aria-label="Dismiss notice"><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
-    </div>
-    <div class="v2-topnote-detail" id="v2SeasonNoteDetail" hidden>
-      <p><strong>What this dashboard is for right now</strong></p>
-      <ul>
-        <li>It is designed for season-long value.</li>
-        <li>It is not designed for weekly start/sit decisions.</li>
-        <li>It is not designed for playoff optimization.</li>
-        <li>Defenses and kickers are not yet accounted for.</li>
-      </ul>
-    </div>
-  </div>
 
   <div class="v2-wrap v2-writing-nav" id="v2Writing" hidden>
     <nav class="v2-subtabs" id="v2WritingTabs" aria-label="Writing sections">
@@ -85,23 +83,26 @@
       <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span><span id="v2FreshnessShort" class="v2-freshness-short" aria-hidden="true"></span>
       </button>
-      <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-haspopup="dialog" aria-label="More settings">⋯</button>
-      <!-- v2Weights stays in DOM for JS event binding; triggered via overflow popover -->
-      <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog" hidden>Position weights</button>
-      <!-- ChatGPT/Claude assist buttons (hidden; shown by ddf-assist.js when available) -->
-      <div class="v2-assist-actions" id="v2AssistActions">
-        <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-        <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+      <div class="v2-ctx-menuwrap">
+        <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-expanded="false" aria-controls="v2ContextMenu" aria-label="More settings">⋯</button>
+        <!-- JEG-1119: Position weights and Copy / Paste for ChatGPT/Claude live in the overflow menu. -->
+        <div class="v2-ctx-menu" id="v2ContextMenu" hidden>
+          <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+          <div class="v2-assist-actions" id="v2AssistActions">
+            <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
+            <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+          </div>
+        </div>
       </div>
     </div>
-    <div class="v2-wrap v2-assist-panel">
-      <div class="v2-assist-paste" id="v2AssistPaste" hidden>
-        <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
-        <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
-        <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
-      </div>
-      <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
+  </div>
+  <div class="v2-wrap v2-assist-panel">
+    <div class="v2-assist-paste" id="v2AssistPaste" hidden>
+      <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
+      <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
+      <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
     </div>
+    <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
   </div>
 
   <div class="v2-wrap v2-state-wrap" id="v2State">

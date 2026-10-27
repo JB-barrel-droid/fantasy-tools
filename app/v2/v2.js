@@ -3172,7 +3172,9 @@
   }
   const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
   function openWeights() {
-    openPanel($("v2Weights"), "Position weights", "Applies across tabs", pop => {
+    // JEG-1119: Position weights sits in the ⋯ menu; with the menu closed the panel anchors (and returns focus) to ⋯.
+    const anchor = $("v2Weights").offsetParent ? $("v2Weights") : $("v2ContextMore");
+    openPanel(anchor, "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench share");
       const readoutBox = document.createElement("div");
@@ -6799,8 +6801,25 @@
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
+    // JEG-1119: the context row's ⋯ menu (Position weights, Copy / Paste for ChatGPT/Claude).
+    const setContextMenu = open => {
+      $("v2ContextMenu").hidden = !open;
+      $("v2ContextMore").setAttribute("aria-expanded", String(open));
+    };
+    $("v2ContextMore").addEventListener("click", () => {
+      const open = $("v2ContextMenu").hidden;
+      setContextMenu(open);
+      if (open) { const first = [...$("v2ContextMenu").querySelectorAll("button")].find(b => b.offsetParent); if (first) first.focus(); }
+    });
+    // Capture phase: the menu closes before the item's own handler runs, so Position weights anchors to ⋯.
+    $("v2ContextMenu").addEventListener("click", event => { if (event.target.closest("button")) setContextMenu(false); }, true);
+    $("v2ContextMenu").addEventListener("keydown", event => {
+      if (event.key === "Escape") { setContextMenu(false); $("v2ContextMore").focus(); }
+    });
+    document.addEventListener("click", event => {
+      if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
+    });
     $("v2Weights").addEventListener("click", openWeights);
-    $("v2ContextMore").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
     // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
