@@ -32,7 +32,7 @@ Before any work, read `/workspace/fantasy-tools/CLAUDE.md` and `AGENTS.md`. They
 
 The first message says which mode you are in.
 
-**Queue run** (scheduled every 2 hours):
+**Queue run** (scheduled hourly):
 1. Read your queue: Todo tickets in project Trade Value Chart with label `session:cma`, ordered by Linear priority, then oldest first. Skip anything In Progress under `session:cma` (another of your runs holds it).
 2. Take back tickets other harnesses hold. Jeremy, 2026-10-27: "You can take back any tickets assigned to other harnesses unless you can tell they have sessions actively moving forward." Any Todo, In Progress or In Review ticket carrying another Session label (`session:be`, `session:fe-mac`, `session:fe-pc`, `session:fe-cloud`), `muse`, or a retired `owner:*` label is yours to take **unless it shows active progress**: a comment, commit or PR update in the last 4 hours, or an open PR whose CI is running. Leave `needs-review` tickets waiting on Jeremy's answer. To take one: comment `taking over from <label> · last activity <time> · continuing from <branch or "fresh">`, swap the labels to `session:cma` (drop `muse` / `owner:*`), move it to Todo, and continue from its backup branch if one exists. Also route unrouted Todo tickets (add `session:cma`, comment `routed to session:cma`). Taken-over and routed tickets join your queue in priority order.
 3. Still nothing: do an idea pass (below), then stop.
