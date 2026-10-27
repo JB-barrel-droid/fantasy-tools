@@ -860,6 +860,7 @@ def _built_dist(html_sub=None):
 
 def _open(browser, url, width, height, targets_js, v2_js, v2_css):
     page = browser.new_page(viewport={"width": width, "height": height})
+    page.add_init_script(_render_env.pin_data_week_script())   # JEG-1152: the data's week, not the wall clock
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     # Only the local build is under test; the web font is not.
