@@ -284,6 +284,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
 
     def _table_vs_engine(self, browser, url, v2_body=None):
         page = browser.new_page(viewport={"width": 1440, "height": 1000})
+        page.add_init_script(_render_env.pin_data_week_script())
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         if v2_body is not None:
             page.route("**/v2/v2.js*", lambda route: route.fulfill(
@@ -336,6 +337,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
             try:
                 def open_page(url):
                     page = browser.new_page(viewport={"width": 1440, "height": 1000})
+                    page.add_init_script(_render_env.pin_data_week_script())
                     errors = []
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -386,6 +388,7 @@ class FrontDoorRenderedTests(unittest.TestCase):
                 # /classic/ (JEG-453): retired; old links land on the root page.
                 for url in (base + "classic/", base + "classic/#weightsSection"):
                     page = browser.new_page()
+                    page.add_init_script(_render_env.pin_data_week_script())
                     page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                     response = page.goto(url, wait_until="commit", timeout=60000)
                     self.assertEqual(200, response.status, url)

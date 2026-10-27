@@ -472,6 +472,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
             for width, height in viewports:
                 tag = f"[{width}x{height}{' win' if seed == 'win' else ''}] "
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -578,6 +579,7 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
         try:
             for width in widths:
                 page = browser.new_page(viewport={"width": width, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
                 page.goto(base + "#compare-trade", wait_until="networkidle")
@@ -643,6 +645,7 @@ def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS 
         try:
             for width, height in viewports:
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, (body, ctype) in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
