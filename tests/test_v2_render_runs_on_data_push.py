@@ -93,7 +93,8 @@ class V2RenderDataPushTest(unittest.TestCase):
         self.assertIn("push paths filter lacks data/fixtures/current/**", problems(broken, CHAIN))
 
     def test_removing_path_filter_is_caught(self):
-        broken = re.sub(r"    paths:\n(?:      - .*\n)+", "", RENDER, count=1)
+        # The push trigger's filter, not the pull_request one (JEG-1169 docs-only skip).
+        broken = re.sub(r"(  push:\n    branches: \[main\]\n)    paths:\n(?:      - .*\n)+", r"\1", RENDER, count=1)
         self.assertNotEqual(broken, RENDER)
         self.assertTrue(any("paths filter" in p for p in problems(broken, CHAIN)))
 
