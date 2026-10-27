@@ -830,7 +830,7 @@ async function findTradesLeagueHandler(
 
 const EXPLANATIONS: Record<string, string> = {
   methodology:
-    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). Several projection sources and published trade charts are blended; a stale or held source is left out of the blend rather than counted as zero. Full method: the site's methodology pages.",
+    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four published trade charts, each adjusted to the user's league (position and bench weighting); the projection sources are an alternate version. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages.",
   sources:
     "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week.",
   value_scale:

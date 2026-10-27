@@ -8,7 +8,7 @@
 import { handleRpc } from "./rpc.ts";
 import type { Codec, Deps } from "./state.ts";
 import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
-import type { Finder } from "./find-trades.ts";
+import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
 
 // Same site origin as get-values; DDF_SITE_ORIGIN overrides it once the custom domain is live.
@@ -23,6 +23,8 @@ const VALUES_URL = Deno.env.get("DDF_API_URL") ||
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const cache = new Map<string, { at: number; data: ValuesResponse }>();
 
+const CACHE_MAX = 12;
+
 const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
   const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
   const hit = cache.get(key);
@@ -35,6 +37,7 @@ const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
   const res = await fetch(url, { headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`get-values ${res.status}`);
   const data = await res.json() as ValuesResponse;
+  if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
   return data;
 };
@@ -97,10 +100,7 @@ async function loadFinder(): Promise<Finder | null> {
     if (res.ok) {
       // deno-lint-ignore no-eval
       const evalFn = eval;
-      evalFn(await res.text());
-      // deno-lint-ignore no-explicit-any
-      const f = (globalThis as any).TradeValueFinder;
-      if (f && typeof f.findTrades === "function") finder = f as Finder;
+      finder = evalFinder(await res.text(), evalFn);
     } else {
       console.error(`finder.js load failed: ${res.status} from ${SITE_ORIGIN}/v2/finder.js`);
     }

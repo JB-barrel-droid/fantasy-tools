@@ -1268,7 +1268,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (!lineup || !lineup.market || !depth) return null;
     return {shape: lineup.shape, expected: depth.expected, weights: benchWeights(), ourKey: OUR_KEY, marketKey: MARKET_KEY, chartKeys: lineup.market, z: FIT_Z};
   }
-  // Rows of both teams carry DDF Value and the Trade chart average (lineup.*.market are the engine rows plus chart_avg).
+  // Rows of both teams carry DDF Value and the Trade chart average (lineup.*.market are the engine rows plus chart_avg; the fit reads ddf_value_charts, JEG-1129).
   function fitFor(lineup, fitCtx, giveRows, recvRows) {
     const wide = rows => rows.map(r => lineup.byKey.get(String(r.player_key)) || r);
     const give = wide(giveRows);
@@ -1677,15 +1677,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function lineupContext(mineRows, theirRows, charts, shape) {
     if (!shape) return null;
     const market = charts.length >= MIN_CHARTS ? charts : null;
-    // ddf_value_charts is engine-computed and already in row.values; no local mean needed.
-    const mineM = market ? mineRows : null;
-    const theirM = market ? theirRows : null;
+    // The rows keep the engine's ddf_value_charts (MARKET_KEY, read by the fit and viability label) and add chart_avg
+    // (CHART_AVG_KEY, the Trade chart average the impact lines and tables show) (JEG-1129).
+    const avg = rows => (market ? withChartAverage(rows, market) : null);
+    const mineAvg = avg(mineRows);
+    const theirAvg = avg(theirRows);
     const byKey = new Map();
-    (mineM || []).concat(theirM || []).forEach(r => byKey.set(String(r.player_key), r));
-    return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineM}, theirs: {ddf: theirRows, market: theirM}, byKey};
+    (mineAvg || []).concat(theirAvg || []).forEach(r => byKey.set(String(r.player_key), r));
+    return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
   }
   const VIEW_LABEL = {ddf: "DDF Value", market: "Trade chart average"};
-  const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);
+  const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : CHART_AVG_KEY);
   const views = lineup => ["ddf"].concat(lineup.market ? ["market"] : []);
   // The team's rows leaving and arriving, in one view's rows.
   function sideRows(lineup, view, who, giveRows, recvRows) {

@@ -8,8 +8,8 @@
 // opponents that never sends the same player twice.
 //
 // Value lenses: the user's side is judged on DDF Value ("ddf_value");
-// the other team's side on market value (mean of trade chart values, same
-// as the site's "chart_avg").
+// the other team's side on ddf_value_charts (indexed trade charts, the same
+// series the site's viability rule reads as MARKET_KEY; JEG-1129).
 //
 // Every threshold is configurable through ViabilityConfig. Defaults listed
 // in DEFAULT_CONFIG are conservative and await Jeremy's review.

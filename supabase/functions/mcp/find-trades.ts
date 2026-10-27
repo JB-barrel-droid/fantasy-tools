@@ -66,37 +66,25 @@ export interface Finder {
   [key: string]: any;
 }
 
-// ---------------------------------------------------------------------------
-// evalFinder — safely load finder.js source and return the API or null.
-// ---------------------------------------------------------------------------
-
 /**
- * Eval a finder.js source string and return globalThis.TradeValueFinder, or
- * null if the eval throws or the API is not published. Used by the edge
- * function's loadFinder() and by tests.
- *
- * @param src    Source text of finder.js.
- * @param evalFn The eval function from the calling scope (avoids linter ban on
- *               direct `eval` in this file).
- * @param before Optional existing globalThis.TradeValueFinder to restore on
- *               failure (pass {} or omit for none).
+ * Evaluate the site's finder.js source and return its API. The file publishes
+ * TradeValueFinder and then keeps running browser-only page code, which throws
+ * here (no document). The API is already on the global by then, so a throw
+ * after publishing is not a failed load; a source that never publishes it is.
  */
-// deno-lint-ignore no-explicit-any
-export function evalFinder(src: string, evalFn: (s: string) => void, before?: any): Finder | null {
-  // finder.js publishes TradeValueFinder before any browser-only page code that may throw.
-  // Delete first so a stale value from a prior eval doesn't survive a bad source.
+export function evalFinder(
+  source: string,
+  evalFn: (code: string) => unknown,
   // deno-lint-ignore no-explicit-any
-  delete (globalThis as any).TradeValueFinder;
+  g: any = globalThis,
+): Finder | null {
   try {
-    evalFn(src);
-  } catch {
-    // fall through — check if the API was published before the throw
+    evalFn(source);
+  } catch (e) {
+    console.error("finder.js threw after load (expected without a DOM):", String((e as Error)?.message ?? e));
   }
-  // deno-lint-ignore no-explicit-any
-  const f = (globalThis as any).TradeValueFinder;
-  if (f && typeof f.findTrades === "function") return f as Finder;
-  if (before !== undefined) (globalThis as any).TradeValueFinder = before;
-  return null;
+  const f = g.TradeValueFinder;
+  return f && typeof f.findTrades === "function" ? (f as Finder) : null;
 }
 
 // ---------------------------------------------------------------------------
