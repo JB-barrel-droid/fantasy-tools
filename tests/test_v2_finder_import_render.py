@@ -1,5 +1,8 @@
 """v2 Find a trade, second slice (JEG-481), rendered: league import and roster sanity.
 
+JEG-1131: the Sleeper/ESPN league-ID loaders are off by default; this test opens the page with ?integrations=1.
+tests/test_v2_paste_only_render.py pins the default (no ID UI, no platform network call).
+
 Builds dist/v2 into a temp copy of the built dist/ and loads Compare a trade headless. The league hosts are mocked
 (the page is hermetic): a Sleeper league (rosters, users, 15 MB directory stand-in), a public ESPN league and a private
 one (401). Checks:
@@ -202,13 +205,14 @@ def run_checks(overrides=None, viewports=((1440, 900), (390, 844))) -> list[str]
         try:
             for width, height in viewports:
                 context = browser.new_context(viewport={"width": width, "height": height})
+                context.add_init_script(_render_env.pin_data_week_script())   # the data's content week, not the real clock (JEG-1152)
                 page = context.new_page()
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, body in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
-                page.goto(base + "#find-trade", wait_until="networkidle")
+                page.goto(base + "?integrations=1#find-trade", wait_until="networkidle")   # JEG-1131: the league-ID loaders are behind this flag
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
                 errors += check(page, f"[{width}px] ", width)
                 if page_errors:

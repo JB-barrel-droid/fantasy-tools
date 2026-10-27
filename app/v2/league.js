@@ -603,15 +603,16 @@
     const res = P.parseLeague(String(text || ""), C.getAllRows());
     if (!res.teams.length) {
       const id = res.sleeperLeagueId || res.espnLeagueId;
-      if (id) {
+      // JEG-1131: a pasted league link loads through the platform's API only with ?integrations=1; otherwise the tip below.
+      if (id && F.page.integrationsOn()) {
         $("v2LgLeagueKind").value = res.sleeperLeagueId ? "sleeper" : "espn";
         $("v2LgLeagueId").value = id;
         loadWholeLeague();
         return;
       }
       status.textContent = res.site === "sleeper"
-        ? "Sleeper shows one roster per page, so that paste had no league in it. Paste your Sleeper league link (sleeper.com/leagues/…) here, or enter its league ID below, to load every team."
-        : "No teams found in that text. Open your league's rosters page (ESPN: League, then Rosters), press Ctrl+A then Ctrl+C, and paste it here.";
+        ? (id ? "A league link has no rosters in it. " : "") + "Sleeper shows one roster per page: open each team and copy its page, then paste it with Add team. Each paste adds a team, and the count above goes up."
+        : (id ? "A league link has no rosters in it. " : "No teams found in that text. ") + "Open your league's rosters page (ESPN: League, then Rosters), press Ctrl+A then Ctrl+C, and paste it here.";
       showParsed({error: status.textContent});
       announce(status.textContent);
       return;
@@ -1202,19 +1203,22 @@
       announce("Undone.");
     });
     const leaguePaste = el("textarea", {id: "v2LgLeaguePaste", rows: "3", autocomplete: "off", spellcheck: "false",
-      placeholder: "Paste your league's whole rosters page here (ESPN, Yahoo or any site), or a Sleeper league link", "aria-describedby": "v2LgLeaguePasteHelp"});
+      placeholder: "Paste your league's whole rosters page here (ESPN, Yahoo or any site)", "aria-describedby": "v2LgLeaguePasteHelp"});
     leaguePaste.addEventListener("paste", event => {
       const text = event.clipboardData ? event.clipboardData.getData("text") : "";
       if (text) { event.preventDefault(); pasteWholeLeague(text); }
     });
-    leaguePaste.addEventListener("input", () => { if (F.looksLikePage(leaguePaste.value) || /sleeper\.(com|app)\/leagues\/\d|leagueId=\d/i.test(leaguePaste.value)) pasteWholeLeague(leaguePaste.value); });
-    const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: "Load a whole league: paste its rosters page, or a Sleeper or ESPN league ID"}),
+    leaguePaste.addEventListener("input", () => { if (F.looksLikePage(leaguePaste.value) || (F.page.integrationsOn() && /sleeper\.(com|app)\/leagues\/\d|leagueId=\d/i.test(leaguePaste.value))) pasteWholeLeague(leaguePaste.value); });
+    const integrations = F.page.integrationsOn();
+    const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: integrations ? "Load a whole league: paste its rosters page, or a Sleeper or ESPN league ID" : "Load a whole league: paste its rosters page"}),
       el("div", {class: "v2-find-import-body"},
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
-        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: paste the league link instead. Pasted text stays in this browser."}),
+        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays in this browser."}),
+        ...(integrations ? [
         el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), (() => { const s = el("select", {id: "v2LgLeagueKind"}, el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"})); return s; })()),
         el("input", {type: "text", id: "v2LgLeagueId", placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"}),
-        button("Load teams", {class: "v2-btn", id: "v2LgLeagueLoad"}, loadWholeLeague), el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
+          button("Load teams", {class: "v2-btn", id: "v2LgLeagueLoad"}, loadWholeLeague)] : []),
+        el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
     const league = el("section", {class: "v2-card", id: "v2LgCard", "aria-labelledby": "v2LgTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),

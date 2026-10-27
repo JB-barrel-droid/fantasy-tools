@@ -971,8 +971,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   }
 
   // Public league endpoints. Both answer cross-origin requests; a private ESPN league answers 401/403.
+  // JEG-1131 (Jeremy, 2026-10-26): launch takes no platform integrations. Paste is the only league load; the league-ID
+  // loaders are reachable only with ?integrations=1 in the address, and getJson refuses to touch the network without it.
+  const integrationsOn = () => { try { return /[?&]integrations=1(&|#|$)/.test(String(root.location && root.location.search)); } catch (error) { return false; } };
   let sleeperDirectory = null;
   async function getJson(url, what) {
+    if (!integrationsOn()) throw new Error("Loading a league by its ID is switched off.");
     let response;
     try { response = await root.fetch(url); } catch (error) { throw new Error(`Could not reach ${what}.`); }
     if (response.status === 401 || response.status === 403) throw new Error(`${what} says that league is private.`);
@@ -1513,17 +1517,27 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     }
     // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
     function importBox() {
+      const integrations = integrationsOn();
       const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
-        el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"}),
+        ...(integrations ? [el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"})] : []),
         el("option", {value: "paste", text: "Pasted names"}));
       const leagueId = el("input", {type: "text", id: `${id}League`, placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"});
-      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", hidden: "", "aria-label": "Pasted player names"});
-      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Load teams"});
+      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", "aria-label": "Pasted player names"});
+      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Add players"});
       const team = el("select", {id: `${id}Team`, hidden: "", "aria-label": "Team to import"});
       const use = el("button", {type: "button", class: "v2-btn", id: `${id}Use`, text: "Use this team", hidden: ""});
       const status = el("p", {class: "v2-meta", id: `${id}Status`, role: "status"});
       let teams = [];
       const say = text => { status.textContent = text; };
+      const showSource = () => {
+        const isPaste = sel.value === "paste";
+        paste.hidden = !isPaste;
+        leagueId.hidden = isPaste;
+        load.textContent = isPaste ? "Add players" : "Load teams";
+      };
+      sel.value = integrations ? "sleeper" : "paste";
+      showSource();
+      if (!integrations) { sel.hidden = true; leagueId.hidden = true; }
       sel.addEventListener("change", () => {
         const isPaste = sel.value === "paste";
         paste.hidden = !isPaste;
@@ -1549,8 +1563,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
       });
       use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) say(apply(t.entries, t.label, true)); });
-      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
-        el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
+      return el("details", {class: "v2-find-import"}, el("summary", {text: integrations ? "Other ways to add players: a Sleeper or ESPN league ID, or a list of names" : "Other ways to add players: a list of names"}),
+        el("div", {class: "v2-find-import-body"}, integrations ? el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel) : sel,
           leagueId, paste, load, team, use, status));
     }
     window.TradeValueNameSearch.combobox(input, results);   // JEG-900
@@ -2090,7 +2104,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
-  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
+  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, integrationsOn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
   if (sharedStore()) sharedStore().subscribe(pullMine);
   const start = () => { build(); pullMine(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
