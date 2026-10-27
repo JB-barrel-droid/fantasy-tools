@@ -65,7 +65,9 @@
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-live",
      "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
     {"workflow": "player-status-history.yml", "scheduler": "pg_cron", "pg_cron_job": "player-status-history-sunday",
-     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]}
+     "records": [{"check_id": "player_status_history", "file": ".github/workflows/player-status-history.yml", "contains": "--check-id player_status_history --owner player-status-history.yml"}]},
+    {"workflow": "render-sweep.yml", "scheduler": "pg_cron", "pg_cron_job": "render-sweep-daily",
+     "records": []}
   ],
   "pg_cron_sql_jobs": [
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}

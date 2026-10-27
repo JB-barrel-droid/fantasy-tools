@@ -1,0 +1,67 @@
+name: Render sweep
+
+# JEG-976 (Jeremy, 2026-10-23: option b, a separate scheduled render job).
+# Runs the green headless render modules that neither `make validate` nor the
+# preview suite runs (`make test-render-extra`, about 75 minutes of tests in all).
+# JEG-1117 (Jeremy, 2026-10-26: "Split into 3 parallel jobs"): the single-job
+# sweep hit the 60-minute timeout on its first run, so the modules now run as a
+# matrix of three shards (`make test-render-sweep-1/2/3`, about 25 minutes of
+# tests each). tests/test_render_sweep_shards.py pins that the shards together
+# are exactly test-render-extra. It is a warning, never a gate: no deploy
+# workflow calls it, so a failure here shows as a red run plus a warning
+# annotation and holds nothing.
+#
+# Trigger: workflow_dispatch only. Schedules live in Supabase pg_cron (no
+# `schedule:` here); the daily job `render-sweep-daily` dispatches this file:
+# applied 2026-10-26 (jobid 47), see supabase/render_sweep_pg_cron.sql.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-sweep
+  cancel-in-progress: false
+
+jobs:
+  render-sweep:
+    name: Render sweep shard ${{ matrix.shard }} of 3
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - run: make sync
+      - name: Render sweep shard (one module at a time)
+        run: |
+          set -o pipefail
+          rc=0
+          make test-render-sweep-${{ matrix.shard }} 2>&1 | tee "$RUNNER_TEMP/shard.log" || rc=$?
+          {
+            echo "### Render sweep shard ${{ matrix.shard }} of 3"
+            ran=$(grep -c '^python3 -m unittest ' "$RUNNER_TEMP/shard.log" || true)
+            failed=$(grep -c '^run_suite: failed: ' "$RUNNER_TEMP/shard.log" || true)
+            echo
+            echo "Modules run: ${ran}. Modules failed: ${failed}."
+            if [ "${failed}" != "0" ]; then
+              echo
+              grep '^run_suite: failed: ' "$RUNNER_TEMP/shard.log" | sed 's/^run_suite: failed: python3 -m unittest /- /'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$rc" != "0" ]; then
+            echo "::warning title=Render sweep shard ${{ matrix.shard }} failed::At least one render module failed. Nothing was held; see the job summary for the module names."
+            exit 1
+          fi

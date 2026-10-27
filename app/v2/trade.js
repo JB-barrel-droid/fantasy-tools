@@ -279,7 +279,7 @@
   // Three nets, each answering one question:
   //   V  DDF Value net              (ddf_value)             are you getting real value?
   //   M  Trade chart average net    (mean of compared chart rows)  does the market think you are winning?
-  //   P  DDF Value net               (ddf_value_projections) is the value backed by projected production?
+  //   P  DDF Value (projections) net (ddf_value_projections) is the value backed by projected production?
   // JEG-832: M is the plain mean of the per-chart rescaled nets (the same rows Compare shows), NOT
   // the DDF Value · trade charts blend (which equals DDF Value when projections are held). When fewer
   // than MIN_DEAL_CHARTS charts price every player the market card says "not enough charts".
@@ -338,11 +338,13 @@
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
   // One production sentence: P's side against V's side.
-  // JEG-863: after JEG-804 DDF Value = projections, so p !== v is dead; the disagree branch is kept as defense.
+  // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
+  // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.
+  const PRODUCTION_SAYS = {win: "you come out ahead", even: "it is even", lose: "you lose"};
   function productionCheck(p, v) {
-    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value also says you come out ahead."
-      : p === "lose" ? "Projected production backs the value: DDF Value also says you lose." : "Projected production backs the value: DDF Value also calls it even.";
-    return "Production check inconclusive: the versions disagree.";
+    if (p === v) return p === "win" ? "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+      : p === "lose" ? "Projected production backs the value: DDF Value (projections) also says you lose." : "Projected production backs the value: DDF Value (projections) also calls it even.";
+    return `Projected production does not back the value: DDF Value says ${PRODUCTION_SAYS[v]}, but DDF Value (projections) says ${PRODUCTION_SAYS[p]}.`;
   }
   // JEG-832: chartKeys are the compared chart series (e.g. ["usatoday","fantasycalc","fantasypros"]).
   // The market net is the mean of each complete chart row's net, not the DDF blend.

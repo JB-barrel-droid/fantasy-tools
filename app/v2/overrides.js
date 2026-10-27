@@ -3,7 +3,7 @@
 // JEG-1044 (Jeremy, 2026-10-24): "if someone wants to use the toolset tied to fantasycalc or any other trade source,
 // or blended, with their weights and values, there is a way to do that. We default to our methodology but allow
 // users to move away from it." The basis section (top of the tab) picks what DDF Value means everywhere: our
-// methodology (ESPN, CBS rest of season and Razzball, equal weight), any one source, or a blend with whole-percent
+// methodology (the four trade charts, adjusted, equal weight; JEG-1073), any one source, or a blend with whole-percent
 // weights over any subset. The engine applies it live: TradeValueCurveControls.setBasis(config). Player overrides
 // are global: they stay when the basis changes. The old Customize "DDF blend" tab is gone; its saved choice is
 // carried over here once.
@@ -41,7 +41,10 @@
     ["fantasycalc", "FantasyCalc"], ["usatoday", "USA Today"], ["fantasypros", "FantasyPros"], ["cbs", "CBS trade chart"]];
   const BASIS_KEYS = BASIS_SOURCES.map(item => item[0]);
   const SINGLE_ORDER = ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"];
-  const DEFAULT_THREE = ["espn", "cbsros", "razzball"];
+  // JEG-1073 (Jeremy, 2026-10-25): our methodology is the four trade charts' Adjusted values, equal weight; the
+  // projections are the alternate. The legacy DDF blend tab (JEG-1044) chose among the projections.
+  const DEFAULT_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
+  const LEGACY_PROJECTIONS = ["espn", "cbsros", "razzball"];
   const labelOf = key => (BASIS_SOURCES.find(item => item[0] === key) || [key, key])[1];
   const LINK_BUDGET = 1800;   // characters of share-link hash; past this the link drops the player overrides
   const PACK_AFTER = 6;       // more overrides than this are packed in the link
@@ -80,7 +83,7 @@
   // ---------- the basis the picker holds ----------
   function blankBlend() {
     const out = {};
-    BASIS_KEYS.forEach(key => { out[key] = {on: DEFAULT_THREE.includes(key), w: 33}; });
+    BASIS_KEYS.forEach(key => { out[key] = {on: DEFAULT_SOURCES.includes(key), w: 25}; });
     return out;
   }
   S.blend = blankBlend();
@@ -162,10 +165,11 @@
   function migrateLegacyBlend() {
     let record = null;
     try { record = JSON.parse(localStorage.getItem(LEGACY_SELECTION_KEY) || "null"); } catch (error) { return; }
-    const inputs = record && Array.isArray(record.inputs) ? record.inputs.filter(key => DEFAULT_THREE.includes(key)) : [];
+    const inputs = record && Array.isArray(record.inputs) ? record.inputs.filter(key => LEGACY_PROJECTIONS.includes(key)) : [];
     if (!inputs.length) return;
-    // Every projection ticked is our methodology; fewer is the same equal-weight average of what was ticked.
-    if (inputs.length < DEFAULT_THREE.length) {
+    // The old default (every projection ticked) is gone with JEG-1073; any projections they ticked carry over as
+    // the same equal-weight average of what was ticked.
+    if (inputs.length) {
       setBasisState({mode: "blend", sources: inputs, weights: Object.fromEntries(inputs.map(key => [key, 1]))});
       S.notice = "The DDF blend control has moved to the Overrides tab, with more options. Your previous selection has been carried over.";
     }
@@ -349,7 +353,7 @@
   }
   function summaryText() {
     const info = basisInfo();
-    if (S.mode === "default") return "DDF Value = our methodology: ESPN, CBS rest of season and Razzball, equal weight, averaged for your league.";
+    if (S.mode === "default") return "DDF Value = our methodology: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league, equal weight.";
     if (S.mode === "single") return `DDF Value = ${labelOf(S.single)} only: that source's value for your league, on the same point scale as every source.`;
     const pct = percents();
     const label = BASIS_KEYS.filter(key => pct[key] !== undefined).map(key => `${pct[key]}% ${labelOf(key)}`).join(" + ");
@@ -493,7 +497,7 @@
     };
     box.append(
       el("div", {class: "v2-card-head"}, [el("h2", {id: "v2OvBasisTitle", text: "Value basis"})]),
-      el("p", {class: "v2-meta", text: "What “our value” means on every tab. The default is our methodology: ESPN, CBS rest of season and Razzball, equal weight. Pick one source, or blend any sources with your own weights. It applies right away; your player values below stay."}),
+      el("p", {class: "v2-meta", text: "What “our value” means on every tab. The default is our methodology: the four trade charts, adjusted to your league, equal weight. Pick one source, or blend any sources with your own weights. It applies right away; your player values below stay."}),
       group,
       el("div", {id: "v2OvBlend", class: "v2-ov-blend", hidden: true}),
       el("div", {id: "v2OvSummary", class: "v2-ov-summary", role: "status", "aria-live": "polite"}),
