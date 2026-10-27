@@ -1318,7 +1318,7 @@ body.v2-expand-open { overflow: hidden; }
   .v2-expand .v2-plot-main { grid-column: 2; height: auto; }
   #v2Main .v2-expand .v2-plot .v2-brush { grid-column: 2; }
 }
-body.v2-expand-open .v2-tip { z-index: 59; }
+body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the expanded chart */
 /* JEG-954: phone chart full screen. The button shows below 768 px (the desktop keeps the corner icon); the full-screen chart
    takes every touch itself (no page scroll under the finger); portrait phones get a dismissible rotate prompt. */
 .v2-app .v2-fullscreen { display: none; margin-left: auto; min-height: 44px; min-width: 44px; }
@@ -1354,7 +1354,6 @@ body.v2-expand-open .v2-tip { z-index: 59; }
   .v2-expand-head, .v2-expand-tools { padding-left: 16px; padding-right: 16px; }
   .v2-expand-body { padding: 4px 16px 8px; }
   .v2-expand[data-kind="chart"] .v2-expand-head .v2-meta { display: none; }
-}
 }
 
 /* Manifesto (2026-10-09): plain long-form text inside the v2 shell, one column of about 70 characters. */
