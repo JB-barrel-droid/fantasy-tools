@@ -114,26 +114,24 @@ Product decisions to date (Oct 26 unless noted; details on the ticket):
 
 ## 5. Current state
 
-Last updated: Oct 27, 2026, 4:05 AM CT (by Ba-Nana).
+Last updated: Oct 27, 2026, 6:05 AM CT (by Ba-Nana).
 
-**Main fixes merged:** [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979)
-(bench_share test, [JEG-1152](https://linear.app/jegabee/issue/JEG-1152), Done) and
-[PR 984](https://github.com/JB-barrel-droid/fantasy-tools/pull/984) (rendered gate page clock).
-Main's pages.yml deploy on 66be4844 was still running at 4:00 AM CT; the fix-main run watches it.
+**Merged overnight:** [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979) and
+[PR 984](https://github.com/JB-barrel-droid/fantasy-tools/pull/984) (main green again,
+[JEG-1152](https://linear.app/jegabee/issue/JEG-1152) Done),
+[PR 959](https://github.com/JB-barrel-droid/fantasy-tools/pull/959) (JEG-1119) and
+[PR 957](https://github.com/JB-barrel-droid/fantasy-tools/pull/957) (bench seats, JEG-1121).
 
 **Live problems:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156) (urgent, `needs-review`):
 blended DDF Values blank until week-8 charts publish (A fallback to last week, recommended).
-[JEG-1157](https://linear.app/jegabee/issue/JEG-1157): live get_values returns no players,
-so MCP and site links match nobody; likely tied to JEG-1156.
+[JEG-1157](https://linear.app/jegabee/issue/JEG-1157) diagnosed: same cause (no week-8 charts,
+get-values drops older weeks); the fix waits on the JEG-1156 choice.
 
-**Running now** (all Mac, Claude Opus):
-- Fix-main watch on JEG-1152, session 3c99fe67, started 2:07 AM CT.
-- JEG-1157 diagnosis, code only, no deploys, session 35447ac9, started 4:04 AM CT.
-- PR 959 merge run (started about 12:05 AM CT).
-- Merge wave 4 (launcher `~/code/wt/merge-wave4.launch.sh`, 7 at a time, state in
-  `/tmp/banana-merge-wave.state`, logs `/tmp/banana-w4-*.json`), started 4:00 AM CT:
-  957, 939+958, 921, 963, 920, 925, 962, 964, 965, 967, 968, 973-975, 977, 978, 980,
-  then Muse's 981 and 982. Each waits for green main and merges under the merge lock.
+**Running now** (all Mac, Claude Opus, merge wave 4 started 4:00 AM CT; launcher
+`~/code/wt/merge-wave4.launch.sh`, state `/tmp/banana-merge-wave.state`, logs `/tmp/banana-w4-*.json`):
+939+958, 921, 963, 920, 925, 962 (started 5:55 AM CT); 957 run is finishing its deploy watch.
+Still queued: 964, 965, 967, 968, 973-975, 977, 978, 980, then Muse's 981 and 982.
+Each waits for green main and merges under the merge lock.
 
 **Held:** 976 (after 960), 960 (after 958, then the one combined mcp deploy),
 969 (JEG-894 privacy line), 970 (JEG-1101 Copy link wording, asked), 966.
@@ -144,7 +142,7 @@ JEG-982 in progress; the numbered Muse queue on JEG-1145 has about 10 `muse` Tod
 **Open decisions** (label `needs-review`): JEG-1156, JEG-1101, JEG-894, JEG-1115,
 JEG-1125, JEG-1143, JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
 
-**Next queued:** research post refresh after PR 957 merges; Codex JEG-1136 on
+**Next queued:** research post refresh (PR 957 merged); Codex JEG-1136 on
 the HP once 921, 963, 964, 967, 939 merge.
 
 ## 6. Keeping this file current (anti-bloat)
