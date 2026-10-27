@@ -956,7 +956,8 @@
   let compositeMap = new Map();
   // JEG-1035 (Jeremy, 2026-10-24: "select a player and say their ddf is actually a
   // different value ... have it permeate through the full dashboard"): reader
-  // overrides of DDF Value, player_key -> value. Row-level only: the override
+  // overrides of DDF Value, player_key -> {type: "absolute", value} or, since
+  // JEG-1058, {type: "adjustment", delta}. Row-level only: the override
   // replaces DDF Value (ddf_value only; since JEG-1073 the projections version
   // is a separate alternate series and is not overridden) on the player's row, so every view that reads rows uses it.
   // The pipeline (Indexed factors, pie, tiers), the trade chart average
@@ -1137,16 +1138,20 @@
       else delete row.missingReasons[version];
       return [name, entry];
     }));
-    // JEG-1035: the reader's override, if any, replaces DDF Value on this row.
+    // JEG-1035 / JEG-1058: the reader's override, if any, replaces DDF Value on this row.
+    // It is either an absolute value or an adjustment to the pipeline's own value.
     const override = valueOverrides.has(row.player_key) ? valueOverrides.get(row.player_key) : null;
     OVERRIDE_VERSIONS.forEach(version => {
       const entry = ValueModel.applyDdfOverride(row.ddfByVersion[COMPOSITE_VERSION_NAMES[version]], override);
       if (override === null) return;
       entry.confidenceNote = null;
-      row.values[version] = override;
+      row.values[version] = entry.value;
       delete row.missingReasons[version];
     });
-    row.valueOverride = override;
+    // The value the reader sees (the effective one) and what they set, so a view
+    // can say "you set this" and to what (JEG-1059).
+    row.valueOverride = override === null ? null : row.values.ddf_value;
+    row.valueOverrideSpec = override === null ? null : {...override};
     row.ddfPipelineValue = row.ddfByVersion.blended.pipelineValue;
     const {blended: blend, charts, projections} = row.ddfByVersion;
     row.ddfCount = blend.count;
@@ -1173,13 +1178,26 @@
     const next = new Map();
     Object.entries(map || {}).forEach(([key, value]) => {
       const playerKey = Number(key);
-      const v = Number(value);
-      if (Number.isInteger(playerKey) && value !== null && value !== "" && Number.isFinite(v) && v >= 0) next.set(playerKey, v);
+      const spec = ValueModel.normalizeOverride(value);
+      if (!Number.isInteger(playerKey) || !spec) return;
+      next.set(playerKey, spec);
     });
-    const same = next.size === valueOverrides.size && [...next].every(([k, v]) => valueOverrides.get(k) === v);
+    const same = next.size === valueOverrides.size && [...next].every(([k, v]) => {
+      const old = valueOverrides.get(k);
+      return !!old && old.type === v.type && (old.type === "adjustment" ? old.delta === v.delta : old.value === v.value);
+    });
     valueOverrides = next;
     if (!same && pipeline) rebuildDomain();
-    return Object.fromEntries(valueOverrides);
+    return getValueOverrides();
+  }
+  // JEG-1058: the reader's overrides as set. An absolute value is the number
+  // itself (as it has always been); an adjustment carries its type and delta.
+  function getValueOverrides() {
+    const out = {};
+    valueOverrides.forEach((spec, key) => {
+      out[key] = spec.type === "adjustment" ? {type: "adjustment", delta: spec.delta} : spec.value;
+    });
+    return out;
   }
   function applyComposite(rows) {
     compositeMap = new Map();
@@ -3066,11 +3084,13 @@
         sharedPlayers: ix ? finite(ix.sharedPlayers) : null};
     },
     isReady: () => engineReady,
-    // JEG-1035: reader DDF Value overrides. setValueOverrides({player_key: value})
-    // replaces the whole set (empty or null clears it), rebuilds the rows and
-    // fires trade-value-rows-change; getValueOverrides() returns a copy.
+    // JEG-1035 / JEG-1058: reader DDF Value overrides. setValueOverrides({player_key:
+    // value}) replaces the whole set (empty or null clears it), rebuilds the rows and
+    // fires trade-value-rows-change; getValueOverrides() returns a copy. A value is
+    // an absolute number, or {type: "adjustment", delta: n} for an adjustment to the
+    // pipeline's own value.
     setValueOverrides,
-    getValueOverrides: () => Object.fromEntries(valueOverrides),
+    getValueOverrides,
     getRankSource: () => selectedRankSourceKey(),
     getActiveSources: () => activeSourceKeys(),
     getReferenceWeek: () => activeReferenceWeek(),

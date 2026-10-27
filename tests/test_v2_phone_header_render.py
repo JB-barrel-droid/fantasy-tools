@@ -7,7 +7,9 @@ a blank dark band under the wordmark and the page started 52 px lower.
 
 Loads the built page headless at 320, 360, 375, 390 and 412 px wide (812 tall), fresh, at #trade-targets and
 #compare-trade, and requires at scrollY 0: the wordmark fully inside the viewport and inside the painted header,
-and (360 px and up) the freshness button on the wordmark's row with the header no taller than two rows.
+and (360 px and up) the header no taller than two rows. JEG-1119 (Jeremy's scope, 2026-10-26) moved the freshness
+button out of the header into the context row, so on a phone it must sit on the league summary's line there, short
+label and all.
 Discrimination: test_guard_fails_on_broken_builds serves v2.css with the wordmark pushed 41 px up (the reported
 -31 px top) and with the phone rules broken (the freshness button back on its own row; the full text instead of "Week 7"), and requires failures.
 """
@@ -25,7 +27,7 @@ TABS = ("#trade-targets", "#compare-trade")
 TWO_ROWS_MAX = 120  # wordmark row (44 + 10 padding) + tab row (52) + gap
 MEASURE = """() => {
   const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return {top: b.top, bottom: b.bottom, left: b.left, right: b.right}; };
-  return {scrollY: window.scrollY, brand: r('.v2-brand'), nav: r('.v2-nav'), fresh: r('.v2-freshness')};
+  return {scrollY: window.scrollY, brand: r('.v2-brand'), nav: r('.v2-nav'), fresh: r('#v2Freshness'), league: r('.v2-ctx-league')};
 }"""
 
 
@@ -57,7 +59,7 @@ def run_checks(css_patch=None) -> list[str]:
                     page.wait_for_timeout(300)
                     m = page.evaluate(MEASURE)
                     tag = f"[{width}px {tab}]"
-                    brand, nav, fresh = m["brand"], m["nav"], m["fresh"]
+                    brand, nav, fresh, league = m["brand"], m["nav"], m["fresh"], m["league"]
                     if m["scrollY"] != 0:
                         errors.append(f"{tag} page is scrolled on load: scrollY {m['scrollY']}")
                     if brand["top"] < 0 or brand["left"] < 0 or brand["right"] > width:
@@ -65,8 +67,9 @@ def run_checks(css_patch=None) -> list[str]:
                     if brand["top"] < nav["top"] or brand["bottom"] > nav["bottom"]:
                         errors.append(f"{tag} wordmark outside the painted header: brand {brand} nav {nav}")
                     if width >= 360:
-                        if abs(fresh["top"] - brand["top"]) > 1:
-                            errors.append(f"{tag} freshness button is not on the wordmark's row: brand top {brand['top']}, freshness top {fresh['top']}")
+                        mid = lambda b: (b["top"] + b["bottom"]) / 2  # noqa: E731
+                        if abs(mid(fresh) - mid(league)) > 2 or fresh["right"] > width:
+                            errors.append(f"{tag} freshness button is not on the league summary's line: league {league}, freshness {fresh}")
                         if nav["bottom"] - nav["top"] > TWO_ROWS_MAX:
                             errors.append(f"{tag} header is taller than two rows: {nav['bottom'] - nav['top']:.0f}px")
                     page.close()
@@ -78,10 +81,10 @@ def run_checks(css_patch=None) -> list[str]:
 PATCHES = {
     "wordmark pushed above the viewport": (".v2-brand { min-height: 44px; display: inline-flex; align-items: center; }",
                                            ".v2-brand { min-height: 44px; display: inline-flex; align-items: center; margin-top: -41px; }"),
-    "freshness button back on its own row": ("  .v2-nav .v2-freshness { flex: 0 1 auto; min-width: 0; }",
-                                             "  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; margin-left: 0; }"),
-    "full freshness text on a phone": ("  .v2-nav .v2-freshness #v2FreshnessLabel { display: none; }",
-                                       "  .v2-nav .v2-freshness #v2FreshnessLabel { display: inline; white-space: nowrap; }"),
+    "freshness button back on its own row": (".v2-context .v2-ctx-freshness { order: 1; flex: 0 1 auto; min-width: 0;",
+                                             ".v2-context .v2-ctx-freshness { order: 1; flex: 1 0 100%; min-width: 0;"),
+    "full freshness text on a phone": ("  .v2-context .v2-freshness #v2FreshnessLabel { display: none; }",
+                                       "  .v2-context .v2-freshness #v2FreshnessLabel { display: inline; white-space: nowrap; flex-shrink: 0; min-width: max-content; }"),
 }
 
 

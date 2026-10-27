@@ -174,6 +174,7 @@ class TestEngineKeepsOrderEverySetting(unittest.TestCase):
             try:
                 for scoring, teams, roster in SWEEP:
                     page = browser.new_page()
+                    page.add_init_script(_render_env.pin_data_week_script())
                     page.on("pageerror", lambda e: errors.append(str(e)))
                     page.goto(url, wait_until="networkidle")
                     page.wait_for_function("() => window.TradeValueCurveHarness && window.TradeValueCurveDiagnostics",
