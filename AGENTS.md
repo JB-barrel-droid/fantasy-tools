@@ -1,5 +1,7 @@
 # Fantasy Tools Agent Guide
 
+Agents taking over PM/lead work: read `HANDOFF.md` first.
+
 Doc index: `docs/README.md` lists every durable doc; `runbooks/README.md` lists the recurring-job runbooks. Add or retire docs there, not in this file.
 
 `CLAUDE.md` holds the working agreements and is authoritative. This file covers
