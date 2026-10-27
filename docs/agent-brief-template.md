@@ -5,7 +5,7 @@ pasting a long shared brief (JEG-524). Pick the agent by the
 `Model tier` label on the ticket (table in `AGENTS.md`): T1 deep
 (`deep-worker`, Opus) for value/engine math, unknown-root-cause debugging,
 design or final review; T2 build (`worker`, Sonnet) for implementation against
-a written spec; T3 light (Haiku or the `delegate` fast tier) for copy edits,
+a written spec; T3 light (Haiku, or a cheap OpenRouter/MiniMax model) for copy edits,
 doc moves, research sweeps, capture and triage. T2 escalates to T1 after 2
 failed gate runs.
 

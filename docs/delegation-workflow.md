@@ -30,13 +30,13 @@ OpenRouter / MiniMax models are not allowed in T1.
 - a ticket labelled T2 that needs a judgement call on the numbers is really T1:
   relabel it
 
-### T3 light (Haiku or the `delegate` MCP "fast" tier, JEG-538; small GPT; cheap OpenRouter models, MiniMax M3 only)
+### T3 light (Haiku; small GPT; cheap OpenRouter models such as DeepSeek; MiniMax M3 only)
 
 - copy edits, doc moves, research sweeps, scraping and capture, triage, repo
   hygiene, first drafts
 - output is untrusted until the gate passes
 - never resolves player identity, edits fixtures, or touches `config/` values
-- the MiniMax decision is pending on JEG-584 (needs Jeremy); see `AGENTS.md`
+- MiniMax M3 is allowed for cheap runs until about 2026-10-31 (Jeremy, 2026-10-26); see `AGENTS.md` "Routing"
 
 ### Rules for every lane
 
@@ -49,7 +49,7 @@ OpenRouter / MiniMax models are not allowed in T1.
   Merge one engine PR at a time, following the merge protocol there.
 - The retired `owner:minimax`, `owner:chatgpt`, `owner:muse` and `owner:claude`
   labels and their lanes no longer exist. Ownership is the `Session` label
-  (`CLAUDE.md`, "Session ownership and takeover").
+  (`AGENTS.md`, "Session ownership and takeover").
 
 ## When To Delegate
 
