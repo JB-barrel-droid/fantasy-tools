@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import sys
 import unittest
+from datetime import date
 from pathlib import Path
 
 from tests import _render_env
@@ -56,7 +57,17 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-def engine_readouts(cases):
+def data_today() -> str:
+    """A day in the served data's content week. Both sides pin to it: the
+    reference otherwise reads the UTC date and the page the New York date, so
+    across the Tuesday flip (00:00-04:00 UTC) they disagree on the week, and
+    once both say week N+1 against week-N charts neither has a chart in I
+    (JEG-1152; same clock pin as JEG-787/JEG-791)."""
+    from tests.test_week_history import _fixture_today
+    return _fixture_today()
+
+
+def engine_readouts(cases, today):
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
@@ -67,6 +78,7 @@ def engine_readouts(cases):
         browser = pw.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
         try:
             page = browser.new_page()
+            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
             page.goto(f"{base}/{ENGINE_URL}")
             page.wait_for_function("() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                                    timeout=120000)
@@ -83,13 +95,14 @@ class BenchShareReadoutMatchesReference(unittest.TestCase):
         import expected_starts_model as esm
         import value_reference as ref
         cls.esm = esm
-        cls.inp = ref.Inputs.load(ref.FIXTURE, ref.PLAYERS)
+        today = data_today()
+        cls.inp = ref.Inputs.load(ref.FIXTURE, ref.PLAYERS, today=date.fromisoformat(today))
         cls.cfg = json.loads((REPO / "config" / "lineup_parameters.json").read_text(encoding="utf-8"))
         cls.hist = ref.History(ref.HISTORY)
         cls.cases = ([(sc, t, None, None) for sc in SCORINGS for t in TEAMS]
                      + [(sc, t, lineup, None) for sc, t, lineup, _ in NON_DEFAULT]
                      + [("ppr", 12, None, 0.10)])
-        cls.engine = engine_readouts(cls.cases)
+        cls.engine = engine_readouts(cls.cases, today)
 
     def reference(self, scoring, teams, **settings):
         return self.esm.bench_share_readout(self.inp, scoring, teams, self.cfg, hist=self.hist, **settings)
