@@ -122,15 +122,18 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
    below that it wraps and scrolls away with the page. Position weights and Copy / Paste sit in the ⋯ menu. */
 .v2-context { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
 .v2-context[hidden] { display: none; }
-.v2-context-inner { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-block: 8px; }
-.v2-ctx-league { display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 auto; overflow: hidden; }
+.v2-context-inner { display: flex; align-items: center; gap: 6px 8px; flex-wrap: wrap; padding-block: 8px; }
+/* Below 1024 px: league summary and freshness on the first line, the buttons on the second, the basis on the third. */
+.v2-context-inner::before { content: ""; order: 2; flex-basis: 100%; height: 0; }
+.v2-context-inner > * { order: 3; }
+.v2-context-inner > .v2-ctx-league { order: 0; display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1 1 0; overflow: hidden; }
 .v2-ctx-league strong { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 14px; flex-shrink: 0; max-width: 60%; }
 .v2-ctx-roster { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
-.v2-ctx-basis { display: flex; align-items: center; gap: 6px; order: 10; flex: 1 1 100%; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
+.v2-context-inner > .v2-ctx-basis { display: flex; align-items: center; gap: 6px; order: 10; flex: 1 1 100%; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
 .v2-ctx-basis > #v2ShowingText { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
 .v2-ctx-basis.is-off { display: none; }
-.v2-context .v2-ctx-freshness { flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; justify-content: flex-start; text-align: left; }
+.v2-context .v2-ctx-freshness { order: 1; flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; justify-content: flex-start; text-align: left; }
 .v2-ctx-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
 /* The short label ("Week 7") below 1440 px: the full sentence no longer fits beside the basis (JEG-1119 item 5).
@@ -151,8 +154,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 @media (min-width: 1024px) {
   .v2-context { position: sticky; top: 0; z-index: 30; }
   .v2-context-inner { flex-wrap: nowrap; min-height: 48px; padding-block: 0; }
-  .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
-  .v2-ctx-basis { order: 0; flex: 1 1 0; }
+  .v2-context-inner::before { content: none; }
+  .v2-context-inner > *, .v2-context .v2-ctx-freshness { order: 0; }
+  .v2-context-inner > .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
+  .v2-context-inner > .v2-ctx-basis { order: 0; flex: 1 1 0; }
 }
 /* Small button variant */
 .v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
