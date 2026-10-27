@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<!--
+  Design preview for Data Driven Football. Not the live site.
+  Open this file in a browser. Production v2 is not modified.
+  Direction: docs/design/2026-10-direction.md
+-->
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Data Driven Football — preview</title>
+  <link rel="stylesheet" href="concept.css">
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      var theme = q.get("theme");
+      if (theme !== "dark" && theme !== "light") {
+        try { theme = localStorage.getItem("ddf-concept-theme"); } catch (e) { theme = null; }
+      }
+      if (theme !== "dark" && theme !== "light") {
+        theme = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", theme);
+      if (q.get("shot") === "1") document.documentElement.classList.add("is-shot");
+    })();
+  </script>
+</head>
+<body>
+  <a class="skip" href="#homeTitle">Skip to content</a>
+  <header class="bar">
+    <div class="bar-inner">
+      <a class="brand" href="#home" aria-label="Data Driven Football, home">
+        <span class="mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32">
+            <rect width="32" height="32" rx="9" fill="currentColor"/>
+            <path d="M8 22c5 0 6-10 8-10s3 6 8 5" fill="none" stroke="var(--canvas)" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="brand-short">DDF</span>
+        <span class="brand-long">Data Driven Football</span>
+      </a>
+      <nav class="topnav" aria-label="Preview">
+        <button type="button" data-go="home">Home</button>
+        <button type="button" data-go="targets">Buy &amp; sell</button>
+        <button type="button" data-go="compare">Check a trade</button>
+        <button type="button" data-go="settings">Settings</button>
+      </nav>
+      <button type="button" class="league-btn" id="leagueBtn">Paste a league</button>
+      <button type="button" class="icon-btn" id="themeBtn" aria-label="Switch to dark mode">
+        <svg class="icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3.5A8.5 8.5 0 1 0 20.5 14 7 7 0 0 1 15 3.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+        <svg class="icon-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M18.4 5.6 17 7M7 17l-1.4 1.4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="view is-on" id="home" aria-labelledby="homeTitle">
+      <div class="wrap home-wrap">
+        <div class="home-grid">
+          <div class="home-copy">
+            <p class="micro" id="heroMicro">Free · No sign-up · Nothing to connect · Saved on this device</p>
+            <h1 id="homeTitle" tabindex="-1">Know who to trade for, before your league does.</h1>
+            <p class="lede">For the rest of the season, not this week's lineup. The math is one tap away.</p>
+            <div class="actions">
+              <button type="button" class="btn" data-go="paste">Paste my league <span class="btn-arrow" aria-hidden="true">→</span></button>
+              <button type="button" class="texty" data-go="compare">I already have a trade</button>
+            </div>
+          </div>
+          <article class="peek" aria-label="Preview of the first answer">
+            <p class="kicker">The first answer in this sample</p>
+            <p class="verdict-emoji" id="peekEmoji" aria-hidden="true"></p>
+            <p class="peek-name" id="peekName"></p>
+            <p class="peek-blurb" id="peekBlurb"></p>
+            <div class="chips" id="peekNums"></div>
+            <button type="button" class="texty" data-go="targets">Open the list</button>
+          </article>
+        </div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="paste" aria-labelledby="pasteTitle" inert aria-hidden="true">
+      <div class="wrap">
+        <div id="pasteEdit">
+          <h1 id="pasteTitle" tabindex="-1">Paste your league</h1>
+          <p class="sub">One box. Then pick your team. We remember it on this device.</p>
+          <p class="field-label" id="fromLabel">Where do I copy it from?</p>
+          <div class="source-row" role="radiogroup" aria-labelledby="fromLabel">
+            <button type="button" role="radio" data-from="sleeper" aria-checked="false">Sleeper</button>
+            <button type="button" role="radio" data-from="espn" aria-checked="false">ESPN</button>
+            <button type="button" role="radio" data-from="yahoo" aria-checked="false">Yahoo</button>
+            <button type="button" role="radio" data-from="other" aria-checked="false">Somewhere else</button>
+          </div>
+          <p class="tip" id="pasteTip"></p>
+          <label class="paste-label" for="pasteBox">League paste</label>
+          <textarea id="pasteBox" rows="6" placeholder="Paste a team, a roster page, or a list of names"></textarea>
+          <p class="running" id="pasteCount" hidden></p>
+          <div class="actions" id="pasteActions"></div>
+        </div>
+        <div id="pasteMatch" hidden>
+          <h1 id="matchTitle" tabindex="-1">Got it: 12 teams, 186 players</h1>
+          <p class="sub">Which team is yours? We'll remember it on this device.</p>
+          <div class="team-list" id="teamList"></div>
+          <button type="button" class="texty" id="pasteBack">Paste a different league</button>
+        </div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="targets" aria-labelledby="targetsTitle" inert aria-hidden="true">
+      <div class="wrap">
+        <p class="eyebrow">Buy &amp; sell</p>
+        <p class="verdict-emoji" id="targetsEmoji" aria-hidden="true"></p>
+        <h1 id="targetsTitle" tabindex="-1"></h1>
+        <p class="sub" id="targetsSub"></p>
+        <div class="chips" id="targetsChips"></div>
+        <div class="seg" id="sideSeg" data-on="buy" role="tablist" aria-label="Buy or sell">
+          <span class="seg-thumb" aria-hidden="true"></span>
+          <button type="button" role="tab" id="sideBuy" aria-selected="true" aria-controls="targetList">Buy</button>
+          <button type="button" role="tab" id="sideSell" aria-selected="false" aria-controls="targetList">Sell</button>
+        </div>
+        <div id="targetList"></div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="compare" aria-labelledby="compareTitle" inert aria-hidden="true">
+      <div class="wrap compare-wrap">
+        <p class="eyebrow" id="compareEyebrow">Check a trade</p>
+        <div class="verdict-row">
+          <div>
+            <p class="verdict-emoji" id="compareEmoji" aria-hidden="true"></p>
+            <h1 id="compareTitle" tabindex="-1"></h1>
+          </div>
+          <p class="stamp" id="compareStamp" hidden></p>
+        </div>
+        <p class="verdict-lead" id="compareSub"></p>
+        <div class="readings" id="readings"></div>
+        <div class="why" id="why">
+          <button type="button" class="texty" id="whyBtn" aria-expanded="false" aria-controls="whyPanel" hidden>Show the math</button>
+          <div class="why-panel" id="whyPanel">
+            <div class="why-inner" id="whyInner"></div>
+          </div>
+        </div>
+        <div class="deal" id="deal"></div>
+        <div class="row-actions" id="compareActions"></div>
+        <article class="share-card" id="shareCard" hidden></article>
+        <p class="footnote"></p>
+      </div>
+    </section>
+
+    <section class="view" id="settings" aria-labelledby="settingsTitle" inert aria-hidden="true">
+      <div class="wrap">
+        <h1 id="settingsTitle" tabindex="-1">Settings</h1>
+        <p class="data-line" id="dataLine">Your data: saved on this device.</p>
+        <div class="actions" id="dataActions">
+          <button type="button" class="quiet" id="exportBtn">Export</button>
+          <button type="button" class="quiet" id="importBtn">Import</button>
+          <button type="button" class="quiet" id="copyLinkBtn">Copy link</button>
+          <input id="importFile" type="file" accept=".txt,text/plain" hidden>
+        </div>
+        <p class="menu-note" id="teamNote"></p>
+        <h2>Show the math</h2>
+        <div class="menu-block">
+          <h3><span>The DDF read</span></h3>
+          <p>DDF Charted Value and DDF Projected Value, side by side. The Market is the other read.</p>
+        </div>
+        <div class="menu-block">
+          <h3>
+            <span>DDF Charted Value</span>
+            <span class="tip">
+              <button type="button" class="tip-btn" aria-expanded="false" aria-controls="tip-set-charted"><span aria-hidden="true">i</span><span class="sr">About DDF Charted Value</span></button>
+              <span class="tip-pop" id="tip-set-charted" role="note" tabindex="-1" hidden>Our value for this player, starting from the trade charts and adjusted for position weight and your league's rosters.</span>
+            </span>
+          </h3>
+          <p>Our value for this player, starting from the trade charts and adjusted for position weight and your league's rosters. On this preview the figure is the chart average, before that adjustment is wired.</p>
+        </div>
+        <div class="menu-block">
+          <h3>
+            <span>DDF Projected Value</span>
+            <span class="tip">
+              <button type="button" class="tip-btn" aria-expanded="false" aria-controls="tip-set-projected"><span aria-hidden="true">i</span><span class="sr">About DDF Projected Value</span></button>
+              <span class="tip-pop" id="tip-set-projected" role="note" tabindex="-1" data-align="end" hidden>Our value for this player, starting from rest-of-season projections and adjusted for position weight and your league's rosters.</span>
+            </span>
+          </h3>
+          <p>The same method, starting from rest-of-season projections. Check a trade also shows the points per week and for the rest of the season. On this preview the value-scale figure is one projection source. Show the math opens each point read.</p>
+        </div>
+        <div class="menu-block">
+          <h3>
+            <span>The Market</span>
+            <span class="tip">
+              <button type="button" class="tip-btn" aria-expanded="false" aria-controls="tip-set-market"><span aria-hidden="true">i</span><span class="sr">About the Market</span></button>
+              <span class="tip-pop" id="tip-set-market" role="note" tabindex="-1" hidden>What the trade charts say before our adjustments — roughly how the other manager will see it.</span>
+            </span>
+          </h3>
+          <p>The other team's read: the trade charts before our adjustments. On this preview that is the chart average, from their side.</p>
+        </div>
+        <div class="menu-block">
+          <h3>Buy, Sell, Fair price, Change</h3>
+          <p>Buy means DDF Projected Value is ahead of the Market. Sell means the Market is ahead of DDF Projected Value. Fair price means the two are close, and those names stay in the player picker. Change is how a number moved. This preview is one day, so Change is not on the cards.</p>
+        </div>
+        <div class="menu-block">
+          <h3>A trade</h3>
+          <p>Good for you when you gain DDF Charted Value. The other team is judging whether their lineup improves on the Market. DDF Projected Value sits beside DDF Charted Value.</p>
+        </div>
+        <p class="footnote"></p>
+      </div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Preview">
+    <button type="button" data-go="home">Home</button>
+    <button type="button" data-go="targets">Buy &amp; sell</button>
+    <button type="button" data-go="compare">Check a trade</button>
+    <button type="button" data-go="settings">Settings</button>
+  </nav>
+
+  <div class="toast" id="toast" hidden role="status">
+    <p id="toastText">Saved on this device. Bookmark this page or tap Export</p>
+    <div class="toast-actions">
+      <button type="button" class="quiet" id="toastExport">Export</button>
+      <button type="button" class="quiet" id="toastCopy">Copy link</button>
+      <button type="button" class="quiet" id="toastDismiss" aria-label="Dismiss">OK</button>
+    </div>
+  </div>
+  <div class="confetti" id="confetti" hidden aria-hidden="true"></div>
+
+  <dialog id="picker" aria-labelledby="pickerTitle">
+    <div class="sheet-head">
+      <h2 id="pickerTitle">Choose a player</h2>
+      <button type="button" class="icon-btn" id="pickerClose" aria-label="Close">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+    <div class="sheet-body">
+      <label class="search"><span class="sr">Search players</span>
+        <input id="pickerSearch" type="search" placeholder="Search the sample" autocomplete="off" enterkeyhint="search">
+      </label>
+      <div class="picker-list" id="pickerList" role="listbox" aria-label="Players in the sample"></div>
+    </div>
+  </dialog>
+
+  <p class="sr" id="live" aria-live="polite"></p>
+  <script src="sample.js"></script>
+  <script src="concept.js"></script>
+</body>
+</html>
