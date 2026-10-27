@@ -965,20 +965,35 @@ class DdfHeldSeriesTest(unittest.TestCase):
         self.assertEqual(out["loadByVersion"]["ddf_value_projections"]["inputs"], PROJECTIONS)
 
     def test_no_chart_in_the_pipeline_leaves_ddf_value_null_not_the_projections(self):
-        """JEG-1073: with every chart unpublished for the week the main DDF
-        Value is null for everyone; it does not fall back to the projections
-        (which still price players in the alternate). Fails on the JEG-804
-        fallback, where a missing projection set fell back to all sources."""
-        def all_charts_old(fixture):
+        """JEG-1073: with no chart in the pipeline the main DDF Value is null
+        for everyone; it does not fall back to the projections (which still
+        price players in the alternate). Fails on the JEG-804 fallback, where a
+        missing projection set fell back to all sources.
+        JEG-1156 (Jeremy, 2026-10-27, option A) changed the setup: every chart a
+        week behind the calendar is now the values-week fallback (priced, see
+        the next test), so the chart sections are left out of the build instead."""
+        def no_charts(fixture):
             for chart in CHARTS:
-                older_week(chart)(fixture)
-        out = run(NO_CHART, data_edit=all_charts_old)
+                fixture["sources"].pop(chart, None)
+        out = run(NO_CHART, data_edit=no_charts)
         self.assertEqual(out["pageErrors"], [])
         self.assertEqual(out["inputs"], [])
         self.assertEqual(out["ddfPriced"], 0)
         self.assertEqual(out["blendedPriced"], 0)
         self.assertEqual(out["blendedSources"], 0)
         self.assertGreater(out["projectionsPriced"], 100, "the projections alternate should still price players")
+
+    def test_every_chart_a_week_behind_is_the_labeled_fallback(self):
+        """JEG-1156 (Jeremy, 2026-10-27, option A): when no chart has posted
+        the calendar week, DDF Value uses the latest published week (all four
+        charts), not blank. Failed before: every chart was "not yet published"."""
+        def all_charts_old(fixture):
+            for chart in CHARTS:
+                older_week(chart)(fixture)
+        out = run(NO_CHART, data_edit=all_charts_old)
+        self.assertEqual(out["pageErrors"], [])
+        self.assertEqual(sorted(out["inputs"]), sorted(CHARTS))
+        self.assertGreater(out["ddfPriced"], 100)
 
     def test_unheld_fixture_has_no_held_series(self):
         out = self.unheld
