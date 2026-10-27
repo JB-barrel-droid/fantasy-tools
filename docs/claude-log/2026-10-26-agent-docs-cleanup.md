@@ -22,3 +22,9 @@ old stuff"). Docs only.
 - The MiniMax-until-Oct-31 and DeepSeek routing, and Ba-Nana as PM, come from
   Jeremy's 2026-10-26 chat as recorded by Ba-Nana; not yet on a ticket.
 - Whether the claude.ai artifact's daily republish task has been retired.
+
+### Follow-up: merge order (same PR)
+- Jeremy, 2026-10-26: always merge `origin/main` into branches, never rebase,
+  never force-push. AGENTS.md merge step 2 and `docs/merge-charter.md` queue
+  step updated; `rg -i rebase` over AGENTS.md, CLAUDE.md, docs/merge-charter.md,
+  docs/delegation-workflow.md, docs/agent-brief-template.md, runbooks/ is empty.

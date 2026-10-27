@@ -185,8 +185,8 @@ reference), `config/roster.json`, `config/lineup_parameters.json`,
 
 1. Merge one engine PR at a time. Re-run `make test-core` after each. Two PRs
    on `curve-widget.js` merged minutes apart broke deploys twice.
-2. Bring the branch up to date with `main`: rebase only while the branch is
-   unpushed; once pushed, merge `main` in (no force-push). Then `make validate`
+2. Bring the branch up to date by merging `origin/main` into it. Never
+   rebase, never force-push (Jeremy, 2026-10-26). Then `make validate`
    and the contract test (`tests/test_v2_contract_render.py`). Value changes
    pair JS, Python reference and spec reference on one branch with
    `value_check compare` at 0 and zero rank-guard inversions.
