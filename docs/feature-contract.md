@@ -170,7 +170,7 @@ Share links carry every setting. League weeks use `regend`, `playoffs`, `optimiz
 
   - **CT-02** The verdict card carries no "Should you propose or accept?" or "Will they accept?" lines, and no "Our value: ..." or "Charts agree: ..." level. The Deal read (CT-08) carries the answer. *(Jeremy, 2026-10-26, JEG-1112 option D, "drop the two 'propose / accept' heads": they repeated the Deal read and pushed the give / receive / verdict block past the fold at 1366x768 and 1440x900. Retires the JEG-505 / JEG-895 headline answers; pinned by `tests/test_v2_contract_render.py` and `tests/test_v2_compare_empty_side_render.py`)*
 
-The retired headline's level still follows how many trade charts are on the answer's side: 3 or more keep it, 2 cap it at moderate, 0 or 1 cap it at weak (Jeremy, 2026-10-23 and 2026-10-25, JEG-950). It stays in `tradeHeadlines` and is pinned by `tests/test_v2_headlines.py`.
+    The retired headline's level still follows how many trade charts are on the answer's side: 3 or more keep it, 2 cap it at moderate, 0 or 1 cap it at weak (Jeremy, 2026-10-23 and 2026-10-25, JEG-950). It stays in `tradeHeadlines` and is pinned by `tests/test_v2_headlines.py`.
 
   - **CT-03** The verdict is by DDF Value:
 
