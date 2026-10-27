@@ -117,7 +117,7 @@ BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
-H1 = "Where the trade market is wrong this week"
+H1 = "Trade targets"  # JEG-1119: page titles match the nav labels
 # JEG-888 (#828): the intro counts the charts the view compares, never a hard-coded "four publishers". The pinned
 # fixture (tests/_holds.py) has CBS held, so three charts are compared. test_v2_plain_copy_render proves the count follows data.
 SUBTITLE = ("We check 3 trade charts against our values for your league, two ways: "
@@ -204,7 +204,7 @@ READ = """([side, ours, ids]) => {
     cardScores: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.dataset.score ?? null),
     cardTexts: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.textContent ?? null),
     meta: document.getElementById(ids.meta || (side === 'sell' ? 'v2TSellMeta' : 'v2TBuyMeta')).textContent,
-    methodsHidden: document.getElementById('v2Methods').hidden,
+    methodsHidden: document.getElementById('v2EditSources').hidden,  // JEG-1119: Customize sits in the context row
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 

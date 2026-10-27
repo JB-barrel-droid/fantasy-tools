@@ -79,7 +79,7 @@ READ = """() => {
     tabs: [...document.querySelectorAll('.v2-tab')].map(t => ({view: t.dataset.view, href: t.getAttribute('href'),
       label: t.querySelector('.v2-tab-full')?.textContent || '', current: t.getAttribute('aria-current') === 'page'})),
     pages: Object.fromEntries(%s.map(id => [id, shown(id)])),
-    league: shown('v2League'), methods: shown('v2Methods'),
+    league: shown('v2Context'), methods: shown('v2Context'),  // JEG-1119: one context row
     sections: [...document.querySelectorAll('#v2WritingTabs .v2-subtab')].map(a => ({slug: a.dataset.writing, label: a.textContent.trim(),
       href: a.getAttribute('href'), current: a.getAttribute('aria-current') === 'page'})),
     hash: location.hash,

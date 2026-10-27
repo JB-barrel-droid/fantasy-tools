@@ -263,11 +263,10 @@
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
-    const inner = document.querySelector(".v2-league-inner");
+    const inner = document.querySelector(".v2-context-inner");   // JEG-1119: the context row replaced the league bar
     if (!inner) return null;
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
-    const actions = inner.querySelector(".v2-league-actions");
-    inner.insertBefore(bar, actions || null);
+    inner.insertBefore(bar, $("v2EditSources"));
     return bar;
   }
   function bannerHost() {
