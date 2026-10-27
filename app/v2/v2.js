@@ -44,8 +44,8 @@
   const metaColumnsShown = () => expanded === "table" || (Boolean(metaWideQuery && metaWideQuery.matches) && !metaNoRoom);
   const isNarrow = () => Boolean(narrowQuery && narrowQuery.matches);
   let RESCALED_TO = "";   // JEG-1044: " to FantasyCalc" under a reader basis (syncBasisLabels), so "rescaled" never misleads
-  const SHORT_METHOD = {dda: "Our value", indexed: "Rescaled", vorp: "Value above waivers"};
-  const PLAIN_METHOD = {dda: "Our value", indexed: "Rescaled chart", vorp: "Value above waivers"};
+  const SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
+  const PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp: "Value above waivers"};
   const METHOD_LABEL = new Proxy({}, {get: (_, method) => (isNarrow() ? SHORT_METHOD : PLAIN_METHOD)[method]});
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
@@ -377,7 +377,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -406,10 +406,9 @@
     $("v2Manifesto").hidden = !onManifesto;
     $("v2Research").hidden = !onResearch;
     if (onResearch) showResearchPage();
-    $("v2League").hidden = onText;
+    $("v2Context").hidden = onText;
     if (!C) {
       $("v2State").hidden = onText;
-      if (onText) $("v2Methods").hidden = true;
     }
   }
 
@@ -1881,7 +1880,7 @@
     if (drawerTierFrom === "compare") return tierText(row, verdictKey(), compareTierScope());
     return valuesTier(row);
   }
-  const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];
+  const METHOD_COLUMNS = [["dda", "DDF Value"], ["indexed", "Market"], ["vorp", "Value above waivers"]];
   const METHOD_FULL = {dda: "Our Data Driven Adjustments", indexed: "Rescaled", vorp: "Value above waivers"};
 
   function drawerSection(title, sub) {
@@ -2416,13 +2415,13 @@
   // pipeline strings. JEG-498 (contract GL-07): every page has its own Customize with its own default set, remembered
   // on this device. Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
   const DIALOG_GROUPS = [
-    {id: "ddf", title: "Our values", note: ""},
+    {id: "ddf", title: "DDF Value", note: ""},
     {id: "pub", title: "Published trade charts", note: "What the major sites say each player is worth, adjusted to your league's scale."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "Our value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_charts: "Our value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
+    ddf_value_charts: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
     ddf_value_projections: "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
@@ -3029,16 +3028,11 @@
         });
         stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
         eyebrow(content, "Optimize for");
-        content.appendChild(segmented("Optimize for", [["season", "Whole season"], ["regular", "Regular season"], ["playoffs", "Playoffs"]],
-          w.optimize, v => { w.optimize = v; queue(); }));
-        // JEG-1023: the playoffs option has not been reviewed (Jeremy, 2026-10-24); plain text, tied to the button.
-        const optimizeCaption = document.createElement("p");
-        optimizeCaption.className = "v2-meta v2-optimize-caption";
-        optimizeCaption.id = "v2OptimizeNotReviewed";
-        optimizeCaption.textContent = "Playoffs: not reviewed, may not work as expected";
-        content.appendChild(optimizeCaption);
-        const playoffsButton = content.querySelector('.v2-pseg button[data-value="playoffs"]');
-        if (playoffsButton) playoffsButton.setAttribute("aria-describedby", optimizeCaption.id);
+        // JEG-1119: the Playoffs option is hidden (not reviewed, likely not working). A league already saved on it
+        // still shows it, so that reader can see the setting and switch away.
+        const optimizeOptions = [["season", "Whole season"], ["regular", "Regular season"]];
+        if (w.optimize === "playoffs") optimizeOptions.push(["playoffs", "Playoffs"]);
+        content.appendChild(segmented("Optimize for", optimizeOptions, w.optimize, v => { w.optimize = v; queue(); }));
         const lo =w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
@@ -3178,7 +3172,9 @@
   }
   const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
   function openWeights() {
-    openPanel($("v2Weights"), "Position weights", "Applies across tabs", pop => {
+    // JEG-1119: Position weights sits in the ⋯ menu; with the menu closed the panel anchors (and returns focus) to ⋯.
+    const anchor = $("v2Weights").offsetParent ? $("v2Weights") : $("v2ContextMore");
+    openPanel(anchor, "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench share");
       const readoutBox = document.createElement("div");
@@ -6415,10 +6411,12 @@
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
-    // JEG-498: every page with values has its own Customize; the Manifesto and Research are text only.
-    // The Manifesto is text only: no values, so no Showing bar.
-    $("v2Methods").hidden = writingSection() === "manifesto" || writingSection() === "research" || v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
-    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
+    // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
+    // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
+    // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    $("v2EditSources").hidden = noShowing;
+    document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
     // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
     const navKey = v === "writing" ? "writing/" + writingSection()
@@ -6487,9 +6485,11 @@
     } else if (keys.length === 1) {
       text = `Only one series is selected (${sourceMeta(keys[0]).short}). Choose another source to see where the sources disagree.`;
     }
-    $("v2Notice").hidden = !text;
+    if (text !== noticeDismissedText) { noticeDismissedText = ""; }
+    $("v2Notice").hidden = !text || noticeDismissedText === text;
     $("v2NoticeText").textContent = text;
   }
+  let noticeDismissedText = "";
 
   // Settings popovers and shared-state changes call this; it redraws whichever tab is showing.
   // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
@@ -6508,10 +6508,10 @@
     const custom = Boolean(b && !b.isDefault);
     const to = custom ? ` (to ${b.label})` : "";
     RESCALED_TO = custom ? ` to ${b.label}` : "";
-    SHORT_METHOD.indexed = `Rescaled${to}`;
-    PLAIN_METHOD.indexed = `Rescaled chart${to}`;
-    METHOD_COLUMNS[1][1] = `Rescaled chart${to}`;
-    METHOD_FULL.indexed = `Rescaled${to}`;
+    SHORT_METHOD.indexed = `Market${to}`;
+    PLAIN_METHOD.indexed = `Market${to}`;
+    METHOD_COLUMNS[1][1] = `Market${to}`;
+    METHOD_FULL.indexed = `Market${to}`;
     const pub = SERIES_GROUPS.find(g => g.id === "pub");
     pub.title = custom ? `Trade charts (rescaled${to})` : "Trade charts (rescaled)";
     pub.note = custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis). Their ranking order is unchanged.`
@@ -6788,6 +6788,7 @@
     $("v2Reset").addEventListener("click", resetValues);
     $("v2EmptyClear").addEventListener("click", resetValues);
     $("v2NoticeBtn").addEventListener("click", event => openSources(event.currentTarget));
+    $("v2NoticeClose").addEventListener("click", () => { noticeDismissedText = $("v2NoticeText").textContent; $("v2Notice").hidden = true; });
     document.querySelectorAll("#v2EmptyActions [data-clear]").forEach(button => {
       button.addEventListener("click", () => {
         const what = button.dataset.clear;
@@ -6800,6 +6801,24 @@
     });
     $("v2EditSources").addEventListener("click", event => openSources(event.currentTarget));
     $("v2EditLeague").addEventListener("click", openLeague);
+    // JEG-1119: the context row's ⋯ menu (Position weights, Copy / Paste for ChatGPT/Claude).
+    const setContextMenu = open => {
+      $("v2ContextMenu").hidden = !open;
+      $("v2ContextMore").setAttribute("aria-expanded", String(open));
+    };
+    $("v2ContextMore").addEventListener("click", () => {
+      const open = $("v2ContextMenu").hidden;
+      setContextMenu(open);
+      if (open) { const first = [...$("v2ContextMenu").querySelectorAll("button")].find(b => b.offsetParent); if (first) first.focus(); }
+    });
+    // Capture phase: the menu closes before the item's own handler runs, so Position weights anchors to ⋯.
+    $("v2ContextMenu").addEventListener("click", event => { if (event.target.closest("button")) setContextMenu(false); }, true);
+    $("v2ContextMenu").addEventListener("keydown", event => {
+      if (event.key === "Escape") { setContextMenu(false); $("v2ContextMore").focus(); }
+    });
+    document.addEventListener("click", event => {
+      if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
+    });
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);

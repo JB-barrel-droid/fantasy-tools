@@ -232,12 +232,10 @@
     var slots = setting.slots || {};
     var sfSlots = Math.max(0, Number(setting.superflex) || 0);
     var flexSlots = Math.max(0, Number(setting.flex) || 0);
-    var bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                             {superflex: sfSlots > 0});
     var alloc = {};
     POSITION_ORDER.forEach(function (pos) {
       alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
-        bench: bench[pos], starters: 0, rostered: 0 };
+        bench: 0, starters: 0, rostered: 0 };
     });
     function takeBest(eligiblePositions, offsetOf, count) {
       var cand = [];
@@ -262,18 +260,68 @@
     var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
-    // MR-28 (JEG-969): flex_bench_seats on by default (2026-10-23, Jeremy approved).
-    // Recompute bench weights counting superflex+flex starters, matching
-    // allocate_league in the ES model.  Off only when explicitly false.
-    // Skipped in 2-QB / superflex: market_bench 2-QB data already captures
-    // supply-capped QB benches (Jeremy, 2026-10-23, option A).
-    var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
-    if (setting.flex_bench_seats !== false && !isTwoQb) {
-      var ff = {};
-      POSITION_ORDER.forEach(function (pos) { ff[pos] = (sf[pos] || 0) + (fx[pos] || 0); });
-      bench = vpBenchSeats(slots, teams, Math.max(0, Number(setting.bench_per_team) || 0),
-                           {superflex: sfSlots > 0, flexFilled: ff});
+    // JEG-1121 revised: bench allocation.
+    var benchPerTeam = Math.max(0, Number(setting.bench_per_team) || 0);
+    if (setting.flex_bench_seats === false) {
+      // D'Hondt path (backward compat; flex_bench_seats=false used by fixture tests).
+      var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      var ff = null;
+      if (!isTwoQb) {
+        ff = {};
+        POSITION_ORDER.forEach(function (pos) { ff[pos] = ((sf[pos] || 0) + (fx[pos] || 0)) / teams; });
+      }
+      var bench = vpBenchSeats(slots, teams, benchPerTeam, {superflex: isTwoQb, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    } else {
+      // JEG-1121 stable: bench fills by PPG × usage discount in one cross-position pass.
+      // Replacement level = 0 (any positive-PPG player competes).
+      // Discount for backup k at pos: c^(1 + floor(k / t1)), where
+      // c = starters_per_team × (bye_rate + miss_rate), t1 = round(2 × c × teams).
+      // No D'Hondt fallback; seats left unfilled if no positive-PPG candidates remain.
+      var isTwoQbVorp = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
+      // Starters per team for coverage rate
+      var startPT = {};
+      POSITION_ORDER.forEach(function (pos) {
+        startPT[pos] = (alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0)) / teams;
+      });
+      // miss rates (from lineup_parameters.json, rounded for Python parity)
+      var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
+      var VORP_BYE = 1.0 / 17.0;
+      // t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
+      var vorpT1 = {};
+      POSITION_ORDER.forEach(function (pos) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        vorpT1[pos] = Math.max(1, Math.round(2.0 * c * teams));
+      });
+      function vorpDiscount(pos, k) {
+        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+        var tier = Math.floor(k / (vorpT1[pos] || 1));
+        return Math.pow(c, 1 + tier);
+      }
+      // Greedy bench fill: seats go to the highest PPG × discount candidate.
+      var benchCounts = {};
+      POSITION_ORDER.forEach(function (pos) { benchCounts[pos] = 0; });
+      var totalBench = vpRoundHalfUp(teams * benchPerTeam);
+      for (var bSlot = 0; bSlot < totalBench; bSlot++) {
+        var bestEff = -Infinity, bestPos = null, anyCandidate = false;
+        POSITION_ORDER.forEach(function (pos) {
+          var order = orders[pos] || [];
+          var offset = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+          var idx = offset + (benchCounts[pos] || 0);
+          if (idx >= order.length) return;
+          anyCandidate = true;
+          var raw = order[idx].score || 0;
+          var eff = Math.max(0, raw) * vorpDiscount(pos, benchCounts[pos] || 0);
+          var pi = vpPosIndex(pos), bi = bestPos !== null ? vpPosIndex(bestPos) : Infinity;
+          if (eff > bestEff || (eff === bestEff && pi < bi)) {
+            bestEff = eff; bestPos = pos;
+          }
+        });
+        if (bestPos === null || !anyCandidate) break;
+        if (bestEff <= 0) break;  // no positive-PPG candidates remain; leave seats unfilled
+        benchCounts[bestPos] = (benchCounts[bestPos] || 0) + 1;
+      }
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = benchCounts[pos] || 0; });
     }
     POSITION_ORDER.forEach(function (pos) {
       var a = alloc[pos];
@@ -511,7 +559,8 @@
         var nListed = Object.keys(sharedKeys).filter(function (k) { return posOf[k] === pos; }).length;
         var ded = teams * (Number(slots[pos]) || 0);
         var avail = Math.max(0, nListed - ded);
-        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail);
+        // JEG-1121: sfTotal/fxTotal/avail are league-wide; normalize to per-team.
+        ff[pos] = Math.min(sfTotal + ((flexElig.indexOf(pos) >= 0) ? fxTotal : 0), avail) / teams;
       });
       benchOpts.flexFilled = ff;
     }
