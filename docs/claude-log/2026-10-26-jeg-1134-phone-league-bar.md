@@ -51,7 +51,19 @@ the diff and runs the gate.
 - The collapse covers both `#v2League` (scoring, roster, Edit league, Position weights, and the assist panel) and
   `#v2Methods` (the "On the chart" line, the source legend, Customize). The plan says the source legend and
   Customize move into the drawer; the showing line goes with them because it lives in the same row.
-- "N sources" counts the series the legend lists (same set as `#v2ShowingLegend`), labelled with the existing
-  `${n} source(s)` wording, e.g. "Full PPR · 12 teams · 5 sources". The plan's "3 sources" was illustrative.
+- "N sources" counts the outside series the legend lists, not DDF Value (see the T1 review below).
 - The disclosure uses `body:not(:has(#v2LeagueSummary[aria-expanded="true"]))`, inside `max-width: 767px`. If
   `:has()` is unsupported the blocks stay open, i.e. it degrades to today's behaviour.
+
+### T1 review and Jeremy's decisions (Claude Opus, Ba-Nana merge run, 2026-10-26)
+
+Jeremy, 2026-10-26 7:55 PM CT: (1) the "On the chart: ..." line may hide while the phone bar is collapsed - kept;
+(2) the summary's source count counts only outside sources, not DDF Value itself, e.g. "Full PPR · 12 teams ·
+4 sources" when 4 outside charts plus DDF Value are shown.
+
+Verified (check named):
+- `v2.js` counts `shownKeys` minus `isDdfKey` keys. `test_v2_phone_league_bar_render` now requires the third part
+  to equal legend items minus DDF Value items (and that DDF Value is in the legend). With the old count restored
+  it fails: `the source count '5 sources' is not the outside-source count '4 sources' (5 in the legend, 1 of them
+  DDF Value)`. With the fix, `RENDER_TESTS_REQUIRED=1 python -m unittest tests.test_v2_phone_league_bar_render
+  tests.test_v2_contract_render` - 9 tests OK after merging origin/main.
