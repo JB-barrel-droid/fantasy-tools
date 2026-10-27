@@ -130,7 +130,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-ctx-basis > #v2ShowingText { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; overflow: hidden; flex-wrap: nowrap; }
 .v2-ctx-basis.is-off { display: none; }
-.v2-ctx-freshness { flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; }
+.v2-context .v2-ctx-freshness { flex: 0 1 auto; min-width: 0; color: var(--v2-ink); margin-left: auto; justify-content: flex-start; text-align: left; }
 .v2-ctx-freshness #v2FreshnessLabel { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
 /* The short label ("Week 7") below 1440 px: the full sentence no longer fits beside the basis (JEG-1119 item 5).
