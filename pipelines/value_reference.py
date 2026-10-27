@@ -98,6 +98,54 @@ DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value
 DDF_FAMILY = {"blended": "chart", "charts": "chart", "projections": "projection"}
 DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
                    "ddf_value_projections": "ddf_projections_count"}
+# JEG-1058: the fixed-pie scale a reader override lives on (spec 3.6).
+OVERRIDE_MIN = 0.0
+OVERRIDE_MAX = 100.0
+
+
+def _override_number(value):
+    """JEG-1058: a number or a numeric string, the same set the JS engine's
+    normalizeOverride accepts. None when the value cannot be a number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if math.isfinite(value) else None
+    if isinstance(value, str):
+        if value == "":
+            return None
+        try:
+            text = float(value)
+        except ValueError:
+            return None
+        return text if math.isfinite(text) else None
+    return None
+
+
+def _override_spec(override) -> dict | None:
+    """JEG-1058: what the reader set, as one record: {"type": "absolute",
+    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used.
+    A value past the top of the scale is capped and an adjustment is capped to
+    the scale's span, so an override from outside the editor lands on the same
+    numbers the editor shows."""
+    if override is None or isinstance(override, bool):
+        return None
+    if isinstance(override, (int, float, str)):
+        value = _override_number(override)
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    if isinstance(override, dict):
+        if override.get("type") == "adjustment":
+            delta = _override_number(override.get("delta"))
+            if delta is None:
+                return None
+            return {"type": "adjustment", "delta": min(OVERRIDE_MAX, max(-OVERRIDE_MAX, delta))}
+        value = _override_number(override.get("value"))
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    return None
+
 
 SCORINGS = ("standard", "half_ppr", "ppr")
 TEAM_COUNTS = (8, 10, 12, 14)
@@ -1143,20 +1191,31 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
 
 
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
-    """JEG-1035 / JEG-1044: reader DDF Value overrides, a row-level overlay
-    after the pipeline: the blended value only (absolute; JEG-1073 made the
+    """JEG-1035 / JEG-1044 / JEG-1058: reader DDF Value overrides, a row-level
+    overlay after the pipeline: the blended value only (JEG-1073 made the
     projections version a separate alternate). Adjusted, Indexed, the pie and
-    the charts-only and projections versions are untouched."""
+    the charts-only and projections versions are untouched.
+
+    An override is an absolute value (a number) or an adjustment to the
+    pipeline's own value ({"type": "adjustment", "delta": n}), clamped to the
+    fixed-pie scale 0-100."""
     for i, row in rows.items():
         ov = overrides.get(i)
         for name in ("blended",):
             entry = row["ddf"][name]
             entry["pipeline_value"] = entry["value"]
-            entry["overridden"] = ov is not None
-            if ov is not None:
-                entry["value"] = float(ov)
-                entry["low_confidence"] = False
-                entry["reason"] = None
+            spec = _override_spec(ov)
+            entry["overridden"] = spec is not None
+            if spec is None:
+                continue
+            if spec["type"] == "adjustment":
+                base = entry["pipeline_value"]
+                base = float(base) if isinstance(base, (int, float)) else 0.0
+                entry["value"] = min(OVERRIDE_MAX, max(OVERRIDE_MIN, base + spec["delta"]))
+            else:
+                entry["value"] = float(spec["value"])
+            entry["low_confidence"] = False
+            entry["reason"] = None
 
 
 def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:

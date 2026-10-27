@@ -759,16 +759,71 @@
     return { value: used.length ? sum / wsum : null, used: used };
   }
 
-  // JEG-1035 / JEG-1044: a reader override of DDF Value is a row-level
-  // overlay applied after the pipeline. It touches only the DDF entry it is
-  // given; Adjusted values, the pie, Indexed factors and the charts-only
-  // version are never read or written. Absolute value only. Returns the
-  // entry (mutated).
+  // JEG-1058: the fixed-pie scale an override lives on (spec 3.6).
+  var OVERRIDE_MIN = 0;
+  var OVERRIDE_MAX = 100;
+  // An override that arrives from outside the editor (a share link, an import,
+  // a saved record) is put on the scale the editor shows: an absolute value
+  // between 0 and 100, an adjustment within the scale's span. The value it
+  // produces is the same either way, because the result is capped anyway.
+  function clampOverrideValue(value) {
+    return Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, value));
+  }
+  function clampOverrideDelta(delta) {
+    return Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, delta));
+  }
+
+  // JEG-1035 / JEG-1044 / JEG-1058: a reader override of DDF Value is a
+  // row-level overlay applied after the pipeline. It touches only the DDF
+  // entry it is given; Adjusted values, the pie, Indexed factors and the
+  // charts-only version are never read or written. Returns the entry (mutated).
+  //
+  // Two kinds (spec 3.1): an absolute value ("worth 58.0") and an adjustment
+  // ("+5", "-3") added to the pipeline's own value. What the reader set is
+  // normalised first: a number is an absolute value, an object carries its
+  // type. An entry that cannot be used (not a number, an absolute below zero)
+  // is refused rather than applied; one that is past the top of the scale is
+  // capped, so the value the reader sees is the value that is applied.
+  function normalizeOverride(override) {
+    if (override === null || override === undefined) return null;
+    if (typeof override === "number") {
+      if (!Number.isFinite(override) || override < OVERRIDE_MIN) return null;
+      return {type: "absolute", value: clampOverrideValue(override)};
+    }
+    if (typeof override === "string") {
+      if (override === "") return null;
+      var text = Number(override);
+      if (!Number.isFinite(text) || text < OVERRIDE_MIN) return null;
+      return {type: "absolute", value: clampOverrideValue(text)};
+    }
+    if (typeof override !== "object") return null;
+    if (override.type === "adjustment") {
+      if (typeof override.delta !== "number" && typeof override.delta !== "string") return null;
+      if (override.delta === "") return null;
+      var delta = Number(override.delta);
+      if (!Number.isFinite(delta)) return null;
+      return {type: "adjustment", delta: clampOverrideDelta(delta)};
+    }
+    if (typeof override.value !== "number" && typeof override.value !== "string") return null;
+    if (override.value === "") return null;
+    var value = Number(override.value);
+    if (!Number.isFinite(value) || value < OVERRIDE_MIN) return null;
+    return {type: "absolute", value: clampOverrideValue(value)};
+  }
+
   function applyDdfOverride(entry, override) {
     entry.pipelineValue = entry.value;
-    entry.overridden = override !== null && override !== undefined;
-    if (!entry.overridden) return entry;
-    entry.value = override;
+    var spec = normalizeOverride(override);
+    entry.overridden = spec !== null;
+    if (!spec) return entry;
+    if (spec.type === "adjustment") {
+      // A player no source prices has no pipeline value to add to (spec 7.1
+      // test 7): the adjustment is the value.
+      var base = typeof entry.pipelineValue === "number" && Number.isFinite(entry.pipelineValue) ? entry.pipelineValue : 0;
+      entry.value = Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, base + spec.delta));
+    } else {
+      entry.value = spec.value;
+    }
     entry.reason = null;
     entry.lowConfidence = false;
     entry.confidenceNote = null;
@@ -1611,6 +1666,9 @@
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
     applyDdfOverride: applyDdfOverride,
+    normalizeOverride: normalizeOverride,
+    OVERRIDE_MIN: OVERRIDE_MIN,
+    OVERRIDE_MAX: OVERRIDE_MAX,
     normalizeBasis: vpNormalizeBasis,
     resolveLineupParameters: resolveLineupParameters,
     lineupWindow: lineupWindow,
