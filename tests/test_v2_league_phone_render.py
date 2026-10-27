@@ -89,9 +89,6 @@ def check_phone(browser, base, overrides, errors):
         # The column's first direction is ascending (table-sort nextState), so the cards must come out A to Z, not merely ordered.
         if names != sorted(names, key=str.lower):
             errors.append(f"{tag}summary cards after sorting by team: {names}")
-        # The visible first card must be the one the direction names, so a dead selector (which leaves the rank order) is caught by the cards themselves.
-        if names and names[0] != sorted(names, key=str.lower)[0]:
-            errors.append(f"{tag}the first summary card after sorting by team is {names[0]!r}, not the alphabetically first team")
         if names == rank_order:
             errors.append(f"{tag}sorting by team did not reorder the summary cards ({names}); if the fixture's rank order is alphabetical this check proves nothing")
         page.select_option("#v2LgOppsSortBy", "capture")
