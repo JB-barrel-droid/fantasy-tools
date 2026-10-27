@@ -242,7 +242,7 @@ TABLE_VS_ENGINE_JS = """() => {
       if (!td) return;  // the Columns menu can hide a group
       cells++;
       const v = row.values[key];
-      const want = !Number.isFinite(v) ? "—" : (v.toFixed(1) === "-0.0" ? "0.0" : v.toFixed(1));  // JEG-912: v2 never prints -0.0
+      const want = !Number.isFinite(v) ? "—" : (v.toFixed(1) === "-0.0" ? "0.0" : v.toFixed(1).replace("-", "\u2212"));  // JEG-912: v2 never prints -0.0; JEG-977: U+2212 minus
       const got = text(td);
       if (got !== want) problems.push(`${row.name} ${key}: table ${got}, engine ${want}`);
     });
@@ -305,9 +305,9 @@ class FrontDoorRenderedTests(unittest.TestCase):
         except Exception as exc:
             raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
         v2_js = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
-        fmt = 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text; };'
+        fmt = 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = v.toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };'
         self.assertIn(fmt, v2_js, "mutation anchor for v2's number format is stale")
-        drifted = v2_js.replace(fmt, 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = (v * 1.02).toFixed(1); return text === "-0.0" ? "0.0" : text; };', 1)
+        drifted = v2_js.replace(fmt, 'const fmt = v => { if (!Number.isFinite(v)) return "—"; const text = (v * 1.02).toFixed(1); return text === "-0.0" ? "0.0" : text.replace("-", "−"); };', 1)
         with _pages_server(DIST) as base, sync_playwright() as playwright:
             browser = self._browser(playwright)
             try:

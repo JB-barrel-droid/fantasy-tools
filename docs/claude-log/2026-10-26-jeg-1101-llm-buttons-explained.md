@@ -100,3 +100,19 @@ How an LLM decodes a site link (investigated):
 
 ### Claimed, not confirmed
 - The live MCP decoding a site link end to end (blocked by JEG-1157).
+
+## 2026-10-27 merge run (Ba-Nana T1 merge wave, Claude)
+
+- Jeremy's decision (2026-10-27): the line under Copy link is option A, "Opens this view. A chat with the DDF tool reads it too."
+- Merged origin/main. JEG-1119 had moved the assist buttons into the context row's ⋯ menu. Resolution: main's layout,
+  with this PR's single Copy link button and its line inside the menu, and the paste box removed. The line now sits in the
+  menu, so the 1366x768 fold margin question no longer applies.
+- `tests/test_v2_assist_render.py`: kept this PR's checks, retargeted from `#v2League` to `#v2Context` and opening the ⋯
+  menu before measuring (as main's version does).
+- Generated churn (`dist/`, `app/trade-value-chart/`, `data/history/`) reset to main's; this PR ships no generated files.
+- Verified (local, after the merge): `tests.test_v2_assist` and `tests.test_v2_contract_render` pass; `node --check` on
+  `ddf-assist.js` and `v2.js`.
+- `tests.test_v2_assist_render` fails one check: at 390px on `#find-trade`, `#waivers`, `#value-overrides` and the health check
+  the ⋯ menu's left edge is at -40px. Cause is main's JEG-1119 menu (`min-width: 240px`, anchored right to ⋯, which sits at
+  x≈182 on those tabs), not this PR: the menu is 240px whatever it holds. Main's own version of the check measures the same
+  222px buttons at the same place (inferred, not run on main). The test is in the non-blocking full suite. Follow-up for JEG-1119.

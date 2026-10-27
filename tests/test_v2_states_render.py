@@ -75,7 +75,7 @@ READ_DRAWER = """() => {
 }"""
 
 
-KIND_LABEL = {"dda": "Our value", "indexed": "Rescaled chart", "vorp": "Value above waivers"}
+KIND_LABEL = {"dda": "DDF Value", "indexed": "Market", "vorp": "Value above waivers"}
 
 
 def finite(value):
@@ -226,11 +226,11 @@ class StatesRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         broken = {
             "detail columns not split by method": {"v2_js": js.replace(
-                'const METHOD_COLUMNS = [["dda", "Our value"], ["indexed", "Rescaled chart"], ["vorp", "Value above waivers"]];',
-                'const METHOD_COLUMNS = [["vorp", "Our value"], ["indexed", "Rescaled chart"], ["dda", "Value above waivers"]];', 1),
+                'const METHOD_COLUMNS = [["dda", "DDF Value"], ["indexed", "Market"], ["vorp", "Value above waivers"]];',
+                'const METHOD_COLUMNS = [["vorp", "DDF Value"], ["indexed", "Market"], ["dda", "Value above waivers"]];', 1),
                 "with_failure": False},
             "failure leaves values visible": {"v2_js": js.replace(
-                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Methods", "v2Research"].forEach(id => { $(id).hidden = true; });',
+                '["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });',
                 '$("v2Main").hidden = false;', 1)},
             "empty state never drawn": {"v2_js": js.replace("    renderEmpty();\n", "", 1), "with_failure": False},
             "bottom sheet instead of full screen": {"v2_css": css.replace(

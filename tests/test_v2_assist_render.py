@@ -101,6 +101,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             sent = sender.evaluate(STATE)
             if (sent["teams"], sent["scoring"], sent["give"], sent["get"]) != (10, "half_ppr", give, get):
                 errors.append(f"sender page did not open the link: {sent}")
+            sender.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             sender.click("#v2AssistCopy")
             sender.wait_for_timeout(300)
             text = sender.evaluate("() => navigator.clipboard.readText()")
@@ -144,6 +145,7 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
             if link.evaluate("() => document.querySelectorAll('#v2FindMine .v2-find-row').length") != 2:
                 errors.append("find-trade link rosters not drawn on the page")
             # Copy writes what the page reads: the copied link opens the same rosters.
+            link.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             link.click("#v2AssistCopy")
             link.wait_for_timeout(300)
             url = link.evaluate("() => navigator.clipboard.readText()").strip()
@@ -174,12 +176,15 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 if not (seen["shown"] and seen["text"]):
                     errors.append(f"footer not shown on {tab}: {seen}")
                 # Copy link sits in the league strip (Jeremy, 2026-10-25) on every tab that has the strip: whole, on screen,
-                # wrapped or stacked rather than clipped, and the page no wider than the phone.
+                # wrapped or stacked rather than clipped, and the page no wider than the phone. Since JEG-1119 (Jeremy's
+                # scope, 2026-10-26) it sits in the strip's ⋯ menu, so the menu is opened to measure it.
                 strip = narrow.evaluate("""() => { const w = document.documentElement.clientWidth;
+                  const more = document.getElementById('v2ContextMore'); if (more.offsetParent) more.click();
                   const box = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
-                    return {inStrip: Boolean(e.closest('#v2League')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
-                  return {stripShown: !document.getElementById('v2League').hidden, copy: box('v2AssistCopy'),
+                    return {inStrip: Boolean(e.closest('#v2Context')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
+                  return {stripShown: !document.getElementById('v2Context').hidden, copy: box('v2AssistCopy'),
                           over: document.documentElement.scrollWidth - w, footerButtons: document.querySelectorAll('#v2Assist button').length}; }""")
+                narrow.keyboard.press("Escape")
                 if strip["stripShown"] and not (strip["copy"]["inStrip"] and strip["copy"]["ok"]):
                     errors.append(f"Copy link not whole in the league strip at 390px on {tab}: {strip}")
                 if strip["over"] > 0 or strip["footerButtons"]:
@@ -192,13 +197,16 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
               named: [...document.querySelectorAll('button')].filter(b => /ChatGPT|Claude/.test(b.textContent)).map(b => b.textContent.trim())})""")
             if gone["ids"] or gone["named"]:
                 errors.append(f"the ChatGPT/Claude buttons or the paste box are still on the page: {gone}")
-            line = narrow.evaluate("""() => { const p = document.getElementById('v2AssistCopyHint'), btn = document.getElementById('v2AssistCopy');
+            line = narrow.evaluate("""() => { const more = document.getElementById('v2ContextMore');
+              if (more.offsetParent && document.getElementById('v2ContextMenu').hidden) more.click();
+              const p = document.getElementById('v2AssistCopyHint'), btn = document.getElementById('v2AssistCopy');
               const box = p ? p.getBoundingClientRect() : null;
               return {label: btn.textContent.trim(), text: p ? p.textContent.trim() : '', shown: Boolean(p && !p.hidden && box.height > 0),
                 under: Boolean(box && box.top >= btn.getBoundingClientRect().bottom - 0.5),
                 described: btn.getAttribute('aria-describedby') === 'v2AssistCopyHint', over: p ? p.scrollWidth - p.clientWidth : 0}; }""")
             if line["label"] != "Copy link" or not (line["shown"] and line["text"] and line["under"] and line["described"]) or line["over"] > 0:
                 errors.append(f"Copy link or its line is not right: {line}")
+            narrow.keyboard.press("Escape")
             narrow.evaluate("() => { location.hash = '#find-trade?mine=n:Nobody%2520Atall'; }")
             narrow.wait_for_timeout(400)
             wide = narrow.evaluate("() => document.documentElement.scrollWidth - document.documentElement.clientWidth")

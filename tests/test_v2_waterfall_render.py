@@ -741,6 +741,10 @@ class WaterfallRenderTest(unittest.TestCase):
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
         self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
+        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
+        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
+        # back, so it still proves the fold check catches the old header's extra 55 px.
+        old_header += "\n#v2Compare { padding-top: 75px; }\n"
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
             errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
             print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
