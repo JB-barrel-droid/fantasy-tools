@@ -6,10 +6,11 @@ With default settings (no ?integrations=1):
   * Find a trade: "Other ways to add players" offers pasted names only, with no Sleeper/ESPN league-ID option;
   * pasting a Sleeper or ESPN league link makes no request to api.sleeper.app or fantasy.espn.com and shows the
     copy-each-team-or-rosters-page tip instead;
-  * with ?integrations=1 the ID loaders are still there (tests/test_v2_finder_import_render.py exercises them).
+  * the fetchers are deleted (Jeremy, 2026-10-27): the shipped sources hold no api.sleeper.app / espn API URL, loadSleeper,
+    loadEspn or integrations flag, and ?integrations=1 changes nothing.
 
-Discrimination: test_guard_fails_on_broken_builds serves league.js with the ID UI always shown and finder.js with the
-flag always on, and requires the checks to fail on each.
+Discrimination: test_guard_fails_on_broken_builds serves league.js with a league-ID field added and finder.js with a
+Sleeper fetch added, and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -46,19 +47,22 @@ def check(browser, base, overrides=None):
             errors.append(f"pasting {link} shows {tip!r}, want the copy tip")
     # Find a trade
     page.evaluate("() => { location.hash = '#find-trade'; }")
-    page.wait_for_function("() => document.getElementById('v2FindMineSource')", timeout=20000)
-    find = page.evaluate("""() => { const sel = document.getElementById('v2FindMineSource'); const box = sel.closest('details');
-      return {options: [...sel.options].map(o => o.value), selHidden: sel.hidden, idHidden: document.getElementById('v2FindMineLeague').hidden,
-        summary: box.querySelector('summary').textContent}; }""")
-    if find["options"] != ["paste"] or not find["selHidden"] or not find["idHidden"] or "ID" in find["summary"]:
+    page.wait_for_function("() => document.getElementById('v2FindMinePaste')", timeout=20000)
+    find = page.evaluate("""() => ({source: !!document.getElementById('v2FindMineSource'), league: !!document.getElementById('v2FindMineLeague'),
+      summary: document.getElementById('v2FindMinePaste').closest('details').querySelector('summary').textContent})""")
+    if find["source"] or find["league"] or "ID" in find["summary"]:
         errors.append(f"Find a trade offers a league ID by default: {find}")
+    page.click("#v2FindMinePaste >> xpath=ancestor::details/summary")
+    page.fill("#v2FindMinePaste", "Josh Allen")
+    page.click("#v2FindMineLoad")   # adding players must not reach a platform either
+    page.wait_for_timeout(500)
     if platform:
         errors.append(f"requests to a platform API on the default page: {platform}")
-    # The flag brings the loaders back.
+    # The old flag changes nothing.
     page.goto(base + "?integrations=1#find-league", wait_until="networkidle")
     page.wait_for_function("() => document.getElementById('v2LgCard')", timeout=30000)
-    if not page.evaluate("() => !!document.getElementById('v2LgLeagueId')"):
-        errors.append("?integrations=1 does not bring back the league-ID field")
+    if page.evaluate("() => !!document.getElementById('v2LgLeagueId')"):
+        errors.append("?integrations=1 brings back the league-ID field")
     return errors
 
 
@@ -71,11 +75,20 @@ class PasteOnlyRenderTest(unittest.TestCase):
     def test_default_is_paste_only(self):
         self.assertEqual(run_checks(), [])
 
+    def test_fetcher_code_is_gone(self):
+        for name in ("finder.js", "league.js"):
+            text = source(name)
+            for needle in ("api.sleeper.app", "lm-api-reads.fantasy.espn.com", "loadSleeper", "loadEspn", "parseSleeper", "parseEspn",
+                           "integrationsOn", "loadWholeLeague", "root.fetch"):
+                self.assertNotIn(needle, text, f"{needle} is back in app/v2/{name}")
+
     def test_guard_fails_on_broken_builds(self):
         league, finder = source("league.js"), source("finder.js")
+        league_anchor = 'el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})'
+        finder_anchor = 'el("details", {class: "v2-find-import"}'
         broken = {
-            "league ID UI always shown": {"league.js": league.replace("const integrations = F.page.integrationsOn();", "const integrations = true;", 1)},
-            "finder flag always on": {"finder.js": finder.replace("const integrationsOn = () => {", "const integrationsOn = () => true; const unusedIntegrationsOn = () => {", 1)},
+            "league ID field added": {"league.js": league.replace(league_anchor, 'el("input", {id: "v2LgLeagueId"}), ' + league_anchor, 1)},
+            "finder fetches Sleeper": {"finder.js": finder.replace('load.addEventListener("click", () => {', 'load.addEventListener("click", () => { root.fetch("https://api.sleeper.app/v1/x").catch(() => {});', 1)},
         }
         for name, overrides in broken.items():
             with self.subTest(mutation=name):
