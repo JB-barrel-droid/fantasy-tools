@@ -1,0 +1,28 @@
+name: Edge drift check
+
+# JEG-1049: deploys of the Supabase edge functions `mcp` and `get-values` are
+# manual, so production can fall behind main unnoticed (2026-10-24: prod mcp
+# listed 7 tools, main had 8, and get-values lacked include=charts). This daily
+# check compares the deployed functions with main and fails when they differ.
+# Read-only: no secrets, no deploy. A red run means someone must redeploy.
+on:
+  schedule:
+    - cron: "40 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compare deployed edge functions with main
+        run: node --experimental-strip-types --no-warnings tools/edge_drift_check.mjs
