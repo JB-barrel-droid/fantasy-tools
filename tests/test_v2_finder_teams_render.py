@@ -203,6 +203,7 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667))) 
             for width, height in viewports:
                 context = browser.new_context(viewport={"width": width, "height": height})
                 page = context.new_page()
+                page.add_init_script(_render_env.pin_data_week_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
