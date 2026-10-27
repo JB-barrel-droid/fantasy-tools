@@ -35,7 +35,8 @@ concurrency:
 jobs:
   v2-render:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # JEG-1145: raised 15 -> 30 — the job cancelled itself after the contract test passed, before the waterfall step could report.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
