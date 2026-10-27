@@ -57,8 +57,8 @@
 
   const $ = id => document.getElementById(id);
   const finite = v => typeof v === "number" && Number.isFinite(v);
-  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1)) : "—");
-  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "±0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
+  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1).replace("-", "−")) : "—");
+  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
   const round1 = v => Math.round(v * 10) / 10;
   function el(tag, attrs, kids) {
     const node = document.createElement(tag);
