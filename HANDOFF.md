@@ -114,34 +114,35 @@ Product decisions to date (Oct 26 unless noted; details on the ticket):
 
 ## 5. Current state
 
-Last updated: Oct 27, 2026, 2:10 AM CT (by Ba-Nana).
+Last updated: Oct 27, 2026, 4:05 AM CT (by Ba-Nana).
 
-**Main is red, so nothing merges or deploys.** Two causes: the bench_share
-readout test (fixed on [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979),
-[JEG-1152](https://linear.app/jegabee/issue/JEG-1152)) and, since about 1:30 AM CT,
-the rank guard finding no week-8 indexed values (plus the waterfall render test),
-which fails every pages.yml deploy at `make validate`. A Claude run is fixing
-both on PR 979; if only a JEG-1156 choice fixes it, option A goes on a separate draft PR.
+**Main fixes merged:** [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979)
+(bench_share test, [JEG-1152](https://linear.app/jegabee/issue/JEG-1152), Done) and
+[PR 984](https://github.com/JB-barrel-droid/fantasy-tools/pull/984) (rendered gate page clock).
+Main's pages.yml deploy on 66be4844 was still running at 4:00 AM CT; the fix-main run watches it.
 
-**Live problem waiting on Jeremy:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156)
-(urgent, `needs-review`): blended DDF Values are blank site-wide until week-8
-charts publish. Options A fallback to last week (recommended), B message, C later flip.
+**Live problems:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156) (urgent, `needs-review`):
+blended DDF Values blank until week-8 charts publish (A fallback to last week, recommended).
+[JEG-1157](https://linear.app/jegabee/issue/JEG-1157): live get_values returns no players,
+so MCP and site links match nobody; likely tied to JEG-1156.
 
 **Running now** (all Mac, Claude Opus):
-- Fix main on PR 979 / JEG-1152, started 2:07 AM CT.
-- PR 970 / JEG-1101 rework per Jeremy (drop the ChatGPT/Claude buttons, focus on
-  copying the site link for assistants to read), started 2:09 AM CT. Stays draft.
-- Merge-wave runs for PRs 976 and 959, waiting on green main (started about 11:40 PM CT).
-Muse: [JEG-982](https://linear.app/jegabee/issue/JEG-982) in progress; PRs 981 and
-982 marked ready, awaiting green main; JEG-1145 / PR 973 in review.
+- Fix-main watch on JEG-1152, session 3c99fe67, started 2:07 AM CT.
+- JEG-1157 diagnosis, code only, no deploys, session 35447ac9, started 4:04 AM CT.
+- PR 959 merge run (started about 12:05 AM CT).
+- Merge wave 4 (launcher `~/code/wt/merge-wave4.launch.sh`, 7 at a time, state in
+  `/tmp/banana-merge-wave.state`, logs `/tmp/banana-w4-*.json`), started 4:00 AM CT:
+  957, 939+958, 921, 963, 920, 925, 962, 964, 965, 967, 968, 973-975, 977, 978, 980,
+  then Muse's 981 and 982. Each waits for green main and merges under the merge lock.
 
-**Approved to merge once main is green:** PR 957 (JEG-1121 bench seats),
-958 + 960 (then the one combined mcp deploy), the low-risk queue
-(920, 925, 939, 962, 963, 964, 965, 968, 972-978, 980, 981, 982). Drafts with
-open questions: 966, 967, 969 (JEG-894 privacy line), 970.
+**Held:** 976 (after 960), 960 (after 958, then the one combined mcp deploy),
+969 (JEG-894 privacy line), 970 (JEG-1101 Copy link wording, asked), 966.
 
-**Open decisions** (label `needs-review`): JEG-1156, JEG-894, JEG-1115, JEG-1125,
-JEG-1143, JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
+**Muse:** JEG-557 (PR 982) and JEG-1061 (PR 981) in review and queued to merge;
+JEG-982 in progress; the numbered Muse queue on JEG-1145 has about 10 `muse` Todo tickets.
+
+**Open decisions** (label `needs-review`): JEG-1156, JEG-1101, JEG-894, JEG-1115,
+JEG-1125, JEG-1143, JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
 
 **Next queued:** research post refresh after PR 957 merges; Codex JEG-1136 on
 the HP once 921, 963, 964, 967, 939 merge.
