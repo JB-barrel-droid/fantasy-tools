@@ -93,6 +93,10 @@ How an LLM decodes a site link (investigated):
   `RENDER_TESTS_REQUIRED=1 tests/test_v2_assist_render.py`: the clipboard is the bare site link and reopens the same league
   and trade; a hand-written name link fills Find a trade and reports the unmatched name; no ChatGPT/Claude button or paste
   box on the page; the line sits under Copy link; no overflow at 390 px; 8 mutation guards each fail the checks.
+- After merging origin/main `f7287c2e`, `RENDER_TESTS_REQUIRED=1` `test_v2_waterfall_render` (Example fold at 1366x768),
+  `test_v2_phone_tap_targets_render`, `test_v2_assist*`, `test_v2_contract_render`, `test_mcp_remote`, `test_ddf_state` pass.
+- `test_v2_share_render::test_shared_trade_link` and `test_v2_a11y_render` (contrast + 3 guard mutations) fail here and
+  identically on a clean origin/main `f7287c2e` checkout: not caused by this branch.
 
 ### Claimed, not confirmed
 - The live MCP decoding a site link end to end (blocked by JEG-1157).
