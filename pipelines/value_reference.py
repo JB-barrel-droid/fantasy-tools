@@ -558,6 +558,13 @@ def _expected_start_parts(xs: list, starters: int, teams: int, w: float, line: f
 # JEG-969: promotion/demotion-aware expected starts (off by default)
 # ---------------------------------------------------------------------------
 
+# JEG-1142 (Jeremy, 2026-10-27): no role-change math (neither the bench
+# promotion boost nor the starter demotion cut) applies to values until the
+# JEG-1144 risk research supports it. This master switch overrides every
+# caller's promotion_model flag; the model code below is kept for later.
+# Mirrored in value-model.js and spec_reference/value_pipeline.py.
+PROMOTION_MODEL_ENABLED = False
+
 PROMOTION_CONFIG = REPO / "config" / "promotion_rates.json"
 
 
@@ -928,7 +935,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
 
     # JEG-969: promotion/demotion model (off by default)
     promo = None
-    if promotion_model and es is not None and lineup is not None:
+    if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = load_promotion_config()
         season_wks = float(promo_cfg.get("season_weeks", 17))
         # weeks_remaining from the lineup config window
@@ -1576,9 +1583,10 @@ class Setting:
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
         divergence_exclusions: source keys excluded by a JEG-610 'exclude'
         resolution (treated as hidden, held semantics per JEG-569).
-        promotion_model: JEG-969, on by default (2026-10-23, Jeremy approved).
-        Adjusts expected starts for promotion/demotion dynamics (persistent
-        role changes scaled by weeks remaining).
+        promotion_model: JEG-969 (2026-10-23). Adjusts expected starts for
+        promotion/demotion dynamics (persistent role changes scaled by weeks
+        remaining). JEG-1142 (2026-10-27): ignored while the module-level
+        PROMOTION_MODEL_ENABLED master switch is False (pending JEG-1144).
         flex_bench_seats: MR-28/JEG-969, on by default (2026-10-23, Jeremy
         approved). Bench-seat weights include flex starters (matching
         allocate_league in the ES model). QB drops from ~15 bench seats to ~4."""
