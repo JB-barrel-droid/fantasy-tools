@@ -1,0 +1,69 @@
+# JEG-1012: OpenAPI schema for the get-values endpoint, for pasting into a
+# Custom GPT's Actions. Replace the server URL if the project ref changes.
+openapi: 3.1.0
+info:
+  title: Data Driven Football trade values
+  version: "1.0.0"
+  description: >
+    Fantasy football trade values (value above waivers, blended across sources)
+    for a league's scoring, team count and superflex setting. Read-only, no key.
+servers:
+  - url: https://iskiybsimubiujwuchsl.supabase.co/functions/v1
+paths:
+  /get-values:
+    get:
+      operationId: getValues
+      summary: Current trade values for every player, best first
+      description: >
+        Returns every player with value and tier. Filter and compare on your
+        side: find players by name, and add values to compare trades.
+        Values have no fixed maximum.
+      parameters:
+        - name: scoring
+          in: query
+          schema: { type: string, enum: [standard, half_ppr, ppr], default: ppr }
+        - name: teams
+          in: query
+          schema: { type: integer, enum: [8, 10, 12, 14], default: 12 }
+        - name: superflex
+          in: query
+          description: 1 if the league has a superflex slot, else 0.
+          schema: { type: integer, enum: [0, 1], default: 0 }
+      responses:
+        "200":
+          description: Values for the requested league settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  attribution: { type: string }
+                  as_of: { type: [string, "null"] }
+                  setting:
+                    type: object
+                    properties:
+                      scoring: { type: string }
+                      teams: { type: integer }
+                      superflex: { type: integer }
+                  players:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        player_key: { type: integer }
+                        name: { type: string }
+                        pos: { type: string }
+                        value: { type: number }
+                        tier: { type: integer }
+                  sources_included:
+                    type: array
+                    items: { type: string }
+                  sources_excluded:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key: { type: string }
+                        reason: { type: string }
+        "400": { description: Invalid scoring or teams }
+        "429": { description: Rate limited, retry in 60 seconds }

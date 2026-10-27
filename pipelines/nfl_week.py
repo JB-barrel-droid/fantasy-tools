@@ -72,7 +72,11 @@ def now_utc() -> datetime:
     if _clock is not None:
         moment = _clock()
     elif os.environ.get("DDF_NOW"):
-        moment = datetime.fromisoformat(os.environ["DDF_NOW"].replace("Z", "+00:00"))
+        try:
+            from lib.timestamps import parse_iso_timestamp
+        except ImportError:  # imported as pipelines.nfl_week
+            from pipelines.lib.timestamps import parse_iso_timestamp
+        moment = parse_iso_timestamp(os.environ["DDF_NOW"])
     else:
         moment = datetime.now(timezone.utc)
     if moment.tzinfo is None:

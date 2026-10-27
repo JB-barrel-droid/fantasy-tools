@@ -21,7 +21,7 @@
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-27T05:56:44-05:00",
+  "generated_at": "2026-10-27T13:59:06-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -74,7 +74,7 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "same_day",
-      "value": "2026-10-27T10:13:12Z"
+      "value": "2026-10-27T18:01:26Z"
     },
     {
       "age_days": 0,
@@ -87,7 +87,7 @@
       "l1_status": "warning",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is Week 7 source provenance, not pull time",
+      "note": "L1 status=warning; last_successful_import=2026-10-27T18:01:26Z; content_vintage is Week 7 source provenance, not pull time",
       "status": "stale",
       "value": "Week 7"
     },
@@ -102,7 +102,7 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-27 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T18:01:26Z; content_vintage is 2026-10-27 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-27"
     },
@@ -117,9 +117,9 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-26 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T18:01:26Z; content_vintage is 2026-10-27 source provenance, not pull time",
       "status": "same_day",
-      "value": "2026-10-26"
+      "value": "2026-10-27"
     },
     {
       "age_days": 0,
@@ -132,7 +132,7 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is Week 8 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T18:01:26Z; content_vintage is Week 8 source provenance, not pull time",
       "status": "same_day",
       "value": "Week 8"
     },
@@ -141,15 +141,15 @@
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): fantasypros content Week 7 is one week behind current content Week 8; built and labelled as Week 7. Window verdict stale: STALE_VINTAGE: content vintage Week 7 != current Week 8. No verified publication schedule for fantasypros; Believed to publish early in the NFL week (typically Monday/Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
-      "freshness_ok": false,
+      "failure_reason": null,
+      "freshness_ok": true,
       "key": "source_import.fantasypros",
-      "l1_status": "warning",
+      "l1_status": "ok",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-20 source provenance, not pull time",
-      "status": "stale",
-      "value": "2026-10-20"
+      "note": "L1 status=ok; last_successful_import=2026-10-27T18:01:26Z; content_vintage is 2026-10-27 source provenance, not pull time",
+      "status": "same_day",
+      "value": "2026-10-27"
     },
     {
       "age_days": 0,
@@ -162,7 +162,7 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-26 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T18:01:26Z; content_vintage is 2026-10-26 source provenance, not pull time",
       "status": "same_day",
       "value": "2026-10-26"
     },
@@ -177,7 +177,7 @@
       "l1_status": "warning",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-20 source provenance, not pull time",
+      "note": "L1 status=warning; last_successful_import=2026-10-27T18:01:26Z; content_vintage is 2026-10-20 source provenance, not pull time",
       "status": "stale",
       "value": "2026-10-20"
     },
@@ -221,10 +221,10 @@
       "freshness_ok": true,
       "key": "comparison.source.fantasypros",
       "label": "fantasypros content week (published / saved)",
-      "note": "published Week 7; newest saved Week 7",
-      "pending_promotion": false,
+      "note": "published Week 7; newest saved Week 8 (saved but not yet published: the next bake promotes it)",
+      "pending_promotion": true,
       "published_week": 7,
-      "saved_week": 7,
+      "saved_week": 8,
       "status": "one_week_behind",
       "value": "Week 7",
       "weeks_behind": 1
@@ -253,10 +253,10 @@
       "freshness_ok": true,
       "key": "comparison.source.espn",
       "label": "espn content week (published / saved)",
-      "note": "published Week 7; newest saved Week 7",
-      "pending_promotion": false,
+      "note": "published Week 7; newest saved Week 8 (saved but not yet published: the next bake promotes it)",
+      "pending_promotion": true,
       "published_week": 7,
-      "saved_week": 7,
+      "saved_week": 8,
       "status": "one_week_behind",
       "value": "Week 7",
       "weeks_behind": 1
@@ -411,21 +411,22 @@
     ],
     "comparison_sources_pending_promotion": [
       "cbsros",
-      "fantasycalc"
+      "espn",
+      "fantasycalc",
+      "fantasypros"
     ],
     "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 3,
+    "expired_count": 2,
     "expired_keys": [
       "source_import.cbs",
-      "source_import.fantasypros",
       "source_import.usatoday"
     ],
-    "l1_unhealthy_count": 3,
+    "l1_unhealthy_count": 2,
     "max_age_days": 2,
-    "stale_count": 6,
+    "stale_count": 5,
     "unchanged_count": 4,
     "unknown_count": 0
   },
