@@ -50,3 +50,21 @@ pin JEG-787/JEG-791 added to the other render tests). No assertion changed.
 - The UTC/New York clock difference between the reference and the engine is a
   separate defect in `pipelines/value_reference.py`. It is left alone here to
   avoid a conflict with PR 957.
+
+## Second test, same clock split: test_ddf_composite_value
+
+CI `preview` on PR 979 (run 40438902494, 03:33 UTC) got past the bench-share
+test, then failed `tests.test_ddf_composite_value.DdfHeldSeriesTest` (2
+failures). `normalize_chart_weeks`, `normalize_served_weeks` and one test read
+`content_week()`, the machine's date (UTC on CI, so week 8), while the page
+read New York (week 7). The test bumped the charts to week 8, and `older_week`
+then labelled usatoday week 7, which the page counted as current, so nothing
+was excluded. It passed on the Mac because the Mac is on Chicago time.
+Fix: a `page_week()` helper takes the New York date, as the page does; all
+three call sites use it. No assertion changed.
+
+### Verified (check named)
+
+- `TZ=UTC python -m unittest tests.test_ddf_composite_value` at 03:37 UTC:
+  the old file gave `FAILED (failures=2)`, the same two tests as CI; the new
+  file gave `OK` (18 tests), also `OK` under `TZ=America/Chicago`.
