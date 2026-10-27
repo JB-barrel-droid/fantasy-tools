@@ -117,3 +117,10 @@ dist change.
 - `tests.test_v2_waterfall_render` (the second v2-render CI suite) failed on
   CI run 40450942126 at 02d2bb95 (no player data: `reading 'player_key'`).
   With the pin added at its three `new_page` calls: `TZ=UTC` OK (7 tests) at 04:52 UTC.
+- `tests.test_v2_phone_fallback_font_render` failed CI preview at 882640ea
+  (run 40451964548: `'#player-values' not found`), same cause; pinned at its
+  two `new_page` calls. Not run locally (needs DejaVu Sans, not installed on
+  the Mac): claimed, confirmed only by the next CI run.
+- `tests.test_static_export` fails locally only because `dist/` was restored
+  to the committed copy without a rebuild; CI rebuilds first and passed it on
+  81f8d5f2. Not a date problem, not changed.
