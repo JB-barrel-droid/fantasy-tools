@@ -132,7 +132,7 @@ def rubric(session) -> dict:
     after = ddf_of(page, star["name"])
     session.open("#player-values")
     score[3] = int(before is not None and after is not None and abs(before - after) > 1e-6
-                   and "Rescaled chart (to FantasyCalc)" in page.inner_text("body"))
+                   and "Market (to FantasyCalc)" in page.inner_text("body"))
     # 7. indicator while FantasyCalc is on, on a tab that is not Overrides
     score[7] = int("Overrides active: FantasyCalc only" in page.inner_text("#v2OvBar") and page.locator("#v2OvBar").is_visible())
     # 9. Trade targets re-sorts
@@ -481,7 +481,7 @@ class RubricTest(unittest.TestCase):
             url = s.base + f"/v2/#compare-trade?give={a['key']},{b['key']}&get={top_player(page, 'QB', 3)['key']}"
             # What the indicator could move is everything above the trade: measure where the Compare page starts.
             measure = """() => ({start: Math.round(document.querySelector('#v2Compare').getBoundingClientRect().top),
-                league: Math.round(document.querySelector('#v2League').getBoundingClientRect().height),
+                league: Math.round(document.querySelector('#v2Context').getBoundingClientRect().height),
                 chip: document.querySelector('#v2OvBar') && !document.querySelector('#v2OvBar').hidden})"""
             page.goto(url, wait_until="networkidle")
             page.wait_for_function(READY, timeout=90000)

@@ -396,12 +396,12 @@ VALUES_JS = "async () => {" + COMMON + r"""
   out.s0 = {
     tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2App')),
     showingText: $('v2ShowingText').textContent, legendCount: $('v2ShowingLegend').children.length,
-    showingRects: [rect(document.querySelector('.v2-showing')), rect($('v2ShowingLegend')), rect($('v2EditSources'))],
+    showingRects: [rect(document.querySelector('.v2-ctx-basis')), rect($('v2ShowingLegend')), rect($('v2EditSources'))],
     customize: $('v2EditSources').textContent.trim(),
     rankBy: $('v2RankBy').value, rankOptions: [...$('v2RankBy').options].map(o => o.value),
     shown: V.shown(), active: C.getActiveSources(),
     legendLinks: [...document.querySelectorAll('#v2ShowingLegend a[data-source-link]')].map(a => [a.dataset.sourceLink, a.getAttribute('href'), a.target]),
-    names: {label: document.querySelector('.v2-showing b').textContent.trim(), info: document.querySelectorAll('.v2-showing button[data-info=names]').length},
+    names: {label: document.querySelector('.v2-ctx-basis b').textContent.trim(), info: document.querySelectorAll('.v2-ctx-basis button[data-info=names]').length},
     fit: {ticks: [...V.chart().svg.querySelectorAll('.axis text[text-anchor="end"]')].map(t => Number(t.textContent)),
       values: V.chart().slice.flatMap(r => V.chart().keys.map(k => r.values[k])).filter(v => Number.isFinite(v) && v > 0)},
     zeroPlayers: {hidden: V.view().hiddenZero, listed: V.view().rows.filter(r => !V.view().plotKeys.concat(V.view().vorpKeys)
@@ -1482,7 +1482,7 @@ def pv12(S):
     if d.get("allToggle") is not False:
         errors.append("'Show all sources' is missing or not off by default")
     kinds = {r["kind"] for r in d.get("kindsAll") or []}
-    for kind in ("Our value", "Rescaled chart", "Value above waivers"):
+    for kind in ("DDF Value", "Market", "Value above waivers"):
         if kind not in kinds:
             errors.append(f"'Show all sources' lists no {kind!r} row")
     for r in d.get("kindsAll") or []:
@@ -1646,7 +1646,7 @@ def gl18(S):
 
 def tt01(S):
     h = S["tabs"]["targets"]["h1"]
-    return [] if h == "Where the trade market is wrong this week" else [f"headline {h!r}"]
+    return [] if h == "Trade targets" else [f"headline {h!r}"]
 
 
 def tt02(S):
@@ -1784,7 +1784,7 @@ def tt05_partial(S):
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
 # JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
-GROUPS_SHIPPED = {"ddf": "Our values", "pub": "Published trade charts", "proj": "Projection-based values",
+GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published trade charts", "proj": "Projection-based values",
                   "vorp": "Raw value above waivers (advanced)"}
 
 
@@ -1841,21 +1841,22 @@ def gl21_partial(S):
 
 
 def gl22_partial(S):
+    # JEG-1119 (Jeremy's scope, 2026-10-26): Position weights moved to the context row's overflow menu, so the two are
+    # no longer shown together; Edit league must still be the one primary, labelled control on every page.
     errors = []
-    seen = False
     for tab in PAGES:
         lg = S["shipped"]["customize"][tab]["league"]
-        if not (lg["edit"] and lg["weights"]):
+        if not lg["edit"]:
+            errors.append(f"{tab}: no Edit league button")
             continue
-        seen = True
-        if lg["editLabel"] != "Edit league" or lg["weightsLabel"] != "Position weights":
-            errors.append(f"{tab}: labels {lg['editLabel']!r} / {lg['weightsLabel']!r}")
-        if not lg["editPrimary"] or lg["weightsPrimary"]:
-            errors.append(f"{tab}: Edit league primary={lg['editPrimary']}, Position weights primary={lg['weightsPrimary']}")
+        if lg["editLabel"] != "Edit league" or not lg["editPrimary"]:
+            errors.append(f"{tab}: Edit league reads {lg['editLabel']!r}, primary={lg['editPrimary']}")
+        if not lg["weights"]:
+            continue
+        if lg["weightsLabel"] != "Position weights" or lg["weightsPrimary"]:
+            errors.append(f"{tab}: Position weights reads {lg['weightsLabel']!r}, primary={lg['weightsPrimary']}")
         if not lg["editFirst"]:
             errors.append(f"{tab}: Position weights sits before Edit league")
-    if not seen:
-        errors.append("no page shows Edit league and Position weights together")
     return errors
 
 
@@ -2307,7 +2308,7 @@ class ContractRenderTest(unittest.TestCase):
         broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
                         '{id: "pub", title: "Trade charts (as published)"')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
-        broken_shell = cut(shell, 'class="v2-btn v2-btn-primary" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust" id="v2EditLeague"')
+        broken_shell = cut(shell, 'class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust v2-btn-sm" id="v2EditLeague"')
         # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).
         broken_shell = cut(broken_shell, '        <div aria-live="polite">\n          <h2 id="v2CVerdictTitle">',
                            '        <div class="v2-cheads" id="v2CHeads"><p class="v2-chead" data-line="propose">Should you propose or accept? Yes</p></div>\n'

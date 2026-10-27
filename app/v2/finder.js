@@ -725,7 +725,7 @@
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
       constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
   }
-  const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
   function stateText(t) {
     const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
@@ -1119,7 +1119,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const tip = chipTooltip({ddf, projections: proj, market: avg});
     const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: tip, tabindex: "0", "aria-label": `${finite(value) ? value.toFixed(1) : "no value"} ${label}. ${tip.split("\n").join("; ")}`},
       el("span", {class: "v2-find-chip-value", text: finite(value) ? value.toFixed(1) : "no value"}), el("span", {class: "v2-find-chip-label", text: ` ${label}`}));
-    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), chip("market", charts ? "Trade chart average" : "Trade chart average (too few charts)", avg));
+    // JEG-1059: the badge that marks a value the reader set, right after the DDF Value chip.
+    const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(row) : null;
+    return el("span", {class: "v2-find-chips"}, chip("ddf", "DDF Value", ddf), badge, chip("market", charts ? "Trade chart average" : "Trade chart average (too few charts)", avg));
   }
   // JEG-988: roster balance and the generated evaluation for one side, in both views: fundamentals (DDF Value) and market
   // pricing (Trade chart average, only with enough charts). Expected depth is the engine's own seats per team.
@@ -1584,7 +1586,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     return wrap;
   }
 
-  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const fmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const names = rows => rows.map(r => r.name).join(" + ");
 
   function run() {
@@ -1623,7 +1625,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      note(`No trade found where DDF Value says you win and at least ${res.minCharts} of ${charts.length} available trade chart${charts.length === 1 ? "s say" : "s say"} they break even or win. Try a larger package.`);
+      note(`No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try a larger package.`);
       setHeadline("none", {reason: "no trades were found"});
       return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }
@@ -1704,9 +1706,15 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function lineupTable(title, imp, shape, key) {
     const before = slotList(imp.before, shape);
     const after = slotList(imp.after, shape);
-    const cell = row => (row ? `${row.name} ${row.values[key].toFixed(1)}` : "empty");
+    // JEG-1059: the badge that marks a value the reader set, next to the player's DDF Value (our value only).
+    const cell = row => {
+      if (!row) return "empty";
+      const text = `${row.name} ${row.values[key].toFixed(1)}`;
+      const badge = key === OUR_KEY && window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(row) : null;
+      return badge ? el("span", {}, text, badge) : text;
+    };
     const val = row => (row ? row.values[key] : 0);
-    const body = before.map((b, i) => el("tr", {}, el("th", {scope: "row", text: b.slot}), el("td", {text: cell(b.row)}), el("td", {text: cell(after[i].row)}),
+    const body = before.map((b, i) => el("tr", {}, el("th", {scope: "row", text: b.slot}), el("td", {}, cell(b.row)), el("td", {}, cell(after[i].row)),
       el("td", {text: signed(val(after[i].row) - val(b.row))})));
     body.push(el("tr", {}, el("th", {scope: "row", text: "Starters"}), el("td", {text: imp.before.starterValue.toFixed(1)}), el("td", {text: imp.after.starterValue.toFixed(1)}), el("td", {text: signed(imp.starterDelta)})));
     body.push(el("tr", {}, el("th", {scope: "row", text: "Bench"}), el("td", {text: imp.before.benchValue.toFixed(1)}), el("td", {text: imp.after.benchValue.toFixed(1)}), el("td", {text: signed(imp.benchDelta)})));
@@ -1772,8 +1780,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const open = el("a", {class: "v2-link", text: "Open in Compare a trade"});
     const li = el("li", {class: "v2-find-group", "data-group": group.heavy.map(keyOf).join(",")});
     const target = el("span", {class: "v2-find-target"});
+    // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+    const coreBadge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(group.core) : null;
     target.append(el("span", {class: "v2-find-target-label", text: "Target: "}), el("span", {class: "v2-find-target-name", text: names(group.heavy)}),
-      el("span", {class: "v2-meta", text: ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)} DDF Value`}));
+      el("span", {class: "v2-meta"}, ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)}`, coreBadge, " DDF Value"));
     const boxes = [];
     const sideSet = (title, rows, sel, fixed) => {
       const box = el("fieldset", {class: "v2-find-side-pick"}, el("legend", {text: title}));
@@ -1783,7 +1793,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         input.defaultChecked = input.checked;   // JEG-1020: a settings change keeps only the ticks the reader changed
         if (fixed) input.disabled = true;
         input.addEventListener("change", () => { if (input.checked) sel.add(keyOf(r)); else sel.delete(keyOf(r)); refresh(); });
-        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta", text: `(${valueText(r, ourKey)} DDF Value)`}));
+        // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+        const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(r) : null;
+        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta"}, `(${valueText(r, ourKey)}`, badge, " DDF Value)"));
         box.append(label);
         if (!fixed) boxes.push({input, row: r, sel, side: title});
       });
@@ -1818,12 +1830,38 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         + (thin.length ? ` ${thin.join(" ")}` : "");
       const warn = [];
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
-      if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} trade charts have them winning or even, so they may say no.`);
+      if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
-      const throwIns = same && same.throwIns ? [].concat(same.throwIns.give.map(r => `${r.name} (${valueText(r, ourKey)})`), same.throwIns.receive.map(r => `${r.name} (${valueText(r, ourKey)})`)) : [];
-      notes.textContent = `${warn.join(" ")}${warn.length && throwIns.length ? " " : ""}${throwIns.length ? `Can add ${throwIns.join(", ")} as a throw-in.` : ""}`;
-      if (same && same.addedThrowIns) notes.textContent += `${notes.textContent ? " " : ""}Includes ${same.addedThrowIns.map(t => `${t.row.name} (${valueText(t.row, ourKey)})`).join(", ")} as ${same.addedThrowIns.length === 1 ? "a throw-in" : "throw-ins"}, so both teams trade the same number of players.`;
+      const throwIns = same && same.throwIns ? [].concat(same.throwIns.give, same.throwIns.receive) : [];
+      // JEG-1059: the badge that marks a value the reader set, next to the throw-in's DDF Value.
+      const noteKids = [];
+      if (warn.length) noteKids.push(`${warn.join(" ")}`);
+      if (throwIns.length) {
+        if (warn.length) noteKids.push(" ");
+        noteKids.push("Can add ");
+        throwIns.forEach((r, i) => {
+          if (i) noteKids.push(", ");
+          noteKids.push(`${r.name} (${valueText(r, ourKey)}`);
+          const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(r) : null;
+          if (badge) noteKids.push(badge);
+          noteKids.push(")");
+        });
+        noteKids.push(" as a throw-in.");
+      }
+      if (same && same.addedThrowIns) {
+        if (noteKids.length) noteKids.push(" ");
+        noteKids.push("Includes ");
+        same.addedThrowIns.forEach((t, i) => {
+          if (i) noteKids.push(", ");
+          noteKids.push(`${t.row.name} (${valueText(t.row, ourKey)}`);
+          const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(t.row) : null;
+          if (badge) noteKids.push(badge);
+          noteKids.push(")");
+        });
+        noteKids.push(` as ${same.addedThrowIns.length === 1 ? "a throw-in" : "throw-ins"}, so both teams trade the same number of players.`);
+      }
+      notes.replaceChildren(...noteKids);
       notes.classList.toggle("is-warn", warn.length > 0);
       if (impact) impact.update(giveRows, recvRows);
       const fit = ctx.fit ? fitFor(ctx.lineup, ctx.fit, giveRows, recvRows) : null;
@@ -2035,7 +2073,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2FindTitle", text: "Your roster and theirs"}),
-        el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available trade charts say the other manager breaks even or wins."}))),
+        el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
         el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),

@@ -117,7 +117,7 @@ BUY_RANK_MARGIN = 2.0   # JEG-833: TradeValueTargets.BUY_RANK_MARGIN
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 SIDES = {"sell": {"table": "v2TTable", "cards": "v2TCards", "more": "v2TSellMore", "less": "v2TSellLess", "section": "v2TSell"},
          "buy": {"table": "v2TBuyTable", "cards": "v2TBuyCards", "more": "v2TBuyMore", "less": "v2TBuyLess", "section": "v2TBuy"}}
-H1 = "Where the trade market is wrong this week"
+H1 = "Trade targets"  # JEG-1119: page titles match the nav labels
 # JEG-888 (#828): the intro counts the charts the view compares, never a hard-coded "four publishers". The pinned
 # fixture (tests/_holds.py) has CBS held, so three charts are compared. test_v2_plain_copy_render proves the count follows data.
 SUBTITLE = ("We check 3 trade charts against our values for your league, two ways: "
@@ -204,7 +204,7 @@ READ = """([side, ours, ids]) => {
     cardScores: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.dataset.score ?? null),
     cardTexts: [...document.querySelectorAll(`#${ids.cards} li`)].map(li => li.querySelector('.big .t-score')?.textContent ?? null),
     meta: document.getElementById(ids.meta || (side === 'sell' ? 'v2TSellMeta' : 'v2TBuyMeta')).textContent,
-    methodsHidden: document.getElementById('v2Methods').hidden,
+    methodsHidden: document.getElementById('v2EditSources').hidden,  // JEG-1119: Customize sits in the context row
     overflow: document.documentElement.scrollWidth - window.innerWidth};
 }"""
 
@@ -396,11 +396,12 @@ def check_market(where, values, our_key, used, market) -> list[str]:
             return [f"{where}: average {mean} equals ours {ours} to one decimal; expected only the note, got {market}"]
         return []
     diff = ours - mean
-    # JEG-833: the difference is said in words (above / below), never as a signed number that contradicts the gap.
-    symbol, word = ("▲", "above") if diff > 0 else ("▼", "below")
+    # JEG-977: the difference carries the Gap column's sign (market minus ours), so the two never read as opposites.
+    sign = "+" if diff < 0 else "−"
+    want_text = f"{sign}{abs(diff):.1f}"
     if (market["equal"] or market["text"].removeprefix("Consensus ").strip() != fmt(mean) or market["n"] != str(len(priced)) or market["diff"] != f"{diff:.1f}"
-            or market["diffText"] != f"{symbol} {abs(diff):.1f} {word}"):
-        return [f"{where}: market consensus {market}, expected {fmt(mean)} of {len(priced)}, difference {symbol} {abs(diff):.1f} {word}"]
+            or market["diffText"] != want_text):
+        return [f"{where}: market consensus {market}, expected {fmt(mean)} of {len(priced)}, difference {want_text}"]
     left = len(used) - len(priced)
     if left and f"{left} left out" not in (market["count"] or ""):
         return [f"{where}: {left} chart(s) without a value are not noted: {market['count']!r}"]
@@ -1131,7 +1132,7 @@ class TradeTargetsRenderTest(unittest.TestCase):
             "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
                                                          "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
             # JEG-504
-            "market difference symbol flipped": ({"v2_js": (v2, 'diff.textContent = `${m.diff > 0 ? "▲" : "▼"}', 'diff.textContent = `${m.diff > 0 ? "▼" : "▲"}')}, numbers_only),
+            "market difference sign opposite to the gap": ({"v2_js": (v2, 'diff.textContent = fmtGap(-m.diff)', 'diff.textContent = fmtGap(m.diff)')}, numbers_only),
             "consensus counts only compared-and-positive": ({"targets_js": (targets, "const values = priced.map(key => cells[key].value);",
                                                                             "const values = priced.map(key => cells[key].value).filter(v => v > 0);")}, numbers_only),
             "consensus always shows equal note": ({"targets_js": (targets, "equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: true,\n      side")}, numbers_only),
