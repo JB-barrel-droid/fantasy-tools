@@ -98,8 +98,9 @@ class RescaledCopyTest(unittest.TestCase):
         broken = {
             "group title": ("v2.js", 'title: "Trade charts (rescaled)"', 'title: "Trade charts (as published)"'),
             "series name": ("v2.js", "chart (rescaled${RESCALED_TO})`,\n      vorp", "chart (as published)`,\n      vorp"),
-            "column label": ("v2.js", 'indexed: "Rescaled chart", vorp', 'indexed: "Published chart", vorp'),
-            "short label": ("v2.js", 'indexed: "Rescaled", vorp', 'indexed: "Index", vorp'),
+            # JEG-1119 (Jeremy, 2026-10-26): the method labels read "Market"; the anchors follow, the mutations do not.
+            "column label": ("v2.js", 'PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'PLAIN_METHOD = {dda: "DDF Value", indexed: "Published chart", vorp'),
+            "short label": ("v2.js", 'SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'SHORT_METHOD = {dda: "DDF Value", indexed: "Index", vorp'),
             "target sub-label": ("v2.js", '" · " : ""}rescaled`', '" · " : ""}indexed`'),
             "info title": ("v2.js", 'title: "Rescaled values"', 'title: "Indexed values"'),
             "legend": ("v2.js", 'indexed: `Dashed = rescaled chart${RESCALED_TO}`', 'indexed: "Dashed = published chart"'),

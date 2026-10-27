@@ -241,8 +241,8 @@ function sysEvaluate(p, nowMs){
 </section>
 
 <section class="card" id="methodologyCard">
-  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> VORP / Adj — legacy methodology consistency</h2>
-  <div class="desc">The current check audits legacy fixture reindex methods and the ESPN anchor. It does not certify the eight-group proportional VORP contract or the shared reweight. Those views remain pending their pipeline integration. Indexed trade charts use a simple native rescale; no VORP logic is applied.</div>
+  <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Value above waivers / Adj — legacy methodology consistency</h2>
+  <div class="desc">The current check audits legacy fixture reindex methods and the ESPN anchor. It does not certify the eight-group proportional value above waivers contract or the shared reweight. Those views remain pending their pipeline integration. Indexed trade charts use a simple native rescale; no VORP logic is applied.</div>
   <div id="methodologyConsistency"></div>
 </section>
 
@@ -287,7 +287,7 @@ function sysEvaluate(p, nowMs){
 
 <section class="card" id="indexMathCard">
   <h2><span class="view-tag view-tag-indexed">[Indexed]</span> Indexed — native trade-value rescale</h2>
-  <div class="desc">For CBS, FantasyCalc, FantasyPros and USA Today only: indexed = native × 70 / max(native) for the exact source/configuration. No VORP, waiver subtraction, positional weighting, DDF or isotonic mapping is applied. This report computes target arithmetic; it does not certify the currently rendered Indexed values.</div>
+  <div class="desc">For CBS, FantasyCalc, FantasyPros and USA Today only: indexed = native × 70 / max(native) for the exact source/configuration. No value above waivers, waiver subtraction, positional weighting, DDF or isotonic mapping is applied. This report computes target arithmetic; it does not certify the currently rendered Indexed values.</div>
   <div id="indexMathSummary" style="margin-bottom:16px"></div>
   <div id="indexMathSources"></div>
 </section>
@@ -1162,7 +1162,7 @@ async function main(){
         <th style="padding:6px;border-bottom:2px solid #ddd">Pos</th>
         <th style="padding:6px;border-bottom:2px solid #ddd">Tier</th>
         <th style="padding:6px;border-bottom:2px solid #ddd" title="Per-game native projection">PPG</th>
-        <th style="padding:6px;border-bottom:2px solid #ddd" title="DDF VORP vs waivers, unscaled">Raw value</th>
+        <th style="padding:6px;border-bottom:2px solid #ddd" title="DDF value above waivers, unscaled">Raw value</th>
         <th style="padding:6px;border-bottom:2px solid #ddd" title="Raw × scale factor, recomputed here">Recomputed</th>
         <th style="padding:6px;border-bottom:2px solid #ddd" title="What the DDF leg baked">Leg value</th>
         <th style="padding:6px;border-bottom:2px solid #ddd" title="What the chart fixture shows">Fixture</th>

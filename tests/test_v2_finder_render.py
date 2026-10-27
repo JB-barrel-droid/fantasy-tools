@@ -115,7 +115,7 @@ def check(page, tag, width) -> list[str]:
     page.evaluate("() => { location.hash = '#find-trade'; }")
     page.wait_for_function("() => !document.getElementById('v2FindTrade').hidden", timeout=20000)
     state = page.evaluate("""() => ({compare: document.getElementById('v2Compare').hidden, find: document.querySelector('.v2-tab[data-view=find]').getAttribute('aria-current'),
-      inPage: Boolean(document.querySelector('#v2FindTrade #v2Find')), customize: document.getElementById('v2Methods').hidden})""")
+      inPage: Boolean(document.querySelector('#v2FindTrade #v2Find')), customize: document.getElementById('v2EditSources').hidden})""")
     if not state["compare"] or state["find"] != "page" or not state["inPage"]:
         errors.append(tag + f"Find a trade tab did not route cleanly: {state}")
     if errors:

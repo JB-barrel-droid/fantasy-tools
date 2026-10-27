@@ -64,6 +64,7 @@ def _run(css=None) -> dict:
         browser = p.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
         for width in WIDTHS:
             page = browser.new_page(viewport={"width": width, "height": 812})
+            page.add_init_script(_render_env.pin_data_week_script())
             if css is not None:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + "#compare-trade", wait_until="networkidle")

@@ -86,6 +86,7 @@ def run_probe():
             try:
                 with serve(site) as base:
                     page = browser.new_page(viewport={"width": 1280, "height": 900})
+                    page.add_init_script(_render_env.pin_data_week_script())
                     errors = []
                     page.on("pageerror", lambda exc: errors.append(str(exc)))
                     page.goto(base + "/", wait_until="domcontentloaded")

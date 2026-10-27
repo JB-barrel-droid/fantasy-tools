@@ -87,3 +87,13 @@ def chromium_executable(playwright=None):
         if candidate.exists():
             return str(candidate)
     return None
+
+
+def pin_data_week_script() -> str:
+    """Init script pinning the page's clock (window.TRADE_VALUE_TODAY) to a day
+    in the served data's content week, the JEG-787/JEG-791 pin. Without it,
+    from the Tuesday flip until the new week's charts land, the page excludes
+    every chart as not yet published (JEG-1152)."""
+    import json
+    from tests.test_week_history import _fixture_today
+    return f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};"
