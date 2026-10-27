@@ -126,6 +126,8 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-ctx-roster { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 1; min-width: 0; }
 .v2-ctx-basis { display: flex; align-items: center; gap: 6px; flex: 1 1 0; min-width: 0; overflow: hidden; font-size: 13px; color: var(--v2-muted); white-space: nowrap; }
 .v2-ctx-basis .v2-showing-legend { flex: 1 1 0; min-width: 0; }
+.v2-ctx-basis.is-off { visibility: hidden; }
+.v2-app .v2-context .v2-btn[hidden] { display: none; }
 .v2-ctx-freshness { flex-shrink: 0; color: var(--v2-ink); }
 .v2-ctx-freshness .v2-dot { background: var(--v2-positive-strong, var(--v2-action)); }
 .v2-ctx-more { flex-shrink: 0; padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }

@@ -3027,7 +3027,12 @@
           if (w.playoffHi < w.playoffLo) w.playoffHi = w.playoffLo;
         });
         stepLine("v2StepPlayoffHi", "Last playoff week", "playoffHi", w.playoffLo, 18);
-        // JEG-1119: Optimize for playoffs is hidden (known not working) until reviewed.
+        eyebrow(content, "Optimize for");
+        // JEG-1119: the Playoffs option is hidden (not reviewed, likely not working). A league already saved on it
+        // still shows it, so that reader can see the setting and switch away.
+        const optimizeOptions = [["season", "Whole season"], ["regular", "Regular season"]];
+        if (w.optimize === "playoffs") optimizeOptions.push(["playoffs", "Playoffs"]);
+        content.appendChild(segmented("Optimize for", optimizeOptions, w.optimize, v => { w.optimize = v; queue(); }));
         const lo =w.optimize === "playoffs" ? Math.max(w.playoffLo, w.content + 1) : w.content + 1;
         const hi = w.optimize === "regular" ? w.regularEnd : w.playoffHi;
         const weeksNote = document.createElement("p");
@@ -6405,7 +6410,11 @@
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     applyStatic();
     // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
-    // The finder reads fixed sources (DDF Value and the trade charts), so it has no Customize either.
+    // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
+    // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    $("v2EditSources").hidden = noShowing;
+    document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
     // on show is picked by its key ("values", "writing/research", "audit/single-source"), not by the view alone.
     const navKey = v === "writing" ? "writing/" + writingSection()

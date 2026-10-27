@@ -500,7 +500,7 @@
   const PAIR_METHODS = Object.freeze([
     Object.freeze({id: "adjusted", label: "Our Data Driven Adjustments"}),
     Object.freeze({id: "indexed", label: "Indexed"}),
-    Object.freeze({id: "vorp_vs_waivers", label: "VORP vs waivers"}),
+    Object.freeze({id: "vorp_vs_waivers", label: "Value above waivers"}),
   ]);
   // source -> {label, kind, series: {method -> series key}}. A method missing
   // from `series` is not offered for that source.
@@ -528,7 +528,7 @@
       return `${entry.label} publishes projections, not a trade chart, so there is nothing to index.`;
     }
     if (method.id === "vorp_vs_waivers") {
-      return `VORP vs waivers needs per-game projections; ${entry.label} publishes trade values only.`;
+      return `Value above waivers needs per-game projections; ${entry.label} publishes trade values only.`;
     }
     return `${method.label} is not offered for ${entry.label}.`;
   }
