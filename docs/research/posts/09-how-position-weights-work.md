@@ -1,10 +1,18 @@
 # How we split value across positions
 
-Research post 9 (JEG-925). Draft for Jeremy's review.
-All numbers recomputed 2026-10-25 on main bd345e00, after the change that fills
-bench seats with flex starters and turns the promotion model on by default
-(#867). The earlier draft's tables were computed before that change and are
-replaced here.
+Research post 9 (JEG-925). Jeremy, 2026-10-26: refresh to today's rules and
+publish without his review.
+
+> **Status, 2026-10-27: rules text current, numbers pending.** The text below
+> follows today's rules: league-wide bench seats by projected points and
+> usage (JEG-1121, #957), the two DDF numbers, and fit labels. The tables still
+> hold the 2026-10-25 numbers, computed under the old bench rule, and are
+> **not to be quoted**. They can't be recomputed today: the four trade
+> charts are "not yet published for week 8" (JEG-1175), so the weights
+> currently come from the three projections alone. Once every source
+> publishes, `python3 tools/research_post9_numbers.py` regenerates every
+> table (it refuses while any source is missing), and this note comes out.
+
 Copy rules: for trades others will accept; no title abbreviations.
 
 ---
@@ -18,8 +26,10 @@ to each position. Those weights decide how much of the fixed value pie goes to
 quarterbacks, running backs, wide receivers and tight ends -- and within each
 position, how much goes to starters versus bench players.
 
-Position weights are the crux of the tool. Every Adjusted value, every DDF
-Value, and every trade recommendation depends on them. This post explains
+Position weights are the crux of the tool. Every Adjusted value depends on
+them, so DDF Charted Value (the average of the Adjusted trade charts), DDF
+Projected Value (the Adjusted projections) and every fit label on a trade
+depend on them too. This post explains
 exactly where they come from.
 
 > Evidence: `docs/methodology.md` VP-2 through VP-5.
@@ -77,15 +87,19 @@ The weights come from three things:
 2. **The league allocation.** How many starters and bench players each
    position gets is decided by the user's roster settings, with flex and
    superflex slots assigned by projected points (not by the source's own
-   values). Bench seats are apportioned by D'Hondt across the positions,
-   using draft-measured ratios of backups per starter from Fantasy Football
-   Calculator data (`config/market_bench.json`). Since #867 the count of
-   starters that feeds this split includes the flex starters, so a position
-   that fills many flex slots (wide receivers, running backs) also gets
-   more bench seats, and quarterbacks get fewer. At PPR/12 the quarterback
-   bench went from 15 seats to 4. Superflex rosters keep the older count
-   (dedicated starters only), because the draft data for two-quarterback
-   leagues already reflects a short quarterback bench. This is VP-2.2.
+   values). Since 2026-10-26 (JEG-1121, #957) bench seats are filled
+   league-wide in one pass: every seat goes to the best remaining player at
+   any position, scored by his projected points per game times a usage
+   discount. The discount is how often a backup at that position is needed
+   (starters per team times the bye and missed-game rate). It shrinks a
+   step each time a position's backups pass a tier of about two needed
+   backups per team. So a position whose starters rarely miss, like
+   quarterback in a one-quarterback league, gets few backups, while one
+   that misses often gets more. The backup quarterback count therefore
+   moves with the data rather than a fixed ratio. It replaces the earlier
+   rule, which split the seats by D'Hondt over draft-measured backup ratios
+   (`config/market_bench.json`). This is VP-2.2 and
+   `pipelines/lib/roster_convention.py` (`vorp_bench_allocate`).
 
 3. **The bench share from expected starts.** Instead of a fixed 15% bench
    share, the tool computes how much of each position's surplus actually
@@ -183,7 +197,9 @@ The DDF weights are the average of all included sources' mixes:
 - Same for the bench mix mean.
 
 Sources that have no players at a position, or no weights at all, are
-excluded from the average at that position.
+excluded from the average at that position. So is a source that has not
+published for the current week: on 2026-10-27, while the four trade charts
+were still on week 7, the weights came from the three projections alone.
 
 With expected starts, the weights that are actually used come from a second
 average: the tool averages each source's 8-group weights directly (seven
@@ -326,7 +342,8 @@ These are documented in the bench-rule research
 
 3. **Draft ratio per team (rule C2).** Backups based on the team's total
    draft capital, not per starter. Fit error 0.05, but does not adapt to
-   the user's roster shape. Rule C1 (per starter) was chosen instead.
+   the user's roster shape. Rule C1 (per starter) was chosen instead,
+   and later replaced (item 8).
 
 4. **Draft ratio with QB halved (rule C3).** Halving the QB backup ratio.
    Fit error 0.22. Rejected because it overcompensated and put QB bench
@@ -347,9 +364,16 @@ These are documented in the bench-rule research
    than half the fixed 15%. The 15% is still the default for the reader's
    manual slider, but the tool's own weights use the computed share.
 
+8. **D'Hondt over draft-measured backup ratios (rule C1, in use until
+   2026-10-26).** It placed bench seats by fixed ratios, so a position got
+   backups whether or not its players were worth rostering, and running
+   backs collected a long tail of near-zero backups. Replaced by the
+   league-wide pass by projected points and usage (JEG-1121, #957),
+   described under The inputs.
+
 > The fit errors in items 1 to 4 come from the bench-rule research, which that
 > page marks as run on the 2026-10-10 engine, before bench seats counted flex
-> starters. They were not recomputed here. Source for rules A through C3: `docs/research/bench-rule-research.md`, scorecard table. The chosen rule is C1 (draft ratio per starter, D'Hondt apportionment). Source for the 15% replacement: `docs/methodology.md` VP-3.4, ES-0 to ES-14, and `docs/research/qb-bench-share.md`.
+> starters. They were not recomputed here. Source for rules A through C3: `docs/research/bench-rule-research.md`, scorecard table. Rule C1 (draft ratio per starter, D'Hondt apportionment) was chosen then and replaced on 2026-10-26 (JEG-1121; `docs/claude-log/2026-10-26-jeg-1121-stable-bench.md`). Source for the 15% replacement: `docs/methodology.md` VP-3.4, ES-0 to ES-14, and `docs/research/qb-bench-share.md`.
 
 ## Sensitivity: what happens if the weights move
 
@@ -396,15 +420,18 @@ backs down 1.1 points.
 2. **The QB bench share was an artifact.** An earlier version showed QB
    bench share at 22.6% because two elite quarterbacks were misclassified as
    bench players due to one projection source's outlier inputs. The Razzball
-   missed-games guard (JEG-555/593) fixed the cause, and the flex-filled seat
-   count now gives a 12-team league 4 quarterback bench seats, not 15. See
+   missed-games guard (JEG-555/593) fixed the cause. Bench seats now follow
+   usage (JEG-1121), so the quarterback bench is small in a one-quarterback
+   league; the count is recomputed with the tables. See
    `docs/research/qb-bench-share.md` for the full story.
 
-3. **Draft-measured backup ratios are frozen.** The `config/market_bench.json`
-   ratios come from FFC drafts in 2016 to 2024 (skill-only set, 8,857
-   drafts). They are not re-derived each season. If real roster composition
-   shifts materially, the frozen ratios would need updating. The superflex
-   ratios come from the 2-QB format because FFC does not separate superflex.
+3. **The bench rule rests on two rates per position.** Since JEG-1121 the
+   backup count comes from bye and missed-game rates, not from draft data,
+   so it adapts to the roster. But a rate that is off (a position's real
+   miss rate in a given season) moves that position's bench seats, and
+   with them its bench weight. The draft-measured ratios
+   (`config/market_bench.json`) that this rule replaced are no longer used
+   to place bench seats.
 
 4. **No per-source weighting.** Every included source counts once in the
    average. A source with shallow coverage (fewer listed players) has the
@@ -478,7 +505,11 @@ The per-source mixes, group totals and allocation counts come from
 tables come from the same script run at different `teams`, `scoring` and
 `superflex` parameters.
 
-**Verified:** eight-group sum equals 1.0000; budgets equal pie times weights;
+**Pending (2026-10-27):** the 2026-10-25 run below predates the JEG-1121 bench
+rule; `tools/research_post9_numbers.py` replaces it once every source
+publishes.
+
+**Verified (2026-10-25):** eight-group sum equals 1.0000; budgets equal pie times weights;
 per-source group totals match the code's output; the same checks hold at all
 24 combinations of 3 scorings (standard, half PPR, PPR), 4 league sizes
 (8, 10, 12, 14) and no or one superflex slot. The sensitivity table's
