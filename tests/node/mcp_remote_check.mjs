@@ -457,9 +457,12 @@ assert.equal(r.result.structuredContent.trades.length, 10);
 sizes.findDefault = nbytes(r);
 assert.ok(sizes.findDefault < 8000, `find_trades default ${sizes.findDefault} bytes`);
 r = await sizeCall("find_trades", { mine: mineList, theirs: theirList, limit: 50 });
-assert.equal(r.result.structuredContent.shown, 50, `showing ${r.result.structuredContent.shown} of limit 50`);
-assert.equal(r.result.structuredContent.trades.length, 50);
-assert.match(r.result.content[0].text, /showing 50/);
+// Jeremy, 2026-10-26: the rewritten finder may yield fewer distinct trades than the limit; accept 1..limit.
+const shown50 = r.result.structuredContent.shown;
+assert.ok(shown50 >= 1 && shown50 <= 50, `showing ${shown50} of limit 50`);
+assert.equal(r.result.structuredContent.trades.length, shown50);
+assert.equal(new Set(r.result.structuredContent.trades.map((t) => JSON.stringify(t))).size, shown50, "find_trades limit 50 has duplicates");
+assert.match(r.result.content[0].text, new RegExp(`showing ${shown50}\\b`));
 sizes.find50 = nbytes(r);
 assert.ok(sizes.find50 < 28000, `find_trades limit 50 ${sizes.find50} bytes`);
 const sizeOpps = Array.from({ length: 11 }, (_, i) => ({ name: `Opp ${i + 1}`, roster: theirList }));
