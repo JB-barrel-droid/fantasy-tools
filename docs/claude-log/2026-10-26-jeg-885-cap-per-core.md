@@ -3,6 +3,8 @@
 Contract: the league-wide trade opportunities list showed the same received player nine times in its first ten
 rows. Jeremy, 2026-10-25 (multiple choice, option B): "At most 2 rows per received player (the core player), the
 rest folded under 'N more for <player>'." Apply that before the top-10 cut, presentation only.
+Jeremy, 2026-10-26 (follow-up, option A): the cap applies only to the opening 10 rows; "Show 10 more" and "Show all"
+show the plain ranked list; the one-team finder's groups stay as they are. The code already did this.
 
 This work was done by an **OpenRouter deepseek-v4.1-flash run (T2/T3 output, untrusted until a Claude T1 review)**.
 
@@ -35,7 +37,7 @@ in the repo)
   "8 more for Jordan Addison", "3 more for Zach Charbonnet".
 - One-team grouped finder (measured with `groupTrades` on the 2/4/20-team fixtures): already one group per receive
   core for the common case; the first 10 groups cover 5 distinct received players on every fixture. The acceptance
-  holds there, so it is **unchanged** (see open questions).
+  holds there, so it is **unchanged** (Jeremy, 2026-10-26, option A).
 
 ### Verified (check named)
 - `tests.test_v2_league_units` (harness on the real modules + every mutation) passes, including the two new cap
@@ -60,8 +62,7 @@ in the repo)
   run, so a rare flake in that check is unproven.
 - The one-team grouped finder's 50%-heavy rule can still put more than 2 groups for one core player in its first 10
   (2-team fixture: 4 groups for Malik Nabers, 5 distinct cores in the top 10). The ticket says to leave the finder
-  unchanged when the acceptance holds, and it does, so it was left alone; the numbers are in the open questions of
-  the handoff.
+  unchanged when the acceptance holds, and it does, so it was left alone; Jeremy confirmed that on 2026-10-26 (option A).
 - The 20-team fixture is used as the stand-in for the audit's 14-man review rosters (no review-roster fixture is in
   the repo); no test here reproduces the audit's exact "McConkey for Egbuka" roster.
 
@@ -70,3 +71,8 @@ in the repo)
   not touch `finder.js`; `opportunities.js` gains one new pure function and two exports, and `league.js` gains the
   cap block, so a rebase should be small.
 - Pushing, PR, merge and deploy are the PM's; nothing was pushed.
+
+### T1 review (Claude, Ba-Nana merge wave, 2026-10-26)
+- Checked the code against both decisions: the cap runs only while `UI.oppsShown === PAGE`; "Show 10 more" / "Show all"
+  slice the plain sorted list; `finder.js` and all value math are untouched. Merged `origin/main` in (no conflicts);
+  updated the league.js comment and this log to cite the 2026-10-26 choice.

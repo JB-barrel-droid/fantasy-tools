@@ -976,8 +976,8 @@
     const onSort = next => setSort("opps", next, cols);
     const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce);
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
-    // JEG-885 (Jeremy, 2026-10-25, option B): the list opens with at most O.CAP_PER_CORE rows for one received core player,
-    // the rest fold under "N more for <player>"; expanding past the first page shows the plain ranked list. Selection only:
+    // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
+    // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
     // the order, every value, edge and fit label are exactly what the ranking produced.
     const capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
     pickFromHash(res.rows);
