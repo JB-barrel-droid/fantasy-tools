@@ -37,7 +37,11 @@ def check(browser, base, overrides=None):
         errors.append(f"open state: {rows} rows, count {count!r}")
     if not page.is_visible("#v2LgOppsAll") or f"Show all ({total})" not in page.inner_text("#v2LgOppsAll"):
         errors.append(f"no 'Show all ({total})' button")
-    # Keyboard: focus the button and press Enter.
+    # Keyboard: focus the button and press Enter. A missing button is a failure to report, not a 30 s timeout.
+    if not page.is_visible("#v2LgOppsMore"):
+        errors.append("no 'Show 10 more' button")
+        page.close()
+        return errors
     page.focus("#v2LgOppsMore")
     page.keyboard.press("Enter")
     page.wait_for_timeout(200)
@@ -46,6 +50,10 @@ def check(browser, base, overrides=None):
         errors.append(f"after Show 10 more by keyboard: {rows} rows, {count!r}")
     if page.evaluate("() => document.activeElement && document.activeElement.id") != "v2LgOppsMore":
         errors.append("focus left Show 10 more after pressing it (a keyboard reader cannot press it again)")
+    if not page.is_visible("#v2LgOppsAll"):
+        errors.append("'Show all' button gone after Show 10 more")
+        page.close()
+        return errors
     page.focus("#v2LgOppsAll")
     page.keyboard.press("Enter")
     page.wait_for_timeout(300)
