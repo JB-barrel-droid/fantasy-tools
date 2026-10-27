@@ -144,3 +144,38 @@ So in the "new week, charts not yet published" state (the live state now)
 engine and reference price a held or unpublished chart differently. Pinning
 `--today` would change the Makefile gate, not test setup, and would hide a
 real fidelity disagreement, so it was not done. PR 979 is not merged.
+
+## Resumed 2026-10-27: the value-check disagreement was an engine port bug (JEG-1152)
+
+Root cause: the JEG-969 promotion model (#867) differs between the engine and
+the reference. `value_reference._apply_promotion_model` gives a bench player
+with no lineup share but value above waivers a promotion bonus
+(`start_worthy_part = avail * vorp * bonus_share`). The engine's
+`esApplyPromotionModel` had no such branch and left him at 0. The week-8
+lineup window put two such FantasyPros/FantasyCalc WRs (keys 1502, 4086) at
+that depth, so the disagreement showed only from 2026-10-27. It was not the
+JEG-1156 publish-lag question and not a clock bug. The engine now follows the
+reference (the authority); the reference is unchanged.
+
+Value-math change (engine only, tiny: these values moved from 0 to at most
+0.12), so the merge waits for the lead's sign-off.
+
+### Verified (check named)
+
+- `python3 pipelines/value_check.py compare --rerun-engine --strict` after
+  `make reference sync`: `--today 2026-10-26` agree (1,230,125 values),
+  `--today 2026-10-27` agree (713,525 values). Before the fix 2026-10-27
+  disagreed (fantasypros 5), as in CI.
+- `tests.test_promotion_model_parity` (new, in test-core): passes with the
+  fix, 5 failures against the pre-fix value-model.js.
+- `tests.test_value_pipeline_engine`, `tests.test_spec_reference_value_pipeline`,
+  `tests.test_rank_guard`: OK locally.
+- `make values-explainer MARK_REVIEWED=1`: narrative has no promotion text, so
+  unchanged; logic marked reviewed.
+
+### Claimed, not confirmed
+
+- The main pages.yml rank-guard failure ("no Indexed values or native ranks")
+  is the unpinned page clock that this branch already pins
+  (`_render_env.pin_data_week_script`); confirmed only once this merges and
+  pages.yml runs.
