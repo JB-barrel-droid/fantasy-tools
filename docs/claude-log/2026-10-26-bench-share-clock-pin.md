@@ -84,3 +84,33 @@ timezone once the real date reaches Tuesday. Both classes now pin to
   `FAILED (failures=3)`; new `OK` (6 tests), also `OK` under Chicago.
 - The other 14 test-core suites after `test_ddf_composite_value`, plus the
   three node tests, passed under `TZ=UTC` at 03:38 UTC.
+
+## Fourth round: the page itself on week 8 (04:00 UTC, lead chose option A)
+
+At 04:00 UTC New York reached Tuesday, so the page also said week 8 against
+week-7 charts and excluded every chart. CI `preview` (run 40445553560) failed
+`test_v2_phone_trade_rows_render`. A local parallel sweep of test-core under
+`TZ=UTC` listed 17 failing suites. The lead (Ba-Nana orchestrator) authorized
+option A: pin the page clock in test setup only. Option B (a grace window
+when a new week has no published charts) goes to Jeremy separately.
+
+Fix: `tests/_render_env.pin_data_week_script()` returns the JEG-787/791 init
+script (`window.TRADE_VALUE_TODAY = _fixture_today()`). Each `new_page` in 16
+suites now adds it. No assertion, value code, engine, pipeline, fixture or
+dist change.
+
+### Verified (check named)
+
+- Serial `TZ=UTC python -m unittest tests.<suite>` at 04:20-04:39 UTC, one at
+  a time: all 17 OK (superflex_publisher_values, superflex, rank_guard, the
+  eight v2_phone_* suites, launch_front_door, week_history, value_overrides,
+  v2_desktop_menu_render, missing_section_render, search_players_universe).
+- `test_week_history` passed with no change, so its failure in the parallel
+  sweep was noise (concurrent dist rebuilds).
+- `test_v2_phone_trade_rows_render` without the pin, run alone: 2 errors (no
+  #v2Compare rows); with the pin: OK.
+
+### Claimed, not confirmed
+
+- The other 15 previously failing suites were seen failing only in the
+  parallel sweep, not one at a time without the pin.
