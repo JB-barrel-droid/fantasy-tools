@@ -114,30 +114,34 @@ Product decisions to date (Oct 26 unless noted; details on the ticket):
 
 ## 5. Current state
 
-Last updated: Oct 26, 2026, 9:40 PM CT (by Ba-Nana).
+Last updated: Oct 27, 2026, 12:10 AM CT (by Ba-Nana).
 
-**Active runs**
-- Runs change hourly: check `ps` on the Mac, box and HP, Linear In Progress,
-  and the Started / ✅ / ❌ run comments before starting anything.
+**Main is red, so nothing merges or deploys.** At the week-8 date flip
+(00:00 UTC Oct 27) three test-core render tests started reading the real
+clock wrong. Fix: [PR 979](https://github.com/JB-barrel-droid/fantasy-tools/pull/979)
+([JEG-1152](https://linear.app/jegabee/issue/JEG-1152)), tests only, checks running.
+Merge it first; every merge-wave run is waiting on it.
 
-**Open PRs waiting on Jeremy**
-- [PR 957](https://github.com/JB-barrel-droid/fantasy-tools/pull/957), [JEG-1121](https://linear.app/jegabee/issue/JEG-1121): review the movers / bench
-  seats (A merge, B change, C rethink). A value-ordered seat rework was
-  proposed and is being compared to a real ESPN std/12 league. Not merged.
-- [PR 966](https://github.com/JB-barrel-droid/fantasy-tools/pull/966), [JEG-1115](https://linear.app/jegabee/issue/JEG-1115): fit-label option card; stays a draft.
-- [PR 967](https://github.com/JB-barrel-droid/fantasy-tools/pull/967), [JEG-1134](https://linear.app/jegabee/issue/JEG-1134): two questions in the PR.
-- [PR 968](https://github.com/JB-barrel-droid/fantasy-tools/pull/968), [JEG-885](https://linear.app/jegabee/issue/JEG-885): cap the first 10 only, or the whole list?
-- [PR 969](https://github.com/JB-barrel-droid/fantasy-tools/pull/969) (JEG-894) and [PR 970](https://github.com/JB-barrel-droid/fantasy-tools/pull/970) (JEG-1101): copy questions on the tickets.
-- [PR 958](https://github.com/JB-barrel-droid/fantasy-tools/pull/958) + [PR 960](https://github.com/JB-barrel-droid/fantasy-tools/pull/960): merge, then the one combined mcp deploy.
-- Older and stale: [all open PRs](https://github.com/JB-barrel-droid/fantasy-tools/pulls) (959, 939, 925, 921, 920, 837; 962 conflicts).
+**Live problem waiting on Jeremy:** [JEG-1156](https://linear.app/jegabee/issue/JEG-1156)
+(urgent, `needs-review`): blended DDF Values are blank site-wide until week-8
+charts publish. Options A fallback to last week (recommended), B message, C later flip.
 
-**Open decisions** (label `needs-review`): JEG-1121, JEG-1115, JEG-1125
-("Even" band), JEG-1143 (findings), JEG-1142 (parked behind JEG-1144).
+**Running now** (Mac, Claude, merge wave started about 9:20 to 11:00 PM CT;
+each waits for green main, then merges serialized): PRs 920, 925, 939/958
+(round 3), 976, 977, plus a resumed opus lead session and a 9:30 PM retry run.
+Muse: [JEG-982](https://linear.app/jegabee/issue/JEG-982),
+[JEG-557](https://linear.app/jegabee/issue/JEG-557) (PR 982),
+[JEG-1061](https://linear.app/jegabee/issue/JEG-1061) (PR 981); JEG-1145 / PR 973 in review.
 
-**Next queued:** lane 4 tickets back in Todo for fresh DeepSeek runs; JEG-1144
-research if Jeremy OKs it; research post refresh after PR 957 merges.
+**Approved to merge once main is green:** PR 957 (JEG-1121 bench seats),
+958 + 960 (then the one combined mcp deploy), and the low-risk queue
+(963, 965, 968, 972-978, 980). Drafts with open questions: 966, 967, 969, 970.
 
-**OpenRouter balance:** $12.02 (`credits.sh`, Oct 26 7:20 PM CT).
+**Open decisions** (label `needs-review`): JEG-1156, JEG-1115, JEG-1125,
+JEG-1143, JEG-1142. QB bench count (8 vs about 7) is a low-priority math note.
+
+**Next queued:** research post refresh after PR 957 merges; Codex JEG-1136 on
+the HP once 921, 963, 964, 967, 939 merge.
 
 ## 6. Keeping this file current (anti-bloat)
 
