@@ -100,9 +100,10 @@ def run_checks(patches=None) -> list[str]:
                 page.wait_for_timeout(1500)
                 snap = page.evaluate(READ)
                 errors += reader_problems(hash_, snap)
-                if hash_ == "#compare-trade" and not re.search(r"\d+ of \d+ charts agree", snap["text"]):
-                    errors.append("[#compare-trade] no 'N of M charts agree' line on the example trade")
                 if hash_ == "#trade-targets":
+                    # JEG-1112 removed the Compare headline lines, so the chart count is read on the Trade targets rows.
+                    if not re.search(r"\d+ of \d+ charts agree", snap["text"]):
+                        errors.append("[#trade-targets] no 'N of M charts agree' on the target rows")
                     # The difference beside Market consensus is market minus ours, the Gap's own sign.
                     diffs = snap["diffs"]
                     saw_diff = saw_diff or bool(diffs)
@@ -140,7 +141,7 @@ def source_problems(finder: str | None = None) -> list[str]:
 PATCHES = {
     "minus sign is a hyphen again (Values auditing)": {"audit-pie.js": ('.replace("-", "−");', ';')},
     "signed zero returns": {"audit-pie.js": ('(text === "0.0" ? "" : text.startsWith("-")', '(text.startsWith("-")')},
-    "agreement phrase says 'trade charts'": {"trade.js": ("${chartAgree} of ${chartTotal} charts agree", "${chartAgree} of ${chartTotal} trade charts agree")},
+    "agreement phrase says 'trade charts'": {"v2.js": ("`${b.agree} of ${b.of} charts agree `", "`${b.agree} of ${b.of} trade charts agree `")},
     "week code W7 returns": {"v2.js": ("` · Week ${view.refWeek}`", "` · W${view.refWeek}`")},
     "arrow on an in-app link": {"index.html": ("See every value</a>", "See every value ↗</a>")},
     "market difference opposite to gap": {"v2.js": ("diff.textContent = fmtGap(-m.diff);", "diff.textContent = `${m.diff > 0 ? \"▲\" : \"▼\"} ${Math.abs(m.diff).toFixed(1)} ${m.diff > 0 ? \"above\" : \"below\"}`;")},
