@@ -76,7 +76,7 @@ READ = """() => {
   });
   return {state: C.getState(), roster: C.getRosterShape(), info, weights: C.getPositionWeights(), bench: C.getBenchShareReadout(),
     weightsLine: document.getElementById('v2HowWeights').textContent, benchLine: document.getElementById('v2HowBench').textContent,
-    methodsShown: !document.getElementById('v2Methods').hidden,
+    methodsShown: !(document.getElementById('v2Context')?.hidden ?? true),
     league: document.getElementById('v2HowLeague').textContent,
     rosterLine: document.getElementById('v2HowRoster').textContent,
     lists: Object.fromEntries([...how.querySelectorAll('[data-sources]')].map(ul => [ul.dataset.sources,
@@ -174,7 +174,7 @@ def check(snap) -> list[str]:
     if snap["benchLine"] != want:
         errors.append(f"bench line {snap['benchLine']!r} != engine readout {want!r}")
     if not snap["methodsShown"]:
-        errors.append("frame 15: the Methods row is shown on How values work")
+        errors.append("frame 15: the context row is shown on How values work")
     for view in ("vorp", "dda", "indexed"):
         want = [item for item in snap["info"] if method(item["key"]) == view]
         got = snap["lists"].get(view, [])
