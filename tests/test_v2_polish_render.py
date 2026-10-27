@@ -315,8 +315,8 @@ def check_pie_formatters(pie_js=None) -> list[str]:
               pct: P._fmtPct(-0.00001), pctNeg: P._fmtPct(-0.012), pctPos: P._fmtPct(0.012), real: P._fmt(-1.234, 2)}; }""")
         finally:
             browser.close()
-    want = {"delta2": "0.00", "delta1": "0.0", "zero2": "0.00", "neg2": "-0.01", "pos2": "0.00",
-            "pct": "+0.0%", "pctNeg": "-1.2%", "pctPos": "+1.2%", "real": "-1.23"}
+    want = {"delta2": "0.00", "delta1": "0.0", "zero2": "0.00", "neg2": "\u22120.01", "pos2": "0.00",
+            "pct": "0.0%", "pctNeg": "\u22121.2%", "pctPos": "+1.2%", "real": "\u22121.23"}
     return [f"[912] {key}: got {got[key]!r}, want {value!r}" for key, value in want.items() if got.get(key) != value]
 
 
