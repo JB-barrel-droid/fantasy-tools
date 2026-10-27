@@ -57,3 +57,10 @@ and runs the gate).
 - Both ⓘ foot links: `Connect the tool ↗`, href read from the footer's own link (no second URL).
 
 No Sleeper/ESPN/Yahoo claim, no sign-up language and no publisher name in any of them; each line is under 15 words.
+
+## T1 review (Ba-Nana merge wave, 2026-10-27)
+
+- Fix: if the footer's connect link is missing, the ⓘ keeps the shared default link instead of a "Connect the tool" label pointing at the how-values page (`ddf-assist.js` `explain`).
+- Merged origin/main in (no conflicts).
+- Verified (check named): `tests/test_v2_assist.py`, `tests/test_v2_assist_render.py` pass locally after the merge.
+- Claimed, not confirmed: the 1366x768 Example fold margin; the local fold test could not load the Example state from this worktree's committed `dist/`, so CI's `v2-render` is the check.

@@ -218,7 +218,8 @@
     if (hint) hint.hidden = false;
     const slot = $(slotId);
     if (!slot || !H.infoButton) return;
-    const button = H.infoButton({...spec, link: {href: connectHref(), text: "Connect the tool ↗"}});
+    const href = connectHref();   // no footer link: the ⓘ keeps the shared default rather than a "Connect" label to nowhere
+    const button = H.infoButton(href ? {...spec, link: {href, text: "Connect the tool ↗"}} : spec);
     button.id = infoId;
     slot.replaceWith(button);
   }
