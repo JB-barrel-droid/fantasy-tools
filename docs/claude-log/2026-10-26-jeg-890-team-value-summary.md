@@ -43,3 +43,10 @@ runs the gate.
   (`tests/test_v2_finder_eval_render.py`) asserts no `#v2FindTeams` element exists.
 - Open product question 5 (chart average with fewer than 3 charts) is not decided; the card follows main's
   convention ("n/a" column, note "Trade chart average: not enough charts this week"), not a new choice.
+
+### Merge-wave review (2026-10-27, Ba-Nana run, Claude T1)
+- Verified (diff read): `teamSummary` and `renderTeamSummary` only sum existing engine values (`pickStarters`,
+  `withChartAverage`); no value math changed. Merged origin/main in, no conflicts.
+- Verified (`tests.test_v2_finder_teams`, `tests.test_v2_finder_teams_render`, `tests.test_v2_contract_render`):
+  the render test failed after the merge-in from main's JEG-1152 clock drift; fixed by adding
+  `_render_env.pin_data_week_script()` like main's other render tests. Test change only, no assertion changed.
