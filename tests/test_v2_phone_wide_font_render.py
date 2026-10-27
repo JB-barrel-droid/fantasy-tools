@@ -74,6 +74,7 @@ def _run(css=None) -> dict:
     with _served() as base, sync_playwright() as p:
         browser = p.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
         probe = browser.new_page()
+        probe.add_init_script(_render_env.pin_data_week_script())
         family = next((f for f in FAMILIES if probe.evaluate(HAS_FACE, f)), None)
         probe.close()
         if family is None:
@@ -84,6 +85,7 @@ def _run(css=None) -> dict:
         for width in WIDTHS:
             for tab in TABS:
                 page = browser.new_page(viewport={"width": width, "height": 812})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.add_init_script(init)
                 if css is not None:
                     page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))

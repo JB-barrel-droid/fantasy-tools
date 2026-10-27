@@ -37,7 +37,7 @@
   function host() {
     let box = $("v2InputsStatus");
     if (box) return box;
-    const league = $("v2League");
+    const league = $("v2Context") || $("v2League");   // JEG-1119: the context row replaced the league bar
     if (!league || !league.parentNode) return null;
     box = el("div", {id: "v2InputsStatus", class: "v2-inputs", "aria-label": "Status of your inputs", role: "region", hidden: ""});
     league.parentNode.insertBefore(box, league.nextSibling);
