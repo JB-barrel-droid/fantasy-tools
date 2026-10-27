@@ -219,6 +219,7 @@ def collect_page(widget_override=None):
         browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         try:
             page = browser.new_page()
+            page.add_init_script(_render_env.pin_data_week_script())
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             if widget_override is not None:

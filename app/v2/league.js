@@ -25,7 +25,7 @@
   const PAGE = 10;   // JEG-1098: the opportunities list opens on the top 10; "Show 10 more" and "Show all" reveal the rest
   const OPP_DEBOUNCE_MS = 300;
   const money = n => n.toFixed(1);
-  const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
+  const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const plural = (n, word, many) => `${n} ${n === 1 ? word : (many || `${word}s`)}`;
   const listJoin = items => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`);
 

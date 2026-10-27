@@ -75,10 +75,20 @@ def direction_problems(board) -> list[str]:
     return problems
 
 
+def data_today() -> date:
+    """A day in the served data's content week. On the real date, from the
+    Tuesday flip until the new charts land, no chart is current, so no QB is
+    priced (JEG-1152; the JEG-787/JEG-791 pin)."""
+    from tests import _render_env
+    from tests.test_week_history import _fixture_today
+    _render_env.ensure_built()
+    return date.fromisoformat(_fixture_today())
+
+
 class ReferenceDirection(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.inp = ref.Inputs.load()
+        cls.inp = ref.Inputs.load(today=data_today())
         cls.pos_of = {k: p["pos"] for k, p in cls.inp.players.items()}
 
     def board(self, scoring, teams, qb):
@@ -113,7 +123,7 @@ class EngineDirection(unittest.TestCase):
         import value_check
         cls.settings = [{"scoring": s, "teams": t, "superflex": 0, "qb": qb}
                         for s, t in COMBOS for qb in (1, 2)]
-        today = date.today()
+        today = data_today()
         engine = value_check.run_engine(cls.settings, today)
         cls.errors = engine["page_errors"]
         cls.engine = engine["settings"]
