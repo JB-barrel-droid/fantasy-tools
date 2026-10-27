@@ -435,17 +435,18 @@ function opportunityRows(name, opts) {
   return oppCache[key];
 }
 
-const LABELS = ["natural", "value", "market", "force"];
+// JEG-1108: three overall labels; Value fit is retired, so "value" is not a label any more.
+const LABELS = ["natural", "market", "force"];
 function assertRowShape(r) {
   assert.strictEqual(typeof r.opponent, "string");
   assert.ok(Array.isArray(r.give) && r.give.length && Array.isArray(r.receive) && r.receive.length, "trade");
   assert.ok(r.core && r.receive.includes(r.core), "core player is in the receive set");
   assert.ok(Number.isFinite(r.edge) && r.edge > 0, "fundamentals capture");
   assert.ok(r.edgePct === null || Number.isFinite(r.edgePct), "capture percent");
-  assert.ok(["natural", "value", "force"].includes(r.ours.label), "our team fit");
+  assert.ok(["natural", "partial", "force"].includes(r.ours.label), "our team fit");
   assert.ok(Number.isFinite(r.chartEdge), "market perception edge");
   assert.ok(Number.isInteger(r.rivalOkCount) && r.chartCount >= r.rivalOkCount, "charts fair");
-  assert.ok(["fills", "neutral", "hurts"].includes(r.theirs.label), "their team fit");
+  assert.ok(["favorable", "neutral", "hurts"].includes(r.theirs.label), "their team fit");
   assert.ok(LABELS.includes(r.overall), "overall fit");
   assert.ok(Number.isInteger(r.rank) && r.rank >= 1, "rank");
 }
@@ -456,20 +457,22 @@ t("test_opportunities_columns", async () => {
   assert.ok(new Set(d.rows.map(r => r.opponentId)).size >= 2, "rows from more than one opponent");
 });
 t("test_opportunities_fit_label", () => {
-  // The truth table of spec 4.3, cell by cell.
+  // JEG-1108: when the finder's tradeFit result is present its label is the overall fit, whatever the sub-signals say.
+  ["natural", "market", "force"].forEach(label => assert.strictEqual(O.overallFit("force", false, -9, "hurts", {label}), label, `tradeFit label ${label} is used as is`));
+  // Without a tradeFit result (older callers): force when our side fails or the charts are not priced; market when the charts favor them.
   const table = [
-    ["natural", true, 3.8, "fills", "natural"], ["value", true, 0.0, "fills", "natural"], ["natural", true, 3.8, "neutral", "value"], ["value", true, 1, "hurts", "value"],
-    ["natural", true, -1.2, "fills", "market"], ["value", true, -0.4, "neutral", "market"], ["natural", false, 2, "fills", "force"], ["value", false, 2, "neutral", "force"],
-    ["force", true, 5, "fills", "force"], ["force", false, -1, "hurts", "force"]];
+    ["natural", true, 3.8, "favorable", "market"], ["natural", true, -1.2, "hurts", "force"], ["natural", false, 2, "favorable", "force"],
+    ["partial", true, 0.0, "neutral", "market"], ["force", true, 5, "favorable", "force"], ["force", false, -1, "hurts", "force"]];
   table.forEach(([ours, ok, edge, theirs, want]) => assert.strictEqual(O.overallFit(ours, ok, edge, theirs), want, JSON.stringify([ours, ok, edge, theirs])));
-  assert.strictEqual(O.overallFit("natural", true, -0.04, "fills"), "natural", "a chart edge of -0.04 shows as 0.0, not negative");
+  assert.strictEqual(O.overallFit("natural", true, -0.04, "neutral"), "market", "a chart edge of -0.04 shows as 0.0, not negative");
 });
 t("test_opportunities_fit_label_rows", async () => {
   const d = await opportunityRows("20team");
   assert.ok(d.rows.length > 0);
-  d.rows.forEach(r => assert.strictEqual(r.overall, O.overallFit(r.ours.label, true, r.chartEdge, r.theirs.label), `row ${r.id}`));
+  d.rows.forEach(r => assert.strictEqual(r.overall, r.fit.label, `row ${r.id}`));
   const seen = new Set(d.rows.map(r => r.overall));
   assert.ok(seen.size >= 2, `the 20-team fixture shows more than one fit label: ${[...seen]}`);
+  assert.ok(!seen.has("value"), "Value fit is retired");
 });
 t("test_opportunities_rank", async () => {
   const d = await opportunityRows("20team");
@@ -484,8 +487,8 @@ t("test_opportunities_rank", async () => {
 });
 t("test_opportunities_tier_before_edge", () => {
   const mk = (id, overall, edge) => ({id, opponent: "A", overall, tier: O.TIERS[overall], edge, score: edge, size: 2});
-  const out = O.rankRows([mk("a", "force", 20), mk("b", "natural", 1), mk("c", "market", 9), mk("d", "value", 3), mk("e", "natural", 4)]);
-  assert.deepStrictEqual(out.map(r => r.id), ["e", "b", "d", "c", "a"]);
+  const out = O.rankRows([mk("a", "force", 20), mk("b", "natural", 1), mk("c", "market", 9), mk("d", "market", 3), mk("e", "natural", 4)]);
+  assert.deepStrictEqual(out.map(r => r.id), ["e", "b", "c", "d", "a"]);
   assert.deepStrictEqual(out.map(r => r.rank), [1, 2, 3, 4, 5]);
 });
 // ---------- JEG-885: at most CAP_PER_CORE rows for one received core player, the rest folded ----------
@@ -580,8 +583,9 @@ t("test_opportunities_filters", async () => {
   const natural = O.filterRows(d.rows, {fit: "natural"}, false);
   assert.ok(natural.every(r => r.overall === "natural"));
   assert.ok(natural.length < d.rows.length);
-  const nv = O.filterRows(d.rows, {fit: "naturalValue"}, false);
-  assert.ok(nv.every(r => r.overall === "natural" || r.overall === "value"));
+  const nv = O.filterRows(d.rows, {fit: "naturalMarket"}, false);
+  assert.ok(nv.every(r => r.overall === "natural" || r.overall === "market"));
+  assert.strictEqual(nv.length, d.rows.filter(r => r.overall !== "force").length, "Natural and market supported = everything but force");
   const noForce = O.filterRows(d.rows, {}, true);
   assert.strictEqual(noForce.length, d.rows.filter(r => r.overall !== "force").length);
   assert.ok(d.rows.some(r => r.overall === "force"), "the 20-team fixture has force fits to hide");

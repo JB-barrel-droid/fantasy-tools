@@ -59,7 +59,9 @@ def check(browser, base, overrides=None):
     page.select_option("#v2LgFilterFit", "natural")
     page.wait_for_timeout(300)
     rows, count = page.evaluate(ROWS), page.evaluate(COUNT)
-    if rows > 10 or (rows and count.strip().split(" of ")[1] != str(page.evaluate("() => window.TradeValueLeague.ui.result.rows.filter(r => r.overall === 'natural').length"))):
+    natural = str(page.evaluate("() => window.TradeValueLeague.ui.result.rows.filter(r => r.overall === 'natural').length"))
+    counted = re.search(r"of (\d+)$", count.strip())
+    if rows > 10 or (rows and (counted is None or counted.group(1) != natural)):
         errors.append(f"filtered count wrong: {rows} rows, {count!r}")
     page.close()
     return errors
