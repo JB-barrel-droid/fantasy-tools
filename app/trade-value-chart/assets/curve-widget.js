@@ -704,9 +704,9 @@
     return Array.isArray(exc) && exc.indexOf(key) !== -1;
   };
 
-  function eligibilityReason(key, natives) {
+  function eligibilityReason(key, natives, options) {
     if (sourceMissingFromData(key)) return {reason: "missing from this build", run: false};
-    const block = compositeBlock(key);
+    const block = compositeBlock(key, options);
     // JEG-726: an amber hold (merely lagging) labels the source but does NOT
     // hide it from DDF Value or projection ordering. Only red holds hide.
     if (block && block.heldBy) {
@@ -738,7 +738,9 @@
 
   // VP-1.2 / VP-8: a source's prior-week snapshot (the week before the one it
   // serves now). {available, currentWeek, priorWeek, values, reason}.
-  function priorInputFor(key) {
+  // JEG-1177: `week` is the week view's week (a moved source is priced on
+  // its saved copy of that week, so its prior is the week before the view).
+  function priorInputFor(key, week) {
     let index;
     try {
       index = historyNow("index");
@@ -747,7 +749,7 @@
     }
     const found = servedWeekOf(key, null, index);
     if (found.error) return {available: false, reason: found.error};
-    const currentWeek = found.served.week;
+    const currentWeek = Number.isInteger(week) ? week : found.served.week;
     const priorWeek = currentWeek - 1;
     let doc;
     try {
@@ -788,17 +790,104 @@
   let pipelineState = {eligible: [], included: [], excluded: [], priorAvailable: false, priorReason: null,
     currentWeek: null, priorWeek: null, priorBySource: {}, runReasons: {}};
   let weekPipelineCache = new Map();
+  // JEG-1177 (JEG-1176): week transition. Each source serves its own week
+  // (history index served.week). The reader sees one week view: the default
+  // is ValueModel.defaultWeek over the sources that feed DDF Value at this
+  // setting (more than half on week N+1 -> N+1, else N), or the week the
+  // reader picked (setWeek) while it is one of the transition's weeks.
+  // No carry-forward (Jeremy, 2026-10-27): a source serving a week before
+  // the view is left out of it (named in missing_sources); a source serving
+  // a later week is priced on its own saved copy of the view's week.
+  let selectedWeek = null;
+  let weekView = null;
+  // The sources that run when no week view narrows them (the history
+  // accessor's run set, so getWeekValues does not depend on the view).
+  let historyRunKeys = [];
+
+  function resolveWeekView() {
+    let index;
+    try {
+      index = historyNow("index");
+    } catch (error) {
+      return null;
+    }
+    const servedWeeks = {};
+    const candidates = [];
+    PIPELINE_SOURCE_KEYS.forEach(key => {
+      const found = servedWeekOf(key, null, index);
+      servedWeeks[key] = found.served ? found.served.week : null;
+      // DDF Value sources at this setting: eligible and not hidden, judged
+      // without any week rule (the week rule is what this decides).
+      if (!eligibilityReason(key, currentNatives(key), {ignoreWeek: true})) candidates.push(key);
+    });
+    const state = ValueModel.weekState(candidates.map(key => ({source: key, week: servedWeeks[key]})));
+    if (!Number.isInteger(state.default_week)) return null;
+    const week = Number.isInteger(selectedWeek) && state.weeks.includes(selectedWeek) ? selectedWeek : state.default_week;
+    let doc = null;
+    let docError = null;
+    try {
+      doc = historyWeekDocNow(index, week);
+    } catch (error) {
+      docError = `history could not be read: ${error.message}`;
+    }
+    const savedNatives = {};
+    const missingSaved = {};
+    PIPELINE_SOURCE_KEYS.forEach(key => {
+      if (!(Number.isInteger(servedWeeks[key]) && servedWeeks[key] > week)) return;
+      const got = doc ? weekNatives(key, week, index, doc) : {reason: docError || `no Week ${week} content saved`};
+      if (got.values) savedNatives[key] = got.values;
+      else missingSaved[key] = got.reason;
+    });
+    const views = {};
+    Object.entries(state.views).forEach(([w, view]) => {
+      const gone = view.sources.filter(key => Number(w) === week && missingSaved[key]);
+      views[w] = {sources: view.sources.filter(key => !gone.includes(key)),
+        missing_sources: [...view.missing_sources, ...gone].sort()};
+    });
+    return {week, selected: week !== state.default_week, default_week: state.default_week, newest: state.newest,
+      previous: state.previous, transition: state.transition, weeks: state.weeks, on_newest: state.on_newest,
+      total: state.total, views, servedWeeks, savedNatives, missingSaved};
+  }
+
+  // The week view without its natives (getWeekState / pipelineState.weekView).
+  function publicWeekView() {
+    if (!weekView) return null;
+    const {savedNatives, missingSaved, servedWeeks, ...rest} = weekView;
+    return {...rest, servedWeeks: {...servedWeeks}, missingSaved: {...missingSaved},
+      views: JSON.parse(JSON.stringify(weekView.views))};
+  }
 
   function computePipeline() {
     pipelinePlayersCache = null;
     weekPipelineCache = new Map();
+    weekView = null;
+    weekView = resolveWeekView();
+    const weekDropped = [];
     const natives = {};
     const runReasons = {};
     const excluded = [];
     const eligible = [];
     const hidden = new Set(); // JEG-569 part 2: held sources that run in the pipeline but are hidden from display
     PIPELINE_SOURCE_KEYS.forEach(key => {
-      const values = currentNatives(key);
+      let values = currentNatives(key);
+      const served = weekView?.servedWeeks?.[key];
+      if (weekView && Number.isInteger(served) && served !== weekView.week) {
+        const base = eligibilityReason(key, values, {ignoreWeek: true});
+        if ((!base || base.run) && values.size) weekDropped.push(key);
+        if (served < weekView.week) {
+          const reason = `not yet published for Week ${weekView.week} (serves Week ${served})`;
+          excluded.push({key, series: key, reason, notPublished: true, lagging: true, servedWeek: served});
+          runReasons[key] = reason;
+          return;
+        }
+        if (!weekView.savedNatives[key]) {
+          const reason = `no Week ${weekView.week} saved (${weekView.missingSaved[key]})`;
+          excluded.push({key, series: key, reason, servedWeek: served});
+          runReasons[key] = reason;
+          return;
+        }
+        values = weekView.savedNatives[key];
+      }
       const why = eligibilityReason(key, values);
       if (why) {
         excluded.push({key, series: key, reason: why.reason, ...(why.block || {}), hidden: !!why.hidden});
@@ -822,7 +911,7 @@
     // VP-1.2: I = the eligible sources with a prior-week snapshot, paired on
     // the newest served week; if none has one, I = the eligible sources.
     const priorBySource = {};
-    eligible.forEach(key => { priorBySource[key] = priorInputFor(key); });
+    eligible.forEach(key => { priorBySource[key] = priorInputFor(key, weekView?.week); });
     const served = eligible.map(key => priorBySource[key].currentWeek).filter(Number.isInteger);
     const currentWeek = served.length ? Math.max(...served) : null;
     const paired = eligible.filter(key => priorBySource[key].available && priorBySource[key].currentWeek === currentWeek);
@@ -837,6 +926,8 @@
     }
     pipelineNatives = natives;
     pipeline = runPipeline(natives, included, {hidden: [...hidden]});
+    // Without a narrowing week view this is exactly the current run's sources.
+    historyRunKeys = [...new Set([...Object.keys(pipeline.sources), ...weekDropped])];
     // ES-14: the bench share in effect is an output unless overridden.
     benchShare = benchShareOverride ?? pipeline.benchShare?.overall ?? DEFAULT_BENCH_SHARE;
     pipelineState = {
@@ -846,9 +937,10 @@
       priorReason: priorAvailable ? null : (eligible.length
         ? `no source has a prior week at this setting (${eligible.map(key => `${key}: ${priorBySource[key].reason}`).join("; ")})`
         : "no source is available at this setting"),
-      currentWeek: priorAvailable ? currentWeek : (currentWeek ?? activeReferenceWeek()),
+      currentWeek: priorAvailable ? currentWeek : (currentWeek ?? weekView?.week ?? activeReferenceWeek()),
       priorWeek: priorAvailable ? currentWeek - 1 : null,
       priorBySource, runReasons,
+      weekView: publicWeekView(),
     };
     // VP-8: the prior week on the prior inputs, the same I, league and pie.
     pipelinePrior = null;
@@ -865,9 +957,12 @@
   // on its own snapshot of that week when it has one; sources in I without
   // the week drop out (listed in `dropped`). Sources outside I are shown,
   // never counted. {result, dropped} | {reason, dropped}.
-  function weekPipeline(week) {
+  // keys: the sources to run (default: the current run's; the history
+  // accessor passes historyRunKeys so it does not depend on the week view).
+  function weekPipeline(week, keys) {
     week = Number(week);
-    const cacheKey = String(week);
+    const runKeys = keys || Object.keys(pipeline.sources);
+    const cacheKey = `${week}|${runKeys.join(",")}`;
     if (weekPipelineCache.has(cacheKey)) return weekPipelineCache.get(cacheKey);
     let result;
     {
@@ -881,7 +976,7 @@
       if (!result) {
         const natives = {};
         const dropped = [];
-        Object.keys(pipeline.sources).forEach(key => {
+        runKeys.forEach(key => {
           const got = weekNatives(key, week, index, doc);
           if (got.values) natives[key] = got.values;
           else dropped.push({source: key, reason: got.reason});
@@ -986,7 +1081,13 @@
   // "Not yet published for the current week": the stale flag (a weekly chart
   // older than the current content week) or the first-load rule (JEG-432 R5).
   // Projections carry no week and are always current.
-  const compositeKeyOlderWeek = key => sourceIsStale(key) || firstLoadExcluded.has(key);
+  // JEG-1177: inside a week view a source is "older" when it serves a week
+  // before the view's week (its own served week, not the calendar's).
+  const compositeKeyOlderWeek = key => {
+    const served = weekView?.servedWeeks?.[key];
+    if (weekView && Number.isInteger(served)) return served < weekView.week;
+    return sourceIsStale(key) || firstLoadExcluded.has(key);
+  };
   // JEG-479: a source held for the week is held with every series derived
   // from it. A hold is a section field the pipeline writes:
   //   validationHold: {reason, week, root, kept_week}
@@ -1030,14 +1131,14 @@
   const compositeKeyHeld = key => seriesHold(key) !== null;
   // Why a source can never be an input this week (held, or not yet
   // published for the current week), or null.
-  function compositeBlock(key) {
+  function compositeBlock(key, options) {
     const hold = seriesHold(key);
     if (hold) {
       return {key, reason: `held: ${hold.reason}`, heldBy: hold.source, holdField: hold.field, holdWeek: hold.week,
         holdRoot: hold.root, holdKeptWeek: hold.keptWeek, holdLevel: hold.holdLevel};
     }
-    if (compositeKeyOlderWeek(key)) {
-      const week = activeReferenceWeek();
+    if (!options?.ignoreWeek && compositeKeyOlderWeek(key)) {
+      const week = weekView ? weekView.week : activeReferenceWeek();
       return {key, reason: week ? `not yet published for week ${week}` : "not yet published for the current week",
         notPublished: true};
     }
@@ -2402,6 +2503,31 @@
     if (publish) publishShared();
   }
 
+  // JEG-1177: pick the week view (null = the default week). A week that is
+  // not one of the current transition's weeks falls back to the default.
+  function setWeek(value, publish = true) {
+    const week = value === null || value === undefined || value === "" ? null : Number(value);
+    const next = Number.isInteger(week) ? week : null;
+    if (next === selectedWeek) return;
+    selectedWeek = next;
+    crossRank = null;
+    rebuildDomain();
+    if (!["disagreement"].includes(lockOrder) && !lockSourceAvailable(lockOrder)) {
+      const prevLock = lockOrder;
+      lockOrder = defaultValueLock();
+      if (prevLock !== lockOrder) notifyLockRevert(prevLock, "week change");
+    }
+    makeSourceToggles();
+    makeLockControl();
+    renderAdjustmentWeights();
+    resetZoom();
+    runRegressionGuards();
+    draw();
+    syncCurveStatus();
+    syncContext();
+    if (publish) publishShared();
+  }
+
   function setLockOrder(value, publish = true) {
     if (!isLockKey(value) || value === lockOrder) return;
     lockOrder = value;
@@ -2749,7 +2875,7 @@
   // (VP-8: the current I, league and pie; sources outside I are run and
   // shown, never counted). {result, dropped} | {reason}.
   function weekRun(week) {
-    return weekPipeline(week);
+    return weekPipeline(week, historyRunKeys);
   }
   // getWeekValues without the fetches (they must have resolved). view: the
   // tab whose values are read.
@@ -3017,6 +3143,9 @@
     setPosition,
     setScoring,
     setTeams,
+    // JEG-1177: week transition (JEG-1178 builds the selector on these).
+    setWeek,
+    getWeekState: () => publicWeekView(),
     setBenchShare,
     setAbsenceRate: setBenchShare,
     setLockOrder,

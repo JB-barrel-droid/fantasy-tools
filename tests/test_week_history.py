@@ -79,6 +79,7 @@ BIJAN = 217
 DELTAS = {}  # source -> Bijan Robinson Δ at Full PPR / 12 (printed by the test)
 ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
 UNMATCHED = {}  # base source -> why its served inputs match no saved week (warned)
+WEEK_STATE = {}  # the default week view the page resolved (JEG-1177; getWeekState)
 FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
@@ -490,20 +491,28 @@ class EspnLegsRetiredTest(unittest.TestCase):
 # ------------------------------------------------------------------ browser
 
 READY = "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()"
-PRIOR = """async () => {
+# JEG-1177: every check runs in the week view of the week the series serves
+# (setWeek; null = the default view). During a transition a lagging source is
+# priced only in its own week's view, never against the other week's blend.
+SET_WEEK = "(c, week) => { if (c.setWeek) c.setWeek(week); }"
+PRIOR = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
-  for (const k of ['usatoday', 'fantasycalc', 'fantasypros', 'cbs']) {
+  for (const k of keys) {
     const prior = await c.getPriorWeek(k);
     const row = c.getAllRows().find(r => r.player_key === 217);
     out[k] = {prior, current: row ? row.values[k] : null};
   }
   return out;
 }"""
-SELF = """async (keys) => {
+SELF = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
-  c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', c.getRosterShape().BENCH + 1);
+  (""" + SET_WEEK + """)(c, week);
+  // One extra bench spot over the saved setup, however many week groups run.
+  if (window.__selfBench === undefined) window.__selfBench = c.getRosterShape().BENCH + 1;
+  c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', window.__selfBench);
   const index = await (await fetch('assets/history/index.json')).json();
   const rows = c.getAllRows();
   const base = k => k.endsWith('_vorp') ? k.slice(0, -5) : k.endsWith('_adjusted') ? k.replace(/_adjusted$/, '') : k;
@@ -543,8 +552,9 @@ SELF = """async (keys) => {
 # Run after SELF (Half PPR, 10 teams, an extra bench spot: off the saved
 # setup, so the tabs derive their views): the served week fed back through
 # getWeekValues reproduces each chart's tab values exactly.
-VIEW_SELF = """async (keys) => {
+VIEW_SELF = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
   const index = await (await fetch('assets/history/index.json')).json();
   const out = {};
@@ -576,12 +586,14 @@ VIEW_SELF = """async (keys) => {
   view('indexed');
   return out;
 }"""
-ESPN_PRIOR = """async () => {
+ESPN_PRIOR_KEYS = ('espn', 'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
+                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted')
+ESPN_PRIOR = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
-  for (const k of ['espn', 'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
-                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']) {
+  for (const k of keys) {
     const r = await c.getPriorWeek(k);
     let changed = 0;
     c.getAllRows().forEach(row => {
@@ -599,6 +611,7 @@ ESPN_PRIOR = """async () => {
 # the guard although the page still serves it to getWeekValues.
 ALL_WEEKS = """async (pairs) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, null);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
   for (const [k, week] of pairs) {
@@ -701,6 +714,17 @@ def served_week(index, series, unmatched):
     return None
 
 
+def by_served_week(index, keys):
+    """{served week (None for an unmatched source): [series]} in key order,
+    so each group is checked in the week view of the week it serves."""
+    groups = {}
+    for key in keys:
+        rec = (index.get("served") or {}).get(key.split("_")[0]) or {}
+        week = rec.get("week") if isinstance(rec.get("week"), int) else None
+        groups.setdefault(week, []).append(key)
+    return groups
+
+
 def unmatched_prior(series, res):
     """A series whose served week the index could not match has no prior
     week: the engine must say so with a reason, never price one."""
@@ -759,6 +783,7 @@ def collect(overrides=None):
     index = json.loads((overrides or {}).get("assets/history/index.json") or
                        (DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
     expected, failures = {}, []
+    fixture_override = (overrides or {}).get(FIXTURE_ASSET)
     UNMATCHED.clear()
     for source in H.PUBLISHED:
         served = served_week(index, source, UNMATCHED)
@@ -791,7 +816,11 @@ def collect(overrides=None):
                 failures.append(
                     f"content-week pin failed: page sees week {page_week} "
                     f"but data only has week {max(served_weeks)}")
-            prior = page.evaluate(PRIOR)
+            WEEK_STATE.clear()
+            WEEK_STATE.update(page.evaluate("() => window.TradeValueCurveControls.getWeekState?.() || {}") or {})
+            prior = {}
+            for week, keys in by_served_week(index, H.PUBLISHED).items():
+                prior.update(page.evaluate(PRIOR, [keys, week]))
             for source in sorted(set(H.PUBLISHED) & set(UNMATCHED)):
                 failures += unmatched_prior(source, prior[source]["prior"])
             for source, week in expected.items():
@@ -823,9 +852,11 @@ def collect(overrides=None):
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
             # The holds the page saw: a served fixture override's, else the committed fixture's.
-            fixture_override = (overrides or {}).get(FIXTURE_ASSET)
             held = held_roots(json.loads(fixture_override)["sources"]) if fixture_override else held_roots()
-            for source, res in page.evaluate(ESPN_PRIOR).items():
+            espn_prior = {}
+            for week, keys in by_served_week(index, ESPN_PRIOR_KEYS).items():
+                espn_prior.update(page.evaluate(ESPN_PRIOR, [keys, week]))
+            for source, res in espn_prior.items():
                 if _base(source) in held:
                     continue
                 # Published charts were reported above; report a projection once.
@@ -845,9 +876,15 @@ def collect(overrides=None):
             failures += saved_week_failures(page, index, held)
 
             # An unmatched source has no served week to reproduce.
+            # JEG-1177: each source is checked in the view of its OWN served
+            # week, so a source still on Week N while others serve N+1 is
+            # checked against Week N (lag is not a failure), and its served
+            # file must still equal its saved Week N exactly.
             served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
-            self_results = page.evaluate(SELF, served)
-            self_results.update(page.evaluate(VIEW_SELF, [k for k in served if k in H.PUBLISHED]))
+            self_results = {}
+            for week, keys in by_served_week(index, served).items():
+                self_results.update(page.evaluate(SELF, [keys, week]))
+                self_results.update(page.evaluate(VIEW_SELF, [[k for k in keys if k in H.PUBLISHED], week]))
             for source, res in self_results.items():
                 if res["errors"]:
                     failures.append(f"{source} served week != chart: {res['errors'][:2]} ({len(res['errors'])} players)")
@@ -951,6 +988,74 @@ class DeltaRecomputeTest(unittest.TestCase):
         self.assertNotEqual(guesses, widget)
         failures = collect({**self._unmatched_overrides(), "assets/curve-widget.js": guesses})
         self.assertTrue([f for f in failures if "the served week is unmatched but" in f], failures)
+
+
+SCORING_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
+
+
+def transition_overrides(lagging=("cbs", "usatoday"), week=6, corrupt=None):
+    """JEG-1177 sentinel: replay a week transition from committed data. The
+    `lagging` charts serve their saved Week `week` (the served fixture
+    carries exactly those natives and the index says so) while every other
+    source serves the newer week, as on 2026-10-27 (USA Today and CBS on
+    Week 7, the rest on Week 8). corrupt: a source whose served file has one
+    player's value changed, so it no longer equals its own saved week."""
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
+    slug_of = {}
+    for slug, key in sorted((fixture.get("player_keys") or {}).items()):
+        slug_of.setdefault(int(key), slug)
+    saved = _week(week)
+    for src in lagging:
+        entry = saved["sources"][src]
+        index["served"][src] = {"week": week, "version": "snapshot", "fingerprint": entry["fingerprint"],
+                                "label_week": week}
+        section = fixture["sources"][src]
+        section["week_designated"] = section["content_vintage"] = f"Week {week}"
+        for scoring, prefix in SCORING_PREFIX.items():
+            natives = {slug_of[int(k)]: v for k, v in entry["natives"][scoring].items() if int(k) in slug_of}
+            if src == corrupt:
+                slug = slug_of.get(BIJAN) or sorted(natives)[0]
+                natives[slug] = natives[slug] * 1.07
+            combos = [k for k in section["combos"] if k.startswith(f"{prefix}_12")]
+            assert combos, f"{src} has no {prefix} 12-team combo"
+            for combo in combos:
+                section["combos"][combo]["native"] = dict(natives)
+    return {"assets/history/index.json": json.dumps(index),
+            FIXTURE_ASSET: json.dumps(fixture, separators=(",", ":"))}
+
+
+class WeekTransitionSentinelTest(unittest.TestCase):
+    """JEG-1175 / JEG-1177: chain runs 40546427066 and 40555873437 failed
+    post-rebuild validation ("cbs served week != chart", "usatoday served week
+    != chart") because USA Today and CBS still served Week 7 while the rest
+    served Week 8, and the page priced the Week 7 charts against the Week 8
+    blend (one constant factor off, 0.99946). A lagging source is not a
+    failure; a source whose served file is not its own saved week is."""
+
+    def test_mixed_transition_passes(self):
+        failures = collect(transition_overrides())
+        self.assertEqual(failures, [])
+        # 5 of 7 DDF Value sources serve Week 7: more than half, so Week 7 is
+        # the default view and the two Week 6 charts are its missing sources.
+        self.assertEqual(WEEK_STATE.get("week"), 7, WEEK_STATE)
+        self.assertEqual(WEEK_STATE.get("weeks"), [7, 6], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"]["7"]["missing_sources"], ["cbs", "usatoday"], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"]["6"]["missing_sources"], [], WEEK_STATE)
+
+    def test_corrupted_single_source_file_still_fails(self):
+        failures = collect(transition_overrides(corrupt="cbs"))
+        self.assertTrue([f for f in failures if f.startswith("cbs served week != chart")], failures)
+
+    def test_carry_forward_pricing_fails(self):
+        """The pre-fix engine (no week view: the Week 6 charts priced against
+        the Week 7 blend) is what the chain saw; the guard must still catch it."""
+        widget = WIDGET.read_text(encoding="utf-8")
+        no_view = widget.replace("    weekView = resolveWeekView();\n", "    weekView = null;\n")
+        self.assertNotEqual(no_view, widget)
+        failures = collect({**transition_overrides(), "assets/curve-widget.js": no_view})
+        self.assertTrue([f for f in failures if " served week != chart" in f
+                         and f.split()[0] in ("cbs", "usatoday", "cbs_adjusted", "usatoday_adjusted")], failures)
 
 
 class FixtureTodayPinTest(unittest.TestCase):

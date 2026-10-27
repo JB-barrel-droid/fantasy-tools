@@ -71,7 +71,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
-from nfl_week import content_week_start, current_nfl_week  # noqa: E402
+from nfl_week import content_week_start, current_nfl_week, today_ny  # noqa: E402
 
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from games_remaining import PPG_DECIMALS  # noqa: E402  (bake_players' per-game precision)
@@ -876,7 +876,7 @@ def main(argv=None) -> int:
     ap.add_argument("--dir", type=Path, default=HISTORY_DIR)
     args = ap.parse_args(argv)
 
-    today = date.fromisoformat(args.today) if args.today else date.today()
+    today = date.fromisoformat(args.today) if args.today else today_ny()
     content_week = current_nfl_week(today)
     docs = load_weeks(args.dir)
     superseded = load_superseded(args.dir)
