@@ -48,13 +48,13 @@ Rules:
 | Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session, T1 (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
-- **MiniMax is not used** (Jeremy, 2026-10-09: "minimax makes mistakes on
-  everything it touches, and I only want to use M3 if we use it. 2.5 stinks.").
-  The lanes/outbox dispatch protocol was archived 2026-10-07
-  (`archive/2026-10-07/lanes/`). `lanes/protocol.py` and `lanes/plan_status.py`
-  stay only for existing tests. The MiniMax decision is pending on JEG-584
-  (needs Jeremy); the T3 column above names M3 as the only allowed MiniMax
-  model if it is used.
+- **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
+  2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
+  more recent one Minimax added to the subscription"). Earlier rule (2026-10-09:
+  "I only want to use M3 if we use it. 2.5 stinks.") still holds: never M2.5,
+  never value math, output untrusted until the gate passes. The lanes/outbox
+  dispatch protocol was archived 2026-10-07 (`archive/2026-10-07/lanes/`).
+  `lanes/protocol.py` and `lanes/plan_status.py` stay only for existing tests.
 - **Muse (Roman)** works here only as a last resort and only when Jeremy asks,
   for example a step that needs Muse's machine. Muse output is untrusted input
   until it passes the repo pipeline. Muse never resolves player identity, edits

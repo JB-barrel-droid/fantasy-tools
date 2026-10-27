@@ -1,0 +1,11 @@
+name: ddf-cloud
+config:
+  type: cloud
+  networking:
+    type: limited
+    allow_package_managers: true   # .venv (py3.12) and npm for make validate
+    allow_mcp_servers: true        # Linear and GitHub MCP
+    allowed_hosts:
+      - jb-barrel-droid.github.io  # live dashboard, read by web_fetch
+      - openrouter.ai              # outsourced bulk work
+      - api.minimax.io             # outsourced bulk work (M3+)
