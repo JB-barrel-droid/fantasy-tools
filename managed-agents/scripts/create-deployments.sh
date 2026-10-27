@@ -4,14 +4,12 @@
 source "$(dirname "$0")/lib.sh"
 
 deploy() { # name cron message
-  jq -n --arg name "$1" --arg cron "$2" --arg msg "$3" \
-    --arg agent "$(AGENT_ID)" --arg env "$(ENV_ID)" --arg vault "$(VAULT_ID)" \
-    --arg cents "$BUDGET_CENTS" --argjson res "$(repo_resources)" \
-    '{name: $name, agent: $agent, environment_id: $env, vault_ids: [$vault], resources: $res,
-      schedule: {type: "cron", expression: $cron, timezone: "America/Chicago"},
-      budget: {type: "limit", max_list_cost: {amount: $cents, currency: "USD"}},
-      initial_events: [{type: "user.message", content: [{type: "text", text: $msg}]}]}' \
-    | ant beta:deployments create --transform id -r
+  ant beta:deployments create --transform id -r \
+    --name "$1" --agent "$(AGENT_ID)" --environment-id "$(ENV_ID)" --vault-id "$(VAULT_ID)" \
+    --resource "$(repo_resources | jq -c '.[0]')" \
+    --schedule "$(jq -nc --arg cron "$2" '{type: "cron", expression: $cron, timezone: "America/Chicago"}')" \
+    --budget "$(jq -nc --arg cents "$BUDGET_CENTS" '{type: "limit", max_list_cost: {amount: $cents, currency: "USD"}}')" \
+    --initial-event "$(jq -nc --arg msg "$3" '{type: "user.message", content: [{type: "text", text: $msg}]}')"
 }
 
 deploy "ddf-queue" "0 */2 * * *" \

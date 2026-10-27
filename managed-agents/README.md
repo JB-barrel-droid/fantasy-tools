@@ -11,3 +11,5 @@ Hosted Claude Managed Agent that works the `session:cma` Linear queue, turns Jer
 - `claude-lock.json` - resource IDs written by `ant apply`; commit it, or the next apply creates duplicates.
 
 Change the agent: edit the file, then from this directory run `ant apply --dry-run -v <files>` and `ant apply <files>`.
+
+Deployments (created by `scripts/create-deployments.sh`, not tracked in `claude-lock.json`): `ddf-queue` = `depl_0194kATtQ6xdicZiw7wnkzmT`, `ddf-weekly-usage` = `depl_01PE9v6akCH9muDEUwxdioSs`. Pause one with `ant beta:deployments pause --deployment-id <id>`; run one now with `ant beta:deployments run --deployment-id <id>`.
