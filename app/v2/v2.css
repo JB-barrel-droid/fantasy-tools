@@ -2102,6 +2102,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-cverdict-bar:not([hidden]) { bottom: calc(8px + var(--v2-safe-bottom)); }
   #v2Compare.has-verdict-bar { padding-bottom: calc(96px + var(--v2-safe-bottom)); }
 }
+/* A landscape phone keeps the top note's 16 px phone gutter (the season-notice block's phone query). */
+@media (max-width: 932px) and (max-height: 500px) {
+  .v2-topnote-detail { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+}
 
 /* Scroll containers keep their own scroll: a sideways swipe in a table neither scrolls the page nor
    triggers the browser's back gesture, and a full-screen overlay does not chain its scroll outwards. */

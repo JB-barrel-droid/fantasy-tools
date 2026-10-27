@@ -149,7 +149,42 @@ def _errors(result) -> list[str]:
     return errors
 
 
+LANDSCAPE_NEW = ("@media (max-width: 932px) and (max-height: 500px) {\n"
+                 "  .v2-topnote-detail { padding-left: calc(16px + var(--v2-safe-left));")
+LANDSCAPE_OLD = ("@media (max-width: 932px) and (max-height: 500px) {\n"
+                 "  .v2-topnote-retired { padding-left: calc(16px + var(--v2-safe-left));")
+
+
+def _landscape_note_gutter(css=None) -> int:
+    """The season note's detail panel on a landscape phone (812 x 375) keeps the 16 px phone gutter."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError:
+        raise _render_env.unavailable("playwright is not installed")
+    exe = _render_env.chromium_executable()
+    if exe is None and _render_env.required() is False:
+        raise _render_env.unavailable("no browser")
+    with _served() as base, sync_playwright() as p:
+        browser = p.chromium.launch(executable_path=exe, args=_render_env.HERMETIC_ARGS)
+        page = browser.new_page(viewport={"width": 812, "height": 375}, is_mobile=True, has_touch=True)
+        if css is not None:
+            page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
+        page.goto(base + "#player-values", wait_until="networkidle")
+        gutter = page.evaluate("() => Math.round(parseFloat(getComputedStyle("
+                               "document.querySelector('.v2-topnote-detail')).paddingLeft) || 0)")
+        browser.close()
+    return gutter
+
+
 class SafeAreaTest(unittest.TestCase):
+    def test_landscape_phone_keeps_note_gutter(self):
+        self.assertEqual(_landscape_note_gutter(), 16)
+
+    def test_landscape_guard_fails_on_old_css(self):
+        css = CSS.read_text(encoding="utf-8")
+        self.assertIn(LANDSCAPE_NEW, css, "stale mutation anchor")
+        self.assertNotEqual(_landscape_note_gutter(css.replace(LANDSCAPE_NEW, LANDSCAPE_OLD)), 16)
+
     def test_safe_area_insets_are_respected(self):
         self.assertEqual(_errors(_run()), [])
 
