@@ -899,6 +899,91 @@
     $("v2Show").value = state.windowPreset;
   }
 
+  // ---------- week selector (JEG-1178, part of JEG-1176) ----------
+  // While sources move from one week to the next, each serves its own week. The engine resolves one week view
+  // (getWeekState: default = the newer week once more than half of the league's sources have it; setWeek picks).
+  // No carry-forward: a source that has not published the view's week is left out and named here.
+  const WEEK_MEMORY_KEY = "ddf.valuesWeek";
+  const nameList = keys => keys.map(key => PLAIN_NAMES[key] || key).join(", ");
+  function weekPickModel() {
+    const ws = C && C.getWeekState ? C.getWeekState() : null;
+    if (!ws || !Number.isInteger(ws.week) || !ws.views || !ws.views[ws.newest]) return null;
+    const pd = window.TradeValueProductData;
+    let fresh = null;
+    try { fresh = pd && pd.getSourceFreshness ? pd.getSourceFreshness() : null; } catch (error) { fresh = null; }
+    const total = ws.total;
+    const countOn = week => (ws.views[week] ? ws.views[week].sources.length : 0);
+    const options = ws.weeks.map(week => ({week, sources: countOn(week), total,
+      label: `Week ${week} (${countOn(week)} of ${total} sources)`}));
+    const newest = ws.newest;
+    const calendar = fresh && Number.isInteger(fresh.current_content_week) ? fresh.current_content_week : null;
+    // The week sources should be on by now. Past the newest served week, none has published it yet.
+    const expected = Math.max(newest, calendar || 0);
+    const onNewest = ws.views[newest];
+    const lagging = expected > newest ? onNewest.sources.concat(onNewest.missing_sources).sort() : onNewest.missing_sources.slice();
+    const stale = Boolean(lagging.length && pd && pd.pastThursdayNoon && pd.pastThursdayNoon(expected));
+    const viewMissing = ws.views[ws.week].missing_sources;
+    let text = "";
+    if (expected > newest) {
+      text = `Week ${expected} is not published by any of the ${total} sources yet. Showing Week ${ws.week}.`;
+    } else if (ws.week === newest && viewMissing.length) {
+      text = `${nameList(viewMissing)} ${stale ? `still on Week ${ws.week - 1} after Thursday 12:00 CT` : `not yet published for Week ${ws.week}`}. `
+        + `Left out of these values, not carried over from Week ${ws.week - 1}.`;
+    } else if (ws.week !== newest) {
+      text = `Showing Week ${ws.week}. ${countOn(newest)} of ${total} sources have posted Week ${newest}; their saved Week ${ws.week} is used.`
+        + (viewMissing.length ? ` ${nameList(viewMissing)} left out.` : "");
+    }
+    // Where the sentence above already says it (the newer week's view), the badge stands alone.
+    const staleInline = stale && expected === newest && ws.week === newest && viewMissing.length > 0;
+    const staleText = stale && !staleInline ? `${nameList(lagging)} still on Week ${expected - 1} after Thursday 12:00 CT.` : "";
+    return {week: ws.week, newest, expected, transition: Boolean(ws.transition && ws.weeks.length > 1), selected: Boolean(ws.selected),
+      default_week: ws.default_week, total, options, missing: viewMissing.slice(), lagging, stale, text, staleText,
+      label: (options.find(o => o.week === ws.week) || {}).label || `Week ${ws.week}`};
+  }
+  function renderWeekPick() {
+    const model = weekPickModel();
+    const pick = $("v2WeekPick");
+    const bar = $("v2WeekNoteBar");
+    if (!pick || !bar) return;
+    pick.hidden = !(model && model.transition);
+    if (model && model.transition) {
+      const select = $("v2WeekSelect");
+      select.replaceChildren(...model.options.map(option => {
+        const node = document.createElement("option");
+        node.value = String(option.week);
+        node.textContent = option.label;
+        return node;
+      }));
+      select.value = String(model.week);
+      select.title = model.selected ? "You picked this week. The default is Week " + model.default_week + "." : "";
+    }
+    const note = $("v2WeekNote");
+    const shown = Boolean(model && (model.text || model.staleText));
+    bar.hidden = !shown;
+    note.replaceChildren();
+    if (!shown) return;
+    if (model.stale) {
+      const badge = document.createElement("span");
+      badge.className = "v2-weeknote-stale";
+      badge.textContent = "Stale";
+      note.append(badge, model.staleText ? `${model.staleText} ` : "");
+    }
+    note.append(model.text);
+  }
+  function rememberWeek() {
+    try {
+      const ws = C.getWeekState();
+      if (ws && ws.selected) sessionStorage.setItem(WEEK_MEMORY_KEY, String(ws.week));
+      else sessionStorage.removeItem(WEEK_MEMORY_KEY);
+    } catch (error) { /* no session storage: the pick still holds for this page */ }
+  }
+  function restoreWeek() {
+    try {
+      const week = Number(sessionStorage.getItem(WEEK_MEMORY_KEY));
+      if (Number.isInteger(week) && week > 0 && C.setWeek) C.setWeek(week, false);
+    } catch (error) { /* nothing remembered */ }
+  }
+
   // ---------- header, league, methods ----------
   // JEG-861: one "NFL Week 7 · as of Oct 22" line under every value page title, from the same data
   // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
@@ -912,6 +997,7 @@
   }
   function renderHeader() {
     renderPageStamps();
+    renderWeekPick();
     const s = view.state;
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
@@ -5785,6 +5871,9 @@
       if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
       if (w.content !== w.build) parts.push(`week=${w.content}`);
     }
+    // JEG-1178: a week the reader picked travels with the link (wk=); the default week stays out of it.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.selected && Number.isInteger(weekState.week)) parts.push(`wk=${weekState.week}`);
     // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
     const adv = advancedState(false);
     const advDefaults = adv && advancedState(true);
@@ -5868,7 +5957,11 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    // JEG-1178: the week the sender picked. A week outside this league's transition falls back to the default.
+    const linkWeek = params.has("wk") && Number.isInteger(Number(params.get("wk"))) ? Number(params.get("wk")) : null;
+    const weekNow = C.getWeekState ? C.getWeekState() : null;
+    const wkChange = linkWeek !== null && Boolean(C.setWeek) && (!weekNow || linkWeek !== weekNow.week || !weekNow.selected);
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange && !wkChange) return;
     leagueInputs.source = "link";
     leagueInputs.notes = [];
     if (weeksChange) {
@@ -5882,6 +5975,8 @@
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
+    // The link's week is read after the league: the setting decides which weeks exist.
+    if (wkChange) { C.setWeek(linkWeek, false); rememberWeek(); refresh(); }
     // The link's advanced settings are the sender's choice, set after the league.
     if (advChange) {
       const error = applyAdvanced(advChange);
@@ -6215,6 +6310,12 @@
     renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value change: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+    }
+    // JEG-1178: during a week transition a source that has not published this week is not in the blend, so it has no
+    // change to show; each source in it is compared with its own previous week.
+    const weekModel = group === "ddf" ? weekPickModel() : null;
+    if (weekModel && weekModel.transition && weekModel.missing.length) {
+      notes.push(`Skipped: ${nameList(weekModel.missing)} (not yet on Week ${weekModel.week}). Each source is compared with its own previous week.`);
     }
     const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
     const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
@@ -6850,6 +6951,11 @@
       if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
     });
     $("v2Weights").addEventListener("click", openWeights);
+    $("v2WeekSelect").addEventListener("change", event => {   // JEG-1178
+      C.setWeek(Number(event.target.value));
+      rememberWeek();
+      refresh();
+    });
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
     // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
@@ -7168,6 +7274,7 @@
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     try { leagueDefaultSnapshot = JSON.stringify(leagueSnapshot()); } catch (error) { leagueDefaultSnapshot = ""; }
     restoreLeagueSettings();
+    restoreWeek();   // JEG-1178: the week picked earlier in this session; a link's wk= overrides it below
     applyStartSelection();
     loadPipeline();
     loadSourcePages();
@@ -7185,6 +7292,7 @@
       leagueInputs: () => ({...leagueInputs, notes: leagueInputs.notes.slice(), label: $("v2LeagueName").textContent}),
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
+      weekPick: weekPickModel,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // JEG-872: the one source name map (symbol + label) the audit tabs read, so every tab says the same names.
       publishers: () => PUBLISHERS,
