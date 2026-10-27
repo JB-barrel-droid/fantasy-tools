@@ -9,7 +9,7 @@ Loads the built page headless at 320, 360, 375, 390 and 412 px wide (812 tall), 
 #compare-trade, and requires at scrollY 0: the wordmark fully inside the viewport and inside the painted header,
 and (360 px and up) the freshness button on the wordmark's row with the header no taller than two rows.
 Discrimination: test_guard_fails_on_broken_builds serves v2.css with the wordmark pushed 41 px up (the reported
--31 px top) and with the JEG-887 rule removed (the freshness button back on its own row), and requires failures.
+-31 px top) and with the phone rules broken (the freshness button back on its own row; the full text instead of "Week 7"), and requires failures.
 """
 from __future__ import annotations
 
@@ -78,8 +78,10 @@ def run_checks(css_patch=None) -> list[str]:
 PATCHES = {
     "wordmark pushed above the viewport": (".v2-brand { min-height: 44px; display: inline-flex; align-items: center; }",
                                            ".v2-brand { min-height: 44px; display: inline-flex; align-items: center; margin-top: -41px; }"),
-    "freshness button back on its own row": ("  .v2-freshness { margin-left: auto; flex: 1 1 0; justify-content: flex-end; text-align: right; }",
-                                             "  .v2-freshness { margin-left: auto; }"),
+    "freshness button back on its own row": ("  .v2-nav .v2-freshness { flex: 0 1 auto; min-width: 0; }",
+                                             "  .v2-nav .v2-freshness { order: 2; flex: 1 0 100%; justify-content: flex-start; margin-left: 0; }"),
+    "full freshness text on a phone": ("  .v2-nav .v2-freshness #v2FreshnessLabel { display: none; }",
+                                       "  .v2-nav .v2-freshness #v2FreshnessLabel { display: inline; white-space: nowrap; }"),
 }
 
 

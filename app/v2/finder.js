@@ -121,7 +121,11 @@
     const mineSubs = subsets(mineP.rows.length, maxSize).map(c => describe(mineP.rows, c));
     const theirSubs = subsets(theirsP.rows.length, maxSize).map(c => describe(theirsP.rows, c))
       .sort((a, b) => a.sums[0] - b.sums[0]);
+    const balanceMine = (o.sanity && o.sanity.mine) || mine;
+    const balanceTheirs = (o.sanity && o.sanity.theirs) || theirs;
+    const balanceShape = o.sanity ? o.sanity.shape : null;
     const found = [];
+    const seen = new Map();
     for (const give of mineSubs) {
       // DDF Value: you must win, so only their packages worth more than yours (sorted: binary search).
       let lo = 0; let hi = theirSubs.length;
@@ -133,12 +137,45 @@
         const get = theirSubs[t];
         const judged = judgeSums(give.sums, get.sums, chartKeys, minCharts);
         if (!judged.passes.edge || !judged.passes.charts) continue;
-        const giveRows = give.combo.map(i => mineP.rows[i]);
-        const getRows = get.combo.map(i => theirsP.rows[i]);
+        let giveRows = give.combo.map(i => mineP.rows[i]);
+        let getRows = get.combo.map(i => theirsP.rows[i]);
+        let verdict = judged;
+        let addedThrowIns = [];
+        let unbalanced = false;
+        // JEG-1108: the team receiving more players adds its own least valuable bench players (one per missing player) to
+        // the other side, so both sides trade the same number of players. The package is then judged again with the
+        // throw-ins in it. If the team has no bench player left, balanceCounts adds nothing and the trade is kept as it was, marked unbalanced.
+        if (giveRows.length !== getRows.length) {
+          let work = {give: giveRows, receive: getRows};
+          const added = [];
+          while (work.give.length !== work.receive.length) {
+            const step = balanceCounts(work, balanceMine, balanceTheirs, balanceShape, ourKey, keys);
+            if (!step.balanced) break;
+            added.push({side: step.give.length > work.give.length ? "give" : "receive", row: step.throwInPlayer});
+            work = {give: step.give, receive: step.receive};
+          }
+          if (work.give.length === work.receive.length) {
+            giveRows = work.give;
+            getRows = work.receive;
+            addedThrowIns = added;
+            verdict = judgeSums(sumsOf(giveRows, keys), sumsOf(getRows, keys), chartKeys, minCharts);
+            if (!verdict.passes.edge || !verdict.passes.charts) continue;
+          } else unbalanced = true;
+        }
         const lineup = judgeLineup(giveRows, getRows, sanity);
         if (!lineup.passes) { sanityDropped += 1; continue; }
-        found.push({give: giveRows, receive: getRows, edge: judged.edge, charts: judged.charts, issues: lineup.issues,
-          pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, score: scoreOf(judged.edge, giveRows.length + getRows.length)});
+        const entry = {give: giveRows, receive: getRows, edge: verdict.edge, charts: verdict.charts, issues: lineup.issues,
+          pricedCharts: verdict.pricedCharts, rivalOkCount: verdict.rivalOkCount, score: scoreOf(verdict.edge, giveRows.length + getRows.length),
+          ...(addedThrowIns.length ? {addedThrowIns} : {}), ...(unbalanced ? {unbalanced: true} : {})};
+        // A balanced variant can be the same package the search also reached directly: one trade, the throw-in listed.
+        const id = idOf(entry);
+        if (seen.has(id)) {
+          const at = seen.get(id);
+          if (entry.addedThrowIns && !found[at].addedThrowIns) found[at] = entry;
+          continue;
+        }
+        seen.set(id, found.length);
+        found.push(entry);
       }
     }
     found.sort((a, b) => b.score - a.score || b.edge - a.edge
@@ -149,6 +186,80 @@
       mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity}};
   }
   const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
+
+  // ---------- JEG-1108: client-side viability label ----------
+  // Lightweight viability label (High / Med-High / Medium) from data already in tradeFit + rosterImpact.
+  // Mirrors the server-side label in viability.ts without the full check suite.
+  // Returns null when the data is insufficient, the label string otherwise.
+  function viabilityLabel(fit, mineRoster, theirRoster, give, recv, shape, ourKey, chartKeys) {
+    if (!fit || !shape) return null;
+    const mk = MARKET_KEY;
+    // Apply trade to both rosters.
+    const goneM = new Set(give.map(r => String(r.player_key)));
+    const goneT = new Set(recv.map(r => String(r.player_key)));
+    const mineAfter = mineRoster.filter(r => !goneM.has(String(r.player_key))).concat(recv);
+    const theirAfter = theirRoster.filter(r => !goneT.has(String(r.player_key))).concat(give);
+    // Check: both keep a QB.
+    if (!mineAfter.some(r => r.pos === "QB") || !theirAfter.some(r => r.pos === "QB")) return null;
+    // Check: no empty starting slots for either team.
+    const myPicked = pickStarters(mineAfter, shape, ourKey);
+    const theirPicked = pickStarters(theirAfter, shape, mk);
+    const myEmpty = Object.values(myPicked.empty).reduce((a, b) => a + b, 0);
+    const theirEmpty = Object.values(theirPicked.empty).reduce((a, b) => a + b, 0);
+    if (myEmpty > 0 || theirEmpty > 0) return null;
+    // DDF edge must be non-negative for user.
+    const ddfEdge = recv.reduce((s, r) => s + (r.values && finite(r.values[ourKey]) ? r.values[ourKey] : 0), 0)
+      - give.reduce((s, r) => s + (r.values && finite(r.values[ourKey]) ? r.values[ourKey] : 0), 0);
+    if (ddfEdge < 0) return null;
+    // Their market net.
+    const theirMarketNet = give.reduce((s, r) => s + (r.values && finite(r.values[mk]) ? r.values[mk] : 0), 0)
+      - recv.reduce((s, r) => s + (r.values && finite(r.values[mk]) ? r.values[mk] : 0), 0);
+    // Their lineup delta.
+    const theirLineupBefore = pickStarters(theirRoster, shape, mk).starters.reduce((s, r) => s + (r.values && finite(r.values[mk]) ? r.values[mk] : 0), 0);
+    const theirLineupAfter = theirPicked.starters.reduce((s, r) => s + (r.values && finite(r.values[mk]) ? r.values[mk] : 0), 0);
+    const theirLineupDelta = theirLineupAfter - theirLineupBefore;
+    // Label assignment (mirrors viability.ts).
+    const tradedPos = new Set(recv.map(r => r.pos));
+    const posGetsStronger = [...tradedPos].some(pos => {
+      const before = pickStarters(theirRoster, shape, mk).starters.filter(r => r.pos === pos).reduce((s, r) => s + (r.values[mk] || 0), 0);
+      const after = theirPicked.starters.filter(r => r.pos === pos).reduce((s, r) => s + (r.values[mk] || 0), 0);
+      return after > before + 0.05;
+    });
+    if (posGetsStronger && theirLineupDelta > 0.5) return "High";
+    if (theirLineupDelta > 0.5 || theirMarketNet > 1) return "Med-High";
+    return "Medium";
+  }
+
+  // ---------- JEG-1108: player-count balancing ----------
+  // If one team receives more players, auto-add the receiving-more team's own least valuable bench player (a non-starter)
+  // as a throw-in on the other side so counts match. One trade with the throw-in listed. Edge case: a team with no bench
+  // player left to add leaves the trade unbalanced.
+  function balanceCounts(trade, mineRoster, theirRoster, shape, ourKey, requireKeys) {
+    const giveCount = trade.give.length;
+    const recvCount = trade.receive.length;
+    if (giveCount === recvCount) return {...trade, balanced: true, throwInPlayer: null};
+    // The team that receives more must add a player from its roster (the other side gets it).
+    const moreOnMySide = recvCount > giveCount;   // I receive more, so I must add from my roster
+    const roster = moreOnMySide ? mineRoster : theirRoster;
+    const key = moreOnMySide || !roster.some(r => r.values && finite(r.values.chart_avg)) ? ourKey : "chart_avg";
+    // Already-involved players cannot be the throw-in.
+    const involved = new Set(trade.give.concat(trade.receive).map(r => String(r.player_key)));
+    // The search passes requireKeys (DDF Value and every compared chart): a throw-in must be priced everywhere, or the
+    // package could not be judged on the charts it is missing.
+    const priced = r => r.values && finite(r.values[key]) && (requireKeys || []).every(k => finite(r.values[k]));
+    // The throw-in is the supplying team's least valuable BENCH player (Jeremy, 2026-10-26): a non-starter before the trade.
+    // Only a team with no bench player left (none unused and priced) leaves the trade unbalanced.
+    const starterKeys = shape ? new Set(pickStarters(roster, shape, key).starters.map(r => String(r.player_key))) : new Set();
+    const eligible = roster.filter(r => !involved.has(String(r.player_key)) && !starterKeys.has(String(r.player_key)) && priced(r));
+    if (!eligible.length) return {...trade, balanced: false, throwInPlayer: null, noBench: true};
+    eligible.sort((a, b) => a.values[key] - b.values[key] || String(a.player_key).localeCompare(String(b.player_key)));
+    const cheapest = eligible[0];
+    // Add the throw-in to the side that must supply it.
+    if (moreOnMySide) {
+      return {...trade, give: trade.give.concat([cheapest]), throwInPlayer: cheapest, balanced: true};
+    }
+    return {...trade, receive: trade.receive.concat([cheapest]), throwInPlayer: cheapest, balanced: true};
+  }
 
   // ---------- JEG-972 / JEG-885: throw-ins and groups ----------
   // A throw-in is a player worth 0.0 as shown on DDF Value and on every compared chart.
@@ -471,19 +582,17 @@
     return head + value + note;
   }
 
-  // ---------- JEG-988: natural fit and force fit ----------
-  // Each team is judged in its OWN view: you in DDF Value (fundamentals), they in the Trade chart average (the market
-  // they read). A team's net change is its best-lineup starter value plus its bench value at the engine's bench weight
-  // (the share of starts the bench takes), after minus before. A change counts only when it clears the noise of the
-  // sources: FIT_Z standard errors of the disagreement between the sources that price the players moving (never below
-  // one shown 0.0). Need is the distance from the expected depth band (starters plus bench seats, see rosterBalance)
-  // plus empty starting slots. A team is served when it gains and does not move away from its depth, or when it is
-  // level and moves toward its depth (a bench rebalance). Natural: both served and at least one moves toward its depth.
-  // Value fit: both served and neither does. Force: a team loses, gains nothing, or gains while deepening a position it
-  // is already deep at (or thinning one it is short at).
+  // ---------- JEG-1108: fit labels rewrite ----------
+  // Natural fit: roster construction works for both teams (after the trade: no bench player promoted to starter, no
+  // starter lost without a starter coming back, no empty starting slot) AND your DDF Value total roster value (starters
+  // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
+  // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
+  // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
+  // is favorable. Independent of the roster test.
+  // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
   const NET_FLOOR = 0.05;
-  const FIT_TIER = {natural: 0, value: 1, force: 2};
+  const FIT_TIER = {natural: 0, market: 1, force: 2};
   // The standard error of one player's value in a view: DDF Value, half the gap between its chart-based and
   // projection-based versions (two readings of one value); DDF Value (projections), the standard error of the mean of
   // the projection sources (ESPN, CBS rest of season, Razzball); the Trade chart average, the standard error of the
@@ -506,6 +615,35 @@
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
   const netOf = (l, key, weights) => l.starterValue + l.bench.reduce((total, r) => total + benchWeight(weights, r.pos) * r.values[key], 0);
   const bandDistance = (have, e) => Math.max(0, e.lo - have, have - (e.hi + 1));
+  // Roster construction check (JEG-1108): after the trade, no bench player is promoted to a starting slot, no starter
+  // is lost without a starter coming back, and no starting slot is left empty. Uses the same pickStarters logic.
+  // Returns {ok, issues: string[]} where ok means all three conditions hold for this team.
+  function rosterConstructionOk(team, shape, key) {
+    const gone = new Set(team.leaving.map(r => String(r.player_key)));
+    const after = team.roster.filter(r => !gone.has(String(r.player_key))).concat(team.arriving);
+    const before = pickStarters(team.roster, shape, key);
+    const next = pickStarters(after, shape, key);
+    const issues = [];
+    // No empty starting slot after the trade.
+    const emptyAfter = Object.values(next.empty).reduce((a, b) => a + b, 0);
+    if (emptyAfter > 0) {
+      const slots = Object.entries(next.empty).map(([s, n]) => `${n} ${s}`).join(", ");
+      issues.push(`empty starting slot${emptyAfter > 1 ? "s" : ""}: ${slots}`);
+    }
+    // No bench player promoted to starter: every starter after was either a starter before or is a newly arriving player.
+    const beforeStarterKeys = new Set(before.starters.map(r => String(r.player_key)));
+    const arrivingKeys = new Set(team.arriving.map(r => String(r.player_key)));
+    const promoted = next.starters.filter(r => !beforeStarterKeys.has(String(r.player_key)) && !arrivingKeys.has(String(r.player_key)));
+    if (promoted.length > 0) issues.push(`bench promoted to starter: ${promoted.map(r => r.name || r.player_key).join(", ")}`);
+    // No starter lost without a starter coming back: every departing starter must be replaced by an arriving starter.
+    const leavingKeys = new Set(team.leaving.map(r => String(r.player_key)));
+    const startersLost = before.starters.filter(r => leavingKeys.has(String(r.player_key)));
+    const startersGained = next.starters.filter(r => arrivingKeys.has(String(r.player_key)));
+    if (startersLost.length > 0 && startersGained.length === 0) {
+      issues.push(`starter${startersLost.length > 1 ? "s" : ""} lost with no starter arriving: ${startersLost.map(r => r.name || r.player_key).join(", ")}`);
+    }
+    return {ok: issues.length === 0, issues};
+  }
   // One team in one view. team: {roster, leaving, arriving} (rows carrying every series); ctx: {shape, expected, weights, chartKeys, z}.
   function teamFit(team, ctx, key) {
     const gone = new Set(team.leaving.map(r => String(r.player_key)));
@@ -544,13 +682,13 @@
     return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
-  // JEG-1081 (tri-view): your team is also judged in DDF Value (projections), the independent reading. The base label keeps its
-  // two-view meaning (natural / value / force, so the tiers and every consumer are unchanged); your side is served when DDF Value
-  // OR the projections serve it. `variant` names which: natural (both serve you), natural-charts (only DDF Value, i.e. the
-  // charts, serves you), natural-projections (only the projections serve you), value, force. The market still judges them.
-  // Projections count only when every player moving on your side has a projection value; otherwise the rule is the two-view one.
+  // JEG-1108: rewritten fit labels. Three labels: natural, market, force (value retired).
+  // Natural: roster construction OK for both teams AND your DDF Value total rises (starters not worse) AND their Trade
+  // chart average change is within the noise floor or positive.
+  // Market supported: the Trade chart average says the other team's side is favorable (independent of roster test).
+  // Force: everything else.
   // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey (and optionally projectionsKey). null when the market view is not available.
-  const FIT_VARIANTS = ["natural", "natural-charts", "natural-projections", "value", "force"];
+  const FIT_VARIANTS = ["natural", "market", "force"];
   function tradeFit(sides, ctx) {
     if (!ctx || !ctx.marketKey) return null;
     const projKey = ctx.projectionsKey || PROJECTIONS_KEY;
@@ -561,18 +699,31 @@
     const moving = sides.mine.leaving.concat(sides.mine.arriving);
     const projected = projKey !== ctx.ourKey && moving.length > 0 && moving.every(r => r && r.values && finite(r.values[projKey]));
     const usProj = projected ? teamFit(sides.mine, ctx, projKey) : null;
-    const chartsOk = us.ok;
-    const projOk = Boolean(usProj && usProj.ok);
-    const yourOk = chartsOk || projOk;
-    // Depth: the trade fills a need when it does so in a view that serves you (either of your two), or for them.
-    const usToward = (chartsOk && us.toward) || (projOk && usProj.toward);
-    // The view(s) that serve you, for the text: the charts view unless only the projections serve you.
-    const usServing = !chartsOk && projOk ? usProj : us;
-    const fillsNeed = usToward || them.toward;
-    const label = yourOk && them.ok ? (fillsNeed ? "natural" : "value") : "force";
-    const qualifier = !projected || label !== "natural" ? null : chartsOk && projOk ? null : chartsOk ? "charts only" : "projections only";
-    const variant = label === "natural" ? (qualifier === "charts only" ? "natural-charts" : qualifier === "projections only" ? "natural-projections" : "natural") : label;
-    return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected};
+    // Roster construction check (JEG-1108): both teams must pass.
+    const myConstruction = rosterConstructionOk(sides.mine, ctx.shape, ctx.ourKey);
+    const theirConstruction = rosterConstructionOk(sides.theirs, ctx.shape, ctx.marketKey);
+    const constructionOk = myConstruction.ok && theirConstruction.ok;
+    // Your DDF Value total rises at all (above the 0.05 display floor, not the noise floor; Jeremy, 2026-10-26) and
+    // starters not worse. The noise floor still applies to the other team's side below.
+    const yourTotalUp = us.net > NET_FLOOR;
+    const yourStartersOk = us.starterDelta >= -NET_FLOOR;
+    const yourValueOk = yourTotalUp && yourStartersOk;
+    // Their Trade chart average change: within the noise floor or positive.
+    const theirNet = them.net;
+    const theirTau = them.tau;
+    const theirOk = theirNet >= -theirTau;
+    // Market supported: the Trade chart average says the other team's side is favorable (they gain).
+    const marketSupported = theirNet > theirTau;
+    // Natural: all three conditions pass.
+    const isNatural = constructionOk && yourValueOk && theirOk;
+    const label = isNatural ? "natural" : marketSupported ? "market" : "force";
+    // Keep variant for backward compat; no projections variant now (simplified).
+    const variant = label;
+    const qualifier = null;
+    const usServing = us;
+    const fillsNeed = us.toward || them.toward;
+    return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
+      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "") + n.toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
@@ -590,31 +741,36 @@
     const net = (t, who) => (t.up ? `${who} gain ${fitFmt(t.net)} on ${VIEW_NAME[t.key]}`
       : t.down ? `${who} lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}`
         : `${who} are level on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, inside the ${t.tau.toFixed(1)} noise floor)`);
-    const projNet = t => (t.up ? `you gain ${fitFmt(t.net)} on ${VIEW_NAME[t.key]}` : t.down ? `you lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}` : `you are level on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, inside the ${t.tau.toFixed(1)} noise floor)`);
     const depth = us.ready || them.ready
       ? ` ${us.ready ? `You are ${stateText(us)}` : ""}${us.ready && them.ready ? "; " : ""}${them.ready ? `${us.ready ? "they" : "They"} are ${stateText(them)}` : ""}.`
       : "";
     if (fit.label === "natural") {
-      const at = t => (t.towardAt.length ? `at ${listJoin(t.towardAt)}` : "(a starting slot filled)");
-      const yours = fit.usServing && fit.usServing.toward ? fit.usServing : fit.usProj && fit.usProj.ok && fit.usProj.toward ? fit.usProj : us;
-      const moves = [yours.toward ? `you ${at(yours)}` : "", them.toward ? `them ${at(them)}` : ""].filter(Boolean);
-      const base = `${net(us, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth.`;
-      if (fit.qualifier === "charts only") return `Natural fit (charts only): ${base} The projections do not back it: ${projNet(fit.usProj)}.`;
-      if (fit.qualifier === "projections only") return `Natural fit (projections only): ${net(fit.usProj, "you")} and ${net(them, "they")}.${depth} It moves ${listJoin(moves)} toward the expected depth. The trade charts do not back it: ${projNet(us)}.`;
-      return `Natural fit: ${base}`;
+      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}. Roster construction works for both teams.${depth}`;
     }
-    if (fit.label === "value") return `Value fit: ${net(us, "you")} and ${net(them, "they")}, but neither team's depth needs change.${depth}`;
+    if (fit.label === "market") {
+      const why = [];
+      if (!fit.constructionOk) {
+        const issues = (fit.myConstruction.issues || []).concat(fit.theirConstruction.issues || []);
+        why.push(`Roster construction issue${issues.length > 1 ? "s" : ""}: ${issues.join("; ")}.`);
+      }
+      if (!fit.yourValueOk) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}, starters ${fitFmt(us.starterDelta)}).`);
+      return `Market supported: the trade charts favor them (${fitFmt(them.net)}).${why.length ? ` ${why.join(" ")}` : ""}${depth}`;
+    }
     const why = [];
-    [[us, "You", "you"], [them, "They", "they"]].forEach(([t, Who, who]) => {
-      if (t.ok) return;
-      if (t.down) why.push(`${Who} lose ${Math.abs(t.net).toFixed(1)} on ${VIEW_NAME[t.key]}, the view ${who === "you" ? "you use" : "they use"}.`);
-      else if (t.up && t.away) why.push(`${Who} gain ${fitFmt(t.net)} but the trade moves ${who} away from the expected depth at ${listJoin(t.awayAt)}.`);
-      else why.push(`${Who} gain nothing measurable on ${VIEW_NAME[t.key]} (${fitFmt(t.net)}, noise floor ${t.tau.toFixed(1)}).`);
-    });
+    if (!fit.constructionOk) {
+      const issues = (fit.myConstruction.issues || []).concat(fit.theirConstruction.issues || []);
+      if (issues.length) why.push(`Roster construction: ${issues.join("; ")}.`);
+    }
+    if (!fit.yourValueOk) {
+      if (us.net <= NET_FLOOR) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}).`);
+      else if (us.starterDelta < -NET_FLOOR) why.push(`Your starters drop ${Math.abs(us.starterDelta).toFixed(1)} on DDF Value.`);
+    }
+    if (them.net < -them.tau) why.push(`They lose ${Math.abs(them.net).toFixed(1)} on ${VIEW_NAME[them.key]}, outside the ${them.tau.toFixed(1)} noise floor.`);
+    if (!fit.marketSupported) why.push(`The trade charts do not favor them (${fitFmt(them.net)}).`);
     const other = [[fit.usOther, "you", us], [fit.themOther, "they", them]].filter(([o, , own]) => !own.ok && o.up).map(([o, who]) => `Only on ${VIEW_NAME[o.key]} do ${who} gain (${fitFmt(o.net)}).`);
     return `Force fit: ${why.join(" ")}${other.length ? ` ${other.join(" ")}` : ""}${depth}`;
   }
-  // Natural fits first, then value fits, then force fits; each tier keeps the incoming order (the edge ranking). No group
+  // Natural fits first, then market supported, then force fits; each tier keeps the incoming order (the edge ranking). No group
   // is changed or dropped, only moved. fitOf(group) -> a fit, or null (no fit: kept after the rest, in order).
   function tierOrder(labels) {
     return labels.map((label, i) => ({i, t: label ? FIT_TIER[label] : 3})).sort((a, b) => a.t - b.t || a.i - b.i).map(item => item.i);
@@ -636,7 +792,7 @@
       return {text: `Natural fit found: ${n} group${n === 1 ? "" : "s"}`, subtitle: parts.join("; ") || null, link: "Jump to the first natural group"};
     }
     if (state === "unjudged") return {text: "Fit not judged: not enough trade charts are available this week", link: null};
-    return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are value-only or force fits"}`, link: null};
+    return {text: `No natural fit between these rosters: ${info && info.reason ? info.reason : "the trades below are market supported or force fits"}`, link: null};
   }
   // JEG-1081 (tri-view, PR 3): the projections view beside DDF Value and the Trade chart average, display helpers (no math of
   // their own beyond differences of numbers the engine rows carry).
@@ -669,14 +825,12 @@
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: in each view that can judge it (DDF Value and DDF Value (projections) for you, the Trade chart average for them) the trade does not hurt a side, and at least one side moves toward the depth it needs.",
-    "natural-charts": "Natural fit (charts only): DDF Value says you gain and the trade fills a need, but DDF Value (projections) does not back it. A trade the market likes more than the production does.",
-    "natural-projections": "Natural fit (projections only): DDF Value (projections) says you gain and the trade fills a need, but DDF Value does not. A trade backed by production, not by the trade charts.",
-    value: "Value fit: both sides gain in the views that judge them, but neither side moves toward the depth it needs.",
-    force: "Force fit: a side loses, gains less than the noise between the sources, or the trade moves a team away from the depth it needs."
+    natural: "Natural fit: neither roster is broken (no bench player is forced into a starting spot and no starter is lost without a starter coming back), your DDF Value total rises with your starters no worse, and the Trade chart average does not show the other team losing.",
+    market: "Market supported: the Trade chart average says the other team comes out ahead on this trade.",
+    force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -1478,9 +1632,22 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     let groups = groupTrades(res.trades, {ourKey: res.ourKey});
     const lineup = lineupContext(mineRows, theirRows, charts, shape);
     const fitCtx = fitContext(lineup);
-    // Natural fits first, then value fits, then force fits (Jeremy 2026-10-23); each tier keeps the edge ranking. Only the order changes.
+    // Natural fits first, then market supported, then force fits (JEG-1108); each tier keeps the edge ranking. Only the order changes.
     if (fitCtx) groups = tierGroups(groups, g => fitFor(lineup, fitCtx, g.best.give, g.best.receive));
-    const shown = Math.min(GROUP_LIMIT, groups.length);
+    // JEG-885: at most 2 groups per received core player; the rest folded under "N more for <player>".
+    const CORE_CAP = 2;
+    const coreCount = new Map();
+    const folded = new Map();   // core player_key -> count of hidden groups
+    const capped = [];
+    groups.forEach(g => {
+      const ck = String(g.core.player_key);
+      const n = (coreCount.get(ck) || 0) + 1;
+      coreCount.set(ck, n);
+      if (n <= CORE_CAP) { capped.push(g); }
+      else { folded.set(ck, (folded.get(ck) || 0) + 1); }
+    });
+    groups = capped;
+    const shownCount = Math.min(GROUP_LIMIT, groups.length);
     const fits = fitCtx ? groups.map(g => fitFor(lineup, fitCtx, g.best.give, g.best.receive)) : [];
     const naturalCount = fits.filter(f => f.label === "natural").length;
     const chartsOnly = fits.filter(f => f.variant === "natural-charts").length;
@@ -1488,16 +1655,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (!fitCtx) setHeadline("unjudged");
     else if (naturalCount) setHeadline("natural", {count: naturalCount, chartsOnly, projectionsOnly});
     else setHeadline("none");
-    note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(groups.length, "group")}; ${groups.length > shown ? `the top ${shown} groups are listed` : "all are listed"}, ranked ${fitCtx ? "natural fits first, then value fits, then force fits, and within each by" : "by"} the best DDF Value edge in each, with simpler trades first.`
-      + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : ""));
+    const foldNote = folded.size ? ` ${[...folded.entries()].map(([ck, n]) => { const g = capped.find(g2 => String(g2.core.player_key) === ck) || groups.find(g2 => String(g2.core.player_key) === ck); return g ? `${n} more for ${g.core.name}` : `${n} more`; }).join("; ")}.` : "";
+    note(`${res.total} trade${res.total === 1 ? "" : "s"} found in ${plural(capped.length + [...folded.values()].reduce((a, b) => a + b, 0), "group")}; ${groups.length > shownCount ? `the top ${shownCount} groups are listed` : "all are listed"}, ranked ${fitCtx ? "natural fits first, then market supported, then force fits, and within each by" : "by"} the best DDF Value edge in each, with simpler trades first.`
+      + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : "") + foldNote);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    groups.slice(0, shown).forEach(g => list.append(groupCard(g, ctx)));
+    groups.slice(0, shownCount).forEach(g => list.append(groupCard(g, ctx)));
     if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
     out.append(list);
-    if (groups.length > shown) {
-      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shown, "more group")}`});
-      more.addEventListener("click", () => { groups.slice(shown).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+    if (groups.length > shownCount) {
+      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shownCount, "more group")}`});
+      more.addEventListener("click", () => { groups.slice(shownCount).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
       out.append(more);
     }
   }
@@ -1681,6 +1849,18 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         });
         noteKids.push(" as a throw-in.");
       }
+      if (same && same.addedThrowIns) {
+        if (noteKids.length) noteKids.push(" ");
+        noteKids.push("Includes ");
+        same.addedThrowIns.forEach((t, i) => {
+          if (i) noteKids.push(", ");
+          noteKids.push(`${t.row.name} (${valueText(t.row, ourKey)}`);
+          const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(t.row) : null;
+          if (badge) noteKids.push(badge);
+          noteKids.push(")");
+        });
+        noteKids.push(` as ${same.addedThrowIns.length === 1 ? "a throw-in" : "throw-ins"}, so both teams trade the same number of players.`);
+      }
       notes.replaceChildren(...noteKids);
       notes.classList.toggle("is-warn", warn.length > 0);
       if (impact) impact.update(giveRows, recvRows);
@@ -1689,7 +1869,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (fit) {
         const text = fitText(fit);
         const cut = text.indexOf(": ");
-        fitLine.replaceChildren(el("b", {text: text.slice(0, cut + 1)}), ` ${text.slice(cut + 2)}`);
+        // JEG-1108: viability label alongside fit.
+        const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
+        const VIAB_LABEL = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
+        const mineAvg = ctx.lineup && ctx.lineup.mine ? ctx.lineup.mine.market || ctx.lineup.mine.ddf : null;
+        const theirAvg = ctx.lineup && ctx.lineup.theirs ? ctx.lineup.theirs.market || ctx.lineup.theirs.ddf : null;
+        const viab = mineAvg && theirAvg && ctx.lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, ctx.lineup.shape, ourKey, ctx.chartKeys || []) : null;
+        const viabSuffix = viab ? ` · ${VIAB_LABEL[viab] || viab}` : "";
+        fitLine.replaceChildren(el("b", {text: `${FIT_LABEL[fit.label] || text.slice(0, cut + 1)}${viabSuffix}:`}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
         fitLine.dataset.fitVariant = fit.variant;
         fitLine.title = fitTip(fit.variant);
