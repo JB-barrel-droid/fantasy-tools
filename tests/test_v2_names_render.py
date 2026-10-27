@@ -121,12 +121,12 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
         try:
             page = open_page("#player-values")
-            label = page.text_content(".v2-showing b").strip()
+            label = page.text_content(".v2-ctx-basis b").strip()
             if label != "On the chart:":
                 errors.append(f"[values] the row reads {label!r}, want 'On the chart:'")
             if "Showing:" in page.inner_text("#v2Main"):
                 errors.append("[values] 'Showing:' is still on the page")
-            btn = page.query_selector(".v2-showing button[data-info=names]")
+            btn = page.query_selector(".v2-ctx-basis button[data-info=names]")
             if not btn:
                 errors.append("[values] no info button beside 'On the chart:'")
             else:
