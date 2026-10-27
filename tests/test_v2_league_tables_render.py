@@ -10,7 +10,7 @@ Loads the built page headless at 1366x768 with the frozen fixture leagues in the
   * the opportunities table has the eight columns, the same rows for one opponent as for many, a fundamentals capture equal to the
     engine's DDF edge for the trade shown, Natural only and Hide force fits filter, and Details opens the Compare link;
   * a change of league settings recomputes both tables and keeps every team, its name and my team;
-  * 20 teams finish inside the time budget, 20 rows at a time.
+  * 20 teams finish inside the time budget, 10 rows at a time (JEG-1098).
 
 Discrimination: test_guard_fails_on_broken_builds serves a build with each rule broken and requires the checks to fail.
 """
@@ -55,7 +55,7 @@ OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg
   const cell = k => ((tr.querySelector(`[data-cell="${k}"]`) || {}).textContent || '');
   const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
-  return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Details', '').replace('Hide details', ''),
+  return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
     capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: Number(cell('rank')), rankText: cell('rank')}; })"""
 
 
@@ -245,6 +245,8 @@ def check_opps(browser, base, overrides, errors):
         errors.append(f"[opps] columns {heads}")
     if not page.evaluate("() => document.querySelector('#v2LgOppsTable caption') !== null && document.querySelectorAll('#v2LgOppsTable tbody th[scope=row]').length > 0"):
         errors.append("[opps] no caption or no row headers")
+    if page.is_visible("#v2LgOppsAll"):   # JEG-1098: the list opens on 10 rows; these checks read every row
+        page.click("#v2LgOppsAll")
     rows = page.evaluate(OPP_ROWS)
     if not rows:
         errors.append("[opps] no opportunity rows for the 4-team fixture")
@@ -293,6 +295,8 @@ def check_opps(browser, base, overrides, errors):
     page.click("#v2LgOppsReset")
     # Filters.
     page.select_option("#v2LgFilterFit", "natural")
+    if page.is_visible("#v2LgOppsAll"):
+        page.click("#v2LgOppsAll")
     shown = page.evaluate(OPP_ROWS)
     if any(r["overall"] != "natural" for r in shown):
         errors.append(f"[opps] Natural only left {[r['overall'] for r in shown]}")
@@ -308,6 +312,8 @@ def check_opps(browser, base, overrides, errors):
         page.wait_for_timeout(150)
     rows = page.evaluate(OPP_ROWS)
     page.click("#v2LgHideForce")
+    if page.is_visible("#v2LgOppsAll"):   # a filter resets the list to its first 10 rows; read all of them
+        page.click("#v2LgOppsAll")
     shown = page.evaluate(OPP_ROWS)
     if any(r["overall"] == "force" for r in shown) or page.get_attribute("#v2LgHideForce", "aria-pressed") != "true":
         errors.append("[opps] Hide force fits left force fits or is not pressed")
@@ -380,11 +386,11 @@ def check_twenty(browser, base, overrides, errors):
     if page.locator("#v2LgSummaryTable tr.v2-lg-main").count() != 20:
         errors.append(f"[20] summary rows {page.locator('#v2LgSummaryTable tr.v2-lg-main').count()}")
     rows = page.evaluate(OPP_ROWS)
-    if len(rows) != 20 or "across 19 opponents" not in page.inner_text("#v2LgOppsHeadline"):
+    if len(rows) != 10 or "across 19 opponents" not in page.inner_text("#v2LgOppsHeadline"):
         errors.append(f"[20] {len(rows)} rows, headline {page.inner_text('#v2LgOppsHeadline')!r}")
     page.click("#v2LgOppsMore")
-    if len(page.evaluate(OPP_ROWS)) != 40:
-        errors.append("[20] Show more did not add 20 rows")
+    if len(page.evaluate(OPP_ROWS)) != 20:
+        errors.append("[20] Show more did not add 10 rows")
     # The partial teams do not break anything.
     if not any("partial" in (r["detail"] or "") or True for r in page.evaluate(SUMMARY_ROWS)):
         errors.append("[20] summary")
@@ -451,7 +457,7 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "one opponent hides the opponent column": ({"league.js": league.replace('el("tr", {}, sortTh("opponent", cols, state, onSort, two),', 'el("tr", {}, (res.perOpponent.length > 1 ? sortTh("opponent", cols, state, onSort, two) : plainTh("", two)),', 1)}, {"opps"}),
             "Natural only does nothing": ({"opportunities.js": opps.replace('if (f.fit === "natural" && r.overall !== "natural") return false;', '', 1)}, {"opps"}),
             "force fits not hidden": ({"opportunities.js": opps.replace("if (hideForce && r.overall === \"force\") return false;", "", 1)}, {"opps"}),
-            "a missing piece is printed as null": ({"league.js": league.replace("})].filter(Boolean));\n  }\n\n  // The finder runs", "}));\n  }\n\n  // The finder runs", 1)}, {"opps"}),
+            "a missing piece is printed as null": ({"league.js": league.replace("].filter(Boolean));\n  }\n\n  // The finder runs", "]);\n  }\n\n  // The finder runs", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
             "settings change loses the teams": ({"league.js": league.replace('store.replace(ws, "settings");', 'store.replace(W.newWorkspace(), "settings");', 1)}, {"settings"}),
             "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible.slice(0, 5);", 1)}, {"twenty"}),

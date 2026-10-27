@@ -135,6 +135,10 @@ def check_picker(snap, name, disabled=None) -> list[str]:
             errors.append(f"{name}: {o['key']} prior-week badge {o['text']!r} but engine stale={o['stale']}")
         if o["disabled"] and "—" not in o["text"]:
             errors.append(f"{name}: {o['key']} disabled without a reason in its label: {o['text']!r}")
+    labels = [o["text"] for o in opts]
+    dupes = sorted({t for t in labels if labels.count(t) > 1})
+    if dupes:
+        errors.append(f"{name}: duplicate option labels {dupes}")
     order = [GROUPS.index(o["group"]) if o["group"] in GROUPS else -1 for o in opts]
     if order != sorted(order):
         errors.append(f"{name}: groups out of vocabulary order {[o['group'] for o in opts]}")
@@ -373,6 +377,8 @@ class RisersRenderTest(unittest.TestCase):
                 "source = source.slice();", 1)},
             "picker ungrouped": {"v2_js": v2.replace(
                 "      select.appendChild(optgroup);\n", "      select.append(...optgroup.children);\n", 1)},
+            "duplicate DDF option in Risers picker": {"v2_js": v2.replace(
+                "choices.filter(({key}) => ddfPickKey(key) === key).map(", "choices.map(", 1)},
             "Risers default not DDF": {"v2_js": v2.replace(
                 "const RISERS_DEFAULT = DDF_KEY;", "const RISERS_DEFAULT = \"fantasycalc\";", 1)},
         }

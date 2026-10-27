@@ -11,7 +11,7 @@
   const DISMISS_KEY = "ddf.v2.inputs-dismissed";
   const STALE_DAYS = 7;
   // The tabs whose results are for the reader's own roster.
-  const ROSTER_TABS = ["#find-trade", "#waivers"];
+  const ROSTER_TABS = ["#find-trade", "#find-league", "#waivers"];
   const DAY_MS = 86400000;
 
   const $ = id => document.getElementById(id);
