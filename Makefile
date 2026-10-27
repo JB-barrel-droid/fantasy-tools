@@ -615,6 +615,7 @@ test-core:
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -664,6 +665,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
