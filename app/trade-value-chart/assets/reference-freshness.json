@@ -1,7 +1,7 @@
 {
   "artifact_hashes": {
-    "comparison-sources-data.json": "0beda76775ee03154471f7132d1275ed590f12ce6dd9b16207c990cbf11aa731",
-    "players.json": "692ed740f24be32e9e36fab47ec19b9f62f13b8fcf5bf7081b3a8ca24f9550b5",
+    "comparison-sources-data.json": "236da7bc8057e36383f94af95ce943324ef6f0239f36e879862b6631b725afa6",
+    "players.json": "8194330fea8a91314104fc082294083cc4a51b5aa65036c6b6d7c00e99486217",
     "source-import-health.json": "b09b3c94d2a4e4d35ce2ebaa94c86fc4da92c56d395b1b55009444b7f96b4c25"
   },
   "chart_inputs": [
@@ -17,11 +17,11 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-10-25"
+      "value": "2026-10-26"
     }
   ],
   "fixture_dir": "data/fixtures/current",
-  "generated_at": "2026-10-25T20:04:15-05:00",
+  "generated_at": "2026-10-27T05:56:44-05:00",
   "import_health_source": "dist/modules/source-import-health.json",
   "items": [
     {
@@ -35,10 +35,10 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-10-25"
+      "value": "2026-10-26"
     },
     {
-      "age_days": 1,
+      "age_days": 2,
       "changed_since_prior_report": false,
       "color": "green",
       "enforced": false,
@@ -61,7 +61,7 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "stale",
-      "value": "2026-10-25T23:43:17.407230+00:00"
+      "value": "2026-10-26T15:42:37.663230+00:00"
     },
     {
       "age_days": 0,
@@ -74,21 +74,21 @@
       "max_age_days": 2,
       "note": "unchanged",
       "status": "same_day",
-      "value": "2026-10-26T00:50:26Z"
+      "value": "2026-10-27T10:13:12Z"
     },
     {
       "age_days": 0,
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): cbs content Week 7 is one week behind current content Week 8; built and labelled as Week 7. Window verdict stale: STALE_VINTAGE: content vintage Week 7 != current Week 8. No verified publication schedule for cbs; Believed to publish mid-week (typically Wednesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
+      "freshness_ok": false,
       "key": "source_import.cbs",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 cbs content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is Week 7 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is Week 7 source provenance, not pull time",
+      "status": "stale",
       "value": "Week 7"
     },
     {
@@ -102,9 +102,9 @@
       "l1_status": "ok",
       "label": "L1 cbsros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is 2026-10-25 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-27 source provenance, not pull time",
       "status": "same_day",
-      "value": "2026-10-25"
+      "value": "2026-10-27"
     },
     {
       "age_days": 0,
@@ -117,9 +117,9 @@
       "l1_status": "ok",
       "label": "L1 espn content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is 2026-10-25 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-26 source provenance, not pull time",
       "status": "same_day",
-      "value": "2026-10-25"
+      "value": "2026-10-26"
     },
     {
       "age_days": 0,
@@ -132,23 +132,23 @@
       "l1_status": "ok",
       "label": "L1 fantasycalc content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is Week 7 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is Week 8 source provenance, not pull time",
       "status": "same_day",
-      "value": "Week 7"
+      "value": "Week 8"
     },
     {
       "age_days": 0,
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): fantasypros content Week 7 is one week behind current content Week 8; built and labelled as Week 7. Window verdict stale: STALE_VINTAGE: content vintage Week 7 != current Week 8. No verified publication schedule for fantasypros; Believed to publish early in the NFL week (typically Monday/Tuesday) based on industry pattern, but NOT verified against local snapshot history. Treated as unknown until verified.",
+      "freshness_ok": false,
       "key": "source_import.fantasypros",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 fantasypros content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is 2026-10-20 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-20 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-20"
     },
     {
@@ -162,29 +162,29 @@
       "l1_status": "ok",
       "label": "L1 razzball content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is 2026-10-24 source provenance, not pull time",
+      "note": "L1 status=ok; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-26 source provenance, not pull time",
       "status": "same_day",
-      "value": "2026-10-24"
+      "value": "2026-10-26"
     },
     {
       "age_days": 0,
       "changed_since_prior_report": true,
       "color": "green",
       "enforced": false,
-      "failure_reason": null,
-      "freshness_ok": true,
+      "failure_reason": "LAGGING_ONE_WEEK (non-blocking): usatoday content Week 7 is one week behind current content Week 8; built and labelled as Week 7. Window verdict yellow: AWAITING_PUBLICATION: content vintage Week 7, current Week 8. usatoday publishes on Tue; within 1-day grace period (day 0).",
+      "freshness_ok": false,
       "key": "source_import.usatoday",
-      "l1_status": "ok",
+      "l1_status": "warning",
       "label": "L1 usatoday content vintage",
       "max_age_days": 2,
-      "note": "L1 status=ok; last_successful_import=2026-10-26T00:50:26Z; content_vintage is 2026-10-20 source provenance, not pull time",
-      "status": "same_day",
+      "note": "L1 status=warning; last_successful_import=2026-10-27T10:13:12Z; content_vintage is 2026-10-20 source provenance, not pull time",
+      "status": "stale",
       "value": "2026-10-20"
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.usatoday",
@@ -193,30 +193,30 @@
       "pending_promotion": false,
       "published_week": 7,
       "saved_week": 7,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasycalc",
       "label": "fantasycalc content week (published / saved)",
-      "note": "published Week 7; newest saved Week 7",
-      "pending_promotion": false,
+      "note": "published Week 7; newest saved Week 8 (saved but not yet published: the next bake promotes it)",
+      "pending_promotion": true,
       "published_week": 7,
-      "saved_week": 7,
-      "status": "current",
+      "saved_week": 8,
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.fantasypros",
@@ -225,14 +225,14 @@
       "pending_promotion": false,
       "published_week": 7,
       "saved_week": 7,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbs",
@@ -241,14 +241,14 @@
       "pending_promotion": false,
       "published_week": 7,
       "saved_week": 7,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.espn",
@@ -257,30 +257,30 @@
       "pending_promotion": false,
       "published_week": 7,
       "saved_week": 7,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.cbsros",
       "label": "cbsros content week (published / saved)",
-      "note": "published Week 7; newest saved Week 7",
-      "pending_promotion": false,
+      "note": "published Week 7; newest saved Week 8 (saved but not yet published: the next bake promotes it)",
+      "pending_promotion": true,
       "published_week": 7,
-      "saved_week": 7,
-      "status": "current",
+      "saved_week": 8,
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     },
     {
       "changed_since_prior_report": true,
-      "color": "green",
-      "current_content_week": 7,
+      "color": "yellow",
+      "current_content_week": 8,
       "enforced": false,
       "freshness_ok": true,
       "key": "comparison.source.razzball",
@@ -289,95 +289,95 @@
       "pending_promotion": false,
       "published_week": 7,
       "saved_week": 7,
-      "status": "current",
+      "status": "one_week_behind",
       "value": "Week 7",
-      "weeks_behind": 0
+      "weeks_behind": 1
     }
   ],
   "source_divergence": {
     "cbs": {
-      "bias": 1.69,
+      "bias": 1.66,
       "headline_combo": "full_12",
       "label": "CBS",
-      "message": "CBS disagrees with the other charts on 20% of players this week (usually 20%).",
-      "outlier_rate": 0.202,
+      "message": "CBS disagrees with the other charts on 19% of players this week (usually 20%).",
+      "outlier_rate": 0.194,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.204,
-      "week": 7
+      "usual_outlier_rate": 0.198,
+      "week": 8
     },
     "cbsros": {
-      "bias": -0.64,
-      "headline_combo": "standard_12",
+      "bias": -2.96,
+      "headline_combo": "half_12",
       "label": "CBS rest of season",
-      "message": "CBS rest of season disagrees with the other projections on 42% of players this week. Reviewed.",
-      "outlier_rate": 0.421,
-      "resolution_issue": "JEG-794",
-      "resolution_kind": "accepted",
-      "status": "reviewed",
+      "message": "CBS rest of season disagrees with the other projections on 47% of players this week. Under review.",
+      "outlier_rate": 0.467,
+      "resolution_issue": null,
+      "resolution_kind": null,
+      "status": "warn",
       "usual_outlier_rate": null,
-      "week": 7
+      "week": 8
     },
     "espn": {
-      "bias": 3.68,
-      "headline_combo": "half_12",
+      "bias": 1.8,
+      "headline_combo": "full_12",
       "label": "ESPN",
-      "message": "ESPN disagrees with the other projections on 46% of players this week. Reviewed.",
-      "outlier_rate": 0.455,
-      "resolution_issue": "JEG-795",
-      "resolution_kind": "accepted",
-      "status": "reviewed",
+      "message": "ESPN disagrees with the other projections on 36% of players this week.",
+      "outlier_rate": 0.358,
+      "resolution_issue": null,
+      "resolution_kind": null,
+      "status": "ok",
       "usual_outlier_rate": null,
-      "week": 7
+      "week": 8
     },
     "fantasycalc": {
-      "bias": 0.53,
+      "bias": 0.52,
       "headline_combo": "full_12_qb1",
       "label": "FantasyCalc",
-      "message": "FantasyCalc disagrees with the other charts on 42% of players this week (usually 45%).",
-      "outlier_rate": 0.416,
-      "resolution_issue": "JEG-830",
-      "resolution_kind": "accepted",
+      "message": "FantasyCalc disagrees with the other charts on 40% of players this week (usually 46%).",
+      "outlier_rate": 0.405,
+      "resolution_issue": null,
+      "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.451,
-      "week": 7
+      "usual_outlier_rate": 0.456,
+      "week": 8
     },
     "fantasypros": {
-      "bias": -0.27,
-      "headline_combo": "standard_12",
+      "bias": -0.16,
+      "headline_combo": "half_12",
       "label": "FantasyPros",
-      "message": "FantasyPros disagrees with the other charts on 47% of players this week (usually 46%). Reviewed.",
-      "outlier_rate": 0.468,
-      "resolution_issue": "JEG-796",
-      "resolution_kind": "accepted",
-      "status": "reviewed",
-      "usual_outlier_rate": 0.46,
-      "week": 7
+      "message": "FantasyPros disagrees with the other charts on 46% of players this week (usually 46%). Under review.",
+      "outlier_rate": 0.462,
+      "resolution_issue": null,
+      "resolution_kind": null,
+      "status": "investigate",
+      "usual_outlier_rate": 0.464,
+      "week": 8
     },
     "razzball": {
-      "bias": -0.19,
+      "bias": -0.1,
       "headline_combo": "full_12",
       "label": "Razzball",
       "message": "Razzball disagrees with the other projections on 37% of players this week.",
-      "outlier_rate": 0.371,
+      "outlier_rate": 0.366,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
       "usual_outlier_rate": null,
-      "week": 7
+      "week": 8
     },
     "usatoday": {
-      "bias": -1.16,
+      "bias": -1.17,
       "headline_combo": "full_12",
       "label": "USA Today",
-      "message": "USA Today disagrees with the other charts on 25% of players this week (usually 24%).",
+      "message": "USA Today disagrees with the other charts on 25% of players this week (usually 25%).",
       "outlier_rate": 0.254,
       "resolution_issue": null,
       "resolution_kind": null,
       "status": "ok",
-      "usual_outlier_rate": 0.237,
-      "week": 7
+      "usual_outlier_rate": 0.248,
+      "week": 8
     }
   },
   "source_validation": {
@@ -398,21 +398,36 @@
     "chart_input_keys": [
       "players.as_of"
     ],
-    "comparison_built_at": "2026-10-25T23:43:17.407230+00:00",
+    "comparison_built_at": "2026-10-26T15:42:37.663230+00:00",
     "comparison_oldest_published_week": 7,
-    "comparison_sources_behind": [],
-    "comparison_sources_pending_promotion": [],
+    "comparison_sources_behind": [
+      "cbs",
+      "cbsros",
+      "espn",
+      "fantasycalc",
+      "fantasypros",
+      "razzball",
+      "usatoday"
+    ],
+    "comparison_sources_pending_promotion": [
+      "cbsros",
+      "fantasycalc"
+    ],
     "enforced_expired_count": 0,
     "enforced_keys": [
       "comparison.built_at"
     ],
-    "expired_count": 0,
-    "expired_keys": [],
-    "l1_unhealthy_count": 0,
+    "expired_count": 3,
+    "expired_keys": [
+      "source_import.cbs",
+      "source_import.fantasypros",
+      "source_import.usatoday"
+    ],
+    "l1_unhealthy_count": 3,
     "max_age_days": 2,
-    "stale_count": 3,
+    "stale_count": 6,
     "unchanged_count": 4,
     "unknown_count": 0
   },
-  "today": "2026-10-26"
+  "today": "2026-10-27"
 }

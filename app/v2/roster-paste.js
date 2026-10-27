@@ -1323,7 +1323,8 @@
   var RECORD_INLINE_RE = /^(.{2,80}?)\s*\(\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)\s*$/;
   var RECORD_ALONE_RE = /^\(?\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)?$/;
   var TABLE_MARKER_RE = /^(SLOT|Pos|Position|Starters)(\s|$)/i;
-  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye\b.*)$/i;
+  // Only ESPN's actual section header is noise: a team is allowed to start with "Bye Week" (JEG-1110).
+  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye(?:\s+weeks?(?:\s+players)?)?)$/i;
 
   function cleanTeamName(raw) {
     var s = cleanESPNDoubled(String(raw || "").replace(/\t+/g, " ").replace(/\s+/g, " ").trim());
