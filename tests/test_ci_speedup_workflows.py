@@ -5,7 +5,7 @@
     the python pin and tests/rendered_gate/package.json (both share one build);
   - Chromium is installed once per job: no `playwright-core install` after the
     python `playwright install`;
-  - preview has a job timeout (default is 6 hours) and v2-render has room for a
+  - every preview job has a timeout (default is 6 hours) and v2-render has room for a
     slow browser install;
   - the docs-only skip on pull requests never skips a tests-only PR and keeps
     the docs the build reads.
@@ -109,7 +109,11 @@ class CiSpeedupTest(unittest.TestCase):
             self.assertEqual([], browser_problems(name, read(name)))
 
     def test_real_timeouts(self):
-        self.assertTrue(45 < (job_timeout(read("preview.yml"), "preview") or 0) <= 90)
+        # JEG-1170: preview-build carries the ~45-minute budget; each test-core shard
+        # and the aggregate `preview` check have their own, shorter one.
+        self.assertTrue(45 < (job_timeout(read("preview.yml"), "preview-build") or 0) <= 90)
+        self.assertTrue(15 < (job_timeout(read("preview.yml"), "preview-shard") or 0) <= 45)
+        self.assertIsNotNone(job_timeout(read("preview.yml"), "preview"))
         self.assertGreaterEqual(job_timeout(read("v2-render-test.yml"), "v2-render") or 0, 25)
 
     def test_real_docs_only_filter(self):
@@ -138,8 +142,9 @@ class CiSpeedupTest(unittest.TestCase):
         self.assertTrue(any("one browser build" in p for p in browser_problems("v2-render-test.yml", text)))
 
     def test_missing_preview_timeout_is_caught(self):
-        text = re.sub(r"    timeout-minutes: 60\n", "", read("preview.yml"))
-        self.assertIsNone(job_timeout(text, "preview"))
+        for job, minutes in (("preview-build", 60), ("preview-shard", 30), ("preview", 5)):
+            text = re.sub(rf"    timeout-minutes: {minutes}\n", "", read("preview.yml"))
+            self.assertIsNone(job_timeout(text, job), job)
 
     def test_filter_skipping_tests_is_caught(self):
         text = read("preview.yml").replace('      - "!docs/**"\n', '      - "!docs/**"\n      - "!tests/**"\n', 1)
