@@ -190,51 +190,33 @@ def vorp_bench_allocate(
     is_two_qb: bool,
     flex_filled_per_team: dict[str, float] | None = None,
 ) -> dict[str, int]:
-    """Greedy bench fill by VORP × usage discount (JEG-1121 VORP spec).
+    """Greedy bench fill by PPG × usage discount (JEG-1121 stable spec).
 
-    VORP = max(0, score − D'Hondt_waiver_line[pos]), where the D'Hondt bench
-    (market bench ratios) defines the reference waiver line per position.
-    Usage discount has two tiers: first-round backups (k < teams) get
-    coverage_rate = starters_per_team × (bye_rate + miss_rate); second-round
-    backups (teams ≤ k < 2×teams) get coverage_rate². Beyond 2×teams: 0.
-    This naturally limits backup QBs in 1-QB leagues without a hard cap.
+    All bench seats are filled in a single cross-position pass: the candidate
+    at each position scores max(0, PPG) × c_p^(1 + floor(k / t1_p)), where
+    c_p = starters_per_team × (bye_rate + miss_rate) and t1_p =
+    round(2 × c_p × teams).  Replacement level is 0 (any positive-PPG player
+    competes).  Seats left unfilled only if no positive-PPG candidates remain.
+    No D'Hondt fallback.
+
+    Seat counts never depend on DDF Value, so the result is deterministic
+    without iteration.
 
     starters[pos]: league-wide starter count (dedicated + sf + flex).
-    remaining[pos]: non-starter candidates sorted best-first.
+    remaining[pos]: non-starter candidates sorted best-first (by PPG).
     """
-    # Starters per team per position (for coverage rate)
     spt = {pos: starters.get(pos, 0) / teams for pos in POSITIONS}
 
-    # Rational bench reference: t1[pos] = round(2 × coverage_rate × teams).
-    # Physical meaning: ~twice the expected starter-absence events per season at
-    # each position. Used for both the waiver line reference and the tier-1
-    # boundary so the allocation is internally consistent (JEG-1121).
+    # t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
     t1: dict[str, int] = {}
     for pos in POSITIONS:
         c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
         t1[pos] = max(1, round(2.0 * c * float(teams)))
 
-    ref_waiver: dict[str, float] = {}
-    for pos in POSITIONS:
-        order = remaining.get(pos, [])
-        ref_idx = t1[pos]
-        if len(order) > ref_idx:
-            ref_waiver[pos] = float(player_scores.get(order[ref_idx], 0) or 0)
-        elif order:
-            ref_waiver[pos] = float(player_scores.get(order[-1], 0) or 0)
-        else:
-            ref_waiver[pos] = 0.0
-
     def _discount(pos: str, k: int) -> float:
         c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
-        if k < t1[pos]:
-            return c
-        if k < 2 * t1[pos]:
-            return c * c
-        return 0.0
+        return c ** (1 + k // t1[pos])
 
-    # Iterative greedy fill (VORP head); when no positive-VORP candidate remains,
-    # fall back to D'Hondt proportional fill for the tail so bench is fully allocated.
     counts: dict[str, int] = {pos: 0 for pos in POSITIONS}
     for _ in range(max(0, int(total_bench))):
         best: float = -1e18
@@ -247,8 +229,7 @@ def vorp_bench_allocate(
                 continue
             any_candidate = True
             raw = float(player_scores.get(order[k], 0) or 0)
-            vorp = max(0.0, raw - ref_waiver[pos])
-            effective = vorp * _discount(pos, k)
+            effective = max(0.0, raw) * _discount(pos, k)
             pos_rank = POS_ORDER.get(pos, 99)
             win_rank = POS_ORDER.get(winner, 99) if winner is not None else 99
             if effective > best or (effective == best and pos_rank < win_rank):
@@ -257,23 +238,7 @@ def vorp_bench_allocate(
         if winner is None or not any_candidate:
             break
         if best <= 0:
-            # All remaining at/below waiver. Fill tail with D'Hondt using c³ weights:
-            # c = coverage_rate; c³ strongly discounts positions (like QB in 1-QB) with
-            # low per-starter backup demand, matching the "natural limit" spec intent.
-            remaining_slots = int(total_bench) - sum(counts.values())
-            if remaining_slots > 0:
-                tail_w: dict[str, float] = {}
-                for pos in POSITIONS:
-                    if counts[pos] < len(remaining.get(pos, [])):
-                        c3 = (spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))) ** 3
-                        tail_w[pos] = c3
-                    else:
-                        tail_w[pos] = 0.0
-                if any(v > 0 for v in tail_w.values()):
-                    tail = dhondt_allocate(tail_w, remaining_slots)
-                    for pos in POSITIONS:
-                        counts[pos] += tail.get(pos, 0)
-            break
+            break  # no positive-PPG candidates remain; leave seats unfilled
         counts[winner] += 1
 
     return counts

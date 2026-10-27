@@ -123,7 +123,7 @@ class WorkedExampleTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.doc = json.loads(FIXTURE.read_text())
-        cls.actual = run_engine(promotion_model=False, flex_bench_seats=False)
+        cls.actual = run_engine(promotion_model=False, flex_bench_seats=True)
 
     def test_every_expected_value(self):
         problems = diff(expected_main(self.doc), self.actual, "expected")
@@ -132,7 +132,7 @@ class WorkedExampleTest(unittest.TestCase):
     def test_bench_share_variant(self):
         bs = self.doc["variant_bench_share_0_10"]["setting_change"]["bench_share"]
         problems = variant_diff(self.doc, run_engine(bench_share=bs, promotion_model=False,
-                                                      flex_bench_seats=False))
+                                                      flex_bench_seats=True))
         self.assertEqual(problems, [], "\n".join(problems[:40]))
 
     def test_check_covers_the_fixture(self):
@@ -147,8 +147,8 @@ class WorkedExampleTest(unittest.TestCase):
         rows = self.actual["rows"]
         self.assertEqual(rows["207"]["estimated_reason"]["c5"],
                          "Estimated: no chart lists him; from c5's values against projected points")
-        self.assertEqual(rows["306"]["estimated_reason"]["c5"],
-                         "Estimated: c5 doesn't list him; scaled from c1 and c4")
+        # With VORP bench, player 306 is below rostered depth in c5 (WR bench=1 in 2-team fixture).
+        self.assertEqual(rows["306"]["reasons"]["c5"], "Below rosterable depth; c5 doesn't list him")
         self.assertEqual(rows["205"]["reasons"]["c2"], "Below rosterable depth; c2 doesn't list him")
         self.assertEqual(rows["207"]["reasons"]["p2"], "p2 doesn't project this player")
 
