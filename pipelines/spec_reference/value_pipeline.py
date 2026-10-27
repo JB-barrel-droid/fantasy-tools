@@ -36,6 +36,7 @@ if str(_REPO / "pipelines" / "lib") not in sys.path:
 from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
+    vorp_bench_allocate as _vorp_bench,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -184,11 +185,25 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    # Skip flex_bench_seats in 2-QB / superflex (Jeremy, 2026-10-23).
-    is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
-    bench = dhondt_bench(setting, flex_filled=ff)
+    if flex_bench_seats:
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / T for p in POSITIONS})
+        bench = _vorp_bench(
+            _starters, _remaining, scores,
+            T, T * setting.bench_per_team,
+            {p: int(setting.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
+    else:
+        # D'Hondt bench (backward compat).
+        is_two_qb = setting.superflex > 0 or int(setting.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / T for p in POSITIONS} if use_flex else None
+        bench = dhondt_bench(setting, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         starters = ded[p] + sf[p] + fx[p]
@@ -350,7 +365,8 @@ def es_chart_sigma(setting: Setting, natives: dict, charts: list, pos_of: dict,
             n_listed = sum(1 for k in shared if pos_of.get(k) == p)
             ded = setting.teams * int(setting.slots.get(p, 0))
             avail = max(0, n_listed - ded)
-            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail)
+            # JEG-1121: sf_total/fx_total/avail are league-wide; normalize to per-team.
+            ff[p] = min(sf_total + (fx_total if p in setting.flex_eligible else 0), avail) / setting.teams
     bench = dhondt_bench(setting, flex_filled=ff)
     res = {}
     for p in POSITIONS:

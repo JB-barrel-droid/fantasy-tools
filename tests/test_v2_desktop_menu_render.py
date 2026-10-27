@@ -94,6 +94,7 @@ def run_checks(css=None, js=None) -> list[str]:
 
     def open_page(browser, base, size, hash_):
         page = browser.new_page(viewport={"width": size[0], "height": size[1]})
+        page.add_init_script(_render_env.pin_data_week_script())
         if css is not None:
             page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
         if js is not None:

@@ -172,6 +172,7 @@ def run(script, arg=None):
         try:
             with serve(DIST) as base:
                 page = browser.new_page(viewport={"width": 1280, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.goto(base + "/classic/", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueCurveDiagnostics", timeout=60000)
                 page.wait_for_timeout(300)
