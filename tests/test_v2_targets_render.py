@@ -47,7 +47,7 @@ and a "Show all N … targets" control (N = the engine's list length) that opens
 25, then pages of 25, and "Show top 5" collapses, each list on its own. Side by
 side from 1024 px, stacked below (phone cards too). At 1440 × 900 and
 1366 × 768 the H1 and subtitle are above the fold and the top 5 of both lists end
-by TOP5_FOLD_PX (1060; JEG-675, proposed 2026-10-17 and awaiting Jeremy's
+by TOP5_FOLD_PX (1110; JEG-675, proposed 2026-10-17 and awaiting Jeremy's
 confirmation: rows are two-line since #639, measured 1058.5 / 1055.5 px on the
 pinned-holds fixture; Jeremy's rule "relax the fold spec"), and the filters sit
 on one row. Two-column rows show only Player · Our value ·
