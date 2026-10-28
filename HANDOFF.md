@@ -66,7 +66,7 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   dispatch a fresh chain only if none is queued. Open issues to file: a
   generated-file conflict drops a good rebuild; a parser fix never re-ingests
   (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
-- **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again.
+- **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again. JEG-1157 is Done in Linear (In Review lane checked get_values, get_player_value and read_state live at 13:55Z).
 - **What I am working on:** a full render sweep on main after #1040, then
   merging #1031 (this handoff) and #1035 (JEG-1193 phone chip) one at a time on
   green CI, under Jeremy's rule that work he asked for merges on green CI with a
@@ -135,6 +135,26 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   `get-values` first, then `mcp` (deploys need his yes); then check a live
   `find_trades` call shows fit lines and move JEG-1115 to Done. #966
   (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
+
+
+### In Review tickets lane (2026-10-28, 9:10 AM CT)
+
+- **JEG-1157** (live MCP no players): Done in Linear, live check above.
+- **JEG-1156** (blank DDF Values after the week 8 flip): PR #987 was closed as
+  superseded by #1010 (JEG-1177, merged), which is the per-source week default
+  (more than half of DDF Value's sources on week N+1 picks N+1, else N; see
+  `resolveWeekView` in curve-widget.js). The week selector itself is JEG-1178.
+  Still In Review: it needs a live look at Player values showing filled DDF
+  Values. Probe branch `probe/jeg-1156-live` (never merge) runs
+  `tools/probe/jeg1156_live.mjs` in Actions run 40702410871 and prints
+  `JEG1156-LIVE` lines (rows with a DDF Value vs total). Next step: read that
+  log; if DDF Values are filled, comment the numbers on JEG-1156 and move it to
+  Done (the selector stays on JEG-1178).
+- Handed to their own lanes: JEG-894 (#969, main merged in at `b6cea06`),
+  JEG-1101 (#970, main merged in at `2b1fe3e`), both still drafts; JEG-1142
+  (branch `be/jeg-1142-promotion-off-v2` at `82cf1a7`, #999 re-applied, no PR
+  yet, movers table still to do; get-values loads the site's value-model.js,
+  so no edge deploy); JEG-1134 (draft PR #1043).
 
 ---
 
