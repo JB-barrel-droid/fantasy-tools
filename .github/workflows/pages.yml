@@ -22,14 +22,17 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  # JEG-1170: validate-base and the exhaustive test-core matrix together run
+  # exactly make validate. Only this job builds the artifact that is published.
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+    timeout-minutes: 60
+    outputs:
+      artifact-name: github-pages-${{ github.sha }}-${{ github.run_attempt }}
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.sha }}
           fetch-depth: 2
       - uses: actions/setup-python@v5
         with:
@@ -52,10 +55,12 @@ jobs:
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Validation coverage and workflow guards
+        run: python3 -m unittest tests.test_validate_shards tests.test_preview_workflow_matches_pages tests.test_deploy_gate_unconditional tests.test_ci_speedup_workflows
       - run: make sync
-      # JEG-133: validate runs on every commit (no path-dependent gating) and
-      # is blocking. A red validate blocks the deploy on every push.
-      - run: make validate
+      # JEG-133: validation runs on every commit and blocks publication.
+      # test-core runs in validate-shard; the coverage guard pins the exact union.
+      - run: make validate-base
       # Monitor signals refreshed on every deploy (warnings, never deploy
       # blocks; Jeremy 2026-10-08). GAP-E2E-FIDELITY: the JEG-77 card's only
       # producer. GAP-031: the ESPN-zeroed staleness signal (exits 1 when it
@@ -97,6 +102,66 @@ jobs:
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
+          name: github-pages-${{ github.sha }}-${{ github.run_attempt }}
           path: dist
+
+  # Each runner builds its own test inputs, as preview.yml does. Shard output
+  # never replaces the built and rendered artifact uploaded above.
+  validate-shard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - run: make reference
+      - run: make sync
+      - run: make test-core-shard-${{ matrix.shard }}
+
+  deploy:
+    needs: [build, validate-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # A skipped, cancelled or failed build/matrix must never publish.
+      - name: Every build and shard job passed
+        env:
+          BUILD_RESULT: ${{ needs.build.result }}
+          SHARD_RESULT: ${{ needs.validate-shard.result }}
+        run: |
+          echo "build: $BUILD_RESULT, validate-shard: $SHARD_RESULT"
+          [ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]
       - id: deployment
         uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ needs.build.outputs.artifact-name }}

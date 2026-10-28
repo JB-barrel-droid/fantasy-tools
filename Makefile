@@ -539,9 +539,9 @@ preview-vorp-views:
 # JEG-668: value-check-compare wired after held-source reference fix landed.
 validate: reference sync guard-harness test-core value-check-compare test-integration
 
-# JEG-1170: preview.yml runs validate as validate-base (validate minus test-core) in one job
-# and test-core as the test-core-shard-N targets in parallel matrix jobs. pages.yml still runs
-# `make validate`. tests/test_validate_shards.py fails unless the shards together run exactly
+# JEG-1170: preview.yml and pages.yml run validate-base (validate minus test-core) in one job
+# and test-core as the test-core-shard-N targets in parallel matrix jobs.
+# tests/test_validate_shards.py fails unless the shards together run exactly
 # test-core's lines (none missing, none twice) and validate == validate-base + test-core.
 validate-base: reference sync guard-harness value-check-compare test-integration
 
@@ -653,7 +653,7 @@ test-core:
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
 
-# JEG-1170: test-core split into parallel shards for preview.yml (one matrix job each). Their union
+# JEG-1170: test-core split into parallel shards for preview.yml and pages.yml. Their union
 # is exactly test-core: a line added to test-core must also go into one shard, or
 # tests/test_validate_shards.py fails. Balanced by the per-module times of preview run 40199508029
 # (about 7.5 minutes of tests each); within a shard the lines keep test-core's order.
