@@ -10,6 +10,9 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from lib.timestamps import parse_iso_timestamp
 
 CONTROL = '.github/main-write-pause.json'
 MAX_PAUSE = timedelta(hours=6)
@@ -21,8 +24,8 @@ def decision(raw, now):
         raise ValueError('paused must be a boolean')
     if not doc['paused']:
         return False, 'unpaused'
-    start = datetime.fromisoformat(doc['started_at'].replace('Z', '+00:00'))
-    end = datetime.fromisoformat(doc['expires_at'].replace('Z', '+00:00'))
+    start = parse_iso_timestamp(doc['started_at'])
+    end = parse_iso_timestamp(doc['expires_at'])
     if start.utcoffset() is None or end.utcoffset() is None:
         raise ValueError('pause times must include a timezone')
     if not timedelta(0) < end - start <= MAX_PAUSE:

@@ -5,16 +5,15 @@ name: Preview build
 # permissions, no deploy step. Keep the build steps below identical to pages.yml;
 # tests/test_preview_workflow_matches_pages.py fails if they drift.
 #
+# JEG-1170: both workflows split make validate into validate-base plus the exact
+# test-core shards. Here the preview check needs preview-build and every shard;
+# Pages needs its build and every shard before publishing its built artifact.
+#
 # Deliberate differences from pages.yml:
-#   - make validate is blocking here (on a PR it is the only gate). JEG-1170: it runs
-#     split, `make validate-base` in preview-build plus test-core as the parallel
-#     preview-shard matrix; the `preview` job is the check and needs all of them;
 #   - the full test suite (make test-unit) no longer runs on PRs: it never
 #     finished inside its 45-minute timeout and held a runner, so it moved to
 #     full-suite.yml, nightly plus workflow_dispatch (JEG-1169; JEG-978 before);
 #   - pull requests that change only docs skip this check (JEG-1169);
-#   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
-#     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
@@ -73,6 +72,8 @@ jobs:
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Validation coverage and workflow guards
+        run: python3 -m unittest tests.test_validate_shards tests.test_preview_workflow_matches_pages tests.test_deploy_gate_unconditional tests.test_ci_speedup_workflows
       - run: make sync
       # JEG-1170: test-core runs in the preview-shard jobs.
       - run: make validate-base

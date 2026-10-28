@@ -41,3 +41,12 @@ parent owns merge/activation/restoration. One coding session, no subagent fanout
   CHAIN_OUTCOME condition; retain success/failure staging assertions.
 - 54 focused alert, leg-staging, guard and rebuild workflow tests passed; diff
   check passed. No full local validation repeat, activation or merge.
+
+### Second shard repair
+
+- Preview run 40726086852 shard 1 failed `tests.test_timestamps`: the new
+  guard parsed two pause timestamps with raw `datetime.fromisoformat`. It now
+  uses the shared `parse_iso_timestamp` helper. Timestamp and guard tests pass.
+- Integrated main d9f617e0, preserving both HANDOFF lane sections and the Pages
+  sharding changes. Local help probe regenerated checkpoint files; these are
+  safely preserved in a named git stash, not part of this PR.
