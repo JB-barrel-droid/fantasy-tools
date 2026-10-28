@@ -375,8 +375,10 @@ def main() -> int:
     # UTC, like every timestamp the report reads: a local date ran a day
     # behind them each evening in Chicago, so fresh inputs read as -1 days
     # old ("unknown") on a locally built monitor.
+    # JEG-1180: each source's served week from the week history index.
     freshness = build_report(FIXTURES, REFERENCE_FRESHNESS, datetime.now(timezone.utc).date(),
-                             import_health_path=import_health)
+                             import_health_path=import_health,
+                             history_index=ROOT / "data" / "history" / "index.json")
     # JEG-460: source divergence soft check. A warning, never a gate: errors
     # land in the report (status "error") and the build carries on. The
     # per-source status rides in the health report for the dashboard chip.

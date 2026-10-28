@@ -144,3 +144,77 @@ def published_week_state(fixture_path, history_root, players_path=None) -> dict:
                     "(Jeremy, 2026-10-27, JEG-1176); each week's view uses only that week's data",
             "sources": source_weeks(fixture, hist.index),
             "settings": settings}
+
+
+# ---------------------------------------------------------------------------
+# Stale flag (JEG-1180). Jeremy, 2026-10-27 (JEG-1176, open question 3):
+# "Stale cutoff? Decided: Thursday 12:00 CT. A source still on N after that
+# is flagged stale (a warning, not a failure)."
+#
+# Each source is judged by its OWN served week, against the content-week
+# calendar (nfl_week, New York day, injectable clock):
+#   current  served week >= this content week
+#   lagging  behind, before Thursday 12:00 CT of the week after its served
+#            week (normal Tuesday through Thursday morning)
+#   stale    behind, at or after that cutoff (a source two weeks behind is
+#            always stale: its cutoff passed last week)
+#   unknown  no served week
+# Stale is a warning. Nothing here fails the chain, changes a hold or
+# changes which sources a week's view uses.
+# ---------------------------------------------------------------------------
+
+STALE_CUTOFF_WEEKDAY_OFFSET = 2          # Tuesday + 2 days = Thursday
+STALE_CUTOFF_HOUR = 12                   # 12:00 ...
+STALE_CUTOFF_TZ = "America/Chicago"      # ... Central time
+STALE_RULE = ("a source still serving week N after Thursday 12:00 CT of week N+1 is stale "
+              "(Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure")
+
+
+def stale_after(week: int):
+    """The instant (aware datetime, Central time) after which a source still
+    serving the week before `week` is stale: Thursday 12:00 CT of content
+    week `week`."""
+    from datetime import datetime, time, timedelta
+    from zoneinfo import ZoneInfo
+    from nfl_week import content_week_start
+    day = content_week_start(week) + timedelta(days=STALE_CUTOFF_WEEKDAY_OFFSET)
+    return datetime.combine(day, time(STALE_CUTOFF_HOUR), tzinfo=ZoneInfo(STALE_CUTOFF_TZ))
+
+
+def source_week_status(served_week, now=None) -> dict:
+    """{served_week, expected_week, weeks_behind, state, stale, stale_after}
+    for one source at `now` (an aware datetime; default nfl_week's clock).
+    expected_week is the content week of the New York day of `now`."""
+    import nfl_week
+    now = now or nfl_week.now_utc()
+    expected = nfl_week.content_week(nfl_week.today_ny(now))
+    ok = isinstance(served_week, int) and not isinstance(served_week, bool)
+    if not ok:
+        return {"served_week": None, "expected_week": expected, "weeks_behind": None,
+                "state": "unknown", "stale": False, "stale_after": None}
+    behind = max(expected - served_week, 0)
+    if behind == 0:
+        state, cutoff = "current", None
+    else:
+        cutoff = stale_after(served_week + 1)
+        state = "stale" if now >= cutoff else "lagging"
+    return {"served_week": served_week, "expected_week": expected, "weeks_behind": behind,
+            "state": state, "stale": state == "stale",
+            "stale_after": cutoff.isoformat() if cutoff else None}
+
+
+def annotate_source_weeks(weeks: dict, now=None) -> dict:
+    """source_weeks() entries with each source's status (source_week_status)
+    merged in. Judged at one instant, so every source sees the same clock."""
+    import nfl_week
+    now = now or nfl_week.now_utc()
+    out = {}
+    for source, entry in sorted((weeks or {}).items()):
+        entry = dict(entry) if isinstance(entry, dict) else {}
+        out[source] = {**entry, **source_week_status(entry.get("served_week"), now)}
+    return out
+
+
+def sources_in_state(annotated: dict, state: str) -> list[str]:
+    """Sorted source names whose annotated state is `state`."""
+    return sorted(s for s, e in (annotated or {}).items() if isinstance(e, dict) and e.get("state") == state)
