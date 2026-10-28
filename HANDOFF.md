@@ -18,7 +18,7 @@ and after each milestone; commit and push it with the relevant code.
 Last updated: 2026-10-27 10:35 PM CT (2026-10-28 03:35 UTC), by the Claude
 lead session (claude.ai Duet "ddf" channel, handoff thread). Change: added the
 picks log copy (`docs/picks-log.md`) and the "Active agents and automation"
-section.
+section; the overnight routine now owns handoff upkeep.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
@@ -76,6 +76,12 @@ here, coordinate first (bottom of this section).
   touches Supabase data. Stops itself after 2026-11-11 or when no DDF task is
   open. Stop it: ask Claude in Jeremy's main Duet chat to pause it, or pause it
   in the app's routines list (Jeremy only).
+  Handoff upkeep (Jeremy, 2026-10-27 10:26 PM CT): on any run that changes the
+  project's state, priorities, blockers or active agents, it refreshes
+  `HANDOFF.md` and `docs/picks-log.md`, commits and pushes them with the
+  relevant work, skips the update when nothing changed, and marks agent
+  activity as verified or guessed. (Routine change made from the main chat;
+  not yet confirmed from this thread.)
 - **DDF lane threads** under the main-chat task "Run the Data Driven Football
   board": Clearing players and teams (JEG-1190, PR #1023), Main green (PR
   #1021), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
