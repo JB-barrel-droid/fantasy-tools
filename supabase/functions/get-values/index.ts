@@ -267,10 +267,10 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
     const svStatus = sourceValidation?.[key];
     const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-    // Staleness: chart sources older than current content week.
-    const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-    const isFirstLoadExcluded = firstLoadExcluded.has(key);
-    const isOlderWeek = isStale || isFirstLoadExcluded;
+    // Older week: a weekly chart behind the newest published week (the first-load rule). The
+    // calendar's week is not the test: on the Tuesday flip every chart is still on last week, and
+    // judging them against the calendar dropped them all and priced nobody (Oct 27 2026).
+    const isOlderWeek = firstLoadExcluded.has(key);
 
     // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
     const snapshot = detail.snapshot as Record<string, unknown> | undefined;
@@ -406,15 +406,22 @@ function formatResponse(
       tier: r.tier ?? 0,
     };
 
-    // include=charts: add per-chart adjusted values and DDF sub-versions
-    // so the finder can check whether trade charts say the rival breaks even.
+    // include=charts: add per-chart values and DDF sub-versions so the finder
+    // can check whether trade charts say the rival breaks even.
+    // chart_values: each chart's Adjusted value (the inputs DDF Value averages).
+    // chart_indexed: each chart's Indexed value, the market the other team
+    // judges by (JEG-1129). The mean of the Adjusted values is DDF Value itself,
+    // so the rival check must read chart_indexed.
     if (includeCharts) {
+      const round1 = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
       const cv: Record<string, number | null> = {};
+      const ci: Record<string, number | null> = {};
       for (const ck of CHART_KEYS) {
-        const v = r.adjusted?.[ck];
-        cv[ck] = typeof v === "number" && Number.isFinite(v) ? Math.round(v * 10) / 10 : null;
+        cv[ck] = round1(r.adjusted?.[ck]);
+        ci[ck] = round1(r.indexed?.[ck]);
       }
       entry.chart_values = cv;
+      entry.chart_indexed = ci;
       // DDF Value sub-versions (charts-only and projections-only) for noise estimation.
       const charts = ddfVersions?.charts?.value;
       const projs = ddfVersions?.projections?.value;

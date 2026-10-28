@@ -64,6 +64,7 @@ import build_week_history as H  # noqa: E402
 from tests._dist_server import engine_path  # noqa: E402
 from tests._holds import with_pinned_holds  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._week_view import has_view, lagging_week, note_lagging  # noqa: E402
 
 
 def setUpModule():
@@ -79,6 +80,7 @@ BIJAN = 217
 DELTAS = {}  # source -> Bijan Robinson Δ at Full PPR / 12 (printed by the test)
 ZERO_ONLY = {}  # series -> players priced 0.0 on one side only (printed)
 UNMATCHED = {}  # base source -> why its served inputs match no saved week (warned)
+WEEK_STATE = {}  # the default week view the page resolved (JEG-1177; getWeekState)
 FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
@@ -490,20 +492,28 @@ class EspnLegsRetiredTest(unittest.TestCase):
 # ------------------------------------------------------------------ browser
 
 READY = "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()"
-PRIOR = """async () => {
+# JEG-1177: every check runs in the week view of the week the series serves
+# (setWeek; null = the default view). During a transition a lagging source is
+# priced only in its own week's view, never against the other week's blend.
+SET_WEEK = "(c, week) => { if (c.setWeek) c.setWeek(week); }"
+PRIOR = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
-  for (const k of ['usatoday', 'fantasycalc', 'fantasypros', 'cbs']) {
+  for (const k of keys) {
     const prior = await c.getPriorWeek(k);
     const row = c.getAllRows().find(r => r.player_key === 217);
     out[k] = {prior, current: row ? row.values[k] : null};
   }
   return out;
 }"""
-SELF = """async (keys) => {
+SELF = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
-  c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', c.getRosterShape().BENCH + 1);
+  (""" + SET_WEEK + """)(c, week);
+  // One extra bench spot over the saved setup, however many week groups run.
+  if (window.__selfBench === undefined) window.__selfBench = c.getRosterShape().BENCH + 1;
+  c.setScoring('half'); c.setTeams(10); c.setRosterSpot('BENCH', window.__selfBench);
   const index = await (await fetch('assets/history/index.json')).json();
   const rows = c.getAllRows();
   const base = k => k.endsWith('_vorp') ? k.slice(0, -5) : k.endsWith('_adjusted') ? k.replace(/_adjusted$/, '') : k;
@@ -543,8 +553,9 @@ SELF = """async (keys) => {
 # Run after SELF (Half PPR, 10 teams, an extra bench spot: off the saved
 # setup, so the tabs derive their views): the served week fed back through
 # getWeekValues reproduces each chart's tab values exactly.
-VIEW_SELF = """async (keys) => {
+VIEW_SELF = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   const view = v => document.querySelector(`#viewModeTabs [data-view-mode=${v}]`).click();
   const index = await (await fetch('assets/history/index.json')).json();
   const out = {};
@@ -576,12 +587,14 @@ VIEW_SELF = """async (keys) => {
   view('indexed');
   return out;
 }"""
-ESPN_PRIOR = """async () => {
+ESPN_PRIOR_KEYS = ('espn', 'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
+                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted')
+ESPN_PRIOR = """async ([keys, week]) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, week);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
-  for (const k of ['espn', 'espn_vorp', 'cbsros_vorp', 'razzball_vorp',
-                   'usatoday_adjusted', 'fantasycalc_adjusted', 'fantasypros_adjusted', 'cbs_adjusted']) {
+  for (const k of keys) {
     const r = await c.getPriorWeek(k);
     let changed = 0;
     c.getAllRows().forEach(row => {
@@ -599,6 +612,7 @@ ESPN_PRIOR = """async () => {
 # the guard although the page still serves it to getWeekValues.
 ALL_WEEKS = """async (pairs) => {
   const c = window.TradeValueCurveControls;
+  (""" + SET_WEEK + """)(c, null);
   c.setScoring('ppr'); c.setTeams(12);
   const out = {};
   for (const [k, week] of pairs) {
@@ -664,19 +678,21 @@ def _base(key):
     return key
 
 
-def served_sources():
+def served_sources(held=None):
     """The served-week check's sources that the fixture carries (2026-10-08).
 
     A chart absent from the fixture is dropped by the page, so it has no
     served week to check; a present chart is checked in full. The ESPN anchor
-    must be present."""
+    must be present. held: the held roots the page saw (default: the
+    committed fixture's)."""
     sources = json.loads((ROOT / "data" / "fixtures" / "current" /
                           "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
     if "espn" not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
     # JEG-569 part 2: a held section is dropped from the output (no computation on
     # old data), so it has no served week or prior week to check.
-    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources and _base(k) not in held_roots(sources)]
+    held = held_roots(sources) if held is None else held
+    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources and _base(k) not in held]
 
 
 def held_roots(sources=None):
@@ -699,6 +715,17 @@ def served_week(index, series, unmatched):
     unmatched[base] = (f"the served {base} inputs have no saved week "
                        f"({rec.get('reason') or 'not in the history index'})")
     return None
+
+
+def by_served_week(index, keys):
+    """{served week (None for an unmatched source): [series]} in key order,
+    so each group is checked in the week view of the week it serves."""
+    groups = {}
+    for key in keys:
+        rec = (index.get("served") or {}).get(key.split("_")[0]) or {}
+        week = rec.get("week") if isinstance(rec.get("week"), int) else None
+        groups.setdefault(week, []).append(key)
+    return groups
 
 
 def unmatched_prior(series, res):
@@ -759,6 +786,7 @@ def collect(overrides=None):
     index = json.loads((overrides or {}).get("assets/history/index.json") or
                        (DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
     expected, failures = {}, []
+    fixture_override = (overrides or {}).get(FIXTURE_ASSET)
     UNMATCHED.clear()
     for source in H.PUBLISHED:
         served = served_week(index, source, UNMATCHED)
@@ -791,7 +819,11 @@ def collect(overrides=None):
                 failures.append(
                     f"content-week pin failed: page sees week {page_week} "
                     f"but data only has week {max(served_weeks)}")
-            prior = page.evaluate(PRIOR)
+            WEEK_STATE.clear()
+            WEEK_STATE.update(page.evaluate("() => window.TradeValueCurveControls.getWeekState?.() || {}") or {})
+            prior = {}
+            for week, keys in by_served_week(index, H.PUBLISHED).items():
+                prior.update(page.evaluate(PRIOR, [keys, week]))
             for source in sorted(set(H.PUBLISHED) & set(UNMATCHED)):
                 failures += unmatched_prior(source, prior[source]["prior"])
             for source, week in expected.items():
@@ -815,17 +847,29 @@ def collect(overrides=None):
                 # The known player: Δ is the chart's current value minus the
                 # saved week priced at the same setting.
                 current = prior[source]["current"]
-                if BIJAN not in values or current is None:
+                # JEG-1176: a chart lagging the default view is read in its
+                # served week's view (PRIOR sets it); when the page offers no
+                # view for that week (chain run 40624176718: CBS a week behind
+                # and red-held, so no transition) it has no current value.
+                # That is lagging, not a failure: noted, its prior week still
+                # checked, only the Δ left out.
+                lag = lagging_week(WEEK_STATE, source)
+                no_view = current is None and lag is not None and not has_view(WEEK_STATE, lag)
+                if no_view:
+                    note_lagging("week history", [source], lag, WEEK_STATE, "its Δ is not checked in the browser")
+                if BIJAN not in values or (current is None and not no_view):
                     failures.append(f"{source}: Bijan Robinson missing (prior {values.get(BIJAN)}, current {current})")
                 elif BIJAN not in want or abs(values[BIJAN] - want[BIJAN]) > 1e-9:
                     failures.append(f"{source}: Bijan prior {values[BIJAN]}, natives x factor {want.get(BIJAN)}")
-                else:
+                elif not no_view:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
             # The holds the page saw: a served fixture override's, else the committed fixture's.
-            fixture_override = (overrides or {}).get(FIXTURE_ASSET)
             held = held_roots(json.loads(fixture_override)["sources"]) if fixture_override else held_roots()
-            for source, res in page.evaluate(ESPN_PRIOR).items():
+            espn_prior = {}
+            for week, keys in by_served_week(index, ESPN_PRIOR_KEYS).items():
+                espn_prior.update(page.evaluate(ESPN_PRIOR, [keys, week]))
+            for source, res in espn_prior.items():
                 if _base(source) in held:
                     continue
                 # Published charts were reported above; report a projection once.
@@ -845,9 +889,17 @@ def collect(overrides=None):
             failures += saved_week_failures(page, index, held)
 
             # An unmatched source has no served week to reproduce.
-            served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
-            self_results = page.evaluate(SELF, served)
-            self_results.update(page.evaluate(VIEW_SELF, [k for k in served if k in H.PUBLISHED]))
+            # JEG-1177: each source is checked in the view of its OWN served
+            # week, so a source still on Week N while others serve N+1 is
+            # checked against Week N (lag is not a failure), and its served
+            # file must still equal its saved Week N exactly.
+            # The holds the page saw (a replay can clear a lagging chart's
+            # hold, transition_overrides), so a served chart is checked.
+            served = [k for k in served_sources(held) if k.split("_")[0] not in UNMATCHED]
+            self_results = {}
+            for week, keys in by_served_week(index, served).items():
+                self_results.update(page.evaluate(SELF, [keys, week]))
+                self_results.update(page.evaluate(VIEW_SELF, [[k for k in keys if k in H.PUBLISHED], week]))
             for source, res in self_results.items():
                 if res["errors"]:
                     failures.append(f"{source} served week != chart: {res['errors'][:2]} ({len(res['errors'])} players)")
@@ -951,6 +1003,129 @@ class DeltaRecomputeTest(unittest.TestCase):
         self.assertNotEqual(guesses, widget)
         failures = collect({**self._unmatched_overrides(), "assets/curve-widget.js": guesses})
         self.assertTrue([f for f in failures if "the served week is unmatched but" in f], failures)
+
+
+SCORING_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
+
+
+def newest_week(exclude=("cbs", "usatoday")):
+    """The newest week the built dist/ serves, over the charts not in
+    `exclude`. Committed data and a chain rebuild differ here (on 2026-10-28
+    the chain built Week 8 while the committed dist/ served Week 7), so the
+    transition replay is set relative to it, not to a fixed week."""
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    return max(v["week"] for k, v in index["served"].items()
+               if k not in exclude and isinstance(v.get("week"), int))
+
+
+def transition_overrides(lagging=("cbs", "usatoday"), week=None, corrupt=None):
+    """JEG-1177 sentinel: replay a week transition from committed data. The
+    `lagging` charts serve their saved Week `week` (default: the week before
+    newest_week(); the served fixture carries exactly those natives and the
+    index says so) while every other source serves the newer week, as on
+    2026-10-27 (USA Today and CBS on Week 7, the rest on Week 8). Any hold on
+    a lagging chart is cleared: the replay serves its saved week, and a red
+    hold would hide it from the view lists (a test that wants one adds it).
+    corrupt: a source whose served file has one player's value changed, so it
+    no longer equals its own saved week."""
+    if week is None:
+        week = newest_week(lagging) - 1
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
+    slug_of = {}
+    for slug, key in sorted((fixture.get("player_keys") or {}).items()):
+        slug_of.setdefault(int(key), slug)
+    saved = _week(week)
+    for src in lagging:
+        entry = saved["sources"][src]
+        index["served"][src] = {"week": week, "version": "snapshot", "fingerprint": entry["fingerprint"],
+                                "label_week": week}
+        section = fixture["sources"][src]
+        section["week_designated"] = section["content_vintage"] = f"Week {week}"
+        for field in ("validationHold", "promotionHold"):
+            section.pop(field, None)
+        for scoring, prefix in SCORING_PREFIX.items():
+            natives = {slug_of[int(k)]: v for k, v in entry["natives"][scoring].items() if int(k) in slug_of}
+            if src == corrupt:
+                slug = slug_of.get(BIJAN) or sorted(natives)[0]
+                natives[slug] = natives[slug] * 1.07
+            combos = [k for k in section["combos"] if k.startswith(f"{prefix}_12")]
+            assert combos, f"{src} has no {prefix} 12-team combo"
+            for combo in combos:
+                section["combos"][combo]["native"] = dict(natives)
+    return {"assets/history/index.json": json.dumps(index),
+            FIXTURE_ASSET: json.dumps(fixture, separators=(",", ":"))}
+
+
+class WeekTransitionSentinelTest(unittest.TestCase):
+    """JEG-1175 / JEG-1177: chain runs 40546427066 and 40555873437 failed
+    post-rebuild validation ("cbs served week != chart", "usatoday served week
+    != chart") because USA Today and CBS still served Week 7 while the rest
+    served Week 8, and the page priced the Week 7 charts against the Week 8
+    blend (one constant factor off, 0.99946). A lagging source is not a
+    failure; a source whose served file is not its own saved week is."""
+
+    def test_mixed_transition_passes(self):
+        failures = collect(transition_overrides())
+        self.assertEqual(failures, [])
+        # 5 of 7 DDF Value sources serve week N (Week 7 in committed data):
+        # more than half, so it is the default view and the two week N-1
+        # charts are its missing sources.
+        n = newest_week()
+        self.assertEqual(WEEK_STATE.get("week"), n, WEEK_STATE)
+        self.assertEqual(WEEK_STATE.get("weeks"), [n, n - 1], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"][str(n)]["missing_sources"], ["cbs", "usatoday"], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"][str(n - 1)]["missing_sources"], [], WEEK_STATE)
+
+    def test_corrupted_single_source_file_still_fails(self):
+        failures = collect(transition_overrides(corrupt="cbs"))
+        self.assertTrue([f for f in failures if f.startswith("cbs served week != chart")], failures)
+
+    def test_carry_forward_pricing_fails(self):
+        """The pre-fix engine (no week view: the Week 6 charts priced against
+        the Week 7 blend) is what the chain saw; the guard must still catch it."""
+        widget = WIDGET.read_text(encoding="utf-8")
+        no_view = widget.replace("    weekView = resolveWeekView();\n", "    weekView = null;\n")
+        self.assertNotEqual(no_view, widget)
+        failures = collect({**transition_overrides(), "assets/curve-widget.js": no_view})
+        self.assertTrue([f for f in failures if " served week != chart" in f
+                         and f.split()[0] in ("cbs", "usatoday", "cbs_adjusted", "usatoday_adjusted")], failures)
+
+
+    def test_engine_and_python_reference_agree_in_the_transition(self):
+        """value_check compare (the chain's other gate) on the same replay:
+        the page and value_reference.py price the default Week 7 view value
+        for value, with the Week 6 charts out of DDF Value and named."""
+        import shutil
+        from datetime import date as _date
+        import value_check as vc
+        overrides = transition_overrides()
+        settings = [{"scoring": "ppr", "teams": 12, "superflex": 0},
+                    {"scoring": "half_ppr", "teams": 10, "superflex": 1}]
+        today = _date.fromisoformat(_fixture_today())
+        engine = vc.run_engine(settings, today, overrides={k: v.encode("utf-8") for k, v in overrides.items()})
+        with tempfile.TemporaryDirectory() as tmp:
+            hist = Path(tmp) / "history"
+            shutil.copytree(DIST / "assets" / "history", hist)
+            (hist / "index.json").write_text(overrides["assets/history/index.json"], encoding="utf-8")
+            fixture = Path(tmp) / "fixture.json"
+            fixture.write_text(overrides[FIXTURE_ASSET], encoding="utf-8")
+            reference = vc.run_reference(settings, today, fixture=fixture, history=hist)
+            import value_reference as R
+            lag = newest_week() - 1
+            lagged = R.Setting(R.Inputs.load(fixture), "ppr", 12, hist=R.History(hist), week=lag)
+            self.assertEqual(lagged.week_view()["week"], lag)
+            self.assertIn("cbs", lagged.state()["included"])
+            self.assertEqual(lagged.state()["current_week"], lag)
+        report = vc.compare(engine["settings"], reference)
+        bad = {k: a["examples"][:2] for k, a in report["series"].items() if a["mismatches"]}
+        self.assertEqual(bad, {})
+        for sid, r in reference.items():
+            self.assertNotIn("cbs", r["composite_inputs"], sid)
+            self.assertNotIn("usatoday", r["composite_inputs"], sid)
+            self.assertIn("fantasycalc", r["composite_inputs"], sid)
+            self.assertTrue(r["composite_excluded"]["cbs"].startswith(f"not yet published for Week {newest_week()}"),
+                            sid)
 
 
 class FixtureTodayPinTest(unittest.TestCase):

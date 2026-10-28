@@ -50,12 +50,11 @@ SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # serves it (JEG-453); /classic/ in dist/ is a redirect to the root.
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
 TITLE = "Data Driven Football"   # brand only (Jeremy, 2026-10-08)
-DESCRIPTION = ("Rest-of-season fantasy football trade values for your league settings, "
-               "trade targets where the published charts disagree with our values, "
-               "and a trade calculator.")
+DESCRIPTION = ("Know who to trade for, before your league does. Fantasy football trade values "
+               "built for your league, plus the trades your league-mates will actually say yes to.")
 OG_TITLE = TITLE
-OG_DESCRIPTION = ("Rest-of-season trade values for your league settings, with trade targets "
-                  "where the published charts disagree with our values.")
+OG_DESCRIPTION = ("Trade values built for your league, plus the trades your league-mates "
+                  "will actually say yes to.")
 
 # JEG-1026: the footer line "Using ChatGPT or Claude? Connect the tool" on every tab (static HTML), linking the connect guide that
 # build_llm_surfaces.py publishes at connect/ (shell.html carries the same URL literally: the contract test needs the built page to embed it verbatim). The marker is where the footer starts in shell.html.

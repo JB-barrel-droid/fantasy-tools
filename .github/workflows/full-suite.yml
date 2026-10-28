@@ -1,0 +1,62 @@
+name: Full test suite (nightly)
+
+# JEG-1169 (Jeremy, 2026-10-27): the full suite (make test-unit) moved off pull
+# requests. As a job in preview.yml (JEG-978) it hit its 45-minute timeout on
+# every PR, so it reported nothing and held a runner the other checks queued
+# behind. It now runs nightly on main and on demand, with room to finish.
+# Informational only: nothing gates on it, it never deploys or commits.
+#
+# The GitHub schedule is deliberate: this is not a pg_cron-owned pipeline
+# (config/monitoring_coverage.json lists it as unmonitored), and a skipped
+# nightly run only delays an informational signal.
+# Steps use multi-line run blocks, as they did in preview.yml.
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: full-suite
+  cancel-in-progress: true
+
+jobs:
+  full-suite:
+    name: Full test suite (informational, non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      # The render tests required, and playwright-core for the JEG-103/JEG-135
+      # harness tests (it uses the browser the python install puts in the cache).
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          npm ci --prefix tests/rendered_gate
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Build
+        run: |
+          make sync
+      - name: make test-unit
+        run: |
+          python3 -m pip install --quiet pytest
+          make test-unit
