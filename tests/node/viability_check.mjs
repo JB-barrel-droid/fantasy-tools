@@ -285,6 +285,28 @@ test("NEGATIVE: fails when trade leaves a team thin at RB", () => {
   assert.ok(!findCheck(result, "depth").passed, "depth should fail when RBs are gone");
 });
 
+// JEG-1129 (Jeremy 2026-10-28): no WR backup is required by default, so a trade that sends out the
+// only bench WR still passes depth; asking for one WR backup still fails it.
+test("default asks for no WR backup", () => {
+  assert.equal(DEFAULT_CONFIG.minWrBackups, 0);
+  const result = runViabilityChecks(
+    userRoster, theirRoster,
+    [userRoster[7]], [theirRoster[3]], // your WR4 for their RB3: you keep 3 WRs, no WR backup
+    SHAPE,
+  );
+  assert.ok(!findCheck(result, "depth").detail.includes("you thin at WR"), findCheck(result, "depth").detail);
+});
+
+test("NEGATIVE: one required WR backup fails the same trade", () => {
+  const result = runViabilityChecks(
+    userRoster, theirRoster,
+    [userRoster[7]], [theirRoster[3]],
+    SHAPE,
+    { ...DEFAULT_CONFIG, minWrBackups: 1 },
+  );
+  assert.ok(findCheck(result, "depth").detail.includes("you thin at WR"), findCheck(result, "depth").detail);
+});
+
 // ---------------------------------------------------------------------------
 // Check 7: Roster space
 // ---------------------------------------------------------------------------

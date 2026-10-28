@@ -127,6 +127,27 @@
     return rows.slice().sort(compareRows).map((row, i) => ({...row, rank: i + 1}));
   }
 
+  // JEG-885 (Jeremy, 2026-10-25, option B): the list shows at most CAP_PER_CORE rows for one received core player; the rest
+  // fold under a "N more for <player>" control that expands in place (league.js draws it). Selection only: keyFn(row) is the
+  // received core player's key, the order is the ranking order the caller passes in, and every value on a row is untouched.
+  const CAP_PER_CORE = 2;
+  // rows -> {list (at most n per key, in the order given), folds (key -> the rows beyond the cap, in the order given)}.
+  function capPerCore(rows, keyFn, n) {
+    const limit = Math.max(1, n || 1);
+    const seen = new Map();
+    const list = [];
+    const folds = new Map();
+    rows.forEach(row => {
+      const key = String(keyFn(row));
+      const used = seen.get(key) || 0;
+      seen.set(key, used + 1);
+      if (used < limit) { list.push(row); return; }
+      if (!folds.has(key)) folds.set(key, []);
+      folds.get(key).push(row);
+    });
+    return {list, folds};
+  }
+
   // ---------- all pairings: cached, chunked ----------
   function createCache() { return new Map(); }
   const nextFrame = () => new Promise(resolve => (root.requestAnimationFrame ? root.requestAnimationFrame(() => resolve()) : setTimeout(resolve, 0)));
@@ -223,7 +244,7 @@
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, CAP_PER_CORE, capPerCore, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;

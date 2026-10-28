@@ -79,6 +79,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
+| [picks-log.md](picks-log.md) | Record | - | - | Copy of the Claude lanes' picks log (choices made for Jeremy, each reversible; nothing merges on a pick alone). Source of truth is his main-chat log until lanes write here. |
 | [preview-deploys.md](preview-deploys.md) | Maintained | unknown | unknown | Preview deploy design and phase 1 status. |
 | [qa-report.md](qa-report.md) | Record | - | - | Generated contract QA report (2026-10-19, `scripts/contract_qa_report.py`); do not edit, rerun the script. |
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |

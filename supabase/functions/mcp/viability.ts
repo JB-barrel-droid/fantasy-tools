@@ -74,8 +74,9 @@ export interface ViabilityConfig {
   depthPlayerCutoff: number;
   /** Dead-weight cutoff: a player below this value is droppable for roster space. Default 0.5. */
   deadWeightCutoff: number;
-  /** Minimum healthy RB + WR backup count beyond starters. Default 1 each. */
+  /** Minimum healthy RB backups beyond starters. Default 1. */
   minRbBackups: number;
+  /** Minimum healthy WR backups beyond starters. Default 0 (Jeremy 2026-10-28, JEG-1129). */
   minWrBackups: number;
   /** User-defined guardrails. Default empty. */
   guardrails: Guardrail[];
@@ -92,7 +93,7 @@ export const DEFAULT_CONFIG: ViabilityConfig = {
   depthPlayerCutoff: 0.5,
   deadWeightCutoff: 0.5,
   minRbBackups: 1,
-  minWrBackups: 1,
+  minWrBackups: 0,
   guardrails: [],
 };
 
