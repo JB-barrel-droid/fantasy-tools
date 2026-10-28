@@ -212,6 +212,24 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 
 ---
 
+### Codex source-health release candidate (2026-10-28, JEG-1180 / JEG-1200)
+
+Branch `be/jeg-1180-1200-source-health-rc` combines the reviewed heads of
+#1022 (`0ebd8d0f`) and #1042 (`9ebbd360`) on main `3919f998`, in that order.
+The merge had no conflicts. The candidate adds one cross-path regression:
+when a chart's Week 8 label disagrees with served Week 7 history, the
+freshness report uses Week 7 and stays publishable, while the source alert
+reports a late Week 8 chart after Wednesday noon CT. At Thursday noon CT the
+freshness state becomes stale without failing publication. The combined
+source-health suite passed 207 tests; the focused integration/shard guard
+passed 72 tests. The new test is in test-core shard 3.
+
+Next: review the draft release candidate and its own preview/render CI. The
+parent owns any latest-main integration before release, merges, deploys and
+live verification. #1022 and #1042 remain draft and open; this branch changes
+no source isolation, rebuild workflow, main write guard, or Supabase code.
+Log: `docs/claude-log/2026-10-28-source-health-rc.md`.
+
 ### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
 
 Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.

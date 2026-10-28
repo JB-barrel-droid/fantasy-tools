@@ -647,6 +647,7 @@ test-core:
 	python3 -m unittest tests.test_week_state
 	# JEG-1180: stale flag (Thursday 12:00 CT) by each source's own week; never fails the chain.
 	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -740,6 +741,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_razzball_outlier_guard
 
