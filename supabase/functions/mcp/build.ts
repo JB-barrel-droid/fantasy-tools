@@ -6,4 +6,4 @@
 // constant lands in the following commit, so the value matches `git rev-parse HEAD`
 // of the commit a reader should inspect, not necessarily the tip if a later commit
 // only rewrote this line.
-export const MCP_BUILD_SHA = "477ec112b5d7333e958f3b56ab8bd6be6460bd03";
+export const MCP_BUILD_SHA = "c2d03262dfbeb1466a742524d5aca51ba97d585b";
