@@ -684,6 +684,26 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 
 /* Compare a trade (frames 07 / 08): two sides, then one row per source. */
 .v2-trade-sides { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+#v2Compare .v2-crosters { margin-top: 16px; }
+#v2Compare .v2-cconstruction { margin-top: 16px; }
+#v2Compare .v2-cconstruction h2 { margin: 0 0 8px; font-size: 18px; }
+.v2-cconstruction-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.v2-cconstruction-panels > section { min-width: 0; }
+.v2-cconstruction-panels h3 { margin: 6px 0; font-size: 16px; }
+@media (max-width: 900px) { .v2-cconstruction-panels { grid-template-columns: 1fr; } }
+.v2-croster-controls, .v2-croster-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.v2-croster-lists[hidden] { display: none; }
+.v2-croster-actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 8px 0; }
+.v2-croster-field { display: grid; gap: 4px; min-width: 0; font-weight: 700; }
+.v2-croster-field select { width: 100%; min-height: 44px; font: inherit; }
+.v2-croster-lists section { min-width: 0; }
+.v2-croster-lists h3 { margin: 8px 0; font-size: 15px; }
+.v2-croster-list { max-height: 240px; overflow: auto; list-style: none; padding: 0; margin: 0; }
+.v2-croster-list li + li { border-top: 1px solid var(--v2-border); }
+.v2-croster-list button { display: flex; justify-content: space-between; align-items: center; gap: 8px; width: 100%; min-height: 44px; padding: 6px 8px; border: 0; background: transparent; color: inherit; text-align: left; font: inherit; cursor: pointer; }
+.v2-croster-list button[aria-pressed="true"] { background: var(--v2-surface); font-weight: 700; }
+.v2-croster-list button:disabled { opacity: .55; cursor: default; }
+@media (max-width: 700px) { .v2-croster-controls, .v2-croster-lists { grid-template-columns: 1fr; } }
 .v2-trade-side { margin-top: 0; position: relative; }
 .v2-trade-side h2 { font-size: 20px; font-weight: 700; margin-bottom: 12px !important; }
 .v2-trade-side .v2-search { display: block; max-width: none; }
