@@ -2136,9 +2136,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 /* 44 x 44 hit area (docs/v2-design-notes.md: every action has one) for the inline links in the footer line and the Find a
    trade intros: `.v2-link`'s min-height does nothing on an inline <a>, so they were 15-18 px tall on phones. Same pattern
    and scope as the divergence chip (JEG-1048): a centred empty ::after, so nothing moves or shows. The footer's 16 px top and
-   28 px bottom padding hold the 14.5 px it reaches past the link; no other control is in reach. */
+   28 px bottom padding hold the 14.5 px it reaches past the link; no other control is in reach. Inline-block so a link
+   never splits across two lines at 320 px (a split link's box spans both lines and its centre lands on the text before
+   it); min-height 0 keeps `.v2-link`'s 44 px from growing the line, so the text stays where it was. */
 @media (max-width: 767px), (pointer: coarse) {
-  #v2AssistLine a.v2-link, #v2FindTrade .v2-title p a.v2-link, #v2FindLeague .v2-title p a.v2-link { position: relative; }
+  #v2AssistLine a.v2-link, #v2FindTrade .v2-title p a.v2-link, #v2FindLeague .v2-title p a.v2-link { position: relative; display: inline-block; min-height: 0; }
   #v2AssistLine a.v2-link::after, #v2FindTrade .v2-title p a.v2-link::after, #v2FindLeague .v2-title p a.v2-link::after {
     content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
 }
