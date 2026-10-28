@@ -8,9 +8,8 @@
 // value stays missing, never 0.
 //
 // Decisions (Jeremy, 2026-10-09 / 2026-10-10, recorded on JEG-481):
-//   * rosters are typed in with player search; the second slice (2026-10-16) adds import from a Sleeper league,
-//     a public ESPN league, or pasted names. Direct fetches need no key and no account; a private league is
-//     refused by the host, and the card says to paste the roster instead;
+//   * rosters are typed in with player search; the second slice (2026-10-16) adds pasted names. The Sleeper / ESPN
+//     league-ID fetchers were deleted (Jeremy, 2026-10-27, JEG-1131): paste is the only way to load a league;
 //   * default 1-for-1 up to 2-for-2, a toggle raises the maximum players per side;
 //   * "fair to the rival" = at least 3 of the 4 trade charts say the rival breaks even or wins;
 //   * ranking prefers simpler trades.
@@ -408,6 +407,16 @@
     if (impact.spotsOpened > 0) parts.push(`opens ${countWord(impact.spotsOpened, "roster spot")} (fill from waivers)`);
     return parts.length ? parts.join("; ") : "Starters by position unchanged";
   }
+  // JEG-1043: a team's starters at each position it gives up, before and after the trade (names in lineup order;
+  // FLEX and SUPERFLEX starters count at their own position). One entry per QB/RB/WR/TE among the leaving players.
+  function startersAtGivenPositions(impact, leaving) {
+    const names = (l, pos) => l.starters.filter(r => r.pos === pos).map(r => r.name);
+    return ["QB", "RB", "WR", "TE"].filter(pos => leaving.some(r => r.pos === pos))
+      .map(pos => ({pos, before: names(impact.before, pos), after: names(impact.after, pos)}));
+  }
+  const givenPositionsLine = entries => entries.map(e => `${e.pos} ${e.before.join(", ") || "none"} → ${e.after.join(", ") || "none"}`).join("; ");
+  // JEG-1043: "Show viable offers only" keeps the groups whose best package has a viability label, in the same order.
+  const viableGroups = (groups, labelOf) => groups.filter(g => Boolean(labelOf(g)));
 
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
@@ -454,7 +463,7 @@
   }
 
   // ---------- league import (JEG-481, second slice) ----------
-  // Rosters come from a public league (Sleeper or ESPN) or pasted names; they become the same typed-in lists the
+  // Rosters come from pasted names (JEG-1131: no platform fetchers); they become the same typed-in lists the
   // search card already uses. Names are matched to the engine's own rows, never invented.
   const SUFFIX = /\b(jr|sr|ii|iii|iv|v)\b\.?$/;
   const normName = name => String(name || "").toLowerCase().replace(/[.'’`]/g, "").replace(/[^a-z0-9 ]+/g, " ")
@@ -482,33 +491,6 @@
       matched.push(hits[0]);
     });
     return {matched, unmatched};
-  }
-  const SLEEPER_POS = {DEF: "DEF"};
-  // Sleeper: league rosters + league users + the player directory. Returns [{id, label, entries}].
-  function parseSleeper(rosters, users, directory) {
-    const owners = new Map((users || []).map(u => [String(u.user_id), (u.metadata && u.metadata.team_name) || u.display_name || u.username]));
-    return (rosters || []).map(r => ({
-      id: String(r.roster_id),
-      label: owners.get(String(r.owner_id)) || `Team ${r.roster_id}`,
-      entries: (r.players || []).map(id => {
-        const p = (directory || {})[id];
-        if (!p) return null;
-        const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ");
-        return name ? {name, pos: SLEEPER_POS[p.position] || p.position || ""} : null;
-      }).filter(Boolean)
-    }));
-  }
-  const ESPN_POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"};
-  // ESPN (public league, view=mRoster&view=mTeam). Returns [{id, label, entries}].
-  function parseEspn(json) {
-    return ((json && json.teams) || []).map(team => ({
-      id: String(team.id),
-      label: team.name || [team.location, team.nickname].filter(Boolean).join(" ") || `Team ${team.id}`,
-      entries: (((team.roster || {}).entries) || []).map(entry => {
-        const player = (entry.playerPoolEntry || {}).player || {};
-        return player.fullName ? {name: player.fullName, pos: ESPN_POS[player.defaultPositionId] || ""} : null;
-      }).filter(Boolean)
-    }));
   }
   // Pasted names: one per line or comma-separated; a trailing "(QB - TEN)" style note is dropped.
   function parsePasted(text) {
@@ -833,7 +815,7 @@
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, CHART_AVG_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, CHART_AVG_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -845,7 +827,7 @@
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
 const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
-    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set(), viableOnly: false};
   const renders = {};
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
   const mineListeners = [];
@@ -971,29 +953,6 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (S.undo.src) S.src = {...S.undo.src};
     S.undo = null;
     afterArrange("Undone.");
-  }
-
-  // Public league endpoints. Both answer cross-origin requests; a private ESPN league answers 401/403.
-  let sleeperDirectory = null;
-  async function getJson(url, what) {
-    let response;
-    try { response = await root.fetch(url); } catch (error) { throw new Error(`Could not reach ${what}.`); }
-    if (response.status === 401 || response.status === 403) throw new Error(`${what} says that league is private.`);
-    if (response.status === 404) throw new Error(`${what} has no league with that ID.`);
-    if (!response.ok) throw new Error(`${what} answered with an error (${response.status}).`);
-    return response.json();
-  }
-  async function loadSleeper(leagueId) {
-    const base = "https://api.sleeper.app/v1";
-    const [rosters, users] = await Promise.all([getJson(`${base}/league/${leagueId}/rosters`, "Sleeper"), getJson(`${base}/league/${leagueId}/users`, "Sleeper")]);
-    if (!sleeperDirectory) sleeperDirectory = await getJson(`${base}/players/nfl`, "Sleeper");
-    return parseSleeper(rosters, users, sleeperDirectory);
-  }
-  async function loadEspn(leagueId) {
-    const now = new Date();
-    const season = now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
-    const json = await getJson(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&view=mTeam`, "ESPN");
-    return parseEspn(json);
   }
 
   // ---------- JEG-853: a whole page pasted in (Jeremy, 2026-10-22: "control all, copy the whole page, drop the text in") ----------
@@ -1424,7 +1383,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole team page`}), input);
     const searchWrap = el("div", {class: "v2-find-search-wrap"}, label, results);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`,
-      text: "Type a name to search, or paste a team page from any fantasy site (Ctrl+A, Ctrl+C on the page; a matchup page fills both rosters). Pasted text stays in this browser; nothing is sent anywhere."});
+      text: "Type a name to search, or paste a team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. A matchup page fills both rosters. It stays on this device; nothing is sent anywhere."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
     clear.addEventListener("click", () => {
@@ -1514,47 +1473,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (rest.length) parts.push(`Not matched (${rest.length}): ${rest.slice(0, 8).map(u => u.name).join(", ")}${rest.length > 8 ? ", …" : ""}.`);
       return parts.join(" ");
     }
-    // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
+    // Import: pasted names (JEG-1131: paste is the only league load). Names are matched to the engine's rows.
     function importBox() {
-      const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
-        el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"}),
-        el("option", {value: "paste", text: "Pasted names"}));
-      const leagueId = el("input", {type: "text", id: `${id}League`, placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"});
-      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", hidden: "", "aria-label": "Pasted player names"});
-      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Load teams"});
-      const team = el("select", {id: `${id}Team`, hidden: "", "aria-label": "Team to import"});
-      const use = el("button", {type: "button", class: "v2-btn", id: `${id}Use`, text: "Use this team", hidden: ""});
+      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", "aria-label": "Pasted player names"});
+      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Add players"});
       const status = el("p", {class: "v2-meta", id: `${id}Status`, role: "status"});
-      let teams = [];
-      const say = text => { status.textContent = text; };
-      sel.addEventListener("change", () => {
-        const isPaste = sel.value === "paste";
-        paste.hidden = !isPaste;
-        leagueId.hidden = isPaste;
-        load.textContent = isPaste ? "Add players" : "Load teams";
-        team.hidden = true; use.hidden = true; say("");
-      });
-      load.addEventListener("click", async () => {
-        if (sel.value === "paste") { say(apply(parsePasted(paste.value), "", false)); paste.value = ""; return; }
-        const idText = leagueId.value.trim();
-        if (!/^[A-Za-z0-9_-]+$/.test(idText)) { say("Enter the league ID: the number in your league's web address."); return; }
-        say(sel.value === "sleeper" ? "Loading the league and Sleeper's player names (about 15 MB the first time)…" : "Loading the league…");
-        try {
-          teams = await (sel.value === "sleeper" ? loadSleeper(idText) : loadEspn(idText));
-        } catch (error) {
-          teams = [];
-          say(`${error.message} You can paste the roster instead.`);
-          team.hidden = true; use.hidden = true;
-          return;
-        }
-        team.replaceChildren(...teams.map((t, i) => el("option", {value: String(i), text: `${t.label} (${t.entries.length} players)`})));
-        team.hidden = !teams.length; use.hidden = !teams.length;
-        say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
-      });
-      use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) say(apply(t.entries, t.label, true)); });
-      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
-        el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
-          leagueId, paste, load, team, use, status));
+      load.addEventListener("click", () => { status.textContent = apply(parsePasted(paste.value), "", false); paste.value = ""; });
+      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a list of names"}),
+        el("div", {class: "v2-find-import-body"}, paste, load, status));
     }
     window.TradeValueNameSearch.combobox(input, results);   // JEG-900
     input.addEventListener("input", () => {
@@ -1663,14 +1589,36 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : "") + foldNote);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    groups.slice(0, shownCount).forEach(g => list.append(groupCard(g, ctx)));
-    if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
-    out.append(list);
-    if (groups.length > shownCount) {
-      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shownCount, "more group")}`});
-      more.addEventListener("click", () => { groups.slice(shownCount).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
-      out.append(more);
+    // JEG-1043: "Show viable offers only" filters the groups by their best package's viability label (JEG-1108) and
+    // re-lists them; the ranking and the top-10 limit stay as they are.
+    const viabOf = fitCtx ? g => viabilityFor(ctx, fitFor(lineup, fitCtx, g.best.give, g.best.receive), g.best.give, g.best.receive) : null;
+    const tail = el("div", {class: "v2-find-list-tail"});
+    const renderList = () => {
+      const shown = S.viableOnly && viabOf ? viableGroups(groups, viabOf) : groups;
+      const count = Math.min(GROUP_LIMIT, shown.length);
+      list.replaceChildren(...shown.slice(0, count).map(g => groupCard(g, ctx)));
+      const first = list.firstElementChild;
+      if (naturalCount && first && first.dataset.findFit === "natural") { first.id = "v2FindFirstNatural"; first.tabIndex = -1; }
+      tail.replaceChildren();
+      if (!shown.length) {
+        tail.append(el("p", {class: "v2-find-empty", id: "v2FindViableEmpty"}, el("b", {text: "No slam dunks with this team."}),
+          " Your rosters fit a little too well. Try another team, or turn off \u201cShow viable offers only\u201d to see every offer."));
+      } else if (shown.length > count) {
+        const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(shown.length - count, "more group")}`});
+        more.addEventListener("click", () => { shown.slice(count).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+        tail.append(more);
+      }
+    };
+    if (viabOf) {
+      const viableCount = groups.filter(viabOf).length;
+      const box = el("input", {type: "checkbox", id: "v2FindViableOnly"});
+      box.checked = S.viableOnly;
+      box.addEventListener("change", () => { S.viableOnly = box.checked; renderList(); });
+      out.append(el("label", {class: "v2-find-viable-toggle", for: "v2FindViableOnly"}, box,
+        ` Show viable offers only (${viableCount} of ${plural(groups.length, "group")})`));
     }
+    renderList();
+    out.append(list, tail);
   }
 
   // ---------- roster impact on the page (display only) ----------
@@ -1755,6 +1703,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        // JEG-1043: the starters at each position this side gives up, before → after (DDF Value lineup).
+        const given = startersAtGivenPositions(imps.ddf, sideRows(lineup, "ddf", who, giveRows, recvRows).leaving);
+        if (given.length) lines.append(el("p", {class: "v2-meta v2-find-given", "data-line": "given"},
+          `${who === "mine" ? "Your starters at the positions you give up" : "Their starters at the positions they give up"}: ${givenPositionsLine(given)}.`));
         // JEG-1081: the same trade in the other views, one line each for starters and bench (hidden on a phone until expanded).
         const own = sideRows(lineup, "ddf", who, giveRows, recvRows);
         const projImp = hasProjections(own.roster.concat(own.arriving)) ? rosterImpact(own.roster, own.leaving, own.arriving, lineup.shape, PROJECTIONS_KEY) : null;
@@ -1770,6 +1722,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // One group: the player you receive, the best package for him preselected, side players selectable.
   // Each toggle re-judges the package with evaluateCombo, the function the search itself uses.
   const GROUP_LIMIT = 10;
+  // JEG-1108 / JEG-1043: the viability label of one package (null when it is not viable or cannot be judged).
+  function viabilityFor(ctx, fit, giveRows, recvRows) {
+    const lineup = ctx.lineup;
+    const mineAvg = lineup && lineup.mine ? lineup.mine.market || lineup.mine.ddf : null;
+    const theirAvg = lineup && lineup.theirs ? lineup.theirs.market || lineup.theirs.ddf : null;
+    return fit && mineAvg && theirAvg && lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, lineup.shape, ctx.ourKey, ctx.chartKeys || []) : null;
+  }
   const valueText = (row, key) => (finite(row.values[key]) ? row.values[key].toFixed(1) : "no value");
   function groupCard(group, ctx) {
     const ourKey = ctx.ourKey;
@@ -1877,9 +1836,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         // JEG-1108: viability label alongside fit.
         const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
         const VIAB_LABEL = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
-        const mineAvg = ctx.lineup && ctx.lineup.mine ? ctx.lineup.mine.market || ctx.lineup.mine.ddf : null;
-        const theirAvg = ctx.lineup && ctx.lineup.theirs ? ctx.lineup.theirs.market || ctx.lineup.theirs.ddf : null;
-        const viab = mineAvg && theirAvg && ctx.lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, ctx.lineup.shape, ourKey, ctx.chartKeys || []) : null;
+        const viab = viabilityFor(ctx, fit, giveRows, recvRows);
+        li.dataset.findViable = viab || "";
         const viabSuffix = viab ? ` · ${VIAB_LABEL[viab] || viab}` : "";
         fitLine.replaceChildren(el("b", {text: `${FIT_LABEL[fit.label] || text.slice(0, cut + 1)}${viabSuffix}:`}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
@@ -2095,7 +2053,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
-  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
+  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
   if (sharedStore()) sharedStore().subscribe(pullMine);
   const start = () => { build(); pullMine(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);

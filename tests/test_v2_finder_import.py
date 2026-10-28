@@ -1,8 +1,5 @@
-"""v2 Find a trade, second slice (JEG-481): league import parsers and roster sanity, in app/v2/finder.js.
+"""v2 Find a trade, second slice (JEG-481): pasted-name parser, matching and roster sanity, in app/v2/finder.js.
 
-  * Sleeper: rosters + users + the player directory become teams of {name, pos}; the team name is the owner's team name,
-    else the display name; a roster player the directory does not know is dropped (never invented);
-  * ESPN (public league): teams come with their players' full names and the position id as a position;
   * pasted names: one per line or comma-separated, notes in brackets dropped;
   * names are matched to the engine's rows ignoring case, punctuation and Jr/Sr/II; two players with one name are told
     apart by position, else left unmatched (never guessed); a name not in the values is reported, not added;
@@ -71,21 +68,7 @@ def check(finder_js: Path) -> list[str]:
     if len(got["matched"]) != 1:
         errors.append("a player listed twice was added twice")
 
-    # --- parsers
-    teams = call(finder_js, "parseSleeper",
-                 [{"roster_id": 1, "owner_id": "u1", "players": ["100", "101", "999"]}, {"roster_id": 2, "owner_id": "u2", "players": ["102"]}],
-                 [{"user_id": "u1", "display_name": "Jeremy", "metadata": {"team_name": "Gamblers"}}, {"user_id": "u2", "display_name": "Sam"}],
-                 {"100": {"full_name": "Josh Allen", "position": "QB"}, "101": {"first_name": "Amon-Ra", "last_name": "St. Brown", "position": "WR"},
-                  "102": {"full_name": "Patrick Mahomes", "position": "QB"}})
-    if [t["label"] for t in teams] != ["Gamblers", "Sam"]:
-        errors.append(f"sleeper team names {[t['label'] for t in teams]}, want team name else display name")
-    if [e["name"] for e in teams[0]["entries"]] != ["Josh Allen", "Amon-Ra St. Brown"]:
-        errors.append(f"sleeper entries {teams[0]['entries']}: an id the directory lacks must be dropped, a first/last name joined")
-    teams = call(finder_js, "parseEspn", {"teams": [{"id": 3, "location": "Dallas", "nickname": "Dogs", "roster": {"entries": [
-        {"playerPoolEntry": {"player": {"fullName": "CeeDee Lamb", "defaultPositionId": 3}}},
-        {"playerPoolEntry": {"player": {"fullName": "Travis Kelce", "defaultPositionId": 4}}}, {"playerPoolEntry": {}}]}}]})
-    if not teams or teams[0]["label"] != "Dallas Dogs" or [(e["name"], e["pos"]) for e in teams[0]["entries"]] != [("CeeDee Lamb", "WR"), ("Travis Kelce", "TE")]:
-        errors.append(f"espn parse: {teams}")
+    # --- parser
     got = call(finder_js, "parsePasted", "Josh Allen (QB - BUF)\nAmon-Ra St. Brown, Kenneth Walker III\n\n")
     if [g["name"] for g in got] != ["Josh Allen", "Amon-Ra St. Brown", "Kenneth Walker III"]:
         errors.append(f"pasted names parsed as {got}")
@@ -132,7 +115,6 @@ def check(finder_js: Path) -> list[str]:
 MUTANTS = {
     "case matters": ("const normName = name => String(name || \"\").toLowerCase()", "const normName = name => String(name || \"\")"),
     "ambiguous name guessed": ("if (hits.length !== 1) {", "if (hits.length === 0) {"),
-    "sleeper unknown id kept": ("if (!p) return null;", "if (!p) return {name: String(id), pos: \"\"};"),
     "count rule ignores 'got worse'": ("if (all < need && all < before[pos].all)", "if (all < need)"),
     "starter rule dropped": ("else if (starters < Math.min(before[pos].starter, need))", "else if (false)"),
     "keep flag ignored": ("passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))", "passes: true"),

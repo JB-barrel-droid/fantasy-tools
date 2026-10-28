@@ -150,6 +150,87 @@ READ = """(published) => {
   });
   return out;
 }"""
+WEEK_STATE = "() => window.TradeValueCurveControls.getWeekState?.() || null"
+SET_WEEK = "(w) => window.TradeValueCurveControls.setWeek(w)"
+
+
+def lagging_week(state, key):
+    """JEG-1175 / JEG-1176: the week a chart left out of the page's week view
+    still serves, when it is lagging (a week before the view's); else None.
+
+    During a transition each source serves its own week and the view leaves a
+    lagging one out (no carry-forward, Jeremy 2026-10-27), so its order is
+    checked in its own week's view, not reported as missing."""
+    if not state:
+        return None
+    week = state.get("week")
+    view = (state.get("views") or {}).get(str(week)) or {}
+    served = (state.get("servedWeeks") or {}).get(key)
+    if key not in (view.get("missing_sources") or []):
+        return None
+    if not isinstance(served, int) or not isinstance(week, int) or served >= week:
+        return None
+    return served
+
+
+def read_setting(page, published):
+    """Indexed values and native ranks for each published chart at the page's
+    current setting. A lagging chart is read in its own week's view (setWeek),
+    then the page goes back to its default view. Returns the READ shape plus
+    `weeks` (key -> the view week it was read in) and `lagging` (key -> its
+    served week, for a chart outside the view whose week has no view)."""
+    res = page.evaluate(READ, list(published))
+    state = page.evaluate(WEEK_STATE)
+    res["weeks"] = {key: (state or {}).get("week") for key in published}
+    res["lagging"], res["week_diag"] = {}, {}
+    absent = [key for key in published if not (res["indexed"][key] and res["ranks"][key])]
+    by_week = {}
+    for key in absent:
+        week = lagging_week(state, key)
+        if week is not None:
+            by_week.setdefault(week, []).append(key)
+    for week, keys in sorted(by_week.items()):
+        if week not in ((state or {}).get("weeks") or []):
+            # Older than any view the page offers: lagging, not a failure
+            # (stale is a warning, JEG-1176 rule 6), but said out loud so a
+            # chart that stops updating does not leave the guard unseen.
+            res["lagging"].update({key: week for key in keys})
+            print(f"rank guard: {', '.join(keys)} still on Week {week}, older than every week view "
+                  f"{(state or {}).get('weeks')}; order not checked in the browser", file=sys.stderr)
+            continue
+        page.evaluate(SET_WEEK, week)
+        got = page.evaluate(READ, keys)
+        res["week_diag"][week] = got["diag"]
+        for key in keys:
+            res["indexed"][key], res["ranks"][key] = got["indexed"][key], got["ranks"][key]
+            res["weeks"][key] = week
+    if by_week:
+        page.evaluate(SET_WEEK, None)
+    return res
+
+
+def order_problems(swept, published=PUBLISHED):
+    """Every Indexed-vs-native inversion, missing chart and failed page check
+    across the swept settings ([] is a pass)."""
+    problems = []
+    for setting, res in swept.items():
+        diags = [("", res["diag"])] + [(f" week {w}", d) for w, d in sorted(res.get("week_diag", {}).items())]
+        for label, diag in diags:
+            if diag is None or diag.get("ok") is not True:
+                problems.append(f"{setting}{label}: page indexedOrder {diag and diag.get('sources')}")
+        for key in published:
+            if key in res.get("lagging", {}):
+                continue
+            indexed, ranks = res["indexed"][key], res["ranks"][key]
+            if not indexed or not ranks:
+                problems.append(f"{setting} {key}: no Indexed values or native ranks")
+                continue
+            # Lower rank number = higher native value; ties share a rank.
+            native = {k: -float(r) for k, r in ranks.items() if k in indexed}
+            inv = count_inversions(native, {k: indexed[k] for k in native})
+            if inv["inversions"]:
+                problems.append(f"{setting} {key}: {inv['inversions']} inversions, first {inv['examples'][:1]}")
+    return problems
 
 
 class TestEngineKeepsOrderEverySetting(unittest.TestCase):
@@ -185,7 +266,7 @@ class TestEngineKeepsOrderEverySetting(unittest.TestCase):
                         page.evaluate("""([k, v]) => { const i = document.querySelector(`[data-roster-key="${k}"]`);
                                           i.value = v; i.dispatchEvent(new Event('change')); }""", [key, value])
                     page.locator('#viewModeTabs [data-view-mode="indexed"]').click()
-                    cls.swept[(scoring, teams, json.dumps(roster))] = page.evaluate(READ, list(PUBLISHED))
+                    cls.swept[(scoring, teams, json.dumps(roster))] = read_setting(page, PUBLISHED)
                     page.close()
             finally:
                 browser.close()
@@ -195,21 +276,7 @@ class TestEngineKeepsOrderEverySetting(unittest.TestCase):
         self.assertEqual(self.errors, [])
 
     def test_indexed_order_equals_native_order(self):
-        problems = []
-        for setting, res in self.swept.items():
-            if res["diag"] is None or res["diag"].get("ok") is not True:
-                problems.append(f"{setting}: page indexedOrder {res['diag'] and res['diag'].get('sources')}")
-            for key in PUBLISHED:
-                indexed, ranks = res["indexed"][key], res["ranks"][key]
-                if not indexed or not ranks:
-                    problems.append(f"{setting} {key}: no Indexed values or native ranks")
-                    continue
-                # Lower rank number = higher native value; ties share a rank.
-                native = {k: -float(r) for k, r in ranks.items() if k in indexed}
-                inv = count_inversions(native, {k: indexed[k] for k in native})
-                if inv["inversions"]:
-                    problems.append(f"{setting} {key}: {inv['inversions']} inversions, first {inv['examples'][:1]}")
-        self.assertEqual(problems, [])
+        self.assertEqual(order_problems(self.swept), [])
 
     def test_native_rank_is_the_publishers(self):
         doc = _fixture()
@@ -219,6 +286,115 @@ class TestEngineKeepsOrderEverySetting(unittest.TestCase):
         ranks = self.swept[("ppr", 12, "null")]["ranks"]["fantasycalc"]
         top = sorted(expected, key=lambda k: expected[k])[:10]
         self.assertEqual({k: ranks.get(str(k)) for k in top}, {k: expected[k] for k in top})
+
+
+class TestEngineKeepsOrderInTransition(unittest.TestCase):
+    """JEG-1175: chain runs since 2026-10-26 failed post-rebuild validation
+    here ("cbs: no Indexed values or native ranks", earlier usatoday) because
+    the lagging charts serve Week 7 while the view is Week 8, and the guard
+    read every chart in the default view only. Replays the transition from
+    committed data (test_week_history.transition_overrides: CBS and USA Today
+    one week behind the rest) and checks each lagging chart's order in its own
+    week's view."""
+
+    # The overrides rewrite the 12-team combos; ppr/12 is the setting whose
+    # transition view test_week_history pins.
+    SETTINGS = [("ppr", 12)]
+
+    @classmethod
+    def setUpClass(cls):
+        _render_env.ensure_built()
+        try:
+            from playwright.sync_api import sync_playwright
+        except Exception as exc:
+            raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
+        from tests import test_week_history as W
+        if not (W.DIST / "assets" / "history" / "index.json").exists():
+            raise _render_env.unavailable("dist/ is not built with history")
+        cls.overrides = W.transition_overrides()
+        cls.lagging = ("cbs", "usatoday")
+        cls.swept, cls.states, errors = {}, {}, []
+        with W._server(cls.overrides) as url, sync_playwright() as pw:
+            try:
+                browser = pw.chromium.launch(args=_render_env.HERMETIC_ARGS,
+                                             executable_path=_render_env.chromium_executable(pw))
+            except Exception as exc:
+                raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
+            try:
+                for scoring, teams in cls.SETTINGS:
+                    page = browser.new_page(viewport={"width": 1440, "height": 1000})
+                    page.add_init_script(_render_env.pin_data_week_script())
+                    page.on("pageerror", lambda e: errors.append(str(e)))
+                    page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+                    page.goto(url, wait_until="networkidle", timeout=120000)
+                    page.wait_for_function(W.READY + " && !!window.TradeValueCurveHarness", timeout=120000)
+                    page.evaluate("([s, t]) => { const c = window.TradeValueCurveControls; c.setScoring(s); c.setTeams(t); }",
+                                  [scoring, teams])
+                    page.locator('#viewModeTabs [data-view-mode="indexed"]').click()
+                    cls.states[(scoring, teams)] = page.evaluate(WEEK_STATE)
+                    cls.swept[(scoring, teams, "null")] = read_setting(page, PUBLISHED)
+                    page.close()
+            finally:
+                browser.close()
+        cls.errors = errors
+
+    def test_no_page_errors(self):
+        self.assertEqual(self.errors, [])
+
+    def test_the_replay_is_a_transition(self):
+        # Guards the sentinel itself: the lagging charts are out of the
+        # default view, so the old guard would have reported them missing.
+        for setting, state in self.states.items():
+            view = state["views"][str(state["week"])]
+            self.assertEqual(sorted(set(self.lagging) & set(view["missing_sources"])), sorted(self.lagging),
+                             (setting, state))
+
+    def test_lagging_charts_keep_order_in_their_own_week(self):
+        self.assertEqual(order_problems(self.swept), [])
+        for setting, res in self.swept.items():
+            default = self.states[setting[:2]]["week"]
+            self.assertEqual({k: res["weeks"][k] for k in self.lagging}, {k: default - 1 for k in self.lagging},
+                             setting)
+            self.assertEqual(res["lagging"], {}, setting)
+
+    def test_a_reordered_lagging_chart_still_fails(self):
+        # Mutation: swap two players' Indexed values in a lagging chart's
+        # own-week read; the guard must still name it.
+        setting = ("ppr", 12, "null")
+        res = copy.deepcopy(self.swept[setting])
+        ranks, indexed = res["ranks"]["cbs"], res["indexed"]["cbs"]
+        ordered = sorted((k for k in ranks if k in indexed), key=lambda k: float(ranks[k]))
+        # The first pair the chart ranks apart (swapping a native tie is no inversion).
+        first, second = next((a, b) for a, b in zip(ordered, ordered[1:]) if float(ranks[a]) != float(ranks[b]))
+        indexed[first], indexed[second] = indexed[second], indexed[first]
+        problems = order_problems({setting: res})
+        self.assertTrue([p for p in problems if " cbs: " in p and "inversions" in p], problems)
+
+
+class TestLaggingWeek(unittest.TestCase):
+    STATE = {"week": 8, "weeks": [8, 7], "servedWeeks": {"cbs": 7, "espn": 8, "old": 6, "gone": None},
+             "views": {"8": {"missing_sources": ["cbs", "old", "gone"]}, "7": {"missing_sources": []}}}
+
+    def test_only_a_source_left_out_for_an_older_week_is_lagging(self):
+        self.assertEqual(lagging_week(self.STATE, "cbs"), 7)
+        self.assertEqual(lagging_week(self.STATE, "old"), 6)
+        self.assertIsNone(lagging_week(self.STATE, "espn"))   # in the view
+        self.assertIsNone(lagging_week(self.STATE, "gone"))   # no served week: a real gap
+        self.assertIsNone(lagging_week(None, "cbs"))
+
+    def test_a_chart_missing_from_its_own_view_fails(self):
+        swept = {("ppr", 12, "null"): {"diag": {"ok": True}, "week_diag": {}, "lagging": {},
+                                       "indexed": {k: None for k in PUBLISHED}, "ranks": {k: None for k in PUBLISHED},
+                                       "weeks": {}}}
+        problems = order_problems(swept)
+        self.assertEqual(len(problems), len(PUBLISHED), problems)
+
+    def test_a_lagging_chart_older_than_every_view_is_not_a_failure(self):
+        swept = {("ppr", 12, "null"): {"diag": {"ok": True}, "week_diag": {}, "lagging": {"cbs": 6},
+                                       "indexed": {k: ({"1": 2.0} if k != "cbs" else None) for k in PUBLISHED},
+                                       "ranks": {k: ({"1": 1} if k != "cbs" else None) for k in PUBLISHED},
+                                       "weeks": {}}}
+        self.assertEqual(order_problems(swept), [])
 
 
 if __name__ == "__main__":

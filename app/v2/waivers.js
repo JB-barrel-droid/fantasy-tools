@@ -444,8 +444,8 @@
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole page`}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}Help`,
       text: target === "mine"
-        ? "Type a name to search, or paste your team page from any fantasy site (Ctrl+A, Ctrl+C on the page). Pasted text stays in this browser; nothing is sent anywhere."
-        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. Pasted text stays in this browser."});
+        ? "Type a name to search, or paste your team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. It stays on this device; nothing is sent anywhere."
+        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
     clear.addEventListener("click", () => {
@@ -933,7 +933,7 @@
       autocomplete: "off", spellcheck: "false", "aria-describedby": "v2WaiversAnyHelp"});
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole roster page or waiver page from a fantasy site"}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: "v2WaiversAnyHelp",
-      text: "On your team page or the free-agent page of ESPN, Yahoo or Sleeper, press Ctrl+A then Ctrl+C, and paste here. It works out which list it is and fills it in. Pasted text stays in this browser."});
+      text: "Open your team page or your league's free-agent page, press Ctrl+A, then Ctrl+C (Cmd on a Mac), and paste here. We work out which list it is and fill it in. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: "v2WaiversAnyResult", role: "status", "aria-live": "polite"});
     const siteName = site => ({espn: "ESPN", yahoo: "Yahoo", sleeper: "Sleeper"}[site] || "");
     function route(text, kind, site) {

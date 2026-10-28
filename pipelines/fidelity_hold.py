@@ -223,8 +223,8 @@ def cmd_apply(args) -> int:
     released = release_fidelity_holds(fixture, holds)
     for sec in released:
         print(f"fidelity hold: released {sec} (the pulse no longer holds it)")
-    from nfl_week import current_nfl_week  # noqa: PLC0415
-    week = args.week or current_nfl_week(datetime.now(timezone.utc).date())
+    from nfl_week import current_nfl_week, today_ny  # noqa: PLC0415
+    week = args.week or current_nfl_week(today_ny())
     held, report = apply_fidelity_holds(fixture, holds, week)
     if released or report:
         fixture_path.write_text(json.dumps(held, indent=2) + "\n", encoding="utf-8")

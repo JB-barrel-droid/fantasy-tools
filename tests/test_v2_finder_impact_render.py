@@ -56,8 +56,10 @@ EXPECT = """(i) => {
     res[view] = {you: [best(mine, view), best(swap(mine, give, get), view)], they: [best(theirs, view), best(swap(theirs, get, give), view)]};
   }
   const valued = (team, view) => team.filter(r => Number.isFinite(val(r, view)));
-  const cells = [...document.querySelectorAll('#v2FindAssess tbody tr[data-pos] td[data-cell]')].map(td => Number(td.textContent));
-  const totals = [...document.querySelectorAll('#v2FindAssess tbody tr[data-row=total] td[data-cell]')].map(td => Number(td.textContent));
+  // JEG-1081 added a third, DDF Value (projections) group to the table; this check reads the DDF Value and Trade chart average cells.
+  const own = row => [...document.querySelectorAll(`#v2FindAssess tbody tr${row} td[data-cell]`)].filter(td => /^(ddf|market)-/.test(td.dataset.cell)).map(td => Number(td.textContent));
+  const cells = own('[data-pos]');
+  const totals = own('[data-row=total]');
   const table = cells.length === 32 && totals.length === 4 ? Object.fromEntries(['ddf', 'market'].map((view, v) => [view, Object.fromEntries([['you', mine], ['they', theirs]].map(([who, team], t) => {
     const at = k => [0, 1, 2, 3].map(pos => cells[pos * 8 + t * 4 + (v * 2) + k]).reduce((n, x) => n + x, 0);
     return [who, {starters: at(0), bench: at(1), total: totals[t * 2 + v], indTotal: valued(team, view).reduce((n, r) => n + val(r, view), 0)}];
@@ -89,13 +91,14 @@ def verify(card, tag, label) -> list[str]:
     for line in card["lines"]:
         who = "You" if line.startswith("You") else "They"
         for view, name in (("ddf", "DDF Value"), ("market", "Trade chart average")):
-            m = re.search(re.escape(name) + r" ([\d.]+) → ([\d.]+) \(([+\-\d.]+)\)", line)
+            m = re.search(re.escape(name) + r" ([\d.]+) → ([\d.]+) \(([+\-\u2212\d.]+)\)", line)
             if view not in card["expect"]:
                 continue
             if not m:
                 errors.append(tag + f"{label}: {who} line lacks {name}: {line!r}")
                 continue
-            b, a, d = (float(x) for x in m.groups())
+            # The page's number formatter prints a negative delta with U+2212 (the minus sign), not a hyphen.
+            b, a, d = (float(x.replace("\u2212", "-")) for x in m.groups())
             wb, wa = card["expect"][view][names[who]]
             if not (close(b, wb) and close(a, wa) and close(d, wa - wb)):
                 errors.append(tag + f"{label}: {who} {name} shows {b} → {a} ({d}); the rows say {wb:.1f} → {wa:.1f}")
