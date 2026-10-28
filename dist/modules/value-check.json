@@ -1,6 +1,6 @@
 {
  "schema": "value-check/2",
- "generated_at": "2026-10-28T15:08:15.475887+00:00",
+ "generated_at": "2026-10-28T16:25:56.098405+00:00",
  "reference_version": "value-reference-002/2",
  "pipeline_version": "value-pipeline/2",
  "tolerance": 0.05,
@@ -949,7 +949,26 @@
   "ppr/14/sf1",
   "ppr/12/sf0/cw9+regular"
  ],
- "held_sections": {},
+ "held_sections": {
+  "cbsros": {
+   "reason": "fidelity: publisher_vs_stored",
+   "week": 8,
+   "root": "cbsros",
+   "stage": "publisher_vs_stored",
+   "identity": "2026-10-28@2026-10-28T11:26:01.835973Z",
+   "since": "2026-10-28T15:40:14.669513Z",
+   "hold_level": "amber"
+  },
+  "razzball": {
+   "reason": "fidelity: publisher_vs_stored",
+   "week": 8,
+   "root": "razzball",
+   "stage": "publisher_vs_stored",
+   "identity": "2026-10-27@2026-10-27T23:25:32.594768Z",
+   "since": "2026-10-28T15:40:14.669513Z",
+   "hold_level": "amber"
+  }
+ },
  "spec_reference": {
   "schema": "spec-reference/1",
   "version": "spec-reference/1",
