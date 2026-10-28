@@ -37,10 +37,23 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests. Make
   stops at the first failing module, so probe run 40696409208 on
   `scratch/shard1-probe` runs every module with `make -k`.
-- **Rebuild chain is green (verified):** it succeeded at `ed42c8e` after the
-  board lane's JEG-1176 work. #1038 (JEG-1194) stops a red on a newer stored
-  save from holding the live chart and opens a GitHub issue when the chain
-  stays stuck; see docs/claude-log/2026-10-28-board-publish-holds.md.
+- **Week 8 rebuild (JEG-1194, checked 14:10 UTC):** the site still serves
+  week 7 for all seven sources (fixture built 2026-10-26 15:42Z). Chain run
+  40689076971 (12:35Z, `ed42c8e`) built week 8 and passed `make validate`,
+  but its push rebase conflicted on `dist/modules/source-import-health.json`,
+  so its output was dropped. Run 40689841714 (queued 12:41Z) was still running.
+  CBS week 8 was reloaded at 12:23Z (bake `cbswk8_2026-10-28t1223_v1`, 35 TE).
+- **#1038 (merged `4928cc2`):** a red on a stored save newer than the live
+  chart now holds only a build from that save (`judged_save`), never the live
+  chart. `pipelines/chain_stuck_alert.py` opens one `chain-stuck` GitHub issue
+  when the chain fails and the fixture is 6+ h old, and closes it on publish.
+  Log: docs/claude-log/2026-10-28-board-publish-holds.md.
+- **Next step (JEG-1194):** when run 40689841714 finishes, check that
+  `data/history/index.json` on main serves week 8 and the live site says
+  "data through Week 8". If it failed or conflicted again, read its log;
+  dispatch a fresh chain only if none is queued. Open issues to file: a
+  generated-file conflict drops a good rebuild; a parser fix never re-ingests
+  (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
 - **What is broken now (verified 05:30 UTC):** the live DDF MCP connector
   (edge function `mcp` v12) returns no players because `get-values` returns
   none since the week 8 flip. The fix (#1028) is merged but needs a
@@ -59,12 +72,48 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
+  `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
+  is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
+  Option B after Jeremy's measure-first pick C. Picks in `docs/picks-log.md`. Next step: when v2-render and
+  preview are green on its head, merge `origin/main` in (no rebase), squash-merge as "(JEG-1134)", wait for
+  Deploy dashboard, confirm the live `v2/v2.css` has the JEG-1134 block and the row is one line at 390 px, then
+  move JEG-1134 to Done and close #967 as superseded. If a phone render test fails, it likely taps a row
+  control while the row is closed: call `_render_env.open_phone_context(page)` first.
 - **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
   harmless, leave it. The same goes for `jeg-920`, `scratch/sweep-all`,
   `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
   (Main green lane scratch branches; deletes are blocked; no PRs).
+
+- **JEG-1101 lane (Copy link explainer, updated 2026-10-28 9:10 AM CT):** PR #970,
+  branch `fe/JEG-1101-llm-copy-help`, head `a5e6aa2` (main `31ccf10` merged in).
+  Jeremy's wording pick A is in it ("Opens this view. A chat with the DDF tool
+  reads it too."); T1 review posted on the PR; the preview build and rendered
+  gate passed; the preview shards and `v2-render` were still queued. Next: when
+  every check is green, merge main in again if it moved, mark the draft ready,
+  squash-merge, wait for the Deploy dashboard run, confirm the live page shows
+  Copy link with that line, then move JEG-1101 to Done. The `mcp` tools.ts text
+  change goes live only with an approved `mcp` deploy.
+
+- **Fit labels lane (JEG-1187, JEG-1115; updated 2026-10-28 9:10 AM CT):**
+  JEG-1187 is merged: #1030 (`759a4f9`) makes Find a trade's Market supported
+  fire on any gain the page shows (`theirNet > NET_FLOOR`) instead of the noise
+  floor, which real charts never cleared. Its own deploys were cancelled by
+  later pushes; Deploy dashboard run 40702847581 (`059674f`) includes it. Next:
+  when a deploy succeeds, fetch the live `app/v2/finder.js` and confirm
+  `marketSupported = theirNet > NET_FLOOR`, then move JEG-1187 to Done.
+  JEG-1115 is PR #1041, branch `be/jeg-1115-connector-fit`, head `25e76db`
+  (main `759a4f9` merged in): get-values `include=charts` publishes the
+  engine's `bench_share` readout (Jeremy's pick B) and the connector labels
+  each trade Natural / Market supported / Force with the finder's own
+  `tradeFit` (`supabase/functions/mcp/fit.ts`). Local checks pass; the first CI
+  run failed only on an apt 403 in Playwright setup; CI is rerunning on the
+  merge. Next: when CI is green, ask Jeremy to merge #1041 and deploy
+  `get-values` first, then `mcp` (deploys need his yes); then check a live
+  `find_trades` call shows fit lines and move JEG-1115 to Done. #966
+  (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
 
 ---
 
@@ -427,7 +476,8 @@ Known bugs (repro steps and history on each ticket):
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
 3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
-   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1101, JEG-1176, JEG-982.
+   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1176, JEG-982. (JEG-1101 is decided, PR #970
+   merges on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
@@ -435,6 +485,25 @@ Known bugs (repro steps and history on each ticket):
 6. Open PRs (2026-10-28 03:30 UTC): see "Active agents and automation" for
    owners. #1005 merged at 03:15 UTC. Apply the section 1 backlog decisions;
    don't merge others without review.
+7. Connector answers and name matching (JEG-1123, JEG-1124; Claude lane
+   "connector answers smaller, names smarter", checked 2026-10-28 14:10 UTC).
+   JEG-1123 (top-5 text, data once in structuredContent, limit honored, size
+   caps) and the 2-character name minimum are in PR #1032, which the board
+   lane owns and merges after #1024 with the mcp deploy Jeremy approved. Typo
+   matching, "Closest:" suggestions and Allen/Jr ambiguity are already on
+   main (#958). One gap is built but not pushed as code: `compare_trade`
+   still totals a trade without a name that fits several players. Patch:
+   `docs/claude-log/2026-10-28-jeg-1124-ambiguity.patch` (stops compare_trade
+   and asks which player; `find_trades` / `find_trades_league` count and list
+   ambiguous roster names in text and structuredContent; new tests; sizes
+   unchanged; all connector tests green on #1032 + main). **Next step:** once
+   #1032 is on main, branch from main, `git apply` the patch, run
+   `tests/node/mcp_remote_check.mjs`, `batch_trade_check.mjs` and
+   `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
+   review, log the two picks (compare stops and asks; roster scans keep going
+   and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
+   Backlog: JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player
+   name; production data writes need Jeremy's yes).
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
