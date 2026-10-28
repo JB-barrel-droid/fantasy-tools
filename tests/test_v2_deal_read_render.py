@@ -7,8 +7,13 @@ Loads the built page headless, opens trades by link (#compare-trade?give=..&get=
     total), lose at or below the negative of that);
   * the grid has nine cells, exactly one outlined (aria-current), and none for an incomplete trade;
   * each net has an info button that opens its one-line definition;
-  * "The sources split." is gone, at 1440 and at 390 px; no horizontal overflow at 390; no page errors;
-  * the example trade (no players added) also carries a deal read.
+  * "The sources split." is gone, at 1440, 390 and 320 px; no horizontal overflow at 390 and 320, and the
+    deal-read headline and sub-line do not overflow their own boxes (JEG-950);
+  * the win|lose read (JEG-950, Jeremy 2026-10-26) reads exactly "DDF Value likes it. The market doesn't."
+    with no call to action, and its sub-line is "The trade charts have you N points behind, so the other
+    manager will likely see it as their win."
+    with N the real market net to one decimal, recomputed here;
+  * the sample trade (Try a sample trade, JEG-1190) also carries a deal read.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the outline on the wrong cell, the old split
 copy back, and the nets read from the wrong series, and requires failures.
@@ -17,6 +22,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import re
 import http.server
 import shutil
 import socketserver
@@ -35,6 +41,19 @@ from tests.test_published_league_settings_render import _chromium_executable  # 
 KEYS = {"value": "ddf_value", "projections": "ddf_value_projections"}
 # JEG-832: the "market" net is now the mean of the per-chart rescaled nets, not ddf_value_charts.
 CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+
+# JEG-950 (Jeremy, 2026-10-26): the win|lose verdict. The title is fixed; the rendered headline is the title
+# alone (no call to action), and the sub-line is the real market gap, one decimal, direction word from the sign.
+TITLE = "DDF Value likes it. The market doesn't."
+
+
+def gap_text(net):
+    """The win|lose sub-line, recomputed independently of trade.js."""
+    if net == 0:
+        return "The trade charts call it even."
+    if net > 0:
+        return f"The trade charts have you {abs(net):.1f} points ahead."
+    return f"The trade charts have you {abs(net):.1f} points behind, so the other manager will likely see it as their win."
 
 # The built data may have no published trade charts for the week, so the test feeds the page deterministic
 # chart and projection series on top of the engine's DDF Value. JEG-832: four chart series are injected
@@ -67,7 +86,9 @@ READ = """() => {
   const cells = [...document.querySelectorAll('#v2CDealGrid td')].map(td => ({cell: td.dataset.cell, current: td.getAttribute('aria-current') === 'true', text: td.textContent}));
   const nets = Object.fromEntries([...document.querySelectorAll('#v2CDealNets li')].map(li => [li.dataset.net, {text: li.querySelector('.v2-deal-net').textContent,
     side: li.querySelector('.v2-deal-net').dataset.side, info: Boolean(li.querySelector('button.v2-info')), def: li.querySelector('.v2-deal-def').textContent}]));
-  return {shown: Boolean(deal) && !deal.hidden, read: document.getElementById('v2CDealRead').textContent, text: document.getElementById('v2CDealText').textContent,
+  const readEl = document.getElementById('v2CDealRead'), textEl = document.getElementById('v2CDealText');
+  return {shown: Boolean(deal) && !deal.hidden, read: readEl.textContent, text: textEl.textContent,
+    readOverflow: [readEl.scrollWidth - readEl.clientWidth, textEl.scrollWidth - textEl.clientWidth],
     production: document.getElementById('v2CDealProduction').textContent, cells, nets, body: document.getElementById('v2Compare').innerText,
     overflow: document.documentElement.scrollWidth - innerWidth, example: document.getElementById('v2Compare').classList.contains('is-example')};
 }"""
@@ -121,10 +142,28 @@ def expected(give, receive, chart_keys):
     return out
 
 
+# JEG-886 / JEG-950: the read names a split (not the cell copy) when the per-chart count the accept headline
+# uses does not match the average column's assumption.
+DEAL_SPLIT_ACCEPT = {"win": "Unlikely", "even": "Likely", "lose": "Likely"}
+
+
+def chart_nets(give, receive, chart_keys):
+    return [sum(p["charts"][k] for p in receive) - sum(p["charts"][k] for p in give) for k in chart_keys]
+
+
+def split_read(market_side, nets):
+    of = len(nets)
+    yes = sum(1 for n in nets if n <= 0)
+    accept = "Likely" if yes / of >= 2 / 3 else "Unlikely" if yes / of <= 1 / 3 else "Toss-up"
+    return accept != DEAL_SPLIT_ACCEPT[market_side]
+
+
 def pick_trades(pool, chart_keys):
     """Trades chosen from the engine rows so the nets differ: every (V side, M side) pair that occurs among
-    1-for-1 and 2-for-1 swaps of the top players, up to six of them."""
-    seen, trades = set(), []
+    1-for-1 and 2-for-1 swaps of the top players, up to six of them. JEG-950: a win|lose trade whose read is
+    the verdict copy (not the JEG-886 split) comes first, so the card with the longest copy (the market-gap
+    sub-line) is always rendered, and its wording and overflow are actually checked."""
+    seen, trades = {}, []
     for i, a in enumerate(pool):
         for b in pool[i + 1:]:
             for give, receive in (([a], [b]), ([b], [a]), ([a, pool[0]] if a is not pool[0] else [a], [b])):
@@ -133,9 +172,19 @@ def pick_trades(pool, chart_keys):
                 e = expected(give, receive, chart_keys)
                 cell = (e["value"][1], e["market"][1])
                 if cell not in seen:
-                    seen.add(cell)
-                    trades.append((give, receive))
-    return trades[:6]
+                    seen[cell] = (give, receive, cell)
+                    trades.append(cell)
+                elif cell == ("win", "lose"):
+                    # Prefer the win|lose trade whose read is the verdict copy: the first one met could be the
+                    # JEG-886 split read, and the two share the cell so only one is kept.
+                    old, new = seen[cell], (give, receive, cell)
+                    if split_read("lose", chart_nets(old[0], old[1], chart_keys)) and not split_read("lose", chart_nets(give, receive, chart_keys)):
+                        seen[cell] = new
+
+    def rank(cell):
+        return 0 if cell == ("win", "lose") and not split_read("lose", chart_nets(seen[cell][0], seen[cell][1], chart_keys)) else 1
+    trades.sort(key=rank)
+    return [seen[c] for c in trades[:6]]
 
 
 def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
@@ -168,14 +217,24 @@ def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
     if "The sources split" in snap["body"]:
         errors.append(f"{tag}the old 'The sources split.' copy is back")
     if cell:
-        if not snap["read"].strip() or "charts say you lose: send it" in snap["read"] and cell != "win|lose":
+        if not snap["read"].strip() or TITLE in snap["read"] and cell != "win|lose":
             errors.append(f"{tag}read {snap['read']!r} for cell {cell}")
         # JEG-886: when the per-chart count disagrees with the average's cell, the read names the split instead of the
         # cell copy ("..., and the trade charts split"); the cell itself stays. DDF Value is the chart average again
         # (JEG-1073), so V and M move together and a trade can land in a split read; that is the rule, not a miss.
         split = "the trade charts split" in snap["read"]
-        if cell == "win|lose" and "Value win, charts say you lose: send it" not in snap["read"] and not split:
-            errors.append(f"{tag}win|lose must read 'Value win, charts say you lose: send it', got {snap['read']!r}")
+        if cell == "win|lose" and snap["read"].strip() != TITLE and not split:
+            errors.append(f"{tag}win|lose must read exactly {TITLE!r} (no call to action), got {snap['read']!r}")
+        # JEG-950: the live win|lose read shows the real market gap, not the static grid explanation.
+        if cell == "win|lose" and not split and want["market"][0] is not None:
+            net = want["market"][0]
+            got = snap["text"].strip()
+            m = re.fullmatch(r"The trade charts have you (\d+\.\d) points (ahead|behind)(.*)", got)
+            want_tail = gap_text(net).split(" points ", 1)[1] if net != 0 else ""
+            if net == 0 or not m or m.group(2) + m.group(3) != want_tail:
+                errors.append(f"{tag}win|lose sub-line {got!r}, want {gap_text(net)!r}")
+            elif abs(float(m.group(1)) - abs(net)) > 0.06:
+                errors.append(f"{tag}win|lose sub-line number {m.group(1)!r}, want {abs(net):.1f}")
         if cell == "lose|win" and not snap["read"].startswith("Trap") and not split:
             errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
     return errors
@@ -199,7 +258,7 @@ def run_checks(patch=None) -> list[str]:
         except PlaywrightError as exc:
             raise _render_env.unavailable(f"Chromium is not available: {exc}") from exc
         try:
-            for width, height in ((1440, 1000), (390, 844)):
+            for width, height in ((1440, 1000), (390, 844), (320, 640)):
                 page = browser.new_page(viewport={"width": width, "height": height})
                 page_errors: list[str] = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
@@ -213,7 +272,10 @@ def run_checks(patch=None) -> list[str]:
                 page.wait_for_timeout(300)
                 page.evaluate("() => { location.hash = '#compare-trade'; }")
                 page.wait_for_timeout(600)
-                # The example trade (nothing added) has a read too.
+                # The sample trade (JEG-1190: loaded by Try a sample trade on the empty page) has a read too.
+                if page.is_visible("#v2CTryExample"):
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(400)
                 snap = page.evaluate(READ)
                 if not snap["shown"] or not snap["example"]:
                     errors.append(f"[{width}px] the example trade has no deal read (shown {snap['shown']}, example {snap['example']})")
@@ -225,14 +287,27 @@ def run_checks(patch=None) -> list[str]:
                 trades = pick_trades(pool, chart_keys)
                 if len(trades) < 4:
                     errors.append(f"[{width}px] could only build {len(trades)} distinct trades from the engine rows")
-                for n, (give, receive) in enumerate(trades):
+                # JEG-950: the win|lose verdict card carries the longest copy (the market-gap sub-line), so a
+                # fixture refresh that no longer produces one must fail with a named message, not pass silently.
+                # It must be the verdict read, not the JEG-886 split, or the new wording is never exercised.
+                if width == 1440:
+                    win_lose = [t for t in trades if t[2] == ("win", "lose")]
+                    if not win_lose:
+                        errors.append(f"[{width}px] no win|lose trade among {len(trades)} picked: the verdict card went unchecked")
+                    elif split_read("lose", chart_nets(win_lose[0][0], win_lose[0][1], chart_keys)):
+                        errors.append(f"[{width}px] the picked win|lose trade takes the split path: the JEG-950 verdict copy went unchecked")
+                for n, (give, receive, _cell) in enumerate(trades):
                     link = f"#compare-trade?give={','.join(p['key'] for p in give)}&get={','.join(p['key'] for p in receive)}"
                     page.evaluate("h => { location.hash = h; }", link)
                     page.wait_for_timeout(600)
                     snap = page.evaluate(READ)
                     errors += check_snapshot(snap, give, receive, chart_keys, f"[{width}px trade {n}] ")
-                    if width <= 390 and snap["overflow"] > 0:
-                        errors.append(f"[{width}px trade {n}] horizontal overflow {snap['overflow']}px")
+                    if width <= 390:
+                        if snap["overflow"] > 0:
+                            errors.append(f"[{width}px trade {n}] horizontal overflow {snap['overflow']}px")
+                        for label, over in zip(("headline", "sub-line"), snap["readOverflow"]):
+                            if over > 0:
+                                errors.append(f"[{width}px trade {n}] the deal-read {label} overflows by {over}px")
                 if width == 1440:
                     # An info button opens its definition.
                     if not page.query_selector('#v2CDealNets li[data-net="market"] button.v2-info'):

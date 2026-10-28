@@ -137,8 +137,10 @@
   // Legacy names stay: give, get, scoring, roster (QB1.RB2.WR3.TE1.FLEX1.SF0.BN6), shares (QB0.100_RB0.400_...),
   // bso, inj, conf, regend, playoffs (lo-hi), optimize, week, and the old bench= (0.150 = the old default).
   // New: v, teams, view, mine, theirs, target, src. Player lists are comma-separated keys; a name-only
-  // entry is written as n:<name encoded twice>, because URLSearchParams decodes once before the comma split.
-  const listToParam = list => list.map(p => p.key !== undefined ? encodeURIComponent(p.key) : "n:" + encodeURIComponent(encodeURIComponent(p.name))).join(",");
+  // entry is n:<name>. The name is percent-encoded once, so a space is %20 and not %2520. Commas,
+  // ampersands and equals are encoded again so URLSearchParams' one decode does not split the list.
+  const encodeName = name => encodeURIComponent(name).replace(/%2C/gi, "%252C").replace(/%26/gi, "%2526").replace(/%3D/gi, "%253D");
+  const listToParam = list => list.map(p => p.key !== undefined ? encodeURIComponent(p.key) : "n:" + encodeName(p.name)).join(",");
   const paramToList = value => String(value || "").split(",").map(s => s.trim()).filter(Boolean).map(s => {
     if (s.startsWith("n:")) { let n; try { n = decodeURIComponent(s.slice(2)); } catch (e) { n = ""; } return {name: n}; }
     let k; try { k = decodeURIComponent(s); } catch (e) { k = ""; }

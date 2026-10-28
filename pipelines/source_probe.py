@@ -84,7 +84,7 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
-from nfl_week import current_nfl_week as content_week  # noqa: E402  (content week, Tuesday flip)
+from nfl_week import current_nfl_week as content_week, today_ny  # noqa: E402  (content week, Tuesday flip)
 
 SEASON = 2026
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
@@ -661,7 +661,7 @@ PROBES: dict[str, Callable[[Fetch, int], dict[str, Any]]] = {
 
 
 def run_probe(source: str, fetch: Fetch = http_get, week: int | None = None) -> dict[str, Any]:
-    week = week or content_week(datetime.now(timezone.utc).date())
+    week = week or content_week(today_ny())
     try:
         # Discovery code logs progress to stdout ("[cbs] discovered week 5
         # chart: ..."); stdout carries only this tool's JSON lines.

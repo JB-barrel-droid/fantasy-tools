@@ -133,7 +133,9 @@ def check_pickers(page, tag) -> list[str]:
     compare = page.evaluate("() => [...document.querySelectorAll('#v2CShown option')].map(o => o.value)")
     if [k for k in PICK_KEYS if k not in compare]:
         errors.append(tag + f"Compare's Player values shown offers {compare}, want both pickable DDF Value versions")
-    page.goto(page.url.split("#")[0] + "#targets", wait_until="load")
+    # "#targets" was never a route: it reached Trade targets only while unknown hashes landed there (JEG-913).
+    # JEG-1106 (Jeremy, 2026-10-25) made the value chart the landing page, so name the real route.
+    page.goto(page.url.split("#")[0] + "#trade-targets", wait_until="load")
     page.wait_for_timeout(1500)
     ours = page.evaluate("() => [...document.querySelectorAll('#v2TOurs option')].map(o => o.value)")
     if [k for k in PICK_KEYS if k not in ours]:
