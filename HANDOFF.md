@@ -15,6 +15,18 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1199 scoped draft (2026-10-28, Codex)
+
+- Branch `fe/jeg-1199-projection-path`, based on verified main `2e7a2c7c`
+  (#1044 merged). No matching JEG-1199 PR existed at start.
+- Projection inputs now have distinct labels and a selectable worked player,
+  reading only `getInspection()` intermediates through the displayed Adjusted
+  value. Engine, v2 shell, global CSS and workflows were not changed.
+- Focused verification and limits:
+  `docs/claude-log/2026-10-28-jeg-1199-projection-path.md`.
+- Parent owns independent review, exact-head/current-main CI gates and serial
+  merge/deploy/live checks. Keep ticket open until those are complete.
+
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
