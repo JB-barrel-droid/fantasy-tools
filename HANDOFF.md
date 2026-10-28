@@ -158,6 +158,46 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 
 ---
 
+### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
+
+Stopped at 97% usage. State, verified 14:10 UTC:
+- PR #1022 (JEG-1180, stale flag after Thursday 12:00 CT, runbook): review
+  blocker fixed (`freshness_ok` follows `weeks_behind <= 1`, so a one-week
+  stale source is a warning, not "Not updating"). Head 487ddaa. v2-render green;
+  preview build was queued. Next: when the preview bot says validate passed,
+  mark ready and squash-merge as "(JEG-1180)", wait for Deploy dashboard, check
+  `dist/modules/reference-freshness.json` live.
+- PR #1042 (JEG-1200, per-source "late" rules + hourly `source-lateness.yml`
+  keeping one `source-late` issue): second review PASS at 6c5f589 (live week
+  label due Wed 12:00 CT; offseason guard; exit 1 when the check can't run).
+  Merge after #1022 (its doc links the runbook #1022 adds), then check the
+  first scheduled run on main and the issue it opens.
+- Live replay 13:57 UTC: only FantasySharks late (403 on every probe since at
+  least Oct 22, never saved). At Wed 12:00 CT all seven site sources go late if
+  week 8 still hasn't published (the site's history index is still week 7,
+  fixture_built_at Oct 26 15:42Z; the board lane owns publishing). The probe log
+  has no rows Oct 20-21.
+- JEG-1201, three draft PRs with notes only (no code yet): #1050 post-validate
+  isolation (hold only the source a failing test names, validate once more,
+  fail closed; a post-validate hold on espn would never be released, needs a
+  release step); #1051 hold-tolerance guard (run live-page/rank/week-history
+  checks with each source held; suspected latent bug in
+  `test_superflex.page_problems`); #1052 fill-in peers.
+- Jeremy's decision (Oct 28, 9:03 AM CT): charts fill in missing players from
+  FantasyCalc and the projection sources (espn, cbsros, razzball), never from
+  another weekly chart ("Use fantasycalc and projections sources, those should
+  be refreshing at least daily, so they are good"). FantasyCalc's own peers are
+  the projections. Impact list: only moves over 5% AND over 2 trade-value points
+  ("If the 5% only amounts to 1-2 trade value points, it's immaterial").
+  chart_sigma and DDF weights also cross charts: report, don't change, without
+  his yes.
+- Linear: JEG-1180 and JEG-1200 In Progress (mark Done when merged and live);
+  JEG-1201 In Progress. Due Nov 3-4: a Tue/Wed health comment on JEG-1176 for
+  the week 8 to 9 flip.
+- Exact next step: merge #1022 on green, then #1042, each checked live; then
+  build #1052 (value math, Jeremy approved) with the impact list in
+  /mnt/project-files/ddf/ or the PR body.
+
 ## Active agents and automation (keep current)
 
 Checked 2026-10-28 03:30 UTC. Update this section whenever a lane, routine or
@@ -319,6 +359,11 @@ Current picks in brief:
   per-source freshness report is warning-only; DISCOVERY_OVERDUE alarm and the
   Central watchdog calendar unchanged; new health state names (current,
   lagging, stale, unknown).
+- JEG-1180 (PR #1022, review fix): judged_at dropped from the freshness summary;
+  New York date kept in check_weekly_freshness.
+- JEG-1200 (PR #1042): live sources late after 9 h unconfirmed or when the site
+  still shows last week after Wed 12:00 CT; weekly charts late when the week's
+  article isn't out by Wed 12:00 CT; own GitHub schedule (watches pg_cron).
 
 ### Definition of done
 - Done = merged to `main` and live (Linear "Done"). For a fix: commit, merge,
