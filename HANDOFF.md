@@ -130,23 +130,21 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
   text change goes live only with an approved `mcp` deploy.
 
-- **Fit labels lane (JEG-1187, JEG-1115; updated 2026-10-28 9:10 AM CT):**
-  JEG-1187 is merged: #1030 (`759a4f9`) makes Find a trade's Market supported
-  fire on any gain the page shows (`theirNet > NET_FLOOR`) instead of the noise
-  floor, which real charts never cleared. Its own deploys were cancelled by
-  later pushes; Deploy dashboard run 40702847581 (`059674f`) includes it. Next:
-  when a deploy succeeds, fetch the live `app/v2/finder.js` and confirm
-  `marketSupported = theirNet > NET_FLOOR`, then move JEG-1187 to Done.
-  JEG-1115 is PR #1041, branch `be/jeg-1115-connector-fit`, head `25e76db`
-  (main `759a4f9` merged in): get-values `include=charts` publishes the
-  engine's `bench_share` readout (Jeremy's pick B) and the connector labels
-  each trade Natural / Market supported / Force with the finder's own
-  `tradeFit` (`supabase/functions/mcp/fit.ts`). Local checks pass; the first CI
-  run failed only on an apt 403 in Playwright setup; CI is rerunning on the
-  merge. Next: when CI is green, ask Jeremy to merge #1041 and deploy
-  `get-values` first, then `mcp` (deploys need his yes); then check a live
-  `find_trades` call shows fit lines and move JEG-1115 to Done. #966
-  (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
+- **Fit labels lane (JEG-1187, JEG-1115; done 2026-10-28 10:15 AM CT):**
+  Both shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
+  supported fire on any gain the page shows (`theirNet > NET_FLOOR`); Deploy
+  dashboard run 40703312106 (`0137a8a`, includes it) succeeded. JEG-1115: #1041
+  merged (`1bd85f7`); Jeremy said yes and get-values v9 then mcp v13 were
+  deployed from main (mcp v13 also carries #970's make_state text, JEG-1101).
+  A live `find_trades` call returns `fit` and `fitReason` on every trade.
+  Rollback copies of the previous live versions (get-values v8, mcp v12) are
+  in the project files under ddf/edge-rollback-2026-10-28. Board lane: the live
+  edge functions now include #1041, so later deploys from main keep it.
+  Follow-up worth a ticket: a fitReason can list the other team's roster
+  issues (e.g. "bench promoted to starter: Justin Jefferson" on a trade where
+  Jefferson stays with them) without saying whose roster; same text as the
+  page's `fitText`. #966 (Ba-Nana's earlier draft) is superseded by #1041;
+  leave closing it to Jeremy.
 
 
 ### In Review tickets lane (2026-10-28, 9:10 AM CT)
