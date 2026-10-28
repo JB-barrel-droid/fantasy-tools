@@ -1998,7 +1998,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
       if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
-      if (!e.passes.guardrails) warn.push("It breaks your protected positions or Advanced minimums.");
+      if (e.passes.guardrails === false) warn.push("It breaks your protected positions or Advanced minimums.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give, same.throwIns.receive) : [];
       // JEG-1059: the badge that marks a value the reader set, next to the throw-in's DDF Value.

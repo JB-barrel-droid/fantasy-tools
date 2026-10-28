@@ -6,6 +6,7 @@ import unittest
 from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_finder_render import _built_dist
+from tests.test_v2_finder_render import PICK
 
 
 def setUpModule():
@@ -25,6 +26,27 @@ class FinderGuardrailsRenderTest(unittest.TestCase):
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(base + "#find-trade")
                 page.locator("#v2FindProtectRB").wait_for(timeout=60000)
+                picked = page.evaluate(PICK)
+                page.evaluate("""names => {
+                  const byName = new Map(window.TradeValueCurveControls.getAllRows().map(r => [r.name, r]));
+                  const entries = list => list.map(name => ({key: String(byName.get(name).player_key), name, pos: byName.get(name).pos}));
+                  window.TradeValueFinder.ui.setSides(entries(names.mine), entries(names.theirs));
+                }""", picked)
+                page.locator("#v2FindSize").select_option("3")
+                page.locator("#v2FindGo").click()
+                page.locator("#v2FindList > li").first.wait_for(timeout=60000)
+                self.assertEqual(page.locator("#v2FindList .v2-find-notes.is-warn").count(), 0)
+                self.assertNotIn("It breaks your protected positions or Advanced minimums.",
+                                 page.locator("#v2FindList").inner_text())
+                page.locator(".v2-find-advanced summary").click()
+                page.locator("#v2FindMinMine").fill("100")
+                page.locator("#v2FindMinMine").press("Tab")
+                page.locator("#v2FindGo").click()
+                self.assertIn("left out by your protected positions or Advanced minimums",
+                              page.locator("#v2FindOut").inner_text())
+                self.assertEqual(page.locator("#v2FindList > li").count(), 0)
+                page.locator("#v2FindResetSettings").click()
+                page.locator(".v2-find-advanced summary").click()
                 page.locator("#v2FindProtectRB").focus()
                 page.keyboard.press("Space")
                 self.assertTrue(page.locator("#v2FindProtectRB").is_checked())

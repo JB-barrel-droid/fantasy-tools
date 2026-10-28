@@ -5,6 +5,7 @@ Contract: Add prominent protected-position and lineup-fill controls, with three 
 ### Verified (check named)
 - `tests.test_v2_finder_guardrails`: protected RB rejects a weakening trade, active DDF and lineup minimums filter, default settings leave the complete search result unchanged, invalid values reset, workspace export/import and local-storage visits round-trip, and link settings decode.
 - `tests.test_v2_finder_guardrails_render` with `/usr/bin/chromium`: keyboard controls, invalid input, reload, reset, link visit, phone overflow and page errors passed.
+- Independent review caught a default-result false warning: inactive guardrails omit `passes.guardrails`, so a truthiness check mislabeled every card. After checking explicitly for `false`, `tests.test_v2_finder_guardrails_render` passed with default cards free of guardrail warnings and an active 100-point starter minimum excluding offers with an explanatory note.
 - `tests.test_v2_finder` and `tests.test_v2_league_units` passed.
 - `tests.test_validate_shards` passed after wiring the focused unit test into `test-core` and shard 3; the focused browser test is in the `v2-render` workflow.
 - `tests/fixtures/finder_search_signature.js` produced identical 2-for-2 and 3-for-3 signatures for this branch and the PR #1062 head before edits. The repository's older `finder_search_golden.json` already differs from that head.
