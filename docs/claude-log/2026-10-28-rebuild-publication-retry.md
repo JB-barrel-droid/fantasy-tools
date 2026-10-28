@@ -30,14 +30,26 @@ workflow dispatch, deployment, production writes, or cleanup deletion.
   tests.test_rebuild_chain_conflict_handoff tests.test_rebuild_chain_failclosed
   tests.test_rebuild_chain_source_resiliency tests.test_rebuild_chain_per_source_hold
   tests.test_chain_commits_legs tests.test_record_post_rebuild_validation`:
-  129 passed (exit 0). Covers real local bare-remote races, source/history
+  130 passed (exit 0). Covers real local bare-remote races, source/history
   protection, status-only failures, retry exhaustion, no-ops, and lost push
   acknowledgements. Evidence: `/tmp/jeg-1206-final-targeted-tests.log`.
-- Independent regression/review agent: all 17 conflict/retry tests pass on the
-  change; the same suite produces nine expected failures against `origin/main`.
+- Independent regression/review agent: all 18 conflict/retry tests pass on the
+  change; the same suite produces ten expected failures against `origin/main`.
   Evidence: `/tmp/jeg-1206-regression-baseline.log`. No blocking review findings.
 - Workflow YAML parsed, extracted commit script passed `bash -n`, and
   `git diff --check` passed.
+- Merged current main `032cee07` into the ticket branch without conflicts,
+  reran all targeted tests successfully, pushed only
+  `be/jeg-1206-publish-retry`, and opened draft
+  [PR #1054](https://github.com/JB-barrel-droid/fantasy-tools/pull/1054).
+  Preview build and v2 render CI started; current-head CI completion remains a
+  release prerequisite for the parent session.
+- Final input audit: `pipelines/fidelity_hold.py` reads
+  `dist/modules/fidelity-pulse.json` to apply source holds, so that report is
+  excluded from the independent-monitoring allowlist. Its regression fails if
+  it is mistakenly allowed. The separate import-health promotion input is
+  `output/source-import-health.json`, also excluded; the five allowed paths
+  under `dist/modules` do not control source holds.
 - Full `CHROMIUM_PATH=/usr/bin/chromium make validate` is running in the isolated
   `/workspace/validate-jeg-1206` checkout based on `0137a8a7`. The initial command
   without `CHROMIUM_PATH` stopped at the missing Playwright-bundled browser;

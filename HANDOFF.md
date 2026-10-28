@@ -33,15 +33,17 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 
 ### Rebuild publication retry lane (JEG-1206, Codex, 2026-10-28)
 
-- Branch: `be/jeg-1206-publish-retry` (base `0137a8a7`), for a draft PR only.
+- Draft PR: [#1054](https://github.com/JB-barrel-droid/fantasy-tools/pull/1054),
+  branch `be/jeg-1206-publish-retry` (initial base `0137a8a7`, main `032cee07`
+  merged in).
   The workflow now retries monitoring-only main changes in an isolated
   publication worktree, preserves newer monitoring reports and the validated
   fixture/history together, and requests regeneration for source/input/history
   changes. Three push attempts; no rebase or force-push. Candidate patches are
   retained as run artifacts, and lost push acknowledgements are confirmed
   before retrying so Pages still runs for accepted commits.
-- Verified: 129 targeted workflow/pipeline tests pass; the 17-case concurrent
-  main suite fails nine cases against the original workflow. Independent review
+- Verified: 130 targeted workflow/pipeline tests pass; the 18-case concurrent
+  main suite fails ten cases against the original workflow. Independent review
   passed with no blocking findings. Full `make validate` result is in
   `docs/claude-log/2026-10-28-rebuild-publication-retry.md`.
 - Exact next step: review the draft PR and wait for its current-head CI plus

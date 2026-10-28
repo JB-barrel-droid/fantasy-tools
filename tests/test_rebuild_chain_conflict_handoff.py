@@ -218,6 +218,18 @@ class ConflictHandoffTest(unittest.TestCase):
         self.assertEqual("OLD", r["remote_fixture"])
         self.assertIn("attempt=2", r["dispatch"] or "")
 
+    def test_fidelity_pulse_change_requires_regeneration(self):
+        # This generated report is an input: fidelity_hold.py consumes its
+        # holds before validation. It cannot be treated as independent health.
+        r = scenario(WORKFLOW, {"dist/modules/fidelity-pulse.json": '{"holds":{"cbs":{}}}'})
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertTrue(r["remote_head_is_other"])
+        self.assertEqual("OLD", r["remote_fixture"])
+        self.assertEqual("OLD-HISTORY", r["remote_history"])
+        self.assertEqual(0, r["push_count"])
+        self.assertIn("attempt=2", r["dispatch"] or "")
+        self.assertIn("pushed=false", r["outputs"])
+
     def test_failed_chain_publishes_only_status_after_monitor_conflict(self):
         r = scenario(WORKFLOW, {HEALTH: "NEWER-MAIN-HEALTH"}, outcome="failure",
                      local_changes={HEALTH: "RUN-HEALTH"})

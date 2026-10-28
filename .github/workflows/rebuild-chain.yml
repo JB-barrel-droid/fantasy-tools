@@ -556,9 +556,11 @@ jobs:
                 exit 1
               fi
               git diff --name-only --no-renames -z "$base" "$tip" > "$publish_root/remote-paths"
+              # Keep this list narrow: fidelity-pulse.json, for example, is
+              # a rebuild input (source holds), not independent monitoring.
               while IFS= read -r -d '' path; do
                 case "$path" in
-                  dist/modules/source-import-health.json|dist/modules/github-actions.json|dist/modules/pipeline-checkpoints.json|dist/modules/monitoring-summary.json|dist/modules/ops-status.json|dist/modules/fidelity-pulse.json) ;;
+                  dist/modules/source-import-health.json|dist/modules/github-actions.json|dist/modules/pipeline-checkpoints.json|dist/modules/monitoring-summary.json|dist/modules/ops-status.json) ;;
                   *) echo "Regeneration required after main changed: $path"; outcome=conflict; break ;;
                 esac
               done < "$publish_root/remote-paths"
