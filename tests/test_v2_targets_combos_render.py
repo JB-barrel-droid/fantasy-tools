@@ -107,7 +107,8 @@ def check_combo(state, ours, pick, opts, width, previous) -> list[str]:
                 errors.append(f"{side}: chart columns {s['cols']} but compared set {state['used']} ({stale_marker})")
         if count and sorted(s["cellCols"]) != sorted(state["used"]):
             errors.append(f"{side}: rendered chart cells {s['cellCols']} but compared set {state['used']} ({stale_marker})")
-        if not state["blocked"] and not s["meta"].startswith(f"{count} of "):
+        # JEG-977 (57f1c1b2) dropped the "N of M players" vanity count: the sub-line now leads with "N players · ".
+        if not state["blocked"] and not s["meta"].startswith(f"{count} players · "):
             errors.append(f"{side}: sub-line {s['meta']!r} does not lead with {count} ({stale_marker})")
         if single:
             name = CHART_NAMES[single]

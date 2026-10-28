@@ -7,6 +7,8 @@ Two answers with a three-step level (High / Medium / Low inside trade.js; the pa
         Yes  when both say you win and the DDF margin is 5%+ of the value traded;
         No   when both say you lose and the DDF margin is 5%+;
         Unclear otherwise (they split, margin under 5%, or projections unavailable).
+        Confidence (JEG-950, Jeremy 2026-10-23): the level also depends on how many trade charts are on the
+        answer's side: 3 or more keep it, 2 cap it at Medium, 0 or 1 cap it at Low (Jeremy 2026-10-23, 2026-10-25).
         Confidence: High when projections margin also 5%+, Medium when projections
         agree but margin < 5%, Low when projections even/missing or low-confidence DDF.
         The chart agreement count stays in the reasons for honesty ("0 of N agree").
@@ -85,6 +87,13 @@ CASES = {
     "zero-agree-thin": ([player(1, 49, 49, 52, 52, 52, 52, 52)], [player(2, 51, 51, 48, 48, 48, 48, 48)], False),
     # JEG-841: DDF win wide, projections win wide, 0 charts agree -> Yes (the arbitrage fix!).
     "zero-agree-wide": ([player(1, 50, 50, 70, 70, 70, 70, 70)], [player(2, 70, 70, 50, 50, 50, 50, 50)], False),
+    # JEG-950: exactly 3 of 4 charts agree keeps High; 2 of 4 drops to Medium (the other line is unchanged).
+    "three-of-four": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 40)], False),
+    "two-of-four": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 40, 40)], False),
+    "one-of-four": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 40, 40, 40)], False),
+    "lose-one-of-four": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 80, 80, 80)], False),
+    "lose-three-of-four": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 50, 80)], False),
+    "lose-two-of-four": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 80, 80)], False),
     # N13: every source agrees you win -> propose Yes, accept Unlikely (consistent, no contradiction).
     "all-agree-win": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
 }
@@ -191,6 +200,13 @@ def expected(case, charts=CHARTS) -> dict:
         if low:
             level = LEVELS[max(0, LEVELS.index(level) - 1)]
 
+        if answer in ("Yes", "No"):
+            want_sign = 1 if answer == "Yes" else -1
+            agreeing = sum(1 for n in complete_charts if sign(n) == want_sign)
+            # JEG-950 (Jeremy 2026-10-25): 3+ keep the level, 2 cap at Medium, 0 or 1 cap at Low.
+            cap = "High" if agreeing >= 3 else "Medium" if agreeing == 2 else "Low"
+            level = LEVELS[min(LEVELS.index(level), LEVELS.index(cap))]
+
         result["propose"] = {"answer": answer, "confidence": level}
 
     # Line 2: charts on which the other manager wins or breaks even (unchanged).
@@ -224,11 +240,11 @@ ANCHORS = {
     # JEG-841: only 2 charts, deal read incomplete -> propose Unclear (needs 3 charts for market read).
     "two-charts": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "Medium")},
     "five-percent": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
-    "likely": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
+    "likely": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
     "ddf-missing": {"propose": (None, None), "accept": ("Unlikely", "High")},
     # JEG-841: the arbitrage fix — DDF win + proj win + all charts lose -> Yes, not Unclear.
-    "arbitrage": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
-    "zero-agree-wide": {"propose": ("Yes", "High"), "accept": ("Likely", "High")},
+    "arbitrage": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
+    "zero-agree-wide": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
     # DDF win + proj lose -> Unclear.
     "ddf-proj-split": {"propose": ("Unclear", "Low"), "accept": ("Unlikely", "High")},
     # Projections missing -> Unclear.
@@ -239,6 +255,13 @@ ANCHORS = {
     "even-no-support": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
     # N13: every source agrees -> Yes (not contradictory with Unlikely accept).
     "all-agree-win": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
+    # JEG-950: three-of-four has one chart (cbs) against; two-of-four has two against.
+    "three-of-four": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
+    "two-of-four": {"propose": ("Yes", "Medium"), "accept": ("Toss-up", "Low")},
+    "lose-two-of-four": {"propose": ("No", "Medium"), "accept": ("Toss-up", "Low")},
+    "one-of-four": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
+    "lose-one-of-four": {"propose": ("No", "Low"), "accept": ("Unlikely", "High")},
+    "lose-three-of-four": {"propose": ("No", "High"), "accept": ("Likely", "High")},
 }
 
 
@@ -283,6 +306,11 @@ MUTATIONS = {
     "other manager wins flipped": ("signOf(row.net) <= 0).length", "signOf(row.net) >= 0).length"),
     # High threshold lowered on accept.
     "High threshold lowered": ("share >= 0.75 ? \"High\"", "share >= 0.5 ? \"High\""),
+    # JEG-950: the 3-chart requirement for High removed or loosened must be caught.
+    "chart requirement removed": ("if (answer === \"Yes\" || answer === \"No\") {\n        if (chartAgree", "if (false) {\n        if (chartAgree"),
+    "chart requirement loosened to 2": ("const MIN_CHARTS_FOR_HIGH = 3;", "const MIN_CHARTS_FOR_HIGH = 2;"),
+    "one chart only caps at Medium": ('level = capped(level, "Low");\n        else if', 'level = capped(level, "Medium");\n        else if'),
+    "two charts not capped": ('else if (chartAgree < MIN_CHARTS_FOR_HIGH) level = capped(level, "Medium");', ""),
     # Few-sources cap removed on accept.
     "few-sources cap removed": (
         "if (charts.length < 3) { level = capped(level, \"Medium\");",

@@ -31,6 +31,10 @@ def setUpModule():
 
 
 def go(page, view):
+    # Since JEG-1106 (9cffc5cb, Jeremy 2026-10-25) the pages are entries in a menu opened by #v2NavToggle at every
+    # width; picking an entry closes it again. Same path as test_v2_overrides_basis_render.
+    if page.get_attribute("#v2NavToggle", "aria-expanded") != "true":
+        page.click("#v2NavToggle")
     page.click(f'a.v2-tab[data-view="{view}"]')
     page.wait_for_timeout(500)
 

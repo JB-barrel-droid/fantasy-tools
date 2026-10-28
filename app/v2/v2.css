@@ -2136,6 +2136,17 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 /* JEG-1026: the ChatGPT / Claude line in the footer of every tab; Copy and Paste sit in the league strip. */
 .v2-assist { border-top: 1px solid var(--v2-border); margin-top: var(--v2-pad-section); padding: 16px 0 28px; color: var(--v2-muted); font-size: 13px; }
 .v2-assist-line { margin: 0; }
+/* 44 x 44 hit area (docs/v2-design-notes.md: every action has one) for the inline links in the footer line and the Find a
+   trade intros: `.v2-link`'s min-height does nothing on an inline <a>, so they were 15-18 px tall on phones. Same pattern
+   and scope as the divergence chip (JEG-1048): a centred empty ::after, so nothing moves or shows. The footer's 16 px top and
+   28 px bottom padding hold the 14.5 px it reaches past the link; no other control is in reach. Inline-block so a link
+   never splits across two lines at 320 px (a split link's box spans both lines and its centre lands on the text before
+   it); min-height 0 keeps `.v2-link`'s 44 px from growing the line, so the text stays where it was. */
+@media (max-width: 767px), (pointer: coarse) {
+  #v2AssistLine a.v2-link, #v2FindTrade .v2-title p a.v2-link, #v2FindLeague .v2-title p a.v2-link { position: relative; display: inline-block; min-height: 0; }
+  #v2AssistLine a.v2-link::after, #v2FindTrade .v2-title p a.v2-link::after, #v2FindLeague .v2-title p a.v2-link::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
+}
 .v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .v2-assist-actions .v2-btn[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
 .v2-assist-panel:empty { display: none; }
@@ -2166,6 +2177,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 767px) {
   .v2-inputs-in { flex-wrap: wrap; gap: 4px 12px; padding-block: 6px; }
   .v2-inputs-text { flex: 1 1 100%; overflow: visible; white-space: normal; }
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
+/* A landscape phone (844 px wide) is past the phone width but still tapped: its Edit league and Dismiss keep 44 px. */
+@media (pointer: coarse) {
   .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
   .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
