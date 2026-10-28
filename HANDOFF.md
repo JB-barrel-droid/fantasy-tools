@@ -15,6 +15,34 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+
+### Pages validation lane (JEG-1170, Codex, 2026-10-28)
+
+- Jeremy made this the first release priority: “yes, and bring to the top.
+  Sounds like this will speed up development.” This is the Pages half of
+  JEG-1170; #1000 completed the preview half. Branch:
+  `be/jeg-1170-pages-validation-parallel` (draft PR linked on the ticket).
+- Pages now mirrors preview's `validate-base` plus four exhaustive test-core
+  shards, each on a separate runner at the exact run SHA. The build still runs
+  all three rendered harnesses and uploads only its own checked `dist`.
+  Deploy requires literal success from the build and entire matrix. Its artifact
+  name comes from the successful build output, including on partial reruns.
+- Keep `pages` concurrency with `cancel-in-progress: false`: cancellation
+  previously starved publication. No test recipe, shard membership, value math,
+  fixture, Supabase, rebuild-chain or writer-pause change belongs to this PR.
+- Latest main `2e7a2c7c` is integrated into this branch; the only conflict was
+  the picks-log append, resolved by retaining both lanes' entries. Pages
+  workflow/shard commands and artifact gates did not change during integration.
+- Validation: 102 targeted workflow/coverage/artifact tests and actionlint pass.
+  The original serial workflow fails the new parallel contract; all 96 core
+  commands and their exact shard union are unchanged. Coverage/parity/deploy
+  guards now run as explicit blocking steps in both build workflows.
+- Parent owns independent-review acceptance and final-head PR CI, then serial
+  merge on current green main, Pages completion, publication/live verification,
+  and a measured timing comparison. No production dispatch or merge in this lane.
+  Expected speedup is unconfirmed until the first successful Pages run.
+
+
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
@@ -95,19 +123,21 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
-- **JEG-1142 lane (2026-10-28 9:10 AM CT, Claude):** promotion/demotion model
-  switched off for everyone (`PROMOTION_MODEL_ENABLED = false` in value-model.js,
-  value_reference.py and spec_reference/value_pipeline.py), per Jeremy's 2026-10-27
-  Linear comment. Draft PR #1044, branch `be/jeg-1142-promotion-off-v2`, head
-  `dd4b3de` (main merged in). T1 review approved; its 3 findings are fixed (default-path
-  baseline re-frozen, reference switch test pinned to the served week, comments).
-  Local engine/reference/parity/rank-guard tests pass; value_check compare and
-  `make validate` are in preview CI. It merges on green CI under Jeremy's standing rule.
-  **Next step:** when preview CI is green on #1044's head, mark it ready, merge
-  `origin/main` in if it moved, squash-merge as "JEG-1142 ...", wait for Deploy
-  dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
-  and that USO still shows its good trades (DDF connector find_trades_league), then
-  close JEG-1142. No edge deploy: get-values loads the published value-model.js.
+- **JEG-1142 validation continuation (2026-10-28, Codex):** PR #1044, target branch
+  `be/jeg-1142-promotion-off-v2`; local candidate `be/jeg-1142-validation-ready`.
+  Includes author head `274f3126` and main `79b9b435`. Promotion/demotion stays
+  off in all three engines; expected-start and bench math are unchanged.
+  Contract CI failed because the probe clicked a player already in the sample;
+  the author's helper fix is retained and reproduced green. Composite CI failed
+  because its display-order guard disallowed exact-value ties with different
+  tiers; the corrected guard retains every VP-7.3 check and rejects strict
+  inversions. Independent reviews passed. Final make validate-base and both
+  current reference comparisons pass; full core checks completed in resumed
+  runs (see log for the initial environment error and corrected assertion).
+  **Next:** check CI on the updated PR head; the parent alone coordinates merge
+  and Pages verification. Do not close JEG-1142 before live switch and USO checks.
+  No edge deploy or JEG-1205 work here. Generated output is retained uncommitted.
+  Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
 - **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
   is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
@@ -130,23 +160,21 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
   text change goes live only with an approved `mcp` deploy.
 
-- **Fit labels lane (JEG-1187, JEG-1115; updated 2026-10-28 9:10 AM CT):**
-  JEG-1187 is merged: #1030 (`759a4f9`) makes Find a trade's Market supported
-  fire on any gain the page shows (`theirNet > NET_FLOOR`) instead of the noise
-  floor, which real charts never cleared. Its own deploys were cancelled by
-  later pushes; Deploy dashboard run 40702847581 (`059674f`) includes it. Next:
-  when a deploy succeeds, fetch the live `app/v2/finder.js` and confirm
-  `marketSupported = theirNet > NET_FLOOR`, then move JEG-1187 to Done.
-  JEG-1115 is PR #1041, branch `be/jeg-1115-connector-fit`, head `25e76db`
-  (main `759a4f9` merged in): get-values `include=charts` publishes the
-  engine's `bench_share` readout (Jeremy's pick B) and the connector labels
-  each trade Natural / Market supported / Force with the finder's own
-  `tradeFit` (`supabase/functions/mcp/fit.ts`). Local checks pass; the first CI
-  run failed only on an apt 403 in Playwright setup; CI is rerunning on the
-  merge. Next: when CI is green, ask Jeremy to merge #1041 and deploy
-  `get-values` first, then `mcp` (deploys need his yes); then check a live
-  `find_trades` call shows fit lines and move JEG-1115 to Done. #966
-  (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
+- **Fit labels lane (JEG-1187, JEG-1115; done 2026-10-28 10:15 AM CT):**
+  Both shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
+  supported fire on any gain the page shows (`theirNet > NET_FLOOR`); Deploy
+  dashboard run 40703312106 (`0137a8a`, includes it) succeeded. JEG-1115: #1041
+  merged (`1bd85f7`); Jeremy said yes and get-values v9 then mcp v13 were
+  deployed from main (mcp v13 also carries #970's make_state text, JEG-1101).
+  A live `find_trades` call returns `fit` and `fitReason` on every trade.
+  Rollback copies of the previous live versions (get-values v8, mcp v12) are
+  in the project files under ddf/edge-rollback-2026-10-28. Board lane: the live
+  edge functions now include #1041, so later deploys from main keep it.
+  Follow-up worth a ticket: a fitReason can list the other team's roster
+  issues (e.g. "bench promoted to starter: Justin Jefferson" on a trade where
+  Jefferson stays with them) without saying whose roster; same text as the
+  page's `fitText`. #966 (Ba-Nana's earlier draft) is superseded by #1041;
+  leave closing it to Jeremy.
 
 
 ### In Review tickets lane (2026-10-28, 9:10 AM CT)
