@@ -1,15 +1,15 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="trade-chart-build" content="tv-20261027-0014-1bdef712">
+<meta name="trade-chart-build" content="tv-20261028-0005-e62178c">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="color-scheme" content="light dark" />
   <meta name="theme-color" content="#142B25" />
-  <meta name="description" content="Rest-of-season fantasy football trade values for your league settings, trade targets where the published charts disagree with our values, and a trade calculator." />
+  <meta name="description" content="Know who to trade for, before your league does. Fantasy football trade values built for your league, plus the trades your league-mates will actually say yes to." />
   <meta property="og:type" content="website" />
   <meta property="og:title" content="Data Driven Football" />
-  <meta property="og:description" content="Rest-of-season trade values for your league settings, with trade targets where the published charts disagree with our values." />
+  <meta property="og:description" content="Trade values built for your league, plus the trades your league-mates will actually say yes to." />
   <meta property="og:image" content="https://jb-barrel-droid.github.io/fantasy-tools/icon.jpg" />
   <meta name="twitter:card" content="summary" />
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='12' fill='%2317364c'/%3E%3Cpath fill='%23e96528' d='M13 11h19c14 0 23 8 23 21S46 53 32 53H13V11zm11 10v22h8c8 0 13-4 13-11s-5-11-13-11h-8z'/%3E%3C/svg%3E" />
@@ -1772,7 +1772,7 @@
       <label class="v2-field v2-field-rank"><span class="v2-field-label">Rank by</span>
         <select id="v2RankBy"></select>
       </label>
-      <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Δ Prior week · Off</button>
+      <button type="button" class="v2-select" id="v2DeltaBtn" aria-pressed="false">Prior week change · Off</button>
       <button type="button" class="v2-select" id="v2More" aria-haspopup="dialog" aria-expanded="false">More</button>
       <button type="button" class="v2-btn v2-reset" id="v2Reset">Reset</button>
     </div>
@@ -1870,7 +1870,7 @@
     <section class="v2-card v2-vorp-card" id="v2VorpCard" hidden aria-labelledby="v2VorpTitle">
       <div class="v2-card-head">
         <div>
-          <h2 id="v2VorpTitle">Value over a waiver player</h2>
+          <h2 id="v2VorpTitle">Value above waivers</h2>
           <p class="v2-meta">Raw value above a waiver-level player, on its own scale. Not comparable to the trade-value points above.</p>
         </div>
       </div>
@@ -1997,14 +1997,14 @@
         <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. In between is fairly priced. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
       </details>
     </section>
-    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
     <div class="v2-title">
       <h1 id="v2RisersTitle">Risers and fallers</h1>
-      <p>Value-point changes. One source. Two snapshots.</p>
+      <p>Who moved since last week.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
 
@@ -2069,7 +2069,7 @@
     </section>
 
     <p class="v2-footnote" id="v2RScale"></p>
-    <p class="v2-footnote">Δ = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no Δ and is left out, never shown as zero.</p>
+    <p class="v2-footnote">Change (Δ in the tables) = the later week's value − the earlier week's value for the same source, both recomputed at your league settings and weights from that source's own inputs for each week. Sources are never mixed. A player the source did not price in the earlier week has no change and is left out, never shown as zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -2165,7 +2165,7 @@
     <section class="v2-card v2-table-card" id="v2CVorpCard" hidden aria-labelledby="v2CVorpTitle">
       <div class="v2-card-head">
         <div>
-          <h2 id="v2CVorpTitle">Value over a waiver player</h2>
+          <h2 id="v2CVorpTitle">Value above waivers</h2>
           <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other. Each row's steps are drawn on that source's own scale.</p>
         </div>
       </div>
@@ -2181,7 +2181,7 @@
   <main class="v2-wrap v2-main" id="v2FindTrade" hidden aria-labelledby="v2FindPageTitle">
     <div class="v2-title">
       <h1 id="v2FindPageTitle">Find a trade: your team</h1>
-      <p>Paste in your roster and another manager's, and see the trades they are likely to take. Already have a trade in mind? Check it in Compare a trade. Want the best trades across every team in your league? Use <a class="v2-link" href="#find-league">Find a trade: league-wide</a>.</p>
+      <p>Trades you win that they'll still say yes to. Paste your roster and theirs. Got a deal in mind? Check it in Compare a trade. Want every team at once? Use <a class="v2-link" href="#find-league">Find a trade: league-wide</a>.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -2190,7 +2190,7 @@
   <main class="v2-wrap v2-main" id="v2FindLeague" hidden aria-labelledby="v2FindLeagueTitle">
     <div class="v2-title">
       <h1 id="v2FindLeagueTitle">Find a trade: league-wide</h1>
-      <p>Paste in every team in your league, mark yours, and see the best trades for your team against all of them. Only have one other manager in mind? Use <a class="v2-link" href="#find-trade">Find a trade: your team</a>.</p>
+      <p>Trades you win that they'll still say yes to, against every team at once. Paste your league and mark your team. Only one manager in mind? Use <a class="v2-link" href="#find-trade">Find a trade: your team</a>.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -2199,7 +2199,7 @@
   <main class="v2-wrap v2-main" id="v2Waivers" hidden aria-labelledby="v2WaiversTitle">
     <div class="v2-title">
       <h1 id="v2WaiversTitle">Waivers</h1>
-      <p>Enter your roster and the top waiver options, as many as you like. See who to pick up and who to drop, from your starting lineup, your bench depth and DDF Value, with the market value beside each.</p>
+      <p>Who to grab, who to cut. Add your roster and the best free pickups, and see who beats someone you have, by your lineup, your bench and DDF Value, with the Market beside each.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -2208,7 +2208,7 @@
   <main class="v2-wrap v2-main" id="v2How" hidden aria-labelledby="v2HowTitle">
     <div class="v2-title">
       <h1 id="v2HowTitle">Methodology</h1>
-      <p><span class="v2-wide">Three methods. Visible source context. Your league settings.</span><span class="v2-narrow">Three methods. One clear comparison.</span></p>
+      <p>Two numbers for every player. Here's what they mean.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
 
@@ -2273,7 +2273,7 @@
     <section class="v2-card v2-how-logic" aria-labelledby="v2HowLogicTitle">
       <h2 id="v2HowLogicTitle">The full value logic</h2>
       <p>Every step from a source's own numbers to a DDF Value, with the engine's own figures for a standard league: the checks, the curves, the weights, each source's recipe, and a player traced through every source. Rebuilt on every deploy.</p>
-      <p class="v2-how-links"><a class="v2-link" href="value-logic/">Open DDF Value Logic ↗</a></p>
+      <p class="v2-how-links"><a class="v2-link" href="value-logic/">Open DDF Value Logic</a></p>
     </section>
 
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
@@ -2286,7 +2286,7 @@
         <li><b>Week changes compare one source.</b> Risers and fallers compare the same source and method across two snapshots.</li>
         <li><b>Label and symbol.</b> Each publisher keeps one color, one symbol and its name everywhere, so color is never the only cue.</li>
       </ul>
-      <p class="v2-how-links"><a class="v2-link" href="#player-values">See every value ↗</a> <a class="v2-link" href="#trade-targets">Find trade targets ↗</a> <a class="v2-link" href="#compare-trade">Compare a trade ↗</a></p>
+      <p class="v2-how-links"><a class="v2-link" href="#player-values">See every value</a> <a class="v2-link" href="#trade-targets">Find trade targets</a> <a class="v2-link" href="#compare-trade">Compare a trade</a></p>
     </section>
 
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
@@ -2461,7 +2461,7 @@
   <main class="v2-wrap v2-main" id="v2Overrides" hidden aria-labelledby="v2OverridesTitle">
     <div class="v2-title">
       <h1 id="v2OverridesTitle">Overrides</h1>
-      <p>Choose what our value means, then adjust single players. Everything here applies on every tab, right away. Our methodology is the default.</p>
+      <p>Pick your value lens and tweak any player. It applies on every tab, right away. DDF Value is the default.</p>
     </div>
     <section class="v2-card v2-ov-card" id="v2OvBasis" aria-labelledby="v2OvBasisTitle"></section>
     <section class="v2-card v2-ov-card" id="v2OvSearchBox" aria-labelledby="v2OvPlayersTitle"></section>
@@ -2472,7 +2472,7 @@
   <main class="v2-wrap v2-main" id="v2Audit" hidden aria-labelledby="v2AuditTitle">
     <div class="v2-title">
       <h1 id="v2AuditTitle">Values auditing</h1>
-      <p>Check where a value comes from.</p>
+      <p>Trace any number back to where it came from.</p>
       <p class="v2-ov-warn" id="v2AuditBasisNote" role="status" hidden></p>
       <p class="v2-asof" data-page-asof></p>
     </div>
@@ -2831,11 +2831,11 @@
   </div>
 
   </div>
-  <script src="assets/value-model.js?v=tv-20261027-0014-1bdef712" defer></script>
-  <script src="assets/consolidation-index.js?v=tv-20261027-0014-1bdef712" defer></script>
-  <script src="assets/product-data.js?v=tv-20261027-0014-1bdef712" defer></script>
-  <script src="assets/curve-widget.js?v=tv-20261027-0014-1bdef712" defer></script>
-  <script src="assets/comparison-dashboard.js?v=tv-20261027-0014-1bdef712" defer></script>
+  <script src="assets/value-model.js?v=tv-20261028-0005-e62178c" defer></script>
+  <script src="assets/consolidation-index.js?v=tv-20261028-0005-e62178c" defer></script>
+  <script src="assets/product-data.js?v=tv-20261028-0005-e62178c" defer></script>
+  <script src="assets/curve-widget.js?v=tv-20261028-0005-e62178c" defer></script>
+  <script src="assets/comparison-dashboard.js?v=tv-20261028-0005-e62178c" defer></script>
   <script src="assets/player-tags.js" defer></script>
   <script src="v2/namesearch.js" defer></script>
   <script src="v2/targets.js" defer></script>
@@ -3307,7 +3307,7 @@
     wireModal("dataHealthBtn", "dataHealthDialog");
   })();
   </script>
-<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261027-0014-1bdef712</span></footer>
+<footer class="build-footer" style="text-align:center;font-size:11px;color:#8a949e;padding:12px"><span class="build-footer-item">Chart build <strong id="asOfDate">—</strong></span> · <span id="buildStamp">Build tv-20261028-0005-e62178c</span></footer>
   <script>
     // JEG-325 (2026-10-04): consolidate-init — bootstrap the ConsolidationIndex
     // when the detail fixture arrives, then keep the strangler-fig debug
