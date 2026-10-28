@@ -788,6 +788,8 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
+	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
 	python3 -m unittest tests.test_v2_chart_fit_render
@@ -806,6 +808,7 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
@@ -825,6 +828,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
+	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
 	python3 -m unittest tests.test_v2_override_adjustments_render
 
