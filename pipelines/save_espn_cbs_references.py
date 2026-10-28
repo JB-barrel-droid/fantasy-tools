@@ -383,6 +383,9 @@ def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
             continue
         pos, columns = mapping
         headers = [str(h) for h in table.get("headers", [])]
+        # Week 8 2026: the TE table's headers came in upper case ("NON").
+        # Column names are matched without regard to case.
+        lowered = [h.strip().lower() for h in headers]
         for raw_row in table.get("rows", []):
             cells = list(raw_row) if isinstance(raw_row, (list, tuple)) else []
             name = str(cells[0]).strip() if len(cells) > 0 else ""
@@ -407,10 +410,10 @@ def build_cbs_rows(json_path: Path, week: int, bake_id: str | None = None
             for header, scoring, qb_slots in (
                 [(h, sc, 1) for h, sc in columns]
                 + [(h, sc, 2) for h, sc in CBS_SUPERFLEX_COLUMNS.get(pos, [])
-                   if h in headers]
+                   if h.lower() in lowered]
             ):
                 try:
-                    col_idx = headers.index(header)
+                    col_idx = lowered.index(header.lower())
                 except ValueError:
                     review.append({"reason": "missing_column", "header": header, "player": name})
                     continue
