@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-28T00:02:21.099484+00:00",
+  "run_at": "2026-10-28T01:02:53.157903+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3 (WARNING list changed, filled in from other charts: usatoday-full-12-section full_12/QB list 36 -> 36: dropped carson wentz; added joe milton iii | usatoday-full-12-section full_12/RB list 86 -> 86: dropped jawhar jordan, najee harris; added devin singletary, elijah mitchell | usatoday-full-12-section full_12/TE list 38 -> 38: dropped zach ertz; added mason taylor | usatoday-half-12-section half_12/QB list 36 -> 36: dropped carson wentz; added joe milton iii | usatoday-half-12-section half_12/RB list 86 -> 86: dropped jawhar jordan, najee harris; added devin singletary, elijah mitchell | usatoday-half-12-section half_12/TE list 38 -> 38: dropped zach ertz; added mason taylor | usatoday-standard-12-section standard_12/QB list 36 -> 36: dropped carson wentz; added joe milton iii | usatoday-standard-12-section standard_12/RB list 86 -> 86: dropped jawhar jordan, najee harris; added devin singletary, elijah mitchell | usatoday-standard-12-section standard_12/TE list 38 -> 38: dropped zach ertz; added mason taylor)",
@@ -53,14 +53,14 @@
   },
   "held_detail": {
     "cbs": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: scrape_validity",
       "held_series": [
         "cbs"
       ],
       "sections": [
         "cbs"
       ],
-      "detail": "417/417 values match exactly across 6 columns; 0 value mismatches, 17 publisher players not stored, 0 stored players not on the page",
+      "detail": "player count dropped vs week 6: stored TE 10->0",
       "hold_severity": "red",
       "week": 8
     }
@@ -261,21 +261,26 @@
     }
   },
   "fidelity_holds": {
-    "cbs": "fidelity: publisher_vs_stored"
+    "cbs": "fidelity: scrape_validity"
   },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order"
+      "ERROR tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_a_reordered_lagging_chart_still_fails",
+      "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order",
+      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week",
+      "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition"
     ],
     "assertions": [
-      "AssertionError: Lists differ: [\"('standard', 8, 'null') cbs: no Indexed [911 chars]nks'] != []"
+      "AssertionError: Lists differ: [\"('standard', 8, 'null') cbs: no Indexed [911 chars]nks'] != []",
+      "AssertionError: Lists differ: [\"('ppr', 12, 'null') cbs: no Indexed values or native ranks\"] != []",
+      "AssertionError: Lists differ: ['usatoday'] != ['cbs', 'usatoday']"
     ],
     "make_targets": [
       "Makefile:555: test-core"
     ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; AssertionError: Lists differ: [\"('standard', 8, 'null') cbs: no Indexed [911 chars]nks'] != []",
-    "recorded_at": "2026-10-28T00:05:02.330966+00:00"
+    "detail": "ERROR tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_a_reordered_lagging_chart_still_fails; FAIL tests.test_rank_guard.TestEngineKeepsOrderEverySetting.test_indexed_order_equals_native_order; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition; AssertionError: Lists differ: [\"('standard', 8, 'null') cbs: no Indexed [911 chars]nks'] != []; AssertionError: Lists differ: [\"('ppr', 12, 'null') cbs: no Indexed values or native ranks\"] != []; AssertionError: Lists differ: ['usatoday'] != ['cbs', 'usatoday']",
+    "recorded_at": "2026-10-28T01:05:38.009192+00:00"
   }
 }

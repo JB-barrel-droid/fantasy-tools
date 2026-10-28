@@ -175,6 +175,7 @@
     <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
       <div class="v2-card-head v2-chart-head">
         <h2 id="v2ChartTitle">Trade value by player rank</h2>
+        <button type="button" class="v2-btn v2-fullscreen" id="v2FullScreen" aria-haspopup="dialog" aria-expanded="false">Full screen</button>
         <div class="v2-legend" id="v2Legend"></div>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
@@ -281,6 +282,11 @@
           </div>
           <button type="button" class="v2-select" id="v2AxisZoom" aria-pressed="true">Y axis fits the value range · On</button>
           <div class="v2-legend" id="v2ExpandLegend"></div>
+        </div>
+        <div class="v2-rotate-hint" id="v2RotateHint" role="status" hidden>
+          <span class="v2-rotate-icon" aria-hidden="true">&#x21BB;</span>
+          <span class="v2-rotate-text">Rotate your phone to landscape for a wider chart.</span>
+          <button type="button" class="v2-btn" id="v2RotateDismiss">Dismiss</button>
         </div>
         <div class="v2-expand-body" id="v2ExpandBody"></div>
       </div>
