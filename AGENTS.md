@@ -21,68 +21,31 @@ Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two agents
 on one code path, value changes paired with the Python reference on one branch,
 merges ordered so main stays green.
 
-## Who does what
+## Model tiers and responsibilities
 
-### Model tiers (the `Model tier` label)
+The Model tier label is the minimum capability:
 
-The label is the **minimum** model. Names rot, tiers don't. Pick the best
-current model in the lane.
+- **T1 deep:** value/engine math, methodology, unknown-root-cause debugging,
+  design, independent review, every merge and deploy.
+- **T2 build:** implementation against a written spec. Escalate to T1 after
+  two failed gate runs or when a published-number judgment is needed.
+- **T3 light:** copy, docs moves, research collection, hygiene and first drafts.
+  Never resolve player identity, edit fixtures or config, or change value math.
 
-| Tier | Claude subscription | ChatGPT subscription | OpenRouter / MiniMax | Use for |
-| -- | -- | -- | -- | -- |
-| **T1 deep** | Opus / Fable, high effort (`deep-worker`) | top GPT / Codex, high reasoning | not allowed | Engine and value math, methodology, any bug with unknown root cause, design, final review of T2/T3 output, every merge and deploy |
-| **T2 build** | Sonnet (`worker`) | Codex, medium | a strong open model (checked per task) | Implementation against a written spec: pullers, pipeline stages, migrations, FE built to a contract line, tests. Escalate to T1 after 2 failed gate runs |
-| **T3 light** | Haiku | small GPT | cheap OpenRouter models (e.g. DeepSeek); **MiniMax M3 only** (Jeremy 2026-10-09: 2.5 is out) | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
+Executing an approved value spec is T2 with T1 review. Other model families
+produce draft PRs; the Claude lead re-reads the diff, runs the gate and merges.
+T3 output is untrusted until the gate passes. Prefer a different model for
+independent review. MiniMax is M3 or newer only, never M2.5 or value math.
 
-Rules:
+Jeremy decides methodology, published-value rules, copy/product decisions
+and destructive production actions. Engineering choices stay with the lead;
+check existing decisions before asking again. Reversible picks may follow
+HANDOFF.md's newer logged-pick rule; a pick is not a deployment approval.
 
-1. **Designing or deriving value math is T1.** Anything that decides a
-   published value, a curve, a tier, or a waiver line. Executing an approved
-   spec (a config switch, porting a rule to a second path, a fixture refresh)
-   is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
-   until the cause is named.
-2. **Other model families never merge.** Their output is a draft PR on
-   `be/<ticket>` or `fe/<ticket>`. The Claude lead re-reads the diff, runs the
-   gate, and merges.
-3. **T3 output is untrusted** until the gate passes. T3 never resolves player
-   identity, edits fixtures, or touches `config/` values.
-4. A ticket that says T2 but needs a judgement call on the numbers is really
-   T1: relabel it.
-5. Reviews of T2/T3 work are T1, and are a different model from the author
-   where possible.
-
-### Routing
-
-| Work type | Route |
-| --- | --- |
-| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
-| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session, T1 (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
-| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
-
-- **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
-  ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
-  2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
-  2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
-- **Muse (Roman)** owns only Linear tickets labeled `muse` (Jeremy,
-  2026-10-26; one owner per ticket, see `HANDOFF.md` "Working with Muse").
-  On those it works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Otherwise Muse
-  works here only as a last resort when Jeremy asks. Muse output is untrusted
-  input until it passes the repo pipeline. Muse never
-  resolves player identity, edits fixtures, triages `review_rows`, pushes to
-  `main`, merges or closes PRs, or closes Linear issues.
-- **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
-  2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
-  more recent one Minimax added to the subscription"). Earlier rule (2026-10-09:
-  "I only want to use M3 if we use it. 2.5 stinks.") still holds: never M2.5,
-  never value math, output untrusted until the gate passes. The lanes/outbox
-  dispatch protocol was archived 2026-10-07 (`archive/2026-10-07/lanes/`).
-  `lanes/protocol.py` and `lanes/plan_status.py` stay only for existing tests.
-- **Supabase first** for schedules, checks and orchestration (pg_cron, Edge
-  Functions, the `monitoring` schema). GitHub Actions does the site build,
-  deploy and repo tests; pg_cron schedules any job that must run in Actions.
-- The lanes/outbox dispatch protocol is archived (`archive/2026-10-07/lanes/`);
-  `lanes/protocol.py` and `lanes/plan_status.py` stay only for existing tests.
+Supabase first for schedules/checks/orchestration (pg_cron, Edge Functions,
+monitoring); GitHub Actions builds/deploys/tests. The lanes/outbox dispatch
+protocol is retired; lanes/protocol.py and plan_status.py remain for tests.
+Old named harness/session assignments are history, not current ownership.
 
 ## Linear (team Jegabee, project Trade Value Chart)
 
@@ -109,7 +72,7 @@ directly. It closes when its last child closes.
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
 | Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | exactly one `Session` (owner), exactly one `Model tier`, and for back end one `BE priority`. |
+| Labels | One Model tier plus useful work type. Historical Session, owner, Wave and BE queue labels were removed by Jeremy's Oct 28 grooming request; do not restore them automatically. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -119,80 +82,45 @@ directly. It closes when its last child closes.
 * **High**: on the critical path of the current milestone.
 * **Medium**: next milestone.
 * **Low**: parked. Nobody picks it up unless the queue is empty.
-* **BE priority** (Now / Next / Then / Later) orders the back end within a
-  Linear priority. Now means start today.
 
-Backlog = not scheduled. Todo = in a session's queue. In Progress = an agent is
-working it now and heartbeats. **In Review = waiting on Jeremy** (with
-`needs-review` and the question plus a recommendation in a comment). Done =
-merged and live.
+Backlog = unscheduled; tracking parents are not direct work. Todo = ready to
+resume, including finishing a handed-off PR. In Progress = actively worked.
+In Review / needs-review = a real unresolved decision or explicit hold, with
+context/options/recommendation in the current brief. Done = merged and live.
 
-### Session ownership and takeover (Jeremy, 2026-10-10)
+### Ownership and handoff
 
-Several sessions work this repo at once: the back end, and the front end on the
-Windows PC, on the Mac and in the cloud, plus the hosted Claude Managed Agent.
-Linear decides who owns what.
+Use the groomed Linear queue and current PR activity, not old session labels.
+The assignee remains Jeremy; record the actual active worker and branch in
+one current status summary. Before claiming, check for overlapping hot files
+and an active heartbeat/commit/PR update within four hours. Do not overwrite
+another worker's current work; coordinate first. Jeremy can authorize takeover.
 
-- **Owner label.** Every ticket a session works carries exactly one label from
-  the `Session` group: `session:be`, `session:fe-pc`, `session:fe-mac`,
-  `session:fe-cloud` (Jeremy, 2026-10-24) or `session:cma` (the hosted Managed
-  Agent: queue run every 2 hours, up to 3 non-overlapping tickets in parallel,
-  merges on green gates; config and rules in `managed-agents/`, Jeremy
-  2026-10-27, JEG-1173). The label is the owner; the Linear
-  assignee stays Jeremy. The `owner:*` labels are retired.
-- **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that
-  carry its own Session label. Backlog is not the queue: a ticket enters it when
-  Jeremy moves it to Todo. At session start, and each time a ticket closes, the
-  session reads its queue and claims the top ticket:
-  - back end: by `BE priority`, then Linear priority;
-  - front end: by Linear priority, then oldest first.
-- **Unrouted tickets.** A Todo ticket with no Session label has no owner yet. A
-  session whose queue is empty routes the ones that are clearly its domain
-  (engine, pipelines, data and research math go to `session:be`; pages and copy
-  to a front-end session): it adds its label, comments `routed to <session>`,
-  and works its queue. If the domain is unclear, it adds `needs-review` and asks
-  Jeremy in a comment instead of guessing.
-- **Claim.** Before starting, a session sets the ticket In Progress, checks the
-  `Session` label is its own and that the ticket has one `Model tier` label,
-  and comments `taken by <session> · <UTC time> · branch <name>`. It doesn't
-  start a ticket that carries another session's label without a takeover.
-- **Heartbeat.** While a ticket is In Progress, the owner comments at least
-  every 4 hours of active work, at every push, and when it parks the ticket:
-  what's done, what's next, and the backup branch (`fe/<ticket>` or
-  `be/<ticket>`), pushed to GitHub at each heartbeat so work never lives on one
-  machine only.
-- **Lag and takeover.** Another session may take over a ticket when it is In
-  Progress with no heartbeat or commit for 4 hours; or its owner is offline or
-  idle and the taker's own queue is empty; or Jeremy says so. Comment `taking
-  over from <session> · last heartbeat <time> · continuing from <branch>`, swap
-  the Session label, continue from the backup branch. The previous owner, on
-  returning, reads the comment and doesn't resume.
-  The `session:cma` managed agent has a standing takeover (Jeremy, 2026-10-27,
-  JEG-1173: "You can take back any tickets assigned to other harnesses unless
-  you can tell they have sessions actively moving forward"): it may take any
-  Trade Value Chart ticket from another Session label, `muse` or `owner:*` that
-  shows no comment, commit or PR update in the last 4 hours. A session that
-  wants to keep a ticket keeps its heartbeat current.
-- **Idle hands.** A session with an empty queue may pick up another session's
-  **Todo** tickets (not In Progress ones), oldest priority first. It swaps the
-  label and comments `picked up by <session>`.
-- **Handoff.** A session that is stopping comments on each of its In Progress
-  tickets with its state and branch, then moves them back to Todo.
+Claim a Todo ticket by setting In Progress with the minimum Model tier and
+its branch. Update the same status summary on meaningful state changes and
+at least every four active hours; push validated work so it is recoverable.
+Do not append repeated routing, waiting or retry memos. When stopping, leave
+current state/branch/next check and return the ticket to Todo.
+
+Retired harnesses have no standing permission to reclaim tickets. JEG-1173
+tracks managed-agent teardown; do not infer schedules stopped from retirement.
 
 ### Decisions go to Jeremy as multiple choice
 
 Product, copy and method choices that are his are posted on the ticket as
-options with context and a recommendation; agents do not pick defaults
-(Jeremy, 2026-10-22, JEG-850). Add `needs-review`, move the ticket to In
-Review, and claim the next ticket rather than waiting. Batch questions and
+options with context and a recommendation; use the newer logged-pick exception
+in HANDOFF.md only where authorized. Add `needs-review`, move the ticket to
+In Review, and claim the next ticket rather than waiting. Batch questions and
 never repeat one he has answered; check the ticket first. When he answers, the
-owner quotes the decision with the date, removes `needs-review`, and moves the
+owner folds the dated decision into the current brief, removes `needs-review`, and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes
 a rule also lands in `docs/decisions.md`. Pre-launch, block only on wrong
 numbers and finish end to end.
 
-Ticket descriptions are working notes, not the record. A finished fact goes in
-`docs/` (indexed in `docs/README.md`) and is linked from the ticket.
+Keep the ticket/PR brief concise and current; synthesize settled discussions
+there, with links to evidence. A durable technical fact belongs in docs/
+(indexed in docs/README.md). For selective review reading and comment hygiene,
+see docs/review-context.md; old memos are not default review context.
 
 ## Hot files and merging
 
