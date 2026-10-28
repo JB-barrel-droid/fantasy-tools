@@ -267,16 +267,17 @@ class RubricTest(unittest.TestCase):
             self.assertEqual(page.evaluate("() => window.TradeValueCurveControls.getBasis().sources"), ["espn", "razzball"])
             self.assertEqual(s.errors, [])
 
-    def test_all_three_projections_ticked_carries_over_as_a_blend(self):
-        """JEG-1073 changed our methodology to the four trade charts, so the old default blend (all three
-        projections) is no longer our methodology: a saved choice carries over as a blend of what was ticked."""
+    def test_all_three_projections_ticked_maps_to_our_methodology(self):
+        """The old default blend (all three projections ticked) maps to our methodology, not a blend of the
+        three (Jeremy, 2026-10-27, JEG-1135; reverses the JEG-1073 carry-over). The legacy record is cleared."""
         seed = """() => { localStorage.setItem('ddf.v2.selection', JSON.stringify({v: 1, shown: ['ddf_value'], inputs: ['espn', 'cbsros', 'razzball'], rank: 'ddf_value'})); }"""
         with Session(init="(" + seed + ")()") as s:
             page = s.open("#player-values")
             basis = page.evaluate("() => window.TradeValueCurveControls.getBasis()")
-            self.assertEqual((basis["mode"], basis["sources"]), ("blend", ["espn", "cbsros", "razzball"]))
-            self.assertFalse(basis["isDefault"])
-            self.assertIn("carried over", page.inner_text("#v2OvNotice"))
+            self.assertTrue(basis["isDefault"], basis)
+            self.assertEqual(page.locator("#v2OvNotice", has_text="carried over").count(), 0)
+            legacy = json.loads(page.evaluate("() => localStorage.getItem('ddf.v2.selection')"))
+            self.assertIsNone(legacy["inputs"])
             self.assertEqual(s.errors, [])
 
     def test_v1_override_record_reads_as_v2_with_our_basis(self):

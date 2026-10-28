@@ -194,9 +194,9 @@
     try { record = JSON.parse(localStorage.getItem(LEGACY_SELECTION_KEY) || "null"); } catch (error) { return; }
     const inputs = record && Array.isArray(record.inputs) ? record.inputs.filter(key => LEGACY_PROJECTIONS.includes(key)) : [];
     if (!inputs.length) return;
-    // The old default (every projection ticked) is gone with JEG-1073; any projections they ticked carry over as
-    // the same equal-weight average of what was ticked.
-    if (inputs.length) {
+    // Every projection ticked was the old default: it maps to our methodology (Jeremy, 2026-10-27, JEG-1135).
+    // Fewer carry over as the same equal-weight average of what was ticked.
+    if (inputs.length < LEGACY_PROJECTIONS.length) {
       setBasisState({mode: "blend", sources: inputs, weights: Object.fromEntries(inputs.map(key => [key, 1]))});
       S.notice = "The DDF blend control has moved to the Overrides tab, with more options. Your previous selection has been carried over.";
     }
