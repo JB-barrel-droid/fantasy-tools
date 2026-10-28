@@ -1,0 +1,18 @@
+name: probe JEG-1156 live DDF Value (temporary, never merged)
+on:
+  push:
+    branches: [probe/jeg-1156-live]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - working-directory: tests/rendered_gate
+        run: npm ci
+      - run: npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+      - run: cp tools/probe/jeg1156_live.mjs tests/rendered_gate/ && node tests/rendered_gate/jeg1156_live.mjs
