@@ -117,13 +117,16 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
   and that USO still shows its good trades (DDF connector find_trades_league), then
   close JEG-1142. No edge deploy: get-values loads the published value-model.js.
-- **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:26 UTC):** PR #1043, branch
+- **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:37 UTC):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, draft pending CI and parent review. Main `79b9b435` integrated by merge,
   preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
   with overrides; on phones the indicator and Reset/Undo now use a separate strip immediately below the
   context row. All three states keep the row at 45px and its summary readable at 375/390px. Desktop keeps
   the indicator in its original row. The phone overflow menu is anchored to the row so Copy link fits on
-  tabs without Customize. Ten targeted tests pass. The tap sweep reports exactly the same 23 error groups
+  tabs without Customize. CI on reviewed head `68b95fa5` caught 2px summary clipping in DejaVu Sans at 375px;
+  tighter phone spacing fixes it and the regression now runs both fonts. Ten targeted tests pass locally.
+  See `docs/claude-log/2026-10-28-jeg-1134-fallback-font-ci.md` for this follow-up; new-head CI/review still required.
+  The tap sweep reports exactly the same 23 error groups
   as clean main; its Reviewed-chip mutation leaves other hit-area rules intact. Full CI and live checks
   remain pending; see `docs/claude-log/2026-10-28-jeg-1134-context-review-fixes.md`. Parent coordinates release: no merge,
   deploy or deletion by this lane. #1035 remains a separate Reviewed-chip change; #967 stays superseded.

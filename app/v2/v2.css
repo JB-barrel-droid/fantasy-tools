@@ -211,7 +211,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
    line to hide while closed). From 768 px the summary is not rendered and the row is as before. */
 .v2-ctx-summary { display: none; }
 @media (max-width: 767px) {
-  .v2-context .v2-ctx-summary { display: flex; align-items: center; gap: 8px; order: 0; flex: 1 1 0; min-width: 0; min-height: 44px;
+  .v2-context .v2-ctx-summary { display: flex; align-items: center; gap: 4px; order: 0; flex: 1 1 0; min-width: 0; min-height: 44px;
     padding: 0; border: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
   .v2-ctx-summary:focus-visible { outline: 2px solid var(--v2-action); outline-offset: 2px; border-radius: 4px; }
   .v2-ctx-summary-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -224,8 +224,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
   .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
   .v2-context.is-open .v2-ctx-league strong { display: none; }
+  /* Leave room for the full summary and a two-digit week in wider fallback fonts at 375px; retain 44px hit heights. */
+  .v2-context .v2-ctx-freshness { gap: 4px; padding-inline: 2px; flex-shrink: 0; }
   /* Anchor the overflow menu to the row: on tabs without Customize, ⋯ is too far left for a 240px right-aligned menu. */
-  .v2-context-inner { position: relative; }
+  .v2-context-inner { position: relative; column-gap: 4px; }
   .v2-context .v2-ctx-menuwrap { position: static; }
   .v2-context .v2-ctx-menu { left: 16px; right: 16px; top: 100%; min-width: 0; max-width: none; }
 }
