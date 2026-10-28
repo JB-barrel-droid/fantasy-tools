@@ -41,6 +41,8 @@ def setUpModule():
 V2_JS = ROOT / "app" / "v2" / "v2.js"
 PAGES = {"values": "#player-values", "targets": "#trade-targets", "risers": "#risers-fallers", "compare": "#compare-trade"}
 CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+# JEG-1073: ddf_value_charts is the same series as DDF Value (the Adjusted trade chart average), hidden via sameAs.
+HIDDEN_DUPLICATES = {"ddf_value_charts"}
 
 
 def _serve(body, content_type, route, *_):
@@ -121,6 +123,9 @@ def run_checks(v2_js=None) -> list[str]:
                 page.wait_for_timeout(300)
 
             known = page.evaluate("() => window.TradeValueCurveControls.getSourceInfo({includeComposite: true}).filter(i => !i.key.endsWith('_adjusted')).map(i => i.key)")
+            # JEG-863 / JEG-1073 (Jeremy, 2026-10-25): the duplicate DDF id is hidden from every picker (sameAs ddf_value),
+            # Customize included, so "every dataset" is every one a reader can pick.
+            known = [key for key in known if key not in HIDDEN_DUPLICATES]
             available = page.evaluate("() => window.TradeValueV2.view().info.filter(i => i.available).map(i => i.key)")
             snap = {}
             for name in PAGES:
@@ -131,6 +136,8 @@ def run_checks(v2_js=None) -> list[str]:
                 listed = {row["key"] for row in panel["rows"]}
                 if listed != set(known):
                     errors.append(f"[{name}] Customize lists {sorted(listed)}; every dataset is {sorted(known)}")
+                if listed & HIDDEN_DUPLICATES:
+                    errors.append(f"[{name}] Customize lists the hidden duplicate {sorted(listed & HIDDEN_DUPLICATES)}")
                 if name != "values" and "applies to" not in panel["summary"]:
                     errors.append(f"[{name}] summary does not say what it applies to: {panel['summary']!r}")
                 page.click("#v2Popover .v2-panel-close")

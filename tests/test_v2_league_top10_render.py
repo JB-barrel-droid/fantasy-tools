@@ -25,6 +25,20 @@ ROWS = "() => document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg-opp').len
 COUNT = "() => (document.getElementById('v2LgOppsCount') || {}).textContent || ''"
 
 
+def press(page, selector, errors, what, key=True):
+    """Press a paging button (Enter on focus, or a click). A button that is not on the page is a failure, not a
+    30 s Playwright timeout: on a broken build (e.g. "opens on 20") the next button can be missing."""
+    if not page.is_visible(selector):
+        errors.append(f"{what}: {selector} is not on the page")
+        return False
+    if key:
+        page.focus(selector)
+        page.keyboard.press("Enter")
+    else:
+        page.click(selector)
+    return True
+
+
 def check(browser, base, overrides=None):
     errors = []
     page = open_page(browser, base, overrides=overrides, errors=errors, tag="[top10] ")
@@ -37,30 +51,26 @@ def check(browser, base, overrides=None):
         errors.append(f"open state: {rows} rows, count {count!r}")
     if not page.is_visible("#v2LgOppsAll") or f"Show all ({total})" not in page.inner_text("#v2LgOppsAll"):
         errors.append(f"no 'Show all ({total})' button")
-    # Keyboard: focus the button and press Enter. A missing button is a failure to report, not a 30 s timeout.
-    if not page.is_visible("#v2LgOppsMore"):
-        errors.append("no 'Show 10 more' button")
+    # Keyboard: focus the button and press Enter.
+    if not press(page, "#v2LgOppsMore", errors, "Show 10 more"):
         page.close()
         return errors
-    page.focus("#v2LgOppsMore")
-    page.keyboard.press("Enter")
     page.wait_for_timeout(200)
     rows, count = page.evaluate(ROWS), page.evaluate(COUNT)
     if rows != 20 or count.strip() != f"Showing 20 of {total}":
         errors.append(f"after Show 10 more by keyboard: {rows} rows, {count!r}")
     if page.evaluate("() => document.activeElement && document.activeElement.id") != "v2LgOppsMore":
         errors.append("focus left Show 10 more after pressing it (a keyboard reader cannot press it again)")
-    if not page.is_visible("#v2LgOppsAll"):
-        errors.append("'Show all' button gone after Show 10 more")
+    if not press(page, "#v2LgOppsAll", errors, "Show all"):
         page.close()
         return errors
-    page.focus("#v2LgOppsAll")
-    page.keyboard.press("Enter")
     page.wait_for_timeout(300)
     rows, count = page.evaluate(ROWS), page.evaluate(COUNT)
     if rows != total or count.strip() != f"Showing {total} of {total}" or page.is_visible("#v2LgOppsMore"):
         errors.append(f"after Show all: {rows} rows, {count!r}")
-    page.click("#v2LgOppsLess")
+    if not press(page, "#v2LgOppsLess", errors, "Show top 10 only", key=False):
+        page.close()
+        return errors
     if page.evaluate(ROWS) != 10:
         errors.append("Show top 10 only did not return to 10 rows")
     # A filter that leaves few rows: no buttons, an honest count.

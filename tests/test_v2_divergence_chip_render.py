@@ -12,7 +12,7 @@ Serves the built page with assets/reference-freshness.json's source_divergence s
   * no page errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js that flags ok sources, drops the tooltip, and links
-inside the header button, and requires failures.
+the reviewed chip to its Linear ticket again, and requires failures.
 """
 from __future__ import annotations
 
@@ -231,8 +231,11 @@ PATCHES = {
     "ok sources flagged": ('if (status !== "warn" && status !== "investigate" && status !== "reviewed" && status !== "excluded") return null;',
                            'if (status === "n/a") return null;'),
     "tooltip dropped": ("    chip.title = message;\n", "    chip.title = '';\n"),
-    "link inside the header button": ('const href = (status === "reviewed" || status === "excluded") && !(opts && opts.noLink) ? resolutionHref(entry.resolution_issue) : "";',
-                                      'const href = (status === "reviewed" || status === "excluded") ? resolutionHref(entry.resolution_issue) : "";'),
+    # Was "link inside the header button" (drop the noLink option). Since a68b106c (#916, Jeremy 2026-10-25: the live
+    # dashboard has no links to Linear) the fixture's Linear ticket id never links, so that patch changed nothing on
+    # the page and could not be caught. This patch puts the ticket link back (the pre-#916 resolutionHref).
+    "Linear ticket linked again": (r'return /^https?:\/\//.test(text) && !/^https?:\/\/([^/]+\.)?linear\.app(\/|$)/i.test(text) ? text : "";',
+                                   r'return /^[A-Z]+-\d+$/.test(text) ? `https://linear.app/jegabee/issue/${text}` : text;'),
     "within-usual-range source flagged": ("usualGap <= 5;", "usualGap <= -999;"),
     "reviewed shown as check": ('const word = status === "excluded" ? "Excluded" : (status === "reviewed" ? "Reviewed" : (inRange ? "Normal range" : "Under review"));', 'const word = "Under review";'),
     "in range checkmark dropped": ('chip.insertAdjacentHTML("beforeend", \'<svg class="v2-ok-mark"', 'chip.insertAdjacentHTML("beforeend", \'<svg class="v2-x"'),

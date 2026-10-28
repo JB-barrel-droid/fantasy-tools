@@ -776,6 +776,7 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
+	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
 	python3 -m unittest tests.test_v2_chart_zones_render
 	python3 -m unittest tests.test_v2_customize_cleanup_render
@@ -796,6 +797,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
+	python3 -m unittest tests.test_v2_chart_fullscreen_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_advanced_render
 	python3 -m unittest tests.test_v2_ddf_versions_render
@@ -815,6 +817,7 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
+	python3 -m unittest tests.test_v2_consistency_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
 	python3 -m unittest tests.test_v2_chart_height_render
@@ -864,6 +867,9 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_values_tab_ux_render
 	python3 -m unittest tests.test_v2_writing_routes_render
 	python3 -m unittest tests.test_v2_finder_paste_render
+	python3 -m unittest tests.test_v2_chart_fullscreen_render
+	python3 -m unittest tests.test_v2_consistency_render
+	python3 -m unittest tests.test_v2_paste_only_render
 	# Render modules added on main after the sweep (wired here so the coverage guard passes; green status not yet verified).
 	python3 -m unittest tests.test_basis_overrides_render
 	python3 -m unittest tests.test_v2_all_projections_paused_render
