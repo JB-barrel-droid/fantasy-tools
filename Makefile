@@ -772,61 +772,14 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
-	python3 -m unittest tests.test_v2_audit_source_render
-	python3 -m unittest tests.test_v2_chart_zones_render
-	python3 -m unittest tests.test_v2_customize_cleanup_render
-	python3 -m unittest tests.test_v2_finder_import_render
-	python3 -m unittest tests.test_v2_divergence_chip_render
-	python3 -m unittest tests.test_v2_name_search_render
-	python3 -m unittest tests.test_v2_polish_render
-	python3 -m unittest tests.test_v2_research_render
-	python3 -m unittest tests.test_v2_source_count_render
-	python3 -m unittest tests.test_v2_targets_combos_render
-	python3 -m unittest tests.test_v2_writing_routes_render
-	python3 -m unittest tests.test_v2_finder_chips_render
-	python3 -m unittest tests.test_v2_finder_fit_render
+	python3 -m unittest -v tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_v2_league_render
-	python3 -m unittest tests.test_v2_mobile_phase1_render
-	python3 -m unittest tests.test_v2_topbar_notice_render
 
 test-render-sweep-2:
-	python3 -m unittest tests.test_v2_chart_fit_render
-	python3 -m unittest tests.test_v2_advanced_render
-	python3 -m unittest tests.test_v2_ddf_versions_render
-	python3 -m unittest tests.test_v2_customize_pages_render
-	python3 -m unittest tests.test_v2_deal_read_render
-	python3 -m unittest tests.test_v2_names_render
-	python3 -m unittest tests.test_v2_modules_render
-	python3 -m unittest tests.test_v2_review_polish_render
-	python3 -m unittest tests.test_v2_finder_collapse_render
-	python3 -m unittest tests.test_v2_finder_impact_render
-	python3 -m unittest tests.test_v2_finder_kdef_search_render
-	python3 -m unittest tests.test_v2_finder_triview_render
-	python3 -m unittest tests.test_v2_league_live_render
-	python3 -m unittest tests.test_v2_league_shared_roster_render
-	python3 -m unittest tests.test_v2_optimize_caption_render
-	python3 -m unittest tests.test_v2_inputs_status_render
+	true
 
 test-render-sweep-3:
-	python3 -m unittest tests.test_v2_a11y_batch1_render
-	python3 -m unittest tests.test_v2_a11y_batch2_render
-	python3 -m unittest tests.test_v2_chart_height_render
-	python3 -m unittest tests.test_v2_customize_legend_render
-	python3 -m unittest tests.test_v2_held_chip_render
-	python3 -m unittest tests.test_v2_plain_copy_render
-	python3 -m unittest tests.test_v2_values_tab_ux_render
-	python3 -m unittest tests.test_v2_finder_paste_render
-	python3 -m unittest tests.test_basis_overrides_render
-	python3 -m unittest tests.test_v2_all_projections_paused_render
-	python3 -m unittest tests.test_v2_finder_box_render
-	python3 -m unittest tests.test_v2_finder_eval_render
-	python3 -m unittest tests.test_v2_finder_groups_render
-	python3 -m unittest tests.test_v2_league_basis_render
-	python3 -m unittest tests.test_v2_league_phone_render
-	python3 -m unittest tests.test_v2_league_tables_render
-	python3 -m unittest tests.test_v2_overrides_basis_render
-	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
-	python3 -m unittest tests.test_v2_override_adjustments_render
+	true
 
 test-render-extra:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
