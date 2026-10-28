@@ -593,6 +593,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -725,6 +726,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js

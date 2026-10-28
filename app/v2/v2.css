@@ -1692,6 +1692,16 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar { flex-wrap: wrap; gap: 8px 16px; align-items: center; }
 #v2Find .v2-ctoolbar input[type="checkbox"] { width: 20px; height: 20px; }
 #v2Find .v2-ctoolbar label.v2-field { min-height: 44px; }
+.v2-find-protect { margin: 12px 0; padding: 12px 16px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); }
+.v2-find-protect legend { font-weight: 700; padding: 0 4px; }
+.v2-find-protect .v2-meta { margin: 2px 0 8px; }
+.v2-find-protect-choices { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.v2-find-protect-choice { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; cursor: pointer; }
+.v2-find-protect-choice input { width: 20px; height: 20px; }
+.v2-find-advanced { margin: 8px 0 14px; }
+.v2-find-advanced summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.v2-find-minimum { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 44px; margin: 6px 0; }
+.v2-find-minimum input { box-sizing: border-box; width: 112px; min-height: 44px; padding: 6px 10px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); color: inherit; font: inherit; }
 
 /* JEG-853: at 320 px in a wide face (+3 px) the Package size select pushed the page 84 px sideways; the field wraps and the select shrinks. */
 #v2Find .v2-ctoolbar label.v2-field { flex-wrap: wrap; max-width: 100%; min-width: 0; }

@@ -87,6 +87,42 @@
       theirs: lineupIssues(sanity.theirCounts, getRows, giveRows, sanity.shape)};
     return {issues, passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))};
   }
+  const GUARDRAIL_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const activeGuardrails = g => Boolean(g && ((Array.isArray(g.protectedPositions) && g.protectedPositions.length)
+    || g.minDdfEdge > 0 || typeof g.minUserLineupGain === "number" || typeof g.minTheirLineupGain === "number"));
+  // Mirrors viability.ts's neverWeaker guardrail using this page's existing starter picker and DDF values.
+  function judgeGuardrails(giveRows, getRows, guardrails) {
+    if (!guardrails || !guardrails.shape) return true;
+    const protectedPositions = Array.isArray(guardrails.protectedPositions) ? guardrails.protectedPositions : [];
+    const userMinimum = guardrails.minUserLineupGain;
+    const theirMinimum = guardrails.minTheirLineupGain;
+    if (!protectedPositions.length && userMinimum == null && theirMinimum == null) return true;
+    const valueKey = guardrails.ourKey || OUR_KEY;
+    const after = rosterAfter(guardrails.mine, giveRows, getRows);
+    if (protectedPositions.length) {
+      const beforePicked = pickStarters(guardrails.mine, guardrails.shape, valueKey);
+      const afterPicked = pickStarters(after, guardrails.shape, valueKey);
+      for (const pos of protectedPositions) {
+        if (!GUARDRAIL_POSITIONS.includes(pos)) continue;
+        const valueAt = picked => picked.starters.filter(r => r.pos === pos).reduce((sum, r) => sum + r.values[valueKey], 0);
+        if (valueAt(afterPicked) < valueAt(beforePicked) - 0.05) return false;
+      }
+    }
+    if (typeof userMinimum === "number" && Number.isFinite(userMinimum)) {
+      if (!(rosterImpact(guardrails.mine, giveRows, getRows, guardrails.shape, valueKey).starterDelta > userMinimum)) return false;
+    }
+    if (typeof theirMinimum === "number" && Number.isFinite(theirMinimum)) {
+      const charts = guardrails.chartKeys || CHART_KEYS;
+      const theirImpact = rosterImpact(withChartAverage(guardrails.theirs, charts), withChartAverage(getRows, charts),
+        withChartAverage(giveRows, charts), guardrails.shape, MARKET_KEY);
+      if (!(theirImpact.starterDelta > theirMinimum)) return false;
+    }
+    return true;
+  }
+  function rosterAfter(roster, leaving, arriving) {
+    const gone = new Set(leaving.map(r => String(r.player_key)));
+    return roster.filter(r => !gone.has(String(r.player_key))).concat(arriving);
+  }
   const scoreOf = (edge, players) => edge * (1 - EXTRA_PLAYER_WEIGHT * (players - 2));
   // Any package, judged exactly as the search judges it. ctx comes from findTrades (result.ctx).
   function evaluateCombo(giveRows, receiveRows, ctx) {
@@ -96,7 +132,9 @@
     const edge = judged.edge;
     return {edge, charts: judged.charts, pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, issues: lineup.issues,
       score: edge === null ? null : scoreOf(edge, giveRows.length + receiveRows.length),
-      passes: {edge: judged.passes.edge, charts: judged.passes.charts, lineup: lineup.passes}};
+      passes: {edge: judged.passes.edge && (!(ctx.guardrails && ctx.guardrails.minDdfEdge > 0) || edge > ctx.guardrails.minDdfEdge),
+        charts: judged.passes.charts, lineup: lineup.passes,
+        ...(ctx.guardrails ? {guardrails: judgeGuardrails(giveRows, receiveRows, ctx.guardrails)} : {})}};
   }
 
   // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
@@ -110,9 +148,11 @@
     const chartKeys = (o.chartKeys || CHART_KEYS).slice();
     const minCharts = o.minCharts || Math.min(MIN_CHARTS, chartKeys.length);
     const limit = o.limit || LIMIT;
+    const guardrails = activeGuardrails(o.guardrails) ? o.guardrails : null;
     // Optional roster sanity: {shape, mine, theirs (all the side's rows), keepMine, keepTheirs}.
     const sanity = o.sanity ? {...o.sanity, mineCounts: countByPos(o.sanity.mine || []), theirCounts: countByPos(o.sanity.theirs || [])} : null;
     let sanityDropped = 0;
+    let guardrailDropped = 0;
     const mineP = pool(mine, ourKey, maxSize);
     const theirsP = pool(theirs, ourKey, maxSize);
     const keys = [ourKey].concat(chartKeys);
@@ -163,6 +203,8 @@
         }
         const lineup = judgeLineup(giveRows, getRows, sanity);
         if (!lineup.passes) { sanityDropped += 1; continue; }
+        if (guardrails && ((guardrails.minDdfEdge > 0 && !(verdict.edge > guardrails.minDdfEdge))
+          || !judgeGuardrails(giveRows, getRows, guardrails))) { guardrailDropped += 1; continue; }
         const entry = {give: giveRows, receive: getRows, edge: verdict.edge, charts: verdict.charts, issues: lineup.issues,
           pricedCharts: verdict.pricedCharts, rivalOkCount: verdict.rivalOkCount, score: scoreOf(verdict.edge, giveRows.length + getRows.length),
           ...(addedThrowIns.length ? {addedThrowIns} : {}), ...(unbalanced ? {unbalanced: true} : {})};
@@ -181,8 +223,9 @@
       || (a.give.length + a.receive.length) - (b.give.length + b.receive.length)
       || idOf(a).localeCompare(idOf(b)));
     const collapsed = collapseThrowIns(found, chartKeys, ourKey);
-    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped, ourKey, chartKeys, minCharts, maxSize,
-      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity}};
+    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped,
+      ...(guardrails ? {guardrailDropped} : {}), ourKey, chartKeys, minCharts, maxSize,
+      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity, ...(guardrails ? {guardrails} : {})}};
   }
   const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
 
@@ -839,6 +882,12 @@
     parts.push(`size=${MAX_SIZE_CHOICES.includes(size) ? size : 2}`);
     parts.push(`km=${s.keepMine === false ? 0 : 1}`);
     parts.push(`kt=${s.keepTheirs === false ? 0 : 1}`);
+    const g = s.guardrails || {};
+    const positions = GUARDRAIL_POSITIONS.filter(pos => Array.isArray(g.protectedPositions) && g.protectedPositions.includes(pos));
+    if (positions.length) parts.push(`protect=${positions.join(",")}`);
+    if (g.minDdfEdge > 0) parts.push(`minEdge=${g.minDdfEdge}`);
+    if (g.minUserLineupGain !== null && g.minUserLineupGain !== undefined) parts.push(`minMine=${g.minUserLineupGain}`);
+    if (g.minTheirLineupGain !== null && g.minTheirLineupGain !== undefined) parts.push(`minTheirs=${g.minTheirLineupGain}`);
     const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
     if (tail) parts.push(tail);
     return `#find-trade?${parts.join("&")}`;
@@ -873,8 +922,17 @@
     const both = theirsAll.filter(k => mineSet.has(k));
     const theirs = theirsAll.filter(k => !mineSet.has(k));
     const size = Number(params.get("size"));
+    const validMinimum = name => {
+      if (!params.has(name)) return null;
+      const raw = params.get(name);
+      if (!/^(?:\d{1,3})(?:\.\d)?$/.test(raw)) return null;
+      const n = Number(raw);
+      return n <= 100 ? n : null;
+    };
     return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
-      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length};
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length,
+      guardrails: {protectedPositions: GUARDRAIL_POSITIONS.filter(pos => (params.get("protect") || "").split(",").includes(pos)),
+        minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
 
   const api = {encodeFinderHash, decodeFinderHash, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
@@ -888,7 +946,9 @@
   // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
-const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
+const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
+    guardrails: {protectedPositions: [], minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null},
+    sel: new Set(), undo: null, label: {mine: "", theirs: ""},
     src: {mine: null, theirs: null}, removed: new Set(), answered: new Set(), viableOnly: false};
   const renders = {};
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
@@ -896,6 +956,29 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // JEG-1021: "my roster" is one list: this card's "Your roster", the league's marked team and the Waivers tab all read and write the
   // workspace store (workspace.js). A change here is pushed to it; a change there (the league page, Waivers, another tab) is pulled in.
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
+  const savedSettings = () => {
+    const W = root.TradeValueWorkspace;
+    return W && W.store ? W.normalizeFinderSettings(W.store.get().ui.finderSettings) : null;
+  };
+  const applySettings = settings => {
+    if (!settings) return;
+    S.keepMine = settings.keepMine;
+    S.keepTheirs = settings.keepTheirs;
+    S.guardrails = {protectedPositions: settings.protectedPositions.slice(), minDdfEdge: settings.minDdfEdge,
+      minUserLineupGain: settings.minUserLineupGain, minTheirLineupGain: settings.minTheirLineupGain};
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    GUARDRAIL_POSITIONS.forEach(pos => { const box = $(`v2FindProtect${pos}`); if (box) box.checked = S.guardrails.protectedPositions.includes(pos); });
+    [["minDdfEdge", "v2FindMinEdge"], ["minUserLineupGain", "v2FindMinMine"], ["minTheirLineupGain", "v2FindMinTheirs"]].forEach(([key, id]) => {
+      const input = $(id); if (input) input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+    });
+  };
+  const saveSettings = () => {
+    const W = root.TradeValueWorkspace;
+    if (!W || !W.store) return;
+    const value = W.normalizeFinderSettings({...S.guardrails, keepMine: S.keepMine, keepTheirs: S.keepTheirs});
+    W.store.update(w => W.ops.setUi(w, {finderSettings: value}), "finder-settings");
+  };
   const keysOf = list => list.map(p => p.key).join(",");
   let syncing = false;
   let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
@@ -952,6 +1035,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.maxSize = decoded.size;
     S.keepMine = decoded.keepMine;
     S.keepTheirs = decoded.keepTheirs;
+    applySettings({...decoded.guardrails, keepMine: decoded.keepMine, keepTheirs: decoded.keepTheirs});
     const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
     const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
     const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
@@ -965,11 +1049,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
     if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
     const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
-    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs}, league);
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails}, league);
     const ov = root.DDFOverrides;
     const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
     const url = location.href.split("#")[0] + shared.hash;
-    say("\u2713 Link copied. It opens this search with both rosters, the package size and your lineup ticks.");
+    say("\u2713 Link copied. It opens this search with both rosters and these trade settings.");
     if (button) {
       if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
       button.textContent = "Copied";
@@ -1661,7 +1745,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       rosterGaps(rows, shape).forEach(g => note(`${who} roster has ${g.have} ${g.pos} for ${g.need} starting slot${g.need === 1 ? "" : "s"} in this league.`));
     });
     const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize, limit: 1e7,
+      guardrails: {...S.guardrails, shape, mine: mineRows, theirs: theirRows, chartKeys: charts, ourKey: OUR_KEY},
       sanity: shape ? {shape, mine: mineRows, theirs: theirRows, keepMine: S.keepMine, keepTheirs: S.keepTheirs} : null});
+    if (res.guardrailDropped) note(`${res.guardrailDropped} trade${res.guardrailDropped === 1 ? " was" : "s were"} left out by your protected positions or Advanced minimums.`);
     if (res.sanityDropped) note(`${res.sanityDropped} trade${res.sanityDropped === 1 ? "" : "s"} left out because ${res.sanityDropped === 1 ? "it leaves" : "they leave"} a starting lineup short at a position. Untick the boxes below to see ${res.sanityDropped === 1 ? "it" : "them"}.`);
     // JEG-988: defenses and kickers stay on the rosters and are not evaluated: they are named apart from players who merely lack a value.
     const notEval = S.mine.concat(S.theirs).filter(isNotEvaluated).length;
@@ -1912,6 +1998,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
       if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
+      if (e.passes.guardrails === false) warn.push("It breaks your protected positions or Advanced minimums.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give, same.throwIns.receive) : [];
       // JEG-1059: the badge that marks a value the reader set, next to the throw-in's DDF Value.
@@ -2135,9 +2222,55 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const keep = (id, label, field) => {
       const box = el("input", {type: "checkbox", id});
       box.checked = S[field];
-      box.addEventListener("change", () => { S[field] = box.checked; clearOutput(); });
+      box.addEventListener("change", () => { S[field] = box.checked; saveSettings(); clearOutput(); });
       return el("label", {class: "v2-field"}, box, el("span", {text: ` ${label}`}));
     };
+    const protectedBoxes = GUARDRAIL_POSITIONS.map(pos => {
+      const box = el("input", {type: "checkbox", id: `v2FindProtect${pos}`});
+      box.checked = S.guardrails.protectedPositions.includes(pos);
+      box.addEventListener("change", () => {
+        S.guardrails.protectedPositions = GUARDRAIL_POSITIONS.filter(p => {
+          const input = $(`v2FindProtect${p}`); return input && input.checked;
+        });
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-protect-choice"}, box, el("span", {text: pos}));
+    });
+    const protectedField = el("fieldset", {class: "v2-find-protect"},
+      el("legend", {text: "Protect my starting group at"}),
+      el("p", {class: "v2-meta", text: "Hide trades that weaken your starters at a selected position on DDF Value."}),
+      el("div", {class: "v2-find-protect-choices"}, ...protectedBoxes));
+    const advancedStatus = el("p", {class: "v2-meta", id: "v2FindAdvancedStatus", role: "status"});
+    const minimum = (key, id, label) => {
+      const input = el("input", {type: "number", id, min: "0", max: "100", step: "0.1", inputmode: "decimal"});
+      input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+      input.addEventListener("change", () => {
+        const raw = input.value.trim();
+        const valid = (raw === "" && key !== "minDdfEdge") || (/^\d{1,3}(?:\.\d)?$/.test(raw) && Number(raw) <= 100);
+        if (!valid) {
+          advancedStatus.textContent = `${label}: enter 0 to 100, in steps of 0.1.`;
+          input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+          input.focus();
+          return;
+        }
+        S.guardrails[key] = raw === "" ? null : Number(raw);
+        advancedStatus.textContent = "Trade settings saved on this device.";
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-minimum"}, el("span", {text: label}), input);
+    };
+    const advanced = el("details", {class: "v2-find-advanced"}, el("summary", {text: "Advanced trade minimums"}),
+      el("p", {class: "v2-meta", text: "A starting-lineup minimum is off when blank. Setting it to 0 requires a strictly positive gain. Your DDF Value gain must always be positive."}),
+      minimum("minDdfEdge", "v2FindMinEdge", "Minimum DDF Value gain"),
+      minimum("minUserLineupGain", "v2FindMinMine", "Minimum gain for my starting lineup"),
+      minimum("minTheirLineupGain", "v2FindMinTheirs", "Minimum market gain for their starting lineup"), advancedStatus,
+      el("button", {type: "button", class: "v2-btn", id: "v2FindResetSettings", text: "Reset trade settings"}));
+    advanced.querySelector("#v2FindResetSettings").addEventListener("click", () => {
+      applySettings({protectedPositions: [], keepMine: true, keepTheirs: true,
+        minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null});
+      advancedStatus.textContent = "Trade settings reset and saved.";
+      saveSettings(); clearOutput();
+    });
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
     go.addEventListener("click", findPressed);
     const share = el("button", {type: "button", class: "v2-btn", id: "v2FindShare", text: "Copy link to this search"});
@@ -2163,6 +2296,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go, share),
+      protectedField, advanced,
       el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
@@ -2175,8 +2309,15 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
   api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
-  if (sharedStore()) sharedStore().subscribe(pullMine);
-  const start = () => { build(); pullMine(); };
+  if (sharedStore()) {
+    sharedStore().subscribe(pullMine);
+    sharedStore().onChange((w, change) => {
+      if (!["load", "replace", "other-tab"].includes(change.reason)) return;
+      applySettings(root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings));
+      if ($("v2FindOut")) clearOutput();
+    });
+  }
+  const start = () => { applySettings(savedSettings()); build(); pullMine(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);
