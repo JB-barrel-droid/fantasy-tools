@@ -30,3 +30,13 @@ commits, leave presentation choices to Jeremy. Branch `fix/sweep-shard1-a`, not 
   render run (the CI log download is blocked here). Presentation choice for Jeremy.
 - The mutation "Reviewed chip loses its hit area" is caught today only because (a) makes the tap check fail anyway:
   since #916 no chip is a link in the published data. It needs a pinned public resolution URL once (a) is fixed.
+
+### Follow-up: 4(a) hit area (coordinator, from the CI log: the 28 messages are the footer link repeated)
+- app/v2/v2.css: on `(max-width: 767px), (pointer: coarse)`, the footer link `#v2AssistLine a.v2-link` and the two Find a
+  trade intro links (`#v2FindTrade` / `#v2FindLeague .v2-title p a.v2-link`, also inline `a.v2-link`, so the same failure
+  where the check looks) get the JEG-1048 chip pattern (b4c74bf6): `position: relative` plus a centred empty 44 x 44
+  `::after`. No visual change; follows the 44 x 44 rule in docs/v2-design-notes.md.
+- Verified (comment-stripped brace count balanced in v2.css). Claimed, not confirmed: the tap check passes and the overlap
+  guard (test_v2_phone_tap_targets_render) finds nothing. Reasoned from layout only: the ::after reaches 14.5 px past the
+  footer link, inside the footer's 16 px / 28 px padding, with no other control in the footer. The find pages are not in
+  the overlap guard's tab list. Not rendered (no Chromium).
