@@ -62,8 +62,10 @@ assert.equal(defaults.minUserLineupGain, null);
 assert.deepEqual(defaults.minBackups, {QB: 0, RB: 0, WR: 0, TE: 0});
 assert.equal(defaults.maxSize, 2);
 const settings = W.normalizeFinderSettings({protectedPositions: ['RB', 'BAD', 'RB', 'WR'], keepMine: false,
-  minDdfEdge: 2.5, minUserLineupGain: 0, minTheirLineupGain: 1.2});
+  maxSize: 1, minBackups: {RB: 2}, minDdfEdge: 2.5, minUserLineupGain: 0, minTheirLineupGain: 1.2});
 assert.deepEqual(settings.protectedPositions, ['RB', 'WR']);
+assert.equal(settings.maxSize, 1);
+assert.equal(settings.minBackups.RB, 2);
 assert.equal(W.normalizeFinderSettings({minDdfEdge: -2, minUserLineupGain: '10', minTheirLineupGain: 101}).minTheirLineupGain, null);
 assert.deepEqual(W.normalizeFinderSettings({minBackups: {RB: 2, WR: -1, QB: 21}, maxSize: 1}).minBackups,
   {QB: 0, RB: 2, WR: 0, TE: 0});
