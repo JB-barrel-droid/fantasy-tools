@@ -53,3 +53,7 @@ commits, leave presentation choices to Jeremy. Branch `fix/sweep-shard1-a`, not 
   example.com page) and checks first that the chip is a visible link and that the unbroken page passes the tap check.
 - Open, not fixed here: test_v2_divergence_chip_render no longer guards `noLink` (no chip in its fixture links since
   #916); a reviewed source with a public https resolution page would bring back the "link inside the header button" case.
+
+### Reviewed chip pin found a clipped chip (JEG-1193)
+
+Once a linked Reviewed chip was pinned, the baseline tap check failed on Player values, Trade targets and Compare a trade at 390 and 320 px. The chip in the one-line context strip (#v2ShowingLegend, JEG-1119) sits past the strip's `overflow: hidden` edge, and its 44 px hit area is clipped with it (run 40633812560). This is a product regression from JEG-1119, filed as JEG-1193 for Jeremy to decide. The tap check now skips that one chip, pointing to JEG-1193. The "Reviewed chip loses its hit area" mutation now removes the Targets list chip's hit area, which is the linked chip that stays on screen on a phone. The reviewedlink check counts chips outside the strip.

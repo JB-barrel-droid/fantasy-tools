@@ -62,6 +62,8 @@ TAP = r"""() => {
   const bad = [];
   for (const el of document.querySelectorAll(sel.split(', ').map(s => '.v2-app ' + s).join(', '))) {
     if (!el.checkVisibility() || el.closest(CHART) || el.matches('input[type=hidden]')) continue;
+    // JEG-1193: the one-line context strip (JEG-1119) clips its legend, Reviewed chip included; tracked there, not here.
+    if (el.matches('#v2ShowingLegend a.v2-div-chip')) continue;
     // A checkbox or radio is tapped through its label.
     const box = el.matches('input[type=checkbox], input[type=radio]') && el.labels && el.labels[0] ? el.labels[0] : el;
     box.scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'});
@@ -266,12 +268,12 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                         go(page, tab)
                         errors += [f"[{width}x{height}] {tab}: tap target under 44x44 {e}" for e in page.evaluate(TAP)]
                     ctx.close()
-            if "reviewedlink" in checks:   # the pinned Reviewed chip is a visible link the tap check measures
+            if "reviewedlink" in checks:   # the pinned Reviewed chip is a visible link the tap check measures (outside the JEG-1193 strip)
                 ctx, page = open_page(*PHONES[0], True)
                 seen = 0
                 for tab in TAP_TABS:
                     go(page, tab)
-                    seen += page.evaluate("() => [...document.querySelectorAll('.v2-app a.v2-div-chip[data-status=reviewed][href]')].filter(a => a.checkVisibility()).length")
+                    seen += page.evaluate("() => [...document.querySelectorAll('.v2-app a.v2-div-chip[data-status=reviewed][href]')].filter(a => a.checkVisibility() && !a.closest('#v2ShowingLegend')).length")
                 if not seen:
                     errors.append("no visible linked Reviewed chip on " + ", ".join(TAP_TABS))
                 ctx.close()
@@ -364,9 +366,10 @@ class MobilePhase1RenderTest(unittest.TestCase):
             "suffix dropped from the last name": ("names", {"name-format.js": (NAMEFMT_JS.replace("var SUFFIX_RE = /^(jr|sr|ii|iii|iv|v)\\.?$/i;", "var SUFFIX_RE = /^$/;", 1), "application/javascript")}, None),
             "names no longer clip": ("names", {"v2.css": (css + "\n@media (max-width: 767px), (pointer: coarse) { .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { text-overflow: clip; white-space: normal; } }\n", text_css)}, None),
             # JEG-1048: the Reviewed chip is a link (JEG-609) and needs its 44 px hit area; a header chip word must not be a 0 px text node.
-            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css),
+            # The chip that stays on screen on a phone is Targets' (the context strip's is clipped, JEG-1193).
+            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace(".v2-tdiv-item a.v2-div-chip::after, .v2-ttable a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css),
                                                          "assets/reference-freshness.json": (reviewed, "application/json")},
-                                                  "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
+                                                  ".v2-tdiv-item a.v2-div-chip::after, .v2-ttable a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
             "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css),
                                                            "assets/reference-freshness.json": (flagged, "application/json")},
                                                   ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }"),
