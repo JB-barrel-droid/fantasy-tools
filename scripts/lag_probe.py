@@ -60,8 +60,10 @@ def apply():
         on = [s for s in combo["native"] if keys.get(s) in anchor]
         factor = (sum(max(0.0, anchor[keys[s]]) for s in on) / sum(float(combo["native"][s]) for s in on))
         fit = combo["fit"]["order_preserving_rescale"]
-        fit.update(factor=factor, n_priced=len(on))
         off = sorted(s for s in combo["native"] if s not in on)
+        fit.update(factor=factor, n_priced=len(on), n_uncalibrated=len(off),
+                   native_total=sum(float(combo["native"][s]) for s in on),
+                   anchor_total=sum(max(0.0, anchor[keys[s]]) for s in on))
         if off:
             combo["not_on_espn"] = off
         else:
