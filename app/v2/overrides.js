@@ -57,9 +57,31 @@
 
   const $ = id => document.getElementById(id);
   const finite = v => typeof v === "number" && Number.isFinite(v);
-  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1)) : "—");
-  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "±0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
+  const fmt = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : v.toFixed(1).replace("-", "−")) : "—");
+  const signed = v => (finite(v) ? (Math.abs(v) < 0.05 ? "0.0" : (v > 0 ? "+" : "−") + Math.abs(v).toFixed(1)) : "—");
   const round1 = v => Math.round(v * 10) / 10;
+  // JEG-1058: an override is either an absolute value (a number) or an adjustment
+  // to the pipeline's own value ({type: "adjustment", delta}). The fixed-pie scale
+  // caps what an override can say (spec 3.6).
+  const OVERRIDE_MIN = 0;
+  const OVERRIDE_MAX = 100;
+  const isAdjustment = entry => !!(entry && typeof entry === "object" && entry.type === "adjustment");
+  // JEG-1058: every override that arrives from outside the editor (a share
+  // link, an import, a saved record) is put on the scale the editor shows: an
+  // absolute value between 0 and 100, an adjustment within the scale's span.
+  // The value it produces is the same either way, because the result is
+  // capped anyway; the adjustment is capped so it always fits a packed link.
+  const clampOverrideValue = v => round1(Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, v)));
+  const clampOverrideDelta = d => round1(Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, d)));
+  function normalizeEntry(entry) {
+    if (isAdjustment(entry)) {
+      const delta = Number(entry.delta);
+      if (!Number.isFinite(delta) || delta === 0) return null;
+      return {type: "adjustment", delta: clampOverrideDelta(delta)};
+    }
+    if (!finite(entry) || entry < OVERRIDE_MIN) return null;
+    return clampOverrideValue(entry);
+  }
   function el(tag, attrs, kids) {
     const node = document.createElement(tag);
     Object.entries(attrs || {}).forEach(([k, v]) => {
@@ -128,12 +150,17 @@
   // ---------- storage ----------
   // v1 (JEG-1035): {values, names}. v2 (JEG-1044): adds basis. A v1 record reads as our methodology; the retired
   // Customize DDF blend choice (ddf.v2.selection.inputs) is carried over once when no v2 basis exists.
+  // JEG-1058: a value is an absolute number or an adjustment {type: "adjustment", delta}.
+  // Anything that arrives from outside the editor is put on the scale first.
+  function readOverride(entry) {
+    return normalizeEntry(entry);
+  }
   function load() {
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (error) { /* private mode or bad JSON: start empty */ }
     if (saved && (saved.v === 1 || saved.v === 2) && saved.values && typeof saved.values === "object") {
       S.values = {};
-      Object.entries(saved.values).forEach(([k, v]) => { if (finite(v) && v >= 0) S.values[k] = v; });
+      Object.entries(saved.values).forEach(([k, v]) => { const entry = readOverride(v); if (entry !== null) S.values[k] = entry; });
       S.names = saved.names && typeof saved.names === "object" ? saved.names : {};
     }
     if (saved && saved.v === 2 && saved.basis) setBasisState(saved.basis);
@@ -155,7 +182,7 @@
     S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours)};
     if (rec.ours) { setBasisState(null); S.values = {}; S.names = {}; return; }
     if (rec.basis) setBasisState(rec.basis);
-    if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { S.values[key] = v; });
+    if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
   }
   function save() {
     if (S.session) return;   // a shared link's settings stay in memory until the reader changes something
@@ -190,6 +217,34 @@
   };
   // The model's DDF Value for a row, before any player override (under the current basis).
   const modelValue = row => (row ? (finite(row.ddfPipelineValue) ? row.ddfPipelineValue : (row.valueOverride === null || row.valueOverride === undefined ? row.values.ddf_value : null)) : null);
+  // The pipeline's own value for a player: 0 when no source prices him, so an
+  // adjustment then says what he is worth, not what he is worth more than.
+  const pipelineValue = row => (row && finite(row.ddfPipelineValue) ? row.ddfPipelineValue : 0);
+  // JEG-1058: what an override means for a player: the absolute value, or the
+  // pipeline's value plus the adjustment, clamped to the fixed-pie scale.
+  function effectiveValue(row, entry) {
+    if (entry === null || entry === undefined) return null;
+    if (isAdjustment(entry)) {
+      const delta = Number(entry.delta);
+      if (!Number.isFinite(delta)) return null;
+      return Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, pipelineValue(row) + delta));
+    }
+    return finite(entry) ? clampOverrideValue(entry) : null;
+  }
+  // JEG-1059: the badge that marks a value the reader set, next to the value itself.
+  // The wording is the spec's: "You set this player's value to 58.0 (was 53.0 from
+  // DDF Value). Reset on the Overrides tab." A player no source prices has no DDF Value to
+  // compare with, so the "(was ...)" clause is left out rather than filled with a dash.
+  function flag(row) {
+    if (!row || row.valueOverride === null || row.valueOverride === undefined) return null;
+    const base = modelValue(row);
+    const text = finite(base)
+      ? `You set this player's value to ${fmt(row.valueOverride)} (was ${fmt(base)} from DDF Value). Reset on the Overrides tab.`
+      : `You set this player's value to ${fmt(row.valueOverride)}. Reset on the Overrides tab.`;
+    const adjustment = row.valueOverrideSpec && row.valueOverrideSpec.type === "adjustment";
+    return el("span", {class: "v2-ov-flag", title: text, tabindex: "0", role: "img", "aria-label": text,
+      text: adjustment ? "±" : "✎"});
+  }
   // Find a trade (and anything else listening) re-runs when the values under it change.
   function announce(reason) {
     try { document.dispatchEvent(new CustomEvent("ddf:league-settings-changed", {detail: {reason, notes: []}})); }
@@ -204,11 +259,12 @@
     syncBar();
     if (reason) announce(reason);
   }
-  function setOverride(key, value, name) {
-    if (value === null) delete S.values[key];
-    else S.values[key] = round1(Math.max(0, value));
+  function setOverride(key, entry, name) {
+    const normalized = entry === null || entry === undefined ? null : normalizeEntry(entry);
+    if (normalized === null) { delete S.values[key]; delete S.names[key]; }
+    else S.values[key] = normalized;
     if (name) S.names[key] = name;
-    if (value === null) delete S.names[key];
+    if (entry === null || entry === undefined) delete S.names[key];
     push("overrides");
   }
   // Send the picker's basis to the engine (live: no Save). publish=false is the boot path.
@@ -263,11 +319,10 @@
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
-    const inner = document.querySelector(".v2-league-inner");
+    const inner = document.querySelector(".v2-context-inner");   // JEG-1119: the context row replaced the league bar
     if (!inner) return null;
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
-    const actions = inner.querySelector(".v2-league-actions");
-    inner.insertBefore(bar, actions || null);
+    inner.insertBefore(bar, $("v2EditSources"));
     return bar;
   }
   function bannerHost() {
@@ -525,7 +580,11 @@
     return {v: 2, basis: rec.mode === "default" ? {mode: "default"} : rec,
       overrides: Object.keys(S.values).map(key => {
         const row = rowOf(key);
-        return {player_key: key, name: row ? row.name : (S.names[key] || ""), pos: row ? row.pos : "", type: "absolute", value: S.values[key]};
+        const base = {player_key: key, name: row ? row.name : (S.names[key] || ""), pos: row ? row.pos : ""};
+        const entry = S.values[key];
+        // JEG-1058: an adjustment exports its delta, an absolute value its value.
+        if (isAdjustment(entry)) return {...base, type: "adjustment", delta: entry.delta};
+        return {...base, type: "absolute", value: entry};
       })};
   }
   function exportFile() {
@@ -554,10 +613,15 @@
     let skipped = 0;
     (Array.isArray(doc.overrides) ? doc.overrides : []).forEach(item => {
       const key = String(item && item.player_key);
-      const v = item && (item.type === "absolute" || item.type === undefined) ? Number(item.value) : NaN;
-      if (!rowOf(key) || !finite(v) || v < 0) { skipped += 1; return; }
-      values[key] = round1(v);
-      names[key] = item.name || (rowOf(key) || {}).name || "";
+      const row = rowOf(key);
+      // JEG-1058: an adjustment carries a delta, an absolute value a value.
+      const entry = item && item.type === "adjustment"
+        ? normalizeEntry({type: "adjustment", delta: item.delta})
+        : (item && (item.type === "absolute" || item.type === undefined)
+          ? normalizeEntry(Number(item.value)) : null);
+      if (!row || entry === null) { skipped += 1; return; }
+      values[key] = entry;
+      names[key] = item.name || row.name || "";
     });
     if (skipped) notes.push(`Skipped ${skipped} override${skipped === 1 ? "" : "s"} for players this build does not know or values it cannot use.`);
     S.values = values;
@@ -589,6 +653,9 @@
   // basis=fantasycalc | basis=blend:espn.60_razzball.40 (absent = ours). ov=2227:58.0,1110:42.5 for a few players;
   // ov=z:<base64url> beyond PACK_AFTER (3 bytes of player key + 2 bytes of tenths per override, about half the
   // characters). Old links without either work unchanged.
+  // JEG-1058: an adjustment travels as ov=2227:+5 (a signed delta). The packed form
+  // gains a type byte (ov=z2:) when any override is an adjustment; ov=z: stays the
+  // original absolute-only layout, so links made before this change still read.
   const b64 = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   const unb64 = text => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), ch => ch.charCodeAt(0));
   function packOverrides(map) {
@@ -604,9 +671,48 @@
   function unpackOverrides(text) {
     const bytes = unb64(text);
     const out = {};
-    for (let i = 0; i + 4 < bytes.length; i += 5) out[String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2])] = ((bytes[i + 3] << 8) | bytes[i + 4]) / 10;
+    for (let i = 0; i + 4 < bytes.length; i += 5) {
+      const entry = normalizeEntry(((bytes[i + 3] << 8) | bytes[i + 4]) / 10);
+      if (entry !== null) out[String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2])] = entry;
+    }
     return out;
   }
+  // The packed form that carries the kind: 3 bytes of player key, 1 byte of type
+  // (0 absolute, 1 adjustment) and 2 bytes of tenths (signed, so a delta can be
+  // negative).
+  function packOverridesWithTypes(map) {
+    const bytes = [];
+    Object.keys(map).forEach(key => {
+      const k = Number(key);
+      const entry = map[key];
+      const adjustment = isAdjustment(entry);
+      const tenths = Math.round((adjustment ? Number(entry.delta) : Number(entry)) * 10);
+      if (!Number.isInteger(k) || k < 0 || k > 0xFFFFFF) return;
+      if (!Number.isFinite(tenths)) return;
+      // The tenths are inside the two bytes they travel in: an override is on
+      // the scale, so this is the same number, never a dropped player.
+      const packed = Math.min(32767, Math.max(-32768, tenths));
+      bytes.push((k >> 16) & 255, (k >> 8) & 255, k & 255, adjustment ? 1 : 0, (packed >> 8) & 255, packed & 255);
+    });
+    return b64(bytes);
+  }
+  function unpackOverridesWithTypes(text) {
+    const bytes = unb64(text);
+    const out = {};
+    for (let i = 0; i + 5 < bytes.length; i += 6) {
+      const key = String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]);
+      const raw = (bytes[i + 4] << 8) | bytes[i + 5];
+      const tenths = raw >= 32768 ? raw - 65536 : raw;
+      const value = tenths / 10;
+      const entry = bytes[i + 3] === 1 ? normalizeEntry({type: "adjustment", delta: value}) : normalizeEntry(value);
+      if (entry !== null) out[key] = entry;
+    }
+    return out;
+  }
+  // One override in a link: key:value for an absolute value, key:+5 for an adjustment.
+  const ovParam = (key, entry) => (isAdjustment(entry)
+    ? `${key}:${Number(entry.delta) >= 0 ? "+" : ""}${round1(Number(entry.delta))}`
+    : `${key}:${entry}`);
   function shareParams() {
     const out = {basis: null, ov: null, dropped: false};
     const info = basisInfo();
@@ -618,7 +724,11 @@
       out.basis = rec.mode === "single" ? rec.source : `blend:${rec.sources.map(key => `${key}.${rec.weights[key]}`).join("_")}`;
     }
     const keys = Object.keys(S.values);
-    if (keys.length) out.ov = keys.length > PACK_AFTER ? `z:${packOverrides(S.values)}` : keys.map(key => `${key}:${S.values[key]}`).join(",");
+    if (keys.length) {
+      const anyAdjustment = keys.some(key => isAdjustment(S.values[key]));
+      if (anyAdjustment) out.ov = keys.length > PACK_AFTER ? `z2:${packOverridesWithTypes(S.values)}` : keys.map(key => ovParam(key, S.values[key])).join(",");
+      else out.ov = keys.length > PACK_AFTER ? `z:${packOverrides(S.values)}` : keys.map(key => `${key}:${S.values[key]}`).join(",");
+    }
     return out;
   }
   // The share-link text a recipient is told about; also what an over-long link falls back to.
@@ -640,14 +750,27 @@
     }
     return BASIS_KEYS.includes(text) ? {mode: "single", source: text} : null;
   }
+  // JEG-1058: a value that starts with + or - is an adjustment (ov=2227:+5); a plain number is an absolute value.
   function parseOvParam(text) {
     if (!text) return null;
     let map = {};
     try {
-      if (text.startsWith("z:")) map = unpackOverrides(text.slice(2));
+      if (text.startsWith("z2:")) map = unpackOverridesWithTypes(text.slice(3));
+      else if (text.startsWith("z:")) map = unpackOverrides(text.slice(2));
       else text.split(",").forEach(part => {
         const [key, v] = part.split(":");
-        if (/^\d+$/.test(key) && Number(v) >= 0 && finite(Number(v))) map[key] = round1(Number(v));
+        if (!/^\d+$/.test(key) || v === undefined || v === "") return;
+        // A sign means an adjustment. A leading space is the "+" that a URL parser
+        // turned into a space (URLSearchParams reads "+" as a space), so it is a sign too.
+        if (/^[+-]/.test(v) || /^\s/.test(v)) {
+          const delta = Number(v);
+          const entry = normalizeEntry({type: "adjustment", delta});
+          if (entry !== null) map[key] = entry;
+        } else {
+          const value = Number(v);
+          const entry = normalizeEntry(value);
+          if (entry !== null) map[key] = entry;
+        }
       });
     } catch (error) { return null; }
     return Object.keys(map).length ? map : null;
@@ -666,7 +789,7 @@
     S.session = true;
     if (basis) setBasisState(basis);
     if (overrides) {
-      Object.entries(overrides).forEach(([key, v]) => { S.values[key] = v; });
+      Object.entries(overrides).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
       Object.keys(overrides).forEach(key => { const row = rowOf(key); if (row) S.names[key] = row.name; });
     }
     if (S.engine) {
@@ -732,6 +855,8 @@
   function select(key, name) {
     S.selected = String(key);
     S.draft = null;
+    S.draftType = "absolute";   // JEG-1058: a new player opens on an absolute value
+    S.draftDelta = null;
     S.query = "";
     render();
     const editor = $("v2OvEditor");
@@ -756,20 +881,52 @@
     if (!row) return;
     const model = modelValue(row);
     const saved = S.values[S.selected];
-    if (S.draft === null) S.draft = saved !== undefined ? saved : finite(model) ? model : 0;
+    const base = pipelineValue(row);   // the pipeline's own value; 0 when no source prices him
+    const clampValue = v => round1(Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, v)));
+    if (S.draft === null) {
+      // JEG-1058: an override is an absolute value or an adjustment. The editor opens in the kind it was set.
+      S.draftType = "absolute";
+      if (saved !== undefined && isAdjustment(saved)) {
+        S.draftType = "adjustment";
+        S.draftDelta = round1(Number(saved.delta));
+        S.draft = clampValue(base + S.draftDelta);
+      } else if (saved !== undefined) {
+        S.draft = saved;
+      } else {
+        S.draft = finite(model) ? model : 0;
+      }
+    }
+    if (S.draftType === "adjustment") {
+      if (S.draftDelta === null || S.draftDelta === undefined) S.draftDelta = round1(S.draft - base);
+      S.draft = clampValue(base + S.draftDelta);
+    }
     const list = pool(row);
     const top = list.length ? list[0].values.ddf_value : 0;
-    const peak = Math.max(10, top, finite(model) ? model : 0, S.draft) * 1.08;
-    const step = [2, 5, 10, 20, 25, 50, 100].find(st => peak / st <= 6) || 200;
-    const yMax = Math.ceil(peak / step) * step;
+    let yMax = 0;
+    let step = 1;
+    // The chart grows to fit the value being edited (a big adjustment can sit above the field).
+    const scale = value => {
+      const peak = Math.max(10, top, finite(model) ? model : 0, value) * 1.08;
+      step = [2, 5, 10, 20, 25, 50, 100].find(st => peak / st <= 6) || 200;
+      yMax = Math.ceil(peak / step) * step;
+    };
+    scale(S.draft);
 
     // Head: who, model value, your value.
-    const numberInput = el("input", {type: "number", id: "v2OvNumber", min: "0", step: "0.1", value: fmt(S.draft), "aria-label": `Your value for ${row.name}`});
+    const numberInput = el("input", {type: "number", id: "v2OvNumber", min: "0", max: "100", step: "0.1",
+      value: fmt(S.draftType === "adjustment" ? S.draftDelta : S.draft), "aria-label": `Your value for ${row.name}`});
+    const typeLabel = el("span", {class: "v2-ov-type-label", text: S.draftType === "adjustment" ? "Adjustment" : "Your value"});
+    // JEG-1058: the kind of the override. Absolute by default; an adjustment adds to (or takes off) the
+    // pipeline's own value.
+    const typeButtons = ["absolute", "adjustment"].map(kind =>
+      el("button", {type: "button", class: "v2-select", "data-ov-type": kind, "aria-pressed": String(S.draftType === kind),
+        text: kind === "absolute" ? "Value" : "Adjust", onclick: () => switchType(kind)}));
+    const typeToggle = el("div", {class: "v2-ov-type", role: "group", "aria-label": "Override type"}, typeButtons);
     const head = el("div", {class: "v2-ov-head"}, [
       el("div", {}, [
         el("h2", {id: "v2OvName", text: row.name}),
         el("p", {class: "v2-meta", text: `${row.pos}${row.team ? " · " + row.team : ""} · DDF Value ${fmt(model)}${finite(model) ? ` (${row.pos}${rankAt(pool({...row, pos: row.pos}).filter(r => r.pos === row.pos), model)})` : ""}`})]),
-      el("label", {class: "v2-ov-yours"}, [el("span", {text: "Your value"}), numberInput])]);
+      el("div", {class: "v2-ov-yours"}, [el("label", {class: "v2-ov-yours-label"}, [typeLabel, numberInput]), typeToggle])]);
 
     // Scope toggle (same position by default).
     const scope = el("div", {class: "v2-ov-scope", role: "group", "aria-label": "Compare against"}, [
@@ -784,19 +941,16 @@
     const y = v => T + (1 - v / yMax) * (H - T - B);
     const chart = svg("svg", {viewBox: `0 0 ${W} ${H}`, class: "v2-ov-chart", role: "img", id: "v2OvChart",
       "aria-label": `DDF Value by ${scopeLabel(row)} rank, with a draggable line for ${row.name}'s value`});
-    for (let v = 0; v <= yMax + 1e-9; v += step) {
-      chart.append(svg("line", {x1: L, x2: W - R, y1: y(v), y2: y(v), class: "v2-ov-grid"}));
-      chart.append(svg("text", {x: L - 6, y: y(v) + 4, class: "v2-ov-axis", "text-anchor": "end"}, String(v)));
-    }
+    const axis = svg("g", {});
+    chart.append(axis);
     chart.append(svg("text", {x: (L + W - R) / 2, y: H - 6, class: "v2-ov-axis", "text-anchor": "middle"}, `${scopeLabel(row) === "overall" ? "Overall" : row.pos} rank by DDF Value`));
     const dots = svg("g", {});
     list.forEach((r, i) => dots.append(svg("circle", {cx: x(i + 1), cy: y(r.values.ddf_value), r: 3, class: "v2-ov-dot", "data-key": r.player_key},
     )));
     chart.append(dots);
-    if (finite(model)) {
-      chart.append(svg("line", {x1: L, x2: W - R, y1: y(model), y2: y(model), class: "v2-ov-model"}));
-      chart.append(svg("text", {x: W - R, y: y(model) - 5, class: "v2-ov-model-label", "text-anchor": "end"}, `DDF Value ${fmt(model)}`));
-    }
+    const modelLine = finite(model) ? svg("line", {x1: L, x2: W - R, class: "v2-ov-model"}) : null;
+    const modelLabel = finite(model) ? svg("text", {x: W - R, class: "v2-ov-model-label", "text-anchor": "end"}, `DDF Value ${fmt(model)}`) : null;
+    if (modelLine) chart.append(modelLine, modelLabel);
     const line = svg("line", {x1: L, x2: W - R, class: "v2-ov-line"});
     const handle = svg("circle", {r: 7, class: "v2-ov-handle"});
     const tag = svg("text", {class: "v2-ov-tag"});
@@ -809,14 +963,25 @@
     const near = el("div", {class: "v2-ov-near", "aria-live": "polite"});
 
     function draw(value) {
-      S.draft = round1(Math.min(yMax, Math.max(0, value)));
+      S.draft = clampValue(value);
+      scale(S.draft);
+      axis.replaceChildren();
+      for (let v = 0; v <= yMax + 1e-9; v += step) {
+        axis.append(svg("line", {x1: L, x2: W - R, y1: y(v), y2: y(v), class: "v2-ov-grid"}));
+        axis.append(svg("text", {x: L - 6, y: y(v) + 4, class: "v2-ov-axis", "text-anchor": "end"}, String(v)));
+      }
+      if (modelLine) {
+        modelLine.setAttribute("y1", y(model)); modelLine.setAttribute("y2", y(model));
+        modelLabel.setAttribute("y", y(model) - 5);
+      }
       const rank = rankAt(list, S.draft);
       line.setAttribute("y1", y(S.draft)); line.setAttribute("y2", y(S.draft));
       handle.setAttribute("cx", x(Math.min(rank, n))); handle.setAttribute("cy", y(S.draft));
       const tx = Math.min(Math.max(x(Math.min(rank, n)) + 12, L + 4), W - R - 150);
       tag.setAttribute("x", tx); tag.setAttribute("y", Math.max(y(S.draft) - 10, T + 10));
       tag.textContent = `${fmt(S.draft)} · ${scopeLabel(row) === "overall" ? "#" : row.pos}${rank}`;
-      if (document.activeElement !== numberInput) numberInput.value = fmt(S.draft);
+      if (document.activeElement !== numberInput) numberInput.value = fmt(S.draftType === "adjustment" ? S.draftDelta : S.draft);
+      range.max = String(yMax);
       range.value = String(S.draft);
       // Comparable players: the NEAR above and NEAR below where this value lands.
       const at = rank - 1;
@@ -857,21 +1022,42 @@
     chart.addEventListener("pointerdown", event => {
       S.dragging = true;
       if (chart.setPointerCapture) chart.setPointerCapture(event.pointerId);
-      draw(valueAt(event));
+      dragTo(valueAt(event));
       event.preventDefault();
     });
-    chart.addEventListener("pointermove", event => { if (S.dragging) draw(valueAt(event)); });
+    chart.addEventListener("pointermove", event => { if (S.dragging) dragTo(valueAt(event)); });
     const release = () => { if (!S.dragging) return; S.dragging = false; commit(); };
     chart.addEventListener("pointerup", release);
     chart.addEventListener("pointercancel", release);
-    range.addEventListener("input", () => draw(Number(range.value)));
+    range.addEventListener("input", () => dragTo(Number(range.value)));
     range.addEventListener("change", commit);
-    numberInput.addEventListener("change", () => { const v = Number(numberInput.value); if (finite(v)) { draw(v); commit(); } });
+    numberInput.addEventListener("change", () => {
+      const v = Number(numberInput.value);
+      if (!finite(v)) return;
+      // JEG-1058: in adjustment mode the input holds the delta, so it adds to the DDF Value.
+      if (S.draftType === "adjustment") { S.draftDelta = clampOverrideDelta(v); draw(base + S.draftDelta); }
+      else draw(v);
+      commit();
+    });
+    // Dragging sets the value itself; in adjustment mode that is the delta away from the DDF Value.
+    function dragTo(value) {
+      const v = clampValue(value);
+      if (S.draftType === "adjustment") S.draftDelta = round1(v - base);
+      draw(v);
+    }
 
     function commit() {
       // Settling back on the model's own value is no override.
-      if (finite(model) && Math.abs(S.draft - model) < 0.05) setOverride(S.selected, null);
-      else setOverride(S.selected, S.draft, row.name);
+      if (S.draftType === "adjustment") {
+        const effective = clampValue(base + S.draftDelta);
+        if (!finite(S.draftDelta) || Math.abs(S.draftDelta) < 0.05) setOverride(S.selected, null);
+        else if (finite(model) && Math.abs(effective - model) < 0.05) setOverride(S.selected, null);
+        else setOverride(S.selected, {type: "adjustment", delta: S.draftDelta}, row.name);
+      } else if (finite(model) && Math.abs(S.draft - model) < 0.05) {
+        setOverride(S.selected, null);
+      } else {
+        setOverride(S.selected, S.draft, row.name);
+      }
       renderList($("v2OvList"));
       actions.querySelector("[data-ov-reset]").hidden = S.values[S.selected] === undefined;
     }
@@ -881,9 +1067,37 @@
         text: `Reset to DDF Value (${fmt(model)})`, onclick: () => { setOverride(S.selected, null); S.draft = null; render(); }}),
       el("button", {type: "button", class: "v2-btn v2-btn-quiet", text: "Close", onclick: () => { S.selected = null; S.draft = null; render(); }})]);
 
+    // JEG-1058: the kind of the override. Switching keeps the value the same (an adjustment starts at the
+    // difference from the DDF Value) and stores it in the new kind.
+    const helpText = el("p", {class: "v2-meta"});
+    function paintType() {
+      typeButtons.forEach(button => button.setAttribute("aria-pressed", String(button.dataset.ovType === S.draftType)));
+      typeLabel.textContent = S.draftType === "adjustment" ? "Adjustment" : "Your value";
+      numberInput.min = S.draftType === "adjustment" ? "-100" : "0";
+      numberInput.max = "100";
+      numberInput.setAttribute("aria-label", S.draftType === "adjustment"
+        ? `Adjustment to ${row.name}'s DDF Value` : `Your value for ${row.name}`);
+      helpText.textContent = S.draftType === "adjustment"
+        ? `An adjustment adds to (or takes off) the DDF Value of ${fmt(base)}. The result is capped between 0 and 100.`
+        : "Drag the line on the graph (or the slider) to set his value. It applies when you let go, on every tab.";
+    }
+    function switchType(kind) {
+      if (kind === S.draftType) return;
+      if (kind === "adjustment") {
+        S.draftDelta = round1(S.draft - base);
+        S.draftType = "adjustment";
+      } else {
+        S.draftType = "absolute";
+        S.draft = clampValue(base + (finite(S.draftDelta) ? S.draftDelta : 0));
+      }
+      paintType();
+      draw(S.draft);
+      commit();
+    }
+
     box.append(head, scope, el("div", {class: "v2-ov-plot"}, [chart, el("label", {class: "v2-ov-range"}, [range])]),
-      el("p", {class: "v2-meta", text: "Drag the line on the graph (or the slider) to set his value. It applies when you let go, on every tab."}),
-      near, actions);
+      helpText, near, actions);
+    paintType();
     draw(S.draft);
   }
 
@@ -910,15 +1124,20 @@
       el("th", {scope: "col", class: i >= 2 && i <= 4 ? "num" : null, text: h})))]));
     const body = el("tbody");
     keys.map(key => ({key, row: rowOf(key)}))
-      .sort((a, b) => S.values[b.key] - S.values[a.key])
-      .forEach(({key, row}) => {
+      .map(item => ({...item, effective: effectiveValue(item.row, S.values[item.key])}))
+      .sort((a, b) => (b.effective || 0) - (a.effective || 0))
+      .forEach(({key, row, effective}) => {
         const model = modelValue(row);
+        const yours = el("td", {class: "num v2-ov-yours-cell"}, [el("span", {text: fmt(effective)})]);
+        // JEG-1059: the badge that says the reader set this value.
+        const badge = flag(row);
+        if (badge) yours.append(badge);
         body.append(el("tr", {class: key === S.selected ? "is-selected" : null}, [
           el("td", {}, [el("button", {type: "button", class: "v2-ov-link", text: row ? row.name : (S.names[key] || `Player ${key}`), onclick: () => select(key, row && row.name)})]),
           el("td", {text: row ? row.pos : ""}),
           el("td", {class: "num", text: fmt(model)}),
-          el("td", {class: "num v2-ov-yours-cell", text: fmt(S.values[key])}),
-          el("td", {class: "num", text: finite(model) ? signed(S.values[key] - model) : "—"}),
+          yours,
+          el("td", {class: "num", text: finite(model) && finite(effective) ? signed(effective - model) : "—"}),
           el("td", {}, [el("button", {type: "button", class: "v2-ov-link", text: "Remove", "aria-label": `Remove override for ${row ? row.name : key}`,
             onclick: () => { setOverride(key, null); if (key === S.selected) S.draft = null; render(); }})])]));
       });
@@ -959,5 +1178,5 @@
   }
 
   root.DDFOverrides = {boot, render, count: () => Object.keys(S.values).length, all: () => ({...S.values}),
-    basis: () => basisRecord(), shareParams, applyLink, dropOverridesNote, state: S};
+    basis: () => basisRecord(), shareParams, applyLink, dropOverridesNote, flag, state: S};
 })(window);

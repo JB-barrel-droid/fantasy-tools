@@ -36,6 +36,11 @@ POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
 FLEX_ELIGIBLE = ("RB", "WR", "TE")
 SUPERFLEX_ELIGIBLE = ("QB", "RB", "WR", "TE")
 
+# JEG-1121: VORP bench allocation constants.
+# miss_rate per game (from lineup_parameters.json; rounded for JS parity).
+_BENCH_MISS_RATE = {"QB": 0.12, "RB": 0.14, "WR": 0.11, "TE": 0.15}
+_BYE_RATE = 1.0 / 17.0  # one bye per 17-game season
+
 # Default roster: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 1 K / 1 DEF, 7 bench.
 # The switch to this default ships in JEG-563; this module defines it.
 DEFAULT_SLOTS = {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DEF": 1}
@@ -62,7 +67,7 @@ def market_bench_ratios(*, superflex: bool = False, qb_slots: int = 1) -> dict[s
 
 
 def bench_weights(slots: dict[str, int], *, superflex: bool = False,
-                  flex_filled: dict[str, int] | None = None) -> dict[str, float]:
+                  flex_filled: dict[str, float] | None = None) -> dict[str, float]:
     """Convention rule 1: bench weight per position.
 
     weight_p = starters_p * backups_per_starter_p.
@@ -79,7 +84,7 @@ def bench_weights(slots: dict[str, int], *, superflex: bool = False,
     ff = flex_filled or {}
     weights = {}
     for pos in POSITIONS:
-        starters = int(slots.get(pos, 0)) + int(ff.get(pos, 0))
+        starters = int(slots.get(pos, 0)) + (ff.get(pos, 0) or 0)
         ratio = ratios.get(pos, 0.0)
         weights[pos] = starters * ratio
     return weights
@@ -105,7 +110,7 @@ def dhondt_allocate(weights: dict[str, float], total: int) -> dict[str, int]:
 
 def bench_seats(slots: dict[str, int], teams: int, bench_per_team: int, *,
                 superflex: bool = False,
-                flex_filled: dict[str, int] | None = None) -> dict[str, int]:
+                flex_filled: dict[str, float] | None = None) -> dict[str, int]:
     """Convention rule 1: D'Hondt bench allocation using market bench ratios.
 
     Returns {pos: bench_count} across the entire league.
@@ -175,6 +180,70 @@ def waiver_line(values: list[float], rostered: int) -> float | None:
     return values[-1]
 
 
+def vorp_bench_allocate(
+    starters: dict[str, int],
+    remaining: dict[str, list],
+    player_scores: dict,
+    teams: int,
+    total_bench: int,
+    slots: dict[str, int],
+    is_two_qb: bool,
+    flex_filled_per_team: dict[str, float] | None = None,
+) -> dict[str, int]:
+    """Greedy bench fill by PPG × usage discount (JEG-1121 stable spec).
+
+    All bench seats are filled in a single cross-position pass: the candidate
+    at each position scores max(0, PPG) × c_p^(1 + floor(k / t1_p)), where
+    c_p = starters_per_team × (bye_rate + miss_rate) and t1_p =
+    round(2 × c_p × teams).  Replacement level is 0 (any positive-PPG player
+    competes).  Seats left unfilled only if no positive-PPG candidates remain.
+    No D'Hondt fallback.
+
+    Seat counts never depend on DDF Value, so the result is deterministic
+    without iteration.
+
+    starters[pos]: league-wide starter count (dedicated + sf + flex).
+    remaining[pos]: non-starter candidates sorted best-first (by PPG).
+    """
+    spt = {pos: starters.get(pos, 0) / teams for pos in POSITIONS}
+
+    # t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
+    t1: dict[str, int] = {}
+    for pos in POSITIONS:
+        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
+        t1[pos] = max(1, round(2.0 * c * float(teams)))
+
+    def _discount(pos: str, k: int) -> float:
+        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
+        return c ** (1 + k // t1[pos])
+
+    counts: dict[str, int] = {pos: 0 for pos in POSITIONS}
+    for _ in range(max(0, int(total_bench))):
+        best: float = -1e18
+        winner: str | None = None
+        any_candidate = False
+        for pos in POSITIONS:
+            order = remaining.get(pos, [])
+            k = counts[pos]
+            if k >= len(order):
+                continue
+            any_candidate = True
+            raw = float(player_scores.get(order[k], 0) or 0)
+            effective = max(0.0, raw) * _discount(pos, k)
+            pos_rank = POS_ORDER.get(pos, 99)
+            win_rank = POS_ORDER.get(winner, 99) if winner is not None else 99
+            if effective > best or (effective == best and pos_rank < win_rank):
+                best = effective
+                winner = pos
+        if winner is None or not any_candidate:
+            break
+        if best <= 0:
+            break  # no positive-PPG candidates remain; leave seats unfilled
+        counts[winner] += 1
+
+    return counts
+
+
 def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
                     flex_count: int, superflex_count: int,
                     player_order: dict[str, list],
@@ -217,21 +286,20 @@ def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
         t * int(flex_count), flex_eligible,
     )
 
-    # Bench: convention rule 1
-    # For bench weights, starters = dedicated + superflex + flex
-    effective_slots = {}
+    # JEG-1121 VORP: bench fills by VORP × usage discount (not raw PPG).
+    remaining_after_fx = {}
     for pos in POSITIONS:
-        effective_slots[pos] = int(slots.get(pos, 0))
-    effective_flex = {}
-    for pos in POSITIONS:
-        effective_flex[pos] = sf_filled[pos] + fx_filled[pos]
+        remaining_after_fx[pos] = remaining_after_sf[pos][fx_filled[pos]:]
 
-    is_superflex = superflex_count > 0
-    is_2qb = int(slots.get("QB", 0)) >= 2
-    b = bench_seats(
-        effective_slots, teams, bench_per_team,
-        superflex=(is_superflex or is_2qb),
-        flex_filled=effective_flex,
+    starters_count = {pos: dedicated[pos] + sf_filled[pos] + fx_filled[pos]
+                      for pos in POSITIONS}
+    is_two_qb = int(superflex_count) > 0 or int(slots.get("QB", 0)) >= 2
+    ff_per_team = (None if is_two_qb
+                   else {pos: (sf_filled[pos] + fx_filled[pos]) / t
+                         for pos in POSITIONS})
+    b = vorp_bench_allocate(
+        starters_count, remaining_after_fx, player_scores,
+        t, t * int(bench_per_team), slots, is_two_qb, ff_per_team,
     )
 
     out = {}

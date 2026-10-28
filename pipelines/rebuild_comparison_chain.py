@@ -1165,6 +1165,22 @@ def describe_result(result):
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
 
+def chain_source_weeks(repo):
+    """{source: {served_week, label_week, published_at, basis}} from the
+    fixture this run built and the week history index (week_state.py)."""
+    from week_state import source_weeks
+    try:
+        fixture = json.loads((Path(repo) / "data" / "fixtures" / "current" /
+                              "comparison-sources-data.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    try:
+        index = json.loads((Path(repo) / "data" / "history" / "index.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        index = None
+    return source_weeks(fixture, index)
+
+
 def source_vintages(repo):
     """Per-source content week as the import-health gate judged it.
 
@@ -1247,6 +1263,9 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
         "detail": results,
         "reindex_fixture": reindex_result,
         "source_vintages": source_vintages(repo),
+        # JEG-1177: each source's own served week and publish time (a source
+        # on week N while others serve N+1 is lagging, not a failure).
+        "source_weeks": chain_source_weeks(repo),
     }
     for rel in ("output/comparison-chain-status.json",
                 "dist/modules/comparison-chain-status.json"):

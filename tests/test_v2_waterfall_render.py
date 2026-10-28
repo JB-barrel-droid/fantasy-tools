@@ -22,11 +22,10 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1279 in DejaVu Sans, the face GitHub's
-    runner falls back to without Inter (JEG-1056; at 1280 DejaVu Sans may squeeze the real nav on CI --
-    GAP-WATERFALL-NAV-1280-SQUEEZE -- so the real-page check stops at 1279;
-    test_wide_font_guard_fails_on_broken_nav serves the old nav rule
-    and a tab row that shrinks before the freshness label, and requires both to be caught,
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1439 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; the 1280 squeeze -- GAP-WATERFALL-NAV-1280-SQUEEZE -- went
+    with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
+    test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
@@ -472,6 +471,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
             for width, height in viewports:
                 tag = f"[{width}x{height}{' win' if seed == 'win' else ''}] "
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page_errors = []
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -561,7 +561,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
 WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
 
 
-def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280, 1366, 1439)) -> dict:
     """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
     when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
     try:
@@ -578,6 +578,7 @@ def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
         try:
             for width in widths:
                 page = browser.new_page(viewport={"width": width, "height": 900})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 page.route("**/v2/v2.css*", functools.partial(_serve, css + WIDE_FONT_CSS, "text/css"))
                 page.goto(base + "#compare-trade", wait_until="networkidle")
@@ -643,6 +644,7 @@ def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS 
         try:
             for width, height in viewports:
                 page = browser.new_page(viewport={"width": width, "height": height})
+                page.add_init_script(_render_env.pin_data_week_script())
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, (body, ctype) in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
@@ -738,6 +740,10 @@ class WaterfallRenderTest(unittest.TestCase):
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
         self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
+        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
+        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
+        # back, so it still proves the fold check catches the old header's extra 55 px.
+        old_header += "\n#v2Compare { padding-top: 75px; }\n"
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
             errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
             print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",

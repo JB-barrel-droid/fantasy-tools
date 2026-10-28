@@ -36,7 +36,7 @@ import math
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -49,8 +49,11 @@ from lib.roster_convention import (
     starter_line as _convention_starter_line,
     waiver_line as _convention_waiver_line,
     market_bench_ratios as _convention_market_bench_ratios,
+    vorp_bench_allocate as _vorp_bench_allocate,
     POSITIONS as _CONV_POSITIONS,
 )
+from nfl_week import today_ny  # noqa: E402  (JEG-1177: one New York-time calendar)
+from week_state import week_state as _week_state  # noqa: E402  (JEG-1177: shared defaultWeek rule)
 
 VERSION = "value-reference-002/2"
 PIPELINE_VERSION = "value-pipeline/2"
@@ -97,6 +100,54 @@ DDF_VERSIONS = {"ddf_value": "blended", "ddf_value_charts": "charts", "ddf_value
 DDF_FAMILY = {"blended": "chart", "charts": "chart", "projections": "projection"}
 DDF_COUNT_FIELD = {"ddf_value": "ddf_count", "ddf_value_charts": "ddf_charts_count",
                    "ddf_value_projections": "ddf_projections_count"}
+# JEG-1058: the fixed-pie scale a reader override lives on (spec 3.6).
+OVERRIDE_MIN = 0.0
+OVERRIDE_MAX = 100.0
+
+
+def _override_number(value):
+    """JEG-1058: a number or a numeric string, the same set the JS engine's
+    normalizeOverride accepts. None when the value cannot be a number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if math.isfinite(value) else None
+    if isinstance(value, str):
+        if value == "":
+            return None
+        try:
+            text = float(value)
+        except ValueError:
+            return None
+        return text if math.isfinite(text) else None
+    return None
+
+
+def _override_spec(override) -> dict | None:
+    """JEG-1058: what the reader set, as one record: {"type": "absolute",
+    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used.
+    A value past the top of the scale is capped and an adjustment is capped to
+    the scale's span, so an override from outside the editor lands on the same
+    numbers the editor shows."""
+    if override is None or isinstance(override, bool):
+        return None
+    if isinstance(override, (int, float, str)):
+        value = _override_number(override)
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    if isinstance(override, dict):
+        if override.get("type") == "adjustment":
+            delta = _override_number(override.get("delta"))
+            if delta is None:
+                return None
+            return {"type": "adjustment", "delta": min(OVERRIDE_MAX, max(-OVERRIDE_MAX, delta))}
+        value = _override_number(override.get("value"))
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    return None
+
 
 SCORINGS = ("standard", "half_ppr", "ppr")
 TEAM_COUNTS = (8, 10, 12, 14)
@@ -261,12 +312,25 @@ def allocate(league: League, order: dict, score: dict, *,
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    # Skip flex_bench_seats in 2-QB / superflex: market_bench 2-QB data
-    # already captures supply-capped QB benches (Jeremy, 2026-10-23).
-    is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
-    use_flex = flex_bench_seats and not is_two_qb
-    ff = {p: sf[p] + fx[p] for p in POSITIONS} if use_flex else None
-    b = bench_seats(league, flex_filled=ff)
+    if flex_bench_seats:
+        # JEG-1121 VORP: bench fills by VORP × usage discount.
+        _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
+        _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
+        _is_2qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        _ff = (None if _is_2qb
+               else {p: (sf[p] + fx[p]) / t for p in POSITIONS})
+        b = _vorp_bench_allocate(
+            _starters, _remaining, score,
+            t, t * int(league.bench),
+            {p: int(league.slots.get(p, 0)) for p in POSITIONS},
+            _is_2qb, _ff,
+        )
+    else:
+        # D'Hondt bench (backward compat: flex_bench_seats=False).
+        is_two_qb = league.superflex > 0 or int(league.slots.get("QB", 1)) >= 2
+        use_flex = not is_two_qb
+        ff = {p: (sf[p] + fx[p]) / t for p in POSITIONS} if use_flex else None
+        b = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
         s = d[p] + sf[p] + fx[p]
@@ -432,7 +496,8 @@ def chart_sigma(league: League, sources: dict, chart_keys: list, pos_of: dict,
             ded = league.teams * int(league.slots.get(p, 0))
             avail = max(0, n_listed - ded)
             # apportion conservatively: cap sf+fx by available players
-            ff[p] = min(sf_total + (fx_total if p in league.flex_eligible else 0), avail)
+            # JEG-1121: sf_total/fx_total/avail are league-wide; normalize to per-team.
+            ff[p] = min(sf_total + (fx_total if p in league.flex_eligible else 0), avail) / league.teams
     seats = bench_seats(league, flex_filled=ff)
     out = {}
     for p in POSITIONS:
@@ -1128,20 +1193,31 @@ def _rows(sources: dict, details: dict, pos_of: dict, inc: list, selection, m: d
 
 
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
-    """JEG-1035 / JEG-1044: reader DDF Value overrides, a row-level overlay
-    after the pipeline: the blended value only (absolute; JEG-1073 made the
+    """JEG-1035 / JEG-1044 / JEG-1058: reader DDF Value overrides, a row-level
+    overlay after the pipeline: the blended value only (JEG-1073 made the
     projections version a separate alternate). Adjusted, Indexed, the pie and
-    the charts-only and projections versions are untouched."""
+    the charts-only and projections versions are untouched.
+
+    An override is an absolute value (a number) or an adjustment to the
+    pipeline's own value ({"type": "adjustment", "delta": n}), clamped to the
+    fixed-pie scale 0-100."""
     for i, row in rows.items():
         ov = overrides.get(i)
         for name in ("blended",):
             entry = row["ddf"][name]
             entry["pipeline_value"] = entry["value"]
-            entry["overridden"] = ov is not None
-            if ov is not None:
-                entry["value"] = float(ov)
-                entry["low_confidence"] = False
-                entry["reason"] = None
+            spec = _override_spec(ov)
+            entry["overridden"] = spec is not None
+            if spec is None:
+                continue
+            if spec["type"] == "adjustment":
+                base = entry["pipeline_value"]
+                base = float(base) if isinstance(base, (int, float)) else 0.0
+                entry["value"] = min(OVERRIDE_MAX, max(OVERRIDE_MIN, base + spec["delta"]))
+            else:
+                entry["value"] = float(spec["value"])
+            entry["low_confidence"] = False
+            entry["reason"] = None
 
 
 def _tiers(rows: dict, slot_fill: dict, m: dict) -> None:
@@ -1280,7 +1356,7 @@ class Inputs:
             n = _num(k)
             if n is not None and n == int(n):
                 key_of[slug] = int(n)
-        return cls(fx, canon, key_of, today or datetime.now(timezone.utc).date(), {})
+        return cls(fx, canon, key_of, today or today_ny(), {})
 
     def section(self, source: str) -> dict | None:
         sec = (self.fixture.get("sources") or {}).get(source)
@@ -1494,7 +1570,7 @@ class Setting:
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
                  promotion_model: bool = True, flex_bench_seats: bool = True,
-                 basis: dict | None = None):
+                 basis: dict | None = None, week: int | None = None):
         """basis: JEG-1044, the reader's value basis (None = default).
         lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
@@ -1507,7 +1583,9 @@ class Setting:
         role changes scaled by weeks remaining).
         flex_bench_seats: MR-28/JEG-969, on by default (2026-10-23, Jeremy
         approved). Bench-seat weights include flex starters (matching
-        allocate_league in the ES model). QB drops from ~15 bench seats to ~4."""
+        allocate_league in the ES model). QB drops from ~15 bench seats to ~4.
+        week: JEG-1177, the week view the reader picked (None = the default
+        week, week_state over this setting's DDF Value sources)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.promotion_model = promotion_model
         self.flex_bench_seats = flex_bench_seats
@@ -1519,6 +1597,8 @@ class Setting:
         self.selection = selection
         self.basis = basis
         self.divergence_exclusions = divergence_exclusions or set()
+        self.week = week
+        self._week_view = False  # not resolved yet (None = no week view)
         self.league = League(
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
@@ -1556,6 +1636,65 @@ class Setting:
                 out[k] = 0.0
         return out
 
+    # -- JEG-1177 the week view -------------------------------------------
+    def _history_matches_build(self) -> bool:
+        hist = self.hist
+        if hist is None:
+            return False
+        built = hist.index.get("fixture_built_at")
+        return not (built and self.inp.fixture.get("built_at") and built != self.inp.fixture["built_at"])
+
+    def week_view(self) -> dict | None:
+        """The week this setting is priced on during a week transition, as
+        curve-widget.js resolveWeekView: week_state over the DDF Value
+        sources (eligible, not hidden; no week rule), each with its served
+        week (history index). None without a matching history.
+        {week, default_week, selected, newest, previous, transition, weeks,
+        on_newest, total, views, served_weeks, saved, missing_saved}."""
+        if self._week_view is not False:
+            return self._week_view
+        self._week_view = None
+        if not self._history_matches_build():
+            return None
+        hist = self.hist
+        served = {}
+        for k in SOURCES:
+            w = (hist.served(k) or {}).get("week")
+            served[k] = w if isinstance(w, int) and not isinstance(w, bool) else None
+        candidates = []
+        for k in SOURCES:
+            if self.inp.section(k) is None or not self.natives(k):
+                continue
+            if section_hold(self.inp, k) and section_hold_level(self.inp, k) != "amber":
+                continue
+            if k in self.divergence_exclusions:
+                continue
+            candidates.append(k)
+        state = _week_state([{"source": k, "week": served[k]} for k in candidates])
+        if state["default_week"] is None:
+            return None
+        week = self.week if (isinstance(self.week, int) and self.week in state["weeks"]) else state["default_week"]
+        saved, missing_saved = {}, {}
+        for k in SOURCES:
+            if served[k] is None or served[k] <= week:
+                continue
+            entry, why = history_entry(hist, k, week)
+            nat = snapshot_natives(self.inp, k, entry, self.scoring) if entry else {}
+            if nat:
+                saved[k] = nat
+            else:
+                missing_saved[k] = why or f"no {self.scoring} values saved for Week {week}"
+        views = {}
+        for w, view in state["views"].items():
+            gone = [k for k in view["sources"] if int(w) == week and k in missing_saved]
+            views[w] = {"sources": [k for k in view["sources"] if k not in gone],
+                        "missing_sources": sorted(view["missing_sources"] + gone)}
+        self._week_view = {**{k: state[k] for k in ("default_week", "newest", "previous", "transition", "weeks",
+                                                     "on_newest", "total")},
+                           "week": week, "selected": week != state["default_week"], "views": views,
+                           "served_weeks": served, "saved": saved, "missing_saved": missing_saved}
+        return self._week_view
+
     # -- VP-1 the included set -------------------------------------------
     def state(self) -> dict:
         """Eligible and included sources, exclusion reasons and the prior
@@ -1564,11 +1703,33 @@ class Setting:
             return self._state
         fresh = freshness(self.inp)
         current = {k: self.natives(k) for k in SOURCES}
+        view = self.week_view()
         eligible, excluded, hidden = [], {}, set()
         for k in SOURCES:
             hold = section_hold(self.inp, k)
             hold_level = section_hold_level(self.inp, k)
             row = fresh["series"].get(k) or {}
+            served = view["served_weeks"].get(k) if view else None
+            if view and served is not None and served != view["week"]:
+                # JEG-1177, no carry-forward: a source on an earlier week is
+                # left out of this view; one on a later week is priced on its
+                # saved copy of this week (curve-widget.js computePipeline).
+                if served < view["week"]:
+                    excluded[k] = f"not yet published for Week {view['week']} (serves Week {served})"
+                    current[k] = {}
+                    continue
+                if k not in view["saved"]:
+                    excluded[k] = f"no Week {view['week']} saved ({view['missing_saved'].get(k)})"
+                    current[k] = {}
+                    continue
+                current[k] = dict(view["saved"][k])
+            if view and served is not None:
+                # Inside a week view "older" is judged against the view's week
+                # (a weekly chart whose own label is behind it), not the
+                # calendar's (curve-widget.js compositeKeyOlderWeek).
+                row = {**row, "first_load_excluded": False,
+                       "older": bool(row.get("weekly") and row.get("week") is not None
+                                     and row["week"] < view["week"])}
             if hold:
                 # JEG-569 part 2: a held source with data stays in the pipeline
                 # (weights, pie, allocation) but is hidden: left out of the DDF
@@ -1591,7 +1752,7 @@ class Setting:
                     eligible.append(k)
                     hidden.add(k)
             elif row.get("older") or row.get("first_load_excluded"):
-                excluded[k] = f"not yet published for week {fresh['current_week']}"
+                excluded[k] = f"not yet published for week {view['week'] if view else fresh['current_week']}"
             elif self.inp.section(k) is None:
                 excluded[k] = "missing from this build"
             elif not current[k]:
@@ -1605,6 +1766,9 @@ class Setting:
         if hist is not None and same_build:
             weeks = {k: (hist.served(k) or {}).get("week") for k in eligible}
             weeks = {k: w for k, w in weeks.items() if isinstance(w, int)}
+            if view:
+                # Every source left in the view is priced on the view's week.
+                weeks = {k: view["week"] for k in weeks}
             current_week = max(weeks.values()) if weeks else None
             for k in eligible:
                 if weeks.get(k) != current_week or current_week is None:
