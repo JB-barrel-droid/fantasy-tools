@@ -264,8 +264,11 @@ def served_source_weeks(comparison: dict[str, Any], history_index: Path | None) 
     import sys
     sys.path.insert(0, str(ROOT / "pipelines"))
     from week_state import source_weeks
-    index = load_json(history_index) if history_index else None
-    return source_weeks(comparison, index or None)
+    try:  # report only: a corrupt index must not fail make sync
+        index = load_json(history_index) if history_index else None
+    except (OSError, ValueError):
+        index = None
+    return source_weeks(comparison, index if isinstance(index, dict) else None)
 
 
 def build_report(

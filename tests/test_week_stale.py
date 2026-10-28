@@ -268,6 +268,15 @@ class ReferenceFreshnessStaleTest(ClockMixin, unittest.TestCase):
         self.assertEqual(rows["usatoday"]["weeks_behind"], 2)
         self.assertIs(rows["usatoday"]["freshness_ok"], False)
 
+    def test_corrupt_history_index_is_ignored(self):
+        """Report only: an unreadable index falls back to the section labels."""
+        crf = self.load()
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = Path(tmp) / "index.json"
+            bad.write_text("{not json")
+            served = crf.served_source_weeks({"sources": {"cbs": {"week_designated": "Week 8"}}}, bad)
+        self.assertEqual(served.get("cbs", {}).get("basis", "section_label"), "section_label")
+
     def test_summary_has_no_wall_clock_field(self):
         """dist_manifest ignores only generated_at, so a judged-at stamp in
         the summary would make every preview and prod manifest differ."""
