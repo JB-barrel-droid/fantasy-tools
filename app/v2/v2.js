@@ -4981,6 +4981,10 @@
   // Compare's team choice is view state. The saved league remains the source of truth;
   // trying a trade never moves players between its stored rosters.
   const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null};
+  function endCompareEdit() {
+    compareTeams.snapshot = null;
+    compareTeams.editing = false;
+  }
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
   // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
@@ -5080,7 +5084,9 @@
       edit.setAttribute("aria-expanded", String(compareTeams.editing));
       edit.setAttribute("aria-controls", "v2CRosterLists");
       edit.addEventListener("click", () => {
-        if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example, undo: TR.undo};
+        if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
+          undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen};
         else compareTeams.snapshot = null;
         compareTeams.editing = !compareTeams.editing;
         renderCompare();
@@ -5095,8 +5101,9 @@
         cancel.textContent = "Cancel edits";
         cancel.addEventListener("click", () => {
           ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
-          compareTeams.snapshot = null;
-          compareTeams.editing = false;
+          ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
+            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen} = compareTeams.snapshot);
+          endCompareEdit();
           renderCompare();
           $("v2CEditRosters")?.focus();
         });
@@ -6252,6 +6259,7 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
+    if (base === "#compare-trade") endCompareEdit();
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
     // Apply value context before the shared reader resolves rows and starts the finder.
@@ -7574,7 +7582,7 @@
       leagueText: () => `${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}`,
       sources: () => C.getActiveSources(),
       getTrade: () => ({give: TR.give.map(p => ({...p})), get: TR.receive.map(p => ({...p}))}),
-      setTrade: (give, get) => { TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
+      setTrade: (give, get) => { endCompareEdit(); TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
       getTarget: () => T.search,
       setTarget: name => {
         T.search = name;
