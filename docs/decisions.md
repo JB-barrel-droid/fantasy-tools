@@ -1038,3 +1038,7 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1205: live sources supply chart fill-ins
+
+Jeremy, 2026-10-28: "Use fantasycalc and projections sources, those should be refreshing at least daily, so they are good." For VP-2.4, a weekly chart's missing rosterable players are estimated from included FantasyCalc and projection natives only. FantasyCalc itself uses included projections. Other weekly charts never supply estimates. The ratio fit, cap, curve fallback, chart sigma, and DDF weights retain their existing rules. Report a before/after player impact only when it exceeds both 5% and 2 trade-value points. Implemented in JEG-1205 / PR #1052.

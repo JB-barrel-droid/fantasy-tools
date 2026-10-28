@@ -232,10 +232,14 @@ rules, except that only charts are filled in (VP-2.4).
    - b. A chart `c` gets an estimate for every player in `Fill_p` it does not
      list, **only at positions where it lists at least one player**. A chart
      that lists nobody at `p` does not price `p` (`no_players`).
-   - c. **Peers** = the charts in `I` other than `c`, in source-key order,
-     using their listed natives (with the superflex overlay at `SF >= 1`),
-     never their own estimates.
-   - d. **Ratio path** (from the other charts that list him). For each peer
+   - c. **Peers (JEG-1205, Jeremy 2026-10-28)** = the projection sources in
+     `I` plus FantasyCalc when it is in `I` and `c` is not FantasyCalc. Other
+     weekly charts never supply a fill-in estimate. FantasyCalc itself uses
+     only projections. Peers contribute listed natives, including explicit
+     zero values, never their own estimates. A missing value is not a listed
+     zero. FantasyCalc's chart native includes the superflex overlay at
+     `SF >= 1`; projections use their native points.
+   - d. **Ratio path** (from eligible live peers that list him). For each peer
      `k` that lists `i`:
      - `shared` = the players at `p` that both `c` and `k` list, in `c`'s sort
        order. The **fit set** is the last `min(ESTIMATE_FIT_N, |shared|)` of
@@ -246,7 +250,7 @@ rules, except that only charts are filled in (VP-2.4).
        over the fit set)` (a ratio of sums, not a median of per-player
        ratios), and `est_k = ratio_k x native_k(i)`.
      - If at least one peer is usable, `raw` = the median of the `est_k`.
-   - e. **Curve path** (no chart lists him, or none of those that do is
+   - e. **Curve path** (no live peer lists him, or none of those that do is
      usable; **Lead's reading** for the second case). Points = `c`'s listed
      players at `p` that have `m`, in `c`'s sort order; take the last
      `min(ESTIMATE_FIT_N, count)`. If there are at least `IMPUTE_MIN_FIT` of
@@ -268,8 +272,8 @@ rules, except that only charts are filled in (VP-2.4).
      (VP-3), its VORP vs waivers and Adjusted values (VP-5), its Indexed
      values (VP-6.4) and the DDF Value (VP-6.3). His row value on `c` is
      shown marked **estimated**, with a reason: "Estimated: <label> doesn't
-     list him; scaled from <peer labels>" (ratio path) or "Estimated: no
-     chart lists him; from <label>'s values against projected points" (curve
+     list him; scaled from <peer labels>" (ratio path) or "Estimated: no live
+     peer gives a usable estimate; from <label>'s values against projected points" (curve
      path). This replaces CTL-006's "never displayed" for these players.
    - i. **Below rosterable depth.** A player a chart does not list and does not
      estimate, at a position the chart prices, is 0 on that chart in every
@@ -635,47 +639,41 @@ bench share 0.15. Pie = 28 x 2 x 5 = **280**.
 included. `c3` is held; its natives are exactly 10 x `c1`. RB Juliet (a
 rookie) is projected only by `p1` (8.5) and listed by no chart.
 
-**League allocation (by projected points).**
+**League allocation (by projected points).** The two flex slots go to WR
+November and TE Uniform. VORP bench allocation supplies one seat each at QB,
+RB, WR and TE. The rostered counts are QB 3, RB 3, WR 4 and TE 4. Each
+position's fill set includes one more player by mean projected points.
+`c1` represents FantasyCalc and is marked as the live chart peer in the
+fixture. `p1` and `p2` are projections. `c2`, `c4` and `c5` are weekly charts.
 
-- Bench seats: `round(2 x 2) = 4`, D'Hondt over `BENCH_MIX_12` in the order
-  WR, RB, WR, RB: RB 2, WR 2.
-- Flex candidates by `m`: WR November 11.0, TE Uniform 10.2, RB Foxtrot 9.8.
-  The two flex slots go to **WR and TE**. By `c1`'s own values (the
-  superseded rule) they would go to WR November (40) and **RB Foxtrot (35)**,
-  not TE Uniform (6) (`expected.flex_contrast`).
-- Every source: QB 2/2, RB 2 starters/4 rostered, WR 3/5, TE 3/3.
-- Fill sets (first `N_p + 1` by `m`): QB Alpha, Bravo, Charlie; RB Delta,
-  Echo, Foxtrot, Juliet, Golf; WR Lima to Quebec; TE Sierra to Victor.
+**Fill-in estimates under JEG-1205.** All estimates use listed natives:
 
-**Fill-in estimates.**
+| Chart | Player | Eligible peers that list him | Raw | Shown |
+| --- | --- | --- | ---: | ---: |
+| c1 | RB Juliet | p1 | 23.240181 | 1.000000 (cap) |
+| c2 | TE Whiskey | p1, p2, c1 | 3.375000 | 3.000000 (cap) |
+| c4 | RB Juliet | p1 | 30.841646 | 2.000000 (cap) |
+| c5 | QB Delta | p1, p2, c1 | 13.680000 | 13.680000 |
+| c5 | RB Juliet | p1 | 37.642857 | 33.000000 (cap) |
+| c5 | WR Papa | p1, p2, c1 | 24.125000 | 21.000000 (cap) |
+| c5 | TE Victor | p1, p2, c1 | 7.000000 | 7.000000 |
 
-| Chart | Player | Path | Detail | Raw | Shown |
-| --- | --- | --- | --- | --- | --- |
-| c2 | WR Quebec | peers c1, c4 (median of 2) | ratios 0.956311, 0.947115 on 5 shared | 9.038975 | 9.038975 (its WR waiver line) |
-| c5 | WR Papa | peers c1, c2, c4 (median of 3) | estimates 14.072917, 12.518919, 15.0 | 14.072917 | 14.072917 |
-| c5 | WR Quebec | peers c1, c4 | estimates 9.046875, 10.0 | 9.523438 | 9.523438 (waiver line) |
-| c5 | TE Victor | peers c1, c2, c4 | estimates 4.463768, 2.961538, 5.202703 | 4.463768 | 4.463768 (waiver line) |
-| c5 | RB Golf | peers c1, c2 | ratio 186/185 on 3 shared, both | 17.594595 | 17.594595 (waiver line) |
-| c4 | RB Golf | peers c1 (fit on the last 10 of 11 shared: `145.5 / 130.5`), c2 | 22.298851, 15.692308 | 18.995579 | **2** (capped at c4's lowest listed RB) |
-| c5 | RB Juliet | curve on Delta, Echo, Foxtrot: `native = -46.824297 + 7.810356 x m` | m = 8.5 | 19.563731 | 19.563731 |
-| c1, c2, c3, c4 | RB Juliet | curve | | 26.26 / 32.30 / 262.61 / 34.42 | capped: 1 / 3 / 10 / 2 |
+The fixture pins all estimated players on the ratio path. The focused
+JEG-1205 regression checks the curve fallback with an unusable live peer,
+as well as explicit zero versus missing and independence from edits
+to another weekly chart.
 
-Below rosterable depth: `c2` does not list RB Hotel and `c5` does not list QB
-Delta; both are 0 on that chart in every view.
+**DDF weights at bench share 15%.** Mean starter mix: QB 0.143990,
+RB 0.244060, WR 0.325745, TE 0.286205. Mean bench mix: QB 0.186945,
+RB 0.337829, WR 0.306537, TE 0.168689. The eight group weights are in
+the fixture; their bench total is 0.15.
 
-**DDF weights (bench 15%).** Starter mix mean QB 0.146323, RB 0.263452, WR
-0.313098, TE 0.277128; bench mix mean RB 0.509118, WR 0.490882. So
-`W` = QB starter 0.124374, RB starter 0.223934, RB bench 0.076368, WR starter
-0.266133, WR bench 0.073632, TE starter 0.235558 (bench 0.15 exactly). QB and
-TE have no bench seats, so their bench groups are 0.
-
-**Hand-check one value.** `p1`, RB Delta: native 18; starter line 10 (RB
-Foxtrot, index 2), waiver line 7 (RB Golf, index 4). Bench slice 3, starter
-slice 8. `p1`'s RB groups are 10.5 bench and 12 starter, so the rates are
-`280 x 0.076368 / 10.5 = 2.036472` and `280 x 0.223934 / 12 = 5.225123`, and
-`A = 3 x 2.036472 + 8 x 5.225123 =` **47.910397**. Across the six included
-sources RB Delta's blended DDF Value is **48.511113** (charts 50.223260,
-projections 45.086821).
+**Hand-check one value.** `p1` RB Delta has native 18, a bench slice of 3.5
+and a starter slice of 6. The RB rates are 1.669275 and 7.260783, so his
+Adjusted value is `3.5 × 1.669275 + 6 × 7.260783` = **49.407160**. The
+four included charts' Adjusted values average to **51.102890** (DDF Value);
+the two included projections' Adjusted values average to **46.140677**
+(DDF Projections).
 
 **What else it pins.**
 
@@ -1175,7 +1173,7 @@ recommendation, kept for the record; "Decided" governs.
 | OC-2 | Bench share default | (A) Source-implied; the slider overrides at the source level before averaging. (B) 15% applied to every source, like today. (C) 15% per position, like today's two-tier | A | **15%**: "15% is right. There is no way 35% is rational math." The DDF weights give bench 15% of the pie and every source is normalized to that; source-implied share is not used (VP-3.4, VP-4) |
 | OC-3 | How a player's value splits between starter and bench | (A) Slices. (B) Whole player in his role's group | A | **A**, slices; the slice only splits a player's value into the starter and bench groups, whose totals the DDF weights set with bench at 15% (VP-2.6) |
 | OC-4 | Flex fill per source | (A) Greedy best remaining by the source's own values. (B) Today's D'Hondt surplus-weighted flex | A | **Best remaining by assumed (projected) points, not VORP**: the mean points per game of the included projections, the same order as slot filling (VP-2.2) |
-| OC-5 | A group a source can't fund | (A) Its budget moves to the same position's other group. (B) Left unpaid and reported. (C) That source's group shown unavailable | A | **Fill-in, approved as proposed**: "We need to fill in more players to get to vorp for all rosterable players." Rosterable = starters + bench by projected points; ratio to other charts on the last ~10 shared players, median; else the chart's own curve against projected points; never above the chart's lowest listed player; marked estimated and counted (VP-2.4). The budget move stays as the residual rule (VP-5.3) |
+| OC-5 | A group a source can't fund | (A) Its budget moves to the same position's other group. (B) Left unpaid and reported. (C) That source's group shown unavailable | A | **Fill-in, approved as proposed**: "We need to fill in more players to get to vorp for all rosterable players." Rosterable = starters + bench by projected points; ratio on the last ~10 shared players, median; else the chart's own curve against projected points; never above the chart's lowest listed player; marked estimated and counted (VP-2.4). JEG-1205 (2026-10-28) limits ratio peers to FantasyCalc and projections. The budget move stays as the residual rule (VP-5.3) |
 | OC-6 | Weights for the charts-only and projections-only versions | (A) One DDF weight set. (B) Each family's own average | A | **A**, one shared weight set (VP-4.5) |
 | OC-7 | Projections in the Indexed tab | (A) Show their Adjusted values. (B) Hide them | A | Available in "Trade charts (as published)" as their Adjusted values, **off by default** (VP-6.4, VP-11) |
 | OC-8 | Which players set a chart's Indexed factor | (A) Listed players with a blended DDF Value, zeros included. (B) DDF Value above 0 only | A | **A** (the lead's call after Jeremy found the question unclear; revisit if he wants) (VP-6.4) |

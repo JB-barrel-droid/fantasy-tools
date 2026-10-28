@@ -258,9 +258,11 @@ class SourceInput:
     family: str                      # "projection" | "chart"
     values: dict                     # {player_key: native}; a finite native = listed
     label: str = ""
+    fill_peer: bool = False             # the one live chart (FantasyCalc)
 
     def __post_init__(self):
         self.label = self.label or self.key
+        self.fill_peer = self.fill_peer or self.key == "fantasycalc"
 
 
 # ---------------------------------------------------------------------------
@@ -373,7 +375,7 @@ def _estimate(c: SourceInput, i: int, c_order_p: list, peers: list, m: dict) -> 
         out["path"] = "peers"
         raw = median(ests)
     else:
-        # Curve path: no chart lists him, or none that does is usable.
+        # Curve path: no eligible live peer gives a usable estimate.
         out["path"] = "curve"
         pts_all = [j for j in c_order_p if j in m]
         n_pts = min(ESTIMATE_FIT_N, len(pts_all))
@@ -926,6 +928,8 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                                               flex_bench_seats=flex_bench_seats)
     fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     chart_peers = [sources[k] for k in inc if sources[k].family == "chart"]
+    fill_peers = [sources[k] for k in inc if sources[k].family == "projection" or
+                  (sources[k].family == "chart" and sources[k].fill_peer)]
     es = None
     if lineup is not None:
         es = {"teams": int(league.teams), "lineup": lineup,
@@ -958,7 +962,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                                                                flex_bench_seats=flex_bench_seats)
         estimates = {}
         if src.family == "chart" and not degenerate:
-            peers = [k for k in chart_peers if k.key != key]
+            peers = [k for k in fill_peers if k.key != key]
             for p in POSITIONS:
                 if not own_order[p]:
                     continue

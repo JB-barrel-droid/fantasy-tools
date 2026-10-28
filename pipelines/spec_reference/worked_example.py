@@ -29,6 +29,7 @@ def fixture_inputs(fx: dict) -> dict:
     pos_of = {int(k): v["pos"] for k, v in fx["players"].items()}
     names = {int(k): v.get("name") for k, v in fx["players"].items()}
     sources = {s: {"family": v["family"], "status": v.get("status"),
+                   "fill_peer": v.get("fill_peer", False),
                    "values": {int(k): x for k, x in v["values"].items()}}
                for s, v in fx["inputs"].items()}
     included = [s for s, v in fx["inputs"].items() if v.get("status") == "included"]

@@ -123,7 +123,8 @@ def run_ref(basis, overrides) -> dict:
     league = ref.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
                         bench=s["bench_per_team"], bench_share=s["bench_share"],
                         flex_eligible=tuple(s["flex_eligible"]))
-    sources = {k: ref.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()})
+    sources = {k: ref.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()},
+                                  fill_peer=v.get("fill_peer", False))
                for k, v in fx["inputs"].items()}
     pos_of = {int(i): p["pos"] for i, p in fx["players"].items()}
     included = [k for k, v in fx["inputs"].items() if v["status"] == "included"]

@@ -980,8 +980,13 @@
       promoWeeksRemaining = PROMOTION_SEASON_WEEKS;
     }
 
-    var chartPeersFor = function (src) {
-      return chartsI.filter(function (k) { return k !== src; });
+    var fillPeersFor = function (src) {
+      // Only FantasyCalc is a chart peer. Projection natives are refreshed
+      // independently; weekly charts must never fill one another in a loop.
+      return included.filter(function (k) {
+        return k !== src && (familyOf(k) === "projection"
+          || (familyOf(k) === "chart" && (k === "fantasycalc" || sources[k].fillPeer === true)));
+      });
     };
 
     // --- VP-2.4 fill-in estimate for chart `src`, player `key` at `pos`.
@@ -993,7 +998,7 @@
       var info = { peers: {}, cap: cap, path: null, raw: null, value: null, capped: false };
       var ests = [];
       var usedPeers = [];
-      chartPeersFor(src).forEach(function (peer) {
+      fillPeersFor(src).forEach(function (peer) {
         var peerNat = nativeOf[peer];
         if (!Object.prototype.hasOwnProperty.call(peerNat, key)) return;
         var shared = own.filter(function (r) { return Object.prototype.hasOwnProperty.call(peerNat, r.key); });
@@ -1056,7 +1061,7 @@
       info.reason = info.path === "peers"
         ? "Estimated: " + label + " doesn't list him; scaled from "
           + vpListLabels(usedPeers.map(function (k) { return vpLabel(sources, k); }))
-        : "Estimated: no chart lists him; from " + label + "'s values against projected points";
+        : "Estimated: no live peer gives a usable estimate; from " + label + "'s values against projected points";
       return info;
     }
 

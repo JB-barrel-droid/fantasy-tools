@@ -53,9 +53,9 @@ class WorkedExample(unittest.TestCase):
     def test_hand_check_rb_delta(self):
         out = we.run_fixture(_fx())
         # JEG-1121 stable: new VORP bench method (WR 1, TE 1 instead of WR 2, TE 0).
-        self.assertAlmostEqual(out["sources"]["p1"]["players"][201]["adjusted"], 49.445413, 6)
+        self.assertAlmostEqual(out["sources"]["p1"]["players"][201]["adjusted"], 49.407160, 6)
         # JEG-1073: blended DDF = charts average; JEG-1121: updated for new bench allocation.
-        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 50.760350, 6)
+        self.assertAlmostEqual(out["rows"][201]["ddf_blended"]["value"], 51.102890, 6)
         self.assertEqual(out["pie"], 280.0)
 
 

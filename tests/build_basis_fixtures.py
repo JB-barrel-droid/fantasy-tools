@@ -4,6 +4,9 @@ These are FROZEN reference fixtures (iteration contract): do not regenerate to
 make a test pass. Re-running this script is only for adding a case, and the
 change is logged in docs/claude-log.md.
 
+JEG-1205 refreshed these fixtures for the approved live fill-peer rule; the
+JS engine generated the values, and both Python references verify them.
+
 JEG-1073 (Jeremy, 2026-10-25: "Keep adj trade chart avg as the main ddf and
 projections as an alt."): the default DDF Value is now the equal-weight mean of
 the trade charts' Adjusted values, so the default-path fixtures (basis_default,
@@ -101,9 +104,9 @@ def main() -> int:
             doc = {"schema": "basis-fixture/1", "case": case["case"], "split": case["split"],
                    "note": case["note"], "source_fixture": SOURCE.name, "basis": case["basis"],
                    "overrides": case["overrides"],
-                   "generated_by": "value-model.js (JEG-1073: default = Adjusted trade chart average)"
+                   "generated_by": "value-model.js (JEG-1073 chart mean; JEG-1205 live fill peers)"
                    if case["case"] in ("default", "with_override")
-                   else "value-model.js with basisConfig (JEG-1044)",
+                   else "value-model.js with basisConfig (JEG-1044; JEG-1205 live fill peers)",
                    "expected": compact(out)}
             path = FIXDIR / f"basis_{case['case']}.json"
             path.write_text(json.dumps(doc, indent=1, sort_keys=True) + "\n", encoding="utf-8")
