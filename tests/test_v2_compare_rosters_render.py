@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import unittest
-import os
-from pathlib import Path
 
 from tests import _render_env
 from tests.test_v2_deal_read_render import _served
@@ -24,9 +22,6 @@ def check_roster_editing():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
-            helper = os.environ.get("JEG1216_HELPER_PATH")
-            if helper:
-                page.add_init_script(script=Path(helper).read_text(encoding="utf-8"))
             page.goto(base + "#compare-trade", wait_until="networkidle")
             page.wait_for_selector("#v2CRosters", state="attached")
             if not page.locator("#v2CRosters").is_hidden():
