@@ -18,7 +18,8 @@ Contract: Assemble a small user-facing candidate from interactive Compare (JEG-1
 - `git merge-base --is-ancestor ed0154c6 origin/fe/jeg-1214-interactive-compare` returned 0; the shared helper is already in Compare.
 - `CHROMIUM_PATH=/usr/bin/chromium python -m unittest tests.test_interactive_trades_release_render -q` passed. One browser visit checks both loaded rosters, live trade edits, unchanged lineup rows, bench expansion, 2-for-1 spots, Swap then Cancel, external hash and assist trade replacement, saved and linked guardrail settings, and default finder result parity with inactive guardrails.
 - `CHROMIUM_PATH=/usr/bin/chromium python -m unittest tests.test_interactive_trades_release_render tests.test_v2_compare_rosters_render tests.test_jeg1216_lineup tests.test_jeg1216_lineup_render tests.test_v2_finder_guardrails tests.test_v2_finder_guardrails_render -q` passed (6 tests).
+- `.github/workflows/v2-render-test.yml` runs the combined release browser test as part of the PR render check.
 
 ### Claimed, not confirmed
 
-- Full CI, final independent integration review, and first release live QA are pending. No production merge, deployment, Supabase action, or branch deletion occurred.
+- Full remote CI, final independent integration review, and first release live QA are pending. Draft PR creation was rejected by automatic approval review as an external commitment; the release branch was pushed, but no PR exists yet. No production merge, deployment, Supabase action, or branch deletion occurred.
