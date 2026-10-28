@@ -77,6 +77,9 @@ function contentWeekForDay(day) {
 }
 
 function todayIso() {
+  // The test pins the content-week clock to the served data's week (JEG-982), as the page's
+  // window.TRADE_VALUE_TODAY does; the deployed function has no such override and uses the real date.
+  if (process.env.TRADE_VALUE_TODAY) return process.env.TRADE_VALUE_TODAY;
   // ET-aware date.
   try {
     return new Intl.DateTimeFormat("en-CA", {

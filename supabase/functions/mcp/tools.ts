@@ -45,6 +45,8 @@ export type FetchValues = (
 /** Extended player record with per-chart values (from get-values?include=charts). */
 export interface ChartPlayerValue extends PlayerValue {
   chart_values: Record<string, number | null>;
+  /** Each chart's Indexed value: the market the other team judges by (JEG-1129). */
+  chart_indexed?: Record<string, number | null>;
   ddf_value_charts: number | null;
   ddf_value_projections: number | null;
 }
@@ -709,15 +711,30 @@ export async function runTool(
 
 // ---------- find_trades tool ----------
 
-/** Convert a ChartPlayerValue into the FinderRow format finder.js expects. */
-function toFinderRow(p: ChartPlayerValue): FinderRow {
+/**
+ * Convert a ChartPlayerValue into the FinderRow format finder.js expects. The chart keys carry each
+ * chart's Indexed value, as the site's rows do in the Indexed view, so the finder's chart checks and
+ * the viability market (the mean of the chart keys) read the trade charts' Indexed values. The
+ * Adjusted values (chart_values) average to DDF Value itself, so using them would judge the other
+ * team on DDF Value and no trade could ever pass (JEG-1129).
+ */
+export function toFinderRow(p: ChartPlayerValue): FinderRow {
   const values: Record<string, number | null> = {
     ddf_value: p.value,
     ddf_value_charts: p.ddf_value_charts,
     ddf_value_projections: p.ddf_value_projections,
   };
-  for (const [k, v] of Object.entries(p.chart_values)) values[k] = v;
+  for (const [k, v] of Object.entries(p.chart_indexed ?? {})) values[k] = v;
   return { player_key: p.player_key, name: p.name, pos: p.pos, values, ddfTier: p.tier };
+}
+
+/** The chart players, or unavailable when get-values does not send Indexed chart values yet. */
+export function chartPlayersOf(data: { players: ChartPlayerValue[] }): ChartPlayerValue[] {
+  const players = data.players ?? [];
+  if (players.length && !players.some((p) => p.chart_indexed)) {
+    throw new ToolUnavailableError("Chart values are unavailable right now. Try again shortly.");
+  }
+  return players;
 }
 
 async function findTradesHandler(
@@ -742,7 +759,7 @@ async function findTradesHandler(
   }
 
   const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
-  const chartPlayers = data.players;
+  const chartPlayers = chartPlayersOf(data);
 
   const mineRes = resolveNames(chartPlayers, mineNames);
   const theirRes = resolveNames(chartPlayers, theirNames);
@@ -865,7 +882,7 @@ async function findTradesLeagueHandler(
   }
 
   const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
-  const chartPlayers = data.players;
+  const chartPlayers = chartPlayersOf(data);
 
   const mineRes = resolveNames(chartPlayers, mineNames);
   if (!mineRes.matched.length) throw new ToolInputError(emptyRoster("your roster", mineRes));

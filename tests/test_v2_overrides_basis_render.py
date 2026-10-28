@@ -97,15 +97,19 @@ def top_player(page, pos="WR", rank=5):
 
 
 def set_player_override(page, name, value):
-    """The reader's way: search the player on the Overrides tab, pick him, type a value."""
+    """The reader's way: search the player on the Overrides tab, pick him, type a value.
+
+    The editor clamps to its own scale (the range slider's max), so the value applied is returned."""
     page.fill("#v2OvSearch", name)
     page.wait_for_selector("#v2OvResults button")
     page.click("#v2OvResults button")
     page.wait_for_selector("#v2OvNumber")
+    value = round(min(value, float(page.get_attribute("#v2OvRange", "max"))), 1)
     page.fill("#v2OvNumber", str(value))
     page.press("#v2OvNumber", "Enter")
     page.dispatch_event("#v2OvNumber", "change")
     page.wait_for_timeout(300)
+    return value
 
 
 def rubric(session) -> dict:
@@ -144,6 +148,9 @@ def rubric(session) -> dict:
     page.wait_for_timeout(200)
     score[4] = int(page.locator(".v2-ov-wrow input[type=range]").count() == 7)
     espn_before = ddf_of(page, star["name"])
+    # JEG-1073: a blend starts on our methodology (the four trade charts); tick a projection in to move its slider.
+    page.check("#v2OvOn-espn")
+    page.wait_for_timeout(200)
     page.fill("#v2OvW-espn", "90")
     page.wait_for_timeout(400)
     espn_after = ddf_of(page, star["name"])
@@ -156,10 +163,10 @@ def rubric(session) -> dict:
     session.open("#compare-trade?give=%s&get=%s" % (a["key"], b["key"]))
     even = page.inner_text("#v2CVerdictText")
     session.open("#value-overrides")
-    set_player_override(page, a["name"], round(a["value"] + 40, 1))
+    target = set_player_override(page, a["name"], round(a["value"] + 40, 1))
     session.open("#player-values")
     bumped = ddf_of(page, a["name"])
-    score[6] = int(bumped is not None and abs(bumped - round(a["value"] + 40, 1)) < 0.06
+    score[6] = int(bumped is not None and abs(bumped - target) < 0.06
                    and "1 player override" in page.inner_text("#v2OvBar"))
     session.open("#compare-trade?give=%s&get=%s" % (a["key"], b["key"]))
     moved = page.inner_text("#v2CVerdictText")
@@ -260,12 +267,17 @@ class RubricTest(unittest.TestCase):
             self.assertEqual(page.evaluate("() => window.TradeValueCurveControls.getBasis().sources"), ["espn", "razzball"])
             self.assertEqual(s.errors, [])
 
-    def test_all_three_projections_ticked_migrates_to_our_methodology_silently(self):
+    def test_all_three_projections_ticked_maps_to_our_methodology(self):
+        """The old default blend (all three projections ticked) maps to our methodology, not a blend of the
+        three (Jeremy, 2026-10-27, JEG-1135; reverses the JEG-1073 carry-over). The legacy record is cleared."""
         seed = """() => { localStorage.setItem('ddf.v2.selection', JSON.stringify({v: 1, shown: ['ddf_value'], inputs: ['espn', 'cbsros', 'razzball'], rank: 'ddf_value'})); }"""
         with Session(init="(" + seed + ")()") as s:
             page = s.open("#player-values")
-            self.assertTrue(page.evaluate("() => window.TradeValueCurveControls.getBasis().isDefault"))
-            self.assertEqual(page.locator("#v2OvNotice").count(), 0)
+            basis = page.evaluate("() => window.TradeValueCurveControls.getBasis()")
+            self.assertTrue(basis["isDefault"], basis)
+            self.assertEqual(page.locator("#v2OvNotice", has_text="carried over").count(), 0)
+            legacy = json.loads(page.evaluate("() => localStorage.getItem('ddf.v2.selection')"))
+            self.assertIsNone(legacy["inputs"])
             self.assertEqual(s.errors, [])
 
     def test_v1_override_record_reads_as_v2_with_our_basis(self):
@@ -288,8 +300,14 @@ class RubricTest(unittest.TestCase):
             a, b = top_player(page, "RB", 2), top_player(page, "WR", 2)
             c_ = top_player(page, "TE", 1)
             page.click('[data-preset="blend"]')
+            # JEG-1073: a blend starts on our methodology (the four trade charts); this link is the three projections.
+            for key in ("espn", "cbsros", "razzball"):
+                page.check(f"#v2OvOn-{key}")
+            for key in ("fantasycalc", "usatoday", "fantasypros", "cbs"):
+                page.uncheck(f"#v2OvOn-{key}")
             page.fill("#v2OvW-espn", "60")
             page.fill("#v2OvW-cbsros", "10")
+            page.fill("#v2OvW-razzball", "33")
             page.wait_for_timeout(400)
             page.evaluate("""(keys) => { const o = window.DDFOverrides; keys.forEach((k, i) => { o.state.values[k] = 20 + i; o.state.names[k] = 'p' + k; });
               window.TradeValueCurveControls.setValueOverrides(o.state.values); }""", [a["key"], b["key"]])
@@ -430,13 +448,14 @@ class RubricTest(unittest.TestCase):
             labels = page.eval_on_selector_all(".v2-ov-wrow input[type=range]", "els => els.map(e => e.getAttribute('aria-label'))")
             self.assertEqual(labels, ["ESPN weight", "CBS rest of season weight", "Razzball weight", "FantasyCalc weight",
                                       "USA Today weight", "FantasyPros weight", "CBS trade chart weight"])
-            self.assertEqual(page.evaluate("() => document.activeElement.id"), "v2OvW-espn")
-            # The last ticked source cannot be unticked.
-            for key in ("cbsros", "razzball"):
+            # JEG-1073: a blend starts on the four trade charts, so the first enabled slider is FantasyCalc's.
+            self.assertEqual(page.evaluate("() => document.activeElement.id"), "v2OvW-fantasycalc")
+            # The last ticked source cannot be unticked: untick the other three trade charts, FantasyCalc stays.
+            for key in ("usatoday", "fantasypros", "cbs"):
                 page.uncheck(f"#v2OvOn-{key}")
                 page.wait_for_timeout(200)
-            self.assertTrue(page.locator("#v2OvOn-espn").is_disabled())
-            self.assertIn("Last source stays on", page.inner_text("[data-source-row=espn]"))
+            self.assertTrue(page.locator("#v2OvOn-fantasycalc").is_disabled())
+            self.assertIn("Last source stays on", page.inner_text("[data-source-row=fantasycalc]"))
             self.assertEqual(page.locator("#v2OvBar").get_attribute("hidden") is not None or "Overrides active" in page.inner_text("#v2OvBar"), True)
             self.assertEqual(s.errors, [])
 

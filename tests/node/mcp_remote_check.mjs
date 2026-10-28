@@ -240,22 +240,27 @@ assert.match((await rpc("tools/list")).result.tools.find((t) => t.name === "comp
 // ---------- find_trades tool ----------
 const finder = createRequire(import.meta.url)("../../app/v2/finder.js");
 
-// Chart-enriched stub: adds chart_values and DDF sub-versions to each player.
+// Chart-enriched stub: adds chart_values (Adjusted), chart_indexed (Indexed) and DDF sub-versions to each player.
 const chartPlayers = [
   { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: "starter",
     chart_values: { usatoday: 65, fantasycalc: 68, fantasypros: 70, cbs: 66 },
+    chart_indexed: { usatoday: 65, fantasycalc: 68, fantasypros: 70, cbs: 66 },
     ddf_value_charts: 72, ddf_value_projections: 71.5 },
   { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: "starter",
     chart_values: { usatoday: 64, fantasycalc: 67, fantasypros: 69, cbs: 65 },
+    chart_indexed: { usatoday: 64, fantasycalc: 67, fantasypros: 69, cbs: 65 },
     ddf_value_charts: 70, ddf_value_projections: 70.5 },
   { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: "starter",
     chart_values: { usatoday: 35, fantasycalc: 38, fantasypros: 42, cbs: 36 },
+    chart_indexed: { usatoday: 35, fantasycalc: 38, fantasypros: 42, cbs: 36 },
     ddf_value_charts: 41, ddf_value_projections: 39 },
   { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: "starter",
     chart_values: { usatoday: 34, fantasycalc: 37, fantasypros: 41, cbs: 35 },
+    chart_indexed: { usatoday: 34, fantasycalc: 37, fantasypros: 41, cbs: 35 },
     ddf_value_charts: 40, ddf_value_projections: 38 },
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver",
     chart_values: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
+    chart_indexed: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
     ddf_value_charts: 0, ddf_value_projections: 0 },
 ];
 const chartStub = async (scoring, teams, superflex) => ({
@@ -292,6 +297,42 @@ if (ft.trades.length > 0) {
   assert.ok(first.ddfEdge > 0, "your edge is positive (you gain)");
   if (first.viable) {
     assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
+  }
+}
+
+// JEG-1129: the other team is judged on the trade charts' Indexed values (chart_indexed), never on
+// the Adjusted values (chart_values), whose mean is DDF Value itself. Here the Adjusted values mirror
+// DDF Value, as they do live, so the old rows gave theirMarketNet = -ddfEdge and nothing could pass.
+{
+  const ch = (v) => ({ usatoday: v, fantasycalc: v, fantasypros: v, cbs: v });
+  const arb = [
+    { player_key: 11, name: "Market Darling", pos: "RB", value: 30, tier: "starter", chart_values: ch(30), chart_indexed: ch(40),
+      ddf_value_charts: 30, ddf_value_projections: 30 },
+    { player_key: 12, name: "Market Laggard", pos: "RB", value: 35, tier: "starter", chart_values: ch(35), chart_indexed: ch(32),
+      ddf_value_charts: 35, ddf_value_projections: 35 },
+  ];
+  const arbCharts = async (scoring, teams, superflex) => ({ ...(await chartStub(scoring, teams, superflex)), players: arb });
+  const callA = (args) => handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "find_trades", arguments: args } },
+    stub, deps, { finder, fetchCharts: arbCharts });
+  r = await callA({ mine: "Market Darling", theirs: "Market Laggard", max_per_side: 1 });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const t = r.result.structuredContent.trades.find((x) => x.userGives[0].name === "Market Darling");
+  assert.ok(t, "the arbitrage trade is found: " + JSON.stringify(r.result.structuredContent.trades));
+  assert.ok(Math.abs(t.ddfEdge - 5) < 1e-9, `you gain 5 on DDF Value, got ${t.ddfEdge}`);
+  // The compact reply (JEG-1012) lists only failed checks: they gain 8 on the Indexed chart mean, so the other team's
+  // market check passes; on the Adjusted values they would lose 5 and it would fail.
+  assert.ok(Array.isArray(t.failed) && !t.failed.includes("perceived_fairness"),
+    "the other team's market check passes on the Indexed chart mean: " + JSON.stringify(t));
+
+  // A get-values without Indexed chart values (the old shape) is unavailable, never silently priced on Adjusted.
+  const oldShape = arb.map(({ chart_indexed, ...rest }) => rest);
+  const oldCharts = async (scoring, teams, superflex) => ({ ...(await chartStub(scoring, teams, superflex)), players: oldShape });
+  for (const name of ["find_trades", "find_trades_league"]) {
+    const args = name === "find_trades" ? { mine: "Market Darling", theirs: "Market Laggard" }
+      : { mine: "Market Darling", opponents: [{ name: "Them", roster: "Market Laggard" }] };
+    r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, stub, deps, { finder, fetchCharts: oldCharts });
+    assert.equal(r.result.isError, true, `${name} without chart_indexed is an error`);
+    assert.match(r.result.content[0].text, /Chart values are unavailable/);
   }
 }
 
@@ -430,7 +471,7 @@ function sizedPlayer(i, side, pos) {
   const charts = { usatoday: chart, fantasycalc: chart - 1, fantasypros: chart + 1, cbs: chart - 0.5 };
   return {
     player_key: side * 1000 + i, name: `${side === 1 ? "Mine" : "Theirs"} Player ${i}`, pos,
-    value: Math.round(value * 10) / 10, tier: "starter", chart_values: charts,
+    value: Math.round(value * 10) / 10, tier: "starter", chart_values: charts, chart_indexed: charts,
     ddf_value_charts: chart, ddf_value_projections: value,
   };
 }
