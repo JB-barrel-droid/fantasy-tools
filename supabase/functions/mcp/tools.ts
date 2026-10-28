@@ -101,12 +101,15 @@ const settingsProps = {
   },
 };
 
+// JEG-1124: a one-letter name fits too many players to be useful; ask for a fuller name.
+const MIN_NAME = 2;
+
 const listProps = {
-  give: { type: "string", description: "Comma-separated names: what you give (Compare a trade)" },
-  get: { type: "string", description: "Comma-separated names: what you get (Compare a trade)" },
-  mine: { type: "string", description: "Comma-separated names: your roster (Find a trade)" },
-  theirs: { type: "string", description: "Comma-separated names: their roster (Find a trade)" },
-  target: { type: "string", description: "One player name (Trade targets)" },
+  give: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: what you give (Compare a trade)" },
+  get: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: what you get (Compare a trade)" },
+  mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your roster (Find a trade)" },
+  theirs: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: their roster (Find a trade)" },
+  target: { type: "string", minLength: MIN_NAME, description: "One player name (Trade targets)" },
 };
 
 // Viability configuration properties, exposed as optional tool arguments.
@@ -178,7 +181,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        names: { type: "string", description: "Comma-separated player names" },
+        names: { type: "string", minLength: MIN_NAME, description: "Comma-separated player names" },
       },
       required: ["names"],
     },
@@ -192,7 +195,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        player_name: { type: "string", description: "Player to trade (or trade for)" },
+        player_name: { type: "string", minLength: MIN_NAME, description: "Player to trade (or trade for)" },
         range_pct: { type: "number", minimum: 1, maximum: 50, default: 15, description: "How close in value, in percent" },
         position: { type: "string", enum: POSITIONS, default: "all", description: "Filter targets by position" },
       },
@@ -208,8 +211,8 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        side_a: { type: "string", description: "Comma-separated names team A gives up" },
-        side_b: { type: "string", description: "Comma-separated names team B gives up" },
+        side_a: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team A gives up" },
+        side_b: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team B gives up" },
       },
       required: ["side_a", "side_b"],
     },
@@ -248,8 +251,8 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        mine: { type: "string", description: "Comma-separated names: your full roster" },
-        theirs: { type: "string", description: "Comma-separated names: their full roster" },
+        mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your full roster" },
+        theirs: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: their full roster" },
         max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades (default 2-for-2)" },
         min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
         limit: { type: "integer", minimum: 1, maximum: 50, default: 10, description: "Maximum trade candidates to return" },
@@ -267,7 +270,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        mine: { type: "string", description: "Comma-separated names: your full roster" },
+        mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your full roster" },
         opponents: {
           type: "array",
           description: "Opposing teams: [{name, roster}] where roster is comma-separated names",
@@ -275,7 +278,7 @@ export const TOOLS = [
             type: "object",
             properties: {
               name: { type: "string", description: "Team name" },
-              roster: { type: "string", description: "Comma-separated player names" },
+              roster: { type: "string", minLength: MIN_NAME, description: "Comma-separated player names" },
             },
             required: ["name", "roster"],
           },
@@ -284,7 +287,7 @@ export const TOOLS = [
         },
         max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades" },
         min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
-        limit: { type: "integer", minimum: 1, maximum: 100, default: 25, description: "Maximum trade candidates to return" },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 10, description: "Maximum trade candidates to return" },
         ...viabilityProps,
       },
       required: ["mine", "opponents"],
@@ -462,6 +465,17 @@ function tradeLine(index: number, o: ReturnType<typeof slimOffer>, team?: string
   return `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
 }
 
+// JEG-1123: the text lists the top rows only, so a long result is not sent twice;
+// structuredContent carries every row once and the site link opens the full list.
+const TEXT_ROWS = 5;
+
+function tradeLines<T extends ReturnType<typeof slimOffer>>(rows: T[], team?: (o: T) => string): string[] {
+  const lines = rows.slice(0, TEXT_ROWS).map((o, i) => tradeLine(i, o, team?.(o)));
+  const more = rows.length - TEXT_ROWS;
+  if (more > 0) lines.push(`${more} more in the structured result and on the site (link below).`);
+  return lines;
+}
+
 function foundLine(total: number, shown: number, limit: number, viableOnly: boolean): string {
   const noun = total === 1 ? "trade" : "trades";
   const which = viableOnly ? " viable" : "";
@@ -474,6 +488,21 @@ interface ResolvedNames<T extends PlayerValue> {
   unmatched: string[];
   ambiguous: Array<{ input: string; suggestions: string[] }>;
   notes: string[];
+}
+
+/** JEG-1124: one trimmed name, rejected when it is too short to pick out one player. */
+function checkName(name: string, field: string): string {
+  if (name.length < MIN_NAME) {
+    throw new ToolInputError(
+      `${field}: name too short (${JSON.stringify(name)}). Use a fuller player name, at least ${MIN_NAME} characters.`,
+    );
+  }
+  return name;
+}
+
+/** A comma-separated name list, each name checked by checkName. */
+function playerNames(raw: unknown, field: string): string[] {
+  return splitNames(raw).map((n) => checkName(n, field));
 }
 
 function resolveNames<T extends PlayerValue>(players: T[], names: string[]): ResolvedNames<T> {
@@ -526,6 +555,7 @@ function parseOpponents(raw: unknown): Array<{ name: string; roster: string }> {
     if (typeof row.roster !== "string") {
       throw new ToolInputError(`opponents[${i}].roster must be a comma-separated string of names.`);
     }
+    playerNames(row.roster, `opponents[${i}].roster`);
     return { name, roster: row.roster };
   });
 }
@@ -574,7 +604,7 @@ export async function runTool(
   }
 
   if (name === "get_player_value") {
-    const names = splitNames(args.names);
+    const names = playerNames(args.names, "names");
     if (!names.length) throw new ToolInputError("names is required");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const results = names.map((input) => {
@@ -602,6 +632,7 @@ export async function runTool(
     const pct = parseBounded(args.range_pct, "range_pct", 15, 1, 50);
     const query = String(args.player_name ?? "").trim();
     if (!query) throw new ToolInputError("player_name is required");
+    checkName(query, "player_name");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const hit = matchName(data.players, query);
     if (hit.match === "ambiguous" || !hit.player) {
@@ -633,13 +664,14 @@ export async function runTool(
   }
 
   if (name === "compare_trade") {
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const side = (raw: unknown) => resolveNames(data.players, splitNames(raw));
-    let a = side(args.side_a);
-    let b = side(args.side_b);
-    if (!splitNames(args.side_a).length || !splitNames(args.side_b).length) {
+    const namesA = playerNames(args.side_a, "side_a");
+    const namesB = playerNames(args.side_b, "side_b");
+    if (!namesA.length || !namesB.length) {
       throw new ToolInputError("side_a and side_b each need at least one name");
     }
+    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    let a = resolveNames(data.players, namesA);
+    let b = resolveNames(data.players, namesB);
     // The same player on both sides stays on team A, matching the site.
     const giveKeys = new Set(a.matched.map((p) => p.player_key));
     const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
@@ -747,8 +779,8 @@ async function findTradesHandler(
   const a = prepared.args;
   const s = settings(a);
 
-  const mineNames = splitNames(a.mine);
-  const theirNames = splitNames(a.theirs);
+  const mineNames = playerNames(a.mine, "mine");
+  const theirNames = playerNames(a.theirs, "theirs");
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
   if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
   if (!finderDeps?.finder) {
@@ -826,7 +858,7 @@ async function findTradesHandler(
   ];
   if (nameNotes.length) lines.push(...nameNotes);
   lines.push("");
-  trades.forEach((o, i) => lines.push(tradeLine(i, o)));
+  lines.push(...tradeLines(trades));
   if (!trades.length) lines.push(viableOnly
     ? "No viable trades found. Try without viable_only to see all candidates."
     : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
@@ -870,7 +902,7 @@ async function findTradesLeagueHandler(
   const a = prepared.args;
   const s = settings(a);
 
-  const mineNames = splitNames(a.mine);
+  const mineNames = playerNames(a.mine, "mine");
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
 
   const opponents = parseOpponents(a.opponents);
@@ -894,7 +926,7 @@ async function findTradesLeagueHandler(
   const viableOnly = parseBool(a.viable_only, "viable_only", false);
   const maxPerSide = parseBounded(a.max_per_side, "max_per_side", 2, 1, 4);
   const minRivalEdge = parseNonNegative(a.min_rival_edge, "min_rival_edge", 0);
-  const limit = parseBounded(a.limit, "limit", 25, 1, 100);
+  const limit = parseBounded(a.limit, "limit", 10, 1, 100);
 
   const allOffers: TradeOfferInput[] = [];
   const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
@@ -966,12 +998,12 @@ async function findTradesLeagueHandler(
 
   if (packageOffers.length > 0) {
     lines.push(`Package: ${packageOffers.length} trade${packageOffers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}.`);
-    packageOffers.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
+    lines.push(...tradeLines(packageOffers, (o) => o.team as string));
     lines.push("");
   }
 
   lines.push(shownTrades.length ? "Candidates:" : "");
-  shownTrades.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
+  lines.push(...tradeLines(shownTrades, (o) => o.team as string));
   if (!shownTrades.length) lines.push(viableOnly
     ? "No viable trades found across the league."
     : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
@@ -1095,7 +1127,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const a = prepared.args;
   const s = settings(a);
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-  const names = (v: unknown) => splitNames(v);
+  const names = (v: unknown, field: string) => playerNames(v, field);
   const work: Record<string, unknown> = {};
   const unmatched: string[] = [];
   const toEntry = (input: string) => {
@@ -1107,10 +1139,10 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
     return { key: String(hit.player.player_key), name: hit.player.name };
   };
   for (const name of WORK_LISTS) {
-    const list = names(a[name]);
+    const list = names(a[name], name);
     if (list.length) work[name] = list.map(toEntry);
   }
-  if (String(a.target ?? "").trim()) work.target = toEntry(String(a.target).trim());
+  if (String(a.target ?? "").trim()) work.target = toEntry(checkName(String(a.target).trim(), "target"));
   if (!Object.keys(work).length && !prepared.state) {
     throw new ToolInputError("Give at least one of give, get, mine, theirs or target, or a pasted state.");
   }

@@ -429,6 +429,57 @@ for (const [tool, args, needle] of [
   assert.match(e.result.content[0].text, needle, e.result.content[0].text);
   assert.equal(e.result.content[0].text.split("DDF state").length, 1);
 }
+// JEG-1124: a name under 2 characters is rejected with a clear error, in the schema and at run time.
+// Empty and blank names are rejected too. "Jr" (2 characters) still reaches the matcher above.
+{
+  const tools = (await rpc("tools/list")).result.tools;
+  const prop = (tool, key) => tools.find((t) => t.name === tool).inputSchema.properties[key];
+  for (const [tool, key] of [
+    ["get_player_value", "names"], ["trade_targets", "player_name"], ["compare_trade", "side_a"], ["compare_trade", "side_b"],
+    ["make_state", "give"], ["make_state", "get"], ["make_state", "mine"], ["make_state", "theirs"], ["make_state", "target"],
+    ["find_trades", "mine"], ["find_trades", "theirs"], ["find_trades_league", "mine"],
+  ]) assert.equal(prop(tool, key).minLength, 2, `${tool}.${key} has minLength 2`);
+  assert.equal(prop("find_trades_league", "opponents").items.properties.roster.minLength, 2);
+  assert.equal(prop("find_trades_league", "limit").default, 10, "find_trades_league schema default is 10");
+  assert.equal(prop("find_trades_league", "limit").maximum, 100);
+
+  const tooShort = /name too short \("J"\)\. Use a fuller player name/;
+  const shortCases = [
+    ["get_player_value", { names: "J" }, tooShort],
+    ["get_player_value", { names: "Josh Allen, J" }, tooShort],
+    ["get_player_value", { names: "" }, /names is required/],
+    ["get_player_value", { names: "   " }, /names is required/],
+    ["trade_targets", { player_name: "J" }, tooShort],
+    ["compare_trade", { side_a: "J", side_b: "Bijan Robinson" }, /side_a: name too short/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "J" }, /side_b: name too short/],
+    ["compare_trade", { side_a: "", side_b: "Bijan Robinson" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "   ", side_b: "Bijan Robinson" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "   " }, /side_a and side_b each need at least one name/],
+    ["find_trades", { mine: "Josh Allen, J", theirs: "Bijan Robinson" }, /mine: name too short/],
+    ["find_trades", { mine: "Josh Allen", theirs: "J" }, /theirs: name too short/],
+    ["find_trades_league", { mine: "J", opponents: [{ name: "Opp", roster: "Bijan Robinson" }] }, /mine: name too short/],
+    ["find_trades_league", { mine: "Josh Allen", opponents: [{ name: "Opp", roster: "Bijan Robinson, J" }] }, /opponents\[0\]\.roster: name too short/],
+  ];
+  for (const [tool, args, needle] of shortCases) {
+    const e = await call(tool, args);
+    assert.equal(e.result.isError, true, tool + JSON.stringify(args));
+    assert.match(e.result.content[0].text, needle, e.result.content[0].text);
+  }
+  for (const args of [{ give: "J" }, { target: "J" }]) {
+    const e = await callD("make_state", args);
+    assert.equal(e.result.isError, true, "make_state" + JSON.stringify(args));
+    assert.match(e.result.content[0].text, /name too short/, e.result.content[0].text);
+  }
+
+  // A typo resolves and says how it was read, so the model can tell the user.
+  r = await call("get_player_value", { names: "Jamar Chase, Bijan Robinsen" });
+  assert.equal(r.result.isError, undefined);
+  const [jamar, bijan] = r.result.structuredContent.results;
+  assert.match(jamar.note, /^(matched|interpreted) "Jamar Chase" (to|as) Ja'Marr Chase$/, jamar.note);
+  assert.equal(bijan.note, 'interpreted "Bijan Robinsen" as Bijan Robinson');
+  assert.match(r.result.content[0].text, /Bijan Robinson \(RB\): value 71\.8, tier starter — interpreted "Bijan Robinsen" as Bijan Robinson/);
+}
 r = await call("get_values", { scoring: "PPR", teams: 12, superflex: "yes", limit: 1 });
 assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
 assert.deepEqual(calls.at(-1), ["ppr", 12, 1]);
@@ -465,6 +516,11 @@ assert.equal(codec.decodeQuery(r.result.structuredContent.site_url.split("?")[1]
 // Response size. Before this change a 15-for-15 default find_trades was ~23KB for 10 trades,
 // get_values limit 200 was ~26KB, and an 11-opponent scan was ~36KB on this fixture (about 212KB
 // on a full live scan). The caps below fail if the full viability objects are copied into the payload again.
+// JEG-1123 follow-up: the text lists the top 5 trades and structuredContent carries every row once, and
+// find_trades_league defaults to 10. On 951b32be this fixture measured findDefault 6748, find50 20941 and
+// league 8892 bytes; after, 6056, 15374 and 7221. The caps sit about 10% above the after numbers.
+const TEXT_ROWS = 5;
+const tradeTextLines = (res) => res.result.content[0].text.split("\n").filter((l) => /^\d+\. /.test(l));
 function sizedPlayer(i, side, pos) {
   const value = side === 1 ? 12 + i : 40 + i;
   const chart = side === 1 ? 70 - i : 20 + i * 0.2;
@@ -495,8 +551,11 @@ r = await sizeCall("find_trades", { mine: mineList, theirs: theirList });
 assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
 assert.equal(r.result.structuredContent.shown, 10);
 assert.equal(r.result.structuredContent.trades.length, 10);
+assert.equal(tradeTextLines(r).length, TEXT_ROWS, "find_trades text lists the top 5 trades only");
+assert.match(r.result.content[0].text, /^5 more in the structured result and on the site/m);
+assert.match(r.result.content[0].text, /Open this on the site: /);
 sizes.findDefault = nbytes(r);
-assert.ok(sizes.findDefault < 8000, `find_trades default ${sizes.findDefault} bytes`);
+assert.ok(sizes.findDefault < 6700, `find_trades default ${sizes.findDefault} bytes`);
 r = await sizeCall("find_trades", { mine: mineList, theirs: theirList, limit: 50 });
 // Jeremy, 2026-10-26: the rewritten finder may yield fewer distinct trades than the limit; accept 1..limit.
 const shown50 = r.result.structuredContent.shown;
@@ -504,14 +563,34 @@ assert.ok(shown50 >= 1 && shown50 <= 50, `showing ${shown50} of limit 50`);
 assert.equal(r.result.structuredContent.trades.length, shown50);
 assert.equal(new Set(r.result.structuredContent.trades.map((t) => JSON.stringify(t))).size, shown50, "find_trades limit 50 has duplicates");
 assert.match(r.result.content[0].text, new RegExp(`showing ${shown50}\\b`));
+assert.equal(tradeTextLines(r).length, Math.min(TEXT_ROWS, shown50), "find_trades limit 50 text lists at most 5 trades");
+if (shown50 > TEXT_ROWS) assert.match(r.result.content[0].text, new RegExp(`^${shown50 - TEXT_ROWS} more in the structured result`, "m"));
 sizes.find50 = nbytes(r);
-assert.ok(sizes.find50 < 28000, `find_trades limit 50 ${sizes.find50} bytes`);
+assert.ok(sizes.find50 < 17000, `find_trades limit 50 ${sizes.find50} bytes`);
 const sizeOpps = Array.from({ length: 11 }, (_, i) => ({ name: `Opp ${i + 1}`, roster: theirList }));
 r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps });
 assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
-assert.ok(r.result.structuredContent.shown <= 25);
+assert.equal(r.result.structuredContent.limit, 10, "find_trades_league defaults to 10 rows");
+assert.ok(r.result.structuredContent.shown <= 10);
+assert.equal(r.result.structuredContent.trades.length, r.result.structuredContent.shown);
+{
+  const text = r.result.content[0].text;
+  const [pkgPart, candPart = ""] = text.split("\nCandidates:\n");
+  const count = (part) => part.split("\n").filter((l) => /^\d+\. /.test(l)).length;
+  assert.ok(count(pkgPart) <= TEXT_ROWS, `package text lists at most 5 trades: ${count(pkgPart)}`);
+  assert.equal(count(candPart), Math.min(TEXT_ROWS, r.result.structuredContent.shown), "league text lists the top 5 candidates only");
+  assert.match(text, /Open this on the site: /);
+}
 sizes.league = nbytes(r);
-assert.ok(sizes.league < 16000, `find_trades_league ${sizes.league} bytes`);
+assert.ok(sizes.league < 8000, `find_trades_league ${sizes.league} bytes`);
+r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps, limit: 100 });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
+assert.equal(r.result.structuredContent.limit, 100, "the league limit still goes to 100");
+const shownLeague100 = r.result.structuredContent.shown;
+assert.ok(shownLeague100 > TEXT_ROWS, `limit 100 shows more than 5: ${shownLeague100}`);
+assert.match(r.result.content[0].text, new RegExp(`^${shownLeague100 - TEXT_ROWS} more in the structured result`, "m"));
+sizes.league100 = nbytes(r);
+assert.ok(sizes.league100 < 11500, `find_trades_league limit 100 ${sizes.league100} bytes`);
 const board = Array.from({ length: 200 }, (_, i) => ({
   player_key: i + 1, name: `Player Number ${i + 1}`, pos: "WR",
   value: Math.round((200 - i) * 0.4 * 10) / 10, tier: i < 80 ? "starter" : "bench",
