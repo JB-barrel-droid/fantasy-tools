@@ -15,9 +15,21 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-Last updated: 2026-10-28 8:40 AM CT (13:40 UTC), by the Claude "Main green"
-lane. Change: the render sweep went red after #1023 (two tests read the old
-Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
+### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
+
+Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
+
+- **Merge rule (Jeremy, Oct 28):** merge work he asked for on green CI plus a passed independent review, without asking him again. That includes PRs built on a logged pick, which he can reverse. Merge one PR at a time, wait for its Pages deploy and check the live site before the next. A pick alone never deploys a backend. Edge-function deploys (get-values, mcp) need his explicit yes. He keeps holds of his own (JEG-1125 / #1033).
+- **Merged today:** #1023 (JEG-1190), #1027 (JEG-1176), #1028 (get-values week-flip fix), #1038 (JEG-1194), #1040 (render tests), #1031 (handoff), and #1030 (JEG-1187, Market supported, merged by the fit labels lane). #1023 and #1027 are confirmed live. The rest ride the Pages deploy for `059674f` (pending at 14:10Z); earlier deploys were cancelled by newer pushes. Deploys take 50 to 70 min, and a newer one cancels any that are pending. Confirm a Pages change by fetching its own file.
+- **Edge functions (verified 13:45 UTC):** live `get-values` is v8 (13:00Z) and matches main, including #1028. Live `mcp` is v12 (04:27Z) and matches main as of #958. Both have verify_jwt false. Copies of both deployed versions for rollback are in `/mnt/project-files/ddf/edge-rollback-2026-10-28/`.
+- **Reviewed and green, not yet merged (do next, one at a time):**
+  1. #1029 (JEG-1189 bench check, tests only)
+  2. #1034 (JEG-1155 week max 18)
+  3. #1037 (JEG-1130 PMM copy part 2)
+  Each passed independent review. Main was merged into each at 13:58Z, and their CI was re-running. Merge after green and check the live site after each. Then tell the Main green lane, which is holding #1035 until these deploys finish.
+- **Approved by Jeremy, not yet done:** merge #1024 (JEG-1179 week default plus optional week; head `179288b`, reviewed PASS) and then #1032 (JEG-1123/1124; reviewed PASS; merge main in first, since both touch `mcp/tools.ts`, a clean auto-merge). Then deploy `get-values` (index.ts, league.ts, pipeline.ts) and `mcp` (index, rpc, tools, state, names, find-trades, viability, build, week) from main. Jeremy said "Yes, merge and deploy" (13:38Z). After the deploy, check that the live get-values returns players and that the connector answers with a "Week:" line. Roll back by redeploying the copies above if anything looks off. When #1032 merges, tell the connector size and names lane: its name-ambiguity fix builds on it and needs its own yes to ship.
+- **Handed to other lanes:** #1022 (JEG-1180) goes to source freshness; review found a blocker, see the PR comment. #1030 went to fit labels (merged). Connector work after #1032 goes to connector size and names.
+- **Picks log:** `/mnt/project-files/ddf/picks-log.md` (source of truth, every lane), copied into `docs/picks-log.md`. The Reversed column marks what Jeremy undid.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
@@ -54,11 +66,7 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   dispatch a fresh chain only if none is queued. Open issues to file: a
   generated-file conflict drops a good rebuild; a parser fix never re-ingests
   (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
-- **What is broken now (verified 05:30 UTC):** the live DDF MCP connector
-  (edge function `mcp` v12) returns no players because `get-values` returns
-  none since the week 8 flip. The fix (#1028) is merged but needs a
-  `get-values` redeploy, which waits on Jeremy's yes. It also clears by itself
-  once a week 8 chart bundle publishes.
+- **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again. JEG-1157 is Done in Linear (In Review lane checked get_values, get_player_value and read_state live at 13:55Z).
 - **What I am working on:** a full render sweep on main after #1040, then
   merging #1031 (this handoff) and #1035 (JEG-1193 phone chip) one at a time on
   green CI, under Jeremy's rule that work he asked for merges on green CI with a
@@ -72,6 +80,19 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1142 lane (2026-10-28 9:10 AM CT, Claude):** promotion/demotion model
+  switched off for everyone (`PROMOTION_MODEL_ENABLED = false` in value-model.js,
+  value_reference.py and spec_reference/value_pipeline.py), per Jeremy's 2026-10-27
+  Linear comment. Draft PR #1044, branch `be/jeg-1142-promotion-off-v2`, head
+  `dd4b3de` (main merged in). T1 review approved; its 3 findings are fixed (default-path
+  baseline re-frozen, reference switch test pinned to the served week, comments).
+  Local engine/reference/parity/rank-guard tests pass; value_check compare and
+  `make validate` are in preview CI. It merges on green CI under Jeremy's standing rule.
+  **Next step:** when preview CI is green on #1044's head, mark it ready, merge
+  `origin/main` in if it moved, squash-merge as "JEG-1142 ...", wait for Deploy
+  dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
+  and that USO still shows its good trades (DDF connector find_trades_league), then
+  close JEG-1142. No edge deploy: get-values loads the published value-model.js.
 - **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
   is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
@@ -115,6 +136,26 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   `find_trades` call shows fit lines and move JEG-1115 to Done. #966
   (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
 
+
+### In Review tickets lane (2026-10-28, 9:10 AM CT)
+
+- **JEG-1157** (live MCP no players): Done in Linear, live check above.
+- **JEG-1156** (blank DDF Values after the week 8 flip): PR #987 was closed as
+  superseded by #1010 (JEG-1177, merged), which is the per-source week default
+  (more than half of DDF Value's sources on week N+1 picks N+1, else N; see
+  `resolveWeekView` in curve-widget.js). The week selector itself is JEG-1178.
+  Still In Review: it needs a live look at Player values showing filled DDF
+  Values. Probe branch `probe/jeg-1156-live` (never merge) runs
+  `tools/probe/jeg1156_live.mjs` in Actions run 40702410871 and prints
+  `JEG1156-LIVE` lines (rows with a DDF Value vs total). Next step: read that
+  log; if DDF Values are filled, comment the numbers on JEG-1156 and move it to
+  Done (the selector stays on JEG-1178).
+- Handed to their own lanes: JEG-894 (#969, main merged in at `b6cea06`),
+  JEG-1101 (#970, main merged in at `2b1fe3e`), both still drafts; JEG-1142
+  (branch `be/jeg-1142-promotion-off-v2` at `82cf1a7`, #999 re-applied, no PR
+  yet, movers table still to do; get-values loads the site's value-model.js,
+  so no edge deploy); JEG-1134 (draft PR #1043).
+
 - **JEG-894 lane (share links, updated 2026-10-28 9:15 AM CT):** PR #969,
   branch `fe/JEG-894-share-links`, head `391308e` (main `31ccf10` merged in),
   marked ready for review, not merged. Jeremy approved the build (Oct 23),
@@ -130,6 +171,46 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   `#v2CVerdictBarWrap`).
 
 ---
+
+### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
+
+Stopped at 97% usage. State, verified 14:10 UTC:
+- PR #1022 (JEG-1180, stale flag after Thursday 12:00 CT, runbook): review
+  blocker fixed (`freshness_ok` follows `weeks_behind <= 1`, so a one-week
+  stale source is a warning, not "Not updating"). Head 487ddaa. v2-render green;
+  preview build was queued. Next: when the preview bot says validate passed,
+  mark ready and squash-merge as "(JEG-1180)", wait for Deploy dashboard, check
+  `dist/modules/reference-freshness.json` live.
+- PR #1042 (JEG-1200, per-source "late" rules + hourly `source-lateness.yml`
+  keeping one `source-late` issue): second review PASS at 6c5f589 (live week
+  label due Wed 12:00 CT; offseason guard; exit 1 when the check can't run).
+  Merge after #1022 (its doc links the runbook #1022 adds), then check the
+  first scheduled run on main and the issue it opens.
+- Live replay 13:57 UTC: only FantasySharks late (403 on every probe since at
+  least Oct 22, never saved). At Wed 12:00 CT all seven site sources go late if
+  week 8 still hasn't published (the site's history index is still week 7,
+  fixture_built_at Oct 26 15:42Z; the board lane owns publishing). The probe log
+  has no rows Oct 20-21.
+- JEG-1201, three draft PRs with notes only (no code yet): #1050 post-validate
+  isolation (hold only the source a failing test names, validate once more,
+  fail closed; a post-validate hold on espn would never be released, needs a
+  release step); #1051 hold-tolerance guard (run live-page/rank/week-history
+  checks with each source held; suspected latent bug in
+  `test_superflex.page_problems`); #1052 fill-in peers.
+- Jeremy's decision (Oct 28, 9:03 AM CT): charts fill in missing players from
+  FantasyCalc and the projection sources (espn, cbsros, razzball), never from
+  another weekly chart ("Use fantasycalc and projections sources, those should
+  be refreshing at least daily, so they are good"). FantasyCalc's own peers are
+  the projections. Impact list: only moves over 5% AND over 2 trade-value points
+  ("If the 5% only amounts to 1-2 trade value points, it's immaterial").
+  chart_sigma and DDF weights also cross charts: report, don't change, without
+  his yes.
+- Linear: JEG-1180 and JEG-1200 In Progress (mark Done when merged and live);
+  JEG-1201 In Progress. Due Nov 3-4: a Tue/Wed health comment on JEG-1176 for
+  the week 8 to 9 flip.
+- Exact next step: merge #1022 on green, then #1042, each checked live; then
+  build #1052 (value math, Jeremy approved) with the impact list in
+  /mnt/project-files/ddf/ or the PR body.
 
 ## Active agents and automation (keep current)
 
@@ -292,6 +373,11 @@ Current picks in brief:
   per-source freshness report is warning-only; DISCOVERY_OVERDUE alarm and the
   Central watchdog calendar unchanged; new health state names (current,
   lagging, stale, unknown).
+- JEG-1180 (PR #1022, review fix): judged_at dropped from the freshness summary;
+  New York date kept in check_weekly_freshness.
+- JEG-1200 (PR #1042): live sources late after 9 h unconfirmed or when the site
+  still shows last week after Wed 12:00 CT; weekly charts late when the week's
+  article isn't out by Wed 12:00 CT; own GitHub schedule (watches pg_cron).
 
 ### Definition of done
 - Done = merged to `main` and live (Linear "Done"). For a fix: commit, merge,
