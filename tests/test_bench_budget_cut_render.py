@@ -225,6 +225,18 @@ def check_runs(runs):
     return problems, compared, notes
 
 
+def annotate(title, lines, level="error"):
+    """Surface lines as GitHub check annotations under Actions (job logs are
+    not always readable; annotations are), else print them to stderr."""
+    import os
+    for line in list(lines)[:10]:
+        text = str(line).replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print(f"::{level} title={title}::{text}", flush=True)
+        else:
+            print(f"[{title}] {line}", file=sys.stderr)
+
+
 # --- tests -------------------------------------------------------------------
 
 def _synthetic():
@@ -311,14 +323,21 @@ class ServedPageTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         _render_env.ensure_built()
-        cls.runs, cls.lagging = page_runs()
+        try:
+            cls.runs, cls.lagging = page_runs()
+        except unittest.SkipTest:
+            raise
+        except Exception as exc:
+            annotate("JEG-1189 bench budget cut", [f"served page could not be read: {exc!r}"[:600]])
+            raise
 
     def test_budget_cut_bench_identical_in_every_week_view(self):
         problems, compared, notes = check_runs(self.runs)
-        for line in self.lagging + notes:
-            print(f"[bench budget cut] {line}", file=sys.stderr)
-        print(f"\n[bench budget cut] {len(compared)} runs: "
-              + "; ".join(f"{k}: {len(v)} sources" for k, v in compared.items()), file=sys.stderr)
+        annotate("JEG-1189 bench budget cut", self.lagging + notes, level="notice")
+        if problems:
+            annotate("JEG-1189 bench budget cut", problems)
+        annotate("JEG-1189 bench budget cut", [f"{len(compared)} runs: "
+                 + "; ".join(f"{k}: {', '.join(v)}" for k, v in compared.items())], level="notice")
         self.assertGreaterEqual(len(compared), len(SETTINGS))
         self.assertEqual(problems, [], "\n".join(problems[:25]))
 
@@ -329,6 +348,8 @@ class ServedPageTest(unittest.TestCase):
         source = compared[first][0]
         runs, _ = page_runs({"assets/value-model.js": perturbed_model(source).encode("utf-8")})
         broken, _, _ = check_runs(runs)
+        if not any(f" {source} " in p for p in broken):
+            annotate("JEG-1189 bench budget cut mutation", [f"{source} x{PERTURB} not caught"] + broken)
         print(f"\n[bench budget cut mutation] {source} bench funded x{PERTURB}: {len(broken)} problems, "
               f"e.g. {broken[:1]}", file=sys.stderr)
         self.assertTrue(any(f" {source} " in p for p in broken),
