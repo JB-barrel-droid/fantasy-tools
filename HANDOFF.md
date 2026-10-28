@@ -227,7 +227,7 @@ Stopped at 97% usage. State, verified 14:10 UTC:
 ### Codex source-health repair: JEG-1200 / #1042 (2026-10-28 15:08 UTC)
 
 Owner: `session:be`, Codex source-health lane, branch `be/jeg-1200-source-late`.
-Main `032cee07` is merged into the branch. The earlier PASS at `6c5f589` is
+Main `1bd85f76` is merged into the branch. The earlier PASS at `6c5f589` is
 superseded: review reproduced successful exit on failed GitHub alert delivery
 and false resolution when served-week metadata was missing. Both now fail the
 monitoring run; incomplete publication checks leave alerts unchanged. Ordinary

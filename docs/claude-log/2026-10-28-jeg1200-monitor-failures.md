@@ -17,6 +17,8 @@ change.
 - Refreshed PR/Linear ownership. Head `6c5f589` remained an open draft while
   Linear said Done. Claimed `session:be`, In Progress, T1 deep.
 - Merged current main `032cee07` into `be/jeg-1200-source-late` without conflicts.
+- Refreshed main again before push and merged `1bd85f76` (connector fit labels);
+  it does not change the source-health files.
 - Four new regression methods failed before the implementation fix (nine
   failing subcases), including the exact unknown-week close and exit-0
   delivery failures from review.
