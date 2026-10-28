@@ -634,6 +634,8 @@ COMPARE_JS = "async () => {" + COMMON + r"""
   out.start = {...snap(), start: shown($('v2CStart')), tryShown: shown($('v2CTryExample'))};
   if (shown($('v2CTryExample'))) { $('v2CTryExample').click(); await sleep(500); }
   out.example = snap();
+  // The text checks read the page with the sample loaded, as they did when it opened on the example.
+  out.text = visibleText(); out.attrs = attrText($('v2Compare'));
   out.weeks = weekInfo();
   out.rows = [...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr => { const wf = tr.querySelector('.v2-wf');
     return {src: tr.dataset.source, badges: badgesIn(tr), name: own(tr.querySelector('td.player')) || (tr.querySelector('td.player a[data-source-link]')?.textContent || '').trim(), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
@@ -798,7 +800,8 @@ def scenario_tabs(s: Session) -> dict:
         page.wait_for_timeout(300)
         out["risers"] = page.evaluate(RISERS_JS)
         page.evaluate("() => { location.hash = '#compare-trade'; }")
-        page.wait_for_function("() => window.TradeValueV2.compare() && document.querySelectorAll('#v2CTable tbody tr[data-source]').length", timeout=40000)
+        # JEG-1190: Compare opens empty, so wait until the sample can load; COMPARE_JS loads it.
+        page.wait_for_function("() => window.TradeValueV2.compare() && !document.getElementById('v2CTryExample').disabled", timeout=40000)
         page.wait_for_timeout(300)
         out["compare"] = page.evaluate(COMPARE_JS)
         page.evaluate("() => { location.hash = '#writing/how-values'; }")
