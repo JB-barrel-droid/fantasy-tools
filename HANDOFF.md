@@ -50,7 +50,8 @@ newer notes on their own handoff branches (open PR #1031 for main green).
      all sources are on week 8, close JEG-1175.
   2. Ask Jeremy about the get-values and mcp redeploys and the draft PRs above.
   3. JEG-1128 item 1 checked (waivers can carry a small value by design; kept as is, Jeremy's call on the ticket).
-  4. Open issues not covered by a PR: JEG-1102 (blocked by JEG-1138 and the
+  4. JEG-1029 parity tools: scope plan posted on the ticket; building waits on JEG-982, #1024, #966, #1032.
+  5. Open issues not covered by a PR: JEG-1102 (blocked by JEG-1138 and the
      JEG-1081 naming decision), research posts (held by Jeremy), JEG-1173
      (needs his yes). Follow-up: `app/v2/v2.js` week stepper still stops at 17.
 - **Blockers:** the redeploys above. `scratch/oppanel-1129` and
