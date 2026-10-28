@@ -1282,6 +1282,31 @@ def all_review_gated_held(results):
     return bool(gated) and all(results[s]["status"] == "held" for s in gated)
 
 
+def release_post_validate_hold(repo, source):
+    """Release a previous post-validate hold only after a complete source run.
+
+    The ESPN section builder copies the old section and thus its hold. The
+    other builders normally replace their section, but use the same rule so a
+    corrected save is retried consistently for every source. An unrelated
+    review, fidelity, or value-check hold is never released here.
+    """
+    path = Path(repo) / FIXTURE_REL
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    changed = False
+    for sec in (source, f"{source}_adjusted"):
+        section = (fixture.get("sources") or {}).get(sec)
+        if not isinstance(section, dict):
+            continue
+        hold = section.get("validationHold") or {}
+        if (hold.get("reason") == "chain hold: post-validate source failure"
+                and hold.get("root") == source):
+            del section["validationHold"]
+            changed = True
+    if changed:
+        path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
+    return changed
+
+
 def write_step_summary(status_data, path=None):
     """Append a held-source report to the GitHub run summary (if available)."""
     path = path or os.environ.get("GITHUB_STEP_SUMMARY")
@@ -1355,6 +1380,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             # review hold in a review-gated one) keeps that source's last
             # promoted section; the other sources still publish.
             res = results[source]
+            if res["status"] == "ok":
+                release_post_validate_hold(repo, source)
             # A runner that already isolated its own failure returns "held";
             # isolating twice would only overwrite its rolled_back count.
             if res["status"] not in ("ok", "held") and (
