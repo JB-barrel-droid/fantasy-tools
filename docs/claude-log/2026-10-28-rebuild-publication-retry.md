@@ -38,23 +38,38 @@ workflow dispatch, deployment, production writes, or cleanup deletion.
   Evidence: `/tmp/jeg-1206-regression-baseline.log`. No blocking review findings.
 - Workflow YAML parsed, extracted commit script passed `bash -n`, and
   `git diff --check` passed.
-- Merged current main `032cee07` into the ticket branch without conflicts,
+- Refreshed main through `79b9b435` for the final branch handoff. The merges
+  have no workflow conflicts. Merged into the ticket branch without rebasing,
   reran all targeted tests successfully, pushed only
   `be/jeg-1206-publish-retry`, and opened draft
   [PR #1054](https://github.com/JB-barrel-droid/fantasy-tools/pull/1054).
   Preview build and v2 render CI started; current-head CI completion remains a
   release prerequisite for the parent session.
+- Renewed independent review after the #1041 main update: commit
+  `d6db2db89ff0b6112775045cd3db4f7a5a91216a` versus main `1bd85f76` passed
+  without blocking findings; 18 retry tests passed. Incoming connector files
+  have no overlap with this five-file diff.
 - Final input audit: `pipelines/fidelity_hold.py` reads
   `dist/modules/fidelity-pulse.json` to apply source holds, so that report is
   excluded from the independent-monitoring allowlist. Its regression fails if
   it is mistakenly allowed. The separate import-health promotion input is
   `output/source-import-health.json`, also excluded; the five allowed paths
   under `dist/modules` do not control source holds.
-- Full `CHROMIUM_PATH=/usr/bin/chromium make validate` is running in the isolated
-  `/workspace/validate-jeg-1206` checkout based on `0137a8a7`. The initial command
+- Full `CHROMIUM_PATH=/usr/bin/chromium make validate` passed (exit 0) in the
+  isolated `/workspace/validate-jeg-1206` checkout based on `0137a8a7`: 842
+  unittest tests reported, including 11 browser skips; value comparison agreed
+  on 1,234,991 values. This is not a current-main CI result. The initial command
   without `CHROMIUM_PATH` stopped at the missing Playwright-bundled browser;
   browser download returned HTTP 403, so the installed system Chromium was
-  selected. Final outcome will be recorded before this lane stops.
+  selected. Four older browser modules use `tests/_dist_server.py`, which
+  ignores `CHROMIUM_PATH`; rerunning those four modules with a local browser
+  alias and `RENDER_TESTS_REQUIRED=1` passed all 16 tests (exit 0, no skips):
+  `tests.test_espn_listed_rows`, `tests.test_page_load_no_404`,
+  `tests.test_missing_section_render`, `tests.test_bench_share_low_pie`.
+  The alias under `/workspace/jeg-1206-browsers` points to `/usr/bin/chromium`;
+  `PLAYWRIGHT_BROWSERS_PATH` selects it. Evidence:
+  `/tmp/jeg-1206-validate-system-chromium.log` and
+  `/tmp/jeg-1206-required-browser-tests.log`.
 
 ### Claimed, not confirmed
 

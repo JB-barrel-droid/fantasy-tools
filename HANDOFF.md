@@ -34,7 +34,7 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 ### Rebuild publication retry lane (JEG-1206, Codex, 2026-10-28)
 
 - Draft PR: [#1054](https://github.com/JB-barrel-droid/fantasy-tools/pull/1054),
-  branch `be/jeg-1206-publish-retry` (initial base `0137a8a7`, main `032cee07`
+  branch `be/jeg-1206-publish-retry` (initial base `0137a8a7`, main `79b9b435`
   merged in).
   The workflow now retries monitoring-only main changes in an isolated
   publication worktree, preserves newer monitoring reports and the validated
@@ -44,7 +44,9 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   before retrying so Pages still runs for accepted commits.
 - Verified: 130 targeted workflow/pipeline tests pass; the 18-case concurrent
   main suite fails ten cases against the original workflow. Independent review
-  passed with no blocking findings. Full `make validate` result is in
+  passed after the main update with no blocking findings. Full `make validate`
+  passed on the isolated initial base; all four skipped-browser modules then
+  passed a required-browser rerun (16 tests, no skips). Details are in
   `docs/claude-log/2026-10-28-rebuild-publication-retry.md`.
 - Exact next step: review the draft PR and wait for its current-head CI plus
   green main. The parent release session owns the serial merge. After merge,
