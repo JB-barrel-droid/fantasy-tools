@@ -189,6 +189,12 @@
     const mine = ws.teams.find(t => t.id === ws.myTeamId);
     return {text: mine ? enc([mine]) : "", full: false, mine: mine ? 0 : null};
   }
+  // Reuse the bounded roster codec; settings are the page's own complete league query.
+  function shareHash(ws, leagueQuery) {
+    const encoded = encodeShare(ws);
+    const query = String(leagueQuery || "").replace(/^[?&]+/, "");
+    return {...encoded, hash: `#find-league?workspace=${encoded.text}&wm=${encoded.mine === null ? "none" : encoded.mine}${query ? `&${query}` : ""}`};
+  }
   function decodeShare(text, byKey) {
     const teams = String(text || "").split("|").filter(Boolean).map((part, i) => {
       const at = part.indexOf(":");
@@ -335,7 +341,7 @@
   }
 
   const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, cleanEntries, cleanName, ops, parseStored, serialize,
-    exportJson, importJson, copyText, encodeShare, decodeShare, createStore};
+    exportJson, importJson, copyText, encodeShare, shareHash, decodeShare, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueWorkspace = api;
 

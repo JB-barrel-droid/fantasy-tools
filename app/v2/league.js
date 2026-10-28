@@ -43,6 +43,29 @@
 
   function announce(text) { const live = $("v2LgLive"); if (live) { live.textContent = ""; live.textContent = text; } }
   function notice(text) { UI.notice = text; const n = $("v2LgNotice"); if (n) n.textContent = text; }
+  const leagueQuery = () => root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
+  const settingsSnapshot = () => ({...(store.get().settings || {}), query: leagueQuery()});
+
+  // Wait for a plausible full league before warning about its team count. The engine currently prices 8/10/12/14 teams.
+  function renderCountMismatch() {
+    const box = $("v2LgMismatch");
+    if (!box || !engine() || !engine().getState) return;
+    const count = store.get().teams.length;
+    const priced = engine().getState().teams;
+    box.hidden = count < 8 || count === priced;
+    if (box.hidden) { box.replaceChildren(); return; }
+    const supported = [8, 10, 12, 14].includes(count);
+    box.replaceChildren(el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
+      supported ? button(`Use ${count} teams in league settings`, {class: "v2-btn", id: "v2LgMatchTeams"}, () => {
+        const V = root.TradeValueV2;
+        if (V && V.applyLinkLeague) {
+          V.applyLinkLeague(new URLSearchParams(`teams=${store.get().teams.length}`));
+          renderCountMismatch();
+          announce(`League settings now use ${store.get().teams.length} teams.`);
+        }
+      }) : el("span", {text: "Values currently support 8, 10, 12 or 14 teams. "}),
+      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null);
+  }
 
   // ---------- the engine, read once per render ----------
   function mathContext() {
@@ -423,6 +446,7 @@
     ["v2LgDownload", "v2LgCopyText", "v2LgCopyLink"].forEach(id => { $(id).disabled = !total && !ws.teams.length; });
     $("v2LgClearAll").hidden = !ws.teams.length;
     if (!ws.teams.length) $("v2LgClearConfirm").hidden = true;
+    renderCountMismatch();
   }
 
   function renderUndo() {
@@ -446,7 +470,7 @@
   function slug(name) { return String(name || "league").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "league"; }
   function download() {
     const ws = store.get();
-    const blob = new Blob([W.exportJson(ws)], {type: "application/json"});
+    const blob = new Blob([W.exportJson({...ws, settings: settingsSnapshot()})], {type: "application/json"});
     const a = el("a", {href: URL.createObjectURL(blob), download: `${slug(ws.name)}.json`});
     document.body.append(a);
     a.click();
@@ -468,10 +492,13 @@
     }
   }
   function applyImported(workspace, source) {
-    UI.undo = {label: "Loaded a league", ws: store.get()};
+    UI.undo = {label: "Loaded a league", ws: {...store.get(), settings: settingsSnapshot()}};
     UI.comps.forEach(c => c.li.remove());
     UI.comps.clear();
     UI.cache = O.createCache();
+    if (workspace.settings && workspace.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
+      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query));
+    }
     store.replace(workspace, "replace");
     renderUndo();
     notice(`${source} ${plural(workspace.teams.length, "team")} loaded.`);
@@ -481,6 +508,7 @@
     const ws = store.get();
     const box = $("v2LgLoadConfirm");
     if (!ws.teams.length) { applyImported(workspace, source); return; }
+    $("v2LgCard").open = true;
     box.hidden = false;
     const yes = button("Replace my league", {class: "v2-btn", id: "v2LgLoadYes"}, () => { box.hidden = true; applyImported(workspace, source); });
     const no = button("Keep my league", {class: "v2-btn"}, () => { box.hidden = true; });
@@ -615,6 +643,20 @@
     status.replaceChildren(el("span", {text: msg}), el("ul", {class: "v2-lg-paste-teams"}, ...lines.map(line => el("li", {text: line}))));
     if (lines.some(l => /not matched|to check/.test(l))) status.append(el("span", {text: "Add any missing players by searching inside that team."}));
     showParsed({teams: parsed, skipped, source: "Read"});
+    // Healthy rosters (including their K/DST entries) fold away after paste; unresolved players remain visible.
+    const pasted = new Map(parsed.filter(t => !t.leftOut).map(t => [nameKey(t.name), t]));
+    let hasIssues = skipped > 0;
+    UI.comps.forEach(comp => {
+      const team = teamById(store.get(), comp.id);
+      const info = team && pasted.get(nameKey(team.name));
+      if (!info) return;
+      const issue = info.unsure > 0 || info.unmatched.length > 0;
+      hasIssues = hasIssues || issue;
+      comp.collapsed = !issue;
+      comp.update();
+    });
+    $("v2LgImport").open = false;
+    $("v2LgCard").open = hasIssues;
     announce(msg);
   }
 
@@ -1243,6 +1285,7 @@
     const at = hash.indexOf("workspace=");
     if (at < 0 || !/^#find-(league|trade)\?/.test(hash)) return;
     const text = hash.slice(at + "workspace=".length).split("&")[0];
+    const params = new URLSearchParams(hash.slice(hash.indexOf("?") + 1));
     const ctx = mathContext();
     if (!ctx) return;
     const teams = W.decodeShare(text, ctx.rowsByKey);
@@ -1250,7 +1293,14 @@
     try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
     if (!teams.length) { notice("That link carries no teams."); return; }
     let w = W.newWorkspace({name: "Shared league"});
-    teams.forEach((t, i) => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); if (i === 0 && teams.length) w = W.ops.setMyTeam(w, w.teams[0].id); });
+    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); });
+    // New links preserve an unmarked league; legacy links have always put the marked roster first.
+    const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
+    if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);
+    params.delete("workspace");
+    params.delete("wm");
+    params.delete("trade");
+    if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
     offerReplace(w, "Shared link:");
   }
 
@@ -1271,16 +1321,28 @@
     const download2 = button("Download", {class: "v2-btn", id: "v2LgDownload"}, download);
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
-      const enc = W.encodeShare(store.get());
-      const url = `${root.location.origin}${root.location.pathname}#find-league?workspace=${enc.text}`;
-      copy(url, enc.full ? "Copied a link to the whole league." : "Link carries your team only. For the full league, use Download.");
+      const enc = W.shareHash(store.get(), leagueQuery());
+      const url = `${root.location.origin}${root.location.pathname}${enc.hash}`;
+      copy(url, enc.full ? "Copied a link to the whole league and its settings." : "Link carries your team and league settings only. For the full league, use Download.");
     });
+    const transferInfo = (label, text) => el("details", {class: "v2-lg-transfer-info"},
+      el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {class: "v2-meta", text}));
+    const transfer = el("details", {class: "v2-lg-transfer", id: "v2LgTransfer"},
+      el("summary", {class: "v2-btn", text: "Import / export"}),
+      el("div", {class: "v2-lg-transfer-menu"},
+        el("div", {class: "v2-lg-transfer-action"}, download2, transferInfo("Download", "Save a JSON file with every team, roster and your current league settings. Use Load to open that file on another device.")),
+        el("div", {class: "v2-lg-transfer-action"}, load, transferInfo("Load", "Open a downloaded league JSON file. If you have a saved league here, you can choose whether to replace it. Undo restores your previous league.")),
+        el("div", {class: "v2-lg-transfer-action"}, copyLink, transferInfo("Copy link", "Copy a link that opens the league rosters and current league settings on another device. If the league is too large for a link, only your marked team travels; Download always keeps every team.")),
+        copyText));
     const undo = button("", {class: "v2-btn", id: "v2LgUndo", hidden: true}, () => {
       if (!UI.undo) return;
       const snap = UI.undo.ws;
       UI.undo = null;
       UI.comps.forEach(c => c.li.remove());
       UI.comps.clear();
+      if (snap.settings && snap.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
+        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query));
+      }
       store.replace(snap, "replace");
       renderUndo();
       announce("Undone.");
@@ -1316,16 +1378,15 @@
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
         el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays on this device."}),
         el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
-    const league = el("section", {class: "v2-card", id: "v2LgCard", "aria-labelledby": "v2LgTitle"},
-      el("div", {class: "v2-card-head"}, el("div", {},
+    const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
+      el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),
         el("p", {class: "v2-meta", text: "Enter every team in your league, with names, and mark yours with the star. Below, a team summary compares the teams and a trade opportunities table lists the best trades for your team against all of them."}))),
-      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, download2, load, copyText, copyLink, clearAll, undo, fileInput,
+      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, clearAll, undo, fileInput,
         el("span", {class: "v2-meta v2-lg-saved", id: "v2LgSaved", role: "status", "aria-live": "polite"})),
       clearConfirm,
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
       el("section", {class: "v2-lg-parsed", id: "v2LgParsed", role: "status", "aria-live": "polite", "aria-label": "What was read from your paste", hidden: true}),
-      el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
       el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
@@ -1355,6 +1416,9 @@
       focusPick(id);
     });
     const anchor = host.querySelector(".v2-footnote");
+    host.insertBefore(el("div", {class: "v2-lg-transfer-bar"}, transfer), anchor);
+    host.insertBefore(el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}), anchor);
+    host.insertBefore(el("div", {class: "v2-lg-mismatch", id: "v2LgMismatch", role: "status", hidden: true}), anchor);
     host.insertBefore(league, anchor);
     host.insertBefore(summary, anchor);
     host.insertBefore(opps, anchor);
