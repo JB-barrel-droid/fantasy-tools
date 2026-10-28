@@ -20,10 +20,13 @@ normalized DDF league section (`roster`, `shares`, `bso`, `inj`, `conf`, `weeks`
 a JSON object in a POST body, a JSON string in a GET query). The top-level
 `scoring`, `teams` and `superflex` win over the same fields inside `league`.
 The response lists the settings that differ from the site defaults in
-`league_custom`. Optional `include=charts` adds
-per-chart adjusted values (`chart_values`) and DDF sub-versions
-(`ddf_value_charts`, `ddf_value_projections`) to each player record (used
-internally by the MCP `find_trades` tool).
+`league_custom`. Optional `include=charts` adds per-chart Adjusted values
+(`chart_values`), per-chart Indexed values (`chart_indexed`) and DDF
+sub-versions (`ddf_value_charts`, `ddf_value_projections`) to each player
+record (used internally by the MCP `find_trades` tools). The trade finder
+judges the other team on the mean of `chart_indexed`, the market: the mean of
+`chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
+since JEG-1073 (JEG-1129).
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
