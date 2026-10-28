@@ -374,7 +374,12 @@ COMMON = r"""
       lowconfText: (td.querySelector('[data-low-confidence]')?.textContent || '').trim(),
       delta: td.querySelector('.delta') ? {text: td.querySelector('.delta').textContent, title: td.querySelector('.delta').title} : null}))}));
   const addTrade = async () => {
-    const rows = C.getRows();
+    // Two players not already in the sample trade: a player on a side has a disabled search
+    // result, so adding him does nothing (JEG-1142: the sample is picked from the values, so
+    // which top rows it holds moves when values move).
+    const onTrade = new Set([...document.querySelectorAll('#v2GivePlayers li[data-player-key], #v2GetPlayers li[data-player-key]')]
+      .map(li => li.dataset.playerKey));
+    const rows = C.getRows().filter(r => !onTrade.has(String(r.player_key)));
     for (const [input, results, row] of [['v2GiveSearch', 'v2GiveResults', rows[0]], ['v2GetSearch', 'v2GetResults', rows[1]]]) {
       fire($(input), row.name); await sleep(400);
       const hit = [...document.querySelectorAll('#' + results + ' button[data-player-key]')].find(b => b.dataset.playerKey === String(row.player_key));
