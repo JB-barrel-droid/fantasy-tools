@@ -20,6 +20,17 @@ caller must run the complete `make validate` once more. On success it calls
 without publishing. A corrected source build releases only its prior
 `chain hold: post-validate source failure`; unrelated holds stay in place.
 
+The 2026-10-28 independent review found two fail-closed gaps. The revised
+attribution requires the unittest `FAILED (...)` count to equal all `FAIL:` and
+`ERROR:` blocks, including subtests, and rejects unknown summary fields or
+unexpected successes. The revised isolation writes `isolation_in_progress`
+with `success: false` before changing any source data, rolls back on a later
+failure, and advances to `retry_pending` only after every mutation succeeds.
+`confirm` independently checks the held section, source validation metadata,
+DDF legs, and retired chart promotion record. A lost status write
+acknowledgement followed by an incomplete rollback cannot turn the chain
+green. No workflow change is included.
+
 This PR owns the pipeline script, release hook, Makefile test registration and
 focused regressions. The rebuild workflow is owned by the release/publishing
 lane, so **the recovery is not active until that lane wires the two commands
@@ -32,6 +43,7 @@ and the single retry**. The original red-validate publication block remains.
 - `git diff --check`: passed.
 - The one local `RENDER_TESTS_REQUIRED=1 CHROMIUM_PATH=/usr/bin/chromium make validate` run passed the #1051 seeded hold matrix and the new isolator module, then stopped at `tests.test_player_aliases`: the new source-label table was named `ALIASES`, which that guard reserves for player identity. Renamed it to `SOURCE_NAMES`. The failing module, `tests.test_razzball_refresh` (which found and prompted a missing-fixture fix), and related isolation/workflow checks then passed together: 71 tests. The full gate was not repeated locally.
 - `python3 -m unittest tests.test_isolate_post_validate tests.test_player_aliases tests.test_razzball_refresh tests.test_validate_shards`: 54 passed after correcting promotion-record matching for the shared reindex stage, which changes section hashes while retaining `promoted_at`. This also checks that a projection with a changed shared `players.json` cannot be isolated unsafely.
+- Repair check: `python3 -m unittest tests.test_isolate_post_validate tests.test_record_post_rebuild_validation tests.test_rebuild_chain_per_source_hold tests.test_razzball_refresh tests.test_validate_shards`: 77 passed. The isolator tests include mixed/unknown subtests, mismatched failure counts, unexpected successes, falsey malformed validation metadata, existing or dangling-symlink rollback-record protection, and injected failure at pending-status, fixture write/readback, DDF leg restore, promotion rename, final-status, and rollback boundaries.
 
 ### Claimed, not confirmed
 

@@ -10,10 +10,13 @@ from __future__ import annotations
 
 import argparse
 import copy
+import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,7 +25,8 @@ import rebuild_comparison_chain as chain  # noqa: E402
 import value_check  # noqa: E402
 
 STATUS_RELS = ("output/comparison-chain-status.json", "dist/modules/comparison-chain-status.json")
-FAIL_HEADER = re.compile(r"^(FAIL|ERROR): \S+ \([^)]+\)$")
+FAIL_HEADER = re.compile(r"^(FAIL|ERROR): .+")
+FAILED_SUMMARY = re.compile(r"^FAILED \(([^)]+)\)$")
 EXCEPTION = re.compile(r"^[\w.]+(?:Error|Exception): .+")
 SOURCE_NAMES = {
     "cbsros": ("CBS rest of season", "CBS ROS", "cbsros"),
@@ -58,6 +62,24 @@ def _json_bytes(data: bytes, label: str) -> dict:
     if not isinstance(out, dict) or not isinstance(out.get("sources"), dict):
         raise ValueError(f"{label} has no sources object")
     return out
+
+
+def _atomic_write_bytes(path: Path, data: bytes) -> None:
+    """Replace one file completely; a failed write never truncates its target."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    name = None
+    try:
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=f".{path.name}.",
+                                         delete=False) as tmp:
+            name = tmp.name
+            tmp.write(data)
+            tmp.flush()
+            os.fsync(tmp.fileno())
+        os.replace(name, path)
+        name = None
+    finally:
+        if name is not None:
+            Path(name).unlink(missing_ok=True)
 
 
 def changed_roots(current: dict, baseline: dict) -> set[str]:
@@ -98,6 +120,29 @@ def failing_roots(log_text: str) -> set[str]:
     headers = [i for i, line in enumerate(lines) if FAIL_HEADER.fullmatch(line)]
     if not headers:
         raise ValueError("no unittest FAIL/ERROR block to attribute")
+    counts = []
+    for line in lines:
+        if not line.startswith("FAILED"):
+            continue
+        summary = FAILED_SUMMARY.fullmatch(line)
+        if summary is None:
+            raise ValueError("unrecognized unittest failure summary")
+        fields = {}
+        for part in summary.group(1).split(", "):
+            match = re.fullmatch(r"([a-z ]+)=(\d+)", part)
+            if match is None or match.group(1) not in (
+                    "failures", "errors", "skipped", "expected failures", "unexpected successes"):
+                raise ValueError("unrecognized unittest failure summary field")
+            if match.group(1) in fields:
+                raise ValueError("duplicate unittest failure summary field")
+            fields[match.group(1)] = int(match.group(2))
+        if not ("failures" in fields or "errors" in fields):
+            raise ValueError("unrecognized unittest failure count")
+        if fields.get("unexpected successes", 0):
+            raise ValueError("unattributed unexpected unittest success")
+        counts.append(fields.get("failures", 0) + fields.get("errors", 0))
+    if not counts or sum(counts) != len(headers):
+        raise ValueError("unittest failure count does not match attributed blocks")
     named = []
     for n, start in enumerate(headers):
         block = lines[start + 1:headers[n + 1] if n + 1 < len(headers) else len(lines)]
@@ -135,7 +180,8 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
     repo = Path(repo)
     status = _status(repo)
     fixture_path = repo / chain.FIXTURE_REL
-    current = _json_bytes(fixture_path.read_bytes(), "current fixture")
+    current_bytes = fixture_path.read_bytes()
+    current = _json_bytes(current_bytes, "current fixture")
     baseline = _json_bytes(_git_bytes(repo, str(chain.FIXTURE_REL)), "published fixture")
     roots = failing_roots(log_text)
     root = next(iter(roots))
@@ -200,6 +246,7 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
             if data is None:
                 raise ValueError(f"published DDF leg missing: {rel}")
             old_legs[rel] = data
+    current_legs = chain._leg_files(repo, root)
 
     next_fixture = copy.deepcopy(current)
     kept = copy.deepcopy(old_section)
@@ -207,7 +254,7 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
     kept["validationHold"] = {"reason": reason, "root": root, "week": week,
                               "stage": "post_validate"}
     next_fixture["sources"][root] = kept
-    old_validation = baseline.get("source_validation") or {}
+    old_validation = baseline.get("source_validation", {})
     validation = next_fixture.setdefault("source_validation", {})
     if not isinstance(old_validation, dict) or not isinstance(validation, dict):
         raise ValueError("source validation metadata is malformed")
@@ -216,17 +263,6 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
     else:
         validation.pop(root, None)
 
-    fixture_path.write_text(json.dumps(next_fixture, indent=2) + "\n", encoding="utf-8")
-    if chain._read_fixture(repo)["sources"][root] != kept:
-        raise ValueError("restored section could not be verified")
-    if old_legs:
-        chain._restore_legs(repo, root, old_legs)
-    rolled_back_records = []
-    if promo_record is not None:
-        target = promo_record.with_name(promo_record.stem + ".rolled-back.json")
-        promo_record.rename(target)
-        rolled_back_records.append(target.name)
-
     kept_week = chain.section_week(old_section)
     behind = week - kept_week if week is not None and kept_week is not None else None
     severity = "amber" if behind is not None and behind <= 1 else "red"
@@ -234,6 +270,11 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
     promoted = result.get("promoted", 0)
     assertion = next((line for line in log_text.splitlines() if EXCEPTION.fullmatch(line)),
                      "source-specific validation failure")
+    target = (promo_record.with_name(promo_record.stem + ".rolled-back.json")
+              if promo_record is not None else None)
+    if target is not None and (target.exists() or target.is_symlink()):
+        raise ValueError("rolled-back promotion record already exists")
+    rolled_back_records = [target.name] if target is not None else []
     result.update(status="held", held_reason="post-validate source failure",
                   failed_stage="post_validate", detail=f"make validate failed: {assertion[:300]}",
                   promoted=0, rolled_back=promoted, hold_severity=severity,
@@ -247,23 +288,73 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
         "weeks_behind": behind, "hold_severity": severity,
     }
     status["sources"][root] = chain.describe_result(result)
-    status["source_weeks"] = chain.chain_source_weeks(repo)
+    from week_state import source_weeks  # noqa: PLC0415
+    index_path = repo / "data/history/index.json"
+    try:
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        index = None
+    status["source_weeks"] = source_weeks(next_fixture, index)
     status["hold_severity"] = ("red" if any(v.get("hold_severity") == "red"
                                              for v in status["held_detail"].values()) else "amber")
     status["success"] = False
     status["outcome"] = "validation_retry_pending"
-    status["post_validate_isolation"] = {"root": root, "stage": "retry_pending",
+    status["post_validate_isolation"] = {"root": root, "stage": "isolation_in_progress",
                                          "attributed_assertion": assertion[:300],
-                                         "recorded_at": datetime.now(timezone.utc).isoformat()}
+                                         "recorded_at": datetime.now(timezone.utc).isoformat(),
+                                         "expected_section_sha256": chain._canonical_sha(kept),
+                                         "expected_validation_present": root in validation,
+                                         "expected_validation_sha256": chain._canonical_sha(validation.get(root)),
+                                         "expected_legs_sha256": {
+                                             rel: hashlib.sha256(data).hexdigest()
+                                             for rel, data in old_legs.items()},
+                                         "promotion_record": promo_record.name if promo_record else None,
+                                         "rolled_back_record": target.name if target else None}
+    # Publish the non-green state BEFORE touching the fixture or a leg. If
+    # any later operation fails, even an incomplete rollback cannot be
+    # mistaken for a successful chain. `confirm` rejects this in-progress
+    # state; only a fully restored source advances to retry_pending.
     _write_status(repo, status)
+    renamed = False
+    try:
+        _atomic_write_bytes(fixture_path, (json.dumps(next_fixture, indent=2) + "\n").encode())
+        if chain._read_fixture(repo)["sources"][root] != kept:
+            raise ValueError("restored section could not be verified")
+        if old_legs:
+            chain._restore_legs(repo, root, old_legs)
+        if promo_record is not None:
+            promo_record.rename(target)
+            renamed = True
+        status["post_validate_isolation"]["stage"] = "retry_pending"
+        _write_status(repo, status)
+    except Exception as exc:  # noqa: BLE001 -- retain non-green status even if rollback fails
+        rollback_errors = []
+        if renamed:
+            try:
+                target.rename(promo_record)
+            except OSError as rollback_exc:
+                rollback_errors.append(f"promotion record: {rollback_exc}")
+        try:
+            if old_legs:
+                chain._restore_legs(repo, root, current_legs)
+        except (OSError, ValueError) as rollback_exc:
+            rollback_errors.append(f"DDF legs: {rollback_exc}")
+        try:
+            _atomic_write_bytes(fixture_path, current_bytes)
+        except OSError as rollback_exc:
+            rollback_errors.append(f"fixture: {rollback_exc}")
+        suffix = f"; rollback incomplete: {'; '.join(rollback_errors)}" if rollback_errors else ""
+        raise ValueError(f"source isolation failed: {exc}{suffix}") from exc
     return root
 
 
 def _write_status(repo: Path, status: dict) -> None:
-    for rel in STATUS_RELS:
+    data = (json.dumps(status, indent=2) + "\n").encode()
+    # The output copy is authoritative. Write it last, so a status-copy
+    # failure cannot make the chain appear green there before the dist copy.
+    for rel in reversed(STATUS_RELS):
         path = repo / rel
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
+        _atomic_write_bytes(path, data)
 
 
 def confirm(repo: Path) -> str:
@@ -273,12 +364,40 @@ def confirm(repo: Path) -> str:
     recovery = status.get("post_validate_isolation") or {}
     root = recovery.get("root")
     if (status.get("outcome") != "validation_retry_pending"
+            or status.get("success") is not False
             or recovery.get("stage") != "retry_pending" or root not in chain.SOURCES):
         raise ValueError("no pending post-validation isolation to confirm")
     fixture = _json_bytes((repo / chain.FIXTURE_REL).read_bytes(), "retried fixture")
-    hold = fixture["sources"].get(root, {}).get("validationHold") or {}
+    section = fixture["sources"].get(root)
+    if not isinstance(section, dict):
+        raise ValueError("isolated source section is missing")
+    hold = section.get("validationHold") or {}
     if hold.get("reason") != "chain hold: post-validate source failure":
         raise ValueError("isolated source hold disappeared before confirmation")
+    if chain._canonical_sha(section) != recovery.get("expected_section_sha256"):
+        raise ValueError("isolated source section differs from verified rollback")
+    validation = fixture.get("source_validation", {})
+    if not isinstance(validation, dict) or (root in validation) != recovery.get("expected_validation_present"):
+        raise ValueError("isolated source validation metadata changed")
+    if chain._canonical_sha(validation.get(root)) != recovery.get("expected_validation_sha256"):
+        raise ValueError("isolated source validation metadata differs from published")
+    expected_legs = recovery.get("expected_legs_sha256")
+    if not isinstance(expected_legs, dict) or {
+            rel: hashlib.sha256(data).hexdigest()
+            for rel, data in chain._leg_files(repo, root).items()} != expected_legs:
+        raise ValueError("isolated source DDF legs differ from published")
+    if root in chain.HOLD_ISOLATED_SOURCES:
+        original = recovery.get("promotion_record")
+        retired = recovery.get("rolled_back_record")
+        if (not isinstance(original, str) or not original.startswith(root + "-")
+                or not original.endswith("-promotion.json")
+                or retired != original[:-5] + ".rolled-back.json"):
+            raise ValueError("isolation promotion record evidence is malformed")
+        promo_dir = repo / chain.PROMOTIONS_REL
+        if (promo_dir / original).exists() or not (promo_dir / retired).is_file():
+            raise ValueError("isolated promotion was not retired")
+    if root not in (status.get("held") or []) or (status.get("detail") or {}).get(root, {}).get("status") != "held":
+        raise ValueError("isolated source is not held in chain status")
     status["success"] = True
     status["outcome"] = "published_with_holds"
     recovery["stage"] = "retry_passed"
