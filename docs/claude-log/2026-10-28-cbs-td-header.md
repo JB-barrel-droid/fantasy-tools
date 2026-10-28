@@ -25,3 +25,19 @@ Not done here: a guard that fails the ingest when a position saves 0 rows
 after merge; the TE rows change the content, so it is not an "unchanged" skip.
 Couldn't see the raw HTML (proxy refuses cbssports.com); the cause is inferred
 from stored rows, review counts and the pulse's read of the page.
+
+## Second cause: upper-case TE headers
+
+With the header row read, a dry run still saved 0 standard TE values and
+9 of 17 half-PPR. The new review breakdown in the ingest log showed why:
+the TE table's headers are `TM`, `NON`, `0.5`, `PPR` (other tables use
+`tm`, `non`), so all 17 standard values were `missing_column:non`. The
+remaining 8 half-PPR reviews are dashes CBS published (week 7 also dashed
+some TEs in the non-PPR and half columns).
+
+Fix: `build_cbs_rows` matches column names without regard to case.
+`tests/test_save_espn_cbs_references.py` has a case with the week 8 TE
+headers; it fails on the old builder (2 rows written, not 3).
+
+The ingest now logs `review_by_reason` and each table's headers after the
+clean/review counts, so a renamed column shows in the run's annotations.
