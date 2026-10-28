@@ -1,51 +1,51 @@
 {
  "content_week": 8,
- "fixture_built_at": "2026-10-26T15:42:37.663230+00:00",
+ "fixture_built_at": "2026-10-28T13:19:32.724625+00:00",
  "schema": "week-history-index/1",
  "season": 2026,
  "served": {
   "cbs": {
-   "fingerprint": "sha256:5fe4a9caa47b73434dc1202daf77d9feff5cd857cd027445814f6750155d1d1b",
-   "label_week": 7,
+   "fingerprint": "sha256:e52d4bb4de7204e8309d792e7c6aa9989e618afae92cb6c963ca107097079eeb",
+   "label_week": 8,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   },
   "cbsros": {
-   "fingerprint": "sha256:9b78adf3594bf90ff6330374db4f146edf7fef04fb89e5daa2f837ec0a248cb2",
-   "label_week": 7,
+   "fingerprint": "sha256:3196258e752ae0f5cc09f79ade79ee79df4329bd593aa4f33122e410e9eb5a83",
+   "label_week": 8,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   },
   "espn": {
-   "fingerprint": "sha256:ef033672fdf87f1c8e2566bf3dd25a35e58f91188b5843568b62a76b5f957231",
+   "fingerprint": "sha256:92b3d26629c91b1b7e95e174b7d99294f7426e5be85245147b86d989aaac5b9b",
    "label_week": null,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   },
   "fantasycalc": {
-   "entry_fingerprint": "sha256:084a377731d08233b2ff2ab10c398169398ba8116f2b38037e95543b4590ce38",
-   "fingerprint": "sha256:084a377731d08233b2ff2ab10c398169398ba8116f2b38037e95543b4590ce38",
-   "label_week": 7,
+   "entry_fingerprint": "sha256:76d51f018fb0988a821d5762c0db2d26cdee78b1448138e82679d8137f29e5b8",
+   "fingerprint": "sha256:76d51f018fb0988a821d5762c0db2d26cdee78b1448138e82679d8137f29e5b8",
+   "label_week": 8,
    "version": "superseded",
-   "week": 7
+   "week": 8
   },
   "fantasypros": {
-   "fingerprint": "sha256:848f4664cff56fe463035c1763c050a1bb2ae35fee22d8e33ab313867db9c4d3",
-   "label_week": 7,
+   "fingerprint": "sha256:42c080eee8d84600ac694211279982ab7ce5d15b6badc9f1d56756a8608725ff",
+   "label_week": 8,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   },
   "razzball": {
-   "fingerprint": "sha256:99bdcec289e0a0636f79f4668a33a4ca12d700bb9e4e7dd2ddee95635f619628",
-   "label_week": 7,
+   "fingerprint": "sha256:90e841a63d75d97826c12487c5766a347bfc14ea0001caa29edfca8936fa5ca6",
+   "label_week": 8,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   },
   "usatoday": {
-   "fingerprint": "sha256:e1564d65053a297d276ecdac6cca60ed88168d9bf7887a5b853085e37f177eb3",
-   "label_week": 7,
+   "fingerprint": "sha256:9e938203b41d559b0416d093ceca134d5f041ecf22519e00f0f8d2f1b2fcd681",
+   "label_week": 8,
    "version": "snapshot",
-   "week": 7
+   "week": 8
   }
  },
  "weeks": {
@@ -328,6 +328,56 @@
      "fingerprint": "sha256:e1564d65053a297d276ecdac6cca60ed88168d9bf7887a5b853085e37f177eb3",
      "origin": "supabase:public.source_trade_values bake usatwk7_2026-10-22t0155_v1 (12 teams, 1 QB, as published)",
      "pulled_at": "2026-10-22T00:00:00+00:00"
+    }
+   }
+  },
+  "8": {
+   "file": "assets/history/week-8.json",
+   "frozen": false,
+   "sources": {
+    "cbs": {
+     "complete": true,
+     "fingerprint": "sha256:e52d4bb4de7204e8309d792e7c6aa9989e618afae92cb6c963ca107097079eeb",
+     "origin": "supabase:public.cbs_trade_values bake cbswk8_2026-10-28t1223_v1 (12 teams, 1 QB, as published)",
+     "pulled_at": "2026-10-28T12:23:16+00:00"
+    },
+    "cbsros": {
+     "complete": true,
+     "content_date": "2026-10-28",
+     "fingerprint": "sha256:3196258e752ae0f5cc09f79ade79ee79df4329bd593aa4f33122e410e9eb5a83",
+     "origin": "supabase:public.cbs_ros_projections snapshot 2026-10-28 (per_game_*, rounded to 6 dp as bake_players)"
+    },
+    "espn": {
+     "complete": true,
+     "content_date": "2026-10-27",
+     "fingerprint": "sha256:92b3d26629c91b1b7e95e174b7d99294f7426e5be85245147b86d989aaac5b9b",
+     "origin": "players.json (served)"
+    },
+    "fantasycalc": {
+     "complete": true,
+     "fingerprint": "sha256:ccad7d7f6c6004b19ec8439c1800d7fdad1acfaf8935796928fbeccad969eadb",
+     "origin": "supabase:public.source_trade_values bake fcwk8_2026-10-27t1322_v1 (12 teams, 1 QB, as published)",
+     "pulled_at": "2026-10-27T13:22:48+00:00"
+    },
+    "fantasypros": {
+     "complete": true,
+     "content_date": "2026-10-27",
+     "fingerprint": "sha256:42c080eee8d84600ac694211279982ab7ce5d15b6badc9f1d56756a8608725ff",
+     "origin": "supabase:public.source_trade_values bake fpwk8_2026-10-27t1535_v1 (12 teams, 1 QB, as published)",
+     "pulled_at": "2026-10-27T15:35:35.540672+00:00"
+    },
+    "razzball": {
+     "complete": true,
+     "content_date": "2026-10-27",
+     "fingerprint": "sha256:90e841a63d75d97826c12487c5766a347bfc14ea0001caa29edfca8936fa5ca6",
+     "origin": "players.json (served)"
+    },
+    "usatoday": {
+     "complete": true,
+     "content_date": "2026-10-27",
+     "fingerprint": "sha256:9e938203b41d559b0416d093ceca134d5f041ecf22519e00f0f8d2f1b2fcd681",
+     "origin": "supabase:public.source_trade_values bake usatwk8_2026-10-27t2135_v1 (12 teams, 1 QB, as published)",
+     "pulled_at": "2026-10-27T00:00:00+00:00"
     }
    }
   }
