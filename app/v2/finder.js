@@ -633,6 +633,9 @@
     const before = lineupValue(team.roster, ctx.shape, key);
     const next = lineupValue(after, ctx.shape, key);
     const starterDelta = next.starterValue - before.starterValue;
+    // A roster's raw total is different from the bench-weighted net used for fit. Only report its change when every
+    // moving player has this view: lineupValue omits unpriced rows, which must not turn a missing trade value into zero.
+    const totalDelta = team.leaving.concat(team.arriving).every(r => r.values && finite(r.values[key])) ? next.total - before.total : null;
     const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
     const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
     const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
@@ -661,7 +664,7 @@
     const away = needAfter > needBefore;
     const awayAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter > depth[pos].distBefore);
     const towardAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter < depth[pos].distBefore);
-    return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
+    return {key, net, totalDelta, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
   // JEG-1108: rewritten fit labels. Three labels: natural, market, force (value retired).
@@ -810,8 +813,8 @@
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: neither roster is broken (no bench player is forced into a starting spot and no starter is lost without a starter coming back), your DDF Value total rises with your starters no worse, and the Trade chart average does not show the other team losing.",
-    market: "Market supported: the Trade chart average says the other team comes out ahead on this trade.",
+    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Fit totals weight bench value by the league's bench share.",
+    market: "Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details.",
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
