@@ -48,8 +48,24 @@ def apply():
     # fixture also carries the saved Indexed values and the combo's vintage, which
     # the sync's rank guard checks. Keep them consistent with the swapped natives
     # (Indexed = native x the combo's one factor, JEG-482).
-    for combo in section["combos"].values():
-        factor = combo["fit"]["order_preserving_rescale"]["factor"]
+    # As the build indexes a chart: one factor that makes the chart's pie over
+    # the players on ESPN's list equal ESPN's (the anchor leg); players not on
+    # ESPN's list take the factor and are named in not_on_espn (JEG-486).
+    canon = json.loads(CANON.read_text(encoding="utf-8"))
+    keys = canon.get("player_keys") or {}
+    espn = canon["sources"]["espn"]["combos"]
+    for name, combo in section["combos"].items():
+        anchor = {keys[s]: float(v) for s, v in (espn[re.sub(r"_qb[12]$", "", name)].get("values") or {}).items()
+                  if s in keys}
+        on = [s for s in combo["native"] if keys.get(s) in anchor]
+        factor = (sum(max(0.0, anchor[keys[s]]) for s in on) / sum(float(combo["native"][s]) for s in on))
+        fit = combo["fit"]["order_preserving_rescale"]
+        fit.update(factor=factor, n_priced=len(on))
+        off = sorted(s for s in combo["native"] if s not in on)
+        if off:
+            combo["not_on_espn"] = off
+        else:
+            combo.pop("not_on_espn", None)
         combo["reindexed"] = {k: float(v) * factor for k, v in combo["native"].items()}
         combo["n"] = len(combo["native"])
         combo["vintage"] = {"content_vintage": f"Week {lag_week}", "week_designated": f"Week {lag_week}"}
