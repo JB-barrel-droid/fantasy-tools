@@ -1365,6 +1365,7 @@
     el("path", {d, class: "overview", stroke: sourceMeta(view.rankKey).color, "vector-effect": "non-scaling-stroke"}, svg);
   }
 
+  let touchInspecting = false;   // JEG-954: the card on screen came from a finger, not a pointer
   function drawHover() {
     [mainChart, vorpChart].forEach(chart => {
       if (!chart) return;
@@ -1460,7 +1461,7 @@
     const hint = document.createElement("span");
     hint.className = "v2-meta";
     hint.style.marginTop = "8px";
-    hint.textContent = "Click for player details";
+    hint.textContent = touchInspecting ? "Tap again for player details" : "Click for player details";
     tip.appendChild(hint);
     tip.hidden = false;
     const box = $("v2Chart").getBoundingClientRect();
@@ -1469,6 +1470,8 @@
     const tipBox = tip.getBoundingClientRect();
     let left = px + 16;
     if (left + tipBox.width > window.innerWidth - 8) left = px - tipBox.width - 16;
+    // A finger covers what is under it: the card takes the side of the chart away from the finger.
+    if (touchInspecting) left = px < window.innerWidth / 2 ? window.innerWidth - tipBox.width - 8 : 8;
     left = Math.max(8, left);
     let top = box.top + 12;
     if (top + tipBox.height > window.innerHeight - 8) top = window.innerHeight - tipBox.height - 8;
@@ -1543,16 +1546,77 @@
     return Math.max(0, Math.min(n - 1, Math.round((px - chart.pad.l) / step)));
   }
 
+  // Touch-to-inspect (JEG-954): a finger on the chart shows what the pointer shows on desktop. The first tap or a
+  // drag only inspects (the card sits on the side away from the finger); a second tap on the player who is still
+  // shown opens the details. Lifting the finger leaves the card up for a few seconds. Page scroll stays vertical
+  // (touch-action: pan-y inline, none in full screen).
+  const TOUCH_HOLD_MS = 4000;
+  let lastTouchAt = 0;
+  let touchHold = null;
+  function clearTouchInspect() {
+    clearTimeout(touchHold);
+    touchHold = null;
+    if (!touchInspecting) return;
+    touchInspecting = false;
+    state.hoverIndex = null;
+    drawHover();
+  }
+  function bindChartTouch(container, getChart) {
+    let gesture = null;
+    container.addEventListener("pointerdown", event => {
+      if (event.pointerType === "mouse") return;
+      const chart = getChart();
+      if (!chart) return;
+      lastTouchAt = Date.now();
+      clearTimeout(touchHold);
+      const index = indexFromEvent(event, chart, container);
+      gesture = {startX: event.clientX, startY: event.clientY, drag: false, wasShown: touchInspecting && state.hoverIndex === index};
+      // Redraw only on a change (a tap on the player already shown leaves the card and the dots alone).
+      const redraw = !touchInspecting || index !== state.hoverIndex;
+      touchInspecting = true;
+      if (redraw) { state.hoverIndex = index; state.focusIndex = index; drawHover(); }
+    });
+    container.addEventListener("pointermove", event => {
+      if (event.pointerType === "mouse" || !gesture) return;
+      const chart = getChart();
+      if (!chart) return;
+      lastTouchAt = Date.now();
+      if (Math.abs(event.clientX - gesture.startX) > 6 || Math.abs(event.clientY - gesture.startY) > 6) gesture.drag = true;
+      const index = indexFromEvent(event, chart, container);
+      if (index !== state.hoverIndex) { state.hoverIndex = index; state.focusIndex = index; drawHover(); }
+    });
+    const lift = () => {
+      lastTouchAt = Date.now();
+      clearTimeout(touchHold);
+      touchHold = setTimeout(clearTouchInspect, TOUCH_HOLD_MS);
+    };
+    container.addEventListener("pointerup", event => { if (event.pointerType !== "mouse") lift(); });
+    container.addEventListener("pointercancel", event => { if (event.pointerType !== "mouse") { gesture = null; lift(); } });
+    container.addEventListener("click", event => {
+      // Runs before the generic click handler below (registered first): a touch tap that only inspects stops here.
+      if (!gesture) return;
+      const g = gesture;
+      gesture = null;
+      if (g.drag || !g.wasShown) event.stopImmediatePropagation();
+    });
+  }
+
   function bindChart(containerId, getChart) {
     const container = $(containerId);
+    bindChartTouch(container, getChart);
     container.addEventListener("mousemove", event => {
       const chart = getChart();
       if (!chart) return;
+      if (Date.now() - lastTouchAt < 800) return;   // the mouse events a browser repeats after a touch
+      touchInspecting = false;
       state.hoverIndex = indexFromEvent(event, chart, container);
       state.focusIndex = state.hoverIndex;
       drawHover();
     });
-    container.addEventListener("mouseleave", () => { state.hoverIndex = null; drawHover(); });
+    container.addEventListener("mouseleave", () => {
+      if (touchInspecting && Date.now() - lastTouchAt < 800) return;
+      state.hoverIndex = null; drawHover();
+    });
     container.addEventListener("click", event => {
       const chart = getChart();
       if (!chart) return;
@@ -1575,6 +1639,7 @@
       const n = mainChart.slice.length;
       if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
         event.preventDefault();
+        touchInspecting = false;
         const base = state.hoverIndex ?? state.focusIndex ?? 0;
         state.hoverIndex = Math.max(0, Math.min(n - 1, base + (event.key === "ArrowRight" ? 1 : -1)));
         state.focusIndex = state.hoverIndex;
@@ -6713,12 +6778,12 @@
   // full screen, as the settings panels are.
   let expandOpener = null;
   let expandHome = null;   // {node, placeholder}
-  function openExpanded(kind) {
+  function openExpanded(kind, opener) {
     if (expanded) closeExpanded(true);
     closePopover();
     $("v2Tip").hidden = true;
     const node = kind === "chart" ? $("v2Plot") : $("v2TableWrap");
-    expandOpener = kind === "chart" ? $("v2ExpandChart") : $("v2ExpandTable");
+    expandOpener = opener || (kind === "chart" ? $("v2ExpandChart") : $("v2ExpandTable"));
     const placeholder = document.createElement("div");
     placeholder.className = "v2-expand-placeholder";
     placeholder.style.height = `${node.offsetHeight}px`;
@@ -6735,7 +6800,19 @@
     document.body.classList.add("v2-expand-open");
     expandOpener.setAttribute("aria-expanded", "true");
     if (kind === "chart") renderCharts(); else renderTable();
+    syncRotateHint();
     $("v2ExpandClose").focus();
+  }
+  // Phone full screen: a portrait phone gets a dismissible "rotate to landscape" prompt (no orientation lock: iOS Safari has none).
+  // Dismissing it holds for the session; turning the phone sideways hides it too.
+  let rotateDismissed = false;
+  const rotateQuery = window.matchMedia ? window.matchMedia("(max-width: 767px) and (orientation: portrait)") : null;
+  function rotateWasDismissed() {
+    try { return sessionStorage.getItem("v2RotateHint") === "1" || rotateDismissed; } catch (error) { return rotateDismissed; }
+  }
+  function syncRotateHint() {
+    const show = expanded === "chart" && Boolean(rotateQuery && rotateQuery.matches) && !rotateWasDismissed();
+    $("v2RotateHint").hidden = !show;
   }
   function closeExpanded(silent) {
     if (!expanded) return;
@@ -6747,6 +6824,7 @@
     $("v2Expand").hidden = true;
     document.body.classList.remove("v2-expand-open");
     $("v2Tip").hidden = true;
+    $("v2RotateHint").hidden = true;
     if (currentView() === "values" && view) { if (kind === "chart") renderCharts(); else renderTable(); }
     const opener = expandOpener;
     expandOpener = null;
@@ -6801,6 +6879,14 @@
     // JEG-483: Reset zoom, expanded chart / table and their controls.
     $("v2ResetZoom").addEventListener("click", () => { resetZoom(); requestAnimationFrame(() => $("v2ZoomIn").focus()); });
     $("v2ExpandChart").addEventListener("click", () => openExpanded("chart"));
+    $("v2FullScreen").addEventListener("click", () => { $("v2FullScreen").setAttribute("aria-expanded", "true"); openExpanded("chart", $("v2FullScreen")); });
+    $("v2RotateDismiss").addEventListener("click", () => {
+      rotateDismissed = true;
+      try { sessionStorage.setItem("v2RotateHint", "1"); } catch (error) { /* held in memory above */ }
+      syncRotateHint();
+      $("v2ExpandClose").focus();
+    });
+    if (rotateQuery) (rotateQuery.addEventListener ? rotateQuery.addEventListener("change", syncRotateHint) : rotateQuery.addListener(syncRotateHint));
     // JEG-477: expand / contract the inline chart height (laptop default <-> tall).
     $("v2ChartSize").addEventListener("click", () => {
       const tall = $("v2Main").dataset.chartSize !== "tall";
@@ -7082,6 +7168,9 @@
     });
     $("v2Popover").addEventListener("pointerenter", () => { if (hoverOpened && hoverHold) hoverHold.cancel(); });
     $("v2Popover").addEventListener("pointerleave", () => { if (hoverOpened && hoverHold) hoverHold.schedule(); });
+    document.addEventListener("pointerdown", event => {
+      if (touchInspecting && event.pointerType !== "mouse" && !event.composedPath().some(node => node.id === "v2Chart" || node.id === "v2VorpChart")) clearTouchInspect();   // the path as dispatched: the hover dots under the finger are redrawn first
+    });
     document.addEventListener("mousedown", event => {
       const pop = $("v2Popover");
       if (pop.hidden || pop.contains(event.target) || (popoverAnchor && popoverAnchor.contains(event.target))) return;
