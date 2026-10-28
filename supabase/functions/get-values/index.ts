@@ -267,10 +267,10 @@ function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
     const svStatus = sourceValidation?.[key];
     const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-    // Staleness: chart sources older than current content week.
-    const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-    const isFirstLoadExcluded = firstLoadExcluded.has(key);
-    const isOlderWeek = isStale || isFirstLoadExcluded;
+    // Older week: a weekly chart behind the newest published week (the first-load rule). The
+    // calendar's week is not the test: on the Tuesday flip every chart is still on last week, and
+    // judging them against the calendar dropped them all and priced nobody (Oct 27 2026).
+    const isOlderWeek = firstLoadExcluded.has(key);
 
     // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
     const snapshot = detail.snapshot as Record<string, unknown> | undefined;

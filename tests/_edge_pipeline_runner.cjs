@@ -217,10 +217,8 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   const svStatus = sourceValidation[key];
   const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-  // Check staleness (chart is older than current content week).
-  const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-  const isFirstLoadExcluded = firstLoadExcluded.has(key);
-  const isOlderWeek = isStale || isFirstLoadExcluded;
+  // Older week: behind the newest published week (first-load rule), never the calendar's week.
+  const isOlderWeek = firstLoadExcluded.has(key);
 
   // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
   const divergenceExclusions = (detail.snapshot && Array.isArray(detail.snapshot.divergence_exclusions))

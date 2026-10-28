@@ -38,7 +38,7 @@
   const button = (text, props, onClick) => { const b = el("button", {type: "button", ...(props || {})}, text); if (onClick) b.addEventListener("click", onClick); return b; };
 
   // ---------- state that is not saved ----------
-  const UI = {collapsed: new Map(), renaming: null, confirmRemove: null, confirmLoad: null, undo: null, comps: new Map(), oppsShown: PAGE, expanded: new Set(), result: null,
+  const UI = {collapsed: new Map(), renaming: null, confirmRemove: null, confirmLoad: null, undo: null, comps: new Map(), oppsShown: PAGE, expanded: new Set(), expandedCores: new Set(), result: null,
     running: false, runId: 0, timer: null, cache: O.createCache(), notice: "", justAdded: null, ready: false, firstPaint: true};
 
   function announce(text) { const live = $("v2LgLive"); if (live) { live.textContent = ""; live.textContent = text; } }
@@ -778,6 +778,8 @@
     void ctx;
     return ["Send ", ...side(r.give, null), ", get ", ...side(r.receive, r.core)];
   };
+  // JEG-885: the received core player of a row (opportunities.js sets `core` to the highest DDF Value player you receive).
+  const coreKey = r => (r.core ? String(r.core.player_key) : "");
   // JEG-1081: does DDF Value (projections) back the trade? A tick when it gains you, a cross when it loses you, a dash when level or unpriced.
   function projText(r) {
     if (r.projAgrees === true) return {mark: "\u2713", word: "Projections agree", cls: "is-agree"};
@@ -956,10 +958,20 @@
     const onSort = next => setSort("opps", next, cols);
     const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce);
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
+    // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
+    // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
+    // the order, every value, edge and fit label are exactly what the ranking produced.
+    const capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
     pickFromHash(res.rows);
     const togglePick = r => { selectOpp(UI.selectedOpp === r.id ? null : r); renderOpps(); if (UI.selectedOpp) { const p = $("v2LgOppPanel"); if (p) p.scrollIntoView({block: "nearest"}); } };
     const chosen = UI.selectedOpp ? sorted.find(r => r.id === UI.selectedOpp) : null;
-    const shownRows = sorted.slice(0, UI.oppsShown);
+    const shownRows = capped.list.slice(0, UI.oppsShown);
+    // Which cores show a fold control: the last visible row that carries the core, so the control sits with the player's rows.
+    const foldAt = new Map();
+    shownRows.forEach((r, i) => { if (capped.folds.has(coreKey(r))) foldAt.set(coreKey(r), i); });
+    const openFolds = new Map();
+    capped.folds.forEach((rows, key) => { if (UI.expandedCores.has(key) && foldAt.has(key)) openFolds.set(key, rows); });
+    const revealed = [...openFolds.values()].reduce((n, rows) => n + rows.length, 0);
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
     const headline = el("p", {class: "v2-find-headline", id: "v2LgOppsHeadline", role: "status"}, O.leagueHeadline(res, balance && balance.ready ? {over: balance.over, under: balance.under} : null) || "No trade opportunities found.");
@@ -981,8 +993,8 @@
         plainTh("Market perception", {colspan: "2", scope: "colgroup"}), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
     const colspan = OPP_COLSPAN;
-    const bodyRows = [];
-    shownRows.forEach(r => {
+    // JEG-885: one trade row, used for the visible rows and for the rows an open fold reveals.
+    const oppRowBody = r => {
       const open = UI.expanded.has(r.id);
       const details = button(open ? "Hide details" : "Details", {class: "v2-link v2-lg-details-btn", "data-details-for": r.id, "aria-expanded": String(open), "aria-label": `${open ? "Hide" : "Show"} details for ${r.opponent}: ${r.give.map(p => p.name).join(" and ")} for ${r.receive.map(p => p.name).join(" and ")}`}, () => {
         if (UI.expanded.has(r.id)) UI.expanded.delete(r.id); else UI.expanded.add(r.id);
@@ -1002,11 +1014,26 @@
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
         el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord})),
         el("td", {class: "num", "data-cell": "rank"}, String(r.rank)));
-      bodyRows.push(el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : [])));
+      return el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : []));
+    };
+    // The fold control: "N more for <player>", opening the rest of that player's rows right under it (keyboard: focus comes back).
+    const foldLabel = key => `${capped.folds.get(key).length} more for ${capped.folds.get(key)[0].core.name}`;
+    const foldButton = (key, suffix) => button(openFolds.has(key) ? `Hide ${foldLabel(key)}` : foldLabel(key),
+      {class: "v2-link v2-lg-fold-btn", id: `v2LgFold-${key}${suffix}`, "aria-expanded": String(openFolds.has(key))},
+      () => { if (UI.expandedCores.has(key)) UI.expandedCores.delete(key); else UI.expandedCores.add(key); renderOpps(); });
+    const bodyRows = [];
+    shownRows.forEach((r, i) => {
+      bodyRows.push(oppRowBody(r));
+      const key = coreKey(r);
+      if (capped.folds.has(key) && foldAt.get(key) === i) {
+        bodyRows.push(el("tbody", {class: "v2-lg-fold"}, el("tr", {}, el("td", {class: "v2-lg-fold-cell", colspan: String(colspan)}, foldButton(key, "")))));
+        (openFolds.get(key) || []).forEach(m => bodyRows.push(oppRowBody(m)));
+      }
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
       el("caption", {text: "Trade opportunities: my team against every other team, ranked by fit then by DDF Value capture"}), thead, ...bodyRows);
-    const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...shownRows.map(r => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
+    // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
+    const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
       el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
@@ -1014,7 +1041,16 @@
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
-      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)))));
+      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
+      tail || null);
+    const cardNodes = [];
+    shownRows.forEach((r, i) => {
+      const key = coreKey(r);
+      const tail = capped.folds.has(key) && foldAt.get(key) === i ? foldButton(key, "-card") : null;
+      cardNodes.push(oppCard(r, tail));
+      if (tail) (openFolds.get(key) || []).forEach(m => cardNodes.push(oppCard(m)));
+    });
+    const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...cardNodes);
     const remaining = sorted.length - shownRows.length;
     const reveal = count => { UI.oppsShown = shownRows.length + count; renderOpps(); };
     const moreButtons = remaining > 0 ? [
@@ -1022,7 +1058,7 @@
       remaining > PAGE ? button(`Show all (${sorted.length})`, {class: "v2-btn", id: "v2LgOppsAll"}, () => reveal(remaining)) : null] : [];
     if (shownRows.length > PAGE) moreButtons.push(button(`Show top ${PAGE} only`, {class: "v2-btn", id: "v2LgOppsLess"}, () => { UI.oppsShown = PAGE; renderOpps(); }));
     const more = moreButtons.length ? el("div", {class: "v2-ctoolbar v2-lg-more"}, ...moreButtons) : null;
-    const count = sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsCount", role: "status", text: `Showing ${shownRows.length} of ${sorted.length}`}) : null;
+    const count = sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsCount", role: "status", text: `Showing ${shownRows.length + revealed} of ${sorted.length}`}) : null;
     const empty = !sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsMsg", text: res.rows.length ? "No opportunity matches these filters." : "No trade opportunities found."}) : null;
     body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
