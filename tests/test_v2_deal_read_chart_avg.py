@@ -93,9 +93,16 @@ def check(trade_js: Path) -> list[str]:
     if d["text"] and "trade charts agree" in d["text"]:
         errors.append(f"deal read says 'trade charts agree' when they disagree: {d['text']!r}")
 
-    # 5. The title should be the arbitrage case (win on value, lose on market).
-    if d["title"] != "Value win, charts say you lose: send it":
-        errors.append(f"title is {d['title']!r}, expected 'Value win, charts say you lose: send it' (win|lose)")
+    # 5. The title should be the win-on-value, lose-on-market case (JEG-950 wording).
+    if d["title"] != "DDF Value likes it. The market doesn't.":
+        errors.append(f"title is {d['title']!r}, expected \"DDF Value likes it. The market doesn't.\" (win|lose)")
+
+    # 6. JEG-950: the sub-line is the real market gap, one decimal, direction word from the net's sign.
+    if d["marketNet"] is not None:
+        want_text = (f"The trade charts have you {abs(d['marketNet']):.1f} points behind, "
+                     "so the other manager will likely see it as their win.")
+        if d["text"] != want_text:
+            errors.append(f"text is {d['text']!r}, expected {want_text!r}")
 
     return errors
 

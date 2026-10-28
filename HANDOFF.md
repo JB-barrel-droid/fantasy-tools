@@ -34,9 +34,11 @@ section; the overnight routine now owns handoff upkeep.
   until a deploy succeeds: `2e90b88` (#960, JEG-1129 trade viability: judge the
   other team on the Indexed market), `561d576` (#1006), `7594f41` (#1004),
   `03807db` (#1005). Deploys keep getting cancelled by newer pushes.
-- **Rebuild chain is failing:** bot commits "Automated chain status (chain
-  failed; fixture not updated)" at 03:05 and 03:14 UTC, so fresh source data is
-  not reaching the fixtures (week transition work, JEG-1175 / JEG-1177).
+- **Rebuild chain is failing (JEG-1194):** every run since 2026-10-26 15:42Z;
+  the site stays on week 7. Latest cause: a red CBS fidelity hold (week 8 save,
+  0 TE rows) grayed out the live week 7 CBS chart and test_superflex failed.
+  Fix on `be/jeg-1194-board-publish` (hold scope + stuck-chain issue alert) and
+  #1027 (lagging-chart tests). See docs/claude-log/2026-10-28-board-publish-holds.md.
 - **What works (verified 2026-10-28 03:00 UTC):** the live site serves at
   https://jb-barrel-droid.github.io/fantasy-tools/ with the build tag above;
   quick unit tests pass locally (see section 6).

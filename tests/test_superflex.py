@@ -49,6 +49,7 @@ from tests.test_published_league_settings_engine import (  # noqa: E402
     FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, browser_inputs, browser_players,
 )
 from tests import _render_env  # noqa: E402
+from tests._week_view import own_week_reads  # noqa: E402
 
 
 def setUpModule():
@@ -230,6 +231,15 @@ def collect_page(widget_override=None):
                                    timeout=20000)
             out["clamp"] = page.evaluate(SET_SF, 5)
             out["sf1"] = page.evaluate(READ, list(SOURCES) + ["espn"])
+            # JEG-1176: a chart lagging the default week view is read in its
+            # own week's view, or noted as lagging when no view has its week.
+            absent = [k for k in SOURCES if not out["sf1"]["maps"][k]]
+            own = own_week_reads(page, absent, lambda keys: page.evaluate(READ, keys), "superflex",
+                                 "superflex values not checked in the browser")
+            for week, got in own["reads"].items():
+                out["sf1"]["maps"].update(got["maps"])
+            out["sf1"]["week_fixed_pie"] = {week: got["fixedPie"] for week, got in own["reads"].items()}
+            out["sf1"]["lagging"] = own["lagging"]
             out["zero"] = page.evaluate(SET_SF, 0)
             # The classic page's roster input drives the same setter.
             out["has_input"] = page.evaluate("""() => { const i = document.querySelector('[data-roster-key="SUPERFLEX"]');
@@ -251,6 +261,9 @@ def page_problems(got):
         problems.append("no working Superflex roster input on the classic page")
     if got["sf1"]["fixedPie"] is not True:
         problems.append(f"fixedPieIndexed {got['sf1']['fixedPie']} with superflex")
+    for week, fixed in sorted((got["sf1"].get("week_fixed_pie") or {}).items()):
+        if fixed is not True:
+            problems.append(f"fixedPieIndexed {fixed} with superflex in the Week {week} view")
     # JEG-508 (VP-0 "Superflex", VP-6.4): with the slot, each chart's
     # Indexed values are its natives WITH the publisher's superflex overlay
     # times one factor (against blended DDF Value, no longer the ESPN
@@ -259,6 +272,8 @@ def page_problems(got):
     fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     for source in SOURCES:
+        if source in (got["sf1"].get("lagging") or {}):
+            continue  # older than every week view: noted on stderr by own_week_reads
         values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
         native, _saved, _ = browser_inputs(fixture, pos_of, source, "ppr", superflex=True)
         native = {k: v for k, v in native if v > 0}
