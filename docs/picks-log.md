@@ -126,3 +126,14 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 - 10-28 10:55 AM CT | Pages validation | JEG-1170 | Which dist reaches publication | build job uploads its gated dist / upload a shard copy / rebuild in deploy | build job's gated dist | keeps all three rendered harnesses on the exact published bytes and excludes shard outputs | be/jeg-1170-pages-validation-parallel | no
 - 10-28 10:55 AM CT | Pages validation | JEG-1170 | Artifact identity on partial reruns | recompute name in deploy / consume successful build's output | consume build output | retains the producer's SHA and attempt even when only failed jobs rerun | be/jeg-1170-pages-validation-parallel | no
 - 10-28 10:55 AM CT | Pages validation | JEG-1170 | Where coverage and workflow guards block | leave in informational nightly suite / run explicitly in both build jobs | explicit blocking guard steps | shard omission, gate bypass and artifact drift must fail PR and Pages builds | be/jeg-1170-pages-validation-parallel | no
+
+### 2026-10-28 - League finder release batch (JEG-1213/1134/894)
+
+Jeremy approved small integrated release batches. Combine #1058 `acd4b0c2` with
+its already-ancestral #1043 `d886fc9f` and #969 `391308ed` in one draft release PR,
+starting from current main including #1056. No duplicate cherry-picks. Only HANDOFF
+conflicted; retain both lane notes. Supported counts remain 8/10/12/14; unsupported
+counts explain that limit and link settings. No release switch #1059, source health,
+connector/Supabase or backlog additions. Parent owns final review and CI acceptance,
+#1056 live QA, production merge and live checks; keep all source tickets/PRs open.
+Evidence: `docs/claude-log/2026-10-28-league-finder-release.md`.

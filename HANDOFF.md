@@ -28,7 +28,8 @@ and after each milestone; commit and push it with the relevant code.
   No application conflict or methodology change; current-main generated assets
   retained. Team-count support remains explicitly 8/10/12/14.
 - Excludes #1059 release switch, source health, connector/Supabase and backlog.
-  Focused combined validation and required final-head preview/v2-render CI pending;
+  Focused combined suite: 27 PASS, no skips; workflow/shard parity: 68 PASS.
+  Required final-head preview/v2-render CI pending;
   independent final review is parent-owned. No main merge or deployment authorized.
 
 

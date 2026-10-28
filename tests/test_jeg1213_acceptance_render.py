@@ -130,18 +130,28 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
             page.evaluate("""() => { const W=window.TradeValueWorkspace; let w=W.newWorkspace();
               for(let i=0;i<7;i++)w=W.ops.addTeam(w,`Roster ${i+1}`); W.store.replace(w,'replace'); }""")
             self.assertFalse(page.is_visible("#v2LgMismatch"))
-            page.evaluate("""() => { const W=window.TradeValueWorkspace;
-              W.store.replace(W.ops.addTeam(W.store.get(),'Roster 8'),'replace'); }""")
-            page.wait_for_selector("#v2LgMatchTeams")
-            self.assertTrue(page.is_visible("#v2LgMismatch"))
-            self.assertIn("8", page.inner_text("#v2LgMismatch"))
-            before = page.evaluate(TEAM_SNAPSHOT)
-            page.click("#v2LgMatchTeams")
-            page.wait_for_function("() => window.TradeValueCurveControls.getState().teams === 8")
-            self.assertEqual(page.evaluate(TEAM_SNAPSHOT), before)
-            self.assertFalse(page.is_visible("#v2LgMismatch"))
-            after_settings = parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()"))
-            self.assertEqual(after_settings, {**before_settings, "teams": ["8"]})
+            for count in (8, 10, 12, 14, 9, 15):
+                with self.subTest(team_count=count):
+                    initial = 10 if count == 12 else 12
+                    page.evaluate("n => window.TradeValueV2.applyLinkLeague(new URLSearchParams('scoring=half&teams='+n+'&inj=all&conf=1.5&bso=0.200&regend=14&playoffs=15-17'))", initial)
+                    before_settings = parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()"))
+                    page.evaluate("""n => { const W=window.TradeValueWorkspace; let w=W.newWorkspace();
+                      for(let i=0;i<n;i++)w=W.ops.addTeam(w,`Roster ${i+1}`); W.store.replace(w,'replace'); }""", count)
+                    page.wait_for_selector("#v2LgMismatch", state="visible")
+                    self.assertIn(str(count), page.inner_text("#v2LgMismatch"))
+                    before = page.evaluate(TEAM_SNAPSHOT)
+                    if count in (8, 10, 12, 14):
+                        page.click("#v2LgMatchTeams")
+                        page.wait_for_function("n => window.TradeValueCurveControls.getState().teams === n", arg=count)
+                        self.assertFalse(page.is_visible("#v2LgMismatch"))
+                        after_settings = parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()"))
+                        self.assertEqual(after_settings, {**before_settings, "teams": [str(count)]})
+                    else:
+                        self.assertEqual(page.locator("#v2LgMatchTeams").count(), 0)
+                        self.assertIn("8, 10, 12 or 14", page.inner_text("#v2LgMismatch"))
+                        self.assertTrue(page.get_by_role("button", name="Edit league settings", exact=True).is_visible())
+                        self.assertEqual(parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()")), before_settings)
+                    self.assertEqual(page.evaluate(TEAM_SNAPSHOT), before)
             page.context.close()
 
     def test_clean_paste_folds_league_and_teams_but_real_issue_stays_open(self):
