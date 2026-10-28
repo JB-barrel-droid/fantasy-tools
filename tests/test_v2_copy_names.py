@@ -58,14 +58,14 @@ def check(sources: dict[str, str], finder_js: Path) -> list[str]:
     if call(finder_js, "fitTip", "nonsense") != tips["force"]:
         say("an unknown fit variant should read as force")
     default = {i: call(finder_js, "viewTip", i, {"isDefault": True}) for i in ("ddf", "market", "projections")}
-    if default["ddf"] != "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights." \
-            or default["market"] != "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals." \
-            or default["projections"] != "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market.":
+    if default["ddf"] != "DDF Value: what a player is worth in your league. We take the public trade market and correct it for how much each position actually matters with your settings." \
+            or default["market"] != "The market: what other managers will pay. The public trade market, put on one scale, before our position fix. The common language for trade proposals." \
+            or default["projections"] != "Projections, the alternate lens: value based on projected points for your league. Good for steady producers. It can underrate upside.":   # JEG-1130: PMM doc glossary
         say(f"the view tooltips are not the spec's sentences: {default}")
     single = {"isDefault": False, "mode": "single", "label": "FantasyCalc"}
     blend = {"isDefault": False, "mode": "blend", "label": "60% ESPN + 40% Razzball"}
-    if "not our methodology" not in call(finder_js, "viewTip", "ddf", single) or "FantasyCalc" not in call(finder_js, "viewTip", "ddf", single):
-        say("under the reader's own basis the DDF Value tooltip does not say it is not our methodology")
+    if "not the default DDF Value" not in call(finder_js, "viewTip", "ddf", single) or "FantasyCalc" not in call(finder_js, "viewTip", "ddf", single):
+        say("under the reader's own basis the DDF Value tooltip does not say it is not the default DDF Value")
     if not call(finder_js, "viewTip", "market", single).endswith("Rescaled to FantasyCalc's point scale."):
         say(f"market tooltip under a single-source basis: {call(finder_js, 'viewTip', 'market', single)!r}")
     if not call(finder_js, "viewTip", "market", blend).endswith("Rescaled to the point scale of 60% ESPN + 40% Razzball."):

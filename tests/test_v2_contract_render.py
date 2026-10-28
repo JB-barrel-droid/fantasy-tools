@@ -1693,7 +1693,7 @@ def gl25(S):
 def tt10(S):
     w = S["tabs"]["targets"]["weight"]
     errors = []
-    for heading in ("1. Potential mispricing", "2. Potential positional weight inflation"):
+    for heading in ("1. Potential mispricing", "2. Positions the market overpays for"):   # JEG-1130: PMM doc 3.2
         if heading not in w["h2"]:
             errors.append(f"missing numbered heading {heading!r}: {w['h2']}")
     for name in ("potential mispricing", "potential positional weight inflation"):
@@ -1942,7 +1942,7 @@ def tt08(S):
 def rf02(S):
     d = S["tabs"]["risers"]["disagree"]
     errors = []
-    if d["h2"] != "Where DDF Value and the projections disagree" or d["heads"] != ["DDF Value moved, projections didn't", "Projections moved, DDF Value didn't"]:
+    if d["h2"] != "Mixed signals" or d["heads"] != ["The market moved first", "The projections moved first"]:   # JEG-1130: PMM doc 3.2
         errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
     if d["meta"].startswith("No comparison yet") and d["n"]:
         errors.append(f"no comparison but {d['n']} players listed")

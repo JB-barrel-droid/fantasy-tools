@@ -259,8 +259,8 @@
       {id: "altRank", label: other === "market" ? "Trade chart average rank" : "DDF Value rank", type: "number", first: "asc", rank: true, get: t => t.rank[other]},
       {id: "projRank", label: "DDF Value (projections) rank", type: "number", first: "asc", rank: true, get: t => t.rank.proj},
       {id: "disagree", label: "Projections vs charts", type: "number", first: "desc", get: t => biggestSigned(t.higher.concat(t.lower))},
-      {id: "under", label: "Undervalued by market", type: "number", first: "desc", get: t => topGap(t.under)},
-      {id: "over", label: "Overvalued by market", type: "number", first: "desc", get: t => topGap(t.over)}
+      {id: "under", label: "Buy (market underpays)", type: "number", first: "desc", get: t => topGap(t.under)},
+      {id: "over", label: "Sell (market overpays)", type: "number", first: "desc", get: t => topGap(t.over)}
     ];
   }
   const SUMMARY_DEFAULT = {col: "rank", dir: "asc"};
