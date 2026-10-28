@@ -5603,7 +5603,7 @@
     }
     const TC = window.TradeValueTrade;
     const dealTitle = deal.kind === "read"
-      // JEG-841: avoid doubled label when the title already contains the action (e.g. "Value win, charts say you lose: send it" + "Send it").
+      // JEG-841: avoid doubled label when the title already contains the action (an empty action leaves the title alone).
       ? (deal.title.toLowerCase().includes(deal.action.toLowerCase()) ? deal.title : `${deal.title}: ${deal.action}`)
       : "";
     $("v2CDealRead").textContent = dealTitle;
