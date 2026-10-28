@@ -324,10 +324,31 @@ jobs:
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
           set -e
-          cat output/post-rebuild-validate.log
+          cat output/post-rebuild-validate.log || echo "::warning::initial validation log could not be read"
           if [ "$rc" -ne 0 ]; then
-            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
-            exit 1
+            # JEG-1203: only the isolator may name a single changed culprit.
+            # A decline or error keeps the original red validation status.
+            if ! python3 pipelines/isolate_post_validate.py isolate \
+                --log output/post-rebuild-validate.log \
+                --week "${{ steps.week.outputs.nfl_week }}"; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
+              exit 1
+            fi
+            # Re-run the COMPLETE gate once on the rolled-back fixture. Never
+            # rerun the source chain or publish before confirm succeeds.
+            set +e
+            env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate-retry.log 2>&1
+            retry_rc=$?
+            set -e
+            cat output/post-rebuild-validate-retry.log || echo "::warning::retry validation log could not be read"
+            if [ "$retry_rc" -ne 0 ]; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log
+              exit 1
+            fi
+            if ! python3 pipelines/isolate_post_validate.py confirm; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log
+              exit 1
+            fi
           fi
           # The published build (holds applied, dist/ synced by validate):
           # output/value-check.json is the report of what ships, with the held

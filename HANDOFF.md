@@ -15,6 +15,19 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Source-isolation publishing integration (Codex, 2026-10-28)
+
+- Branch `be/publication-source-isolation-release` combines #1063's rebuild
+  retry/expiring pause with #1050's reviewed post-validation isolator. #1063
+  remains the smaller fallback. No production activation or merge occurred.
+- The rebuild workflow captures the first validation exit, isolates only a
+  fully attributed changed source, reruns complete `make validate` once, then
+  confirms. Decline/retry/confirm failures publish status only and block the
+  fixture. Healthy sources advance after successful retry and confirmation.
+- Parent owns current-head CI, independent review, serial merge and live check.
+  No Supabase or main change was made by this integration.
+
+
 ### Publication release candidate (#1054 + #1059, Codex, 2026-10-28)
 
 - Branch `be/jeg-1216-publication-release-candidate` combines the validated

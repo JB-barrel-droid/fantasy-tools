@@ -315,6 +315,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_validate_shards
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
+	python3 -m unittest tests.test_post_validate_workflow_wiring
 	python3 -m unittest tests.test_main_write_guard
 	python3 -m unittest tests.test_rebuild_chain_conflict_handoff
 	python3 -m unittest tests.test_workflow_dispatch_permissions
@@ -663,6 +664,7 @@ test-core:
 test-core-shard-1:
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_isolate_post_validate
+	python3 -m unittest tests.test_post_validate_workflow_wiring
 	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_player_aliases

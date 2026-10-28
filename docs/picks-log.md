@@ -21,6 +21,8 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 
 ## Picks
 
+- 10-28 | Publishing/source isolation integration | JEG-1203 + JEG-1206 + JEG-1215 | Wire reviewed post-validation recovery into rebuild publication | rerun all sources / isolate one attributed source then complete validate once / leave recovery inactive | isolate one, retry full validation once, confirm before fixture publication | protects healthy source advancement while preserving last published failed source and fail-closed gates | be/publication-source-isolation-release; reverse with revert PR, retaining #1063 fallback | no
+
 - 10-28 | Publication release integration | JEG-1206 + JEG-1215 | Combine rebuild retry with expiring publication pause | merge both unchanged / guard the isolated worktree push / drop one feature | retain isolated retry, guard stage and each worktree push, preserve candidate patch and alert confirmation | one reviewable release candidate prevents the two PRs from bypassing each other | be/jeg-1216-publication-release-candidate; reverse with a revert PR after restoring paused:false | no
 
 - 10-28 | Release switch | JEG-1215 | Commits-only pause control | repository file / workflow variables / disabling workflows | repository file read from current main, six-hour maximum expiry, fail-closed publication with patch retention | avoids admin-variable API dependency and preserves processing; explicit restore or expiry resumes writes | be/jeg-1215-release-writer-switch; reverse with a reviewed revert PR after restoring paused:false | no
