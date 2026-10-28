@@ -22,6 +22,8 @@ and after each milestone; commit and push it with the relevant code.
   six-hour maximum expiry; checked against fetched main before commit/push.
   Deferred candidates are retained as patch/metadata artifacts, with visible
   summaries. Existing ingestion, validation and Pages workflows remain active.
+- Review repair: alert recovery requires confirmed publication; shard leg-staging
+  parser corrected. Draft PR #1059 needs renewed review and CI.
 - No live activation, settings changes, Supabase changes or cancellation performed.
 - Next: parent reviews/merges after green CI, coordinates rebuild-chain overlap
   with #1054, drains old-code writers, then activates only for the release window.

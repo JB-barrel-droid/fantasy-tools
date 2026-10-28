@@ -695,7 +695,7 @@ jobs:
         if: always() && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}"
+        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}" --published "${{ steps.push.outputs.pushed }}"
 
       - name: Fail the job if the chain failed
         if: steps.chain.outcome == 'failure'

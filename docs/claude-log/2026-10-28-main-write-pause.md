@@ -30,3 +30,14 @@ parent owns merge/activation/restoration. One coding session, no subagent fanout
   on the integrated version. Current-head CI is required before merge.
 - Old-code jobs cannot inherit a newly merged guard; allow them to finish before
   declaring a stable release window. See runbooks/main-write-pause.md.
+
+### Review and shard repair
+
+- Reviewer found computation success could close a publication-stuck alert while
+  publication was deferred. Recovery now requires explicit `pushed=true` as well
+  as computation success; missing/false publication preserves the alert.
+- Job 122946449679 failed two test_chain_commits_legs assertions: its text parser
+  selected the newly introduced guard function's else. Anchor parsing at the
+  CHAIN_OUTCOME condition; retain success/failure staging assertions.
+- 54 focused alert, leg-staging, guard and rebuild workflow tests passed; diff
+  check passed. No full local validation repeat, activation or merge.
