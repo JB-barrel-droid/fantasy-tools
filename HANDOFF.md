@@ -95,21 +95,17 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
-- **JEG-1142 validation continuation (2026-10-28, Codex):** PR #1044, target branch
-  `be/jeg-1142-promotion-off-v2`; local candidate `be/jeg-1142-validation-ready`.
-  Includes author head `274f3126` and main `79b9b435`. Promotion/demotion stays
-  off in all three engines; expected-start and bench math are unchanged.
-  Contract CI failed because the probe clicked a player already in the sample;
-  the author's helper fix is retained and reproduced green. Composite CI failed
-  because its display-order guard disallowed exact-value ties with different
-  tiers; the corrected guard retains every VP-7.3 check and rejects strict
-  inversions. Independent reviews passed. Final make validate-base and both
-  current reference comparisons pass; full core checks completed in resumed
-  runs (see log for the initial environment error and corrected assertion).
-  **Next:** check CI on the updated PR head; the parent alone coordinates merge
-  and Pages verification. Do not close JEG-1142 before live switch and USO checks.
-  No edge deploy or JEG-1205 work here. Generated output is retained uncommitted.
-  Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
+- **JEG-1142 done (2026-10-28 12:20 PM CT):** PR #1044 squash-merged as `2e7a2c7`
+  on Jeremy's word; Deploy dashboard run 40722472332 succeeded; Linear closed it at
+  the merge. Promotion/demotion is off for everyone in all three engines
+  (`PROMOTION_MODEL_ENABLED` master switch); expected starts and bench math unchanged.
+  Live check through the DDF connector (half PPR, 12 teams) after the deploy: RB
+  starters fell about 5% (Gibbs 83.3 to 78.8, Bijan 75.9 to 71.8), Josh Allen and
+  Brock Bowers rose about 4%, as the PR's tables predicted. USO (Tiny Hands) still
+  gets a 3-trade package with 14 viable trades. No edge deploy needed (get-values
+  loads the published value-model.js). The tier-order test now allows tier order
+  within exact DDF Value ties (`343ddf2`). Evidence: the PR, its claude-log entries
+  and `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
 - **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
   is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
@@ -576,8 +572,7 @@ Known bugs (repro steps and history on each ticket):
   (endpoint parity red test). In Progress.
 - JEG-1135: render sweep red on main (overrides basis render test, shards).
   PR #1021 draft.
-- JEG-1142: promotion model demotion penalty applies to almost every starter.
-  In Review (needs Jeremy).
+- JEG-1142: promotion/demotion switched off for everyone. Done 2026-10-28 (#1044).
 
 ---
 
@@ -587,7 +582,7 @@ Known bugs (repro steps and history on each ticket):
    week selector, PR #1012); JEG-1180 (D, stale flag, PR #1022).
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
-3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
+3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1134,
    JEG-955, JEG-956, JEG-903, JEG-1176, JEG-982. (JEG-894 and JEG-1101 are
    decided; PRs #969 and #970 merge on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
