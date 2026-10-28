@@ -48,7 +48,8 @@ newer notes on their own handoff branches (open PR #1031 for main green).
   1. After 13:00 UTC, read `output/comparison-chain-status.json` on main; if
      `outcome` is success and all sources are on week 8, close JEG-1175.
   2. Ask Jeremy about the get-values and mcp redeploys and the draft PRs above.
-  3. Open issues not covered by a PR: JEG-1102 (blocked by JEG-1138 and the
+  3. JEG-1128 item 1 checked (waiters can carry a small value by design; kept as is, Jeremy's call on the ticket).
+  4. Open issues not covered by a PR: JEG-1102 (blocked by JEG-1138 and the
      JEG-1081 naming decision), research posts (held by Jeremy), JEG-1173
      (needs his yes). Follow-up: `app/v2/v2.js` week stepper still stops at 17.
 - **Blockers:** the redeploys above. `scratch/oppanel-1129` and
