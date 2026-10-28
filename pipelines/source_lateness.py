@@ -84,11 +84,15 @@ class Rule:
 RULES: dict[str, Rule] = {
     # Live sources, never delayed. FantasyCalc is probed hourly and a change
     # is saved at most every 6 h (source_probe POLICIES min_interval).
-    "fantasycalc": Rule("live", True, 3 * H, 9 * H, (0, 12), "changes all day; saved at most every 6 hours"),
     # Projections are probed every 4 h (source-probe-projections).
-    "espn": Rule("live", True, 9 * H, 9 * H, (0, 12), "projections change all week"),
-    "cbsros": Rule("live", True, 9 * H, 9 * H, (0, 12), "projections change all week"),
-    "razzball": Rule("live", True, 9 * H, 9 * H, (0, 12), "projections change all week"),
+    # Their freshness is the late_after check. The week label is due
+    # Wednesday 12:00 CT: unchanged content gets its first new-week save only
+    # at the 20 h max-age re-ingest (CBS ROS weeks 5-6: Monday 19:25 UTC
+    # saves), so Tuesday noon would cry wolf every week (PR #1042 review).
+    "fantasycalc": Rule("live", True, 3 * H, 9 * H, (1, 12), "changes all day; saved at most every 6 hours"),
+    "espn": Rule("live", True, 9 * H, 9 * H, (1, 12), "projections change all week"),
+    "cbsros": Rule("live", True, 9 * H, 9 * H, (1, 12), "projections change all week"),
+    "razzball": Rule("live", True, 9 * H, 9 * H, (1, 12), "projections change all week"),
     # Weekly trade-chart articles. Probed every 3 h Mon-Thu, every 12 h
     # Fri-Sun. First seen (probe log and the articles' own dates, weeks 5-8,
     # 2026): FantasyPros Tue 8-11 AM CT; USA Today Tue 1-4 PM CT; CBS Tue
@@ -168,7 +172,10 @@ def judge(source: str, row: dict[str, Any] | None, served: int | None, now: date
                         if confirmed else "we have never saved it") + why)
 
     due = due_at(rule, week)
-    if due is not None and now >= due and week > 1:
+    # Week checks run only inside the content week: after week 18 the week
+    # stays 18, and an offseason with no new charts must not hold the alert.
+    in_week = now.astimezone(CT).date() < nfl_week.content_week_start(week) + timedelta(days=7)
+    if due is not None and now >= due and week > 1 and in_week:
         if rule.kind == "weekly":
             seen = seen_week(row)
             if isinstance(seen, int) and seen < week:
@@ -309,9 +316,11 @@ def main(argv=None) -> int:
     now = nfl_week.now_utc()
     try:
         rep = report(load_state(args), _read(Path(args.history)), _read(Path(args.status)), now)
-    except Exception as e:  # noqa: BLE001 -- a check never fails the job
-        print(f"::warning title=source lateness::not checked ({type(e).__name__}: {e})")
-        return 0
+    except Exception as e:  # noqa: BLE001
+        # A late source never fails the job (the issue is the alert), but a
+        # watchdog that cannot run must not go quiet: fail the run so it shows.
+        print(f"::error title=source lateness::not checked ({type(e).__name__}: {e})")
+        return 1
     if args.out:
         Path(args.out).parent.mkdir(parents=True, exist_ok=True)
         Path(args.out).write_text(json.dumps(rep, indent=2, sort_keys=True) + "\n")

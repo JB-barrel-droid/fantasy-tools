@@ -45,3 +45,31 @@ Found while reading the probe state and log (Supabase, read only, 13:45Z):
 
 - The workflow's first scheduled run on main and the issue it opens (checked
   after merge).
+
+## Review fixes (PR #1042 review)
+
+- Blocking: live sources' week label was due Tuesday 12:00 CT, but
+  unchanged projections get their first new-week save only at the 20 h
+  max-age re-ingest (CBS ROS weeks 5-6 saved Monday 19:25 UTC), so it would
+  have cried wolf every Tuesday afternoon. Live week labels are now due
+  Wednesday 12:00 CT, like the charts; freshness is still checked every hour.
+  Test `test_unchanged_projections_waiting_on_the_max_age_save_are_on_time`
+  fails with the old due time.
+- Week checks run only inside the content week, so the offseason (week stays
+  18) doesn't hold the issue open. Test `test_offseason_does_not_hold_the_alert`.
+- A check that can't run (Supabase unreadable) now fails the workflow run
+  (exit 1, `::error`) instead of a quiet warning. A late source still never
+  fails it.
+- Not changed: no flap damping; the issue is patched in place and comments
+  only when the late set changes or every 6 h. The runbook link
+  (`docs/week-transition-runbook.md`) lands with #1022, which merges first.
+
+### Verified (replay, live probe state 2026-10-28 13:56Z, main's history index, still week 7)
+
+- At 13:57Z: only FantasySharks late (403, never saved). The four live
+  sources on week 7 are no longer flagged before Wednesday noon.
+- At Wed 12:01 CT (DDF_NOW 17:01Z, same state): all seven site sources late
+  ("site still shows week 7"), FantasySharks late.
+- `python3 -m unittest tests.test_source_lateness tests.test_monitoring_coverage
+  tests.test_gha_schedules_pg_cron tests.test_source_probe tests.test_timestamps`:
+  123 OK.

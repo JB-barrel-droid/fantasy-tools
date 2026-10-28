@@ -20,8 +20,8 @@ source is on time again. GitHub emails the repository owner.
 
 | Source | Kind | Normal | Late when |
 |---|---|---|---|
-| FantasyCalc | live | changes all day; probed hourly, saved at most every 6 h | not confirmed current for 9 h; check silent 3 h; site on last week after Tuesday 12:00 CT |
-| ESPN, CBS rest of season, Razzball | live | projections change all week; probed every 4 h | not confirmed current for 9 h; check silent 9 h; site on last week after Tuesday 12:00 CT |
+| FantasyCalc | live | changes all day; probed hourly, saved at most every 6 h | not confirmed current for 9 h; check silent 3 h; site on last week after Wednesday 12:00 CT |
+| ESPN, CBS rest of season, Razzball | live | projections change all week; probed every 4 h | not confirmed current for 9 h; check silent 9 h; site on last week after Wednesday 12:00 CT |
 | FantasyPros | weekly article | Tuesday 8 to 11 AM CT | week's article not out by Wednesday 12:00 CT (publisher late), or out and the site still on last week (we are late); not confirmed current for 26 h; check silent 13 h |
 | USA Today | weekly article | Tuesday 1 to 4 PM CT | as FantasyPros |
 | CBS | weekly article | Tuesday 4 to 5 PM CT | as FantasyPros |

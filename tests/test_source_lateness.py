@@ -85,11 +85,31 @@ class LiveSourceTest(unittest.TestCase):
         r = sl.judge("fantasycalc", fresh(WED_1201_CT, probe_ago=0.5, acked_ago=7, same=False), 8, WED_1201_CT)
         self.assertFalse(r["late"], r["reasons"])
 
-    def test_site_on_last_week_after_tuesday_noon_is_late(self):
+    def test_site_on_last_week_after_wednesday_noon_is_late(self):
         r = sl.judge("razzball", fresh(WED_1201_CT), 7, WED_1201_CT)
         self.assertEqual(r["reasons"], ["the site still shows its week 7 data"])
         # Tuesday 11:00 CT, the switch has not come yet.
         self.assertFalse(sl.judge("razzball", fresh(TUE_1100_CT), 7, TUE_1100_CT)["late"])
+
+    def test_unchanged_projections_waiting_on_the_max_age_save_are_on_time(self):
+        # Review of #1042: CBS ROS confirmed current 3 h ago, but its first
+        # week-8 save comes with the Monday-19:25-UTC-slot max-age re-ingest,
+        # so at Tuesday 12:30 CT the site still labels it week 7. Not late.
+        tue_1230 = datetime(2026, 10, 27, 17, 30, tzinfo=UTC)
+        r = sl.judge("cbsros", fresh(tue_1230, probe_ago=3, acked_ago=3), 7, tue_1230)
+        self.assertFalse(r["late"], r["reasons"])
+        # Even late Tuesday evening, before the next day's noon.
+        tue_2300 = datetime(2026, 10, 28, 4, 0, tzinfo=UTC)
+        self.assertFalse(sl.judge("razzball", fresh(tue_2300), 7, tue_2300)["late"])
+
+    def test_offseason_does_not_hold_the_alert(self):
+        # Week 18's Tuesday is Jan 5, 2027; two weeks later the week stays 18.
+        late_jan = datetime(2027, 1, 19, 18, 0, tzinfo=UTC)
+        r = sl.judge("cbs", fresh(late_jan, week=17), 17, late_jan)
+        self.assertFalse(r["late"], r["reasons"])
+        # Inside week 18 the same picture is late.
+        jan_7 = datetime(2027, 1, 7, 18, 0, tzinfo=UTC)
+        self.assertTrue(sl.judge("cbs", fresh(jan_7, week=17), 17, jan_7)["late"])
 
 
 class WeeklySourceTest(unittest.TestCase):
@@ -219,11 +239,11 @@ class MainTest(unittest.TestCase):
             self.assertEqual(set(rep["late"]), set(sl.RULES))
             self.assertIn("::warning title=ESPN late::", buf.getvalue())
 
-    def test_a_crash_is_a_warning(self):
+    def test_a_watchdog_that_cannot_run_fails_the_run(self):
         nfl_week.set_clock(WED_1201_CT)
         with mock.patch.object(sl, "report", side_effect=RuntimeError("boom")), \
                 contextlib.redirect_stdout(io.StringIO()) as buf:
-            self.assertEqual(sl.main(["--state-file", "/nonexistent"]), 0)
+            self.assertEqual(sl.main(["--state-file", "/nonexistent"]), 1)
         self.assertIn("not checked", buf.getvalue())
 
 
