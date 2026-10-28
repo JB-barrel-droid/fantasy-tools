@@ -395,5 +395,59 @@ class PipelineDiagnostics(unittest.TestCase):
                 app.assert_not_called()
 
 
+class DistFreshness(unittest.TestCase):
+    """JEG-1060: compare --rerun-engine refuses a stale dist instead of
+    diffing an old engine against the current reference. dist/ is generated
+    from app/trade-value-chart/ by `make sync`, so a synced engine file whose
+    bytes differ (or that is missing) is a stale build."""
+
+    def _dist_with(self, root: Path) -> Path:
+        import shutil
+        for rel in vc.ENGINE_SYNC_FILES:
+            target = root / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(vc.APP / rel, target)
+        return root
+
+    def test_fresh_dist_reports_nothing(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = self._dist_with(Path(tmp) / "dist")
+            self.assertEqual(vc.stale_engine_files(dist), [])
+
+    def test_changed_engine_file_is_stale(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = self._dist_with(Path(tmp) / "dist")
+            (dist / "assets" / "value-model.js").write_bytes(b"// an older build\n")
+            stale = vc.stale_engine_files(dist)
+            self.assertEqual(len(stale), 1)
+            self.assertIn("value-model.js differs from", stale[0])
+
+    def test_missing_engine_file_is_stale(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = self._dist_with(Path(tmp) / "dist")
+            (dist / "assets" / "value-model.js").unlink()
+            stale = vc.stale_engine_files(dist)
+            self.assertEqual(len(stale), 1)
+            self.assertIn("is missing", stale[0])
+
+    def test_compare_exits_nonzero_on_stale_dist(self):
+        from argparse import Namespace
+        from unittest import mock
+        args = Namespace(today=None, no_superflex=True, basis=None, report="/tmp/none/value-check.json",
+                         engine_json=None, rerun_engine=True, sync=False, tol=vc.TOL, strict=True)
+        message = ("dist/assets/value-model.js differs from "
+                   "app/trade-value-chart/assets/value-model.js")
+        with mock.patch.object(vc, "stale_engine_files", return_value=[message]), \
+                mock.patch.object(vc, "run_engine") as run:
+            with self.assertRaises(SystemExit) as cm:
+                vc.cmd_compare(args)
+            run.assert_not_called()
+        self.assertIn("dist is stale (", str(cm.exception))
+        self.assertIn("run make sync first", str(cm.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

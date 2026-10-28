@@ -48,6 +48,24 @@ assert.deepEqual(body.league_custom.sort(), ["bso", "conf", "inj", "optimize", "
 assert.equal(body.setting.superflex, 1);
 same(body, runner({ ...league, scoring: "half_ppr", teams: 10, roster: { ...league.roster, SUPERFLEX: 1 } }));
 
+// JEG-1129: include=charts sends each chart's Indexed value (chart_indexed) next to its Adjusted value
+// (chart_values). The Adjusted values average to DDF Value itself, so the finder judges the other team
+// on chart_indexed; at least some players must differ between the two, or the rival check is DDF again.
+res = await ask({ scoring: "half_ppr", teams: 12, include: "charts" }, "6.6.6.6");
+assert.equal(res.status, 200);
+body = await res.json();
+if (body.players.length) {
+  const CH = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  for (const p of body.players) {
+    assert.ok(p.chart_indexed && CH.every((k) => k in p.chart_indexed), `chart_indexed on ${p.name}`);
+    assert.ok(p.chart_values && CH.every((k) => k in p.chart_values), `chart_values on ${p.name}`);
+  }
+  const differs = body.players.filter((p) => CH.some((k) => p.chart_indexed[k] !== null && p.chart_values[k] !== null
+    && Math.abs(p.chart_indexed[k] - p.chart_values[k]) > 0.5));
+  assert.ok(differs.length > body.players.length / 4,
+    `Indexed and Adjusted chart values differ for most players (${differs.length} of ${body.players.length})`);
+}
+
 // GET with a JSON league string works; garbage league is ignored, not a 500.
 res = await handler(new Request("https://fn.test/functions/v1/get-values?scoring=ppr&teams=12&league=" +
   encodeURIComponent(JSON.stringify({ bso: 0.2 })), { headers: { "x-forwarded-for": "3.3.3.3" } }));

@@ -367,6 +367,18 @@ def run_ingest(cfg: dict[str, Any], *,
             f"have {sorted(per_scoring)}")
     print(f"[{name}] clean={len(clean)} review={len(review)} "
           f"per_scoring={per_scoring}", flush=True)
+    # Why rows went to review, by reason and column, plus each table's
+    # headers: a header the builder doesn't know shows up here as a
+    # missing_column count instead of a silent drop.
+    reasons: dict[str, int] = {}
+    for r in review:
+        k = str(r.get("reason"))
+        col = r.get("column") or r.get("header")
+        if col:
+            k += f":{col}"
+        reasons[k] = reasons.get(k, 0) + 1
+    heads = {str(t.get("title", ""))[:16]: t.get("headers") for t in tables}
+    print(f"[{name}] review_by_reason={reasons} headers={heads}", flush=True)
 
     # 6. Snapshot prior-week counts (prior weeks must be preserved by writes).
     prior_snapshot: dict[str, int] = {}

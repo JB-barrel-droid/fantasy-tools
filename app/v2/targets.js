@@ -118,6 +118,18 @@
       marketRank: null, ourRank: null, oursAtRank: null, rankGap: null, buyScore: null};   // filled by rankEquivalents
   }
 
+  // JEG-1186 (Jeremy, 2026-10-27: "Suppress"): a DDF Value backed by fewer than 2 sources gives no Buy/Sell call.
+  // The count is the engine's own (row.ddfCount for the blend, ddfChartsCount / ddfProjectionsCount for the two
+  // versions; the same counts behind the "◐ 1 source" chip). A single published series picked as our value is one
+  // source by definition and is not what the rule is about, so it is never thin; an unknown count is never thin.
+  const MIN_DDF_SOURCES = 2;
+  const DDF_COUNT_FIELD = {ddf_value: "ddfCount", ddf_value_charts: "ddfChartsCount", ddf_value_projections: "ddfProjectionsCount"};
+  function ddfSourceCount(row, ourKey) {
+    const field = DDF_COUNT_FIELD[ourKey];
+    return field && finite(row[field]) ? row[field] : null;
+  }
+  const thinSupport = (row, ourKey) => { const n = ddfSourceCount(row, ourKey); return n !== null && n < MIN_DDF_SOURCES; };
+
   // JEG-842: "out" = the engine flagged ESPN projecting him at 0 (row.espnProjectsZero, the "ESPN: 0 (out)" chip);
   // "estimated" = row.estimated names a compared chart whose value the engine filled in.
   function unreliableSupport(row, cells) {
@@ -183,13 +195,17 @@
     // JEG-842: a player whose support is out (ESPN zeroed him) or estimated (a compared chart's value was filled
     // in from other charts) is never recommended, on either side; counted and named so the page can say so.
     const flagged = p => Boolean(unreliableSupport(p.row, p.cells));
-    const sell = sellAll.filter(p => !flagged(p));
-    const buy = buyAll.filter(p => !flagged(p));
+    // JEG-1186: a thin DDF Value (fewer than 2 sources) is never a call either; counted and named apart from leftOut.
+    const thin = p => thinSupport(p.row, ourKey);
+    const sell = sellAll.filter(p => !flagged(p) && !thin(p));
+    const buy = buyAll.filter(p => !flagged(p) && !thin(p));
     const leftOut = buyAll.filter(flagged).concat(sellAll.filter(flagged));
+    const thinOut = buyAll.filter(p => !flagged(p) && thin(p)).concat(sellAll.filter(p => !flagged(p) && thin(p)));
     const listed = new Set(buyAll);
     const scaleOnly = buyable.filter(p => !listed.has(p)).sort((a, b) => b.ours - a.ours || a.order - b.order);
     return {ours: ourKey, sell, buy, players, compared: players.length, omittedNoOurs, atWaiverCells, belowSellFloor,
       leftOut: leftOut.length, leftOutNames: leftOut.slice(0, 5).map(p => p.row.name),
+      thinSource: thinOut.length, thinSourceNames: thinOut.slice(0, 5).map(p => p.row.name),
       scaleOnly: scaleOnly.length, scaleOnlyNames: scaleOnly.slice(0, 5).map(p => p.row.name),
       singleChart: effectiveCharts.length === 1 ? effectiveCharts[0] : null};
   }
@@ -311,7 +327,7 @@
     return {ours: oursKey, columns, groups, playersOf, headline: {over, under, biggest}, compared: pairs.consensus.length};
   }
 
-  const api = {OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, SELL_FLOOR, BUY_RANK_MARGIN, buildTargets, chartsToCompare, ourChoices,
+  const api = {MIN_DDF_SOURCES, ddfSourceCount, thinSupport, OUR_KEY, DDF_VALUE_KEY, OUR_KEYS, OUR_NAMES, OUR_SHORT, CHART_KEYS, CHART_NAMES, SELL_FLOOR, BUY_RANK_MARGIN, buildTargets, chartsToCompare, ourChoices,
     weightCheck, weightSignal, WEIGHT_POSITIONS, WEIGHT_TIERS, WEIGHT_SIGNAL, WEIGHT_MIN_SHOW, WEIGHT_MIN_HEADLINE};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTargets = api;
