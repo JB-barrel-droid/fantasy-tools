@@ -161,12 +161,14 @@ class PhoneContextRowTest(unittest.TestCase):
         with _served() as base, _playwright()() as p:
             browser = p.chromium.launch(executable_path=_render_env.chromium_executable(p), args=_render_env.HERMETIC_ARGS)
             try:
-                for width, height in PHONES:
-                    with self.subTest(width=width):
+                for width, height, font in ((w, h, f) for w, h in PHONES for f in (None, "DejaVu Sans")):
+                    with self.subTest(width=width, font=font or "default"):
                         page = browser.new_page(viewport={"width": width, "height": height})
                         page.add_init_script(_render_env.pin_data_week_script())
                         page.goto(base + "#player-values", wait_until="networkidle")
                         page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')")
+                        if font:
+                            page.add_style_tag(content=f':root {{ --ddf-font-ui: "{font}", sans-serif; }}')
                         page.evaluate("""() => {
                           const row = TradeValueCurveControls.getAllRows().find(r => /^\\d+$/.test(String(r.player_key)));
                           DDFOverrides.applyLink(new URLSearchParams({ov: `${row.player_key}:40`}));
@@ -178,7 +180,7 @@ class PhoneContextRowTest(unittest.TestCase):
                             measure = page.evaluate(MEASURE)
                             clipped = page.evaluate("""() => { const e = document.getElementById('v2ContextSummaryText');
                               return e.scrollWidth > e.clientWidth + 1; }""")
-                            print(f"JEG1134-OVERRIDE [{width}] {state}: {json.dumps(measure)}, clipped={clipped}", file=sys.stderr)
+                            print(f"JEG1134-OVERRIDE [{width}, {font or 'default'}] {state}: {json.dumps(measure)}, clipped={clipped}", file=sys.stderr)
                             self.assertLessEqual(measure["height"], ONE_LINE_MAX, state)
                             self.assertFalse(clipped, f"{state}: teams and source count must remain readable")
                             self.assertEqual(measure["expanded"], "false")
