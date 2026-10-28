@@ -66,6 +66,24 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
   (Main green lane scratch branches; deletes are blocked; no PRs).
 
+### Lane: JEG-894 share links (PR #969), updated 2026-10-28 9:10 AM CT (14:10 UTC)
+
+- **State:** PR #969 (`fe/JEG-894-share-links`, head `391308e`) has main
+  `31ccf10` merged in (clean), is marked ready for review, and is not merged.
+  CI on `391308e` (preview run 40701218577, v2-render run 40701218597) was
+  still queued or running at 14:10 UTC. Main has since moved (`0918699`, #1030).
+- **Approvals:** Jeremy approved the build (Oct 23), decision A with no privacy
+  line (Oct 27), and said "Yes" to marking #969 ready and merging it once its
+  checks pass (Duet thread, 2026-10-28 9:02 AM CT). The T1 review comment on the
+  PR (Oct 27) and a re-read of the merged diff on Oct 28 found no bugs.
+- **Next step:** when preview and v2-render are green, confirm main is green,
+  merge main in again if it moved (merge commit, no rebase), then squash-merge
+  #969. After the deploy (50 to 70 min), open a Compare link and a Find a trade
+  link in a fresh browser on the live site (acceptance criteria in JEG-894), then
+  move JEG-894 to Done with a comment. If a check is red, root-cause it first:
+  `test_v2_share_links_render` and `test_v2_contract_render` (reads
+  `#v2CVerdictBar`, now inside `#v2CVerdictBarWrap`) are the likely spots.
+
 ---
 
 ## Active agents and automation (keep current)
@@ -427,7 +445,8 @@ Known bugs (repro steps and history on each ticket):
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
 3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
-   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1101, JEG-1176, JEG-982.
+   JEG-955, JEG-956, JEG-903, JEG-1101, JEG-1176, JEG-982. (JEG-894 is
+   approved to merge on green; see its lane note under Resume here.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
