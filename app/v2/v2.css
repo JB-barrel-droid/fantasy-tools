@@ -2027,6 +2027,14 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-lineup caption { text-align: left; font-weight: 600; padding: 4px 0; }
 .v2-find-lineup th, .v2-find-lineup td { text-align: left; padding: 3px 6px; border-top: 1px solid var(--v2-border); overflow-wrap: anywhere; }
 .v2-find-lineup thead th { font-size: 12px; color: var(--v2-muted); }
+.v2-lineup-comparison-wrap { width: 100%; }
+.v2-lineup-comparison tr[data-changed="false"] td:last-child { color: var(--v2-muted); }
+.v2-lineup-bench-rows[hidden] { display: none; }
+.v2-lineup-bench-toggle { margin: 6px 0 10px; min-height: 44px; }
+@media (max-width: 600px) {
+  .v2-lineup-comparison { min-width: 345px; }
+  .v2-lineup-comparison th, .v2-lineup-comparison td { padding: 5px 4px; }
+}
 
 /* JEG-988: one box per side. The wrapper is the list's positioned parent, so the suggestions open directly under the box. */
 .v2-find-search-wrap { position: relative; }
