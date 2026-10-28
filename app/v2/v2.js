@@ -562,6 +562,7 @@
   }
   PHONE_NAMES.addEventListener("change", () => {
     document.querySelectorAll(".v2-nm").forEach(span => { span.textContent = phoneName(span.dataset.full, span.dataset.pos); });
+    if (view) renderHeader();   // JEG-1193: the context strip's Reviewed chip is a link on desktop only
   });
   (() => {
     let pop = null;
@@ -977,7 +978,9 @@
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       const badge = item?.stale ? weekBadge(key) : null;
       if (badge) li.appendChild(badge);
-      appendDivergence(li, key);
+      // JEG-1193: on phones the one-line strip (JEG-1119) clips its legend, so a link there would be cut off and
+      // untappable. The chip still shows; its link stays in Customize (and in this legend on desktop).
+      appendDivergence(li, key, {noLink: PHONE_NAMES.matches});
       legend.appendChild(li);
     });
 
@@ -5065,7 +5068,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
-    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; the legend keeps the link
+    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; Customize keeps the link (JEG-1193)
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
