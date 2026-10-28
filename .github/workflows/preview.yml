@@ -44,6 +44,8 @@ concurrency:
 
 jobs:
   preview-build:
+    # EXPERIMENT (JEG-1176): not needed for the lag probe.
+    if: false
     runs-on: ubuntu-latest
     # JEG-1169: the default is 6 hours. A normal run is ~45 minutes.
     timeout-minutes: 60
@@ -173,11 +175,12 @@ jobs:
   # as `make validate` does (reference, then sync).
   preview-shard:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
         shard: [1, 2, 3, 4]
+        mode: [lag, base]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -206,7 +209,13 @@ jobs:
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make reference
       - run: make sync
-      - run: make test-core-shard-${{ matrix.shard }}
+      # EXPERIMENT (JEG-1176): lag = CBS one week behind and red-held, as chain run
+      # 40624176718 saw it; base = committed data. Every module runs on its own.
+      - name: Put the build in the chain's state
+        if: matrix.mode == 'lag'
+        run: python3 scripts/lag_probe.py apply
+      - name: Run every test-core module separately
+        run: python3 scripts/lag_probe.py run ${{ matrix.shard }} ${{ matrix.mode }}-shard${{ matrix.shard }}
 
   # JEG-1170: the required check. Named `preview` so the check name is unchanged; it passes
   # only when preview-build and every preview-shard job succeeded (a skipped, cancelled or
