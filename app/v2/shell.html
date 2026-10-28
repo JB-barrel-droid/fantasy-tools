@@ -85,23 +85,22 @@
       </button>
       <div class="v2-ctx-menuwrap">
         <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-expanded="false" aria-controls="v2ContextMenu" aria-label="More settings">⋯</button>
-        <!-- JEG-1119: Position weights and Copy / Paste for ChatGPT/Claude live in the overflow menu. -->
+        <!-- JEG-1119: Position weights and Copy link live in the overflow menu. -->
         <div class="v2-ctx-menu" id="v2ContextMenu" hidden>
           <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+          <!-- JEG-1101 (Jeremy, 2026-10-26: copy the site link to LLMs and have them decode it, not a code): one Copy link
+               button; the line under it says a chat with the DDF tool reads the same link. ddf-assist.js unhides both. -->
           <div class="v2-assist-actions" id="v2AssistActions">
-            <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-            <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+            <div class="v2-assist-action">
+              <button type="button" class="v2-btn" id="v2AssistCopy" aria-describedby="v2AssistCopyHint" hidden>Copy link</button>
+              <p class="v2-assist-hint" id="v2AssistCopyHint" hidden>Opens this view. A chat with the DDF tool reads it too.</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
   <div class="v2-wrap v2-assist-panel">
-    <div class="v2-assist-paste" id="v2AssistPaste" hidden>
-      <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
-      <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
-      <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
-    </div>
     <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
   </div>
 
@@ -889,7 +888,7 @@
   </main>
 
   <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it).
-       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy / Paste buttons live in the league strip. -->
+       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy link button lives in the league strip. -->
   <footer class="v2-assist" id="v2Assist" aria-label="ChatGPT and Claude">
     <div class="v2-wrap v2-assist-inner">
       <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Connect the tool</a></p>

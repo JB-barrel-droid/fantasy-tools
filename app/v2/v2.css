@@ -196,6 +196,7 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-ctx-menu .v2-assist-actions { flex-direction: column; align-items: stretch; gap: 6px; }
 .v2-app .v2-ctx-menu .v2-btn { flex: 0 0 auto; justify-content: flex-start; text-align: left; white-space: nowrap; }
 .v2-app .v2-ctx-menu .v2-assist-actions { flex: 0 0 auto; }
+.v2-ctx-menu .v2-assist-action { align-items: stretch; }   /* JEG-1101: Copy link as wide as Position weights; its line sits under it */
 @media (min-width: 1024px) {
   .v2-context { position: sticky; top: 0; z-index: 30; }
   .v2-context-inner { flex-wrap: nowrap; min-height: 48px; padding-block: 0; }
@@ -2151,19 +2152,22 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
     content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
 }
 .v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.v2-assist-actions .v2-btn[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
+.v2-assist-actions .v2-btn[hidden], .v2-assist-note[hidden] { display: none; }
 .v2-assist-panel:empty { display: none; }
-.v2-assist-paste, .v2-assist-note { min-width: 0; }
-.v2-assist-paste { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0 0 12px; }
+.v2-assist-note { min-width: 0; }
 .v2-assist-note { padding: 0 0 12px; font-size: 13px; color: var(--v2-muted); }
 .v2-assist-text { box-sizing: border-box; width: 100%; max-width: 100%; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--v2-ink); background: var(--v2-surface); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn); padding: 8px; }
 .v2-assist-note p { margin: 0 0 6px; overflow-wrap: anywhere; }
 .v2-assist-note strong { color: var(--v2-ink); }
-.v2-assist-paste .v2-field-label { white-space: normal; max-width: 100%; overflow-wrap: anywhere; }
 @media (max-width: 767px) {
   .v2-assist-actions { flex-basis: 100%; }
   .v2-assist-actions .v2-btn { flex: 1 1 140px; white-space: normal; }
+  .v2-assist-action { flex: 1 1 140px; }
 }
+/* JEG-1101: Copy link with one 11 px line under it; the line wraps rather than widening the league strip. */
+.v2-assist-action { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.v2-assist-hint { margin: 0; font-size: 11px; line-height: 1.1; overflow-wrap: anywhere; color: var(--v2-muted); }
+.v2-assist-hint[hidden] { display: none; }
 
 /* Inputs status strip (inputs-status.js): soft notes under the league row. */
 .v2-inputs[hidden] { display: none; }
