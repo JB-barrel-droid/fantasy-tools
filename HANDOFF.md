@@ -109,7 +109,7 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   and that USO still shows its good trades (DDF connector find_trades_league), then
   close JEG-1142. No edge deploy: get-values loads the published value-model.js.
 - **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:26 UTC):** PR #1043, branch
-  `fe/jeg-1134-context-phone-summary`, draft while fixes are validated. Main `1bd85f7` integrated by merge,
+  `fe/jeg-1134-context-phone-summary`, draft pending CI and parent review. Main `79b9b435` integrated by merge,
   preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
   with overrides; on phones the indicator and Reset/Undo now use a separate strip immediately below the
   context row. All three states keep the row at 45px and its summary readable at 375/390px. Desktop keeps
