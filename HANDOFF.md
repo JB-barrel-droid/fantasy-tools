@@ -15,36 +15,42 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-Last updated: 2026-10-27 10:35 PM CT (2026-10-28 03:35 UTC), by the Claude
-lead session (claude.ai Duet "ddf" channel, handoff thread). Change: added the
-picks log copy (`docs/picks-log.md`) and the "Active agents and automation"
-section; the overnight routine now owns handoff upkeep.
+Last updated: 2026-10-28 1:20 AM CT (06:20 UTC), by the Claude "Main green"
+lane (overnight routine refresh). Change: main is green (JEG-1135 closed), the
+approved backlog queue is merged, and the connector and rebuild chain status
+below are re-verified.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
   `be/<ticket>`, `fe/<ticket>`, `cma/<ticket>`, `muse/jeg-<id>-<slug>` and
   `banana/<...>` branches and lands by squash-merge PR.
-- **Latest relevant code commit on main:** `03807db` "Bench spread by cut: role
-  cut vs budget cut (part of JEG-859) (#1005)", 2026-10-28 03:15 UTC. Later
-  commits on main are this handoff (docs) and bot status commits.
-- **Deployed (live) revision:** the last successful "Deploy dashboard" run is
-  for `fde5b9e` (#1020, JEG-1175 transition replay), checked 03:30 UTC; at
-  03:00 UTC the live `trade-chart-build` meta tag read
-  `tv-20261028-0141-abc4675`. Re-read the tag to confirm. **In source only**
-  until a deploy succeeds: `2e90b88` (#960, JEG-1129 trade viability: judge the
-  other team on the Indexed market), `561d576` (#1006), `7594f41` (#1004),
-  `03807db` (#1005). Deploys keep getting cancelled by newer pushes.
-- **Rebuild chain is failing:** bot commits "Automated chain status (chain
-  failed; fixture not updated)" at 03:05 and 03:14 UTC, so fresh source data is
-  not reaching the fixtures (week transition work, JEG-1175 / JEG-1177).
+- **Latest relevant code commit on main:** `5ec98ad` "Render sweep green:
+  stale tests after the nav menu, DDF versions and copy changes; footer tap
+  target (JEG-947) (#1021)", 2026-10-28 05:39 UTC. Later commits are bot status
+  commits. Merged overnight by the Main green lane (verified): #976, #1006,
+  #1004, #1005, #963, #1011, #958, #920, #1021; #968 closed. #1028 (get-values
+  week flip) merged by the board lane.
+- **Deployed (live) revision (verified 06:15 UTC):** deploys for `b6ba31f`
+  (#1011, #963) and `764a2cf` (#958) succeeded; the deploy carrying #920 and
+  #1021 (`5fb862c`, then `951b32b`) was still running. Deploys take 50 to 70
+  minutes. The root page's build tag still read `tv-20261028-0141-abc4675`, so
+  confirm a change by fetching its own file, not by the tag.
+- **Render sweep on main is green (verified):** run 40639308463 on `5ec98ad`,
+  3 shards, all 57 modules OK. One Reviewed chip clipped in the phone context
+  strip is skipped in the guard and filed as JEG-1193 (layout call for Jeremy).
+- **Rebuild chain is failing (verified, hourly since at least 03:35 UTC):** it
+  fails closed on the CBS hold (`SOURCE_HELD:cbs`, "superflex cbs: listed
+  players not plotted"), so fresh source data is not reaching the fixtures.
+  This is the week 8 CBS work (board lane, JEG-1176 / JEG-1177), not a code
+  regression on main.
 - **What works (verified 2026-10-28 03:00 UTC):** the live site serves at
   https://jb-barrel-droid.github.io/fantasy-tools/ with the build tag above;
   quick unit tests pass locally (see section 6).
-- **What is broken now (verified):** the live DDF MCP connector returns no
-  players. `get_player_value` for "Josh Allen, Bijan Robinson" (half PPR, 12
-  teams) returned `player: null` for both with `as_of 2026-10-26`. This is
-  JEG-1157 / JEG-1156 (In Review, waiting on Jeremy). Not re-checked: whether the
-  site's blended DDF Values are still blank (JEG-1156).
+- **What is broken now (verified 05:30 UTC):** the live DDF MCP connector
+  (edge function `mcp` v12, deployed after #958) returns no players because
+  `get-values` returns none since the week 8 flip. The fix (#1028) is merged but
+  needs a `get-values` redeploy, which waits on Jeremy's yes. It also clears by
+  itself once a week 8 chart bundle publishes.
 - **What I am working on:** this handoff only (docs). No code change of mine is
   in flight. Other agents are actively merging to `main` every few minutes;
   see "Active agents and automation" below before touching any branch.
@@ -54,12 +60,14 @@ section; the overnight routine now owns handoff upkeep.
   2. Urgent: JEG-1177 (week transition A, per-source weeks), parent JEG-1176.
      Files: `pipelines/nfl_week.py`, `pipelines/check_rank_guard.py`,
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
-  3. Keep `main` green: JEG-1135 / PR #1021 (render sweep), JEG-982 (endpoint
-     parity, edge function vs engine for 185 players).
+  3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
+     edge function vs engine for 185 players) is still open.
 - **Incomplete changes / blockers:** none of mine. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
-  harmless, leave it.
+  harmless, leave it. The same goes for `jeg-920`, `scratch/sweep-all`,
+  `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
+  (Main green lane scratch branches; deletes are blocked; no PRs).
 
 ---
 
@@ -83,8 +91,8 @@ here, coordinate first (bottom of this section).
   activity as verified or guessed. (Routine change made from the main chat;
   not yet confirmed from this thread.)
 - **DDF lane threads** under the main-chat task "Run the Data Driven Football
-  board": Clearing players and teams (JEG-1190, PR #1023), Main green (PR
-  #1021), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
+  board": Clearing players and teams (JEG-1190, PR #1023), Main green (done
+  2026-10-28 06:15 UTC, verified: queue merged, sweep green), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
   transition (JEG-1176/1180, PR #1022). They open PRs, merge only what Jeremy
   approved (section 1) and log picks in `docs/picks-log.md`'s source. Stop or
   steer: tell Claude in Jeremy's main Duet chat.
@@ -419,7 +427,8 @@ Known bugs (repro steps and history on each ticket):
 
 1. JEG-1177 Urgent (week transition A) under parent JEG-1176; JEG-1178 (B, site
    week selector, PR #1012); JEG-1180 (D, stale flag, PR #1022).
-2. Main green: JEG-1135 / PR #1021, JEG-982, JEG-1049 / PR #1003.
+2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
+   JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
 3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
    JEG-955, JEG-956, JEG-903, JEG-894, JEG-1101, JEG-1176, JEG-982.
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
