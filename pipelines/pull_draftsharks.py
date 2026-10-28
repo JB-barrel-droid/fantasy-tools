@@ -22,8 +22,9 @@ Output: <out-dir>/snapshot.json
 Identity (player_key) is resolved later by the saver against public.players via
 lib/canonical_players; this puller only normalizes the name (fail closed there).
 
-DATING: the page carries no player-chart timestamp (only pick rows have one), so
-the vintage is the run date and `fingerprint` (sha256 of the sorted
+DATING: the page carries no verified player-chart change timestamp, so
+the vintage is the fetch date, not the publisher's chart date. `fingerprint`
+(sha256 of the sorted
 (id, redraft half-PPR ds value) pairs) is what decides whether the chart moved.
 
 Fail closed (non-zero exit, no snapshot written), named on the
@@ -161,7 +162,9 @@ def build_snapshot(players: list[dict], now: datetime | None = None) -> dict:
     return {
         "schema": SCHEMA, "source": "draftsharks", "source_url": URL,
         "fetched_at": now.isoformat(timespec="seconds"),
-        "vintage_date": now.date().isoformat(), "fingerprint": fingerprint,
+        "vintage_date": now.date().isoformat(),
+        "vintage_basis": "fetch_date_not_publisher_chart_date",
+        "fingerprint": fingerprint,
         "rows": rows, "row_count": len(rows), "dropped": dropped,
     }
 

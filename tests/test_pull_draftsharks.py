@@ -68,6 +68,15 @@ class TestDraftSharksPull(unittest.TestCase):
         b = ds.build_snapshot(roster_players)["fingerprint"]
         self.assertNotEqual(a, b)
 
+    def test_distinct_players_with_same_chart_value_are_retained(self):
+        ps = roster()
+        ps[0]["dsValueRedraftHalfPpr"] = 69
+        ps[1]["dsValueRedraftHalfPpr"] = 69
+        snap = ds.build_snapshot(ps)
+        same_value = [r for r in snap["rows"] if r["ds"]["redraft_half_ppr"] == 69]
+        self.assertEqual({r["draftsharks_id"] for r in same_value}, {1, 2})
+        self.assertEqual(snap["vintage_basis"], "fetch_date_not_publisher_chart_date")
+
     def test_tiny_body_is_blocked(self):
         with self.assertRaises(ds.PullError) as c:
             ds.extract_players("<html>login</html>")
