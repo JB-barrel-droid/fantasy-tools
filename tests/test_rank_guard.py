@@ -33,6 +33,7 @@ sys.path.insert(0, str(REPO))
 
 from check_rank_guard import check_fixture, count_inversions, native_ranks  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._week_view import WEEK_STATE, lagging_week, own_week_reads  # noqa: E402
 
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 GUARD = REPO / "pipelines" / "check_rank_guard.py"
@@ -150,67 +151,27 @@ READ = """(published) => {
   });
   return out;
 }"""
-WEEK_STATE = "() => window.TradeValueCurveControls.getWeekState?.() || null"
-SET_WEEK = "(w) => window.TradeValueCurveControls.setWeek(w)"
-
-
-def lagging_week(state, key):
-    """JEG-1175 / JEG-1176: the week a chart left out of the page's week view
-    still serves, when it is lagging (a week before the view's); else None.
-
-    During a transition each source serves its own week and the view leaves a
-    lagging one out (no carry-forward, Jeremy 2026-10-27), so its order is
-    checked in its own week's view, not reported as missing.
-
-    The view's missing_sources names only the charts that feed DDF Value; a
-    chart on a red review hold is hidden from it (JEG-569) and so is in
-    neither list, yet the page still leaves it out of a newer view. So the
-    test is "not in the view's sources and serving an older week"."""
-    if not state:
-        return None
-    week = state.get("week")
-    view = (state.get("views") or {}).get(str(week)) or {}
-    served = (state.get("servedWeeks") or {}).get(key)
-    if key in (view.get("sources") or []):
-        return None
-    if not isinstance(served, int) or not isinstance(week, int) or served >= week:
-        return None
-    return served
 
 
 def read_setting(page, published):
     """Indexed values and native ranks for each published chart at the page's
-    current setting. A lagging chart is read in its own week's view (setWeek),
-    then the page goes back to its default view. Returns the READ shape plus
-    `weeks` (key -> the view week it was read in) and `lagging` (key -> its
-    served week, for a chart outside the view whose week has no view)."""
+    current setting. A lagging chart is read in its own week's view, then the
+    page goes back to its default view (tests/_week_view.py, JEG-1175 /
+    JEG-1176). Returns the READ shape plus `weeks` (key -> the view week it
+    was read in) and `lagging` (key -> its served week, for a chart outside
+    the view whose week has no view: lagging, not a failure, noted on stderr)."""
     res = page.evaluate(READ, list(published))
     state = page.evaluate(WEEK_STATE)
     res["weeks"] = {key: (state or {}).get("week") for key in published}
-    res["lagging"], res["week_diag"] = {}, {}
     absent = [key for key in published if not (res["indexed"][key] and res["ranks"][key])]
-    by_week = {}
-    for key in absent:
-        week = lagging_week(state, key)
-        if week is not None:
-            by_week.setdefault(week, []).append(key)
-    for week, keys in sorted(by_week.items()):
-        if week not in ((state or {}).get("weeks") or []):
-            # Older than any view the page offers: lagging, not a failure
-            # (stale is a warning, JEG-1176 rule 6), but said out loud so a
-            # chart that stops updating does not leave the guard unseen.
-            res["lagging"].update({key: week for key in keys})
-            print(f"rank guard: {', '.join(keys)} still on Week {week}, older than every week view "
-                  f"{(state or {}).get('weeks')}; order not checked in the browser", file=sys.stderr)
-            continue
-        page.evaluate(SET_WEEK, week)
-        got = page.evaluate(READ, keys)
-        res["week_diag"][week] = got["diag"]
-        for key in keys:
+    own = own_week_reads(page, absent, lambda keys: page.evaluate(READ, keys), "rank guard",
+                         "order not checked in the browser", state=state)
+    res["lagging"] = own["lagging"]
+    res["week_diag"] = {week: got["diag"] for week, got in own["reads"].items()}
+    for week, got in own["reads"].items():
+        for key in got["indexed"]:
             res["indexed"][key], res["ranks"][key] = got["indexed"][key], got["ranks"][key]
-            res["weeks"][key] = week
-    if by_week:
-        page.evaluate(SET_WEEK, None)
+    res["weeks"].update(own["weeks"])
     return res
 
 
@@ -431,6 +392,27 @@ class TestLaggingWeek(unittest.TestCase):
         # is hidden from DDF Value, so the Week 8 view's missing_sources does
         # not name it; it is still lagging, not missing.
         self.assertEqual(lagging_week(self.STATE, "held"), 7)
+
+    def test_own_week_reads_reads_in_view_or_notes_lagging(self):
+        # tests/_week_view.own_week_reads, shared by the superflex and week
+        # history render tests: a lagging chart whose week has a view is read
+        # there and the page goes back to its default view; one older than
+        # every view is lagging (with a stderr note); anything else is the
+        # caller's gap.
+        class Page:
+            def __init__(self):
+                self.weeks = []
+
+            def evaluate(self, script, arg=None):
+                self.weeks.append(arg)
+
+        page, reads = Page(), []
+        own = own_week_reads(page, ["cbs", "old", "espn", "gone"], lambda keys: reads.append(keys) or {"k": keys},
+                             "test", state=self.STATE)
+        self.assertEqual(own["reads"], {7: {"k": ["cbs"]}})
+        self.assertEqual(own["weeks"], {"cbs": 7})
+        self.assertEqual(own["lagging"], {"old": 6})
+        self.assertEqual(page.weeks, [7, None])  # read in Week 7, then back to the default view
 
     def test_a_chart_missing_from_its_own_view_fails(self):
         swept = {("ppr", 12, "null"): {"diag": {"ok": True}, "week_diag": {}, "lagging": {},
