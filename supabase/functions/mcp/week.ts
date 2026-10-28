@@ -28,10 +28,11 @@ export const weekProp = {
   },
 };
 
-/** `wk=N` in a pasted site link or state text (the site's week selector), or null. */
+/** `wk=N` in a pasted site link or state text (the site's week selector), or null. A week outside 1 to 22 is ignored. */
 export function linkWeek(text: unknown): number | null {
   const m = String(text ?? "").match(/[?&#]wk=(\d{1,2})(?![\d])/);
-  return m ? Number(m[1]) : null;
+  const n = m ? Number(m[1]) : NaN;
+  return n >= 1 && n <= 22 ? n : null;
 }
 
 /**
@@ -68,7 +69,7 @@ interface Result {
 /**
  * Put the priced week on a tool result: `week`, `default_week`, `weeks`, `sources_included` and
  * `missing_sources` in structuredContent, a week line after the settings line, and `wk=` on the site
- * link when a week was asked for (so the site opens on the same week).
+ * link when a week was asked for (read by the site's week selector, JEG-1176 part B; until that ships the site ignores it).
  */
 export function withWeek<R extends Result>(result: R, data: WeekFields | null, asked: number | null): R {
   if (!data || result.isError) return result;

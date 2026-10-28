@@ -57,6 +57,9 @@ const last = () => asked.at(-1).week;
 
 // Helpers: wk= in a site link, the week argument, and the text line.
 assert.equal(linkWeek(`${ORIGIN}/#compare-trade?give=3&wk=7`), 7);
+assert.equal(linkWeek(`${ORIGIN}/#compare-trade?give=3&wk=23`), null, "a link week outside 1 to 22 is ignored");
+assert.equal(linkWeek(`${ORIGIN}/#compare-trade?give=3&wk=0`), null, "wk=0 is ignored");
+assert.equal(askedWeek({ state: "x?wk=99" }), null, "a bad link week falls back to the default week");
 assert.equal(linkWeek("week=5&regend=14"), null, "the league's week= is not the data week");
 assert.equal(askedWeek({ week: "7", state: "x?wk=8" }), 7, "an explicit week wins over the link");
 assert.ok(Number.isNaN(askedWeek({ week: 0 })));
