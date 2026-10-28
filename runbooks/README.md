@@ -7,6 +7,7 @@ Run every Python command with the Python 3.12 virtualenv first on PATH (`export 
 | Runbook | Job |
 |---|---|
 | [weekly-refresh.md](weekly-refresh.md) | Confirm the week's producers ran and the chain published. |
+| [../docs/week-transition-runbook.md](../docs/week-transition-runbook.md) | Week N to N+1: lagging is normal Tuesday to Thursday morning; stale (still on N after Thursday 12:00 CT) is a warning and when to step in (JEG-1180). |
 | [source-held.md](source-held.md) | A source shows held (amber or red). Find why and how it releases. |
 | [run-the-chain.md](run-the-chain.md) | Dispatch or reproduce the rebuild chain. |
 | [sweep-and-rank-guard.md](sweep-and-rank-guard.md) | The 12-combo engine sweep, the rank guard and the value check. |
