@@ -21,7 +21,12 @@ Contract: implement the ten requirements in the live Linear issue, read on 2026-
 - Useful package checks use controlled named-player prices through the real finder, computePairing and runAll, with and without a balancing bench player. These are behavior tests, not claims about current Bijan/Kyren/Warren prices.
 - Finder agent observed the existing `test_v2_finder_search_unchanged` golden is stale on both baseline and patch (identical signatures: 2-for-2 10 trades/7 groups; 3-for-3 69/23). Golden unchanged.
 
-- Existing team-list and expanded-core regression methods pass. Existing table test found a test-helper error: for 11–20 total results it clicked only the absent All button, so the complete-rank assertion read a capped first page. Added the More fallback while retaining the exact `1..N` assertion. Targeted table rerun pending.
+- Existing team-list and expanded-core regression methods pass. Existing table test found a test-helper error: for 11–20 total results it clicked only the absent All button, so the complete-rank assertion read a capped first page. Added the More fallback while retaining the exact `1..N` assertion. `RENDER_TESTS_REQUIRED=1 CHROMIUM_PATH=/usr/bin/chromium python3 -m unittest tests.test_v2_league_tables_render.LeagueTablesRenderTest.test_tables` passes, exit 0 in 36.651 seconds. Combined with team-list and core-expansion methods, all 23 distinct targeted tests pass.
 
 ### Claimed, not confirmed
 - Preview CI, parent serial merge, Pages deployment and live verification pending. JEG-1213 remains open until parent verifies live.
+
+### Draft delivery
+- Draft PR https://github.com/JB-barrel-droid/fantasy-tools/pull/1058, branch `fe/jeg-1213-league-finder`; source verified at `8019b99a`. Final docs-only checkpoint follows without changing tested source.
+- All three coding/test subagents and the independent source reviewer finished and stopped before the parent tightened the lane to one active coding agent. No new workers or duplicate full local gates started. Final committed-head review is pending parent scheduling under the two-agent total cap.
+- CI/preview remains pending; full local `make validate` deliberately deferred to equivalent remote CI. No merge, deployment, Supabase action, branch deletion or ticket closure performed.
