@@ -106,6 +106,8 @@
     renameTeam: (ws, id, name) => mapTeam(ws, id, t => ({...t, name: cleanName(name, t.name)})),
     setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => ({...t, entries: cleanEntries(entries), ...(extra || {})})),
     clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: []})),
+    // JEG-1190: every team goes; the league's settings, name and view choices stay.
+    clearLeague: ws => (ws.teams.length ? touch({...ws, teams: [], myTeamId: null}) : ws),
     setSourceText: (ws, id, text) => mapTeam(ws, id, t => ({...t, sourceText: String(text || "")})),
     addRemoved: (ws, id, key) => mapTeam(ws, id, t => ({...t, removed: t.removed.includes(String(key)) ? t.removed : t.removed.concat([String(key)])})),
     setMyTeam: (ws, id) => (id === null || ws.teams.some(t => t.id === id) ? touch({...ws, myTeamId: id}) : ws),
