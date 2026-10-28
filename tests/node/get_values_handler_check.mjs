@@ -37,6 +37,29 @@ assert.equal(res.status, 200);
 let body = await res.json();
 assert.deepEqual(body.league_custom, []);
 same(body, runner({ scoring: "ppr", teams: 12 }));
+const todayDefault = body;
+
+// Week flip: the calendar moves to a new week before any chart publishes it, so for a while every
+// weekly chart is "behind the calendar". Older-week is judged against the newest published week, not
+// the calendar, so a later clock prices the same players at the same values. (Oct 27 2026: judging
+// against the calendar dropped every chart and get-values returned no players.)
+const RealDate = Date;
+const later = RealDate.UTC(2027, 0, 12, 15); // calendar past the last content week
+globalThis.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [later])); }
+  static now() { return later; }
+};
+try {
+  res = await ask({ scoring: "ppr", teams: 12 }, "7.7.7.7");
+  assert.equal(res.status, 200);
+  body = await res.json();
+  assert.ok(body.players.length > 50, `a later calendar week still prices players (${body.players.length})`);
+  const before = new Map(todayDefault.players.map((p) => [p.player_key, p.value]));
+  const moved = body.players.filter((p) => Math.abs(p.value - (before.get(p.player_key) ?? 0)) > 0.06);
+  assert.equal(moved.length, 0, `values moved with the calendar: ${JSON.stringify(moved.slice(0, 3))}`);
+} finally {
+  globalThis.Date = RealDate;
+}
 
 // Custom league: priced, flagged, and equal to the runner (which the parity test ties to the page).
 const league = { roster: { WR: 3, BENCH: 6 }, shares: { QB: 0.2, RB: 0.4, WR: 0.3, TE: 0.1 }, bso: 0.2,
