@@ -33,8 +33,8 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
     (remembered on this device); the Methods row stays hidden on this tab;
   * simulated engine rows (SIMULATE_ROWS, until the engine ships them and
     because current data has no chart value at 0 or null): a one-source DDF Value
-    (ddfLowConfidence) is a target and shows "◐ 1 source" with the engine's
-    note as its tooltip; a player with no DDF input is left out and counted
+    gets no Sell or Buy call and the notes say so (JEG-1186, Jeremy 2026-10-27
+    "Suppress"; replaces 2026-10-08 "a target shown with ◐ 1 source"); a player with no DDF input is left out and counted
     with the engine's reason; a chart value of 0 shows "waiver line", no gap;
     a chart value the engine does not have (JEG-541: simulated, since after
     JEG-508 every chart prices every player) shows — with the engine's reason;
@@ -72,8 +72,8 @@ waiver rule removed, picked series ignored; prior-week chart dropped, badge
 removed; "indexed" label removed, aria-expanded never reset; lists open on 25,
 no two-column layout; old headline; Pos/Team/Tier columns back with one-line
 headers; default reverted to ESPN, tier read from espnRole, source count
-missing, pick not remembered, one-source player left out, low-confidence
-marker missing, native rank off by one) and requires the checks to fail on each.
+missing, pick not remembered, one-source player listed, one-source note missing,
+native rank off by one) and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -261,7 +261,7 @@ LAYOUT = """(sides) => {
 
 # Simulated engine rows (JEG-455 / Jeremy 2026-10-08, and the waiver rule): wraps getRows so that
 #  low  - the player with the highest compared chart value has a one-source DDF Value of 5.5
-#         (ddfCount 1, ddfLowConfidence, the engine's note) -> a sell target with the marker;
+#         (ddfCount 1, ddfLowConfidence, the engine's note) -> would lead Sell, but JEG-1186 leaves it off and notes it;
 #  none - another player has no DDF input (null, count 0, a reason) -> left out and counted;
 #  zero - the top sell target's second chart is at its waiver line (0) -> "waiver line", no gap.
 # Current data has no chart value at or below 0 (JEG-482 pure rescale), so "zero" keeps that rule tested.
@@ -534,10 +534,13 @@ def check(snapshot) -> list[str]:
     else:
         listed = {key for key, *_ in snapshot["allBest"]}
         if our_key == DDF and side == "sell":
-            if probe["low"] not in listed:
-                errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
-            if not any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
-                errors.append(f"one-source player {probe['low']} is not rendered in the top rows")
+            # JEG-1186 (Jeremy, 2026-10-27: "Suppress"): the one-source probe gets no Sell call, and the notes say why.
+            if probe["low"] in listed:
+                errors.append(f"one-source player {probe['low']} is a sell target (JEG-1186: no call on 1 source)")
+            if any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
+                errors.append(f"one-source player {probe['low']} is rendered in the Sell rows")
+            if "left off Buy and Sell: only 1 source backs" not in snapshot["note"]:
+                errors.append(f"no 'left off Buy and Sell: only 1 source' note: {snapshot['note']!r}")
         if our_key == DDF:
             if probe["none"] in listed:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
@@ -1128,10 +1131,9 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                    "const tierText = row => tierLabel(row.espnRole);")}, numbers_only),
             "source count missing": ({"v2_js": (v2, "      if (count) cell.appendChild(count);\n", "")}, numbers_only),
             "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
-            "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
-                                                           "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
-            "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
-                                                         "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
+            # JEG-1186: the one-source rule is now Suppress, so its mutations let the player back in or drop the note.
+            "one-source player listed": ({"targets_js": (targets, "return n !== null && n < MIN_DDF_SOURCES;", "return false;")}, numbers_only),
+            "one-source note missing": ({"v2_js": (v2, "    if (targetsView.thinSource && !blocked) {", "    if (false) {")}, numbers_only),
             # JEG-504
             "market difference sign opposite to the gap": ({"v2_js": (v2, 'diff.textContent = fmtGap(-m.diff)', 'diff.textContent = fmtGap(m.diff)')}, numbers_only),
             "consensus counts only compared-and-positive": ({"targets_js": (targets, "const values = priced.map(key => cells[key].value);",
