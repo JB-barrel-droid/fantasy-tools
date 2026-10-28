@@ -1134,6 +1134,11 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-cverdict[data-verdict="win"] .v2-cverdict-sym { color: var(--v2-action-strong); }
 .v2-cverdict[data-verdict="lose"] .v2-cverdict-sym { color: var(--v2-negative); }
 .v2-cverdict > div > p { margin-top: 6px !important; font-size: 14px; }
+/* JEG-894: the copy-link button sits on the verdict eyebrow row and is link-sized on desktop (a 44 px button would push
+   the verdict past the 1366x768 fold); a 44 px tap target only on touch / phone widths. */
+.v2-cverdict-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.v2-cshare-link { min-height: 0; padding: 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.2; }
+@media (hover: none), (max-width: 767px) { .v2-cshare-link { min-height: 44px; padding: 0 6px; } }
 #v2Compare .v2-cstory { border: 0; border-top: 1px solid var(--v2-border); padding-top: 8px; margin-top: 2px; }
 #v2Compare .v2-cstory[hidden] { display: none; }
 #v2Compare .v2-cstory summary { font-size: 13px; font-weight: 700; cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 6px; }
@@ -1204,9 +1209,11 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 @media (max-width: 767px) {
   #v2Compare .v2-chead .v2-ctoolbar { flex-basis: 100%; }
   #v2Compare .v2-ctable td.bar { min-width: 0; width: auto; }
-  .v2-cverdict-bar:not([hidden]) { display: block; position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; min-height: 48px; padding: 10px 14px;
+  .v2-cverdict-bar:not([hidden]) { display: flex; align-items: center; gap: 8px; position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; min-height: 48px; padding: 8px 10px;
     border-radius: var(--v2-radius-card); border: 1px solid var(--v2-border); border-left: 4px solid var(--v2-border); background: var(--v2-surface); color: var(--v2-ink);
-    font-weight: 700; font-size: 15px; text-align: left; box-shadow: 0 -4px 20px rgba(20, 43, 37, .18); cursor: pointer; }
+    box-shadow: 0 -4px 20px rgba(20, 43, 37, .18); }
+  .v2-cverdict-bar-go { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0; background: none; border: 0; color: var(--v2-ink); font: inherit; font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; }
+  .v2-cshare-bar { flex: none; min-height: 44px; }
   .v2-cverdict-bar[data-verdict="win"] { border-left-color: var(--v2-action); }
   .v2-cverdict-bar[data-verdict="lose"] { border-left-color: var(--v2-negative); }
   #v2Compare.has-verdict-bar { padding-bottom: 96px; }

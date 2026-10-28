@@ -515,11 +515,15 @@
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
       <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
-        <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+        <header class="v2-cverdict-head">
+          <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+          <button type="button" class="v2-link v2-cshare-link" id="v2CShare" hidden>Copy link to this trade</button>
+        </header>
         <div aria-live="polite">
           <h2 id="v2CVerdictTitle">No verdict yet</h2>
           <p id="v2CVerdictText"></p>
         </div>
+        <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
         <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Try a sample trade</button></p>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
@@ -542,7 +546,10 @@
         </details>
       </section>
     </div>
-    <button type="button" class="v2-cverdict-bar" id="v2CVerdictBar" hidden></button>
+    <div class="v2-cverdict-bar" id="v2CVerdictBarWrap" hidden>
+      <button type="button" class="v2-cverdict-bar-go" id="v2CVerdictBar"></button>
+      <button type="button" class="v2-link v2-cshare-bar" id="v2CShare2" hidden>Copy link</button>
+    </div>
     <p class="v2-filter-note" id="v2CNote" hidden></p>
 
     <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
@@ -551,11 +558,7 @@
           <h2 id="v2CResultTitle">Difference by source &amp; method</h2>
           <p class="v2-meta" id="v2CMeta">—</p>
         </div>
-        <div class="v2-ctools">
-          <button type="button" class="v2-btn" id="v2CShare" hidden>Copy link to this trade</button>
-        </div>
       </div>
-      <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
       <p class="v2-meta v2-t-empty" id="v2CEmpty">No result until both sides have at least one player.</p>
       <div class="v2-table-wrap">
         <table class="v2-table v2-ctable" id="v2CTable" aria-labelledby="v2CResultTitle" hidden></table>

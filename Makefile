@@ -194,6 +194,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_v2_share_links
+	python3 -m unittest tests.test_v2_share_links_render
 	python3 -m unittest tests.test_v2_assist_render
 	python3 -m unittest tests.test_v2_season_weeks_render
 	python3 -m unittest tests.test_weekly_matchup_swaps
