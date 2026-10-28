@@ -148,7 +148,7 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   JEG-1115 remains open for two reproduced defects in #1041: the old size
   fixture never produced fit labels, and duplicate opponent names reused the
   wrong roster for fit/package selection. The parent assigned Codex exclusive
-  connector edits on `be/jeg-1115-fit-review-fixes`. The follow-up keeps full
+  connector edits on `be/jeg-1115-fit-review-fixes` (draft PR #1057). The follow-up keeps full
   fit reasons and complete packages, bounds reply bytes with a ranked prefix,
   and uses input indices for opponent identity (`opponent_index` in replies).
   Real-fit regression sizes are 6,128 / 16,155 / 7,070 / 10,853 bytes; the local

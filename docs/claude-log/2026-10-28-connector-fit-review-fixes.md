@@ -58,7 +58,8 @@ identity. Parent authorized this follow-up branch/draft only; no merge or deploy
   comparison and all integration suites passed. Used `RENDER_TESTS_REQUIRED=1`,
   installed system Chromium via temporary Playwright paths, and a writable npm
   cache. This was one sequential gate run; generated output stayed outside the
-  author checkout. Later changes are documentation and the build stamp only.
+  author checkout. Later authored changes are documentation and the build stamp
+  only; newer main adds only the generated fidelity-pulse report.
 
 ### Claimed, not confirmed
 
