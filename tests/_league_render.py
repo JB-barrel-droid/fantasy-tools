@@ -65,6 +65,9 @@ def browser_on_build():
 
 def open_page(browser, base, width=1366, height=768, overrides=None, errors=None, tag="", scheme="light", init_script=None, context=None):
     ctx = context or browser.new_context(viewport={"width": width, "height": height}, color_scheme=scheme, accept_downloads=True)
+    # Pin the page clock to the data's content week (JEG-1152): after the Tuesday
+    # flip, an unpinned page excludes every chart and the opportunities table is empty.
+    ctx.add_init_script(_render_env.pin_data_week_script())
     if init_script:
         ctx.add_init_script(init_script)
     page = ctx.new_page()

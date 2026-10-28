@@ -117,7 +117,7 @@ const viabilityProps = {
   depth_player_cutoff: { type: "number", default: 0.5, description: "Minimum DDF value for a player to count as depth" },
   dead_weight_cutoff: { type: "number", default: 0.5, description: "Maximum DDF value for a droppable player" },
   min_rb_backups: { type: "integer", default: 1, description: "Minimum healthy RB backups beyond starters" },
-  min_wr_backups: { type: "integer", default: 1, description: "Minimum healthy WR backups beyond starters" },
+  min_wr_backups: { type: "integer", default: 0, description: "Minimum healthy WR backups beyond starters" },
 };
 
 /** Build a RosterShape from tool args, defaulting SUPERFLEX from the league setting. */

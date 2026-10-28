@@ -182,5 +182,5 @@ once. Output includes the user's lineup after the package.
 | `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth _(pending Jeremy's answer)_ |
 | `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable _(pending Jeremy's answer)_ |
 | `minRbBackups` | 1 | Minimum healthy RB backups beyond starters |
-| `minWrBackups` | 1 | Minimum healthy WR backups beyond starters |
+| `minWrBackups` | 0 | Minimum healthy WR backups beyond starters (Jeremy 2026-10-28: lowered from 1, JEG-1129) |
 | `guardrails` | `[]` | User-defined position protections |
