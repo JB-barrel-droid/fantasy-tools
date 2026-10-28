@@ -30,6 +30,9 @@ and after each milestone; commit and push it with the relevant code.
 - Keep `pages` concurrency with `cancel-in-progress: false`: cancellation
   previously starved publication. No test recipe, shard membership, value math,
   fixture, Supabase, rebuild-chain or writer-pause change belongs to this PR.
+- Latest main `2e7a2c7c` is integrated into this branch; the only conflict was
+  the picks-log append, resolved by retaining both lanes' entries. Pages
+  workflow/shard commands and artifact gates did not change during integration.
 - Validation: 102 targeted workflow/coverage/artifact tests and actionlint pass.
   The original serial workflow fails the new parallel contract; all 96 core
   commands and their exact shard union are unchanged. Coverage/parity/deploy
@@ -120,19 +123,21 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
-- **JEG-1142 lane (2026-10-28 9:10 AM CT, Claude):** promotion/demotion model
-  switched off for everyone (`PROMOTION_MODEL_ENABLED = false` in value-model.js,
-  value_reference.py and spec_reference/value_pipeline.py), per Jeremy's 2026-10-27
-  Linear comment. Draft PR #1044, branch `be/jeg-1142-promotion-off-v2`, head
-  `dd4b3de` (main merged in). T1 review approved; its 3 findings are fixed (default-path
-  baseline re-frozen, reference switch test pinned to the served week, comments).
-  Local engine/reference/parity/rank-guard tests pass; value_check compare and
-  `make validate` are in preview CI. It merges on green CI under Jeremy's standing rule.
-  **Next step:** when preview CI is green on #1044's head, mark it ready, merge
-  `origin/main` in if it moved, squash-merge as "JEG-1142 ...", wait for Deploy
-  dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
-  and that USO still shows its good trades (DDF connector find_trades_league), then
-  close JEG-1142. No edge deploy: get-values loads the published value-model.js.
+- **JEG-1142 validation continuation (2026-10-28, Codex):** PR #1044, target branch
+  `be/jeg-1142-promotion-off-v2`; local candidate `be/jeg-1142-validation-ready`.
+  Includes author head `274f3126` and main `79b9b435`. Promotion/demotion stays
+  off in all three engines; expected-start and bench math are unchanged.
+  Contract CI failed because the probe clicked a player already in the sample;
+  the author's helper fix is retained and reproduced green. Composite CI failed
+  because its display-order guard disallowed exact-value ties with different
+  tiers; the corrected guard retains every VP-7.3 check and rejects strict
+  inversions. Independent reviews passed. Final make validate-base and both
+  current reference comparisons pass; full core checks completed in resumed
+  runs (see log for the initial environment error and corrected assertion).
+  **Next:** check CI on the updated PR head; the parent alone coordinates merge
+  and Pages verification. Do not close JEG-1142 before live switch and USO checks.
+  No edge deploy or JEG-1205 work here. Generated output is retained uncommitted.
+  Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
 - **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
   is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
