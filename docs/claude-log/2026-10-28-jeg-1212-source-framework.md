@@ -9,6 +9,7 @@
 - `python3 -m py_compile pipelines/build_v2_page.py`, `node --check` on the changed JavaScript, and `git diff --check` passed.
 - `CHROMIUM_PATH=/usr/bin/chromium make test-core` completed green. The broad `test_view_invariants` matrix passed 15 settings and 270 checks with no problems; `test_main_table_engine_parity`, DDF composite, and view-switch default tests passed. The source-view unit, copy guard, CI shard integrity, and focused browser source-count guard were rerun after the final presentation edits and passed.
 - After rebasing on current `main`, `CHROMIUM_PATH=/usr/bin/chromium make validate-base` passed. Its strict reference/engine comparison agreed on 1,234,996 values; the focused browser source-count guard and lightweight tests also passed on the rebased commit.
+- The v2 contract render's GL-07/GL-21 partial checks were updated for Jeremy's later JEG-1212 category decision: they require the Published and Observed groups, retain the rescaled meaning check, and still reject an "as published" mutation. The historical Doc mirror was not edited. Its live-contract test passed locally after the update.
 
 ## Claimed, not confirmed
 
