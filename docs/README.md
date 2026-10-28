@@ -7,7 +7,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 - One folder per topic once a topic has 3 or more files (`health/`, `audits/`, `contract/`, `planning/`, `design/`, `decisions/`). Single standing pages stay at the top level.
 - File names are lowercase kebab-case: `topic-subject.md`. Exceptions kept for history: `MODULES.md`, `QA_FRAMEWORKS.md`, `SUPABASE_WRITER_AUDIT.md`, `TRADE_DASHBOARD_QA_ROUND1.md` (rename when next edited).
 - Ticket-bound write-ups carry the ticket id as a prefix: `jeg-123-short-subject.md`. They are records, not maintained pages.
-- Every session that changes anything writes a log in `claude-log/YYYY-MM-DD-slug.md`, one file per PR (required by `CLAUDE.md`, Jeremy 2026-10-23). `claude-log.md` is frozen (old entries only).
+- Every session that changes anything writes a log in `claude-log/YYYY-MM-DD-slug.md`, one file per PR (required by `AGENTS.md`, Jeremy 2026-10-23). `archive/2026-10-12-docs/claude-log.md` is frozen (old entries only).
 - Every page opens with a title, then a one-paragraph purpose, then a status or "Last updated" line when it can go stale.
 - Every page needs one line in this index. Superseded or finished docs move to `archive/` (repo root) with a dated README; nothing is deleted.
 - Staleness rule: a Maintained page names its owner ticket and a last-verified date; any Maintained page not verified in 30 days is stale and gets a refresh ticket (JEG-583).

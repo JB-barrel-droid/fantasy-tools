@@ -18,6 +18,7 @@ Run by `make test-unit-modules`; CI sets RENDER_TESTS_REQUIRED=1 so a missing br
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import unittest
@@ -27,6 +28,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tests import _dist_server, _render_env  # noqa: E402
+from tests.test_week_history import _fixture_today  # noqa: E402
 
 
 # The Node.js script that runs the edge function's pipeline logic headlessly.
@@ -89,7 +91,11 @@ def run_edge(extra, override_bench=None):
     args = NODE + extra + ["--dist", str(ROOT / "dist")]
     if override_bench is not None:
         args += ["--bench", str(override_bench)]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=60)
+    # JEG-982: both sides read the clock in the served data's own content week. On the real clock, from
+    # the Tuesday flip until the new week's charts land, every chart is "not yet published" and both
+    # sides price nothing (the test then fails on "0 not greater than 50").
+    env = {**os.environ, "TRADE_VALUE_TODAY": _fixture_today()}
+    result = subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
     if result.returncode != 0:
         raise RuntimeError(f"Edge pipeline runner failed: {result.stderr}")
     return json.loads(result.stdout)
@@ -153,6 +159,7 @@ class EndpointParityTests(unittest.TestCase):
         """A fresh engine page (every run starts from the default league), then `script(arg)`."""
         page = self._browser.new_page()
         try:
+            page.add_init_script(_render_env.pin_data_week_script())
             page.goto(f"{self._base}/{_dist_server.ENGINE_URL}")
             page.wait_for_function(
                 "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",

@@ -88,7 +88,7 @@ PAGE = """() => {
   const first = document.querySelector('#v2FindAssess tbody th.v2-find-pos');
   return {tables: q('table.v2-find-assess-table'), assessTables: q('#v2FindAssess table'), basedOn: document.body.innerText.includes('Based on fundamentals') || document.body.innerText.includes('Based on market pricing'),
     oldEval: q('.v2-find-eval') + q('#v2FindMineEval') + q('#v2FindTheirsEval') + q('#v2FindTeams'),
-    caption: Boolean(document.querySelector('#v2FindAssess caption')), thNoScope: q('#v2FindAssess th:not([scope])'), tabbable: q('#v2FindAssess [tabindex], #v2FindAssess a, #v2FindAssess button, #v2FindAssess input'),
+    caption: Boolean(document.querySelector('#v2FindAssess caption')), thNoScope: q('#v2FindAssess th:not([scope])'), tabbable: q('#v2FindAssess table [tabindex], #v2FindAssess table a, #v2FindAssess table button, #v2FindAssess table input'),
     text: assess.textContent, headline: box.textContent, state: box.dataset.state, link: box.querySelector('a') ? box.querySelector('a').getAttribute('href') : null,
     headTop: r.top, headBottom: r.bottom, headAfterControls: r.top >= controls.bottom - 1, headBeforeAssess: r.bottom <= assess.getBoundingClientRect().top + 1,
     sticky: first ? getComputedStyle(first).position : null, ids: q('[id=v2FindAssess]')};
@@ -97,6 +97,12 @@ GROUPS = """() => { const more = document.getElementById('v2FindMoreGroups'); if
   return [...document.querySelectorAll('#v2FindList > li')].map(li => ({fit: li.dataset.findFit, id: li.id})); }"""
 NATURAL_WORD = "Natural fit found: "
 NONE_TEXT = "No natural fit between these rosters: "
+
+
+# Cells per team in the assessment rows (JEG-1081): Counted, Flag, then Starters and Bench for each of DDF Value, Trade
+# chart average and DDF Value (projections). The Total row has one cell per view instead of two.
+TEAM_COLS = 8
+TOTAL_COLS = 5
 
 
 def num(text):
@@ -143,18 +149,19 @@ def check(page, tag, width, height, scenario) -> list[str]:
         wants = {"Mine": page.evaluate(WANT, "Mine"), "Theirs": page.evaluate(WANT, "Theirs")}
         for t, side in enumerate(("Mine", "Theirs")):
             want = wants[side]
-            off = 2 + 6 * t
+            off = 2 + TEAM_COLS * t
             for row in table[:4]:
                 w = want[row[0]]
-                got = row[off:off + 6]
+                got = row[off:off + TEAM_COLS]
                 if row[1] != w["range"] or got[0] != w["count"] or got[1] != w["flag"]:
                     say(f"{side} {row[0]}: table says {row[1]} / {got[0]} / {got[1]}, engine says {w['range']} / {w['count']} / {w['flag']}")
                 for (i, view, part) in ((2, "ddf", "starters"), (3, "ddf", "bench"), (4, "market", "starters"), (5, "market", "bench")):
                     if abs(num(got[i]) - w[view][part]) > 0.06:
                         say(f"{side} {row[0]} {view} {part}: table {got[i]}, independent {w[view][part]:.2f}")
-            # Bench subtotal and total, per team: cells are [count, flag, "", bench, "", bench] and [count, flag, total, total].
-            bench = table[4][off:off + 6]
-            total = table[5][2 + 4 * t:2 + 4 * t + 4]
+            # Bench subtotal and total, per team: cells are [count, flag, "", bench, "", bench, "", bench] and
+            # [count, flag, total, total, total]: the total is one cell spanning each view's starters and bench columns.
+            bench = table[4][off:off + TEAM_COLS]
+            total = table[5][2 + TOTAL_COLS * t:2 + TOTAL_COLS * t + TOTAL_COLS]
             for view, bi, ti in (("ddf", 3, 2), ("market", 5, 3)):
                 bench_want = sum(want[p][view]["bench"] for p in ("QB", "RB", "WR", "TE"))
                 if abs(num(bench[bi]) - bench_want) > 0.06 or abs(num(total[ti]) - want["total"][view]) > 0.06:
@@ -189,7 +196,7 @@ def check(page, tag, width, height, scenario) -> list[str]:
             if page.evaluate("() => document.activeElement && document.activeElement.id") != "v2FindFirstNatural":
                 say("the jump link does not focus the first natural group")
     else:
-        if not after["headline"].startswith(NONE_TEXT) or "value-only or force fits" not in after["headline"] or after["state"] != "none":
+        if not after["headline"].startswith(NONE_TEXT) or "market supported or force fits" not in after["headline"] or after["state"] != "none":
             say(f"no natural group is listed but the headline reads {after['headline']!r}")
         if after["link"]:
             say("a jump link is offered with no natural group")
