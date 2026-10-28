@@ -41,3 +41,10 @@ the Indexed values on the chart keys (as the site's rows do), and an old get-val
 - The site finder's chart keys follow the chart tab's view; on the Adjusted tab `chart_avg` would be the
   Adjusted mean (= DDF Value). Not changed here; worth its own ticket.
 - Nothing deployed. get-values must deploy before mcp (the new mcp refuses an old get-values).
+
+## League panel viability slot (JEG-1108 follow-through)
+
+The league trade-opportunity panel still showed the placeholder "Checks that this trade is workable for both managers are not shown here yet."; tests/test_v2_league_oppanel_render (added with JEG-1108) expects "<fit> · <level> viability". league.js now fills the slot from finder.js's viabilityLabel, judged on the same Indexed chart average rows the one-team screen uses, with the one-team screen's labels (Natural fit / Market supported / Force fit; High / Medium-high / Medium). A trade viabilityLabel rejects reads "<fit> · not workable for both managers"; one that can't be judged (no fit or no charts) reads "Viability can't be judged for this trade."
+
+Verified: node --check on league.js.
+Claimed, not confirmed: the render test itself. Playwright's browser download is blocked in this session, so it was run in CI (render-sweep dispatched on the branch).
