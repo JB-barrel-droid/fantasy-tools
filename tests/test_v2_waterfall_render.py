@@ -755,14 +755,21 @@ class WaterfallRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
-        self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
-        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
-        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
-        # back, so it still proves the fold check catches the old header's extra 55 px.
-        old_header += "\n#v2Compare { padding-top: 75px; }\n"
+        # JEG-1119 freed 75 px above Compare, and JEG-1190 took the Use this example button out of the Example banner,
+        # so the old header alone now ends above the fold. The guard pushes Compare down (margin) until the clean build's lowest box sits
+        # 2 px above the limit (measured per font), then proves the old header's extra height is caught there.
+        limit = 768 - EXAMPLE_FOLD_MARGIN
+        names = ("give", "receive", "verdict", "giveTotal", "receiveTotal")
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
-            errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
-            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+            clean = example_state(None, font_css, EXAMPLE_FOLD_VIEWPORTS)
+            self.assertEqual(check_example_state(clean), [], f"the clean build must pass first ({label})")
+            low = max(clean[(1366, 768)]["boxes"][n]["bottom"] for n in names)
+            pad = max(0, int(limit - low) - 2)
+            padded = f"\n#v2Compare {{ margin-top: {pad}px; }}\n"
+            self.assertEqual(check_example_state(example_state({"v2.css": (css + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS)), [],
+                             f"the padded clean build must still pass ({label}, {pad} px)")
+            errors = check_example_state(example_state({"v2.css": (old_header + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
+            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] pad {pad} px ({len(errors)} errors; first: {errors[0] if errors else '-'})",
                   file=sys.stderr, flush=True)
             self.assertTrue(any("1366x768" in e and "past" in e for e in errors), f"the old header was not caught at 1366x768 in {label}: {errors}")
 
