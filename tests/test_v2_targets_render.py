@@ -441,6 +441,14 @@ def is_flagged(snapshot, key) -> bool:
     return bool(flag.get("out")) or any(finite(values.get(c)) and flag.get("estimated", {}).get(c) for c in snapshot["used"])
 
 
+def is_thin(snapshot, key) -> bool:
+    """JEG-1186 (Jeremy, 2026-10-27: "Suppress"): DDF Value backed by fewer than 2 sources gets no Buy/Sell call."""
+    if snapshot["ours"] != DDF:
+        return False
+    count = (snapshot["ddf"].get(key) or {}).get("count")
+    return finite(count) and count < 2
+
+
 def expected_side(snapshot, side, keep_flagged=False):
     """The independent Check 1 list for one side: [(key, gap, agree, of, score)] from the engine rows (JEG-677).
     Sell: consensus gap, ours >= SELL_FLOOR (JEG-820). Buy: the gap at the charts' rank at or under -BUY_RANK_MARGIN
@@ -468,7 +476,10 @@ def expected_side(snapshot, side, keep_flagged=False):
         shown = gap if side == "sell" else rank_gaps[key]
         if side == "buy" and shown > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a Buy
             continue
-        if is_flagged(snapshot, key) and not keep_flagged:
+        if is_flagged(snapshot, key):
+            if not keep_flagged:
+                continue
+        elif is_thin(snapshot, key):   # JEG-1186: counted apart (thinSource), never in leftOut
             continue
         found.append((index, key, shown, agree, len(priced), abs(shown) * min(ours, consensus)))
     found.sort(key=lambda f: (-f[5], f[0]))
@@ -1151,8 +1162,8 @@ class TradeTargetsRenderTest(unittest.TestCase):
             # JEG-842: an out player back in Buy / Sell, the estimated rule dropped, and the note gone.
             "out players recommended (JEG-842)": ({"targets_js": (targets, 'if (row.espnProjectsZero) return "out";', "")}, numbers_only),
             "estimated values trusted (JEG-842)": ({"targets_js": (targets, 'return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;', "return null;")}, numbers_only),
-            "buy not filtered (JEG-842)": ({"targets_js": (targets, "const buy = buyAll.filter(p => !flagged(p));", "const buy = buyAll;")}, numbers_only),
-            "sell not filtered (JEG-842)": ({"targets_js": (targets, "const sell = sellAll.filter(p => !flagged(p));", "const sell = sellAll;")}, numbers_only),
+            "buy not filtered (JEG-842)": ({"targets_js": (targets, "const buy = buyAll.filter(p => !flagged(p) && !thin(p));", "const buy = buyAll.filter(p => !thin(p));")}, numbers_only),
+            "sell not filtered (JEG-842)": ({"targets_js": (targets, "const sell = sellAll.filter(p => !flagged(p) && !thin(p));", "const sell = sellAll.filter(p => !thin(p));")}, numbers_only),
             "left-out note removed (JEG-842)": ({"v2_js": (v2, "    if (targetsView.leftOut && !blocked) {", "    if (false) {")}, numbers_only),
             "score not shown (JEG-833)": ({"v2_js": (v2, "      bc.appendChild(scoreNode(side, p, b));\n", "")}, numbers_only),
             "rows sorted by raw gap, copy unchanged (JEG-833)": ({"targets_js": (targets, "const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",
