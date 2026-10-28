@@ -72,3 +72,12 @@ unguarded `git -C ... push`. Do not merge either PR with that conflict unresolve
 
 Use a reviewed revert PR for this guard and its workflow wiring after restoring
 `paused: false`. Do not delete workflow branches, artifacts, or generated output.
+
+## Combined release candidate
+
+Branch `be/jeg-1216-publication-release-candidate` integrates #1054 and #1059.
+Its rebuild retry checks the pause before committing the candidate and before
+pushing from the isolated publication worktree. The original candidate patch
+remains recoverable; the workflow closes a stuck-publication alert only on a
+confirmed push. When releasing this candidate, merge it as one PR after review
+and current-main CI; do not separately merge its two predecessor PRs afterward.

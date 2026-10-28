@@ -562,7 +562,6 @@ jobs:
                 sleep 10
                 continue
               fi
-              fi
               tip=$(git rev-parse FETCH_HEAD)
               if [ -n "${publication:-}" ] && git merge-base --is-ancestor "$publication" "$tip"; then
                 outcome=pushed; break

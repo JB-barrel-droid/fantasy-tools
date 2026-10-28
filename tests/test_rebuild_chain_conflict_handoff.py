@@ -17,6 +17,8 @@ The real `run:` scripts are executed against throwaway repos with a local bare
 remote (harness from test_rebuild_chain_workflow).
 """
 import os
+import json
+from datetime import datetime, timedelta, timezone
 import re
 import shutil
 import sys
@@ -141,6 +143,7 @@ def scenario(text, other_push, attempt="1", *, local_changes=None,
             "local_dirty": (work / DIRTY).read_text(encoding="utf-8"),
             "push_count": int(count_file.read_text()) if count_file.exists() else 0,
             "patch_saved": (work / "output/rebuild-publication.patch").exists(),
+            "deferred_patch": (work / "output/release-publications/rebuild-chain-1/stage.patch").read_text() if (work / "output/release-publications/rebuild-chain-1/stage.patch").exists() else None,
             "remote_head_is_other": git(verify, "rev-parse", "HEAD") == other_head,
             "dispatch": dispatch.read_text(encoding="utf-8") if dispatch.exists() else None,
             "outputs": out.read_text(encoding="utf-8") if out.exists() else "",
@@ -173,6 +176,21 @@ class ConflictHandoffTest(unittest.TestCase):
         self.assertNotEqual(0, r["rc"], "the last attempt must fail loudly, not loop forever")
         self.assertIsNone(r["dispatch"])
         self.assertEqual("OTHER-RUN", r["remote_fixture"])
+
+    def test_active_pause_defers_validated_candidate_without_handoff(self):
+        now = datetime.now(timezone.utc)
+        control = json.dumps({"paused": True, "started_at": (now - timedelta(minutes=1)).isoformat(),
+                              "expires_at": (now + timedelta(hours=1)).isoformat(),
+                              "reason": "release validation"})
+        r = scenario(WORKFLOW, {".github/main-write-pause.json": control})
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertTrue(r["remote_head_is_other"])
+        self.assertEqual("OLD", r["remote_fixture"])
+        self.assertEqual(0, r["push_count"])
+        self.assertIsNone(r["dispatch"])
+        self.assertIn("pushed=false", r["outputs"])
+        self.assertIn("publication_deferred=true", r["outputs"])
+        self.assertIn("NEW", r["deferred_patch"])
 
     def test_moved_main_without_overlap_still_pushes(self):
         r = scenario(WORKFLOW, {"dist/modules/ops-status.json": "OPS"})

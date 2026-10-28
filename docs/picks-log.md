@@ -21,6 +21,8 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 
 ## Picks
 
+- 10-28 | Publication release integration | JEG-1206 + JEG-1215 | Combine rebuild retry with expiring publication pause | merge both unchanged / guard the isolated worktree push / drop one feature | retain isolated retry, guard stage and each worktree push, preserve candidate patch and alert confirmation | one reviewable release candidate prevents the two PRs from bypassing each other | be/jeg-1216-publication-release-candidate; reverse with a revert PR after restoring paused:false | no
+
 - 10-28 | Release switch | JEG-1215 | Commits-only pause control | repository file / workflow variables / disabling workflows | repository file read from current main, six-hour maximum expiry, fail-closed publication with patch retention | avoids admin-variable API dependency and preserves processing; explicit restore or expiry resumes writes | be/jeg-1215-release-writer-switch; reverse with a reviewed revert PR after restoring paused:false | no
 - 10-28 | Rebuild publication retry | JEG-1206 | Recover a validated rebuild when monitoring jobs move main | A retry only independent-monitor changes locally / B regenerate every time / C merge generated files | A; keep newer main monitoring reports and regenerate for any source/input/history change | saves the validated fixture and week index without mixing unvalidated source changes; bounded at three ordinary push attempts | PR #1054, be/jeg-1206-publish-retry; reverse with a revert PR for the workflow and regression changes | no
 

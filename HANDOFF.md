@@ -15,6 +15,22 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Publication release candidate (#1054 + #1059, Codex, 2026-10-28)
+
+- Branch `be/jeg-1216-publication-release-candidate` combines the validated
+  rebuild retry and default-off, six-hour-bounded main-write pause.
+- The rebuild retains its candidate in an isolated worktree; the pause checks
+  current main before staging and each worktree push. Paused output is retained
+  as a patch artifact; the alert closes only after confirmed publication.
+- #1022/#1042 remain separate because their freshness/alert dependency expands
+  the source-health scope. Parent owns CI/review, merge, any activation and
+  restoration. No live pause has been enabled.
+- Next: inspect current-head CI and review, merge this candidate on green main
+  after the UI release, verify Pages/live behavior, then decide whether to close
+  the two superseded draft PRs. Activation, if needed, is a separate reviewed
+  control-file change followed by explicit restoration.
+
+
 ### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
 
 - Branch `be/jeg-1215-release-writer-switch`; separate draft PR, after Pages #1056.
