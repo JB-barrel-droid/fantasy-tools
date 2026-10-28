@@ -15,9 +15,21 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-Last updated: 2026-10-28 8:40 AM CT (13:40 UTC), by the Claude "Main green"
-lane. Change: the render sweep went red after #1023 (two tests read the old
-Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
+### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
+
+Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
+
+- **Merge rule (Jeremy, Oct 28):** merge work he asked for on green CI plus a passed independent review, without asking him again. That includes PRs built on a logged pick, which he can reverse. Merge one PR at a time, wait for its Pages deploy and check the live site before the next. A pick alone never deploys a backend. Edge-function deploys (get-values, mcp) need his explicit yes. He keeps holds of his own (JEG-1125 / #1033).
+- **Merged today:** #1023 (JEG-1190), #1027 (JEG-1176), #1028 (get-values week-flip fix), #1038 (JEG-1194), #1040 (render tests), #1031 (handoff), and #1030 (JEG-1187, Market supported, merged by the fit labels lane). #1023 and #1027 are confirmed live. The rest ride the Pages deploy for `059674f` (pending at 14:10Z); earlier deploys were cancelled by newer pushes. Deploys take 50 to 70 min, and a newer one cancels any that are pending. Confirm a Pages change by fetching its own file.
+- **Edge functions (verified 13:45 UTC):** live `get-values` is v8 (13:00Z) and matches main, including #1028. Live `mcp` is v12 (04:27Z) and matches main as of #958. Both have verify_jwt false. Copies of both deployed versions for rollback are in `/mnt/project-files/ddf/edge-rollback-2026-10-28/`.
+- **Reviewed and green, not yet merged (do next, one at a time):**
+  1. #1029 (JEG-1189 bench check, tests only)
+  2. #1034 (JEG-1155 week max 18)
+  3. #1037 (JEG-1130 PMM copy part 2)
+  Each passed independent review. Main was merged into each at 13:58Z, and their CI was re-running. Merge after green and check the live site after each. Then tell the Main green lane, which is holding #1035 until these deploys finish.
+- **Approved by Jeremy, not yet done:** merge #1024 (JEG-1179 week default plus optional week; head `179288b`, reviewed PASS) and then #1032 (JEG-1123/1124; reviewed PASS; merge main in first, since both touch `mcp/tools.ts`, a clean auto-merge). Then deploy `get-values` (index.ts, league.ts, pipeline.ts) and `mcp` (index, rpc, tools, state, names, find-trades, viability, build, week) from main. Jeremy said "Yes, merge and deploy" (13:38Z). After the deploy, check that the live get-values returns players and that the connector answers with a "Week:" line. Roll back by redeploying the copies above if anything looks off. When #1032 merges, tell the connector size and names lane: its name-ambiguity fix builds on it and needs its own yes to ship.
+- **Handed to other lanes:** #1022 (JEG-1180) goes to source freshness; review found a blocker, see the PR comment. #1030 went to fit labels (merged). Connector work after #1032 goes to connector size and names.
+- **Picks log:** `/mnt/project-files/ddf/picks-log.md` (source of truth, every lane), copied into `docs/picks-log.md`. The Reversed column marks what Jeremy undid.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
@@ -54,10 +66,7 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   dispatch a fresh chain only if none is queued. Open issues to file: a
   generated-file conflict drops a good rebuild; a parser fix never re-ingests
   (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
-- **Live DDF MCP connector: fixed (verified 13:55 UTC, JEG-1157 Done).** After
-  #1028 and the get-values redeploy, `get_values` (ppr/12) returns players from
-  all 7 sources, `get_player_value("Bijan Robinson, Ja'Marr Chase")` matches
-  both, and `read_state` on a compare link matches both players.
+- **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again. JEG-1157 is Done in Linear (In Review lane checked get_values, get_player_value and read_state live at 13:55Z).
 - **What I am working on:** a full render sweep on main after #1040, then
   merging #1031 (this handoff) and #1035 (JEG-1193 phone chip) one at a time on
   green CI, under Jeremy's rule that work he asked for merges on green CI with a
@@ -71,6 +80,19 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1142 lane (2026-10-28 9:10 AM CT, Claude):** promotion/demotion model
+  switched off for everyone (`PROMOTION_MODEL_ENABLED = false` in value-model.js,
+  value_reference.py and spec_reference/value_pipeline.py), per Jeremy's 2026-10-27
+  Linear comment. Draft PR #1044, branch `be/jeg-1142-promotion-off-v2`, head
+  `dd4b3de` (main merged in). T1 review approved; its 3 findings are fixed (default-path
+  baseline re-frozen, reference switch test pinned to the served week, comments).
+  Local engine/reference/parity/rank-guard tests pass; value_check compare and
+  `make validate` are in preview CI. It merges on green CI under Jeremy's standing rule.
+  **Next step:** when preview CI is green on #1044's head, mark it ready, merge
+  `origin/main` in if it moved, squash-merge as "JEG-1142 ...", wait for Deploy
+  dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
+  and that USO still shows its good trades (DDF connector find_trades_league), then
+  close JEG-1142. No edge deploy: get-values loads the published value-model.js.
 - **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
   is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
