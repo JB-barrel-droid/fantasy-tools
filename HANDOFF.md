@@ -156,6 +156,20 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   yet, movers table still to do; get-values loads the site's value-model.js,
   so no edge deploy); JEG-1134 (draft PR #1043).
 
+- **JEG-894 lane (share links, updated 2026-10-28 9:15 AM CT):** PR #969,
+  branch `fe/JEG-894-share-links`, head `391308e` (main `31ccf10` merged in),
+  marked ready for review, not merged. Jeremy approved the build (Oct 23),
+  decision A with no privacy line (Oct 27), and said "Yes" to marking #969 ready
+  and merging it once its checks pass (Duet, 2026-10-28 9:02 AM CT). The T1
+  review on the PR and a re-read of the merged diff found no bugs. CI (preview
+  run 40701218577, v2-render run 40701218597) was still running. Next: when
+  both are green, merge main in again if it moved, squash-merge #969, wait for
+  the Deploy dashboard run, open a Compare link and a Find a trade link in a
+  fresh browser on the live site (JEG-894's acceptance criteria), then move
+  JEG-894 to Done. If a check is red, look first at `test_v2_share_links_render`
+  and `test_v2_contract_render` (reads `#v2CVerdictBar`, now inside
+  `#v2CVerdictBarWrap`).
+
 ---
 
 ### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
@@ -562,8 +576,8 @@ Known bugs (repro steps and history on each ticket):
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
 3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
-   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1176, JEG-982. (JEG-1101 is decided, PR #970
-   merges on green.)
+   JEG-955, JEG-956, JEG-903, JEG-1176, JEG-982. (JEG-894 and JEG-1101 are
+   decided; PRs #969 and #970 merge on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
