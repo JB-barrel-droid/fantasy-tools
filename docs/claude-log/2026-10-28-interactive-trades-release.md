@@ -22,4 +22,4 @@ Contract: Assemble a small user-facing candidate from interactive Compare (JEG-1
 
 ### Claimed, not confirmed
 
-- Full remote CI, final independent integration review, and first release live QA are pending. Draft PR creation was rejected by automatic approval review as an external commitment; the release branch was pushed, but no PR exists yet. No production merge, deployment, Supabase action, or branch deletion occurred.
+- Draft release PR #1069 is open. Full remote CI, final independent integration review, and first release live QA are pending. The broad local `make validate` run was stopped during the slower browser sweep once the PR was open, so it is not claimed as a pass. No production merge, deployment, Supabase action, or branch deletion occurred.
