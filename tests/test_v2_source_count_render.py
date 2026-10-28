@@ -134,6 +134,16 @@ def run_checks(v2_js=None, overrides_js=None) -> list[str]:
             page.goto(base + "#player-values", wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=30000)
             engine = page.evaluate(ENGINE)
+            # JEG-1212: the public chart comparison is a distinct readout from
+            # FantasyCalc, and a held CBS chart cannot silently lower its denominator.
+            page.locator("#v2Table tbody tr:first-child td:first-child").click()
+            page.wait_for_selector("#v2Drawer [data-comparison-view]")
+            comparisons = page.locator("#v2Drawer [data-comparison-view]").all_text_contents()
+            if len(comparisons) != 2 or not comparisons[0].startswith("Published chart average: Unavailable"):
+                errors.append(f"Player detail comparison with held CBS is {comparisons!r}")
+            if len(comparisons) == 2 and not comparisons[1].startswith("Observed-trade estimate:"):
+                errors.append(f"FantasyCalc is not a distinct observed-trade readout: {comparisons!r}")
+            page.get_by_role("button", name="Close player details").click()
             hidden = [k for k in engine["inputs"] if k not in engine["series"]]
             # Premise: the Razzball hold keeps a hidden source in the pool, so pool and blend differ.
             if not hidden:
@@ -179,9 +189,12 @@ def run_checks(v2_js=None, overrides_js=None) -> list[str]:
             # 2. Trade targets "On this page": only the charts the page reads are counted.
             go("#trade-targets")
             showing = page.evaluate("() => document.getElementById('v2ShowingText').textContent")
-            charts = re.search(r"(\d+) rescaled trade charts?", showing)
+            # JEG-1212: chart inputs are shown in two categories. The old assertion
+            # expected one combined label; count both without changing the tools' keys.
+            published = re.search(r"(\d+) published charts?", showing)
+            observed = re.search(r"(\d+) observed-trade estimates?", showing)
             used = page.evaluate("() => window.TradeValueV2.targets().used")
-            counted = int(charts.group(1)) if charts else (1 if "rescaled trade chart" in showing else 0)
+            counted = (int(published.group(1)) if published else 0) + (int(observed.group(1)) if observed else 0)
             if counted != len(used) or set(used) - set(engine["availableCharts"]):
                 errors.append(f"Trade targets says {showing!r}; it compares {used} (available {engine['availableCharts']})")
 
