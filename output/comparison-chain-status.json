@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-28T14:20:29.058098+00:00",
+  "run_at": "2026-10-28T15:43:06.352174+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -12,11 +12,41 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
+  "outcome": "published_with_holds",
+  "held": [
+    "cbsros",
+    "razzball"
+  ],
+  "hold_severity": "amber",
   "list_changes": {},
-  "held_detail": {},
+  "held_detail": {
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Hunter Long, Joe Royer); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle",
+      "hold_severity": "amber",
+      "week": 8
+    },
+    "razzball": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "2028/2028 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
+      "week": 8
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -104,7 +134,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-10-28",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -144,7 +174,7 @@
     "espn": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-27",
+      "published_at": "2026-10-28",
       "basis": "section_label"
     },
     "fantasycalc": {
@@ -171,5 +201,9 @@
       "published_at": "2026-10-27",
       "basis": "section_label"
     }
+  },
+  "fidelity_holds": {
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }
