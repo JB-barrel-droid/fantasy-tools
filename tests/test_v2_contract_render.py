@@ -2329,8 +2329,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, the removed Compare headline lines back.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, '{id: "pub", title: "Published charts"',
-                        '{id: "pub", title: "Trade charts (as published)"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published charts", note:',
+                        '{id: "pub", title: "Trade charts (as published)", note:')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust v2-btn-sm" id="v2EditLeague"')
         # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).
