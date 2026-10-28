@@ -95,16 +95,24 @@ def run_checks(js_patch=None) -> list[str]:
                 page.wait_for_timeout(600)
                 return page.evaluate(READ)
 
-            # 1. Example trade: deal read should be visible, clear/swap hidden
+            # 1. JEG-1190: the page opens empty (no example, no deal read, nothing to clear or swap); Try a sample
+            # trade loads the sample as a real trade, with its deal read and with Clear and Swap.
             snap = at("#compare-trade")
+            if snap["exampleShown"]:
+                errors.append("an example is shown on the empty page")
+            if snap["dealRendered"] or snap["dealReadText"]:
+                errors.append("the empty page shows a deal read")
+            if not snap["clearHidden"] or not snap["swapHidden"]:
+                errors.append("Clear or Swap is shown on the empty page")
+            page.click("#v2CTryExample")
+            page.wait_for_timeout(600)
+            snap = page.evaluate(READ)
             if not snap["exampleShown"]:
-                errors.append("example not shown on empty trade")
+                errors.append("Try a sample trade did not load the sample marked Example")
             if snap["dealHidden"]:
-                errors.append("example trade should show deal read")
-            if not snap["clearHidden"]:
-                errors.append("Clear button should be hidden on example trade")
-            if not snap["swapHidden"]:
-                errors.append("Swap button should be hidden on example trade")
+                errors.append("the sample trade should show a deal read")
+            if snap["clearHidden"] or snap["swapHidden"]:
+                errors.append("Clear and Swap should work on the sample trade")
 
             # 2. One-sided trade (give only): deal read hidden AND empty
             snap = at(f"#compare-trade?give={a}")

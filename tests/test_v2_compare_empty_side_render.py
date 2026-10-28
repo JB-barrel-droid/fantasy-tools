@@ -82,6 +82,9 @@ def run_checks(js_patch=None, css_patch=None) -> list[str]:
                     found.append(f"[{tag}] expected the Deal read, got rendered={snap['deal']} text={snap['dealText'][:60]!r}")
                 return found
 
+            # JEG-1190: Compare opens empty; the sample loads on Try a sample trade.
+            page.click("#v2CTryExample")
+            page.wait_for_timeout(400)
             errors += shown("example", page.evaluate(READ))
             for tag, hash_ in (("give only", f"#compare-trade?give={a}"), ("get only", f"#compare-trade?get={b}")):
                 snap = at(hash_)

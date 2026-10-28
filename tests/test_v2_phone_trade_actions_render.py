@@ -1,4 +1,4 @@
-"""Trade actions (Swap sides, Clear trade, Use this example) look like buttons (JEG-827).
+"""Trade actions (Swap sides, Clear trade, Undo, Try a sample trade) look like buttons (JEG-827, JEG-1190).
 
 They had no border and a transparent fill, so they read as plain text.
 
@@ -42,7 +42,7 @@ def _served():
             server.shutdown()
 
 
-PROBE = """() => ['v2CSwap', 'v2CClear', 'v2CUseExample'].map(id => {
+PROBE = """() => ['v2CSwap', 'v2CClear', 'v2CUndo', 'v2CTryExample'].map(id => {
   const e = document.getElementById(id);
   e.hidden = false;
   const c = getComputedStyle(e), b = e.getBoundingClientRect();

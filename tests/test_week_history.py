@@ -64,6 +64,7 @@ import build_week_history as H  # noqa: E402
 from tests._dist_server import engine_path  # noqa: E402
 from tests._holds import with_pinned_holds  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._week_view import has_view, lagging_week, note_lagging  # noqa: E402
 
 
 def setUpModule():
@@ -677,19 +678,21 @@ def _base(key):
     return key
 
 
-def served_sources():
+def served_sources(held=None):
     """The served-week check's sources that the fixture carries (2026-10-08).
 
     A chart absent from the fixture is dropped by the page, so it has no
     served week to check; a present chart is checked in full. The ESPN anchor
-    must be present."""
+    must be present. held: the held roots the page saw (default: the
+    committed fixture's)."""
     sources = json.loads((ROOT / "data" / "fixtures" / "current" /
                           "comparison-sources-data.json").read_text(encoding="utf-8"))["sources"]
     if "espn" not in sources:
         raise AssertionError("the ESPN anchor section is missing from the fixture")
     # JEG-569 part 2: a held section is dropped from the output (no computation on
     # old data), so it has no served week or prior week to check.
-    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources and _base(k) not in held_roots(sources)]
+    held = held_roots(sources) if held is None else held
+    return [k for k in SERVED_WEEK_SOURCES if _base(k) in sources and _base(k) not in held]
 
 
 def held_roots(sources=None):
@@ -844,11 +847,21 @@ def collect(overrides=None):
                 # The known player: Δ is the chart's current value minus the
                 # saved week priced at the same setting.
                 current = prior[source]["current"]
-                if BIJAN not in values or current is None:
+                # JEG-1176: a chart lagging the default view is read in its
+                # served week's view (PRIOR sets it); when the page offers no
+                # view for that week (chain run 40624176718: CBS a week behind
+                # and red-held, so no transition) it has no current value.
+                # That is lagging, not a failure: noted, its prior week still
+                # checked, only the Δ left out.
+                lag = lagging_week(WEEK_STATE, source)
+                no_view = current is None and lag is not None and not has_view(WEEK_STATE, lag)
+                if no_view:
+                    note_lagging("week history", [source], lag, WEEK_STATE, "its Δ is not checked in the browser")
+                if BIJAN not in values or (current is None and not no_view):
                     failures.append(f"{source}: Bijan Robinson missing (prior {values.get(BIJAN)}, current {current})")
                 elif BIJAN not in want or abs(values[BIJAN] - want[BIJAN]) > 1e-9:
                     failures.append(f"{source}: Bijan prior {values[BIJAN]}, natives x factor {want.get(BIJAN)}")
-                else:
+                elif not no_view:
                     DELTAS[source] = round(current - values[BIJAN], 1)
             # (Runs before SELF, which changes the roster.) Prior weeks for ESPN, VORP vs waivers and Adjusted (HISTORY-ESPN-PRIOR).
             # The holds the page saw: a served fixture override's, else the committed fixture's.
@@ -880,7 +893,9 @@ def collect(overrides=None):
             # week, so a source still on Week N while others serve N+1 is
             # checked against Week N (lag is not a failure), and its served
             # file must still equal its saved Week N exactly.
-            served = [k for k in served_sources() if k.split("_")[0] not in UNMATCHED]
+            # The holds the page saw (a replay can clear a lagging chart's
+            # hold, transition_overrides), so a served chart is checked.
+            served = [k for k in served_sources(held) if k.split("_")[0] not in UNMATCHED]
             self_results = {}
             for week, keys in by_served_week(index, served).items():
                 self_results.update(page.evaluate(SELF, [keys, week]))
