@@ -28,6 +28,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO / "pipelines"))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
+
 STATUS = REPO / "output" / "comparison-chain-status.json"
 HISTORY = REPO / "data" / "history" / "index.json"
 LABEL = "chain-stuck"
@@ -39,7 +42,7 @@ API = "https://api.github.com"
 
 def _parse(ts) -> datetime | None:
     try:
-        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        dt = parse_iso_timestamp(str(ts))
     except ValueError:
         return None
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
