@@ -15,25 +15,28 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-Last updated: 2026-10-27 10:25 PM CT (2026-10-28 03:25 UTC), by the Claude
-lead session (claude.ai Duet "ddf" channel, handoff thread). Change: dropped
-the Excel/VBA safeguards that belong to another project (section 1).
+Last updated: 2026-10-27 10:35 PM CT (2026-10-28 03:35 UTC), by the Claude
+lead session (claude.ai Duet "ddf" channel, handoff thread). Change: added the
+picks log copy (`docs/picks-log.md`) and the "Active agents and automation"
+section.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
   `be/<ticket>`, `fe/<ticket>`, `cma/<ticket>`, `muse/jeg-<id>-<slug>` and
   `banana/<...>` branches and lands by squash-merge PR.
-- **Latest relevant code commit on main:** `7594f41` "Real-page fit label
-  distribution check (part of JEG-1096) (#1004)", 2026-10-28 02:57 UTC. Main
-  HEAD at writing: `ceddf63` (bot: record dispatched pipelines code hash).
-- **Deployed (live) revision:** build tag `tv-20261028-0141-abc4675`, i.e.
-  `abc4675` "No Buy/Sell call when fewer than 2 sources back DDF Value
-  (JEG-1186) (#1017)", read from the live page's `trade-chart-build` meta tag at
-  03:00 UTC. Commits after it are **in source only** until a deploy succeeds:
-  `aa2932f` (CBS week 8 TE table, JEG-1175), `d8ad629` (JEG-1135), `fde5b9e`
-  (#1020, JEG-1175), `2e90b88` (#960, JEG-1129 trade viability: judge the other
-  team on the Indexed market), `561d576` (#1006), `7594f41` (#1004). Their
-  deploys were cancelled by newer pushes; the run for `7594f41` was pending.
+- **Latest relevant code commit on main:** `03807db` "Bench spread by cut: role
+  cut vs budget cut (part of JEG-859) (#1005)", 2026-10-28 03:15 UTC. Later
+  commits on main are this handoff (docs) and bot status commits.
+- **Deployed (live) revision:** the last successful "Deploy dashboard" run is
+  for `fde5b9e` (#1020, JEG-1175 transition replay), checked 03:30 UTC; at
+  03:00 UTC the live `trade-chart-build` meta tag read
+  `tv-20261028-0141-abc4675`. Re-read the tag to confirm. **In source only**
+  until a deploy succeeds: `2e90b88` (#960, JEG-1129 trade viability: judge the
+  other team on the Indexed market), `561d576` (#1006), `7594f41` (#1004),
+  `03807db` (#1005). Deploys keep getting cancelled by newer pushes.
+- **Rebuild chain is failing:** bot commits "Automated chain status (chain
+  failed; fixture not updated)" at 03:05 and 03:14 UTC, so fresh source data is
+  not reaching the fixtures (week transition work, JEG-1175 / JEG-1177).
 - **What works (verified 2026-10-28 03:00 UTC):** the live site serves at
   https://jb-barrel-droid.github.io/fantasy-tools/ with the build tag above;
   quick unit tests pass locally (see section 6).
@@ -44,7 +47,7 @@ the Excel/VBA safeguards that belong to another project (section 1).
   site's blended DDF Values are still blank (JEG-1156).
 - **What I am working on:** this handoff only (docs). No code change of mine is
   in flight. Other agents are actively merging to `main` every few minutes;
-  see "In flight" in section 7.
+  see "Active agents and automation" below before touching any branch.
 - **Next concrete action for a successor:**
   1. `git pull` on `main`, read section 7, then the Linear In Progress list
      (team Jegabee, project Trade Value Chart).
@@ -57,6 +60,83 @@ the Excel/VBA safeguards that belong to another project (section 1).
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
   harmless, leave it.
+
+---
+
+## Active agents and automation (keep current)
+
+Checked 2026-10-28 03:30 UTC. Update this section whenever a lane, routine or
+schedule starts, stops or changes. Before you work on a branch or ticket listed
+here, coordinate first (bottom of this section).
+
+**Claude (Jeremy's Claude Duet app):**
+- **"DDF overnight keep-moving" routine**, from Jeremy's main Duet chat. Runs
+  11 PM, 1 AM, 3 AM, 5 AM and 7 AM Central. Nudges the DDF lane threads and may
+  ask the board thread to open PRs. Never merges, deploys, deletes branches or
+  touches Supabase data. Stops itself after 2026-11-11 or when no DDF task is
+  open. Stop it: ask Claude in Jeremy's main Duet chat to pause it, or pause it
+  in the app's routines list (Jeremy only).
+- **DDF lane threads** under the main-chat task "Run the Data Driven Football
+  board": Clearing players and teams (JEG-1190, PR #1023), Main green (PR
+  #1021), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
+  transition (JEG-1176/1180, PR #1022). They open PRs, merge only what Jeremy
+  approved (section 1) and log picks in `docs/picks-log.md`'s source. Stop or
+  steer: tell Claude in Jeremy's main Duet chat.
+- **This handoff thread** (Duet "ddf" channel). Writes only `HANDOFF.md`,
+  `docs/picks-log.md` and claude-log entries.
+- Not active: "Refresh DDF Value Logic page" (daily, disabled Oct 25) and
+  "Hourly board check" (disabled Oct 2).
+
+**Other agents (from `AGENTS.md`; activity inferred from open PRs, not checked
+on their machines):**
+- **Claude Managed Agent** (`session:cma`, `managed-agents/`): deployment
+  `ddf-queue` runs hourly (America/Chicago), claims up to 3 Linear tickets
+  labeled `session:cma`, and merges on green gates; `ddf-weekly-usage` runs
+  Mondays 7 AM CT. Branches `cma/<ticket>` (open: #1003, #1011). Pause:
+  `ant beta:deployments pause --deployment-id <id>` (ids in
+  `managed-agents/README.md`; needs Jeremy's Anthropic account). It has a
+  standing takeover of any ticket with no activity for 4 hours, so keep your
+  heartbeat comments current.
+- **Muse** (GitHub user `jkb-bur-bot`): only Linear tickets labeled `muse`;
+  branches `muse/jeg-<id>-<slug>` (open: #981, #982, #1024). Never merges.
+  Stop: remove the `muse` label or ask Jeremy.
+- **Ba-Nana** (Grok Bot PM, `banana/*` branches; open: #963, #966, #967, #968).
+  Its last handoff update was 2026-10-27 8:08 AM CT; whether it still runs is
+  unknown. Runs live on grok-bot-vm (`/workspace/logs/`) and the Mac; stop by
+  asking Jeremy.
+- **Front-end sessions** `session:fe-pc` (Windows PC), `session:fe-mac`,
+  `session:fe-cloud`, and `session:be`: owners are the Linear `Session` label.
+- **Cursor cloud agent**: branch `cursor/mcp-assistant-outputs-b7b6` (PR #958).
+- Other open PR branches: `research/position-weights` (#837), `fe/JEG-950`
+  (#920), `fe/jeg-1107` (#939), `fe/JEG-890-team-summary` (#964),
+  `fe/JEG-894-share-links` (#969), `fe/JEG-1101-llm-copy-help` (#970),
+  `fe/jeg-1176-week-selector` (#1012), `exp/lagging-dist-probe` (#1025,
+  experiment, do not merge). A `scratch/shard1-probe` render sweep was queued.
+
+**Scheduled automation (no agent behind it):**
+- Supabase pg_cron (project `iskiybsimubiujwuchsl`, times UTC), all active:
+  `vintage-check-live` hourly (dispatches the rebuild chain when data changed),
+  `source-probe-*` (fantasycalc hourly; projections, sharks, trade charts),
+  `fidelity-pulse-live` every 3 h, `health-artifacts-live` every 6 h,
+  `pages-deploy-live` 11:30, `rebuild-chain-bake-live` 11:45,
+  `espn-weekly-store-*`, `player-status-history-*`, `projection-capture-sunday`,
+  `player-identity-reconcile-nightly`, `render-sweep-daily`,
+  `sleeper-identity-refresh-live`, `trigger-fantasycalc-weekly-save`,
+  `trigger-player-trace-live`, `live-page-synthetic-live`,
+  `cron-retention-30d`. List: `select jobname, schedule, active from cron.job`.
+  Pausing one is a production change: ask Jeremy first.
+- GitHub Actions schedule: `full-suite.yml` nightly 07:17 UTC. Everything else
+  is push, PR or dispatch triggered.
+
+**How to coordinate (for Codex or any successor):**
+1. Check open PRs (`gh pr list`) and the branches above before touching the
+   same files; two In Progress tickets may not share a hot file.
+2. Announce a takeover with a comment on the Linear ticket
+   (`taking over from <session> · last heartbeat <time> · continuing from
+   <branch>`) and swap its `Session` label (`AGENTS.md`).
+3. Ask Jeremy to pause the overnight routine before working the same branches
+   as the Claude lanes (#1021, #1022, #1023).
+4. Never force-push or rebase someone else's branch; merge `origin/main` in.
 
 ---
 
@@ -106,8 +186,8 @@ is now history, last commit `d967e93`, 2026-10-27 8:06 AM CT).
   multiple choice"; "show your recommendation when you present options").
 - 2026-10-27: "Yes, use your picks, and make a note of what was picked in case
   I want to reverse something later." Lanes go with Claude's pick and log it in
-  the picks log (Claude Duet project file `ddf/picks-log.md`, outside this
-  repo). Nothing merges or deploys on a pick alone.
+  the picks log (source in Jeremy's main Duet chat; repo copy
+  `docs/picks-log.md`). Nothing merges or deploys on a pick alone.
 - 2026-10-27: approved merging DDF fixes to `main` on green CI with a passed
   review, one at a time, checking the live site after each. Bulk PR backlog is
   review-only; each backlog PR goes to him.
@@ -121,6 +201,23 @@ is now history, last commit `d967e93`, 2026-10-27 8:06 AM CT).
   batch questions; never re-ask one he answered. After a live deploy, tell him
   what to check with a direct link to the page or tab.
 - Never send PII or keys to model providers.
+
+### Picks made for Jeremy (reversible)
+Since 2026-10-27 9:45 PM CT the Claude lanes go with their own pick on open
+questions and log it. Full list: `docs/picks-log.md` (copy taken 2026-10-28
+03:22 UTC; source of truth is the log in Jeremy's main Duet chat until lanes
+write to the repo). Nothing merges on a pick alone; every pick is reversible.
+Current picks in brief:
+- JEG-1190: Compare starts empty with a sample button worded "Try a sample
+  trade" (PR #1023); clearing Your roster on Waivers clears it everywhere with
+  a message and Undo; Clear league on Find a trade asks to confirm, with Undo.
+- PR #1021: invisible 44x44 hit area for small phone footer links; re-freeze the
+  basis test baseline from current main.
+- JEG-1129: keep the backup WR rule at 1 (no code change).
+- JEG-1180 (PR #1022): stale = any served week N after Thursday 12:00 CT of N+1;
+  per-source freshness report is warning-only; DISCOVERY_OVERDUE alarm and the
+  Central watchdog calendar unchanged; new health state names (current,
+  lagging, stale, unknown).
 
 ### Definition of done
 - Done = merged to `main` and live (Linear "Done"). For a fix: commit, merge,
@@ -323,10 +420,9 @@ Known bugs (repro steps and history on each ticket):
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
    mobile umbrella (PR #963).
-6. Open PRs at writing: #837, #920, #939, #958, #963, #964 (draft), #966
-   (draft), #967, #968, #969 (draft), #970 (draft), #981, #982, #1003, #1005,
-   #1011, #1012 (draft), #1021 (draft), #1022 (draft). Apply the section 1
-   backlog decisions; don't merge others without review.
+6. Open PRs (2026-10-28 03:30 UTC): see "Active agents and automation" for
+   owners. #1005 merged at 03:15 UTC. Apply the section 1 backlog decisions;
+   don't merge others without review.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
@@ -355,7 +451,7 @@ Failed approaches and traps:
 - Outside the repo: Linear (team Jegabee, project Trade Value Chart) is the
   progress record; the feature contract and manifesto Google Docs
   (`docs/feature-contract.md`, `docs/manifesto-mirror.md` are mirrors); the
-  picks log in the Claude Duet "ddf" project files; PM launchers and wrappers
+  source picks log in Jeremy's main Duet chat (copied to `docs/picks-log.md`); PM launchers and wrappers
   on the grok box (`/workspace/logs/`) and Mac (`~/.config/banana/`); the old
   DDF Value Logic artifact (retires once the dashboard page is verified live).
 - Nothing of this session is unpushed or uncommitted.
