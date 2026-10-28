@@ -340,12 +340,14 @@
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
   // JEG-950 (Jeremy, 2026-10-26): the win|lose sub-line shows the real computed market gap, so the number
-  // and the direction word always come from the market net, never hard-coded. "up" when the market has you
-  // ahead, "down" when behind, "even" at exactly zero (the win|lose cell cannot reach zero, but the helper
-  // stays honest on its own). One decimal, like the nets on the card.
-  const marketGapWord = net => (net > 0 ? "up" : net < 0 ? "down" : "even");
-  const marketGapText = net => (net === 0 ? "Market has you even." : `Market has you ${marketGapWord(net)} ${Math.abs(net).toFixed(1)} points.`)
-    + " Close the gap to land it.";
+  // and the direction word always come from the market net, never hard-coded: "ahead" or "behind", "even"
+  // at exactly zero. On the win|lose cell the market always has you behind, and that gap is why the other
+  // manager is likely to accept, so the line says so instead of advising to close it (Jeremy, 2026-10-28:
+  // the old "down ... Close the gap to land it." read like advice to give up more). One decimal.
+  const marketGapWord = net => (net > 0 ? "ahead" : net < 0 ? "behind" : "even");
+  const marketGapText = net => (net === 0 ? "The trade charts call it even."
+    : net > 0 ? `The trade charts have you ${Math.abs(net).toFixed(1)} points ahead.`
+      : `The trade charts have you ${Math.abs(net).toFixed(1)} points behind, so the other manager will likely see it as their win.`);
   // One production sentence: P's side against V's side.
   // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
   // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.

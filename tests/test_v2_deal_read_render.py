@@ -10,7 +10,8 @@ Loads the built page headless, opens trades by link (#compare-trade?give=..&get=
   * "The sources split." is gone, at 1440, 390 and 320 px; no horizontal overflow at 390 and 320, and the
     deal-read headline and sub-line do not overflow their own boxes (JEG-950);
   * the win|lose read (JEG-950, Jeremy 2026-10-26) reads exactly "DDF Value likes it. The market doesn't."
-    with no call to action, and its sub-line is "Market has you down N points. Close the gap to land it."
+    with no call to action, and its sub-line is "The trade charts have you N points behind, so the other
+    manager will likely see it as their win."
     with N the real market net to one decimal, recomputed here;
   * the example trade (no players added) also carries a deal read.
 
@@ -21,6 +22,7 @@ from __future__ import annotations
 
 import contextlib
 import functools
+import re
 import http.server
 import shutil
 import socketserver
@@ -47,9 +49,11 @@ TITLE = "DDF Value likes it. The market doesn't."
 
 def gap_text(net):
     """The win|lose sub-line, recomputed independently of trade.js."""
-    word = "up" if net > 0 else "down" if net < 0 else "even"
-    body = "Market has you even." if net == 0 else f"Market has you {word} {abs(net):.1f} points."
-    return body + " Close the gap to land it."
+    if net == 0:
+        return "The trade charts call it even."
+    if net > 0:
+        return f"The trade charts have you {abs(net):.1f} points ahead."
+    return f"The trade charts have you {abs(net):.1f} points behind, so the other manager will likely see it as their win."
 
 # The built data may have no published trade charts for the week, so the test feeds the page deterministic
 # chart and projection series on top of the engine's DDF Value. JEG-832: four chart series are injected
@@ -224,14 +228,13 @@ def check_snapshot(snap, give, receive, chart_keys, tag) -> list[str]:
         # JEG-950: the live win|lose read shows the real market gap, not the static grid explanation.
         if cell == "win|lose" and not split and want["market"][0] is not None:
             net = want["market"][0]
-            word = "up" if net > 0 else "down" if net < 0 else "even"
             got = snap["text"].strip()
-            if not got.startswith(f"Market has you {word} ") or not got.endswith(" Close the gap to land it."):
+            m = re.fullmatch(r"The trade charts have you (\d+\.\d) points (ahead|behind)(.*)", got)
+            want_tail = gap_text(net).split(" points ", 1)[1] if net != 0 else ""
+            if net == 0 or not m or m.group(2) + m.group(3) != want_tail:
                 errors.append(f"{tag}win|lose sub-line {got!r}, want {gap_text(net)!r}")
-            else:
-                num = got[len(f"Market has you {word} "):-len(" points. Close the gap to land it.")]
-                if abs(float(num) - abs(net)) > 0.06:
-                    errors.append(f"{tag}win|lose sub-line number {num!r}, want {abs(net):.1f}")
+            elif abs(float(m.group(1)) - abs(net)) > 0.06:
+                errors.append(f"{tag}win|lose sub-line number {m.group(1)!r}, want {abs(net):.1f}")
         if cell == "lose|win" and not snap["read"].startswith("Trap") and not split:
             errors.append(f"{tag}lose|win must read 'Trap', got {snap['read']!r}")
     return errors

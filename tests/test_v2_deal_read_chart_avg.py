@@ -99,7 +99,8 @@ def check(trade_js: Path) -> list[str]:
 
     # 6. JEG-950: the sub-line is the real market gap, one decimal, direction word from the net's sign.
     if d["marketNet"] is not None:
-        want_text = f"Market has you down {abs(d['marketNet']):.1f} points. Close the gap to land it."
+        want_text = (f"The trade charts have you {abs(d['marketNet']):.1f} points behind, "
+                     "so the other manager will likely see it as their win.")
         if d["text"] != want_text:
             errors.append(f"text is {d['text']!r}, expected {want_text!r}")
 

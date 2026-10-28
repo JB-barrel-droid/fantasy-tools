@@ -75,9 +75,11 @@ console.log(JSON.stringify({up: T.marketGapText(8.24), down: T.marketGapText(-8.
 
 def gap_text(net):
     """The win|lose sub-line, recomputed independently of trade.js."""
-    word = "up" if net > 0 else "down" if net < 0 else "even"
-    body = "Market has you even." if net == 0 else f"Market has you {word} {abs(net):.1f} points."
-    return body + " Close the gap to land it."
+    if net == 0:
+        return "The trade charts call it even."
+    if net > 0:
+        return f"The trade charts have you {abs(net):.1f} points ahead."
+    return f"The trade charts have you {abs(net):.1f} points behind, so the other manager will likely see it as their win."
 
 
 def case_set():
@@ -139,13 +141,13 @@ def run_helper(path: Path) -> list[str]:
     out = subprocess.run([node, "-e", HELPER_HARNESS, str(path)], capture_output=True, text=True, check=True)
     got = json.loads(out.stdout)
     errors = []
-    if got["up"] != "Market has you up 8.2 points. Close the gap to land it.":
+    if got["up"] != "The trade charts have you 8.2 points ahead.":
         errors.append(f"marketGapText(8.24) = {got['up']!r}")
-    if got["down"] != "Market has you down 8.2 points. Close the gap to land it.":
+    if got["down"] != "The trade charts have you 8.2 points behind, so the other manager will likely see it as their win.":
         errors.append(f"marketGapText(-8.2) = {got['down']!r}")
-    if got["zero"] != "Market has you even. Close the gap to land it.":
+    if got["zero"] != "The trade charts call it even.":
         errors.append(f"marketGapText(0) = {got['zero']!r}")
-    if (got["wordUp"], got["wordDown"], got["wordZero"]) != ("up", "down", "even"):
+    if (got["wordUp"], got["wordDown"], got["wordZero"]) != ("ahead", "behind", "even"):
         errors.append(f"marketGapWord = {got['wordUp']!r}/{got['wordDown']!r}/{got['wordZero']!r}")
     return errors
 
@@ -191,8 +193,8 @@ MUTATIONS = {
     "floor dropped": ("const threshold = Math.max(1, 0.03 * ((give + receive) / 2));", "const threshold = 0.03 * ((give + receive) / 2);"),
     "percentage changed": ("0.03 * ((give + receive) / 2)", "0.10 * ((give + receive) / 2)"),
     "value-likes-it and trap swapped": ('"win|lose": {title: "DDF Value likes it. The market doesn\'t."', '"win|lose": {title: "Trap"'),
-    "hard-coded down word": ('const marketGapWord = net => (net > 0 ? "up" : net < 0 ? "down" : "even");',
-                             'const marketGapWord = net => (net >= 0 ? "up" : "down");'),
+    "hard-coded direction word": ('const marketGapWord = net => (net > 0 ? "ahead" : net < 0 ? "behind" : "even");',
+                                  'const marketGapWord = net => (net >= 0 ? "ahead" : "behind");'),
     "missing read as zero": ("      if (missing.length) return {key, give: null, receive: null, net: null, missing};",
                              "      if (missing.length && false) return {key, give: null, receive: null, net: null, missing};"),
     "production inverted": ("    if (p === v) return p === \"win\"", "    if (p !== v) return p === \"win\""),
