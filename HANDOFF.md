@@ -40,8 +40,8 @@ newer notes on their own handoff branches (open PR #1031 for main green).
   rule into its calendar fallback when it merges main in), #1027 (JEG-1176),
   #1029 (JEG-1189), #1030 (JEG-1187, changes what "Market supported" means),
   #1032 (JEG-1123/1124; needs an mcp redeploy), #1033 (JEG-1125, ticket on hold
-  by Jeremy; moves no numbers), #1034 (JEG-1155). JEG-1130 (PMM copy) is in
-  progress on `muse/jeg-1130-pmm-copy`.
+  by Jeremy; moves no numbers), #1034 (JEG-1155), #1037 (JEG-1130 part 2, PMM copy; leaves the series
+  label naming to Jeremy because the doc names them two ways).
 - **Picks:** every choice made for Jeremy is in `docs/picks-log.md`. Nothing
   merges or deploys on a pick alone.
 - **Next concrete action for a successor:**
@@ -79,7 +79,7 @@ here, coordinate first (bottom of this section).
   board": Clearing players and teams (JEG-1190, PR #1023), Main green (PR
   #1021 merged; handoff PR #1031), Trade viability fix (JEG-1129, PR #960
   merged), Board run (verified active 2026-10-28 08:25 UTC: PRs #1022, #1024,
-  #1027, #1029, #1030, #1032, #1033, #1034, and a subagent on JEG-1130). They open PRs, merge only what Jeremy
+  #1027, #1029, #1030, #1032, #1033, #1034, #1037). They open PRs, merge only what Jeremy
   approved (section 1) and log picks in `docs/picks-log.md`'s source. Stop or
   steer: tell Claude in Jeremy's main Duet chat.
 - **This handoff thread** (Duet "ddf" channel). Writes only `HANDOFF.md`,
