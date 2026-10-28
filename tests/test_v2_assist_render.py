@@ -199,6 +199,8 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 # wrapped or stacked rather than clipped, and the page no wider than the phone. Since JEG-1119 (Jeremy's
                 # scope, 2026-10-26) they sit in the strip's ⋯ menu, so the menu is opened to measure them.
                 strip = narrow.evaluate("""() => { const w = document.documentElement.clientWidth;
+                  const sum = document.getElementById('v2ContextSummary');   // JEG-1134: on a phone the row opens first
+                  if (sum && sum.offsetParent && sum.getAttribute('aria-expanded') !== 'true') sum.click();
                   const more = document.getElementById('v2ContextMore'); if (more.offsetParent) more.click();
                   const box = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
                     return {inStrip: Boolean(e.closest('#v2Context')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
@@ -210,11 +212,13 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 if strip["over"] > 0 or strip["footerButtons"]:
                     errors.append(f"390px {tab}: overflow {strip['over']}px, buttons left in the footer {strip['footerButtons']}")
             narrow.evaluate("() => { location.hash = '#find-trade'; }")
+            _render_env.open_phone_context(narrow)  # JEG-1134: on a phone the context row opens first
             narrow.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             narrow.click("#v2AssistPasteToggle")
             narrow.fill("#v2AssistPasteText", f"```ddf-state\n{hand}\n```")
             narrow.click("#v2AssistApply")
             narrow.wait_for_timeout(400)
+            _render_env.open_phone_context(narrow)  # JEG-1134: on a phone the context row opens first
             narrow.click("#v2ContextMore")  # JEG-1119: in the ⋯ menu
             narrow.click("#v2AssistPasteToggle")   # open again: the box, its label and the report all sit at 390px
             narrow.wait_for_timeout(100)

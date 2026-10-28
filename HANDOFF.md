@@ -59,6 +59,9 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1134 (phone context row, 2026-10-28 9:30 AM CT, JEG-1134 lane):** PR #1043 on
+  `fe/jeg-1134-context-phone-summary` collapses the context row to one summary line below 768 px (option B after
+  Jeremy's measure-first pick C). It supersedes #967. Picks are in `docs/picks-log.md`.
 - **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is

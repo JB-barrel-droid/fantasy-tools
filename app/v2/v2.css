@@ -204,6 +204,27 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-context-inner > .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
   .v2-context-inner > .v2-ctx-basis { order: 0; flex: 1 1 0; }
 }
+/* JEG-1134 (Jeremy 2026-10-27, option C: the row measured taller than one line, so B): below 768 px the context row is
+   one line, the summary ("Full PPR · 12 teams · 4 sources") and the freshness chip. Tapping the summary opens the rest
+   under it: the roster line, Edit league, Customize, ⋯ and the "On the chart" line (Jeremy 2026-10-26: OK for that
+   line to hide while closed). From 768 px the summary is not rendered and the row is as before. */
+.v2-ctx-summary { display: none; }
+@media (max-width: 767px) {
+  .v2-context .v2-ctx-summary { display: flex; align-items: center; gap: 8px; order: 0; flex: 1 1 0; min-width: 0; min-height: 44px;
+    padding: 0; border: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+  .v2-ctx-summary:focus-visible { outline: 2px solid var(--v2-action); outline-offset: 2px; border-radius: 4px; }
+  .v2-ctx-summary-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v2-ctx-summary-caret { flex: 0 0 auto; color: var(--v2-muted); font-size: 12px; line-height: 1; }
+  .v2-ctx-summary-caret::before { content: "▾"; }
+  .v2-ctx-summary[aria-expanded="true"] .v2-ctx-summary-caret { transform: rotate(180deg); }
+  /* Closed: only the summary and the freshness chip. */
+  .v2-context:not(.is-open) .v2-context-inner::before { content: none; }
+  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness) { display: none; }
+  /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
+  .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
+  .v2-context.is-open .v2-ctx-league strong { display: none; }
+}
+
 /* Small button variant */
 .v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
 

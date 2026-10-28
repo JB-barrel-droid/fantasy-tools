@@ -965,6 +965,11 @@
       + (c.g.id === "ddf" && customBlend ? " (your basis, not ours)" : "")).join(" + ") || "nothing selected"}`
       + (legendHidden ? ` · ${legendHidden} hidden with the chart legend` : "")
       + (view.refWeek ? ` · Week ${view.refWeek}` : "");
+    // JEG-1134: the phone summary line ("Full PPR · 12 teams · 4 sources"). The count is outside sources only, so
+    // DDF Value is not counted (Jeremy, 2026-10-26); with no outside source it names DDF Value instead of "0 sources".
+    const outside = shownKeys.filter(key => !isDdfKey(key)).length;
+    $("v2ContextSummaryText").textContent = `${scoring} · ${s.teams} teams · `
+      + (outside ? `${outside} source${outside === 1 ? "" : "s"}` : oneDdf.length ? "DDF Value only" : "nothing selected");
     const legend = $("v2ShowingLegend");
     legend.replaceChildren();
     shownKeys.forEach(key => {
@@ -3259,9 +3264,11 @@
     return {text: `Bench share this week: ${parts.join(", ")}, from your league settings`, short: parts.join(" · "), override: false, missing: false};
   }
   const BENCH_INFO = "The bench share is how much of each position's value sits with bench players. It comes from how often bench players actually reach a lineup in your league setup: byes, injuries and how deep your bench is.";
-  function openWeights() {
+  function openWeights(event) {
     // JEG-1119: Position weights sits in the ⋯ menu; with the menu closed the panel anchors (and returns focus) to ⋯.
-    const anchor = $("v2Weights").offsetParent ? $("v2Weights") : $("v2ContextMore");
+    // JEG-1134: on a phone with the context row closed ⋯ is not shown either, so it anchors to the button that opened it.
+    const opener = event && event.currentTarget instanceof Element ? event.currentTarget : null;
+    const anchor = [$("v2Weights"), $("v2ContextMore"), opener].find(b => b && b.offsetParent) || $("v2ContextMore");
     openPanel(anchor, "Position weights", "Applies across tabs", pop => {
       const body = panelBody(pop);
       eyebrow(body, "Bench share");
@@ -6998,6 +7005,18 @@
     document.addEventListener("click", event => {
       if (!$("v2ContextMenu").hidden && !event.target.closest(".v2-ctx-menuwrap")) setContextMenu(false);
     });
+    // JEG-1134: the phone summary line opens and closes the rest of the context row (CSS renders it below 768 px only).
+    // Leaving the phone layout closes it, so the open state never shows on a wider screen.
+    {
+      const summary = $("v2ContextSummary");
+      const setSummary = open => {
+        summary.setAttribute("aria-expanded", String(open));
+        $("v2Context").classList.toggle("is-open", open);
+        if (!open) setContextMenu(false);
+      };
+      summary.addEventListener("click", () => setSummary(summary.getAttribute("aria-expanded") !== "true"));
+      window.matchMedia("(max-width: 767px)").addEventListener("change", event => { if (!event.matches) setSummary(false); });
+    }
     $("v2Weights").addEventListener("click", openWeights);
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
