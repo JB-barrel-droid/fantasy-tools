@@ -20,7 +20,7 @@
   const CARDS = [
     {title: "v2ChartTitle", name: "Chart", expand: "v2ExpandChart", summary: () => text("v2TableMeta")},
     {title: "v2TableTitle", name: "Table", expand: "v2ExpandTable", summary: () => text("v2TableMeta")},
-    {title: "v2VorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2VorpTitle", name: "Value above waivers", summary: () => "How much better each player is than the best free pickup"},
     {title: "v2TSellTitle", name: "Sell", summary: () => `Sell: ${text("v2TSellMeta")}`},
     {title: "v2TBuyTitle", name: "Buy", summary: () => `Buy: ${text("v2TBuyMeta")}`},
     {title: "v2TCheck2Title", name: "Positional weight inflation", summary: () => text("v2WeightHeadline")},
@@ -42,7 +42,7 @@
     {title: "v2LgTitle", name: "Your league", summary: () => text("v2LgCount") || "Your league"},
     {title: "v2LgSummaryTitle", name: "Team summary", summary: () => text("v2LgSummaryHeadline") || "Roster, starter and bench value for every team"},
     {title: "v2LgOppsTitle", name: "Trade opportunities", summary: () => text("v2LgOppsHeadline") || "Your team against every other team"},
-    {title: "v2CVorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2CVorpTitle", name: "Value above waivers", summary: () => "How much better each player is than the best free pickup"},
   ];
 
   function sideSummary(label, listId, totalId) {

@@ -23,7 +23,7 @@
   --v2-action-strong: #066B4C;   /* action text on a tint: 4.5:1 on --v2-positive */
   --v2-tint-border: #CFE7DB;
   --v2-brush-fill: #D7EEE3;
-  --v2-radius-card: 12px;
+  --v2-radius-card: var(--ddf-radius-card, 12px);
   --v2-radius-btn: 8px;
   /* Compact density tokens (JEG-470), shared by every tab. Fluid between phone and 1440 px. */
   --v2-pad-card: clamp(8px, 0.4vw + 4px, 14px);        /* card padding, block */
@@ -64,6 +64,51 @@
     --v2-heat-down-1: #261C20; --v2-heat-down-2: #302127; --v2-heat-down-3: #3A262D;
 }
 
+/* JEG-1136: design tokens (docs/design/2026-10-direction.md "Tokens", PR 961, approved by Jeremy 2026-10-26).
+   Roles, not hexes: components read these. Light first, then dark in the same two forms as the legacy block above.
+   Canvas, surface and line stay at today's cool values (the designer's call on warm paper is open): flip them with
+   <html data-canvas="paper">. The headline face is --ddf-font-headline (today the UI face; the concept uses Fraunces). */
+:root {
+  --ddf-canvas: var(--v2-canvas); --ddf-surface: var(--v2-surface); --ddf-line: var(--v2-border);
+  --ddf-ink: #1A2824; --ddf-muted: #52635C; --ddf-action: #0C7A56; --ddf-action-ink: #FFFFFF;
+  --ddf-good-tint: #E4F5ED; --ddf-good-ink: #085C40;
+  --ddf-warn-tint: #F8EFE1; --ddf-warn-ink: #7A4510;
+  --ddf-bad-tint: #F8E8EA; --ddf-bad-ink: #8C2434;
+  --ddf-info-tint: #E6F0FA; --ddf-info-ink: #18467A;
+  --ddf-neutral-tint: #ECEFEE; --ddf-neutral-ink: #1A2824;
+  /* Position chip tones: RB good, WR info, TE warn, QB neutral. */
+  --ddf-chip-rb-bg: var(--ddf-good-tint); --ddf-chip-rb-ink: var(--ddf-good-ink);
+  --ddf-chip-wr-bg: var(--ddf-info-tint); --ddf-chip-wr-ink: var(--ddf-info-ink);
+  --ddf-chip-te-bg: var(--ddf-warn-tint); --ddf-chip-te-ink: var(--ddf-warn-ink);
+  --ddf-chip-qb-bg: var(--ddf-neutral-tint); --ddf-chip-qb-ink: var(--ddf-neutral-ink);
+  /* Type scale: nothing else. 34 the answer, 28 the emoji, 20 a name or the line under the answer, 14 body, 12 metadata. */
+  --ddf-type-answer: 34px; --ddf-type-emoji: 28px; --ddf-type-name: 20px; --ddf-type-body: 14px; --ddf-type-meta: 12px;
+  --ddf-font-ui: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --ddf-font-headline: var(--ddf-font-ui);
+  /* Spacing on an 8 grid (4 for tight gaps); phone page padding 16; cards 12px; pills; hit targets 44px. */
+  --ddf-space-1: 4px; --ddf-space-2: 8px; --ddf-space-3: 16px; --ddf-space-4: 24px; --ddf-space-5: 32px; --ddf-space-6: 48px;
+  --ddf-page-pad-phone: 16px;
+  --ddf-radius-card: 12px; --ddf-radius-pill: 999px;
+  --ddf-hit: 44px;
+}
+:root[data-canvas="paper"] { --ddf-canvas: #F6F3EC; --ddf-surface: #FFFCF8; --ddf-line: #E3DCD0; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ddf-ink: #E8F2ED; --ddf-muted: #9DB0A8; --ddf-action: #6EE4B8; --ddf-action-ink: #062018;
+    --ddf-good-tint: #153126; --ddf-good-ink: #8FE0BE; --ddf-warn-tint: #33260F; --ddf-warn-ink: #F0BE82;
+    --ddf-bad-tint: #36181D; --ddf-bad-ink: #F2A3AE; --ddf-info-tint: #14283D; --ddf-info-ink: #9CC4F0;
+    --ddf-neutral-tint: #232E29; --ddf-neutral-ink: #E8F2ED;
+  }
+  :root[data-canvas="paper"]:not([data-theme="light"]) { --ddf-canvas: #101614; --ddf-surface: #18211D; --ddf-line: #2A3833; }
+}
+:root[data-theme="dark"] {
+  --ddf-ink: #E8F2ED; --ddf-muted: #9DB0A8; --ddf-action: #6EE4B8; --ddf-action-ink: #062018;
+  --ddf-good-tint: #153126; --ddf-good-ink: #8FE0BE; --ddf-warn-tint: #33260F; --ddf-warn-ink: #F0BE82;
+  --ddf-bad-tint: #36181D; --ddf-bad-ink: #F2A3AE; --ddf-info-tint: #14283D; --ddf-info-ink: #9CC4F0;
+  --ddf-neutral-tint: #232E29; --ddf-neutral-ink: #E8F2ED;
+}
+:root[data-theme="dark"][data-canvas="paper"] { --ddf-canvas: #101614; --ddf-surface: #18211D; --ddf-line: #2A3833; }
+
 body.v2 { margin: 0; background: var(--v2-canvas); color: var(--v2-ink); }
 body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !important; }
 
@@ -74,9 +119,9 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
 .v2-app, .v2-app * { box-sizing: border-box; }
 /* The off-screen engine's stylesheet targets bare elements; keep v2 on its own type. */
 .v2-app table, .v2-app th, .v2-app td, .v2-app button, .v2-app input, .v2-app select, .v2-app label, .v2-app h1, .v2-app h2, .v2-app h3 {
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif; letter-spacing: normal; text-transform: none;
+  font-family: var(--ddf-font-ui); letter-spacing: normal; text-transform: none;
 }
-.v2-app { font: 400 14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--v2-ink); min-height: 100vh; }
+.v2-app { font: 400 var(--ddf-type-body)/1.45 var(--ddf-font-ui); color: var(--v2-ink); min-height: 100vh; }
 .v2-app h1, .v2-app h2, .v2-app p { margin: 0; font-family: inherit; letter-spacing: normal; text-transform: none; color: inherit; }
 .v2-app button, .v2-app input, .v2-app select { font: inherit; color: inherit; }
 .v2-app :focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
@@ -262,7 +307,7 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 .v2-seg button { border: 1px solid var(--v2-border); background: var(--v2-surface); border-radius: var(--v2-radius-btn); padding: 8px 16px; min-height: 40px; cursor: pointer; }
 .v2-seg button.is-on { background: var(--v2-action); border-color: var(--v2-action); color: var(--v2-action-ink); font-weight: 600; }
 
-.v2-chart { position: relative; height: 340px; margin-top: 8px; outline: none; }
+.v2-chart { position: relative; height: 340px; margin-top: 8px; outline: none; touch-action: pan-y; }   /* JEG-954: a horizontal drag inspects, a vertical one still scrolls the page */
 .v2-chart-small { height: 220px; }
 .v2-chart svg { display: block; width: 100%; height: 100%; }
 .v2-chart .grid line { stroke: var(--v2-border); }
@@ -443,6 +488,15 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
 @media (max-width: 1023px) {
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
   .v2-ttable th, .v2-ttable td { padding-inline: clamp(4px, .55vw, 8px); }
+}
+/* JEG-1082: on the 768 px-tall desktop viewports (1366x768, 1024x768) the two-line rows put the top 5 of both lists
+   past TOP5_FOLD_PX. Tighten only the row rhythm on the Targets view at those heights: nothing is hidden, no name is
+   truncated, and the 900 px-tall desktop (JEG-675's fold check) is untouched. */
+@media (min-width: 1024px) and (max-height: 820px) {
+  #v2Targets .v2-ttable th, #v2Targets .v2-ttable td { padding-top: 3px; padding-bottom: 3px; }
+  #v2Targets .v2-ttable td.player .v2-nm, #v2Targets .v2-ttable .player-sub { line-height: 1.2; }
+  #v2Targets .v2-tlist { padding-top: 10px; }
+  #v2Targets .v2-tlist-head .v2-meta { margin-top: 0 !important; }
 }
 
 /* Shared: the prior-week badge (JEG-459) and the ⓘ "indexed" button (JEG-458). */
@@ -1386,6 +1440,42 @@ body.v2-expand-open { overflow: hidden; }
   #v2Main .v2-expand .v2-plot .v2-brush { grid-column: 2; }
 }
 body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the expanded chart */
+/* JEG-954: phone chart full screen. The button shows below 768 px (the desktop keeps the corner icon); the full-screen chart
+   takes every touch itself (no page scroll under the finger); portrait phones get a dismissible rotate prompt. */
+.v2-app .v2-fullscreen { display: none; margin-left: auto; min-height: 44px; min-width: 44px; }
+.v2-expand .v2-chart { touch-action: none; }
+.v2-rotate-hint { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--v2-positive); border-bottom: 1px solid var(--v2-tint-border); font-size: 13px; }
+.v2-rotate-hint[hidden] { display: none; }
+.v2-rotate-icon { font-size: 22px; line-height: 1; color: var(--v2-action-strong); }
+.v2-rotate-text { flex: 1 1 auto; }
+@media (max-width: 767px), (max-height: 500px) and (pointer: coarse) {
+  .v2-app .v2-fullscreen { display: inline-flex; align-items: center; justify-content: center; padding: 10px 12px; }
+  .v2-chart-head h2 { flex: 1 1 80px; min-width: 0; }   /* the title and the button share the first line */
+  .v2-expand-box { padding-bottom: env(safe-area-inset-bottom); }
+  /* Full screen is the chart: one-line head, one scrolling row of Show / legend, and the plot takes the rest. */
+  .v2-expand[data-kind="chart"] .v2-expand-head { padding-top: 8px; padding-bottom: 6px; align-items: center; }
+  .v2-expand[data-kind="chart"] .v2-expand-head h2 { font-size: 17px; }
+  .v2-expand[data-kind="chart"] .v2-expand-head .v2-meta { display: none; }
+  .v2-expand[data-kind="chart"] .v2-expand-tools { flex-wrap: nowrap; overflow-x: auto; padding-top: 6px; padding-bottom: 4px; }
+  .v2-expand[data-kind="chart"] .v2-expand-tools > * { flex: none; }
+  .v2-expand[data-kind="chart"] .v2-expand-tools .v2-legend { flex: none; flex-wrap: nowrap; white-space: nowrap; }
+  .v2-expand[data-kind="chart"] .v2-xshow { width: auto; }
+  .v2-expand[data-kind="chart"] .v2-xshow button { flex: none; min-width: 56px; }
+  /* The search box and the position picker share one row (JEG-926 keeps search on the expanded graph). */
+  .v2-expand .v2-plot-tools { flex-wrap: nowrap; padding-left: 0; gap: 8px; }
+  .v2-expand .v2-plot-tools .v2-search { flex: 1 1 0; max-width: none; }
+  .v2-expand[data-kind="chart"] .v2-expand-body { overflow-y: auto; padding-top: 4px; padding-bottom: 8px; }
+  .v2-expand[data-kind="chart"] .v2-expand-body .v2-plot { flex: 1 1 auto; height: auto; min-height: 240px; }
+  .v2-rotate-hint { padding: 6px 16px; }
+}
+/* A phone turned sideways (wider than 767 px, about 400 tall): full viewport, as the portrait phone has. */
+@media (min-width: 768px) and (max-height: 500px) and (pointer: coarse) {
+  .v2-expand { padding: 0; }
+  .v2-expand-box, .v2-expand[data-kind] .v2-expand-box { width: 100vw; height: 100vh; max-height: none; border: 0; border-radius: 0; box-shadow: none; }
+  .v2-expand-head, .v2-expand-tools { padding-left: 16px; padding-right: 16px; }
+  .v2-expand-body { padding: 4px 16px 8px; }
+  .v2-expand[data-kind="chart"] .v2-expand-head .v2-meta { display: none; }
+}
 
 /* Manifesto (2026-10-09): plain long-form text inside the v2 shell, one column of about 70 characters. */
 #v2Manifesto { padding-top: clamp(20px, 2vw + 8px, 40px); padding-bottom: 64px; }
@@ -1487,6 +1577,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Find .v2-ctoolbar { margin-top: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 #v2FindOut { margin-top: 12px; }
 .v2-find-list { list-style: none; margin: 8px 0 0; padding: 0; }
+/* JEG-1043: Show viable offers only; the empty state when no group is viable. */
+.v2-find-viable-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; margin-top: 8px; font-size: 14px; cursor: pointer; }
+.v2-find-viable-toggle input { width: 20px; height: 20px; margin: 0; }
+.v2-find-empty { margin: 12px 0 0; font-size: 14px; line-height: 1.45; }
 .v2-find-list li { display: grid; gap: 4px; border-top: 1px solid var(--v2-border); padding: 12px 0; }
 
 /* Player values chart: Starter / Bench / Waiver lines and labels, draggable brush fill, legend toggles (JEG-503). */
@@ -2027,6 +2121,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-lg-saved { margin-left: 0; flex-basis: 100%; }
   .v2-lg-actions { flex: 1 1 100%; }
   .v2-lg-actions .v2-btn { flex: 1 1 auto; }
+  /* JEG-1154: the "Overall fit:" filter's select is as wide as its longest option ("Natural and market supported"), so at 320 px the label
+     ran 15 px past the edge and the page scrolled sideways. The row already wraps; the field and its select shrink to the line instead. */
+  .v2-lg-filters .v2-field { min-width: 0; max-width: 100%; flex: 1 1 100%; }
+  .v2-lg-filters .v2-field select { min-width: 0; max-width: 100%; }
 }
 .v2-lg-table td.num, .v2-lg-table th.num { white-space: nowrap; }
 .v2-lg-opp[data-overall="natural"] > td:first-child { box-shadow: inset 4px 0 0 var(--v2-action); }

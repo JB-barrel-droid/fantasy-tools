@@ -5,7 +5,7 @@ pasting a long shared brief (JEG-524). Pick the agent by the
 `Model tier` label on the ticket (table in `AGENTS.md`): T1 deep
 (`deep-worker`, Opus) for value/engine math, unknown-root-cause debugging,
 design or final review; T2 build (`worker`, Sonnet) for implementation against
-a written spec; T3 light (Haiku or the `delegate` fast tier) for copy edits,
+a written spec; T3 light (Haiku, or a cheap OpenRouter/MiniMax model) for copy edits,
 doc moves, research sweeps, capture and triage. T2 escalates to T1 after 2
 failed gate runs.
 
@@ -19,7 +19,7 @@ Touches: <hot files from AGENTS.md, or "none">. Two In Progress tickets may not 
 Lane / files you own: <paths>. Do not edit: <paths owned by other running agents>
 Read only what applies: <specific docs and risk-register rows, e.g. docs/methodology.md section X>
 Known context: <2-5 bullets the agent can't get from docs: decisions, what was tried>
-Moves chart numbers? <yes: run the 12-combo sweep in CLAUDE.md / no>
+Moves chart numbers? <yes: run the 12-combo sweep in AGENTS.md / no>
 Output shape: <patch on branch | findings with file:line | options + recommendation>
 
 Done when (runnable; paste each command's exit code and last ~20 lines in the handback):
@@ -49,7 +49,7 @@ Done when (runnable; paste each command's exit code and last ~20 lines in the ha
   handback.
 - Don't dispatch production workflows. Dry runs are fine; give the lead the
   exact `gh workflow run ...` command.
-- Copy rules, the 12-combo sweep and the gate are in `CLAUDE.md`. Fail-closed
+- Copy rules, the 12-combo sweep and the gate are in `AGENTS.md`. Fail-closed
   data rules are in `docs/pipeline-rules.md`.
 
 **Quality**
