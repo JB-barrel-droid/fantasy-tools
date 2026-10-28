@@ -608,6 +608,7 @@ test-core:
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
@@ -670,6 +671,7 @@ test-core-shard-1:
 	node tests/test_v2_roster_paste.js
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_view_invariants
