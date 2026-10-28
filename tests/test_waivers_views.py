@@ -187,7 +187,7 @@ MUTANTS = {
     "combos ignore the view": ("const key = (ctx.view || viewFor(VIEW_DEFAULT)).key;\n    const out = [];", "const key = OUR_KEY;\n    const out = [];"),
     "combo noise ignores the view": ("Math.pow(valueNoise(r, key, ctx.chartKeys || undefined), 2)", "Math.pow(valueNoise(r, OUR_KEY, ctx.chartKeys || undefined), 2)"),
     "unpriced players dropped first": ("Number(unpriced(a.row)) - Number(unpriced(b.row)) || a.marginal - b.marginal", "a.marginal - b.marginal"),
-    "no market price read as a price": ("return finite(v) && (key !== CHART_AVG_KEY || v >= USABLE_MIN) ? v : null;", "return finite(v) ? v : null;"),
+    "no market price read as a price": ("return finite(v) && (key !== MARKET_KEY || v >= USABLE_MIN) ? v : null;", "return finite(v) ? v : null;"),
     "view ignored in the swap": ("const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, key);", "const impact = rosterImpact(roster, leaving, [candidate], ctx.shape, OUR_KEY);"),
     "view ignored in the fit": ("z: FIT_Z}, key);", "z: FIT_Z}, OUR_KEY);"),
     "view ignored in the drop": ("dropRanking(roster, ctx.shape, key, weights)[0]", "dropRanking(roster, ctx.shape, OUR_KEY, weights)[0]"),

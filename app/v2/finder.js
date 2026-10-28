@@ -334,10 +334,7 @@
   const FLEX_POS = ["RB", "WR", "TE"];
   const SUPERFLEX_POS = ["QB", "RB", "WR", "TE"];
   const SLOTS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
-  const MARKET_KEY = "ddf_value_charts";
-  // The plain mean of the compared chart rows (the Trade chart average display series, written by withChartAverage);
-  // distinct from MARKET_KEY = ddf_value_charts, which the viability rule reads (JEG-1129).
-  const CHART_AVG_KEY = "chart_avg";
+  const MARKET_KEY = "chart_avg";
   // The best starting lineup for the league's slots: QB, RB, WR, TE take the highest valueKey at their position, then
   // FLEX from what is left of RB/WR/TE, then SUPERFLEX from what is left of QB/RB/WR/TE. Ties by lower player_key. A
   // player with no value is never a starter (listed in unvalued, not counted as 0); a slot nobody can fill stays
@@ -381,7 +378,7 @@
     return rows.map(r => {
       const vals = chartKeys.map(k => (r.values ? r.values[k] : undefined));
       const complete = chartKeys.length > 0 && vals.every(finite);
-      return {...r, values: {...r.values, [CHART_AVG_KEY]: complete ? vals.reduce((a, b) => a + b, 0) / vals.length : null}};
+      return {...r, values: {...r.values, [MARKET_KEY]: complete ? vals.reduce((a, b) => a + b, 0) / vals.length : null}};
     });
   }
   // A team's roster before and after a trade, in one point of view (valueKey).
@@ -594,7 +591,7 @@
     const v = (row && row.values) || {};
     if (key === OUR_KEY) return finite(v.ddf_value_charts) && finite(v.ddf_value_projections) ? Math.abs(v.ddf_value_charts - v.ddf_value_projections) / 2 : 0;
     if (key === PROJECTIONS_KEY) return standardErrorOfMean(PROJECTION_KEYS.map(k => v[k]).filter(finite));
-    if (key === MARKET_KEY || key === CHART_AVG_KEY) return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
+    if (key === MARKET_KEY) return standardErrorOfMean((chartKeys || CHART_KEYS).map(k => v[k]).filter(finite));
     return 0;   // one source (a single chart or projection source): nothing to measure a spread against (JEG-1081 PR 6); the net floor decides
   }
   const benchWeight = (weights, pos) => (weights && finite(weights[pos]) ? weights[pos] : weights && finite(weights.overall) ? weights.overall : 0);
@@ -711,7 +708,7 @@
       constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
-  const VIEW_NAME = {ddf_value: "DDF Value", ddf_value_charts: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
+  const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
   function stateText(t) {
     const short = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "under");
     const deep = DEPTH_POS.filter(pos => t.depth[pos] && t.depth[pos].statusBefore === "over");
@@ -815,7 +812,7 @@
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, CHART_AVG_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -1076,7 +1073,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const row = byKey.get(player.key);
     if (isNotEvaluated(player) || !row) return null;
     const ddf = row.values ? row.values[OUR_KEY] : null;
-    const avg = charts ? withChartAverage([row], charts)[0].values[CHART_AVG_KEY] : null;
+    const avg = charts ? withChartAverage([row], charts)[0].values[MARKET_KEY] : null;
     const proj = row.values ? row.values[PROJECTIONS_KEY] : null;
     const tip = chipTooltip({ddf, projections: proj, market: avg});
     const chip = (kind, label, value) => el("span", {class: `v2-find-chip${finite(value) ? "" : " is-missing"}`, "data-kind": kind, title: tip, tabindex: "0", "aria-label": `${finite(value) ? value.toFixed(1) : "no value"} ${label}. ${tip.split("\n").join("; ")}`},
@@ -1112,7 +1109,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const charts = marketKeys();
     const marketRows = charts ? withChartAverage(rows, charts) : null;
     const view = (rowsOf, key) => (rowsOf ? {balance: rosterBalance(rowsOf, ctx.expected, key, ctx.shape), lineup: lineupValue(rowsOf, ctx.shape, key)} : null);
-    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, CHART_AVG_KEY), projections: view(hasProjections(rows) ? rows : null, PROJECTIONS_KEY), kept: players.filter(isNotEvaluated),
+    return {side, ready: true, expected: ctx.expected, ddf: view(rows, OUR_KEY), market: view(marketRows, MARKET_KEY), projections: view(hasProjections(rows) ? rows : null, PROJECTIONS_KEY), kept: players.filter(isNotEvaluated),
       missing: lineupValue(rows, ctx.shape, OUR_KEY).unvalued.filter(r => !isNotEvaluated(r)).length};
   }
   const posSum = (list, pos, key) => list.filter(r => r.pos === pos).reduce((n, r) => n + r.values[key], 0);
@@ -1133,7 +1130,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     // JEG-1081: DDF Value, Trade chart average, then DDF Value (projections) in a subdued, collapsible third group (hidden under 1024px until "Show projections").
     const basis = engine() && engine().getBasis ? engine().getBasis() : null;
     const custom = Boolean(basis && !basis.isDefault);
-    const views = [{id: "ddf", label: custom ? `DDF Value (${basis.label})` : "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: CHART_AVG_KEY},
+    const views = [{id: "ddf", label: custom ? `DDF Value (${basis.label})` : "DDF Value", key: OUR_KEY}, {id: "market", label: "Trade chart average", key: MARKET_KEY},
       {id: "projections", label: "DDF Value (projections)", key: PROJECTIONS_KEY, cls: "v2-find-proj-col"}];
     const cell = (text, props) => el("td", props || {}, text);
     const withCls = (v, props) => (v.cls ? {...props, class: `${(props && props.class) || ""} ${v.cls}`.trim()} : props);
@@ -1229,7 +1226,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (!lineup || !lineup.market || !depth) return null;
     return {shape: lineup.shape, expected: depth.expected, weights: benchWeights(), ourKey: OUR_KEY, marketKey: MARKET_KEY, chartKeys: lineup.market, z: FIT_Z};
   }
-  // Rows of both teams carry DDF Value and the Trade chart average (lineup.*.market are the engine rows plus chart_avg; the fit reads ddf_value_charts, JEG-1129).
+  // Rows of both teams carry DDF Value and the Trade chart average (lineup.*.market are the engine rows plus chart_avg).
   function fitFor(lineup, fitCtx, giveRows, recvRows) {
     const wide = rows => rows.map(r => lineup.byKey.get(String(r.player_key)) || r);
     const give = wide(giveRows);
@@ -1627,8 +1624,6 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function lineupContext(mineRows, theirRows, charts, shape) {
     if (!shape) return null;
     const market = charts.length >= MIN_CHARTS ? charts : null;
-    // The rows keep the engine's ddf_value_charts (MARKET_KEY, read by the fit and viability label) and add chart_avg
-    // (CHART_AVG_KEY, the Trade chart average the impact lines and tables show) (JEG-1129).
     const avg = rows => (market ? withChartAverage(rows, market) : null);
     const mineAvg = avg(mineRows);
     const theirAvg = avg(theirRows);
@@ -1637,7 +1632,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     return {shape, market, projections: hasProjections(mineRows.concat(theirRows)), mine: {ddf: mineRows, market: mineAvg}, theirs: {ddf: theirRows, market: theirAvg}, byKey};
   }
   const VIEW_LABEL = {ddf: "DDF Value", market: "Trade chart average"};
-  const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : CHART_AVG_KEY);
+  const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);
   const views = lineup => ["ddf"].concat(lineup.market ? ["market"] : []);
   // The team's rows leaving and arriving, in one view's rows.
   function sideRows(lineup, view, who, giveRows, recvRows) {

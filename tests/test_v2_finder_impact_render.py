@@ -228,7 +228,7 @@ class FinderImpactRenderTest(unittest.TestCase):
         js = FINDER_JS.read_text(encoding="utf-8")
         broken = {
             "the two teams' packages swapped": js.replace('const leaving = pickRows(who === "mine" ? giveRows : recvRows);', 'const leaving = pickRows(who === "mine" ? recvRows : giveRows);', 1),
-            "market view reads DDF Value": js.replace('const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : CHART_AVG_KEY);', "const viewKey = (view, ourKey) => ourKey;", 1),
+            "market view reads DDF Value": js.replace('const viewKey = (view, ourKey) => (view === "ddf" ? ourKey : MARKET_KEY);', "const viewKey = (view, ourKey) => ourKey;", 1),
             "table total differs from the lineup": js.replace('money(part.lineup.total)) : el("td"', 'money(part.lineup.starterValue)) : el("td"', 1),
             "table starters read the bench": js.replace("cell(money(posSum(part.lineup.starters, pos, v.key))", "cell(money(posSum(part.lineup.bench, pos, v.key))", 1),
             "numbers not updated after a toggle": js.replace("if (impact) impact.update(giveRows, recvRows);", "if (impact && !impact.done) { impact.done = true; impact.update(giveRows, recvRows); }", 1),

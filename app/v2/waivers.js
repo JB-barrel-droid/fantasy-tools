@@ -10,7 +10,7 @@
   "use strict";
   const isNode = typeof module !== "undefined" && module.exports;
   const F = isNode ? require("./finder.js") : root.TradeValueFinder;
-  const {pickStarters, lineupValue, rosterImpact, withChartAverage, rosterBalance, teamFit, valueNoise, isNotEvaluated, OUR_KEY, CHART_AVG_KEY,
+  const {pickStarters, lineupValue, rosterImpact, withChartAverage, rosterBalance, teamFit, valueNoise, isNotEvaluated, OUR_KEY, MARKET_KEY,
     FIT_Z, USABLE_MIN, DEPTH_POS} = F;
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
@@ -26,7 +26,7 @@
   // id -> {id, key, label, short}. label heads the verdict; short names the view in the "+x on ..." context. Unknown ids fall back to the default.
   function viewFor(id, basisName) {
     if (id === "projections") return {id, key: PROJ_KEY, label: "DDF Value (projections)", short: "projections"};
-    if (id === "market") return {id, key: CHART_AVG_KEY, label: "Trade chart average", short: "market"};
+    if (id === "market") return {id, key: MARKET_KEY, label: "Trade chart average", short: "market"};
     if (id === "basis") return {id, key: OUR_KEY, label: basisName ? `Overrides basis (${basisName})` : "Overrides basis", short: "Overrides basis"};
     if (typeof id === "string" && id.startsWith("src:") && SOURCE_NAMES[id.slice(4)]) return {id, key: id.slice(4), label: SOURCE_NAMES[id.slice(4)], short: SOURCE_NAMES[id.slice(4)]};
     return {id: VIEW_DEFAULT, key: OUR_KEY, label: "DDF Value", short: "DDF Value"};
@@ -35,7 +35,7 @@
   // A player's value in a view: null when the view cannot price him (a market value that shows 0.0 is no price).
   const viewValueOf = (row, key) => {
     const v = row && row.values ? row.values[key] : null;
-    return finite(v) && (key !== CHART_AVG_KEY || v >= USABLE_MIN) ? v : null;
+    return finite(v) && (key !== MARKET_KEY || v >= USABLE_MIN) ? v : null;
   };
 
   const VERDICT = {pick: "Pick up", force: "Pick up (force)", consider: "Consider", hold: "Hold", skip: "Skip", none: "Not evaluated"};
@@ -44,7 +44,7 @@
   const keyOf = row => String(row.player_key);
   const ddfOf = row => (row && row.values && finite(row.values[OUR_KEY]) ? row.values[OUR_KEY] : null);
   // The Trade chart average, or null: a player no chart prices (or prices at a shown 0.0) has no market value to show.
-  const marketOf = row => (row && row.values && finite(row.values[CHART_AVG_KEY]) && row.values[CHART_AVG_KEY] >= USABLE_MIN ? row.values[CHART_AVG_KEY] : null);
+  const marketOf = row => (row && row.values && finite(row.values[MARKET_KEY]) && row.values[MARKET_KEY] >= USABLE_MIN ? row.values[MARKET_KEY] : null);
   const fmt = n => (Math.abs(n) < NET_FLOOR ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const settle = n => Math.round(n * 1e9) / 1e9;
   const plural = (n, word) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -164,7 +164,7 @@
   function contextFor(ctx, roster, leaving, candidate, view) {
     const weights = ctx.weights || {};
     const charts = ctx.chartKeys && ctx.chartKeys.length ? ctx.chartKeys : null;
-    const items = CONTEXT_VIEWS.filter(id => id !== view.id).map(id => viewFor(id)).filter(v => v.key !== view.key && (v.key !== CHART_AVG_KEY || charts))
+    const items = CONTEXT_VIEWS.filter(id => id !== view.id).map(id => viewFor(id)).filter(v => v.key !== view.key && (v.key !== MARKET_KEY || charts))
       .map(v => ({id: v.id, short: v.id === "ddf" ? "DDF Value" : v.short, delta: worthChange(roster, leaving, candidate, ctx.shape, v.key, weights)}));
     const text = items.filter(i => i.delta !== null).map(i => `${fmt(i.delta)} on ${i.short}`).join(", ");
     return {items, text};

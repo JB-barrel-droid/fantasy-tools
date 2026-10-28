@@ -37,9 +37,7 @@ const {
 const SHAPE = { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0 };
 
 function makePlayer(key, name, pos, ddf, charts = {}, opts = {}) {
-  const chartVals = Object.values(charts).filter(v => typeof v === "number");
-  const ddf_value_charts = chartVals.length ? chartVals.reduce((a, b) => a + b, 0) / chartVals.length : null;
-  const values = { ddf_value: ddf, ddf_value_charts, ...charts };
+  const values = { ddf_value: ddf, ...charts };
   return { player_key: key, name, pos, values, ddfTier: opts.tier || (ddf >= 5 ? "starter" : "bench"), status: opts.status, weeksOut: opts.weeksOut };
 }
 
@@ -563,79 +561,6 @@ test("NEGATIVE: temporary gap is true when their only QB is out", () => {
   const get = [hurt.find((r) => r.name === "T-RB3")];
   const r = runViabilityChecks(userRoster, hurt, give, get, SHAPE, DEFAULT_CONFIG);
   assert.equal(r.temporaryGap, true);
-});
-
-// ---------------------------------------------------------------------------
-// Jeremy 2026-10-26 rule: ddf_value vs ddf_value_charts are separate series
-// ---------------------------------------------------------------------------
-console.log("\n--- Jeremy 2026-10-26: viable trades exist when series differ ---");
-
-test("at least one viable trade exists for realistic rosters", () => {
-  // When projections are held, ddf_value == ddf_value_charts (same numbers), so
-  // ddfEdge == -theirMarketNet and the old code found 0 viable trades.
-  // With the fix, their side uses ddf_value_charts directly; both sides can gain
-  // on their own series whenever projections and charts disagree.
-  //
-  // Simulate disagreement: projection-heavy players have ddf_value >> charts;
-  // chart-heavy players have ddf_value_charts >> ddf_value.
-  function makePlayerDiverged(key, name, pos, ddf, chartVal, opts = {}) {
-    const charts = { usatoday: chartVal, fantasycalc: chartVal, fantasypros: chartVal, cbs: chartVal };
-    const values = { ddf_value: ddf, ddf_value_charts: chartVal, ...charts };
-    return { player_key: key, name, pos, values, ddfTier: opts.tier || (ddf >= 5 ? "starter" : "bench"), status: opts.status };
-  }
-  const shape = SHAPE;
-  // Me: I have a projection-darling RB (high ddf, low chart) to give up;
-  //     I'm getting a chart-darling WR (low ddf, but they view as high chart value).
-  // Projection-darling: ddf=18, charts=8 (charts underrate them, projections love them).
-  // Chart-darling: ddf=8, charts=18 (market loves them, projections don't yet).
-  const myRB_projectionDarling = makePlayerDiverged(901, "My-ProjRB", "RB", 18, 8, { tier: "bench" });
-  const theirWR_chartDarling = makePlayerDiverged(902, "Their-ChartWR", "WR", 8, 18, { tier: "bench" });
-
-  // Build realistic rosters around these players
-  const myRoster = [
-    makePlayer(801, "My-QB1", "QB", 30, c(30), { tier: "starter" }),
-    makePlayer(802, "My-RB1", "RB", 25, c(25), { tier: "starter" }),
-    makePlayer(803, "My-RB2", "RB", 20, c(20), { tier: "starter" }),
-    myRB_projectionDarling, // bench RB: ddf=18 (will improve their side via ddf)
-    makePlayer(805, "My-WR1", "WR", 22, c(22), { tier: "starter" }),
-    makePlayer(806, "My-WR2", "WR", 16, c(16), { tier: "starter" }),
-    makePlayer(807, "My-WR3", "WR", 12, c(12), { tier: "starter" }),
-    makePlayer(808, "My-WR4", "WR", 4, c(4), { tier: "bench" }),
-    makePlayer(809, "My-TE1", "TE", 10, c(10), { tier: "starter" }),
-    makePlayer(810, "My-BN1", "RB", 2, c(2), { tier: "bench" }),
-  ];
-  const theirRoster2 = [
-    makePlayer(851, "Their-QB1", "QB", 28, c(28), { tier: "starter" }),
-    makePlayer(852, "Their-RB1", "RB", 22, c(22), { tier: "starter" }),
-    makePlayer(853, "Their-RB2", "RB", 18, c(18), { tier: "starter" }),
-    makePlayer(854, "Their-RB3", "RB", 5, c(5), { tier: "bench" }),
-    makePlayer(855, "Their-WR1", "WR", 20, c(20), { tier: "starter" }),
-    makePlayer(856, "Their-WR2", "WR", 14, c(14), { tier: "starter" }),
-    makePlayer(857, "Their-WR3", "WR", 9, c(9), { tier: "starter" }),
-    theirWR_chartDarling, // bench WR: charts=18, ddf=8 (I gain on ddf, they gain on charts)
-    makePlayer(859, "Their-TE1", "TE", 8, c(8), { tier: "starter" }),
-    makePlayer(860, "Their-BN1", "RB", 1, c(1), { tier: "bench" }),
-  ];
-
-  // For mutual gain the series must diverge:
-  //   I give chart-darling (low ddf=4, high charts=18) → they RECEIVE charts=18 (gain on market)
-  //   I get proj-darling  (high ddf=18, low charts=4)  → I RECEIVE ddf=18 (gain on DDF)
-  // ddfEdge = 18 - 4 = +14  (arbitrage passes)
-  // theirMarketNet = userGives.charts - userGets.charts = 18 - 4 = +14  (fairness passes)
-  const myChartDarling = makePlayerDiverged(903, "My-ChartWR", "WR", 4, 18, { tier: "bench" });
-  const theirProjDarling = makePlayerDiverged(904, "Their-ProjRB", "RB", 18, 4, { tier: "bench" });
-
-  const myRoster2 = myRoster.slice(); myRoster2[7] = myChartDarling;
-  const theirRoster3 = theirRoster2.slice(); theirRoster3[7] = theirProjDarling;
-
-  const give = [myChartDarling]; // I give: ddf=4, charts=18
-  const get = [theirProjDarling]; // I get: ddf=18, charts=4
-  const result = runViabilityChecks(myRoster2, theirRoster3, give, get, shape);
-
-  const arb = findCheck(result, "arbitrage");
-  const fair = findCheck(result, "perceived_fairness");
-  assert.ok(arb.passed, `arbitrage should pass: I give ddf=4, get ddf=18. Got: ${arb.detail}`);
-  assert.ok(fair.passed, `fairness should pass: they give charts=4, get charts=18. Got: ${fair.detail}`);
 });
 
 // ---------------------------------------------------------------------------

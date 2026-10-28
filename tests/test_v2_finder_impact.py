@@ -66,7 +66,7 @@ return {before: i.before.starterValue, after: i.after.starterValue, starterDelta
 
 AVG = """
 const rows = F.withChartAverage(D.rows, ['usatoday', 'fantasycalc', 'fantasypros', 'cbs']);
-return rows.map(r => r.values[F.CHART_AVG_KEY]);
+return rows.map(r => r.values[F.MARKET_KEY]);
 """
 
 
@@ -119,7 +119,7 @@ def checks(finder_js) -> list[str]:
     avg = node(finder_js, AVG, {"rows": rows})
     if avg != [5, 30, None]:
         errors.append(f"chart average should be the mean of four charts, null when one is missing: {avg}")
-    market = node(finder_js, PICK.replace("'ddf_value'", "F.CHART_AVG_KEY").replace("D.rows", "F.withChartAverage(D.rows, ['usatoday','fantasycalc','fantasypros','cbs'])"), {"rows": rows, "shape": {"RB": 1}})
+    market = node(finder_js, PICK.replace("'ddf_value'", "F.MARKET_KEY").replace("D.rows", "F.withChartAverage(D.rows, ['usatoday','fantasycalc','fantasypros','cbs'])"), {"rows": rows, "shape": {"RB": 1}})
     if market["slots"]["RB"] != ["lo"] or market["unvalued"] != ["part"]:
         errors.append(f"market lineup should pick the chart-average leader and leave out an unpriced player: {market}")
     return errors

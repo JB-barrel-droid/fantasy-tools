@@ -272,10 +272,8 @@
   //   M  Trade chart average net    (mean of compared chart rows)  does the market think you are winning?
   //   P  DDF Value (projections) net (ddf_value_projections) is the value backed by projected production?
   // JEG-832: M is the plain mean of the per-chart rescaled nets (the same rows Compare shows), NOT
-  // ddf_value_charts. Jeremy 2026-10-26: their view uses ddf_value_charts (indexed trade charts) for
-  // viability/fit checks; this deal read uses individual chart rows to show per-chart breakdown
-  // (same market concept). When fewer than MIN_DEAL_CHARTS charts price every player the market card
-  // says "not enough charts".
+  // the DDF Value · trade charts blend (which equals DDF Value when projections are held). When fewer
+  // than MIN_DEAL_CHARTS charts price every player the market card says "not enough charts".
   // Side of a net: win when it is at least max(1, 3% of the average side total of that series), lose when it
   // is at most the negative of that, otherwise even. The read is a fixed 9-cell table on (V, M): a manager who
   // trades off the market sees M's loss as their win, so V win with M lose is the arbitrage; V lose with M win

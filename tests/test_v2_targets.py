@@ -364,9 +364,7 @@ def check(result: dict) -> list[str]:
     if result["onlyCharts"]["used"] != ["fantasycalc"]:
         errors.append(f"single-chart filter wrong: {result['onlyCharts']}")
     # JEG-851: chart keys are now selectable as "Our value" too.
-    # Jeremy 2026-10-26 (JEG-1129): ddf_value_charts removed from OUR_KEYS — it's the market baseline used by
-    # viability checks, not a "our value" choice for targets. ddf_value_projections is the DDF alternate.
-    if result["ourKeys"] != ["ddf_value", "ddf_value_projections", "espn", "cbsros", "razzball", "usatoday", "fantasycalc", "fantasypros", "cbs"]:
+    if result["ourKeys"] != ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball", "usatoday", "fantasycalc", "fantasypros", "cbs"]:
         errors.append(f"our value choices: DDF Value first, then the other DDF versions, then the projections, then the charts: {result['ourKeys']}")
     choices = {c["key"]: c for c in result["choices"]}
     if not all(choices.get(k, {}).get("available") for k in ("ddf_value", "ddf_value_projections", "espn", "cbsros")):
@@ -446,7 +444,7 @@ MUTATIONS = {
                                         "const values = priced.map(key => cells[key].value).filter(v => v > 0);"),
     "agreement counted on the wrong side": ('(side === "sell" ? v > ours : v < ours)', '(side === "sell" ? v < ours : v > ours)'),
     "equal never flagged": ("equal: ours.toFixed(1) === value.toFixed(1),\n      side", "equal: false,\n      side"),
-    "DDF Value dropped from the choices": ('"ddf_value_projections", "espn"', '"espn"'),
+    "DDF Value dropped from the choices": ('"ddf_value_charts", "ddf_value_projections", "espn"', '"ddf_value_charts", "espn"'),
     "dot value not the indexed chart value": ("dots = priced.map(key => ({chart: key, value: cells[key].value,", "dots = priced.map(key => ({chart: key, value: 0,"),
     # JEG-820: the weighted ranking and the Sell floor. Each of these is the bug the ticket names (raw-gap order
     # put 0.0 to 3.4 players at the top of Sell) or a plausible slip while fixing it.
@@ -485,8 +483,8 @@ MUTATIONS = {
     "self-comparison not excluded": ("const effectiveCharts = CHART_KEYS.includes(ourKey) ? charts.filter(c => c !== ourKey) : charts;",
                                      "const effectiveCharts = charts;"),
     "singleChart not reported": ("singleChart: effectiveCharts.length === 1 ? effectiveCharts[0] : null", "singleChart: null"),
-    "chart keys not in OUR_KEYS": ('const OUR_KEYS = ["ddf_value", "ddf_value_projections", "espn", "cbsros", "razzball"].concat(CHART_KEYS);',
-                                   'const OUR_KEYS = ["ddf_value", "ddf_value_projections", "espn", "cbsros", "razzball"];'),
+    "chart keys not in OUR_KEYS": ('const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"].concat(CHART_KEYS);',
+                                   'const OUR_KEYS = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "espn", "cbsros", "razzball"];'),
 }
 
 

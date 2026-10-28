@@ -294,7 +294,7 @@ MUTANTS = {
     "repeats kept": ("if (seen.has(key)) { repeats += 1; return; }", ""),
     "a kicker is evaluated": ("if (isNotEvaluated(candidate)) {", "if (false) {"),
     "no DDF Value read as zero": ("if (viewValueOf(candidate, key) === null) {", "if (false) {"),
-    "zero market shown": ("row.values[CHART_AVG_KEY] >= USABLE_MIN ? row.values[CHART_AVG_KEY] : null", "true ? row.values[CHART_AVG_KEY] : null"),
+    "zero market shown": ("row.values[MARKET_KEY] >= USABLE_MIN ? row.values[MARKET_KEY] : null", "true ? row.values[MARKET_KEY] : null"),
     "stash called a start": ("const slot = slotOf(impact.after, candidate);", "const slot = SLOT_KEYS[0];"),
     "share link loses the candidates": ("if (candKeys.length) parts.push(`cands=${enc(candKeys)}`);", ""),
     "headline picks the worst": ("const pick = first(VERDICT.pick);", "const pick = results.filter(r => r.verdict === VERDICT.pick).pop();"),
