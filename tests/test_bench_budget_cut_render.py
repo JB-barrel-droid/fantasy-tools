@@ -237,6 +237,24 @@ def annotate(title, lines, level="error"):
             print(f"[{title}] {line}", file=sys.stderr)
 
 
+def annotated(test):
+    """Annotate a failing or erroring test's exception (see annotate)."""
+    import functools
+    import traceback
+
+    @functools.wraps(test)
+    def run(self):
+        try:
+            return test(self)
+        except unittest.SkipTest:
+            raise
+        except BaseException as exc:
+            tail = traceback.format_exception(exc)[-3:]
+            annotate(f"JEG-1189 {test.__name__}", [f"{type(exc).__name__}: {exc}"[:900], "".join(tail)[-900:]])
+            raise
+    return run
+
+
 # --- tests -------------------------------------------------------------------
 
 def _synthetic():
@@ -331,6 +349,7 @@ class ServedPageTest(unittest.TestCase):
             annotate("JEG-1189 bench budget cut", [f"served page could not be read: {exc!r}"[:600]])
             raise
 
+    @annotated
     def test_budget_cut_bench_identical_in_every_week_view(self):
         problems, compared, notes = check_runs(self.runs)
         annotate("JEG-1189 bench budget cut", self.lagging + notes, level="notice")
@@ -341,6 +360,7 @@ class ServedPageTest(unittest.TestCase):
         self.assertGreaterEqual(len(compared), len(SETTINGS))
         self.assertEqual(problems, [], "\n".join(problems[:25]))
 
+    @annotated
     def test_perturbed_source_budget_fails_on_the_page(self):
         problems, compared, _ = check_runs(self.runs)
         first = next((label for label, run in self.runs if not run.get("error")), None)
