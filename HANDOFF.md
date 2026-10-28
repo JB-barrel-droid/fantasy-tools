@@ -32,12 +32,12 @@ newer notes on their own handoff branches (open PR #1031 for main green).
   The redeploy waits on Jeremy. Never deploy edge functions without his yes.
 - **Rebuild chain is failing (verified 08:01 UTC run):** `post_rebuild_validation`
   fails because CBS is held red on week 7 (the empty full PPR tight end save,
-  fixed on main). The 12:07 UTC daily CBS ingest should load week 8 with the
-  fixed parser; the next hourly chain (about 13:00 UTC) should then pass.
-  Check it before closing JEG-1175.
+  fixed on main). There is no scheduled morning CBS import: CBS reloads only
+  when CBS edits its page. The "Fix week 7 data" lane is reloading CBS week 8
+  and merging #1027 (merged 12:24 UTC) and #1038 on Jeremy's yes.
 - **Draft PRs from the board lane, all CI green, none merged, each waiting on
   Jeremy's review:** #1022 (JEG-1180), #1024 (JEG-1179; must carry the #1028
-  rule into its calendar fallback when it merges main in), #1027 (JEG-1176),
+  rule into its calendar fallback when it merges main in),
   #1029 (JEG-1189), #1030 (JEG-1187, changes what "Market supported" means),
   #1032 (JEG-1123/1124; needs an mcp redeploy), #1033 (JEG-1125, ticket on hold
   by Jeremy; moves no numbers), #1034 (JEG-1155), #1037 (JEG-1130 part 2, PMM copy; leaves the series
@@ -45,8 +45,9 @@ newer notes on their own handoff branches (open PR #1031 for main green).
 - **Picks:** every choice made for Jeremy is in `docs/picks-log.md`. Nothing
   merges or deploys on a pick alone.
 - **Next concrete action for a successor:**
-  1. After 13:00 UTC, read `output/comparison-chain-status.json` on main; if
-     `outcome` is success and all sources are on week 8, close JEG-1175.
+  1. After the CBS week 8 reload and #1038, read
+     `output/comparison-chain-status.json` on main; if `outcome` is success and
+     all sources are on week 8, close JEG-1175.
   2. Ask Jeremy about the get-values and mcp redeploys and the draft PRs above.
   3. JEG-1128 item 1 checked (waivers can carry a small value by design; kept as is, Jeremy's call on the ticket).
   4. Open issues not covered by a PR: JEG-1102 (blocked by JEG-1138 and the
