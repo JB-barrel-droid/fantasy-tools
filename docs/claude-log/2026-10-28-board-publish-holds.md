@@ -36,9 +36,13 @@ Jeremy asked why the board isn't updating from each source and to fix the proces
   failing check, held sources and each source's served week; close it when the
   chain publishes.
 - Review follow-up: a scoped hold carries `judged_save` (the bad bake's
-  saved_at, or a projection's snapshot) and holds only a build from that save,
-  so the fixed CBS re-ingest (12:23Z) is not held on an older pulse. The alert
-  finds its issue by title too and never fails the job on malformed input.
+  pulled_at, the same value as a section's snapshot_fetched_at, or a
+  projection's snapshot). The chain skips it only for a build from a clearly
+  later save, so the fixed CBS re-ingest (12:23Z) is not held on an older
+  pulse, and anything unclear (USA Today's midnight pulled_at) stays held. A
+  first version compared saved_at within 300 s and let a USA Today build
+  through; the second review caught it. The alert finds its issue by title
+  too and never fails the job on malformed input.
 - Jeremy said yes (12:22Z) to reloading CBS week 8 and merging #1027 and this:
   the reload wrote bake cbswk8_2026-10-28t1223_v1 (35 TE, 452 rows); the 12:40Z
   pulse then showed CBS amber, not red.

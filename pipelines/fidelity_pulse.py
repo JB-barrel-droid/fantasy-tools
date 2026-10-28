@@ -1313,7 +1313,8 @@ def stage_chart(source: str, site_doc: dict | None, site_error: str | None, stor
         newer_g, _ = stored_grains(source, newer["rows"], ident)
         diff = compare(stored_g, newer_g, printed=False)
         if problem_count(diff) or stored.get("week") != week:
-            behind = {"bake_id": newer["bake_id"], "saved_at": iso(newer["saved_at"]), "week": stored.get("week"),
+            behind = {"bake_id": newer["bake_id"], "saved_at": iso(newer["saved_at"]),
+                      "pulled_at": iso(newer.get("pulled_at")), "week": stored.get("week"),
                       "changed_values": len(diff["mismatches"]), "added": len(diff["extra"]),
                       "dropped": len(diff["missing"])}
             status = worst(status, "amber")
@@ -2345,11 +2346,14 @@ def hold_decision(result: dict, identity: str | None, held: dict | None, now: da
         scope = red_scope(result["stages"], red)
         if scope:
             hold["scope"] = scope
-            # The save the red judged (a chart bake's saved_at, a projection
-            # snapshot), so the chain holds a build from that save only and
-            # not one from a later, fixed save (JEG-1194).
+            # The save the red judged, as the chain names it: a chart bake's
+            # pulled_at (= a section's snapshot_fetched_at) or a projection
+            # snapshot. The chain then skips a build from a later save, such
+            # as a fixed re-ingest, instead of holding it (JEG-1194).
             behind = result["stages"]["stored_vs_chart"]["behind"]
-            hold["judged_save"] = behind.get("snapshot") or behind.get("saved_at")
+            judged = behind.get("snapshot") or behind.get("pulled_at")
+            if judged:
+                hold["judged_save"] = judged
         return hold
     # JEG-726: amber holds for merely-lagging conditions (visible label only,
     # source stays in DDF Value).

@@ -56,9 +56,6 @@ STALE_PULSE_HOURS = 24
 # JEG-1194: the pulse stamps this scope on a red that judges only a stored
 # save newer than the live chart (fidelity_pulse.red_scope).
 SCOPE_STORED_NEWER = "stored_newer_than_site"
-# A chart section's identity is the save's pulled_at; the pulse names the save
-# by its bake's saved_at, written seconds later. Saves are hours apart.
-SAME_SAVE_SECONDS = 300
 
 
 def is_fidelity_hold(hold) -> bool:
@@ -111,19 +108,23 @@ def section_identity(section: dict) -> str | None:
 _candidate_identity = section_identity
 
 
-def same_save(candidate_id: str, judged: str) -> bool:
-    """True when a section identity and a hold's judged_save name one save:
-    equal strings (projection snapshot dates), or timestamps within
-    SAME_SAVE_SECONDS (a chart's pulled_at vs its bake's saved_at)."""
-    if candidate_id == judged:
-        return True
-    if "T" not in candidate_id or "T" not in judged:
+def later_save(candidate_id: str, judged: str) -> bool:
+    """True only when a section identity is clearly from a save after the one
+    a hold judged: both timestamps (a chart's pulled_at) or both dates (a
+    projection snapshot) and strictly later. Anything unclear is False, so
+    the hold applies."""
+    both_times = "T" in candidate_id and "T" in judged
+    if both_times:
+        try:
+            return parse_iso_timestamp(candidate_id) > parse_iso_timestamp(judged)
+        except (TypeError, ValueError):
+            return False
+    if "T" in candidate_id or "T" in judged:
         return False
     try:
-        gap = parse_iso_timestamp(candidate_id) - parse_iso_timestamp(judged)
-    except (TypeError, ValueError):
+        return date.fromisoformat(candidate_id) > date.fromisoformat(judged)
+    except ValueError:
         return False
-    return abs(gap.total_seconds()) <= SAME_SAVE_SECONDS
 
 
 def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[dict, dict]:
@@ -142,8 +143,9 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
 
     JEG-1194: a hold scoped SCOPE_STORED_NEWER is about a stored save newer
     than the live chart, so the match is reversed: it holds a candidate built
-    from that save (its judged_save) and skips the live chart's own section
-    and a build from any other save, such as a later fixed one."""
+    from that save (or any save not clearly later than its judged_save) and
+    skips the live chart's own section and a build from a later save, such
+    as a fixed re-ingest."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     report = {}
@@ -168,7 +170,7 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                     if hold.get("scope") == SCOPE_STORED_NEWER:
                         judged = hold.get("judged_save")
                         skip = candidate_id == measured or bool(
-                            judged and other_build and not same_save(candidate_id, str(judged)))
+                            judged and other_build and later_save(candidate_id, str(judged)))
                     else:
                         skip = other_build
                     if skip:

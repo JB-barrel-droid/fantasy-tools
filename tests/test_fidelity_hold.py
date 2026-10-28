@@ -894,25 +894,29 @@ class StoredSaveNewerThanTheLiveChart(unittest.TestCase):
 
 class ScopedHoldNamesTheSaveItJudged(StoredSaveNewerThanTheLiveChart):
     """JEG-1194 review: CBS re-ingested a fixed week 8 save at 12:23Z, after
-    the pulse had judged the bad 21:35Z one. A scoped hold must not hold a
-    build from the fixed save until a newer pulse has judged it."""
+    the pulse had judged the bad 21:35Z one. A scoped hold skips a build
+    from a clearly later save, and holds whenever that is unclear."""
 
-    SAVED_AT = "2026-10-27T21:35:39.431932Z"   # the bad bake's saved_at
+    PULLED_AT = "2026-10-27T21:35:38Z"         # the bad bake's pulled_at
     FIXED = "2026-10-28T12:23:16+00:00"        # a build from the later save
 
-    def judged_hold(self):
+    def judged_hold(self, pulled_at=None):
         result = self.cbs_result()
-        result["stages"]["stored_vs_chart"]["behind"]["saved_at"] = self.SAVED_AT
+        result["stages"]["stored_vs_chart"]["behind"].update(
+            saved_at="2026-10-27T21:35:39.431932Z", pulled_at=pulled_at or self.PULLED_AT)
         return fp.hold_decision(result, "cbswk8", None, T.NOW, measured_site=self.LIVE)
 
-    def test_the_pulse_names_the_judged_chart_save(self):
-        self.assertEqual(self.SAVED_AT, self.judged_hold()["judged_save"])
+    def test_the_pulse_names_the_judged_chart_save_by_pulled_at(self):
+        self.assertEqual(self.PULLED_AT, self.judged_hold()["judged_save"])
 
     def test_the_pulse_names_the_judged_projection_snapshot(self):
         result = self.cbs_result()
         result["stages"]["stored_vs_chart"]["behind"] = {"snapshot": "2026-10-27"}
         h = fp.hold_decision(result, "2026-10-27", None, T.NOW, measured_site="2026-10-24")
         self.assertEqual("2026-10-27", h["judged_save"])
+
+    def test_no_pulled_at_names_no_save(self):
+        self.assertNotIn("judged_save", self.hold())
 
     def test_an_unscoped_hold_names_no_save(self):
         self.assertNotIn("judged_save", self.hold(drop_side="chart"))
@@ -928,17 +932,25 @@ class ScopedHoldNamesTheSaveItJudged(StoredSaveNewerThanTheLiveChart):
                          "the pulse never judged the fixed save")
         self.assertNotIn("cbs", report)
 
+    def test_a_midnight_pulled_at_save_is_still_held(self):
+        """USA Today's pull stamps pulled_at with the date (midnight), hours
+        before the bake is written; that build is the judged one."""
+        hold = self.judged_hold(pulled_at="2026-10-29T00:00:00Z")
+        out, _ = fh.apply_fidelity_holds(self.fx("2026-10-29T00:00:00+00:00"), {"cbs": hold}, 8)
+        self.assertTrue(out["sources"]["cbs"].get("validationHold"))
+
     def test_the_live_chart_is_still_not_held(self):
         out, _ = fh.apply_fidelity_holds(self.fx(self.LIVE), {"cbs": self.judged_hold()}, 8)
         self.assertFalse(out["sources"]["cbs"].get("validationHold"))
 
-    def test_same_save(self):
-        self.assertTrue(fh.same_save("2026-10-27", "2026-10-27"))
-        self.assertFalse(fh.same_save("2026-10-28", "2026-10-27"))
-        self.assertTrue(fh.same_save(self.NEWER, self.SAVED_AT))
-        self.assertFalse(fh.same_save(self.FIXED, self.SAVED_AT))
-        self.assertFalse(fh.same_save("2026-10-27", self.SAVED_AT))
-        self.assertFalse(fh.same_save("not a time T", self.SAVED_AT))
+    def test_later_save(self):
+        self.assertTrue(fh.later_save(self.FIXED, self.PULLED_AT))
+        self.assertFalse(fh.later_save(self.NEWER, self.PULLED_AT))       # same save
+        self.assertFalse(fh.later_save(self.LIVE, self.PULLED_AT))        # earlier
+        self.assertTrue(fh.later_save("2026-10-28", "2026-10-27"))
+        self.assertFalse(fh.later_save("2026-10-27", "2026-10-27"))
+        self.assertFalse(fh.later_save("2026-10-28", self.PULLED_AT))     # mixed: unclear
+        self.assertFalse(fh.later_save("not a time T", self.PULLED_AT))
 
 
 if __name__ == "__main__":
