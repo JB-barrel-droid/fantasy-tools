@@ -72,6 +72,14 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
+  `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
+  is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
+  Option B after Jeremy's measure-first pick C. Picks in `docs/picks-log.md`. Next step: when v2-render and
+  preview are green on its head, merge `origin/main` in (no rebase), squash-merge as "(JEG-1134)", wait for
+  Deploy dashboard, confirm the live `v2/v2.css` has the JEG-1134 block and the row is one line at 390 px, then
+  move JEG-1134 to Done and close #967 as superseded. If a phone render test fails, it likely taps a row
+  control while the row is closed: call `_render_env.open_phone_context(page)` first.
 - **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
