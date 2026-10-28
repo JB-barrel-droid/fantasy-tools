@@ -96,6 +96,13 @@ def top_player(page, pos="WR", rank=5):
       .sort((a, b) => b.values.ddf_value - a.values.ddf_value); return {key: rows[rank].player_key, name: rows[rank].name, value: rows[rank].values.ddf_value}; }""", [pos, rank])
 
 
+def verdict_of(page):
+    """The Compare verdict as read: its title (the verdict series' call and net, "DDF Value: you lose by 0.7") and its
+    text (the other sources' takes). An override moves the verdict series only, so when its call keeps its sign the
+    text stays word for word and only the title's net moves."""
+    return page.inner_text("#v2CVerdictTitle") + " " + page.inner_text("#v2CVerdictText")
+
+
 def set_player_override(page, name, value):
     """The reader's way: search the player on the Overrides tab, pick him, type a value."""
     page.fill("#v2OvSearch", name)
@@ -154,7 +161,7 @@ def rubric(session) -> dict:
     # 6/10. a player override through the real controls, the Player values table and the Compare verdict
     a, b = top_player(page, "RB", 3), top_player(page, "WR", 3)
     session.open("#compare-trade?give=%s&get=%s" % (a["key"], b["key"]))
-    even = page.inner_text("#v2CVerdictText")
+    even = verdict_of(page)
     session.open("#value-overrides")
     set_player_override(page, a["name"], round(a["value"] + 40, 1))
     session.open("#player-values")
@@ -162,7 +169,7 @@ def rubric(session) -> dict:
     score[6] = int(bumped is not None and abs(bumped - round(a["value"] + 40, 1)) < 0.06
                    and "1 player override" in page.inner_text("#v2OvBar"))
     session.open("#compare-trade?give=%s&get=%s" % (a["key"], b["key"]))
-    moved = page.inner_text("#v2CVerdictText")
+    moved = verdict_of(page)
     score[10] = int(moved != even and ("you win" in moved.lower() or "you lose" in moved.lower() or "even" in moved.lower()))
     # 8. Reset all returns to our methodology and clears the player overrides
     page.click("#v2OvResetAll")
