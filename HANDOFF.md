@@ -59,6 +59,19 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1142 lane (2026-10-28 9:10 AM CT, Claude):** promotion/demotion model
+  switched off for everyone (`PROMOTION_MODEL_ENABLED = false` in value-model.js,
+  value_reference.py and spec_reference/value_pipeline.py), per Jeremy's 2026-10-27
+  Linear comment. Draft PR #1044, branch `be/jeg-1142-promotion-off-v2`, head
+  `dd4b3de` (main merged in). T1 review approved; its 3 findings are fixed (default-path
+  baseline re-frozen, reference switch test pinned to the served week, comments).
+  Local engine/reference/parity/rank-guard tests pass; value_check compare and
+  `make validate` are in preview CI. It merges on green CI under Jeremy's standing rule.
+  **Next step:** when preview CI is green on #1044's head, mark it ready, merge
+  `origin/main` in if it moved, squash-merge as "JEG-1142 ...", wait for Deploy
+  dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
+  and that USO still shows its good trades (DDF connector find_trades_league), then
+  close JEG-1142. No edge deploy: get-values loads the published value-model.js.
 - **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
