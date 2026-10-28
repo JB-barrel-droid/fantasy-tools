@@ -28,3 +28,24 @@ published chart, only in the view it is priced in.
 - The next chain run on main publishes week 8. CBS is also on a review hold
   this week (pie_factors_sane: full_12/TE factor None); a held, lagging chart
   should still read in its Week 7 view, but only the chain run shows it.
+
+## Follow-up: a held chart that is also lagging (JEG-1175)
+
+The first chain run after #1016 (40612356639, 01:00 UTC) still failed the
+same check, plus the new transition tests. CBS was a week behind AND on a red
+review hold (pie_factors_sane). A red hold hides a chart from DDF Value
+(JEG-569), and the page's week state only counts DDF Value charts, so CBS was
+in neither the Week 8 view's sources nor its missing_sources. #1016 only
+treated charts named in missing_sources as lagging.
+
+- `lagging_week`: a chart is lagging when it is not in the view's sources and
+  serves an older week (missing_sources no longer required).
+- `test_the_replay_is_a_transition`: checks served weeks and absence from the
+  view's sources instead of missing_sources.
+- New sentinel `TestEngineKeepsOrderWithHeldLaggingChart`: the same replay
+  with CBS also on a red hold (promotionHold, hold_level red), as in the chain.
+- Unit case for a held chart on an older week.
+
+Lesson: the PR's CI dist had no hold on CBS, so it could not see this. The
+held replay now covers it. Also: `make test-core` locally regenerates dist/
+and app/ assets; stage files by name, never `git add -A`.
