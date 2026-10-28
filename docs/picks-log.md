@@ -21,6 +21,9 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 
 ## Picks
 
+- 2026-10-28 | Codex held-source tests | JEG-1204 / PR #1051 | Where the source matrix runs | A existing seeded-hold core module / B new Makefile and workflow entries | A | both test-core and preview shard 1 already run the module, avoiding shared build-file overlap | be/jeg-1201-hold-tolerance | no; reverse by moving the matrix to its own module and registering it in both targets
+- 2026-10-28 | Codex held-source tests | JEG-1204 / PR #1051 | Stable inputs during a real mixed-week rebuild | A latest complete common saved week, then lag one root / B inherit unrelated live lags | A | ensures each case really tests one source held now or exactly one week behind, using actual saved data | tests/_hold_scenarios.py in PR #1051 | no; reverse by replacing the isolated scenario builder while preserving the same cases and corruption controls
+
 - 10-27 9:42 PM | Clearing players and teams | JEG-1190 | How Compare a trade opens | A empty with Try an example / B labeled example / C as is | A (Jeremy chose) | his call | not built yet | no
 - 10-27 9:50 PM | Main green | PR #1021 | Footer "Connect the tool" and Find intro links are 15 to 18 px tall on phones (under the 44 px rule) | A invisible 44x44 hit area / B taller footer link row on phones / C 44 px on every link on touch screens | A | follows the existing 44 px rule with no visible change | PR #1021 (app/v2/v2.css) | no
 - 10-27 9:50 PM | Main green | PR #1021 | Basis default-path test compares against a frozen engine from before JEG-1121 | re-freeze the baseline from current main / retire the frozen-engine comparison | re-freeze | keeps the regression lock; the fixture README says to re-freeze after a deliberate value change | PR #1021 (tests/fixtures/baseline_main_771c3422) | no

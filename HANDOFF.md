@@ -470,6 +470,24 @@ Failed approaches and traps:
 
 ---
 
+## JEG-1204: held and lagging source test matrix (2026-10-28)
+
+- Branch `be/jeg-1201-hold-tolerance`, existing draft PR #1051. The former
+  notes-only draft now adds seven-source held/current, lagging, and
+  held/lagging cases to `tests.test_seeded_hold_build`, already in test-core
+  and preview shard 1. No source isolation or value-engine changes.
+- The suspected current-week `test_superflex.page_problems` bug did not
+  reproduce in Chromium: held sources retain their pipeline harness maps.
+  Original numeric checks remain strict. The older identity test now
+  actually passes its isolated fixture to the loader.
+- Fixtures come from consecutive complete saved weeks, including when the
+  real build already has mixed weeks. Projection replays replace the inline
+  player PPG input as well as reference players; saved history stays intact.
+- Verification and remaining work: see
+  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`. Parent owns
+  refreshing from main, CI, serial merge/release, and Linear completion.
+  Do not start JEG-1203 isolation on an unreviewed or failing guard.
+
 ## Keeping this file current
 
 - Rewrite "Resume here" in place and bump "Last updated"; don't append logs.
