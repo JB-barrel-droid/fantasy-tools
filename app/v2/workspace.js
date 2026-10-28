@@ -30,7 +30,10 @@
     const value = isObject(raw) ? raw : {};
     const positions = Array.isArray(value.protectedPositions) ? value.protectedPositions : [];
     const out = {protectedPositions: FINDER_POSITIONS.filter(pos => positions.includes(pos)), keepMine: value.keepMine !== false,
-      keepTheirs: value.keepTheirs !== false, minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null};
+      keepTheirs: value.keepTheirs !== false, maxSize: [1, 2, 3, 4].includes(value.maxSize) ? value.maxSize : 2,
+      minBackups: Object.fromEntries(FINDER_POSITIONS.map(pos => [pos, Number.isInteger(value.minBackups && value.minBackups[pos])
+        && value.minBackups[pos] >= 0 && value.minBackups[pos] <= 20 ? value.minBackups[pos] : 0])),
+      minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null};
     FINDER_LIMITS.forEach(key => {
       const n = value[key];
       if (key !== "minDdfEdge" && (n === null || n === undefined || n === "")) return;
