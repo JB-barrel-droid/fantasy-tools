@@ -335,6 +335,9 @@
   // GAP-WEEK-CALENDARS. tests/test_source_freshness.py pins this port to the
   // Python function date by date, so the two calendars cannot drift apart.
   const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
+  // The last content week (nfl_week.py REGULAR_SEASON_WEEKS). JEG-1155: the one
+  // definition of the bound. curve-widget.js validates a reader-set content
+  // week against this export, so every week the calendar produces can be set.
   const CONTENT_WEEK_MAX = 18;
   const DAY_MS = 86400000;
 
@@ -980,6 +983,7 @@
     getPairRegistry,
     // Pure builders, exported for tests (no DOM, no fetch).
     contentWeekForDay,
+    CONTENT_WEEK_MAX,
     sourceVintage,
     buildSourceFreshness,
     freshnessLabel,
