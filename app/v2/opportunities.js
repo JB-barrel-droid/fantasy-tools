@@ -37,9 +37,13 @@
   }
   function theirFitOf(fit) {
     const them = fit.them;
-    if (fit.marketSupported) return {label: "favorable", detail: "trade charts favor them"};
-    if (them.net >= -them.tau) return {label: "neutral", detail: "within noise floor"};
-    return {label: "hurts", detail: "loses value on trade charts"};
+    const label = fit.marketSupported ? "favorable" : them.net >= -them.tau ? "neutral" : "hurts";
+    const total = finite(them.totalDelta) ? them.totalDelta : null;
+    const starters = total !== null && finite(them.starterDelta) ? them.starterDelta : null;
+    const construction = fit.theirConstruction || null;
+    const constructionText = construction ? construction.ok ? "OK" : (construction.issues || []).join("; ") || "issue" : "not judged";
+    return {label, totalDelta: total, starterDelta: starters, construction,
+      detail: `market total ${total === null ? "unavailable" : fmt(total)}; market starters ${starters === null ? "unavailable" : fmt(starters)}; roster construction ${constructionText}`};
   }
   // JEG-1108: the overall fit now comes straight from tradeFit's label. The overallFit function bridges older callers.
   function overallFit(ourLabel, marketOk, chartEdge, theirLabel, fit) {
@@ -112,7 +116,8 @@
       const core = F.coreOf(t.receive, OUR_KEY);
       return {id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null,
+        addedThrowIns: t.addedThrowIns || null, unbalanced: Boolean(t.unbalanced), size: t.give.length + t.receive.length};
     });
     return {opponentId: opp.id, rows, total: res.total, partial, evaluated: theirRows.length, searched: {mine: res.mine, theirs: res.theirs}, sanityDropped: res.sanityDropped};
   }

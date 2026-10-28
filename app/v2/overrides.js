@@ -315,7 +315,8 @@
 
   // ---------- the bar under the header (every view) ----------
   // "Overrides active: ..." with a one-click reset, a shared link's banner, and the one-time carry-over notice.
-  // The indicator sits in the league row (no extra height on any tab); banners get their own strip under the header.
+  // Desktop keeps the indicator in the context row. Phones use a separate notification strip so the summary,
+  // freshness, and one-tap Reset / Undo remain readable without expanding the closed context row (JEG-1134).
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
@@ -324,6 +325,23 @@
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
     inner.insertBefore(bar, $("v2EditSources"));
     return bar;
+  }
+  function placeBar(bar) {
+    const context = $("v2Context");
+    let phoneRow = $("v2OvPhoneRow");
+    if (!context) return;
+    const phone = window.matchMedia("(max-width: 767px)").matches;
+    if (phone) {
+      if (!phoneRow) {
+        phoneRow = el("div", {id: "v2OvPhoneRow", class: "v2-ov-phone-row", hidden: true});
+        context.after(phoneRow);
+      }
+      if (bar.parentNode !== phoneRow) phoneRow.appendChild(bar);
+    } else {
+      const inner = context.querySelector(".v2-context-inner");
+      if (inner && bar.parentNode !== inner) inner.insertBefore(bar, $("v2EditSources"));
+    }
+    if (phoneRow) phoneRow.hidden = !phone || bar.hidden;
   }
   function bannerHost() {
     let box = $("v2OvBanners");
@@ -367,6 +385,7 @@
     }
     bar.replaceChildren(...line);
     bar.hidden = !line.length;
+    placeBar(bar);
     const notes = [];
     if (S.linkNote) {
       notes.push(el("div", {class: "v2-ov-banner", id: "v2OvLinkBanner", role: "region", "aria-label": "Shared link settings"}, [
@@ -1175,6 +1194,10 @@
     syncBar();
     // Anything else that sets the basis (a script, a link) moves the indicator too.
     window.addEventListener("trade-value-shared-change", () => syncBar());
+    window.matchMedia("(max-width: 767px)").addEventListener("change", () => {
+      const bar = $("v2OvBar");
+      if (bar) placeBar(bar);
+    });
   }
 
   root.DDFOverrides = {boot, render, count: () => Object.keys(S.values).length, all: () => ({...S.values}),

@@ -43,6 +43,31 @@
 
   function announce(text) { const live = $("v2LgLive"); if (live) { live.textContent = ""; live.textContent = text; } }
   function notice(text) { UI.notice = text; const n = $("v2LgNotice"); if (n) n.textContent = text; }
+  const leagueQuery = () => root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
+  const settingsSnapshot = () => ({...(store.get().settings || {}), query: leagueQuery()});
+
+  // Wait for a plausible full league before warning about its team count. The engine currently prices 8/10/12/14 teams.
+  function renderCountMismatch() {
+    const box = $("v2LgMismatch");
+    if (!box || !engine() || !engine().getState) return;
+    const count = store.get().teams.length;
+    const priced = engine().getState().teams;
+    box.hidden = count < 8 || count === priced;
+    if (box.hidden) { box.replaceChildren(); return; }
+    const supported = [8, 10, 12, 14].includes(count);
+    box.replaceChildren(el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
+      supported ? button(`Use ${count} teams in league settings`, {class: "v2-btn", id: "v2LgMatchTeams"}, () => {
+        const V = root.TradeValueV2;
+        if (V && V.applyLinkLeague) {
+          const params = new URLSearchParams(leagueQuery());
+          params.set("teams", String(store.get().teams.length));
+          V.applyLinkLeague(params);
+          renderCountMismatch();
+          announce(`League settings now use ${store.get().teams.length} teams.`);
+        }
+      }) : el("span", {text: "Values currently support 8, 10, 12 or 14 teams. "}),
+      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null);
+  }
 
   // ---------- the engine, read once per render ----------
   function mathContext() {
@@ -423,6 +448,10 @@
     ["v2LgDownload", "v2LgCopyText", "v2LgCopyLink"].forEach(id => { $(id).disabled = !total && !ws.teams.length; });
     $("v2LgClearAll").hidden = !ws.teams.length;
     if (!ws.teams.length) $("v2LgClearConfirm").hidden = true;
+    const editorSummary = $("v2LgEditorSummary");
+    const marked = ws.teams.find(t => t.id === ws.myTeamId);
+    if (editorSummary) editorSummary.textContent = `${plural(ws.teams.length, "team")}${marked ? ` · Your team: ${marked.name}` : ws.teams.length ? " · Expand to mark your team" : " · Paste your league's rosters or add teams"}`;
+    renderCountMismatch();
   }
 
   function renderUndo() {
@@ -446,7 +475,7 @@
   function slug(name) { return String(name || "league").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "league"; }
   function download() {
     const ws = store.get();
-    const blob = new Blob([W.exportJson(ws)], {type: "application/json"});
+    const blob = new Blob([W.exportJson({...ws, settings: settingsSnapshot()})], {type: "application/json"});
     const a = el("a", {href: URL.createObjectURL(blob), download: `${slug(ws.name)}.json`});
     document.body.append(a);
     a.click();
@@ -468,10 +497,13 @@
     }
   }
   function applyImported(workspace, source) {
-    UI.undo = {label: "Loaded a league", ws: store.get()};
+    UI.undo = {label: "Loaded a league", ws: {...store.get(), settings: settingsSnapshot()}};
     UI.comps.forEach(c => c.li.remove());
     UI.comps.clear();
     UI.cache = O.createCache();
+    if (workspace.settings && workspace.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
+      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query));
+    }
     store.replace(workspace, "replace");
     renderUndo();
     notice(`${source} ${plural(workspace.teams.length, "team")} loaded.`);
@@ -481,6 +513,7 @@
     const ws = store.get();
     const box = $("v2LgLoadConfirm");
     if (!ws.teams.length) { applyImported(workspace, source); return; }
+    $("v2LgCard").open = true;
     box.hidden = false;
     const yes = button("Replace my league", {class: "v2-btn", id: "v2LgLoadYes"}, () => { box.hidden = true; applyImported(workspace, source); });
     const no = button("Keep my league", {class: "v2-btn"}, () => { box.hidden = true; });
@@ -615,6 +648,20 @@
     status.replaceChildren(el("span", {text: msg}), el("ul", {class: "v2-lg-paste-teams"}, ...lines.map(line => el("li", {text: line}))));
     if (lines.some(l => /not matched|to check/.test(l))) status.append(el("span", {text: "Add any missing players by searching inside that team."}));
     showParsed({teams: parsed, skipped, source: "Read"});
+    // Healthy rosters (including their K/DST entries) fold away after paste; unresolved players remain visible.
+    const pasted = new Map(parsed.filter(t => !t.leftOut).map(t => [nameKey(t.name), t]));
+    let hasIssues = skipped > 0;
+    UI.comps.forEach(comp => {
+      const team = teamById(store.get(), comp.id);
+      const info = team && pasted.get(nameKey(team.name));
+      if (!info) return;
+      const issue = info.unsure > 0 || info.unmatched.length > 0;
+      hasIssues = hasIssues || issue;
+      comp.collapsed = !issue;
+      comp.update();
+    });
+    $("v2LgImport").open = false;
+    $("v2LgCard").open = hasIssues;
     announce(msg);
   }
 
@@ -915,6 +962,72 @@
       el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, mine, opp, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
+  // All optional fields describe the current summary before the trade, for either team.
+  function summaryControls(ws, basis) {
+    const fields = T.summaryFields(basis);
+    const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
+    const save = patch => { UI.oppsShown = PAGE; update(w => W.ops.setUi(w, patch), "ui:summary-fields"); };
+    const columns = el("details", {id: "v2LgFields", class: "v2-lg-field-options", open: Boolean(UI.fieldsOpen)}, el("summary", {text: "Add team summary columns"}),
+      el("p", {class: "v2-meta", text: "Current team summary before the trade. Values and ranks follow the summary's ranking basis."}));
+    columns.addEventListener("toggle", () => { UI.fieldsOpen = columns.open; });
+    [["mine", "Our team"], ["theirs", "Their team"]].forEach(([side, label]) => {
+      const group = el("fieldset", {}, el("legend", {text: label}));
+      fields.forEach(field => {
+        const key = `${side}:${field.id}`;
+        const input = el("input", {type: "checkbox", "data-summary-column": key});
+        input.checked = selected.has(key);
+        input.addEventListener("change", () => { if (input.checked) selected.add(key); else selected.delete(key); save({summaryColumns: [...selected]}); });
+        group.append(el("label", {}, input, " ", field.label));
+      });
+      columns.append(group);
+    });
+    const filters = el("details", {id: "v2LgSummaryFilters", class: "v2-lg-field-options", open: Boolean(UI.summaryFiltersOpen) || rules.length > 0}, el("summary", {text: `Filter by team summary${rules.length ? ` (${rules.length})` : ""}`}),
+      el("p", {class: "v2-meta", text: "All rules must match the current team summary before the trade. Missing values match only ‘Missing’."}));
+    filters.addEventListener("toggle", () => { UI.summaryFiltersOpen = filters.open; });
+    const select = (id, label, options) => {
+      const control = el("select", {id}, ...options.map(([value, text]) => el("option", {value, text})));
+      filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), control));
+      return control;
+    };
+    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Our team"]]);
+    const field = select("v2LgSummaryFilterField", "Summary field", fields.map(f => [f.id, f.label]));
+    const op = select("v2LgSummaryFilterOp", "Condition", []);
+    const value = el("input", {id: "v2LgSummaryFilterValue", type: "text", "aria-label": "Summary filter value"});
+    const setOps = () => {
+      const numeric = fields.find(f => f.id === field.value).type === "number";
+      const choices = numeric ? [["gte", "At least"], ["lte", "At most"], ["eq", "Equals"]] : [["contains", "Contains"], ["notContains", "Does not contain"], ["eq", "Equals"]];
+      op.replaceChildren(...choices.concat([["missing", "Missing"], ["present", "Has a value"]]).map(([v, t]) => el("option", {value: v, text: t})));
+      value.inputMode = numeric ? "decimal" : "text";
+      value.disabled = false;
+    };
+    field.addEventListener("change", setOps);
+    op.addEventListener("change", () => { value.disabled = ["missing", "present"].includes(op.value); });
+    setOps();
+    filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Value"}), value));
+    const error = el("span", {class: "v2-meta", role: "status"});
+    filters.append(button("Add filter", {class: "v2-btn", id: "v2LgSummaryFilterAdd"}, () => {
+      const f = fields.find(f => f.id === field.value);
+      if (!["missing", "present"].includes(op.value) && (!value.value.trim() || (f.type === "number" && !Number.isFinite(Number(value.value))))) {
+        error.textContent = f.type === "number" ? "Enter a number for this filter." : "Enter text for this filter.";
+        value.focus(); return;
+      }
+      UI.summaryFiltersOpen = true;
+      save({summaryFilters: rules.concat([{side: side.value, field: field.value, op: op.value, value: value.value.trim()}])});
+    }), error);
+    rules.forEach((rule, index) => {
+      const f = fields.find(f => f.id === rule.field);
+      if (!f) return;
+      const words = {gte: "at least", lte: "at most", eq: "equals", contains: "contains", notContains: "does not contain", missing: "missing", present: "has a value"};
+      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Our" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
+        button("Remove", {class: "v2-link", "aria-label": `Remove ${f.label} filter`}, () => save({summaryFilters: rules.filter((_, i) => i !== index)}))));
+    });
+    return el("div", {class: "v2-lg-summary-controls"}, columns, filters);
+  }
+  function fitInfo(variant) {
+    const label = O.FIT_WORD[variant] || "Fit";
+    return el("details", {class: "v2-lg-fit-info"}, el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {role: "note", text: F.fitTip(variant)}));
+  }
   function oppControls(ws, res) {
     const f = ws.ui.filters;
     const sel = (id, label, options, value, onChange) => {
@@ -953,10 +1066,19 @@
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");
-    const cols = O.OPP_COLUMNS;
+    const summary = summaryData();
+    const basis = summary.basis;
+    const byTeam = new Map(summary.summary.teams.map(t => [t.id, t]));
+    const fields = T.summaryFields(basis);
+    const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
+    const optional = ["mine", "theirs"].flatMap(side => fields.filter(f => selected.has(`${side}:${f.id}`)).map(f => ({...f, side, field: f,
+      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Our" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
+    const cols = O.OPP_COLUMNS.concat(optional);
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
-    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce);
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
+    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce).filter(r => rules.every(rule =>
+      T.summaryFieldMatches(byTeam.get(rule.side === "mine" ? mine.id : r.opponentId), rule, basis)));
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
     // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
@@ -972,6 +1094,10 @@
     const openFolds = new Map();
     capped.folds.forEach((rows, key) => { if (UI.expandedCores.has(key) && foldAt.has(key)) openFolds.set(key, rows); });
     const revealed = [...openFolds.values()].reduce((n, rows) => n + rows.length, 0);
+    // Expanding a core reveals more candidates without moving a worse rank ahead of a better one.
+    const displayRows = S.sortRows(shownRows.concat(...openFolds.values()), cols, state, O.OPP_TIES);
+    const displayFoldAt = new Map();
+    displayRows.forEach((r, i) => { if (capped.folds.has(coreKey(r))) displayFoldAt.set(coreKey(r), i); });
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
     const headline = el("p", {class: "v2-find-headline", id: "v2LgOppsHeadline", role: "status"}, O.leagueHeadline(res, balance && balance.ready ? {over: balance.over, under: balance.under} : null) || "No trade opportunities found.");
@@ -989,10 +1115,10 @@
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgOppsReset", hidden: S.sameState(state, O.OPP_DEFAULT)}, () => onSort(O.OPP_DEFAULT));
     const two = {rowspan: "2"};
     const thead = el("thead", {},
-      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), plainTh("Our team fit", two),
-        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
+      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Our team fit", two),
+        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two), ...optional.map(c => sortTh(c.id, cols, state, onSort, two))),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
-    const colspan = OPP_COLSPAN;
+    const colspan = OPP_COLSPAN + optional.length;
     // JEG-885: one trade row, used for the visible rows and for the rows an open fold reveals.
     const oppRowBody = r => {
       const open = UI.expanded.has(r.id);
@@ -1007,13 +1133,14 @@
         el("td", {}, r.opponent, r.partial ? el("span", {class: "v2-meta", text: " (partial roster)"}) : null),
         el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details, " ", pickBtn),
         el("td", {class: "num", "data-cell": "capture"}, `${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+        projCell(r),
         el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
         el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
         el("td", {class: "num", "data-cell": "fair"}, `${r.rivalOkCount}/${r.chartCount} fair`),
-        projCell(r),
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
-        el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord})),
-        el("td", {class: "num", "data-cell": "rank"}, String(r.rank)));
+        el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord}), r.overall ? fitInfo(r.overall) : null),
+        el("td", {class: "num", "data-cell": "rank"}, `#${r.rank}`),
+        ...optional.map(c => el("td", {class: c.type === "number" ? "num" : "", "data-cell": c.id}, T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field))));
       return el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : []));
     };
     // The fold control: "N more for <player>", opening the rest of that player's rows right under it (keyboard: focus comes back).
@@ -1022,12 +1149,11 @@
       {class: "v2-link v2-lg-fold-btn", id: `v2LgFold-${key}${suffix}`, "aria-expanded": String(openFolds.has(key))},
       () => { if (UI.expandedCores.has(key)) UI.expandedCores.delete(key); else UI.expandedCores.add(key); renderOpps(); });
     const bodyRows = [];
-    shownRows.forEach((r, i) => {
+    displayRows.forEach((r, i) => {
       bodyRows.push(oppRowBody(r));
       const key = coreKey(r);
-      if (capped.folds.has(key) && foldAt.get(key) === i) {
+      if (capped.folds.has(key) && displayFoldAt.get(key) === i) {
         bodyRows.push(el("tbody", {class: "v2-lg-fold"}, el("tr", {}, el("td", {class: "v2-lg-fold-cell", colspan: String(colspan)}, foldButton(key, "")))));
-        (openFolds.get(key) || []).forEach(m => bodyRows.push(oppRowBody(m)));
       }
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
@@ -1037,18 +1163,19 @@
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
       el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
-      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
+      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
+      r.overall ? fitInfo(r.overall) : null,
+      ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
       tail || null);
     const cardNodes = [];
-    shownRows.forEach((r, i) => {
+    displayRows.forEach((r, i) => {
       const key = coreKey(r);
-      const tail = capped.folds.has(key) && foldAt.get(key) === i ? foldButton(key, "-card") : null;
+      const tail = capped.folds.has(key) && displayFoldAt.get(key) === i ? foldButton(key, "-card") : null;
       cardNodes.push(oppCard(r, tail));
-      if (tail) (openFolds.get(key) || []).forEach(m => cardNodes.push(oppCard(m)));
     });
     const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...cardNodes);
     const remaining = sorted.length - shownRows.length;
@@ -1060,7 +1187,7 @@
     const more = moreButtons.length ? el("div", {class: "v2-ctoolbar v2-lg-more"}, ...moreButtons) : null;
     const count = sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsCount", role: "status", text: `Showing ${shownRows.length + revealed} of ${sorted.length}`}) : null;
     const empty = !sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsMsg", text: res.rows.length ? "No opportunity matches these filters." : "No trade opportunities found."}) : null;
-    body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
+    body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), summaryControls(ws, basis), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
       chosen ? oppPanel(chosen, ctx) : null,
@@ -1108,7 +1235,7 @@
     renderTeams();
     renderStatus();
     if (String(reason).startsWith("ui:")) {
-      if (reason === "ui:sort-summary" || reason === "ui:basis") renderSummary();
+      if (reason === "ui:sort-summary" || reason === "ui:basis") { renderSummary(); if (reason === "ui:basis") renderOpps(); }
       else renderOpps();
       return;
     }
@@ -1165,14 +1292,28 @@
     const at = hash.indexOf("workspace=");
     if (at < 0 || !/^#find-(league|trade)\?/.test(hash)) return;
     const text = hash.slice(at + "workspace=".length).split("&")[0];
+    const params = new URLSearchParams(hash.slice(hash.indexOf("?") + 1));
     const ctx = mathContext();
     if (!ctx) return;
-    const teams = W.decodeShare(text, ctx.rowsByKey);
+    let teams;
+    try { teams = W.decodeShare(text, ctx.rowsByKey); }
+    catch (error) {
+      $("v2LgCard").open = true;
+      notice("That league link is incomplete or invalid. Your saved league has been kept.");
+      return;
+    }
     const keep = /[?&](trade=[^&]+)/.exec(hash);
     try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
-    if (!teams.length) { notice("That link carries no teams."); return; }
+    if (!teams.length) { $("v2LgCard").open = true; notice("That league link is empty or invalid. Your saved league has been kept."); return; }
     let w = W.newWorkspace({name: "Shared league"});
-    teams.forEach((t, i) => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); if (i === 0 && teams.length) w = W.ops.setMyTeam(w, w.teams[0].id); });
+    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); });
+    // New links preserve an unmarked league; legacy links have always put the marked roster first.
+    const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
+    if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);
+    params.delete("workspace");
+    params.delete("wm");
+    params.delete("trade");
+    if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
     offerReplace(w, "Shared link:");
   }
 
@@ -1193,16 +1334,28 @@
     const download2 = button("Download", {class: "v2-btn", id: "v2LgDownload"}, download);
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
-      const enc = W.encodeShare(store.get());
-      const url = `${root.location.origin}${root.location.pathname}#find-league?workspace=${enc.text}`;
-      copy(url, enc.full ? "Copied a link to the whole league." : "Link carries your team only. For the full league, use Download.");
+      const enc = W.shareHash(store.get(), leagueQuery());
+      const url = `${root.location.origin}${root.location.pathname}${enc.hash}`;
+      copy(url, enc.full ? "Copied a link to the whole league and its settings." : "Link carries your team and league settings only. For the full league, use Download.");
     });
+    const transferInfo = (label, text) => el("details", {class: "v2-lg-transfer-info"},
+      el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {class: "v2-meta", text}));
+    const transfer = el("details", {class: "v2-lg-transfer", id: "v2LgTransfer"},
+      el("summary", {class: "v2-btn", text: "Import / export"}),
+      el("div", {class: "v2-lg-transfer-menu"},
+        el("div", {class: "v2-lg-transfer-action"}, download2, transferInfo("Download", "Save a JSON file with every team, roster and your current league settings. Use Load to open that file on another device.")),
+        el("div", {class: "v2-lg-transfer-action"}, load, transferInfo("Load", "Open a downloaded league JSON file. If you have a saved league here, you can choose whether to replace it. Undo restores your previous league.")),
+        el("div", {class: "v2-lg-transfer-action"}, copyLink, transferInfo("Copy link", "Copy a link that opens the league rosters and current league settings on another device. If the league is too large for a link, only your marked team travels; Download always keeps every team.")),
+        copyText));
     const undo = button("", {class: "v2-btn", id: "v2LgUndo", hidden: true}, () => {
       if (!UI.undo) return;
       const snap = UI.undo.ws;
       UI.undo = null;
       UI.comps.forEach(c => c.li.remove());
       UI.comps.clear();
+      if (snap.settings && snap.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
+        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query));
+      }
       store.replace(snap, "replace");
       renderUndo();
       announce("Undone.");
@@ -1238,16 +1391,15 @@
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
         el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays on this device."}),
         el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
-    const league = el("section", {class: "v2-card", id: "v2LgCard", "aria-labelledby": "v2LgTitle"},
-      el("div", {class: "v2-card-head"}, el("div", {},
+    const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
+      el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),
-        el("p", {class: "v2-meta", text: "Enter every team in your league, with names, and mark yours with the star. Below, a team summary compares the teams and a trade opportunities table lists the best trades for your team against all of them."}))),
-      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, download2, load, copyText, copyLink, clearAll, undo, fileInput,
+        el("p", {class: "v2-meta", id: "v2LgEditorSummary", text: "Paste your league rosters or add teams, then mark your team with the star."}))),
+      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, clearAll, undo, fileInput,
         el("span", {class: "v2-meta v2-lg-saved", id: "v2LgSaved", role: "status", "aria-live": "polite"})),
       clearConfirm,
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
       el("section", {class: "v2-lg-parsed", id: "v2LgParsed", role: "status", "aria-live": "polite", "aria-label": "What was read from your paste", hidden: true}),
-      el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
       el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
@@ -1265,7 +1417,7 @@
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
-      if (!tr || event.target.closest("button, a, select, input")) return;
+      if (!tr || event.target.closest("button, a, select, input, summary, details")) return;
       const row = UI.result && UI.result.rows.find(r => r.id === tr.dataset.oppId);
       if (row) { selectOpp(UI.selectedOpp === row.id ? null : row); renderOpps(); }
     });
@@ -1277,6 +1429,9 @@
       focusPick(id);
     });
     const anchor = host.querySelector(".v2-footnote");
+    host.insertBefore(el("div", {class: "v2-lg-transfer-bar"}, transfer), anchor);
+    host.insertBefore(el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}), anchor);
+    host.insertBefore(el("div", {class: "v2-lg-mismatch", id: "v2LgMismatch", role: "status", hidden: true}), anchor);
     host.insertBefore(league, anchor);
     host.insertBefore(summary, anchor);
     host.insertBefore(opps, anchor);

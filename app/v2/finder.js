@@ -633,6 +633,9 @@
     const before = lineupValue(team.roster, ctx.shape, key);
     const next = lineupValue(after, ctx.shape, key);
     const starterDelta = next.starterValue - before.starterValue;
+    // A roster's raw total is different from the bench-weighted net used for fit. Only report its change when every
+    // moving player has this view: lineupValue omits unpriced rows, which must not turn a missing trade value into zero.
+    const totalDelta = team.leaving.concat(team.arriving).every(r => r.values && finite(r.values[key])) ? next.total - before.total : null;
     const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
     const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
     const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
@@ -661,7 +664,7 @@
     const away = needAfter > needBefore;
     const awayAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter > depth[pos].distBefore);
     const towardAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter < depth[pos].distBefore);
-    return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
+    return {key, net, totalDelta, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
   // JEG-1108: rewritten fit labels. Three labels: natural, market, force (value retired).
@@ -810,12 +813,71 @@
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: neither roster is broken (no bench player is forced into a starting spot and no starter is lost without a starter coming back), your DDF Value total rises with your starters no worse, and the Trade chart average does not show the other team losing.",
-    market: "Market supported: the Trade chart average says the other team comes out ahead on this trade.",
+    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Fit totals weight bench value by the league's bench share.",
+    market: "Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details.",
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+
+  // ---------- JEG-894: a Find a trade search link ----------
+  // A search is a roster pair, a package size and the two lineup ticks; the link carries all of them, plus the league
+  // settings (the caller passes the page's own league query, so the reader's numbers are the sender's). Ids are the
+  // engine player_key. The link is a plain URL fragment: it is never sent to a server.
+  const FINDER_ID = /^[0-9A-Za-z_-]+$/;
+  const FINDER_MAX_SIDE = 40;   // a crafted link cannot freeze the page
+  const finderKeys = list => (list || []).map(p => (typeof p === "string" ? p : p && p.key))
+    .filter(k => k !== undefined && k !== null && k !== "").map(k => encodeURIComponent(String(k))).join(",");
+  // state: {mine, theirs, maxSize, keepMine, keepTheirs}; leagueQuery: the page's leagueLinkParts().join("&") (may be "").
+  function encodeFinderHash(state, leagueQuery) {
+    const s = state || {};
+    const parts = [];
+    const mine = finderKeys(s.mine);
+    const theirs = finderKeys(s.theirs);
+    if (mine) parts.push(`mine=${mine}`);
+    if (theirs) parts.push(`theirs=${theirs}`);
+    const size = Number(s.maxSize);
+    parts.push(`size=${MAX_SIZE_CHOICES.includes(size) ? size : 2}`);
+    parts.push(`km=${s.keepMine === false ? 0 : 1}`);
+    parts.push(`kt=${s.keepTheirs === false ? 0 : 1}`);
+    const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
+    if (tail) parts.push(tail);
+    return `#find-trade?${parts.join("&")}`;
+  }
+  // Pure: ids must look like keys, each side is capped, an id on both sides stays on "mine", `size` is 2/3/4 (else 2),
+  // km/kt default on. knownKeys (a Set or array of engine keys) drops ids the engine no longer prices and counts them;
+  // without it every well-formed id is kept. Returns {mine, theirs, size, keepMine, keepTheirs, dropped, unknown, both}.
+  function decodeFinderHash(query, knownKeys) {
+    // Accept a bare query ("mine=1"), a "?mine=1" query, or a full fragment ("#find-trade?mine=1").
+    const raw = String(query || "");
+    const params = new URLSearchParams(raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw.replace(/^[#?]+/, ""));
+    const known = knownKeys ? new Set([...knownKeys].map(String)) : null;
+    let dropped = 0;
+    let unknown = 0;
+    const readSide = name => {
+      const out = [];
+      const seen = new Set();
+      String(params.get(name) || "").split(",").map(s => s.trim()).filter(Boolean).forEach(raw => {
+        let id; try { id = decodeURIComponent(raw); } catch (error) { id = raw; }
+        if (!FINDER_ID.test(id)) { dropped += 1; return; }
+        if (seen.has(id)) return;
+        if (known && !known.has(id)) { unknown += 1; return; }
+        if (out.length >= FINDER_MAX_SIDE) { dropped += 1; return; }
+        seen.add(id);
+        out.push(id);
+      });
+      return out;
+    };
+    const mine = readSide("mine");
+    const mineSet = new Set(mine);
+    const theirsAll = readSide("theirs");
+    const both = theirsAll.filter(k => mineSet.has(k));
+    const theirs = theirsAll.filter(k => !mineSet.has(k));
+    const size = Number(params.get("size"));
+    return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length};
+  }
+
+  const api = {encodeFinderHash, decodeFinderHash, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -836,6 +898,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
   const keysOf = list => list.map(p => p.key).join(",");
   let syncing = false;
+  let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
   const pushMine = () => {
     const store = sharedStore();
     if (!store || syncing || keysOf(store.getMyRoster()) === keysOf(S.mine)) return;
@@ -874,8 +937,47 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       S.sel.clear();
       renderBoth();
       if ($("v2FindOut")) clearOutput();
+      // JEG-894: a search link sets the rosters through here; run the search it asked for now that they are in.
+      if (linkPending) { linkPending = false; if (S.mine.length && S.theirs.length) { if ($("v2FindSummary")) updateSummary(); run(); } }
       return {bothSides: theirs.filter(p => have.has(p.key)).map(p => p.name)};
     }};
+
+  // JEG-894: the finder's own part of a search link. The rosters and the league settings arrive through the shared link
+  // path (ddf-assist.js, which owns #find-trade?mine=..&theirs=..); this sets the package size and the two lineup ticks
+  // and asks for the search to run as soon as setSides has the rosters in.
+  function applyHash(params) {
+    if (!params || location.hash.split("?")[0] !== "#find-trade") return null;
+    if (!params.has("mine") && !params.has("theirs")) return null;
+    const decoded = decodeFinderHash(params.toString(), null);
+    S.maxSize = decoded.size;
+    S.keepMine = decoded.keepMine;
+    S.keepTheirs = decoded.keepTheirs;
+    const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    linkPending = true;
+    return decoded;
+  }
+  // The "Copy link to this search" button: both rosters, the package size, the lineup ticks and the league settings.
+  async function copyLink(button) {
+    const note = $("v2FindShareNote");
+    const say = text => { if (note) { note.hidden = false; note.textContent = text; } };
+    const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
+    if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
+    const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
+    const url = location.href.split("#")[0] + encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs}, league);
+    say("\u2713 Link copied. It opens this search with both rosters, the package size and your lineup ticks.");
+    if (button) {
+      if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
+      button.textContent = "Copied";
+      clearTimeout(button.copyTimer);
+      button.copyTimer = setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 2000);
+    }
+    try { await navigator.clipboard.writeText(url); }
+    catch (error) { say(`Copy this link: ${url}`); }
+  }
+  api.applyHash = applyHash;
+  api.copyLink = copyLink;
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
@@ -2034,6 +2136,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     };
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
     go.addEventListener("click", findPressed);
+    const share = el("button", {type: "button", class: "v2-btn", id: "v2FindShare", text: "Copy link to this search"});
+    share.addEventListener("click", () => copyLink(share));
     const swap = el("button", {type: "button", class: "v2-btn", id: "v2FindSwap", text: "Swap teams"});
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
@@ -2054,7 +2158,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, clearBothButton, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
-        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
+        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go, share),
+      el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
       el("p", {class: "v2-meta", id: "v2FindSettingsNote"}),
