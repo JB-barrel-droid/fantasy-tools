@@ -6,6 +6,9 @@ and 390 against the engine's own rows, computed here independently of finder.js:
 
   * every evaluated player's two chips read the engine's value to one decimal (chart average = mean of the available
     charts, "no value" when any available chart does not price the player, never 0);
+  * a player with no DDF Value reads "no value" on that chip, never 0. The weekly data may have no such player, so the test
+    makes its own: the page's engine rows are wrapped to drop one mid-ranked player's DDF Value (data only, the
+    test_v2_deal_read_render FEED pattern), and that player is added;
   * a kept defense or kicker shows "Not evaluated" and no chips;
   * chips follow a player moved to the other team (Move) and stay on Undo;
   * no page errors, no sideways scroll at 390.
@@ -38,7 +41,8 @@ EXPECT = """() => {
   const charts = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].filter(k => avail.has(k));
   const f = v => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(1) : 'no value');
   const out = {};
-  document.querySelectorAll('li.v2-find-row').forEach(li => {
+  // Find a trade's own rows: the league screen (league.js) draws the same rosters with its own chips.
+  document.querySelectorAll('#v2FindTrade li.v2-find-row').forEach(li => {
     const name = li.querySelector('b').textContent;
     const row = [...byKey.values()].find(r => r.name === name);
     const chips = [...li.querySelectorAll('.v2-find-chip-value')].map(b => b.textContent);
@@ -53,6 +57,23 @@ EXPECT = """() => {
   return out;
 }"""
 
+# The missing-value case, built by the test (the week's data may price every player): one priced QB/RB/WR/TE with a unique
+# name, ranked 41st by DDF Value (outside the players PICK adds) and not in the pasted page, loses its DDF Value in every
+# row the engine hands out from here on. Returns that player's name, or null when the week has too few players.
+UNPRICE = """(paste) => {
+  const C = window.TradeValueCurveControls;
+  const all = C.getAllRows();
+  const count = new Map(); all.forEach(r => count.set(r.name, (count.get(r.name) || 0) + 1));
+  const rows = all.filter(r => r.name && count.get(r.name) === 1 && ['QB', 'RB', 'WR', 'TE'].includes(r.pos) && r.values
+    && Number.isFinite(r.values.ddf_value) && !paste.includes(r.name)).sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const target = rows[40];
+  if (!target) return null;
+  const key = String(target.player_key);
+  const orig = C.getAllRows.bind(C);
+  C.getAllRows = () => orig().map(r => (String(r.player_key) === key ? {...r, values: {...r.values, ddf_value: null}} : r));
+  return target.name;
+}"""
+
 
 def check(page, tag, width) -> list[str]:
     errors = []
@@ -63,12 +84,13 @@ def check(page, tag, width) -> list[str]:
     pick = page.evaluate(PICK)
     for name in pick["mine"][:6]:
         add(page, "Mine", name)
-    unpriced = page.evaluate("() => { const r = window.TradeValueCurveControls.getAllRows().find(r => !Number.isFinite(r.values.ddf_value)); return r && r.name; }")
+    paste = FIXTURE.read_text(encoding="utf-8")   # a page with a kicker and a defense
+    unpriced = page.evaluate(UNPRICE, paste)
     if unpriced:   # a player with no DDF Value: the chip says so, it is not 0
         add(page, "Mine", unpriced)
     else:
-        say("no player without a DDF Value in the fixture to check the missing-value chip")
-    page.fill("#v2FindTheirsSearch", FIXTURE.read_text(encoding="utf-8"))   # a page with a kicker and a defense
+        say("too few priced players to build the missing-value case")
+    page.fill("#v2FindTheirsSearch", paste)
     page.wait_for_timeout(400)
     rows = page.evaluate(EXPECT)
     if len(rows) < 12:

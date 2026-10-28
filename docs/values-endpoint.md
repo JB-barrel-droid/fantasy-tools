@@ -52,8 +52,10 @@ with the site's own rule and data:
   `missing_sources`); a source already on N+1 is priced on its saved copy of
   week N (`assets/history/week-<N>.json`), or named missing when none is saved.
 - Without a history index for the served build (or a `value-model.js` without
-  `weekState`), the calendar rule applies, as on the page; the only week then is
-  that calendar week.
+  `weekState`), the calendar fallback applies: the week is the newest week any
+  weekly chart serves (capped at the calendar's week), and a weekly chart counts
+  as older only when it is behind that week, never just because the calendar has
+  moved on (#1028). That is the only week that can be asked for then.
 - This fixes JEG-1157: from the Tuesday flip until the charts land, the
   calendar says N+1 while the charts serve N, and the endpoint used to price
   almost nothing. The default now stays on N.
@@ -229,5 +231,5 @@ once. Output includes the user's lineup after the package.
 | `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth _(pending Jeremy's answer)_ |
 | `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable _(pending Jeremy's answer)_ |
 | `minRbBackups` | 1 | Minimum healthy RB backups beyond starters |
-| `minWrBackups` | 1 | Minimum healthy WR backups beyond starters |
+| `minWrBackups` | 0 | Minimum healthy WR backups beyond starters (Jeremy 2026-10-28: lowered from 1, JEG-1129) |
 | `guardrails` | `[]` | User-defined position protections |

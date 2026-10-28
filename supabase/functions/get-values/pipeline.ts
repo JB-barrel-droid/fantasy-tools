@@ -232,16 +232,15 @@ function historyMatchesBuild(bundle: Bundle): boolean {
   return !(index.fixture_built_at && built && index.fixture_built_at !== built);
 }
 
-// The calendar rule the page uses when there is no week view (first_load_reference_week,
-// first_load_excluded, stale weekly charts).
+// The calendar fallback when there is no week view (first_load_reference_week, first_load_excluded):
+// the calendar only caps the reference week; a chart is older only when behind that week (#1028).
 function calendarFreshness(detail: Any, today: string) {
   const currentContentWeek = contentWeekForDay(today);
-  const rows: Record<string, { week: number | null; older: boolean }> = {};
+  const rows: Record<string, { week: number | null }> = {};
   for (const key of PIPELINE_SOURCE_KEYS) {
     const sourceMeta = detail.sources?.[key];
     if (!sourceMeta) continue;
-    const week = sourceVintage(sourceMeta).week;
-    rows[key] = { week, older: week !== null && week < (currentContentWeek ?? 0) };
+    rows[key] = { week: sourceVintage(sourceMeta).week };
   }
   const weeklyWeeks = Object.entries(rows)
     .filter(([key, r]) => WEEKED_SOURCES.has(key) && r.week !== null)
@@ -250,8 +249,10 @@ function calendarFreshness(detail: Any, today: string) {
   const olderWeek = new Set<string>();
   for (const [key, r] of Object.entries(rows)) {
     if (!WEEKED_SOURCES.has(key) || r.week === null) continue;
-    // Stale (older than the calendar's week) or first-load excluded (older than the reference week).
-    if (r.older || (referenceWeek !== null && r.week < referenceWeek)) olderWeek.add(key);
+    // Older week: a weekly chart behind the newest published week (the first-load rule, #1028). The
+    // calendar's week is not the test: on the Tuesday flip every chart is still on last week, and
+    // judging them against the calendar dropped them all and priced nobody (Oct 27 2026).
+    if (referenceWeek !== null && r.week < referenceWeek) olderWeek.add(key);
   }
   return { referenceWeek: referenceWeek ?? currentContentWeek, olderWeek, labels: rows };
 }

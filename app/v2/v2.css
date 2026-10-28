@@ -844,11 +844,15 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 
 /* Compare a trade (frames 07 / 08 / 24): values per player, side totals, story, bars, breakdown. */
 .v2-ctoolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
-.v2-trade-players li { display: grid; grid-template-columns: 1fr auto 44px; }
+.v2-trade-players li { display: grid; grid-template-columns: 1fr auto minmax(44px, auto); }
 .v2-trade-value { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; text-align: right; }
 .v2-trade-value .missing, .v2-side-total .missing { color: var(--v2-muted); font-weight: 400; font-size: 13px; }
 .v2-trade-value .missing .why, .v2-side-total .missing .why { display: block; font-size: 11px; }
-.v2-remove { min-width: 44px; font-size: 16px; color: var(--v2-muted); }
+.v2-remove { min-width: 44px; font-size: 13px; color: var(--v2-muted); }
+/* JEG-1190: Clear side under each list, Undo beside Clear trade, and the empty start's sample-trade button. */
+.v2-cside-clear { align-self: flex-start; font-size: 13px; padding: 0 2px; }
+.v2-cside-clear[hidden], #v2CUndo[hidden], .v2-cstart[hidden] { display: none; }
+.v2-cstart { margin-top: 8px !important; }
 .v2-side-total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--v2-border); margin-top: 4px !important; padding-top: 14px; }
 .v2-side-total[hidden] { display: none; }
 .v2-side-total b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1062,7 +1066,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-cexample .v2-pill { background: var(--v2-surface); border: 1px solid var(--v2-older); }
 /* JEG-1112: the Example banner sits inside .v2-chead (full width below 1280 px, as before). From 1280 px, where the verdict
    sits beside the two sides and the fold matters, a new visitor's header is two lines instead of four: the title and the
-   Example chip share a row with the Use this example button and the picker, and the subtitle, the week and the
+   Example chip share a row with the picker, and the subtitle, the week and the
    sample-trade sentence share the second line. Other tabs' headers are not touched. */
 #v2Compare .v2-cexample { flex: 1 1 100%; }
 @media (min-width: 1280px) {
@@ -1073,7 +1077,6 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-chead .v2-title .v2-asof { grid-column: 2; white-space: nowrap; }
   #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
   #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
-  #v2Compare .v2-chead .v2-cexample .v2-link { grid-row: 1; grid-column: 4; }
   #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
 }
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
@@ -1733,7 +1736,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }
 
 /* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
-#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
+#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUndo { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
 
 /* Values auditing sub-navigation (JEG-847). */
 .v2-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 var(--v2-gap); }
@@ -2104,6 +2107,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-fit.is-market, .v2-lg-fit.is-value { color: var(--v2-ink); }
 .v2-lg-detail-body { display: grid; gap: 4px; }
 .v2-lg-detail-body p { margin: 0; }
+/* JEG-885: a folded core player's "N more for <player>" control, and the rows it opens under it. */
+.v2-lg-fold-cell { text-align: left; border-top: 0; }
+.v2-lg-fold-btn { text-align: left; }
 .v2-lg-cards { display: none; list-style: none; margin: 8px 0 0; padding: 0; gap: 8px; }
 .v2-lg-card { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px 12px; }
 .v2-lg-card[data-mine="true"] { border-left: 4px solid var(--v2-action); }
@@ -2133,6 +2139,17 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 /* JEG-1026: the ChatGPT / Claude line in the footer of every tab; Copy and Paste sit in the league strip. */
 .v2-assist { border-top: 1px solid var(--v2-border); margin-top: var(--v2-pad-section); padding: 16px 0 28px; color: var(--v2-muted); font-size: 13px; }
 .v2-assist-line { margin: 0; }
+/* 44 x 44 hit area (docs/v2-design-notes.md: every action has one) for the inline links in the footer line and the Find a
+   trade intros: `.v2-link`'s min-height does nothing on an inline <a>, so they were 15-18 px tall on phones. Same pattern
+   and scope as the divergence chip (JEG-1048): a centred empty ::after, so nothing moves or shows. The footer's 16 px top and
+   28 px bottom padding hold the 14.5 px it reaches past the link; no other control is in reach. Inline-block so a link
+   never splits across two lines at 320 px (a split link's box spans both lines and its centre lands on the text before
+   it); min-height 0 keeps `.v2-link`'s 44 px from growing the line, so the text stays where it was. */
+@media (max-width: 767px), (pointer: coarse) {
+  #v2AssistLine a.v2-link, #v2FindTrade .v2-title p a.v2-link, #v2FindLeague .v2-title p a.v2-link { position: relative; display: inline-block; min-height: 0; }
+  #v2AssistLine a.v2-link::after, #v2FindTrade .v2-title p a.v2-link::after, #v2FindLeague .v2-title p a.v2-link::after {
+    content: ""; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }
+}
 .v2-assist-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .v2-assist-actions .v2-btn[hidden], .v2-assist-paste[hidden], .v2-assist-note[hidden] { display: none; }
 .v2-assist-panel:empty { display: none; }
@@ -2166,6 +2183,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
   .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
+/* A landscape phone (844 px wide) is past the phone width but still tapped: its Edit league and Dismiss keep 44 px. */
+@media (pointer: coarse) {
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
 
 /* JEG-1095: what a league paste understood */
 .v2-lg-parsed { border: 1px solid var(--v2-line, #d0d4da); border-radius: 8px; padding: 12px 14px; margin: 8px 0; }
@@ -2183,3 +2205,85 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-oppsides { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .v2-lg-oppside h4 { margin: 0 0 6px; }
 @media (max-width: 720px) { .v2-lg-oppsides { grid-template-columns: minmax(0, 1fr); } }
+/* ===== JEG-903: WCAG 2.5.8 target size (minimum), 24 x 24 CSS px =====
+   The live a11y audit (2026-10-22) measured the chart legend toggles at 22 px and the rank-brush fill at
+   16 px. Both boxes now clear the 24 px minimum. The 44 px hit areas around them are unchanged: the legend
+   item's ::after (JEG-675) and the brush fill's ::before (JEG-861) keep the row pitch and the drag strip
+   the same. The Targets card value spans were already 44 x 44 on touch (JEG-947). */
+.v2-legend .v2-legend-item { min-height: 24px; }
+/* The track band grows with the fill, so the two stay the same height in the 44 px track. */
+.v2-brush-track::before { top: 10px; height: 24px; }
+.v2-brush-fill { top: 10px; height: 24px; }
+
+/* ===== JEG-955: multi-column layouts collapse to one column on phones =====
+   Every content grid in the app already stacks below 768 px (the JEG-947 pass and the earlier mobile
+   phases). The one that was still side by side on a phone was the two-up number row in the "Value range"
+   and "Exact ranks" popovers: each field got half a phone width. They stack now, so each field spans the
+   panel and the labels read under their own box. */
+@media (max-width: 767px) {
+  .v2-popover .row2 { flex-direction: column; gap: 12px; }
+  .v2-popover .row2 label { flex: 0 0 auto; }
+}
+
+/* ===== JEG-956: device safe areas (notch, home indicator, landscape insets) =====
+   The page ships with viewport-fit=cover, so the browser draws the page under the notch and the home
+   indicator. The four insets are read once as custom properties (0 on a screen with no cutout) and every
+   edge that can sit under one adds its own inset to the padding it already has. The nav bar and the panels
+   keep their full-bleed backgrounds: only their content moves. */
+:root {
+  --v2-safe-top: env(safe-area-inset-top, 0px);
+  --v2-safe-right: env(safe-area-inset-right, 0px);
+  --v2-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --v2-safe-left: env(safe-area-inset-left, 0px);
+}
+/* The nav bar's colour still reaches the top edge; its rows start below the notch, and beside the
+   cutout in landscape. */
+.v2-nav { padding-top: var(--v2-safe-top); padding-left: var(--v2-safe-left); padding-right: var(--v2-safe-right); }
+/* The season note sits inside the nav bar, so it moves with it. Its detail panel is placed against the
+   nav bar and spans the screen, so the panel's own content carries the inset. */
+.v2-topnote-detail { padding-left: calc(48px + var(--v2-safe-left)); padding-right: calc(48px + var(--v2-safe-right)); }
+/* The page's own gutters stay; the insets are added. */
+.v2-wrap { padding-left: calc(48px + var(--v2-safe-left)); padding-right: calc(48px + var(--v2-safe-right)); }
+/* The page ends above the home indicator. */
+.v2-main { padding-bottom: calc(48px + var(--v2-safe-bottom)); }
+#v2Main { padding-bottom: calc(var(--v2-pad-section) + var(--v2-safe-bottom)); }
+/* The drawer and the popovers sit over the whole screen. */
+.v2-drawer { padding-top: calc(24px + var(--v2-safe-top)); padding-right: calc(24px + var(--v2-safe-right));
+  padding-bottom: calc(24px + var(--v2-safe-bottom)); padding-left: calc(24px + var(--v2-safe-left)); }
+.v2-popover { padding-top: calc(18px + var(--v2-safe-top)); padding-right: calc(20px + var(--v2-safe-right));
+  padding-bottom: calc(18px + var(--v2-safe-bottom)); padding-left: calc(20px + var(--v2-safe-left)); }
+/* A fixed toast sits above the home indicator. */
+.v2-status { bottom: calc(20px + var(--v2-safe-bottom)); }
+/* The top note runs at 24 px a side on a tablet, 16 px on a phone. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .v2-topnote-detail { padding-left: calc(24px + var(--v2-safe-left)); padding-right: calc(24px + var(--v2-safe-right)); }
+}
+@media (max-width: 767px) {
+  .v2-wrap { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+  .v2-topnote-detail { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+  .v2-drawer { padding-top: calc(16px + var(--v2-safe-top)); padding-right: calc(16px + var(--v2-safe-right));
+    padding-bottom: calc(16px + var(--v2-safe-bottom)); padding-left: calc(16px + var(--v2-safe-left)); }
+  /* A full-screen panel: the head clears the notch, the foot the home indicator, the body the sides. */
+  .v2-panel-head { padding-top: calc(20px + var(--v2-safe-top)); }
+  .v2-panel-body { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+  .v2-popover .v2-panel-foot { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right));
+    padding-bottom: calc(14px + var(--v2-safe-bottom)); }
+  /* The expanded table or chart fills the screen: the same rule for its head, tools and body. */
+  .v2-expand-head { padding-top: calc(14px + var(--v2-safe-top)); padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+  .v2-expand-tools { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+  .v2-expand-body { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right));
+    padding-bottom: calc(12px + var(--v2-safe-bottom)); }
+  /* The compare verdict bar sits above the home indicator. */
+  .v2-cverdict-bar:not([hidden]) { bottom: calc(8px + var(--v2-safe-bottom)); }
+  #v2Compare.has-verdict-bar { padding-bottom: calc(96px + var(--v2-safe-bottom)); }
+}
+/* A landscape phone keeps the top note's 16 px phone gutter (the season-notice block's phone query). */
+@media (max-width: 932px) and (max-height: 500px) {
+  .v2-topnote-detail { padding-left: calc(16px + var(--v2-safe-left)); padding-right: calc(16px + var(--v2-safe-right)); }
+}
+
+/* Scroll containers keep their own scroll: a sideways swipe in a table neither scrolls the page nor
+   triggers the browser's back gesture, and a full-screen overlay does not chain its scroll outwards. */
+.v2-tabs { overscroll-behavior-x: contain; }
+#v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
+.v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }

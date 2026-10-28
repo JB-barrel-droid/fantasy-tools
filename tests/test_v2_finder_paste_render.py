@@ -5,7 +5,7 @@ fixtures (tests/fixtures/roster_paste/) goes through the page's own paste box; w
 against roster-paste.js run directly on the engine's rows (the parser has its own node tests), plus floors so a
 broken player index is caught. Checks:
 
-  * the paste box is the first input on each side, says the text stays in the browser, and the old import methods sit
+  * the paste box is the first input on each side, says the text stays on this device, and the old import methods sit
     behind a closed "Other ways" link; the textarea and every button are at least 44 px tall at 375 px;
   * a team page: "Matched N of M players", the sure matches on the roster with the page's slot (Starter / Bench / IR),
     unmatched lines listed with a one-tap "Search to add" that fills and opens the side's name search, the textarea
@@ -101,8 +101,9 @@ def check(page, tag, width) -> list[str]:
         boxes = page.evaluate("(s) => [...document.querySelectorAll(`#v2Find${s} textarea, #v2Find${s} input[type=search], #v2Find${s} input[type=text]`)].filter(e => !e.closest('details')).map(e => e.id)", side)
         if boxes != [f"v2Find{side}Search"]:
             say(f"{side}: want exactly one add-players box, found {boxes}")
-        if "stays in this browser" not in (page.text_content(f"#v2Find{side}PasteHelp") or ""):
-            say(f"{side}: the paste box does not say the text stays in the browser")
+        # JEG-1130 (approved PMM launch copy, Jeremy 2026-10-26): storage copy says "on this device", never "in this browser".
+        if "stays on this device" not in (page.text_content(f"#v2Find{side}PasteHelp") or ""):
+            say(f"{side}: the paste box does not say the text stays on this device")
         if page.evaluate("(s) => document.querySelector(`#v2Find${s} .v2-find-import`).open", side):
             say(f"{side}: the other import methods are open by default")
         if "Other ways" not in page.text_content(f"#v2Find{side} .v2-find-import summary"):

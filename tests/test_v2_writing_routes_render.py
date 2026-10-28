@@ -238,7 +238,8 @@ class WritingRoutesRenderTest(unittest.TestCase):
         """JEG-905: an in-page link in the built HTML at a legacy route, or at a route the page does not define."""
         broken = {
             "sub-tab links the old route": ('href="#writing/how-values" data-writing="how-values"', 'href="#how-values" data-writing="how-values"'),
-            "link to a route that no longer exists": ('href="v2/#compare-trade">Compare a trade ↗</a>', 'href="v2/#trade-builder">Compare a trade ↗</a>'),
+            # JEG-977 (57f1c1b2, 2026-10-25): in-app links lost their "↗" arrow; the How values link is the same link.
+            "link to a route that no longer exists": ('href="v2/#compare-trade">Compare a trade</a>', 'href="v2/#trade-builder">Compare a trade</a>'),
         }
         for name, mutation in broken.items():
             with self.subTest(mutation=name):
