@@ -638,6 +638,13 @@
     return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
   }
 
+  // JEG-1142 (Jeremy, 2026-10-27): no role-change math (neither the bench
+  // promotion boost nor the starter demotion cut) applies to values until the
+  // JEG-1144 risk research supports it. This master switch overrides
+  // setting.promotion_model; the model code below is kept for later.
+  // Mirrored in pipelines/value_reference.py and spec_reference/value_pipeline.py.
+  var PROMOTION_MODEL_ENABLED = false;
+
   // JEG-969: promotion/demotion rates (measured from 2015-2025 nflverse actuals).
   // Mirrors config/promotion_rates.json.
   var PROMOTION_RATES = {
@@ -964,7 +971,7 @@
 
     // JEG-969: promotion/demotion model (on by default, 2026-10-23).
     // Set setting.promotion_model = false to disable.
-    var promoEnabled = (setting.promotion_model !== false) && esMode;
+    var promoEnabled = PROMOTION_MODEL_ENABLED && (setting.promotion_model !== false) && esMode;
     var promoWeeksRemaining = 0;
     if (promoEnabled && lineup.window && lineup.window[1] >= lineup.window[0]) {
       promoWeeksRemaining = lineup.window[1] - lineup.window[0] + 1;
@@ -1714,6 +1721,7 @@
     weekState: weekState,
     defaultWeek: defaultWeek,
     VALUE_PIPELINE_VERSION: VALUE_PIPELINE_VERSION,
+    PROMOTION_MODEL_ENABLED: PROMOTION_MODEL_ENABLED,
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,

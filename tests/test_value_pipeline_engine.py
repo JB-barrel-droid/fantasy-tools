@@ -48,7 +48,8 @@ def _node():
 def run_engine(model: Path = VALUE_MODEL, bench_share: float | None = None, variant: str | None = None,
                promotion_model: bool | None = None, flex_bench_seats: bool | None = None) -> dict:
     """Run the engine. promotion_model: True forces on, False forces off,
-    None uses the engine default (on since JEG-969, 2026-10-23).
+    None uses the engine default. JEG-1142: the engine's PROMOTION_MODEL_ENABLED
+    master switch is off, so True has no effect unless the switch is flipped.
     flex_bench_seats: True forces on, False forces off, None = engine default (off)."""
     cmd = [_node(), str(DRIVER), str(model), str(FIXTURE)]
     if bench_share is not None:
@@ -209,8 +210,9 @@ class ExpectedStartsVariantTest(unittest.TestCase):
     0.10 override. Fails before JEG-536: the engine ignores `lineup` and
     prices the VP-2.6 slices at 15%.
 
-    JEG-1057: the variants are pinned at the engine defaults (promotion_model
-    and flex_bench_seats on, Jeremy 2026-10-23, JEG-969 / #867), the same
+    JEG-1057: the variants are pinned at the engine defaults (flex_bench_seats
+    on, Jeremy 2026-10-23, JEG-969 / #867; promotion model off since JEG-1142,
+    2026-10-27), the same
     defaults the fixture generator (tools/worked_example_expected_starts.py)
     and the Python and spec reference variant tests use. Forcing the flags
     off here compared the engine against the wrong rule, and made every
@@ -265,16 +267,99 @@ class ExpectedStartsVariantTest(unittest.TestCase):
         self.assert_variant_fails([("if (!teams || idx >= work.length || work[idx].native <= waiver) break;",
                                     "break;")])
 
+PROMOTION_SWITCH_OFF = "var PROMOTION_MODEL_ENABLED = false;"
+PROMOTION_SWITCH_ON = "var PROMOTION_MODEL_ENABLED = true;"
+
+
+def _spec_args():
+    from spec_reference import value_pipeline as sp
+    doc = json.loads(FIXTURE.read_text())
+    variant = doc["variant_expected_starts"]
+    setting = sp.Setting.from_fixture({**doc["setting"], **(variant.get("setting_change") or {})})
+    pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
+    sources_raw = doc.get("inputs") or doc.get("sources")
+    sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+               for s, v in sources_raw.items()}
+    inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
+    return setting, pos_of, sources, inc_keys, variant.get("lineup")
+
+
+class TestPromotionModelSwitchedOff(unittest.TestCase):
+    """JEG-1142 (Jeremy, 2026-10-27): no role-change math (bench promotion
+    boost or starter demotion cut) until the JEG-1144 research supports it.
+    Both engines carry a PROMOTION_MODEL_ENABLED master switch, off, which
+    overrides every caller's promotion_model flag: forcing the flag on must
+    give exactly the no-promotion baseline, in the JS engine, the Python
+    reference and the spec reference."""
+
+    @classmethod
+    def setUpClass(cls):
+        _node()
+        cls.forced_on = run_engine(variant="variant_expected_starts", promotion_model=True)
+        cls.off = run_engine(variant="variant_expected_starts", promotion_model=False)
+        cls.default = run_engine(variant="variant_expected_starts")
+
+    def test_switch_is_off_in_every_engine(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        import value_reference as ref
+        from spec_reference import value_pipeline as sp
+        self.assertIn(PROMOTION_SWITCH_OFF, VALUE_MODEL.read_text())
+        self.assertFalse(ref.PROMOTION_MODEL_ENABLED)
+        self.assertFalse(sp.PROMOTION_MODEL_ENABLED)
+
+    def test_js_flag_on_equals_baseline(self):
+        for name, res in (("forced on", self.forced_on), ("default", self.default)):
+            with self.subTest(run=name):
+                self.assertEqual(res.get("rows"), self.off.get("rows"))
+                self.assertEqual(res.get("bench_share_readout"), self.off.get("bench_share_readout"))
+
+    def test_python_reference_flag_on_equals_baseline(self):
+        """Real data, PPR/12 1QB: Setting(promotion_model=True) == False."""
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        import value_reference as ref
+        inp = ref.Inputs.load()
+
+        def ddf(flag):
+            res = ref.Setting(inp, "ppr", 12, promotion_model=flag).result()
+            return {k: ({v: r["ddf"][v]["value"] for v in ("blended", "charts", "projections")},
+                        r["lineup_share"]) for k, r in res["rows"].items()}
+
+        self.assertEqual(ddf(True), ddf(False))
+
+    def test_spec_reference_flag_on_equals_baseline_and_js(self):
+        import sys
+        sys.path.insert(0, str(ROOT / "pipelines"))
+        from spec_reference import value_pipeline as sp
+        setting, pos_of, sources, inc_keys, lineup = _spec_args()
+        on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup, promotion_model=True)
+        off = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup, promotion_model=False)
+        self.assertEqual(on.get("bench_share_readout"), off.get("bench_share_readout"))
+        js_bs = self.off.get("bench_share_readout", {}).get("overall")
+        self.assertAlmostEqual(off["bench_share_readout"]["overall"], js_bs, places=6)
+
+
 class TestPromotionModel(unittest.TestCase):
-    """JEG-969: promotion/demotion model behind promotion_model flag."""
+    """JEG-969: promotion/demotion model behind promotion_model flag.
+
+    JEG-1142: the model is switched off (PROMOTION_MODEL_ENABLED); the code is
+    kept for JEG-1144. These tests run it with the master switch flipped on
+    (a mutated engine copy; the spec reference patched) so the dormant code
+    stays correct and in parity for when the research lands."""
 
     @classmethod
     def setUpClass(cls):
         _node()  # skip if node not installed
+        cls.model_on = _mutated([(PROMOTION_SWITCH_OFF, PROMOTION_SWITCH_ON)])
         # Run with ES variant, flag OFF
-        cls.off = run_engine(variant="variant_expected_starts", promotion_model=False)
+        cls.off = run_engine(cls.model_on, variant="variant_expected_starts", promotion_model=False)
         # Run with ES variant, flag ON
-        cls.on = run_engine(variant="variant_expected_starts", promotion_model=True)
+        cls.on = run_engine(cls.model_on, variant="variant_expected_starts", promotion_model=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.model_on.unlink(missing_ok=True)
 
     def test_promotion_model_changes_lineup_shares(self):
         """The flag changes at least some lineup shares."""
@@ -325,10 +410,12 @@ class TestPromotionModel(unittest.TestCase):
         inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
         lineup = variant.get("lineup")
 
-        sp_off = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
-                             promotion_model=False)
-        sp_on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
-                            promotion_model=True)
+        from unittest import mock
+        with mock.patch.object(sp, "PROMOTION_MODEL_ENABLED", True):
+            sp_off = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
+                                 promotion_model=False)
+            sp_on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup,
+                                promotion_model=True)
 
         # Spec reference bench shares must differ with flag on vs off
         off_bs = sp_off.get("bench_share_readout", {}).get("overall")
@@ -347,7 +434,7 @@ class TestPromotionModel(unittest.TestCase):
         """Negative test: if we break the promotion rate to 10x, the bench
         shares must differ from the correct promotion_model=on result."""
         # Mutate the engine: multiply all promotion rates by 10
-        model = VALUE_MODEL.read_text()
+        model = self.model_on.read_text()
         # Break QB rate specifically
         broken = model.replace('"1": 0.018, "2": 0.017, "3": 0.015, "4+": 0.005',
                                 '"1": 0.180, "2": 0.170, "3": 0.150, "4+": 0.050')

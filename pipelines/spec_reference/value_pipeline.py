@@ -424,6 +424,12 @@ def es_parts(values: list, S: int, T: int, w: float, line: float, m: float, bye:
 
 import json as _json
 
+# JEG-1142 (Jeremy, 2026-10-27): no role-change math (bench promotion boost
+# or starter demotion cut) until the JEG-1144 research supports it. Master
+# switch overriding every promotion_model flag; mirrors value_reference.py
+# and value-model.js. The model code is kept for later.
+PROMOTION_MODEL_ENABLED = False
+
 _PROMOTION_CONFIG = _REPO / "config" / "promotion_rates.json"
 
 
@@ -870,7 +876,7 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
 
     # JEG-969: promotion/demotion model (off by default)
     promo = None
-    if promotion_model and es is not None and lineup is not None:
+    if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = _load_promotion_config()
         season_wks = float(promo_cfg.get("season_weeks", 17))
         window = lineup.get("window")
