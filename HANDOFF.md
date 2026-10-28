@@ -15,8 +15,9 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-Last updated: 2026-10-27 10:05 PM CT (2026-10-28 03:05 UTC), by the Claude
-lead session (claude.ai Duet "ddf" channel, handoff thread).
+Last updated: 2026-10-27 10:25 PM CT (2026-10-28 03:25 UTC), by the Claude
+lead session (claude.ai Duet "ddf" channel, handoff thread). Change: dropped
+the Excel/VBA safeguards that belong to another project (section 1).
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
@@ -132,20 +133,15 @@ is now history, last commit `d967e93`, 2026-10-27 8:06 AM CT).
 - Every session that changes anything writes `docs/claude-log/YYYY-MM-DD-slug.md`
   (Verified vs Claimed, not confirmed).
 
-### Standing safeguards (Jeremy, 2026-10-27, verbatim)
-- Always retain Windows compatibility and the Windows Excel/VBA/PowerShell workflow. Mac support must be additive.
-- Preserve original workbooks, user edits, backups, draft inputs, and source snapshots.
-- Use native Excel COM for XLSM writes on Windows; do not save those workbooks with openpyxl.
-- Preserve transactional refresh behavior and use disposable copies for destructive draft/reset tests.
+### Standing safeguards (Jeremy, 2026-10-27, verbatim where kept)
 - Retain Standard, Half PPR, and PPR support.
 - Clearly distinguish published, previous-season, modeled, stale, and unavailable data. Do not present labeled 2026 data as published 2027 projections.
-- Do not silently change macro security settings.
+- Do not discard unfinished changes or overwrite user work to make the repository look clean. If pushing fails, explicitly report what remains local.
+- Commit and push HANDOFF.md regularly alongside the relevant code, after meaningful milestones, and update it before a large or risky change.
 
-Note (checked 2026-10-28): `git ls-files` shows no `.xlsm`, `.xlsx`, `.bas`,
-`.ps1`, `.bat` or `.cmd` files in this repo. The Excel/VBA rules apply to any
-such workflow on Jeremy's Windows PC or added later; whether one exists for
-this project is **unverified** (asked Jeremy). Windows matters here anyway: the
-`session:fe-pc` front end runs on his Windows PC.
+The Windows Excel/VBA/PowerShell, XLSM/Excel COM, workbook and macro-security
+safeguards in the same request belong to a different project, not this one
+(Jeremy, 2026-10-27: "Another project").
 
 ### Other hard rules (from the prior PM handoff and AGENTS.md)
 - No force-push, no history rewrite, never rebase; merge `origin/main` into
@@ -250,7 +246,8 @@ gh pr checks <n> --watch ; gh run watch <id> --exit-status
 
 Windows: the Oct 9 Mac handoff (`docs/claude-log/2026-10-09-handoff-mac.md`)
 implies `make` needed workarounds on Windows; the exact Windows commands are
-**unverified**. Keep every command working on Windows; Mac changes are additive.
+**unverified**. The `session:fe-pc` front end runs on his Windows PC, so don't
+break the Windows path when changing build or test commands.
 
 Configuration variable names (never commit values): `SUPABASE_URL`,
 `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`,
