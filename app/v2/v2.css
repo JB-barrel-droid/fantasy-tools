@@ -2104,6 +2104,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-fit.is-market, .v2-lg-fit.is-value { color: var(--v2-ink); }
 .v2-lg-detail-body { display: grid; gap: 4px; }
 .v2-lg-detail-body p { margin: 0; }
+/* JEG-885: a folded core player's "N more for <player>" control, and the rows it opens under it. */
+.v2-lg-fold-cell { text-align: left; border-top: 0; }
+.v2-lg-fold-btn { text-align: left; }
 .v2-lg-cards { display: none; list-style: none; margin: 8px 0 0; padding: 0; gap: 8px; }
 .v2-lg-card { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); padding: 8px 12px; }
 .v2-lg-card[data-mine="true"] { border-left: 4px solid var(--v2-action); }
