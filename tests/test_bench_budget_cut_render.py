@@ -36,11 +36,15 @@ Three layers:
     under RENDER_TESTS_REQUIRED=1 (CI).
 
 The mutation: one source moves 1% of each position's bench budget to that
-position's starter budget. Its total still sums to the pie, so the page's own
-fixedPieIndexed guard ("every source sums to the league pie") passes it; a
-mutation that changes a source's total is already stopped there (the page
-refuses to load: CI run on c98af42). This check is what catches a bench/starter
-split that differs by source.
+position's starter budget (its total stays on the pie).
+
+Overlap, on purpose: the page's own regression guard (curve-widget.js
+fixedPieDiagnostics, "fixedPieIndexed") already compares each source's group
+totals with the shared budgets and refuses to load when one is off; the
+mutation above, served alone, stops the page there (CI run on a9d9f6f). This
+test pins the rule independently of that guard: on the page, the mutation is
+served with the guard's group check switched off, and this check must still
+fail. So loosening or removing the guard cannot let a bench-budget bug through.
 """
 from __future__ import annotations
 
@@ -62,6 +66,8 @@ SHIFT = 0.01
 # The mutation: one source funds 1% of each bench budget as starter budget
 # instead (pie-conserving, see the module docstring).
 FUND_ANCHOR = "Object.keys(budgets).forEach(function (g) { funded[g] = budgets[g]; });"
+WIDGET = ROOT / "app" / "trade-value-chart" / "assets" / "curve-widget.js"
+GUARD_ANCHOR = "const groupsOk = Object.values(groups).every(g => Math.abs(g.total - g.budget) <= tolerance);"
 
 
 def perturbed_model(source: str) -> str:
@@ -74,6 +80,15 @@ def perturbed_model(source: str) -> str:
     if body == model:
         raise AssertionError("mutation anchor moved: value-model.js no longer funds groups from budgets as "
                              f"{FUND_ANCHOR!r}; update the anchor to the new budget line")
+    return body
+
+
+def guard_off_widget() -> str:
+    """curve-widget.js with the page guard's per-group budget check off."""
+    widget = WIDGET.read_text(encoding="utf-8")
+    body = widget.replace(GUARD_ANCHOR, "const groupsOk = true;")
+    if body == widget:
+        raise AssertionError(f"guard anchor moved: curve-widget.js no longer has {GUARD_ANCHOR!r}")
     return body
 
 
@@ -385,7 +400,8 @@ class ServedPageTest(unittest.TestCase):
         first = next((label for label, run in self.runs if not run.get("error")), None)
         self.assertIsNotNone(first, "no clean run to pick a source from")
         source = compared[first][0]
-        runs, _ = page_runs({"assets/value-model.js": perturbed_model(source).encode("utf-8")})
+        runs, _ = page_runs({"assets/value-model.js": perturbed_model(source).encode("utf-8"),
+                             "assets/curve-widget.js": guard_off_widget().encode("utf-8")})
         broken, _, _ = check_runs(runs)
         if not any(f" {source} " in p for p in broken):
             annotate("JEG-1189 bench budget cut mutation", [f"{source} {SHIFT:.0%} shift not caught"] + broken)
