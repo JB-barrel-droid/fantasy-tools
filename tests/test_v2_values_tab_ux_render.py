@@ -306,6 +306,30 @@ def _check_rows(d, tag, want_keys) -> list[str]:
     return errors
 
 
+# The selected-source player gap: the listed player missing the most selected sources (so a player missing both a
+# DDF Value version and a publisher's series is preferred, and both drawer row builders are exercised).
+GAP = """() => { const V2 = window.TradeValueV2, v = V2.view();
+  const sel = v.active.filter(k => k === v.rankKey || !V2.state.hiddenSeries.has(k));
+  const missed = r => sel.filter(k => !Number.isFinite(r.values[k]));
+  const r = window.TradeValueCurveControls.getRows().reduce((best, r) => (missed(r).length > (best ? missed(best).length : 0) ? r : best), null);
+  return r ? {name: r.name, missing: missed(r)} : null; }"""
+
+# Sources to select when the default selection prices every listed player: take the listed player that the most
+# available, unselected sources leave unpriced, and select one DDF Value version and one publisher series that player lacks,
+# with the page's own setShown (what Customize's Done does). Returns the keys added, or null when no source has a gap.
+SELECT_GAP_SOURCES = """() => { const V2 = window.TradeValueV2, shown = V2.shown();
+  const rows = window.TradeValueCurveControls.getRows();
+  const keys = V2.view().info.filter(i => i.available && !shown.includes(i.key)
+    && rows.some(r => Number.isFinite(r.values[i.key]))).map(i => i.key);
+  const missed = r => keys.filter(k => !Number.isFinite(r.values[k]));
+  const row = rows.reduce((best, r) => (missed(r).length > missed(best).length ? r : best), rows[0]);
+  const gaps = row ? missed(row) : [];
+  const isDdf = k => k.startsWith("ddf_value");
+  const pick = [gaps.find(isDdf), gaps.find(k => !isDdf(k))].filter(Boolean);
+  if (pick.length) V2.setShown(shown.concat(pick));
+  return pick.length ? pick : null; }"""
+
+
 def check_drawer(page, tag) -> list[str]:
     errors = []
     page.click("#v2Table tbody tr td:nth-child(2)")
@@ -350,12 +374,16 @@ def check_drawer(page, tag) -> list[str]:
     page.keyboard.press("Escape")
     _settle(page, 300)
     # A player the engine leaves unpriced for a selected source: that source gets no row (never a blank one).
-    gap = page.evaluate("""() => { const V2 = window.TradeValueV2, v = V2.view();
-      const sel = v.active.filter(k => k === v.rankKey || !V2.state.hiddenSeries.has(k));
-      const r = window.TradeValueCurveControls.getRows().find(r => sel.some(k => !Number.isFinite(r.values[k])));
-      return r ? {name: r.name, missing: sel.filter(k => !Number.isFinite(r.values[k]))} : null; }""")
+    gap = page.evaluate(GAP)
     if not gap:
-        return errors + [tag + "fixture has no player unpriced for a selected source, so the no-blank-row check proves nothing"]
+        # Since 679fa54e (JEG-1073) DDF Value is the trade-chart average and every chart is filled to the
+        # rosterable set (fill-in rule, OC-5), so the default selection prices every listed player. Select a
+        # source that leaves a listed player unpriced (a projection), as Customize's Done would, and look again.
+        added = page.evaluate(SELECT_GAP_SOURCES)
+        _settle(page, 600)
+        gap = page.evaluate(GAP) if added else None
+    if not gap:
+        return errors + [tag + "fixture has no player unpriced for a selectable source, so the no-blank-row check proves nothing"]
     page.fill("#v2Search", gap["name"])
     _settle(page, 600)
     page.click("#v2Table tbody tr td:nth-child(2)")
@@ -397,6 +425,7 @@ def run_checks(overrides=None, viewports=VIEWPORTS, checks=CHECKS) -> list[str]:
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, (body, ctype) in (overrides or {}).items():
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                page.add_init_script(_render_env.pin_data_week_script())   # JEG-1152: the data's week, not the calendar's
                 page.goto(base + "#player-values", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=60000)
                 _settle(page, 400)
@@ -457,6 +486,10 @@ class ValuesTabUxRenderTest(unittest.TestCase):
             "a source row with no number": ({"v2.js": js.replace(
                 "if ((selected || all) && Number.isFinite(value)) {", "if (selected || all) {", 1)},
                                             "js", ("drawer",), ((1366, 800),)),
+            "a publisher row with no number": ({"v2.js": js.replace(
+                "        if (has) rows.push({pub, method, label, item, value: row.values[item.key], selected});\n",
+                "        rows.push({pub, method, label, item, value: row.values[item.key], selected});\n", 1)},
+                                               "js", ("drawer",), ((1366, 800),)),
         }
         for name, (files, kind, checks, viewports) in broken.items():
             with self.subTest(mutation=name):
