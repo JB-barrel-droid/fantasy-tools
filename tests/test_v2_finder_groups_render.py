@@ -20,12 +20,27 @@ import unittest
 
 from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
-from tests.test_v2_finder_render import FINDER_JS, PICK, _built_dist, add
+from tests.test_v2_finder_render import FINDER_JS, _built_dist, add
 from tests.test_v2_modules_render import _serve
 
 
 def setUpModule():
     _render_env.ensure_built()
+
+
+# Position-balanced rosters (QB, RB, WR, TE by position, unique names) so the search has a trade to find whatever
+# the week's top-30 mix is. The shared PICK deals the top 30 by DDF Value alternately, which in a week with only
+# RB/WR on top leaves no QB/TE on either side (JEG-1185).
+PICK = """() => {
+  const C = window.TradeValueCurveControls;
+  const rows = C.getAllRows().filter(r => r.values && Number.isFinite(r.values.ddf_value) && r.name && ['QB','RB','WR','TE'].includes(r.pos))
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const count = new Map(); rows.forEach(r => count.set(r.name, (count.get(r.name) || 0) + 1));
+  const unique = rows.filter(r => count.get(r.name) === 1);
+  const take = (pos, from, n) => unique.filter(r => r.pos === pos).slice(from, from + n).map(r => r.name);
+  return {mine: [].concat(take('QB', 0, 2), take('RB', 0, 4), take('WR', 0, 4), take('TE', 0, 2)),
+          theirs: [].concat(take('QB', 2, 2), take('RB', 4, 4), take('WR', 4, 4), take('TE', 2, 2))};
+}"""
 
 
 # Reads group card `i`: package line, edge, link, checkboxes; and the edge recomputed from the engine rows.

@@ -327,6 +327,8 @@ class Session:
             page.route("**/v2/v2.js*", functools.partial(_fulfill, ov["v2.js"], "text/javascript"))
         if "v2.css" in ov:
             page.route("**/v2/v2.css*", functools.partial(_fulfill, ov["v2.css"], "text/css"))
+        if "targets.js" in ov:
+            page.route("**/v2/targets.js*", functools.partial(_fulfill, ov["targets.js"], "text/javascript"))
         if engine_fails:
             page.route("**/assets/curve-widget.js*", functools.partial(_fulfill, ENGINE_FAILS, "text/javascript"))
         page.goto(self.base + hash_, wait_until="networkidle")
@@ -589,7 +591,7 @@ TARGETS_JS = "async () => {" + COMMON + r"""
     if (again) { again.click(); await sleep(200); } }
   const info = document.querySelector('.v2-tcompare button[data-info]');
   if (info) { info.click(); await sleep(300); out.info = shown($('v2Popover')) ? $('v2Popover').innerText : ''; await closePop(); }
-  // Every row, for TT-08 (one-source players are included and flagged anywhere in the lists).
+  // Every row, for TT-08 (JEG-1186: no one-source player may be listed anywhere in Sell / Buy).
   for (const id of ['v2TSellMore', 'v2TBuyMore']) if (shown($(id))) { $(id).click(); await sleep(300); }
   out.sellAll = rows('#v2TTable').length; out.buyAll = rows('#v2TBuyTable').length;
   out.all = rows('#v2TTable').concat(rows('#v2TBuyTable'));
@@ -1924,14 +1926,16 @@ def tt07(S):
 
 
 def tt08(S):
+    # JEG-1186 (Jeremy, 2026-10-27: "Suppress"; replaces 2026-10-09 "included and flagged ◐ 1 source"): a player whose
+    # DDF Value rests on one source gets no Sell or Buy call, and the notes say how many were left off and why.
+    # LOW_CONFIDENCE_FIXTURE marks every fifth priced player one-source, so some would-be targets are always left off.
     t = S["tabs"]["targets"]
     errors = []
-    for r in t["all"]:
-        low = (t["allEngine"].get(r["key"]) or {}).get("low", False)
-        if low != r["lowconf"]:
-            errors.append(f"{r['name']}: one-source {low}, flagged {r['lowconf']}")
-    if not any((t["allEngine"].get(r["key"]) or {}).get("low") for r in t["all"]):
-        errors.append("no one-source player in the Sell / Buy lists to check (LOW_CONFIDENCE_FIXTURE not applied?)")
+    listed = [r["name"] for r in t["all"] if (t["allEngine"].get(r["key"]) or {}).get("low")]
+    if listed:
+        errors.append(f"one-source players listed in Sell / Buy: {listed[:5]}")
+    if not re.search(r"\d+ players? left off Buy and Sell: only 1 source backs (his|their) DDF Value", t["text"]):
+        errors.append("no 'left off Buy and Sell: only 1 source' note (LOW_CONFIDENCE_FIXTURE not applied?)")
     return errors[:5]
 
 
@@ -2256,14 +2260,17 @@ class ContractRenderTest(unittest.TestCase):
         broken_js = cut(broken_js, 'if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));',
                         'if (false) sub.append(weekBadge(key), document.createTextNode(" older week"));')
         broken_css = cut(css, ".v2-chart .series.is-ddf { stroke-width: 3.5; }", ".v2-chart .series.is-ddf { stroke-width: 2; }")
+        # JEG-1186: TT-08 now pins the suppression, so its mutation lets a one-source player back into Sell / Buy.
+        targets_js = (SHELL.parent / "targets.js").read_text(encoding="utf-8")
+        broken_targets = cut(targets_js, "return n !== null && n < MIN_DDF_SOURCES;", "return false;")
         results, _ = run_contract(["PV-02", "PV-09", "GL-04", "GL-05", "GL-03", "TT-08", "GL-20", "TT-06"],
-                                  {"v2.js": broken_js, "v2.css": broken_css})
+                                  {"v2.js": broken_js, "v2.css": broken_css, "targets.js": broken_targets})
         caught(results, "PV-02", "the DDF line at the others' weight")
         caught(results, "PV-09", "Reset leaving Rank by")
         caught(results, "GL-04", "a prior-week status shown without a symbol")
         caught(results, "GL-05", "a prior-week chip shown without a warning")
         caught(results, "GL-03", "the ◐ 1 source tag removed (Player values)")
-        caught(results, "TT-08", "the ◐ 1 source tag removed (Trade targets)")
+        caught(results, "TT-08", "a one-source player back in Sell / Buy (Trade targets)")
         caught(results, "GL-20", "Player values search not listing players with no value")
         caught(results, "TT-06", "the week badge dropped from Compare rows")
 

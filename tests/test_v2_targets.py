@@ -207,8 +207,15 @@ const input = JSON.parse(process.argv[2]);
 const brief = p => ({key: p.row.player_key, ours: p.ours, cells: p.cells, market: p.market});
 const run = (rows, opts) => { const r = T.buildTargets(rows, input.charts, opts); return {ours: r.ours, sell: r.sell.map(brief),
   buy: r.buy.map(brief), compared: r.compared, omitted: r.omittedNoOurs}; };
-// Jeremy, 2026-10-08: a one-source DDF Value (ddfLowConfidence) is still a target.
-const lc = T.buildTargets([{player_key: 9, name: "H", values: {ddf_value: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 1, ddfLowConfidence: true}], ["usatoday", "fantasycalc"], {ours: "ddf_value"});
+// JEG-1186 (Jeremy, 2026-10-27: "Suppress"; replaces 2026-10-08 "a one-source DDF Value is still a target"):
+// H (DDF Value from 1 source) is no Buy/Sell call and is counted in thinSource; H2 (2 sources, same numbers) still is.
+// H3 picks ESPN as our value: a single published series is never thin.
+const lc = T.buildTargets([
+  {player_key: 9, name: "H", values: {ddf_value: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 1, ddfLowConfidence: true},
+  {player_key: 10, name: "H2", values: {ddf_value: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 2}], ["usatoday", "fantasycalc"], {ours: "ddf_value"});
+const lcCharts = T.buildTargets([{player_key: 11, name: "H4", values: {ddf_value_charts: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfChartsCount: 1}],
+  ["usatoday", "fantasycalc"], {ours: "ddf_value_charts"});
+const lcEspn = T.buildTargets([{player_key: 12, name: "H3", values: {espn: 6.0, usatoday: 9.0, fantasycalc: 8.0}, ddfCount: 1}], ["usatoday", "fantasycalc"], {ours: "espn"});
 // JEG-504: consensus cases. I: the median equals our value (10.0) to one decimal;
 // J: one chart does not price the player (left out), one at its waiver line (a finite 0 counts).
 const mk = T.buildTargets(input.market, ["usatoday", "fantasycalc", "cbs"], {ours: "ddf_value"});
@@ -216,6 +223,7 @@ const rows = input.rows.concat(input.consensus);
 console.log(JSON.stringify({
   market: mk.players.map(brief),
   lowConfidence: lc.sell.map(p => [p.row.player_key, p.ours, p.market.gap]),
+  thin: [lc.thinSource, lc.thinSourceNames], thinCharts: [lcCharts.sell.length, lcCharts.thinSource], espnSingle: [lcEspn.sell.length, lcEspn.thinSource],
   byDefault: run(rows),
   belowSellFloor: T.buildTargets(rows, input.charts, {}).belowSellFloor, sellFloor: T.SELL_FLOOR,
   // JEG-833: the counts, the margin, and a name-search run (keep) whose ranks must still come from every row.
@@ -328,8 +336,15 @@ def check(result: dict) -> list[str]:
         errors.append(f"each dot must carry its chart's indexed value: {k['market']['dots']}")
     if k is not None and [k["cells"][c]["gap"] for c in ("usatoday", "fantasycalc", "cbs")] != [10.0, 10.0, -5.0]:
         errors.append(f"per-chart gap = chart value - our value (positive: the chart pays more): {k['cells']}")
-    if result["lowConfidence"] != [[9, 6.0, 2.5]]:
-        errors.append(f"a one-source (low-confidence) DDF Value must still be a target: {result['lowConfidence']}")
+    # JEG-1186 (Jeremy, 2026-10-27): fewer than 2 sources behind DDF Value -> no Buy/Sell call, counted and named.
+    if result["lowConfidence"] != [[10, 6.0, 2.5]]:
+        errors.append(f"only the 2-source twin may be a Sell; the 1-source player must not: {result['lowConfidence']}")
+    if result["thin"] != [1, ["H"]]:
+        errors.append(f"the 1-source player must be counted and named in thinSource: {result['thin']}")
+    if result["thinCharts"] != [0, 1]:
+        errors.append(f"DDF Value (charts) with 1 source must be suppressed too (its own count): {result['thinCharts']}")
+    if result["espnSingle"] != [1, 0]:
+        errors.append(f"a single published series picked as our value is never thin: {result['espnSingle']}")
     # Per-chart cells.
     dd = result["ddf"]
     if 1 in {p["key"] for p in dd["sell"] + dd["buy"]}:
@@ -433,7 +448,12 @@ MUTATIONS = {
     "chosen series ignored": ("const ourKey = (opts && opts.ours) || OUR_KEY;", "const ourKey = OUR_KEY;"),
     "unavailable series offered": ("const available = Boolean(item && item.available);", "const available = true;"),
     "default moved off DDF Value": ("const OUR_KEY = OUR_KEYS[0];", "const OUR_KEY = OUR_KEYS[2];"),
-    "one-source player left out": ("      if (!finite(ours)) {", "      if (!finite(ours) || row.ddfLowConfidence) {"),
+    # JEG-1186
+    "one-source player still a call": ("return n !== null && n < MIN_DDF_SOURCES;", "return false;"),
+    "two-source player suppressed": ("const MIN_DDF_SOURCES = 2;", "const MIN_DDF_SOURCES = 3;"),
+    "version count ignored": ('ddf_value_charts: "ddfChartsCount", ', ""),
+    "single series counted as thin": ("return field && finite(row[field]) ? row[field] : null;", "return finite(row.ddfCount) ? row.ddfCount : null;"),
+    "thin not counted": ("thinSource: thinOut.length,", "thinSource: 0,"),
     # JEG-677
     "mean instead of median": ("const value = median(values);", "const value = values.reduce((a, b) => a + b, 0) / values.length;"),
     "majority rule dropped": (" && agree * 2 > priced.length;", ";"),
@@ -473,8 +493,8 @@ MUTATIONS = {
     # JEG-842: the bug the ticket names (an out player in Buy) and each way to half-fix it.
     "out players recommended (JEG-842 bug returns)": ('if (row.espnProjectsZero) return "out";', ""),
     "estimated values trusted": ('return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;', "return null;"),
-    "sell not excluded": ("const sell = sellAll.filter(p => !flagged(p));", "const sell = sellAll;"),
-    "buy not excluded": ("const buy = buyAll.filter(p => !flagged(p));", "const buy = buyAll;"),
+    "sell not excluded": ("const sell = sellAll.filter(p => !flagged(p) && !thin(p));", "const sell = sellAll.filter(p => !thin(p));"),
+    "buy not excluded": ("const buy = buyAll.filter(p => !flagged(p) && !thin(p));", "const buy = buyAll.filter(p => !thin(p));"),
     "exclusion not counted": ("leftOut: leftOut.length,", "leftOut: 0,"),
     "scale-only players not counted": ("scaleOnly: scaleOnly.length, scaleOnlyNames", "scaleOnly: 0, scaleOnlyNames"),
     "buy score uses the larger value": ("m.buyScore = Math.abs(m.rankGap) * Math.min(p.ours, m.value);", "m.buyScore = Math.abs(m.rankGap) * Math.max(p.ours, m.value);"),
