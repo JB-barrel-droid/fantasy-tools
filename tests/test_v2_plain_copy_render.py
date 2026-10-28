@@ -98,6 +98,9 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             toggle = page.locator("[data-expand][aria-expanded=false]").first
                             if toggle.count() and toggle.is_visible():
                                 toggle.click()
+                    # Compare hides its subtitle and week line once a trade is on (`#v2Compare.has-trade`), and the sample
+                    # is now a trade (JEG-1190), so its title is read on the empty start, as it was read before the sample.
+                    title = page.evaluate(TITLE) if tab in VALUE_TABS else ""
                     if tab == "#compare-trade" and page.locator("#v2CTryExample").is_visible():
                         # JEG-1190: Compare opens empty, so load the sample to read a full verdict.
                         page.click("#v2CTryExample")
@@ -106,7 +109,6 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                     if found:
                         errors.append(f"[{width}px {tab}] banned words in visible text: {found}")
                     if tab in VALUE_TABS:
-                        title = page.evaluate(TITLE)
                         if not STAMP.search(title):
                             errors.append(f"[{width}px {tab}] title lacks the 'NFL Week N · as of Mon D' line: {title!r}")
                     if tab == "#trade-targets":
