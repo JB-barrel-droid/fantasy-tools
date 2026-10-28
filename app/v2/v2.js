@@ -3981,7 +3981,7 @@
       : null;
     // JEG-833: ranks are computed over every row; a name search only filters what is listed (opts.keep).
     const kept = needle ? new Set(searched) : null;
-    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: [], leftOut: 0, leftOutNames: []}
+    const result = blocked ? {ours: ourKey, sell: [], buy: [], compared: 0, omittedNoOurs: 0, atWaiverCells: 0, belowSellFloor: 0, scaleOnly: 0, scaleOnlyNames: [], leftOut: 0, leftOutNames: [], thinSource: 0, thinSourceNames: []}
       : TT.buildTargets(rows, used, {ours: ourKey, keep: kept ? row => kept.has(row) : null});
     // Why players were left out: the engine's reasons, most common first (display only).
     const omittedReasons = new Map();
@@ -4658,6 +4658,11 @@
     if (targetsView.leftOut && !blocked) {
       const n = targetsView.leftOut;
       notes.push(`${n} player${n === 1 ? "" : "s"} left out: out this week or estimated (${targetsView.leftOutNames.join(", ")}${n > 5 ? " ..." : ""}). A player ESPN has at 0, or a chart value filled in from other charts, is not a basis to trade on.`);
+    }
+    // JEG-1186 (Jeremy, 2026-10-27: "Suppress"): a DDF Value backed by fewer than 2 sources gets no Buy/Sell call.
+    if (targetsView.thinSource && !blocked) {
+      const n = targetsView.thinSource;
+      notes.push(`${n} player${n === 1 ? "" : "s"} left off Buy and Sell: only 1 source backs ${n === 1 ? "his" : "their"} DDF Value (${targetsView.thinSourceNames.join(", ")}${n > 5 ? " ..." : ""}). A Buy or Sell call needs at least 2.`);
     }
     // JEG-820: the players the charts pay for but we value under the Sell floor are drop candidates, not trade chips.
     if (targetsView.belowSellFloor && !blocked) {
