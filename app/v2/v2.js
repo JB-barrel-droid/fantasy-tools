@@ -5243,8 +5243,8 @@
     const vorpKeys = usable(mineOrdered.filter(key => sourceMeta(key).method === "vorp"));
     const unavailable = mine.filter(key => !view.infoByKey[key]?.available);
     // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
-    // GL-09: all three DDF Value versions are offered here, shown in Customize or not.
-    const ddfOffered = DDF_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
+    // The charts alias is the same visible DDF Value (JEG-1073); offer each distinct series once.
+    const ddfOffered = DDF_PICK_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
     const shownChoices = pointKeys.concat(vorpKeys);
     if (!shownChoices.includes(TR.shown) && !ddfOffered.includes(TR.shown)) {
       TR.shown = [DDF_KEY, view.rankKey].find(key => shownChoices.includes(key)) || shownChoices[0] || null;
