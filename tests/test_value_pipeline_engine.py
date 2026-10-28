@@ -287,7 +287,7 @@ def _spec_args():
 class TestPromotionModelSwitchedOff(unittest.TestCase):
     """JEG-1142 (Jeremy, 2026-10-27): no role-change math (bench promotion
     boost or starter demotion cut) until the JEG-1144 research supports it.
-    Both engines carry a PROMOTION_MODEL_ENABLED master switch, off, which
+    All three engines carry a PROMOTION_MODEL_ENABLED master switch, off, which
     overrides every caller's promotion_model flag: forcing the flag on must
     give exactly the no-promotion baseline, in the JS engine, the Python
     reference and the spec reference."""
@@ -341,7 +341,8 @@ class TestPromotionModelSwitchedOff(unittest.TestCase):
         setting, pos_of, sources, inc_keys, lineup = _spec_args()
         on = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup, promotion_model=True)
         off = sp.run_week(setting, pos_of, sources, inc_keys, lineup=lineup, promotion_model=False)
-        self.assertEqual(on.get("bench_share_readout"), off.get("bench_share_readout"))
+        self.assertEqual(len(off["rows"]), 30, "the comparison must cover every fixture player")
+        self.assertEqual(on, off)
         js_bs = self.off.get("bench_share_readout", {}).get("overall")
         self.assertAlmostEqual(off["bench_share_readout"]["overall"], js_bs, places=6)
 
