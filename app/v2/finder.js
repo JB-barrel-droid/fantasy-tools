@@ -907,6 +907,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function updateArrange() {
     const undo = $("v2FindUndo");
     if (undo) undo.disabled = !S.undo;
+    const clearBothButton = $("v2FindClearBoth");
+    if (clearBothButton) clearBothButton.disabled = !S.mine.length && !S.theirs.length;
     ["mine", "theirs"].forEach(side => {
       const button = $(`v2Find${side[0].toUpperCase()}${side.slice(1)}MoveSel`);
       if (!button) return;
@@ -941,6 +943,16 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.mine = S.mine.filter(p => !set.has(p.key)).concat(toMine);
     S.theirs = S.theirs.filter(p => !set.has(p.key)).concat(toTheirs);
     afterArrange(`Moved ${going.map(p => p.name).join(", ")} to the other team. Undo puts them back.`);
+  }
+  // JEG-1190: both rosters at once. Yours is the shared roster, so it clears on League-wide and Waivers too; Undo restores both.
+  function clearBoth() {
+    if (!S.mine.length && !S.theirs.length) return;
+    snapshot();
+    S.mine = [];
+    S.theirs = [];
+    S.src = {mine: null, theirs: null};
+    S.label = {mine: "", theirs: ""};
+    afterArrange("Cleared both rosters. Yours is cleared on every tab too. Undo puts them back.");
   }
   function undoArrange() {
     if (!S.undo) return;
@@ -2023,6 +2035,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
     undo.addEventListener("click", undoArrange);
+    const clearBothButton = el("button", {type: "button", class: "v2-btn", id: "v2FindClearBoth", text: "Clear both", disabled: ""});
+    clearBothButton.addEventListener("click", clearBoth);
     const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
     edit.addEventListener("click", () => setCollapsed(false, "input"));
     const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
@@ -2034,7 +2048,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
-        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
+        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, clearBothButton, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),

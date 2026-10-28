@@ -477,9 +477,12 @@
         <div class="v2-ctools">
           <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
           <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+          <button type="button" class="v2-link" id="v2CUndo" hidden>Undo</button>
         </div>
       </div>
-      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
+      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; "Try a sample trade" loads the sample as an editable trade,
+           marked Example until the reader changes it. -->
+      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span></p>
     </div>
 
     <div class="v2-trade-sides">
@@ -492,6 +495,7 @@
           <ul class="v2-trade-results" id="v2GiveResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
+        <button type="button" class="v2-link v2-cside-clear" id="v2GiveClear" data-side="give" aria-label="Clear You give" hidden>Clear side</button>
         <p class="v2-side-total" id="v2GiveTotal" hidden></p>
       </section>
       <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
@@ -503,6 +507,7 @@
           <ul class="v2-trade-results" id="v2GetResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
+        <button type="button" class="v2-link v2-cside-clear" id="v2GetClear" data-side="receive" aria-label="Clear You receive" hidden>Clear side</button>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
       <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
@@ -511,6 +516,7 @@
           <h2 id="v2CVerdictTitle">No verdict yet</h2>
           <p id="v2CVerdictText"></p>
         </div>
+        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Try a sample trade</button></p>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
         </div>

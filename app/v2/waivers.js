@@ -448,12 +448,23 @@
         : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
+    // JEG-1190: Clear says what it did and offers Undo. Your roster is the one shared with both Find a trade screens, so
+    // the message says it is cleared there too (Claude's pick under Jeremy's 2026-10-28 rule; see the picks log).
     clear.addEventListener("click", () => {
+      const before = stores[target].get().slice();
       stores[target].set([]);
-      result.replaceChildren();
       input.value = "";
       results.replaceChildren();
       results.hidden = true;
+      const undo = el("button", {type: "button", class: "v2-link v2-wv-undo", id: `${id}Undo`, text: "Undo"});
+      undo.addEventListener("click", () => {
+        stores[target].set(before);
+        result.replaceChildren(el("p", {class: "v2-meta", text: `${title} is back.`}));
+        schedule();
+        input.focus();
+      });
+      result.replaceChildren(el("p", {class: "v2-meta v2-wv-cleared"},
+        document.createTextNode(target === "mine" ? "Cleared your roster here and on both Find a trade screens. " : `Cleared ${title.toLowerCase()}. `), undo));
       schedule();
       input.focus();
     });
