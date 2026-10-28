@@ -31,7 +31,7 @@ and the single retry**. The original red-validate publication block remains.
 - `python3 -m unittest tests.test_rebuild_chain_per_source_hold`: existing chain isolation regressions passed.
 - `git diff --check`: passed.
 - The one local `RENDER_TESTS_REQUIRED=1 CHROMIUM_PATH=/usr/bin/chromium make validate` run passed the #1051 seeded hold matrix and the new isolator module, then stopped at `tests.test_player_aliases`: the new source-label table was named `ALIASES`, which that guard reserves for player identity. Renamed it to `SOURCE_NAMES`. The failing module, `tests.test_razzball_refresh` (which found and prompted a missing-fixture fix), and related isolation/workflow checks then passed together: 71 tests. The full gate was not repeated locally.
-- `python3 -m unittest tests.test_isolate_post_validate tests.test_player_aliases tests.test_razzball_refresh tests.test_validate_shards`: 53 passed after correcting promotion-record matching for the shared reindex stage, which changes section hashes while retaining `promoted_at`.
+- `python3 -m unittest tests.test_isolate_post_validate tests.test_player_aliases tests.test_razzball_refresh tests.test_validate_shards`: 54 passed after correcting promotion-record matching for the shared reindex stage, which changes section hashes while retaining `promoted_at`. This also checks that a projection with a changed shared `players.json` cannot be isolated unsafely.
 
 ### Claimed, not confirmed
 

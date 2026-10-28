@@ -105,6 +105,26 @@ class TestIsolation(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "shared reindex anchor"):
             iso.isolate(self.repo, fail("espn invalid values"), 9)
 
+    def test_projection_with_shared_players_change_is_not_isolated(self):
+        # Simulate a valid earlier cbsros section and players bake in HEAD.
+        doc = json.loads(self.fixture_path.read_text())
+        doc["sources"]["cbsros"] = {"combos": {"full_12": {"values": {"x": 1}}}}
+        self.fixture_path.write_text(json.dumps(doc), encoding="utf-8")
+        players = self.repo / "data/fixtures/current/players.json"
+        players.write_text('{"players":[]}', encoding="utf-8")
+        subprocess.run(["git", "add", "."], cwd=self.repo, check=True)
+        subprocess.run(["git", "-c", "user.name=Test", "-c", "user.email=test@example.org",
+                        "commit", "-qm", "projection baseline"], cwd=self.repo, check=True)
+        doc["sources"]["cbsros"]["combos"]["full_12"]["values"]["x"] = 2
+        self.fixture_path.write_text(json.dumps(doc), encoding="utf-8")
+        players.write_text('{"players":[{"player_key":"x"}]}', encoding="utf-8")
+        status = self._status()
+        status["detail"]["cbsros"] = {"status": "ok", "promoted": 1, "sections": 1}
+        status["sources"]["cbsros"] = "promoted"
+        (self.repo / iso.STATUS_RELS[0]).write_text(json.dumps(status), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "players.json changed"):
+            iso.isolate(self.repo, fail("CBS ROS malformed"), 9)
+
     def test_confirm_requires_hold(self):
         self._change()
         iso.isolate(self.repo, fail("cbs invalid values"), 9)
