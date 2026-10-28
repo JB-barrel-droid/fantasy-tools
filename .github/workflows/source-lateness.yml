@@ -1,0 +1,57 @@
+name: Source lateness check
+
+# Hourly per-source "is it late?" check (JEG-1200, JEG-1201). Reads only what
+# already exists: public.source_probe_state (written by every probe) and the
+# week each source serves on the site (data/history/index.json, the chain
+# status). Nothing here fetches a source. Late sources open one GitHub issue
+# labelled `source-late`, which closes itself when every source is on time.
+# What late means per source: docs/source-lateness.md, pipelines/source_lateness.py.
+#
+# Scheduler owner: this file's own `schedule:`, on purpose. Every other job is
+# scheduled by Supabase pg_cron (AGENTS.md "Supabase first"), but this is the
+# watchdog for those schedules: on Oct 20-21, 2026 the probes logged nothing
+# for two days and nothing noticed. A check that shares the scheduler it
+# watches goes quiet with it. Precedent: full-suite.yml.
+#
+# Never fails on a late source: the issue is the alert. It fails only if the
+# check itself cannot run.
+
+on:
+  schedule:
+    - cron: "50 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: source-lateness
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Check every source
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          alert=""
+          [ "${{ github.ref }}" = "refs/heads/main" ] && alert="--alert"
+          python3 pipelines/source_lateness.py --supabase --out /tmp/source-lateness.json $alert
