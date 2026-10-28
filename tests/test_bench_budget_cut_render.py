@@ -184,8 +184,13 @@ def page_runs(overrides=None):
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};")
             page.goto(f"{base}/{ENGINE_URL}")
-            page.wait_for_function("() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
+            page.on("console", lambda m: errors.append(f"console {m.type}: {m.text}") if m.type == "error" else None)
+            page.wait_for_function("() => (window.TradeValueCurveControls && window.TradeValueCurveControls.isReady())"
+                                   " || /unavailable/i.test(document.querySelector('#curve-status')?.textContent || '')",
                                    timeout=120000)
+            if not page.evaluate("() => !!(window.TradeValueCurveControls && window.TradeValueCurveControls.isReady())"):
+                status = page.evaluate("() => document.querySelector('#curve-status')?.textContent || ''")
+                raise AssertionError(f"engine page not ready: {status[:300]}; errors: {errors[:3]}")
             for scoring, teams, override in SETTINGS:
                 setting = f"{scoring}/{teams}" + (f"/bench{override:.0%}" if override is not None else "")
                 state = page.evaluate(SET, [scoring, teams, override])
