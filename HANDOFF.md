@@ -79,6 +79,16 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
   (Main green lane scratch branches; deletes are blocked; no PRs).
 
+- **JEG-1101 lane (Copy link explainer, updated 2026-10-28 9:10 AM CT):** PR #970,
+  branch `fe/JEG-1101-llm-copy-help`, head `a5e6aa2` (main `31ccf10` merged in).
+  Jeremy's wording pick A is in it ("Opens this view. A chat with the DDF tool
+  reads it too."); T1 review posted on the PR; the preview build and rendered
+  gate passed; the preview shards and `v2-render` were still queued. Next: when
+  every check is green, merge main in again if it moved, mark the draft ready,
+  squash-merge, wait for the Deploy dashboard run, confirm the live page shows
+  Copy link with that line, then move JEG-1101 to Done. The `mcp` tools.ts text
+  change goes live only with an approved `mcp` deploy.
+
 ---
 
 ## Active agents and automation (keep current)
@@ -440,7 +450,8 @@ Known bugs (repro steps and history on each ticket):
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
 3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
-   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1101, JEG-1176, JEG-982.
+   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1176, JEG-982. (JEG-1101 is decided, PR #970
+   merges on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
