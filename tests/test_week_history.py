@@ -993,13 +993,28 @@ class DeltaRecomputeTest(unittest.TestCase):
 SCORING_PREFIX = {"ppr": "full", "half_ppr": "half", "standard": "standard"}
 
 
-def transition_overrides(lagging=("cbs", "usatoday"), week=6, corrupt=None):
+def newest_week(exclude=("cbs", "usatoday")):
+    """The newest week the built dist/ serves, over the charts not in
+    `exclude`. Committed data and a chain rebuild differ here (on 2026-10-28
+    the chain built Week 8 while the committed dist/ served Week 7), so the
+    transition replay is set relative to it, not to a fixed week."""
+    index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    return max(v["week"] for k, v in index["served"].items()
+               if k not in exclude and isinstance(v.get("week"), int))
+
+
+def transition_overrides(lagging=("cbs", "usatoday"), week=None, corrupt=None):
     """JEG-1177 sentinel: replay a week transition from committed data. The
-    `lagging` charts serve their saved Week `week` (the served fixture
-    carries exactly those natives and the index says so) while every other
-    source serves the newer week, as on 2026-10-27 (USA Today and CBS on
-    Week 7, the rest on Week 8). corrupt: a source whose served file has one
-    player's value changed, so it no longer equals its own saved week."""
+    `lagging` charts serve their saved Week `week` (default: the week before
+    newest_week(); the served fixture carries exactly those natives and the
+    index says so) while every other source serves the newer week, as on
+    2026-10-27 (USA Today and CBS on Week 7, the rest on Week 8). Any hold on
+    a lagging chart is cleared: the replay serves its saved week, and a red
+    hold would hide it from the view lists (a test that wants one adds it).
+    corrupt: a source whose served file has one player's value changed, so it
+    no longer equals its own saved week."""
+    if week is None:
+        week = newest_week(lagging) - 1
     index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
     fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
     slug_of = {}
@@ -1012,6 +1027,8 @@ def transition_overrides(lagging=("cbs", "usatoday"), week=6, corrupt=None):
                                 "label_week": week}
         section = fixture["sources"][src]
         section["week_designated"] = section["content_vintage"] = f"Week {week}"
+        for field in ("validationHold", "promotionHold"):
+            section.pop(field, None)
         for scoring, prefix in SCORING_PREFIX.items():
             natives = {slug_of[int(k)]: v for k, v in entry["natives"][scoring].items() if int(k) in slug_of}
             if src == corrupt:
@@ -1036,12 +1053,14 @@ class WeekTransitionSentinelTest(unittest.TestCase):
     def test_mixed_transition_passes(self):
         failures = collect(transition_overrides())
         self.assertEqual(failures, [])
-        # 5 of 7 DDF Value sources serve Week 7: more than half, so Week 7 is
-        # the default view and the two Week 6 charts are its missing sources.
-        self.assertEqual(WEEK_STATE.get("week"), 7, WEEK_STATE)
-        self.assertEqual(WEEK_STATE.get("weeks"), [7, 6], WEEK_STATE)
-        self.assertEqual(WEEK_STATE["views"]["7"]["missing_sources"], ["cbs", "usatoday"], WEEK_STATE)
-        self.assertEqual(WEEK_STATE["views"]["6"]["missing_sources"], [], WEEK_STATE)
+        # 5 of 7 DDF Value sources serve week N (Week 7 in committed data):
+        # more than half, so it is the default view and the two week N-1
+        # charts are its missing sources.
+        n = newest_week()
+        self.assertEqual(WEEK_STATE.get("week"), n, WEEK_STATE)
+        self.assertEqual(WEEK_STATE.get("weeks"), [n, n - 1], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"][str(n)]["missing_sources"], ["cbs", "usatoday"], WEEK_STATE)
+        self.assertEqual(WEEK_STATE["views"][str(n - 1)]["missing_sources"], [], WEEK_STATE)
 
     def test_corrupted_single_source_file_still_fails(self):
         failures = collect(transition_overrides(corrupt="cbs"))
@@ -1078,10 +1097,11 @@ class WeekTransitionSentinelTest(unittest.TestCase):
             fixture.write_text(overrides[FIXTURE_ASSET], encoding="utf-8")
             reference = vc.run_reference(settings, today, fixture=fixture, history=hist)
             import value_reference as R
-            week6 = R.Setting(R.Inputs.load(fixture), "ppr", 12, hist=R.History(hist), week=6)
-            self.assertEqual(week6.week_view()["week"], 6)
-            self.assertIn("cbs", week6.state()["included"])
-            self.assertEqual(week6.state()["current_week"], 6)
+            lag = newest_week() - 1
+            lagged = R.Setting(R.Inputs.load(fixture), "ppr", 12, hist=R.History(hist), week=lag)
+            self.assertEqual(lagged.week_view()["week"], lag)
+            self.assertIn("cbs", lagged.state()["included"])
+            self.assertEqual(lagged.state()["current_week"], lag)
         report = vc.compare(engine["settings"], reference)
         bad = {k: a["examples"][:2] for k, a in report["series"].items() if a["mismatches"]}
         self.assertEqual(bad, {})
@@ -1089,7 +1109,8 @@ class WeekTransitionSentinelTest(unittest.TestCase):
             self.assertNotIn("cbs", r["composite_inputs"], sid)
             self.assertNotIn("usatoday", r["composite_inputs"], sid)
             self.assertIn("fantasycalc", r["composite_inputs"], sid)
-            self.assertTrue(r["composite_excluded"]["cbs"].startswith("not yet published for Week 7"), sid)
+            self.assertTrue(r["composite_excluded"]["cbs"].startswith(f"not yet published for Week {newest_week()}"),
+                            sid)
 
 
 class FixtureTodayPinTest(unittest.TestCase):
