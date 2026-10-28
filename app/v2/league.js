@@ -56,7 +56,7 @@
     box.hidden = count < 8 || count === priced;
     if (box.hidden) { box.replaceChildren(); return; }
     const supported = [8, 10, 12, 14].includes(count);
-    box.replaceChildren(el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
+    box.replaceChildren(...[el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
       supported ? button(`Use ${count} teams in league settings`, {class: "v2-btn", id: "v2LgMatchTeams"}, () => {
         const V = root.TradeValueV2;
         if (V && V.applyLinkLeague) {
@@ -67,7 +67,7 @@
           announce(`League settings now use ${store.get().teams.length} teams.`);
         }
       }) : el("span", {text: "Values currently support 8, 10, 12 or 14 teams. "}),
-      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null);
+      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null].filter(Boolean));
   }
 
   // ---------- the engine, read once per render ----------
@@ -957,8 +957,8 @@
     const opp = teamById(ws, r.opponentId);
     const close = button("Close", {class: "v2-btn", id: "v2LgOppPanelClose"}, () => { const id = UI.selectedOpp; selectOpp(null); renderOpps(); focusPick(id); });
     const copyLinkBtn = button("Copy link to this trade", {class: "v2-btn", id: "v2LgOppPanelLink"}, () => copy(root.location.href, "Copied a link to this trade."));
-    return el("section", {class: "v2-card v2-lg-oppanel", id: "v2LgOppPanel", "aria-labelledby": "v2LgOppPanelTitle", "data-opp-id": r.id},
-      el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", text: `This trade with ${r.opponent}`}),
+    return el("section", {class: "v2-lg-oppanel", id: "v2LgOppPanel", "aria-labelledby": "v2LgOppPanelTitle", "data-opp-id": r.id},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", tabindex: "-1", text: `Trade details: vs ${r.opponent}`}),
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
       r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
@@ -1086,10 +1086,25 @@
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
     // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
     // the order, every value, edge and fit label are exactly what the ranking produced.
-    const capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
     pickFromHash(res.rows);
-    const togglePick = r => { selectOpp(UI.selectedOpp === r.id ? null : r); renderOpps(); if (UI.selectedOpp) { const p = $("v2LgOppPanel"); if (p) p.scrollIntoView({block: "nearest"}); } };
-    const chosen = UI.selectedOpp ? sorted.find(r => r.id === UI.selectedOpp) : null;
+    let capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
+    // A linked or restored pick must appear with its row, even when the opening core is folded.
+    if (UI.selectedOpp && sorted.some(r => r.id === UI.selectedOpp) &&
+        !capped.list.slice(0, UI.oppsShown).some(r => r.id === UI.selectedOpp)) {
+      UI.oppsShown = sorted.length;
+      capped = {list: sorted, folds: new Map()};
+    }
+    const togglePick = r => {
+      const closing = UI.selectedOpp === r.id;
+      selectOpp(closing ? null : r);
+      renderOpps();
+      if (closing) focusPick(r.id);
+      else {
+        const title = $("v2LgOppPanelTitle");
+        if (title) { title.scrollIntoView({block: "nearest"}); title.focus({preventScroll: true}); }
+      }
+    };
+    const phoneLayout = root.matchMedia("(max-width: 767px)").matches;
     const shownRows = capped.list.slice(0, UI.oppsShown);
     // Which cores show a fold control: the last visible row that carries the core, so the control sits with the player's rows.
     const foldAt = new Map();
@@ -1144,7 +1159,9 @@
         el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord}), r.overall ? fitInfo(r.overall) : null),
         el("td", {class: "num", "data-cell": "rank"}, `#${r.rank}`),
         ...optional.map(c => el("td", {class: c.type === "number" ? "num" : "", "data-cell": c.id}, T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field))));
-      return el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : []));
+      return el("tbody", {}, tr,
+        ...(picked && !phoneLayout ? [el("tr", {class: "v2-lg-panel-row"}, el("td", {colspan: String(colspan)}, oppPanel(r, ctx)))] : []),
+        ...(open ? [detailRow(r, ctx, colspan)] : []));
     };
     // The fold control: "N more for <player>", opening the rest of that player's rows right under it (keyboard: focus comes back).
     const foldLabel = key => `${capped.folds.get(key).length} more for ${capped.folds.get(key)[0].core.name}`;
@@ -1170,10 +1187,11 @@
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
         el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
-      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
+      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
       ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
-      tail || null);
+      tail || null,
+      UI.selectedOpp === r.id && phoneLayout ? oppPanel(r, ctx) : null);
     const cardNodes = [];
     displayRows.forEach((r, i) => {
       const key = coreKey(r);
@@ -1193,7 +1211,6 @@
     body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), summaryControls(ws, basis), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
-      chosen ? oppPanel(chosen, ctx) : null,
       notEval ? el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated."}) : null].filter(Boolean));
   }
 
@@ -1427,7 +1444,16 @@
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
       if (!tr || event.target.closest("button, a, select, input, summary, details")) return;
       const row = UI.result && UI.result.rows.find(r => r.id === tr.dataset.oppId);
-      if (row) { selectOpp(UI.selectedOpp === row.id ? null : row); renderOpps(); }
+      if (row) {
+        const closing = UI.selectedOpp === row.id;
+        selectOpp(closing ? null : row);
+        renderOpps();
+        if (closing) focusPick(row.id);
+        else {
+          const title = $("v2LgOppPanelTitle");
+          if (title) { title.scrollIntoView({block: "nearest"}); title.focus({preventScroll: true}); }
+        }
+      }
     });
     opps.addEventListener("keydown", event => {
       if (event.key !== "Escape" || !UI.selectedOpp) return;
@@ -1459,6 +1485,8 @@
     $("v2LgTeams").addEventListener("input", () => {});
     document.addEventListener("ddf:league-settings-changed", onSettingsChanged);
     root.addEventListener("hashchange", readShareHash);
+    const phoneLayout = root.matchMedia("(max-width: 767px)");
+    if (phoneLayout.addEventListener) phoneLayout.addEventListener("change", () => { if (UI.selectedOpp) renderOpps(); });
     const ready = () => {
       const ctx = mathContext();
       if (!ctx) return false;

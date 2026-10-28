@@ -5032,7 +5032,8 @@
   }
 
   function renderCompareRosterPicker() {
-    const host = $("v2CRosters");
+    const card = $("v2CRosters");
+    const host = $("v2CRostersBody");
     const ctx = compareRosterContext();
     const options = (selected, side) => {
       const select = document.createElement("select");
@@ -5163,7 +5164,7 @@
       lists.appendChild(section);
     });
     host.replaceChildren(intro, controls, actions, status, lists);
-    host.hidden = !ctx.teams.length;
+    card.hidden = !ctx.teams.length;
   }
 
   function compareConstructionInput() {
@@ -5185,28 +5186,26 @@
   }
 
   function renderCompareConstruction() {
-    const host = $("v2CConstruction");
+    const card = $("v2CConstruction");
+    const host = $("v2CConstructionBody");
     const input = compareConstructionInput();
     host.replaceChildren();
-    const title = document.createElement("h2");
-    title.textContent = "Both rosters after this trade";
-    host.appendChild(title);
     if (input.reason) {
       const note = document.createElement("p");
       note.className = "v2-meta";
       note.textContent = input.reason;
       host.appendChild(note);
-      host.dataset.ready = "false";
+      card.dataset.ready = "false";
       return;
     }
-    host.dataset.ready = "true";
+    card.dataset.ready = "true";
     const L = window.TradeValueLineupComparison;
     if (!L?.renderTable) {
       const note = document.createElement("p");
       note.className = "v2-meta";
       note.textContent = "Lineup display is unavailable.";
       host.appendChild(note);
-      host.dataset.ready = "false";
+      card.dataset.ready = "false";
       return;
     }
     const panels = document.createElement("div");
@@ -6332,16 +6331,6 @@
   }
 
   function bindCompare() {
-    const rosterCard = document.createElement("section");
-    rosterCard.id = "v2CRosters";
-    rosterCard.className = "v2-card v2-crosters";
-    rosterCard.setAttribute("aria-label", "Compare loaded rosters");
-    $("v2Compare").querySelector(".v2-trade-sides").before(rosterCard);
-    const construction = document.createElement("section");
-    construction.id = "v2CConstruction";
-    construction.className = "v2-card v2-cconstruction";
-    construction.setAttribute("aria-live", "polite");
-    $("v2Compare").querySelector(".v2-trade-sides").after(construction);
     window.TradeValueWorkspace?.store?.onChange(() => {
       if (currentView() === "compare") renderCompare();
     });
