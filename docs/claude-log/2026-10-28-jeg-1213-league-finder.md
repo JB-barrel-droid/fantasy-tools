@@ -21,5 +21,7 @@ Contract: implement the ten requirements in the live Linear issue, read on 2026-
 - Useful package checks use controlled named-player prices through the real finder, computePairing and runAll, with and without a balancing bench player. These are behavior tests, not claims about current Bijan/Kyren/Warren prices.
 - Finder agent observed the existing `test_v2_finder_search_unchanged` golden is stale on both baseline and patch (identical signatures: 2-for-2 10 trades/7 groups; 3-for-3 69/23). Golden unchanged.
 
+- Existing team-list and expanded-core regression methods pass. Existing table test found a test-helper error: for 11–20 total results it clicked only the absent All button, so the complete-rank assertion read a capped first page. Added the More fallback while retaining the exact `1..N` assertion. Targeted table rerun pending.
+
 ### Claimed, not confirmed
 - Preview CI, parent serial merge, Pages deployment and live verification pending. JEG-1213 remains open until parent verifies live.

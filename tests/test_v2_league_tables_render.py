@@ -248,6 +248,8 @@ def check_opps(browser, base, overrides, errors):
         errors.append("[opps] no caption or no row headers")
     if page.is_visible("#v2LgOppsAll"):   # JEG-1098: the list opens on 10 rows; these checks read every row
         page.click("#v2LgOppsAll")
+    elif page.is_visible("#v2LgOppsMore"):  # 11–20 results offer More without a separate All button.
+        page.click("#v2LgOppsMore")
     rows = page.evaluate(OPP_ROWS)
     if not rows:
         errors.append("[opps] no opportunity rows for the 4-team fixture")
