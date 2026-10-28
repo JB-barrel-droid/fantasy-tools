@@ -98,6 +98,10 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             toggle = page.locator("[data-expand][aria-expanded=false]").first
                             if toggle.count() and toggle.is_visible():
                                 toggle.click()
+                    if tab == "#compare-trade" and page.locator("#v2CTryExample").is_visible():
+                        # JEG-1190: Compare opens empty, so load the sample to read a full verdict.
+                        page.click("#v2CTryExample")
+                        page.wait_for_timeout(400)
                     found = bad_words(page.evaluate(READ))
                     if found:
                         errors.append(f"[{width}px {tab}] banned words in visible text: {found}")
