@@ -30,13 +30,15 @@
       const value = row && row.values && row.values[key];
       const estimated = Boolean(row && row.estimated && row.estimated[key]);
       const usable = available.has(key) && finite(value);
-      // The engine assigns a meaningful zero below rosterable depth and also
-      // carries a missingReason: the publisher did not actually list him.
+      // A numeric zero can be below depth. Public rows only carry its reason
+      // when no source has a pipeline row, so an unannotated zero's listing
+      // ancestry is unknown. Keep the number, never infer that it was listed.
       const zeroReason = usable && value === 0 && row && row.missingReasons && row.missingReasons[key];
+      const zeroUnknown = usable && value === 0 && !estimated && !zeroReason;
       const status = !available.has(key) ? "source_unavailable" : !usable ? "missing"
-        : estimated ? "estimated" : zeroReason ? "unlisted_zero" : "listed";
+        : estimated ? "estimated" : zeroReason ? "unlisted_zero" : zeroUnknown ? "zero_listing_unknown" : "listed";
       return {key, value: usable ? value : null, estimated: usable && estimated,
-        unlistedZero: Boolean(zeroReason), status,
+        unlistedZero: Boolean(zeroReason), zeroUnknown: Boolean(zeroUnknown), status,
         estimateReason: usable && estimated ? row.estimated[key] : null,
         missingReason: zeroReason || (usable ? null : !available.has(key) ? "Source unavailable"
           : (row && row.missingReasons && row.missingReasons[key]) || "No indexed value")};
@@ -47,8 +49,9 @@
       value: complete ? inputs.reduce((sum, input) => sum + input.value, 0) / inputs.length : null,
       complete, status: complete ? "complete" : sourceCount ? "partial" : "unavailable", sourceCount,
       expectedSourceCount: inputs.length,
-      listedCount: inputs.filter(input => input.value !== null && !input.estimated && !input.unlistedZero).length,
+      listedCount: inputs.filter(input => input.value !== null && !input.estimated && !input.unlistedZero && !input.zeroUnknown).length,
       unlistedZeroCount: inputs.filter(input => input.unlistedZero).length,
+      zeroUnknownCount: inputs.filter(input => input.zeroUnknown).length,
       estimatedCount: inputs.filter(input => input.estimated).length,
       inputs};
   }

@@ -16,8 +16,10 @@ assert.equal(pub.value,10);
 assert.deepEqual(pub.recipe,{role:'comparison_only',scale:'indexed',aggregation:'equal_weight_mean',coverage:'all_inputs_required'});
 assert.equal(pub.status,'complete');
 assert.equal(pub.sourceCount,3);
-assert.equal(pub.listedCount,2);
+assert.equal(pub.listedCount,1);
 assert.equal(pub.estimatedCount,1);
+assert.equal(pub.zeroUnknownCount,1);
+assert.equal(pub.inputs[1].status,'zero_listing_unknown');
 assert.match(pub.inputs[2].estimateReason,/FantasyCalc/);
 assert.equal(S.read(row,'observed_trade_estimate',all).value,40);
 assert.equal(S.read(row,'observed_trade_estimate',all).recipe.aggregation,'single_source');
@@ -29,7 +31,16 @@ assert.equal(absent.inputs[2].missingReason,'Source unavailable');
 assert.equal(absent.inputs[2].status,'source_unavailable');
 assert.equal(S.read({values:{...row.values,cbs:null}},'published_chart_average',all).value,null);
 assert.equal(S.read({values:{...row.values,cbs:NaN}},'published_chart_average',all).value,null);
-assert.equal(S.read({values:{usatoday:0,fantasypros:0,cbs:0}},'published_chart_average',all).value,0);
+// Actual public-row shape for Kyle Juszczyk (key 30): four numeric zeroes,
+// no estimated entries, and no public missingReasons although the pipeline
+// has below-depth reasons. Do not claim those zeroes were listed.
+const zeroPublicRow = {player_key:30,values:{usatoday:0,fantasypros:0,cbs:0,fantasycalc:0},
+  estimated:{},missingReasons:{}};
+const zeroPublic = S.read(zeroPublicRow,'published_chart_average',all);
+assert.equal(zeroPublic.value,0);
+assert.equal(zeroPublic.listedCount,0);
+assert.equal(zeroPublic.zeroUnknownCount,3);
+assert(zeroPublic.inputs.every(input=>input.status==='zero_listing_unknown'));
 const belowDepth = S.read({values:{usatoday:0,fantasypros:0,cbs:0},
   missingReasons:{usatoday:'Below rosterable depth; source does not list him',
     fantasypros:'Below rosterable depth; source does not list him',

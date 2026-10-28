@@ -201,6 +201,13 @@ def run_checks(v2_js=None, overrides_js=None) -> list[str]:
             # 3. Risers on DDF Value: the prior-week count is over the blended series.
             go("#risers-fallers")
             page.wait_for_function("() => !/Recomputing|Reading/.test(document.getElementById('v2RMeta').textContent)", timeout=30000)
+            mover = page.locator("#v2RRise li[data-player-key]").first
+            if mover.count():
+                mover.click()
+                page.wait_for_selector("#v2Drawer:not([hidden])")
+                if page.locator("#v2Drawer [data-comparison-view]").count():
+                    errors.append("Risers' mixed-week player row shows a current-view source average")
+                page.get_by_role("button", name="Close player details").click()
             prior = page.evaluate("async () => { const p = await window.TradeValueCurveControls.getPriorWeek('ddf_value');"
                                   " return {available: p.available, series: p.series || null, sources: p.sources || null}; }")
             meta = page.evaluate("() => document.getElementById('v2RMeta').textContent")

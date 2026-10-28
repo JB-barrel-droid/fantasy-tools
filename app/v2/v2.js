@@ -2005,7 +2005,8 @@
       detail.className = "v2-meta";
       detail.textContent = ` · ${result.sourceCount}/${result.expectedSourceCount} series`
         + ` · ${result.listedCount} listed, ${result.estimatedCount} DDF estimate${result.estimatedCount === 1 ? "" : "s"}`
-        + (result.unlistedZeroCount ? `, ${result.unlistedZeroCount} unlisted zero${result.unlistedZeroCount === 1 ? "" : "es"}` : "");
+        + (result.unlistedZeroCount ? `, ${result.unlistedZeroCount} unlisted zero${result.unlistedZeroCount === 1 ? "" : "es"}` : "")
+        + (result.zeroUnknownCount ? `, ${result.zeroUnknownCount} zero${result.zeroUnknownCount === 1 ? "" : "es"} with listing unknown` : "");
       line.appendChild(detail);
       if (result.inputs.some(input => input.estimated || input.missingReason)) {
         const ancestry = document.createElement("span");
@@ -2018,7 +2019,7 @@
     });
     const caution = document.createElement("p");
     caution.className = "v2-meta";
-    caution.textContent = "The published-chart average gives equal weight to USA Today, FantasyPros and CBS when all three have values. FantasyCalc is separate here, but DDF estimates can still borrow from it; the views are not independent evidence. A numeric zero is kept, even when a source did not list the player; a missing value is unavailable.";
+    caution.textContent = "The published-chart average gives equal weight to USA Today, FantasyPros and CBS when all three have values. FantasyCalc is separate here, but DDF estimates can still borrow from it; the views are not independent evidence. A numeric zero is kept even when its listing status is unknown; a missing value is unavailable.";
     section.appendChild(caution);
     return section;
   }
@@ -2287,7 +2288,11 @@
       zeroBadge.removeAttribute("title");
       drawer.appendChild(zeroNote);
     }
-    drawer.append(drawerHero(row), drawerSourceComparisons(row), drawerMatrix(row), ...drawerContext(row), tradeActions(row));
+    drawer.append(drawerHero(row));
+    // Risers can pass a row with one historical series over current other
+    // series; do not compute a new aggregate from that mixed-week row.
+    if (currentView() === "values") drawer.appendChild(drawerSourceComparisons(row));
+    drawer.append(drawerMatrix(row), ...drawerContext(row), tradeActions(row));
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
@@ -3882,7 +3887,7 @@
   // version is the alternate, named for the deal read's production check.
   const NAME_DEFS = [
     ["DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."],
-    ["Trade chart average", "The mean of the four rescaled chart inputs, including FantasyCalc. It is a comparison estimate, not a record of what a trade will pay."]];
+    ["Trade chart average", "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."]];
   // The deal read's nets (DEAL_NETS) by the name they define themselves with. Since JEG-1073 the projections net is
   // the alternate version, not DDF Value; the net itself is trade.js's.
   const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."];
