@@ -31,6 +31,12 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 - **Handed to other lanes:** #1022 (JEG-1180) goes to source freshness; review found a blocker, see the PR comment. #1030 went to fit labels (merged). Connector work after #1032 goes to connector size and names.
 - **Picks log:** `/mnt/project-files/ddf/picks-log.md` (source of truth, every lane), copied into `docs/picks-log.md`. The Reversed column marks what Jeremy undid.
 
+### Main green lane
+
+Last updated: 2026-10-28 9:10 AM CT (14:10 UTC), by the Claude "Main green"
+lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
+#1023 broke; #1031 (handoff) merged; #1035 is green and reviewed, not merged.
+
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
   `be/<ticket>`, `fe/<ticket>`, `cma/<ticket>`, `muse/jeg-<id>-<slug>` and
@@ -42,13 +48,15 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 - **Deployed (verified 13:30 UTC):** the deploy for `abe781d` succeeded, so
   #1023 and #1027 are live. Deploys take 50 to 70 minutes and are atomic;
   confirm a change by fetching its own file, not by the build tag.
-- **Render sweep on main is red (verified):** run 40694747369 on `7bdd6e1`.
+- **Render sweep on main: confirm (in flight at 14:10 UTC):** run 40700449750 on
+  `31ccf10` (after #1040). Earlier run 40694747369 on `7bdd6e1` was red.
   #1023 makes Compare open empty with a Try a sample trade button, and the
   sample is now a real trade, so `test_v2_names_render` found no deal nets and
   `test_v2_plain_copy_render` lost the week line Compare hides once a trade is
-  on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests. Make
-  stops at the first failing module, so probe run 40696409208 on
-  `scratch/shard1-probe` runs every module with `make -k`.
+  on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests.
+  Probe run 40696409208 (names fix only) passed shards 1 and 2; shard 3 failed
+  only on plain_copy, which #1040 fixes. Make stops at the first failing module
+  in a shard, and `make -k` does not change that.
 - **Week 8 rebuild (JEG-1194, checked 14:10 UTC):** the site still serves
   week 7 for all seven sources (fixture built 2026-10-26 15:42Z). Chain run
   40689076971 (12:35Z, `ed42c8e`) built week 8 and passed `make validate`,
@@ -67,10 +75,17 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   generated-file conflict drops a good rebuild; a parser fix never re-ingests
   (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
 - **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again. JEG-1157 is Done in Linear (In Review lane checked get_values, get_player_value and read_state live at 13:55Z).
-- **What I am working on:** a full render sweep on main after #1040, then
-  merging #1031 (this handoff) and #1035 (JEG-1193 phone chip) one at a time on
-  green CI, under Jeremy's rule that work he asked for merges on green CI with a
-  passed review. Other agents are actively merging to `main` every few minutes;
+- **What I am working on:** paused. Next step for a successor: read the result
+  of render sweep run 40700449750 (fix any red module on a PR). Then, once the
+  board lane's merges (#1029, #1034, #1037, #1036) have deployed, squash-merge
+  #1035 (JEG-1193 phone chip; CI green on `110547c`, review passed; merge main
+  into it first if it is behind), wait for its deploy, confirm the live
+  `app/v2/v2.js` contains `noLink: PHONE_NAMES.matches`, and set JEG-1193 Done.
+  #1043 (JEG-1134) also reworks the phone context row; if it merges first,
+  merge main into #1035 and re-run its CI before merging.
+  Jeremy's rule: work he asked for merges on green CI with a passed review,
+  one at a time with a live check; backend and edge function deploys still need
+  his yes. Other agents are actively merging to `main` every few minutes;
   see "Active agents and automation" below before touching any branch.
 - **Next concrete action for a successor:**
   1. `git pull` on `main`, read section 7, then the Linear In Progress list
@@ -101,7 +116,7 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
   Deploy dashboard, confirm the live `v2/v2.css` has the JEG-1134 block and the row is one line at 390 px, then
   move JEG-1134 to Done and close #967 as superseded. If a phone render test fails, it likely taps a row
   control while the row is closed: call `_render_env.open_phone_context(page)` first.
-- **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
+- **Incomplete changes / blockers:** #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
   harmless, leave it. The same goes for `jeg-920`, `scratch/sweep-all`,
