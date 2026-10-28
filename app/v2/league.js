@@ -503,6 +503,7 @@
     UI.cache = O.createCache();
     if (workspace.settings && workspace.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
       root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query));
+      if (root.DDFOverrides && root.DDFOverrides.applyLink) root.DDFOverrides.applyLink(new URLSearchParams(workspace.settings.query));
     }
     store.replace(workspace, "replace");
     renderUndo();
@@ -1335,8 +1336,11 @@
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
       const enc = W.shareHash(store.get(), leagueQuery());
-      const url = `${root.location.origin}${root.location.pathname}${enc.hash}`;
-      copy(url, enc.full ? "Copied a link to the whole league and its settings." : "Link carries your team and league settings only. For the full league, use Download.");
+      const ov = root.DDFOverrides;
+      const shared = ov && ov.shareLink ? ov.shareLink(enc.hash) : {hash: enc.hash, dropped: false};
+      const url = `${root.location.origin}${root.location.pathname}${shared.hash}`;
+      copy(url, (enc.full ? "Copied a link to the whole league and its settings." : "Link carries your team and league settings only. For the full league, use Download.")
+        + (shared.dropped ? " " + ov.dropOverridesNote() : ""));
     });
     const transferInfo = (label, text) => el("details", {class: "v2-lg-transfer-info"},
       el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {class: "v2-meta", text}));

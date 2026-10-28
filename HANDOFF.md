@@ -31,34 +31,29 @@ and after each milestone; commit and push it with the relevant code.
   Focused combined suite: 27 PASS, no skips; workflow/shard parity: 68 PASS.
   Required final-head preview/v2-render CI pending;
   independent final review is parent-owned. No main merge or deployment authorized.
+- Repair after independent review of `05859570`: finder and league links now
+  carry complete value basis/player overrides, including explicit default replay
+  over saved custom readers, for the visit only. Legacy links and position-share
+  precedence remain unchanged. Focused release 13 and Overrides 3 PASS;
+  new-head CI and one independent delta review pending;
+  evidence: `docs/claude-log/2026-10-28-league-share-context-repair.md`.
 
 
 
-### Pages validation lane (JEG-1170, Codex, 2026-10-28)
+### Pages validation lane (JEG-1170, completed 2026-10-28 UTC)
 
-- Jeremy made this the first release priority: “yes, and bring to the top.
-  Sounds like this will speed up development.” This is the Pages half of
-  JEG-1170; #1000 completed the preview half. Branch:
-  `be/jeg-1170-pages-validation-parallel` (draft PR linked on the ticket).
-- Pages now mirrors preview's `validate-base` plus four exhaustive test-core
-  shards, each on a separate runner at the exact run SHA. The build still runs
-  all three rendered harnesses and uploads only its own checked `dist`.
-  Deploy requires literal success from the build and entire matrix. Its artifact
-  name comes from the successful build output, including on partial reruns.
-- Keep `pages` concurrency with `cancel-in-progress: false`: cancellation
-  previously starved publication. No test recipe, shard membership, value math,
-  fixture, Supabase, rebuild-chain or writer-pause change belongs to this PR.
-- Latest main `2e7a2c7c` is integrated into this branch; the only conflict was
-  the picks-log append, resolved by retaining both lanes' entries. Pages
-  workflow/shard commands and artifact gates did not change during integration.
-- Validation: 102 targeted workflow/coverage/artifact tests and actionlint pass.
-  The original serial workflow fails the new parallel contract; all 96 core
-  commands and their exact shard union are unchanged. Coverage/parity/deploy
-  guards now run as explicit blocking steps in both build workflows.
-- Parent owns independent-review acceptance and final-head PR CI, then serial
-  merge on current green main, Pages completion, publication/live verification,
-  and a measured timing comparison. No production dispatch or merge in this lane.
-  Expected speedup is unconfirmed until the first successful Pages run.
+- #1056 merged as `904d07ae99320dc5d47ed3d38499af891d6c2dcf` and published at
+  18:18:30 UTC. Parent reports Mac live QA passed; build
+  `tv-20261028-1235-904d07a` matches the merge commit's -0500 timestamp
+  (17:35 UTC). JEG-1170 is Done. This release prerequisite is complete.
+- All exhaustive shards, artifact and rendered gates passed. Runtime was
+  17m05s versus the 40m15s baseline. Queue time was a separate 25m36s;
+  do not include queue time in the runtime comparison.
+- Pages uses validate-base plus four exact-SHA core shards, all three rendered
+  harnesses, and the successful build's artifact. Deploy requires success from
+  every dependency. Existing cancellation and validation safeguards remain.
+- Source: parent release verification update, 2026-10-28 UTC. This integration
+  lane did not merge, deploy or independently repeat the Mac live check.
 
 ### JEG-1213 league-wide finder lane (Codex, 2026-10-28 UTC)
 

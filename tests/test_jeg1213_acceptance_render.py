@@ -109,6 +109,81 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
             sender.context.close()
             reader.context.close()
 
+    def test_finder_and_league_links_replace_value_context_for_the_visit(self):
+        """Full-value links replay sender defaults/custom values over saved reader settings."""
+        with browser_on_build() as (browser, base):
+            for route in ("finder", "league"):
+                for custom in (True, False):
+                    with self.subTest(route=route, custom=custom):
+                        sender = open_page(browser, base, init_script=CLIPBOARD)
+                        seed(sender, "2team")
+                        keys = sender.evaluate("() => window.TradeValueCurveControls.getAllRows().slice(0, 2).map(r => String(r.player_key))")
+                        if custom:
+                            sender.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams('basis=fantasycalc&ov='+key+':60'))", keys[0])
+                        if route == "finder":
+                            sender.goto(base + "#find-trade", wait_until="networkidle")
+                            sender.wait_for_selector("#v2FindShare")
+                            sender.evaluate("""keys => { const C=window.TradeValueCurveControls;
+                              const rows=keys.map(k=>C.getAllRows().find(r=>String(r.player_key)===k));
+                              window.TradeValueFinder.ui.setSides([{key:keys[0],name:rows[0].name}], [{key:keys[1],name:rows[1].name}]); }""", keys)
+                            sender.click("#v2FindShare")
+                        else:
+                            open_details(sender, "#v2LgTransfer")
+                            sender.click("#v2LgCopyLink")
+                        sender.wait_for_function("() => Boolean(window.__jeg1213Copied)")
+                        link = sender.evaluate("() => window.__jeg1213Copied")
+                        params = parse_qs(urlsplit(link).fragment.split("?", 1)[1])
+                        self.assertEqual(params.get("valuecontext"), ["1"])
+                        if custom:
+                            self.assertEqual(params.get("basis"), ["fantasycalc"])
+                            self.assertEqual(params.get("ov"), [keys[0]+":60"])
+                        expected_teams = sender.evaluate(TEAM_SNAPSHOT) if route == "league" else None
+                        expected_values = {keys[0]: 60} if custom else {}
+                        for saved in (False, True):
+                            with self.subTest(saved_reader=saved):
+                                reader = open_page(browser, base)
+                                record = json.dumps({"v": 2, "basis": {"mode": "single", "source": "cbs"},
+                                                     "values": {keys[1]: 77}, "names": {}}) if saved else None
+                                if saved:
+                                    reader.evaluate("record => localStorage.setItem('ddf-v2-value-overrides', record)", record)
+                                reader.goto(link, wait_until="networkidle")
+                                reader.wait_for_function("() => window.DDFOverrides && window.TradeValueCurveControls")
+                                reader.wait_for_function("values => JSON.stringify(window.TradeValueCurveControls.getValueOverrides()) === JSON.stringify(values)", arg=expected_values)
+                                if expected_teams is not None:
+                                    self.assertEqual(reader.evaluate(TEAM_SNAPSHOT), expected_teams)
+                                else:
+                                    self.assertEqual(reader.locator("#v2FindMinePlayers li").count(), 1)
+                                    self.assertEqual(reader.locator("#v2FindTheirsPlayers li").count(), 1)
+                                basis = reader.evaluate("() => window.TradeValueCurveControls.getBasis()")
+                                if custom:
+                                    self.assertEqual((basis["mode"], basis["source"]), ("single", "fantasycalc"))
+                                else:
+                                    self.assertTrue(basis["isDefault"], basis)
+                                self.assertEqual(reader.evaluate("() => localStorage.getItem('ddf-v2-value-overrides')"), record)
+                                reader.goto(base + "#player-values", wait_until="networkidle")
+                                reader.wait_for_function("values => window.TradeValueCurveControls && JSON.stringify(window.TradeValueCurveControls.getValueOverrides()) === JSON.stringify(values)", arg=expected_values)
+                                reader.context.close()
+                        sender.context.close()
+
+    def test_value_context_share_budget_and_adjustment_escaping(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base)
+            result = page.evaluate("""() => {
+              const O=window.DDFOverrides, raw='#find-league?workspace=Team%20One:123,456|Team%252:789&scoring=ppr';
+              O.state.values={'123': {type:'adjustment',delta:5}};
+              const small=O.shareLink(raw), parsed=new URLSearchParams(small.hash.split('?')[1]);
+              O.state.values=Object.fromEntries(Array.from({length:1500},(_,i)=>[String(10000+i),{type:'adjustment',delta:i%50+0.1}]));
+              const big=O.shareLink(raw);
+              return {raw,small,ov:parsed.get('ov'),big};
+            }""")
+            self.assertTrue(result["small"]["hash"].startswith(result["raw"] + "&"))
+            self.assertEqual(result["ov"], "123:+5")
+            self.assertFalse(result["small"]["dropped"])
+            self.assertTrue(result["big"]["dropped"])
+            self.assertNotIn("&ov=", result["big"]["hash"])
+            self.assertIn("valuecontext=1", result["big"]["hash"])
+            page.context.close()
+
     def test_malformed_share_link_keeps_saved_rosters(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base)

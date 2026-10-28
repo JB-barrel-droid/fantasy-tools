@@ -965,7 +965,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
     if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
     const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
-    const url = location.href.split("#")[0] + encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs}, league);
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs}, league);
+    const ov = root.DDFOverrides;
+    const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
+    const url = location.href.split("#")[0] + shared.hash;
     say("\u2713 Link copied. It opens this search with both rosters, the package size and your lineup ticks.");
     if (button) {
       if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
@@ -973,6 +976,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       clearTimeout(button.copyTimer);
       button.copyTimer = setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 2000);
     }
+    if (shared.dropped) say(ov.dropOverridesNote());
     try { await navigator.clipboard.writeText(url); }
     catch (error) { say(`Copy this link: ${url}`); }
   }

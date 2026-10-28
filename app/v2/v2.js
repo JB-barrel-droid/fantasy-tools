@@ -6015,6 +6015,8 @@
     }
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
+    // Apply value context before the shared reader resolves rows and starts the finder.
+    if (base === "#find-trade" && window.DDFOverrides && window.DDFOverrides.applyLink) window.DDFOverrides.applyLink(params);
     if (base === "#find-trade" && window.TradeValueFinder && window.TradeValueFinder.applyHash) window.TradeValueFinder.applyHash(params);
     if (base !== "#compare-trade" && base !== "#waivers") {   // Find a trade and Trade targets links
       if (window.DDFAssist) window.DDFAssist.applyLink(query);

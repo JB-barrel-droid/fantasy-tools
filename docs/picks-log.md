@@ -137,3 +137,14 @@ counts explain that limit and link settings. No release switch #1059, source hea
 connector/Supabase or backlog additions. Parent owns final review and CI acceptance,
 #1056 live QA, production merge and live checks; keep all source tickets/PRs open.
 Evidence: `docs/claude-log/2026-10-28-league-finder-release.md`.
+
+### 2026-10-28 - Release share-context repair (JEG-1213/JEG-894)
+
+Independent review blocked #1062 at `05859570`: finder/league Copy link omitted
+value basis and player overrides. Both now share the same bounded value-context
+encoder, replay defaults/custom values for the visit, and preserve local saved
+preferences. Explicit marker distinguishes complete new links from legacy partial
+links. Preserve raw workspace encoding, existing overflow Export warning, and
+existing position-share behavior (separate pre-existing issue, parent excluded).
+Parent owns one delta review and fresh required CI; no production merge. Evidence:
+`docs/claude-log/2026-10-28-league-share-context-repair.md`.
