@@ -32,8 +32,10 @@ COVERED = (
 
 # (path, exact stripped source line): (number of reads, reason)
 ALLOWLIST = {
-    ("pipelines/nfl_week.py", "day = day or date.today()"): (
-        2, "Production content/game defaults; injected dates must bypass both."),
+    # JEG-1177: the two date.today() defaults became one New York clock
+    # (now_utc -> today_ny), read only after set_clock() and DDF_NOW.
+    ("pipelines/nfl_week.py", "moment = datetime.now(timezone.utc)"): (
+        1, "Production wall clock behind set_clock()/DDF_NOW; content/game defaults read it via today_ny."),
     (PRODUCT, "const now = new Date();"): (
         1, "Production reader clock after explicit/window override returns."),
     (WIDGET, 'checks.set(id, {name, status, detail: detail || "", at: new Date().toISOString(), diagnostics: diagnostics || null});'): (

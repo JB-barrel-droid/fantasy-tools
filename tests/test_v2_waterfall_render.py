@@ -22,11 +22,10 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1279 in DejaVu Sans, the face GitHub's
-    runner falls back to without Inter (JEG-1056; at 1280 DejaVu Sans may squeeze the real nav on CI --
-    GAP-WATERFALL-NAV-1280-SQUEEZE -- so the real-page check stops at 1279;
-    test_wide_font_guard_fails_on_broken_nav serves the old nav rule
-    and a tab row that shrinks before the freshness label, and requires both to be caught,
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1439 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; the 1280 squeeze -- GAP-WATERFALL-NAV-1280-SQUEEZE -- went
+    with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
+    test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
@@ -562,7 +561,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
 WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
 
 
-def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280, 1366, 1439)) -> dict:
     """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
     when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
     try:

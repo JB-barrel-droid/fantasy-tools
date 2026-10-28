@@ -179,6 +179,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_contract_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
+	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
@@ -582,6 +583,7 @@ test-core:
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
+	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -615,6 +617,7 @@ test-core:
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -631,6 +634,8 @@ test-core:
 	python3 -m unittest tests.test_search_players_universe
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
+	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -664,6 +669,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
@@ -707,6 +713,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_finder
+	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
@@ -720,6 +727,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_razzball_outlier_guard
 
