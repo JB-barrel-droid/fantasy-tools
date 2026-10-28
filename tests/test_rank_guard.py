@@ -160,13 +160,18 @@ def lagging_week(state, key):
 
     During a transition each source serves its own week and the view leaves a
     lagging one out (no carry-forward, Jeremy 2026-10-27), so its order is
-    checked in its own week's view, not reported as missing."""
+    checked in its own week's view, not reported as missing.
+
+    The view's missing_sources names only the charts that feed DDF Value; a
+    chart on a red review hold is hidden from it (JEG-569) and so is in
+    neither list, yet the page still leaves it out of a newer view. So the
+    test is "not in the view's sources and serving an older week"."""
     if not state:
         return None
     week = state.get("week")
     view = (state.get("views") or {}).get(str(week)) or {}
     served = (state.get("servedWeeks") or {}).get(key)
-    if key not in (view.get("missing_sources") or []):
+    if key in (view.get("sources") or []):
         return None
     if not isinstance(served, int) or not isinstance(week, int) or served >= week:
         return None
@@ -300,6 +305,21 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
     # The overrides rewrite the 12-team combos; ppr/12 is the setting whose
     # transition view test_week_history pins.
     SETTINGS = [("ppr", 12)]
+    # Charts also put on a red review hold in the replay (see the subclass).
+    HELD = ()
+
+    @classmethod
+    def _overrides(cls, W):
+        overrides = W.transition_overrides()
+        if cls.HELD:
+            doc = json.loads(overrides[W.FIXTURE_ASSET])
+            for key in cls.HELD:
+                # The field the chain writes (pipelines/fidelity_hold.py); the
+                # page reads validationHold first, so this replaces any held one.
+                doc["sources"][key]["validationHold"] = {"reason": "review hold (rank guard sentinel)",
+                                                         "hold_level": "red"}
+            overrides[W.FIXTURE_ASSET] = json.dumps(doc, separators=(",", ":"))
+        return overrides
 
     @classmethod
     def setUpClass(cls):
@@ -311,7 +331,7 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
         from tests import test_week_history as W
         if not (W.DIST / "assets" / "history" / "index.json").exists():
             raise _render_env.unavailable("dist/ is not built with history")
-        cls.overrides = W.transition_overrides()
+        cls.overrides = cls._overrides(W)
         cls.lagging = ("cbs", "usatoday")
         cls.swept, cls.states, errors = {}, {}, []
         with W._server(cls.overrides) as url, sync_playwright() as pw:
@@ -342,12 +362,17 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
         self.assertEqual(self.errors, [])
 
     def test_the_replay_is_a_transition(self):
-        # Guards the sentinel itself: the lagging charts are out of the
-        # default view, so the old guard would have reported them missing.
+        # Guards the sentinel itself: the lagging charts serve the week before
+        # the default view and are out of it, so the old guard would have
+        # reported them missing. (Out of the view's sources, not necessarily
+        # in its missing_sources: a chart on a red hold is in neither.)
         for setting, state in self.states.items():
-            view = state["views"][str(state["week"])]
-            self.assertEqual(sorted(set(self.lagging) & set(view["missing_sources"])), sorted(self.lagging),
-                             (setting, state))
+            week = state["week"]
+            view = state["views"][str(week)]
+            self.assertIn(week - 1, state["weeks"], (setting, state))
+            self.assertEqual({k: state["servedWeeks"].get(k) for k in self.lagging},
+                             {k: week - 1 for k in self.lagging}, (setting, state))
+            self.assertEqual(set(self.lagging) & set(view["sources"]), set(), (setting, state))
 
     def test_lagging_charts_keep_order_in_their_own_week(self):
         self.assertEqual(order_problems(self.swept), [])
@@ -371,16 +396,41 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
         self.assertTrue([p for p in problems if " cbs: " in p and "inversions" in p], problems)
 
 
+class TestEngineKeepsOrderWithHeldLaggingChart(TestEngineKeepsOrderInTransition):
+    """Chain run 40612356639 (after #1016): CBS was a week behind AND on a red
+    review hold. A red hold hides a chart from DDF Value (JEG-569), so the
+    page's missing_sources did not name it and the guard reported it missing.
+    Same replay with CBS also red-held (validationHold, as the chain writes it): it must still be read
+    in its own week."""
+
+    HELD = ("cbs",)
+
+    def test_the_held_chart_is_hidden_from_the_view_lists(self):
+        # Guards the sentinel: the replay reproduces the chain's state.
+        for setting, state in self.states.items():
+            view = state["views"][str(state["week"])]
+            self.assertNotIn("cbs", view["missing_sources"], (setting, state))
+
+
 class TestLaggingWeek(unittest.TestCase):
-    STATE = {"week": 8, "weeks": [8, 7], "servedWeeks": {"cbs": 7, "espn": 8, "old": 6, "gone": None},
-             "views": {"8": {"missing_sources": ["cbs", "old", "gone"]}, "7": {"missing_sources": []}}}
+    STATE = {"week": 8, "weeks": [8, 7],
+             "servedWeeks": {"cbs": 7, "espn": 8, "old": 6, "gone": None, "held": 7, "ahead": 9},
+             "views": {"8": {"sources": ["espn"], "missing_sources": ["cbs", "old", "gone"]},
+                       "7": {"sources": ["cbs", "espn"], "missing_sources": []}}}
 
     def test_only_a_source_left_out_for_an_older_week_is_lagging(self):
         self.assertEqual(lagging_week(self.STATE, "cbs"), 7)
         self.assertEqual(lagging_week(self.STATE, "old"), 6)
         self.assertIsNone(lagging_week(self.STATE, "espn"))   # in the view
         self.assertIsNone(lagging_week(self.STATE, "gone"))   # no served week: a real gap
+        self.assertIsNone(lagging_week(self.STATE, "ahead"))  # a later week is not lagging
         self.assertIsNone(lagging_week(None, "cbs"))
+
+    def test_a_held_chart_on_an_older_week_is_lagging(self):
+        # Chain run 40612356639: CBS on a red review hold, kept on Week 7,
+        # is hidden from DDF Value, so the Week 8 view's missing_sources does
+        # not name it; it is still lagging, not missing.
+        self.assertEqual(lagging_week(self.STATE, "held"), 7)
 
     def test_a_chart_missing_from_its_own_view_fails(self):
         swept = {("ppr", 12, "null"): {"diag": {"ok": True}, "week_diag": {}, "lagging": {},

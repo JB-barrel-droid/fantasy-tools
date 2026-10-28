@@ -173,6 +173,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
+	python3 -m unittest tests.test_v2_targets_thin_render
 	python3 -m unittest tests.test_v2_compare_render
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
