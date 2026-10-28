@@ -142,15 +142,12 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
   (Main green lane scratch branches; deletes are blocked; no PRs).
 
-- **JEG-1101 lane (Copy link explainer, updated 2026-10-28 9:10 AM CT):** PR #970,
-  branch `fe/JEG-1101-llm-copy-help`, head `a5e6aa2` (main `31ccf10` merged in).
-  Jeremy's wording pick A is in it ("Opens this view. A chat with the DDF tool
-  reads it too."); T1 review posted on the PR; the preview build and rendered
-  gate passed; the preview shards and `v2-render` were still queued. Next: when
-  every check is green, merge main in again if it moved, mark the draft ready,
-  squash-merge, wait for the Deploy dashboard run, confirm the live page shows
-  Copy link with that line, then move JEG-1101 to Done. The `mcp` tools.ts text
-  change goes live only with an approved `mcp` deploy.
+- **JEG-1101 lane (Copy link explainer, updated 2026-10-28 9:35 AM CT):** PR #970
+  merged as `26694ee` on all-green CI. Next: once the Deploy dashboard run for a
+  commit at or after `26694ee` succeeds, confirm the live page shows Copy link
+  with "Opens this view. A chat with the DDF tool reads it too." (fetch the page's
+  own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
+  text change goes live only with an approved `mcp` deploy.
 
 - **Fit labels lane (JEG-1187, JEG-1115; updated 2026-10-28 9:10 AM CT):**
   JEG-1187 is merged: #1030 (`759a4f9`) makes Find a trade's Market supported
