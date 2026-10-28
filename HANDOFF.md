@@ -46,6 +46,10 @@ and after each milestone; commit and push it with the relevant code.
   the integration head needs fresh required CI. Main workflow green status was
   unavailable from this environment and must be verified before release merge.
   Evidence: `docs/claude-log/2026-10-28-league-main-integration.md`.
+- Second current-main integration: `d9f617e0` (two generated health JSON files)
+  merged cleanly; application/tests diff remains zero against independently
+  reviewed code. Fresh release CI is required. Evidence:
+  `docs/claude-log/2026-10-28-league-health-main-integration.md`.
 
 
 

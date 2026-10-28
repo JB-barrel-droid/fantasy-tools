@@ -165,3 +165,10 @@ fidelity pulse (`8cd3c26e`); merge it normally into release #1062, preserving
 reviewed application code. New-head required CI and main-green verification
 remain before release merge. Evidence:
 `docs/claude-log/2026-10-28-league-main-integration.md`.
+
+### 2026-10-28 - Current main health artifacts in release #1062
+
+Main advanced to `d9f617e0` with only two generated health JSON files. Merge
+it normally into the release branch; application/tests diff remains zero from
+reviewed `a6949b50`. Fresh CI and latest-main green gate still required.
+Evidence: `docs/claude-log/2026-10-28-league-health-main-integration.md`.
