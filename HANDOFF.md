@@ -89,6 +89,24 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   Copy link with that line, then move JEG-1101 to Done. The `mcp` tools.ts text
   change goes live only with an approved `mcp` deploy.
 
+- **Fit labels lane (JEG-1187, JEG-1115; updated 2026-10-28 9:10 AM CT):**
+  JEG-1187 is merged: #1030 (`759a4f9`) makes Find a trade's Market supported
+  fire on any gain the page shows (`theirNet > NET_FLOOR`) instead of the noise
+  floor, which real charts never cleared. Its own deploys were cancelled by
+  later pushes; Deploy dashboard run 40702847581 (`059674f`) includes it. Next:
+  when a deploy succeeds, fetch the live `app/v2/finder.js` and confirm
+  `marketSupported = theirNet > NET_FLOOR`, then move JEG-1187 to Done.
+  JEG-1115 is PR #1041, branch `be/jeg-1115-connector-fit`, head `25e76db`
+  (main `759a4f9` merged in): get-values `include=charts` publishes the
+  engine's `bench_share` readout (Jeremy's pick B) and the connector labels
+  each trade Natural / Market supported / Force with the finder's own
+  `tradeFit` (`supabase/functions/mcp/fit.ts`). Local checks pass; the first CI
+  run failed only on an apt 403 in Playwright setup; CI is rerunning on the
+  merge. Next: when CI is green, ask Jeremy to merge #1041 and deploy
+  `get-values` first, then `mcp` (deploys need his yes); then check a live
+  `find_trades` call shows fit lines and move JEG-1115 to Done. #966
+  (Ba-Nana's earlier draft) is superseded by #1041; leave closing it to Jeremy.
+
 ---
 
 ## Active agents and automation (keep current)
