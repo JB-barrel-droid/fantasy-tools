@@ -459,6 +459,25 @@ Known bugs (repro steps and history on each ticket):
 6. Open PRs (2026-10-28 03:30 UTC): see "Active agents and automation" for
    owners. #1005 merged at 03:15 UTC. Apply the section 1 backlog decisions;
    don't merge others without review.
+7. Connector answers and name matching (JEG-1123, JEG-1124; Claude lane
+   "connector answers smaller, names smarter", checked 2026-10-28 14:10 UTC).
+   JEG-1123 (top-5 text, data once in structuredContent, limit honored, size
+   caps) and the 2-character name minimum are in PR #1032, which the board
+   lane owns and merges after #1024 with the mcp deploy Jeremy approved. Typo
+   matching, "Closest:" suggestions and Allen/Jr ambiguity are already on
+   main (#958). One gap is built but not pushed as code: `compare_trade`
+   still totals a trade without a name that fits several players. Patch:
+   `docs/claude-log/2026-10-28-jeg-1124-ambiguity.patch` (stops compare_trade
+   and asks which player; `find_trades` / `find_trades_league` count and list
+   ambiguous roster names in text and structuredContent; new tests; sizes
+   unchanged; all connector tests green on #1032 + main). **Next step:** once
+   #1032 is on main, branch from main, `git apply` the patch, run
+   `tests/node/mcp_remote_check.mjs`, `batch_trade_check.mjs` and
+   `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
+   review, log the two picks (compare stops and asks; roster scans keep going
+   and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
+   Backlog: JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player
+   name; production data writes need Jeremy's yes).
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
