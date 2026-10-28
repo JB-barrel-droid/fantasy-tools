@@ -2177,6 +2177,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
   .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
 }
+/* A landscape phone (844 px wide) is past the phone width but still tapped: its Edit league and Dismiss keep 44 px. */
+@media (pointer: coarse) {
+  .v2-app .v2-inputs-note .v2-btn { min-height: 44px; padding: 4px 12px; }
+  .v2-inputs-in .v2-link { display: inline-flex; align-items: center; min-height: 44px; }
+}
 
 /* JEG-1095: what a league paste understood */
 .v2-lg-parsed { border: 1px solid var(--v2-line, #d0d4da); border-radius: 8px; padding: 12px 14px; margin: 8px 0; }

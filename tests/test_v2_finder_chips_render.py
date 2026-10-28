@@ -41,7 +41,8 @@ EXPECT = """() => {
   const charts = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].filter(k => avail.has(k));
   const f = v => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(1) : 'no value');
   const out = {};
-  document.querySelectorAll('li.v2-find-row').forEach(li => {
+  // Find a trade's own rows: the league screen (league.js) draws the same rosters with its own chips.
+  document.querySelectorAll('#v2FindTrade li.v2-find-row').forEach(li => {
     const name = li.querySelector('b').textContent;
     const row = [...byKey.values()].find(r => r.name === name);
     const chips = [...li.querySelectorAll('.v2-find-chip-value')].map(b => b.textContent);
