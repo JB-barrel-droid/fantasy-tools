@@ -56,8 +56,10 @@ def check(browser, base, overrides=None):
         b, a, d = (float(x.replace("−", "-")) for x in s[who]["starters"][1:])
         if abs((a - b) - d) > 0.11:
             errors.append(f"{who}: starters {b} -> {a} but change {d}")
-    if "Close" not in page.inner_text("#v2LgOppPanel") or not re.fullmatch(r"(Natural fit|Market supported|Force fit) · (High|Medium-high|Medium) viability", s["viability"]):
-        errors.append(f"viability slot or Close missing: {s['viability']!r}")
+    if not page.evaluate("() => Boolean(document.querySelector('#v2LgOppPanel button#v2LgOppPanelClose'))"):
+        errors.append("Close button missing from the panel")
+    if not re.fullmatch(r"(Natural fit|Market supported|Force fit) · (High|Medium-high|Medium) viability", s["viability"]):
+        errors.append(f"viability slot does not carry '<fit> · <level> viability' (JEG-1108): {s['viability']!r}")
     if s["selected"] != [first_id] or f"trade=" not in s["hash"]:
         errors.append(f"row not highlighted or address has no pick: {s['selected']} {s['hash']}")
     # The pick survives Show all and Show top 10 only.
