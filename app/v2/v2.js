@@ -5991,12 +5991,29 @@
       window.DDFAssist.applyLink(query);   // a state with more than the trade: the codec reads all of it
       return;
     }
+    // A name-only player (n:Ja'Marr%20Chase) is the codec's form. The shared reader resolves it;
+    // the key reader below would show the encoded token as a missing player id.
+    if (base === "#compare-trade" && window.DDFAssist && /(^|,)n:/i.test(`${params.get("give") || ""},${params.get("get") || ""}`)) {
+      window.DDFAssist.applyLink(query);
+      return;
+    }
     if (base === "#waivers") { applyLinkLeague(params); return; }   // JEG-1022: the Waivers tab reads its own players from the link
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     const seen = new Set();
-    const read = name => (params.get(name) || "").split(",").map(k => decodeURIComponent(k).trim())
-      .filter(k => k && !seen.has(k) && seen.add(k))
-      .map(k => ({key: k, name: rowsByKey.get(k)?.name || `Player ${k}`}));
+    const read = name => (params.get(name) || "").split(",").map(token => {
+      let k = token.trim();
+      try { k = decodeURIComponent(k); } catch (error) { /* the token was already plain text */ }
+      k = k.trim();
+      if (!k || seen.has(k)) return null;
+      seen.add(k);
+      // Fallback when the shared reader is not on the page: show the name, not "n:Ghost%20Player".
+      if (k.startsWith("n:")) {
+        let playerName = k.slice(2);
+        try { playerName = decodeURIComponent(playerName); } catch (error) { /* already decoded */ }
+        return {key: "", name: playerName};
+      }
+      return {key: k, name: rowsByKey.get(k)?.name || `Player ${k}`};
+    }).filter(Boolean);
     TR.give = read("give");
     TR.receive = read("get");
     applyLinkLeague(params);

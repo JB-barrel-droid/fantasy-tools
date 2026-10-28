@@ -6,6 +6,7 @@
 
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
+import { type NameMatch, matchName, splitNames } from "./names.ts";
 import {
   type RosterShape,
   type ViabilityConfig,
@@ -82,9 +83,17 @@ const EXPLAIN_TOPICS = [
 ];
 
 const settingsProps = {
-  scoring: { type: "string", enum: SCORINGS, default: "ppr", description: "League scoring format" },
+  scoring: {
+    type: "string",
+    default: "ppr",
+    description: "League scoring: ppr, half_ppr, or standard. Also accepts PPR, 0.5ppr, half, and non-ppr.",
+  },
   teams: { type: "integer", enum: TEAMS, default: 12, description: "Number of teams in the league" },
-  superflex: { type: "boolean", default: false, description: "Whether the league has a superflex slot" },
+  superflex: {
+    type: "boolean",
+    default: false,
+    description: "Whether the league has a superflex slot. Also accepts yes/no and 1/0.",
+  },
   state: {
     type: "string",
     description:
@@ -150,7 +159,7 @@ export const TOOLS = [
   {
     name: "get_values",
     description:
-      "Current fantasy football trade values for the user's league settings, from Data Driven Football (value above waivers, blended across sources). Returns name, position, value and tier, best first. Values have no fixed maximum.",
+      "Current fantasy football trade values for the user's league settings, from Data Driven Football. DDF Value is the average of the four adjusted trade charts (value above waivers). Returns name, position, value and tier, best first. Values have no fixed maximum.",
     inputSchema: {
       type: "object",
       properties: {
@@ -164,7 +173,7 @@ export const TOOLS = [
   {
     name: "get_player_value",
     description:
-      "Look up one or more players by name and return their trade value and tier. Partial names work.",
+      "Look up one or more players by name and return their DDF Value and tier. Partial names work. A name that fits more than one player is reported as ambiguous instead of guessed. Typos and missing hyphens are matched when only one player is close.",
     inputSchema: {
       type: "object",
       properties: {
@@ -194,7 +203,7 @@ export const TOOLS = [
   {
     name: "compare_trade",
     description:
-      "Compare two sides of a trade by the sum of their blended values. Pass comma-separated player names for each side. Side A is what team A gives up. This is a market-value sum: it is not lineup-aware and has no per-source breakdown, so point the user to the site link for the full view.",
+      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware and has no per-chart breakdown, so point the user to the site link for the full view.",
     inputSchema: {
       type: "object",
       properties: {
@@ -253,7 +262,7 @@ export const TOOLS = [
   {
     name: "find_trades_league",
     description:
-      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns per-trade viability labels, failure reasons, and the package with your projected lineup after.",
+      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns a short line per trade (players, DDF edge, lineup change, label, failed check names) and the package with your projected lineup after.",
     inputSchema: {
       type: "object",
       properties: {
@@ -274,7 +283,7 @@ export const TOOLS = [
           maxItems: 15,
         },
         max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades" },
-        min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum market-value edge for the other team" },
+        min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
         limit: { type: "integer", minimum: 1, maximum: 100, default: 25, description: "Maximum trade candidates to return" },
         ...viabilityProps,
       },
@@ -305,16 +314,70 @@ export interface FinderDeps {
   fetchCharts: FetchValuesWithCharts | null;
 }
 
-function settings(args: Record<string, unknown>) {
-  const scoring = String(args.scoring ?? "ppr");
-  const teams = Number(args.teams ?? 12);
-  if (!SCORINGS.includes(scoring)) {
-    throw new ToolInputError(`invalid scoring: ${scoring}. Must be one of: ${SCORINGS.join(", ")}`);
+const SCORING_ALIASES: Record<string, string> = {
+  ppr: "ppr",
+  fullppr: "ppr",
+  full: "ppr",
+  "1ppr": "ppr",
+  "1.0ppr": "ppr",
+  halfppr: "half_ppr",
+  half: "half_ppr",
+  "0.5ppr": "half_ppr",
+  "0.5": "half_ppr",
+  "05ppr": "half_ppr",
+  point5ppr: "half_ppr",
+  standard: "standard",
+  std: "standard",
+  nonppr: "standard",
+  noppr: "standard",
+  "0ppr": "standard",
+};
+
+function normalizeScoring(value: unknown): string {
+  if (value === undefined || value === null || value === "") return "ppr";
+  const key = String(value).trim().toLowerCase().replace(/[\s_-]+/g, "");
+  const scoring = SCORING_ALIASES[key];
+  if (!scoring) throw new ToolInputError(`invalid scoring: ${value}. Must be one of: ${SCORINGS.join(", ")} (also PPR, 0.5ppr, half, standard).`);
+  return scoring;
+}
+
+const TRUE_WORDS = new Set(["1", "true", "yes", "y", "on"]);
+const FALSE_WORDS = new Set(["0", "false", "no", "n", "off"]);
+
+/** Missing uses the default. An unrecognised value is an error, not a silent false. */
+function parseBool(value: unknown, name: string, fallback: boolean): boolean {
+  if (value === undefined || value === null || value === "") return fallback;
+  if (value === true || value === 1) return true;
+  if (value === false || value === 0) return false;
+  const word = String(value).trim().toLowerCase();
+  if (TRUE_WORDS.has(word)) return true;
+  if (FALSE_WORDS.has(word)) return false;
+  throw new ToolInputError(`${name} must be true or false (got ${JSON.stringify(value)}).`);
+}
+
+function parseBounded(value: unknown, name: string, fallback: number, min: number, max: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isInteger(n) || n < min || n > max) {
+    throw new ToolInputError(`${name} must be an integer from ${min} to ${max}.`);
   }
+  return n;
+}
+
+function parseNonNegative(value: unknown, name: string, fallback: number): number {
+  if (value === undefined || value === null || value === "") return fallback;
+  const n = typeof value === "number" ? value : Number(String(value).trim());
+  if (!Number.isFinite(n) || n < 0) throw new ToolInputError(`${name} must be a number >= 0.`);
+  return n;
+}
+
+function settings(args: Record<string, unknown>) {
+  const scoring = normalizeScoring(args.scoring);
+  const teams = Number(args.teams ?? 12);
   if (!TEAMS.includes(teams)) {
     throw new ToolInputError(`invalid teams: ${teams}. Must be one of: ${TEAMS.join(", ")}`);
   }
-  const superflex = args.superflex === true || args.superflex === 1 || args.superflex === "true" ? 1 : 0;
+  const superflex = parseBool(args.superflex, "superflex", false) ? 1 : 0;
   // JEG-1031: the rest of a pasted league (roster shape, shares, weeks, advanced), priced by get-values.
   const league = args.league && typeof args.league === "object" ? args.league as Record<string, unknown> : undefined;
   return { scoring, teams, superflex, league };
@@ -328,27 +391,143 @@ function position(args: Record<string, unknown>): string {
   return pos;
 }
 
-function header(data: ValuesResponse, s: { scoring: string; teams: number; superflex: number }): string[] {
+function header(data: ValuesResponse, s: { scoring: string; teams: number; superflex: number; league?: Record<string, unknown> }): string[] {
+  const bits = [s.scoring, `${s.teams} teams`];
+  if (s.superflex) bits.push("superflex");
+  const league = s.league;
+  const roster = league?.roster && typeof league.roster === "object" ? league.roster as Record<string, unknown> : null;
+  if (roster) {
+    const slots = ["QB", "RB", "WR", "TE", "FLEX", "BENCH"].filter((k) => roster[k] !== undefined);
+    if (slots.length) bits.push(`roster ${slots.map((k) => `${k}${roster[k]}`).join(" ")}`);
+  }
+  const shares = league?.shares && typeof league.shares === "object" ? league.shares as Record<string, unknown> : null;
+  if (shares) {
+    const parts = ["QB", "RB", "WR", "TE"].filter((k) => shares[k] !== undefined)
+      .map((k) => `${k} ${Number(shares[k]).toFixed(2)}`);
+    if (parts.length) bits.push(`shares ${parts.join(" ")}`);
+  }
   return [
     data.attribution,
     `As of: ${data.as_of || "unknown"}`,
-    `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
+    `Settings: ${bits.join(", ")}`,
   ];
 }
 
-function norm(s: string): string {
-  return s.toLowerCase().replace(/[.'’]/g, "").replace(/\s+/g, " ").trim();
+// Exact or unique partial match, else a single close typo. Ambiguous queries return null
+// (the caller reads matchName for the warning). Kept for callers that only need the player.
+export function findPlayer(players: PlayerValue[], query: string): PlayerValue | null {
+  const hit = matchName(players, query);
+  return hit.match === "ambiguous" ? null : hit.player;
 }
 
-// Exact name first, then unique partial match, else the best-valued partial.
-export function findPlayer(players: PlayerValue[], query: string): PlayerValue | null {
-  const q = norm(query);
-  if (!q) return null;
-  const exact = players.find((p) => norm(p.name) === q);
-  if (exact) return exact;
-  const partial = players.filter((p) => norm(p.name).includes(q));
-  if (!partial.length) return null;
-  return partial.reduce((a, b) => (b.value > a.value ? b : a));
+function round1(n: number): number {
+  return Math.round(n * 10) / 10;
+}
+
+interface SlimPlayer { name: string; pos: string; value: number | null }
+
+function slimOffer(o: {
+  team: string;
+  userGives: Array<{ name: string; pos: string; ddfValue: number | null }>;
+  userGets: Array<{ name: string; pos: string; ddfValue: number | null }>;
+  ddfEdge: number;
+  userLineupDelta: number;
+  viable: boolean;
+  label: string | null;
+  temporaryGap: boolean;
+  checks: Array<{ name: string; passed: boolean }>;
+}, withTeam: boolean) {
+  const side = (rows: Array<{ name: string; pos: string; ddfValue: number | null }>): SlimPlayer[] =>
+    rows.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue }));
+  const failed = o.checks.filter((c) => !c.passed).map((c) => c.name);
+  return {
+    ...(withTeam ? { team: o.team } : {}),
+    userGives: side(o.userGives),
+    userGets: side(o.userGets),
+    ddfEdge: round1(o.ddfEdge),
+    lineup: round1(o.userLineupDelta),
+    viable: o.viable,
+    label: o.label,
+    failed,
+    ...(o.temporaryGap ? { temporaryGap: true } : {}),
+  };
+}
+
+function tradeLine(index: number, o: ReturnType<typeof slimOffer>, team?: string): string {
+  const side = (rows: SlimPlayer[]) => rows.map((p) => `${p.name} (${p.pos} ${p.value ?? "?"})`).join(" + ");
+  const tag = o.viable ? (o.label ?? "viable") : `not viable: ${o.failed.join(", ") || "checks"}`;
+  const vs = team ? ` vs ${team}` : "";
+  const edge = o.ddfEdge >= 0 ? `+${o.ddfEdge.toFixed(1)}` : o.ddfEdge.toFixed(1);
+  const lineup = o.lineup >= 0 ? `+${o.lineup.toFixed(1)}` : o.lineup.toFixed(1);
+  return `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
+}
+
+function foundLine(total: number, shown: number, limit: number, viableOnly: boolean): string {
+  const noun = total === 1 ? "trade" : "trades";
+  const which = viableOnly ? " viable" : "";
+  if (shown === limit || total <= shown) return `Found ${total} ${noun} (showing ${shown}${which}).`;
+  return `Found ${total} ${noun} (showing ${shown}${which} of limit ${limit}).`;
+}
+
+interface ResolvedNames<T extends PlayerValue> {
+  matched: T[];
+  unmatched: string[];
+  ambiguous: Array<{ input: string; suggestions: string[] }>;
+  notes: string[];
+}
+
+function resolveNames<T extends PlayerValue>(players: T[], names: string[]): ResolvedNames<T> {
+  const matched: T[] = [];
+  const seen = new Set<number>();
+  const unmatched: string[] = [];
+  const ambiguous: Array<{ input: string; suggestions: string[] }> = [];
+  const notes: string[] = [];
+  for (const input of names) {
+    const hit: NameMatch<T> = matchName(players, input);
+    if (hit.match === "ambiguous") {
+      ambiguous.push({ input, suggestions: hit.suggestions.map((p) => p.name) });
+      notes.push(hit.note);
+      continue;
+    }
+    if (!hit.player) {
+      unmatched.push(input);
+      notes.push(hit.note || `${input}: NOT FOUND`);
+      continue;
+    }
+    if (seen.has(hit.player.player_key)) {
+      notes.push(`${hit.player.name} listed more than once; counted once.`);
+      continue;
+    }
+    seen.add(hit.player.player_key);
+    matched.push(hit.player);
+    if (hit.note) notes.push(hit.note);
+  }
+  return { matched, unmatched, ambiguous, notes };
+}
+
+function emptyRoster<T extends PlayerValue>(side: string, res: ResolvedNames<T>): string {
+  if (res.notes.length) return `No players matched on ${side}. ${res.notes.join(" ")}`;
+  return `No players matched on ${side}. Check the spelling.`;
+}
+
+function parseOpponents(raw: unknown): Array<{ name: string; roster: string }> {
+  if (typeof raw === "string") {
+    throw new ToolInputError("opponents must be an array of {name, roster}, not a string.");
+  }
+  if (!Array.isArray(raw) || !raw.length) throw new ToolInputError("opponents is required: an array of {name, roster}.");
+  if (raw.length > 15) throw new ToolInputError("too many opponents (max 15)");
+  return raw.map((opp, i) => {
+    if (!opp || typeof opp !== "object" || Array.isArray(opp)) {
+      throw new ToolInputError(`opponents[${i}] must be an object with name and roster.`);
+    }
+    const row = opp as Record<string, unknown>;
+    const name = String(row.name ?? "").trim();
+    if (!name) throw new ToolInputError(`opponents[${i}].name is required.`);
+    if (typeof row.roster !== "string") {
+      throw new ToolInputError(`opponents[${i}].roster must be a comma-separated string of names.`);
+    }
+    return { name, roster: row.roster };
+  });
 }
 
 function ok(text: string, structured: Record<string, unknown>): ToolResult {
@@ -378,15 +557,15 @@ export async function runTool(
 
   if (name === "get_values") {
     const pos = position(args);
-    const limit = Math.min(200, Math.max(1, Number(args.limit ?? 50) || 50));
+    const limit = parseBounded(args.limit, "limit", 50, 1, 200);
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const players = data.players.filter((p) => pos === "all" || p.pos === pos).slice(0, limit);
+    const players = data.players.filter((p) => pos === "all" || p.pos === pos).slice(0, limit)
+      .map((p) => ({ name: p.name, pos: p.pos, value: p.value, tier: p.tier }));
     const text = [
       ...header(data, s),
       `Sources included: ${data.sources_included.join(", ")}`,
-      "",
-      "Rank | Player | Pos | Value | Tier",
-      ...players.map((p, i) => `${i + 1} | ${p.name} | ${p.pos} | ${p.value} | ${p.tier}`),
+      `${players.length} players, best first.`,
+      ...players.map((p) => `${p.name} | ${p.pos} | ${p.value} | ${p.tier}`),
     ].join("\n");
     return finish(
       ok(text, { as_of: data.as_of, setting: data.setting, sources_included: data.sources_included, players }),
@@ -395,17 +574,20 @@ export async function runTool(
   }
 
   if (name === "get_player_value") {
-    const names = String(args.names ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+    const names = splitNames(args.names);
     if (!names.length) throw new ToolInputError("names is required");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const results = names.map((input) => ({ input, player: findPlayer(data.players, input) }));
+    const results = names.map((input) => {
+      const hit = matchName(data.players, input);
+      return { input, player: hit.match === "ambiguous" ? null : hit.player, match: hit.match, suggestions: hit.suggestions.map((p) => p.name), note: hit.note };
+    });
     const text = [
       ...header(data, s),
       "",
       ...results.map((r) =>
         r.player
-          ? `${r.player.name} (${r.player.pos}): value ${r.player.value}, tier ${r.player.tier}`
-          : `${r.input}: NOT FOUND`
+          ? `${r.player.name} (${r.player.pos}): value ${r.player.value}, tier ${r.player.tier}${r.note ? ` — ${r.note}` : ""}`
+          : r.note || `${r.input}: NOT FOUND`
       ),
     ].join("\n");
     const first = results.find((r) => r.player);
@@ -417,15 +599,18 @@ export async function runTool(
 
   if (name === "trade_targets") {
     const pos = position(args);
-    const pct = Math.min(50, Math.max(1, Number(args.range_pct ?? 15) || 15));
+    const pct = parseBounded(args.range_pct, "range_pct", 15, 1, 50);
+    const query = String(args.player_name ?? "").trim();
+    if (!query) throw new ToolInputError("player_name is required");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const player = findPlayer(data.players, String(args.player_name ?? ""));
-    if (!player) {
+    const hit = matchName(data.players, query);
+    if (hit.match === "ambiguous" || !hit.player) {
       return {
-        content: [{ type: "text", text: `${data.attribution}\n\nPlayer "${args.player_name}" not found. Check the spelling or try a partial name.` }],
+        content: [{ type: "text", text: `${data.attribution}\n\n${hit.note || `Player "${query}" not found.`}` }],
         isError: true,
       };
     }
+    const player = hit.player;
     const range = player.value * (pct / 100);
     const targets = data.players
       .filter((p) =>
@@ -449,53 +634,74 @@ export async function runTool(
 
   if (name === "compare_trade") {
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const side = (raw: unknown) =>
-      String(raw ?? "").split(",").map((n) => n.trim()).filter(Boolean).map((input) => ({
-        input,
-        player: findPlayer(data.players, input),
-      }));
-    const a = side(args.side_a);
-    const b = side(args.side_b);
-    if (!a.length || !b.length) throw new ToolInputError("side_a and side_b each need at least one name");
-    const total = (x: typeof a) => x.reduce((t, r) => t + (r.player?.value ?? 0), 0);
-    const sumA = Math.round(total(a) * 10) / 10;
-    const sumB = Math.round(total(b) * 10) / 10;
-    const diff = Math.round((sumA - sumB) * 10) / 10;
-    const notFound = [...a, ...b].filter((r) => !r.player).map((r) => r.input);
+    const side = (raw: unknown) => resolveNames(data.players, splitNames(raw));
+    let a = side(args.side_a);
+    let b = side(args.side_b);
+    if (!splitNames(args.side_a).length || !splitNames(args.side_b).length) {
+      throw new ToolInputError("side_a and side_b each need at least one name");
+    }
+    // The same player on both sides stays on team A, matching the site.
+    const giveKeys = new Set(a.matched.map((p) => p.player_key));
+    const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
+    if (shared.length) {
+      b = {
+        ...b,
+        matched: b.matched.filter((p) => !giveKeys.has(p.player_key)),
+        notes: [...b.notes, `On both sides, kept on team A only: ${shared.map((p) => p.name).join(", ")}.`],
+      };
+    }
+    if (!a.matched.length || !b.matched.length) {
+      const why = [...a.notes, ...b.notes].filter(Boolean).join(" ");
+      throw new ToolInputError(why || "side_a and side_b each need at least one matched player");
+    }
+    const sum = (rows: PlayerValue[]) => round1(rows.reduce((t, p) => t + p.value, 0));
+    const sumA = sum(a.matched);
+    const sumB = sum(b.matched);
+    const diff = round1(sumA - sumB);
+    const notFound = [...a.unmatched, ...b.unmatched];
     const verdict = Math.abs(diff) < 2
       ? "roughly even"
       : diff > 0
       ? `team B comes out ahead by ${diff.toFixed(1)} (team A gives up more value)`
       : `team A comes out ahead by ${(-diff).toFixed(1)} (team B gives up more value)`;
-    const fmt = (x: typeof a) =>
-      x.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.input}: NOT FOUND`).join("\n");
+    const fmt = (rows: PlayerValue[]) => rows.map((p) => `  ${p.name} (${p.pos}): ${p.value}`).join("\n");
+    const notes = [...new Set([...a.notes, ...b.notes])];
     const text = [
       ...header(data, s),
       "",
       `Team A gives up (total ${sumA.toFixed(1)}):`,
-      fmt(a),
+      fmt(a.matched),
       `Team B gives up (total ${sumB.toFixed(1)}):`,
-      fmt(b),
+      fmt(b.matched),
       "",
-      `Verdict (market-value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
-      "The site's Compare a trade shows the per-source breakdown for this trade; open the link below.",
-      ...(notFound.length ? [`Warning: not found, counted as 0: ${notFound.join(", ")}`] : []),
+      `Verdict (DDF Value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
+      "The site's Compare a trade shows the per-chart breakdown for this trade; open the link below.",
+      ...(notes.length ? [notes.join("\n")] : []),
+      ...(notFound.length ? [`Warning: not found, left out of the total: ${notFound.join(", ")}`] : []),
     ].join("\n");
+    const pack = (rows: PlayerValue[], missed: string[]) => ({
+      total: sum(rows),
+      players: rows.map((p) => ({ name: p.name, pos: p.pos, value: p.value })),
+      not_found: missed,
+    });
     // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
     return finish(
       ok(text, {
         as_of: data.as_of,
         setting: data.setting,
-        side_a: { total: sumA, players: a },
-        side_b: { total: sumB, players: b },
+        side_a: pack(a.matched, a.unmatched),
+        side_b: pack(b.matched, b.unmatched),
         difference: diff,
         verdict,
-        method: "sum_of_blended_values",
+        method: "sum_of_ddf_values",
         not_found: notFound,
       }),
       {
         prepared, deps, settings: s, view: "compare",
-        work: { give: a.map((r) => entry(r.input, r.player)), get: b.map((r) => entry(r.input, r.player)) },
+        work: {
+          give: a.matched.map((p) => entry(p.name, p)).concat(a.unmatched.map((n) => entry(n, null))),
+          get: b.matched.map((p) => entry(p.name, p)).concat(b.unmatched.map((n) => entry(n, null))),
+        },
       },
     );
   }
@@ -531,16 +737,20 @@ export function chartPlayersOf(data: { players: ChartPlayerValue[] }): ChartPlay
   return players;
 }
 
-function findChartPlayer(players: ChartPlayerValue[], query: string): ChartPlayerValue | null {
-  return findPlayer(players, query) as ChartPlayerValue | null;
-}
-
 async function findTradesHandler(
   args: Record<string, unknown>,
   fetchValues: FetchValues,
   deps?: Deps,
   finderDeps?: FinderDeps,
 ): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  const a = prepared.args;
+  const s = settings(a);
+
+  const mineNames = splitNames(a.mine);
+  const theirNames = splitNames(a.theirs);
+  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
+  if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
   if (!finderDeps?.finder) {
     throw new ToolUnavailableError("The trade finder is unavailable right now. Try again shortly.");
   }
@@ -548,54 +758,40 @@ async function findTradesHandler(
     throw new ToolUnavailableError("Chart values are unavailable right now. Try again shortly.");
   }
 
-  const prepared = prepare(args, deps);
-  const a = prepared.args;
-  const s = settings(a);
-
-  const mineNames = String(a.mine ?? "").split(",").map((n) => n.trim()).filter(Boolean);
-  const theirNames = String(a.theirs ?? "").split(",").map((n) => n.trim()).filter(Boolean);
-  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
-  if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
-
   const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = chartPlayersOf(data);
 
-  // Resolve names to rows.
-  const resolve = (names: string[]) => {
-    const matched: ChartPlayerValue[] = [];
-    const unmatched: string[] = [];
-    for (const name of names) {
-      const p = findChartPlayer(chartPlayers, name);
-      if (p) matched.push(p);
-      else unmatched.push(name);
-    }
-    return { matched, unmatched };
-  };
-
-  const mineRes = resolve(mineNames);
-  const theirRes = resolve(theirNames);
-  const unmatched = [...mineRes.unmatched, ...theirRes.unmatched];
-
-  if (!mineRes.matched.length) throw new ToolInputError("No players matched on your roster. Check the spelling.");
-  if (!theirRes.matched.length) throw new ToolInputError("No players matched on their roster. Check the spelling.");
+  const mineRes = resolveNames(chartPlayers, mineNames);
+  const theirRes = resolveNames(chartPlayers, theirNames);
+  if (!mineRes.matched.length) throw new ToolInputError(emptyRoster("your roster", mineRes));
+  // A player on both rosters stays on yours, so the search cannot trade him for himself.
+  const shared = theirRes.matched.filter((p) => mineRes.matched.some((m) => m.player_key === p.player_key));
+  const theirMatched = theirRes.matched.filter((p) => !shared.some((p2) => p2.player_key === p.player_key));
+  if (!theirMatched.length) {
+    throw new ToolInputError(shared.length
+      ? `No players left on their roster. Every matched player is also on yours (${shared.map((p) => p.name).join(", ")}), so there is no one to trade for.`
+      : emptyRoster("their roster", theirRes));
+  }
 
   const mineRows = mineRes.matched.map(toFinderRow);
-  const theirRows = theirRes.matched.map(toFinderRow);
+  const theirRows = theirMatched.map(toFinderRow);
 
-  const maxPerSide = Number(a.max_per_side ?? 2) || 2;
-  const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
-  const limit = Number(a.limit ?? 10) || 10;
+  const maxPerSide = parseBounded(a.max_per_side, "max_per_side", 2, 1, 4);
+  const minRivalEdge = parseNonNegative(a.min_rival_edge, "min_rival_edge", 0);
+  const limit = parseBounded(a.limit, "limit", 10, 1, 50);
+  // Pull a pool bigger than `limit` so deduping packages that receive the same players can still fill it.
+  const pool = Math.min(500, Math.max(limit * 8, limit + 80));
 
   const result = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
     maxSize: maxPerSide,
     minRivalEdge,
-    limit: limit + 20, // fetch extra before viability filtering
+    limit: pool,
   });
 
   // --- Viability scoring ---
   const shape = rosterShape(a, s.superflex);
   const vConfig = viabilityConfig(a);
-  const viableOnly = a.viable_only === true || a.viable_only === "true";
+  const viableOnly = parseBool(a.viable_only, "viable_only", false);
 
   // Build lookup by player_key for full rows.
   const rowByKey = new Map<number, FinderRow>();
@@ -613,53 +809,40 @@ async function findTradesHandler(
   let scored = scoreAndRankOffers(offers, shape, vConfig);
   if (viableOnly) scored = scored.filter((o) => o.viable);
   scored = scored.slice(0, limit);
+  const trades = scored.map((o) => slimOffer(o, false));
 
   const entry = (input: string, p: PlayerValue | null) =>
     p ? { key: String(p.player_key), name: p.name } : { name: input };
 
-  // Format text output.
-  const lines: string[] = [
-    data.attribution,
-    `As of: ${data.as_of || "unknown"}`,
-    `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
-    "",
-    `Found ${result.total} trade${result.total === 1 ? "" : "s"} (showing ${scored.length}${viableOnly ? " viable" : ""}).`,
-    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
-    `Their roster: ${theirRes.matched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
-  ];
-  if (unmatched.length) lines.push(`Not found: ${unmatched.join(", ")}`);
-  lines.push("");
+  const nameNotes = [...mineRes.notes, ...theirRes.notes];
+  if (shared.length) nameNotes.push(`On both rosters, kept on yours only: ${shared.map((p) => p.name).join(", ")}.`);
 
-  for (let i = 0; i < scored.length; i++) {
-    const o = scored[i];
-    const giveStr = o.userGives.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
-    const getStr = o.userGets.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
-    const viabilityTag = o.viable
-      ? `[${o.label}]`
-      : `[NOT VIABLE: ${o.failedChecks.join("; ")}]`;
-    lines.push(`${i + 1}. You give: ${giveStr}`);
-    lines.push(`   You get: ${getStr}`);
-    lines.push(`   Your edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
-    if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap (injured players out)`);
-    lines.push("");
-  }
-  if (!scored.length) lines.push(viableOnly
+  const lines: string[] = [
+    ...header(data, s),
+    "",
+    foundLine(result.total, trades.length, limit, viableOnly),
+    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
+    `Their roster: ${theirMatched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
+  ];
+  if (nameNotes.length) lines.push(...nameNotes);
+  lines.push("");
+  trades.forEach((o, i) => lines.push(tradeLine(i, o)));
+  if (!trades.length) lines.push(viableOnly
     ? "No viable trades found. Try without viable_only to see all candidates."
     : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
 
-  // Structured output.
   const structured = {
     as_of: data.as_of,
     setting: data.setting,
-    trades: scored,
+    trades,
     total: result.total,
-    viableCount: scored.filter((o) => o.viable).length,
+    shown: trades.length,
+    limit,
+    viableCount: trades.filter((o) => o.viable).length,
     mine: { ...result.mine, unmatched: mineRes.unmatched },
     theirs: { ...result.theirs, unmatched: theirRes.unmatched },
-    chart_keys: result.chartKeys,
   };
 
-  // Work for the state: mine/theirs as entries.
   const work = {
     mine: mineNames.map((n) => entry(n, findPlayer(data.players, n))),
     theirs: theirNames.map((n) => entry(n, findPlayer(data.players, n))),
@@ -683,6 +866,14 @@ async function findTradesLeagueHandler(
   deps?: Deps,
   finderDeps?: FinderDeps,
 ): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  const a = prepared.args;
+  const s = settings(a);
+
+  const mineNames = splitNames(a.mine);
+  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
+
+  const opponents = parseOpponents(a.opponents);
   if (!finderDeps?.finder) {
     throw new ToolUnavailableError("The trade finder is unavailable right now. Try again shortly.");
   }
@@ -690,61 +881,41 @@ async function findTradesLeagueHandler(
     throw new ToolUnavailableError("Chart values are unavailable right now. Try again shortly.");
   }
 
-  const prepared = prepare(args, deps);
-  const a = prepared.args;
-  const s = settings(a);
-
-  const mineNames = String(a.mine ?? "").split(",").map((n: string) => n.trim()).filter(Boolean);
-  if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
-
-  const opponents = a.opponents as Array<{ name: string; roster: string }> | undefined;
-  if (!opponents?.length) throw new ToolInputError("opponents is required: [{name, roster}]");
-  if (opponents.length > 15) throw new ToolInputError("too many opponents (max 15)");
-
   const data = await finderDeps.fetchCharts(s.scoring, s.teams, s.superflex, s.league);
   const chartPlayers = chartPlayersOf(data);
 
-  const resolve = (names: string[]) => {
-    const matched: ChartPlayerValue[] = [];
-    const unmatched: string[] = [];
-    for (const name of names) {
-      const p = findChartPlayer(chartPlayers, name);
-      if (p) matched.push(p);
-      else unmatched.push(name);
-    }
-    return { matched, unmatched };
-  };
-
-  const mineRes = resolve(mineNames);
-  if (!mineRes.matched.length) throw new ToolInputError("No players matched on your roster. Check the spelling.");
+  const mineRes = resolveNames(chartPlayers, mineNames);
+  if (!mineRes.matched.length) throw new ToolInputError(emptyRoster("your roster", mineRes));
   const mineRows = mineRes.matched.map(toFinderRow);
+  const mineKeys = new Set(mineRes.matched.map((p) => p.player_key));
 
   const shape = rosterShape(a, s.superflex);
   const vConfig = viabilityConfig(a);
-  const viableOnly = a.viable_only === true || a.viable_only === "true";
-  const maxPerSide = Number(a.max_per_side ?? 2) || 2;
-  const minRivalEdge = Number(a.min_rival_edge ?? 0) || 0;
-  const limit = Math.min(100, Math.max(1, Number(a.limit ?? 25) || 25));
+  const viableOnly = parseBool(a.viable_only, "viable_only", false);
+  const maxPerSide = parseBounded(a.max_per_side, "max_per_side", 2, 1, 4);
+  const minRivalEdge = parseNonNegative(a.min_rival_edge, "min_rival_edge", 0);
+  const limit = parseBounded(a.limit, "limit", 25, 1, 100);
 
   const allOffers: TradeOfferInput[] = [];
   const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
-  const allUnmatched: string[] = [...mineRes.unmatched];
+  const nameNotes = [...mineRes.notes];
 
   // Run each opponent pair sequentially (edge function memory).
   for (const opp of opponents) {
-    const oppNames = String(opp.roster ?? "").split(",").map((n: string) => n.trim()).filter(Boolean);
+    const oppNames = splitNames(opp.roster);
     if (!oppNames.length) {
       perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: [] });
       continue;
     }
-    const oppRes = resolve(oppNames);
-    allUnmatched.push(...oppRes.unmatched);
-    if (!oppRes.matched.length) {
+    const oppRes = resolveNames(chartPlayers, oppNames);
+    nameNotes.push(...oppRes.notes.map((note) => `${opp.name}: ${note}`));
+    const theirMatched = oppRes.matched.filter((p) => !mineKeys.has(p.player_key));
+    if (!theirMatched.length) {
       perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: oppRes.unmatched });
       continue;
     }
 
-    const theirRows = oppRes.matched.map(toFinderRow);
+    const theirRows = theirMatched.map(toFinderRow);
     const rowByKey = new Map<number, FinderRow>();
     for (const r of mineRows) rowByKey.set(r.player_key, r);
     for (const r of theirRows) rowByKey.set(r.player_key, r);
@@ -752,7 +923,9 @@ async function findTradesLeagueHandler(
     const pairResult = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
       maxSize: maxPerSide,
       minRivalEdge,
-      limit: 50,
+      // Never search a smaller pool than the previous per-opponent cap (50). A
+      // higher limit asks for more so the shown list can still fill after dedupe.
+      limit: Math.min(200, Math.max(50, limit)),
     });
 
     const pairOffers: TradeOfferInput[] = pairResult.trades.map((t) => ({
@@ -778,43 +951,27 @@ async function findTradesLeagueHandler(
   // Package: best viable combination.
   const pkg = selectPackage(scored, mineRows, shape, vConfig.ddfKey);
 
-  const shownTrades = scored.slice(0, limit);
+  const shownTrades = scored.slice(0, limit).map((o) => slimOffer(o, true));
   const viableCount = scored.filter((o) => o.viable).length;
+  const packageOffers = pkg.offers.map((o) => slimOffer(o, true));
 
-  // Text output.
   const lines: string[] = [
-    data.attribution,
-    `As of: ${data.as_of || "unknown"}`,
-    `Settings: ${s.scoring}, ${s.teams} teams${s.superflex ? ", superflex" : ""}`,
+    ...header(data, s),
     "",
-    `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}.`,
+    `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}${shownTrades.length < limit && scored.length > shownTrades.length ? ` of limit ${limit}` : ""}.`,
     `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found.`,
   ];
-  if (allUnmatched.length) lines.push(`Not found: ${allUnmatched.join(", ")}`);
+  if (nameNotes.length) lines.push(...nameNotes);
   lines.push("");
 
-  if (pkg.offers.length > 0) {
-    lines.push(`=== RECOMMENDED PACKAGE (${pkg.offers.length} trade${pkg.offers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}) ===`);
-    for (const o of pkg.offers) {
-      const giveStr = o.userGives.map((p) => `${p.name} (${p.pos})`).join(", ");
-      const getStr = o.userGets.map((p) => `${p.name} (${p.pos})`).join(", ");
-      lines.push(`  vs ${o.team}: give ${giveStr} → get ${getStr} [${o.label}] +${o.ddfEdge.toFixed(1)} DDF`);
-    }
+  if (packageOffers.length > 0) {
+    lines.push(`Package: ${packageOffers.length} trade${packageOffers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}.`);
+    packageOffers.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
     lines.push("");
   }
 
-  lines.push("=== ALL CANDIDATES ===");
-  for (let i = 0; i < shownTrades.length; i++) {
-    const o = shownTrades[i];
-    const giveStr = o.userGives.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
-    const getStr = o.userGets.map((p) => `${p.name} (${p.pos}, ${p.ddfValue ?? "?"})`).join(", ");
-    const viabilityTag = o.viable
-      ? `[${o.label}]`
-      : `[NOT VIABLE: ${o.failedChecks.join("; ")}]`;
-    lines.push(`${i + 1}. vs ${o.team}: give ${giveStr} → get ${getStr}`);
-    lines.push(`   Edge: +${o.ddfEdge.toFixed(1)} DDF | Lineup: ${o.userLineupDelta >= 0 ? "+" : ""}${o.userLineupDelta.toFixed(1)} | ${viabilityTag}`);
-    if (o.temporaryGap) lines.push(`   ⚠ Temporary lineup gap`);
-  }
+  lines.push(shownTrades.length ? "Candidates:" : "");
+  shownTrades.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
   if (!shownTrades.length) lines.push(viableOnly
     ? "No viable trades found across the league."
     : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
@@ -823,12 +980,14 @@ async function findTradesLeagueHandler(
     as_of: data.as_of,
     setting: data.setting,
     package: {
-      offers: pkg.offers,
-      totalDdfEdge: pkg.totalDdfEdge,
-      userLineupAfter: pkg.userLineupAfter,
+      offers: packageOffers,
+      totalDdfEdge: round1(pkg.totalDdfEdge),
+      lineup: pkg.userLineupAfter.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue })),
     },
     trades: shownTrades,
     total: scored.length,
+    shown: shownTrades.length,
+    limit,
     viableCount,
     perOpponent,
     mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched },
@@ -859,7 +1018,7 @@ const EXPLANATIONS: Record<string, string> = {
   tiers:
     "Tier is where a player sits in the league: starter (fills a starting lineup slot), bench (worth rostering as depth) or waiver (replacement level, freely available). It is not a quality band, so two players in the same tier can have very different values; compare values, not tiers.",
   how_to_trade:
-    "1) Use compare_trade on both sides. 2) As a rough guide, a gap under about 2 points is roughly even and 5 or more is meaningful; this is a rule of thumb, not a measured threshold. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh market value. Values update weekly.",
+    "1) Use compare_trade on both sides. 2) As a rough guide, a gap under about 2 points is roughly even and 5 or more is meaningful; this is a rule of thumb, not a measured threshold. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh the DDF Value sum. Values update weekly.",
 };
 
 function explain(topic: string): ToolResult {
@@ -873,10 +1032,12 @@ function explain(topic: string): ToolResult {
 type Entry = { key?: string; name?: string };
 const WORK_LISTS = ["give", "get", "mine", "theirs"];
 
-function resolveEntry(players: PlayerValue[], e: Entry): { input: string; player: PlayerValue | null } {
+function resolveEntry(players: PlayerValue[], e: Entry): { input: string; player: PlayerValue | null; note: string } {
   const byKey = e.key !== undefined ? players.find((p) => String(p.player_key) === e.key) ?? null : null;
-  const player = byKey ?? (e.name ? findPlayer(players, e.name) : null);
-  return { input: e.name ?? e.key ?? "", player };
+  if (byKey) return { input: e.name ?? e.key ?? "", player: byKey, note: "" };
+  if (!e.name) return { input: e.key ?? "", player: null, note: `${e.key ?? ""}: NOT FOUND` };
+  const hit = matchName(players, e.name);
+  return { input: e.name, player: hit.match === "ambiguous" ? null : hit.player, note: hit.note };
 }
 
 function inferView(work: Record<string, unknown>): string {
@@ -890,7 +1051,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
   if (!String(args.state ?? "").trim()) throw new ToolInputError("state is required: paste a ddf-state block or a site link");
   const prepared = prepare(args, deps);
   if (!prepared.state) {
-    throw new ToolInputError(`No usable DDF state found in the text. ${prepared.warnings.join(" ")}`.trim());
+    throw new ToolInputError("No usable DDF state found in the pasted text.");
   }
   const s = settings(prepared.args);
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
@@ -909,14 +1070,14 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     rows.filter((r) => !r.player).forEach((r) => unmatched.push(r.input));
     const total = Math.round(rows.reduce((t, r) => t + (r.player?.value ?? 0), 0) * 10) / 10;
     lines.push(`${name} (total ${total.toFixed(1)}):`);
-    lines.push(...rows.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.input}: NOT FOUND`));
+    lines.push(...rows.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.note || `${r.input}: NOT FOUND`}`));
   }
   if (work.target) {
     const r = resolveEntry(data.players, work.target as Entry);
     lists.target = [r];
     resolvedWork.target = r.player ? { key: String(r.player.player_key), name: r.player.name } : work.target;
     if (!r.player) unmatched.push(r.input);
-    lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : `${r.input}: NOT FOUND`}`);
+    lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : (r.note || `${r.input}: NOT FOUND`)}`);
   }
   if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
   if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user to check the spelling.`);
@@ -934,13 +1095,16 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const a = prepared.args;
   const s = settings(a);
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-  const names = (v: unknown) => String(v ?? "").split(",").map((n) => n.trim()).filter(Boolean);
+  const names = (v: unknown) => splitNames(v);
   const work: Record<string, unknown> = {};
   const unmatched: string[] = [];
   const toEntry = (input: string) => {
-    const p = findPlayer(data.players, input);
-    if (!p) unmatched.push(input);
-    return p ? { key: String(p.player_key), name: p.name } : { name: input };
+    const hit = matchName(data.players, input);
+    if (hit.match === "ambiguous" || !hit.player) {
+      unmatched.push(hit.match === "ambiguous" ? `${input} (${hit.suggestions.map((p) => p.name).join(" or ")})` : input);
+      return { name: input };
+    }
+    return { key: String(hit.player.player_key), name: hit.player.name };
   };
   for (const name of WORK_LISTS) {
     const list = names(a[name]);
