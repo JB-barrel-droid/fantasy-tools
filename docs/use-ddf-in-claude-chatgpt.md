@@ -4,7 +4,7 @@ How to connect the trade values to a chat assistant (JEG-1012, JEG-1024). Last u
 
 ## What you get
 
-Ask in plain words ("who is worth more, Chase or Bijan, in a 10-team half-PPR superflex league?") and the assistant calls the tool with your league settings. Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`, `read_state`, `make_state`, `explain`. Every answer ends with a link to the same view on the site, and work moves both ways: press **Copy for ChatGPT/Claude** in the site footer and paste the result into the chat; the assistant continues from it. Ask it to save its work, then paste the block into **Paste from ChatGPT/Claude** (same footer) or open the link, and the site shows what was applied and what was ignored. Format: `design/llm-site-state.md`.
+Ask in plain words ("who is worth more, Chase or Bijan, in a 10-team half-PPR superflex league?") and the assistant calls the tool with your league settings. Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`, `read_state`, `make_state`, `explain`. Every answer ends with a link to the same view on the site, and work moves both ways through the site link: press **Copy link** in the league row and paste the link into the chat; with the tool connected the assistant reads the league, rosters, trade and target from it (`read_state`) and continues. Ask it to save its work and it gives back a link (`make_state`); open it and the site shows what was applied and what was ignored. Without the tool connected, an assistant can still read the league settings in the link but not the players, which travel as site player numbers. Format: `design/llm-site-state.md`.
 
 ## Connect
 
