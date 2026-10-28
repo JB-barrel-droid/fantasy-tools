@@ -56,20 +56,20 @@
       const label = league.label ? ` (${league.label})` : "";
       if (league.source === "link") {
         out.push({id: "league-link", level: "warn", edit: true,
-          text: `These numbers use the league settings from a shared link${label}. They last for this visit only and are not saved to your browser.`});
+          text: `These numbers use the league settings from a shared link${label}. They last for this visit only and are not saved on this device.`});
       } else if (league.source === "default") {
         out.push({id: "league-default", level: "info", edit: true,
           text: `These numbers use the site's default league settings${label}. If your league is different, set it so the values fit your league.`});
       }
       (league.notes || []).forEach((text, i) => out.push({id: `league-note-${i}`, level: "warn", text}));
-      if (league.storage === "full") out.push({id: "storage-full", level: "warn", text: "Browser storage is full, so your league settings were not saved. They will reset when you reload."});
-      else if (league.storage === "unavailable") out.push({id: "storage-off", level: "warn", text: "This browser is blocking storage, so your league settings and rosters will not be remembered after you close the tab."});
+      if (league.storage === "full") out.push({id: "storage-full", level: "warn", text: "This device's storage is full, so your league settings were not saved. They will reset when you reload."});
+      else if (league.storage === "unavailable") out.push({id: "storage-off", level: "warn", text: "This browser is blocking storage, so your league settings and rosters won't be saved on this device after you close the tab."});
     }
     const ws = input.workspace;
     if (ws) {
       const blocked = ws.status === "unavailable" || ws.loadStatus === "unavailable";
-      if (blocked && !out.some(n => n.id === "storage-off")) out.push({id: "storage-off", level: "warn", text: "This browser is blocking storage, so your league settings and rosters will not be remembered after you close the tab."});
-      if (ws.status === "full") out.push({id: "roster-full", level: "warn", text: "Browser storage is full, so your latest roster changes were not saved."});
+      if (blocked && !out.some(n => n.id === "storage-off")) out.push({id: "storage-off", level: "warn", text: "This browser is blocking storage, so your league settings and rosters won't be saved on this device after you close the tab."});
+      if (ws.status === "full") out.push({id: "roster-full", level: "warn", text: "This device's storage is full, so your latest roster changes were not saved."});
       if (ws.loadStatus === "corrupt" || ws.loadStatus === "version") {
         out.push({id: "roster-unreadable", level: "warn", text: "Your saved rosters could not be read, so none are loaded. Entering a roster replaces them."});
       }
@@ -82,7 +82,7 @@
           const days = Math.floor((input.now - ws.myUpdatedAt) / DAY_MS);
           out.push({id: "roster-stale", level: "info", text: `Your roster was last updated ${days} days ago. If you have made moves since, update it so results match.`, link: {label: "Update roster", href: "v2/#find-trade"}});
         } else {
-          out.push({id: "roster-ok", level: "info", quiet: true, text: `Your roster${ws.myName ? ` (${ws.myName})` : ""} and ${plural(Math.max(0, ws.teamCount - 1), "other team")} are saved in this browser.`});
+          out.push({id: "roster-ok", level: "info", quiet: true, text: `Your roster${ws.myName ? ` (${ws.myName})` : ""} and ${plural(Math.max(0, ws.teamCount - 1), "other team")} are saved on this device.`});
         }
       }
     }

@@ -38,6 +38,15 @@ jobs:
       # one they skipped and validate passed with them unrun (until
       # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
       # an error for every later step instead of a silent skip.
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
       - name: Browser for the render tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
@@ -65,7 +74,8 @@ jobs:
         id: gate
         run: |
           npm ci --prefix tests/rendered_gate
-          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          # JEG-1169: no second Chromium install. playwright-core 1.49.1 uses the
+          # browser the python playwright 1.49.1 step installed (same build, same cache dir).
           # JEG-1152: pin the gate pages' clock to the data's week.
           export TRADE_VALUE_TODAY="$(python3 -c 'from tests.test_week_history import _fixture_today; print(_fixture_today())')"
           echo "TRADE_VALUE_TODAY=$TRADE_VALUE_TODAY"
