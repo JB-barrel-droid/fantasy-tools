@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: render-sweep
+  group: render-sweep-probe
   cancel-in-progress: false
 
 jobs:
@@ -49,7 +49,7 @@ jobs:
         run: |
           set -o pipefail
           rc=0
-          make test-render-sweep-${{ matrix.shard }} 2>&1 | tee "$RUNNER_TEMP/shard.log" || rc=$?
+          make -k test-render-sweep-${{ matrix.shard }} 2>&1 | tee "$RUNNER_TEMP/shard.log" || rc=$?
           {
             echo "### Render sweep shard ${{ matrix.shard }} of 3"
             ran=$(grep -c '^python3 -m unittest ' "$RUNNER_TEMP/shard.log" || true)
