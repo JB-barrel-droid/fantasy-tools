@@ -44,6 +44,15 @@ def apply():
     index = json.loads(overrides["assets/history/index.json"])
     lag_week = index["served"]["cbs"]["week"]
     section = json.loads(overrides[W.FIXTURE_ASSET])["sources"]["cbs"]
+    # transition_overrides swaps only the natives the page reads; the canonical
+    # fixture also carries the saved Indexed values and the combo's vintage, which
+    # the sync's rank guard checks. Keep them consistent with the swapped natives
+    # (Indexed = native x the combo's one factor, JEG-482).
+    for combo in section["combos"].values():
+        factor = combo["fit"]["order_preserving_rescale"]["factor"]
+        combo["reindexed"] = {k: float(v) * factor for k, v in combo["native"].items()}
+        combo["n"] = len(combo["native"])
+        combo["vintage"] = {"content_vintage": f"Week {lag_week}", "week_designated": f"Week {lag_week}"}
     section["validationHold"] = {"reason": "fidelity: scrape_validity", "week": lag_week, "root": "cbs",
                                  "stage": "scrape_validity", "hold_level": "red"}
     doc = json.loads(CANON.read_text(encoding="utf-8"))
