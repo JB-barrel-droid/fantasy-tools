@@ -56,6 +56,9 @@ STALE_PULSE_HOURS = 24
 # JEG-1194: the pulse stamps this scope on a red that judges only a stored
 # save newer than the live chart (fidelity_pulse.red_scope).
 SCOPE_STORED_NEWER = "stored_newer_than_site"
+# A chart section's identity is the save's pulled_at; the pulse names the save
+# by its bake's saved_at, written seconds later. Saves are hours apart.
+SAME_SAVE_SECONDS = 300
 
 
 def is_fidelity_hold(hold) -> bool:
@@ -108,6 +111,21 @@ def section_identity(section: dict) -> str | None:
 _candidate_identity = section_identity
 
 
+def same_save(candidate_id: str, judged: str) -> bool:
+    """True when a section identity and a hold's judged_save name one save:
+    equal strings (projection snapshot dates), or timestamps within
+    SAME_SAVE_SECONDS (a chart's pulled_at vs its bake's saved_at)."""
+    if candidate_id == judged:
+        return True
+    if "T" not in candidate_id or "T" not in judged:
+        return False
+    try:
+        gap = parse_iso_timestamp(candidate_id) - parse_iso_timestamp(judged)
+    except (TypeError, ValueError):
+        return False
+    return abs(gap.total_seconds()) <= SAME_SAVE_SECONDS
+
+
 def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[dict, dict]:
     """Return (fixture with holds applied, {root: {sections}}).
 
@@ -124,7 +142,8 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
 
     JEG-1194: a hold scoped SCOPE_STORED_NEWER is about a stored save newer
     than the live chart, so the match is reversed: it holds a candidate built
-    from newer data and skips the live chart's own section."""
+    from that save (its judged_save) and skips the live chart's own section
+    and a build from any other save, such as a later fixed one."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     report = {}
@@ -143,11 +162,16 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                     candidate_id = _candidate_identity(target)
                     # JEG-1194: a red about a stored save newer than the live
                     # chart is the reverse case: it holds a build made from
-                    # that save (identity differs from the live chart) and
-                    # leaves the live chart itself (same identity) unheld.
-                    stored_newer = hold.get("scope") == SCOPE_STORED_NEWER
+                    # the save it judged and leaves the live chart (same
+                    # identity) and a build from a later save unheld.
                     other_build = candidate_id is not None and candidate_id != measured
-                    if (candidate_id == measured) if stored_newer else other_build:
+                    if hold.get("scope") == SCOPE_STORED_NEWER:
+                        judged = hold.get("judged_save")
+                        skip = candidate_id == measured or bool(
+                            judged and other_build and not same_save(candidate_id, str(judged)))
+                    else:
+                        skip = other_build
+                    if skip:
                         # JEG-807 (2026-10-22): the skip must not leave an
                         # older fidelity hold on the candidate. The 04:08Z
                         # chain skipped fantasycalc's and espn's holds this

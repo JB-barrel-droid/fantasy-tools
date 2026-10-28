@@ -107,8 +107,11 @@ def _call(method: str, path: str, token: str, payload: dict | None = None):
 
 
 def open_issue(repo: str, token: str, call=_call) -> dict | None:
-    issues = call("GET", f"/repos/{repo}/issues?state=open&labels={LABEL}&per_page=10", token) or []
-    issues = [i for i in issues if "pull_request" not in i]
+    # Matched by title too: if the repo refuses to create the label, the
+    # issue still opens without it and must be found again (JEG-1194 review).
+    issues = call("GET", f"/repos/{repo}/issues?state=open&per_page=100", token) or []
+    issues = [i for i in issues if "pull_request" not in i and (
+        i.get("title") == TITLE or LABEL in {(lb or {}).get("name") for lb in i.get("labels") or []})]
     return issues[0] if issues else None
 
 
@@ -154,12 +157,12 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
     now = datetime.now(timezone.utc)
     status, history = _read(Path(args.status)), _read(Path(args.history))
-    action = decide(args.chain_outcome, history.get("fixture_built_at"), now)
     try:
-        done = run(action, body(status, history, now), os.environ.get("GITHUB_REPOSITORY"),
-                   os.environ.get("GITHUB_TOKEN"), now)
-    except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
-        print(f"::warning title=chain stuck alert::could not reach GitHub issues ({type(e).__name__}: {e})")
+        action = decide(args.chain_outcome, history.get("fixture_built_at"), now)
+        text = body(status, history, now) if action == "open" else ""
+        done = run(action, text, os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_TOKEN"), now)
+    except Exception as e:  # noqa: BLE001 -- an alert never fails the chain job
+        print(f"::warning title=chain stuck alert::no alert sent ({type(e).__name__}: {e})")
         return 0
     if action == "open":
         print(f"::warning title=Board not publishing::{done}")

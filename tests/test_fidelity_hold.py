@@ -892,5 +892,54 @@ class StoredSaveNewerThanTheLiveChart(unittest.TestCase):
         self.assertFalse(out["sources"]["cbs"].get("validationHold"))
 
 
+class ScopedHoldNamesTheSaveItJudged(StoredSaveNewerThanTheLiveChart):
+    """JEG-1194 review: CBS re-ingested a fixed week 8 save at 12:23Z, after
+    the pulse had judged the bad 21:35Z one. A scoped hold must not hold a
+    build from the fixed save until a newer pulse has judged it."""
+
+    SAVED_AT = "2026-10-27T21:35:39.431932Z"   # the bad bake's saved_at
+    FIXED = "2026-10-28T12:23:16+00:00"        # a build from the later save
+
+    def judged_hold(self):
+        result = self.cbs_result()
+        result["stages"]["stored_vs_chart"]["behind"]["saved_at"] = self.SAVED_AT
+        return fp.hold_decision(result, "cbswk8", None, T.NOW, measured_site=self.LIVE)
+
+    def test_the_pulse_names_the_judged_chart_save(self):
+        self.assertEqual(self.SAVED_AT, self.judged_hold()["judged_save"])
+
+    def test_the_pulse_names_the_judged_projection_snapshot(self):
+        result = self.cbs_result()
+        result["stages"]["stored_vs_chart"]["behind"] = {"snapshot": "2026-10-27"}
+        h = fp.hold_decision(result, "2026-10-27", None, T.NOW, measured_site="2026-10-24")
+        self.assertEqual("2026-10-27", h["judged_save"])
+
+    def test_an_unscoped_hold_names_no_save(self):
+        self.assertNotIn("judged_save", self.hold(drop_side="chart"))
+
+    def test_a_build_from_the_judged_save_is_held(self):
+        out, report = fh.apply_fidelity_holds(self.fx(self.NEWER), {"cbs": self.judged_hold()}, 8)
+        self.assertTrue(out["sources"]["cbs"].get("validationHold"))
+        self.assertIn("cbs", report)
+
+    def test_a_build_from_a_later_fixed_save_is_not_held(self):
+        out, report = fh.apply_fidelity_holds(self.fx(self.FIXED), {"cbs": self.judged_hold()}, 8)
+        self.assertFalse(out["sources"]["cbs"].get("validationHold"),
+                         "the pulse never judged the fixed save")
+        self.assertNotIn("cbs", report)
+
+    def test_the_live_chart_is_still_not_held(self):
+        out, _ = fh.apply_fidelity_holds(self.fx(self.LIVE), {"cbs": self.judged_hold()}, 8)
+        self.assertFalse(out["sources"]["cbs"].get("validationHold"))
+
+    def test_same_save(self):
+        self.assertTrue(fh.same_save("2026-10-27", "2026-10-27"))
+        self.assertFalse(fh.same_save("2026-10-28", "2026-10-27"))
+        self.assertTrue(fh.same_save(self.NEWER, self.SAVED_AT))
+        self.assertFalse(fh.same_save(self.FIXED, self.SAVED_AT))
+        self.assertFalse(fh.same_save("2026-10-27", self.SAVED_AT))
+        self.assertFalse(fh.same_save("not a time T", self.SAVED_AT))
+
+
 if __name__ == "__main__":
     unittest.main()

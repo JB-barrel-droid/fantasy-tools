@@ -82,18 +82,18 @@ class Run(unittest.TestCase):
         self.assertEqual(posts[0][2]["labels"], [alert.LABEL])
 
     def test_does_not_open_a_second_issue(self):
-        recent = {"number": 5, "updated_at": (NOW - timedelta(hours=1)).isoformat()}
+        recent = {"number": 5, "title": alert.TITLE, "updated_at": (NOW - timedelta(hours=1)).isoformat()}
         gh = FakeGitHub([recent])
         alert.run("open", "x", "o/r", "t", NOW, gh)
         self.assertEqual([c for c in gh.calls if c[0] != "GET"], [])
 
     def test_comments_on_a_stale_open_issue(self):
-        old = {"number": 5, "updated_at": (NOW - timedelta(hours=alert.COMMENT_HOURS + 1)).isoformat()}
+        old = {"number": 5, "labels": [{"name": alert.LABEL}], "updated_at": (NOW - timedelta(hours=alert.COMMENT_HOURS + 1)).isoformat()}
         gh = FakeGitHub([old])
         self.assertEqual(alert.run("open", "x", "o/r", "t", NOW, gh), "commented on #5")
 
     def test_closes_the_open_issue_on_publish(self):
-        gh = FakeGitHub([{"number": 5, "updated_at": BUILT}])
+        gh = FakeGitHub([{"number": 5, "title": alert.TITLE, "updated_at": BUILT}])
         self.assertEqual(alert.run("close", "", "o/r", "t", NOW, gh), "closed #5")
         self.assertIn(("PATCH", "/repos/o/r/issues/5", {"state": "closed", "state_reason": "completed"}),
                       gh.calls)
@@ -107,6 +107,27 @@ class Run(unittest.TestCase):
         out = alert.run("open", "body text", "o/r", None, NOW, gh)
         self.assertTrue(out.startswith("dry run"))
         self.assertEqual(gh.calls, [])
+
+
+class Robust(unittest.TestCase):
+    def test_an_unlabelled_issue_is_found_by_title(self):
+        gh = FakeGitHub([{"number": 6, "title": alert.TITLE, "labels": [], "updated_at": BUILT}])
+        self.assertEqual(alert.run("close", "", "o/r", "t", NOW, gh), "closed #6")
+
+    def test_another_open_issue_is_left_alone(self):
+        gh = FakeGitHub([{"number": 8, "title": "Something else", "labels": [], "updated_at": BUILT}])
+        self.assertEqual(alert.run("close", "", "o/r", "t", NOW, gh), "published; no open issue")
+
+    def test_malformed_status_never_fails_the_job(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            st, hi = Path(d, "s.json"), Path(d, "h.json")
+            st.write_text(json.dumps({"post_rebuild_validation": "oops", "held": 5}))
+            hi.write_text(json.dumps({"fixture_built_at": BUILT, "served": {"cbs": 7}}))
+            for outcome in ("failure", "success"):
+                self.assertEqual(0, alert.main(["--chain-outcome", outcome, "--status", str(st),
+                                                "--history", str(hi)]))
 
 
 class Workflow(unittest.TestCase):

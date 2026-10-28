@@ -2345,6 +2345,11 @@ def hold_decision(result: dict, identity: str | None, held: dict | None, now: da
         scope = red_scope(result["stages"], red)
         if scope:
             hold["scope"] = scope
+            # The save the red judged (a chart bake's saved_at, a projection
+            # snapshot), so the chain holds a build from that save only and
+            # not one from a later, fixed save (JEG-1194).
+            behind = result["stages"]["stored_vs_chart"]["behind"]
+            hold["judged_save"] = behind.get("snapshot") or behind.get("saved_at")
         return hold
     # JEG-726: amber holds for merely-lagging conditions (visible label only,
     # source stays in DDF Value).
