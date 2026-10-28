@@ -4,7 +4,8 @@ Natural fit = roster construction works for both teams (after the trade: no benc
 lost without a starter coming back, no empty starting slot) AND your DDF Value total roster value (starters plus bench at
 bench weight) rises with starters not worse AND the other team's Trade chart average change is within the noise floor or positive.
 
-Market supported = the Trade chart average says the other team's side is favorable. Independent of the roster test.
+Market supported = the Trade chart average says the other team's side is favorable: their change is above 0.05, the
+smallest change the page shows (JEG-1187; not the noise floor). Independent of the roster test.
 
 Force fit = everything else. Value fit is RETIRED.
 
@@ -260,6 +261,29 @@ def check(finder_js: Path) -> list[str]:
     if f["label"] == "natural":
         say(f"a rise of {f['us']['net']:.2f} is not a rise: label={f['label']}")
 
+    # 14. Market supported needs any gain the page shows, not the noise floor (JEG-1187). On real charts the three or
+    # four trade charts disagree by about 10 points on one player, so the other team's noise floor is several points
+    # while the gain the finder leaves them is under a point; with the noise floor the label never appeared on the real
+    # page. Bench WR swap on the deep rosters of test 11: your DDF Value total drops (not natural), their Trade chart
+    # average rises 0.15 x 4 = +0.6 with a noise floor of about 8.
+    g14 = [noisy_p("m14g", "WR", 8, 22, chart_noise=10)]
+    r14 = [noisy_p("t14g", "WR", 5, 18, chart_noise=10)]
+    f = fit(finder_js, mine11 + g14, theirs11 + r14, g14, r14)
+    if not (0.05 < f["them"]["net"] < f["them"]["tau"]):
+        say(f"test 14 setup: their gain should sit between 0.05 and their noise floor: net={f['them']['net']:.2f} tau={f['them']['tau']:.2f}")
+    if f["label"] != "market" or not f.get("marketSupported"):
+        say(f"their gain inside their noise floor should be market supported: label={f['label']} them={f['them']['net']:.2f} tau={f['them']['tau']:.2f}")
+    text = call(finder_js, "fitText", f)
+    if not text.startswith("Market supported: the trade charts favor them (+0.6)"):
+        say(f"test 14 text should name their gain: {text!r}")
+
+    # 15. But the gain must be one the page shows: +0.03 (under the 0.05 display floor) is not market supported.
+    g15 = [noisy_p("m15g", "WR", 8, 18.2, chart_noise=10)]
+    r15 = [noisy_p("t15g", "WR", 5, 18, chart_noise=10)]
+    f = fit(finder_js, mine11 + g15, theirs11 + r15, g15, r15)
+    if f["label"] != "force" or f.get("marketSupported"):
+        say(f"a gain of {f['them']['net']:.2f} is not market supported: label={f['label']}")
+
     return errors
 
 
@@ -270,6 +294,8 @@ MUTANTS = {
     "noise ignored": ("const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);", "const tau = NET_FLOOR;"),
     "your side needs the noise floor": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > us.tau;"),
     "your side needs no rise": ("const yourTotalUp = us.net > NET_FLOOR;", "const yourTotalUp = us.net > -1000;"),
+    "market needs the noise floor": ("const marketSupported = theirNet > NET_FLOOR;", "const marketSupported = theirNet > theirTau;"),
+    "market needs no gain": ("const marketSupported = theirNet > NET_FLOOR;", "const marketSupported = theirNet > -1000;"),
     "market always": ('const label = isNatural ? "natural" : marketSupported ? "market" : "force";', 'const label = "market";'),
     "tiers reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
     "tiers unstable": ("a.t - b.t || a.i - b.i", "a.t - b.t || b.i - a.i"),
