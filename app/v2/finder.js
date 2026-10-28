@@ -570,7 +570,7 @@
   // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
-  // is favorable. Independent of the roster test.
+  // is favorable (their change above 0.05, as shown; JEG-1187). Independent of the roster test.
   // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
   const NET_FLOOR = 0.05;
@@ -694,8 +694,11 @@
     const theirNet = them.net;
     const theirTau = them.tau;
     const theirOk = theirNet >= -theirTau;
-    // Market supported: the Trade chart average says the other team's side is favorable (they gain).
-    const marketSupported = theirNet > theirTau;
+    // Market supported: the Trade chart average says the other team's side is favorable (they gain). Any gain the page
+    // shows (above the 0.05 display floor), not the noise floor (JEG-1187): the finder only lists trades you win on DDF
+    // Value, so on real charts the other team's gain never cleared its noise floor and the label could not appear. The
+    // noise floor stays where Jeremy put it (2026-10-25): the tolerance for a loss on their side of Natural fit.
+    const marketSupported = theirNet > NET_FLOOR;
     // Natural: all three conditions pass.
     const isNatural = constructionOk && yourValueOk && theirOk;
     const label = isNatural ? "natural" : marketSupported ? "market" : "force";
