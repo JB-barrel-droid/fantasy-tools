@@ -47,6 +47,16 @@ class LiveFillPeers(unittest.TestCase):
         cls.fx = json.loads(FIXTURE.read_text())
         cls.base = run_all(cls.fx)
 
+    def test_values_logic_names_only_live_fill_peers(self):
+        template = (ROOT / "app/values-explainer/template.html").read_text()
+        fill_step = template.split('["Fill in what a chart doesn\'t list", `', 1)[1].split('`],', 1)[0]
+        self.assertIn("included FantasyCalc and projection sources", fill_step)
+        self.assertIn("FantasyCalc itself uses projections only", fill_step)
+        self.assertIn("other weekly charts never supply an estimate", fill_step)
+        self.assertIn('"live peers: "', template)
+        self.assertNotIn("scaled from other charts", template)
+        self.assertNotIn("other charts' values", fill_step)
+
     def test_only_fantasycalc_and_projections_supply_estimates(self):
         for engine in self.base:
             with self.subTest(engine=engine):
