@@ -15,6 +15,20 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
+
+- Branch `be/jeg-1215-release-writer-switch`; separate draft PR, after Pages #1056.
+- Guards twelve publication blocks across ten workflows. Default unpaused;
+  six-hour maximum expiry; checked against fetched main before commit/push.
+  Deferred candidates are retained as patch/metadata artifacts, with visible
+  summaries. Existing ingestion, validation and Pages workflows remain active.
+- No live activation, settings changes, Supabase changes or cancellation performed.
+- Next: parent reviews/merges after green CI, coordinates rebuild-chain overlap
+  with #1054, drains old-code writers, then activates only for the release window.
+  Parent restores `paused: false` and verifies resumed publication before closure.
+- Procedure: `runbooks/main-write-pause.md`; evidence in the JEG-1215 session log.
+
+
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.

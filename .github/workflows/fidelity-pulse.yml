@@ -111,20 +111,44 @@ jobs:
         # ("fidelity-pulse: sources=1 < 7") until the next full run.
         if: env.IS_MAIN == 'true' && (github.event_name != 'workflow_dispatch' || inputs.sources == '')
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer fidelity-pulse-1 --phase "$1" --target "main"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           cp output/fidelity-pulse.json dist/modules/fidelity-pulse.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/modules/fidelity-pulse.json
           if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          release_guard stage
           git commit -m "Fidelity pulse (CI, JEG-480)"
           for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push origin HEAD:main; then
+            if git pull --rebase --autostash origin main && release_push origin HEAD:main; then
               echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
             fi
             git rebase --abort 2>/dev/null || true
             sleep 10
           done
           echo "::error::could not push the fidelity pulse after 3 attempts"; exit 1
+
+      - name: Retain deferred publication (fidelity-pulse-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-fidelity-pulse-1-${{ github.run_attempt }}
+          path: output/release-publications/fidelity-pulse-1/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Trigger Pages deploy
         if: steps.publish.outputs.pushed == 'true'
