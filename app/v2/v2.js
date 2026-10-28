@@ -4968,7 +4968,9 @@
   // Each row is one exact series: sum(receive) − sum(give) in that series'
   // values (app/v2/trade.js). No blended score (frame 22); the verdict reads one
   // series (JEG-469). The sides are v2 module state, so they survive switching tabs.
-  const TR = {give: [], receive: [], shown: null, open: new Set()};   // give/receive: [{key, name}]
+  // give/receive: [{key, name}]. example: the keys "Try a sample trade" loaded, while the trade is still exactly that
+  // sample (JEG-1190). undo: the sides before the last Clear.
+  const TR = {give: [], receive: [], shown: null, open: new Set(), example: null, undo: null};
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
   // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
@@ -4981,7 +4983,7 @@
     if (!compareTierRows) compareTierRows = C.getAllRows();
     return {rows: compareTierRows, pos: "ALL", engineOrder: false};
   }
-  let exampleCache = null;   // {signature, pick}: the empty-state sample trade
+  let exampleCache = null;   // {signature, pick}: the sample trade "Try a sample trade" loads
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -5015,10 +5017,11 @@
     shownChoices.splice(0, shownChoices.length, ...pointKeys.concat(ddfOffered.filter(key => !pointKeys.includes(key)), vorpKeys));
     verdictSeries = pointKeys.includes(DDF_KEY) ? DDF_KEY : TR.shown;
     const TC = window.TradeValueTrade;
-    // JEG-469 empty state: before any player is added, a sample trade marked "Example".
-    const example = !TR.give.length && !TR.receive.length && verdictKey() ? exampleTrade(pointKeys) : null;
-    const giveRows = example ? example.give : resolve(TR.give);
-    const receiveRows = example ? example.receive : resolve(TR.receive);
+    // JEG-1190 (Jeremy, 2026-10-28, "A"): Compare starts empty. The sample trade is loaded only by "Try a sample trade",
+    // as a real trade the reader can edit; it is marked Example until they change it.
+    const example = isUntouchedExample();
+    const giveRows = resolve(TR.give);
+    const receiveRows = resolve(TR.receive);
     const ready = giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
@@ -5036,6 +5039,15 @@
       deal,
       totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
       vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+  }
+
+  // True while the sides are exactly the sample "Try a sample trade" loaded; any change drops the Example mark for good.
+  function isUntouchedExample() {
+    const ex = TR.example;
+    const same = (list, keys) => list.length === keys.length && list.every(p => keys.includes(p.key));
+    if (ex && same(TR.give, ex.give) && same(TR.receive, ex.receive)) return true;
+    TR.example = null;
+    return false;
   }
 
   // The example trade, recomputed only when the series or the values change.
@@ -5394,19 +5406,16 @@
         // JEG-1059: the badge next to the value the reader set.
         if (shown === DDF_KEY) appendOverrideFlag(value, row);
       } else value.appendChild(missingNode(shown ? missingReason(shown, row) : `No value for ${row.name}`, "no value"));
-      if (compareView.example) {
-        li.classList.add("is-example");
-        li.append(who, value, document.createElement("span"));
-        list.appendChild(li);
-        return;
-      }
+      if (compareView.example) li.classList.add("is-example");
+      // JEG-1190: "Remove" in words, as on Find a trade and Waivers; sample players are removable too.
       const remove = document.createElement("button");
       remove.type = "button";
       remove.className = "v2-link v2-remove";
-      remove.textContent = "✕";
+      remove.textContent = "Remove";
       remove.setAttribute("aria-label", `Remove ${row.name}`);
       remove.addEventListener("click", () => {
         TR[side] = TR[side].filter(p => p.key !== String(row.player_key));
+        TR.undo = null;
         renderCompare();
         $(SIDE_IDS[side].search).focus();
       });
@@ -5449,6 +5458,9 @@
   }
 
   function addToSide(side, row) {
+    // JEG-1190: a player of the reader's own replaces an untouched sample trade instead of joining it.
+    if (isUntouchedExample()) { TR.give = []; TR.receive = []; TR.example = null; TR.open.clear(); }
+    TR.undo = null;
     TR[side] = TR[side].concat({key: String(row.player_key), name: row.name});
     const input = $(SIDE_IDS[side].search);
     input.value = "";
@@ -5694,6 +5706,8 @@
     const name = key ? seriesName(key) : "";
     const thinks = keys => (keys.length === 1 ? "thinks" : "think");
     if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
+    // JEG-1190: the empty start, in the approved copy (PMM doc 3.3, "Check a trade (empty)").
+    if (!TR.give.length && !TR.receive.length) return {kind: "none", title: "Who's on the table?", text: "Add players to each side and we'll call it."};
     if (!compareView.ready || !v.kind) {
       return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
     }
@@ -5795,6 +5809,9 @@
     const ready = compareView.ready;
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
+    const empty = !TR.give.length && !TR.receive.length;
+    $("v2CStart").hidden = !empty;
+    $("v2CTryExample").disabled = !verdictKey();
     $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
     $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
@@ -5820,10 +5837,14 @@
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
       : "Receive − give, one row per source, once both sides have a player.";
-    // JEG-823: hide Clear/Swap when the example is showing (nothing to clear or swap).
-    $("v2CClear").hidden = !count || compareView.example;
-    $("v2CSwap").hidden = !count || compareView.example;
-    $("v2CShare").hidden = !ready || compareView.example;
+    // JEG-1190: the sample trade is a real trade, so Clear, Swap and Share work on it too. Each side has its own Clear,
+    // and Undo puts back what the last Clear took.
+    $("v2CClear").hidden = !count;
+    $("v2CSwap").hidden = !count;
+    $("v2CShare").hidden = !ready;
+    $("v2GiveClear").hidden = !TR.give.length;
+    $("v2GetClear").hidden = !TR.receive.length;
+    $("v2CUndo").hidden = !TR.undo;
     if (!ready) $("v2CShareNote").hidden = true;
     syncTradeHash();
   }
@@ -6035,11 +6056,14 @@
     compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
     compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
     compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
-    $("v2CUseExample").addEventListener("click", () => {
-      if (!compareView || !compareView.example) return;
+    $("v2CTryExample").addEventListener("click", () => {
+      const sample = compareView && verdictKey() ? exampleTrade(compareView.pointKeys) : null;
+      if (!sample) return;
       const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
-      TR.give = pick(compareView.giveRows);
-      TR.receive = pick(compareView.receiveRows);
+      TR.give = pick(sample.give);
+      TR.receive = pick(sample.receive);
+      TR.example = {give: TR.give.map(p => p.key), receive: TR.receive.map(p => p.key)};
+      TR.undo = null;
       renderCompare();
       $("v2GiveSearch").focus();
     });
@@ -6070,8 +6094,25 @@
         }
       });
     });
-    $("v2CClear").addEventListener("click", () => { TR.give = []; TR.receive = []; TR.open.clear(); renderCompare(); });
-    $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; renderCompare(); });
+    // JEG-1190: Clear trade, Clear side (each side) and Undo. Undo restores the sides as they were before the last Clear.
+    const clearSides = sides => {
+      TR.undo = {give: TR.give, receive: TR.receive, example: TR.example};
+      sides.forEach(side => { TR[side] = []; });
+      if (sides.length === 2) TR.open.clear();
+      renderCompare();
+      $(SIDE_IDS[sides[0]].search).focus();
+    };
+    $("v2CClear").addEventListener("click", () => clearSides(["give", "receive"]));
+    $("v2GiveClear").addEventListener("click", () => clearSides(["give"]));
+    $("v2GetClear").addEventListener("click", () => clearSides(["receive"]));
+    $("v2CUndo").addEventListener("click", () => {
+      if (!TR.undo) return;
+      ({give: TR.give, receive: TR.receive, example: TR.example} = TR.undo);
+      TR.undo = null;
+      renderCompare();
+      $("v2CClear").focus();
+    });
+    $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; TR.undo = null; renderCompare(); });
     // JEG-914: a disabled (held or unavailable) option is never applied, however the change arrives; the picker
     // stays on the series whose numbers the side lists show.
     $("v2CShown").addEventListener("change", event => {

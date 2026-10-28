@@ -20,7 +20,7 @@ FIXTURES = ROOT / "tests" / "fixtures" / "league"
 MODULES = ["workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
 
 REQUIRED = [
-    "test_workspace_create", "test_workspace_corrupt", "test_workspace_versioned", "test_team_add_remove", "test_team_reorder",
+    "test_workspace_create", "test_workspace_corrupt", "test_workspace_versioned", "test_team_add_remove", "test_team_reorder", "test_clear_league",
     "test_share_link_encode", "test_share_link_decode", "test_export_import", "test_store_my_roster", "test_store_status_and_debounce",
     "test_sort_core", "test_summary_roster_value", "test_summary_ranks_fund", "test_summary_ranks_market", "test_summary_ranks_dense",
     "test_summary_strengths", "test_summary_weaknesses", "test_summary_undervalued", "test_summary_overvalued", "test_summary_gap_noise",
@@ -96,6 +96,7 @@ MUTATIONS = {
         'try { data = JSON.parse(text); } catch (error) { return {status: "empty", workspace: null}; }', {"test_workspace_corrupt"}),
     "unknown storage version accepted": ("workspace.js", 'if (data.v !== VERSION) return {status: "version", workspace: null};', "", {"test_workspace_versioned"}),
     "removing my team keeps the mark": ("workspace.js", "myTeamId: ws.myTeamId === id ? null : ws.myTeamId});", "myTeamId: ws.myTeamId});", {"test_team_add_remove"}),
+    "clearing the league keeps my team's mark": ("workspace.js", "touch({...ws, teams: [], myTeamId: null})", "touch({...ws, teams: []})", {"test_clear_league"}),
     "reorder swaps the wrong way": ("workspace.js", "[teams[from], teams[to]] = [teams[to], teams[from]];", "[teams[from], teams[to]] = [teams[from], teams[to]];", {"test_team_reorder"}),
     "my-roster listeners fire on every change": ("workspace.js", "if (was !== now || before.myTeamId !== ws.myTeamId) mineListeners",
         "if (true) mineListeners", {"test_store_my_roster"}),

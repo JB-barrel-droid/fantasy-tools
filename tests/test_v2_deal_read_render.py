@@ -8,7 +8,7 @@ Loads the built page headless, opens trades by link (#compare-trade?give=..&get=
   * the grid has nine cells, exactly one outlined (aria-current), and none for an incomplete trade;
   * each net has an info button that opens its one-line definition;
   * "The sources split." is gone, at 1440 and at 390 px; no horizontal overflow at 390; no page errors;
-  * the example trade (no players added) also carries a deal read.
+  * the sample trade (Try a sample trade, JEG-1190) also carries a deal read.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the outline on the wrong cell, the old split
 copy back, and the nets read from the wrong series, and requires failures.
@@ -213,7 +213,10 @@ def run_checks(patch=None) -> list[str]:
                 page.wait_for_timeout(300)
                 page.evaluate("() => { location.hash = '#compare-trade'; }")
                 page.wait_for_timeout(600)
-                # The example trade (nothing added) has a read too.
+                # The sample trade (JEG-1190: loaded by Try a sample trade on the empty page) has a read too.
+                if page.is_visible("#v2CTryExample"):
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(400)
                 snap = page.evaluate(READ)
                 if not snap["shown"] or not snap["example"]:
                     errors.append(f"[{width}px] the example trade has no deal read (shown {snap['shown']}, example {snap['example']})")

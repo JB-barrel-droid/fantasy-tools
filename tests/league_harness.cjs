@@ -110,6 +110,20 @@ t("test_team_reorder", () => {
   assert.strictEqual(W.ops.moveTeam(ws, ws.teams[0].id, -1), ws, "first team cannot move up");
   assert.strictEqual(W.ops.moveTeam(ws, ws.teams[2].id, 1), ws, "last team cannot move down");
 });
+// JEG-1190: Clear league drops every team and the mark, and keeps the league's settings and name.
+t("test_clear_league", () => {
+  let ws = W.ops.rename(W.newWorkspace(), "Sunday league");
+  ["A", "B"].forEach(n => { ws = W.ops.addTeam(ws, n, {entries: [{key: "1", name: "X", pos: "WR"}]}); });
+  ws = W.ops.setSettings(W.ops.setMyTeam(ws, ws.teams[0].id), {teams: 12});
+  const cleared = W.ops.clearLeague(ws);
+  assert.deepStrictEqual(cleared.teams, []);
+  assert.strictEqual(cleared.myTeamId, null, "clearing the league clears the mark");
+  assert.deepStrictEqual(cleared.settings, {teams: 12});
+  assert.strictEqual(cleared.name, "Sunday league");
+  assert.strictEqual(ws.teams.length, 2, "the old workspace is untouched, so Undo can put it back");
+  const empty = W.newWorkspace();
+  assert.strictEqual(W.ops.clearLeague(empty), empty, "an empty league is returned as is");
+});
 t("test_share_link_encode", () => {
   const f = fx("20team");
   const ws = teamsOf(f).slice(0, 12).reduce((w, team, i) => W.ops.addTeam(w, team.name, {entries: team.entries.slice(0, 15)}), W.newWorkspace());

@@ -421,6 +421,8 @@
     $("v2LgAdd").disabled = ws.teams.length >= W.MAX_TEAMS;
     $("v2LgAdd").setAttribute("aria-label", ws.teams.length >= W.MAX_TEAMS ? `Add team (the limit is ${W.MAX_TEAMS})` : "Add team");
     ["v2LgDownload", "v2LgCopyText", "v2LgCopyLink"].forEach(id => { $(id).disabled = !total && !ws.teams.length; });
+    $("v2LgClearAll").hidden = !ws.teams.length;
+    if (!ws.teams.length) $("v2LgClearConfirm").hidden = true;
   }
 
   function renderUndo() {
@@ -1169,6 +1171,25 @@
       renderUndo();
       announce("Undone.");
     });
+    // JEG-1190: clear the whole league in one go, after one confirm, with Undo (Claude's pick under Jeremy's 2026-10-28
+    // rule; see the picks log). Your roster is the marked team, so it goes too, on every tab.
+    const clearConfirm = el("div", {class: "v2-lg-confirm", id: "v2LgClearConfirm", role: "group", "aria-label": "Clear league", hidden: true});
+    const clearAll = button("Clear league", {class: "v2-btn", id: "v2LgClearAll", hidden: true}, () => {
+      const ws = store.get();
+      const yes = button("Clear league", {class: "v2-btn v2-lg-remove-yes", id: "v2LgClearYes"}, () => {
+        UI.undo = {label: "Cleared the league", ws: store.get()};
+        clearConfirm.hidden = true;
+        update(w => W.ops.clearLeague(w), "remove");
+        renderUndo();
+        announce("League cleared. Undo puts it back.");
+        $("v2LgUndo").focus();
+      });
+      const no = button("Cancel", {class: "v2-btn v2-lg-remove-no"}, () => { clearConfirm.hidden = true; clearAll.focus(); });
+      const players = ws.teams.reduce((n, t) => n + t.entries.length, 0);
+      clearConfirm.replaceChildren(el("span", {text: `Clear all ${plural(ws.teams.length, "team")} and ${plural(players, "player")}, your roster included? `}), yes, no);
+      clearConfirm.hidden = false;
+      no.focus();
+    });
     const leaguePaste = el("textarea", {id: "v2LgLeaguePaste", rows: "3", autocomplete: "off", spellcheck: "false",
       placeholder: "Paste your league's whole rosters page here (ESPN, Yahoo or any site)", "aria-describedby": "v2LgLeaguePasteHelp"});
     leaguePaste.addEventListener("paste", event => {
@@ -1185,8 +1206,9 @@
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),
         el("p", {class: "v2-meta", text: "Enter every team in your league, with names, and mark yours with the star. Below, a team summary compares the teams and a trade opportunities table lists the best trades for your team against all of them."}))),
-      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, download2, load, copyText, copyLink, undo, fileInput,
+      el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, download2, load, copyText, copyLink, clearAll, undo, fileInput,
         el("span", {class: "v2-meta v2-lg-saved", id: "v2LgSaved", role: "status", "aria-live": "polite"})),
+      clearConfirm,
       el("div", {class: "v2-lg-confirm", id: "v2LgLoadConfirm", role: "group", hidden: true}),
       el("section", {class: "v2-lg-parsed", id: "v2LgParsed", role: "status", "aria-live": "polite", "aria-label": "What was read from your paste", hidden: true}),
       el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}),
