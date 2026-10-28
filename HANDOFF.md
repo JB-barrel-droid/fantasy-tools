@@ -187,7 +187,7 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 ### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
 
 Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.
-Main `032cee07` is merged into the branch. The review found a first-sync bug:
+Main `1bd85f76` is merged into the branch. The review found a first-sync bug:
 freshness read the old history index before sync rebuilt it, so kept Week 7
 inputs labelled Week 8 could be reported current. History now rebuilds first.
 The new first-sync regression failed before the fix (`8 != 7`) and passes;
