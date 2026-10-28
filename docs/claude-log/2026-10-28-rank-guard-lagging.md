@@ -53,3 +53,21 @@ treated charts named in missing_sources as lagging.
 Lesson: the PR's CI dist had no hold on CBS, so it could not see this. The
 held replay now covers it. Also: `make test-core` locally regenerates dist/
 and app/ assets; stage files by name, never `git add -A`.
+
+## Follow-up 2: the replay assumed the committed week
+
+Chain run 40618349013 (after #1018 and #1019) still failed test-core in
+`tests/test_rank_guard.py`: `{'cbs': 6, 'usatoday': 6} != {'cbs': 7, ...}`.
+`test_week_history.transition_overrides()` put the lagging charts on a fixed
+Week 6. That matched the committed dist/ (everything on Week 7) but not the
+chain's rebuild, which serves Week 8: the replay became a two-week gap, the
+page had no Week 6 view, and the lagging charts were read in Week 8.
+`WeekTransitionSentinelTest` (later in test-core, never reached) asserted
+Week 7/6 literally and would have failed next.
+
+Fix: `newest_week()` reads the newest served week from the built index, and
+the replay puts the lagging charts on the week before it. The sentinel tests
+assert relative to it. The replay also clears any hold on the lagging charts
+(the chain's dist/ had CBS red-held, which would hide it from the view lists
+the sentinel checks); the held-chart rank guard case adds its hold back.
+Committed data is unchanged by this: newest 7, lagging 6, as before.

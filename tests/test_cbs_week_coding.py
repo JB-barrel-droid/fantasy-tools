@@ -282,5 +282,35 @@ class TestCbsJsonContainsWeekEvidence(unittest.TestCase):
                 cbs.REPO = old_repo
 
 
+class ParseTablesHeaderTest(unittest.TestCase):
+    """Week 8 2026 (JEG-1175 follow-up): CBS's TE table put its header in a
+    bold <td> row instead of <th>. The parser read no headers, kept the
+    "Player" row as a player, and every TE was dropped for missing columns
+    (stored TE 13 -> 0, red scrape_validity hold)."""
+
+    TH = ('<h2>Quarterback trade values</h2><table class="TableBuilder"><tbody>'
+          '<tr><th class="header--cell">Player</th><th>tm</th><th>non</th><th>0.5</th><th>PPR</th></tr>'
+          '<tr><td>Josh Allen</td><td>BUF</td><td>30</td><td>30</td><td>30</td></tr>'
+          '</tbody></table>')
+    TD = ('<h2>Tight end trade values</h2><table class="TableBuilder"><tbody>'
+          '<tr><td><strong>Player</strong></td><td><strong>tm</strong></td><td><strong>non</strong></td>'
+          '<td><strong>0.5</strong></td><td><strong>PPR</strong></td></tr>'
+          '<tr><td>Brock Bowers</td><td>LV</td><td>21</td><td>23</td><td>25</td></tr>'
+          '<tr><td><strong>Player</strong></td><td>tm</td><td>non</td><td>0.5</td><td>PPR</td></tr>'
+          '<tr><td>Trey McBride</td><td>ARI</td><td>20</td><td>22</td><td>24</td></tr>'
+          '</tbody></table>')
+
+    def test_th_header_unchanged(self):
+        (table,) = cbs.parse_tables(self.TH)
+        self.assertEqual(table["headers"], ["Player", "tm", "non", "0.5", "PPR"])
+        self.assertEqual(table["rows"], [["Josh Allen", "BUF", "30", "30", "30"]])
+
+    def test_td_header_row_is_the_header_not_a_player(self):
+        (table,) = cbs.parse_tables(self.TD)
+        self.assertEqual(table["title"], "Tight end trade values")
+        self.assertEqual(table["headers"], ["Player", "tm", "non", "0.5", "PPR"])
+        self.assertEqual([r[0] for r in table["rows"]], ["Brock Bowers", "Trey McBride"])
+
+
 if __name__ == "__main__":
     unittest.main()
