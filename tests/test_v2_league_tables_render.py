@@ -25,7 +25,8 @@ from tests._league_render import browser_on_build, open_page, seed, source, wait
 
 SUMMARY_COLS = ["rank", "team", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank", "disagree", "under", "over"]
 NUMERIC_SUMMARY = ["rank", "rosterF", "starterF", "benchF", "rosterM", "starterM", "benchM", "altRank", "projRank"]
-OPP_HEADERS = ["Opponent", "Trade", "DDF Value capture", "Our team fit", "Market perception", "Projections agree", "Their team fit", "Overall fit", "Opportunity rank"]
+# JEG-1213: the projections assessment sits beside the DDF assessment.
+OPP_HEADERS = ["Opponent", "Trade", "DDF Value capture", "Projections agree", "Our team fit", "Market perception", "Their team fit", "Overall fit", "Opportunity rank"]
 
 SUMMARY_ROWS = """() => [...document.querySelectorAll('#v2LgSummaryTable tr.v2-lg-main')].map(tr => {
   const cell = k => (tr.querySelector(`[data-cell="${k}"]`) || {}).textContent;
@@ -56,7 +57,7 @@ OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg
   const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
   return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
-    capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: Number(cell('rank')), rankText: cell('rank')}; })"""
+    capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: num(cell('rank')), rankText: cell('rank')}; })"""
 
 
 NAME_PROJ = """() => { const by = new Map(); for (const r of window.TradeValueCurveControls.getAllRows()) { const k = r.name; by.set(k, by.has(k) ? null : r.values.ddf_value_projections); } return Object.fromEntries(by); }"""
@@ -247,6 +248,8 @@ def check_opps(browser, base, overrides, errors):
         errors.append("[opps] no caption or no row headers")
     if page.is_visible("#v2LgOppsAll"):   # JEG-1098: the list opens on 10 rows; these checks read every row
         page.click("#v2LgOppsAll")
+    elif page.is_visible("#v2LgOppsMore"):  # 11–20 results offer More without a separate All button.
+        page.click("#v2LgOppsMore")
     rows = page.evaluate(OPP_ROWS)
     if not rows:
         errors.append("[opps] no opportunity rows for the 4-team fixture")

@@ -163,18 +163,21 @@
 
   // ---------- share links (JEG-1021 section 2.5) ----------
   // team1:k,k,k|team2:k,k ; numeric player keys are base 36, anything else is "~" + percent-encoded. K and DEF entries
-  // (keys "x:...") travel by name and position: "!NAME.POS".
+  // (keys "x:...") travel by name/position plus their exact identity: "!NAME.POS:KEY[:TEAM]".
+  // Older "!NAME.POS" links remain readable.
   function encodeKey(entry) {
     if (/^\d+$/.test(entry.key)) return Number(entry.key).toString(36);
-    if (entry.key.startsWith("x:")) return `!${encodeURIComponent(entry.name)}.${entry.pos}`;
+    if (entry.key.startsWith("x:")) return `!${encodeURIComponent(entry.name)}.${entry.pos}:${encodeURIComponent(entry.key)}${entry.team ? `:${encodeURIComponent(entry.team)}` : ""}`;
     return `~${encodeURIComponent(entry.key)}`;
   }
   function decodeKey(token, byKey) {
     if (token.startsWith("!")) {
-      const at = token.lastIndexOf(".");
-      const name = decodeURIComponent(token.slice(1, at));
-      const pos = token.slice(at + 1);
-      return {key: `x:${pos}:${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`, name, pos};
+      const parts = token.split(":");
+      const at = parts[0].lastIndexOf(".");
+      const name = decodeURIComponent(parts[0].slice(1, at));
+      const pos = parts[0].slice(at + 1);
+      const key = parts[1] ? decodeURIComponent(parts[1]) : `x:${pos}:${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
+      return {key, name, pos, ...(parts[2] ? {team: decodeURIComponent(parts[2])} : {})};
     }
     const key = token.startsWith("~") ? decodeURIComponent(token.slice(1)) : String(parseInt(token, 36));
     const row = byKey && byKey.get(key);
@@ -189,14 +192,25 @@
     const mine = ws.teams.find(t => t.id === ws.myTeamId);
     return {text: mine ? enc([mine]) : "", full: false, mine: mine ? 0 : null};
   }
+  // Reuse the bounded roster codec; settings are the page's own complete league query.
+  function shareHash(ws, leagueQuery) {
+    const encoded = encodeShare(ws);
+    const query = String(leagueQuery || "").replace(/^[?&]+/, "");
+    return {...encoded, hash: `#find-league?workspace=${encoded.text}&wm=${encoded.mine === null ? "none" : encoded.mine}${query ? `&${query}` : ""}`};
+  }
   function decodeShare(text, byKey) {
-    const teams = String(text || "").split("|").filter(Boolean).map((part, i) => {
-      const at = part.indexOf(":");
-      if (at < 0) return null;
-      const tokens = part.slice(at + 1).split(",").filter(Boolean);
-      return {name: decodeURIComponent(part.slice(0, at)) || `Team ${i + 1}`, entries: tokens.map(token => decodeKey(token, byKey))};
-    }).filter(Boolean);
-    return teams.slice(0, MAX_TEAMS);
+    try {
+      const teams = String(text || "").split("|").filter(Boolean).map((part, i) => {
+        const at = part.indexOf(":");
+        if (at < 0) return null;
+        const tokens = part.slice(at + 1).split(",").filter(Boolean);
+        return {name: decodeURIComponent(part.slice(0, at)) || `Team ${i + 1}`, entries: tokens.map(token => decodeKey(token, byKey))};
+      }).filter(Boolean);
+      return teams.slice(0, MAX_TEAMS);
+    } catch (error) {
+      // Reject the entire malformed link rather than importing a partial league over a saved one.
+      return [];
+    }
   }
 
   // ---------- the store ----------
@@ -335,7 +349,7 @@
   }
 
   const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, cleanEntries, cleanName, ops, parseStored, serialize,
-    exportJson, importJson, copyText, encodeShare, decodeShare, createStore};
+    exportJson, importJson, copyText, encodeShare, shareHash, decodeShare, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueWorkspace = api;
 

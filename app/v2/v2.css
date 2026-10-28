@@ -205,6 +205,33 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-context-inner > .v2-ctx-league { flex: 0 1 auto; max-width: 34%; }
   .v2-context-inner > .v2-ctx-basis { order: 0; flex: 1 1 0; }
 }
+/* JEG-1134 (Jeremy 2026-10-27, option C: the row measured taller than one line, so B): below 768 px the context row is
+   one line, the summary ("Full PPR · 12 teams · 4 sources") and the freshness chip. Tapping the summary opens the rest
+   under it: the roster line, Edit league, Customize, ⋯ and the "On the chart" line (Jeremy 2026-10-26: OK for that
+   line to hide while closed). From 768 px the summary is not rendered and the row is as before. */
+.v2-ctx-summary { display: none; }
+@media (max-width: 767px) {
+  .v2-context .v2-ctx-summary { display: flex; align-items: center; gap: 4px; order: 0; flex: 1 1 0; min-width: 0; min-height: 44px;
+    padding: 0; border: 0; background: none; color: var(--v2-ink); font: inherit; font-size: 14px; font-weight: 600; text-align: left; cursor: pointer; }
+  .v2-ctx-summary:focus-visible { outline: 2px solid var(--v2-action); outline-offset: 2px; border-radius: 4px; }
+  .v2-ctx-summary-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v2-ctx-summary-caret { flex: 0 0 auto; color: var(--v2-muted); font-size: 12px; line-height: 1; }
+  .v2-ctx-summary-caret::before { content: "▾"; }
+  .v2-ctx-summary[aria-expanded="true"] .v2-ctx-summary-caret { transform: rotate(180deg); }
+  /* Closed: only the summary and freshness. Overrides and Reset / Undo use the separate phone notification strip. */
+  .v2-context:not(.is-open) .v2-context-inner::before { content: none; }
+  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness) { display: none; }
+  /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
+  .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
+  .v2-context.is-open .v2-ctx-league strong { display: none; }
+  /* Leave room for the full summary and a two-digit week in wider fallback fonts at 375px; retain 44px hit heights. */
+  .v2-context .v2-ctx-freshness { gap: 4px; padding-inline: 2px; flex-shrink: 0; }
+  /* Anchor the overflow menu to the row: on tabs without Customize, ⋯ is too far left for a 240px right-aligned menu. */
+  .v2-context-inner { position: relative; column-gap: 4px; }
+  .v2-context .v2-ctx-menuwrap { position: static; }
+  .v2-context .v2-ctx-menu { left: 16px; right: 16px; top: 100%; min-width: 0; max-width: none; }
+}
+
 /* Small button variant */
 .v2-app .v2-btn-sm { padding: 6px 12px; min-height: 36px; font-size: 13px; }
 
@@ -1109,6 +1136,11 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-cverdict[data-verdict="win"] .v2-cverdict-sym { color: var(--v2-action-strong); }
 .v2-cverdict[data-verdict="lose"] .v2-cverdict-sym { color: var(--v2-negative); }
 .v2-cverdict > div > p { margin-top: 6px !important; font-size: 14px; }
+/* JEG-894: the copy-link button sits on the verdict eyebrow row and is link-sized on desktop (a 44 px button would push
+   the verdict past the 1366x768 fold); a 44 px tap target only on touch / phone widths. */
+.v2-cverdict-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.v2-cshare-link { min-height: 0; padding: 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.2; }
+@media (hover: none), (max-width: 767px) { .v2-cshare-link { min-height: 44px; padding: 0 6px; } }
 #v2Compare .v2-cstory { border: 0; border-top: 1px solid var(--v2-border); padding-top: 8px; margin-top: 2px; }
 #v2Compare .v2-cstory[hidden] { display: none; }
 #v2Compare .v2-cstory summary { font-size: 13px; font-weight: 700; cursor: pointer; min-height: 32px; display: flex; align-items: center; gap: 6px; }
@@ -1179,9 +1211,11 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 @media (max-width: 767px) {
   #v2Compare .v2-chead .v2-ctoolbar { flex-basis: 100%; }
   #v2Compare .v2-ctable td.bar { min-width: 0; width: auto; }
-  .v2-cverdict-bar:not([hidden]) { display: block; position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; min-height: 48px; padding: 10px 14px;
+  .v2-cverdict-bar:not([hidden]) { display: flex; align-items: center; gap: 8px; position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 30; min-height: 48px; padding: 8px 10px;
     border-radius: var(--v2-radius-card); border: 1px solid var(--v2-border); border-left: 4px solid var(--v2-border); background: var(--v2-surface); color: var(--v2-ink);
-    font-weight: 700; font-size: 15px; text-align: left; box-shadow: 0 -4px 20px rgba(20, 43, 37, .18); cursor: pointer; }
+    box-shadow: 0 -4px 20px rgba(20, 43, 37, .18); }
+  .v2-cverdict-bar-go { flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 0; background: none; border: 0; color: var(--v2-ink); font: inherit; font-weight: 700; font-size: 15px; text-align: left; cursor: pointer; }
+  .v2-cshare-bar { flex: none; min-height: 44px; }
   .v2-cverdict-bar[data-verdict="win"] { border-left-color: var(--v2-action); }
   .v2-cverdict-bar[data-verdict="lose"] { border-left-color: var(--v2-negative); }
   #v2Compare.has-verdict-bar { padding-bottom: 96px; }
@@ -2106,6 +2140,26 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-fit.is-natural { color: var(--v2-action-strong); }
 .v2-lg-fit.is-force { color: var(--v2-older); }
 .v2-lg-fit.is-market, .v2-lg-fit.is-value { color: var(--v2-ink); }
+/* JEG-1213: league transfers stay at the top right; summary tools expand only when needed. */
+.v2-lg-transfer-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.v2-lg-transfer { position: relative; margin-left: auto; }
+.v2-lg-transfer > summary { cursor: pointer; min-height: 44px; padding: 10px 14px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
+.v2-lg-transfer-menu { position: absolute; right: 0; top: 100%; z-index: 20; width: min(340px, 88vw); padding: 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); box-shadow: 0 6px 18px #0002; }
+.v2-lg-transfer-action { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.v2-lg-transfer-info > summary, .v2-lg-fit-info > summary { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.v2-lg-transfer-info p, .v2-lg-fit-info p { font-weight: 400; white-space: normal; min-width: 160px; max-width: 300px; }
+.v2-lg-card-summary { cursor: pointer; padding: 4px; align-items: center; gap: 10px; }
+.v2-lg-card-summary::before { content: "▸"; font-size: 22px; }
+.v2-lg-editor[open] > .v2-lg-card-summary::before { transform: rotate(90deg); }
+.v2-lg-card-summary h2 { display: inline; }
+.v2-lg-summary-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.v2-lg-field-options { flex: 1 1 240px; min-width: 0; }
+.v2-lg-field-options > summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 700; }
+.v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
+.v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+.v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+.v2-lg-summary-rule { overflow-wrap: anywhere; }
+.v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
 .v2-lg-detail-body p { margin: 0; }
 /* JEG-885: a folded core player's "N more for <player>" control, and the rows it opens under it. */

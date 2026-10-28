@@ -15,32 +15,66 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### League finder release batch (Codex, 2026-10-28 UTC)
 
-### Pages validation lane (JEG-1170, Codex, 2026-10-28)
+- Authorized draft release only: `release/league-finder-20261028`, based on main
+  `7e4f2603` (includes merged Pages speedup #1056 / `904d07ae`). Parent must
+  finish #1056 publication/live QA before considering a production merge.
+- Includes #1058/JEG-1213 `acd4b0c2`, with exact ancestral dependency heads
+  #1043/JEG-1134 `d886fc9f` and #969/JEG-894 `391308ed`. Both are already in
+  #1058, so merge #1058 once; no duplicate cherry-picks. Underlying PRs/tickets
+  remain open. This release PR replaces serial dependency merges for this batch.
+- Integration conflict only in this handoff: retained both lane sections.
+  No application conflict or methodology change; current-main generated assets
+  retained. Team-count support remains explicitly 8/10/12/14.
+- Excludes #1059 release switch, source health, connector/Supabase and backlog.
+  Focused combined suite: 27 PASS, no skips; workflow/shard parity: 68 PASS.
+  Required final-head preview/v2-render CI pending;
+  independent final review is parent-owned. No main merge or deployment authorized.
+- Repair after independent review of `05859570`: finder and league links now
+  carry complete value basis/player overrides, including explicit default replay
+  over saved custom readers, for the visit only. Legacy links and position-share
+  precedence remain unchanged. Focused release 13 and Overrides 3 PASS;
+  new-head CI and one independent delta review pending;
+  evidence: `docs/claude-log/2026-10-28-league-share-context-repair.md`.
+- Delta review found league Undo left the imported value context active. The next
+  repair snapshots and restores the prior visit-only context when an accepted
+  league import is undone. Cancel leaves it unchanged. Evidence:
+  `docs/claude-log/2026-10-28-league-import-undo-context.md`.
+- Final independent review passed on `8e3bf8b8`. Current main `8cd3c26e`
+  (fidelity pulse generated data only) was merged normally and cleanly afterward;
+  the integration head needs fresh required CI. Main workflow green status was
+  unavailable from this environment and must be verified before release merge.
+  Evidence: `docs/claude-log/2026-10-28-league-main-integration.md`.
+- Second current-main integration: `d9f617e0` (two generated health JSON files)
+  merged cleanly; application/tests diff remains zero against independently
+  reviewed code. Fresh release CI is required. Evidence:
+  `docs/claude-log/2026-10-28-league-health-main-integration.md`.
 
-- Jeremy made this the first release priority: “yes, and bring to the top.
-  Sounds like this will speed up development.” This is the Pages half of
-  JEG-1170; #1000 completed the preview half. Branch:
-  `be/jeg-1170-pages-validation-parallel` (draft PR linked on the ticket).
-- Pages now mirrors preview's `validate-base` plus four exhaustive test-core
-  shards, each on a separate runner at the exact run SHA. The build still runs
-  all three rendered harnesses and uploads only its own checked `dist`.
-  Deploy requires literal success from the build and entire matrix. Its artifact
-  name comes from the successful build output, including on partial reruns.
-- Keep `pages` concurrency with `cancel-in-progress: false`: cancellation
-  previously starved publication. No test recipe, shard membership, value math,
-  fixture, Supabase, rebuild-chain or writer-pause change belongs to this PR.
-- Latest main `2e7a2c7c` is integrated into this branch; the only conflict was
-  the picks-log append, resolved by retaining both lanes' entries. Pages
-  workflow/shard commands and artifact gates did not change during integration.
-- Validation: 102 targeted workflow/coverage/artifact tests and actionlint pass.
-  The original serial workflow fails the new parallel contract; all 96 core
-  commands and their exact shard union are unchanged. Coverage/parity/deploy
-  guards now run as explicit blocking steps in both build workflows.
-- Parent owns independent-review acceptance and final-head PR CI, then serial
-  merge on current green main, Pages completion, publication/live verification,
-  and a measured timing comparison. No production dispatch or merge in this lane.
-  Expected speedup is unconfirmed until the first successful Pages run.
+
+
+### Pages validation lane (JEG-1170, completed 2026-10-28 UTC)
+
+- #1056 merged as `904d07ae99320dc5d47ed3d38499af891d6c2dcf` and published at
+  18:18:30 UTC. Parent reports Mac live QA passed; build
+  `tv-20261028-1235-904d07a` matches the merge commit's -0500 timestamp
+  (17:35 UTC). JEG-1170 is Done. This release prerequisite is complete.
+- All exhaustive shards, artifact and rendered gates passed. Runtime was
+  17m05s versus the 40m15s baseline. Queue time was a separate 25m36s;
+  do not include queue time in the runtime comparison.
+- Pages uses validate-base plus four exact-SHA core shards, all three rendered
+  harnesses, and the successful build's artifact. Deploy requires success from
+  every dependency. Existing cancellation and validation safeguards remain.
+- Source: parent release verification update, 2026-10-28 UTC. This integration
+  lane did not merge, deploy or independently repeat the Mac live check.
+
+### JEG-1213 league-wide finder lane (Codex, 2026-10-28 UTC)
+
+- Draft PR [#1058](https://github.com/JB-barrel-droid/fantasy-tools/pull/1058), branch `fe/jeg-1213-league-finder`. Implementation integrated; 23 targeted tests pass (20 ticket-specific unit/render + 3 existing UI regression methods). All internal subagents stopped; final head CI/review and parent merge/live checks pending. Read the live ticket and all comments (none at intake).
+- Correction after CI repair: initial head contained #1043 `68b95fa5`. Later `d886fc9f` is now merged explicitly, as is main `2ccdcc79` (including merged #1044). Reuses #969 `391308ed`. Parent should land dependencies serially; this lane does not edit, merge or deploy those PRs. #1044 engine work remains separate.
+- Scope: top-right transfer menu and league-settings sharing; paste cleanup, count warning and collapse; optional summary columns and filters for either team; #1 best opportunity, projections beside DDF, clear fit definitions and opponent totals/starters/construction, downgrade-package regression.
+- Engine accepts only 8/10/12/14 teams: exact mismatch fix limited to those counts. Unsupported counts get an explanation; no engine methodology extension.
+- Validation and exact head/PR recorded as milestones in `docs/claude-log/2026-10-28-jeg-1213-league-finder.md`. Parent owns merge/deploy/live checks; do not close JEG-1213 until live verified.
 
 
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
@@ -138,14 +172,19 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   and Pages verification. Do not close JEG-1142 before live switch and USO checks.
   No edge deploy or JEG-1205 work here. Generated output is retained uncommitted.
   Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
-- **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
-  `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
-  is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
-  Option B after Jeremy's measure-first pick C. Picks in `docs/picks-log.md`. Next step: when v2-render and
-  preview are green on its head, merge `origin/main` in (no rebase), squash-merge as "(JEG-1134)", wait for
-  Deploy dashboard, confirm the live `v2/v2.css` has the JEG-1134 block and the row is one line at 390 px, then
-  move JEG-1134 to Done and close #967 as superseded. If a phone render test fails, it likely taps a row
-  control while the row is closed: call `_render_env.open_phone_context(page)` first.
+- **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:37 UTC):** PR #1043, branch
+  `fe/jeg-1134-context-phone-summary`, draft pending CI and parent review. Main `79b9b435` integrated by merge,
+  preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
+  with overrides; on phones the indicator and Reset/Undo now use a separate strip immediately below the
+  context row. All three states keep the row at 45px and its summary readable at 375/390px. Desktop keeps
+  the indicator in its original row. The phone overflow menu is anchored to the row so Copy link fits on
+  tabs without Customize. CI on reviewed head `68b95fa5` caught 2px summary clipping in DejaVu Sans at 375px;
+  tighter phone spacing fixes it and the regression now runs both fonts. Ten targeted tests pass locally.
+  See `docs/claude-log/2026-10-28-jeg-1134-fallback-font-ci.md` for this follow-up; new-head CI/review still required.
+  The tap sweep reports exactly the same 23 error groups
+  as clean main; its Reviewed-chip mutation leaves other hit-area rules intact. Full CI and live checks
+  remain pending; see `docs/claude-log/2026-10-28-jeg-1134-context-review-fixes.md`. Parent coordinates release: no merge,
+  deploy or deletion by this lane. #1035 remains a separate Reviewed-chip change; #967 stays superseded.
 - **Incomplete changes / blockers:** #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
