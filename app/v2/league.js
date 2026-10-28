@@ -860,7 +860,7 @@
     const box = el("div", {class: "v2-lg-detail-body"});
     box.append(el("p", {}, el("b", {text: "You give: "}), ...ourLine(r.give), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
       el("p", {}, el("b", {text: "You receive: "}), ...ourLine(r.receive), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
-    if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
+    if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(O.fullFit(r))}));
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
     const opp = teamById(ws, r.opponentId);
@@ -960,7 +960,7 @@
       el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", text: `This trade with ${r.opponent}`}),
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
-      r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
+      r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(O.fullFit(r))}) : null,
       el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, mine, opp, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
