@@ -433,6 +433,10 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_player_tags_render
 	python3 -m unittest tests.test_v2_compare_empty_side_render
 	python3 -m unittest tests.test_v2_disagree_render
+	# Mobile phase 4 and 5 (JEG-955 layout collapse, JEG-956 safe areas, JEG-903 target size).
+	python3 -m unittest tests.test_v2_phone_layout_collapse_render
+	python3 -m unittest tests.test_v2_phone_safe_area_render
+	python3 -m unittest tests.test_v2_phone_target_size_render
 	# Dashboard render harnesses (JEG-308/310/312/318) that no target ran
 	# until 2026-10-08. They need tests/rendered_gate's playwright-core
 	# (npm ci --prefix tests/rendered_gate) and a Chromium (CHROMIUM_PATH).
