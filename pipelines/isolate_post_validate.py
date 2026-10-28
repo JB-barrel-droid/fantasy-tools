@@ -161,24 +161,28 @@ def isolate(repo: Path, log_text: str, week: int | None) -> str:
     if set(chain.HOLD_ISOLATED_SOURCES) <= held:
         raise ValueError("all review-gated chart sources would be held")
 
-    # A chart promotion record can drive the monitoring checkpoint. Retire
-    # only the record for this exact promoted section; a same-day record from
-    # another run must never be guessed to belong to this rollback.
+    # A chart promotion record can drive the monitoring checkpoint. The
+    # shared reindex stage changes the section hash after promotion, so match
+    # the record by its source and promoted_at, which reindex leaves intact.
+    # Never guess from a same-day filename alone.
     promo_dir = repo / chain.PROMOTIONS_REL
     promo_record = None
     if root in chain.HOLD_ISOLATED_SOURCES:
         current_section = copy.deepcopy(current["sources"].get(root))
         if not isinstance(current_section, dict):
             raise ValueError("current promoted section is malformed")
-        current_section.pop("validationHold", None)
+        promoted_at = current_section.get("promoted_at")
+        if not promoted_at:
+            raise ValueError("current promoted section lacks promoted_at")
         for path in sorted(promo_dir.glob(f"{root}-*-promotion.json")):
             try:
                 record = json.loads(path.read_text(encoding="utf-8"))
             except (OSError, ValueError) as exc:
                 raise ValueError(f"promotion record unreadable: {path.name}: {exc}") from exc
             if (record.get("source_key") == root
-                    and record.get("promoted_at") == current_section.get("promoted_at")
-                    and record.get("section_after_sha256") == chain._canonical_sha(current_section)):
+                    and record.get("promoted_at") == promoted_at
+                    and record.get("review_verdict") == "ready"
+                    and re.fullmatch(r"[0-9a-f]{64}", str(record.get("section_after_sha256")))):
                 promo_record = path
                 break
         if status["detail"][root].get("promoted", 0) > 0 and promo_record is None:

@@ -73,6 +73,7 @@ class TestIsolation(unittest.TestCase):
             directory.mkdir(parents=True, exist_ok=True)
             record = directory / "cbs-2026-10-28-promotion.json"
             record.write_text(json.dumps({"source_key": "cbs", "promoted_at": "2026-10-28T12:00:00Z",
+                                          "review_verdict": "ready",
                                           "section_after_sha256": chain._canonical_sha(doc["sources"]["cbs"])}))
         self.fixture_path.write_text(json.dumps(doc), encoding="utf-8")
 
@@ -129,7 +130,9 @@ class TestIsolation(unittest.TestCase):
         directory.mkdir(parents=True, exist_ok=True)
         record = directory / "cbs-2026-10-28-promotion.json"
         record.write_text(json.dumps({"source_key": "cbs", "promoted_at": "2026-10-28T12:00:00Z",
-                                      "section_after_sha256": chain._canonical_sha(doc["sources"]["cbs"])}))
+                                      "review_verdict": "ready",
+                                      # The shared reindex changes the section hash later.
+                                      "section_after_sha256": "0" * 64}))
         iso.isolate(self.repo, fail("cbs invalid values"), 9)
         self.assertFalse(record.exists())
         self.assertTrue(record.with_name("cbs-2026-10-28-promotion.rolled-back.json").exists())
