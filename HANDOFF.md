@@ -59,6 +59,11 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
+- **JEG-1142 lane (2026-10-28 9:10 AM CT):** promotion/demotion model switched off
+  (`PROMOTION_MODEL_ENABLED = false` in the JS engine and both Python references),
+  per Jeremy's 2026-10-27 Linear comment. Branch `be/jeg-1142-promotion-off-v2`;
+  values change (top 3 RBs about -6%, QB/TE starters +4-5%, depth players down).
+  No edge deploy needed: get-values loads the published value-model.js.
 - **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
