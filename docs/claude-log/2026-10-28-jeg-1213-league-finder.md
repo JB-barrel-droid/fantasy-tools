@@ -13,6 +13,13 @@ Contract: implement the ten requirements in the live Linear issue, read on 2026-
 - Existing engine supports exactly 8/10/12/14 teams. Warn once at least eight teams are present; exact quick fix is offered only for supported counts. Other counts are explained rather than silently changing league value math.
 - Existing bounded workspace and finder share codecs are reused, with league settings included. No privacy text choice reopened.
 
+### Integration verification
+- Combined targeted suite: `RENDER_TESTS_REQUIRED=1 CHROMIUM_PATH=/usr/bin/chromium python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render` — 20 tests, exit 0 in 52.387 seconds, no skips.
+- Independent source review found two defects: a fit info click selected its row and closed the explanation; expanded core groups could break rank ordering. Both fixed; browser regression asserts the explanation stays open without row selection and revealed ranks remain sorted.
+- First rendered pass also exposed K/DST key changes on share roundtrip; bounded codec now retains exact identity and NFL team, with legacy decoding retained. Removing the new encoder fails the identity regression. Yahoo navigation mutation also fails its regression.
+- Mismatch shortcut now retains the complete current settings query and changes only `teams`; rendered regression pins advanced options and season settings. Malformed links keep existing saved teams.
+- Useful package checks use controlled named-player prices through the real finder, computePairing and runAll, with and without a balancing bench player. These are behavior tests, not claims about current Bijan/Kyren/Warren prices.
+- Finder agent observed the existing `test_v2_finder_search_unchanged` golden is stale on both baseline and patch (identical signatures: 2-for-2 10 trades/7 groups; 3-for-3 69/23). Golden unchanged.
+
 ### Claimed, not confirmed
-- Integration render checks and independent review pending.
 - Preview CI, parent serial merge, Pages deployment and live verification pending. JEG-1213 remains open until parent verifies live.

@@ -59,7 +59,9 @@
       supported ? button(`Use ${count} teams in league settings`, {class: "v2-btn", id: "v2LgMatchTeams"}, () => {
         const V = root.TradeValueV2;
         if (V && V.applyLinkLeague) {
-          V.applyLinkLeague(new URLSearchParams(`teams=${store.get().teams.length}`));
+          const params = new URLSearchParams(leagueQuery());
+          params.set("teams", String(store.get().teams.length));
+          V.applyLinkLeague(params);
           renderCountMismatch();
           announce(`League settings now use ${store.get().teams.length} teams.`);
         }
@@ -446,6 +448,9 @@
     ["v2LgDownload", "v2LgCopyText", "v2LgCopyLink"].forEach(id => { $(id).disabled = !total && !ws.teams.length; });
     $("v2LgClearAll").hidden = !ws.teams.length;
     if (!ws.teams.length) $("v2LgClearConfirm").hidden = true;
+    const editorSummary = $("v2LgEditorSummary");
+    const marked = ws.teams.find(t => t.id === ws.myTeamId);
+    if (editorSummary) editorSummary.textContent = `${plural(ws.teams.length, "team")}${marked ? ` · Your team: ${marked.name}` : ws.teams.length ? " · Expand to mark your team" : " · Paste your league's rosters or add teams"}`;
     renderCountMismatch();
   }
 
@@ -961,7 +966,7 @@
   function summaryControls(ws, basis) {
     const fields = T.summaryFields(basis);
     const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
-    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters : [];
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
     const save = patch => { UI.oppsShown = PAGE; update(w => W.ops.setUi(w, patch), "ui:summary-fields"); };
     const columns = el("details", {id: "v2LgFields", class: "v2-lg-field-options", open: Boolean(UI.fieldsOpen)}, el("summary", {text: "Add team summary columns"}),
       el("p", {class: "v2-meta", text: "Current team summary before the trade. Values and ranks follow the summary's ranking basis."}));
@@ -1071,7 +1076,7 @@
     const cols = O.OPP_COLUMNS.concat(optional);
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
-    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters : [];
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
     const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce).filter(r => rules.every(rule =>
       T.summaryFieldMatches(byTeam.get(rule.side === "mine" ? mine.id : r.opponentId), rule, basis)));
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
@@ -1089,6 +1094,10 @@
     const openFolds = new Map();
     capped.folds.forEach((rows, key) => { if (UI.expandedCores.has(key) && foldAt.has(key)) openFolds.set(key, rows); });
     const revealed = [...openFolds.values()].reduce((n, rows) => n + rows.length, 0);
+    // Expanding a core reveals more candidates without moving a worse rank ahead of a better one.
+    const displayRows = S.sortRows(shownRows.concat(...openFolds.values()), cols, state, O.OPP_TIES);
+    const displayFoldAt = new Map();
+    displayRows.forEach((r, i) => { if (capped.folds.has(coreKey(r))) displayFoldAt.set(coreKey(r), i); });
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
     const headline = el("p", {class: "v2-find-headline", id: "v2LgOppsHeadline", role: "status"}, O.leagueHeadline(res, balance && balance.ready ? {over: balance.over, under: balance.under} : null) || "No trade opportunities found.");
@@ -1140,12 +1149,11 @@
       {class: "v2-link v2-lg-fold-btn", id: `v2LgFold-${key}${suffix}`, "aria-expanded": String(openFolds.has(key))},
       () => { if (UI.expandedCores.has(key)) UI.expandedCores.delete(key); else UI.expandedCores.add(key); renderOpps(); });
     const bodyRows = [];
-    shownRows.forEach((r, i) => {
+    displayRows.forEach((r, i) => {
       bodyRows.push(oppRowBody(r));
       const key = coreKey(r);
-      if (capped.folds.has(key) && foldAt.get(key) === i) {
+      if (capped.folds.has(key) && displayFoldAt.get(key) === i) {
         bodyRows.push(el("tbody", {class: "v2-lg-fold"}, el("tr", {}, el("td", {class: "v2-lg-fold-cell", colspan: String(colspan)}, foldButton(key, "")))));
-        (openFolds.get(key) || []).forEach(m => bodyRows.push(oppRowBody(m)));
       }
     });
     const table = el("table", {class: "v2-find-lineup v2-lg-table", id: "v2LgOppsTable"},
@@ -1164,11 +1172,10 @@
       ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
       tail || null);
     const cardNodes = [];
-    shownRows.forEach((r, i) => {
+    displayRows.forEach((r, i) => {
       const key = coreKey(r);
-      const tail = capped.folds.has(key) && foldAt.get(key) === i ? foldButton(key, "-card") : null;
+      const tail = capped.folds.has(key) && displayFoldAt.get(key) === i ? foldButton(key, "-card") : null;
       cardNodes.push(oppCard(r, tail));
-      if (tail) (openFolds.get(key) || []).forEach(m => cardNodes.push(oppCard(m)));
     });
     const cards = el("ul", {class: "v2-lg-cards", id: "v2LgOppsCards"}, ...cardNodes);
     const remaining = sorted.length - shownRows.length;
@@ -1288,10 +1295,16 @@
     const params = new URLSearchParams(hash.slice(hash.indexOf("?") + 1));
     const ctx = mathContext();
     if (!ctx) return;
-    const teams = W.decodeShare(text, ctx.rowsByKey);
+    let teams;
+    try { teams = W.decodeShare(text, ctx.rowsByKey); }
+    catch (error) {
+      $("v2LgCard").open = true;
+      notice("That league link is incomplete or invalid. Your saved league has been kept.");
+      return;
+    }
     const keep = /[?&](trade=[^&]+)/.exec(hash);
     try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
-    if (!teams.length) { notice("That link carries no teams."); return; }
+    if (!teams.length) { $("v2LgCard").open = true; notice("That league link is empty or invalid. Your saved league has been kept."); return; }
     let w = W.newWorkspace({name: "Shared league"});
     teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); });
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
@@ -1381,7 +1394,7 @@
     const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
       el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
         el("h2", {id: "v2LgTitle", text: "Your league"}),
-        el("p", {class: "v2-meta", text: "Enter every team in your league, with names, and mark yours with the star. Below, a team summary compares the teams and a trade opportunities table lists the best trades for your team against all of them."}))),
+        el("p", {class: "v2-meta", id: "v2LgEditorSummary", text: "Paste your league rosters or add teams, then mark your team with the star."}))),
       el("div", {class: "v2-ctoolbar v2-lg-toolbar"}, el("b", {id: "v2LgCount", text: "Teams (0)"}), addBtn, clearAll, undo, fileInput,
         el("span", {class: "v2-meta v2-lg-saved", id: "v2LgSaved", role: "status", "aria-live": "polite"})),
       clearConfirm,
@@ -1404,7 +1417,7 @@
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
-      if (!tr || event.target.closest("button, a, select, input")) return;
+      if (!tr || event.target.closest("button, a, select, input, summary, details")) return;
       const row = UI.result && UI.result.rows.find(r => r.id === tr.dataset.oppId);
       if (row) { selectOpp(UI.selectedOpp === row.id ? null : row); renderOpps(); }
     });

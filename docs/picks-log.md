@@ -117,3 +117,4 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 
 - 10-28 UTC | Codex JEG-1213 | League-wide summary controls | Our team vs Their team fields | both teams, current summary before trade | Both | exposes all summary information with AND filters; matches shown precision and keeps missing values explicit | fe/jeg-1213-league-finder | no
 - 10-28 UTC | Codex JEG-1213 | Team count mismatch outside 8/10/12/14 | extend engine methodology / explain supported counts | explain counts, exact fix only supported sizes | engine expansion changes value math outside this ticket; warning appears at 8 teams | fe/jeg-1213-league-finder | no
+- 10-28 UTC | Codex JEG-1213 | Expanded core trade rows | keep inline grouping / retain selected sort globally | global sort | ticket requires opportunity best to worst even after expansion; core controls still reveal the same candidates | fe/jeg-1213-league-finder | no

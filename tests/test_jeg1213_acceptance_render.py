@@ -47,6 +47,8 @@ def open_details(page, selector):
 def show_all(page):
     if page.locator("#v2LgOppsAll").count() and page.is_visible("#v2LgOppsAll"):
         page.click("#v2LgOppsAll")
+    elif page.locator("#v2LgOppsMore").count() and page.is_visible("#v2LgOppsMore"):
+        page.click("#v2LgOppsMore")
 
 
 class Jeg1213AcceptanceRenderTest(unittest.TestCase):
@@ -107,9 +109,24 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
             sender.context.close()
             reader.context.close()
 
+    def test_malformed_share_link_keeps_saved_rosters(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base)
+            seed(page, "2team")
+            before = page.evaluate(TEAM_SNAPSHOT)
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.evaluate("() => { location.hash = '#find-league?workspace=Bad%:1'; }")
+            page.wait_for_function("() => document.querySelector('#v2LgNotice').textContent.includes('invalid')")
+            self.assertEqual(page.evaluate(TEAM_SNAPSHOT), before)
+            self.assertEqual(errors, [])
+            page.context.close()
+
     def test_team_count_warning_starts_at_eight_and_quick_fix_preserves_teams(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base)
+            page.evaluate("() => window.TradeValueV2.applyLinkLeague(new URLSearchParams('scoring=half&teams=12&inj=all&conf=1.5&bso=0.200&regend=14&playoffs=15-17'))")
+            before_settings = parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()"))
             page.evaluate("""() => { const W=window.TradeValueWorkspace; let w=W.newWorkspace();
               for(let i=0;i<7;i++)w=W.ops.addTeam(w,`Roster ${i+1}`); W.store.replace(w,'replace'); }""")
             self.assertFalse(page.is_visible("#v2LgMismatch"))
@@ -123,6 +140,8 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
             page.wait_for_function("() => window.TradeValueCurveControls.getState().teams === 8")
             self.assertEqual(page.evaluate(TEAM_SNAPSHOT), before)
             self.assertFalse(page.is_visible("#v2LgMismatch"))
+            after_settings = parse_qs(page.evaluate("() => window.TradeValueV2.leagueQuery()"))
+            self.assertEqual(after_settings, {**before_settings, "teams": ["8"]})
             page.context.close()
 
     def test_clean_paste_folds_league_and_teams_but_real_issue_stays_open(self):
@@ -151,7 +170,7 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
     def test_yahoo_navigation_junk_is_not_a_team_or_visible_paste_result(self):
         text = (ROOT / "tests/fixtures/league_paste/yahoo-league-rosters.txt").read_text()
         text = text.replace("Yahoo Sports", "Yahoo Sports Yahoo Sports Search query S", 1)
-        expected_names = list(json.loads((ROOT / "tests/fixtures/league_paste/teams.json").read_text()))
+        expected_names = [name[:40] for name in json.loads((ROOT / "tests/fixtures/league_paste/teams.json").read_text())]  # Existing workspace MAX_NAME=40
         with browser_on_build() as (browser, base):
             page = open_page(browser, base)
             page.fill("#v2LgLeaguePaste", text)
@@ -166,6 +185,11 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
             page = open_page(browser, base)
             seed(page, "4team")
             wait_opps(page)
+            fold = page.locator("#v2LgOppsTable .v2-lg-fold-btn").first
+            if fold.count():
+                fold.click()
+                revealed_ranks = [r["rank"] for r in page.evaluate(SHOWN_ROWS)]
+                self.assertEqual(revealed_ranks, sorted(revealed_ranks), "expanded groups retain opportunity order")
             show_all(page)
             rows = page.evaluate(SHOWN_ROWS)
             self.assertGreater(len(rows), 0)
@@ -182,7 +206,10 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
                 info = page.locator(f'tr.v2-lg-opp[data-overall="{variant}"] .v2-lg-fit-info > summary').first
                 self.assertEqual(info.count(), 1, f"fixture has no {variant} info control")
                 self.assertIn("About", info.get_attribute("aria-label"))
+                selected = page.evaluate("() => window.TradeValueLeague.ui.selectedOpp || null")
                 info.click()
+                self.assertTrue(info.locator("..").locator("p").is_visible(), "row selection must not close the explanation")
+                self.assertEqual(page.evaluate("() => window.TradeValueLeague.ui.selectedOpp || null"), selected)
                 definition = info.locator("..").inner_text().lower()
                 for word in words:
                     self.assertIn(word, definition)

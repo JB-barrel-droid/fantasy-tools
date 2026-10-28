@@ -417,6 +417,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_trifit
 	python3 -m unittest tests.test_v2_finder_balance
 	python3 -m unittest tests.test_v2_league_units
+	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
@@ -838,6 +839,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
 	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
@@ -893,6 +895,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
 	python3 -m unittest tests.test_v2_league_top10_render
 	python3 -m unittest tests.test_v2_find_split_render
