@@ -372,6 +372,11 @@ def publish_week_state(fixture_dest: Path, history_root: Path) -> None:
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
+    # Match the current fixture to saved weeks before judging freshness.
+    # A promotion changes built_at, invalidating the previous index; reading
+    # it first would fall back to labels and disagree with the page this sync
+    # publishes (for example, kept Week 7 inputs labelled Week 8).
+    sync_week_history(APP / "assets" / "history")
     # UTC, like every timestamp the report reads: a local date ran a day
     # behind them each evening in Chicago, so fresh inputs read as -1 days
     # old ("unknown") on a locally built monitor.
@@ -404,7 +409,6 @@ def main() -> int:
     else:
         shutil.copy2(FIXTURES / "comparison-sources-data.json", fixture_dest)
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
-    sync_week_history(APP / "assets" / "history")
     publish_week_state(fixture_dest, APP / "assets" / "history")
     # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
     # resolves the reader's league weeks and advanced settings against.

@@ -184,6 +184,21 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 
 ---
 
+### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.
+Main `032cee07` is merged into the branch. The review found a first-sync bug:
+freshness read the old history index before sync rebuilt it, so kept Week 7
+inputs labelled Week 8 could be reported current. History now rebuilds first.
+The new first-sync regression failed before the fix (`8 != 7`) and passes;
+45 focused freshness/week/sync tests pass. Log:
+`docs/claude-log/2026-10-28-jeg1180-first-sync.md`.
+
+Next: independent review and CI on the pushed head, then the parent coordinates
+serial merge and live verification. The earlier PASS at `487ddaa` below is
+superseded by this repair. #1042 follows #1022. This lane does not merge PRs,
+deploy, change Supabase, or edit JEG-1178 UI / JEG-1204 matrix work.
+
 ### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
 
 Stopped at 97% usage. State, verified 14:10 UTC:

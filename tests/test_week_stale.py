@@ -303,6 +303,60 @@ class ReferenceFreshnessStaleTest(ClockMixin, unittest.TestCase):
         self.assertEqual(crf.judging_instant(date(2026, 10, 29)), THURSDAY_1159_CT)
 
 
+class FirstSyncFreshnessTest(ClockMixin, unittest.TestCase):
+    def test_first_sync_uses_rebuilt_served_week_in_the_published_report(self):
+        """A newly promoted fixture invalidates the old index. Its labels
+        must not win over the served-week match that this sync publishes."""
+        import sync_dashboard_artifacts as sync
+        import check_source_divergence as divergence
+
+        class StopAfterHealthArtifacts(Exception):
+            pass
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            fixtures = root / "fixtures"
+            fixtures.mkdir()
+            (fixtures / "players.json").write_text(json.dumps({"meta": {}, "players": []}))
+            built_at = "2026-10-29T16:00:00Z"
+            (fixtures / "comparison-sources-data.json").write_text(json.dumps({
+                "built_at": built_at,
+                "sources": {"cbs": {"week_designated": "Week 8"}}}))
+            index = root / "data" / "history" / "index.json"
+            index.parent.mkdir(parents=True)
+            index.write_text(json.dumps({"fixture_built_at": "2026-10-26T12:00:00Z",
+                                         "served": {"cbs": {"week": 7}}}))
+            app = root / "app"
+            output = root / "output" / "reference-freshness.json"
+
+            def rebuild_history(target):
+                # The history builder matched the kept CBS inputs to Week 7.
+                index.write_text(json.dumps({"fixture_built_at": built_at,
+                                             "served": {"cbs": {"week": 7}}}))
+
+            nfl_week.set_clock(THURSDAY_1201_CT)
+            with mock.patch.multiple(sync, ROOT=root, FIXTURES=fixtures, APP=app,
+                                     DIST=root / "dist", REFERENCE_FRESHNESS=output), \
+                    mock.patch.object(sync, "import_health_source", return_value=None), \
+                    mock.patch.object(sync, "sync_week_history", side_effect=rebuild_history), \
+                    mock.patch("check_reference_freshness.judging_instant", return_value=THURSDAY_1201_CT), \
+                    mock.patch.object(divergence, "run_soft", return_value={}), \
+                    mock.patch.object(divergence, "freshness_summary", return_value={}), \
+                    mock.patch.object(sync, "publish_week_state", side_effect=StopAfterHealthArtifacts):
+                # Stop before unrelated dashboard builders; the actual report
+                # builder and its copy into the page assets have both run.
+                with self.assertRaises(StopAfterHealthArtifacts):
+                    sync.main()
+
+            report = json.loads((app / "assets" / "reference-freshness.json").read_text())
+            cbs = next(i for i in report["items"] if i["key"] == "comparison.source.cbs")
+            self.assertEqual(cbs["served_week"], 7)
+            self.assertEqual(cbs["served_week_basis"], "history_index")
+            self.assertEqual(cbs["week_state"], "stale")
+            self.assertTrue(cbs["freshness_ok"])
+            self.assertFalse(cbs["enforced"])
+
+
 class WeeklyFreshnessScriptTest(unittest.TestCase):
     """scripts/check_weekly_freshness.py reports trade-chart sources by their
     own week; stale is an annotation, never a breach."""
