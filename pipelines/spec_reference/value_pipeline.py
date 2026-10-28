@@ -874,7 +874,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                                             flex_bench_seats=flex_bench_seats)}
         bs = setting.bench_share_override
 
-    # JEG-969: promotion/demotion model (off by default)
+    # JEG-969: promotion/demotion model, off for everyone since JEG-1142
+    # (PROMOTION_MODEL_ENABLED master switch).
     promo = None
     if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = _load_promotion_config()

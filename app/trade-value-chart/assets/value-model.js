@@ -969,8 +969,9 @@
       timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);
     }
 
-    // JEG-969: promotion/demotion model (on by default, 2026-10-23).
-    // Set setting.promotion_model = false to disable.
+    // JEG-969: promotion/demotion model. Off for everyone since JEG-1142
+    // (PROMOTION_MODEL_ENABLED); setting.promotion_model only matters if that
+    // master switch is turned back on.
     var promoEnabled = PROMOTION_MODEL_ENABLED && (setting.promotion_model !== false) && esMode;
     var promoWeeksRemaining = 0;
     if (promoEnabled && lineup.window && lineup.window[1] >= lineup.window[0]) {

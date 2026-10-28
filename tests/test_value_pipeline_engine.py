@@ -319,14 +319,20 @@ class TestPromotionModelSwitchedOff(unittest.TestCase):
         import sys
         sys.path.insert(0, str(ROOT / "pipelines"))
         import value_reference as ref
-        inp = ref.Inputs.load()
+        from tests.test_two_qb_direction import data_today
+        # A day in the served content week, so rows are priced (unpinned, no
+        # chart is current between the Tuesday flip and new charts: JEG-1152).
+        inp = ref.Inputs.load(today=data_today())
 
         def ddf(flag):
             res = ref.Setting(inp, "ppr", 12, promotion_model=flag).result()
             return {k: ({v: r["ddf"][v]["value"] for v in ("blended", "charts", "projections")},
                         r["lineup_share"]) for k, r in res["rows"].items()}
 
-        self.assertEqual(ddf(True), ddf(False))
+        on, off = ddf(True), ddf(False)
+        priced = sum(1 for vals, _ in off.values() if vals["charts"])
+        self.assertGreater(priced, 100, "no rows priced; the comparison would be vacuous")
+        self.assertEqual(on, off)
 
     def test_spec_reference_flag_on_equals_baseline_and_js(self):
         import sys

@@ -33,3 +33,16 @@ main (`be/jeg-1142-promotion-off-v2`, main merged in, no rebase).
   and role-change upside in general terms; it describes the bench share,
   which stays, so it is left as is.
 - Health-check thresholds were tuned with the model on; not re-tuned here.
+
+### Review follow-ups (T1 review, same PR)
+- Re-froze `tests/fixtures/baseline_main_771c3422/` from this PR's engine (its
+  README says a deliberate default-value change re-freezes it);
+  `tests/test_basis_overrides_render.py` needs Playwright, so it is left to CI.
+  Verified: the copied curve-widget.js equals the old copy byte for byte; only
+  the switch lines in value-model.js differ.
+- `test_python_reference_flag_on_equals_baseline` pinned to a day in the
+  served week (`data_today()`) and asserts rows are priced; before, it priced 0
+  rows and compared None to None. Verified: it fails with the Python switch
+  on and passes with it off.
+- Stale "on by default" comments updated in the engine, both references and
+  `tests/value_pipeline_driver.js`.

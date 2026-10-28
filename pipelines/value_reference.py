@@ -935,7 +935,8 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     if es is not None:
         share_in = league.bench_share_override   # None = computed (ES-14)
 
-    # JEG-969: promotion/demotion model (off by default)
+    # JEG-969: promotion/demotion model, off for everyone since JEG-1142
+    # (PROMOTION_MODEL_ENABLED master switch).
     promo = None
     if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = load_promotion_config()
