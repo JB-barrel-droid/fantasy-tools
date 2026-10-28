@@ -41,6 +41,11 @@ and after each milestone; commit and push it with the relevant code.
   repair snapshots and restores the prior visit-only context when an accepted
   league import is undone. Cancel leaves it unchanged. Evidence:
   `docs/claude-log/2026-10-28-league-import-undo-context.md`.
+- Final independent review passed on `8e3bf8b8`. Current main `8cd3c26e`
+  (fidelity pulse generated data only) was merged normally and cleanly afterward;
+  the integration head needs fresh required CI. Main workflow green status was
+  unavailable from this environment and must be verified before release merge.
+  Evidence: `docs/claude-log/2026-10-28-league-main-integration.md`.
 
 
 

@@ -157,3 +157,11 @@ Snapshot the prior value context only when an import is accepted; Undo restores
 that visit-only context with rosters/settings, without rewriting saved preferences.
 Cancel does not apply the shared context. Evidence:
 `docs/claude-log/2026-10-28-league-import-undo-context.md`.
+
+### 2026-10-28 - Release current-main integration (JEG-1213)
+
+Final independent review passed `8e3bf8b8`. Main advanced only by a generated
+fidelity pulse (`8cd3c26e`); merge it normally into release #1062, preserving
+reviewed application code. New-head required CI and main-green verification
+remain before release merge. Evidence:
+`docs/claude-log/2026-10-28-league-main-integration.md`.
