@@ -491,6 +491,37 @@ t("test_opportunities_tier_before_edge", () => {
   assert.deepStrictEqual(out.map(r => r.id), ["e", "b", "c", "d", "a"]);
   assert.deepStrictEqual(out.map(r => r.rank), [1, 2, 3, 4, 5]);
 });
+// ---------- JEG-885: at most CAP_PER_CORE rows for one received core player, the rest folded ----------
+t("test_opportunities_cap_per_core", () => {
+  const rows = [{key: "a", core: {player_key: "A"}}, {key: "b", core: {player_key: "A"}}, {key: "c", core: {player_key: "A"}},
+    {key: "d", core: {player_key: "A"}}, {key: "e", core: {player_key: "B"}}];
+  const out = O.capPerCore(rows, r => r.core.player_key, O.CAP_PER_CORE);
+  assert.strictEqual(O.CAP_PER_CORE, 2);
+  assert.deepStrictEqual(out.list.map(r => r.key), ["a", "b", "e"], "at most two rows per received core player, in the order given");
+  assert.deepStrictEqual([...out.folds].map(([k, v]) => [k, v.map(r => r.key)]), [["A", ["c", "d"]]], "the rest fold under the core player");
+  // Selection only: the very same row objects, in the very same order, and a core with no overflow has no fold.
+  assert.strictEqual(out.list[0], rows[0]);
+  assert.strictEqual(out.list[2], rows[4]);
+  assert.strictEqual(out.folds.has("B"), false, "a core with rows under the cap has no fold");
+  // A core with exactly the cap keeps both rows and folds nothing.
+  const exact = O.capPerCore(rows.slice(0, 2), r => r.core.player_key, 2);
+  assert.deepStrictEqual(exact.list.map(r => r.key), ["a", "b"]);
+  assert.strictEqual(exact.folds.size, 0);
+  // The key is matched as a string: 7 and "7" are the same core player.
+  const mixed = O.capPerCore([{core: {player_key: 7}}, {core: {player_key: "7"}}, {core: {player_key: 7}}], r => r.core.player_key, 2);
+  assert.deepStrictEqual(mixed.list.map(r => r.core.player_key), [7, "7"]);
+  assert.strictEqual(mixed.folds.get("7").length, 1);
+});
+t("test_opportunities_cap_on_a_fixture", async () => {
+  const d = await opportunityRows("2team");
+  const key = r => r.core.player_key;
+  assert.ok(new Set(d.rows.map(key)).size === 1, "the 2-team fixture receives one core player in every row");
+  assert.ok(d.rows.length >= 4, `the core player has 4 or more rows (${d.rows.length})`);
+  const out = O.capPerCore(d.rows, key, O.CAP_PER_CORE);
+  assert.strictEqual(out.list.length, 2, "two rows stay visible");
+  assert.strictEqual(out.folds.get(String(d.rows[0].core.player_key)).length, d.rows.length - 2, "the rest fold under that player");
+  assert.deepStrictEqual(out.list.map(r => r.id), d.rows.slice(0, 2).map(r => r.id), "the two best stay, in rank order");
+});
 t("test_opportunities_1_opponent", async () => {
   const d = await opportunityRows("2team");
   assert.strictEqual(d.opps.length, 1);
