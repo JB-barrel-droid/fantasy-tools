@@ -2,10 +2,10 @@
  "meta": {
   "as_of": "2026-10-28",
   "prior_blend_snapshot": "2026-09-23",
-  "espn_snapshot": "2026-10-27",
+  "espn_snapshot": "2026-10-28",
   "rz_snapshot": "2026-10-27",
   "cbsros_snapshot": "2026-10-28",
-  "espn_snapshot_id": "sha256:0e7793555f7c9d965eab72eb36dceff7fbb7c2f494ced8993b5361034dc53c30",
+  "espn_snapshot_id": "sha256:67681d3637b2c8f76cbdd3c0d7a3dedccb368a50e3de1791e824aad167b47281",
   "cbsros_snapshot_id": "sha256:fabd6f663633ea8c87214b91c0e900cac56f98ed0b7923b538ec3efcbaf14400",
   "rz_snapshot_id": "sha256:784d068a6237bc65fefb77ad0f8497a48200cf57e94e0fa93ec07398431e0068",
   "n_players": 1163,
@@ -169,7 +169,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-28T14:18:49Z",
+   "built_at": "2026-10-28T15:41:56Z",
    "as_of": "2026-10-28",
    "summary": {
     "live": 3,
@@ -227,8 +227,8 @@
       "note": "Pure read over priced components only \u2014 missing components default to 0.0 in the primary leg (fantasy_points treats 0 identically to 'missing'). No expert blend fills the gap."
      },
      "freshness": {
-      "snapshot_date": "2026-10-27",
-      "content_date": "2026-10-27",
+      "snapshot_date": "2026-10-28",
+      "content_date": "2026-10-28",
       "note": "Daily morning pull. Content change vs the prior pull is not verifiable \u2014 only the current pull is retained. ESPN content is already rest-of-season, so no content-vintage gate applies here (unlike the retired ECR leg, which carried a 3-day content-staleness gate)."
      },
      "prior": {
