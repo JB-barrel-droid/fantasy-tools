@@ -844,11 +844,15 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 
 /* Compare a trade (frames 07 / 08 / 24): values per player, side totals, story, bars, breakdown. */
 .v2-ctoolbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
-.v2-trade-players li { display: grid; grid-template-columns: 1fr auto 44px; }
+.v2-trade-players li { display: grid; grid-template-columns: 1fr auto minmax(44px, auto); }
 .v2-trade-value { font-weight: 700; font-size: 16px; font-variant-numeric: tabular-nums; text-align: right; }
 .v2-trade-value .missing, .v2-side-total .missing { color: var(--v2-muted); font-weight: 400; font-size: 13px; }
 .v2-trade-value .missing .why, .v2-side-total .missing .why { display: block; font-size: 11px; }
-.v2-remove { min-width: 44px; font-size: 16px; color: var(--v2-muted); }
+.v2-remove { min-width: 44px; font-size: 13px; color: var(--v2-muted); }
+/* JEG-1190: Clear side under each list, Undo beside Clear trade, and the empty start's sample-trade button. */
+.v2-cside-clear { align-self: flex-start; font-size: 13px; padding: 0 2px; }
+.v2-cside-clear[hidden], #v2CUndo[hidden], .v2-cstart[hidden] { display: none; }
+.v2-cstart { margin-top: 8px !important; }
 .v2-side-total { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid var(--v2-border); margin-top: 4px !important; padding-top: 14px; }
 .v2-side-total[hidden] { display: none; }
 .v2-side-total b { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
@@ -1062,7 +1066,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-cexample .v2-pill { background: var(--v2-surface); border: 1px solid var(--v2-older); }
 /* JEG-1112: the Example banner sits inside .v2-chead (full width below 1280 px, as before). From 1280 px, where the verdict
    sits beside the two sides and the fold matters, a new visitor's header is two lines instead of four: the title and the
-   Example chip share a row with the Use this example button and the picker, and the subtitle, the week and the
+   Example chip share a row with the picker, and the subtitle, the week and the
    sample-trade sentence share the second line. Other tabs' headers are not touched. */
 #v2Compare .v2-cexample { flex: 1 1 100%; }
 @media (min-width: 1280px) {
@@ -1073,7 +1077,6 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-chead .v2-title .v2-asof { grid-column: 2; white-space: nowrap; }
   #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
   #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
-  #v2Compare .v2-chead .v2-cexample .v2-link { grid-row: 1; grid-column: 4; }
   #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
 }
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
@@ -1733,7 +1736,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (min-width: 360px) and (max-width: 767px) { .v2-tabs { flex-wrap: wrap; row-gap: 4px; } }
 
 /* JEG-827: the trade actions look like buttons (border and fill), not plain text. */
-#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUseExample { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
+#v2Compare #v2CSwap, #v2Compare #v2CClear, #v2Compare #v2CUndo { border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); padding: 0 14px; }
 
 /* Values auditing sub-navigation (JEG-847). */
 .v2-subtabs { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 var(--v2-gap); }
