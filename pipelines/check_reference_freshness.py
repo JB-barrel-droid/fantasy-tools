@@ -234,7 +234,10 @@ def make_source_week_item(source: str, section: dict[str, Any] | None,
         "stale": week["stale"],
         "stale_after": week["stale_after"],
         "color": WEEK_STATE_COLORS[state],
-        "freshness_ok": state in ("current", "lagging"),
+        # The page reads freshness_ok === false as "Not updating" (v2.js
+        # rootFreshness), ahead of Held. One week behind is normal lag or a
+        # stale warning, never "Not updating": stale rides in its own field.
+        "freshness_ok": week["weeks_behind"] is not None and week["weeks_behind"] <= 1,
         "enforced": False,
         "changed_since_prior_report": True,
         "note": note,
@@ -397,7 +400,6 @@ def build_report(
                 i["key"].rsplit(".", 1)[1] for i in source_weeks if i["week_state"] == "lagging"),
             "comparison_sources_stale": sorted(
                 i["key"].rsplit(".", 1)[1] for i in source_weeks if i["week_state"] == "stale"),
-            "judged_at": now.isoformat(),
         },
         "source_validation": comparison.get("source_validation", {}),
         "artifact_hashes": hashes,

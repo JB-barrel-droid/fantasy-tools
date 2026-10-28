@@ -254,6 +254,26 @@ class ReferenceFreshnessStaleTest(ClockMixin, unittest.TestCase):
         # 11:59 CT is still lagging.
         self.assertEqual(self.rows(self.report(THURSDAY_1159_CT))["usatoday"]["status"], "lagging")
 
+    def test_one_week_stale_is_not_not_updating(self):
+        """Review of #1022: the page reads freshness_ok === false as "Not
+        updating" ahead of Held. A source one week behind after Thursday noon
+        is stale (its own field), never freshness_ok false; two weeks behind
+        still is, as before."""
+        rows = self.rows(self.report(THURSDAY_1201_CT))
+        self.assertTrue(rows["usatoday"]["stale"])
+        self.assertIs(rows["usatoday"]["freshness_ok"], True)
+        self.assertEqual(rows["usatoday"]["weeks_behind"], 1)
+        two_weeks_on = datetime(2026, 11, 5, 17, 1, tzinfo=timezone.utc)  # Thu Nov 5 11:01 CT
+        rows = self.rows(self.report(two_weeks_on))
+        self.assertEqual(rows["usatoday"]["weeks_behind"], 2)
+        self.assertIs(rows["usatoday"]["freshness_ok"], False)
+
+    def test_summary_has_no_wall_clock_field(self):
+        """dist_manifest ignores only generated_at, so a judged-at stamp in
+        the summary would make every preview and prod manifest differ."""
+        summary = self.report(THURSDAY_1201_CT)["summary"]
+        self.assertNotIn("judged_at", summary)
+
     def test_served_week_from_the_history_index_decides(self):
         history = {"fixture_built_at": "2026-10-28T12:00:00Z", "served": {"cbs": {"week": 7}}}
         rows = self.rows(self.report(THURSDAY_1201_CT, history))
@@ -364,6 +384,17 @@ class WatchdogStaleTest(ClockMixin, unittest.TestCase):
             res = ic.run_ingest(cfg, week=8, discover_fn=miss, pull_fn=lambda u: self.fail("no pull"),
                                 db=object(), state_dir=td, pulls_dir=td)
         self.assertEqual(res["week_state"], "lagging")
+
+    def test_week_state_failure_never_fails_the_ingest(self):
+        """The week state is report only: if computing it breaks, the quiet
+        skip is returned unchanged instead of failing the CBS ingest."""
+        import _common
+        import ingest_common as ic
+        nfl_week.set_clock(THURSDAY_1201_CT)
+        with mock.patch.object(_common, "source_week_state", side_effect=RuntimeError("boom")), \
+                contextlib.redirect_stdout(io.StringIO()):
+            res = ic._with_week_state("cbs", {"status": "not_published", "week": 8, "newest_week": 7})
+        self.assertEqual(res, {"status": "not_published", "week": 8, "newest_week": 7})
 
 
 if __name__ == "__main__":

@@ -89,12 +89,15 @@ def _with_week_state(name: str, result: dict[str, Any]) -> dict[str, Any]:
     """Add the source's own week state to a quiet "not published" result
     (JEG-1180): the newest week it has published, judged by the shared rule.
     Stale prints a warning; the result and exit code are unchanged."""
-    from _common import source_week_state
-
     newest = result.get("newest_week")
     if not isinstance(newest, int):
         return result
-    st = source_week_state(newest)
+    try:
+        from _common import source_week_state
+        st = source_week_state(newest)
+    except Exception as e:  # report only: never fail the ingest over it
+        print(f"[{name}] week state not computed ({e}); continuing", flush=True)
+        return result
     result["week_state"] = st["state"]
     result["stale_after"] = st["stale_after"]
     if st["stale"]:

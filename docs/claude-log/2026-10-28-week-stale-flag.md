@@ -54,3 +54,25 @@ the New York day), `ops/watchdog/_common.py` + `ingest_common.py` (shared rule;
   is a discovery alarm, separate from the stale flag.
 - The site's stale badge (JEG-1178) and the JEG-1176 Tuesday/Wednesday health
   comment are other tickets.
+
+## Review fixes (source freshness lane, 2026-10-28 13:45Z)
+
+Independent review on #1022 found a blocker: after Thursday 12:00 CT every
+source one week behind got `freshness_ok: false`, which the page shows as
+"Not updating" ahead of "Held".
+
+- `freshness_ok` is true again for a source up to one week behind (as on
+  main); stale rides in its own `stale` / `week_state` fields. Two weeks
+  behind is still `freshness_ok: false`.
+- Dropped `summary.judged_at` (a wall-clock field `dist_manifest` does not
+  ignore).
+- `_with_week_state` is guarded: a failure computing the week state returns
+  the quiet skip unchanged instead of failing the ingest.
+- Kept the New York date in `check_weekly_freshness.py` (JEG-1177's one
+  clock); its Wednesday critical check now starts at midnight New York.
+
+Verified (check named): `python3 -m unittest tests.test_week_stale
+tests.test_chain_stuck_alert` (39 OK); `test_one_week_stale_is_not_not_updating`
+fails with the old line; the reviewer's replay (current fixture, clock Thu
+2026-10-29 12:01 CT) gives all 7 sources `stale: true, freshness_ok: true`.
+Claimed, not confirmed: Chromium render tests (run in CI).
