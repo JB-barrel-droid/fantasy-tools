@@ -31,6 +31,25 @@ Jeremy is near his usage limit, so Claude is stopping here. A successor picks up
 - **Handed to other lanes:** #1022 (JEG-1180) goes to source freshness; review found a blocker, see the PR comment. #1030 went to fit labels (merged). Connector work after #1032 goes to connector size and names.
 - **Picks log:** `/mnt/project-files/ddf/picks-log.md` (source of truth, every lane), copied into `docs/picks-log.md`. The Reversed column marks what Jeremy undid.
 
+### Rebuild publication retry lane (JEG-1206, Codex, 2026-10-28)
+
+- Branch: `be/jeg-1206-publish-retry` (base `0137a8a7`), for a draft PR only.
+  The workflow now retries monitoring-only main changes in an isolated
+  publication worktree, preserves newer monitoring reports and the validated
+  fixture/history together, and requests regeneration for source/input/history
+  changes. Three push attempts; no rebase or force-push. Candidate patches are
+  retained as run artifacts, and lost push acknowledgements are confirmed
+  before retrying so Pages still runs for accepted commits.
+- Verified: 129 targeted workflow/pipeline tests pass; the 17-case concurrent
+  main suite fails nine cases against the original workflow. Independent review
+  passed with no blocking findings. Full `make validate` result is in
+  `docs/claude-log/2026-10-28-rebuild-publication-retry.md`.
+- Exact next step: review the draft PR and wait for its current-head CI plus
+  green main. The parent release session owns the serial merge. After merge,
+  allow one rebuild to publish, wait for Pages, and verify the live history
+  index matches the run's committed index before closing JEG-1206. No production
+  workflow was dispatched by this lane and no live result is claimed.
+
 ### Main green lane
 
 Last updated: 2026-10-28 9:10 AM CT (14:10 UTC), by the Claude "Main green"

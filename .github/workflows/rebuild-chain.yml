@@ -37,8 +37,8 @@ on:
         required: false
         default: "false"
       # Handoff counter (2026-10-08). The commit step re-dispatches the chain
-      # with attempt+1 when its push conflicts with newer generated outputs on
-      # main; it stops at MAX_CHAIN_ATTEMPTS and fails loudly.
+      # with attempt+1 when main changes rebuild inputs or outputs; independent
+      # monitoring writes are handled locally. Stop at MAX_CHAIN_ATTEMPTS.
       attempt:
         description: "Regeneration attempt (set by the conflict handoff; leave at 1)"
         required: false
@@ -52,8 +52,9 @@ on:
 # after the first ended). The conflict came from the checkout: a queued run
 # checked out the SHA main had when it was DISPATCHED, i.e. before the run
 # ahead of it pushed, so it rebuilt on a stale tree. The checkout now takes
-# the branch tip at job start, and the commit step hands off to a fresh run
-# instead of failing if main still moves under it. Change-driven dispatches go through
+# the branch tip at job start. The commit step retries monitoring-only changes
+# locally and requests fresh regeneration for other changes to main.
+# Change-driven dispatches go through
 # `source_probe.py dispatch-chain`, which skips when a run is already waiting,
 # so a burst of changes coalesces into one queued run and never replaces a
 # waiting one (GitHub cancels an older *pending* run in the group).
@@ -525,50 +526,97 @@ jobs:
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
             git commit -m "$MESSAGE"
-            # JEG-299: main is hot (health pushes + lane merges move it during
-            # the chain run). Rebase onto the latest tip before pushing so a
-            # non-fast-forward rejection doesn't drop the rebuild; retry when
-            # main moves again between pull and push. --autostash: a failed
-            # chain leaves the partial fixture unstaged by design.
-            #
-            # A rebase CONFLICT means main received newer generated outputs
-            # while this run built (2026-10-08, run 37802134747). Neither side
-            # of that merge is the newest data, so it is never resolved here
-            # and never force-pushed: this run's output is dropped and a fresh
-            # chain run is dispatched; it checks out the new main and
-            # regenerates everything from the newest data. Bounded by
-            # MAX_CHAIN_ATTEMPTS, after which the job fails loudly.
+            # JEG-1206: independent monitoring writes must not discard a
+            # validated rebuild (run 40689076971). Publish its staged files
+            # from an isolated worktree at current main, keeping newer monitor
+            # reports. Never rebase, merge generated JSON, or force-push.
+            # Source/input/history changes require fresh regeneration instead:
+            # even a textually clean merge would invalidate this run's checks.
+            # The original checkout (including partial/unstaged outputs from a
+            # failed chain) stays intact; save the candidate for artifact upload.
+            candidate=$(git rev-parse HEAD)
+            base=$(git rev-parse HEAD^)
+            mkdir -p output
+            git diff --binary "$base" "$candidate" > output/rebuild-publication.patch
+            publish_root=$(mktemp -d)
+            git diff --name-only --no-renames -z "$base" "$candidate" > "$publish_root/candidate-paths"
+            trap 'git worktree remove "$publish_root/tree" 2>/dev/null || true' EXIT
             outcome=rejected
             for try in 1 2 3; do
-              if git pull --rebase --autostash origin main; then
-                if git push; then outcome=pushed; break; fi
-              elif [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
-                git rebase --abort || true
-                outcome=conflict; break
+              if ! git fetch origin main; then
+                sleep 10
+                continue
               fi
+              tip=$(git rev-parse FETCH_HEAD)
+              if [ -n "${publication:-}" ] && git merge-base --is-ancestor "$publication" "$tip"; then
+                outcome=pushed; break
+              fi
+              if ! git merge-base --is-ancestor "$base" "$tip"; then
+                echo "::error::origin/main no longer contains the rebuild base; refusing to publish."
+                exit 1
+              fi
+              git diff --name-only --no-renames -z "$base" "$tip" > "$publish_root/remote-paths"
+              while IFS= read -r -d '' path; do
+                case "$path" in
+                  dist/modules/source-import-health.json|dist/modules/github-actions.json|dist/modules/pipeline-checkpoints.json|dist/modules/monitoring-summary.json|dist/modules/ops-status.json|dist/modules/fidelity-pulse.json) ;;
+                  *) echo "Regeneration required after main changed: $path"; outcome=conflict; break ;;
+                esac
+              done < "$publish_root/remote-paths"
+              if [ "$outcome" = "conflict" ]; then break; fi
+
+              # Overlay only this run's staged changes. If an independent
+              # monitor changed on main, keep its latest report instead.
+              : > "$publish_root/publish-paths"
+              while IFS= read -r -d '' path; do
+                if git diff --quiet "$base" "$tip" -- "$path"; then
+                  printf '%s\0' "$path" >> "$publish_root/publish-paths"
+                fi
+              done < "$publish_root/candidate-paths"
+              git worktree add --quiet --detach "$publish_root/tree" "$tip"
+              if [ -s "$publish_root/publish-paths" ]; then
+                git -C "$publish_root/tree" restore --source="$candidate" --staged --worktree \
+                  --pathspec-from-file="$publish_root/publish-paths" --pathspec-file-nul
+              fi
+              if git -C "$publish_root/tree" diff --cached --quiet; then outcome=unchanged; break; fi
+              git -C "$publish_root/tree" commit -m "$MESSAGE"
+              publication=$(git -C "$publish_root/tree" rev-parse HEAD)
+              if git -C "$publish_root/tree" push origin HEAD:refs/heads/main; then outcome=pushed; break; fi
+              # A lost acknowledgement can report failure after the remote
+              # accepted the commit. Confirm before retrying or handing off,
+              # so an accepted publication still gets its Pages dispatch.
+              if git fetch origin main && git merge-base --is-ancestor "$publication" FETCH_HEAD; then
+                outcome=pushed; break
+              fi
+              git worktree remove "$publish_root/tree"
               sleep 10
             done
             case "$outcome" in
               pushed)
                 echo "pushed=true" >> $GITHUB_OUTPUT
                 ;;
+              unchanged)
+                echo "No new publication changes remain on current main."
+                echo "pushed=false" >> $GITHUB_OUTPUT
+                ;;
               conflict)
                 echo "pushed=false" >> $GITHUB_OUTPUT
                 if [ "$CHAIN_ATTEMPT" -ge "$MAX_CHAIN_ATTEMPTS" ]; then
-                  echo "::error::Rebase onto origin/main conflicted on generated files on attempt $CHAIN_ATTEMPT of $MAX_CHAIN_ATTEMPTS; not retrying. Rebuild output preserved in run artifacts."
+                  echo "::error::main changed rebuild inputs or outputs on attempt $CHAIN_ATTEMPT of $MAX_CHAIN_ATTEMPTS; not retrying. Candidate preserved in rebuild-publication artifact."
                   exit 1
                 fi
                 next=$((CHAIN_ATTEMPT + 1))
-                python3 pipelines/source_probe.py dispatch-chain --reason "regenerate-after-conflict" \
-                  --field "attempt=$next" --field "bake_players=$BAKE_PLAYERS"
+                dispatch=$(python3 pipelines/source_probe.py dispatch-chain --reason "regenerate-after-conflict" \
+                  --field "attempt=$next" --field "bake_players=$BAKE_PLAYERS")
+                echo "$dispatch"
                 echo "handoff=true" >> $GITHUB_OUTPUT
-                MSG="main received newer generated outputs during this run; dropped this run's output and dispatched a fresh chain run (attempt $next of $MAX_CHAIN_ATTEMPTS) to regenerate on top of it."
+                MSG="main changed rebuild inputs or outputs; candidate saved without publishing. Requested regeneration (attempt $next of $MAX_CHAIN_ATTEMPTS). Dispatcher result: $dispatch"
                 echo "::warning title=rebuild-chain handoff::$MSG"
                 echo "### Rebuild chain handoff" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
                 echo "$MSG" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
                 ;;
               *)
-                echo "::error::push to main rejected 3 times without a conflict; not force-pushing."
+                echo "pushed=false" >> $GITHUB_OUTPUT
+                echo "::error::Could not publish to current main after 3 attempts; candidate preserved in rebuild-publication artifact."
                 exit 1
                 ;;
             esac
@@ -648,6 +696,15 @@ jobs:
             output/value-check-prehold.json
             output/value-check-prehold.md
           if-no-files-found: warn
+          retention-days: 14
+
+      - name: Preserve rebuild publication candidate (JEG-1206)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-publication
+          path: output/rebuild-publication.patch
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Upload review artifacts (JEG-113)
