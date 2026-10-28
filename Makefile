@@ -686,6 +686,7 @@ test-core-shard-1:
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_value_pipeline_engine
+	python3 -m unittest tests.test_jeg1205_fill_peers
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
