@@ -37,10 +37,23 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests. Make
   stops at the first failing module, so probe run 40696409208 on
   `scratch/shard1-probe` runs every module with `make -k`.
-- **Rebuild chain is green (verified):** it succeeded at `ed42c8e` after the
-  board lane's JEG-1176 work. #1038 (JEG-1194) stops a red on a newer stored
-  save from holding the live chart and opens a GitHub issue when the chain
-  stays stuck; see docs/claude-log/2026-10-28-board-publish-holds.md.
+- **Week 8 rebuild (JEG-1194, checked 14:10 UTC):** the site still serves
+  week 7 for all seven sources (fixture built 2026-10-26 15:42Z). Chain run
+  40689076971 (12:35Z, `ed42c8e`) built week 8 and passed `make validate`,
+  but its push rebase conflicted on `dist/modules/source-import-health.json`,
+  so its output was dropped. Run 40689841714 (queued 12:41Z) was still running.
+  CBS week 8 was reloaded at 12:23Z (bake `cbswk8_2026-10-28t1223_v1`, 35 TE).
+- **#1038 (merged `4928cc2`):** a red on a stored save newer than the live
+  chart now holds only a build from that save (`judged_save`), never the live
+  chart. `pipelines/chain_stuck_alert.py` opens one `chain-stuck` GitHub issue
+  when the chain fails and the fixture is 6+ h old, and closes it on publish.
+  Log: docs/claude-log/2026-10-28-board-publish-holds.md.
+- **Next step (JEG-1194):** when run 40689841714 finishes, check that
+  `data/history/index.json` on main serves week 8 and the live site says
+  "data through Week 8". If it failed or conflicted again, read its log;
+  dispatch a fresh chain only if none is queued. Open issues to file: a
+  generated-file conflict drops a good rebuild; a parser fix never re-ingests
+  (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
 - **What is broken now (verified 05:30 UTC):** the live DDF MCP connector
   (edge function `mcp` v12) returns no players because `get-values` returns
   none since the week 8 flip. The fix (#1028) is merged but needs a
