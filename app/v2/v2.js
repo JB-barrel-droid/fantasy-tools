@@ -7270,7 +7270,7 @@
     bindRisers();
   }
 
-  // JEG-1026: what ddf-assist.js (Copy for ChatGPT/Claude, the paste box, state links) may read and change on this page.
+  // JEG-1026: what ddf-assist.js (Copy link, state links) may read and change on this page.
   // A narrow set of hooks, so the assist code never reaches into this file's state.
   function attachAssist() {
     if (!window.DDFAssist) return;

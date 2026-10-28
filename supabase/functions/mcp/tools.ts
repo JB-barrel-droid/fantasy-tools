@@ -229,7 +229,7 @@ export const TOOLS = [
   {
     name: "make_state",
     description:
-      "Save work from this chat as a DDF state the person can paste into the Data Driven Football site (or open by link): league settings plus a trade, rosters or a target player, by name. Returns the pasteable block and the link.",
+      "Save work from this chat as a Data Driven Football site link the person opens to continue there: league settings plus a trade, rosters or a target player, by name. Returns the link (and the same state as a block).",
     inputSchema: {
       type: "object",
       properties: {
@@ -1119,7 +1119,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const text = [
     ...header(data, s),
     "",
-    "Saved as a DDF state. The person can paste the block below into the site's paste box, or open the link.",
+    "Saved as a DDF state. The person opens the link below to continue on the site.",
     ...(unmatched.length ? [`Could not match: ${unmatched.join(", ")} (kept by name; the site will try again).`] : []),
   ].join("\n");
   return finish(ok(text, { as_of: data.as_of, setting: data.setting, unmatched }), {
