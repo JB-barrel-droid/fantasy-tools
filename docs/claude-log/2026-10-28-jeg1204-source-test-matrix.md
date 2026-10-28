@@ -47,12 +47,22 @@ implement source isolation or change production value logic.
   `make value-check-compare test-integration` passing. This is the full gate
   on the original PR base plus this patch, not a claim that the interrupted
   original `make validate` command returned 0.
+- Engine/reference comparison: agree, 1,229,985 compared values and
+  0 mismatches at the existing tolerance; all seven source reports agree.
+- Integrated main `1bd85f76` with a normal merge (`6af11a8f`), preserving
+  both lanes' HANDOFF and picks-log edits. No matrix implementation files
+  overlapped upstream. After the rebuild from main's Week 8 inputs,
+  29 focused tests passed in 93.360 seconds: all fixture cases, FantasyCalc
+  held/lagging/held-lagging/corrupt, and ESPN lagging/corrupt.
 
 ### Claimed, not confirmed
 
-- Main integration, focused Week 8 checks, publication, and PR CI will be
-  recorded before this lane stops. No PR merge, deployment, Supabase change,
-  ticket completion, or live acceptance is claimed here.
+- Full local validation was not repeated after main integration, per the
+  parent's instruction to avoid repeating long successful checks. Required
+  remote CI on the final integrated commit remains the full acceptance gate.
+- No PR merge, deployment, Supabase change, ticket completion, or live
+  acceptance is claimed here. Parent owns those next steps after final CI
+  and review pass and main is green.
 
 ### Choices and handoff
 
@@ -68,7 +78,10 @@ implement source isolation or change production value logic.
   `RENDER_TESTS_REQUIRED=1`. Without CHROMIUM_PATH the builder tried an absent
   Playwright bundled browser; using the installed Chromium resolved it.
 - Build output remains uncommitted; no generated files are deleted for
-  cleanup. Parent owns main integration, green CI, serial merge/release,
+  cleanup. Before integrating main, tracked app/dist output was preserved in
+  `stash@{0}` named `JEG-1204 generated build artifacts before main integration`.
+  Fresh generated changes and untracked dist artifacts remain local. Parent
+  owns green CI, serial merge/release,
   live verification, and then closing JEG-1204.
 - Linear reread at 14:47 UTC reported JEG-1204 as Done while PR #1051 was
   still open and notes-only. This lane made no Linear edits or completion

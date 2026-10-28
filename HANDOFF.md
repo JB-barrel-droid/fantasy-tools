@@ -664,10 +664,16 @@ Failed approaches and traps:
 - Fixtures come from consecutive complete saved weeks, including when the
   real build already has mixed weeks. Projection replays replace the inline
   player PPG input as well as reference players; saved history stays intact.
-- Verification and remaining work: see
-  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`. Parent owns
-  refreshing from main, CI, serial merge/release, and Linear completion.
-  Do not start JEG-1203 isolation on an unreviewed or failing guard.
+- Main `1bd85f76` is integrated. The 59-test matrix passed; the rest of the
+  full gate passed after resuming an environment-only Chromium lookup
+  failure, with 0 engine/reference mismatches across 1,229,985 comparisons.
+  After integration, 29 focused Week 8 tests passed. The full local gate was
+  not repeated after integration; required remote CI must pass on final head.
+- Exact next step for the parent: read final-head CI and review on #1051,
+  recheck main, then handle serial PR merge/release and live verification.
+  Reconcile Linear's premature Done status afterward. JEG-1203 depends on
+  the reviewed passing guard. Details and retained local artifacts are in
+  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`.
 
 ## Keeping this file current
 
