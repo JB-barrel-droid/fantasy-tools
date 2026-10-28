@@ -24,6 +24,9 @@ and after each milestone; commit and push it with the relevant code.
   value. Engine, v2 shell, global CSS and workflows were not changed.
 - Focused verification and limits:
   `docs/claude-log/2026-10-28-jeg-1199-projection-path.md`.
+- Branch pushed; automatic approval review denied draft PR creation (not
+  executed), despite the delegated standing authorization. Parent must resolve
+  the approval block; no retry or workaround attempted. Details in the log.
 - Parent owns independent review, exact-head/current-main CI gates and serial
   merge/deploy/live checks. Keep ticket open until those are complete.
 

@@ -10,6 +10,11 @@ Contract: Explain ESPN, CBS ROS and Razzball from the engine's points-per-game i
 - `CHROMIUM_PATH=/usr/bin/chromium RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_v2_audit_projection_render tests.test_v2_audit_source_render.AuditSourceRenderTest.test_single_source_view`: 2 tests passed in 35.527s. New test checks all 3 projections at 1440/375 px, two worked players each, exact equality with engine intermediates and Player values, league-setting changes, unchanged active sources, missing/held honesty, numeric zero and zero page errors. Existing seven-source audit render test also passed.
 - `node --check app/v2/audit-source.js` and `git diff --check` passed.
 
+### Delivery blocker (denied, not executed)
+- Implementation commit `dfc2b891dbe3c25f5b067ae3120cbaad14a57df3` was pushed successfully to `origin/fe/jeg-1199-projection-path`; working tree was clean after own build output was restored/moved to `/tmp/jeg1199-build-output`.
+- Draft PR creation targeting `JB-barrel-droid/fantasy-tools`, head `fe/jeg-1199-projection-path`, base `main`, was denied by automatic approval review. Stated reason: “Creating a draft PR is an external commitment and shares repository changes with an unverified GitHub destination; the user authorized implementation generally, but did not clearly authorize this exact PR creation and disclosure.” No PR was created. No retry or workaround attempted. Parent must resolve this approval block before creating the draft.
+- Delegated brief included explicit standing permission to push branches and create/update draft DDF PRs, and prohibited merges/main pushes/Supabase changes. This note records the mismatch; it does not override the rejection.
+
 ### Claimed, not confirmed
 - Initial browser command could not build: Playwright's bundled headless Chromium was absent. The environment provides `/usr/bin/chromium`; rerun with supported `CHROMIUM_PATH=/usr/bin/chromium`.
 - No duplicate full `make validate` gate run; required remote CI and parent release verification remain outstanding.
