@@ -89,8 +89,9 @@ cancelled by newer pushes; a successful containing commit is what matters.
 ## Coordination and automation
 
 Check current PR heads, ticket activity and hot-file overlap before work.
-Old session/owner/wave/BE labels were removed at Jeremy's request; do not
-restore them or infer an active owner from an old label. Keep one current
+Only Bug, Feature and Improvement remain for this project. Retire old
+session/owner/wave/BE queue, tier and review/prototype labels; do not recreate
+them or infer an active owner from an old label. Keep one current
 status rather than a stream of takeover/CI-wait memos.
 
 Agent activity is not freshly verified. The older lane record described:

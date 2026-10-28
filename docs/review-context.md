@@ -34,6 +34,10 @@ claim that all validation already passed.
 
 ## Update rather than append
 
+Use only Bug, Feature and Improvement labels for Trade Value Chart. Model
+capability follows the task scope; decisions/holds belong in status and brief,
+not another label taxonomy.
+
 Keep one current status summary per workstream; update it when state changes.
 Do not add “still waiting,” repeated failed merge attempts, copied test logs
 or ownership-routing memos. Put durable decisions into the ticket/PR brief

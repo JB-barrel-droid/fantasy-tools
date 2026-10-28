@@ -23,7 +23,7 @@ merges ordered so main stays green.
 
 ## Model tiers and responsibilities
 
-The Model tier label is the minimum capability:
+Choose the minimum model capability from the task, not a Linear label:
 
 - **T1 deep:** value/engine math, methodology, unknown-root-cause debugging,
   design, independent review, every merge and deploy.
@@ -72,7 +72,7 @@ directly. It closes when its last child closes.
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
 | Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | One Model tier plus useful work type. Historical Session, owner, Wave and BE queue labels were removed by Jeremy's Oct 28 grooming request; do not restore them automatically. |
+| Labels | Bug, Feature or Improvement only. Owner/session, wave, BE queue, model-tier, review and prototype labels are retired by Jeremy's Oct 28 cleanup; do not recreate them. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -85,7 +85,7 @@ directly. It closes when its last child closes.
 
 Backlog = unscheduled; tracking parents are not direct work. Todo = ready to
 resume, including finishing a handed-off PR. In Progress = actively worked.
-In Review / needs-review = a real unresolved decision or explicit hold, with
+In Review = a real unresolved decision or explicit hold, with
 context/options/recommendation in the current brief. Done = merged and live.
 
 ### Ownership and handoff
@@ -96,8 +96,8 @@ one current status summary. Before claiming, check for overlapping hot files
 and an active heartbeat/commit/PR update within four hours. Do not overwrite
 another worker's current work; coordinate first. Jeremy can authorize takeover.
 
-Claim a Todo ticket by setting In Progress with the minimum Model tier and
-its branch. Update the same status summary on meaningful state changes and
+Claim a Todo ticket by setting In Progress and recording its branch.
+Choose sufficient model capability from the scope; do not add a tier label. Update the same status summary on meaningful state changes and
 at least every four active hours; push validated work so it is recoverable.
 Do not append repeated routing, waiting or retry memos. When stopping, leave
 current state/branch/next check and return the ticket to Todo.
@@ -109,10 +109,10 @@ tracks managed-agent teardown; do not infer schedules stopped from retirement.
 
 Product, copy and method choices that are his are posted on the ticket as
 options with context and a recommendation; use the newer logged-pick exception
-in HANDOFF.md only where authorized. Add `needs-review`, move the ticket to
-In Review, and claim the next ticket rather than waiting. Batch questions and
+in HANDOFF.md only where authorized. Record the question/hold in the brief,
+move the ticket to In Review, and claim the next ticket rather than waiting. Batch questions and
 never repeat one he has answered; check the ticket first. When he answers, the
-owner folds the dated decision into the current brief, removes `needs-review`, and moves the
+owner folds the dated decision into the current brief and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes
 a rule also lands in `docs/decisions.md`. Pre-launch, block only on wrong
 numbers and finish end to end.
