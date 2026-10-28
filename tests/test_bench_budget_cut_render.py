@@ -29,12 +29,18 @@ has no view is named on stderr, never failed and never silently dropped.
 Three layers:
   * CheckerTest: the rule on synthetic runs (no node, no browser).
   * EngineTest: value-model.js under node on the worked example (three
-    variants), and the same engine with one source's bench budget perturbed
-    by 1%, which must fail.
+    variants), and the same engine with the mutation below, which must fail.
   * ServedPageTest: the built engine page on the served data, at four
-    settings in every week view, plus the 1% perturbation served in place of
+    settings in every week view, plus the mutation served in place of
     value-model.js, which must fail. Needs Chromium: a skip locally, an error
     under RENDER_TESTS_REQUIRED=1 (CI).
+
+The mutation: one source moves 1% of each position's bench budget to that
+position's starter budget. Its total still sums to the pie, so the page's own
+fixedPieIndexed guard ("every source sums to the league pie") passes it; a
+mutation that changes a source's total is already stopped there (the page
+refuses to load: CI run on c98af42). This check is what catches a bench/starter
+split that differs by source.
 """
 from __future__ import annotations
 
@@ -51,17 +57,20 @@ ROOT = Path(__file__).resolve().parents[1]
 VALUE_MODEL = ROOT / "app" / "trade-value-chart" / "assets" / "value-model.js"
 POSITIONS = ("QB", "RB", "WR", "TE")
 REL_TOL = 1e-6
-PERTURB = 1.01
+SHIFT = 0.01
 
-# The mutation: one source's bench groups funded at 101% of the shared budget.
+# The mutation: one source funds 1% of each bench budget as starter budget
+# instead (pie-conserving, see the module docstring).
 FUND_ANCHOR = "Object.keys(budgets).forEach(function (g) { funded[g] = budgets[g]; });"
 
 
 def perturbed_model(source: str) -> str:
     model = VALUE_MODEL.read_text(encoding="utf-8")
-    body = model.replace(FUND_ANCHOR, (
-        "Object.keys(budgets).forEach(function (g) { funded[g] = budgets[g]"
-        f" * (src === {json.dumps(source)} && /\\|bench$/.test(g) ? {PERTURB} : 1); }});"))
+    body = model.replace(FUND_ANCHOR, FUND_ANCHOR + (
+        f" if (src === {json.dumps(source)}) POSITION_ORDER.forEach(function (pos) {{"
+        " var b = vpGroupKey(pos, 'bench'), s = vpGroupKey(pos, 'starter');"
+        f" if (!(o.groups[b] > 0 && o.groups[s] > 0)) return; var d = {SHIFT} * funded[b];"
+        " funded[b] -= d; funded[s] += d; });"))
     if body == model:
         raise AssertionError("mutation anchor moved: value-model.js no longer funds groups from budgets as "
                              f"{FUND_ANCHOR!r}; update the anchor to the new budget line")
@@ -334,12 +343,17 @@ class EngineTest(unittest.TestCase):
             model.write_text(perturbed_model("c2"), encoding="utf-8")
             for variant in self.VARIANTS:
                 with self.subTest(variant=variant):
-                    problems, _, _ = check_run(from_driver(run_engine(model=model, variant=variant)), str(variant))
+                    out = run_engine(model=model, variant=variant)
+                    problems, _, _ = check_run(from_driver(out), str(variant))
                     self.assertTrue(any(" c2 " in p for p in problems),
-                                    f"a 1% bench-budget perturbation of c2 was NOT caught: {problems}")
+                                    f"a 1% bench-to-starter shift in c2 was NOT caught: {problems}")
                     # Only the perturbed source is off its budget.
                     off = {p.split(": ", 1)[1].split(" ", 1)[0] for p in problems if "differs" not in p}
                     self.assertEqual(off, {"c2"}, problems)
+                    # The shift keeps c2's total on the pie, so the page's
+                    # fixedPieIndexed guard cannot see it; only this check does.
+                    total = sum(p["adjusted"] for p in out["sources"]["c2"]["players"].values())
+                    self.assertAlmostEqual(total, out["pie"], delta=REL_TOL * out["pie"])
 
 
 class ServedPageTest(unittest.TestCase):
@@ -374,11 +388,11 @@ class ServedPageTest(unittest.TestCase):
         runs, _ = page_runs({"assets/value-model.js": perturbed_model(source).encode("utf-8")})
         broken, _, _ = check_runs(runs)
         if not any(f" {source} " in p for p in broken):
-            annotate("JEG-1189 bench budget cut mutation", [f"{source} x{PERTURB} not caught"] + broken)
-        print(f"\n[bench budget cut mutation] {source} bench funded x{PERTURB}: {len(broken)} problems, "
+            annotate("JEG-1189 bench budget cut mutation", [f"{source} {SHIFT:.0%} shift not caught"] + broken)
+        print(f"\n[bench budget cut mutation] {source} {SHIFT:.0%} of bench budget to starter: {len(broken)} problems, "
               f"e.g. {broken[:1]}", file=sys.stderr)
         self.assertTrue(any(f" {source} " in p for p in broken),
-                        f"a 1% bench-budget perturbation of {source} was NOT caught: {broken[:5]}")
+                        f"a 1% bench-to-starter shift in {source} was NOT caught: {broken[:5]}")
 
 
 if __name__ == "__main__":
