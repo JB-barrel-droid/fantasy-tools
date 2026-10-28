@@ -34,19 +34,22 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
   #1023 makes Compare open empty with a Try a sample trade button, and the
   sample is now a real trade, so `test_v2_names_render` found no deal nets and
   `test_v2_plain_copy_render` lost the week line Compare hides once a trade is
-  on (`#v2Compare.has-trade`). PR #1040 changes only those two tests. Make
+  on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests. Make
   stops at the first failing module, so probe run 40696409208 on
   `scratch/shard1-probe` runs every module with `make -k`.
 - **Rebuild chain is green (verified):** it succeeded at `ed42c8e` after the
-  board lane's JEG-1176 work; the CBS hold no longer blocks it.
+  board lane's JEG-1176 work. #1038 (JEG-1194) stops a red on a newer stored
+  save from holding the live chart and opens a GitHub issue when the chain
+  stays stuck; see docs/claude-log/2026-10-28-board-publish-holds.md.
 - **What is broken now (verified 05:30 UTC):** the live DDF MCP connector
   (edge function `mcp` v12) returns no players because `get-values` returns
   none since the week 8 flip. The fix (#1028) is merged but needs a
   `get-values` redeploy, which waits on Jeremy's yes. It also clears by itself
   once a week 8 chart bundle publishes.
-- **What I am working on:** PR #1040 (render sweep fix), then merging #1031
-  (this handoff) and #1035 (JEG-1193 phone chip) one at a time on green CI,
-  under Jeremy's rule that PRs he approved merge on green CI. Other agents are actively merging to `main` every few minutes;
+- **What I am working on:** a full render sweep on main after #1040, then
+  merging #1031 (this handoff) and #1035 (JEG-1193 phone chip) one at a time on
+  green CI, under Jeremy's rule that work he asked for merges on green CI with a
+  passed review. Other agents are actively merging to `main` every few minutes;
   see "Active agents and automation" below before touching any branch.
 - **Next concrete action for a successor:**
   1. `git pull` on `main`, read section 7, then the Linear In Progress list
@@ -56,7 +59,7 @@ Compare start); the test-only fix is PR #1040. The rebuild chain is green again.
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
-- **Incomplete changes / blockers:** #1040, #1031 and #1035 above. Open decisions waiting on
+- **Incomplete changes / blockers:** #1031 and #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
   harmless, leave it. The same goes for `jeg-920`, `scratch/sweep-all`,
