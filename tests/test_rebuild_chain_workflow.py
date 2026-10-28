@@ -110,6 +110,9 @@ def run_script(text, step_name, cwd, env_extra=None):
         if not helper.exists():
             helper.parent.mkdir(parents=True, exist_ok=True)
             helper.write_bytes((ROOT / "pipelines/main_write_guard.py").read_bytes())
+            timestamps = helper.parent / "lib/timestamps.py"
+            timestamps.parent.mkdir(parents=True, exist_ok=True)
+            timestamps.write_bytes((ROOT / "pipelines/lib/timestamps.py").read_bytes())
     env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd), **(env_extra or {})}
     return subprocess.run(["bash", "-e", "-c", script], cwd=cwd, env=env,
                           capture_output=True, text=True)

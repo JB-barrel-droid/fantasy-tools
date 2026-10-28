@@ -46,7 +46,9 @@ parent owns merge/activation/restoration. One coding session, no subagent fanout
 
 - Preview run 40726086852 shard 1 failed `tests.test_timestamps`: the new
   guard parsed two pause timestamps with raw `datetime.fromisoformat`. It now
-  uses the shared `parse_iso_timestamp` helper. Timestamp and guard tests pass.
+  uses the shared `parse_iso_timestamp` helper. Timestamp and guard tests pass. After the main merge, the rebuild test
+  harness also copies the shared parser into its temporary checkout. All 62
+  focused timestamp, guard, alert, staging and rebuild tests pass.
 - Integrated main d9f617e0, preserving both HANDOFF lane sections and the Pages
   sharding changes. Local help probe regenerated checkpoint files; these are
   safely preserved in a named git stash, not part of this PR.
