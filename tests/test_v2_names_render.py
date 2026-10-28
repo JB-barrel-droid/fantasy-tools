@@ -159,6 +159,10 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
             # Compare: the deal-read nets define themselves with the shared wording.
             page.evaluate("() => { location.hash = '#compare-trade'; }")
             page.wait_for_timeout(1200)
+            # JEG-1190: Compare opens empty; the sample loads on Try a sample trade.
+            if page.is_visible("#v2CTryExample"):
+                page.click("#v2CTryExample")
+                page.wait_for_timeout(400)
             nets = page.evaluate("""() => [...document.querySelectorAll('#v2CDealNets li')].map(li => [li.querySelector('.v2-deal-name').textContent, li.querySelector('.v2-deal-def').textContent])""")
             for name, definition in nets:
                 want = next((text for n, text in DEFS + NET_ONLY_DEFS if n == name), None)
