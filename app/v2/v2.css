@@ -489,6 +489,15 @@ details.v2-cgroup > summary { cursor: pointer; min-height: 44px; }
   .v2-ttable .t-expand, .v2-ttable tr.t-detail { display: none; }
   .v2-ttable th, .v2-ttable td { padding-inline: clamp(4px, .55vw, 8px); }
 }
+/* JEG-1082: on the 768 px-tall desktop viewports (1366x768, 1024x768) the two-line rows put the top 5 of both lists
+   past TOP5_FOLD_PX. Tighten only the row rhythm on the Targets view at those heights: nothing is hidden, no name is
+   truncated, and the 900 px-tall desktop (JEG-675's fold check) is untouched. */
+@media (min-width: 1024px) and (max-height: 820px) {
+  #v2Targets .v2-ttable th, #v2Targets .v2-ttable td { padding-top: 3px; padding-bottom: 3px; }
+  #v2Targets .v2-ttable td.player .v2-nm, #v2Targets .v2-ttable .player-sub { line-height: 1.2; }
+  #v2Targets .v2-tlist { padding-top: 10px; }
+  #v2Targets .v2-tlist-head .v2-meta { margin-top: 0 !important; }
+}
 
 /* Shared: the prior-week badge (JEG-459) and the ⓘ "indexed" button (JEG-458). */
 /* Source divergence chip (JEG-609): the same slot and size as the prior-week badge; amber for Check, green for Reviewed. */

@@ -110,6 +110,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
         def open_page(hash_, width=1440, height=1000):
             page = browser.new_page(viewport={"width": width, "height": height})
+            page.add_init_script(_render_env.pin_data_week_script())   # JEG-1152: the data's week, not the wall clock
             page.on("pageerror", lambda e: page_errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             if js_patch:
