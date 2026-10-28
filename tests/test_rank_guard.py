@@ -314,8 +314,10 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
         if cls.HELD:
             doc = json.loads(overrides[W.FIXTURE_ASSET])
             for key in cls.HELD:
-                doc["sources"][key]["promotionHold"] = {"reason": "review hold (rank guard sentinel)",
-                                                        "hold_level": "red"}
+                # The field the chain writes (pipelines/fidelity_hold.py); the
+                # page reads validationHold first, so this replaces any held one.
+                doc["sources"][key]["validationHold"] = {"reason": "review hold (rank guard sentinel)",
+                                                         "hold_level": "red"}
             overrides[W.FIXTURE_ASSET] = json.dumps(doc, separators=(",", ":"))
         return overrides
 
@@ -398,7 +400,8 @@ class TestEngineKeepsOrderWithHeldLaggingChart(TestEngineKeepsOrderInTransition)
     """Chain run 40612356639 (after #1016): CBS was a week behind AND on a red
     review hold. A red hold hides a chart from DDF Value (JEG-569), so the
     page's missing_sources did not name it and the guard reported it missing.
-    Same replay with CBS also red-held: it must still be read in its own week."""
+    Same replay with CBS also red-held (validationHold, as the chain writes it): it must still be read
+    in its own week."""
 
     HELD = ("cbs",)
 
