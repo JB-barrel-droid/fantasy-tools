@@ -165,6 +165,45 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
                                 reader.context.close()
                         sender.context.close()
 
+    def test_shared_league_cancel_and_undo_restore_previous_value_context(self):
+        with browser_on_build() as (browser, base):
+            sender = open_page(browser, base, init_script=CLIPBOARD)
+            seed(sender, "2team")
+            keys = sender.evaluate("() => window.TradeValueCurveControls.getAllRows().slice(0, 2).map(r => String(r.player_key))")
+            sender.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams('basis=fantasycalc&ov='+key+':60'))", keys[0])
+            open_details(sender, "#v2LgTransfer")
+            sender.click("#v2LgCopyLink")
+            sender.wait_for_function("() => Boolean(window.__jeg1213Copied)")
+            link = sender.evaluate("() => window.__jeg1213Copied")
+            sender.context.close()
+            for custom_previous in (False, True):
+                with self.subTest(custom_previous=custom_previous):
+                    reader = open_page(browser, base)
+                    seed(reader, "2team")
+                    if custom_previous:
+                        reader.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams('basis=cbs&ov='+key+':77'))", keys[1])
+                    before_teams = reader.evaluate(TEAM_SNAPSHOT)
+                    before = reader.evaluate("""() => ({basis:window.TradeValueCurveControls.getBasis(),
+                      values:window.TradeValueCurveControls.getValueOverrides(),
+                      saved:localStorage.getItem('ddf-v2-value-overrides')})""")
+                    reader.goto(link, wait_until="networkidle")
+                    reader.wait_for_selector("#v2LgLoadYes")
+                    reader.get_by_role("button", name="Keep my league").click()
+                    self.assertEqual(reader.evaluate(TEAM_SNAPSHOT), before_teams)
+                    self.assertEqual(reader.evaluate("() => window.TradeValueCurveControls.getValueOverrides()"), before["values"])
+                    reader.goto(link, wait_until="networkidle")
+                    reader.click("#v2LgLoadYes")
+                    reader.wait_for_function("key => window.TradeValueCurveControls.getValueOverrides()[key] === 60", arg=keys[0])
+                    reader.click("#v2LgUndo")
+                    self.assertEqual(reader.evaluate(TEAM_SNAPSHOT), before_teams)
+                    self.assertEqual(reader.evaluate("() => window.TradeValueCurveControls.getValueOverrides()"), before["values"])
+                    after = reader.evaluate("() => window.TradeValueCurveControls.getBasis()")
+                    self.assertEqual((after["mode"], after.get("source")), (before["basis"]["mode"], before["basis"].get("source")))
+                    self.assertEqual(reader.evaluate("() => localStorage.getItem('ddf-v2-value-overrides')"), before["saved"])
+                    reader.goto(base + "#player-values", wait_until="networkidle")
+                    reader.wait_for_function("values => window.TradeValueCurveControls && JSON.stringify(window.TradeValueCurveControls.getValueOverrides()) === JSON.stringify(values)", arg=before["values"])
+                    reader.context.close()
+
     def test_value_context_share_budget_and_adjustment_escaping(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base)

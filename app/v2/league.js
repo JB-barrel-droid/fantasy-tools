@@ -497,7 +497,8 @@
     }
   }
   function applyImported(workspace, source) {
-    UI.undo = {label: "Loaded a league", ws: {...store.get(), settings: settingsSnapshot()}};
+    UI.undo = {label: "Loaded a league", ws: {...store.get(), settings: settingsSnapshot()},
+      valueContext: root.DDFOverrides && root.DDFOverrides.snapshotContext ? root.DDFOverrides.snapshotContext() : null};
     UI.comps.forEach(c => c.li.remove());
     UI.comps.clear();
     UI.cache = O.createCache();
@@ -1354,12 +1355,14 @@
     const undo = button("", {class: "v2-btn", id: "v2LgUndo", hidden: true}, () => {
       if (!UI.undo) return;
       const snap = UI.undo.ws;
+      const valueContext = UI.undo.valueContext;
       UI.undo = null;
       UI.comps.forEach(c => c.li.remove());
       UI.comps.clear();
       if (snap.settings && snap.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
         root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query));
       }
+      if (valueContext && root.DDFOverrides && root.DDFOverrides.restoreContext) root.DDFOverrides.restoreContext(valueContext);
       store.replace(snap, "replace");
       renderUndo();
       announce("Undone.");

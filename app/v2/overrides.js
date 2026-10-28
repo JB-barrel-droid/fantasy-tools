@@ -843,6 +843,28 @@
     announce("sources");
     return true;
   }
+  // An accepted league import may be undone without changing saved preferences.
+  function snapshotContext() {
+    return {basis: basisRecord(), values: JSON.parse(JSON.stringify(S.values)),
+      names: {...S.names}, session: S.session, linkSig: S.linkSig,
+      linkNote: S.linkNote, linkExtra: S.linkExtra ? JSON.parse(JSON.stringify(S.linkExtra)) : null};
+  }
+  function restoreContext(snapshot) {
+    if (!snapshot) return;
+    setBasisState(snapshot.basis);
+    S.values = {...snapshot.values};
+    S.names = {...snapshot.names};
+    S.session = snapshot.session;
+    S.linkSig = snapshot.linkSig;
+    S.linkNote = snapshot.linkNote;
+    S.linkExtra = snapshot.linkExtra;
+    if (S.engine) { S.engine.setBasis(engineBasis(), true); S.engine.setValueOverrides(S.values); }
+    S.applied = JSON.stringify(engineBasis());
+    saveLinkState(S.linkExtra || {});
+    syncBar();
+    announce("sources");
+    if ($("v2Overrides") && !$("v2Overrides").hidden) render();
+  }
   function useOurs() {
     S.linkNote = null;
     S.session = true;   // still this visit only: your own saved settings come back on the next visit
@@ -1217,5 +1239,5 @@
   }
 
   root.DDFOverrides = {boot, render, count: () => Object.keys(S.values).length, all: () => ({...S.values}),
-    basis: () => basisRecord(), shareParams, shareLink, applyLink, dropOverridesNote, flag, state: S};
+    basis: () => basisRecord(), shareParams, shareLink, applyLink, snapshotContext, restoreContext, dropOverridesNote, flag, state: S};
 })(window);

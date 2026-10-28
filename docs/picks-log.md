@@ -148,3 +148,12 @@ links. Preserve raw workspace encoding, existing overflow Export warning, and
 existing position-share behavior (separate pre-existing issue, parent excluded).
 Parent owns one delta review and fresh required CI; no production merge. Evidence:
 `docs/claude-log/2026-10-28-league-share-context-repair.md`.
+
+### 2026-10-28 - Release league import Undo context (JEG-1213)
+
+Delta review of #1062 at `4e2458ad` found that Undo after accepting a league
+link restored rosters/settings but retained the shared value basis and override.
+Snapshot the prior value context only when an import is accepted; Undo restores
+that visit-only context with rosters/settings, without rewriting saved preferences.
+Cancel does not apply the shared context. Evidence:
+`docs/claude-log/2026-10-28-league-import-undo-context.md`.

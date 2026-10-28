@@ -37,6 +37,10 @@ and after each milestone; commit and push it with the relevant code.
   precedence remain unchanged. Focused release 13 and Overrides 3 PASS;
   new-head CI and one independent delta review pending;
   evidence: `docs/claude-log/2026-10-28-league-share-context-repair.md`.
+- Delta review found league Undo left the imported value context active. The next
+  repair snapshots and restores the prior visit-only context when an accepted
+  league import is undone. Cancel leaves it unchanged. Evidence:
+  `docs/claude-log/2026-10-28-league-import-undo-context.md`.
 
 
 
