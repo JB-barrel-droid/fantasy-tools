@@ -73,6 +73,7 @@
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
   ],
   "unmonitored_workflows": {
+    "source-lateness.yml": "hourly GitHub-scheduled watchdog for the pg_cron-driven probes and ingests (JEG-1200); it alerts through its own source-late GitHub issue, and a missed hour only delays a signal",
     "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
     "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
