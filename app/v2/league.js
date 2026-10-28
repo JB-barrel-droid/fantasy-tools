@@ -915,6 +915,72 @@
       el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, mine, opp, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
+  // All optional fields describe the current summary before the trade, for either team.
+  function summaryControls(ws, basis) {
+    const fields = T.summaryFields(basis);
+    const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters : [];
+    const save = patch => { UI.oppsShown = PAGE; update(w => W.ops.setUi(w, patch), "ui:summary-fields"); };
+    const columns = el("details", {id: "v2LgFields", class: "v2-lg-field-options", open: Boolean(UI.fieldsOpen)}, el("summary", {text: "Add team summary columns"}),
+      el("p", {class: "v2-meta", text: "Current team summary before the trade. Values and ranks follow the summary's ranking basis."}));
+    columns.addEventListener("toggle", () => { UI.fieldsOpen = columns.open; });
+    [["mine", "Our team"], ["theirs", "Their team"]].forEach(([side, label]) => {
+      const group = el("fieldset", {}, el("legend", {text: label}));
+      fields.forEach(field => {
+        const key = `${side}:${field.id}`;
+        const input = el("input", {type: "checkbox", "data-summary-column": key});
+        input.checked = selected.has(key);
+        input.addEventListener("change", () => { if (input.checked) selected.add(key); else selected.delete(key); save({summaryColumns: [...selected]}); });
+        group.append(el("label", {}, input, " ", field.label));
+      });
+      columns.append(group);
+    });
+    const filters = el("details", {id: "v2LgSummaryFilters", class: "v2-lg-field-options", open: Boolean(UI.summaryFiltersOpen) || rules.length > 0}, el("summary", {text: `Filter by team summary${rules.length ? ` (${rules.length})` : ""}`}),
+      el("p", {class: "v2-meta", text: "All rules must match the current team summary before the trade. Missing values match only ‘Missing’."}));
+    filters.addEventListener("toggle", () => { UI.summaryFiltersOpen = filters.open; });
+    const select = (id, label, options) => {
+      const control = el("select", {id}, ...options.map(([value, text]) => el("option", {value, text})));
+      filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), control));
+      return control;
+    };
+    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Our team"]]);
+    const field = select("v2LgSummaryFilterField", "Summary field", fields.map(f => [f.id, f.label]));
+    const op = select("v2LgSummaryFilterOp", "Condition", []);
+    const value = el("input", {id: "v2LgSummaryFilterValue", type: "text", "aria-label": "Summary filter value"});
+    const setOps = () => {
+      const numeric = fields.find(f => f.id === field.value).type === "number";
+      const choices = numeric ? [["gte", "At least"], ["lte", "At most"], ["eq", "Equals"]] : [["contains", "Contains"], ["notContains", "Does not contain"], ["eq", "Equals"]];
+      op.replaceChildren(...choices.concat([["missing", "Missing"], ["present", "Has a value"]]).map(([v, t]) => el("option", {value: v, text: t})));
+      value.inputMode = numeric ? "decimal" : "text";
+      value.disabled = false;
+    };
+    field.addEventListener("change", setOps);
+    op.addEventListener("change", () => { value.disabled = ["missing", "present"].includes(op.value); });
+    setOps();
+    filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Value"}), value));
+    const error = el("span", {class: "v2-meta", role: "status"});
+    filters.append(button("Add filter", {class: "v2-btn", id: "v2LgSummaryFilterAdd"}, () => {
+      const f = fields.find(f => f.id === field.value);
+      if (!["missing", "present"].includes(op.value) && (!value.value.trim() || (f.type === "number" && !Number.isFinite(Number(value.value))))) {
+        error.textContent = f.type === "number" ? "Enter a number for this filter." : "Enter text for this filter.";
+        value.focus(); return;
+      }
+      UI.summaryFiltersOpen = true;
+      save({summaryFilters: rules.concat([{side: side.value, field: field.value, op: op.value, value: value.value.trim()}])});
+    }), error);
+    rules.forEach((rule, index) => {
+      const f = fields.find(f => f.id === rule.field);
+      if (!f) return;
+      const words = {gte: "at least", lte: "at most", eq: "equals", contains: "contains", notContains: "does not contain", missing: "missing", present: "has a value"};
+      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Our" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
+        button("Remove", {class: "v2-link", "aria-label": `Remove ${f.label} filter`}, () => save({summaryFilters: rules.filter((_, i) => i !== index)}))));
+    });
+    return el("div", {class: "v2-lg-summary-controls"}, columns, filters);
+  }
+  function fitInfo(variant) {
+    const label = O.FIT_WORD[variant] || "Fit";
+    return el("details", {class: "v2-lg-fit-info"}, el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {role: "note", text: F.fitTip(variant)}));
+  }
   function oppControls(ws, res) {
     const f = ws.ui.filters;
     const sel = (id, label, options, value, onChange) => {
@@ -953,10 +1019,19 @@
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");
-    const cols = O.OPP_COLUMNS;
+    const summary = summaryData();
+    const basis = summary.basis;
+    const byTeam = new Map(summary.summary.teams.map(t => [t.id, t]));
+    const fields = T.summaryFields(basis);
+    const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
+    const optional = ["mine", "theirs"].flatMap(side => fields.filter(f => selected.has(`${side}:${f.id}`)).map(f => ({...f, side, field: f,
+      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Our" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
+    const cols = O.OPP_COLUMNS.concat(optional);
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
-    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce);
+    const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters : [];
+    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce).filter(r => rules.every(rule =>
+      T.summaryFieldMatches(byTeam.get(rule.side === "mine" ? mine.id : r.opponentId), rule, basis)));
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
     // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
@@ -989,10 +1064,10 @@
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgOppsReset", hidden: S.sameState(state, O.OPP_DEFAULT)}, () => onSort(O.OPP_DEFAULT));
     const two = {rowspan: "2"};
     const thead = el("thead", {},
-      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), plainTh("Our team fit", two),
-        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two)),
+      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Our team fit", two),
+        plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two), ...optional.map(c => sortTh(c.id, cols, state, onSort, two))),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
-    const colspan = OPP_COLSPAN;
+    const colspan = OPP_COLSPAN + optional.length;
     // JEG-885: one trade row, used for the visible rows and for the rows an open fold reveals.
     const oppRowBody = r => {
       const open = UI.expanded.has(r.id);
@@ -1007,13 +1082,14 @@
         el("td", {}, r.opponent, r.partial ? el("span", {class: "v2-meta", text: " (partial roster)"}) : null),
         el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details, " ", pickBtn),
         el("td", {class: "num", "data-cell": "capture"}, `${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+        projCell(r),
         el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
         el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
         el("td", {class: "num", "data-cell": "fair"}, `${r.rivalOkCount}/${r.chartCount} fair`),
-        projCell(r),
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
-        el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord})),
-        el("td", {class: "num", "data-cell": "rank"}, String(r.rank)));
+        el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord}), r.overall ? fitInfo(r.overall) : null),
+        el("td", {class: "num", "data-cell": "rank"}, `#${r.rank}`),
+        ...optional.map(c => el("td", {class: c.type === "number" ? "num" : "", "data-cell": c.id}, T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field))));
       return el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : []));
     };
     // The fold control: "N more for <player>", opening the rest of that player's rows right under it (keyboard: focus comes back).
@@ -1037,11 +1113,13 @@
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
       el("p", {}, ...tradeNodes(r, ctx)),
       el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
-      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
+      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
+      r.overall ? fitInfo(r.overall) : null,
+      ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
       tail || null);
     const cardNodes = [];
     shownRows.forEach((r, i) => {
@@ -1060,7 +1138,7 @@
     const more = moreButtons.length ? el("div", {class: "v2-ctoolbar v2-lg-more"}, ...moreButtons) : null;
     const count = sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsCount", role: "status", text: `Showing ${shownRows.length + revealed} of ${sorted.length}`}) : null;
     const empty = !sorted.length ? el("p", {class: "v2-meta", id: "v2LgOppsMsg", text: res.rows.length ? "No opportunity matches these filters." : "No trade opportunities found."}) : null;
-    body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), el("div", {class: "v2-ctoolbar"}, reset),
+    body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), summaryControls(ws, basis), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
       chosen ? oppPanel(chosen, ctx) : null,
@@ -1108,7 +1186,7 @@
     renderTeams();
     renderStatus();
     if (String(reason).startsWith("ui:")) {
-      if (reason === "ui:sort-summary" || reason === "ui:basis") renderSummary();
+      if (reason === "ui:sort-summary" || reason === "ui:basis") { renderSummary(); if (reason === "ui:basis") renderOpps(); }
       else renderOpps();
       return;
     }

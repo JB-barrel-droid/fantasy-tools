@@ -15,6 +15,15 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1213 league-wide finder lane (Codex, 2026-10-28 UTC)
+
+- Active, branch `fe/jeg-1213-league-finder`. Own integration plus three isolated subagents: import/share presentation, finder/opponent-fit logic, acceptance tests. Read the live ticket and all comments (none at intake).
+- Base preserves live #1043 head `d886fc9f`; normal merges include main `e931b84a` and reusable #969 head `391308ed`. Parent should land dependencies serially; this lane does not edit, merge or deploy those PRs. #1044 engine work remains separate.
+- Scope: top-right transfer menu and league-settings sharing; paste cleanup, count warning and collapse; optional summary columns and filters for either team; #1 best opportunity, projections beside DDF, clear fit definitions and opponent totals/starters/construction, downgrade-package regression.
+- Engine accepts only 8/10/12/14 teams: exact mismatch fix limited to those counts. Unsupported counts get an explanation; no engine methodology extension.
+- Validation and exact head/PR recorded as milestones in `docs/claude-log/2026-10-28-jeg-1213-league-finder.md`. Parent owns merge/deploy/live checks; do not close JEG-1213 until live verified.
+
+
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.

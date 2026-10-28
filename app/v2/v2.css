@@ -2138,6 +2138,24 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-fit.is-natural { color: var(--v2-action-strong); }
 .v2-lg-fit.is-force { color: var(--v2-older); }
 .v2-lg-fit.is-market, .v2-lg-fit.is-value { color: var(--v2-ink); }
+/* JEG-1213: league transfers stay at the top right; summary tools expand only when needed. */
+.v2-lg-transfer-bar { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+.v2-lg-transfer { position: relative; margin-left: auto; }
+.v2-lg-transfer > summary { cursor: pointer; min-height: 44px; padding: 10px 14px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); }
+.v2-lg-transfer-menu { position: absolute; right: 0; top: 100%; z-index: 20; width: min(340px, 88vw); padding: 12px; border: 1px solid var(--v2-border); border-radius: var(--v2-radius-btn); background: var(--v2-surface); box-shadow: 0 6px 18px #0002; }
+.v2-lg-transfer-action { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.v2-lg-transfer-info > summary, .v2-lg-fit-info > summary { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; }
+.v2-lg-transfer-info p, .v2-lg-fit-info p { font-weight: 400; white-space: normal; min-width: 160px; max-width: 300px; }
+.v2-lg-card-summary { cursor: pointer; padding: 4px; }
+.v2-lg-card-summary h2 { display: inline; }
+.v2-lg-summary-controls { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.v2-lg-field-options { flex: 1 1 240px; min-width: 0; }
+.v2-lg-field-options > summary { cursor: pointer; min-height: 44px; padding: 10px 0; font-weight: 700; }
+.v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
+.v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
+.v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+.v2-lg-summary-rule { overflow-wrap: anywhere; }
+.v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
 .v2-lg-detail-body p { margin: 0; }
 /* JEG-885: a folded core player's "N more for <player>" control, and the rows it opens under it. */
