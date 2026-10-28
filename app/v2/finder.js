@@ -26,7 +26,13 @@
   const EXTRA_PLAYER_WEIGHT = 0.1;   // each player beyond a 1-for-1 takes 10% off the ranking score
   const LIMIT = 10;
   const finite = value => typeof value === "number" && Number.isFinite(value);
-  const pointsAsShown = net => (Math.abs(net) < 0.05 ? 0 : net);   // 0.0 as shown points neither way
+  // JEG-1125: "breaks even" is Compare's rule, SHOWN_EVEN in trade.js (a net that shows as 0.0 points neither way). The
+  // page loads trade.js first and Node can require it. The MCP edge function evaluates this file on its own, so the
+  // number after || is a standalone copy: tests/test_trade_bands.py fails if it differs from trade.js.
+  const TRADE = typeof module !== "undefined" && module.exports
+    ? (() => { try { return require("./trade.js"); } catch (e) { return null; } })() : root.TradeValueTrade;
+  const SHOWN_EVEN = (TRADE && finite(TRADE.SHOWN_EVEN) && TRADE.SHOWN_EVEN) || 0.05;
+  const pointsAsShown = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net);   // 0.0 as shown points neither way
 
   // Every subset of 1..maxSize items, as arrays of indices.
   function subsets(count, maxSize) {
@@ -573,7 +579,7 @@
   // is favorable. Independent of the roster test.
   // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
-  const NET_FLOOR = 0.05;
+  const NET_FLOOR = SHOWN_EVEN;
   const FIT_TIER = {natural: 0, market: 1, force: 2};
   // The standard error of one player's value in a view: DDF Value, half the gap between its chart-based and
   // projection-based versions (two readings of one value); DDF Value (projections), the standard error of the mean of

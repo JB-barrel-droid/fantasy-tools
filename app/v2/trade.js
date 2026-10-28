@@ -61,7 +61,7 @@
     const complete = rows.filter(row => row.net !== null);
     if (!rows.length) return {kind: null};
     if (!complete.length) return {kind: "incomplete"};
-    const sign = row => (Math.abs(row.net) < 0.05 ? 0 : row.net > 0 ? 1 : -1);
+    const sign = row => signOf(row.net);
     const byPublisher = new Map();
     complete.forEach(row => {
       const m = meta(row.key);
@@ -89,7 +89,15 @@
     return {kind: "split", ...counts};
   }
 
-  const signOf = net => (Math.abs(net) < 0.05 ? 0 : net > 0 ? 1 : -1);   // 0.0 as shown points neither way
+  // JEG-1125: the trade bands, defined once here. Find a trade (finder.js) reads SHOWN_EVEN from this file, and
+  // tests/test_trade_bands.py fails if any copy drifts. Three rules, three questions:
+  //   SHOWN_EVEN   one series' net that shows as 0.0 (under 0.05) points neither way: Compare's per-source rows, the
+  //                trade story, "Will they accept?" (other manager wins or breaks even: net <= 0 as shown) and Find a
+  //                trade's "rival breaks even or wins" check and its display floor (NET_FLOOR).
+  //   sideOf       the Deal read's even band on a summed or averaged net: max(1, 3% of the average side) (below).
+  //   THIN_MARGIN  not an even band: the headline's confidence drops when the margin is under 5% of the value traded.
+  const SHOWN_EVEN = 0.05;
+  const signOf = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net > 0 ? 1 : -1);   // 0.0 as shown points neither way
 
   // JEG-468 waterfall for one series: the same sums as compareTrade, shown as steps.
   // 0 → one step down per player given (largest first) → one step up per player
@@ -400,6 +408,7 @@
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
+    SHOWN_EVEN, signOf, sideOf,
     dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
     marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
