@@ -794,5 +794,103 @@ class AmberHoldDecision(unittest.TestCase):
         self.assertIsNone(fp.hold_decision(result, "id1", None, T.NOW))
 
 
+class StoredSaveNewerThanTheLiveChart(unittest.TestCase):
+    """JEG-1194 (2026-10-28): the CBS week 8 save had no tight ends
+    (scrape_validity red, "stored TE 10->0") while the live chart was the
+    good week 7 one. The hold carried the live chart's identity, so the
+    chain held the week 7 section and post-rebuild validate failed for every
+    source for a day. A red about a newer stored save holds builds made from
+    that save, never the live chart."""
+
+    LIVE = "2026-10-22T00:35:32+00:00"     # the week 7 chart on the page
+    NEWER = "2026-10-27T21:35:38+00:00"    # a build from the week 8 save
+
+    @staticmethod
+    def cbs_result(drop_side="stored", behind=True, extra_red=None):
+        stages = {
+            "publisher_vs_stored": {"status": "amber", "counts": {"mismatched": 0}},
+            "stored_vs_chart": {"status": "amber", **({"behind": {"bake_id": "cbswk8", "week": 8}} if behind else {})},
+            "freshness": {"status": "green"},
+            "scrape_validity": {"status": "red", "summary": "player count dropped vs week 6: stored TE 10->0",
+                                "signals": {"count_drops": [{"side": drop_side, "position": "TE", "now": 0,
+                                                             "prior_week": 10, "severity": "red"}],
+                                            "rank_inversions": 0, "sentinel_failures": []}},
+        }
+        for name in extra_red or ():
+            stages[name] = {"status": "red", "summary": name}
+        return {"stages": stages}
+
+    def hold(self, **kw):
+        return fp.hold_decision(self.cbs_result(**kw), "cbswk8", None, T.NOW, measured_site=self.LIVE)
+
+    def fx(self, fetched_at):
+        fx = fixture(week_label="Week 7")
+        for sec in ("cbs", "cbs_adjusted"):
+            if sec in fx["sources"]:
+                fx["sources"][sec]["source_provenance"] = {"snapshot_fetched_at": fetched_at}
+        return fx
+
+    def test_scope_constants_agree(self):
+        self.assertEqual(fh.SCOPE_STORED_NEWER, fp.SCOPE_STORED_NEWER)
+
+    def test_stored_side_red_on_a_newer_save_is_scoped(self):
+        h = self.hold()
+        self.assertEqual("red", h["hold_level"])
+        self.assertEqual(fp.SCOPE_STORED_NEWER, h.get("scope"))
+
+    def test_a_chart_side_drop_is_not_scoped(self):
+        self.assertIsNone(self.hold(drop_side="chart").get("scope"))
+
+    def test_no_newer_save_is_not_scoped(self):
+        """The stored save is the chart's own: the red is about the live chart."""
+        self.assertIsNone(self.hold(behind=False).get("scope"))
+
+    def test_any_chart_side_red_is_not_scoped(self):
+        self.assertIsNone(self.hold(extra_red=["stored_vs_chart"]).get("scope"))
+        self.assertIsNone(self.hold(extra_red=["freshness"]).get("scope"))
+
+    def test_publisher_vs_stored_red_on_a_newer_save_is_scoped(self):
+        result = self.cbs_result()
+        result["stages"]["scrape_validity"] = {"status": "green"}
+        result["stages"]["publisher_vs_stored"] = {"status": "red", "counts": {"mismatched": 4}}
+        h = fp.hold_decision(result, "cbswk8", None, T.NOW, measured_site=self.LIVE)
+        self.assertEqual(fp.SCOPE_STORED_NEWER, h.get("scope"))
+
+    def test_rank_inversions_are_chart_side(self):
+        result = self.cbs_result()
+        result["stages"]["scrape_validity"]["signals"]["rank_inversions"] = 3
+        h = fp.hold_decision(result, "cbswk8", None, T.NOW, measured_site=self.LIVE)
+        self.assertIsNone(h.get("scope"))
+
+    def test_the_live_chart_section_is_not_held(self):
+        """The failing case: the chain kept the live week 7 section (review
+        hold on week 8), so its identity equals measured_site."""
+        fx = self.fx(self.LIVE)
+        fx["sources"]["cbs"]["validationHold"] = {"reason": "fidelity: scrape_validity", "root": "cbs",
+                                                  "hold_level": "red"}
+        out, report = fh.apply_fidelity_holds(fx, {"cbs": self.hold()}, 8)
+        self.assertFalse(out["sources"]["cbs"].get("validationHold"),
+                         "a bad newer save must not hold the good live chart")
+        self.assertNotIn("cbs", report)
+
+    def test_a_build_from_the_newer_save_is_held(self):
+        """Negative test: a candidate built from the flagged save is held
+        (before JEG-1194 the identity skip let it through unheld)."""
+        out, report = fh.apply_fidelity_holds(self.fx(self.NEWER), {"cbs": self.hold()}, 8)
+        self.assertEqual("fidelity: scrape_validity", out["sources"]["cbs"]["validationHold"]["reason"])
+        self.assertIn("cbs", report)
+
+    def test_a_candidate_without_provenance_is_held(self):
+        out, _ = fh.apply_fidelity_holds(fixture(), {"cbs": self.hold()}, 8)
+        self.assertTrue(out["sources"]["cbs"].get("validationHold"))
+
+    def test_unscoped_holds_keep_the_jeg_799_match(self):
+        h = self.hold(drop_side="chart")
+        out, _ = fh.apply_fidelity_holds(self.fx(self.LIVE), {"cbs": h}, 8)
+        self.assertTrue(out["sources"]["cbs"].get("validationHold"))
+        out, _ = fh.apply_fidelity_holds(self.fx(self.NEWER), {"cbs": h}, 8)
+        self.assertFalse(out["sources"]["cbs"].get("validationHold"))
+
+
 if __name__ == "__main__":
     unittest.main()

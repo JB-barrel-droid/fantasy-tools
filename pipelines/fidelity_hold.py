@@ -53,6 +53,9 @@ import value_check as vc  # noqa: E402
 PULSE = REPO / "dist" / "modules" / "fidelity-pulse.json"
 HOLD_PREFIX = "fidelity: "
 STALE_PULSE_HOURS = 24
+# JEG-1194: the pulse stamps this scope on a red that judges only a stored
+# save newer than the live chart (fidelity_pulse.red_scope).
+SCOPE_STORED_NEWER = "stored_newer_than_site"
 
 
 def is_fidelity_hold(hold) -> bool:
@@ -117,7 +120,11 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
     JEG-799 (B2): a hold applies only to the build the pulse measured.  If the
     hold's measured_site differs from the candidate section's
     source_provenance.snapshot_fetched_at, the candidate has newer data and the
-    hold is skipped."""
+    hold is skipped.
+
+    JEG-1194: a hold scoped SCOPE_STORED_NEWER is about a stored save newer
+    than the live chart, so the match is reversed: it holds a candidate built
+    from newer data and skips the live chart's own section."""
     out = copy.deepcopy(fixture)
     sources = out.setdefault("sources", {})
     report = {}
@@ -134,7 +141,13 @@ def apply_fidelity_holds(fixture: dict, holds: dict, week: int | None) -> tuple[
                 # different identity than the build the pulse measured.
                 if measured is not None:
                     candidate_id = _candidate_identity(target)
-                    if candidate_id is not None and candidate_id != measured:
+                    # JEG-1194: a red about a stored save newer than the live
+                    # chart is the reverse case: it holds a build made from
+                    # that save (identity differs from the live chart) and
+                    # leaves the live chart itself (same identity) unheld.
+                    stored_newer = hold.get("scope") == SCOPE_STORED_NEWER
+                    other_build = candidate_id is not None and candidate_id != measured
+                    if (candidate_id == measured) if stored_newer else other_build:
                         # JEG-807 (2026-10-22): the skip must not leave an
                         # older fidelity hold on the candidate. The 04:08Z
                         # chain skipped fantasycalc's and espn's holds this
