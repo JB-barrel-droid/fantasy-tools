@@ -19,6 +19,7 @@ import unittest
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest import mock
+from urllib.error import HTTPError, URLError
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
@@ -162,6 +163,13 @@ class ServedWeeksTest(unittest.TestCase):
         status = {"source_weeks": {"cbs": {"served_week": 8}, "espn": {"served_week": 8}}}
         self.assertEqual(sl.served_weeks(history, status), {"cbs": 7, "espn": 8})
 
+    def test_unknown_published_week_does_not_fall_back_to_a_chain_attempt(self):
+        status = {"source_weeks": {"cbs": {"served_week": 8}}}
+        for unknown in (None, True, "8", 0):
+            with self.subTest(week=unknown):
+                history = {"served": {"cbs": {"week": unknown}}}
+                self.assertNotIn("cbs", sl.served_weeks(history, status))
+
 
 class FakeGitHub:
     def __init__(self, issues=None):
@@ -211,6 +219,7 @@ class AlertTest(unittest.TestCase):
     def test_closes_when_every_source_is_on_time(self):
         rep = self.rep(None)
         self.assertEqual(rep["late"], [])
+        self.assertEqual(rep["unknown_served_weeks"], [])
         gh = FakeGitHub([{"number": 7, "title": sl.TITLE, "labels": []}])
         self.assertEqual(sl.alert(rep, "o/r", "t", WED_1201_CT, gh), "closed #7")
         self.assertEqual(gh.calls[-1][2]["state"], "closed")
@@ -218,20 +227,42 @@ class AlertTest(unittest.TestCase):
     def test_dry_run_without_a_token(self):
         self.assertIn("dry run", sl.alert(self.rep("espn"), None, None, WED_1201_CT))
 
+    def test_unknown_served_weeks_cannot_resolve_an_open_issue(self):
+        state = {s: fresh(WED_1201_CT, week=8) for s in sl.RULES}
+        rep = sl.report(state, {}, {}, WED_1201_CT)
+        gh = FakeGitHub([{"number": 7, "title": sl.TITLE, "labels": []}])
+        with self.assertRaisesRegex(ValueError, "served week unknown"):
+            sl.alert(rep, "o/r", "t", WED_1201_CT, gh)
+        self.assertEqual(gh.calls, [])
+
+    def test_partial_metadata_distinguishes_current_late_and_unknown(self):
+        state = {s: fresh(WED_1201_CT, week=8) for s in sl.RULES}
+        state["espn"] = fresh(WED_1201_CT, probe_ago=40, acked_ago=40, week=8)
+        history = {"served": {s: {"week": 8} for s in sl.RULES if s != "cbs"}}
+        rep = sl.report(state, history, {}, WED_1201_CT)
+        self.assertEqual(rep["late"], ["espn"])
+        self.assertEqual(rep["unknown_served_weeks"], ["cbs"])
+        summary = "\n".join(sl.summary_lines(rep))
+        self.assertIn("| CBS | weekly | unknown | served week unknown |", summary)
+        self.assertIn("| ESPN | live | no |", summary)
+        self.assertIn("| FantasyCalc | live | yes |", summary)
+
 
 class MainTest(unittest.TestCase):
     def tearDown(self):
         nfl_week.set_clock(None)
 
-    def test_never_fails_the_job(self):
+    def test_late_sources_do_not_fail_the_job_when_publication_is_known(self):
         nfl_week.set_clock(WED_1201_CT)
         with tempfile.TemporaryDirectory() as td:
             bad = Path(td) / "state.json"
             bad.write_text("not json")
+            history = Path(td) / "history.json"
+            history.write_text(json.dumps({"served": {s: {"week": 8} for s in sl.RULES}}))
             out = Path(td) / "rep.json"
             with contextlib.redirect_stdout(io.StringIO()) as buf, mock.patch.dict(os.environ, {}, clear=False):
                 os.environ.pop("GITHUB_TOKEN", None)
-                rc = sl.main(["--state-file", str(bad), "--history", str(Path(td) / "none.json"),
+                rc = sl.main(["--state-file", str(bad), "--history", str(history),
                               "--status", str(Path(td) / "none.json"), "--out", str(out), "--alert"])
             self.assertEqual(rc, 0)
             rep = json.loads(out.read_text())
@@ -245,6 +276,41 @@ class MainTest(unittest.TestCase):
                 contextlib.redirect_stdout(io.StringIO()) as buf:
             self.assertEqual(sl.main(["--state-file", "/nonexistent"]), 1)
         self.assertIn("not checked", buf.getvalue())
+
+    def test_alert_delivery_failure_fails_the_run(self):
+        nfl_week.set_clock(WED_1201_CT)
+        rep = AlertTest().rep("espn")
+        errors = [URLError("connection timed out")]
+        errors += [HTTPError("https://api.github.com/repos/o/r/issues", code, "failed", None, None)
+                   for code in (403, 429, 503)]
+        for error in errors:
+            with self.subTest(error=error), mock.patch.object(sl, "report", return_value=rep), \
+                    mock.patch.object(sl.urllib.request, "urlopen", side_effect=error), \
+                    mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "fake"}), \
+                    contextlib.redirect_stdout(io.StringIO()) as buf:
+                rc = sl.main(["--state-file", "/nonexistent", "--alert"])
+            self.assertEqual(rc, 1)
+            self.assertIn("::error title=source lateness alert::", buf.getvalue())
+
+    def test_unreadable_publication_metadata_fails_without_resolving_alerts(self):
+        nfl_week.set_clock(WED_1201_CT)
+        state = {s: fresh(WED_1201_CT, week=8) for s in sl.RULES}
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "history.json"
+            for contents in (None, "not json", "null", "{}", '{"served": null}', '{"served": ["cbs"]}'):
+                with self.subTest(contents=contents):
+                    if contents is not None:
+                        path.write_text(contents)
+                    with mock.patch.object(sl, "load_state", return_value=state), \
+                            mock.patch.object(sl, "_call") as gh, \
+                            mock.patch.dict(os.environ, {"GITHUB_REPOSITORY": "o/r", "GITHUB_TOKEN": "fake"}), \
+                            contextlib.redirect_stdout(io.StringIO()) as buf:
+                        rc = sl.main(["--state-file", "/nonexistent", "--history", str(path),
+                                      "--status", str(path), "--alert"])
+                    self.assertEqual(rc, 1)
+                    self.assertIn("::error title=source lateness::not checked", buf.getvalue())
+                    self.assertNotIn("every source on time", buf.getvalue())
+                    gh.assert_not_called()
 
 
 if __name__ == "__main__":

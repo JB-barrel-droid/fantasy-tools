@@ -34,8 +34,8 @@ data/history/index.json); nothing here fetches a source:
 Late sources open one GitHub issue labelled `source-late` (comments at most
 every COMMENT_HOURS while it stays open, sooner when the late set changes)
 and it closes itself when every source is on time again. GitHub emails the
-repository owner. The check never fails a job and never holds or changes a
-value: staleness is a warning on this project (AGENTS.md).
+repository owner. A late source never fails a job or changes a value;
+an incomplete check or failed alert delivery fails the monitoring run.
 
     python3 pipelines/source_lateness.py [--state-file F | --supabase] [--out F] [--alert]
 """
@@ -194,18 +194,26 @@ def judge(source: str, row: dict[str, Any] | None, served: int | None, now: date
             "due_at": due.isoformat() if due else None}
 
 
+def known_week(value) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool) and value > 0
+
+
 def served_weeks(history: dict[str, Any], status: dict[str, Any]) -> dict[str, int]:
     """The week each source serves on the site: the history index (what is
     published), else the chain status' last run."""
     out: dict[str, int] = {}
     for src, info in (status.get("source_weeks") or {}).items():
         wk = info.get("served_week") if isinstance(info, dict) else None
-        if isinstance(wk, int):
+        if known_week(wk):
             out[src] = wk
     for src, info in (history.get("served") or {}).items():
         wk = info.get("week") if isinstance(info, dict) else None
-        if isinstance(wk, int):
+        if known_week(wk):
             out[src] = wk
+        else:
+            # An explicit unknown in the published index must not become
+            # "current" via a chain attempt that may never have published.
+            out.pop(src, None)
     return out
 
 
@@ -216,6 +224,8 @@ def report(state: dict[str, dict[str, Any]], history: dict[str, Any], status: di
     return {"schema": "source-lateness-v1", "checked_at": now.isoformat(),
             "content_week": nfl_week.content_week(nfl_week.today_ny(now)),
             "late": [r["source"] for r in rows if r["late"]],
+            "unknown_served_weeks": [r["source"] for r in rows
+                                     if r["on_site"] and not known_week(r["served_week"])],
             "sources": {r["source"]: r for r in rows}}
 
 
@@ -251,6 +261,8 @@ def _late_marker(rep: dict[str, Any]) -> str:
 
 def alert(rep: dict[str, Any], repo: str | None, token: str | None, now: datetime, call=None) -> str:
     """Open, comment on or close the source-late issue; returns what it did."""
+    if rep.get("unknown_served_weeks"):
+        raise ValueError("served week unknown for " + ", ".join(rep["unknown_served_weeks"]))
     late = bool(rep["late"])
     if not token or not repo:
         return (f"dry run: would open or update the {LABEL} issue\n{body(rep)}" if late
@@ -298,8 +310,11 @@ def load_state(args) -> dict[str, dict[str, Any]]:
 def summary_lines(rep: dict[str, Any]) -> list[str]:
     out = ["| Source | Kind | On time | Why |", "|---|---|---|---|"]
     for r in rep["sources"].values():
-        out.append(f"| {r['name']} | {r['kind']} | {'no' if r['late'] else 'yes'} | "
-                   f"{'; '.join(r['reasons']) or r['usual']} |")
+        unknown = r["source"] in rep.get("unknown_served_weeks", [])
+        on_time = "no" if r["late"] else "unknown" if unknown else "yes"
+        reasons = r["reasons"] + (["served week unknown"] if unknown else [])
+        out.append(f"| {r['name']} | {r['kind']} | {on_time} | "
+                   f"{'; '.join(reasons) or r['usual']} |")
     return out
 
 
@@ -327,18 +342,23 @@ def main(argv=None) -> int:
     for s in rep["late"]:
         r = rep["sources"][s]
         print(f"::warning title={r['name']} late::" + "; ".join(r["reasons"])[:900])
-    if not rep["late"]:
+    if not rep["late"] and not rep["unknown_served_weeks"]:
         print("source lateness: every source on time")
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as fh:
             fh.write("## Source lateness (JEG-1200)\n\n" + "\n".join(summary_lines(rep)) + "\n")
+    if rep["unknown_served_weeks"]:
+        print("::error title=source lateness::not checked: served week unknown for "
+              + ", ".join(rep["unknown_served_weeks"]) + "; existing alerts left unchanged")
+        return 1
     if args.alert:
         try:
             print("source lateness alert: " + alert(rep, os.environ.get("GITHUB_REPOSITORY"),
                                                      os.environ.get("GITHUB_TOKEN"), now))
         except Exception as e:  # noqa: BLE001
-            print(f"::warning title=source lateness alert::no alert sent ({type(e).__name__}: {e})")
+            print(f"::error title=source lateness alert::alert failed ({type(e).__name__}: {e})")
+            return 1
     return 0
 
 

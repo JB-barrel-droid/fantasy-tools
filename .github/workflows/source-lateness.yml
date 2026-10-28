@@ -14,8 +14,9 @@ name: Source lateness check
 # watches goes quiet with it. Precedent: full-suite.yml.
 #
 # Never fails on a late source: the issue is the alert. It fails only if the
-# check itself cannot run (source_lateness.py main returns 1), so a watchdog
-# that cannot read Supabase shows as a red run instead of going quiet.
+# check is incomplete or alert delivery fails (source_lateness.py returns 1),
+# so an unreadable source state, unknown served week or GitHub API failure
+# shows as a red run instead of going quiet.
 
 on:
   schedule:

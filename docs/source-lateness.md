@@ -11,10 +11,18 @@ checks for the data lightweight."
 exists: the probe state each change check writes
 (`public.source_probe_state`) and the week each source serves on the site
 (`data/history/index.json`). It never fetches a source, never holds a value
-and never fails a job. When any source is late it opens one GitHub issue,
+and never fails a job because a source is late. When any source is late it opens one GitHub issue,
 "A data source is late" (label `source-late`), updates it when the set of late
 sources changes (otherwise at most every 6 hours) and closes it when every
 source is on time again. GitHub emails the repository owner.
+
+The monitoring run fails if the check cannot complete or GitHub alert delivery
+fails. Every on-site source needs a known served week, from the published
+history index or the existing chain-status fallback. An explicit unknown in
+the history index takes precedence over a chain attempt. Missing publication
+metadata appears as unknown in the report; it never resolves an existing
+alert. Incomplete reports leave alerts unchanged and exit 1. A delivery error
+also exits 1; a multi-request update may already have partially completed.
 
 ## The rule for each source
 
