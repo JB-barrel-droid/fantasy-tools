@@ -1291,6 +1291,8 @@ def release_post_validate_hold(repo, source):
     review, fidelity, or value-check hold is never released here.
     """
     path = Path(repo) / FIXTURE_REL
+    if not path.is_file():
+        return False
     fixture = json.loads(path.read_text(encoding="utf-8"))
     changed = False
     for sec in (source, f"{source}_adjusted"):

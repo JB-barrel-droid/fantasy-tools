@@ -24,7 +24,7 @@ import value_check  # noqa: E402
 STATUS_RELS = ("output/comparison-chain-status.json", "dist/modules/comparison-chain-status.json")
 FAIL_HEADER = re.compile(r"^(FAIL|ERROR): \S+ \([^)]+\)$")
 EXCEPTION = re.compile(r"^[\w.]+(?:Error|Exception): .+")
-ALIASES = {
+SOURCE_NAMES = {
     "cbsros": ("CBS rest of season", "CBS ROS", "cbsros"),
     "fantasycalc": ("FantasyCalc", "fantasycalc"),
     "fantasypros": ("FantasyPros", "fantasypros"),
@@ -75,7 +75,7 @@ def _named_roots(message: str) -> set[str]:
     # Longer aliases consume text first: "CBS ROS" cannot implicate CBS.
     remaining = message
     found = set()
-    aliases = sorted(((alias, root) for root, names in ALIASES.items()
+    aliases = sorted(((alias, root) for root, names in SOURCE_NAMES.items()
                       for alias in names), key=lambda pair: len(pair[0]), reverse=True)
     aliases += sorted(((name, root) for name, root in
                        {**value_check.ROOT_OF, **value_check.DIAG_ROOT}.items()),
