@@ -192,8 +192,11 @@ def read_setting(page, published):
     for week, keys in sorted(by_week.items()):
         if week not in ((state or {}).get("weeks") or []):
             # Older than any view the page offers: lagging, not a failure
-            # (stale is a warning, JEG-1176 rule 6).
+            # (stale is a warning, JEG-1176 rule 6), but said out loud so a
+            # chart that stops updating does not leave the guard unseen.
             res["lagging"].update({key: week for key in keys})
+            print(f"rank guard: {', '.join(keys)} still on Week {week}, older than every week view "
+                  f"{(state or {}).get('weeks')}; order not checked in the browser", file=sys.stderr)
             continue
         page.evaluate(SET_WEEK, week)
         got = page.evaluate(READ, keys)
@@ -289,11 +292,14 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
     """JEG-1175: chain runs since 2026-10-26 failed post-rebuild validation
     here ("cbs: no Indexed values or native ranks", earlier usatoday) because
     the lagging charts serve Week 7 while the view is Week 8, and the guard
-    read every chart in the default view only. Replays the transition
-    (test_week_history.transition_overrides: CBS and USA Today one week behind)
-    and checks each lagging chart's order in its own week's view."""
+    read every chart in the default view only. Replays the transition from
+    committed data (test_week_history.transition_overrides: CBS and USA Today
+    one week behind the rest) and checks each lagging chart's order in its own
+    week's view."""
 
-    SETTINGS = [("ppr", 12), ("standard", 12)]  # the overrides rewrite 12-team combos
+    # The overrides rewrite the 12-team combos; ppr/12 is the setting whose
+    # transition view test_week_history pins.
+    SETTINGS = [("ppr", 12)]
 
     @classmethod
     def setUpClass(cls):
@@ -357,7 +363,9 @@ class TestEngineKeepsOrderInTransition(unittest.TestCase):
         setting = ("ppr", 12, "null")
         res = copy.deepcopy(self.swept[setting])
         ranks, indexed = res["ranks"]["cbs"], res["indexed"]["cbs"]
-        first, second = sorted((k for k in ranks if k in indexed), key=lambda k: float(ranks[k]))[:2]
+        ordered = sorted((k for k in ranks if k in indexed), key=lambda k: float(ranks[k]))
+        # The first pair the chart ranks apart (swapping a native tie is no inversion).
+        first, second = next((a, b) for a, b in zip(ordered, ordered[1:]) if float(ranks[a]) != float(ranks[b]))
         indexed[first], indexed[second] = indexed[second], indexed[first]
         problems = order_problems({setting: res})
         self.assertTrue([p for p in problems if " cbs: " in p and "inversions" in p], problems)
