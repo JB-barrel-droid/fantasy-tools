@@ -24,13 +24,14 @@ that check to report an error.
 from __future__ import annotations
 
 import functools
+import json
 import unittest
 
 from playwright.sync_api import Error as PlaywrightError  # noqa: F401
 
 from tests import _render_env  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
-from tests.test_v2_expand_render import V2_CSS, _built_dist, _serve  # noqa: E402
+from tests.test_v2_expand_render import DIST, V2_CSS, _built_dist, _serve  # noqa: E402
 
 AUDIT_PIE_CSS = V2_CSS.parent / "audit-pie.css"
 NAMEFMT_JS = (V2_CSS.parent / "name-format.js").read_text(encoding="utf-8")
@@ -212,7 +213,8 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
             page.on("pageerror", lambda e: errors.append(f"[{width}x{height}] page error {e}"))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             for name, (body, ctype) in (overrides or {}).items():
-                page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                # "assets/..." is published data the page fetches from the site root (its <base> is ../).
+                page.route(f"**/{name}*" if name.startswith("assets/") else f"**/v2/{name}*", functools.partial(_serve, body, ctype))
             page.goto(base + "#player-values", wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=60000)
             return ctx, page
@@ -286,6 +288,19 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
     return errors
 
 
+def flagged_chart_freshness() -> str:
+    """The built reference-freshness.json with a default Values column (USA Today) flagged out of range.
+
+    The header chip word only exists when a column the Values table shows by default (the four trade charts) carries a
+    worded chip. Week 7 had FantasyPros "Reviewed" (JEG-1048 wrote the mutation against it); from week 8 every default
+    chart is ok or in range (a checkmark, no word), so the mutation changed nothing on the page. Pin one flagged chart."""
+    doc = json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+    doc.setdefault("source_divergence", {})["usatoday"] = {
+        "status": "warn", "message": "USA Today disagrees with the other charts on 38% of players this week (usually 20%).",
+        "resolution_issue": None, "outlier_rate": 0.38, "usual_outlier_rate": 0.20}
+    return json.dumps(doc)
+
+
 class MobilePhase1RenderTest(unittest.TestCase):
     def test_phase1_guards_hold(self):
         self.assertEqual(run_checks(), [])
@@ -294,6 +309,10 @@ class MobilePhase1RenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         pie = AUDIT_PIE_CSS.read_text(encoding="utf-8")
         text_css = "text/css"
+        flagged = flagged_chart_freshness()
+        # The pinned data alone must pass the text check, so the mutation below is caught for the 0 px word, not the data.
+        with self.subTest(mutation="baseline: a flagged default chart, unbroken CSS"):
+            self.assertEqual(run_checks({"assets/reference-freshness.json": (flagged, "application/json")}, checks=("text",)), [])
         broken = {
             # name: (check, {file: (body, type)}, anchor text that must exist in the source)
             "table scroll container removed": ("tables", {"v2.css": (css.replace(".v2-table-wrap { overflow-x: auto; margin-top: 12px; }", ".v2-table-wrap { overflow-x: visible; margin-top: 12px; }", 1).replace("#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: auto; }", "#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: visible; }", 1), text_css)},
@@ -320,7 +339,8 @@ class MobilePhase1RenderTest(unittest.TestCase):
             # JEG-1048: the Reviewed chip is a link (JEG-609) and needs its 44 px hit area; a header chip word must not be a 0 px text node.
             "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css)},
                                                   "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
-            "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css)},
+            "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css),
+                                                           "assets/reference-freshness.json": (flagged, "application/json")},
                                                   ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }"),
             "touch rules leak to desktop": ("desktop", {"v2.css": (css + "\n.v2-table-wrap { -webkit-mask-image: linear-gradient(to right, #000 90%, transparent); mask-image: linear-gradient(to right, #000 90%, transparent); }\n", text_css)}, None),
         }
@@ -331,7 +351,7 @@ class MobilePhase1RenderTest(unittest.TestCase):
                         self.assertNotEqual(body, NAMEFMT_JS, f"mutation {name!r} changed nothing")
                 if anchor is not None:
                     self.assertIn(anchor, css + pie, f"mutation anchor for {name!r} is stale")
-                    self.assertTrue(any(body != (css if fname == "v2.css" else pie) for fname, (body, _) in files.items()), f"mutation {name!r} changed nothing")
+                    self.assertTrue(any(body != (css if fname == "v2.css" else pie) for fname, (body, _) in files.items() if not fname.startswith("assets/")), f"mutation {name!r} changed nothing")
                 self.assertNotEqual(run_checks(files, checks=(check,)), [], f"render checks did not catch: {name}")
 
 
