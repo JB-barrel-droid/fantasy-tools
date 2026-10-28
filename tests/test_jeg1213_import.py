@@ -46,6 +46,29 @@ class LeagueImport(unittest.TestCase):
           assert.ok(link.hash.endsWith('&scoring=ppr&teams=12'));
         """)
 
+    def test_kicker_and_defense_identity_roundtrip_and_legacy_links(self):
+        self.node("""
+          const entries=[
+            {key:'x:DEF:SF',name:'49ers D/ST',pos:'DEF',team:'SF'},
+            {key:'x:K:KC',name:'Harrison Butker',pos:'K',team:'KC'},
+            {key:'x:K:a:b!%c',name:'A. B: Kicker!',pos:'K'},
+          ];
+          const ws=W.ops.addTeam(W.newWorkspace(),'Team!',{entries});
+          const roundtrip=W.decodeShare(W.encodeShare(ws).text);
+          assert.deepStrictEqual(roundtrip[0].entries,entries);
+          assert.deepStrictEqual(W.decodeShare('Old:!49ers%20D%2FST.DEF,!Harrison%20Butker.K')[0].entries,[
+            {key:'x:DEF:49ers d st',name:'49ers D/ST',pos:'DEF'},
+            {key:'x:K:harrison butker',name:'Harrison Butker',pos:'K'},
+          ]);
+        """)
+
+    def test_malformed_link_is_rejected_without_partial_league(self):
+        self.node("""
+          for(const broken of ['Bad%:1','A:!Bad%.DEF','A:~bad%','Good:1|Bad%:2','A:!Name.DEF:x%3ADEF%3ASF:Bad%']) {
+            assert.deepStrictEqual(W.decodeShare(broken),[],broken);
+          }
+        """)
+
     def test_yahoo_search_header_is_neither_team_nor_ignored_player(self):
         self.node("""
           const P=require('./app/v2/roster-paste.js'), fs=require('fs');
