@@ -156,6 +156,51 @@ def run_checks(css=None) -> list[str]:
 
 
 class PhoneContextRowTest(unittest.TestCase):
+    def test_override_reset_and_undo_keep_the_closed_summary_readable(self):
+        """The warning and one-tap actions must not consume the summary or add a row to it."""
+        with _served() as base, _playwright()() as p:
+            browser = p.chromium.launch(executable_path=_render_env.chromium_executable(p), args=_render_env.HERMETIC_ARGS)
+            try:
+                for width, height in PHONES:
+                    with self.subTest(width=width):
+                        page = browser.new_page(viewport={"width": width, "height": height})
+                        page.add_init_script(_render_env.pin_data_week_script())
+                        page.goto(base + "#player-values", wait_until="networkidle")
+                        page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')")
+                        page.evaluate("""() => {
+                          const row = TradeValueCurveControls.getAllRows().find(r => /^\\d+$/.test(String(r.player_key)));
+                          DDFOverrides.applyLink(new URLSearchParams({ov: `${row.player_key}:40`}));
+                        }""")
+                        page.click("#v2OvKeepLink")
+                        for state, action in (("active", None), ("reset", "#v2OvResetAll"), ("undo", "#v2OvUndo")):
+                            if action:
+                                page.click(action)
+                            measure = page.evaluate(MEASURE)
+                            clipped = page.evaluate("""() => { const e = document.getElementById('v2ContextSummaryText');
+                              return e.scrollWidth > e.clientWidth + 1; }""")
+                            print(f"JEG1134-OVERRIDE [{width}] {state}: {json.dumps(measure)}, clipped={clipped}", file=sys.stderr)
+                            self.assertLessEqual(measure["height"], ONE_LINE_MAX, state)
+                            self.assertFalse(clipped, f"{state}: teams and source count must remain readable")
+                            self.assertEqual(measure["expanded"], "false")
+                            self.assertEqual(measure["overflow"], 0)
+                            self.assertTrue(measure["freshness"] and measure["sameLine"])
+                            self.assertTrue(page.locator("#v2OvBar").is_visible())
+                            control = "#v2OvUndo" if state == "reset" else "#v2OvResetAll"
+                            self.assertTrue(page.locator(control).is_visible(), state)
+                            self.assertEqual(page.evaluate("() => DDFOverrides.count()"), 0 if state == "reset" else 1)
+                        page.set_viewport_size({"width": 1440, "height": 900})
+                        page.wait_for_timeout(100)
+                        self.assertTrue(page.evaluate("() => Boolean(document.querySelector('#v2Context #v2OvBar'))"))
+                        page.set_viewport_size({"width": width, "height": height})
+                        page.wait_for_timeout(100)
+                        self.assertLessEqual(page.evaluate(MEASURE)["height"], ONE_LINE_MAX)
+                        page.evaluate("() => location.hash = '#writing/manifesto'")
+                        page.wait_for_timeout(100)
+                        self.assertFalse(page.locator("#v2OvBar").is_visible())
+                        page.close()
+            finally:
+                browser.close()
+
     def test_phone_row_is_one_summary_line_that_opens(self):
         self.assertEqual(run_checks(), [])
 

@@ -218,12 +218,16 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-ctx-summary-caret { flex: 0 0 auto; color: var(--v2-muted); font-size: 12px; line-height: 1; }
   .v2-ctx-summary-caret::before { content: "▾"; }
   .v2-ctx-summary[aria-expanded="true"] .v2-ctx-summary-caret { transform: rotate(180deg); }
-  /* Closed: only the summary, the freshness chip and, when overrides are on, the Overrides indicator (its reset stays one tap away). */
+  /* Closed: only the summary and freshness. Overrides and Reset / Undo use the separate phone notification strip. */
   .v2-context:not(.is-open) .v2-context-inner::before { content: none; }
-  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness):not(.v2-ov-bar) { display: none; }
+  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness) { display: none; }
   /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
   .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
   .v2-context.is-open .v2-ctx-league strong { display: none; }
+  /* Anchor the overflow menu to the row: on tabs without Customize, ⋯ is too far left for a 240px right-aligned menu. */
+  .v2-context-inner { position: relative; }
+  .v2-context .v2-ctx-menuwrap { position: static; }
+  .v2-context .v2-ctx-menu { left: 16px; right: 16px; top: 100%; min-width: 0; max-width: none; }
 }
 
 /* Small button variant */

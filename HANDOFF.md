@@ -108,14 +108,16 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   dashboard, check live that `/assets/value-model.js` has `PROMOTION_MODEL_ENABLED = false`
   and that USO still shows its good trades (DDF connector find_trades_league), then
   close JEG-1142. No edge deploy: get-values loads the published value-model.js.
-- **JEG-1134 phone context row (JEG-1134 lane, 2026-10-28 9:10 AM CT):** PR #1043, branch
-  `fe/jeg-1134-context-phone-summary`, ready for review, CI running at handoff. Below 768 px the context row
-  is one line (summary "Full PPR · 12 teams · 4 sources" plus the week chip); tapping it opens the rest.
-  Option B after Jeremy's measure-first pick C. Picks in `docs/picks-log.md`. Next step: when v2-render and
-  preview are green on its head, merge `origin/main` in (no rebase), squash-merge as "(JEG-1134)", wait for
-  Deploy dashboard, confirm the live `v2/v2.css` has the JEG-1134 block and the row is one line at 390 px, then
-  move JEG-1134 to Done and close #967 as superseded. If a phone render test fails, it likely taps a row
-  control while the row is closed: call `_render_env.open_phone_context(page)` first.
+- **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:26 UTC):** PR #1043, branch
+  `fe/jeg-1134-context-phone-summary`, draft while fixes are validated. Main `1bd85f7` integrated by merge,
+  preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
+  with overrides; on phones the indicator and Reset/Undo now use a separate strip immediately below the
+  context row. All three states keep the row at 45px and its summary readable at 375/390px. Desktop keeps
+  the indicator in its original row. The phone overflow menu is anchored to the row so Copy link fits on
+  tabs without Customize. Ten targeted tests pass. The tap sweep reports exactly the same 23 error groups
+  as clean main; its Reviewed-chip mutation leaves other hit-area rules intact. Full CI and live checks
+  remain pending; see `docs/claude-log/2026-10-28-jeg-1134-context-review-fixes.md`. Parent coordinates release: no merge,
+  deploy or deletion by this lane. #1035 remains a separate Reviewed-chip change; #967 stays superseded.
 - **Incomplete changes / blockers:** #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
