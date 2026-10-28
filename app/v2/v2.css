@@ -1698,6 +1698,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-protect-choices { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .v2-find-protect-choice { display: inline-flex; align-items: center; gap: 7px; min-height: 44px; cursor: pointer; }
 .v2-find-protect-choice input { width: 20px; height: 20px; }
+.v2-find-backup-rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px 14px; }
+.v2-find-backup-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.v2-find-backup-row > span { font-weight: 600; min-width: 25px; }
+.v2-find-backup-row .v2-btn { min-width: 44px; min-height: 44px; padding: 4px; }
+.v2-find-backup-row output { min-width: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 .v2-find-advanced { margin: 8px 0 14px; }
 .v2-find-advanced summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-weight: 600; }
 .v2-find-minimum { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; min-height: 44px; margin: 6px 0; }
