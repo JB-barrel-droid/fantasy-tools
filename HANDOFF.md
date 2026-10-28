@@ -15,6 +15,34 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+
+### Pages validation lane (JEG-1170, Codex, 2026-10-28)
+
+- Jeremy made this the first release priority: “yes, and bring to the top.
+  Sounds like this will speed up development.” This is the Pages half of
+  JEG-1170; #1000 completed the preview half. Branch:
+  `be/jeg-1170-pages-validation-parallel` (draft PR linked on the ticket).
+- Pages now mirrors preview's `validate-base` plus four exhaustive test-core
+  shards, each on a separate runner at the exact run SHA. The build still runs
+  all three rendered harnesses and uploads only its own checked `dist`.
+  Deploy requires literal success from the build and entire matrix. Its artifact
+  name comes from the successful build output, including on partial reruns.
+- Keep `pages` concurrency with `cancel-in-progress: false`: cancellation
+  previously starved publication. No test recipe, shard membership, value math,
+  fixture, Supabase, rebuild-chain or writer-pause change belongs to this PR.
+- Latest main `2e7a2c7c` is integrated into this branch; the only conflict was
+  the picks-log append, resolved by retaining both lanes' entries. Pages
+  workflow/shard commands and artifact gates did not change during integration.
+- Validation: 102 targeted workflow/coverage/artifact tests and actionlint pass.
+  The original serial workflow fails the new parallel contract; all 96 core
+  commands and their exact shard union are unchanged. Coverage/parity/deploy
+  guards now run as explicit blocking steps in both build workflows.
+- Parent owns independent-review acceptance and final-head PR CI, then serial
+  merge on current green main, Pages completion, publication/live verification,
+  and a measured timing comparison. No production dispatch or merge in this lane.
+  Expected speedup is unconfirmed until the first successful Pages run.
+
+
 ### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
