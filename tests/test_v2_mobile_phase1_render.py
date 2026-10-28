@@ -266,6 +266,15 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                         go(page, tab)
                         errors += [f"[{width}x{height}] {tab}: tap target under 44x44 {e}" for e in page.evaluate(TAP)]
                     ctx.close()
+            if "reviewedlink" in checks:   # the pinned Reviewed chip is a visible link the tap check measures
+                ctx, page = open_page(*PHONES[0], True)
+                seen = 0
+                for tab in TAP_TABS:
+                    go(page, tab)
+                    seen += page.evaluate("() => [...document.querySelectorAll('.v2-app a.v2-div-chip[data-status=reviewed][href]')].filter(a => a.checkVisibility()).length")
+                if not seen:
+                    errors.append("no visible linked Reviewed chip on " + ", ".join(TAP_TABS))
+                ctx.close()
             if "tables" in checks:
                 ctx, page = open_page(*LANDSCAPE, True)       # a landscape phone is 844 px wide: touch rules, not width rules
                 for tab in ("player-values", "trade-targets"):
@@ -301,6 +310,19 @@ def flagged_chart_freshness() -> str:
     return json.dumps(doc)
 
 
+def reviewed_chart_freshness() -> str:
+    """The built reference-freshness.json with a default Values column (FantasyPros) reviewed, linked to a public page.
+
+    The Reviewed chip is a link only when its resolution issue is a public http(s) page (no Linear links since #916), and
+    the week's data may have none, so "Reviewed chip loses its hit area" changed nothing on the page and was caught only
+    while another tap target failed. Pin one linked Reviewed chip (the page never fetches it: outside requests abort)."""
+    doc = json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+    doc.setdefault("source_divergence", {})["fantasypros"] = {
+        "status": "reviewed", "message": "FantasyPros was reviewed: its ordering is unusual but correct.",
+        "resolution_issue": "https://example.com/ddf-review/fantasypros"}
+    return json.dumps(doc)
+
+
 class MobilePhase1RenderTest(unittest.TestCase):
     def test_phase1_guards_hold(self):
         self.assertEqual(run_checks(), [])
@@ -310,9 +332,14 @@ class MobilePhase1RenderTest(unittest.TestCase):
         pie = AUDIT_PIE_CSS.read_text(encoding="utf-8")
         text_css = "text/css"
         flagged = flagged_chart_freshness()
+        reviewed = reviewed_chart_freshness()
         # The pinned data alone must pass the text check, so the mutation below is caught for the 0 px word, not the data.
         with self.subTest(mutation="baseline: a flagged default chart, unbroken CSS"):
             self.assertEqual(run_checks({"assets/reference-freshness.json": (flagged, "application/json")}, checks=("text",)), [])
+        with self.subTest(mutation="baseline: a linked Reviewed chip, unbroken CSS"):
+            self.assertEqual(run_checks({"assets/reference-freshness.json": (reviewed, "application/json")}, checks=("tap",)), [])
+            links = run_checks({"assets/reference-freshness.json": (reviewed, "application/json")}, checks=("reviewedlink",))
+            self.assertEqual(links, [], "the pinned Reviewed chip must be a link on the page")
         broken = {
             # name: (check, {file: (body, type)}, anchor text that must exist in the source)
             "table scroll container removed": ("tables", {"v2.css": (css.replace(".v2-table-wrap { overflow-x: auto; margin-top: 12px; }", ".v2-table-wrap { overflow-x: visible; margin-top: 12px; }", 1).replace("#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: auto; }", "#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: visible; }", 1), text_css)},
@@ -337,7 +364,8 @@ class MobilePhase1RenderTest(unittest.TestCase):
             "suffix dropped from the last name": ("names", {"name-format.js": (NAMEFMT_JS.replace("var SUFFIX_RE = /^(jr|sr|ii|iii|iv|v)\\.?$/i;", "var SUFFIX_RE = /^$/;", 1), "application/javascript")}, None),
             "names no longer clip": ("names", {"v2.css": (css + "\n@media (max-width: 767px), (pointer: coarse) { .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { text-overflow: clip; white-space: normal; } }\n", text_css)}, None),
             # JEG-1048: the Reviewed chip is a link (JEG-609) and needs its 44 px hit area; a header chip word must not be a 0 px text node.
-            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css)},
+            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css),
+                                                         "assets/reference-freshness.json": (reviewed, "application/json")},
                                                   "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
             "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css),
                                                            "assets/reference-freshness.json": (flagged, "application/json")},

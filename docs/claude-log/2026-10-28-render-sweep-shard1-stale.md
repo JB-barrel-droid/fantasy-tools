@@ -40,3 +40,16 @@ commits, leave presentation choices to Jeremy. Branch `fix/sweep-shard1-a`, not 
   guard (test_v2_phone_tap_targets_render) finds nothing. Reasoned from layout only: the ::after reaches 14.5 px past the
   footer link, inside the footer's 16 px / 28 px padding, with no other control in the footer. The find pages are not in
   the overlap guard's tab list. Not rendered (no Chromium).
+
+### Follow-up: shard 1 after the hit-area fix (render run on the scratch copy, every module)
+- At 320 px the footer link still failed (260x34): it wrapped to two lines, and a split inline link's box spans both lines,
+  so its centre lands on the text before it. The links are inline-block on phones with min-height 0 (f01b40da).
+- A landscape phone (844x390, coarse pointer) had 24 px Edit league and Dismiss on the settings strip (JEG-1084 kept them
+  slim above 767 px). They are 44 px on any coarse pointer; desktop keeps the slim line. Pick logged.
+- test_v2_finder_chips_render read the league screen's copy of each roster row (league.js draws `li.v2-find-row` too,
+  later in the page), so the "missing average shown as 0" mutation of finder.js went unseen (probe showed DeVonta Smith
+  still "no value" under the mutation). The check reads `#v2FindTrade`'s rows.
+- "Reviewed chip loses its hit area" now serves pinned data with one linked Reviewed chip (FantasyPros, a public
+  example.com page) and checks first that the chip is a visible link and that the unbroken page passes the tap check.
+- Open, not fixed here: test_v2_divergence_chip_render no longer guards `noLink` (no chip in its fixture links since
+  #916); a reviewed source with a public https resolution page would bring back the "link inside the header button" case.
