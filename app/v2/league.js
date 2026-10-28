@@ -887,6 +887,16 @@
     });
     return node;
   }
+  // JEG-1108: the fit label and the viability level (the one-team screen's labels), e.g. "Natural fit · High viability".
+  const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
+  const VIAB_LABEL = {High: "High", "Med-High": "Medium-high", Medium: "Medium"};
+  function viabilityText(r, mine, opp, ctx) {
+    if (!r.fit || !mine || !opp || !ctx.shape || !ctx.market) return "Viability can't be judged for this trade.";
+    const avg = list => F.withChartAverage(list, ctx.market);
+    const level = F.viabilityLabel(r.fit, avg(rowsOfTeam(mine, ctx)), avg(rowsOfTeam(opp, ctx)), avg(r.give), avg(r.receive), ctx.shape, OUR_KEY, ctx.chartKeys || []);
+    const fit = FIT_LABEL[r.fit.label] || "Fit";
+    return level ? `${fit} · ${VIAB_LABEL[level] || level} viability` : `${fit} · not workable for both managers`;
+  }
   function oppPanel(r, ctx) {
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
@@ -898,7 +908,7 @@
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
       r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
-      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: "Checks that this trade is workable for both managers are not shown here yet."}),
+      el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, mine, opp, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
   function oppControls(ws, res) {
