@@ -570,7 +570,7 @@
   // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
-  // is favorable. Independent of the roster test.
+  // is favorable (their change above 0.05, as shown; JEG-1187). Independent of the roster test.
   // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
   const NET_FLOOR = 0.05;
@@ -694,8 +694,11 @@
     const theirNet = them.net;
     const theirTau = them.tau;
     const theirOk = theirNet >= -theirTau;
-    // Market supported: the Trade chart average says the other team's side is favorable (they gain).
-    const marketSupported = theirNet > theirTau;
+    // Market supported: the Trade chart average says the other team's side is favorable (they gain). Any gain the page
+    // shows (above the 0.05 display floor), not the noise floor (JEG-1187): the finder only lists trades you win on DDF
+    // Value, so on real charts the other team's gain never cleared its noise floor and the label could not appear. The
+    // noise floor stays where Jeremy put it (2026-10-25): the tolerance for a loss on their side of Natural fit.
+    const marketSupported = theirNet > NET_FLOOR;
     // Natural: all three conditions pass.
     const isNatural = constructionOk && yourValueOk && theirOk;
     const label = isNatural ? "natural" : marketSupported ? "market" : "force";
@@ -907,6 +910,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function updateArrange() {
     const undo = $("v2FindUndo");
     if (undo) undo.disabled = !S.undo;
+    const clearBothButton = $("v2FindClearBoth");
+    if (clearBothButton) clearBothButton.disabled = !S.mine.length && !S.theirs.length;
     ["mine", "theirs"].forEach(side => {
       const button = $(`v2Find${side[0].toUpperCase()}${side.slice(1)}MoveSel`);
       if (!button) return;
@@ -941,6 +946,16 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.mine = S.mine.filter(p => !set.has(p.key)).concat(toMine);
     S.theirs = S.theirs.filter(p => !set.has(p.key)).concat(toTheirs);
     afterArrange(`Moved ${going.map(p => p.name).join(", ")} to the other team. Undo puts them back.`);
+  }
+  // JEG-1190: both rosters at once. Yours is the shared roster, so it clears on League-wide and Waivers too; Undo restores both.
+  function clearBoth() {
+    if (!S.mine.length && !S.theirs.length) return;
+    snapshot();
+    S.mine = [];
+    S.theirs = [];
+    S.src = {mine: null, theirs: null};
+    S.label = {mine: "", theirs: ""};
+    afterArrange("Cleared both rosters. Yours is cleared on every tab too. Undo puts them back.");
   }
   function undoArrange() {
     if (!S.undo) return;
@@ -2023,6 +2038,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
     undo.addEventListener("click", undoArrange);
+    const clearBothButton = el("button", {type: "button", class: "v2-btn", id: "v2FindClearBoth", text: "Clear both", disabled: ""});
+    clearBothButton.addEventListener("click", clearBoth);
     const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
     edit.addEventListener("click", () => setCollapsed(false, "input"));
     const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
@@ -2034,7 +2051,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
-        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
+        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, clearBothButton, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),

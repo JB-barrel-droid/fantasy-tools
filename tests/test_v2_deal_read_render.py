@@ -13,7 +13,7 @@ Loads the built page headless, opens trades by link (#compare-trade?give=..&get=
     with no call to action, and its sub-line is "The trade charts have you N points behind, so the other
     manager will likely see it as their win."
     with N the real market net to one decimal, recomputed here;
-  * the example trade (no players added) also carries a deal read.
+  * the sample trade (Try a sample trade, JEG-1190) also carries a deal read.
 
 Discrimination: test_guard_fails_on_broken_builds serves v2.js with the outline on the wrong cell, the old split
 copy back, and the nets read from the wrong series, and requires failures.
@@ -272,7 +272,10 @@ def run_checks(patch=None) -> list[str]:
                 page.wait_for_timeout(300)
                 page.evaluate("() => { location.hash = '#compare-trade'; }")
                 page.wait_for_timeout(600)
-                # The example trade (nothing added) has a read too.
+                # The sample trade (JEG-1190: loaded by Try a sample trade on the empty page) has a read too.
+                if page.is_visible("#v2CTryExample"):
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(400)
                 snap = page.evaluate(READ)
                 if not snap["shown"] or not snap["example"]:
                     errors.append(f"[{width}px] the example trade has no deal read (shown {snap['shown']}, example {snap['example']})")
