@@ -163,6 +163,12 @@ only and does not change either band.
 These are the only open choices this spec found. Everything else in section 2 is UI or contract work under decisions
 already made.
 
+Status 2026-10-29 (14:58 CT): **A on D1, D2 and D3 are Claude picks**, made under Jeremy's standing "Yes, use your
+picks, and make a note of what was picked" (2026-10-28) and logged in the coordinator's picks log. Jeremy can reverse
+any of them. They are not his decisions. The slices build on them, and each slice's merge still waits on his OK by PR
+number. The ticket also requires numerical tolerances to go back to Jeremy for review, so slice 5 (D2) shows him the
+before/after label counts and the near-zero boundary examples before it merges.
+
 **D1. When the finders become one finder, what does "your gain" rank by?** Today the your-team finder discounts
 bigger packages (each player past a 1-for-1 takes 10% off, `EXTRA_PLAYER_WEIGHT` finder.js:26) and folds trades by the
 player you receive; the league finder ranks by raw DDF edge (rounded to 0.1) and only uses the discount to break ties.
@@ -173,7 +179,7 @@ So the same two teams can top-list different trades.
 - B. Rank by the size-discounted score, folding by received player (the your-team finder's order, applied to every scope).
 - C. Keep each scope's order as it is today.
 
-Recommended: **A**. The own-gain decision reads most directly as the DDF edge, and A changes the order on one page
+Pick (Claude, reversible): **A**. The own-gain decision reads most directly as the DDF edge, and A changes the order on one page
 only. B favours small packages in a way the page never explains; C leaves the parity gap Jeremy asked to close.
 
 **D2. How much may projections fall before a trade stops being Natural (1a)?** 1a says "projections do not decline"
@@ -184,7 +190,7 @@ noise floor (`tau`) for theirs.
 - B. The noise floor `tau` per side, the same tolerance their market test uses.
 - C. Exactly zero: any fall fails.
 
-Recommended: **A**. It matches what the reader sees on the card, so a "Natural" trade never shows a negative
+Pick (Claude, reversible): **A**. It matches what the reader sees on the card, so a "Natural" trade never shows a negative
 projections change. The 14:24 UTC check found several current Natural trades that fail 1a on projections (for
 example their projections falling 2.2); those fail under A and C, and under B only if 2.2 is past that side's noise
 floor, which this spec did not measure. The slice must ship near-zero boundary examples either way.
@@ -195,7 +201,7 @@ floor, which this spec did not measure. The slice must ship near-zero boundary e
 - B. The league finder's setting.
 - C. Whichever is larger.
 
-Recommended: **A**. It is the setting that also stores the guardrails, so one record holds every discovery control.
+Pick (Claude, reversible): **A**. It is the setting that also stores the guardrails, so one record holds every discovery control.
 Pre-launch there are no readers' saved values to lose. The default stays 2 under every option.
 
 ## 6. Slices
