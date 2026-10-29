@@ -14,7 +14,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-q4-context.md](jeg613-q4-context.md) | JEG-613 open question 4: whether bias-adjusted charts belong in DDF Value, written for Jeremy's decision (2026-10-22). |
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
-| [jeg-1198-ros-rank-anchor.md](jeg-1198-ros-rank-anchor.md) | JEG-1198: whether rest-of-season rankings can anchor trade values (rank curves, scarcity, aggregation, worked examples); research only, no-go recommendation (2026-10-29). Script `tools/research/ros_rank_anchor.py`, data `data/jeg1198/`. |
+| [jeg-1198-ros-rank-anchor.md](jeg-1198-ros-rank-anchor.md) | JEG-1198: whether rest-of-season rankings can anchor trade values (rank curves, scarcity, aggregation, worked examples); research only, no-go recommendation (2026-10-29), plus the option C rerun on real expert ROS rankings (review check, not a value). Scripts `tools/research/ros_rank_anchor.py` and `ros_rank_anchor_experts.py`, data `data/jeg1198/`. |
 
 ## Post drafts
 

@@ -13,6 +13,10 @@ non-ECR consensus ROS ranking we can read, and the modeled ranks we do have disa
 most on exactly the disputed players, so ranks cannot settle a dispute. Recommendation:
 no-go on a ROS-ranking anchor for published values.
 
+Option C rerun (below, same day): with real expert ROS ranks, the answer holds but for a
+different reason. Expert ranks exist and agree with the published chart closely, so as a
+value anchor they would mostly confirm it. They work as a review check, not a new value.
+
 ## Data and labels
 
 | Input | Label | Vintage | Depth | Scoring |
@@ -128,6 +132,71 @@ decision for Jeremy: a review-only "rank check" flag built from the projection s
 Shared inputs with JEG-1195 to JEG-1197: canonical `player_key`, the ROS projection
 fields in `players.json`, and the published curve; no new feed is needed for any of them.
 
+## Option C rerun: real expert ROS rankings
+
+Jeremy picked option C on 2026-10-29 ("start with 4-5 sources, piped through supabase"),
+which lifts the expert-consensus ban for rankings only (docs/pipeline-rules.md section 7).
+The feed is on PR #1081 and saves nothing until the draft table is approved. This rerun
+uses what that feed read on a runner, plus one ESPN article read once by hand. Script:
+`tools/research/ros_rank_anchor_experts.py`.
+
+| Ranker | Label | Vintage | Scoring | Read how |
+|---|---|---|---|---|
+| Expert consensus (6 experts) | published | 2026-10-28 | Half PPR only | feed, dry run 40802150829 |
+| Scott Pianowski, Yahoo dollar tiers | published, QB and TE stale | QB 09-30, TE 10-07, RB 10-14, WR 10-21 | unstated | feed, same run |
+| Eric Karabell, ESPN ROS article | published | 2026-10-27 | unstated | read once; a runner gets HTTP 202, so not piped |
+| ESPN, CBS ROS, Razzball projections | modeled | fixture `d4d995f` | per scoring | first study |
+
+Pianowski is ranked by dollar value, ties sharing the average rank. The same three
+rankings are used for all three scorings, since none publishes per-scoring ROS lists;
+only the published curve changes with scoring. Depth: QB12, RB30, WR36, TE12 of the
+published chart (89 players).
+
+Spearman rank agreement with the published chart, PPR:
+
+| | QB | RB | WR | TE |
+|---|---|---|---|---|
+| Expert consensus | .93 | .99 | .98 | .96 |
+| Pianowski | .56 | .90 | .96 | .76 |
+| Karabell | .82 | .97 | .89 | .81 |
+| Modeled (range of three) | .19 to .60 | .81 to .91 | .83 to .91 | .53 to .88 |
+
+The experts agree with each other at RB (.87 to .96) and WR (.90 to .98), less at QB (.56
+to .71) and TE (.69 to .85). Half PPR and Standard are within a few hundredths.
+
+Implied value (rank matched to the published curve, averaged over the three experts):
+35 of 89 players move materially (over 5% and over 2 points) in each scoring, against
+54 to 57 for the modeled mean. Median gap to published is 1.2 to 2.2 points. Median spread
+between the three experts is 4 to 6.5 points, wider than the median gap, so for most
+players the published value already sits inside the experts' range.
+
+Largest PPR gaps, and why:
+- Josh Jacobs, 30.5 published, experts mean 20.7: Pianowski has him RB45 in his Oct 14
+  article; the other two have RB17 and RB12.
+- Drake Maye, 21.0 published, experts mean 12.1: Pianowski's QB article is from Sep 30;
+  expert consensus has him QB2, matching published.
+- Luther Burden III -8.5 and Nico Collins +6.9: all three experts lean the same way.
+
+The disputed players from the first study mostly sit near published under the experts:
+Chase Brown 28.3 vs 23.8 published (modeled 46.1), Malik Nabers 43.5 vs 45.4 (modeled
+27.6), Jalen Coker 15.1 vs 14.7 (modeled 27.8). Jayden Daniels is the exception: 5.5 vs
+9.0, with the modeled ranks at 19.9.
+
+What this means:
+- Expert ROS ranks track the market chart closely. That is a check on it, not new
+  information to average in; averaging them into DDF Value would mostly double count
+  the same opinion.
+- The useful signal is the few players where all experts agree against the chart
+  (Burden, Collins). A review flag on those is the build this supports.
+- Stale articles drive most of the outliers, so any flag needs a vintage cutoff (for
+  example, ignore a source older than 14 days).
+- Two sources piped plus one read by hand is short of the 4 to 5 Jeremy asked for; the
+  rest did not read (PR #1081 lists why).
+
+Inputs: `data/jeg1198/roslist_2026-10-29.txt` (feed lists, trimmed to study depth),
+`data/jeg1198/espn_ros_karabell_2026-10-27.txt`. Outputs:
+`data/jeg1198/ros_rank_experts_out.json`, `data/jeg1198/ros_rank_experts_console.txt`.
+
 ## Reproduce
 
     python3 tools/research/ros_rank_anchor.py
@@ -136,3 +205,7 @@ It reads the files above and writes `data/jeg1198/ros_rank_study_out.json`; the 
 summary from the 2026-10-29 run is `data/jeg1198/ros_rank_study_console.txt`.
 `players.json` changes as the fixture is rebuilt, so later runs need the pinned version
 (commit `d4d995f`) to match these figures.
+
+The option C rerun:
+
+    PLAYER_ALIASES_SOURCE=json python3 tools/research/ros_rank_anchor_experts.py

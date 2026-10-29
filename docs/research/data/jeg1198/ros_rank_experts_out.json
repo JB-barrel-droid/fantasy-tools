@@ -1,0 +1,6561 @@
+{
+ "vintages": {
+  "fantasypros_ros_ecr:RB": {
+   "vintage": "2026-10-28",
+   "scoring": "half_ppr"
+  },
+  "fantasypros_ros_ecr:WR": {
+   "vintage": "2026-10-28",
+   "scoring": "half_ppr"
+  },
+  "fantasypros_ros_ecr:QB": {
+   "vintage": "2026-10-28",
+   "scoring": "half_ppr"
+  },
+  "fantasypros_ros_ecr:TE": {
+   "vintage": "2026-10-28",
+   "scoring": "half_ppr"
+  },
+  "yahoo_pianowski_ros:QB": {
+   "vintage": "2026-09-30",
+   "scoring": "unstated"
+  },
+  "yahoo_pianowski_ros:RB": {
+   "vintage": "2026-10-14",
+   "scoring": "unstated"
+  },
+  "yahoo_pianowski_ros:WR": {
+   "vintage": "2026-10-21",
+   "scoring": "unstated"
+  },
+  "yahoo_pianowski_ros:TE": {
+   "vintage": "2026-10-07",
+   "scoring": "unstated"
+  },
+  "espn_karabell": {
+   "vintage": "2026-10-27",
+   "scoring": "unstated"
+  }
+ },
+ "scorings": {
+  "ppr": {
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "ecr_consensus": 0.93,
+      "yahoo_pianowski": 0.56,
+      "espn_karabell": 0.82,
+      "espn_proj": 0.6,
+      "cbsros_proj": 0.19,
+      "razzball_proj": 0.33
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.66,
+      "ecr_consensus~espn_karabell": 0.71,
+      "ecr_consensus~espn_proj": 0.39,
+      "ecr_consensus~cbsros_proj": 0.1,
+      "ecr_consensus~razzball_proj": 0.06,
+      "yahoo_pianowski~espn_karabell": 0.56,
+      "yahoo_pianowski~espn_proj": 0.3,
+      "yahoo_pianowski~cbsros_proj": 0.4,
+      "yahoo_pianowski~razzball_proj": 0.01,
+      "espn_karabell~espn_proj": 0.51,
+      "espn_karabell~cbsros_proj": 0.26,
+      "espn_karabell~razzball_proj": 0.6,
+      "espn_proj~cbsros_proj": 0.74,
+      "espn_proj~razzball_proj": 0.51,
+      "cbsros_proj~razzball_proj": 0.37
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "ecr_consensus": 0.99,
+      "yahoo_pianowski": 0.9,
+      "espn_karabell": 0.97,
+      "espn_proj": 0.91,
+      "cbsros_proj": 0.9,
+      "razzball_proj": 0.81
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 30,
+      "espn_karabell": 30
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.92,
+      "ecr_consensus~espn_karabell": 0.96,
+      "ecr_consensus~espn_proj": 0.92,
+      "ecr_consensus~cbsros_proj": 0.93,
+      "ecr_consensus~razzball_proj": 0.82,
+      "yahoo_pianowski~espn_karabell": 0.87,
+      "yahoo_pianowski~espn_proj": 0.85,
+      "yahoo_pianowski~cbsros_proj": 0.84,
+      "yahoo_pianowski~razzball_proj": 0.82,
+      "espn_karabell~espn_proj": 0.89,
+      "espn_karabell~cbsros_proj": 0.9,
+      "espn_karabell~razzball_proj": 0.78,
+      "espn_proj~cbsros_proj": 0.94,
+      "espn_proj~razzball_proj": 0.81,
+      "cbsros_proj~razzball_proj": 0.82
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "ecr_consensus": 0.98,
+      "yahoo_pianowski": 0.96,
+      "espn_karabell": 0.89,
+      "espn_proj": 0.87,
+      "cbsros_proj": 0.91,
+      "razzball_proj": 0.83
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 35,
+      "yahoo_pianowski": 35,
+      "espn_karabell": 35
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.98,
+      "ecr_consensus~espn_karabell": 0.9,
+      "ecr_consensus~espn_proj": 0.88,
+      "ecr_consensus~cbsros_proj": 0.9,
+      "ecr_consensus~razzball_proj": 0.83,
+      "yahoo_pianowski~espn_karabell": 0.92,
+      "yahoo_pianowski~espn_proj": 0.86,
+      "yahoo_pianowski~cbsros_proj": 0.89,
+      "yahoo_pianowski~razzball_proj": 0.8,
+      "espn_karabell~espn_proj": 0.72,
+      "espn_karabell~cbsros_proj": 0.82,
+      "espn_karabell~razzball_proj": 0.74,
+      "espn_proj~cbsros_proj": 0.83,
+      "espn_proj~razzball_proj": 0.87,
+      "cbsros_proj~razzball_proj": 0.76
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "ecr_consensus": 0.96,
+      "yahoo_pianowski": 0.76,
+      "espn_karabell": 0.81,
+      "espn_proj": 0.87,
+      "cbsros_proj": 0.53,
+      "razzball_proj": 0.88
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.85,
+      "ecr_consensus~espn_karabell": 0.81,
+      "ecr_consensus~espn_proj": 0.83,
+      "ecr_consensus~cbsros_proj": 0.53,
+      "ecr_consensus~razzball_proj": 0.94,
+      "yahoo_pianowski~espn_karabell": 0.69,
+      "yahoo_pianowski~espn_proj": 0.64,
+      "yahoo_pianowski~cbsros_proj": 0.55,
+      "yahoo_pianowski~razzball_proj": 0.81,
+      "espn_karabell~espn_proj": 0.71,
+      "espn_karabell~cbsros_proj": 0.83,
+      "espn_karabell~razzball_proj": 0.74,
+      "espn_proj~cbsros_proj": 0.53,
+      "espn_proj~razzball_proj": 0.72,
+      "cbsros_proj~razzball_proj": 0.45
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 32.0,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.0,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 32.0
+     },
+     "implied_experts_mean": 32.0,
+     "implied_experts_range": [
+      32.0,
+      32.0
+     ],
+     "implied_modeled_mean": 32.0,
+     "expert_rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 21.0,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 21.0,
+      "yahoo_pianowski": 3.9,
+      "espn_karabell": 11.3
+     },
+     "implied_experts_mean": 12.1,
+     "implied_experts_range": [
+      3.9,
+      21.0
+     ],
+     "implied_modeled_mean": 8.3,
+     "expert_rank_sd": 4.3
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 17.6,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.1,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 17.6
+     },
+     "implied_experts_mean": 17.9,
+     "implied_experts_range": [
+      15.1,
+      21.0
+     ],
+     "implied_modeled_mean": 11.8,
+     "expert_rank_sd": 0.8
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 15.1,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.9,
+      "yahoo_pianowski": 14.4,
+      "espn_karabell": 21.0
+     },
+     "implied_experts_mean": 16.8,
+     "implied_experts_range": [
+      14.4,
+      21.0
+     ],
+     "implied_modeled_mean": 18.7,
+     "expert_rank_sd": 1.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 14.9,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.6,
+      "yahoo_pianowski": 16.4,
+      "espn_karabell": 14.9
+     },
+     "implied_experts_mean": 16.3,
+     "implied_experts_range": [
+      14.9,
+      17.6
+     ],
+     "implied_modeled_mean": 7.7,
+     "expert_rank_sd": 0.8
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 13.9,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.9,
+      "yahoo_pianowski": 16.4,
+      "espn_karabell": 9.0
+     },
+     "implied_experts_mean": 13.1,
+     "implied_experts_range": [
+      9.0,
+      16.4
+     ],
+     "implied_modeled_mean": 10.9,
+     "expert_rank_sd": 2.2
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 11.3,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 7.5,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.3,
+      "yahoo_pianowski": 11.1,
+      "espn_karabell": 15.1
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      11.1,
+      15.1
+     ],
+     "implied_modeled_mean": 4.9,
+     "expert_rank_sd": 1.5
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 10.8,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.8,
+      "yahoo_pianowski": 6.4,
+      "espn_karabell": 13.9
+     },
+     "implied_experts_mean": 10.4,
+     "implied_experts_range": [
+      6.4,
+      13.9
+     ],
+     "implied_modeled_mean": 14.2,
+     "expert_rank_sd": 1.6
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.0,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 14.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.3,
+      "yahoo_pianowski": 2.5,
+      "espn_karabell": 10.8
+     },
+     "implied_experts_mean": 5.5,
+     "implied_experts_range": [
+      2.5,
+      10.8
+     ],
+     "implied_modeled_mean": 19.9,
+     "expert_rank_sd": 2.8
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.4,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.0,
+      "yahoo_pianowski": 6.4,
+      "espn_karabell": 6.4
+     },
+     "implied_experts_mean": 7.3,
+     "implied_experts_range": [
+      6.4,
+      9.0
+     ],
+     "implied_modeled_mean": 6.2,
+     "expert_rank_sd": 0.5
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.4,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.4,
+      "yahoo_pianowski": 1.5,
+      "espn_karabell": 5.4
+     },
+     "implied_experts_mean": 4.1,
+     "implied_experts_range": [
+      1.5,
+      5.4
+     ],
+     "implied_modeled_mean": 6.3,
+     "expert_rank_sd": 2.4
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.6,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.4,
+      "yahoo_pianowski": 14.4,
+      "espn_karabell": 3.3
+     },
+     "implied_experts_mean": 8.0,
+     "implied_experts_range": [
+      3.3,
+      14.4
+     ],
+     "implied_modeled_mean": 7.9,
+     "expert_rank_sd": 3.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 74.6,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 74.6,
+      "yahoo_pianowski": 74.6,
+      "espn_karabell": 74.6
+     },
+     "implied_experts_mean": 74.6,
+     "implied_experts_range": [
+      74.6,
+      74.6
+     ],
+     "implied_modeled_mean": 74.6,
+     "expert_rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 67.6,
+     "published_pos_rank": 2.5,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 67.6,
+      "yahoo_pianowski": 67.6,
+      "espn_karabell": 67.6
+     },
+     "implied_experts_mean": 67.6,
+     "implied_experts_range": [
+      67.6,
+      67.6
+     ],
+     "implied_modeled_mean": 63.3,
+     "expert_rank_sd": 0.0
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 67.6,
+     "published_pos_rank": 2.5,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 67.6,
+      "yahoo_pianowski": 67.6,
+      "espn_karabell": 67.6
+     },
+     "implied_experts_mean": 67.6,
+     "implied_experts_range": [
+      67.6,
+      67.6
+     ],
+     "implied_modeled_mean": 67.6,
+     "expert_rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 54.6,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 54.6,
+      "yahoo_pianowski": 51.1,
+      "espn_karabell": 51.1
+     },
+     "implied_experts_mean": 52.3,
+     "implied_experts_range": [
+      51.1,
+      54.6
+     ],
+     "implied_modeled_mean": 54.5,
+     "expert_rank_sd": 0.5
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 51.1,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 51.1,
+      "yahoo_pianowski": 46.5,
+      "espn_karabell": 49.3
+     },
+     "implied_experts_mean": 49.0,
+     "implied_experts_range": [
+      46.5,
+      51.1
+     ],
+     "implied_modeled_mean": 43.5,
+     "expert_rank_sd": 0.8
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 49.3,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 49.3,
+      "yahoo_pianowski": 49.3,
+      "espn_karabell": 54.6
+     },
+     "implied_experts_mean": 51.1,
+     "implied_experts_range": [
+      49.3,
+      54.6
+     ],
+     "implied_modeled_mean": 47.6,
+     "expert_rank_sd": 0.9
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 46.5,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 8.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 46.5,
+      "yahoo_pianowski": 43.3,
+      "espn_karabell": 46.5
+     },
+     "implied_experts_mean": 45.4,
+     "implied_experts_range": [
+      43.3,
+      46.5
+     ],
+     "implied_modeled_mean": 43.5,
+     "expert_rank_sd": 0.5
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 43.3,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 43.3,
+      "yahoo_pianowski": 54.6,
+      "espn_karabell": 43.3
+     },
+     "implied_experts_mean": 47.1,
+     "implied_experts_range": [
+      43.3,
+      54.6
+     ],
+     "implied_modeled_mean": 41.2,
+     "expert_rank_sd": 1.9
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 41.0,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 9.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 41.0,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 41.0
+     },
+     "implied_experts_mean": 41.0,
+     "implied_experts_range": [
+      41.0,
+      41.0
+     ],
+     "implied_modeled_mean": 37.4,
+     "expert_rank_sd": 0.0
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 38.8,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 38.8,
+      "yahoo_pianowski": 38.8,
+      "espn_karabell": 30.8
+     },
+     "implied_experts_mean": 36.1,
+     "implied_experts_range": [
+      30.8,
+      38.8
+     ],
+     "implied_modeled_mean": 37.4,
+     "expert_rank_sd": 1.9
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 36.1,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 34.7,
+      "yahoo_pianowski": 31.6,
+      "espn_karabell": 38.8
+     },
+     "implied_experts_mean": 35.0,
+     "implied_experts_range": [
+      31.6,
+      38.8
+     ],
+     "implied_modeled_mean": 24.1,
+     "expert_rank_sd": 1.4
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 34.7,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.5,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 36.1
+     },
+     "implied_experts_mean": 32.7,
+     "implied_experts_range": [
+      29.6,
+      36.1
+     ],
+     "implied_modeled_mean": 29.6,
+     "expert_rank_sd": 1.8
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 32.5,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 30.8,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 32.5
+     },
+     "implied_experts_mean": 31.0,
+     "implied_experts_range": [
+      29.6,
+      32.5
+     ],
+     "implied_modeled_mean": 42.0,
+     "expert_rank_sd": 1.0
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 30.8,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 36.1,
+      "yahoo_pianowski": 36.1,
+      "espn_karabell": 22.1
+     },
+     "implied_experts_mean": 31.4,
+     "implied_experts_range": [
+      22.1,
+      36.1
+     ],
+     "implied_modeled_mean": 34.8,
+     "expert_rank_sd": 3.8
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 30.5,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 45.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.7,
+      "yahoo_pianowski": 1.6,
+      "espn_karabell": 34.7
+     },
+     "implied_experts_mean": 20.7,
+     "implied_experts_range": [
+      1.6,
+      34.7
+     ],
+     "implied_modeled_mean": 21.4,
+     "expert_rank_sd": 14.5
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 28.7,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 30.5,
+      "yahoo_pianowski": 34.7,
+      "espn_karabell": 28.7
+     },
+     "implied_experts_mean": 31.3,
+     "implied_experts_range": [
+      28.7,
+      34.7
+     ],
+     "implied_modeled_mean": 28.5,
+     "expert_rank_sd": 1.7
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 25.7,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 22.1,
+      "yahoo_pianowski": 18.7,
+      "espn_karabell": 20.2
+     },
+     "implied_experts_mean": 20.3,
+     "implied_experts_range": [
+      18.7,
+      22.1
+     ],
+     "implied_modeled_mean": 15.6,
+     "expert_rank_sd": 0.8
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 23.8,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 28.7,
+      "yahoo_pianowski": 25.7,
+      "espn_karabell": 30.5
+     },
+     "implied_experts_mean": 28.3,
+     "implied_experts_range": [
+      25.7,
+      30.5
+     ],
+     "implied_modeled_mean": 46.1,
+     "expert_rank_sd": 0.8
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 22.1,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.8,
+      "yahoo_pianowski": 31.6,
+      "espn_karabell": 23.8
+     },
+     "implied_experts_mean": 26.4,
+     "implied_experts_range": [
+      23.8,
+      31.6
+     ],
+     "implied_modeled_mean": 18.4,
+     "expert_rank_sd": 2.1
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 20.2,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.7,
+      "yahoo_pianowski": 20.2,
+      "espn_karabell": 25.7
+     },
+     "implied_experts_mean": 21.5,
+     "implied_experts_range": [
+      18.7,
+      25.7
+     ],
+     "implied_modeled_mean": 14.5,
+     "expert_rank_sd": 1.7
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 18.7,
+     "published_pos_rank": 21.0,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.7,
+      "yahoo_pianowski": 23.0,
+      "espn_karabell": 8.9
+     },
+     "implied_experts_mean": 16.5,
+     "implied_experts_range": [
+      8.9,
+      23.0
+     ],
+     "implied_modeled_mean": 19.1,
+     "expert_rank_sd": 3.9
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 18.1,
+     "published_pos_rank": 22.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.2,
+      "yahoo_pianowski": 17.9,
+      "espn_karabell": 18.7
+     },
+     "implied_experts_mean": 18.9,
+     "implied_experts_range": [
+      17.9,
+      20.2
+     ],
+     "implied_modeled_mean": 22.3,
+     "expert_rank_sd": 1.0
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 17.7,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.1,
+      "yahoo_pianowski": 17.9,
+      "espn_karabell": 15.8
+     },
+     "implied_experts_mean": 17.3,
+     "implied_experts_range": [
+      15.8,
+      18.1
+     ],
+     "implied_modeled_mean": 21.7,
+     "expert_rank_sd": 0.8
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 15.8,
+     "published_pos_rank": 24.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.9,
+      "yahoo_pianowski": 23.0,
+      "espn_karabell": 18.1
+     },
+     "implied_experts_mean": 17.3,
+     "implied_experts_range": [
+      10.9,
+      23.0
+     ],
+     "implied_modeled_mean": 19.4,
+     "expert_rank_sd": 2.7
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 10.9,
+     "published_pos_rank": 25.0,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 26
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.8,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 10.8
+     },
+     "implied_experts_mean": 11.7,
+     "implied_experts_range": [
+      8.5,
+      15.8
+     ],
+     "implied_modeled_mean": 21.5,
+     "expert_rank_sd": 2.3
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 10.8,
+     "published_pos_rank": 26.0,
+     "expert_ranks": {
+      "ecr_consensus": 34,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.8,
+      "yahoo_pianowski": 4.8,
+      "espn_karabell": 5.8
+     },
+     "implied_experts_mean": 5.5,
+     "implied_experts_range": [
+      4.8,
+      5.8
+     ],
+     "implied_modeled_mean": 11.8,
+     "expert_rank_sd": 0.5
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 9.6,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 38
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.8,
+      "yahoo_pianowski": 4.8,
+      "espn_karabell": 3.8
+     },
+     "implied_experts_mean": 6.5,
+     "implied_experts_range": [
+      3.8,
+      10.8
+     ],
+     "implied_modeled_mean": 7.4,
+     "expert_rank_sd": 5.1
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 8.9,
+     "published_pos_rank": 28.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.9,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 8.7
+     },
+     "implied_experts_mean": 8.7,
+     "implied_experts_range": [
+      8.5,
+      8.9
+     ],
+     "implied_modeled_mean": 4.9,
+     "expert_rank_sd": 0.6
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 8.7,
+     "published_pos_rank": 29.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.6,
+      "yahoo_pianowski": 9.2,
+      "espn_karabell": 8.3
+     },
+     "implied_experts_mean": 9.0,
+     "implied_experts_range": [
+      8.3,
+      9.6
+     ],
+     "implied_modeled_mean": 5.2,
+     "expert_rank_sd": 1.3
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 8.3,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 25.5,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.7,
+      "yahoo_pianowski": 10.9,
+      "espn_karabell": 5.9
+     },
+     "implied_experts_mean": 8.5,
+     "implied_experts_range": [
+      5.9,
+      10.9
+     ],
+     "implied_modeled_mean": 7.8,
+     "expert_rank_sd": 3.1
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 67.5,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 67.5,
+      "yahoo_pianowski": 67.5,
+      "espn_karabell": 67.5
+     },
+     "implied_experts_mean": 67.5,
+     "implied_experts_range": [
+      67.5,
+      67.5
+     ],
+     "implied_modeled_mean": 61.7,
+     "expert_rank_sd": 0.0
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 63.4,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 63.4,
+      "yahoo_pianowski": 63.4,
+      "espn_karabell": 63.4
+     },
+     "implied_experts_mean": 63.4,
+     "implied_experts_range": [
+      63.4,
+      63.4
+     ],
+     "implied_modeled_mean": 61.7,
+     "expert_rank_sd": 0.0
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 56.4,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 56.4,
+      "yahoo_pianowski": 56.4,
+      "espn_karabell": 56.4
+     },
+     "implied_experts_mean": 56.4,
+     "implied_experts_range": [
+      56.4,
+      56.4
+     ],
+     "implied_modeled_mean": 58.2,
+     "expert_rank_sd": 0.0
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 54.1,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 54.1,
+      "yahoo_pianowski": 54.1,
+      "espn_karabell": 54.1
+     },
+     "implied_experts_mean": 54.1,
+     "implied_experts_range": [
+      54.1,
+      54.1
+     ],
+     "implied_modeled_mean": 58.4,
+     "expert_rank_sd": 0.0
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 52.0,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 52.0,
+      "yahoo_pianowski": 52.0,
+      "espn_karabell": 52.0
+     },
+     "implied_experts_mean": 52.0,
+     "implied_experts_range": [
+      52.0,
+      52.0
+     ],
+     "implied_modeled_mean": 53.5,
+     "expert_rank_sd": 0.0
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 45.4,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 42.6,
+      "yahoo_pianowski": 45.4,
+      "espn_karabell": 42.6
+     },
+     "implied_experts_mean": 43.5,
+     "implied_experts_range": [
+      42.6,
+      45.4
+     ],
+     "implied_modeled_mean": 27.6,
+     "expert_rank_sd": 0.5
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 42.6,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 45.4,
+      "yahoo_pianowski": 34.3,
+      "espn_karabell": 31.1
+     },
+     "implied_experts_mean": 36.9,
+     "implied_experts_range": [
+      31.1,
+      45.4
+     ],
+     "implied_modeled_mean": 40.8,
+     "expert_rank_sd": 2.5
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 37.6,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 37.6,
+      "yahoo_pianowski": 42.6,
+      "espn_karabell": 32.3
+     },
+     "implied_experts_mean": 37.5,
+     "implied_experts_range": [
+      32.3,
+      42.6
+     ],
+     "implied_modeled_mean": 34.1,
+     "expert_rank_sd": 1.7
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 35.6,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 35.6,
+      "yahoo_pianowski": 36.6,
+      "espn_karabell": 45.4
+     },
+     "implied_experts_mean": 39.2,
+     "implied_experts_range": [
+      35.6,
+      45.4
+     ],
+     "implied_modeled_mean": 24.8,
+     "expert_rank_sd": 1.3
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 34.3,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.3,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 26.1
+     },
+     "implied_experts_mean": 29.3,
+     "implied_experts_range": [
+      26.1,
+      32.3
+     ],
+     "implied_modeled_mean": 41.5,
+     "expert_rank_sd": 1.2
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 32.3,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 34.3,
+      "yahoo_pianowski": 36.6,
+      "espn_karabell": 37.6
+     },
+     "implied_experts_mean": 36.2,
+     "implied_experts_range": [
+      34.3,
+      37.6
+     ],
+     "implied_modeled_mean": 27.9,
+     "expert_rank_sd": 0.8
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 31.1,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 28.2,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 25.7
+     },
+     "implied_experts_mean": 27.8,
+     "implied_experts_range": [
+      25.7,
+      29.6
+     ],
+     "implied_modeled_mean": 32.3,
+     "expert_rank_sd": 1.5
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 28.2,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 19.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.7,
+      "yahoo_pianowski": 21.5,
+      "espn_karabell": 25.8
+     },
+     "implied_experts_mean": 24.3,
+     "implied_experts_range": [
+      21.5,
+      25.8
+     ],
+     "implied_modeled_mean": 37.7,
+     "expert_rank_sd": 1.7
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 26.1,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.0,
+      "yahoo_pianowski": 25.7,
+      "espn_karabell": 23.0
+     },
+     "implied_experts_mean": 23.9,
+     "implied_experts_range": [
+      23.0,
+      25.7
+     ],
+     "implied_modeled_mean": 22.9,
+     "expert_rank_sd": 0.5
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 25.8,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 26.1,
+      "yahoo_pianowski": 25.8,
+      "espn_karabell": 35.6
+     },
+     "implied_experts_mean": 29.2,
+     "implied_experts_range": [
+      25.8,
+      35.6
+     ],
+     "implied_modeled_mean": 24.6,
+     "expert_rank_sd": 2.6
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 25.7,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 31.1,
+      "yahoo_pianowski": 32.3,
+      "espn_karabell": 34.3
+     },
+     "implied_experts_mean": 32.6,
+     "implied_experts_range": [
+      31.1,
+      34.3
+     ],
+     "implied_modeled_mean": 21.4,
+     "expert_rank_sd": 0.8
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 23.0,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 14.0,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.8,
+      "yahoo_pianowski": 26.1,
+      "espn_karabell": 22.6
+     },
+     "implied_experts_mean": 24.8,
+     "implied_experts_range": [
+      22.6,
+      26.1
+     ],
+     "implied_modeled_mean": 30.8,
+     "expert_rank_sd": 1.7
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 22.6,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 32
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.8,
+      "yahoo_pianowski": 14.8,
+      "espn_karabell": 8.6
+     },
+     "implied_experts_mean": 14.1,
+     "implied_experts_range": [
+      8.6,
+      18.8
+     ],
+     "implied_modeled_mean": 16.9,
+     "expert_rank_sd": 5.0
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 21.5,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 22.6,
+      "yahoo_pianowski": 22.8,
+      "espn_karabell": 28.2
+     },
+     "implied_experts_mean": 24.5,
+     "implied_experts_range": [
+      22.6,
+      28.2
+     ],
+     "implied_modeled_mean": 16.7,
+     "expert_rank_sd": 2.2
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 18.8,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 21.5,
+      "yahoo_pianowski": 17.2,
+      "espn_karabell": 21.5
+     },
+     "implied_experts_mean": 20.1,
+     "implied_experts_range": [
+      17.2,
+      21.5
+     ],
+     "implied_modeled_mean": 18.8,
+     "expert_rank_sd": 0.9
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 17.2,
+     "published_pos_rank": 21.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 25.0,
+      "espn_karabell": 31
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.2,
+      "yahoo_pianowski": 14.7,
+      "espn_karabell": 10.6
+     },
+     "implied_experts_mean": 14.2,
+     "implied_experts_range": [
+      10.6,
+      17.2
+     ],
+     "implied_modeled_mean": 15.8,
+     "expert_rank_sd": 4.1
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 15.5,
+     "published_pos_rank": 22.0,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.5,
+      "yahoo_pianowski": 18.8,
+      "espn_karabell": 17.2
+     },
+     "implied_experts_mean": 17.2,
+     "implied_experts_range": [
+      15.5,
+      18.8
+     ],
+     "implied_modeled_mean": 15.5,
+     "expert_rank_sd": 0.8
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 15.0,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.5,
+      "yahoo_pianowski": 13.8,
+      "espn_karabell": 15.5
+     },
+     "implied_experts_mean": 13.9,
+     "implied_experts_range": [
+      12.5,
+      15.5
+     ],
+     "implied_modeled_mean": 13.9,
+     "expert_rank_sd": 3.3
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 14.7,
+     "published_pos_rank": 24.5,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.7,
+      "yahoo_pianowski": 22.8,
+      "espn_karabell": 18.8
+     },
+     "implied_experts_mean": 18.8,
+     "implied_experts_range": [
+      14.7,
+      22.8
+     ],
+     "implied_modeled_mean": 16.2,
+     "expert_rank_sd": 2.7
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 14.7,
+     "published_pos_rank": 24.5,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 22.0,
+      "espn_karabell": 25
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.0,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 14.7
+     },
+     "implied_experts_mean": 15.1,
+     "implied_experts_range": [
+      14.7,
+      15.5
+     ],
+     "implied_modeled_mean": 27.8,
+     "expert_rank_sd": 1.2
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 14.1,
+     "published_pos_rank": 26.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 35
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.5,
+      "yahoo_pianowski": 13.8,
+      "espn_karabell": 6.6
+     },
+     "implied_experts_mean": 11.3,
+     "implied_experts_range": [
+      6.6,
+      13.8
+     ],
+     "implied_modeled_mean": 11.4,
+     "expert_rank_sd": 3.9
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 13.5,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.1,
+      "yahoo_pianowski": 8.6,
+      "espn_karabell": 14.7
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      8.6,
+      14.7
+     ],
+     "implied_modeled_mean": 12.4,
+     "expert_rank_sd": 3.4
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 13.3,
+     "published_pos_rank": 28.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.7,
+      "yahoo_pianowski": 14.8,
+      "espn_karabell": 12.6
+     },
+     "implied_experts_mean": 14.0,
+     "implied_experts_range": [
+      12.6,
+      14.8
+     ],
+     "implied_modeled_mean": 21.0,
+     "expert_rank_sd": 2.3
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 12.6,
+     "published_pos_rank": 29.0,
+     "expert_ranks": {
+      "ecr_consensus": 33,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.9,
+      "yahoo_pianowski": 8.6,
+      "espn_karabell": 6.7
+     },
+     "implied_experts_mean": 7.4,
+     "implied_experts_range": [
+      6.7,
+      8.6
+     ],
+     "implied_modeled_mean": 11.4,
+     "expert_rank_sd": 0.8
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 12.5,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 34.0,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.6,
+      "yahoo_pianowski": 6.7,
+      "espn_karabell": 6.9
+     },
+     "implied_experts_mean": 8.7,
+     "implied_experts_range": [
+      6.7,
+      12.6
+     ],
+     "implied_modeled_mean": 17.6,
+     "expert_rank_sd": 2.2
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 10.6,
+     "published_pos_rank": 31.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 28.0,
+      "espn_karabell": 23
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.3,
+      "yahoo_pianowski": 13.3,
+      "espn_karabell": 15.0
+     },
+     "implied_experts_mean": 13.9,
+     "implied_experts_range": [
+      13.3,
+      15.0
+     ],
+     "implied_modeled_mean": 9.4,
+     "expert_rank_sd": 2.4
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 8.6,
+     "published_pos_rank": 32.0,
+     "expert_ranks": {
+      "ecr_consensus": 32,
+      "yahoo_pianowski": 35.5,
+      "espn_karabell": 42
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.6,
+      "yahoo_pianowski": 6.4,
+      "espn_karabell": 2.8
+     },
+     "implied_experts_mean": 5.9,
+     "implied_experts_range": [
+      2.8,
+      8.6
+     ],
+     "implied_modeled_mean": 4.9,
+     "expert_rank_sd": 4.1
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 6.9,
+     "published_pos_rank": 33.0,
+     "expert_ranks": {
+      "ecr_consensus": 43,
+      "yahoo_pianowski": 45.5,
+      "espn_karabell": 27
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.8,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 13.5
+     },
+     "implied_experts_mean": 6.1,
+     "implied_experts_range": [
+      2.0,
+      13.5
+     ],
+     "implied_modeled_mean": 1.7,
+     "expert_rank_sd": 8.2
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 6.7,
+     "published_pos_rank": 34.0,
+     "expert_ranks": {
+      "ecr_consensus": 41,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.2,
+      "yahoo_pianowski": 3.2,
+      "espn_karabell": 12.5
+     },
+     "implied_experts_mean": 6.3,
+     "implied_experts_range": [
+      3.2,
+      12.5
+     ],
+     "implied_modeled_mean": 5.2,
+     "expert_rank_sd": 5.2
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 6.6,
+     "published_pos_rank": 35.0,
+     "expert_ranks": {
+      "ecr_consensus": 36,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.2,
+      "yahoo_pianowski": 3.2,
+      "espn_karabell": 13.3
+     },
+     "implied_experts_mean": 7.6,
+     "implied_experts_range": [
+      3.2,
+      13.3
+     ],
+     "implied_modeled_mean": 5.5,
+     "expert_rank_sd": 5.4
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 33.5,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 33.5,
+      "yahoo_pianowski": 33.5,
+      "espn_karabell": 29.7
+     },
+     "implied_experts_mean": 32.2,
+     "implied_experts_range": [
+      29.7,
+      33.5
+     ],
+     "implied_modeled_mean": 25.9,
+     "expert_rank_sd": 0.5
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 29.7,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 29.7,
+      "yahoo_pianowski": 29.7,
+      "espn_karabell": 33.5
+     },
+     "implied_experts_mean": 31.0,
+     "implied_experts_range": [
+      29.7,
+      33.5
+     ],
+     "implied_modeled_mean": 32.2,
+     "expert_rank_sd": 0.5
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 20.3,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.3,
+      "yahoo_pianowski": 20.3,
+      "espn_karabell": 14.4
+     },
+     "implied_experts_mean": 18.3,
+     "implied_experts_range": [
+      14.4,
+      20.3
+     ],
+     "implied_modeled_mean": 14.5,
+     "expert_rank_sd": 0.5
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 14.4,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 9.5,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.4,
+      "yahoo_pianowski": 6.9,
+      "espn_karabell": 20.3
+     },
+     "implied_experts_mean": 13.9,
+     "implied_experts_range": [
+      6.9,
+      20.3
+     ],
+     "implied_modeled_mean": 15.9,
+     "expert_rank_sd": 2.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 13.7,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.7,
+      "yahoo_pianowski": 13.1,
+      "espn_karabell": 10.1
+     },
+     "implied_experts_mean": 12.3,
+     "implied_experts_range": [
+      10.1,
+      13.7
+     ],
+     "implied_modeled_mean": 14.0,
+     "expert_rank_sd": 0.8
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 13.1,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.1,
+      "yahoo_pianowski": 6.1,
+      "espn_karabell": 10.1
+     },
+     "implied_experts_mean": 8.8,
+     "implied_experts_range": [
+      6.1,
+      10.1
+     ],
+     "implied_modeled_mean": 7.8,
+     "expert_rank_sd": 1.7
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 10.1,
+     "published_pos_rank": 7.5,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.1,
+      "yahoo_pianowski": 13.7,
+      "espn_karabell": 3.8
+     },
+     "implied_experts_mean": 10.2,
+     "implied_experts_range": [
+      3.8,
+      13.7
+     ],
+     "implied_modeled_mean": 8.0,
+     "expert_rank_sd": 4.5
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 10.1,
+     "published_pos_rank": 7.5,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.1,
+      "yahoo_pianowski": 14.4,
+      "espn_karabell": 13.1
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      10.1,
+      14.4
+     ],
+     "implied_modeled_mean": 12.2,
+     "expert_rank_sd": 1.6
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 7.3,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 4.0,
+      "yahoo_pianowski": 2.2,
+      "espn_karabell": 3.4
+     },
+     "implied_experts_mean": 3.2,
+     "implied_experts_range": [
+      2.2,
+      4.0
+     ],
+     "implied_modeled_mean": 3.4,
+     "expert_rank_sd": 1.2
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 6.5,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.5,
+      "yahoo_pianowski": 4.1,
+      "espn_karabell": 13.7
+     },
+     "implied_experts_mean": 8.1,
+     "implied_experts_range": [
+      4.1,
+      13.7
+     ],
+     "implied_modeled_mean": 13.4,
+     "expert_rank_sd": 2.9
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 6.1,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.3,
+      "yahoo_pianowski": 10.1,
+      "espn_karabell": 6.1
+     },
+     "implied_experts_mean": 7.8,
+     "implied_experts_range": [
+      6.1,
+      10.1
+     ],
+     "implied_modeled_mean": 5.0,
+     "expert_rank_sd": 1.6
+    },
+    "T.J. Hockenson": {
+     "pos": "TE",
+     "published": 4.1,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.2,
+      "yahoo_pianowski": 2.2,
+      "espn_karabell": 0.5
+     },
+     "implied_experts_mean": 1.6,
+     "implied_experts_range": [
+      0.5,
+      2.2
+     ],
+     "implied_modeled_mean": 6.0,
+     "expert_rank_sd": 1.4
+    }
+   },
+   "summary": {
+    "compared": 89,
+    "material_vs_published_experts": 35,
+    "material_vs_published_modeled": 56,
+    "median_abs_gap_experts": {
+     "QB": 1.2,
+     "RB": 1.5,
+     "WR": 2.2,
+     "TE": 1.6
+    },
+    "median_expert_rank_sd": {
+     "QB": 1.55,
+     "RB": 1.15,
+     "WR": 1.7,
+     "TE": 1.5
+    },
+    "median_expert_range_pts": {
+     "QB": 6.2,
+     "RB": 4.9,
+     "WR": 4.3,
+     "TE": 4.0
+    },
+    "largest": [
+     [
+      -9.8,
+      "Josh Jacobs"
+     ],
+     [
+      -8.9,
+      "Drake Maye"
+     ],
+     [
+      -8.5,
+      "Luther Burden III"
+     ],
+     [
+      6.9,
+      "Nico Collins"
+     ],
+     [
+      -5.7,
+      "Zay Flowers"
+     ],
+     [
+      -5.4,
+      "Breece Hall"
+     ],
+     [
+      -5.3,
+      "Travis Etienne"
+     ],
+     [
+      -5.2,
+      "DK Metcalf"
+     ],
+     [
+      -5.0,
+      "Justin Jefferson"
+     ],
+     [
+      4.5,
+      "Chase Brown"
+     ],
+     [
+      4.3,
+      "Saquon Barkley"
+     ],
+     [
+      -4.3,
+      "Colston Loveland"
+     ],
+     [
+      4.1,
+      "DeVonta Smith"
+     ],
+     [
+      -4.1,
+      "Kyle Pitts"
+     ]
+    ]
+   }
+  },
+  "half_ppr": {
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "ecr_consensus": 0.93,
+      "yahoo_pianowski": 0.56,
+      "espn_karabell": 0.82,
+      "espn_proj": 0.6,
+      "cbsros_proj": 0.19,
+      "razzball_proj": 0.33
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.66,
+      "ecr_consensus~espn_karabell": 0.71,
+      "ecr_consensus~espn_proj": 0.39,
+      "ecr_consensus~cbsros_proj": 0.1,
+      "ecr_consensus~razzball_proj": 0.06,
+      "yahoo_pianowski~espn_karabell": 0.56,
+      "yahoo_pianowski~espn_proj": 0.3,
+      "yahoo_pianowski~cbsros_proj": 0.4,
+      "yahoo_pianowski~razzball_proj": 0.01,
+      "espn_karabell~espn_proj": 0.51,
+      "espn_karabell~cbsros_proj": 0.26,
+      "espn_karabell~razzball_proj": 0.6,
+      "espn_proj~cbsros_proj": 0.74,
+      "espn_proj~razzball_proj": 0.51,
+      "cbsros_proj~razzball_proj": 0.37
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "ecr_consensus": 0.98,
+      "yahoo_pianowski": 0.89,
+      "espn_karabell": 0.97,
+      "espn_proj": 0.9,
+      "cbsros_proj": 0.91,
+      "razzball_proj": 0.82
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 30,
+      "espn_karabell": 30
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.92,
+      "ecr_consensus~espn_karabell": 0.96,
+      "ecr_consensus~espn_proj": 0.91,
+      "ecr_consensus~cbsros_proj": 0.93,
+      "ecr_consensus~razzball_proj": 0.84,
+      "yahoo_pianowski~espn_karabell": 0.87,
+      "yahoo_pianowski~espn_proj": 0.85,
+      "yahoo_pianowski~cbsros_proj": 0.86,
+      "yahoo_pianowski~razzball_proj": 0.87,
+      "espn_karabell~espn_proj": 0.87,
+      "espn_karabell~cbsros_proj": 0.9,
+      "espn_karabell~razzball_proj": 0.79,
+      "espn_proj~cbsros_proj": 0.94,
+      "espn_proj~razzball_proj": 0.83,
+      "cbsros_proj~razzball_proj": 0.83
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "ecr_consensus": 0.98,
+      "yahoo_pianowski": 0.97,
+      "espn_karabell": 0.89,
+      "espn_proj": 0.87,
+      "cbsros_proj": 0.9,
+      "razzball_proj": 0.84
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 35,
+      "yahoo_pianowski": 35,
+      "espn_karabell": 35
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.98,
+      "ecr_consensus~espn_karabell": 0.9,
+      "ecr_consensus~espn_proj": 0.87,
+      "ecr_consensus~cbsros_proj": 0.88,
+      "ecr_consensus~razzball_proj": 0.85,
+      "yahoo_pianowski~espn_karabell": 0.92,
+      "yahoo_pianowski~espn_proj": 0.85,
+      "yahoo_pianowski~cbsros_proj": 0.86,
+      "yahoo_pianowski~razzball_proj": 0.81,
+      "espn_karabell~espn_proj": 0.69,
+      "espn_karabell~cbsros_proj": 0.79,
+      "espn_karabell~razzball_proj": 0.74,
+      "espn_proj~cbsros_proj": 0.79,
+      "espn_proj~razzball_proj": 0.87,
+      "cbsros_proj~razzball_proj": 0.76
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "ecr_consensus": 0.97,
+      "yahoo_pianowski": 0.7,
+      "espn_karabell": 0.83,
+      "espn_proj": 0.96,
+      "cbsros_proj": 0.6,
+      "razzball_proj": 0.9
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.77,
+      "ecr_consensus~espn_karabell": 0.78,
+      "ecr_consensus~espn_proj": 0.9,
+      "ecr_consensus~cbsros_proj": 0.55,
+      "ecr_consensus~razzball_proj": 0.94,
+      "yahoo_pianowski~espn_karabell": 0.55,
+      "yahoo_pianowski~espn_proj": 0.62,
+      "yahoo_pianowski~cbsros_proj": 0.49,
+      "yahoo_pianowski~razzball_proj": 0.67,
+      "espn_karabell~espn_proj": 0.85,
+      "espn_karabell~cbsros_proj": 0.82,
+      "espn_karabell~razzball_proj": 0.67,
+      "espn_proj~cbsros_proj": 0.68,
+      "espn_proj~razzball_proj": 0.82,
+      "cbsros_proj~razzball_proj": 0.42
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 33.5,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 33.5,
+      "yahoo_pianowski": 33.5,
+      "espn_karabell": 33.5
+     },
+     "implied_experts_mean": 33.5,
+     "implied_experts_range": [
+      33.5,
+      33.5
+     ],
+     "implied_modeled_mean": 33.5,
+     "expert_rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 22.0,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 22.0,
+      "yahoo_pianowski": 4.2,
+      "espn_karabell": 11.8
+     },
+     "implied_experts_mean": 12.7,
+     "implied_experts_range": [
+      4.2,
+      22.0
+     ],
+     "implied_modeled_mean": 8.7,
+     "expert_rank_sd": 4.3
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 18.4,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.8,
+      "yahoo_pianowski": 22.0,
+      "espn_karabell": 18.4
+     },
+     "implied_experts_mean": 18.7,
+     "implied_experts_range": [
+      15.8,
+      22.0
+     ],
+     "implied_modeled_mean": 12.3,
+     "expert_rank_sd": 0.8
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 15.8,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.6,
+      "yahoo_pianowski": 15.1,
+      "espn_karabell": 22.0
+     },
+     "implied_experts_mean": 17.6,
+     "implied_experts_range": [
+      15.1,
+      22.0
+     ],
+     "implied_modeled_mean": 19.6,
+     "expert_rank_sd": 1.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 15.6,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.4,
+      "yahoo_pianowski": 17.1,
+      "espn_karabell": 15.6
+     },
+     "implied_experts_mean": 17.0,
+     "implied_experts_range": [
+      15.6,
+      18.4
+     ],
+     "implied_modeled_mean": 8.0,
+     "expert_rank_sd": 0.8
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 14.5,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.5,
+      "yahoo_pianowski": 17.1,
+      "espn_karabell": 9.4
+     },
+     "implied_experts_mean": 13.7,
+     "implied_experts_range": [
+      9.4,
+      17.1
+     ],
+     "implied_modeled_mean": 11.4,
+     "expert_rank_sd": 2.2
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 11.8,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 7.5,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.8,
+      "yahoo_pianowski": 11.5,
+      "espn_karabell": 15.8
+     },
+     "implied_experts_mean": 13.0,
+     "implied_experts_range": [
+      11.5,
+      15.8
+     ],
+     "implied_modeled_mean": 5.1,
+     "expert_rank_sd": 1.5
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 11.2,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.2,
+      "yahoo_pianowski": 6.7,
+      "espn_karabell": 14.5
+     },
+     "implied_experts_mean": 10.8,
+     "implied_experts_range": [
+      6.7,
+      14.5
+     ],
+     "implied_modeled_mean": 14.9,
+     "expert_rank_sd": 1.6
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.4,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 14.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.5,
+      "yahoo_pianowski": 2.7,
+      "espn_karabell": 11.2
+     },
+     "implied_experts_mean": 5.8,
+     "implied_experts_range": [
+      2.7,
+      11.2
+     ],
+     "implied_modeled_mean": 20.8,
+     "expert_rank_sd": 2.8
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.7,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.4,
+      "yahoo_pianowski": 6.7,
+      "espn_karabell": 6.7
+     },
+     "implied_experts_mean": 7.6,
+     "implied_experts_range": [
+      6.7,
+      9.4
+     ],
+     "implied_modeled_mean": 6.5,
+     "expert_rank_sd": 0.5
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.7,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.7,
+      "yahoo_pianowski": 1.6,
+      "espn_karabell": 5.7
+     },
+     "implied_experts_mean": 4.3,
+     "implied_experts_range": [
+      1.6,
+      5.7
+     ],
+     "implied_modeled_mean": 6.6,
+     "expert_rank_sd": 2.4
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.8,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.7,
+      "yahoo_pianowski": 15.1,
+      "espn_karabell": 3.5
+     },
+     "implied_experts_mean": 8.4,
+     "implied_experts_range": [
+      3.5,
+      15.1
+     ],
+     "implied_modeled_mean": 8.3,
+     "expert_rank_sd": 3.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 78.8,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 78.8,
+      "yahoo_pianowski": 78.8,
+      "espn_karabell": 78.8
+     },
+     "implied_experts_mean": 78.8,
+     "implied_experts_range": [
+      78.8,
+      78.8
+     ],
+     "implied_modeled_mean": 78.8,
+     "expert_rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 71.8,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 71.8,
+      "yahoo_pianowski": 71.8,
+      "espn_karabell": 71.8
+     },
+     "implied_experts_mean": 71.8,
+     "implied_experts_range": [
+      71.8,
+      71.8
+     ],
+     "implied_modeled_mean": 62.9,
+     "expert_rank_sd": 0.0
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 71.7,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 71.7,
+      "yahoo_pianowski": 71.7,
+      "espn_karabell": 71.7
+     },
+     "implied_experts_mean": 71.7,
+     "implied_experts_range": [
+      71.7,
+      71.7
+     ],
+     "implied_modeled_mean": 71.8,
+     "expert_rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 58.5,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 58.5,
+      "yahoo_pianowski": 53.8,
+      "espn_karabell": 53.8
+     },
+     "implied_experts_mean": 55.4,
+     "implied_experts_range": [
+      53.8,
+      58.5
+     ],
+     "implied_modeled_mean": 59.8,
+     "expert_rank_sd": 0.5
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 53.8,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 53.8,
+      "yahoo_pianowski": 49.5,
+      "espn_karabell": 52.7
+     },
+     "implied_experts_mean": 52.0,
+     "implied_experts_range": [
+      49.5,
+      53.8
+     ],
+     "implied_modeled_mean": 43.9,
+     "expert_rank_sd": 0.8
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 52.7,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 52.7,
+      "yahoo_pianowski": 52.7,
+      "espn_karabell": 58.5
+     },
+     "implied_experts_mean": 54.6,
+     "implied_experts_range": [
+      52.7,
+      58.5
+     ],
+     "implied_modeled_mean": 56.1,
+     "expert_rank_sd": 0.9
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 49.5,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 8.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 49.5,
+      "yahoo_pianowski": 47.1,
+      "espn_karabell": 49.5
+     },
+     "implied_experts_mean": 48.7,
+     "implied_experts_range": [
+      47.1,
+      49.5
+     ],
+     "implied_modeled_mean": 44.9,
+     "expert_rank_sd": 0.5
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 47.1,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 47.1,
+      "yahoo_pianowski": 58.5,
+      "espn_karabell": 47.1
+     },
+     "implied_experts_mean": 50.9,
+     "implied_experts_range": [
+      47.1,
+      58.5
+     ],
+     "implied_modeled_mean": 51.1,
+     "expert_rank_sd": 1.9
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 44.0,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 9.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 44.0,
+      "yahoo_pianowski": 44.0,
+      "espn_karabell": 44.0
+     },
+     "implied_experts_mean": 44.0,
+     "implied_experts_range": [
+      44.0,
+      44.0
+     ],
+     "implied_modeled_mean": 39.9,
+     "expert_rank_sd": 0.0
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 41.6,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 41.6,
+      "yahoo_pianowski": 41.6,
+      "espn_karabell": 33.1
+     },
+     "implied_experts_mean": 38.8,
+     "implied_experts_range": [
+      33.1,
+      41.6
+     ],
+     "implied_modeled_mean": 43.9,
+     "expert_rank_sd": 1.9
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 38.7,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 36.4,
+      "yahoo_pianowski": 34.0,
+      "espn_karabell": 41.6
+     },
+     "implied_experts_mean": 37.3,
+     "implied_experts_range": [
+      34.0,
+      41.6
+     ],
+     "implied_modeled_mean": 27.5,
+     "expert_rank_sd": 1.4
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 36.4,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 35.0,
+      "yahoo_pianowski": 31.9,
+      "espn_karabell": 38.7
+     },
+     "implied_experts_mean": 35.2,
+     "implied_experts_range": [
+      31.9,
+      38.7
+     ],
+     "implied_modeled_mean": 27.8,
+     "expert_rank_sd": 1.8
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 35.0,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 33.1,
+      "yahoo_pianowski": 31.9,
+      "espn_karabell": 35.0
+     },
+     "implied_experts_mean": 33.3,
+     "implied_experts_range": [
+      31.9,
+      35.0
+     ],
+     "implied_modeled_mean": 45.0,
+     "expert_rank_sd": 1.0
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 33.1,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 45.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 27.6,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 36.4
+     },
+     "implied_experts_mean": 22.0,
+     "implied_experts_range": [
+      2.0,
+      36.4
+     ],
+     "implied_modeled_mean": 21.5,
+     "expert_rank_sd": 14.5
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 32.5,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 38.7,
+      "yahoo_pianowski": 38.7,
+      "espn_karabell": 24.3
+     },
+     "implied_experts_mean": 33.9,
+     "implied_experts_range": [
+      24.3,
+      38.7
+     ],
+     "implied_modeled_mean": 35.6,
+     "expert_rank_sd": 3.8
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 31.2,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.5,
+      "yahoo_pianowski": 36.4,
+      "espn_karabell": 31.2
+     },
+     "implied_experts_mean": 33.4,
+     "implied_experts_range": [
+      31.2,
+      36.4
+     ],
+     "implied_modeled_mean": 32.9,
+     "expert_rank_sd": 1.7
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 27.6,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 24.3,
+      "yahoo_pianowski": 20.7,
+      "espn_karabell": 21.9
+     },
+     "implied_experts_mean": 22.3,
+     "implied_experts_range": [
+      20.7,
+      24.3
+     ],
+     "implied_modeled_mean": 17.5,
+     "expert_rank_sd": 0.8
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 25.5,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 31.2,
+      "yahoo_pianowski": 27.6,
+      "espn_karabell": 32.5
+     },
+     "implied_experts_mean": 30.4,
+     "implied_experts_range": [
+      27.6,
+      32.5
+     ],
+     "implied_modeled_mean": 42.0,
+     "expert_rank_sd": 0.8
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 24.3,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.5,
+      "yahoo_pianowski": 34.0,
+      "espn_karabell": 25.5
+     },
+     "implied_experts_mean": 28.3,
+     "implied_experts_range": [
+      25.5,
+      34.0
+     ],
+     "implied_modeled_mean": 20.9,
+     "expert_rank_sd": 2.1
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 21.9,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.7,
+      "yahoo_pianowski": 21.9,
+      "espn_karabell": 27.6
+     },
+     "implied_experts_mean": 23.4,
+     "implied_experts_range": [
+      20.7,
+      27.6
+     ],
+     "implied_modeled_mean": 15.6,
+     "expert_rank_sd": 1.7
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 20.7,
+     "published_pos_rank": 21.0,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.0,
+      "yahoo_pianowski": 24.9,
+      "espn_karabell": 10.4
+     },
+     "implied_experts_mean": 18.4,
+     "implied_experts_range": [
+      10.4,
+      24.9
+     ],
+     "implied_modeled_mean": 20.5,
+     "expert_rank_sd": 3.9
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 20.1,
+     "published_pos_rank": 22.0,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.1,
+      "yahoo_pianowski": 20.1,
+      "espn_karabell": 17.3
+     },
+     "implied_experts_mean": 19.2,
+     "implied_experts_range": [
+      17.3,
+      20.1
+     ],
+     "implied_modeled_mean": 25.6,
+     "expert_rank_sd": 0.8
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 20.0,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 21.9,
+      "yahoo_pianowski": 20.1,
+      "espn_karabell": 20.7
+     },
+     "implied_experts_mean": 20.9,
+     "implied_experts_range": [
+      20.1,
+      21.9
+     ],
+     "implied_modeled_mean": 21.6,
+     "expert_rank_sd": 1.0
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 17.3,
+     "published_pos_rank": 24.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.6,
+      "yahoo_pianowski": 24.9,
+      "espn_karabell": 20.1
+     },
+     "implied_experts_mean": 19.2,
+     "implied_experts_range": [
+      12.6,
+      24.9
+     ],
+     "implied_modeled_mean": 23.4,
+     "expert_rank_sd": 2.7
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 12.6,
+     "published_pos_rank": 25.0,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 26
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.3,
+      "yahoo_pianowski": 9.9,
+      "espn_karabell": 12.1
+     },
+     "implied_experts_mean": 13.1,
+     "implied_experts_range": [
+      9.9,
+      17.3
+     ],
+     "implied_modeled_mean": 25.4,
+     "expert_rank_sd": 2.3
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 12.1,
+     "published_pos_rank": 26.0,
+     "expert_ranks": {
+      "ecr_consensus": 34,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.7,
+      "yahoo_pianowski": 6.3,
+      "espn_karabell": 6.7
+     },
+     "implied_experts_mean": 6.6,
+     "implied_experts_range": [
+      6.3,
+      6.7
+     ],
+     "implied_modeled_mean": 10.5,
+     "expert_rank_sd": 0.5
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 11.6,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 38
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.1,
+      "yahoo_pianowski": 6.3,
+      "espn_karabell": 4.2
+     },
+     "implied_experts_mean": 7.5,
+     "implied_experts_range": [
+      4.2,
+      12.1
+     ],
+     "implied_modeled_mean": 10.6,
+     "expert_rank_sd": 5.1
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 10.4,
+     "published_pos_rank": 28.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.4,
+      "yahoo_pianowski": 9.9,
+      "espn_karabell": 10.3
+     },
+     "implied_experts_mean": 10.2,
+     "implied_experts_range": [
+      9.9,
+      10.4
+     ],
+     "implied_modeled_mean": 4.0,
+     "expert_rank_sd": 0.6
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 10.3,
+     "published_pos_rank": 29.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.6,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 9.6
+     },
+     "implied_experts_mean": 10.7,
+     "implied_experts_range": [
+      9.6,
+      11.6
+     ],
+     "implied_modeled_mean": 6.1,
+     "expert_rank_sd": 1.3
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 9.6,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 25.5,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.3,
+      "yahoo_pianowski": 12.3,
+      "espn_karabell": 7.1
+     },
+     "implied_experts_mean": 9.9,
+     "implied_experts_range": [
+      7.1,
+      12.3
+     ],
+     "implied_modeled_mean": 9.1,
+     "expert_rank_sd": 3.1
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 63.5,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 63.5,
+      "yahoo_pianowski": 63.5,
+      "espn_karabell": 63.5
+     },
+     "implied_experts_mean": 63.5,
+     "implied_experts_range": [
+      63.5,
+      63.5
+     ],
+     "implied_modeled_mean": 58.6,
+     "expert_rank_sd": 0.0
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 59.5,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 59.5,
+      "yahoo_pianowski": 59.5,
+      "espn_karabell": 59.5
+     },
+     "implied_experts_mean": 59.5,
+     "implied_experts_range": [
+      59.5,
+      59.5
+     ],
+     "implied_modeled_mean": 56.5,
+     "expert_rank_sd": 0.0
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 52.9,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 52.9,
+      "yahoo_pianowski": 52.9,
+      "espn_karabell": 52.9
+     },
+     "implied_experts_mean": 52.9,
+     "implied_experts_range": [
+      52.9,
+      52.9
+     ],
+     "implied_modeled_mean": 55.4,
+     "expert_rank_sd": 0.0
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 50.8,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 50.8,
+      "yahoo_pianowski": 50.8,
+      "espn_karabell": 50.8
+     },
+     "implied_experts_mean": 50.8,
+     "implied_experts_range": [
+      50.8,
+      50.8
+     ],
+     "implied_modeled_mean": 54.8,
+     "expert_rank_sd": 0.0
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 48.6,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 48.6,
+      "yahoo_pianowski": 48.6,
+      "espn_karabell": 48.6
+     },
+     "implied_experts_mean": 48.6,
+     "implied_experts_range": [
+      48.6,
+      48.6
+     ],
+     "implied_modeled_mean": 50.0,
+     "expert_rank_sd": 0.0
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 42.2,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 39.8,
+      "yahoo_pianowski": 42.2,
+      "espn_karabell": 39.8
+     },
+     "implied_experts_mean": 40.6,
+     "implied_experts_range": [
+      39.8,
+      42.2
+     ],
+     "implied_modeled_mean": 24.1,
+     "expert_rank_sd": 0.5
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 39.8,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 42.2,
+      "yahoo_pianowski": 31.7,
+      "espn_karabell": 28.7
+     },
+     "implied_experts_mean": 34.2,
+     "implied_experts_range": [
+      28.7,
+      42.2
+     ],
+     "implied_modeled_mean": 37.3,
+     "expert_rank_sd": 2.5
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 34.6,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 34.6,
+      "yahoo_pianowski": 39.8,
+      "espn_karabell": 29.9
+     },
+     "implied_experts_mean": 34.8,
+     "implied_experts_range": [
+      29.9,
+      39.8
+     ],
+     "implied_modeled_mean": 33.4,
+     "expert_rank_sd": 1.7
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 32.8,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.8,
+      "yahoo_pianowski": 33.7,
+      "espn_karabell": 42.2
+     },
+     "implied_experts_mean": 36.2,
+     "implied_experts_range": [
+      32.8,
+      42.2
+     ],
+     "implied_modeled_mean": 20.4,
+     "expert_rank_sd": 1.3
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 31.7,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 29.9,
+      "yahoo_pianowski": 27.4,
+      "espn_karabell": 24.2
+     },
+     "implied_experts_mean": 27.2,
+     "implied_experts_range": [
+      24.2,
+      29.9
+     ],
+     "implied_modeled_mean": 35.1,
+     "expert_rank_sd": 1.2
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 29.9,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 31.7,
+      "yahoo_pianowski": 33.7,
+      "espn_karabell": 34.6
+     },
+     "implied_experts_mean": 33.3,
+     "implied_experts_range": [
+      31.7,
+      34.6
+     ],
+     "implied_modeled_mean": 28.2,
+     "expert_rank_sd": 0.8
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 28.7,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 26.1,
+      "yahoo_pianowski": 27.4,
+      "espn_karabell": 23.5
+     },
+     "implied_experts_mean": 25.7,
+     "implied_experts_range": [
+      23.5,
+      27.4
+     ],
+     "implied_modeled_mean": 31.0,
+     "expert_rank_sd": 1.5
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 26.1,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 19.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.5,
+      "yahoo_pianowski": 19.4,
+      "espn_karabell": 23.8
+     },
+     "implied_experts_mean": 22.2,
+     "implied_experts_range": [
+      19.4,
+      23.8
+     ],
+     "implied_modeled_mean": 35.2,
+     "expert_rank_sd": 1.7
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 24.2,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.9,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 20.9
+     },
+     "implied_experts_mean": 21.8,
+     "implied_experts_range": [
+      20.9,
+      23.5
+     ],
+     "implied_modeled_mean": 20.7,
+     "expert_rank_sd": 0.5
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 23.8,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 28.7,
+      "yahoo_pianowski": 29.9,
+      "espn_karabell": 31.7
+     },
+     "implied_experts_mean": 30.1,
+     "implied_experts_range": [
+      28.7,
+      31.7
+     ],
+     "implied_modeled_mean": 19.7,
+     "expert_rank_sd": 0.8
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 23.5,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 24.2,
+      "yahoo_pianowski": 23.8,
+      "espn_karabell": 32.8
+     },
+     "implied_experts_mean": 26.9,
+     "implied_experts_range": [
+      23.8,
+      32.8
+     ],
+     "implied_modeled_mean": 23.0,
+     "expert_rank_sd": 2.6
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 20.9,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 14.0,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.8,
+      "yahoo_pianowski": 24.2,
+      "espn_karabell": 20.5
+     },
+     "implied_experts_mean": 22.8,
+     "implied_experts_range": [
+      20.5,
+      24.2
+     ],
+     "implied_modeled_mean": 27.5,
+     "expert_rank_sd": 1.7
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 20.5,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 32
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.2,
+      "yahoo_pianowski": 13.2,
+      "espn_karabell": 7.3
+     },
+     "implied_experts_mean": 12.6,
+     "implied_experts_range": [
+      7.3,
+      17.2
+     ],
+     "implied_modeled_mean": 16.1,
+     "expert_rank_sd": 5.0
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 19.4,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.5,
+      "yahoo_pianowski": 20.7,
+      "espn_karabell": 26.1
+     },
+     "implied_experts_mean": 22.4,
+     "implied_experts_range": [
+      20.5,
+      26.1
+     ],
+     "implied_modeled_mean": 14.5,
+     "expert_rank_sd": 2.2
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 17.2,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 19.4,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 19.4
+     },
+     "implied_experts_mean": 18.1,
+     "implied_experts_range": [
+      15.5,
+      19.4
+     ],
+     "implied_modeled_mean": 16.5,
+     "expert_rank_sd": 0.9
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 15.5,
+     "published_pos_rank": 21.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 25.0,
+      "espn_karabell": 31
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.5,
+      "yahoo_pianowski": 12.9,
+      "espn_karabell": 9.1
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      9.1,
+      15.5
+     ],
+     "implied_modeled_mean": 17.0,
+     "expert_rank_sd": 4.1
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 14.5,
+     "published_pos_rank": 22.0,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.5,
+      "yahoo_pianowski": 17.2,
+      "espn_karabell": 15.5
+     },
+     "implied_experts_mean": 15.7,
+     "implied_experts_range": [
+      14.5,
+      17.2
+     ],
+     "implied_modeled_mean": 15.4,
+     "expert_rank_sd": 0.8
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 13.3,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.0,
+      "yahoo_pianowski": 20.7,
+      "espn_karabell": 17.2
+     },
+     "implied_experts_mean": 17.0,
+     "implied_experts_range": [
+      13.0,
+      20.7
+     ],
+     "implied_modeled_mean": 12.3,
+     "expert_rank_sd": 2.7
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 13.0,
+     "published_pos_rank": 24.0,
+     "expert_ranks": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.8,
+      "yahoo_pianowski": 12.1,
+      "espn_karabell": 14.5
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      10.8,
+      14.5
+     ],
+     "implied_modeled_mean": 12.3,
+     "expert_rank_sd": 3.3
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 12.9,
+     "published_pos_rank": 25.0,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 22.0,
+      "espn_karabell": 25
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.3,
+      "yahoo_pianowski": 14.5,
+      "espn_karabell": 12.9
+     },
+     "implied_experts_mean": 13.6,
+     "implied_experts_range": [
+      12.9,
+      14.5
+     ],
+     "implied_modeled_mean": 23.8,
+     "expert_rank_sd": 1.2
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 12.6,
+     "published_pos_rank": 26.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 35
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.7,
+      "yahoo_pianowski": 12.1,
+      "espn_karabell": 5.5
+     },
+     "implied_experts_mean": 9.8,
+     "implied_experts_range": [
+      5.5,
+      12.1
+     ],
+     "implied_modeled_mean": 12.1,
+     "expert_rank_sd": 3.9
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 11.7,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.9,
+      "yahoo_pianowski": 13.2,
+      "espn_karabell": 11.5
+     },
+     "implied_experts_mean": 12.5,
+     "implied_experts_range": [
+      11.5,
+      13.2
+     ],
+     "implied_modeled_mean": 17.6,
+     "expert_rank_sd": 2.3
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 11.5,
+     "published_pos_rank": 28.5,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.6,
+      "yahoo_pianowski": 7.3,
+      "espn_karabell": 13.0
+     },
+     "implied_experts_mean": 11.0,
+     "implied_experts_range": [
+      7.3,
+      13.0
+     ],
+     "implied_modeled_mean": 9.6,
+     "expert_rank_sd": 3.4
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 11.5,
+     "published_pos_rank": 28.5,
+     "expert_ranks": {
+      "ecr_consensus": 33,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.9,
+      "yahoo_pianowski": 7.3,
+      "espn_karabell": 5.7
+     },
+     "implied_experts_mean": 6.3,
+     "implied_experts_range": [
+      5.7,
+      7.3
+     ],
+     "implied_modeled_mean": 9.6,
+     "expert_rank_sd": 0.8
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 10.8,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 34.0,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.5,
+      "yahoo_pianowski": 5.7,
+      "espn_karabell": 5.9
+     },
+     "implied_experts_mean": 7.7,
+     "implied_experts_range": [
+      5.7,
+      11.5
+     ],
+     "implied_modeled_mean": 16.3,
+     "expert_rank_sd": 2.2
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 9.1,
+     "published_pos_rank": 31.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 28.0,
+      "espn_karabell": 23
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.5,
+      "yahoo_pianowski": 11.5,
+      "espn_karabell": 13.3
+     },
+     "implied_experts_mean": 12.1,
+     "implied_experts_range": [
+      11.5,
+      13.3
+     ],
+     "implied_modeled_mean": 8.1,
+     "expert_rank_sd": 2.4
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 7.3,
+     "published_pos_rank": 32.0,
+     "expert_ranks": {
+      "ecr_consensus": 32,
+      "yahoo_pianowski": 35.5,
+      "espn_karabell": 42
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.3,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 2.4
+     },
+     "implied_experts_mean": 5.1,
+     "implied_experts_range": [
+      2.4,
+      7.3
+     ],
+     "implied_modeled_mean": 4.3,
+     "expert_rank_sd": 4.1
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 5.9,
+     "published_pos_rank": 33.0,
+     "expert_ranks": {
+      "ecr_consensus": 43,
+      "yahoo_pianowski": 45.5,
+      "espn_karabell": 27
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.3,
+      "yahoo_pianowski": 1.6,
+      "espn_karabell": 11.7
+     },
+     "implied_experts_mean": 5.2,
+     "implied_experts_range": [
+      1.6,
+      11.7
+     ],
+     "implied_modeled_mean": 2.2,
+     "expert_rank_sd": 8.2
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 5.7,
+     "published_pos_rank": 34.0,
+     "expert_ranks": {
+      "ecr_consensus": 41,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.8,
+      "yahoo_pianowski": 2.8,
+      "espn_karabell": 10.8
+     },
+     "implied_experts_mean": 5.5,
+     "implied_experts_range": [
+      2.8,
+      10.8
+     ],
+     "implied_modeled_mean": 4.8,
+     "expert_rank_sd": 5.2
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 5.5,
+     "published_pos_rank": 35.0,
+     "expert_ranks": {
+      "ecr_consensus": 36,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.4,
+      "yahoo_pianowski": 2.8,
+      "espn_karabell": 11.5
+     },
+     "implied_experts_mean": 6.6,
+     "implied_experts_range": [
+      2.8,
+      11.5
+     ],
+     "implied_modeled_mean": 3.5,
+     "expert_rank_sd": 5.4
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 31.5,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 31.5,
+      "yahoo_pianowski": 31.5,
+      "espn_karabell": 27.5
+     },
+     "implied_experts_mean": 30.2,
+     "implied_experts_range": [
+      27.5,
+      31.5
+     ],
+     "implied_modeled_mean": 24.0,
+     "expert_rank_sd": 0.5
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 27.5,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 27.5,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 31.5
+     },
+     "implied_experts_mean": 28.8,
+     "implied_experts_range": [
+      27.5,
+      31.5
+     ],
+     "implied_modeled_mean": 30.2,
+     "expert_rank_sd": 0.5
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 19.0,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 19.0,
+      "yahoo_pianowski": 19.0,
+      "espn_karabell": 13.1
+     },
+     "implied_experts_mean": 17.0,
+     "implied_experts_range": [
+      13.1,
+      19.0
+     ],
+     "implied_modeled_mean": 13.7,
+     "expert_rank_sd": 0.5
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 13.1,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 9.5,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 13.1,
+      "yahoo_pianowski": 6.8,
+      "espn_karabell": 19.0
+     },
+     "implied_experts_mean": 13.0,
+     "implied_experts_range": [
+      6.8,
+      19.0
+     ],
+     "implied_modeled_mean": 14.8,
+     "expert_rank_sd": 2.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 12.7,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.7,
+      "yahoo_pianowski": 12.2,
+      "espn_karabell": 9.5
+     },
+     "implied_experts_mean": 11.5,
+     "implied_experts_range": [
+      9.5,
+      12.7
+     ],
+     "implied_modeled_mean": 12.8,
+     "expert_rank_sd": 0.8
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 12.2,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.5,
+      "yahoo_pianowski": 6.7,
+      "espn_karabell": 9.4
+     },
+     "implied_experts_mean": 8.5,
+     "implied_experts_range": [
+      6.7,
+      9.5
+     ],
+     "implied_modeled_mean": 8.5,
+     "expert_rank_sd": 1.7
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 9.5,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.4,
+      "yahoo_pianowski": 13.1,
+      "espn_karabell": 12.2
+     },
+     "implied_experts_mean": 11.6,
+     "implied_experts_range": [
+      9.4,
+      13.1
+     ],
+     "implied_modeled_mean": 12.3,
+     "expert_rank_sd": 1.6
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 9.4,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.2,
+      "yahoo_pianowski": 12.7,
+      "espn_karabell": 3.6
+     },
+     "implied_experts_mean": 9.5,
+     "implied_experts_range": [
+      3.6,
+      12.7
+     ],
+     "implied_modeled_mean": 7.7,
+     "expert_rank_sd": 4.5
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 6.8,
+     "published_pos_rank": 9.5,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.8,
+      "yahoo_pianowski": 9.5,
+      "espn_karabell": 6.7
+     },
+     "implied_experts_mean": 7.7,
+     "implied_experts_range": [
+      6.7,
+      9.5
+     ],
+     "implied_modeled_mean": 4.7,
+     "expert_rank_sd": 1.6
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 6.8,
+     "published_pos_rank": 9.5,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.8,
+      "yahoo_pianowski": 4.4,
+      "espn_karabell": 12.7
+     },
+     "implied_experts_mean": 8.0,
+     "implied_experts_range": [
+      4.4,
+      12.7
+     ],
+     "implied_modeled_mean": 11.2,
+     "expert_rank_sd": 2.9
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 6.7,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.6,
+      "yahoo_pianowski": 1.3,
+      "espn_karabell": 2.4
+     },
+     "implied_experts_mean": 2.4,
+     "implied_experts_range": [
+      1.3,
+      3.6
+     ],
+     "implied_modeled_mean": 3.6,
+     "expert_rank_sd": 1.2
+    },
+    "Harold Fannin Jr.": {
+     "pos": "TE",
+     "published": 4.4,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 8.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 4.1,
+      "yahoo_pianowski": 9.4,
+      "espn_karabell": 4.4
+     },
+     "implied_experts_mean": 6.0,
+     "implied_experts_range": [
+      4.1,
+      9.4
+     ],
+     "implied_modeled_mean": 2.6,
+     "expert_rank_sd": 2.2
+    }
+   },
+   "summary": {
+    "compared": 89,
+    "material_vs_published_experts": 35,
+    "material_vs_published_modeled": 57,
+    "median_abs_gap_experts": {
+     "QB": 1.3,
+     "RB": 1.6,
+     "WR": 2.2,
+     "TE": 1.3
+    },
+    "median_expert_rank_sd": {
+     "QB": 1.55,
+     "RB": 1.15,
+     "WR": 1.7,
+     "TE": 1.6
+    },
+    "median_expert_range_pts": {
+     "QB": 6.5,
+     "RB": 5.0,
+     "WR": 3.9,
+     "TE": 4.0
+    },
+    "largest": [
+     [
+      -11.1,
+      "Josh Jacobs"
+     ],
+     [
+      -9.3,
+      "Drake Maye"
+     ],
+     [
+      -7.9,
+      "Luther Burden III"
+     ],
+     [
+      6.3,
+      "Nico Collins"
+     ],
+     [
+      -5.6,
+      "Zay Flowers"
+     ],
+     [
+      -5.5,
+      "Travis Etienne"
+     ],
+     [
+      -5.3,
+      "Breece Hall"
+     ],
+     [
+      -5.2,
+      "DK Metcalf"
+     ],
+     [
+      4.9,
+      "Chase Brown"
+     ],
+     [
+      -4.5,
+      "Justin Jefferson"
+     ],
+     [
+      -4.3,
+      "Kyle Pitts"
+     ],
+     [
+      -4.1,
+      "Jordan Mason"
+     ],
+     [
+      4.0,
+      "Saquon Barkley"
+     ],
+     [
+      -3.9,
+      "Tee Higgins"
+     ]
+    ]
+   }
+  },
+  "standard": {
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "ecr_consensus": 0.93,
+      "yahoo_pianowski": 0.56,
+      "espn_karabell": 0.82,
+      "espn_proj": 0.6,
+      "cbsros_proj": 0.19,
+      "razzball_proj": 0.33
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.66,
+      "ecr_consensus~espn_karabell": 0.71,
+      "ecr_consensus~espn_proj": 0.39,
+      "ecr_consensus~cbsros_proj": 0.1,
+      "ecr_consensus~razzball_proj": 0.06,
+      "yahoo_pianowski~espn_karabell": 0.56,
+      "yahoo_pianowski~espn_proj": 0.3,
+      "yahoo_pianowski~cbsros_proj": 0.4,
+      "yahoo_pianowski~razzball_proj": 0.01,
+      "espn_karabell~espn_proj": 0.51,
+      "espn_karabell~cbsros_proj": 0.26,
+      "espn_karabell~razzball_proj": 0.6,
+      "espn_proj~cbsros_proj": 0.74,
+      "espn_proj~razzball_proj": 0.51,
+      "cbsros_proj~razzball_proj": 0.37
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "ecr_consensus": 0.99,
+      "yahoo_pianowski": 0.89,
+      "espn_karabell": 0.97,
+      "espn_proj": 0.88,
+      "cbsros_proj": 0.89,
+      "razzball_proj": 0.8
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 30,
+      "espn_karabell": 30
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.92,
+      "ecr_consensus~espn_karabell": 0.96,
+      "ecr_consensus~espn_proj": 0.88,
+      "ecr_consensus~cbsros_proj": 0.91,
+      "ecr_consensus~razzball_proj": 0.83,
+      "yahoo_pianowski~espn_karabell": 0.87,
+      "yahoo_pianowski~espn_proj": 0.83,
+      "yahoo_pianowski~cbsros_proj": 0.85,
+      "yahoo_pianowski~razzball_proj": 0.87,
+      "espn_karabell~espn_proj": 0.85,
+      "espn_karabell~cbsros_proj": 0.87,
+      "espn_karabell~razzball_proj": 0.78,
+      "espn_proj~cbsros_proj": 0.93,
+      "espn_proj~razzball_proj": 0.83,
+      "cbsros_proj~razzball_proj": 0.83
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "ecr_consensus": 0.98,
+      "yahoo_pianowski": 0.97,
+      "espn_karabell": 0.88,
+      "espn_proj": 0.86,
+      "cbsros_proj": 0.87,
+      "razzball_proj": 0.85
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 35,
+      "yahoo_pianowski": 35,
+      "espn_karabell": 35
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.98,
+      "ecr_consensus~espn_karabell": 0.9,
+      "ecr_consensus~espn_proj": 0.85,
+      "ecr_consensus~cbsros_proj": 0.86,
+      "ecr_consensus~razzball_proj": 0.86,
+      "yahoo_pianowski~espn_karabell": 0.92,
+      "yahoo_pianowski~espn_proj": 0.83,
+      "yahoo_pianowski~cbsros_proj": 0.84,
+      "yahoo_pianowski~razzball_proj": 0.83,
+      "espn_karabell~espn_proj": 0.68,
+      "espn_karabell~cbsros_proj": 0.76,
+      "espn_karabell~razzball_proj": 0.73,
+      "espn_proj~cbsros_proj": 0.77,
+      "espn_proj~razzball_proj": 0.87,
+      "cbsros_proj~razzball_proj": 0.78
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "ecr_consensus": 0.95,
+      "yahoo_pianowski": 0.67,
+      "espn_karabell": 0.73,
+      "espn_proj": 0.88,
+      "cbsros_proj": 0.5,
+      "razzball_proj": 0.9
+     },
+     "expert_coverage_of_top": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 12,
+      "espn_karabell": 12
+     },
+     "pairwise": {
+      "ecr_consensus~yahoo_pianowski": 0.77,
+      "ecr_consensus~espn_karabell": 0.78,
+      "ecr_consensus~espn_proj": 0.82,
+      "ecr_consensus~cbsros_proj": 0.54,
+      "ecr_consensus~razzball_proj": 0.95,
+      "yahoo_pianowski~espn_karabell": 0.55,
+      "yahoo_pianowski~espn_proj": 0.45,
+      "yahoo_pianowski~cbsros_proj": 0.48,
+      "yahoo_pianowski~razzball_proj": 0.68,
+      "espn_karabell~espn_proj": 0.73,
+      "espn_karabell~cbsros_proj": 0.8,
+      "espn_karabell~razzball_proj": 0.72,
+      "espn_proj~cbsros_proj": 0.47,
+      "espn_proj~razzball_proj": 0.76,
+      "cbsros_proj~razzball_proj": 0.46
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 34.2,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 34.2,
+      "yahoo_pianowski": 34.2,
+      "espn_karabell": 34.2
+     },
+     "implied_experts_mean": 34.2,
+     "implied_experts_range": [
+      34.2,
+      34.2
+     ],
+     "implied_modeled_mean": 34.2,
+     "expert_rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 22.4,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 22.4,
+      "yahoo_pianowski": 4.2,
+      "espn_karabell": 12.1
+     },
+     "implied_experts_mean": 12.9,
+     "implied_experts_range": [
+      4.2,
+      22.4
+     ],
+     "implied_modeled_mean": 8.9,
+     "expert_rank_sd": 4.3
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 18.7,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 16.1,
+      "yahoo_pianowski": 22.4,
+      "espn_karabell": 18.7
+     },
+     "implied_experts_mean": 19.1,
+     "implied_experts_range": [
+      16.1,
+      22.4
+     ],
+     "implied_modeled_mean": 12.6,
+     "expert_rank_sd": 0.8
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 16.1,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.9,
+      "yahoo_pianowski": 15.4,
+      "espn_karabell": 22.4
+     },
+     "implied_experts_mean": 17.9,
+     "implied_experts_range": [
+      15.4,
+      22.4
+     ],
+     "implied_modeled_mean": 19.9,
+     "expert_rank_sd": 1.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 15.9,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.7,
+      "yahoo_pianowski": 17.4,
+      "espn_karabell": 15.9
+     },
+     "implied_experts_mean": 17.3,
+     "implied_experts_range": [
+      15.9,
+      18.7
+     ],
+     "implied_modeled_mean": 8.2,
+     "expert_rank_sd": 0.8
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 14.8,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 3.5,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.8,
+      "yahoo_pianowski": 17.4,
+      "espn_karabell": 9.6
+     },
+     "implied_experts_mean": 13.9,
+     "implied_experts_range": [
+      9.6,
+      17.4
+     ],
+     "implied_modeled_mean": 11.6,
+     "expert_rank_sd": 2.2
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 12.1,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 7.5,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.1,
+      "yahoo_pianowski": 11.8,
+      "espn_karabell": 16.1
+     },
+     "implied_experts_mean": 13.3,
+     "implied_experts_range": [
+      11.8,
+      16.1
+     ],
+     "implied_modeled_mean": 5.2,
+     "expert_rank_sd": 1.5
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 11.5,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 11.5,
+      "yahoo_pianowski": 6.8,
+      "espn_karabell": 14.8
+     },
+     "implied_experts_mean": 11.0,
+     "implied_experts_range": [
+      6.8,
+      14.8
+     ],
+     "implied_modeled_mean": 15.2,
+     "expert_rank_sd": 1.6
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.6,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 14.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.6,
+      "yahoo_pianowski": 2.7,
+      "espn_karabell": 11.5
+     },
+     "implied_experts_mean": 5.9,
+     "implied_experts_range": [
+      2.7,
+      11.5
+     ],
+     "implied_modeled_mean": 21.2,
+     "expert_rank_sd": 2.8
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.8,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 9.6,
+      "yahoo_pianowski": 6.8,
+      "espn_karabell": 6.8
+     },
+     "implied_experts_mean": 7.7,
+     "implied_experts_range": [
+      6.8,
+      9.6
+     ],
+     "implied_modeled_mean": 6.7,
+     "expert_rank_sd": 0.5
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.8,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.8,
+      "yahoo_pianowski": 1.6,
+      "espn_karabell": 5.8
+     },
+     "implied_experts_mean": 4.4,
+     "implied_experts_range": [
+      1.6,
+      5.8
+     ],
+     "implied_modeled_mean": 6.7,
+     "expert_rank_sd": 2.4
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.9,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.8,
+      "yahoo_pianowski": 15.4,
+      "espn_karabell": 3.6
+     },
+     "implied_experts_mean": 8.6,
+     "implied_experts_range": [
+      3.6,
+      15.4
+     ],
+     "implied_modeled_mean": 8.4,
+     "expert_rank_sd": 3.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 87.7,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 87.7,
+      "yahoo_pianowski": 87.7,
+      "espn_karabell": 87.7
+     },
+     "implied_experts_mean": 87.7,
+     "implied_experts_range": [
+      87.7,
+      87.7
+     ],
+     "implied_modeled_mean": 87.7,
+     "expert_rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 80.1,
+     "published_pos_rank": 2.5,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 80.1,
+      "yahoo_pianowski": 80.1,
+      "espn_karabell": 80.1
+     },
+     "implied_experts_mean": 80.1,
+     "implied_experts_range": [
+      80.1,
+      80.1
+     ],
+     "implied_modeled_mean": 70.9,
+     "expert_rank_sd": 0.0
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 80.1,
+     "published_pos_rank": 2.5,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 80.1,
+      "yahoo_pianowski": 80.1,
+      "espn_karabell": 80.1
+     },
+     "implied_experts_mean": 80.1,
+     "implied_experts_range": [
+      80.1,
+      80.1
+     ],
+     "implied_modeled_mean": 80.1,
+     "expert_rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 66.3,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 66.3,
+      "yahoo_pianowski": 60.0,
+      "espn_karabell": 60.0
+     },
+     "implied_experts_mean": 62.1,
+     "implied_experts_range": [
+      60.0,
+      66.3
+     ],
+     "implied_modeled_mean": 68.8,
+     "expert_rank_sd": 0.5
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 60.0,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 60.0,
+      "yahoo_pianowski": 55.9,
+      "espn_karabell": 59.6
+     },
+     "implied_experts_mean": 58.5,
+     "implied_experts_range": [
+      55.9,
+      60.0
+     ],
+     "implied_modeled_mean": 47.6,
+     "expert_rank_sd": 0.8
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 59.6,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 59.6,
+      "yahoo_pianowski": 59.6,
+      "espn_karabell": 66.3
+     },
+     "implied_experts_mean": 61.8,
+     "implied_experts_range": [
+      59.6,
+      66.3
+     ],
+     "implied_modeled_mean": 65.2,
+     "expert_rank_sd": 0.9
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 55.9,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 8.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 55.9,
+      "yahoo_pianowski": 53.9,
+      "espn_karabell": 55.9
+     },
+     "implied_experts_mean": 55.2,
+     "implied_experts_range": [
+      53.9,
+      55.9
+     ],
+     "implied_modeled_mean": 49.6,
+     "expert_rank_sd": 0.5
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 53.9,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 53.9,
+      "yahoo_pianowski": 66.3,
+      "espn_karabell": 53.9
+     },
+     "implied_experts_mean": 58.0,
+     "implied_experts_range": [
+      53.9,
+      66.3
+     ],
+     "implied_modeled_mean": 59.7,
+     "expert_rank_sd": 1.9
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 50.4,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 9.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 50.4,
+      "yahoo_pianowski": 50.4,
+      "espn_karabell": 50.4
+     },
+     "implied_experts_mean": 50.4,
+     "implied_experts_range": [
+      50.4,
+      50.4
+     ],
+     "implied_modeled_mean": 49.5,
+     "expert_rank_sd": 0.0
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 47.6,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 47.6,
+      "yahoo_pianowski": 47.6,
+      "espn_karabell": 38.0
+     },
+     "implied_experts_mean": 44.4,
+     "implied_experts_range": [
+      38.0,
+      47.6
+     ],
+     "implied_modeled_mean": 47.9,
+     "expert_rank_sd": 1.9
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 44.2,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 41.1,
+      "yahoo_pianowski": 39.1,
+      "espn_karabell": 47.6
+     },
+     "implied_experts_mean": 42.6,
+     "implied_experts_range": [
+      39.1,
+      47.6
+     ],
+     "implied_modeled_mean": 30.4,
+     "expert_rank_sd": 1.4
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 41.1,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 40.2,
+      "yahoo_pianowski": 36.5,
+      "espn_karabell": 44.2
+     },
+     "implied_experts_mean": 40.3,
+     "implied_experts_range": [
+      36.5,
+      44.2
+     ],
+     "implied_modeled_mean": 27.3,
+     "expert_rank_sd": 1.8
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 40.2,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 38.0,
+      "yahoo_pianowski": 36.5,
+      "espn_karabell": 40.2
+     },
+     "implied_experts_mean": 38.2,
+     "implied_experts_range": [
+      36.5,
+      40.2
+     ],
+     "implied_modeled_mean": 50.4,
+     "expert_rank_sd": 1.0
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 38.0,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 45.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 32.3,
+      "yahoo_pianowski": 3.7,
+      "espn_karabell": 41.1
+     },
+     "implied_experts_mean": 25.7,
+     "implied_experts_range": [
+      3.7,
+      41.1
+     ],
+     "implied_modeled_mean": 26.6,
+     "expert_rank_sd": 14.5
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 37.0,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 44.2,
+      "yahoo_pianowski": 44.2,
+      "espn_karabell": 29.1
+     },
+     "implied_experts_mean": 39.2,
+     "implied_experts_range": [
+      29.1,
+      44.2
+     ],
+     "implied_modeled_mean": 42.2,
+     "expert_rank_sd": 3.8
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 36.0,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 37.0,
+      "yahoo_pianowski": 41.1,
+      "espn_karabell": 36.0
+     },
+     "implied_experts_mean": 38.0,
+     "implied_experts_range": [
+      36.0,
+      41.1
+     ],
+     "implied_modeled_mean": 40.0,
+     "expert_rank_sd": 1.7
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 32.3,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 29.1,
+      "yahoo_pianowski": 25.3,
+      "espn_karabell": 26.1
+     },
+     "implied_experts_mean": 26.8,
+     "implied_experts_range": [
+      25.3,
+      29.1
+     ],
+     "implied_modeled_mean": 19.6,
+     "expert_rank_sd": 0.8
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 30.0,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 36.0,
+      "yahoo_pianowski": 32.3,
+      "espn_karabell": 37.0
+     },
+     "implied_experts_mean": 35.1,
+     "implied_experts_range": [
+      32.3,
+      37.0
+     ],
+     "implied_modeled_mean": 38.4,
+     "expert_rank_sd": 0.8
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 29.1,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 13.5,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 30.0,
+      "yahoo_pianowski": 39.1,
+      "espn_karabell": 30.0
+     },
+     "implied_experts_mean": 33.0,
+     "implied_experts_range": [
+      30.0,
+      39.1
+     ],
+     "implied_modeled_mean": 25.1,
+     "expert_rank_sd": 2.1
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 26.1,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.3,
+      "yahoo_pianowski": 26.1,
+      "espn_karabell": 32.3
+     },
+     "implied_experts_mean": 27.9,
+     "implied_experts_range": [
+      25.3,
+      32.3
+     ],
+     "implied_modeled_mean": 19.9,
+     "expert_rank_sd": 1.7
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 25.3,
+     "published_pos_rank": 21.5,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 24.2,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 15.0
+     },
+     "implied_experts_mean": 22.9,
+     "implied_experts_range": [
+      15.0,
+      29.6
+     ],
+     "implied_modeled_mean": 23.8,
+     "expert_rank_sd": 3.9
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 25.3,
+     "published_pos_rank": 21.5,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.3,
+      "yahoo_pianowski": 24.8,
+      "espn_karabell": 21.8
+     },
+     "implied_experts_mean": 24.0,
+     "implied_experts_range": [
+      21.8,
+      25.3
+     ],
+     "implied_modeled_mean": 31.7,
+     "expert_rank_sd": 0.8
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 24.2,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 22.5,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 26.1,
+      "yahoo_pianowski": 24.8,
+      "espn_karabell": 25.3
+     },
+     "implied_experts_mean": 25.4,
+     "implied_experts_range": [
+      24.8,
+      26.1
+     ],
+     "implied_modeled_mean": 25.7,
+     "expert_rank_sd": 1.0
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 21.8,
+     "published_pos_rank": 24.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 18.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.3,
+      "yahoo_pianowski": 29.6,
+      "espn_karabell": 25.3
+     },
+     "implied_experts_mean": 24.1,
+     "implied_experts_range": [
+      17.3,
+      29.6
+     ],
+     "implied_modeled_mean": 29.2,
+     "expert_rank_sd": 2.7
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 17.3,
+     "published_pos_rank": 25.0,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 26
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 21.8,
+      "yahoo_pianowski": 14.2,
+      "espn_karabell": 16.3
+     },
+     "implied_experts_mean": 17.4,
+     "implied_experts_range": [
+      14.2,
+      21.8
+     ],
+     "implied_modeled_mean": 34.7,
+     "expert_rank_sd": 2.3
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 16.3,
+     "published_pos_rank": 26.0,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 38
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 16.3,
+      "yahoo_pianowski": 10.4,
+      "espn_karabell": 7.9
+     },
+     "implied_experts_mean": 11.5,
+     "implied_experts_range": [
+      7.9,
+      16.3
+     ],
+     "implied_modeled_mean": 18.3,
+     "expert_rank_sd": 5.1
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 16.0,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 34,
+      "yahoo_pianowski": 35.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.8,
+      "yahoo_pianowski": 10.4,
+      "espn_karabell": 10.8
+     },
+     "implied_experts_mean": 10.7,
+     "implied_experts_range": [
+      10.4,
+      10.8
+     ],
+     "implied_modeled_mean": 13.4,
+     "expert_rank_sd": 0.5
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 15.0,
+     "published_pos_rank": 28.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 29.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.0,
+      "yahoo_pianowski": 14.2,
+      "espn_karabell": 14.8
+     },
+     "implied_experts_mean": 14.7,
+     "implied_experts_range": [
+      14.2,
+      15.0
+     ],
+     "implied_modeled_mean": 7.3,
+     "expert_rank_sd": 0.6
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 14.8,
+     "published_pos_rank": 29.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 16.0,
+      "yahoo_pianowski": 15.5,
+      "espn_karabell": 13.7
+     },
+     "implied_experts_mean": 15.1,
+     "implied_experts_range": [
+      13.7,
+      16.0
+     ],
+     "implied_modeled_mean": 10.8,
+     "expert_rank_sd": 1.3
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 13.7,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 25.5,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.8,
+      "yahoo_pianowski": 16.8,
+      "espn_karabell": 11.2
+     },
+     "implied_experts_mean": 14.3,
+     "implied_experts_range": [
+      11.2,
+      16.8
+     ],
+     "implied_modeled_mean": 13.5,
+     "expert_rank_sd": 3.1
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 55.7,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 55.7,
+      "yahoo_pianowski": 55.7,
+      "espn_karabell": 55.7
+     },
+     "implied_experts_mean": 55.7,
+     "implied_experts_range": [
+      55.7,
+      55.7
+     ],
+     "implied_modeled_mean": 52.4,
+     "expert_rank_sd": 0.0
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 51.8,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 51.8,
+      "yahoo_pianowski": 51.8,
+      "espn_karabell": 51.8
+     },
+     "implied_experts_mean": 51.8,
+     "implied_experts_range": [
+      51.8,
+      51.8
+     ],
+     "implied_modeled_mean": 48.3,
+     "expert_rank_sd": 0.0
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 45.8,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 45.8,
+      "yahoo_pianowski": 45.8,
+      "espn_karabell": 45.8
+     },
+     "implied_experts_mean": 45.8,
+     "implied_experts_range": [
+      45.8,
+      45.8
+     ],
+     "implied_modeled_mean": 49.1,
+     "expert_rank_sd": 0.0
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 43.8,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 43.8,
+      "yahoo_pianowski": 43.8,
+      "espn_karabell": 43.8
+     },
+     "implied_experts_mean": 43.8,
+     "implied_experts_range": [
+      43.8,
+      43.8
+     ],
+     "implied_modeled_mean": 43.8,
+     "expert_rank_sd": 0.0
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 41.2,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 41.2,
+      "yahoo_pianowski": 41.2,
+      "espn_karabell": 41.2
+     },
+     "implied_experts_mean": 41.2,
+     "implied_experts_range": [
+      41.2,
+      41.2
+     ],
+     "implied_modeled_mean": 41.0,
+     "expert_rank_sd": 0.0
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 35.6,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 33.7,
+      "yahoo_pianowski": 35.6,
+      "espn_karabell": 33.7
+     },
+     "implied_experts_mean": 34.3,
+     "implied_experts_range": [
+      33.7,
+      35.6
+     ],
+     "implied_modeled_mean": 18.3,
+     "expert_rank_sd": 0.5
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 33.7,
+     "published_pos_rank": 7.0,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 10.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 35.6,
+      "yahoo_pianowski": 25.9,
+      "espn_karabell": 23.0
+     },
+     "implied_experts_mean": 28.2,
+     "implied_experts_range": [
+      23.0,
+      35.6
+     ],
+     "implied_modeled_mean": 31.2,
+     "expert_rank_sd": 2.5
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 28.1,
+     "published_pos_rank": 8.0,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 28.1,
+      "yahoo_pianowski": 33.7,
+      "espn_karabell": 24.3
+     },
+     "implied_experts_mean": 28.7,
+     "implied_experts_range": [
+      24.3,
+      33.7
+     ],
+     "implied_modeled_mean": 26.6,
+     "expert_rank_sd": 1.7
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 26.9,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 26.9,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 35.6
+     },
+     "implied_experts_mean": 30.0,
+     "implied_experts_range": [
+      26.9,
+      35.6
+     ],
+     "implied_modeled_mean": 14.1,
+     "expert_rank_sd": 1.3
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 25.9,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 11,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 14
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 24.3,
+      "yahoo_pianowski": 21.9,
+      "espn_karabell": 19.2
+     },
+     "implied_experts_mean": 21.8,
+     "implied_experts_range": [
+      19.2,
+      24.3
+     ],
+     "implied_modeled_mean": 27.0,
+     "expert_rank_sd": 1.2
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 24.3,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 8.5,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 25.9,
+      "yahoo_pianowski": 27.5,
+      "espn_karabell": 28.1
+     },
+     "implied_experts_mean": 27.2,
+     "implied_experts_range": [
+      25.9,
+      28.1
+     ],
+     "implied_modeled_mean": 23.9,
+     "expert_rank_sd": 0.8
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 23.0,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 20.7,
+      "yahoo_pianowski": 21.9,
+      "espn_karabell": 17.8
+     },
+     "implied_experts_mean": 20.1,
+     "implied_experts_range": [
+      17.8,
+      21.9
+     ],
+     "implied_modeled_mean": 31.4,
+     "expert_rank_sd": 1.5
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 20.7,
+     "published_pos_rank": 13.0,
+     "expert_ranks": {
+      "ecr_consensus": 16,
+      "yahoo_pianowski": 19.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 17.8,
+      "yahoo_pianowski": 14.4,
+      "espn_karabell": 18.6
+     },
+     "implied_experts_mean": 16.9,
+     "implied_experts_range": [
+      14.4,
+      18.6
+     ],
+     "implied_modeled_mean": 28.9,
+     "expert_rank_sd": 1.7
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 19.2,
+     "published_pos_rank": 14.0,
+     "expert_ranks": {
+      "ecr_consensus": 17,
+      "yahoo_pianowski": 16.0,
+      "espn_karabell": 17
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.6,
+      "yahoo_pianowski": 17.8,
+      "espn_karabell": 15.6
+     },
+     "implied_experts_mean": 16.3,
+     "implied_experts_range": [
+      15.6,
+      17.8
+     ],
+     "implied_modeled_mean": 15.0,
+     "expert_rank_sd": 0.5
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 18.6,
+     "published_pos_rank": 15.0,
+     "expert_ranks": {
+      "ecr_consensus": 12,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 10
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.0,
+      "yahoo_pianowski": 24.3,
+      "espn_karabell": 25.9
+     },
+     "implied_experts_mean": 24.4,
+     "implied_experts_range": [
+      23.0,
+      25.9
+     ],
+     "implied_modeled_mean": 15.9,
+     "expert_rank_sd": 0.8
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 17.8,
+     "published_pos_rank": 16.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 15.0,
+      "espn_karabell": 9
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 19.2,
+      "yahoo_pianowski": 18.6,
+      "espn_karabell": 26.9
+     },
+     "implied_experts_mean": 21.6,
+     "implied_experts_range": [
+      18.6,
+      26.9
+     ],
+     "implied_modeled_mean": 17.7,
+     "expert_rank_sd": 2.6
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 15.6,
+     "published_pos_rank": 17.0,
+     "expert_ranks": {
+      "ecr_consensus": 15,
+      "yahoo_pianowski": 14.0,
+      "espn_karabell": 18
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 18.6,
+      "yahoo_pianowski": 19.2,
+      "espn_karabell": 15.1
+     },
+     "implied_experts_mean": 17.6,
+     "implied_experts_range": [
+      15.1,
+      19.2
+     ],
+     "implied_modeled_mean": 21.0,
+     "expert_rank_sd": 1.7
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 15.1,
+     "published_pos_rank": 18.0,
+     "expert_ranks": {
+      "ecr_consensus": 20,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 32
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 12.5,
+      "yahoo_pianowski": 8.6,
+      "espn_karabell": 3.7
+     },
+     "implied_experts_mean": 8.3,
+     "implied_experts_range": [
+      3.7,
+      12.5
+     ],
+     "implied_modeled_mean": 14.0,
+     "expert_rank_sd": 5.0
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 14.4,
+     "published_pos_rank": 19.0,
+     "expert_ranks": {
+      "ecr_consensus": 18,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 13
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 15.1,
+      "yahoo_pianowski": 15.3,
+      "espn_karabell": 20.7
+     },
+     "implied_experts_mean": 17.0,
+     "implied_experts_range": [
+      15.1,
+      20.7
+     ],
+     "implied_modeled_mean": 7.6,
+     "expert_rank_sd": 2.2
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 12.5,
+     "published_pos_rank": 20.0,
+     "expert_ranks": {
+      "ecr_consensus": 19,
+      "yahoo_pianowski": 21.0,
+      "espn_karabell": 19
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 14.4,
+      "yahoo_pianowski": 10.9,
+      "espn_karabell": 14.4
+     },
+     "implied_experts_mean": 13.2,
+     "implied_experts_range": [
+      10.9,
+      14.4
+     ],
+     "implied_modeled_mean": 11.9,
+     "expert_rank_sd": 0.9
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 10.9,
+     "published_pos_rank": 21.0,
+     "expert_ranks": {
+      "ecr_consensus": 21,
+      "yahoo_pianowski": 25.0,
+      "espn_karabell": 31
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.9,
+      "yahoo_pianowski": 8.2,
+      "espn_karabell": 5.0
+     },
+     "implied_experts_mean": 8.0,
+     "implied_experts_range": [
+      5.0,
+      10.9
+     ],
+     "implied_modeled_mean": 13.6,
+     "expert_rank_sd": 4.1
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 10.1,
+     "published_pos_rank": 22.0,
+     "expert_ranks": {
+      "ecr_consensus": 22,
+      "yahoo_pianowski": 20.0,
+      "espn_karabell": 21
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.1,
+      "yahoo_pianowski": 12.5,
+      "espn_karabell": 10.9
+     },
+     "implied_experts_mean": 11.2,
+     "implied_experts_range": [
+      10.1,
+      12.5
+     ],
+     "implied_modeled_mean": 12.7,
+     "expert_rank_sd": 0.8
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 8.9,
+     "published_pos_rank": 23.0,
+     "expert_ranks": {
+      "ecr_consensus": 24,
+      "yahoo_pianowski": 17.5,
+      "espn_karabell": 20
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.3,
+      "yahoo_pianowski": 15.3,
+      "espn_karabell": 12.5
+     },
+     "implied_experts_mean": 12.0,
+     "implied_experts_range": [
+      8.3,
+      15.3
+     ],
+     "implied_modeled_mean": 6.0,
+     "expert_rank_sd": 2.7
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 8.3,
+     "published_pos_rank": 24.0,
+     "expert_ranks": {
+      "ecr_consensus": 27,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 35
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.4,
+      "yahoo_pianowski": 7.8,
+      "espn_karabell": 2.8
+     },
+     "implied_experts_mean": 6.0,
+     "implied_experts_range": [
+      2.8,
+      7.8
+     ],
+     "implied_modeled_mean": 8.4,
+     "expert_rank_sd": 3.9
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 8.2,
+     "published_pos_rank": 25.5,
+     "expert_ranks": {
+      "ecr_consensus": 30,
+      "yahoo_pianowski": 26.5,
+      "espn_karabell": 22
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.3,
+      "yahoo_pianowski": 7.8,
+      "espn_karabell": 10.1
+     },
+     "implied_experts_mean": 8.1,
+     "implied_experts_range": [
+      6.3,
+      10.1
+     ],
+     "implied_modeled_mean": 8.2,
+     "expert_rank_sd": 3.3
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 8.2,
+     "published_pos_rank": 25.5,
+     "expert_ranks": {
+      "ecr_consensus": 23,
+      "yahoo_pianowski": 22.0,
+      "espn_karabell": 25
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.9,
+      "yahoo_pianowski": 10.1,
+      "espn_karabell": 8.2
+     },
+     "implied_experts_mean": 9.1,
+     "implied_experts_range": [
+      8.2,
+      10.1
+     ],
+     "implied_modeled_mean": 18.3,
+     "expert_rank_sd": 1.2
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 7.4,
+     "published_pos_rank": 27.0,
+     "expert_ranks": {
+      "ecr_consensus": 33,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 34
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.1,
+      "yahoo_pianowski": 3.7,
+      "espn_karabell": 3.0
+     },
+     "implied_experts_mean": 3.3,
+     "implied_experts_range": [
+      3.0,
+      3.7
+     ],
+     "implied_modeled_mean": 5.7,
+     "expert_rank_sd": 0.8
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 7.2,
+     "published_pos_rank": 28.0,
+     "expert_ranks": {
+      "ecr_consensus": 25,
+      "yahoo_pianowski": 23.5,
+      "espn_karabell": 29
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.2,
+      "yahoo_pianowski": 8.6,
+      "espn_karabell": 6.5
+     },
+     "implied_experts_mean": 7.8,
+     "implied_experts_range": [
+      6.5,
+      8.6
+     ],
+     "implied_modeled_mean": 10.5,
+     "expert_rank_sd": 2.3
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 6.5,
+     "published_pos_rank": 29.0,
+     "expert_ranks": {
+      "ecr_consensus": 26,
+      "yahoo_pianowski": 32.0,
+      "espn_karabell": 24
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 8.2,
+      "yahoo_pianowski": 3.7,
+      "espn_karabell": 8.3
+     },
+     "implied_experts_mean": 6.7,
+     "implied_experts_range": [
+      3.7,
+      8.3
+     ],
+     "implied_modeled_mean": 4.1,
+     "expert_rank_sd": 3.4
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 6.3,
+     "published_pos_rank": 30.0,
+     "expert_ranks": {
+      "ecr_consensus": 29,
+      "yahoo_pianowski": 34.0,
+      "espn_karabell": 33
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 6.5,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 3.1
+     },
+     "implied_experts_mean": 4.2,
+     "implied_experts_range": [
+      3.0,
+      6.5
+     ],
+     "implied_modeled_mean": 10.6,
+     "expert_rank_sd": 2.2
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 5.0,
+     "published_pos_rank": 31.0,
+     "expert_ranks": {
+      "ecr_consensus": 28,
+      "yahoo_pianowski": 28.0,
+      "espn_karabell": 23
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.2,
+      "yahoo_pianowski": 7.2,
+      "espn_karabell": 8.9
+     },
+     "implied_experts_mean": 7.8,
+     "implied_experts_range": [
+      7.2,
+      8.9
+     ],
+     "implied_modeled_mean": 2.7,
+     "expert_rank_sd": 2.4
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 3.7,
+     "published_pos_rank": 32.0,
+     "expert_ranks": {
+      "ecr_consensus": 32,
+      "yahoo_pianowski": 35.5,
+      "espn_karabell": 42
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.7,
+      "yahoo_pianowski": 2.8,
+      "espn_karabell": 0.9
+     },
+     "implied_experts_mean": 2.5,
+     "implied_experts_range": [
+      0.9,
+      3.7
+     ],
+     "implied_modeled_mean": 2.0,
+     "expert_rank_sd": 4.1
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 3.1,
+     "published_pos_rank": 33.0,
+     "expert_ranks": {
+      "ecr_consensus": 41,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 30
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 1.0,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 6.3
+     },
+     "implied_experts_mean": 2.8,
+     "implied_experts_range": [
+      1.0,
+      6.3
+     ],
+     "implied_modeled_mean": 1.7,
+     "expert_rank_sd": 5.2
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 3.0,
+     "published_pos_rank": 34.0,
+     "expert_ranks": {
+      "ecr_consensus": 36,
+      "yahoo_pianowski": 41.0,
+      "espn_karabell": 28
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.7,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 7.2
+     },
+     "implied_experts_mean": 3.6,
+     "implied_experts_range": [
+      1.0,
+      7.2
+     ],
+     "implied_modeled_mean": 1.7,
+     "expert_rank_sd": 5.4
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 2.8,
+     "published_pos_rank": 35.0,
+     "expert_ranks": {
+      "ecr_consensus": 43,
+      "yahoo_pianowski": 45.5,
+      "espn_karabell": 27
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 0.9,
+      "yahoo_pianowski": 0.5,
+      "espn_karabell": 7.4
+     },
+     "implied_experts_mean": 2.9,
+     "implied_experts_range": [
+      0.5,
+      7.4
+     ],
+     "implied_modeled_mean": 0.9,
+     "expert_rank_sd": 8.2
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 27.2,
+     "published_pos_rank": 1.0,
+     "expert_ranks": {
+      "ecr_consensus": 1,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 2
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 27.2,
+      "yahoo_pianowski": 27.2,
+      "espn_karabell": 23.4
+     },
+     "implied_experts_mean": 25.9,
+     "implied_experts_range": [
+      23.4,
+      27.2
+     ],
+     "implied_modeled_mean": 20.4,
+     "expert_rank_sd": 0.5
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 23.4,
+     "published_pos_rank": 2.0,
+     "expert_ranks": {
+      "ecr_consensus": 2,
+      "yahoo_pianowski": 2.0,
+      "espn_karabell": 1
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 23.4,
+      "yahoo_pianowski": 23.4,
+      "espn_karabell": 27.2
+     },
+     "implied_experts_mean": 24.7,
+     "implied_experts_range": [
+      23.4,
+      27.2
+     ],
+     "implied_modeled_mean": 22.3,
+     "expert_rank_sd": 0.5
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 16.2,
+     "published_pos_rank": 3.0,
+     "expert_ranks": {
+      "ecr_consensus": 3,
+      "yahoo_pianowski": 3.0,
+      "espn_karabell": 4
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 16.2,
+      "yahoo_pianowski": 16.2,
+      "espn_karabell": 10.6
+     },
+     "implied_experts_mean": 14.3,
+     "implied_experts_range": [
+      10.6,
+      16.2
+     ],
+     "implied_modeled_mean": 15.2,
+     "expert_rank_sd": 0.5
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 10.6,
+     "published_pos_rank": 4.0,
+     "expert_ranks": {
+      "ecr_consensus": 4,
+      "yahoo_pianowski": 9.5,
+      "espn_karabell": 3
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.6,
+      "yahoo_pianowski": 5.7,
+      "espn_karabell": 16.2
+     },
+     "implied_experts_mean": 10.8,
+     "implied_experts_range": [
+      5.7,
+      16.2
+     ],
+     "implied_modeled_mean": 12.3,
+     "expert_rank_sd": 2.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 10.4,
+     "published_pos_rank": 5.0,
+     "expert_ranks": {
+      "ecr_consensus": 5,
+      "yahoo_pianowski": 6.0,
+      "espn_karabell": 7
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.4,
+      "yahoo_pianowski": 10.2,
+      "espn_karabell": 7.9
+     },
+     "implied_experts_mean": 9.5,
+     "implied_experts_range": [
+      7.9,
+      10.4
+     ],
+     "implied_modeled_mean": 10.5,
+     "expert_rank_sd": 0.8
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 10.2,
+     "published_pos_rank": 6.0,
+     "expert_ranks": {
+      "ecr_consensus": 7,
+      "yahoo_pianowski": 11.0,
+      "espn_karabell": 8
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.9,
+      "yahoo_pianowski": 5.5,
+      "espn_karabell": 7.9
+     },
+     "implied_experts_mean": 7.1,
+     "implied_experts_range": [
+      5.5,
+      7.9
+     ],
+     "implied_modeled_mean": 7.1,
+     "expert_rank_sd": 1.7
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 7.9,
+     "published_pos_rank": 7.5,
+     "expert_ranks": {
+      "ecr_consensus": 6,
+      "yahoo_pianowski": 5.0,
+      "espn_karabell": 15
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 10.2,
+      "yahoo_pianowski": 10.4,
+      "espn_karabell": 2.7
+     },
+     "implied_experts_mean": 7.8,
+     "implied_experts_range": [
+      2.7,
+      10.4
+     ],
+     "implied_modeled_mean": 7.2,
+     "expert_rank_sd": 4.5
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 7.9,
+     "published_pos_rank": 7.5,
+     "expert_ranks": {
+      "ecr_consensus": 8,
+      "yahoo_pianowski": 4.0,
+      "espn_karabell": 6
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 7.9,
+      "yahoo_pianowski": 10.6,
+      "espn_karabell": 10.2
+     },
+     "implied_experts_mean": 9.6,
+     "implied_experts_range": [
+      7.9,
+      10.6
+     ],
+     "implied_modeled_mean": 10.8,
+     "expert_rank_sd": 1.6
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 5.7,
+     "published_pos_rank": 9.0,
+     "expert_ranks": {
+      "ecr_consensus": 14,
+      "yahoo_pianowski": 17.0,
+      "espn_karabell": 16
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 2.8,
+      "yahoo_pianowski": 1.0,
+      "espn_karabell": 1.8
+     },
+     "implied_experts_mean": 1.9,
+     "implied_experts_range": [
+      1.0,
+      2.8
+     ],
+     "implied_modeled_mean": 4.5,
+     "expert_rank_sd": 1.2
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 5.6,
+     "published_pos_rank": 10.0,
+     "expert_ranks": {
+      "ecr_consensus": 9,
+      "yahoo_pianowski": 7.0,
+      "espn_karabell": 11
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.7,
+      "yahoo_pianowski": 7.9,
+      "espn_karabell": 5.5
+     },
+     "implied_experts_mean": 6.4,
+     "implied_experts_range": [
+      5.5,
+      7.9
+     ],
+     "implied_modeled_mean": 4.1,
+     "expert_rank_sd": 1.6
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 5.5,
+     "published_pos_rank": 11.0,
+     "expert_ranks": {
+      "ecr_consensus": 10,
+      "yahoo_pianowski": 12.0,
+      "espn_karabell": 5
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 5.6,
+      "yahoo_pianowski": 3.4,
+      "espn_karabell": 10.4
+     },
+     "implied_experts_mean": 6.5,
+     "implied_experts_range": [
+      3.4,
+      10.4
+     ],
+     "implied_modeled_mean": 9.1,
+     "expert_rank_sd": 2.9
+    },
+    "Harold Fannin Jr.": {
+     "pos": "TE",
+     "published": 3.4,
+     "published_pos_rank": 12.0,
+     "expert_ranks": {
+      "ecr_consensus": 13,
+      "yahoo_pianowski": 8.0,
+      "espn_karabell": 12
+     },
+     "implied_by_expert": {
+      "ecr_consensus": 3.2,
+      "yahoo_pianowski": 7.9,
+      "espn_karabell": 3.4
+     },
+     "implied_experts_mean": 4.8,
+     "implied_experts_range": [
+      3.2,
+      7.9
+     ],
+     "implied_modeled_mean": 1.7,
+     "expert_rank_sd": 2.2
+    }
+   },
+   "summary": {
+    "compared": 89,
+    "material_vs_published_experts": 35,
+    "material_vs_published_modeled": 54,
+    "median_abs_gap_experts": {
+     "QB": 1.3,
+     "RB": 1.9,
+     "WR": 2.0,
+     "TE": 1.3
+    },
+    "median_expert_rank_sd": {
+     "QB": 1.55,
+     "RB": 1.15,
+     "WR": 1.7,
+     "TE": 1.6
+    },
+    "median_expert_range_pts": {
+     "QB": 6.6,
+     "RB": 5.4,
+     "WR": 3.8,
+     "TE": 3.8
+    },
+    "largest": [
+     [
+      -12.3,
+      "Josh Jacobs"
+     ],
+     [
+      -9.5,
+      "Drake Maye"
+     ],
+     [
+      -6.8,
+      "Luther Burden III"
+     ],
+     [
+      5.8,
+      "Nico Collins"
+     ],
+     [
+      -5.5,
+      "Breece Hall"
+     ],
+     [
+      -5.5,
+      "Zay Flowers"
+     ],
+     [
+      -5.3,
+      "Travis Etienne"
+     ],
+     [
+      5.1,
+      "Chase Brown"
+     ],
+     [
+      -4.8,
+      "Jordan Mason"
+     ],
+     [
+      -4.2,
+      "James Cook"
+     ],
+     [
+      4.1,
+      "Derrick Henry"
+     ],
+     [
+      -4.1,
+      "Justin Jefferson"
+     ],
+     [
+      -4.1,
+      "DK Metcalf"
+     ],
+     [
+      3.9,
+      "Saquon Barkley"
+     ]
+    ]
+   }
+  }
+ }
+}
