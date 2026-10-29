@@ -253,14 +253,14 @@
       {id: "rosterF", label: "Roster value (DDF)", type: "number", first: "desc", get: money("fund", "rosterValue")},
       {id: "starterF", label: "Starter value (DDF)", type: "number", first: "desc", get: money("fund", "starterValue")},
       {id: "benchF", label: "Bench value (DDF)", type: "number", first: "desc", get: money("fund", "benchValue")},
-      {id: "rosterM", label: "Roster value (market)", type: "number", first: "desc", get: money("market", "rosterValue")},
-      {id: "starterM", label: "Starter value (market)", type: "number", first: "desc", get: money("market", "starterValue")},
-      {id: "benchM", label: "Bench value (market)", type: "number", first: "desc", get: money("market", "benchValue")},
+      {id: "rosterM", label: "Roster value (Market)", type: "number", first: "desc", get: money("market", "rosterValue")},
+      {id: "starterM", label: "Starter value (Market)", type: "number", first: "desc", get: money("market", "starterValue")},
+      {id: "benchM", label: "Bench value (Market)", type: "number", first: "desc", get: money("market", "benchValue")},
       {id: "altRank", label: other === "market" ? "Trade chart average rank" : "DDF Value rank", type: "number", first: "asc", rank: true, get: t => t.rank[other]},
       {id: "projRank", label: "DDF Value (projections) rank", type: "number", first: "asc", rank: true, get: t => t.rank.proj},
       {id: "disagree", label: "Projections vs charts", type: "number", first: "desc", get: t => biggestSigned(t.higher.concat(t.lower))},
-      {id: "under", label: "Undervalued by market", type: "number", first: "desc", get: t => topGap(t.under)},
-      {id: "over", label: "Overvalued by market", type: "number", first: "desc", get: t => topGap(t.over)}
+      {id: "under", label: "Buy (Market underpays)", type: "number", first: "desc", get: t => topGap(t.under)},
+      {id: "over", label: "Sell (Market overpays)", type: "number", first: "desc", get: t => topGap(t.over)}
     ];
   }
   const SUMMARY_DEFAULT = {col: "rank", dir: "asc"};

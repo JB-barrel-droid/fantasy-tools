@@ -1,0 +1,118 @@
+{
+  "ticket": "JEG-1272",
+  "target": "app/v2/roster-paste.js",
+  "note": "Each mutation is a set of exact-text edits applied to a temp copy of the target. Every edit's find text must appear exactly `count` times in the current target, or the harness fails (a mutation that did not apply proves nothing). The real file is never written. Contracts are implemented in tests/test_roster_paste_mutation_proof.py (the Node driver) and read the scrubbed samples in tests/fixtures/roster_paste/ read-only. Each mutation's caught_by lists the contract checks that must fail on it; other checks in the same contract may pass, so a narrow mutant caught by one check still counts, and every check must be named by at least one mutant.",
+  "contracts": {
+    "structural_team_pos": "A known player name in an ESPN roster paste counts only when the slot -> name -> team -> position sequence holds. A trap row with a slot label and a player's exact name must not match when it has no team or position line, a team line but no position line, or a position line but no team line; the 15 real roster rows still match.",
+    "duplicate_suppression": "A player is matched at most once per side: matchCandidate refuses a second match with reason 'duplicate', a roster row repeated in an ESPN team paste still gives 15 unique players, and a name repeated on two lines of a plain list gives one player.",
+    "ambiguous_refusal": "A name shared by two players with no team or position evidence is refused, not guessed: matchCandidate and disambiguate return no match, and a plain-list paste of the name gives zero players and an 'ambiguous' unmatched line."
+  },
+  "mutations": [
+    {
+      "id": "no_structural_team_pos",
+      "contract": "structural_team_pos",
+      "description": "ESPN team-page parser accepts a row on the name alone, dropping the team and position requirement.",
+      "caught_by": [
+        "slot + exact name with no team/position line does not match",
+        "slot + exact name + team line but no position line does not match",
+        "slot + exact name + position line but no team line does not match"
+      ],
+      "edits": [
+        {
+          "find": "        if (singleName && teamCode && posCode) {",
+          "replace": "        if (singleName) {",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "no_structural_pos",
+      "contract": "structural_team_pos",
+      "description": "ESPN team-page parser drops only the position requirement and accepts a row with a team line.",
+      "caught_by": [
+        "slot + exact name + team line but no position line does not match"
+      ],
+      "edits": [
+        {
+          "find": "        if (singleName && teamCode && posCode) {",
+          "replace": "        if (singleName && teamCode) {",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "no_structural_team",
+      "contract": "structural_team_pos",
+      "description": "ESPN team-page parser drops only the team requirement and accepts a row with a position line.",
+      "caught_by": [
+        "slot + exact name + position line but no team line does not match"
+      ],
+      "edits": [
+        {
+          "find": "        if (singleName && teamCode && posCode) {",
+          "replace": "        if (singleName && posCode) {",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "no_duplicate_suppression",
+      "contract": "duplicate_suppression",
+      "description": "matchCandidate and the plain-list extractor stop refusing a player already matched.",
+      "caught_by": [
+        "matchCandidate refuses a second match as duplicate",
+        "repeated ESPN roster row is counted once",
+        "a name on two plain-list lines gives one player"
+      ],
+      "edits": [
+        {
+          "find": "          if (seen[key]) return {match: null, confidence: 0, reason: \"duplicate\"};\n",
+          "replace": "",
+          "count": 1
+        },
+        {
+          "find": "      if (seen[k1]) return {match: null, confidence: 0, reason: \"duplicate\"};\n",
+          "replace": "",
+          "count": 1
+        },
+        {
+          "find": "        if (seen[k2]) return {match: null, confidence: 0, reason: \"duplicate\"};\n",
+          "replace": "",
+          "count": 1
+        },
+        {
+          "find": "        if (seen[k3]) return {match: null, confidence: 0, reason: \"duplicate\"};\n",
+          "replace": "",
+          "count": 1
+        },
+        {
+          "find": "            if (seen[key]) {\n              for (var mc = start; mc < start + winLen; mc++) consumed[mc] = true;\n              continue;\n            }\n",
+          "replace": "",
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": "no_ambiguous_refusal",
+      "contract": "ambiguous_refusal",
+      "description": "matchCandidate and disambiguate take the first of several same-name players instead of refusing.",
+      "caught_by": [
+        "matchCandidate refuses a shared name with no evidence",
+        "disambiguate refuses two hits with no evidence",
+        "plain-list paste of a shared name matches nobody and says ambiguous"
+      ],
+      "edits": [
+        {
+          "find": "      if (hits.length !== 1) return null;\n      return hits[0];",
+          "replace": "      if (hits.length === 0) return null;\n      return hits[0];",
+          "count": 1
+        },
+        {
+          "find": "    return filtered.length === 1 ? filtered[0] : null;",
+          "replace": "    return filtered.length >= 1 ? filtered[0] : null;",
+          "count": 1
+        }
+      ]
+    }
+  ]
+}
