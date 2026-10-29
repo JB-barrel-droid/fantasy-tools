@@ -153,7 +153,9 @@ test("zero is a value, missing is not, unavailable and held stay distinct", () =
   assert.equal(c.warnings.filter(w => /overrides/.test(w)).length, 3);
   assert.deepEqual(c.league.shares, {QB: 0, RB: 0.5, WR: 0.4, TE: 0.1});
   assert.equal(c.sources.fantasycalc.status, "available");
-  assert.deepEqual(c.sources.espn, {status: "unavailable", reason: "not loaded"});
+  assert.deepEqual(c.sources.espn, {status: "unavailable", reason: "not loaded", version: null});
+  assert.equal(T.normalizeCommon({sources: {fantasycalc: {available: true, version: "2026-10-29"}}}).sources.fantasycalc.version, "2026-10-29",
+    "a source's own data version is kept, so a rebuilt source is a different source state");
   assert.equal(c.sources.cbsros.status, "held");
   assert.equal(c.sources.usatoday.status, "unknown");
   assert.equal(c.sources.razzball, undefined, "a source the page did not report is absent, not assumed available");
@@ -392,6 +394,242 @@ test("a link opened on a device with different saved teams uses the link's roste
   assert.equal(T.maySave(readerCtx, "mine"), false);
   assert.equal(T.maySave(readerCtx, "overrides"), false);
   assert.equal(JSON.stringify(reader), readerBefore, "nothing was written to the reader's saved league or star");
+});
+
+// ---------- reviewed blockers on #1086 (Codex, JEG-1229 02:55 and 04:13) ----------
+test("a link or local visit never saves common preferences, even without per-section provenance", () => {
+  const c = common();
+  assert.equal(T.maySave(T.createContext({route: "compare", common: c, provenance: "link"}), "basis"), false, "Codex's exact reproduction");
+  assert.equal(T.maySave(T.createContext({route: "compare", common: c, provenance: "local"}), "basis"), false);
+  ["league", "basis", "overrides"].forEach(part => {
+    assert.equal(T.maySave(T.createContext({route: "pair", common: c, provenance: "link"}), part), false, part);
+    assert.equal(T.maySave(T.createContext({route: "league", common: c, provenance: "local"}), part), false, part);
+    assert.equal(T.maySave(T.createContext({route: "pair", common: c, provenance: "saved"}), part), true, part);
+  });
+  // Per-section provenance, when the page resolved it, still decides section by section.
+  assert.equal(T.maySave(T.createContext({route: "compare", common: c, provenance: "link", commonProvenance: {league: "saved", basis: "link", overrides: "saved"}}), "basis"), false);
+  assert.equal(T.maySave(T.createContext({route: "compare", common: c, provenance: "link", commonProvenance: {league: "saved", basis: "link", overrides: "saved"}}), "league"), true);
+});
+test("discovery keys keep each team's ID with its roster; readouts stay identity-free", () => {
+  const base = W.ops.setUi(workspace(), {filters: {opponent: "tB"}});
+  const swapped = W.ops.setEntries(W.ops.setEntries(base, "tB", C), "tC", B);
+  const k = ws => T.cacheKey(T.fromLeague(env(), ws), "discovery");
+  assert.notEqual(k(base), k(swapped), "Codex's reproduction: filter tB, rosters of tB and tC swapped");
+  assert.equal(k(W.ops.renameTeam(base, "tB", "Bravo renamed")), k(base), "a rename keeps the ID and the key");
+  assert.notEqual(k(W.ops.setUi(base, {filters: {opponent: "tC"}})), k(base), "a different opponent filter is a different search");
+  assert.equal(k(base), k(base), "deterministic");
+  // The same swap on the pair finder: mine/theirs IDs follow their rosters.
+  const pk = ws => T.cacheKey(T.fromPair(env(), ws, {mineId: "tA", theirId: "tB"}, ws.ui.finderSettings), "discovery");
+  assert.notEqual(pk(base), pk(swapped));
+  // A readout prices two rosters: the same rosters under other IDs are the same readout.
+  const r1 = T.fromPair(env(), base, {mineId: "tA", theirId: "tB", deal}, {});
+  const r2 = T.fromPair(env(), base, {mine: A, theirs: B, deal}, {});
+  assert.equal(T.cacheKey(r1, "readout"), T.cacheKey(r2, "readout"));
+});
+
+// ---------- carrying one trade between pages (JEG-1259) ----------
+// Two bench levels as league.js prices them after #1105: DDF Value at the ddf level, the charts at the market level.
+// Fixture numbers only (not site values). Compare's modeled bench is a third, different set.
+const LEVEL_ROWS = {
+  ddf: roster => rows(roster).map(r => ({...r, values: {ddf_value: r.values.ddf_value}})),
+  market: roster => rows(roster).map(r => ({...r, values: {ddf_value: r.values.ddf_value + 2, fantasycalc: r.values.ddf_value * 1.1}})),
+  modeled: roster => rows(roster).map(r => ({...r, values: {ddf_value: r.values.ddf_value + 5}}))
+};
+const ALLOCATION = {ddf: [{pos: "RB", bench: 6}], market: [{pos: "RB", bench: 17}], modeled: [{pos: "RB", bench: 12}]};
+const WEIGHTS = {ddf: {RB: 0.4}, market: {RB: 0.5}, modeled: {RB: 0.45}};
+const ALL = A.concat(B, C);
+function levelsFor(mode, mine, theirs, d, tweak) {
+  const keys = T.pricingKeys({mine, theirs, deal: d});
+  const levels = {};
+  (mode === "league" ? ["ddf", "market"] : ["modeled"]).forEach(level => {
+    const r = LEVEL_ROWS[level](ALL);
+    levels[level] = T.levelIdentity(level, {rows: tweak ? tweak(level, r) : r, allocation: ALLOCATION[level], weights: WEIGHTS[level], keys});
+  });
+  return {mode, levels, rostered: mode === "league" ? ALL.map(e => e.key) : null, reserve: mode === "league" ? [] : null};
+}
+// The readout a page shows: each side's DDF Value lineup gain at the ddf level, chart gains at the market level.
+function readout(context, mode) {
+  const mineRoster = context.teams.mine.roster;
+  const theirRoster = T.dealPartner(context).roster;
+  const at = (level, key) => {
+    const rowsAt = LEVEL_ROWS[level](mineRoster.concat(theirRoster));
+    const by = new Map(rowsAt.map(r => [r.player_key, r]));
+    const mine = mineRoster.filter(e => by.has(e.key)).map(e => by.get(e.key));
+    const theirs = theirRoster.filter(e => by.has(e.key)).map(e => by.get(e.key));
+    const give = context.deal.give.map(k => by.get(k));
+    const get = context.deal.get.map(k => by.get(k));
+    const us = F.rosterImpact(mine, give, get, SHAPE, key);
+    const them = F.rosterImpact(theirs, get, give, SHAPE, key);
+    return {us: us.starterDelta, usBench: us.benchDelta, them: them.starterDelta, values: context.deal.give.concat(context.deal.get).map(k => [k, by.get(k).values[key]])};
+  };
+  return mode === "league" ? {ddf: at("ddf", "ddf_value"), market: at("market", "fantasycalc")} : {modeled: at("modeled", "ddf_value")};
+}
+function origin(d, opts) {
+  const ws = (opts && opts.ws) || workspace();
+  const mineRoster = ws.teams.find(t => t.id === "tA").entries;
+  const partner = ws.teams.find(t => t.id === "tB").entries;
+  const pricing = levelsFor("league", mineRoster, partner, d);
+  return {ws, pricing, ctx: T.fromLeague({...env(), deal: d, pricing}, ws)};
+}
+// What Compare does on arrival: apply the carried settings as a complete link over its own, rerun the same level(s)
+// with the carried rosters, receive.
+function arrive(transfer, opts) {
+  const o = opts || {};
+  const t = transfer && T.decodeTransfer(T.encodeTransfer(transfer));
+  const own = o.own || T.normalizeCommon({league: {scoring: "ppr"}, basis: {mode: "default"}, sources: o.sources || SOURCES});
+  const linkCommon = t ? T.normalizeCommon({league: t.settings, basis: t.valuation.basis, overrides: t.valuation.overrides, sources: SOURCES}) : null;
+  const resolved = linkCommon ? T.resolveCommon({link: {common: linkCommon, complete: true}, saved: own}) : {common: own, provenance: null};
+  const here = {route: o.route || "compare", common: o.common || resolved.common, commonProvenance: resolved.provenance, ws: o.ws || workspace(),
+    pricing: "pricing" in o ? o.pricing : t && levelsFor(o.mode || t.pricing.mode, t.mine.roster, t.theirs.roster, t.deal, o.tweak)};
+  return T.receive(t, here);
+}
+// Hand-checked: Alpha's starters 109 → 113 at the ddf level (Ra1 18 out, Wb1 22 in, Wa2 16 moves to FLEX); Bravo 106 → 102.
+const GOLDEN_1_FOR_1 = {ddf: {us: 4, usBench: 0, them: -4, values: [["102", 18], ["204", 22]]},
+  market: {us: 4.3999999999999915, usBench: 0, them: -4.3999999999999915, values: [["102", 19.8], ["204", 24.200000000000003]]}};
+const GOLDEN_2_FOR_1 = {ddf: {us: -11, usBench: 0, them: -3, values: [["102", 18], ["103", 15], ["204", 22]]},
+  market: {us: -12.100000000000009, usBench: 0, them: -3.299999999999997, values: [["102", 19.8], ["103", 16.5], ["204", 24.200000000000003]]}};
+
+test("failing before: today's Compare link prices the reader's own team, not the trade's", () => {
+  // The league page today sends saved IDs (mine/theirs) and Compare reads them from the reader's workspace. On another
+  // device the same IDs hold other players: the trade is silently repriced on a substituted roster (JEG-1240's
+  // team-substituted). The carried transfer keeps the trade's rosters.
+  const {ctx} = origin(deal);
+  let reader = W.newWorkspace({id: "reader", name: "Mine", now: 5});
+  reader = W.ops.addTeam(reader, "Alpha", {id: "tA", entries: C.concat([entry("102", "Ra1", "RB")]), now: 5, mine: true});
+  reader = W.ops.addTeam(reader, "Bravo", {id: "tB", entries: [entry("204", "Wb1", "WR")], now: 5});
+  const byIds = T.fromCompare(env(), reader, {give: deal.give, receive: deal.get}, {mineId: "tA", theirId: "tB"});
+  assert.notDeepEqual(byIds.teams.mine.roster.map(e => e.key).sort(), ctx.teams.mine.roster.map(e => e.key).sort(), "the ID path substitutes a roster");
+  const got = arrive(T.toTransfer(ctx), {ws: reader});
+  assert.equal(got.status, "ok", JSON.stringify(got.reasons));
+  assert.deepEqual(got.context.teams.mine.roster, ctx.teams.mine.roster);
+  assert.deepEqual(got.context.teams.theirs.roster, T.dealPartner(ctx).roster);
+});
+test("league to Compare: the same deal keeps its values and gains at both levels (golden)", () => {
+  const {ctx} = origin(deal);
+  const before = readout(ctx, "league");
+  assert.deepEqual(before, GOLDEN_1_FOR_1);
+  const got = arrive(T.toTransfer(ctx));
+  assert.equal(got.status, "ok", JSON.stringify(got.reasons));
+  assert.deepEqual(readout(got.context, "league"), GOLDEN_1_FOR_1);
+  assert.equal(T.cacheKey(got.context, "readout"), T.cacheKey(ctx, "readout"), "same rosters, deal, settings, basis, sources and level identity");
+  assert.deepEqual(got.context.pricing, ctx.pricing);
+  assert.deepEqual(got.context.versions, ctx.versions);
+  assert.deepEqual({route: got.context.origin.route, mineId: got.context.origin.mineId, theirId: got.context.origin.theirId, partnerIds: got.context.origin.partnerIds},
+    {route: "league", mineId: "tA", theirId: "tB", partnerIds: ["tB"]});
+  assert.ok(Object.isFrozen(got.context.origin) && Object.isFrozen(got.context.pricing.levels.ddf));
+  // The pair finder receives the same trade the same way.
+  const pair = arrive(T.toTransfer(ctx), {route: "pair"});
+  assert.equal(pair.status, "ok");
+  assert.equal(T.cacheKey(pair.context, "readout"), T.cacheKey(ctx, "readout"));
+});
+test("an unequal package (2 for 1) arrives exactly, gains included", () => {
+  const two = {give: ["102", "103"], get: ["204"]};
+  const {ctx} = origin(two);
+  const before = readout(ctx, "league");
+  assert.deepEqual(before, GOLDEN_2_FOR_1);
+  const got = arrive(T.toTransfer(ctx));
+  assert.equal(got.status, "ok");
+  assert.deepEqual(got.context.deal, {give: ["102", "103"], get: ["204"]});
+  assert.deepEqual(readout(got.context, "league"), before);
+  assert.notEqual(T.cacheKey(got.context, "readout"), T.cacheKey(origin(deal).ctx, "readout"));
+});
+test("reload and share: the encoded transfer reads back to the same context, and a foreign device keeps the carried rosters", () => {
+  const {ctx} = origin(deal);
+  const text = T.encodeTransfer(T.toTransfer(ctx));
+  assert.match(text, /^[A-Za-z0-9_-]+$/);
+  assert.deepEqual(T.decodeTransfer(text), JSON.parse(JSON.stringify(T.toTransfer(ctx))), "reload: byte-for-byte the same transfer");
+  // A reader whose saved IDs tA/tB hold other players, and a different star.
+  let reader = W.newWorkspace({id: "reader", name: "Mine", now: 5});
+  reader = W.ops.addTeam(reader, "Alpha", {id: "tA", entries: C, now: 5});
+  reader = W.ops.addTeam(reader, "Zulu", {id: "tZ", entries: B, now: 5, mine: true});
+  const before = JSON.stringify(reader);
+  const got = arrive(T.decodeTransfer(text), {ws: reader});
+  assert.equal(got.status, "ok", JSON.stringify(got.reasons));
+  assert.equal(got.context.teams.mine.id, null, "a foreign workspace's same-named ID is never used");
+  assert.equal(got.context.teams.mine.provenance, "link");
+  assert.equal(got.context.provenance, "link");
+  assert.deepEqual(readout(got.context, "league"), GOLDEN_1_FOR_1);
+  ["mine", "theirs", "league", "basis", "overrides"].forEach(part => assert.equal(T.maySave(got.context, part), false, part));
+  assert.equal(JSON.stringify(reader), before, "the reader's saved teams and star are untouched");
+  // Same device, saved team edited after the trade was sent: the carried roster stays, and it no longer matches saved.
+  const sameDevice = arrive(T.toTransfer(ctx), {ws: W.ops.setEntries(workspace(), "tA", C)});
+  assert.equal(sameDevice.status, "ok");
+  assert.deepEqual(sameDevice.context.teams.mine.roster, ctx.teams.mine.roster);
+  assert.deepEqual({id: sameDevice.context.teams.mine.id, matchesSaved: sameDevice.context.teams.mine.matchesSaved}, {id: "tA", matchesSaved: false});
+  assert.equal(T.maySave(sameDevice.context, "mine"), false);
+});
+test("a page that cannot reproduce the trade holds it with the reason, never reprices it", () => {
+  const {ctx} = origin(deal);
+  const tr = T.toTransfer(ctx);
+  const codes = got => (got.status === "hold" ? got.reasons.map(r => r.code) : ["ok"]);
+  const holdOnly = (got, code) => {
+    assert.equal(got.status, "hold");
+    assert.equal(got.context, null, "a hold has no context to price");
+    assert.ok(codes(got).includes(code), `${code} in ${codes(got)}`);
+  };
+  holdOnly(arrive(tr, {mode: "modeled"}), "level-changed");                      // Compare's modeled bench
+  holdOnly(arrive(tr, {pricing: null}), "level-changed");                        // cannot run the league levels
+  holdOnly(arrive(tr, {tweak: (level, r) => (level === "market" ? r.map(x => (x.player_key === "204" ? {...x, values: {...x.values, fantasycalc: 30}} : x)) : r)}), "rows-changed");
+  holdOnly(arrive(tr, {pricing: {...levelsFor("league", A, B, deal), rostered: A.map(e => e.key)}}), "level-changed");
+  const sources = (patch) => T.normalizeCommon({league: tr.settings, basis: tr.valuation.basis, overrides: tr.valuation.overrides, sources: {...SOURCES, ...patch}});
+  holdOnly(arrive(tr, {common: sources({espn: {available: false, reason: "not loaded"}})}), "sources-changed");     // missing source
+  holdOnly(arrive(tr, {common: sources({fantasycalc: {held: true}})}), "sources-changed");                           // held source
+  holdOnly(arrive(tr, {common: sources({fantasycalc: {available: true, version: "rebuilt"}})}), "sources-changed");  // rebuilt source
+  holdOnly(arrive(tr, {common: T.normalizeCommon({league: tr.settings, basis: tr.valuation.basis, overrides: {}, sources: SOURCES})}), "overrides-changed");
+  holdOnly(arrive(tr, {common: T.normalizeCommon({league: tr.settings, basis: {mode: "default"}, overrides: tr.valuation.overrides, sources: SOURCES})}), "basis-changed");
+  holdOnly(arrive(tr, {common: T.normalizeCommon({league: {...tr.settings, scoring: "ppr"}, basis: tr.valuation.basis, overrides: tr.valuation.overrides, sources: SOURCES})}), "settings-changed");
+  holdOnly(T.receive(null, {route: "compare"}), "context-missing");
+  holdOnly(T.receive(T.decodeTransfer(T.encodeTransfer(tr).slice(0, 40)), {route: "compare"}), "context-missing");
+  const tampered = JSON.parse(JSON.stringify(tr));
+  tampered.theirs.roster = tampered.theirs.roster.slice(1);
+  holdOnly(T.receive(tampered, {route: "compare"}), "context-unreadable");
+  holdOnly(T.receive({...tr, v: 2}, {route: "compare"}), "context-unsupported");
+  // No partner: on the league finder, a deal whose received players no single opponent holds has no other side.
+  const noPartner = T.toTransfer(T.fromLeague({...env(), deal: {give: ["102"], get: ["204", "301"]}, pricing: levelsFor("league", A, B, deal)}, workspace()));
+  holdOnly(T.receive(noPartner, {route: "compare", common: common(), pricing: noPartner.pricing}), "team-missing");
+  const noDeal = T.toTransfer(T.fromLeague({...env(), pricing: levelsFor("league", A, B, deal)}, workspace()));
+  holdOnly(T.receive(noDeal, {route: "compare", common: common(), pricing: noDeal.pricing}), "package-missing");
+  // A transfer that never said which level priced it.
+  const unpriced = T.toTransfer(T.fromLeague({...env(), deal}, workspace()));
+  holdOnly(T.receive(unpriced, {route: "compare", common: common(), pricing: levelsFor("league", A, B, deal)}), "level-missing");
+});
+test("the bench level and its rows are part of every cache key", () => {
+  const {ctx} = origin(deal);
+  const modeled = T.withChanges(ctx, {pricing: levelsFor("modeled", A, B, deal)});
+  assert.notEqual(T.cacheKey(ctx, "readout"), T.cacheKey(modeled, "readout"));
+  assert.notEqual(T.cacheKey(ctx, "discovery"), T.cacheKey(modeled, "discovery"));
+  const rebuilt = T.withChanges(ctx, {pricing: levelsFor("league", A, B, deal, (level, r) => r.map(x => ({...x, values: {...x.values, ddf_value: x.values.ddf_value + 0.1}})))});
+  assert.notEqual(T.cacheKey(ctx, "readout"), T.cacheKey(rebuilt, "readout"));
+  assert.notEqual(ctx.versions.pricing, rebuilt.versions.pricing);
+  assert.equal(ctx.versions.settings, rebuilt.versions.settings);
+  // A missing row is not a zero.
+  const zero = T.levelIdentity("ddf", {rows: [{player_key: "1", values: {ddf_value: 0}}], keys: ["1"]});
+  const none = T.levelIdentity("ddf", {rows: [], keys: ["1"]});
+  assert.notEqual(zero.rows, none.rows);
+  assert.deepEqual([zero.players, none.players], [1, 0]);
+});
+test("the JEG-1240 journey diff finds no loss between the league envelope and the received one", () => {
+  // Consumes #1110's own envelope/diff (tests/node/uso_site_journey_contract.cjs) when it is present on this tree, or at
+  // JOURNEY_CONTRACT; reports SKIP when it is not (that file lands with #1110).
+  const file = process.env.JOURNEY_CONTRACT || path.join(__dirname, "uso_site_journey_contract.cjs");
+  let J;
+  try { J = require(file); } catch (error) { console.log(`SKIP journey contract not on this tree (${path.basename(file)})`); return; }
+  const {ctx} = origin({give: ["102", "103"], get: ["204"]});
+  const got = arrive(T.toTransfer(ctx));
+  assert.equal(got.status, "ok");
+  const env1240 = context => {
+    const partner = T.dealPartner(context);
+    const rowsByKey = new Map(LEVEL_ROWS.market(context.teams.mine.roster.concat(partner.roster))
+      .map(r => [r.player_key, {...r, values: {...r.values, usatoday: r.values.fantasycalc, fantasypros: r.values.fantasycalc, cbs: r.values.fantasycalc}}]));
+    return J.envelope(F, {settings: context.common.league, basis: context.common.valuation.basis, level: context.pricing && context.pricing.mode,
+      charts: ["usatoday", "fantasycalc", "fantasypros", "cbs"], market: ["usatoday", "fantasycalc", "fantasypros", "cbs"], shape: SHAPE, rowsByKey},
+    {mine: {id: context.teams.mine.id || context.origin && context.origin.mineId, entries: context.teams.mine.roster},
+      theirs: {id: partner.id || context.origin && context.origin.theirId, entries: partner.roster}}, context.deal.give, context.deal.get);
+  };
+  assert.deepEqual(J.diff(env1240(ctx), env1240(got.context)), []);
+  // And the diff does see a substituted roster (the failing-before path).
+  const subbed = T.withChanges(got.context, {theirs: T.rosterTeam(C, "local")});
+  assert.ok(J.diff(env1240(ctx), env1240({...subbed, origin: got.context.origin})).some(d => d.code === "team-substituted"));
 });
 
 let failed = 0;

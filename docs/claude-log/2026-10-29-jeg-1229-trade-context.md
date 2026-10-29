@@ -70,3 +70,52 @@ explicit trade has the same readout key on all three routes (asserted in the fix
 Route wiring after JEG-1219's reviewed head lands, serialized by Codex: register the script in `build_v2_page.py`,
 then narrow adapter hunks in finder.js (JEG-1219 owner), league.js and v2.js. JEG-1230's readout adapter can key its
 cache on `cacheKey(ctx, "readout")`.
+
+## JEG-1259: corrections and carrying one trade between pages (same lane, same branch)
+
+Main merged normally (`b863069`, includes #1072's uncapped search and #1094's saved-team picker). #1110's journey
+contract (`node tests/node/uso_site_journey_contract.cjs check app/v2 .../league.json`) passes 9 of 9 on this tree;
+before the merge its discovery check found 10 of 325.
+
+Reviewed blockers fixed:
+
+1. `maySave`: with no `commonProvenance`, the context's own provenance decides, so a link or local visit can never save
+   its league, basis or overrides (Codex's exact reproduction pinned).
+2. Discovery cache keys keep each team's stable ID with its roster; readout keys stay identity-free. Swapping the
+   rosters of tB and tC under opponent filter tB now changes the key; a rename does not.
+
+New immutable context fields: `workspaceId`, `pricing` (`{mode: "league" | "modeled", levels: {ddf, market} |
+{modeled}, rostered, reserve}`; each level is `levelIdentity(level, {rows, allocation, weights, keys})`, a hash of every
+value of every player the trade touches plus the level's allocation and weights), `versions` (settings, basis with
+overrides, sources, pricing) and `origin` (route, workspace, origin team IDs, partner IDs). Sources keep the page's own
+`version` label. Pricing is part of every cache key.
+
+Transfer: `toTransfer(ctx)` → `encodeTransfer` (base64url JSON with a checksum) → `decodeTransfer` → `receive(transfer,
+here)`. `here` is the receiving route, its resolved common (carried settings applied as a complete link), its own
+identity of the same level(s) run with the carried rostered set, and its workspace. Result: `{status: "ok", context}`
+with the carried rosters (origin IDs kept on the same workspace, ID-less link rosters on any other), or `{status:
+"hold", reasons}` with codes `settings-changed`, `basis-changed`, `overrides-changed`, `sources-changed`,
+`level-missing`, `level-changed`, `rows-changed`, `allocation-changed`, `weights-changed`, `team-missing`,
+`package-missing`, `context-missing`, `context-unreadable`, `context-unsupported`. A hold has no context, so nothing is
+repriced on another level. Nothing writes the workspace. No freshness duration: "stale" means a different version or
+row identity, never an age.
+
+Commands (head after this commit):
+
+```
+node tests/node/trade_context_check.cjs                       # 27 passed, 0 failed (journey case SKIPs without #1110's file)
+JOURNEY_CONTRACT=<#1110 tests/node/uso_site_journey_contract.cjs> node tests/node/trade_context_check.cjs   # 27 passed, 0 failed
+python3 -m unittest tests.test_jeg1229_trade_context           # OK
+```
+
+Failing before: the same test file against the module at `8c677a2` gives 18 passed, 9 failed (both reviewed blockers,
+the context-loss fixture, both goldens, reload/share, holds, level in keys, journey diff). Goldens are hand-checked
+(Alpha's starters 109 → 113 at the ddf level for 102 ↔ 204). Mutations: 22 single-line breaks (the eleven above plus
+maySave fallback, discovery IDs stripped, transfer dropping basis, transfer dropping level, receive ignoring level mode,
+rebuilt rows, sources, checksum, substituting the reader's saved team, level out of the cache key, a missing row read
+as empty); each fails at least one case.
+
+Route integration (not in this commit): league.js builds `pricing` from #1105's `getLeagueLevel` at both levels and
+puts `encodeTransfer(toTransfer(ctx))` on "Open in Compare a trade"; Compare and the pair finder run the same levels
+with the carried `rostered` set and call `receive`, showing the hold's reason instead of modeled numbers. Those hunks
+belong to the league.js / v2.js / finder.js owners (#1105 / JEG-1249, JEG-1219) and are serialized by Codex.

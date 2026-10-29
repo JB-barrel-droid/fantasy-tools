@@ -121,8 +121,9 @@
     });
     return out;
   }
-  // sources: {key: {available, held?, reason?}} from the page. A source the page did not report is "unknown", never
-  // assumed available.
+  // sources: {key: {available, held?, reason?, version?}} from the page. A source the page did not report is "unknown",
+  // never assumed available. version is the page's own label for the data it loaded (an as-of date, a build tag); this
+  // module only compares it, it never judges how old is too old.
   function normalizeSources(raw, warnings) {
     if (raw === undefined || raw === null) return {};
     if (!isObject(raw)) { warnings.push("sources: not an object, dropped"); return {}; }
@@ -131,7 +132,8 @@
       if (!SOURCE_KEY.test(key)) return;
       const s = raw[key];
       const status = !isObject(s) ? "unknown" : s.held ? "held" : s.available === true ? "available" : s.available === false ? "unavailable" : "unknown";
-      out[key] = {status, reason: isObject(s) && typeof s.reason === "string" && s.reason ? s.reason : null};
+      const text = v => (typeof v === "string" && v ? v.slice(0, 80) : typeof v === "number" && Number.isFinite(v) ? String(v) : null);
+      out[key] = {status, reason: isObject(s) ? text(s.reason) : null, version: isObject(s) ? text(s.version) : null};
     });
     return out;
   }
@@ -265,9 +267,63 @@
     return {};
   }
 
+  // ---------- pricing identity (which bench level priced the rows, and exactly which rows) ----------
+  // JEG-1259 / JEG-1188 (#1105): with a whole league loaded, league.js prices DDF Value at the "ddf" level and the trade
+  // charts at the "market" level (curve-widget getLeagueLevel); Compare and the pair finder price the "modeled" bench.
+  // The identity of a level is a hash of the rows (every value of every player the trade touches), the allocation and the
+  // weights that level produced. Two pages with the same identity show the same values and the same lineup gains; a page
+  // that cannot reproduce it must hold the trade, never reprice it on another level.
+  const LEVELS = ["ddf", "market", "modeled"];
+  const PRICING_MODES = {league: ["ddf", "market"], modeled: ["modeled"]};
+  // The players whose rows decide a readout: both rosters and the explicit deal (Compare may add a player off a roster).
+  function pricingKeys(parts) {
+    const p = isObject(parts) ? parts : {};
+    const keys = new Set();
+    [p.mine, p.theirs].forEach(list => (Array.isArray(list) ? list : []).forEach(e => keys.add(String(isObject(e) ? e.key : e))));
+    if (isObject(p.deal)) ["give", "get"].forEach(s => (p.deal[s] || []).forEach(k => keys.add(String(k))));
+    return [...keys].filter(k => PLAYER_KEY.test(k)).sort();
+  }
+  // level: "ddf" | "market" | "modeled". data: {rows (getAllRows() shape), allocation, weights, keys?}. With keys, only
+  // those players' rows count. A player with no row is recorded as null, so a missing row is never the same as a zero.
+  function levelIdentity(level, data) {
+    if (!LEVELS.includes(level)) throw new Error(`Unknown bench level: ${level}`);
+    const d = isObject(data) ? data : {};
+    const byKey = new Map((Array.isArray(d.rows) ? d.rows : []).filter(isObject).map(r => [String(r.player_key), r]));
+    const keys = Array.isArray(d.keys) ? d.keys.map(String).sort() : [...byKey.keys()].sort();
+    const rows = keys.map(k => [k, byKey.has(k) ? (byKey.get(k).values || {}) : null]);
+    const part = v => (v === undefined || v === null ? null : hash(stable(v)));
+    return deepFreeze({level, rows: hash(stable(rows)), allocation: part(d.allocation), weights: part(d.weights),
+      players: rows.filter(([, v]) => v !== null).length});
+  }
+  // raw: {mode: "league" | "modeled", levels: {level: levelIdentity}, rostered?, reserve?}. rostered / reserve are the
+  // league's rostered and IR/taxi keys the league levels were run with, so another page can run the same levels.
+  function normalizePricing(raw, warnings) {
+    if (raw === undefined || raw === null) return null;
+    if (!isObject(raw) || !PRICING_MODES[raw.mode] || !isObject(raw.levels)) { warnings.push("pricing: unknown shape, dropped"); return null; }
+    const id = v => (typeof v === "string" && /^[0-9a-z]{1,16}$/.test(v) ? v : null);
+    const levels = {};
+    for (const level of PRICING_MODES[raw.mode]) {
+      const l = raw.levels[level];
+      if (!isObject(l) || !id(l.rows)) { warnings.push(`pricing: ${level} level has no row identity, dropped`); return null; }
+      levels[level] = {level, rows: id(l.rows), allocation: id(l.allocation), weights: id(l.weights),
+        players: Number.isInteger(l.players) && l.players >= 0 ? l.players : null};
+    }
+    const keys = list => (Array.isArray(list) ? [...new Set(list.map(String).filter(k => PLAYER_KEY.test(k)))].sort() : null);
+    return {mode: raw.mode, levels, rostered: raw.mode === "league" ? keys(raw.rostered) : null,
+      reserve: raw.mode === "league" ? keys(raw.reserve) || [] : null};
+  }
+  // Versions of what priced a context: a change in any of them means a cached or carried result no longer applies.
+  function versionsOf(common, pricing) {
+    const basis = common.valuation.basis;
+    const canonical = basis && basis.mode === "blend" ? {...basis, sources: basis.sources.slice().sort()} : basis;
+    return {settings: hash(stable(common.league)), basis: hash(stable({basis: canonical, overrides: common.valuation.overrides})),
+      sources: hash(stable(common.sources)), pricing: pricing ? hash(stable(pricing)) : null};
+  }
+
   // ---------- the context ----------
   // input: {route, common (from normalizeCommon/resolveCommon), commonProvenance?, mine, theirs, opponents?, deal?,
-  // controls?, provenance?}. mine/theirs/opponents are team refs from savedTeam/rosterTeam.
+  // controls?, provenance?, workspaceId?, pricing?, origin?}. mine/theirs/opponents are team refs from savedTeam/rosterTeam.
+  // pricing: normalizePricing's shape (which level priced the rows). origin: where a carried trade came from (receive).
   function createContext(input) {
     const i = isObject(input) ? input : {};
     if (!ROUTES.includes(i.route)) throw new Error(`Unknown trade route: ${i.route}`);
@@ -277,14 +333,20 @@
     const deal = normalizeDeal(i.deal);
     if (i.route === "compare" && isObject(i.controls) && Object.keys(i.controls).length) warnings.push("compare: discovery controls ignored");
     const opponents = caps.multipleOpponents ? (Array.isArray(i.opponents) ? i.opponents : []).filter(Boolean).map(freezeTeam) : [];
+    const pricing = isObject(i.pricing) && i.pricing.levels ? normalizePricing(i.pricing, warnings) : null;
+    const sealed = sealCommon({league: common.league, valuation: common.valuation, sources: common.sources});
     const context = {
       v: VERSION, route: i.route, capabilities: {...caps},
-      common: sealCommon({league: common.league, valuation: common.valuation, sources: common.sources}),
+      common: sealed,
       commonProvenance: isObject(i.commonProvenance) ? {...i.commonProvenance} : null,
       teams: {mine: freezeTeam(i.mine || null), theirs: caps.multipleOpponents ? null : freezeTeam(i.theirs || null), opponents},
       deal,
       controls: routeControls(i.route, i.controls),
       provenance: PROVENANCE.includes(i.provenance) ? i.provenance : "saved",
+      workspaceId: typeof i.workspaceId === "string" && i.workspaceId ? i.workspaceId : null,
+      pricing,
+      versions: versionsOf(sealed, pricing),
+      origin: isObject(i.origin) ? i.origin : null,
       discrepancies: ROUTE_DISCREPANCIES.filter(d => d.routes.includes(i.route)).map(d => d.id),
       warnings: (common.warnings || []).concat(warnings)
     };
@@ -296,7 +358,8 @@
     return createContext({route: context.route, common: context.common, commonProvenance: context.commonProvenance,
       mine: "mine" in p ? p.mine : context.teams.mine, theirs: "theirs" in p ? p.theirs : context.teams.theirs,
       opponents: "opponents" in p ? p.opponents : context.teams.opponents, deal: "deal" in p ? p.deal : context.deal,
-      controls: "controls" in p ? p.controls : context.controls, provenance: p.provenance || context.provenance});
+      controls: "controls" in p ? p.controls : context.controls, provenance: p.provenance || context.provenance,
+      workspaceId: context.workspaceId, pricing: "pricing" in p ? p.pricing : context.pricing, origin: context.origin});
   }
   // Selecting a team is view state: it returns a new context and never touches the workspace, its roster or its star.
   function selectTeam(context, side, ws, id) {
@@ -311,7 +374,9 @@
   // reader's saved rosters, star and preferences change only through their own saved edits.
   function maySave(context, part) {
     if (part === "league" || part === "basis" || part === "overrides") {
-      return !context.commonProvenance || context.commonProvenance[part] === "saved";
+      // Per-section provenance when the page resolved it; otherwise the context's own provenance, so a link or local visit
+      // built without commonProvenance can never save its league, basis or overrides.
+      return context.commonProvenance ? context.commonProvenance[part] === "saved" : context.provenance === "saved";
     }
     if (part === "mine" || part === "theirs") {
       const team = context.teams[part];
@@ -333,15 +398,20 @@
   function cacheParts(context, purpose) {
     const kind = purpose === "readout" ? "readout" : "discovery";
     if (kind === "discovery" && !context.capabilities.discovery) return null;
-    const team = t => (t ? {roster: t.rosterKey} : null);
     const readout = kind === "readout";
+    // Discovery keeps each team's stable ID with its roster: an ID-based control (the league opponent filter) picks a team
+    // by ID, so two teams swapping rosters must change the key. A readout prices two rosters and stays identity-free.
+    const team = t => (t ? (readout ? {roster: t.rosterKey} : {id: t.id, roster: t.rosterKey}) : null);
+    const order = (a, b) => { const x = stable(a); const y = stable(b); return x < y ? -1 : x > y ? 1 : 0; };
     const basis = context.common.valuation.basis;
     const canonicalBasis = basis && basis.mode === "blend" ? {...basis, sources: basis.sources.slice().sort()} : basis;
     return {v: VERSION, kind, route: kind === "discovery" ? context.route : null,
       league: context.common.league, valuation: {basis: canonicalBasis, overrides: context.common.valuation.overrides}, sources: context.common.sources,
       mine: team(context.teams.mine), theirs: team(readout ? dealPartner(context) : context.teams.theirs),
       // A readout is one explicit trade between two rosters: the league's other opponents do not change it.
-      opponents: readout ? [] : context.teams.opponents.map(team).sort((a, b) => (a.roster < b.roster ? -1 : a.roster > b.roster ? 1 : 0)),
+      opponents: readout ? [] : context.teams.opponents.map(team).sort(order),
+      // The bench level and its exact rows: the same trade on another level, or on rebuilt rows, is another result.
+      pricing: context.pricing,
       controls: kind === "discovery" ? context.controls : null,
       deal: kind === "readout" && context.deal ? {give: context.deal.give.slice().sort(), get: context.deal.get.slice().sort()} : null};
   }
@@ -363,6 +433,7 @@
     const side = (id, entries, provenance, name) => (Array.isArray(entries) ? workingTeam(ws, id, entries, provenance, name)
       : id ? savedTeam(ws, id) : null);
     return createContext({route: "pair", common: env.common, commonProvenance: env.commonProvenance, provenance: env.provenance,
+      workspaceId: isObject(ws) ? ws.id : null, pricing: env.pricing,
       mine: side(v.mineId, v.mine, v.mineProvenance, v.mineName), theirs: side(v.theirId, v.theirs, v.theirsProvenance, v.theirName),
       deal: v.deal, controls: {finder: settings}});
   }
@@ -373,7 +444,7 @@
     const mine = w.myTeamId ? savedTeam(w, w.myTeamId) : null;
     const opponents = teams.filter(t => t && t.id !== w.myTeamId).map(t => savedTeam(w, t.id));
     const context = createContext({route: "league", common: env.common, commonProvenance: env.commonProvenance, provenance: env.provenance,
-      mine, opponents, controls: w.ui, deal: env.deal});
+      workspaceId: w.id || null, pricing: env.pricing, mine, opponents, controls: w.ui, deal: env.deal});
     // A saved opponent filter whose team is gone: reported, not rewritten (league.js decides what to show).
     const opp = context.controls.filters.opponent;
     if (opp !== "all" && !opponents.some(o => o.id === opp)) {
@@ -387,11 +458,101 @@
     const t = isObject(trade) ? trade : {};
     const ids = isObject(teams) ? teams : {};
     return createContext({route: "compare", common: env.common, commonProvenance: env.commonProvenance, provenance: env.provenance,
-      mine: ids.mineId ? savedTeam(ws, ids.mineId) : null, theirs: ids.theirId ? savedTeam(ws, ids.theirId) : null,
+      workspaceId: isObject(ws) ? ws.id : null, pricing: env.pricing, mine: ids.mineId ? savedTeam(ws, ids.mineId) : null, theirs: ids.theirId ? savedTeam(ws, ids.theirId) : null,
       deal: {give: t.give, get: t.receive || t.get}});
+  }
+
+  // ---------- carrying one trade between pages (league → Compare / pair finder, reload, a shared link) ----------
+  // JEG-1259. The sending page writes a transfer: the explicit deal, both roster snapshots with their origin IDs, the
+  // league settings, basis, overrides, the sources it saw and the identity of the bench level(s) that priced it. The
+  // receiving page resolves its own settings (applying the carried ones as a link layer), reruns the same level(s) and
+  // calls receive(). Either everything that decides the values and gains matches, and it gets a context with the carried
+  // rosters, or it gets an explicit hold that names what differs. It never reprices on another level and never writes
+  // the reader's saved teams: a foreign device keeps the carried rosters as link rosters.
+  const TRANSFER_VERSION = 1;
+  const snapshot = team => (team ? {id: team.id || null, roster: team.roster.map(e => ({...e}))} : null);
+  function toTransfer(context) {
+    const partner = dealPartner(context);
+    const body = {v: TRANSFER_VERSION, from: context.route, workspaceId: context.workspaceId,
+      settings: context.common.league, valuation: context.common.valuation, sources: context.common.sources,
+      versions: context.versions, pricing: context.pricing,
+      mine: snapshot(context.teams.mine), theirs: snapshot(partner),
+      partnerIds: partner && partner.id ? [partner.id] : [], deal: context.deal};
+    return deepFreeze({...body, sum: hash(stable(body))});
+  }
+  // A transfer as one URL-safe parameter value (base64url of its JSON; names may be any Unicode).
+  function encodeTransfer(transfer) {
+    const json = JSON.stringify(transfer);
+    const b64 = typeof Buffer !== "undefined" ? Buffer.from(json, "utf8").toString("base64")
+      : globalThis.btoa(unescape(encodeURIComponent(json)));
+    return b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  }
+  function decodeTransfer(text) {
+    if (typeof text !== "string" || !text || text.length > 200000 || !/^[A-Za-z0-9_-]+$/.test(text)) return null;
+    try {
+      const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
+      const json = typeof Buffer !== "undefined" ? Buffer.from(b64, "base64").toString("utf8") : decodeURIComponent(escape(globalThis.atob(b64)));
+      const parsed = JSON.parse(json);
+      return isObject(parsed) ? parsed : null;
+    } catch (error) { return null; }
+  }
+  const hold = (reasons, carried) => deepFreeze({status: "hold", reasons, carried: carried || null, context: null});
+  // transfer: toTransfer's object (or decodeTransfer's). here: {route: "compare" | "pair", common (this page's resolved
+  // common, after applying the carried settings as a link), commonProvenance?, pricing (this page's identity of the same
+  // level(s), run with the carried rostered set; null if it cannot run them), ws (this reader's workspace)}.
+  // Returns frozen {status: "ok", context, carried} or {status: "hold", reasons: [{code, where, detail}], carried}.
+  function receive(transfer, here) {
+    const h = isObject(here) ? here : {};
+    if (!isObject(transfer)) return hold([{code: "context-missing", where: "transfer", detail: "no trade context arrived with this page"}]);
+    const {sum, ...body} = transfer;
+    if (transfer.v !== TRANSFER_VERSION) return hold([{code: "context-unsupported", where: "transfer", detail: `transfer version ${transfer.v} is not ${TRANSFER_VERSION}`}]);
+    if (sum !== hash(stable(body))) return hold([{code: "context-unreadable", where: "transfer", detail: "the trade context was changed or cut on the way"}]);
+    if (!ROUTES.includes(h.route) || h.route === "league") throw new Error(`Cannot receive a trade on route: ${h.route}`);
+    const reasons = [];
+    const add = (code, where, detail) => reasons.push({code, where, detail});
+    const json = v => stable(v === undefined ? null : v);
+    const mineCommon = NORMALIZED.has(h.common) ? h.common : normalizeCommon(h.common);
+    const warnings = [];
+    const pricing = normalizePricing(transfer.pricing, warnings);
+    const herePricing = normalizePricing(h.pricing, warnings);
+    if (json(transfer.settings) !== json(mineCommon.league)) add("settings-changed", "settings", "this page's league settings differ from the trade's");
+    const canonical = b => (b && b.mode === "blend" ? {...b, sources: b.sources.slice().sort()} : b);
+    if (json(canonical((transfer.valuation || {}).basis)) !== json(canonical(mineCommon.valuation.basis))) add("basis-changed", "basis", "this page's value basis differs from the trade's");
+    if (json((transfer.valuation || {}).overrides) !== json(mineCommon.valuation.overrides)) add("overrides-changed", "overrides", "this page's player overrides differ from the trade's");
+    if (json(transfer.sources) !== json(mineCommon.sources)) add("sources-changed", "sources", "a source is unavailable, held or a different version here");
+    if (!pricing) add("level-missing", "level", "the trade does not say which bench level priced it");
+    else if (!herePricing || herePricing.mode !== pricing.mode) add("level-changed", "level", `the trade was priced at the ${pricing.mode} level(s); this page cannot run them`);
+    else {
+      Object.keys(pricing.levels).forEach(level => {
+        const a = pricing.levels[level];
+        const b = herePricing.levels[level];
+        ["rows", "allocation", "weights"].forEach(part => {
+          if (a[part] !== b[part]) add(`${part}-changed`, `level.${level}.${part}`, `the ${level} level's ${part} were rebuilt since the trade was priced`);
+        });
+      });
+      if (pricing.mode === "league" && json(pricing.rostered) !== json(herePricing.rostered)) add("level-changed", "level.rostered", "the league rosters behind the levels differ");
+    }
+    if (!isObject(transfer.mine) || !Array.isArray(transfer.mine.roster)) add("team-missing", "mine", "your roster did not arrive");
+    if (!isObject(transfer.theirs) || !Array.isArray(transfer.theirs.roster)) add("team-missing", "theirs", "the other team's roster did not arrive");
+    const deal = normalizeDeal(transfer.deal);
+    if (!deal) add("package-missing", "package", "the trade's players did not arrive");
+    if (reasons.length) return hold(reasons, transfer);
+    // Same device and workspace: the carried rosters keep their origin IDs (shown roster authoritative, saved only while it
+    // still matches). Any other workspace: link rosters with no IDs, so the reader's own teams are never substituted.
+    const ws = isObject(h.ws) ? h.ws : null;
+    const sameWorkspace = Boolean(ws && transfer.workspaceId && ws.id === transfer.workspaceId);
+    const team = t => (sameWorkspace ? workingTeam(ws, t.id, t.roster) : rosterTeam(t.roster, "link"));
+    const context = createContext({route: h.route, common: mineCommon, commonProvenance: h.commonProvenance,
+      provenance: sameWorkspace ? (PROVENANCE.includes(h.provenance) ? h.provenance : "local") : "link",
+      workspaceId: ws ? ws.id : null, pricing, mine: team(transfer.mine), theirs: team(transfer.theirs), deal,
+      origin: {route: ROUTES.includes(transfer.from) ? transfer.from : null, workspaceId: transfer.workspaceId || null,
+        mineId: transfer.mine.id || null, theirId: transfer.theirs.id || null,
+        partnerIds: Array.isArray(transfer.partnerIds) ? transfer.partnerIds.map(String) : [], sameWorkspace}});
+    return deepFreeze({status: "ok", context, carried: transfer, reasons: []});
   }
 
   return {VERSION, ROUTES, CAPABILITIES, ROUTE_DISCREPANCIES, normalizeCommon, commonFromPage, leagueFromQuery, resolveCommon,
     savedTeam, rosterTeam, workingTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
-    cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable};
+    cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable,
+    LEVELS, pricingKeys, levelIdentity, normalizePricing, TRANSFER_VERSION, toTransfer, encodeTransfer, decodeTransfer, receive};
 });
