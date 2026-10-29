@@ -2551,22 +2551,29 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   font-size: var(--ddf-type-meta); font-weight: 750; letter-spacing: .12em; text-transform: uppercase;
 }
 /* Value view: tabular figures, muted 12 px column heads, rows on the decorative line. */
-:root[data-design="fieldnotes"] #v2Compare .v2-ctable th { font-size: var(--ddf-type-meta); color: var(--ddf-muted); border-bottom-color: var(--ddf-line); }
-:root[data-design="fieldnotes"] #v2Compare .v2-ctable td { border-bottom-color: var(--ddf-line); font-variant-numeric: tabular-nums; }
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable th,
+:root[data-design="fieldnotes"] #v2Targets :is(.v2-ttable, .v2-wtable) th { font-size: var(--ddf-type-meta); color: var(--ddf-muted); border-bottom-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable td,
+:root[data-design="fieldnotes"] #v2Targets :is(.v2-ttable, .v2-wtable) td { border-bottom-color: var(--ddf-line); font-variant-numeric: tabular-nums; }
 /* Expandable detail: the Fieldnotes disclosure (rule above, ink label, 44 px summary, plus and minus at the end). */
-:root[data-design="fieldnotes"] #v2Compare .v2-deal-more {
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how {
   margin-top: var(--ddf-space-mid); padding-top: var(--ddf-space-mid); border-top: 1px solid var(--ddf-line); font-size: var(--ddf-type-support);
 }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary,
-:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary {
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary {
   display: flex; align-items: center; gap: 10px; min-height: var(--ddf-hit); color: var(--ddf-ink); font-weight: 650; list-style: none; cursor: pointer;
 }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary::-webkit-details-marker,
-:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::-webkit-details-marker,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary::-webkit-details-marker { display: none; }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary::after,
-:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::after,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-more[open] > summary::after,
-:root[data-design="fieldnotes"] #v2Compare .v2-cstory[open] > summary::after { content: "\2212"; }
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory[open] > summary::after,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how[open] > summary::after { content: "\2212"; }
 /* Row detail toggles ("Show players") and source links read at support size; the toggle's own box is the 44 px target. */
 :root[data-design="fieldnotes"] #v2Compare .v2-ctable td.player .v2-cexpand { display: inline-flex; align-items: center; min-height: var(--ddf-hit); font-size: var(--ddf-type-support); }
 :root[data-design="fieldnotes"] #v2Compare .v2-ctable td.player .v2-cexpand::after { content: none; }
@@ -2611,3 +2618,39 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   }
 }
 /* JEG-1138 end */
+/* JEG-1139: Trade targets in Fieldnotes (opt-in, same flag). Reuses JEG-1138's value view and expandable detail above
+   (its selector lists name #v2Targets); this block is the page's own layout. Source: prototype.html .target rules.
+   Presentation only: target signals, QB treatment, thresholds, copy and numbers are targets.js's and v2.js's, unchanged. */
+/* Headings: the two checks and the sell and buy lists are the page's answers, in the display face. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tcheck h2,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight > h2,
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist-head h2 {
+  font-family: var(--ddf-font-display); font-weight: 600; font-size: 22px; line-height: 1.2; letter-spacing: -0.015em;
+}
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-headline { font-weight: 650; }
+/* Filters: search and choices on the control edge at 44 px. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-search input,
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-field:not(.v2-field-rank) select {
+  min-height: var(--ddf-hit); border-color: var(--ddf-control); border-radius: var(--ddf-radius-control);
+}
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-field-rank { border-radius: var(--ddf-radius-control); }
+/* The lists: card spacing from the token scale, player names at the prototype's target size, the gap as the row's value. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist { padding: var(--ddf-space-4); }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td.player .v2-nm,
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .top b { font-size: var(--ddf-type-body); font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td.best,
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .big { font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .big { font-size: 20px; }
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards li { padding: var(--ddf-space-3) 0; border-top-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist-foot { margin-top: var(--ddf-space-mid); }
+/* The chart links inside an opened row: a 44 px target without moving the line (as on Compare's rows). */
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable tr.t-detail .v2-srclink { padding: 14.5px 0; margin: -14.5px 0; }
+:root[data-design="fieldnotes"] #v2Targets .v2-weight { padding: var(--ddf-space-4); }
+@media (max-width: 767px) {
+  :root[data-design="fieldnotes"] #v2Targets .v2-tlist,
+  :root[data-design="fieldnotes"] #v2Targets .v2-weight { padding: var(--ddf-space-3); }
+  :root[data-design="fieldnotes"] #v2Targets .v2-tcheck h2,
+  :root[data-design="fieldnotes"] #v2Targets .v2-weight > h2,
+  :root[data-design="fieldnotes"] #v2Targets .v2-tlist-head h2 { font-size: 20px; }
+}
+/* JEG-1139 end */
