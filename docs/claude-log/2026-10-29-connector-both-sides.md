@@ -23,3 +23,20 @@ Stacked on #1119 (`be/jeg-1179-superflex-link`); #1124 and #1156 carry the same 
 - The live site opens the connector's `#find-league` link and offers to load every team (same format the page's
   own share button writes; not opened in a browser here).
 - Not deployed: the mcp function deploy needs Jeremy's yes.
+
+## 2026-10-29 - Pick B: the site link is outside the reply budget (JEG-1329)
+
+Contract: Claude's pick B on the ticket question (logged in the picks log): the trade reply budgets measure the reply
+without its site link, in both the trimming loop and the final wire guard (`checkTradeReplySize`). Budgets unchanged.
+
+### Verified (check named)
+- `tests/node/mcp_remote_check.mjs`: the default league reply on the size fixture shows 4 rows with a 12-team link
+  outside the budget; with the link counted it showed 2 (the new "costs no trade rows" assertion fails with
+  `boundedTrades` measuring the whole reply). Its size and boundary assertions now measure the link-free reply;
+  the rule they pin changed with pick B.
+- Rows shown on the size fixture, original #1119 head -> this head: `find_trades` default 5 -> 4, limit 50 27 -> 23;
+  `find_trades_league` default 4 -> 4, limit 100 11 -> 9. The remaining drop is the new per-row fields.
+- `python3 -m unittest tests.test_mcp_remote tests.test_mcp_week tests.test_mcp_finder_loader` green (11 tests).
+
+### Claimed, not confirmed
+- A full live 12-team league reply stays under the JEG-1123 budgets with its link left out (fixture only).

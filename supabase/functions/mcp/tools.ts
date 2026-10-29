@@ -509,6 +509,15 @@ function tradeLines<T extends ReturnType<typeof slimOffer>>(rows: T[], team?: (o
 // JEG-1115: fit reasons must fit inside the existing JEG-1123 reply budgets. Limits are
 // upper bounds (Jeremy, Oct 26); keep a ranked prefix and the entire selected package.
 const bytes = (result: ToolResult) => new TextEncoder().encode(JSON.stringify(result)).length;
+// JEG-1329 (pick B, 2026-10-29): the site link does not count against the reply budget. It opens the
+// full list on the site, and a league link grows with every team it carries, so counting it would cost
+// trade rows. Measured as the reply with the link left out of the text and site_url.
+const budgetBytes = (result: ToolResult) => {
+  const url = result.structuredContent?.site_url;
+  if (typeof url !== "string" || !url) return bytes(result);
+  return bytes({ ...result, content: result.content.map((c) => ({ ...c, text: c.text.split(url).join("") })),
+    structuredContent: { ...result.structuredContent, site_url: "" } });
+};
 const tradeBudget = (name: string, limit: number) => name === "find_trades"
   ? (limit <= 10 ? 6700 : 17000) : (limit <= 10 ? 8000 : 11500);
 const SIZE_ERROR = "This trade reply is too large to show with complete fit reasons. Try fewer opponents or shorter roster/team names.";
@@ -520,7 +529,7 @@ function boundedTrades<T>(rows: T[], name: string, limit: number,
   const budget = tradeBudget(name, limit) - 512;
   for (let count = rows.length; count >= Math.min(1, rows.length); count--) {
     const result = render(rows.slice(0, count), count < rows.length);
-    if (bytes(result) < budget) return result;
+    if (budgetBytes(result) < budget) return result;
   }
   throw new ToolInputError(SIZE_ERROR);
 }
@@ -528,7 +537,7 @@ function boundedTrades<T>(rows: T[], name: string, limit: number,
 /** Final wire guard, after state links and optional week metadata have been attached. */
 export function checkTradeReplySize(name: string, result: ToolResult): void {
   if ((name === "find_trades" || name === "find_trades_league") && !result.isError &&
-    bytes(result) >= tradeBudget(name, Number(result.structuredContent?.limit) || 10)) {
+    budgetBytes(result) >= tradeBudget(name, Number(result.structuredContent?.limit) || 10)) {
     throw new ToolInputError(SIZE_ERROR);
   }
 }
