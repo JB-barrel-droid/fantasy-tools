@@ -15,6 +15,13 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Trade-result and league-import validation repairs (JEG-1235, shipped 2026-10-29 UTC)
+
+- Historical release [PR #1098](https://github.com/JB-barrel-droid/fantasy-tools/pull/1098) merged as `cebac717008cfe61412d70677ab6f371d974ddb6` at 14:53:30 UTC. [Publication run 40896011842](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40896011842) succeeded at 15:11:02 UTC. Artifact tag `tv-20261029-0953-cebac71` derives from the merge's 09:53 -0500 committer time, not publication or Mac QA time. This records that release, not the current live revision.
+- Only three render tests changed: deterministic larger-package/empty-side fixtures, visible repeated-paste disclosure, and the real top-ten fold mutation anchor. No runtime, values, defaults, search or fit change; this is not a bench-valuation fix. Reviewed candidate `8f024a8ba716d657e222fb9b12a7e71224e14e3a` passed exact-head Preview/v2-render and independent review; coordinator-provided Mac evidence was **9 focused tests/all 13 mutations PASS, no skips**. The implementation branch's approved automatic cleanup was confirmed.
+- The coordinator subsequently reported live smoke **PASS**, naming the `cebac71` tag: desktop/phone grouped results and Space, paste reopening, pagination **10→20→127→10**, keyboard fold, Values search, Compare Swap and navigation, with no page/console errors. An initial collapsed-section test-sequence timeout was corrected and only the remaining checks rerun; no product blocker was reported. The Mac execution/tag-read timestamp was not supplied, so exact QA/build timing is not independently established here. This executor did not repeat the browser run. [Attributed report](https://github.com/JB-barrel-droid/fantasy-tools/pull/1098#issuecomment-6502432670); JEG-1235 is Done after scoped acceptance and the reported live gate.
+- Evidence: `docs/claude-log/2026-10-29-jeg-1235-live-completion.md` and PR/Linear records. Bench-value correctness remains a separate workstream. This documentation follow-up stays a draft PR, with merge/cleanup held; no next feature release is authorized by it. JEG-1219's separate handoff timing correction remains in draft #1104 and is not included here.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
