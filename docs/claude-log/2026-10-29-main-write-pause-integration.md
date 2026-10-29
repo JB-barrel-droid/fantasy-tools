@@ -13,3 +13,8 @@ publication until manually repaired or connectivity recovers; expiry applies
 only to valid controls. Old queued jobs using old workflow code must finish
 before treating main as stable. Ingestion, validation, Pages and Supabase jobs
 remain enabled. Parent owns review, CI, merge, activation and restoration.
+
+Focused current-main verification: 143 pause, rebuild, health, alert,
+timestamp and workflow-permission tests passed; all workflow YAML parsed, and
+`git diff --check origin/main` passed. Full remote CI and independent delta
+review remain required before this branch can replace #1059.
