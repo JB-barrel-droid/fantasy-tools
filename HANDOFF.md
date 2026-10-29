@@ -15,23 +15,25 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-### League candidate completeness fix (Codex, 2026-10-28 UTC)
+### League candidate completeness fix (#1072, live verified 2026-10-29 UTC)
 
-- Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
-  per-opponent top-10 truncation before fit ranking and filtering; no value,
-  fairness, or package-enumeration rule change. All qualified candidates remain.
-- Synthetic default-size regression: 52 qualified trades, 22 sending JSN;
-  old path retained 10 with zero JSN, corrected path retains all 52.
-  Not a reproduction of Jeremy's current league or a promise about its JSN deals.
-- Compact lazy fit details, cooperative fit evaluation/cancellation, and bounded
-  cache retention prevent the naive uncapped full-fit memory regression.
-  Optional size4 is still expensive; see the measured benchmark and limits in
-  `docs/claude-log/2026-10-28-league-candidate-completeness.md`.
-- Initial exact-head CI and isolated Mac browser tests passed. Release sequence
-  gate opened after #1069 and #1071 published/live passed. Current main is being
-  merged normally; fresh CI and independent delta review are required before merge.
-  Parent coordinates Mac live QA. No Supabase changes.
-  Linear issue creation was rejected by auto-review; do not retry without approval.
+- [#1072](https://github.com/JB-barrel-droid/fantasy-tools/pull/1072) merged as
+  `676e96c7e55844c9b35bc8c9ef89858a887e482d` after normal integration of
+  current main, exact-head green CI, independent delta review, and explicit user
+  release approval. The approved automatic feature-branch removal occurred.
+- Publication run `40809401207` succeeded. Live build
+  `tv-20261028-2157-676e96c`; HTTP `verify_live.py` passed and served
+  opportunities.js/league.js hashes match reviewed integration bytes.
+- Parent-coordinated isolated Mac live QA passed: raw finder and league retain
+  364/364 candidates, including 21/21 synthetic JSN offers; Show all shows 364.
+  Pagination, filters, lazy-fit details, lineup arithmetic, cancellation/stale
+  results, and Finder/Values/Compare navigation passed without page/console errors.
+- These are synthetic test rosters, NOT Jeremy's actual league. Exact user-league
+  replay remains unverified; do not infer it from email rosters. No numerical basis
+  or fairness-rule changes and no Supabase deployment.
+- Evidence and performance limitations:
+  `docs/claude-log/2026-10-29-league-candidate-live-verification.md`.
+  Initial ticket creation was denied; no alternate creation route was used.
 
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
 
