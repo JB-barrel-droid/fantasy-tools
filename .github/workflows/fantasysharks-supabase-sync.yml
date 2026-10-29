@@ -71,6 +71,10 @@ jobs:
         id: fp
         if: steps.cfg.outputs.mode == 'write' && github.event.inputs.probe_fp == ''
         continue-on-error: true
+        env:
+          # the relay (GAP-FANTASYSHARKS-CI-BLOCKED) needs these; runners get HTTP 403 direct
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           python3 pipelines/source_probe.py probe --sources fantasysharks --dry-run --out /tmp/probe-fantasysharks.jsonl > /dev/null
           fp=$(head -n 1 /tmp/probe-fantasysharks.jsonl | jq -r '.fingerprint // ""')

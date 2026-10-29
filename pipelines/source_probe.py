@@ -632,11 +632,23 @@ def probe_draftsharks(fetch: Fetch, week: int) -> dict[str, Any]:
     return {"fingerprint": snap["fingerprint"], "signals": {"rows": snap["row_count"]}}
 
 
+def _sharks_get(fetch: Fetch, url: str, relay=None) -> Resp:
+    """The puller's transport (GAP-FANTASYSHARKS-CI-BLOCKED): GitHub runners get
+    HTTP 403, so a bot-wall status is retried once through the puller's relay."""
+    import pull_fantasysharks as pf
+    resp = fetch(url)
+    if resp.status in pf.BLOCK_STATUSES:
+        got = (relay or pf.fetch_via_relay)(url)
+        if got is not None:
+            return Resp(got[0], {}, got[1])
+    return resp
+
+
 def probe_fantasysharks(fetch: Fetch, week: int) -> dict[str, Any]:
     """Page 'last updated' stamp plus a hash of the half-PPR CSV (id, points)."""
     import pull_fantasysharks as pf
-    page = _need_200(fetch(pf.url_for(pf.SCORINGS["half_ppr"], False)), "fantasysharks page")
-    csv_body = _need_200(fetch(pf.url_for(pf.SCORINGS["half_ppr"], True)), "fantasysharks csv")
+    page = _need_200(_sharks_get(fetch, pf.url_for(pf.SCORINGS["half_ppr"], False)), "fantasysharks page")
+    csv_body = _need_200(_sharks_get(fetch, pf.url_for(pf.SCORINGS["half_ppr"], True)), "fantasysharks csv")
     try:
         meta = pf.parse_page_meta(page, datetime.now(timezone.utc).date())
         rows = pf.parse_csv(csv_body, "half_ppr")

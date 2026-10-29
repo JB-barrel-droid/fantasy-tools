@@ -37,6 +37,7 @@ SOURCE = "fantasysharks"
 TABLE = "fantasysharks_projections"
 SNAPSHOT_COLUMN = "fantasysharks_snapshot_date"
 CONFLICT = f"player_key,{SNAPSHOT_COLUMN}"
+ROS_SCHEMA = "fantasysharks_ros_v1"  # pull_fantasysharks.SCHEMA
 
 fetch_players: Callable[[], list[dict[str, Any]]] = base._default_fetch_players
 upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = base._default_upsert
@@ -57,6 +58,11 @@ def parse_float(raw: Any) -> float | None:
 
 def build_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
     snap = json.loads(snapshot_path.read_text(encoding="utf-8"))
+    schema = snap.get("schema")
+    if schema not in (None, ROS_SCHEMA):
+        # weekly (fantasysharks_weekly_v1) and rest-of-year are never blended
+        raise SystemExit(f"Fail closed: {snapshot_path} is a {schema!r} snapshot, not {ROS_SCHEMA!r}; "
+                         "this saver takes rest-of-year projections only.")
     vintage = snap.get("vintage_date")
     if not vintage:
         raise SystemExit("Fail closed: Fantasy Sharks rest-of-year projections snapshot has no vintage_date.")

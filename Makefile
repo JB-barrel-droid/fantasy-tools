@@ -145,6 +145,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_pull_fantasycalc_12team
 	python3 -m unittest tests.test_pull_draftsharks
 	python3 -m unittest tests.test_pull_fantasysharks
+	python3 -m unittest tests.test_fantasysharks_relay_weekly
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_monitoring_coverage
 	python3 -m unittest tests.test_gha_schedules_pg_cron
