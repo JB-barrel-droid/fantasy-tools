@@ -70,7 +70,8 @@
      "records": []}
   ],
   "pg_cron_sql_jobs": [
-    {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
+    {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"},
+    {"jobname": "weekly-fantasypros-daily-check", "check_id": "weekly_fantasypros_pull"}
   ],
   "unmonitored_workflows": {
     "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",

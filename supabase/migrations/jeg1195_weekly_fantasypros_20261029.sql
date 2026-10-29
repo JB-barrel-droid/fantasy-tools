@@ -1,5 +1,7 @@
--- JEG-1195. PROPOSED, NOT APPLIED. Applying it needs Jeremy's yes naming this
--- migration. Additive: three new tables, their triggers, four functions and one
+-- JEG-1195. APPLIED 2026-10-29 03:09 UTC on Jeremy's yes ("Approve the migration"),
+-- as Supabase migration jeg1195_weekly_fantasypros_20261029. The applied SQL
+-- left out the six "drop trigger/policy if exists" lines below (no-ops on the
+-- fresh database); every other statement ran as written. Additive: three new tables, their triggers, four functions and one
 -- login role; nothing else is touched, no existing row, view or published
 -- output changes.
 --
@@ -44,10 +46,8 @@
 --      monitoring evaluator marks it missed if that job stops. Muse also posts
 --      every run's result on JEG-1195 (Jeremy, 2026-10-29: "B").
 --
--- When this is applied, add {"jobname": "weekly-fantasypros-daily-check",
--- "check_id": "weekly_fantasypros_pull"} to pg_cron_sql_jobs in
--- config/monitoring_coverage.json in the same change (the live coverage audit
--- reads that list, so it is not added before the job exists).
+-- config/monitoring_coverage.json lists the job under pg_cron_sql_jobs
+-- (weekly-fantasypros-daily-check -> weekly_fantasypros_pull), added with the apply.
 --
 -- Auth, least privilege: Muse connects as the login role weekly_fp_writer. It
 -- can INSERT pages and player rows and EXECUTE the four batch functions (not
