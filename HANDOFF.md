@@ -13,6 +13,23 @@ and after each milestone; commit and push it with the relevant code.
 
 ---
 
+## Current coordination: two-agent protocol
+
+Codex maintains this handoff and is the single release coordinator under the
+[Two-agent protocol](AGENTS.md#two-agent-protocol), confirmed by Jeremy on
+2026-10-28 (America/Chicago). That protocol supersedes older ownership/routing
+notes below; preserve unrelated historical evidence.
+
+Current boundaries at confirmation (Codex owns these; Claude stays off them
+until the queue is done):
+- #1069 trade controls and details: merged and live.
+- #1071 values source breakdown: next in the release queue.
+- #1072 missing trade candidates: follows; per-opponent cutoff fix tested,
+  not live yet.
+- Visual redesign: preview awaiting Jeremy's review. Stricter Natural fit rule
+  unresolved.
+- JEG-1217 manager-aware recommendations: backlog only.
+
 ## Resume here
 
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)

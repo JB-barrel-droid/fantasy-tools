@@ -12,6 +12,81 @@ incident and design notes (FantasyCalc drift, as-published indexing, VORP>0
 calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 `docs/engineering-notes.md`; read it only when your task touches those areas.
 
+## Two-agent protocol
+
+Confirmed by Jeremy on 2026-10-28 (America/Chicago), JEG-1218. This section
+supersedes older instructions below wherever they conflict with this protocol,
+including overlap, review, release and approval rules. Unrelated requirements still
+apply. Current release boundaries are recorded in `HANDOFF.md`.
+
+### Agents and split of work
+
+- Codex and Claude both have access to GitHub, Supabase, the DDF connector and
+  the Flaim Fantasy connector, and either can test the live connector.
+- **Codex is the single release coordinator.** Codex owns tickets with clear
+  acceptance criteria (including scoped connector tickets), front-end
+  implementation, refactors, test and CI fixes, backlog items, all merges to
+  main, and `HANDOFF.md`.
+- Claude owns explainer and UX copy, source and data research (FantasyCalc,
+  projection sources, source freshness), ambiguous bugs that need investigation
+  (including connector bugs), and writing and triaging Linear tickets.
+
+### Claiming and handoff
+
+- Codex tickets carry a `codex` label or Linear agent assignment. Claude tickets
+  carry a `claude` label. Create both labels in Jegabee if missing.
+- Before claiming, check both agent labels and the Linear assignment. A missing
+  label does not by itself mean unclaimed.
+- Claim with a ticket comment naming the owner and branch, then recheck for a
+  simultaneous claim. Resolve any conflict before editing.
+- Only one agent works a ticket at a time. To hand off, comment with current
+  state, PR link and next step, then swap the label.
+- Keep a ready Claude queue larger than Claude can work concurrently so it does
+  not wait for Codex to assign the next task. Queue future work in Backlog or
+  Todo, not In Progress; active ownership and release boundaries still apply.
+
+### Branches and overlap
+
+- New work uses `codex/JEG-###-slug` or `claude/JEG-###-slug`.
+- Existing branches and owners are grandfathered. Do not rename or transfer
+  active branches during the release queue.
+- Never push to the other agent's branch or directly to main. Never delete a
+  branch, data, file or work in progress without Jeremy's yes.
+- File overlap triggers coordination, not an automatic stop. Independent
+  changes can proceed on separate branches. When changes conflict, serialize
+  integration and retest against the merged result.
+
+### Review and release
+
+- Every PR needs one independent review pass. The author's own self-check does
+  not count. A separate automated review pass (such as Codex automatic review)
+  counts as independent on either agent's PRs. No second review is required.
+- Material changes after review need a focused review of the delta, not another
+  full review.
+- Codex merges one PR at a time, only when PR CI is green, the independent review
+  is clean and main is currently green. If main moves, integrate it and rerun CI.
+- After each merge, wait for the site to publish and verify the live change and
+  regressions before the next merge. Revert breakages through a revert PR.
+- Only merge work Jeremy asked for. Old backlog PRs in bulk go to Jeremy first.
+
+### Jeremy's approvals
+
+- Jeremy approves new calculation logic, defaults, ranking rules and design
+  direction.
+- Once he approves a specific change, implementation within that scope proceeds
+  through these release gates without asking again. Material deviations go
+  back to him.
+- Every Supabase change, including each deployment, migration or production-data
+  change, needs his fresh approval naming the function or PR, every time.
+
+### Records and standing rules
+
+- Linear records ownership and acceptance criteria. GitHub records code, review
+  and test evidence. `HANDOFF.md` records current status and next steps.
+- Claude leaves handoff notes in tickets and PRs. Codex maintains `HANDOFF.md`.
+- Support Standard, Half PPR and PPR. Label data as published, previous-season,
+  modeled, stale or unavailable; never present 2026 data as 2027.
+
 ## Pre-launch: ship, and keep the numbers honest
 
 Jeremy, 2026-10-07: no users yet, and the late-September multi-agent policing
