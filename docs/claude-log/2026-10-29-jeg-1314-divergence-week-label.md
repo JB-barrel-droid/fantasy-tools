@@ -19,7 +19,9 @@ and find and fix why the committed report was stale.
   `tests.test_jeg1171_cbsros_w8_divergence_trace`, `tests.test_week_state`,
   `tests.test_value_check`: OK.
 - Stale report cause: no workflow staged `dist/modules/source-divergence.json`;
-  its last 9 commits on main are hand-run syncs (git log on the path).
+  in the last 600 commits of main every change to it came from a person's
+  commit or PR merge, none from a workflow (git log on the path; the oldest
+  hit is only the shallow-clone boundary).
   `rebuild-chain.yml` now adds it in the success branch.
 - `dist/modules/source-divergence.json` regenerated with sync's own arguments
   (generated 2026-10-29T20:28Z, fixture built 2026-10-29T16:16Z).
