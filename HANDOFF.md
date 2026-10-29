@@ -20,7 +20,7 @@ Codex maintains this handoff and is the single release coordinator under the
 2026-10-28 (America/Chicago). That protocol supersedes older ownership/routing
 notes below; preserve unrelated historical evidence.
 
-Current boundaries at confirmation (Codex owns these; Claude stays off them
+Release boundaries at confirmation (Codex owns these; Claude stays off them
 until the queue is done):
 - #1069 trade controls and details: merged and live.
 - #1071 values source breakdown: next in the release queue.
@@ -28,7 +28,14 @@ until the queue is done):
   not live yet.
 - Visual redesign: preview awaiting Jeremy's review. Stricter Natural fit rule
   unresolved.
-- JEG-1217 manager-aware recommendations: backlog only.
+
+Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
+- JEG-1217 manager-aware recommendations: Claude owns answer-first product
+  prototype and architecture work, including evaluating a parallel site versus
+  existing tabs. This supersedes the earlier Codex/backlog-only boundary for
+  this ticket, not the general role split. Jeremy still approves public launch,
+  new calculation/ranking logic and design decisions. Codex remains release
+  coordinator; the release queue above is unchanged.
 
 ## Resume here
 
