@@ -30,7 +30,9 @@ rosters and numbers there; one that does not shows this device's.
 
 A HarnessError means the test could not drive the page (a script, wait or selector failed outside a destination read). It
 is never counted as a finding. A bench-level scope that matches no element is HarnessError code level-scope-missing, never
-a silent modeled (JEG-1304: the scopes were route hashes that matched nothing, so every destination read modeled). test_guard_fails_on_a_link_without_get runs the journey on the build and on a copy whose
+a silent modeled (JEG-1304: the scopes were route hashes that matched nothing, so every destination read modeled). The
+league settings are saved the way the page's settings form saves them, so a reload keeps them; a page that lost them is
+HarnessError code settings-lost. test_guard_fails_on_a_link_without_get runs the journey on the build and on a copy whose
 league link drops get=, requires both to read every stage, and requires the mutant's new codes to include
 package-changed on league -> Compare and to be only package loss and its consequences.
 
@@ -88,6 +90,14 @@ def checked_level(stage: str, read):
     return read
 
 
+def settings_lost(want: dict, got: dict) -> list[str]:
+    """What of the wanted scoring, team count and roster slots the page no longer has (slots it does not offer skipped)."""
+    lost = [f"{k} {got.get(k)} != {want[k]}" for k in ("scoring", "teams") if got.get(k) != want[k]]
+    roster = got.get("roster") or {}
+    lost += [f"{k} {roster.get(k)} != {v}" for k, v in want["roster"].items() if k in roster and roster[k] != v]
+    return lost
+
+
 def level_scopes(*scripts: str) -> list[str]:
     """Every scope the in-page scripts pass to level()."""
     import re
@@ -138,9 +148,18 @@ class Run:
 
 # ---------- in-page scripts ----------
 
-SETTINGS = """(s) => { const C = window.TradeValueCurveControls; C.setScoring(s.scoring, false); C.setTeams(s.teams, false);
+# The page keeps a reader's league settings in localStorage only when they are applied from its settings form
+# (v2.js saveLeagueSettings, LEAGUE_SAVE_KEY). Setting the engine directly does not save them, so a reload fell back to
+# the defaults (PPR, WR 2, BN 7), the league page searched another league and no ?trade= pick matched (JEG-1304, the
+# Mac's panel-missing). SETTINGS saves them in the form's own v1 shape, as Apply does.
+LEAGUE_SAVE_KEY = "ddf.v2.league-settings"
+SETTINGS = """([s, key]) => { const C = window.TradeValueCurveControls; C.setScoring(s.scoring, false); C.setTeams(s.teams, false);
   Object.entries(s.roster).forEach(([k, v]) => { if (C.getRosterShape()[k] !== v) C.setRosterSpot(k, v); });
+  const st = C.getState();
+  try { localStorage.setItem(key, JSON.stringify({v: 1, scoring: st.scoring, teams: st.teams, roster: {...C.getRosterShape()}, savedAt: Date.now()})); } catch (e) {}
   return C.getRosterShape(); }"""
+# The settings in force, to check that a reload kept them.
+SETTINGS_NOW = """() => { const C = window.TradeValueCurveControls, st = C.getState(); return {scoring: st.scoring, teams: st.teams, roster: C.getRosterShape()}; }"""
 
 # Read from the page: the settings, value basis, sources and bench level in force; one team as the screen counts it
 # (priced players by key; K, DEF and players without a row counted, not valued); the starters and bench by position
@@ -320,12 +339,19 @@ class _Journey:
             context = self.browser.new_context(viewport={"width": 1366, "height": 768}) if foreign else None
             page = self.open_page(self.browser, self.base, overrides=self.overrides, errors=self.errors, context=context,
                                   init_script=FOREIGN_INIT if foreign else None, tag=f"{stage}: ")
-            page.evaluate(SETTINGS, FOREIGN["settings"] if foreign else self.fx["settings"])
+            page.evaluate(SETTINGS, [FOREIGN["settings"] if foreign else self.fx["settings"], LEAGUE_SAVE_KEY])
             page.evaluate(self.SEED, [self.fx, FOREIGN["mine"] if foreign else self.fx["myTeamIndex"]])
             self.wait_opps(page, timeout=120000)
         except Exception as exc:
             raise HarnessError(f"{stage}: could not open and seed the page: {exc}") from exc
         return page
+
+    def require_settings(self, page, stage, want) -> None:
+        """The page still runs on the settings this stage was set up with; a reload that lost them is a harness failure."""
+        got = self.eval(page, stage, SETTINGS_NOW)
+        lost = settings_lost(want, got)
+        if lost:
+            raise HarnessError(f"{stage}: the page lost its league settings ({'; '.join(lost)})", code="settings-lost")
 
     def open_league_pick(self, page, pick) -> None:
         trade = "~".join(quote(x, safe="") for x in [pick["opponent"], ",".join(pick["give"]), ",".join(pick["get"])])
@@ -337,6 +363,7 @@ class _Journey:
             page.wait_for_timeout(300)
         except Exception as exc:
             raise HarnessError(f"league panel: could not reopen the league page on ?trade=: {exc}") from exc
+        self.require_settings(page, "league panel", self.fx["settings"])
 
     def follow_compare_link(self, page, pick):
         """Show the trade's details on the league page and click its own Open in Compare a trade link; returns its href."""
@@ -392,6 +419,7 @@ def journey(browser, base, overrides=None) -> Run:
     J = _Journey(browser, base, overrides)
     run = Run()
     page = J.page()
+    J.require_settings(page, "league page", J.fx["settings"])
     focus = J.fx["focus"]["key"]
     found = J.eval(page, "league page", CANDIDATES, focus)
     if not found or not found["count"]:
@@ -404,7 +432,7 @@ def journey(browser, base, overrides=None) -> Run:
     for label in ("equal", "thrown"):
         pick = found[label]
         if not pick:
-            run.blocked(f"{label}: pick", "candidate-missing", f"no {label} candidate sends JSN among {found['jsn']}")
+            run.blocked(f"{label}: pick", "candidate-missing", f"no {label} candidate sends JSN among {found['jsn']} (of {found['count']} found)")
             continue
         tag = f"{label} {pick['id']}"
         if sorted(pick["give"]) != sorted(pick["id"].split("|")[1].split(",")) or sorted(pick["get"]) != sorted(pick["id"].split("|")[2].split(",")):
@@ -526,6 +554,22 @@ def unequal_deal(browser, base) -> list[str]:
             page.reload(wait_until="networkidle")
     page.close()
     return problems + J.errors
+
+
+class SettingsSurviveReloadTest(unittest.TestCase):
+    """JEG-1304: the settings the journey sets are saved where the page restores them from. Runs without a browser."""
+
+    def test_the_save_key_and_shape_are_the_pages_own(self):
+        v2 = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
+        self.assertIn(f'const LEAGUE_SAVE_KEY = "{LEAGUE_SAVE_KEY}";', v2, "v2.js renamed its league settings key")
+        self.assertIn("if (!saved || saved.v !== 1) return;", v2, "v2.js changed the saved settings version")
+        self.assertIn("localStorage.setItem(key", SETTINGS, "SETTINGS no longer saves what it sets, so a reload loses it")
+
+    def test_lost_settings_are_named(self):
+        want = league()["settings"]
+        self.assertEqual(settings_lost(want, {"scoring": want["scoring"], "teams": want["teams"], "roster": dict(want["roster"])}), [])
+        defaults = {"scoring": "ppr", "teams": 12, "roster": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 7, "K": 1, "DST": 1}}
+        self.assertEqual(settings_lost(want, defaults), ["scoring ppr != half_ppr", "WR 2 != 3", "BENCH 7 != 5"])
 
 
 class LevelScopeTest(unittest.TestCase):

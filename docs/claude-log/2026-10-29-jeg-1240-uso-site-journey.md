@@ -165,3 +165,32 @@ matches nothing is `HarnessError` code `level-scope-missing`, never `modeled`. N
 
 - `UsoSiteJourneyRenderTest.test_level_reads_the_rendered_view` (browser) has not run: no Chromium here and the module
   is not wired into CI. Needs a Mac run.
+
+## JEG-1304 follow-up: the Mac's panel-missing (settings lost on reload), 2026-10-29
+
+The Mac ran the browser module at c4c213b: the three new checks pass, the three journey tests fail on
+`panel-missing` after `?trade=` and reload, and on `candidate-missing` (one JSN candidate, none with a throw-in).
+
+Cause of `panel-missing`, read from the source: the journey set scoring, teams and roster slots on the engine directly.
+The page saves league settings to localStorage (`ddf.v2.league-settings`) only from its settings form
+(`saveLeagueSettings` in v2.js), and restores from there on load. So the reload fell back to the defaults (PPR, WR 2,
+BN 7), the league page searched a different league, and the fixture-settings pick matched no row. That is the test's
+setup, not the page. Fix: `SETTINGS` saves what it sets in the form's v1 shape; `require_settings()` raises
+`settings-lost` if the page runs on other settings after the reload or before the first read. Branch brought up to
+main `7e01271` (#1086); HANDOFF.md conflict kept both entries.
+
+### Verified (check named)
+
+- `SettingsSurviveReloadTest.test_the_save_key_and_shape_are_the_pages_own` on c4c213b's `SETTINGS`: FAIL (it
+  saves nothing). On this head: pass, and it pins the key and `v: 1` to v2.js.
+- `SettingsSurviveReloadTest.test_lost_settings_are_named`: the defaults against the fixture name `scoring`, `WR`
+  and `BENCH`.
+- `SETTINGS` and `SETTINGS_NOW` parse in Node. Contract on main `7e01271`: harness and mutation green; continuity 2
+  red (the transfer check now passes with #1086 on main).
+
+### Claimed, not confirmed
+
+- The browser journey has not run on this head (no Chromium here). Expected: the league panel opens on reload.
+- `candidate-missing` is not explained by the reload: it is on the first search, before any reload. The Node contract
+  finds 434 JSN candidates on modeled values; the browser found 1 on published values. The message now gives the total
+  found. If the Mac shows one JSN candidate on the fixture's settings, the throw-in stages need a decision.
