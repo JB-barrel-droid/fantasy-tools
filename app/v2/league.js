@@ -905,19 +905,21 @@
       const active = t.entries.filter(e => !reserveSlot(e));
       const valued = active.filter(e => !F.isNotEvaluated(e)).length;
       const add = (kind, text, reasons) => out.push({kind, text: `${t.name}: ${text}`, teams: [ref(t)], reasons: reasons || []});
-      if (p.unresolved > 0) add("unmatched", `${plural(p.unresolved, "pasted player")} not matched yet. Open the team to add ${p.unresolved === 1 ? "him" : "them"}.`, ["unresolved"]);
-      if (!t.entries.length) add("spots", "no players.", ["empty_team"].concat(valued < starting ? ["short_roster"] : []));
+      if (p.unresolved > 0) add("unmatched", `${plural(p.unresolved, "pasted player")} not matched yet. Open the team to add ${p.unresolved === 1 ? "it" : "them"}.`, ["unresolved"]);
+      // leagueCheck's empty_team and short_roster count valued players, so a team holding only a kicker and a defense is empty.
+      const spotReasons = (valued ? [] : ["empty_team"]).concat(valued < starting ? ["short_roster"] : []);
+      if (!t.entries.length) add("spots", "no players.", spotReasons);
       else if (spots && active.length !== spots) {
         add("spots", active.length < spots ? `${active.length} of ${spots} roster spots filled.` : `${active.length - spots} over its ${spots} roster spots.`,
-          valued < starting ? ["short_roster"] : []);
-      } else if (valued < starting) add("spots", `fewer players than starting spots.`, ["short_roster"]);
+          spotReasons);
+      } else if (spotReasons.length) add("spots", valued ? "fewer players than starting spots." : "no players besides kickers and defenses.", spotReasons);
       const k = Number(shape.K) || 0, d = Number(shape.DST) || 0;
       const missing = [];
       if (k > 0 && t.entries.length && !t.entries.some(e => e.pos === "K")) missing.push("kicker");
       if (d > 0 && t.entries.length && !t.entries.some(isDefense)) missing.push("defense");
       if (missing.length) add("kicker_defense", `no ${missing.join(" or ")}.`);
       if (p.coverage === "bench_omitted") add("bench_omitted", "the pasted page left the bench out. Paste the team page with the bench shown.", ["bench_omitted"]);
-      if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown"]);
+      if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown", "unresolved"]);
       if (!p.observedAt) add("not_read", "not read from a site page (added by hand or from a link). Paste the team page.", ["not_source_observed", "no_timestamp"]);
       else if (now - p.observedAt > maxAge) add("stale", "roster is more than 7 days old. Paste it again.", ["stale"]);
     });
