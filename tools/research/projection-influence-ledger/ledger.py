@@ -325,6 +325,8 @@ def check_projection_only(frozen: dict, base: dict, pert: dict) -> None:
     for src in base["natives"]:
         if base["horizon"].get(src) != pert["horizon"].get(src):
             # Jeremy (2026-10-29 brief): "do not blend weekly data with ROS data, ever."
+            # Scope (2026-10-29): "The weekly data for a 1 week forward should never
+            # blend with ROS data for a ROS projection."
             raise NotProjectionOnly(f"{src} horizon changed ({base['horizon'].get(src)!r} -> "
                                     f"{pert['horizon'].get(src)!r}): weekly and ROS data would be blended")
     if projection_inputs(frozen, base) == projection_inputs(frozen, pert):

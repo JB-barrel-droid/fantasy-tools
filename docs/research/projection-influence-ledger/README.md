@@ -1,6 +1,7 @@
 # How projections reach the chart DDF Value: an offline ledger
 
-JEG-1280, 2026-10-29. Research only, offline, on pinned inputs. This changes no
+JEG-1280, 2026-10-29. Jeremy's decision: A, retain and document (see
+"Decision"). Research only, offline, on pinned inputs. This changes no
 engine, value, default, tolerance or ranking, and nothing here is published.
 It follows up the side finding on JEG-1047 (comment e6055a31): "projection
 changes also move DDF Value (chart-based)". JEG-1047's own waiver-line
@@ -29,7 +30,7 @@ pinned SHA. The code column is evidence, not a new definition.
 |---|---|---|
 | DDF Value | "the average of the weight-adjusted indexed values" | `ddf_value`, the blended version. It is the equal-weight mean of the Adjusted values of the trade charts that are included and visible: `pipelines/value_reference.py:100` (`DDF_FAMILY["blended"] = "chart"`), `:1188-1194`; `value-model.js:1349` (`blendedI = chartsI`). Adjusted is a chart's value above its waiver line, re-weighted to the DDF position and starter/bench weights (`value_reference.py:859-868`). The page's Indexed view is a different series whose basis is DDF Value; the ledger reads DDF Value only. |
 | DDF Projections | "the average of the imputed values across projected sources" | `ddf_value_projections`: the equal-weight mean of the included, visible projection sources' Adjusted values (`DDF_FAMILY["projections"]`). The VP-2.4 fill-in estimates run for charts only (`value_reference.py:960`). The ledger reports DDF Projections only for context. |
-| Weekly vs ROS | "do not blend weekly data with ROS data, ever." | At this fixture the four charts are weekly ("Week 8") and the three projections are rest of season. No experiment moves a value from one source to another, and the guard refuses any pair that changes a source's horizon label. |
+| Weekly vs ROS | "do not blend weekly data with ROS data, ever." Scope, 2026-10-29: "The weekly data for a 1 week forward should never blend with ROS data for a ROS projection. If it is, that is in direct violation." | The three projections are rest of season. The charts' "Week 8" (`week_designated`) names the edition, not a one-week horizon. USA Today ("week-8-ros-rankings"), FantasyCalc ("Redraft, rest-of-season") and CBS ("rest-of-season rankings") state a rest-of-season horizon in their own sections. FantasyPros' section states none. No experiment moves a value from one source to another, and the guard refuses any pair that changes a source's `week_designated` label (the negative fixture's "weekly projections passed off as rest of season"). See "Weekly vs ROS at this SHA" below for the one parameter that reads weekly data. |
 
 ## Engine and inputs
 
@@ -56,15 +57,15 @@ pinned SHA. The code column is evidence, not a new definition.
     `sha256:9aab5dc1…`). Running the pipeline on that copy reproduces
     `Setting.result()` exactly (largest difference 0.0) at all 12 settings.
 
-| Source | Family | Horizon | Fetched | Vintage | Hold at this build |
-|---|---|---|---|---|---|
-| USA Today | chart | Week 8 | 2026-10-27 | 2026-10-27 | none |
-| FantasyCalc | chart | Week 8 | 2026-10-29 14:07 UTC | Week 8 | none |
-| FantasyPros | chart | Week 8 | 2026-10-29 12:35 UTC | 2026-10-27 | none |
-| CBS | chart | Week 8 | 2026-10-28 12:23 UTC | Week 8 | none |
-| ESPN | projection | rest of season | 2026-10-29 16:16 UTC | snapshot 2026-10-28 | none |
-| CBS ROS | projection | rest of season | not recorded | 2026-10-29 | amber: fidelity, publisher vs stored |
-| Razzball | projection | rest of season | not recorded | 2026-10-27 | amber: fidelity, publisher vs stored |
+| Source | Family | Edition label (`week_designated`) | Horizon stated in its section | Fetched | Vintage | Hold at this build |
+|---|---|---|---|---|---|---|
+| USA Today | chart | Week 8 | rest of season ("week-8-ros-rankings") | 2026-10-27 | 2026-10-27 | none |
+| FantasyCalc | chart | Week 8 | rest of season ("Redraft, rest-of-season") | 2026-10-29 14:07 UTC | Week 8 | none |
+| FantasyPros | chart | Week 8 | not stated | 2026-10-29 12:35 UTC | 2026-10-27 | none |
+| CBS | chart | Week 8 | rest of season ("rest-of-season rankings") | 2026-10-28 12:23 UTC | Week 8 | none |
+| ESPN | projection | rest of season | season projections, per game | 2026-10-29 16:16 UTC | snapshot 2026-10-28 | none |
+| CBS ROS | projection | rest of season | rest of season | not recorded | 2026-10-29 | amber: fidelity, publisher vs stored |
+| Razzball | projection | rest of season | rest of season | not recorded | 2026-10-27 | amber: fidelity, publisher vs stored |
 
 Amber holds keep a source in I and visible (JEG-726), so all seven sources
 price at baseline.
@@ -190,35 +191,52 @@ The residual does not cover changes in which rows exist. Rows added or
 removed are counted separately (48 removed, all in the projection-only-player
 experiment).
 
-## Choices for Jeremy
+## Decision
 
-None of these is selected, and none changes a number until Jeremy picks.
-Multiple choice, per the working agreement (JEG-850):
+Jeremy, 2026-10-29: **"A."** Retain the measured coupling and document it.
+In the methodology, that means:
+- DDF Value averages the charts, which are priced on the shared league
+  model.
+- Mean projected points set the starters, the bench seats and the fill-in.
+- The DDF weights average every included source's mix, held ones included.
 
-- **A. Retain and document.** Write the measured coupling into the
-  methodology: DDF Value averages the charts, priced on the shared league
-  model. Mean projected points set starters, bench seats and the fill-in;
-  the DDF weights average every included source's mix, held ones included.
-  No further work.
-- **B. Investigate the weights and the weekly vs ROS rule.** Question: does
-  "do not blend weekly data with ROS data, ever" cover the pricing stages,
-  where the DDF weights average the weekly charts' mixes with the ROS
-  projections' mixes, or only averaged values? This path carries 86% of the
-  measured coupling. The deliverable would be options with measured effects,
-  not a change.
-- **C. Investigate held sources.** Question: should "held" mean out of the
-  pricing stages (mean points, allocation, fill-in, weights) as well as out
-  of the blends? Today a held projection moves DDF Value exactly as a
-  visible one.
-- **D. Investigate zero listings in mean points.** Question: should a 0.0
-  listing (ESPN's JEG-496 zero, or any source) count in mean points the way
-  a real projection does? In this snapshot one such listing moved DDF Value
-  by up to 2.104 when it decided a flex seat.
+Nothing changes in the numbers. `docs/methodology.md` is outside this
+ticket's paths, so the text goes in its own follow-up ticket.
 
-Recommendation, not a selection: **A now**, and put B, C and D on
-`docs/math-review-agenda.md` for the coordinated math review rather than
-answering them one at a time. That file is outside this ticket's paths; the
-lead or Codex can add the rows.
+The other options offered with A:
+- **B (weights vs the weekly/ROS rule)** is settled by Jeremy's scope of the
+  rule (same day). The rule forbids blending 1-week-forward data with ROS
+  projection data. The weights path averages rest-of-season charts' mixes
+  with rest-of-season projections' mixes. No 1-week-forward values enter
+  it. One input is open (next section).
+- **C (held sources in the pricing stages)** was not chosen. Recommended
+  for `docs/math-review-agenda.md`, not decided.
+- **D (zero listings in mean points)** was not chosen. Recommended for
+  `docs/math-review-agenda.md`, not decided.
+
+## Weekly vs ROS at this SHA
+
+No 1-week-forward values enter any source at this fixture. All seven series
+are rest-of-season valuations (table above), except that FantasyPros' section
+states no horizon.
+
+One parameter reads weekly projection data, and the ledger does not cover it
+(it is frozen with the lineup parameters):
+- Each projection position's uncertainty width `sigma_rel` is
+  √(sigma_now² + (sigma_weekly·√h)²) (`pipelines/derive_lineup_parameters.py:409`).
+- `sigma_weekly` is the week-to-week drift of projected levels, recorded in
+  `config/lineup_parameters.json` as "measured: Sleeper weekly projections
+  2018-2025 (JEG-540)".
+- `h` is the drift horizon in weeks.
+- It is used where projection sources are priced (`value_reference.py:722`)
+  and so reaches their mixes and the DDF weights. Charts use their own
+  spread instead (`:719`).
+- It is a statistic about how projections move, measured on past seasons.
+  No current weekly value is averaged into a rest-of-season projection.
+
+Whether that counts as blending under the rule is Jeremy's call, asked on
+JEG-1280. Recommendation: not a blend, because it sizes the uncertainty of a
+rest-of-season level, and no weekly value prices any player.
 
 ## Run it (offline)
 
