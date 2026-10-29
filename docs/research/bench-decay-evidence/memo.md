@@ -1,11 +1,12 @@
 # Bench decay: the evidence we have, and the one decision left (JEG-1276)
 
-Parent: JEG-948 (policy choice held for Jeremy). As of 2026-10-29.
+Parent: JEG-948 (policy choice held for Jeremy; decided B, see Decision). As of 2026-10-29.
 Baseline: `main` at `430791c41ca9578d878c14c3a37d37a0f3fe0670` (2026-10-29).
 
 This memo replays the bench-decay research already committed in post 1
 (PR #846), JEG-943 (PR #847) and JEG-528 (PR #604). It adds no new
-measurement, changes no value, default or ranking, and picks no method. The
+measurement, changes no value, default or ranking, and picks no method (decided B, see
+Decision). The
 numbers come from `output/evidence_matrix.md`, which a script rebuilds offline
 from a fixed manifest.
 
@@ -109,7 +110,7 @@ the decision:
 
 ## The three choices
 
-None is selected here.
+None is selected here (decided B, see Decision).
 
 | | A. No change | B. Readout only | C. Later value change |
 |---|---|---|---|
@@ -139,11 +140,18 @@ answers that settled it, from the pinned files:
   in every week. Bench and starter values are both shares of it, so neither
   falls in DDF points as weeks run out. A starter loses one week of starts per
   week and a bench player loses one week's chance of filling in, so the ratio
-  holds; only the end of byes trims bench share (8.7% to 7.2%).
+  holds. Bench share falls mainly as byes end: 8.7% at week 1 to 7.4% at
+  week 14, when the bye share reaches 0. It slips on to 7.2% by week 17 with
+  no byes left (F1).
 - In DDF points, fill-in value for all RBs goes from 196 to 176 (week 1 to 17)
-  and for all WRs from 234 to 179. Scaling the snapshot's first bench RB and WR
-  by those shares (hypothetical, no per-player series exists) gives 23.5 to
-  21.0 and 37.3 to 28.5.
+  and for all WRs from 234 to 179: the F1 `bench_share_RB` (0.0835 to 0.0749)
+  and `bench_share_WR` (0.0995 to 0.0760) times the fixed pie, `pie` 2352.0 in
+  `docs/research/data/starter_bench_risk.json`. Scaling the snapshot's first
+  bench RB and WR (`positions.RB.bench[0].bench_part` 23.15 and
+  `positions.WR.bench[0].bench_part` 36.16 in that file, captured 2026-10-23,
+  content week 7) by each week's share over the week-7 share (RB 0.0824, WR
+  0.0964) gives 23.5 to 21.0 and 37.3 to 28.5. That scaling is hypothetical
+  arithmetic: no per-player series exists.
 - The #604 timing series' week-17 jump (G10) reaches nothing a user sees:
   only the engine and the reference compute it, and no page, finder, compare
   view, connector or edge function reads it.
