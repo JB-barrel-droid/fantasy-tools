@@ -9,12 +9,12 @@ Contract: integrate current main normally into the owned #1094 branch and verify
 - Current-data focused verification: `CHROMIUM_PATH=/usr/bin/chromium RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render tests.test_v2_finder_guardrails tests.test_v2_finder_guardrails_render tests.test_v2_contract_render.ContractRenderTest.test_every_live_contract_line tests.test_v2_source_count_render`: **16 passed, no skips, 179.380s**. No repeated full local suite; required CI follows the final documentation-only commit.
 - Previous exact picker/backup head `359d3613` completed Preview/v2-render successfully, with 11 picker checks passing without skips; these results remain historical and do not replace new integrated-head CI. See PR/ticket metadata for final CI and release evidence.
 - Read-only preflight sees main Deploy dashboard run `40865850771` completed successfully on `a75b6a28`; immediately-before-merge health and ancestry checks remain required.
-- Historical worker check: a HEAD request to `https://jb-barrel-droid.github.io/fantasy-tools/` failed with `Tunnel connection failed: 403 Forbidden` under the enforced proxy policy. This is scoped to that worker/check, not a general claim that every cloud or Mac environment cannot reach the origin. The 18:47 UTC worker capability recheck below still does not establish access; retain the exact published SHA/build relay and applicable browser checks.
+- Historical worker check: a HEAD request to `https://jb-barrel-droid.github.io/fantasy-tools/` failed with `Tunnel connection failed: 403 Forbidden` under the enforced proxy policy. This is scoped to that worker/check, not a general claim that every cloud or Mac environment cannot reach the origin. The 18:47 UTC worker capability recheck below still does not establish access; root coordinator owns exact-SHA publication/main-CI checks directly; applicable risk-based browser checks remain separate.
 
 ### Claimed, not confirmed
 
 - Fresh final-head CI, PR readiness/merge, publication and automatic cleanup are pending at this checkpoint. No release action has yet been performed; final evidence will be posted to PR/Linear metadata without restarting CI for a documentation-only result.
-- Live browser verification is not claimed here. After publication, coordinate through parent with the existing Mac QA task; do not release another PR.
+- Live browser verification is not claimed here. Root coordinator performs exact-SHA publication/main-CI checks directly. Mac QA is reserved for named USO/pricing/large-UI rendered journeys while the coordinator browser resource-503 issue is diagnosed; do not release another PR.
 
 ### Worker capability recheck (2026-10-29, 18:47 UTC / 13:47 CDT)
 
@@ -29,7 +29,7 @@ failed to get runs: Get "https://api.github.com/repos/JB-barrel-droid/fantasy-to
 [exit 1]
 ```
 
-The silent curl pipeline does not establish HTTP success: `-s` suppresses curl diagnostics and the pipeline exit status is head's. The gh failure identifies this worker's sandbox/proxy socket restriction. Neither is an automatic approval-review rejection. No workaround or alternate execution mode was attempted. Retain the relay for exact-SHA publication checks in this worker. Risk-based rendered browser gates for USO, pricing and large UI batches remain required independently of HTTP/CLI capability.
+The silent curl pipeline does not establish HTTP success: `-s` suppresses curl diagnostics and the pipeline exit status is head's. The gh failure identifies this worker's sandbox/proxy socket restriction. Neither is an automatic approval-review rejection. No workaround or alternate execution mode was attempted. This worker result does not require a Mac relay: root coordinator performs exact-SHA publication/main-CI checks directly with confirmed HTTP 200 and a readable run list. Workers remain offline for code/tests. Mac QA is reserved for named USO/pricing/large-UI rendered journeys while the coordinator browser resource-503 issue is diagnosed. Root HTTP/CLI success proves neither worker HTTP access nor a clean coordinator rendered journey. Risk-based browser gates remain independent of HTTP/CLI capability.
 
 Claimed by the coordinating Mac chat, not independently rerun here:
 
@@ -38,3 +38,9 @@ Claimed by the coordinating Mac chat, not independently rerun here:
 - Main runs were queued 5–11 minutes at 18:46 UTC / 13:46 CDT, making #1142 urgent. This worker's failed gh command did not verify queue state.
 
 Documentation only; no merge or deployment performed or authorized by this check.
+
+### Coordinator capability correction
+
+Coordinator-provided current evidence supersedes the blanket relay requirement in local commit `01961939`: root has confirmed live-origin HTTP 200 and readable main CI run listings and owns exact-SHA publication/main-CI checks directly. The historical raw worker failures above remain unchanged and environment-specific. No worker network policy, proxy, token or credential was changed.
+
+Coordinator Linear creation/cancellation works, demonstrated by JEG-1284. Earlier worker/action-specific approval denials remain historical facts, not a general Linear capability restriction. The coordinator browser's `v2/ddf-state.js` HTTP 503 remains under diagnosis; no clean rendered release gate is claimed. Mac QA remains only for named USO/pricing/large-UI browser journeys. No merge, deployment or deletion is authorized by this documentation correction.
