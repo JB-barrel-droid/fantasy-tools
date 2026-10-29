@@ -15,6 +15,14 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
+
+- Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. Codex merges.
+- ddf replacement is a player priced by identity in each source; market depth counts held players only; JEG-1241
+  provenance wired into workspace.js / league.js, every reason fails closed; league-priced trades don't open in Compare.
+- Open decision on JEG-1249: what attests a whole roster (no paste does today, so league levels stay off on the site).
+- Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
+
 ### Roster provenance helper (JEG-1241, Claude, 2026-10-29 UTC)
 
 - Branch `claude/JEG-1241-roster-provenance`, draft PR only. New pure module `app/v2/roster-provenance-transitions.js`

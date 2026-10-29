@@ -163,7 +163,11 @@ SEED = """([teams, mine]) => {
   const W = window.TradeValueWorkspace, C = window.TradeValueCurveControls;
   const byKey = new Map(C.getAllRows().map(r => [String(r.player_key), r]));
   let ws = W.newWorkspace({name: 'Levels'});
-  teams.forEach(t => { ws = W.ops.addTeam(ws, 'Team ' + t.id, {entries: t.players.filter(p => p.key).map(p => {
+  // JEG-1249: the levels need every team read from a source that showed its whole roster (no paste attests that today,
+  // so the seed does); tests/test_jeg1249_league_site_render.py covers the other provenance cases.
+  const now = Date.now();
+  const provenance = {unresolved: 0, observedAt: now, editedAt: now, coverage: 'whole_roster'};
+  teams.forEach(t => { ws = W.ops.addTeam(ws, 'Team ' + t.id, {provenance, entries: t.players.filter(p => p.key).map(p => {
     const row = byKey.get(p.key);
     return {key: p.key, name: row ? row.name : p.name, pos: p.pos, slot: p.slot};
   })}); });

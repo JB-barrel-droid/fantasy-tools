@@ -421,6 +421,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_league_bench_levels
 	python3 -m unittest tests.test_league_levels_real
 	python3 -m unittest tests.test_league_levels_trades
+	python3 -m unittest tests.test_jeg1249_bench_corrections
+	python3 -m unittest tests.test_roster_provenance_transitions
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	node tests/node/fit_diagnostic.cjs --assert

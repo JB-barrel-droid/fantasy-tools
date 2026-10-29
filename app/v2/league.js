@@ -16,7 +16,8 @@
   const O = root.TradeValueOpportunities;
   const S = root.TradeValueTableSort;
   const L = root.TradeValueLineupComparison;
-  if (!W || !F || !T || !O || !S || !L || !F.page) return;
+  const PV = root.DDFRosterProvenance;   // JEG-1249: roster provenance transitions (JEG-1241)
+  if (!W || !F || !T || !O || !S || !L || !PV || !F.page) return;
   const store = W.store;
   const engine = () => root.TradeValueCurveControls;
   const $ = id => document.getElementById(id);
@@ -78,16 +79,21 @@
   //     active rostered depth; IR and taxi players are held but are not depth).
   // Only this page reads the levels. Compare and the pair finder keep the modeled bench, and the note says so.
   // The league must pass ValueModel.leagueCompleteness (every team loaded, matched, no player on two teams, no partial roster,
-  // rosters changed within a week); otherwise the modeled bench stays and the note gives the reason.
+  // rosters read from a source within a week) and DDFRosterProvenance.inferenceBlockers (JEG-1249: every team's roster was
+  // observed from a source, its unmatched count is known and zero, and that source showed the whole roster, bench and
+  // reserve seats included). Any reason keeps the modeled bench, and the note gives the reasons. Players missing from a
+  // roster are read as free agents only when no reason remains.
   const STARTING_SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
   function leagueCheck(C, ws) {
     const V = root.ValueModel;
     if (!V || !V.leagueCompleteness || !C.getState || !ws || ws.teams.length < 2) return null;
     const shape = C.getRosterShape ? C.getRosterShape() : {};
-    return V.leagueCompleteness({teamsExpected: C.getState().teams, now: Date.now(),
+    const check = V.leagueCompleteness({teamsExpected: C.getState().teams, now: Date.now(),
       startingSlotsPerTeam: STARTING_SLOT_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0),
-      teams: ws.teams.map(t => ({id: t.id, unresolved: t.unresolved, loadedAt: t.rosterAt,
+      teams: ws.teams.map(t => ({id: t.id, unresolved: t.provenance.unresolved, loadedAt: PV.freshnessTime(t.provenance),
         players: t.entries.filter(e => !F.isNotEvaluated(e)).map(e => ({key: e.key, slot: e.slot}))}))});
+    const reasons = PV.inferenceBlockers({teams: ws.teams.map(t => ({id: t.id, provenance: t.provenance})), existingReasons: check.reasons});
+    return {...check, ok: !reasons.length, reasons};
   }
   let levelMemo = null;
   if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
@@ -151,6 +157,14 @@
     return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels, leagueCheck: league ? league.check : null};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
+  // JEG-1249: Compare a trade prices with the standard bench (C.getAllRows). With the league's own rosters setting the bench
+  // here, opening the trade there would change its values and gains, so the handoff is held, and says so, until Compare can
+  // carry this page's pricing (JEG-1229). With the standard bench on both pages the link opens the same trade at the same
+  // values.
+  const compareLink = (r, ctx) => (ctx && ctx.levels
+    ? el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
+      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there."})
+    : el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
   const isK = entry => F.isNotEvaluated(entry);
 
   // ---------- team list ----------
@@ -202,10 +216,15 @@
     const say = (...kids) => panel.replaceChildren(...kids.filter(Boolean));
     const para = (text, cls) => el("p", {class: cls || "v2-meta", text});
 
-    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}. missed (JEG-1188): pasted valued players
-    // left out before this step; with it, the team's unresolved count becomes missed plus the players held by another team
-    // (replace) or grows by that much, in the same update.
-    function place(rows, replace, extra, missed) {
+    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}. JEG-1249, the team's provenance
+    // (DDFRosterProvenance), in the same update:
+    //   source.replace: a paste that is the whole team, a new source observation. Its unmatched count is source.missed
+    //     plus the players held by another team; source.coverage is what the page showed (coverageFrom).
+    //   source.missed without replace: a paste added onto the roster. Not an observation; an unknown count stays unknown.
+    //   source.settle: the pasted line one player was added for ("Yes, add", Search to add). Counts once, and only when
+    //     the player was added.
+    // A paste that adds nothing and leaves nothing out changes nothing, not even the edit time.
+    function place(rows, replace, extra, source) {
       const ws = store.get();
       const t = teamById(ws, teamId);
       const keep = replace ? [] : t.entries;
@@ -220,13 +239,19 @@
         have.add(key);
         added.push(entryOf(row, slot));
       });
-      const more = missed === undefined ? {} : {unresolved: (replace ? 0 : (t.unresolved || 0)) + missed + onOther.length};
-      update(w => W.ops.setEntries(w, teamId, keep.concat(added), {...(extra || {}), ...more}), "entries");
+      const src = source || {};
+      const now = Date.now();
+      let provenance;
+      if (replace) provenance = PV.replaceFromSource(t.provenance, {now, coverage: src.coverage,
+        unresolved: src.missed === undefined ? null : src.missed + onOther.length});
+      else if (src.settle !== undefined) provenance = PV.reconcile(t.provenance, {now, key: src.settle, accepted: added.length > 0});
+      else if (src.missed !== undefined) provenance = PV.appendFromSource(t.provenance, {now, added: added.length, missed: src.missed, rejected: onOther.length});
+      if (!replace && !added.length && (provenance === undefined || provenance === t.provenance)) return {added, onOther};
+      update(w => W.ops.setEntries(w, teamId, keep.concat(added), {...(extra || {}), ...(provenance ? {provenance} : {})}), "entries");
       return {added, onOther};
     }
-    // JEG-1188: pasted valued players this team still lacks (not matched, unconfirmed, or held by another team).
-    // JEG-1188: adding a pasted player by hand (a confirmed match, a search) resolves one the paste left out.
-    const resolvedOne = t => (t && t.unresolved > 0 ? {unresolved: t.unresolved - 1} : {});
+    // JEG-1249: the pasted line "Search to add" is looking for, so the add settles that line once.
+    let searchLine = null;
     function keepKD(unmatched) {
       const kept = [];
       const ws = store.get();
@@ -244,7 +269,7 @@
       if (add.length) update(w => W.ops.setEntries(w, teamId, t.entries.concat(add).concat([]), {}), "entries");
       return kept;
     }
-    const searchFor = line => { input.value = F.page.cleanLine(line); input.dispatchEvent(new Event("input", {bubbles: true})); input.focus(); };
+    const searchFor = line => { searchLine = F.page.cleanLine(line); input.value = F.page.cleanLine(line); input.dispatchEvent(new Event("input", {bubbles: true})); input.focus(); };
     const evaluatedOnly = list2 => (list2 || []).filter(u => !F.isNotEvaluated(u));
     const unmatchedBlock = items => (items.length ? [para(`Not matched (${items.length}): add them by search.`, "v2-find-paste-note"),
       el("ul", {class: "v2-find-unmatched"}, ...items.slice(0, 40).map(u => el("li", {}, el("span", {text: F.page.cleanLine(u.line || u.name)}), el("span", {class: "v2-meta", text: u.reason ? ` (${u.reason})` : ""}),
@@ -253,7 +278,7 @@
       el("ul", {class: "v2-find-unsure-list"}, ...unsure.map(p => {
         const li = el("li", {class: "v2-find-unsure"});
         const yes = button("Yes, add", {class: "v2-btn v2-find-confirm", "aria-label": `Yes, add ${p.row.name}`}, () => {
-          const r = place([{row: p.row, slot: p.slot}], false, resolvedOne(team()));
+          const r = place([{row: p.row, slot: p.slot}], false, undefined, {settle: p.sourceLine});
           li.replaceChildren(el("span", {text: r.added.length ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`}));
         });
         const no = button("No, search", {class: "v2-btn v2-find-search-add", "aria-label": `No, search for ${F.page.cleanLine(p.sourceLine)}`}, () => { li.remove(); searchFor(p.sourceLine); });
@@ -274,7 +299,7 @@
         if (p.confidence >= 1) sure.push({row, slot: p.slot}); else unsure.push({...p, row});
       });
       const {added, onOther} = place(sure, replace, replace ? {sourceText: res.sourceText, sourceTeam: teamIndex === undefined ? null : teamIndex, removed: []} : undefined,
-        evaluatedOnly(unmatchedOf).length + unsure.length);
+        {missed: evaluatedOnly(unmatchedOf).length + unsure.length, coverage: PV.coverageFrom(res)});
       const kept = keepKD(unmatchedOf);
       return {added, onOther, unsure, kept};
     }
@@ -309,7 +334,7 @@
       const lines = F.parsePasted(text);
       const nameMatch = F.matchNames(lines, rows);
       if (nameMatch.matched.length >= 2 && nameMatch.matched.length >= F.page.NAME_LIST_SHARE * lines.length) {
-        const placed = place(nameMatch.matched.map(row => ({row})), false, undefined, evaluatedOnly(nameMatch.unmatched).length);
+        const placed = place(nameMatch.matched.map(row => ({row})), false, undefined, {missed: evaluatedOnly(nameMatch.unmatched).length});
         const kept = keepKD(nameMatch.unmatched);
         const rest = evaluatedOnly(nameMatch.unmatched);
         say(para(`Added ${plural(placed.added.length, "player")} from the list.${kept.length ? ` Kept, not evaluated: ${kept.join(", ")}.` : ""}${placed.onOther.length ? ` Left out because they are on another team: ${placed.onOther.join(", ")}.` : ""}`),
@@ -363,8 +388,10 @@
         if (holder) b.disabled = true;
         b.addEventListener("click", () => {
           const t = team();
+          const line = searchLine;
+          searchLine = null;
           update(w => W.ops.setEntries(w, teamId, t.entries.concat([row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : entryOf(row)]),
-            row.notEvaluated ? {} : resolvedOne(t)), "entries");
+            line && !row.notEvaluated ? {provenance: PV.reconcile(t.provenance, {now: Date.now(), key: line, accepted: true})} : {}), "entries");
           input.value = "";
           results.replaceChildren();
           results.hidden = true;
@@ -388,7 +415,8 @@
     });
     update(w => W.ops.addTeam(w, name, {entries: rows}), "add");
     const added = store.get().teams[store.get().teams.length - 1];
-    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex, unresolved: missed}), "entries");
+    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex,
+      provenance: PV.replaceFromSource(added.provenance, {now: Date.now(), unresolved: missed, coverage: PV.coverageFrom(res)})}), "entries");
     UI.justAdded = added.id;
     announce(`Team added: ${added.name}.`);
   }
@@ -707,8 +735,9 @@
     update(w => {
       let next = w;
       plan.forEach(item => {
-        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: [], unresolved: item.unresolved}); updated += 1; }
-        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list, unresolved: item.unresolved}); added += 1; }
+        const provenance = PV.replaceFromSource(null, {now: Date.now(), unresolved: item.unresolved, coverage: PV.coverageFrom(item.t)});
+        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: [], provenance}); updated += 1; }
+        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list, provenance}); added += 1; }
         else { skipped += 1; parsed.push({name: item.t.teamName, count: 0, unmatched: [], unsure: 0, leftOut: true}); return; }
         parsed.push({name: item.t.teamName, count: item.list.length, unmatched: item.missed, unsure: item.unsure});
         const notes = [];
@@ -828,7 +857,11 @@
   const LEVEL_REASONS = {team_count: "not every team is loaded", empty_team: "a team has no players",
     short_roster: "a team has fewer players than starting spots", duplicate_owner: "a player is on two teams",
     unresolved: "some pasted players are not matched to a team yet", no_timestamp: "a team's roster date is unknown (shared or older saves)",
-    stale: "a team's roster is more than 7 days old"};
+    stale: "a team's roster is more than 7 days old",
+    // JEG-1249: roster provenance (DDFRosterProvenance.REASONS).
+    unresolved_unknown: "a team's unmatched players were not recorded (older saves or shared links)",
+    not_source_observed: "a team's roster was not read from a site page (added by hand or from a link)",
+    bench_omitted: "a pasted page left a team's bench out", coverage_unproven: "no pasted page shows a team's whole roster, bench and reserve seats included"};
   const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
   function sellBlock(ws, ctx) {
     if (!ctx || !ctx.leagueCheck) return null;
@@ -997,7 +1030,7 @@
       };
       box.append(line("Your", mine, r.give, r.receive), line(`${opp.name}'s`, opp, r.receive, r.give));
     }
-    box.append(el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
+    box.append(compareLink(r, ctx));
     return el("tr", {class: "v2-lg-opp-detail", "data-detail-for": r.id}, el("td", {colspan: String(colspan)}, box));
   }
   // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
@@ -1292,7 +1325,7 @@
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
         el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
-      el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
+      compareLink(r, ctx),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
       ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
@@ -1433,7 +1466,8 @@
     if (!teams.length) { $("v2LgCard").open = true; notice("That league link is empty or invalid. Your saved league has been kept."); return; }
     let w = W.newWorkspace({name: "Shared league"});
     // JEG-1188: a link does not say when its rosters were read, and its unknown players are not on the team.
-    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown), rosterAt: null, unresolved: t.entries.filter(e => e.unknown && !F.isNotEvaluated(e)).length}); });
+    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown),
+      provenance: {unresolved: t.entries.filter(e => e.unknown && !F.isNotEvaluated(e)).length}}); });
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
     const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
     if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);

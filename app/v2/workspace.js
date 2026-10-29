@@ -23,6 +23,8 @@
   const FINDER_POSITIONS = ["QB", "RB", "WR", "TE"];
   const FINDER_LIMITS = ["minDdfEdge", "minUserLineupGain", "minTheirLineupGain"];
 
+  // JEG-1249: each team's roster provenance (what a source showed, apart from local edits) goes through the JEG-1241 helper.
+  const P = root.DDFRosterProvenance || (typeof require === "function" ? require("./roster-provenance-transitions.js") : null);
   const clone = value => JSON.parse(JSON.stringify(value));
   const isObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   // Finder settings are stored with the league, including in JSON exports. Invalid imports reset to safe defaults.
@@ -73,15 +75,17 @@
     });
     return out;
   }
-  const cleanCount = n => (Number.isInteger(n) && n >= 0 ? n : null);
+  // JEG-1188 / JEG-1249: provenance = {unresolved (null = unknown), observedAt (a source roster read), editedAt (any local
+  // change), coverage, settled}, from DDFRosterProvenance. The league page prices with the league's own rosters only when
+  // every team's provenance shows a complete, matched, current source observation. A team made without a source
+  // observation (by hand, or from a share link) has none.
+  const plainProvenance = p => ({unresolved: p.unresolved, observedAt: p.observedAt, editedAt: p.editedAt, coverage: p.coverage, settled: p.settled.slice()});
+  const provenanceOf = raw => plainProvenance(P.normalize(raw));
   function newTeam(name, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
-    // JEG-1188: rosterAt = when the roster last changed; unresolved = pasted valued players not matched or not added yet
-    // (null = not recorded, as in a league saved by an older build). The league page prices with the league's own rosters
-    // only when every team is current and fully matched.
     return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now,
-      rosterAt: o.rosterAt === null ? null : now, unresolved: cleanCount(o.unresolved === undefined ? 0 : o.unresolved)};
+      provenance: provenanceOf(o.provenance || {unresolved: 0, editedAt: now})};
   }
   function newWorkspace(opts) {
     const o = opts || {};
@@ -104,7 +108,8 @@
       teams.push({id, name: cleanName(t.name, `Team ${teams.length + 1}`), sourceText: typeof t.sourceText === "string" ? t.sourceText : "", sourceTeam: Number.isInteger(t.sourceTeam) ? t.sourceTeam : null,
         removed: Array.isArray(t.removed) ? t.removed.map(String) : [], entries: cleanEntries(t.entries),
         createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt,
-        rosterAt: Number(t.rosterAt) > 0 ? Number(t.rosterAt) : null, unresolved: cleanCount(t.unresolved)});
+        // A JEG-1188 save kept rosterAt / unresolved on the team: rosterAt was refreshed by every edit, so it reads as editedAt only.
+        provenance: provenanceOf(isObject(t.provenance) ? t.provenance : {unresolved: t.unresolved, rosterAt: t.rosterAt})});
     });
     const ui = isObject(raw.ui) ? raw.ui : {};
     return {...base, id: String(raw.id || base.id), settings: isObject(raw.settings) ? raw.settings : null, teams,
@@ -114,7 +119,6 @@
 
   // ---------- pure operations: each returns a new workspace ----------
   const touch = (ws, now) => ({...ws, updatedAt: now || Date.now()});
-  const rosterChange = (t, now) => ({...t, rosterAt: now || Date.now()});
   const mapTeam = (ws, id, fn, now) => {
     if (!ws.teams.some(t => t.id === id)) return ws;
     return touch({...ws, teams: ws.teams.map(t => (t.id === id ? {...fn(t), updatedAt: now || Date.now()} : t))}, now);
@@ -130,11 +134,15 @@
       return touch({...ws, teams: ws.teams.filter(t => t.id !== id), myTeamId: ws.myTeamId === id ? null : ws.myTeamId});
     },
     renameTeam: (ws, id, name) => mapTeam(ws, id, t => ({...t, name: cleanName(name, t.name)})),
-    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => rosterChange({...t, entries: cleanEntries(entries), ...(extra || {}),
-      ...(extra && extra.unresolved !== undefined ? {unresolved: cleanCount(extra.unresolved)} : {})})),
-    clearTeam: (ws, id) => mapTeam(ws, id, t => rosterChange({...t, entries: [], sourceText: "", sourceTeam: null, removed: [], unresolved: 0})),
-    // JEG-1188: n pasted players still to match on this team (0 or more).
-    setUnresolved: (ws, id, n) => mapTeam(ws, id, t => ({...t, unresolved: cleanCount(n)})),
+    // extra.provenance: the caller's DDFRosterProvenance transition (a paste, a reconciled item); without it the change
+    // is a local edit, which never counts as a source observation.
+    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => {
+      const {provenance, ...rest} = extra || {};
+      return {...t, entries: cleanEntries(entries), ...rest,
+        provenance: provenanceOf(provenance || P.localEdit(t.provenance, {now: Date.now()}))};
+    }),
+    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: [],
+      provenance: provenanceOf(P.clear(t.provenance, {now: Date.now()}))})),
     // JEG-1190: every team goes; the league's settings, name and view choices stay.
     clearLeague: ws => (ws.teams.length ? touch({...ws, teams: [], myTeamId: null}) : ws),
     setSourceText: (ws, id, text) => mapTeam(ws, id, t => ({...t, sourceText: String(text || "")})),

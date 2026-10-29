@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 HARNESS = ROOT / "tests" / "league_harness.cjs"
 FIXTURES = ROOT / "tests" / "fixtures" / "league"
-MODULES = ["workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
+MODULES = ["roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
 
 REQUIRED = [
     "test_opportunities_preserve_qualified_candidates", "test_opportunities_fit_after_full_search", "test_opportunities_cancel_during_pairing", "test_opportunities_cache_row_budget",

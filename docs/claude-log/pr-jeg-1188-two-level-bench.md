@@ -90,3 +90,40 @@ Quinshon Judkins 15.3 to him vs 20.0 at the league's depth, Omar Cooper Jr.
 
 ### Picks
 In /mnt/project-files/ddf/picks-log.md under "JEG-1188 two-level bench".
+
+## JEG-1249 corrections (Codex review of 54279710), 2026-10-29
+
+1. **Replacement identity.** The ddf level's replacement is a player
+   (`replacement_key`, the best free agent in the common order). Each source
+   prices its waiver at his own value there; a source without him uses its
+   own best free player; no free row is insufficient_coverage. JS, spec
+   reference and value_reference (`roster_convention.replacement_waiver_index`).
+   Codex's Q11 probe: waivers 40/18, Q11 worth 0.
+2. **Market depth.** Market starters come from held players only
+   (`roster_convention.market_order`); rostered = held, bench = held -
+   starters, theoretical demand kept as `modeled_starters`. Complete-capacity
+   SF/FLEX probe: rostered 80/100/120/140, bench 16/20/24/28 in all three
+   implementations.
+3. **Provenance.** JEG-1241's helper (#1108 at dc10602d, merged into this
+   branch) is wired into workspace.js and league.js. Teams keep a
+   `provenance` record; pastes, appends, "Yes, add", Search to add, removals,
+   clears and share links each go through its transitions. The league check
+   adds `inferenceBlockers`, and every reason blocks (fail closed), so
+   `coverage_unproven` keeps the standard bench until a source attests a
+   whole roster. No paste does that today. Which rule attests it is the open
+   decision on JEG-1249.
+4. **Compare handoff.** While the league's rosters set the bench, the league
+   page holds its "Open in Compare a trade" link and says why. With the
+   standard bench on both pages the link opens the same trade at the same
+   values. Carrying rosters and gains into Compare stays with JEG-1229.
+5. **Integrated proof.** `tests/test_jeg1249_league_site_render.py`
+   (Chromium): the provenance gate on the page, the paste transitions through
+   the team box, and the league to Compare journey (an equal trade, a
+   throw-in trade, its core as a true unequal package, an unpriced player and
+   a kicker, the saved league unchanged, the hold with league pricing).
+   JEG-1240's contract (`tests/node/uso_site_journey_contract.cjs` from #1110)
+   passes 9/9 on this branch's app/v2.
+
+Finding, not a change here: on the real USO rosters (this fixture, his team
+marked) the league table shows 101 trades and none sends JSN, on main
+b8630697 and on this branch alike.

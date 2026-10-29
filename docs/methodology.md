@@ -212,22 +212,44 @@ rules, except that only charts are filled in (VP-2.4).
      - *bench seats*: `T x B` from the settings (never derived from rosters);
      - *rostered depth* (`bench_basis: rostered_depth`, the **market** level,
        the other side's acceptance): `held_p` = active rostered players at
-       `p` (reserve left out), `b_p = max(0, held_p - S_p)`, replacement
-       index `R_p = S_p + b_p`;
+       `p` (reserve left out). JEG-1249: the market level's starters come
+       from held players only (dedicated seats `min(T x slots_p, held_p)`,
+       then superflex, then FLEX from the held remainder, in the projected-
+       points order), so `b_p = held_p - S_p`, replacement index `R_p =
+       held_p`, and no position holds more players than the league does.
+       The modeled starters stay in `modeled_starters`; seats the league
+       can't fill are the difference, never players;
      - *above replacement* (`bench_basis: above_replacement`, the **ddf**
        level, his value): `R_p` = the index in the projected-points order of
        the first player who is neither rostered nor in reserve (the best
        available free agent), `b_p = max(0, R_p - S_p)`.
-     The waiver line reads the player at `R_p`, which can sit inside the
-     starters when a free agent out-projects a starter; `S_p` itself never
-     moves. Each position's allocation carries `replacement`, `held`,
-     `reserve` and `bench_basis`. With no league none of this applies and the
-     output is unchanged.
+     The waiver line at the ddf level is a player, not an index (JEG-1249):
+     `replacement_key` names the best free agent, and each source prices
+     its waiver at that player's own value in that source (listed or
+     estimated). A source with no row for him uses its own best free player
+     (the first row in its order no team holds, reserve counting as held);
+     a source with no free row takes the insufficient_coverage path. The
+     line can sit inside the starters when a free agent out-projects a
+     starter; `S_p` itself never moves at this level. At the market level
+     the waiver stays positional, at `R_p` in each source's own order (a
+     depth count, not a named player). Each position's allocation carries
+     `replacement`, `replacement_key`, `held`, `reserve`, `bench_basis` and
+     `modeled_starters`. With no league none of this applies and the output
+     is unchanged.
      The league page uses the levels only when the league is complete
      (`league_completeness`, fails closed to d): the team count equals the
      settings', no team is empty or below its starting spots, no player is
      on two teams, no pasted player is unmatched (unknown counts as
      unmatched), and every roster has a load time no older than 7 days.
+     JEG-1249: on top of that, `DDFRosterProvenance.inferenceBlockers`
+     (JEG-1241) must return nothing: every team's roster was read from a
+     source (a local edit, a share link or an append is not a read), its
+     unmatched count is known, and the source showed the whole roster,
+     bench and reserve seats included (`coverage: whole_roster`). The load
+     time is the source read (`observedAt`), never the last edit. No paste
+     attests a whole roster today, so the page keeps d until one does.
+     While the levels are on, the league page does not open its trades in
+     Compare a trade (which prices with d) and says why.
      Contract: DDF Value and the bench-share weights come from the ddf level;
      the four trade charts and the expected depth that judges acceptance
      come from the market level. Compare a trade and the pair finder keep d.
