@@ -283,37 +283,38 @@ Natural fit, JEG-1217, JEG-1220).
    per position and ranks beyond. Separately, for JEG-1196 only: whether to
    bring back an ESPN roster% pull.
 
-### Weekly FantasyPros drop for Muse (spec, 2026-10-29)
+### Weekly FantasyPros feed from Muse (spec, 2026-10-29)
 
-Jeremy, 2026-10-29 02:28 UTC: "i could have muse run this daily". Plan: the
-weekly page compares on ranks first (public, no sign-in) and adds points
-once Muse's signed-in pull lands. Muse delivers raw page data only; the S3b
-producer owns identity (`player_key`), freshness labels and the Supabase save,
-so there is still one owner of each.
+Jeremy, 2026-10-29: "i could have muse run this daily" and "muse can push the
+data right to supabase". Plan: the weekly page compares on ranks first and
+adds points once Muse's signed-in pull lands. Muse writes raw page data only;
+the S3b producer owns identity (`player_key`), freshness labels and everything
+downstream, so each keeps one owner.
 
-- **Where:** a dedicated branch `data/fantasypros-weekly` in this repo (no PR,
-  never `main`). Path `fantasypros/weekly/2026/wk{NN}/`.
-- **What, once a day:** the weekly projections page and the weekly ECR rankings
-  page for QB, RB, WR and TE, signed in so every player shows (not the top 10).
-  Projections in all three scorings (Standard, Half PPR, PPR) as FantasyPros
-  shows them.
-- **Files per pull** (`{ts}` = UTC pull time `YYYYMMDDTHHMMZ`, never overwrite):
-  - `proj_{pos}_{std|half|ppr}_{ts}.csv`: the page's header row as shown, then
-    every player row exactly as shown (player, team, stat columns, FPTS).
-  - `ecr_{pos}_half_{ts}.csv`: rank, player, team, and the best, worst, average
-    and standard-deviation columns if shown.
-  - `manifest_{ts}.json`: for each file, the page URL, the week printed in the
-    page heading, the scoring shown on the page, the row count, and whether the
-    page showed the full list.
-- **Rules:** weekly pages only, never rest-of-season or draft pages. Take the
-  week from the page heading, not from the request. Copy numbers as shown;
-  leave a blank cell blank, never 0. Never edit or delete an earlier file.
-- **Not in this drop:** player keys, merged files, Supabase writes, and anything
-  from rest-of-season pages.
-
-Loading this drop into Supabase (the existing `projection_snapshots` table
-already holds `source='fantasypros'` rows by week and scoring) and any
-schedule for the loader still need Jeremy's yes naming them.
+- **Table:** `public.weekly_fantasypros_raw`, drafted in
+  `supabase/migrations/jeg1195_weekly_fantasypros_raw_20261029.sql`.
+  **Proposed, not applied**: applying it needs Jeremy's yes naming it.
+- **Auth, least privilege:** a login role `weekly_fp_writer` that can only
+  INSERT into that table (no read, update or delete, nothing else). Jeremy sets
+  its password after applying; it never goes in the repo. Muse connects through
+  the Supabase pooler as `weekly_fp_writer.<project_ref>`. No service key.
+- **What, once a day:** the weekly projections and weekly ECR rankings pages
+  for QB, RB, WR and TE, signed in so every player shows. Projections in
+  Standard, Half PPR and PPR; ECR in Half PPR.
+- **One row per player per page:** a new `batch_id` per pull; `page_kind`
+  (`projections` or `ecr`); `season`; `week` taken from the page heading;
+  `position`; `scoring_format` (`standard`, `half_ppr`, `full_ppr`);
+  `page_url`; `full_list`; `player_name`; `team`; ECR rows fill `ecr_rank`
+  and the best, worst, average and std columns; projection rows fill `fpts`;
+  every other column as shown in `raw_columns` (header to value); `pulled_at`.
+- **Rules (enforced where the table can):** weekly only (`horizon` is fixed to
+  `week`; a rest-of-season row is refused); blank stays null, never 0;
+  append-only (no update or delete); a re-sent row in the same pull is a no-op;
+  no RETURNING on insert, since the role cannot read.
+- **Checked locally** on a throwaway Postgres 16: the migration applies and
+  re-applies cleanly; the writer role inserts projection and ECR rows; its
+  SELECT and UPDATE are refused; a `ros` row is refused; delete is refused by
+  the append-only trigger.
 
 ## 8. Minimum missing to recover the originals
 
