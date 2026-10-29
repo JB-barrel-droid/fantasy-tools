@@ -130,7 +130,7 @@ data.cases.forEach(c => {
   if (JSON.stringify(groups.map(g => g.attrs["data-group"])) !== JSON.stringify(c.input.groups.map(g => g.id))) bad(`${tag} group order changed`);
   groups.forEach(g => {
     const attrs = Object.keys(g.attrs).sort().join(",");
-    if (attrs !== "aria-label,class,data-group" || g.attrs.class !== "cev-group") bad(`${tag} group ${g.attrs["data-group"]} is styled differently (${attrs} ${g.attrs.class})`);
+    if (attrs !== "aria-labelledby,class,data-group" || g.attrs.class !== "cev-group") bad(`${tag} group ${g.attrs["data-group"]} is styled differently (${attrs} ${g.attrs.class})`);
   });
   c.input.groups.forEach(group => {
     const g = groups.find(x => x.attrs["data-group"] === group.id);
@@ -155,6 +155,14 @@ data.cases.forEach(c => {
       if (!r.held && r.net === null && detail !== r.missing.map(m => `${m.row.name} ${c.input.copy.noValue}`).join(", ")) bad(`${tag} ${r.key} missing players not named`);
       if (r.net !== null && detail !== `${c.input.copy.give} ${refFmt(r.give)} · ${c.input.copy.receive} ${refFmt(r.receive)}`) bad(`${tag} ${r.key} totals changed: ${detail}`);
       if (r.net === 0 && value !== "0.0") bad(`${tag} real zero not shown as 0.0`);
+      // By position: each label comes from its own copy key (JEG-1294), not merely from some input string.
+      const dirNode = find(li, cls("cev-row-direction"))[0];
+      if (r.net !== null && !r.held) {
+        const dir = refGap(r.net) === "0.0" ? "even" : r.net > 0 ? "up" : "down";
+        if (!dirNode || text(dirNode) !== c.input.copy.directions[dir]) bad(`${tag} ${r.key} direction label is not copy.directions.${dir}`);
+      } else if (dirNode) bad(`${tag} ${r.key} has a direction label without a number`);
+      const flag = find(li, cls("cev-row-flag"))[0];
+      if (conflicting ? !flag || text(flag) !== c.input.copy.conflicting : Boolean(flag)) bad(`${tag} ${r.key} conflicting label is not copy.conflicting`);
     });
   });
   // 4. No aggregate across groups and no winner mark anywhere.
@@ -180,6 +188,39 @@ if (!seen.tooFew) bad("no too-few-charts fixture");
 if (!seen.valueMissing) bad("no missing DDF Value fixture");
 if (seen.cells.size < 5) bad(`only ${seen.cells.size} deal-read cells covered`);
 
+// 2b. Altered copy (JEG-1294): prefix every caller-supplied word and require each rendered word to follow,
+// node by node. A literal equal to today's copy, or a word taken from another key, does not follow.
+const ALT = "\u00abalt\u00bb ";
+const alterAll = o => typeof o === "string" ? (o ? ALT + o : o) : Array.isArray(o) ? o.map(alterAll)
+  : o && typeof o === "object" ? Object.fromEntries(Object.entries(o).map(([k, v]) => [k, alterAll(v)])) : o;
+const WORDS = ["copy", "syntheticLabel", "nets", "explanation", "disclosures"];
+data.cases.forEach(c => {
+  const tag = `[${c.id} altered]`;
+  const alt = plain(c.input);
+  WORDS.forEach(k => { alt[k] = alterAll(alt[k]); });
+  ["id"].forEach(() => { alt.nets = alt.nets.map((n, i) => ({...n, id: c.input.nets[i].id})); alt.disclosures = alt.disclosures.map((d, i) => ({...d, id: c.input.disclosures[i].id})); });
+  alt.groups = alt.groups.map(g => ({...g, label: ALT + g.label, rows: g.rows.map(r => ({...r, label: ALT + r.label,
+    held: r.held ? {reason: ALT + r.held.reason} : r.held, missing: r.missing.map(m => ({...m, row: {...m.row, name: ALT + m.row.name}}))}))}));
+  ["title", "action", "text", "production"].forEach(k => { if (typeof alt.verdict[k] === "string" && alt.verdict[k]) alt.verdict[k] = ALT + alt.verdict[k]; });
+  let a, b;
+  try { a = V.texts(V.tree(V.adapt(deepFreeze(plain(c.input))), {open: new Set(), idBase: "x"})); b = V.texts(V.tree(V.adapt(deepFreeze(alt)), {open: new Set(), idBase: "x"})); }
+  catch (e) { bad(`${tag} threw: ${e.message}`); return; }
+  if (a.length !== b.length) { bad(`${tag} structure changed with the words (${a.length} vs ${b.length} text nodes)`); return; }
+  const fixed = new Set([...numbers(c.input, new Set()), ...V.SEPARATORS]);
+  a.forEach((t, i) => {
+    const follows = b[i] === ALT + t || (b[i] === t && fixed.has(t));
+    if (!follows) bad(`${tag} text node ${i} ${JSON.stringify(t)} did not follow its input (got ${JSON.stringify(b[i])})`);
+  });
+});
+
+// Two direct tree() calls (the JEG-1274 reuse path) never share an id.
+{
+  const m = V.adapt(deepFreeze(plain(data.cases[0].input)));
+  const ids = t => find(t, n => Boolean(n.attrs.id)).map(n => n.attrs.id);
+  const one = ids(V.tree(m)), two = ids(V.tree(m));
+  if (!one.length || one.some(id => two.includes(id))) bad("two tree() calls without idBase share ids");
+}
+
 // 5. Contract guards.
 const base = data.cases[0].input;
 const refuse = (label, mutate) => {
@@ -197,6 +238,13 @@ refuse("duplicate group id", i => { i.groups[1].id = i.groups[0].id; });
 refuse("duplicate disclosure id", i => { i.disclosures[1].id = i.disclosures[0].id; });
 refuse("unknown verdict kind", i => { i.verdict.kind = "maybe"; });
 refuse("net as text", i => { i.verdict.value.net = "4"; });
+refuse("copy string null", i => { i.copy.noValue = null; });
+refuse("copy string empty", i => { i.copy.conflicting = ""; });
+refuse("sideWords not an object", i => { i.copy.sideWords = "You win"; });
+refuse("null group", i => { i.groups[1] = null; });
+refuse("null row", i => { i.groups[0].rows[0] = null; });
+refuse("group id not a slug", i => { i.groups[0].id = "a b"; });
+refuse("null disclosure", i => { i.disclosures[0] = null; });
 console.log(JSON.stringify(problems));
 """
 
@@ -266,12 +314,16 @@ class CompareEvidenceViewContractTest(unittest.TestCase):
             "input written": ('need(Array.isArray(input.groups) && input.groups.length > 0, "groups are required");',
                               'need(Array.isArray(input.groups) && input.groups.length > 0, "groups are required"); input.groups.reverse();'),
             "zero treated as missing": ('if (row.net === null) {\n      need(missing.length > 0', 'if (!row.net) {\n      need(true'),
-            "groups merged": ('model.groups.map(g => evidenceGroupTree(g, copy))', '[evidenceGroupTree({id: "all", label: model.groups[0].label, note: null, rows: model.groups.flatMap(g => g.rows)}, copy)]'),
+            "groups merged": ('model.groups.map(g => evidenceGroupTree(g, copy, idBase))', '[evidenceGroupTree({id: "all", label: model.groups[0].label, note: null, rows: model.groups.flatMap(g => g.rows)}, copy, idBase)]'),
+            # JEG-1294 reviewer mutants: a literal equal to today's copy, and another key's word.
+            "hard-coded conflicting label": ('[tx(copy.conflicting)]', '[tx("Sees the trade the other way")]'),
+            "even label from another key": ('return {cls: "even", label: copy.directions.even};', 'return {cls: "even", label: "Even"};'),
+            "even label from the wrong copy key": ('return {cls: "even", label: copy.directions.even};', 'return {cls: "even", label: copy.sideWords.even};'),
             "title rule changed": ('? [deal.title] : [deal.title, deal.action]', '? [deal.title, deal.action] : [deal.title]'),
         }
         for label, (old, new) in mutants.items():
             with self.subTest(label):
-                self.assertIn(old, src, f"anchor missing for {label}")
+                self.assertTrue(old in src, f"anchor missing for {label}")
                 self.assertNotEqual([], run_checks(src.replace(old, new, 1)), label)
 
 

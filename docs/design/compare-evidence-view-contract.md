@@ -50,18 +50,25 @@ network, route or share-state access; inputs are read only (the tests run on dee
 - `adapt(input)`: validates the contract and returns the view model; throws on a violation.
 - `tree(model, {open, idBase})`: plain `{tag, attrs, children}` / `{text}` nodes, no DOM. `texts(node)` lists the text nodes.
 - `toDom(document, node)`, and `mount(root, input, {readout})` returning `{update(input), readoutSlot, element(), destroy()}`.
-  `update` keeps open disclosures and focus.
+  `update` keeps open disclosures, focus on a disclosure toggle, and focus on a control inside the readout slot
+  (moving the slot blurs it; the view focuses it again, JEG-1294).
+- Ids (headings, disclosures) carry `idBase`; a `tree()` call without one gets a fresh prefix, so two direct
+  calls never share an id.
 - The parts: `verdictTree(model)`, `netsTree(nets, copy)`, `evidenceGroupTree(group, copy)`, `disclosureTree(d, idBase, open)`.
 - `format.gap`, `format.value`, `SEPARATORS`.
 
 Disclosures are a native `<button aria-expanded aria-controls>` and a labelled `region`, so Enter and Space work
-and focus stays on the button. Toggles are at least 44 px tall.
+and focus stays on the button. Toggles are at least 44 px tall; the +/− glyph is CSS on an `aria-hidden` span,
+so it is not part of the button's name. Sections are named by their own headings (`aria-labelledby`).
 
 ## Layout
 
 Single column at phone widths; evidence groups go side by side from 900 px. Long names wrap
 (`overflow-wrap: anywhere`, `min-width: 0` on grid children). Colours, type and spacing use the JEG-1137
 Fieldnotes tokens with the same light values as fallbacks, so the preview renders without `v2.css`.
+The view's resets (box sizing, margins, list style) stop at the readout slot, and the slot undoes the view's
+`overflow-wrap`; colour and font still inherit from the page, as they would around any readout. The 900 px switch
+follows the viewport, not the container; the render test asserts stacked at 320/390 and side by side at 1280.
 
 ## Checks
 
@@ -71,9 +78,10 @@ python3 -m unittest tests.test_compare_evidence_view_render     # needs Playwrig
 ```
 
 The contract test recomputes every fixture's verdict, rows and `againstKeys` with the current `trade.js` and
-fails if they drift, so the fixtures stay real current branches. Proposed wiring (Codex owns the Makefile and
-workflows): add both lines to the `v2-render` workflow or `test-core`; `tests/test_render_sweep_coverage.py`
-lists the render module as unwired until then.
+fails if they drift, so the fixtures stay real current branches. It also checks each label by position against
+its own copy key and reruns every case with all caller-supplied words altered, requiring every rendered word to
+follow (JEG-1294), so a hard-coded literal or a word from the wrong key fails. Both tests run in `test-core`
+(shard 4), so the preview CI runs them on every PR.
 
 Preview: serve the repo root (`python3 -m http.server`) and open
 `/tests/fixtures/compare_evidence_view/preview.html`, optionally `?case=<id>`.

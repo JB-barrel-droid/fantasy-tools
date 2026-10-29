@@ -12,9 +12,10 @@
   color: var(--cev-ink); font: 400 var(--ddf-type-body, 16px)/var(--ddf-line-body, 1.5) var(--ddf-font-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
   overflow-wrap: anywhere;
 }
-.cev *, .cev *::before, .cev *::after { box-sizing: border-box; }
-.cev :where(p, ul, h3, h4) { margin: 0; }
-.cev :where(ul) { padding: 0; list-style: none; }
+/* Resets stop at the readout slot: what the readout owner puts there keeps its own box model, margins and lists. */
+.cev :where(*):not(.cev-readout *), .cev :where(*):not(.cev-readout *)::before, .cev :where(*):not(.cev-readout *)::after { box-sizing: border-box; }
+.cev :where(p, ul, h3, h4):not(.cev-readout *) { margin: 0; }
+.cev :where(ul):not(.cev-readout *) { padding: 0; list-style: none; }
 .cev-synthetic {
   padding: 8px var(--cev-gap); border: 1px dashed var(--cev-warn); border-radius: var(--ddf-radius-control, 9px);
   color: var(--cev-warn); font-size: var(--ddf-type-support, 14px); font-weight: 650;
@@ -36,7 +37,8 @@
 .cev-net[data-side="win"] .cev-net-value { color: var(--cev-good); }
 .cev-net[data-side="lose"] .cev-net-value { color: var(--cev-bad); }
 .cev-readout:empty { display: none; }
-.cev-readout { min-width: 0; max-width: 100%; overflow-x: auto; }
+/* The slot is opaque: undo the inherited wrapping the view sets, so the readout lays out as it would elsewhere. */
+.cev-readout { min-width: 0; max-width: 100%; overflow-x: auto; overflow-wrap: normal; }
 .cev-groups { display: grid; gap: var(--cev-gap); grid-template-columns: minmax(0, 1fr); }
 @media (min-width: 900px) { .cev-groups { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
 .cev-group { display: grid; align-content: start; gap: var(--ddf-space-2, 8px); min-width: 0; padding: var(--cev-gap);
@@ -58,8 +60,9 @@
   text-align: left; cursor: pointer; touch-action: manipulation;
 }
 .cev-disclosure-toggle > span { min-width: 0; }
-.cev-disclosure-toggle::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
-.cev-disclosure-toggle[aria-expanded="true"]::after { content: "\2212"; }
+.cev-disclosure-glyph { margin-left: auto; font-size: 22px; font-weight: 400; line-height: 1; }
+.cev-disclosure-glyph::after { content: "+"; }
+.cev-disclosure-toggle[aria-expanded="true"] .cev-disclosure-glyph::after { content: "\2212"; }
 .cev-disclosure-toggle:focus-visible { outline: 3px solid var(--cev-focus); outline-offset: 3px; }
 .cev-disclosure-panel { display: grid; gap: var(--ddf-space-2, 8px); padding: 0 0 var(--cev-gap); font-size: var(--ddf-type-support, 14px); }
 .cev-disclosure-panel[hidden] { display: none; }

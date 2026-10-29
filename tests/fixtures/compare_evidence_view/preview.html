@@ -42,7 +42,13 @@
         const mock = document.createElement("p");
         mock.className = "preview-mock-readout";
         mock.dataset.mockReadout = c.id;
-        mock.textContent = "Mock readout slot (preview only; JEG-1260 owns the shared readout).";
+        mock.textContent = "Mock readout slot (preview only; JEG-1260 owns the shared readout). ";
+        // A focusable control, so the render test can check that update() keeps focus inside the slot.
+        const control = document.createElement("button");
+        control.type = "button";
+        control.dataset.mockControl = c.id;
+        control.textContent = "Mock control";
+        mock.appendChild(control);
         slot.appendChild(mock);
       }
     });

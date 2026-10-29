@@ -611,6 +611,8 @@ test-core:
 	python3 -m unittest tests.test_v2_rescaled_copy
 	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_waterfall
+	# JEG-1271: isolated Compare evidence view (contract in Node; layout, keyboard and focus at 320/390/1280 in Chromium).
+	python3 -m unittest tests.test_compare_evidence_view_contract tests.test_compare_evidence_view_render
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
@@ -763,6 +765,8 @@ test-core-shard-4:
 	python3 -m unittest tests.test_v2_finder_triview_display
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_waterfall
+	# JEG-1271: isolated Compare evidence view (contract in Node; layout, keyboard and focus at 320/390/1280 in Chromium).
+	python3 -m unittest tests.test_compare_evidence_view_contract tests.test_compare_evidence_view_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render

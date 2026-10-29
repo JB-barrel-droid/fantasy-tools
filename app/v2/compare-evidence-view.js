@@ -36,6 +36,7 @@
   const NET_IDS = ["value", "market", "projections"];
   const COPY_KEYS = ["sideWords", "missingValue", "tooFewCharts", "chartsSplit", "rangeJoin", "noValue", "held",
     "give", "receive", "directions", "conflicting", "verdictHeading", "evidenceHeading", "explanationHeading"];
+  const OBJECT_COPY = ["sideWords", "directions"];
   const finite = n => typeof n === "number" && Number.isFinite(n);
   const isText = s => typeof s === "string" && s.trim().length > 0;
 
@@ -49,7 +50,7 @@
     if (input.synthetic) need(isText(input.syntheticLabel), "a synthetic input needs a visible syntheticLabel");
     const copy = input.copy;
     need(copy && typeof copy === "object", "copy is required");
-    COPY_KEYS.forEach(key => need(copy[key] !== undefined, `copy.${key} is required`));
+    COPY_KEYS.forEach(key => need(OBJECT_COPY.includes(key) ? copy[key] && typeof copy[key] === "object" : isText(copy[key]), `copy.${key} is required`));
     SIDES.forEach(side => need(isText(copy.sideWords[side]), `copy.sideWords.${side} is required`));
     ["up", "down", "even"].forEach(d => need(isText(copy.directions[d]), `copy.directions.${d} is required`));
 
@@ -59,12 +60,14 @@
     const againstKeys = Array.isArray(input.againstKeys) ? input.againstKeys : [];
     const groupIds = new Set();
     const groups = input.groups.map(group => {
-      need(isText(group.id) && !groupIds.has(group.id), `group ids must be distinct (${group && group.id})`);
+      need(group && typeof group === "object", "each group must be an object");
+      need(isText(group.id) && !groupIds.has(group.id) && /^[a-z0-9-]+$/.test(group.id), `group ids must be distinct slugs (${group.id})`);
       groupIds.add(group.id);
       need(isText(group.label), `group ${group.id} needs a label`);
       need(Array.isArray(group.rows), `group ${group.id} needs rows`);
       return {id: group.id, label: group.label, note: isText(group.note) ? group.note : null,
         rows: group.rows.map(row => {
+          need(row && typeof row === "object", `group ${group.id} rows must be objects`);
           need(isText(row.key) && !seen.has(row.key), `series ${row && row.key} must appear in exactly one group`);
           seen.add(row.key);
           return adaptRow(row, againstKeys.includes(row.key));
@@ -73,6 +76,7 @@
     const explanation = (input.explanation || []).map(line => { need(isText(line), "explanation lines must be text"); return line; });
     const disclosureIds = new Set();
     const disclosures = (input.disclosures || []).map(d => {
+      need(d && typeof d === "object", "each disclosure must be an object");
       need(isText(d.id) && !disclosureIds.has(d.id) && /^[a-z0-9-]+$/.test(d.id), `disclosure ids must be distinct slugs (${d && d.id})`);
       disclosureIds.add(d.id);
       need(isText(d.summary), `disclosure ${d.id} needs a summary`);
@@ -88,6 +92,7 @@
     need(isText(deal.text), "verdict.text is required");
     need(Array.isArray(nets) && nets.length === NET_IDS.length, "nets must name value, market and projections");
     const netRows = nets.map(spec => {
+      need(spec && typeof spec === "object", "each net must be an object");
       need(NET_IDS.includes(spec.id) && isText(spec.name), `net ${spec && spec.id} needs a known id and a name`);
       const n = deal[spec.id];
       need(n && typeof n === "object", `verdict.${spec.id} is missing`);
@@ -159,12 +164,17 @@
     ])));
   }
 
-  function verdictTree(model) {
+  // Ids for headings and disclosures are prefixed with idBase; a direct tree() call without one gets its own.
+  let treeIds = 0;
+  const freshBase = () => `cevt${++treeIds}`;
+
+  function verdictTree(model, idBase) {
     const v = model.verdict;
     const copy = model.copy;
+    const headId = `${idBase || freshBase()}-h-verdict`;
     const title = v.title ? el("p", {class: "cev-verdict-title ddf-fn-display"}, v.title.length === 2 ? [tx(v.title[0]), tx(": "), tx(v.title[1])] : [tx(v.title[0])]) : null;
-    return el("section", {class: "cev-verdict", "data-verdict": v.kind, "data-cell": v.cell || "", "aria-label": copy.verdictHeading}, [
-      el("h3", {class: "cev-heading"}, [tx(copy.verdictHeading)]),
+    return el("section", {class: "cev-verdict", "data-verdict": v.kind, "data-cell": v.cell || "", "aria-labelledby": headId}, [
+      el("h3", {class: "cev-heading", id: headId}, [tx(copy.verdictHeading)]),
       title,
       el("p", {class: "cev-verdict-text"}, [tx(v.text)]),
       v.production ? el("p", {class: "cev-verdict-production"}, [tx(v.production)]) : null,
@@ -195,20 +205,23 @@
 
   // One group per source category (JEG-1212). Groups sit side by side with equal weight, in input order;
   // nothing totals across them and nothing marks one as preferred.
-  function evidenceGroupTree(group, copy) {
-    return el("section", {class: "cev-group", "data-group": group.id, "aria-label": group.label}, [
-      el("h4", {class: "cev-group-label"}, [tx(group.label)]),
+  function evidenceGroupTree(group, copy, idBase) {
+    const headId = `${idBase || freshBase()}-g-${group.id}`;
+    return el("section", {class: "cev-group", "data-group": group.id, "aria-labelledby": headId}, [
+      el("h4", {class: "cev-group-label", id: headId}, [tx(group.label)]),
       group.note ? el("p", {class: "cev-group-note"}, [tx(group.note)]) : null,
       el("ul", {class: "cev-rows"}, group.rows.map(row => rowTree(row, copy)))
     ]);
   }
 
   function disclosureTree(d, idBase, open) {
-    const btnId = `${idBase}-d-${d.id}`;
+    const btnId = `${idBase || freshBase()}-d-${d.id}`;
     const panelId = `${btnId}-panel`;
     return el("div", {class: "cev-disclosure", "data-disclosure": d.id}, [
       el("button", {type: "button", class: "cev-disclosure-toggle ddf-fn-focus", id: btnId, "aria-expanded": open ? "true" : "false",
-        "aria-controls": panelId, "data-cev-focus": `d-${d.id}`}, [el("span", {}, [tx(d.summary)])]),
+        "aria-controls": panelId, "data-cev-focus": `d-${d.id}`}, [el("span", {}, [tx(d.summary)]),
+        // The +/− glyph is CSS on an aria-hidden span, so it stays out of the button's accessible name.
+        el("span", {class: "cev-disclosure-glyph", "aria-hidden": "true"}, [])]),
       el("div", {class: "cev-disclosure-panel", id: panelId, role: "region", "aria-labelledby": btnId, hidden: open ? null : ""},
         d.lines.map(line => el("p", {}, [tx(line)])))
     ]);
@@ -216,18 +229,18 @@
 
   function tree(model, state) {
     const open = (state && state.open) || new Set();
-    const idBase = (state && state.idBase) || "cev";
+    const idBase = (state && state.idBase) || freshBase();
     const copy = model.copy;
     return el("article", {class: "cev", "data-synthetic": model.synthetic ? "true" : "false"}, [
       model.synthetic ? el("p", {class: "cev-synthetic", role: "note"}, [tx(model.syntheticLabel)]) : null,
-      verdictTree(model),
+      verdictTree(model, idBase),
       el("div", {class: "cev-readout", "data-cev-slot": "readout"}, []),
-      el("section", {class: "cev-evidence", "aria-label": copy.evidenceHeading}, [
-        el("h3", {class: "cev-heading"}, [tx(copy.evidenceHeading)]),
-        el("div", {class: "cev-groups"}, model.groups.map(g => evidenceGroupTree(g, copy)))
+      el("section", {class: "cev-evidence", "aria-labelledby": `${idBase}-h-evidence`}, [
+        el("h3", {class: "cev-heading", id: `${idBase}-h-evidence`}, [tx(copy.evidenceHeading)]),
+        el("div", {class: "cev-groups"}, model.groups.map(g => evidenceGroupTree(g, copy, idBase)))
       ]),
-      model.explanation.length || model.disclosures.length ? el("section", {class: "cev-explain", "aria-label": copy.explanationHeading}, [
-        el("h3", {class: "cev-heading"}, [tx(copy.explanationHeading)]),
+      model.explanation.length || model.disclosures.length ? el("section", {class: "cev-explain", "aria-labelledby": `${idBase}-h-explain`}, [
+        el("h3", {class: "cev-heading", id: `${idBase}-h-explain`}, [tx(copy.explanationHeading)]),
         ...model.explanation.map(line => el("p", {class: "cev-explain-line"}, [tx(line)])),
         ...model.disclosures.map(d => disclosureTree(d, idBase, open.has(d.id)))
       ]) : null
@@ -278,6 +291,8 @@
       const model = adapt(next);
       const active = doc.activeElement;
       const focusId = current && active && current.contains(active) ? active.getAttribute("data-cev-focus") : null;
+      // Focus inside the readout slot belongs to the readout owner: moving the slot blurs it, so give it back.
+      const slotFocus = active && active !== slot && slot.contains(active) ? active : null;
       const ids = new Set(model.disclosures.map(d => d.id));
       [...open].forEach(id => { if (!ids.has(id)) open.delete(id); });
       const fresh = toDom(doc, tree(model, {open, idBase}));
@@ -287,6 +302,8 @@
       if (focusId) {
         const target = fresh.querySelector(`[data-cev-focus="${focusId}"]`);
         if (target) target.focus();
+      } else if (slotFocus && slotFocus.isConnected && doc.activeElement !== slotFocus) {
+        slotFocus.focus();
       }
       return model;
     }

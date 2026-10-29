@@ -11,6 +11,8 @@ deep-frozen, each with a mock readout in the opaque slot) and requires, at each 
   and the panel's hidden state follow, and focus stays on the toggle;
 - update() with the same or a changed input keeps open disclosures open, keeps focus on the same toggle, and
   keeps the readout slot's node and content (the slot is never rebuilt or read);
+- update() keeps focus on a control inside the readout slot (JEG-1294);
+- the evidence groups stack at 320 and 390 and sit side by side at 1280 (the 900 px pick);
 - the frozen input is unchanged after all of the above.
 Set CEV_SCREENSHOT_DIR to save a full-page screenshot per width.
 Discrimination: test_guard_fails_on_broken_builds serves broken copies of the module and stylesheet and
@@ -79,6 +81,25 @@ STATE = r"""id => {
   const panel = document.getElementById(b.getAttribute('aria-controls'));
   return {expanded: b.getAttribute('aria-expanded'), hidden: panel.hidden, focused: document.activeElement === b,
     focusId: document.activeElement && document.activeElement.getAttribute('data-cev-focus')};
+}"""
+
+SLOT_FOCUS = r"""([id, changed]) => {
+  const P = window.__cevPreview;
+  const c = P.cases.find(x => x.id === id);
+  const other = P.cases.find(x => x.id !== id);
+  const control = document.querySelector(`[data-case="${id}"] [data-mock-control="${id}"]`);
+  control.focus();
+  const before = document.activeElement === control;
+  P.handles[id].update(changed ? other.input : c.input);
+  const after = document.activeElement === control;
+  P.handles[id].update(c.input);
+  return {before, after, active: document.activeElement && document.activeElement.tagName};
+}"""
+
+LAYOUT = r"""id => {
+  const boxes = [...document.querySelectorAll(`[data-case="${id}"] .cev-group`)].map(g => g.getBoundingClientRect());
+  return {sideBySide: boxes.length > 1 && boxes.every(b => Math.abs(b.top - boxes[0].top) < 1) && boxes[1].left > boxes[0].right - 1,
+    stacked: boxes.length > 1 && boxes.every((b, i) => !i || b.top >= boxes[i - 1].bottom - 1)};
 }"""
 
 UPDATE = r"""([id, changed]) => {
@@ -191,6 +212,14 @@ def run_checks(js_patch=None, css_patch=None, shots=None) -> list[str]:
                         problems.append(f"{tag} update(changed={changed}) lost the open disclosure or focus: {up}")
                     if up["verdict"] != up["want"]:
                         problems.append(f"{tag} update(changed={changed}) did not render the new input")
+                for changed in (False, True):
+                    sf = page.evaluate(SLOT_FOCUS, [case, changed])
+                    if not sf["before"] or not sf["after"]:
+                        problems.append(f"{tag} update(changed={changed}) lost focus inside the readout slot: {sf}")
+                layout = page.evaluate(LAYOUT, case)
+                want = "sideBySide" if width >= 900 else "stacked"
+                if not layout[want]:
+                    problems.append(f"{tag} evidence groups are not {want}: {layout}")
                 after = page.evaluate("() => JSON.stringify(window.__cevPreview.cases.map(c => c.input))")
                 if after != snap["before"]:
                     problems.append(f"{tag} the frozen input changed")
@@ -211,6 +240,8 @@ class CompareEvidenceViewRenderTest(unittest.TestCase):
             "focus not restored": (("if (target) target.focus();", "if (target) target.blur();"), None),
             "slot rebuilt": (("fresh.querySelector('[data-cev-slot=\"readout\"]').replaceWith(slot);", ""), None),
             "panel not toggled": (("panel.hidden = !opening;", ""), None),
+            "slot focus not restored": (("        slotFocus.focus();", "        slotFocus.blur();"), None),
+            "groups never side by side": (None, ("@media (min-width: 900px) { .cev-groups", "@media (min-width: 9000px) { .cev-groups")),
         }
         for label, (js, css) in broken.items():
             with self.subTest(label):
