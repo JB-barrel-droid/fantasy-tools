@@ -22,13 +22,13 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
 START = [
-    ("fp_ros", "https://www.fantasypros.com/nfl/rankings/?type=ros", r"/nfl/rankings/ros-[a-z-]+\.php"),
-    ("espn_ros", "https://www.espn.com/fantasy/football/story/_/id/49949224/fantasy-football-2026-updated-rest-season-rankings", None),
-    ("yahoo_wr", "https://sports.yahoo.com/fantasy/article/fantasy-football-rest-of-season-rankings-wr-wide-receiver-tiers-205008446.html", r"/author/[a-z0-9-]+/?$"),
-    ("yahoo_rb", "https://sports.yahoo.com/fantasy/article/fantasy-football-rest-of-season-rankings-rb-tiers-195450347.html", None),
+    # round 2 (2026-10-29): every ROS link on the page the round-1 probe found
+    ("fp_ros_links", "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-overall.php", r"/nfl/rankings/ros-"),
+    ("yahoo_winks_author", "https://sports.yahoo.com/author/hayden-winks/", r"/fantasy/article/"),
     ("yahoo_usat", "https://sports.yahoo.com/articles/fantasy-football-week-8-trade-193343846.html", None),
-    ("yahoo_winks_hub", "https://sports.yahoo.com/fantasy/article/2026-fantasy-football-rankings-hayden-winks-200458512.html", r"winks|rankings"),
 ]
+ESPN_API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/"
+            "segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info")
 FOLLOW_LIMIT = 8
 
 
@@ -76,10 +76,11 @@ def summarize(tag: str, url: str, link_pat: str | None, depth: int = 0) -> list[
             print(f"marker {pat[:30]!r}: {[text(h)[:80] if isinstance(h, str) else h for h in hits]}")
     tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
     print(f"tables={len(tables)} rows={[len(re.findall(r'<tr', t, re.I)) for t in tables][:20]}")
-    for t in tables[:2]:
-        rows = re.findall(r"<tr\b.*?</tr>", t, re.S | re.I)
-        for r in rows[:4]:
+    for t in tables[:6]:
+        rows = re.findall(r"<tr\\b.*?</tr>", t, re.S | re.I)
+        for r in rows[:3] + rows[-2:]:
             print("  tr:", text(r)[:160])
+        print("  --")
     lis = [text(x) for x in re.findall(r"<li\b[^>]*>(.*?)</li>", page, re.S | re.I)]
     dollar = [x for x in lis if re.match(r"^\$\d+\s+\S", x)]
     print(f"li={len(lis)} dollar_li={len(dollar)} first={dollar[:5]}")
@@ -112,15 +113,34 @@ def summarize(tag: str, url: str, link_pat: str | None, depth: int = 0) -> list[
     return links
 
 
+def espn_api() -> None:
+    """ESPN's public fantasy API (the one pull_espn_projections.py reads daily):
+    which rank fields does a player carry, and for which scoring periods?"""
+    filt = {"players": {"filterSlotIds": {"value": [2]}, "limit": 3, "offset": 0,
+                        "sortDraftRanks": {"sortPriority": 100, "sortAsc": True, "value": "PPR"}}}
+    p = subprocess.run(["curl", "-sS", "--max-time", "45", "-A", UA, "-H", "X-Fantasy-Source: kona",
+                        "-H", "X-Fantasy-Platform: kona-web", "-H", "X-Fantasy-Filter: " + json.dumps(filt),
+                        ESPN_API], capture_output=True, text=True)
+    print("\n=== espn_api status bytes", len(p.stdout))
+    try:
+        players = json.loads(p.stdout)["players"]
+    except Exception as e:  # noqa: BLE001
+        print("unparseable:", e, p.stdout[:300])
+        return
+    for pl in players:
+        inner = pl.get("player", {})
+        print("player:", inner.get("fullName"), "keys:", sorted(inner.keys()))
+        rk = inner.get("rankings") or {}
+        print("  rankings periods:", sorted(rk.keys(), key=lambda k: int(k))[:30])
+        for period in sorted(rk.keys(), key=lambda k: int(k))[-2:]:
+            print(f"  period {period}:", json.dumps(rk[period])[:900])
+        print("  draftRanksByRankType:", json.dumps(inner.get("draftRanksByRankType"))[:400])
+
+
 def main() -> int:
     for tag, url, pat in START:
-        links = summarize(tag, url, pat)
-        if tag == "fp_ros":
-            for l in links[:FOLLOW_LIMIT]:
-                summarize(tag + ">", l, None)
-        if tag == "yahoo_wr":
-            for l in links[:2]:
-                summarize(tag + ">author", l, r"rest-of-season|ros-|tiers")
+        summarize(tag, url, pat)
+    espn_api()
     return 0
 
 
