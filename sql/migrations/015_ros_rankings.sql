@@ -7,11 +7,11 @@
 -- One row per (source, scoring, position, player, source vintage). Rankings only: expert consensus and
 -- analyst ROS ranks, kept for research and review. NEVER an input to DDF Value or DDF Projections: the
 -- trade-value importer (pipelines/import_supabase_references.py) does not read this table and keeps its
--- ECR hard exclusion (tests/test_ros_rankings_isolation.py).
+-- ECR hard exclusion (tests/test_ros_rankings.py).
 --
 -- source        fantasypros_ros_ecr | espn_ros | yahoo_pianowski_ros | yahoo_usat_ros
 -- scoring       ppr | half_ppr | standard | unstated (the page does not say)
--- pos_rank      the source's own positional rank; for a tiered dollar list, the order on the page
+-- pos_rank      the source's own positional rank; for a dollar list, by value, ties sharing the average
 -- overall_rank  the source's overall rank when it publishes one, else NULL
 -- source_value  a published number beside the rank (Yahoo dollar value), else NULL; never a trade value
 -- tier          the source's tier when it publishes one, else NULL

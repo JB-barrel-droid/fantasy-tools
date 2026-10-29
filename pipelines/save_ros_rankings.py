@@ -9,7 +9,7 @@ approval before it is applied; this saver never creates or alters the table. Unt
 applied, run with --dry-run only.
 
 Rankings only: nothing here feeds DDF Value or DDF Projections, and the trade-value
-importer never reads this table (tests/test_ros_rankings_isolation.py).
+importer never reads this table (tests/test_ros_rankings.py).
 
 Grain (upsert key): (source, scoring, pos, player_key, source_vintage). Idempotent.
 

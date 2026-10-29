@@ -207,6 +207,25 @@ def pull_ecr(fetcher=fetch) -> dict:
 
 # --- Yahoo, Scott Pianowski ---------------------------------------------------------------
 
+def value_ranks(values: list[float]) -> list[float]:
+    """Rank by dollar value, highest first; equal salaries share the average rank.
+
+    Pianowski treats equal salaries as even, and some tiers (an injury tier) sit at the end of
+    the page out of value order, so page order is not his rank.
+    """
+    order = sorted(range(len(values)), key=lambda i: -values[i])
+    out = [0.0] * len(values)
+    i = 0
+    while i < len(order):
+        j = i
+        while j + 1 < len(order) and values[order[j + 1]] == values[order[i]]:
+            j += 1
+        for k in order[i:j + 1]:
+            out[k] = (i + j + 2) / 2
+        i = j + 1
+    return out
+
+
 def parse_pianowski_page(page: str, url: str) -> dict | None:
     """Rows of one tiers article, or None when the page is not a ROS tiers article."""
     title = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
@@ -232,12 +251,14 @@ def parse_pianowski_page(page: str, url: str) -> dict | None:
         rows.append({
             "source": "yahoo_pianowski_ros", "analyst": "Scott Pianowski", "scoring": "unstated",
             "pos": pos, "player_name": dm2.group(2).strip(), "team": None,
-            "pos_rank": len(rows) + 1, "overall_rank": None, "source_value": float(dm2.group(1)),
+            "pos_rank": None, "overall_rank": None, "source_value": float(dm2.group(1)),
             "tier": tier, "rank_min": None, "rank_max": None, "rank_avg": None, "rank_std": None,
             "experts": 1, "source_vintage": vintage, "source_url": url,
         })
     if len(rows) < YAHOO_FLOORS[pos]:
         raise PullError(f"{url}: {pos} has {len(rows)} rows, floor {YAHOO_FLOORS[pos]}", "SOURCE_TRUNCATED")
+    for r, rank in zip(rows, value_ranks([r["source_value"] for r in rows])):
+        r["pos_rank"] = rank
     return {"url": url, "pos": pos, "published": published.isoformat(), "vintage": vintage,
             "tiers": tier, "rows": rows}
 

@@ -75,16 +75,27 @@ class EcrParser(unittest.TestCase):
 
 
 class YahooParser(unittest.TestCase):
-    def test_dollar_rows_in_page_order_with_tiers(self):
+    def test_dollar_rows_ranked_by_value_with_tiers(self):
         got = pull.parse_pianowski_page(yahoo_page(), "https://sports.yahoo.com/fantasy/article/a.html")
         self.assertEqual(got["pos"], "WR")
         self.assertEqual(got["vintage"], "2026-10-21")
         self.assertEqual(got["tiers"], 3)
-        self.assertEqual([r["pos_rank"] for r in got["rows"][:3]], [1, 2, 3])
+        self.assertEqual([r["pos_rank"] for r in got["rows"][:4]], [1, 2.5, 2.5, 4.5])  # $50, $49, $49, $48, $48
         self.assertEqual(got["rows"][2]["player_name"], "Player Number3")  # trailing asterisk dropped
         self.assertEqual(got["rows"][3]["player_name"], "Player Number4")  # leading asterisk dropped
         self.assertEqual(got["rows"][0]["source_value"], 50.0)
         self.assertEqual(got["rows"][0]["scoring"], "unstated")
+
+    def test_late_tier_is_ranked_by_value_not_page_order(self):
+        injury = "<h3>Courtesy Injury Ranks</h3><ul><li>$60 Hurt Star</li></ul>"
+        page = yahoo_page().replace("</body>", injury + "</body>")
+        got = pull.parse_pianowski_page(page, "u")
+        self.assertEqual(got["rows"][-1]["player_name"], "Hurt Star")  # last on the page
+        self.assertEqual(got["rows"][-1]["pos_rank"], 1)  # first by value
+        self.assertEqual(got["tiers"], 4)
+
+    def test_value_ranks_share_ties(self):
+        self.assertEqual(pull.value_ranks([5, 7, 7, 1]), [3, 1.5, 1.5, 4])
 
     def test_other_article_is_ignored_and_short_list_fails(self):
         self.assertIsNone(pull.parse_pianowski_page(yahoo_page().replace("rest-of-season", "week 9"), "u"))
