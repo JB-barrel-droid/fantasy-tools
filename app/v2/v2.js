@@ -5037,6 +5037,31 @@
     compareTeams.snapshot = null;
     compareTeams.editing = false;
   }
+  // JEG-1259: a trade that arrived with its own context (tc=, TradeValueTradeContext): its rosters, deal, settings, value
+  // basis, sources and bench level. While it is pending Compare prices exactly those rosters, or holds and says why;
+  // it never substitutes this reader's saved teams and never writes them. Choosing a team ends it.
+  let carriedTrade = null;    // {text, transfer} from the address
+  let compareCarried = null;  // receive()'s result for this render
+  function receiveCarried() {
+    if (!carriedTrade) return null;
+    const TC = window.TradeValueTradeContext;
+    const held = detail => ({status: "hold", reasons: [{code: "context-unreadable", where: "transfer", detail}]});
+    if (!TC) return held("this page cannot read a carried trade");
+    if (!carriedTrade.transfer) return held("the trade context in this link could not be read");
+    const t = carriedTrade.transfer;
+    const keys = TC.pricingKeys({mine: t.mine && t.mine.roster, theirs: t.theirs && t.theirs.roster, deal: t.deal});
+    const common = TC.commonFromPage({leagueQuery: leagueLinkParts().join("&"),
+      valueContext: window.DDFOverrides && window.DDFOverrides.snapshotContext ? window.DDFOverrides.snapshotContext() : null,
+      sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    try {
+      // Compare prices the modeled bench on this build; a trade priced at another level is held, never repriced here.
+      return TC.receive(t, {route: "compare", common, pricing: TC.modeledPricing(C, keys), ws: window.TradeValueWorkspace?.store?.get() || null});
+    } catch (error) { return held("the trade context in this link could not be read"); }
+  }
+  function carriedHoldText(result) {
+    const why = result.reasons.map(r => r.detail).filter(Boolean).slice(0, 3).join("; ");
+    return `This trade arrived with its own rosters and values, but this page would price it differently (${why}). Lineup changes are held; choose teams above to price it with this page's settings.`;
+  }
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
   // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
@@ -5059,6 +5084,19 @@
     const ws = store?.get();
     if (!ws) return {teams: [], mine: null, theirs: null, ready: false};
     const teams = ws.teams || [];
+    if (compareCarried && compareCarried.status === "hold") return {teams, mine: null, theirs: null, ready: false, held: compareCarried};
+    if (compareCarried && compareCarried.status === "ok") {
+      // The carried rosters are authoritative; a saved team they exactly match keeps its option in the pickers.
+      const shown = (team, side) => ({id: team.id || `carried-${side}`, name: team.name || (side === "mine" ? "Your team (from the link)" : "Their team (from the link)"),
+        entries: team.roster.map(e => ({...e})), carried: true});
+      const mine = shown(compareCarried.context.teams.mine, "mine");
+      const theirs = shown(compareCarried.context.teams.theirs, "theirs");
+      compareTeams.mineId = mine.id;
+      compareTeams.theirId = theirs.id;
+      const list = teams.map(t => (t.id === mine.id ? mine : t.id === theirs.id ? theirs : t));
+      [mine, theirs].forEach(t => { if (!list.includes(t)) list.push(t); });
+      return {teams: list, mine, theirs, ready: Boolean(mine.entries.length && theirs.entries.length), carried: compareCarried.context};
+    }
     if (!compareTeams.mineChosen && !compareTeams.mineId) compareTeams.mineId = ws.myTeamId || null;
     if (!compareTeams.theirChosen && !compareTeams.theirId)
       compareTeams.theirId = teams.find(t => t.id !== compareTeams.mineId && t.entries.length)?.id || null;
@@ -5104,6 +5142,16 @@
       });
       select.value = selected || "";
       select.addEventListener("change", () => {
+        if (carriedTrade) {
+          // Choosing a team ends the carried trade; the other side keeps the roster it showed only if it is a saved team.
+          const keep = id => (id && ctx.teams.some(t => t.id === id && !String(id).startsWith("carried-")) ? id : null);
+          compareTeams.mineId = keep(compareTeams.mineId);
+          compareTeams.theirId = keep(compareTeams.theirId);
+          compareTeams.mineChosen = Boolean(compareTeams.mineId);
+          compareTeams.theirChosen = Boolean(compareTeams.theirId);
+          carriedTrade = null;
+          compareCarried = null;
+        }
         if (side === "give") { compareTeams.mineId = select.value || null; compareTeams.mineChosen = true; }
         else { compareTeams.theirId = select.value || null; compareTeams.theirChosen = true; }
         TR.example = null;
@@ -5167,7 +5215,8 @@
     status.className = "v2-meta";
     status.id = "v2CRosterStatus";
     status.setAttribute("role", "status");
-    status.textContent = !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
+    status.textContent = ctx.held ? carriedHoldText(ctx.held)
+      : !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
       : !compareRosterMembership(ctx) ? "This trade includes players outside the selected rosters. Choose players from those rosters to see lineup changes."
       : "Select players from either roster below. Values and lineups update after each change.";
     const lists = document.createElement("div");
@@ -5216,11 +5265,12 @@
       lists.appendChild(section);
     });
     host.replaceChildren(intro, controls, actions, status, lists);
-    card.hidden = !ctx.teams.length;
+    card.hidden = !ctx.teams.length && !ctx.held;
   }
 
   function compareConstructionInput() {
     const ctx = compareRosterContext();
+    if (ctx.held) return {reason: carriedHoldText(ctx.held), held: true};
     if (!ctx.ready) return {reason: "Add both rosters in Your league to see starters, bench and open spots."};
     if (!compareRosterMembership(ctx)) return {reason: "Choose trade players from the selected rosters to see lineup changes."};
     if (!compareView.ready) return {reason: "Add a player to both sides to see how each roster changes."};
@@ -5242,6 +5292,9 @@
     const host = $("v2CConstructionBody");
     const input = compareConstructionInput();
     host.replaceChildren();
+    // JEG-1259 / JEG-1240: the bench level that priced these lineups (Compare prices the modeled bench on this build).
+    card.dataset.benchLevel = compareCarried && compareCarried.status === "ok" ? compareCarried.context.pricing.mode : "modeled";
+    card.dataset.carried = compareCarried ? compareCarried.status : "none";
     if (input.reason) {
       const note = document.createElement("p");
       note.className = "v2-meta";
@@ -5290,6 +5343,7 @@
 
   function collectCompare() {
     compareTierRows = null;
+    compareCarried = receiveCarried();
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
@@ -6209,9 +6263,18 @@
         else parts.push(`ov=${ov.ov}`);
       }
     }
+    // JEG-1259: a pending carried trade stays in the address (reload and share keep it), with this visit's deal.
+    if (carriedTrade) parts.push(`tc=${carriedTradeText()}`);
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
   let shareDroppedOverrides = false;
+  function carriedTradeText() {
+    const TC = window.TradeValueTradeContext;
+    if (!TC || !compareCarried || compareCarried.status !== "ok") return carriedTrade.text;
+    const deal = {give: TR.give.map(p => p.key).filter(Boolean), get: TR.receive.map(p => p.key).filter(Boolean)};
+    try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, {deal}))); }
+    catch (error) { return carriedTrade.text; }
+  }
   // Apply a link's scoring and roster when they differ from the reader's; say so.
   function applyLinkLeague(params) {
     const scoring = params.get("scoring");
@@ -6310,7 +6373,12 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
-    if (base === "#compare-trade") endCompareEdit();
+    if (base === "#compare-trade") {
+      endCompareEdit();
+      const text = params.get("tc");
+      carriedTrade = text ? {text, transfer: window.TradeValueTradeContext ? window.TradeValueTradeContext.decodeTransfer(text) : null} : null;
+      compareCarried = null;
+    }
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
     // Apply value context before the shared reader resolves rows and starts the finder.

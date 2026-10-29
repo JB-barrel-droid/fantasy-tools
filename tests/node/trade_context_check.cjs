@@ -599,6 +599,55 @@ test("a page that cannot reproduce the trade holds it with the reason, never rep
   const unpriced = T.toTransfer(T.fromLeague({...env(), deal}, workspace()));
   holdOnly(T.receive(unpriced, {route: "compare", common: common(), pricing: levelsFor("league", A, B, deal)}), "level-missing");
 });
+test("another workspace with the same league under other IDs shows the reader's own team only on an exact roster match", () => {
+  const {ctx} = origin(deal);
+  const mineRoster = ctx.teams.mine.roster;
+  const partnerRoster = T.dealPartner(ctx).roster;
+  let reader = W.newWorkspace({id: "reader", name: "Same league", now: 5});
+  reader = W.ops.addTeam(reader, "My team", {id: "rA", entries: mineRoster.slice().reverse(), now: 5, mine: true});
+  reader = W.ops.addTeam(reader, "Bravo here", {id: "rB", entries: partnerRoster, now: 5});
+  const before = JSON.stringify(reader);
+  const got = arrive(T.toTransfer(ctx), {ws: reader});
+  assert.equal(got.status, "ok", JSON.stringify(got.reasons));
+  assert.deepEqual([got.context.teams.mine.id, got.context.teams.theirs.id], ["rA", "rB"], "matched by players, not by the sender's IDs");
+  assert.deepEqual([got.context.teams.mine.matchesSaved, got.context.teams.mine.name], [true, "My team"]);
+  assert.deepEqual([got.context.origin.mineId, got.context.origin.theirId, got.context.origin.sameWorkspace], ["tA", "tB", false]);
+  assert.deepEqual(readout(got.context, "league"), GOLDEN_1_FOR_1);
+  assert.equal(T.cacheKey(got.context, "readout"), T.cacheKey(ctx, "readout"));
+  ["mine", "theirs", "league", "basis", "overrides"].forEach(part => assert.equal(T.maySave(got.context, part), false, part));
+  assert.equal(JSON.stringify(reader), before);
+  // Two reader teams with those players, or one with an extra player: no unique exact match, so a link roster.
+  const twice = W.ops.addTeam(reader, "Copy", {id: "rC", entries: partnerRoster, now: 6});
+  assert.equal(arrive(T.toTransfer(ctx), {ws: twice}).context.teams.theirs.id, null);
+  let extra = W.newWorkspace({id: "reader2", name: "Other", now: 5});
+  extra = W.ops.addTeam(extra, "Bravo plus", {id: "rB", entries: partnerRoster.concat([entry("299", "Extra", "TE")]), now: 5});
+  const plus = arrive(T.toTransfer(ctx), {ws: extra});
+  assert.deepEqual([plus.context.teams.theirs.id, plus.context.teams.theirs.provenance], [null, "link"]);
+  assert.deepEqual(plus.context.teams.theirs.roster, partnerRoster);
+});
+test("page adapters read the engine's source list and modeled bench exactly", () => {
+  const info = [{key: "fantasycalc", week: 9, stale: false, available: true, unavailable: false, paused: false},
+    {key: "espn", week: "8", stale: true, available: true, unavailable: false},
+    {key: "cbs", week: null, available: true, unavailable: true},
+    {key: "usatoday", available: false},
+    {key: "Bad Key!", available: true}];
+  assert.deepEqual(T.sourcesFromEngine(info), {fantasycalc: {available: true, held: false, version: "9"},
+    espn: {available: true, held: false, version: "8 stale"}, cbs: {available: false, held: false, version: null},
+    usatoday: {available: false, held: false, version: null}});
+  const common = T.normalizeCommon({sources: T.sourcesFromEngine(info)});
+  assert.deepEqual(Object.keys(common.sources).map(k => [k, common.sources[k].status]),
+    [["cbs", "unavailable"], ["espn", "available"], ["fantasycalc", "available"], ["usatoday", "unavailable"]]);
+  assert.deepEqual(T.sourcesFromEngine(null), {});
+  assert.equal(T.modeledPricing(null, ["1"]), null);
+  const rows = LEVEL_ROWS.modeled(A.concat(B));
+  const engine = readout => ({getAllRows: () => rows, getAdjustmentWeights: () => ({allocation: ALLOCATION, cells: []}), getBenchShareReadout: () => readout});
+  const keys = T.pricingKeys({mine: A, theirs: B, deal});
+  const priced = T.modeledPricing(engine(WEIGHTS), keys);
+  assert.deepEqual(priced.levels.modeled, T.levelIdentity("modeled", {rows, allocation: ALLOCATION, weights: WEIGHTS, keys}));
+  assert.equal(T.normalizePricing(priced, []).mode, "modeled");
+  assert.notEqual(T.modeledPricing(engine({...WEIGHTS, overall: 0.5}), keys).levels.modeled.weights, priced.levels.modeled.weights);
+  assert.deepEqual(T.modeledPricing({getAllRows: () => rows}, keys).levels.modeled.allocation, null);
+});
 test("the bench level and its rows are part of every cache key", () => {
   const {ctx} = origin(deal);
   const modeled = T.withChanges(ctx, {pricing: levelsFor("modeled", A, B, deal)});
