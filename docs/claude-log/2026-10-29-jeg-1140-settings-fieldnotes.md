@@ -38,3 +38,12 @@ New files:
   link through the existing controls.
 - Held for after JEG-1137 lands (its owner on Jeremy's Mac): the Settings route and nav entry in `shell.html`/`v2.js`, the
   appearance toggle and "View settings" button, and any shared-control hunk.
+
+### Follow-up: first CI run (settings-render, head 4d96d1b)
+
+- Verified from the CI log: the keyboard/focus and section-link harness tests passed; the node checks passed (14).
+- Red, fixed: the Copy link button's name "Copy league link" did not contain its visible label "Copy link" (WCAG 2.5.3),
+  in every state and width. Renamed to "Copy link to this league"; a node assertion that every action name starts with its
+  label now fails on the old name (checked) and passes.
+- Red, fixed (test scaffolding): the built-page tests mounted their host as a direct child of body, which v2.css hides
+  (`body.v2 > :not(.v2-app)`), so no button was visible. The host now goes inside `.v2-app`. Not confirmed until CI reruns.

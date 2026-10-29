@@ -68,6 +68,9 @@ class ViewModel(unittest.TestCase):
         self.assertEqual(actions(vm["overrides"]), {"openOverrides": True, "exportOverrides": True, "importOverrides": True})
         self.assertIn("Sample data", vm["fixture"])
         self.assertIsNone(vm["saved"]["warning"])
+        # Label in name (WCAG 2.5.3): a spoken "Copy link" must reach the button, so each name starts with its label.
+        for a in vm["saved"]["actions"] + vm["overrides"]["actions"]:
+            self.assertTrue(a.get("name", a["text"]).startswith(a["text"]), a)
 
     def test_custom_basis_and_one_override(self):
         vm = results()["vm"]["custom_basis"]

@@ -50,7 +50,7 @@
       full: "This device's storage is full. Export your league to keep a copy, then clear old data."
     },
     exportLabel: "Export", importLabel: "Import", linkLabel: "Copy link",
-    exportName: "Export league", importName: "Import league", linkName: "Copy league link",
+    exportName: "Export league", importName: "Import league", linkName: "Copy link to this league",
     exportHelp: "Export saves a file with every team, roster and your current league settings. Import opens that file on another device; if a league is already saved here, you choose whether to replace it.",
     linkHelp: "Copy a link that opens the league rosters and current league settings on another device. If the league is too large for a link, only your marked team travels; Export always keeps every team.",
     linkTools: "A compatible chatbot with DDF connected can read supported state fields; a plain URL does not connect tools.",

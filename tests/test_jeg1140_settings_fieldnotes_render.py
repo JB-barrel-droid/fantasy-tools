@@ -289,7 +289,8 @@ class SettingsLivePageRenderTest(unittest.TestCase):
         page.add_script_tag(content=(APP / "settings-fieldnotes.js").read_text(encoding="utf-8"))
         page.evaluate("""() => { const host = document.createElement('div'); host.id = 'sfLive';
           host.style.cssText = 'position:fixed;inset:0;overflow:auto;z-index:99999;background:var(--ddf-canvas)';
-          document.body.append(host); const a = TradeValueSettingsFieldnotes.liveAdapter(window);
+          // body.v2 hides every direct child but .v2-app (v2.css), so the host goes inside it.
+          (document.querySelector('.v2-app') || document.body).append(host); const a = TradeValueSettingsFieldnotes.liveAdapter(window);
           window.__sfLive = TradeValueSettingsFieldnotes.mount(host, a); window.__sfAdapter = a; }""")
         self.addCleanup(context.close)
         self.addCleanup(lambda: self.assertEqual([e for e in errors if "ResizeObserver" not in e], [], "page errors"))
