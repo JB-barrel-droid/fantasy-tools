@@ -172,15 +172,13 @@ class AiConnectionPanelRenderTest(unittest.TestCase):
     def test_keyboard_order_and_copy_success(self):
         for width in WIDTHS:
             with self.subTest(width=width):
-                page = self.open(ctx_for("ready"), width)
+                errors = []
+                page = self.open(ctx_for("ready"), width, errors=errors)
                 seen = []
-                for _ in range(6):
+                for _ in range(2):
                     page.keyboard.press("Tab")
-                    seen.append(page.evaluate("document.activeElement.id"))
-                self.assertEqual(seen[:2], ["aipConnect", "aipCopy"], "Tab reaches Connect, then Copy link")
-                ring = page.evaluate("getComputedStyle(document.activeElement).outlineStyle")
-                self.assertEqual(ring, "solid", "focused control shows a ring")
-                page.focus("#aipCopy")
+                    seen.append(page.evaluate("[document.activeElement.id, getComputedStyle(document.activeElement).outlineStyle]"))
+                self.assertEqual(seen, [["aipConnect", "solid"], ["aipCopy", "solid"]], "Tab reaches Connect, then Copy link, each with a ring")
                 page.keyboard.press("Enter")
                 page.wait_for_selector("#v2AiPanel[data-copy=copied]")
                 self.assertEqual(page.evaluate("window.__aipClip"), [FIXTURE["link"]])
@@ -189,6 +187,7 @@ class AiConnectionPanelRenderTest(unittest.TestCase):
                 self.assertEqual(page.evaluate("document.activeElement.id"), "aipCopy", "focus stays on Copy link")
                 self.assertEqual(page.locator("#aipLinkText").count(), 0)
                 self.shot(page, f"copied-{width}")
+                self.assertEqual(errors, [])
                 self.assertEqual(page.evaluate("window.__aipWrites"), [])
                 page.context.close()
 
@@ -196,7 +195,8 @@ class AiConnectionPanelRenderTest(unittest.TestCase):
         for width in WIDTHS:
             for name, fails in (("ready", True), ("clipboard-off", False)):
                 with self.subTest(width=width, state=name):
-                    page = self.open(ctx_for(name), width, clip_fails=fails)
+                    errors = []
+                    page = self.open(ctx_for(name), width, clip_fails=fails, errors=errors)
                     if name == "clipboard-off":
                         self.assertEqual(page.inner_text("#aipCopy"), "Show the link to copy")
                     page.click("#aipCopy")
@@ -210,12 +210,14 @@ class AiConnectionPanelRenderTest(unittest.TestCase):
                     self.assert_layout(page, f"failed-{name}@{width}")
                     if name == "ready":
                         self.shot(page, f"copy-failed-{width}")
+                    self.assertEqual(errors, [])
                     page.context.close()
 
     def test_new_view_clears_the_result(self):
         page = self.open(ctx_for("ready"), 390)
         page.click("#aipCopy")
         page.wait_for_selector("#v2AiPanel[data-copy=copied]")
+        self.assertEqual(page.inner_text(".aip-live"), "Copied the link.")
         page.evaluate("location.hash = '#trade-targets'")
         page.wait_for_selector("#v2AiPanel[data-copy=idle]")
         self.assertEqual(page.inner_text(".aip-live"), "")

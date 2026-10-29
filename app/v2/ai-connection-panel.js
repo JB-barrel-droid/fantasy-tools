@@ -227,7 +227,8 @@
     let last = null;
     function update(copy) {
       last = copy || null;
-      const vm = render(container, viewModel(o.getContext(), last));
+      const vm = viewModel(o.getContext(), last);
+      render(container, vm);
       container.append(live);
       return vm;
     }
