@@ -1,6 +1,6 @@
 {
   "ticket": "JEG-1279",
-  "about": "Each mutant of tests/test_waivers_render.py::test_guard_fails_on_broken_builds (mirrored; tests/test_waivers_mutation_specificity.py compares them with the suite's source), the diagnostic its own check must report (regex, whole line after the [Npx] tag, at every width listed), the consequences of the same breakage that may also appear (each with a reason), and the verdict expected at audited main 430791c4. A designated or consequence pattern never accounts for a page error.",
+  "about": "Each mutant of tests/test_waivers_render.py::test_guard_fails_on_broken_builds (mirrored; tests/test_waivers_mutation_specificity.py compares them with the suite's source), the diagnostic its own check must report (regex, whole line after the [Npx] tag, at every width listed), the consequences of the same breakage that may also appear (each with a reason), and the verdict expected at audited main 430791c4. An entry with `values` also requires its `values` group to be in that order (a sort diagnostic's numbers). A designated or consequence pattern never accounts for a page error.",
   "viewports": [
     [
       1366,
@@ -63,8 +63,8 @@
           "widths": [
             390
           ],
-          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[(?:\"button#\\. '[^'\"]+' \\d+x\\d+\"(?:, )?)+\\]",
-          "why": "the table's header sort buttons (no id, no class, 32 px tall) become visible at phone width; only those may be listed"
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[\"button#\\. '(?:Candidate|DDF Value|Value above waivers|Market value|Starter change|Bench change|Verdict)' \\d+x32\"(?:, \"button#\\. '(?:Candidate|DDF Value|Value above waivers|Market value|Starter change|Bench change|Verdict)' \\d+x32\")*\\]",
+          "why": "the table's sortable header buttons (no id or class, the 32 px min-height of `thead th button`) become visible at phone width; only those labels at that height may be listed, so a search-result button or another small control stays a harness failure"
         }
       ],
       "expect": {
@@ -100,13 +100,15 @@
           "widths": [
             1366
           ],
-          "pattern": "DDF Value descending, dashes last: \\[None, .*\\]"
+          "pattern": "DDF Value descending, dashes last: (?P<values>\\[.*\\])",
+          "values": "descending, dashes first"
         },
         {
           "widths": [
             1366
           ],
-          "pattern": "DDF Value ascending, dashes last: \\[\\['ddf', 'ascending'\\]\\] \\[None, .*\\]"
+          "pattern": "DDF Value ascending, dashes last: \\[\\['ddf', 'ascending'\\]\\] (?P<values>\\[.*\\])",
+          "values": "ascending, dashes first"
         }
       ],
       "expect": {
@@ -155,7 +157,7 @@
           "widths": [
             390
           ],
-          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[(?:\"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\"(?:, )?)+\\]"
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[\"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\"(?:, \"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\")*\\]"
         }
       ],
       "expect": {
@@ -204,8 +206,9 @@
           "widths": [
             1366
           ],
-          "pattern": "DDF Value ascending, dashes last: \\[\\] \\[.*\\]",
-          "why": "the ascending check also compares aria-sort, which is still missing after the second click"
+          "pattern": "DDF Value ascending, dashes last: \\[\\] (?P<values>\\[.*\\])",
+          "why": "the ascending check also compares aria-sort, which is still missing after the second click; the values themselves must still be ascending with dashes last",
+          "values": "ascending, dashes last"
         }
       ],
       "expect": {

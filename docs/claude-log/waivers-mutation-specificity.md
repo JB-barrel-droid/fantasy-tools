@@ -69,8 +69,9 @@ Each is also called caught by the old rule.
 Verified (2026-10-29, macOS, Python 3.12, Playwright 1.63 driving Google Chrome; base 430791c4):
 
 - `CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" RENDER_TESTS_REQUIRED=1 python -m unittest -v tests.test_waivers_mutation_specificity`:
-  24 tests OK, 0 skipped, 320 s. That is 18 offline tests and 6 Chromium tests (the baseline, the mutants plus the restored
-  control, and the four injections).
+  24 tests OK, 0 skipped, 320 s, on b962c417. That is 18 offline tests and 6 Chromium tests (the baseline, the mutants plus the
+  restored control, and the four injections). After the Codex round-1 fix: 26 OK (20 offline, 6 Chromium), 0 skipped, 309 s,
+  with the same verdict for every mutant.
 - `RENDER_TESTS_REQUIRED=1 python -m unittest -v tests.test_waivers_render`, unchanged: 2 tests OK, 211 s. Its guard calls all
   eight caught, including the two harness kills above.
 - Ad hoc, not committed: a fixture anchor with one extra space fails
@@ -80,6 +81,23 @@ Verified (2026-10-29, macOS, Python 3.12, Playwright 1.63 driving Google Chrome;
   mutant run (asserted in the test).
 
 Assumed: the result on CI's bundled Chromium matches, since nothing in the classification depends on the browser build.
+
+### Codex review, round 1 (PR #1144, two P2 findings on b962c417), both fixed on this branch
+- **The card-layout consequence accepted any unclassed button.** Search-result buttons have no id or class either
+  (`waivers.js:614`), so `"button#. 'Saquon Barkley · RB' 100x20"` passed as part of the table showing on phones. The pattern
+  now lists only the seven sortable header labels at the 32 px `min-height` of `thead th button`, in proper list form. The
+  Remove-button designation gets the same list form.
+- **The aria-sort variant's sort consequence accepted unsorted numbers.** `DDF Value ascending, dashes last: [] [3.0, 1.0, 2.0,
+  None]` counted as a consequence of the missing aria-sort. An entry can now name a `values` order. The classifier
+  `literal_eval`s the `(?P<values>...)` group and requires real numbers in that order, with at least one dash on the named side.
+  The variant's consequence requires ascending with dashes last. "dashes sorted first" now requires dashes first with the
+  numbers correctly sorted, so a second broken sort on top of it is a harness failure.
+
+Failing before, passing after:
+- `FixtureOfflineTests.test_card_layout_consequence_lists_only_the_header_sort_buttons` and
+  `test_sort_consequence_and_designations_need_a_correctly_ordered_payload` are new. They failed on b962c417 (10 sub-cases
+  `killed` where `harness` is wanted, including both of Codex's examples) and pass after the fix. The observed Chromium lines
+  are still `killed`.
 
 ### Proposed wiring (Codex owns the Makefile; not edited here)
 In `test-unit-modules`, after `python3 -m unittest tests.test_waivers_render`:

@@ -98,6 +98,38 @@ def legacy_caught(outcome: Outcome) -> bool:
     return errors != []
 
 
+def _in_order(reverse: bool, dashes: str):
+    def check(values: list) -> bool:
+        real = [v for v in values if v is not None]
+        dash = [None] * (len(values) - len(real))
+        ordered = sorted(real, reverse=reverse)
+        return bool(real) and bool(dash) and values == (dash + ordered if dashes == "first" else ordered + dash)
+    return check
+
+
+# A sort diagnostic carries the column's values; the regex cannot say they are in order, so an entry with "values" names
+# the order its `values` group must be in (Codex review on #1144: a broken numeric sort is a second failure, not a consequence).
+ORDERS = {"ascending, dashes last": _in_order(False, "last"), "ascending, dashes first": _in_order(False, "first"),
+          "descending, dashes first": _in_order(True, "first")}
+
+
+def _rule(entry: dict):
+    return frozenset(entry["widths"]), re.compile(entry["pattern"], re.S), ORDERS[entry["values"]] if "values" in entry else None
+
+
+def _accepts(rule, width: int, message: str) -> bool:
+    widths, pattern, order = rule
+    match = pattern.fullmatch(message) if width in widths else None
+    if not match or order is None:
+        return bool(match)
+    try:
+        values = ast.literal_eval(match["values"])
+    except (ValueError, SyntaxError):
+        return False
+    numbers = isinstance(values, list) and all(v is None or (isinstance(v, (int, float)) and not isinstance(v, bool)) for v in values)
+    return numbers and order(values)
+
+
 def classify(outcome: Outcome, designation: dict) -> Verdict:
     """KILLED only for a completed run whose every line is the mutant's designated diagnostic or a listed consequence of it,
     with the designated diagnostic present at every width it names."""
@@ -105,8 +137,8 @@ def classify(outcome: Outcome, designation: dict) -> Verdict:
         return Verdict(HARNESS, (f"run raised {type(outcome.exception).__name__}: {str(outcome.exception)[:200]}",))
     if not outcome.errors:
         return Verdict(SURVIVED)
-    designated = [(frozenset(d["widths"]), re.compile(d["pattern"], re.S)) for d in designation["designated"]]
-    consequences = [(frozenset(c["widths"]), re.compile(c["pattern"], re.S)) for c in designation.get("consequences", [])]
+    designated = [_rule(d) for d in designation["designated"]]
+    consequences = [_rule(c) for c in designation.get("consequences", [])]
     fired, stray = set(), []
     for line in outcome.errors:
         tagged = TAGGED.fullmatch(line)
@@ -117,13 +149,13 @@ def classify(outcome: Outcome, designation: dict) -> Verdict:
         if message.startswith("page errors "):   # never a designated behaviour, whatever a pattern says
             stray.append(line)
             continue
-        hits = {(i, width) for i, (widths, pattern) in enumerate(designated) if width in widths and pattern.fullmatch(message)}
+        hits = {(i, width) for i, rule in enumerate(designated) if _accepts(rule, width, message)}
         fired |= hits
-        if not hits and not any(width in widths and pattern.fullmatch(message) for widths, pattern in consequences):
+        if not hits and not any(_accepts(rule, width, message) for rule in consequences):
             stray.append(line)
     if stray:
         return Verdict(HARNESS, tuple(stray))
-    missing = [f"[{w}px] {designation['designated'][i]['pattern']}" for i, (widths, _) in enumerate(designated) for w in sorted(widths)
+    missing = [f"[{w}px] {designation['designated'][i]['pattern']}" for i, (widths, _, _) in enumerate(designated) for w in sorted(widths)
                if (i, w) not in fired]
     if missing:
         return Verdict(UNSPECIFIC, tuple(f"designated diagnostic did not fire: {m}" for m in missing))
@@ -186,8 +218,8 @@ def mutant_overrides(names, fixture=None, append: str = "") -> dict:
 
 def only_designated(outcome: Outcome, designation: dict) -> Outcome:
     """The same run with every line the designation does not name removed: what is left is the designated evidence alone."""
-    patterns = [re.compile(d["pattern"], re.S) for d in designation["designated"]]
-    keep = tuple(line for line in outcome.errors if (t := TAGGED.fullmatch(line)) and any(p.fullmatch(t[2]) for p in patterns))
+    rules = [_rule(d) for d in designation["designated"]]
+    keep = tuple(line for line in outcome.errors if (t := TAGGED.fullmatch(line)) and any(_accepts(r, int(t[1]), t[2]) for r in rules))
     return Outcome(errors=keep)
 
 
@@ -313,6 +345,45 @@ class FixtureOfflineTests(unittest.TestCase):
                 self.assertEqual({k: entry[k] for k in ("file", "find", "replace")}, {k: fixture[name][k] for k in ("file", "find", "replace")})
                 self.assertEqual(KINDS[entry["file"]], entry["kind"])
 
+    # Codex review on #1144: a consequence must not launder an unrelated failure that shares its diagnostic.
+    HEADERS_390 = ("[390px] controls under 44 px on the Waivers tab (68 checked): [\"button#. 'Candidate' 73x32\", \"button#. 'DDF Value' 73x32\", "
+                   "\"button#. 'Value above waivers' 134x32\", \"button#. 'Market value' 89x32\", \"button#. 'Starter change' 101x32\", "
+                   "\"button#. 'Bench change' 97x32\"]")   # as observed in Chromium at 430791c4
+
+    def test_card_layout_consequence_lists_only_the_header_sort_buttons(self):
+        m = load_fixture()["mutants"]["no card layout"]
+        layout = ("[390px] phone layout: table True cards True count 10", "[390px] sideways scroll 398px")
+        self.assertEqual(KILLED, classify(Outcome(errors=layout + (self.HEADERS_390,)), m).kind)
+        unrelated = {
+            "a search-result button (no id or class either)": "[\"button#. 'Saquon Barkley · RB' 100x20\"]",
+            "header buttons plus a search-result button": "[\"button#. 'Candidate' 73x32\", \"button#. 'Saquon Barkley · RB' 100x20\"]",
+            "a header button that is not the 32 px header": "[\"button#. 'Candidate' 73x20\"]",
+            "an unsortable column's label": "[\"button#. 'Reason' 73x32\"]",
+            "items run together": "[\"button#. 'Candidate' 73x32\"\"button#. 'DDF Value' 73x32\"]",
+        }
+        for case, listed in unrelated.items():
+            with self.subTest(case=case):
+                line = f"[390px] controls under 44 px on the Waivers tab (68 checked): {listed}"
+                self.assertEqual(HARNESS, classify(Outcome(errors=layout + (line,)), m).kind)
+
+    def test_sort_consequence_and_designations_need_a_correctly_ordered_payload(self):
+        fixture = load_fixture()
+        variant = fixture["variants"]["no aria-sort, whole statement"]
+        observed = ("[1366px] aria-sort after one click: []",
+                    "[1366px] DDF Value ascending, dashes last: [] [0.0, 13.9, 16.1, 17.3, 26.5, 30.6, 30.6, 32.6, 34.1, None]")
+        self.assertEqual(KILLED, classify(Outcome(errors=observed), variant).kind)
+        for case, values in {"numbers out of order": "[3.0, 1.0, 2.0, None]", "dashes first": "[None, 1.0, 2.0]",
+                             "no dash": "[1.0, 2.0]", "not a list of numbers": "[1.0, 'x', None]"}.items():
+            with self.subTest(variant=case):
+                broken = observed[:1] + (f"[1366px] DDF Value ascending, dashes last: [] {values}",)
+                self.assertEqual(HARNESS, classify(Outcome(errors=broken), variant).kind)
+        dashes = fixture["mutants"]["dashes sorted first"]
+        observed = ("[1366px] DDF Value descending, dashes last: [None, 34.1, 32.6, 30.6, 30.6, 26.5, 17.3, 16.1, 13.9, 0.0]",
+                    "[1366px] DDF Value ascending, dashes last: [['ddf', 'ascending']] [None, 0.0, 13.9, 16.1, 17.3, 26.5, 30.6, 30.6, 32.6, 34.1]")
+        self.assertEqual(KILLED, classify(Outcome(errors=observed), dashes).kind)
+        unsorted = ("[1366px] DDF Value descending, dashes last: [None, 13.9, 34.1, 0.0]",) + observed[1:]
+        self.assertEqual(HARNESS, classify(Outcome(errors=unsorted), dashes).kind, "dashes first plus a broken numeric sort is two failures")
+
     def test_suite_table_reader_rejects_a_changed_shape(self):
         with tempfile.TemporaryDirectory() as tmp:
             changed = Path(tmp) / "test_changed.py"
@@ -328,8 +399,11 @@ class FixtureOfflineTests(unittest.TestCase):
                 self.assertTrue(m["designated"], "no designated diagnostic")
                 for entry in m["designated"] + m.get("consequences", []):
                     self.assertTrue(entry["widths"] and set(entry["widths"]) <= widths, f"widths {entry['widths']} not all in {sorted(widths)}")
-                    re.compile(entry["pattern"])
+                    compiled = re.compile(entry["pattern"])
                     self.assertIsNone(re.fullmatch(entry["pattern"], "page errors ['Error: boom']", re.S), "a pattern that matches a page error")
+                    if "values" in entry:
+                        self.assertIn(entry["values"], ORDERS)
+                        self.assertIn("values", compiled.groupindex, "an ordered entry needs a (?P<values>...) group")
                 for c in m.get("consequences", []):
                     self.assertTrue(c.get("why"), f"consequence {c['pattern']!r} has no reason")
 
