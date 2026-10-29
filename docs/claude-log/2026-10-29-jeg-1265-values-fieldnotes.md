@@ -1,0 +1,82 @@
+## 2026-10-29 - Values page Fieldnotes presentation, isolated component (JEG-1265, part of JEG-1192)
+
+Contract: build the Values page (Value chart) table and controls in the Fieldnotes direction as an isolated component with
+current-contract fixtures and parity tests, without touching v2.js, v2.css, league.js, the engine, the Makefile, shared
+tokens or navigation. Runtime integration waits on JEG-1137 and goes to its owner as the plan below.
+
+New paths (nothing loaded by the page):
+- `app/v2/values-fieldnotes.js`: `sortRows` / `nextSort` / `ariaSort` (copies of the page's sort contract), pure `viewModel(ctx)`,
+  `render`, `mount` with focus kept across re-renders. States: loading, unavailable, mixed (weekly beside rest of season is
+  withheld), empty, ready.
+- `app/v2/values-fieldnotes.css`: scoped to `.values-fieldnotes`; only shared `--ddf-*` / `--v2-*` tokens and the shared type
+  scale; warm paper is the existing `:root[data-canvas="paper"]` opt-in. Table at 720px and up, one card per player below,
+  every other value behind an "All values" disclosure, grouped as the table is.
+- `tests/fixtures/values-fieldnotes/synthetic-values.json`: 30 labelled synthetic players; populated, a finite 0, missing
+  cells with reasons, an unavailable source column, a long name, cell notes. No source dates or freshness.
+- `tests/values_fieldnotes_harness.cjs` + `tests/test_jeg1265_values_fieldnotes.py`: parity and state checks, 18 mutation proofs.
+- `tests/test_jeg1265_values_fieldnotes_render.py`: real browser at 1280, 390, 320 on a private harness page with a mocked
+  controller (test scaffolding, not the live hookup).
+- `.github/workflows/jeg1265-values-fieldnotes.yml` (+ one `unmonitored_workflows` line in `config/monitoring_coverage.json`):
+  runs both tests on PRs touching these paths and keeps the screenshots as a run artifact.
+
+What is reused, not redefined: number format is v2.js `fmt()`; sort is v2.js `sortedRows()` and its header click rule; group
+order and labels are `TABLE_GROUPS`; group notes are `SERIES_GROUPS` notes; source kinds come from `source-views.js`
+(JEG-1212). The page keeps filtering (`view.visible`), the Rank by choice, value basis, Show, value range and every state.
+The existing chart card is unchanged and stays where it is (pick logged in the picks log).
+
+### Verified (check named)
+- `python3 -m unittest -v tests.test_jeg1265_values_fieldnotes` (cloud session): 3 tests OK; harness 17/17 checks pass,
+  including fmt, sortedRows (every column, both directions, rank-order and reversed input), header click and aria-sort read
+  out of v2.js itself; all 18 mutations are caught by the named check.
+- `tests.test_monitoring_coverage tests.test_vintage_trigger tests.test_workflow_script_paths tests.test_ci_speedup_workflows
+  tests.test_deploy_gate_unconditional tests.test_launch_copy_guard tests.test_v2_copy_names tests.test_v2_tokens`: OK with the
+  new workflow and files.
+- jsdom smoke (scratch, not committed): mount, sort keeps focus, search keeps focus, empty then Clear returns focus to the
+  title, position filter, Rank by, Show more, Details callback, missing reason and 0.0, loading / unavailable / mixed.
+
+### Claimed, not confirmed
+- The render test was not run in this session: the cloud container has no browser and browser downloads are disabled
+  here. It runs in the new workflow with `RENDER_TESTS_REQUIRED=1`; its result and screenshots are on the PR and the ticket.
+- `make validate` and the contract render test were not run; no loaded file changed.
+
+## Integration plan for the JEG-1137 owner (not applied here)
+
+1. `shell.html`: add `<link rel="stylesheet" href="v2/values-fieldnotes.css">` after `v2.css`, and
+   `<script src="v2/values-fieldnotes.js"></script>` after `source-views.js` and before `v2.js`. Add
+   `<main class="v2-wrap" id="v2ValuesFieldnotes" hidden aria-labelledby="vfTitle"></main>` beside `#v2Main`.
+2. Build registration: list both files wherever the sync / Pages build copies `app/v2` assets (`make sync`), if it lists files.
+3. `v2.js`, one hunk beside `renderTable()` (hot file, one ticket at a time). The context is read from what the page already has:
+   ```js
+   function valuesFieldnotesContext() {
+     if (!view) return {status: "loading"};
+     const cols = tableColumns();
+     return {status: "ready", title: "Value chart", lede: $("v2ValueLine").textContent,
+       settings: /* the league settings line the page already shows */, basis: {label: /* basis name */, text: $("v2Main").querySelector("[data-basis-ours]").textContent},
+       rankKey: view.rankKey, rankOptions: /* the entries renderSeriesPicker gets, with groupSeriesName labels */,
+       groups: TABLE_GROUPS.map(([id, label]) => ({id, label, note: (SERIES_GROUPS.find(g => g.id === ({projections: "proj", published: "pub"}[id] || id)) || {}).note || ""})),
+       columns: cols.map(col => ({id: col.id, label: col.source ? (PLAIN_NAMES[sourceMeta(col.source).publisher] || col.label) : col.label,
+         method: col.source ? METHOD_LABEL[sourceMeta(col.source).method] || "" : col.id === "spread" ? "of our values" : "",
+         kind: col.id === "rank" ? "rank" : col.id === "name" ? "name" : col.id === "spread" ? "spread" : col.source ? "value" : "meta",
+         text: Boolean(col.text), order: Boolean(col.order), source: col.source || null, group: col.group || null,
+         unavailable: col.source && view.infoByKey[col.source] && !view.infoByKey[col.source].available ? missingReason(col.source, null) : null})),
+       rows: view.visible.map(row => ({player_key: row.player_key, rank: row.rank, name: row.name, pos: row.pos, team: row.team,
+         tier: valuesTier(row), tierOrder: TIER_ORDER[tierFor(row, view.rankKey, view.tierScope)] ?? 3, values: row.values,
+         spread: /* the spread column's get(row) */, reasons: /* missingReason(key, row) for each missing cell, plus the spread reason */,
+         notes: /* the badge texts appendLowConfidence / appendOverrideFlag already add */})),
+       sort: state.sort, shown: state.shown, window: state.window, filters: {search: state.search, position: $("v2Position").value},
+       positions: [...$("v2Position").options].map(o => ({value: o.value, label: o.textContent}))};
+   }
+   ```
+   Mount once with `on`: `sort: next => { state.sort = next; render(); }`, `filter: change => ` the existing search /
+   position handlers, `rankBy:` the existing Rank by change handler, `showMore:` the existing Show more handler,
+   `open: key => openDrawer(view.visible.find(r => String(r.player_key) === key))`, `clear:` the existing Clear all filters.
+   Call `handle.update()` wherever `renderTable()` is called. Horizon: pass `horizon` per column only once weekly values
+   appear on this page; until then leave it unset.
+4. Rollout switch: show `#v2ValuesFieldnotes` in place of the toolbar and table card behind the JEG-1209 private-preview
+   gate only; public rollout waits on the JEG-1209 design review and copy gates. Keep the chart card, its brushes and the
+   drawer as they are.
+5. Tokens: when JEG-1137 adds a shared headline (serif) token, replace the local `--vf-serif` stack with it. No other
+   token is defined locally.
+6. Gate: `tests.test_jeg1265_values_fieldnotes` stays as is; turn `test_page_does_not_load_it_yet` into a check that the
+   page loads it, and add a contract render test on the real page comparing the component's cells to `#v2Table` cell text
+   for the default and one sorted state.

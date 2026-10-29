@@ -1,0 +1,946 @@
+{
+ "fixture": {
+  "kind": "synthetic",
+  "label": "Made-up players and values to check the layout. Not your league and not live values; no source dates are shown."
+ },
+ "status": "ready",
+ "title": "Value chart",
+ "lede": "Trade values for every player, tuned to your league",
+ "settings": "Full PPR · 12 teams · 1 QB",
+ "basis": {
+  "label": "DDF default",
+  "text": "the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged"
+ },
+ "rankKey": "ddf_value",
+ "rankOptions": [
+  {
+   "key": "ddf_value",
+   "label": "★ DDF Value",
+   "group": "ddf"
+  },
+  {
+   "key": "ddf_value_projections",
+   "label": "✦ DDF Value (projections)",
+   "group": "ddf"
+  },
+  {
+   "key": "espn",
+   "label": "ESPN projection",
+   "group": "projections"
+  },
+  {
+   "key": "cbsros",
+   "label": "CBS rest of season projection",
+   "group": "projections",
+   "reason": "Unavailable right now"
+  },
+  {
+   "key": "usatoday",
+   "label": "USA Today chart (rescaled)",
+   "group": "published"
+  },
+  {
+   "key": "fantasycalc",
+   "label": "FantasyCalc observed-trade estimate (rescaled)",
+   "group": "observed"
+  }
+ ],
+ "groups": [
+  {
+   "id": "ddf",
+   "label": "DDF Value",
+   "note": "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+  },
+  {
+   "id": "projections",
+   "label": "Projections",
+   "note": "What players are projected to score, turned into trade value for your league."
+  },
+  {
+   "id": "published",
+   "label": "Published charts",
+   "note": "Published trade-value opinions. Each series labels its transformation."
+  },
+  {
+   "id": "observed",
+   "label": "Observed-trade estimates",
+   "note": "Algorithmic estimates from completed fantasy trades. Each series labels its transformation."
+  },
+  {
+   "id": "vorp",
+   "label": "Value above waivers",
+   "note": "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."
+  },
+  {
+   "id": "spread",
+   "label": "Spread",
+   "note": ""
+  }
+ ],
+ "columns": [
+  {
+   "id": "rank",
+   "kind": "rank",
+   "label": "#"
+  },
+  {
+   "id": "name",
+   "kind": "name",
+   "label": "Player",
+   "text": true
+  },
+  {
+   "id": "ddf_value",
+   "kind": "value",
+   "label": "DDF Value",
+   "method": "",
+   "source": "ddf_value",
+   "group": "ddf",
+   "horizon": "ros"
+  },
+  {
+   "id": "espn",
+   "kind": "value",
+   "label": "ESPN",
+   "method": "DDF Value",
+   "source": "espn",
+   "group": "projections",
+   "horizon": "ros"
+  },
+  {
+   "id": "cbsros",
+   "kind": "value",
+   "label": "CBS rest of season",
+   "method": "DDF Value",
+   "source": "cbsros",
+   "group": "projections",
+   "horizon": "ros",
+   "unavailable": "CBS rest of season is unavailable right now, so no player has a value from it"
+  },
+  {
+   "id": "razzball",
+   "kind": "value",
+   "label": "Razzball",
+   "method": "DDF Value",
+   "source": "razzball",
+   "group": "projections",
+   "horizon": "ros"
+  },
+  {
+   "id": "usatoday",
+   "kind": "value",
+   "label": "USA Today",
+   "method": "Market",
+   "source": "usatoday",
+   "group": "published",
+   "horizon": "ros"
+  },
+  {
+   "id": "fantasypros",
+   "kind": "value",
+   "label": "FantasyPros",
+   "method": "Market",
+   "source": "fantasypros",
+   "group": "published",
+   "horizon": "ros"
+  },
+  {
+   "id": "cbs",
+   "kind": "value",
+   "label": "CBS Sports",
+   "method": "Market",
+   "source": "cbs",
+   "group": "published",
+   "horizon": "ros"
+  },
+  {
+   "id": "fantasycalc",
+   "kind": "value",
+   "label": "FantasyCalc",
+   "method": "Market",
+   "source": "fantasycalc",
+   "group": "observed",
+   "horizon": "ros"
+  },
+  {
+   "id": "spread",
+   "kind": "spread",
+   "label": "Spread",
+   "method": "of our values",
+   "group": "spread"
+  }
+ ],
+ "rows": [
+  {
+   "player_key": "syn-01",
+   "rank": 1,
+   "name": "Synthetic RB Alpha",
+   "pos": "RB",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "RB1",
+   "values": {
+    "ddf_value": 78.4,
+    "espn": 79.98,
+    "razzball": 82.05,
+    "usatoday": 83.72,
+    "fantasypros": 77.2,
+    "cbs": 70.25,
+    "fantasycalc": 78.92,
+    "cbsros": null
+   },
+   "spread": 2.07,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-02",
+   "rank": 2,
+   "name": "Synthetic WR Bravo",
+   "pos": "WR",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "WR1",
+   "values": {
+    "ddf_value": 77.19,
+    "espn": 83.29,
+    "razzball": 79.15,
+    "usatoday": 83.03,
+    "fantasypros": 79.67,
+    "cbs": 68.72,
+    "fantasycalc": 73.06,
+    "cbsros": null
+   },
+   "spread": 4.14,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-03",
+   "rank": 3,
+   "name": "Synthetic QB Charlie",
+   "pos": "QB",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "QB1",
+   "values": {
+    "ddf_value": 75.04,
+    "espn": 81.58,
+    "razzball": 79.41,
+    "usatoday": 82.87,
+    "fantasypros": 82.58,
+    "cbs": 76.52,
+    "fantasycalc": 74.64,
+    "cbsros": null
+   },
+   "spread": 2.17,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {
+    "espn": [
+     "Low confidence"
+    ]
+   }
+  },
+  {
+   "player_key": "syn-04",
+   "rank": 4,
+   "name": "Synthetic TE Delta",
+   "pos": "TE",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "TE1",
+   "values": {
+    "ddf_value": 72.71,
+    "espn": 73.62,
+    "razzball": 68.48,
+    "usatoday": null,
+    "fantasypros": 75.77,
+    "cbs": 80.82,
+    "fantasycalc": 70.25,
+    "cbsros": null
+   },
+   "spread": 5.14,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it",
+    "usatoday": "USA Today has no value for this player"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-05",
+   "rank": 5,
+   "name": "Synthetic WR Echo",
+   "pos": "WR",
+   "team": null,
+   "tier": null,
+   "posRank": "WR2",
+   "values": {
+    "ddf_value": 70.31,
+    "espn": 67.8,
+    "razzball": 74.79,
+    "usatoday": 67.45,
+    "fantasypros": 66.99,
+    "cbs": 75.2,
+    "fantasycalc": 79.28,
+    "cbsros": null
+   },
+   "spread": 6.99,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {
+    "ddf_value": [
+     "Your override"
+    ]
+   }
+  },
+  {
+   "player_key": "syn-06",
+   "rank": 6,
+   "name": "Synthetic RB Foxtrot",
+   "pos": "RB",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "RB2",
+   "values": {
+    "ddf_value": 68.37,
+    "espn": 63.2,
+    "razzball": 60.24,
+    "usatoday": 75.77,
+    "fantasypros": 67.14,
+    "cbs": 71.48,
+    "fantasycalc": 79.28,
+    "cbsros": null
+   },
+   "spread": 2.96,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-07",
+   "rank": 7,
+   "name": "Synthetic WR Golf Bartholomew-Featherstonehaugh Jr. the Extraordinarily Long-Named",
+   "pos": "WR",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "WR3",
+   "values": {
+    "ddf_value": 66.7,
+    "espn": 75.63,
+    "razzball": 68.14,
+    "usatoday": 66.62,
+    "fantasypros": 75.05,
+    "cbs": 66.11,
+    "fantasycalc": 67.3,
+    "cbsros": null
+   },
+   "spread": 7.49,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-08",
+   "rank": 8,
+   "name": "Synthetic TE Hotel",
+   "pos": "TE",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "TE2",
+   "values": {
+    "ddf_value": 63.71,
+    "espn": 75.63,
+    "razzball": 63.35,
+    "usatoday": 57.77,
+    "fantasypros": 60.36,
+    "cbs": 71.94,
+    "fantasycalc": 69.03,
+    "cbsros": null
+   },
+   "spread": 3.51,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-09",
+   "rank": 9,
+   "name": "Synthetic RB India",
+   "pos": "RB",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "RB3",
+   "values": {
+    "ddf_value": 61.2,
+    "espn": 0.0,
+    "razzball": 60.96,
+    "usatoday": 67.47,
+    "fantasypros": 68.0,
+    "cbs": 60.86,
+    "fantasycalc": 61.95,
+    "cbsros": null
+   },
+   "spread": 60.96,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-10",
+   "rank": 10,
+   "name": "Synthetic WR Juliet",
+   "pos": "WR",
+   "team": null,
+   "tier": null,
+   "posRank": "WR4",
+   "values": {
+    "ddf_value": 58.6,
+    "espn": 55.6,
+    "razzball": 51.45,
+    "usatoday": 59.63,
+    "fantasypros": 66.33,
+    "cbs": 57.23,
+    "fantasycalc": 54.94,
+    "cbsros": null
+   },
+   "spread": 4.15,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {
+    "usatoday": [
+     "Estimated"
+    ]
+   }
+  },
+  {
+   "player_key": "syn-11",
+   "rank": 11,
+   "name": "Synthetic QB Kilo",
+   "pos": "QB",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "QB2",
+   "values": {
+    "ddf_value": 57.32,
+    "espn": 51.01,
+    "razzball": 53.59,
+    "usatoday": 54.26,
+    "fantasypros": 63.97,
+    "cbs": 61.13,
+    "fantasycalc": 52.44,
+    "cbsros": null
+   },
+   "spread": 2.58,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-12",
+   "rank": 12,
+   "name": "Synthetic TE Lima",
+   "pos": "TE",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "TE3",
+   "values": {
+    "ddf_value": 55.56,
+    "espn": 63.14,
+    "razzball": 59.54,
+    "usatoday": 61.55,
+    "fantasypros": 60.98,
+    "cbs": 59.61,
+    "fantasycalc": null,
+    "cbsros": null
+   },
+   "spread": 3.6,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it",
+    "fantasycalc": "FantasyCalc has no value for this player"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-13",
+   "rank": 13,
+   "name": "Synthetic WR Mike",
+   "pos": "WR",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "WR5",
+   "values": {
+    "ddf_value": 53.89,
+    "espn": 56.37,
+    "razzball": 12.25,
+    "usatoday": 57.66,
+    "fantasypros": 56.66,
+    "cbs": 47.36,
+    "fantasycalc": 51.5,
+    "cbsros": null
+   },
+   "spread": 44.12,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-14",
+   "rank": 14,
+   "name": "Synthetic RB November",
+   "pos": "RB",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "RB4",
+   "values": {
+    "ddf_value": 51.36,
+    "espn": 43.13,
+    "razzball": 53.39,
+    "usatoday": 60.09,
+    "fantasypros": 55.94,
+    "cbs": 45.18,
+    "fantasycalc": 45.24,
+    "cbsros": null
+   },
+   "spread": 10.26,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-15",
+   "rank": 15,
+   "name": "Synthetic WR Oscar",
+   "pos": "WR",
+   "team": null,
+   "tier": null,
+   "posRank": "WR6",
+   "values": {
+    "ddf_value": 48.09,
+    "espn": 47.72,
+    "razzball": 50.61,
+    "usatoday": 47.85,
+    "fantasypros": 52.09,
+    "cbs": 57.02,
+    "fantasycalc": 48.99,
+    "cbsros": null
+   },
+   "spread": 2.89,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-16",
+   "rank": 16,
+   "name": "Synthetic TE Papa",
+   "pos": "TE",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "TE4",
+   "values": {
+    "ddf_value": 44.92,
+    "espn": 48.55,
+    "razzball": 36.75,
+    "usatoday": 51.63,
+    "fantasypros": 44.07,
+    "cbs": 36.81,
+    "fantasycalc": 41.69,
+    "cbsros": null
+   },
+   "spread": 11.8,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-17",
+   "rank": 17,
+   "name": "Synthetic RB Quebec",
+   "pos": "RB",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "RB5",
+   "values": {
+    "ddf_value": 41.66,
+    "espn": 44.98,
+    "razzball": 34.66,
+    "usatoday": 35.15,
+    "fantasypros": 36.87,
+    "cbs": 38.66,
+    "fantasycalc": 47.35,
+    "cbsros": null
+   },
+   "spread": 10.32,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-18",
+   "rank": 18,
+   "name": "Synthetic WR Romeo",
+   "pos": "WR",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "WR7",
+   "values": {
+    "ddf_value": 39.96,
+    "espn": 34.24,
+    "razzball": 33.79,
+    "usatoday": 37.95,
+    "fantasypros": 40.31,
+    "cbs": 48.36,
+    "fantasycalc": 37.23,
+    "cbsros": null
+   },
+   "spread": 0.45,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-19",
+   "rank": 19,
+   "name": "Synthetic QB Sierra",
+   "pos": "QB",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "QB3",
+   "values": {
+    "ddf_value": 38.03,
+    "espn": 46.06,
+    "razzball": 42.05,
+    "usatoday": 46.02,
+    "fantasypros": 37.06,
+    "cbs": 37.66,
+    "fantasycalc": 31.88,
+    "cbsros": null
+   },
+   "spread": 4.01,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-20",
+   "rank": 20,
+   "name": "Synthetic TE Tango",
+   "pos": "TE",
+   "team": null,
+   "tier": null,
+   "posRank": "TE5",
+   "values": {
+    "ddf_value": 34.69,
+    "espn": 42.41,
+    "razzball": 34.18,
+    "usatoday": 42.45,
+    "fantasypros": 31.78,
+    "cbs": 33.33,
+    "fantasycalc": 28.85,
+    "cbsros": null
+   },
+   "spread": 8.23,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-21",
+   "rank": 21,
+   "name": "Synthetic WR Uniform",
+   "pos": "WR",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "WR8",
+   "values": {
+    "ddf_value": 32.95,
+    "espn": 35.59,
+    "razzball": 24.59,
+    "usatoday": 38.94,
+    "fantasypros": 28.44,
+    "cbs": 38.82,
+    "fantasycalc": 32.48,
+    "cbsros": null
+   },
+   "spread": 11.0,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-22",
+   "rank": 22,
+   "name": "Synthetic RB Victor",
+   "pos": "RB",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "RB6",
+   "values": {
+    "ddf_value": 31.73,
+    "espn": 31.43,
+    "razzball": 31.24,
+    "usatoday": 34.43,
+    "fantasypros": 32.85,
+    "cbs": 33.51,
+    "fantasycalc": 40.16,
+    "cbsros": null
+   },
+   "spread": 0.19,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-23",
+   "rank": 23,
+   "name": "Synthetic WR Whiskey",
+   "pos": "WR",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "WR9",
+   "values": {
+    "ddf_value": 29.54,
+    "espn": 29.63,
+    "razzball": 37.76,
+    "usatoday": 37.68,
+    "fantasypros": 29.83,
+    "cbs": 32.2,
+    "fantasycalc": 22.49,
+    "cbsros": null
+   },
+   "spread": 8.13,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-24",
+   "rank": 24,
+   "name": "Synthetic TE Xray",
+   "pos": "TE",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "TE6",
+   "values": {
+    "ddf_value": 27.41,
+    "espn": 32.67,
+    "razzball": 32.43,
+    "usatoday": 33.15,
+    "fantasypros": 20.37,
+    "cbs": 31.86,
+    "fantasycalc": 33.75,
+    "cbsros": null
+   },
+   "spread": 0.24,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-25",
+   "rank": 25,
+   "name": "Synthetic RB Yankee",
+   "pos": "RB",
+   "team": null,
+   "tier": null,
+   "posRank": "RB7",
+   "values": {
+    "ddf_value": 25.67,
+    "espn": 34.03,
+    "razzball": 28.33,
+    "usatoday": 26.24,
+    "fantasypros": 34.17,
+    "cbs": 23.09,
+    "fantasycalc": 23.1,
+    "cbsros": null
+   },
+   "spread": 5.7,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-26",
+   "rank": 26,
+   "name": "Synthetic WR Zulu",
+   "pos": "WR",
+   "team": "SYA",
+   "tier": null,
+   "posRank": "WR10",
+   "values": {
+    "ddf_value": 22.6,
+    "espn": 16.23,
+    "razzball": 15.23,
+    "usatoday": 25.19,
+    "fantasypros": 18.61,
+    "cbs": 13.88,
+    "fantasycalc": 26.93,
+    "cbsros": null
+   },
+   "spread": 1.0,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-27",
+   "rank": 27,
+   "name": "Synthetic QB Atlas",
+   "pos": "QB",
+   "team": "SYB",
+   "tier": null,
+   "posRank": "QB4",
+   "values": {
+    "ddf_value": 20.18,
+    "espn": 12.39,
+    "razzball": 21.58,
+    "usatoday": 26.86,
+    "fantasypros": 19.14,
+    "cbs": 17.8,
+    "fantasycalc": 26.13,
+    "cbsros": null
+   },
+   "spread": 9.19,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-28",
+   "rank": 28,
+   "name": "Synthetic TE Boreal",
+   "pos": "TE",
+   "team": "SYC",
+   "tier": null,
+   "posRank": "TE7",
+   "values": {
+    "ddf_value": null,
+    "espn": 20.52,
+    "razzball": 21.72,
+    "usatoday": 9.77,
+    "fantasypros": 25.64,
+    "cbs": 24.92,
+    "fantasycalc": 17.76,
+    "cbsros": null
+   },
+   "spread": 1.2,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it",
+    "ddf_value": "No source prices this player"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-29",
+   "rank": 29,
+   "name": "Synthetic WR Cobalt",
+   "pos": "WR",
+   "team": "SYD",
+   "tier": null,
+   "posRank": "WR11",
+   "values": {
+    "ddf_value": 14.7,
+    "espn": 11.76,
+    "razzball": 21.35,
+    "usatoday": 6.4,
+    "fantasypros": 20.57,
+    "cbs": 17.84,
+    "fantasycalc": 8.02,
+    "cbsros": null
+   },
+   "spread": 9.59,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  },
+  {
+   "player_key": "syn-30",
+   "rank": 30,
+   "name": "Synthetic RB Dune",
+   "pos": "RB",
+   "team": null,
+   "tier": null,
+   "posRank": "RB8",
+   "values": {
+    "ddf_value": 13.22,
+    "espn": 12.76,
+    "razzball": 21.85,
+    "usatoday": 14.72,
+    "fantasypros": 12.55,
+    "cbs": 9.74,
+    "fantasycalc": 5.7,
+    "cbsros": null
+   },
+   "spread": 9.09,
+   "reasons": {
+    "cbsros": "CBS rest of season is unavailable right now, so no player has a value from it"
+   },
+   "notes": {}
+  }
+ ],
+ "sort": null,
+ "shown": 25,
+ "window": [
+  1,
+  30
+ ],
+ "filters": {
+  "search": "",
+  "position": "ALL"
+ },
+ "positions": [
+  {
+   "value": "ALL",
+   "label": "All positions"
+  },
+  {
+   "value": "QB",
+   "label": "QB"
+  },
+  {
+   "value": "RB",
+   "label": "RB"
+  },
+  {
+   "value": "WR",
+   "label": "WR"
+  },
+  {
+   "value": "TE",
+   "label": "TE"
+  },
+  {
+   "value": "FLEX",
+   "label": "FLEX (RB/WR/TE)"
+  }
+ ]
+}

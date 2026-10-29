@@ -1,0 +1,108 @@
+/* Values page in the Fieldnotes presentation (JEG-1265). Every rule is scoped to .values-fieldnotes.
+   Type sizes are the shared scale (--ddf-type-*), plus 16px for inputs and names as v2.css uses it.
+   Colours, lines, radii and spacing come from the shared --ddf-* and --v2-* tokens in v2.css; no colour value is defined
+   here. Warm paper is the existing opt-in, :root[data-canvas="paper"]. The serif headline stack is local and gives way to a
+   shared headline token when JEG-1137 lands one (see the integration plan). */
+.values-fieldnotes {
+  --vf-serif: Fraunces, Georgia, "Times New Roman", serif;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--ddf-space-3, 16px) var(--ddf-page-pad-phone, 16px) var(--ddf-space-5, 32px);
+  color: var(--ddf-ink, var(--v2-ink));
+  background: var(--ddf-canvas, var(--v2-canvas));
+  font-family: var(--ddf-font-ui, system-ui, sans-serif);
+  font-size: var(--ddf-type-body, 14px);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+.values-fieldnotes *, .values-fieldnotes *::before, .values-fieldnotes *::after { box-sizing: inherit; }
+.values-fieldnotes h1, .values-fieldnotes h2, .values-fieldnotes h3 { font-family: var(--vf-serif); font-weight: 600; color: var(--ddf-ink, var(--v2-ink)); }
+.values-fieldnotes h1 { font-size: var(--ddf-type-answer, 34px); line-height: 1.15; margin: 8px 0 6px; }
+.values-fieldnotes h2 { font-size: var(--ddf-type-name, 20px); line-height: 1.25; margin: 0; }
+.values-fieldnotes h3 { font-size: var(--ddf-type-name, 20px); line-height: 1.3; margin: 0; }
+.values-fieldnotes h4 { font-size: var(--ddf-type-meta, 12px); text-transform: uppercase; letter-spacing: .06em; margin: 12px 0 4px; color: var(--ddf-muted, var(--v2-muted)); }
+.values-fieldnotes h1[tabindex="-1"]:focus { outline: none; }
+.values-fieldnotes p { margin: 0 0 8px; }
+.values-fieldnotes :focus-visible { outline: 3px solid var(--v2-focus); outline-offset: 2px; }
+.values-fieldnotes .vf-sr { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.values-fieldnotes .vf-lede { font-size: 16px; }
+.values-fieldnotes .vf-context, .values-fieldnotes .vf-meta, .values-fieldnotes .vf-sub, .values-fieldnotes .vf-footnote, .values-fieldnotes .vf-th2 {
+  color: var(--ddf-muted, var(--v2-muted)); font-size: var(--ddf-type-meta, 12px); }
+.values-fieldnotes .vf-fixture { border: 1px dashed var(--v2-field-border); background: var(--ddf-neutral-tint); color: var(--ddf-neutral-ink, var(--v2-ink));
+  border-radius: var(--v2-radius-btn, 8px); padding: 8px 12px; }
+
+/* Controls: labelled fields, 44px targets. */
+.values-fieldnotes .vf-controls { display: flex; flex-wrap: wrap; gap: var(--ddf-space-2, 8px) var(--ddf-space-3, 16px); align-items: end; margin: var(--ddf-space-3, 16px) 0 var(--ddf-space-2, 8px); }
+.values-fieldnotes .vf-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 0 1 auto; }
+.values-fieldnotes .vf-search { flex: 1 1 220px; }
+.values-fieldnotes .vf-rankby { flex: 1 1 240px; max-width: 100%; }
+.values-fieldnotes .vf-label { font-size: var(--ddf-type-meta, 12px); font-weight: 600; }
+.values-fieldnotes input, .values-fieldnotes select {
+  min-height: var(--ddf-hit, 44px); width: 100%; max-width: 100%; font: inherit; font-size: 16px; color: inherit;
+  background: var(--ddf-surface, var(--v2-surface)); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn, 8px); padding: 8px 10px; }
+.values-fieldnotes .vf-btn { min-height: var(--ddf-hit, 44px); font: inherit; font-weight: 600; color: var(--ddf-ink, var(--v2-ink));
+  background: var(--ddf-surface, var(--v2-surface)); border: 1px solid var(--v2-field-border); border-radius: var(--v2-radius-btn, 8px); padding: 8px 14px; cursor: pointer; }
+.values-fieldnotes .vf-quiet { border-color: var(--ddf-line, var(--v2-border)); }
+.values-fieldnotes .vf-ranked { font-size: var(--ddf-type-body, 14px); }
+
+/* The values panel and the neutral evidence panel. */
+.values-fieldnotes .vf-panel { background: var(--ddf-surface, var(--v2-surface)); border: 1px solid var(--ddf-line, var(--v2-border));
+  border-radius: var(--ddf-radius-card, 12px); padding: var(--ddf-space-3, 16px); margin: var(--ddf-space-2, 8px) 0 var(--ddf-space-3, 16px); min-width: 0; }
+.values-fieldnotes .vf-panel-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: var(--ddf-space-2, 8px); }
+.values-fieldnotes .vf-evidence { background: var(--ddf-neutral-tint); border: 1px solid var(--ddf-line, var(--v2-border));
+  border-radius: var(--ddf-radius-card, 12px); padding: var(--ddf-space-2, 8px) var(--ddf-space-3, 16px); margin: 0 0 var(--ddf-space-3, 16px); }
+.values-fieldnotes summary { min-height: var(--ddf-hit, 44px); display: flex; align-items: center; cursor: pointer; font-weight: 600; }
+.values-fieldnotes .vf-evidence summary { font-family: var(--vf-serif); font-size: var(--ddf-type-name, 20px); }
+.values-fieldnotes .vf-evidence dt { font-weight: 600; margin-top: 8px; }
+.values-fieldnotes .vf-evidence dd { margin: 2px 0 0; }
+.values-fieldnotes .vf-status { background: var(--ddf-surface, var(--v2-surface)); border: 1px solid var(--ddf-line, var(--v2-border));
+  border-left: 4px solid var(--ddf-muted, var(--v2-muted)); border-radius: var(--ddf-radius-card, 12px); padding: var(--ddf-space-3, 16px); margin: var(--ddf-space-3, 16px) 0; }
+.values-fieldnotes .vf-status.is-unavailable, .values-fieldnotes .vf-status.is-mixed { border-left-color: var(--ddf-warn-ink, var(--v2-older)); }
+.values-fieldnotes .vf-empty { padding: var(--ddf-space-3, 16px) 0; }
+.values-fieldnotes .vf-foot { margin-top: var(--ddf-space-2, 8px); }
+
+/* Values: tabular figures, the ranking series marked, missing values plainly a dash. */
+.values-fieldnotes .vf-num { font-variant-numeric: tabular-nums; }
+.values-fieldnotes .vf-missing { color: var(--ddf-muted, var(--v2-muted)); }
+.values-fieldnotes .vf-notes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.values-fieldnotes .vf-note { font-size: var(--ddf-type-meta, 12px); line-height: 1.3; border: 1px solid var(--ddf-line, var(--v2-border)); border-radius: var(--ddf-radius-pill, 999px); padding: 1px 6px; color: var(--ddf-muted, var(--v2-muted)); }
+
+/* Desktop table. */
+.values-fieldnotes .vf-tablewrap { overflow-x: auto; max-width: 100%; }
+.values-fieldnotes .vf-table { width: 100%; border-collapse: collapse; }
+.values-fieldnotes .vf-table th, .values-fieldnotes .vf-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ddf-line, var(--v2-border)); }
+.values-fieldnotes .vf-group-row th { font-size: var(--ddf-type-meta, 12px); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ddf-muted, var(--v2-muted)); border-bottom: 0; padding-bottom: 0; }
+.values-fieldnotes .vf-table .vf-numcol { text-align: right; white-space: nowrap; }
+.values-fieldnotes .vf-table .vf-numcol .vf-notes { justify-content: flex-end; }
+.values-fieldnotes .vf-table .is-rank { background: var(--ddf-neutral-tint); font-weight: 600; }
+.values-fieldnotes .vf-sort { font: inherit; font-weight: 600; color: inherit; background: none; border: 0; padding: 0; min-height: var(--ddf-hit, 44px); text-align: inherit; cursor: pointer; display: inline-flex; flex-direction: column; justify-content: center; }
+.values-fieldnotes [aria-sort] .vf-th1::after { content: " ▾"; }
+.values-fieldnotes [aria-sort="ascending"] .vf-th1::after { content: " ▴"; }
+.values-fieldnotes .vf-player { min-width: 12em; font-weight: 400; }
+.values-fieldnotes .vf-name { font-weight: 600; display: block; }
+.values-fieldnotes .vf-sub { display: block; }
+.values-fieldnotes .vf-actions { text-align: right; }
+
+/* Phones: cards instead of the table. */
+.values-fieldnotes .vf-cards { display: none; list-style: none; margin: 0; padding: 0; }
+.values-fieldnotes .vf-card { border-top: 1px solid var(--ddf-line, var(--v2-border)); padding: 12px 0; display: grid; gap: 6px; }
+.values-fieldnotes .vf-card:first-child { border-top: 0; }
+.values-fieldnotes .vf-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; }
+.values-fieldnotes .vf-card-rank { font-variant-numeric: tabular-nums; color: var(--ddf-muted, var(--v2-muted)); min-width: 2ch; padding-top: 2px; }
+.values-fieldnotes .vf-card-who { min-width: 0; }
+.values-fieldnotes .vf-card .vf-name { font-family: var(--ddf-font-ui, system-ui, sans-serif); font-size: 16px; }
+.values-fieldnotes .vf-card-value { font-size: var(--ddf-type-name, 20px); font-weight: 600; margin: 0; text-align: right; }
+.values-fieldnotes .vf-disclosure dl { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; margin: 0; }
+.values-fieldnotes .vf-disclosure dt { min-width: 0; }
+.values-fieldnotes .vf-disclosure dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.values-fieldnotes .vf-disclosure dd.is-rank { font-weight: 600; }
+.values-fieldnotes .vf-card > .vf-btn { justify-self: start; }
+
+@media (max-width: 719px) {
+  .values-fieldnotes h1 { font-size: var(--ddf-type-emoji, 28px); }
+  .values-fieldnotes .vf-tablewrap { display: none; }
+  .values-fieldnotes .vf-cards { display: block; }
+  .values-fieldnotes .vf-field, .values-fieldnotes .vf-search, .values-fieldnotes .vf-rankby { flex: 1 1 100%; }
+}
