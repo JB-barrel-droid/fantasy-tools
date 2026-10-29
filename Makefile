@@ -131,6 +131,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
+	python3 -m unittest tests.test_mcp_week
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
@@ -184,6 +186,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_league_entry_default_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
@@ -305,6 +308,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
+	# ROS rankings feed (JEG-1198/1303): isolation and ECR-exclusion guards.
+	python3 -m unittest tests.test_ros_rankings
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
