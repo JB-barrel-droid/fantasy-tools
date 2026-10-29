@@ -71,3 +71,40 @@ Contract checks (each check runs even after an earlier one fails):
 - The mutations follow the parser's text at 430791c4. A later edit to those
   exact lines makes the harness fail with "find text appears 0 times", which is
   intended: update the manifest's find text, not the assertions.
+
+## 2026-10-29 - JEG-1291 correction (review of PR #1134 at 1c8dab78)
+
+Contract: the structural contract caught only a parser that dropped both the
+team and the position requirement. Make it catch each one alone, and close the
+two harness nits.
+
+### What changed
+
+- `structural_team_pos` gains two checks: the Beckham trap row with a team line
+  (`MIA`) and no position line, and with a position line (`WR`) and no team line.
+- Two new mutants: `no_structural_pos` (`if (singleName && teamCode)`) and
+  `no_structural_team` (`if (singleName && posCode)`).
+- Each mutation now lists `caught_by`, the checks that must fail on it. The old
+  "every check of the contract fails" test is replaced by that per-mutation test
+  plus `test_every_check_catches_at_least_one_mutant`, so a narrow mutant caught
+  by one check counts and no check goes unproven (review nit 3).
+- `apply_mutation` rejects a single no-op edit inside a multi-edit mutation
+  (review nit 2), with a test.
+
+### Verified (check named)
+
+- Failing before, on 1c8dab78: both one-condition mutants added to a scratch copy
+  of the manifest, `test_each_mutant_fails_its_named_contract` raised
+  `NotDetected` for each ("contract structural_team_pos was pass").
+- Failing before, on 1c8dab78: the old `apply_mutation` accepted a mutation whose
+  second edit had replace equal to find.
+- Passing after: `python3 -m unittest tests.test_roster_paste_mutation_proof -v`,
+  14 tests OK, 0 skipped. Baseline passes all 9 checks; `no_structural_team_pos`
+  fails 3 of 3 structural checks; `no_structural_pos` and `no_structural_team`
+  each fail their one named check; every mutant passes the contracts it does not
+  name.
+- `node tests/test_v2_roster_paste.js`: 41 passed, 0 failed.
+
+### Claimed, not confirmed
+
+- Still not wired into `make test-unit`; the proposed command is unchanged.

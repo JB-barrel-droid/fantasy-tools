@@ -106,6 +106,18 @@ const CONTRACTS = {
       assert.strictEqual(idsOf(r).indexOf("beckham"), -1, "trap row without team/position must not match");
       assert.strictEqual(r.matched, ESPN_ROWS, "still exactly the 15 real rows");
     }],
+    ["slot + exact name + team line but no position line does not match", () => {
+      const trap = "Bench\nOdell Beckham Jr.Odell Beckham Jr.\nOdell Beckham Jr.\nMIA\n\nMOVE\n--";
+      const r = P.parse(beforeBenchTotals(sample("espn-team.txt"), trap), ESPN_TEAM);
+      assert.strictEqual(idsOf(r).indexOf("beckham"), -1, "trap row with a team but no position must not match");
+      assert.strictEqual(r.matched, ESPN_ROWS, "still exactly the 15 real rows");
+    }],
+    ["slot + exact name + position line but no team line does not match", () => {
+      const trap = "Bench\nOdell Beckham Jr.Odell Beckham Jr.\nOdell Beckham Jr.\nWR\n\nMOVE\n--";
+      const r = P.parse(beforeBenchTotals(sample("espn-team.txt"), trap), ESPN_TEAM);
+      assert.strictEqual(idsOf(r).indexOf("beckham"), -1, "trap row with a position but no team must not match");
+      assert.strictEqual(r.matched, ESPN_ROWS, "still exactly the 15 real rows");
+    }],
   ],
   duplicate_suppression: [
     ["matchCandidate refuses a second match as duplicate", () => {
@@ -201,6 +213,8 @@ def apply_mutation(source, mutation):
             raise MutationNotApplied(
                 "%s edit %d: find text appears %d times, expected %d"
                 % (mutation["id"], n, found, edit["count"]))
+        if edit["replace"] == edit["find"]:
+            raise MutationNotApplied("%s edit %d: replace equals find, a no-op" % (mutation["id"], n))
         out = out.replace(edit["find"], edit["replace"])
     if out == source:
         raise MutationNotApplied("%s: edits left the source unchanged" % mutation["id"])
@@ -282,11 +296,15 @@ class RosterPasteMutationProof(unittest.TestCase):
     def contract_ids(self):
         return set(self.manifest["contracts"])
 
-    def test_manifest_covers_the_three_required_mutations(self):
+    def test_manifest_covers_the_required_mutations(self):
         self.assertEqual(self.manifest["target"], "app/v2/roster-paste.js")
         self.assertEqual(self.contract_ids(), {"structural_team_pos", "duplicate_suppression", "ambiguous_refusal"})
-        named = sorted(m["contract"] for m in self.manifest["mutations"])
-        self.assertEqual(named, sorted(self.contract_ids()), "one mutation per contract")
+        named = {m["contract"] for m in self.manifest["mutations"]}
+        self.assertEqual(named, self.contract_ids(), "every contract has a mutation")
+        ids = {m["id"] for m in self.manifest["mutations"]}
+        required = {"no_structural_team_pos", "no_structural_pos", "no_structural_team",
+                    "no_duplicate_suppression", "no_ambiguous_refusal"}
+        self.assertTrue(required <= ids, "missing: %s" % sorted(required - ids))
         ids = [m["id"] for m in self.manifest["mutations"]]
         self.assertEqual(len(ids), len(set(ids)))
 
@@ -323,15 +341,27 @@ class RosterPasteMutationProof(unittest.TestCase):
                 with self.subTest(mutation=m["id"], contract=cid):
                     self.assertNotEqual(got["status"], "error", got["checks"])
 
-    def test_every_check_of_the_named_contract_catches_its_mutant(self):
-        # Each check is itself proven: none passes on the mutant it guards against.
+    def test_each_mutant_is_caught_by_the_checks_the_manifest_names(self):
+        # caught_by lists the checks that must fail on this mutant; other checks in the
+        # contract may pass, so a narrow mutant caught by one check is still proven.
         for m in self.manifest["mutations"]:
             res = self.results[m["id"]]
             if isinstance(res, Exception):
                 self.fail("not applied, so not proven: %s" % res)
-            for check, outcome in res["contracts"][m["contract"]]["checks"].items():
+            checks = res["contracts"][m["contract"]]["checks"]
+            self.assertTrue(m["caught_by"], "%s names no catching check" % m["id"])
+            for check in m["caught_by"]:
                 with self.subTest(mutation=m["id"], check=check):
-                    self.assertTrue(outcome.startswith("fail: "), outcome)
+                    self.assertIn(check, checks, "caught_by names an unknown check")
+                    self.assertTrue(checks[check].startswith("fail: "), checks[check])
+
+    def test_every_check_catches_at_least_one_mutant(self):
+        # No check rides along unproven: each is named by some mutant and fails on it.
+        named = {(m["contract"], c) for m in self.manifest["mutations"] for c in m["caught_by"]}
+        for cid, got in self.baseline["contracts"].items():
+            for check in got["checks"]:
+                with self.subTest(contract=cid, check=check):
+                    self.assertIn((cid, check), named)
 
     def test_mutants_leave_the_other_contracts_passing(self):
         # Each mutation breaks only what it names, so a catch is not a side effect.
@@ -361,6 +391,11 @@ class RosterPasteMutationProof(unittest.TestCase):
         no_op = {"id": "no_op", "edits": [{"find": real["find"], "replace": real["find"], "count": 1}]}
         with self.assertRaises(MutationNotApplied):
             apply_mutation(self.source, no_op)
+        # One no-op edit inside an otherwise real multi-edit mutation still fails it.
+        partly_no_op = {"id": "partly_no_op", "edits": [real, {"find": "function parse(text, playerIndex) {",
+                                                               "replace": "function parse(text, playerIndex) {", "count": 1}]}
+        with self.assertRaises(MutationNotApplied):
+            apply_mutation(self.source, partly_no_op)
 
     def test_startup_error_is_not_detection(self):
         broken = self.source.replace("function parse(text, playerIndex) {", "function parse(text, playerIndex) {{", 1)
