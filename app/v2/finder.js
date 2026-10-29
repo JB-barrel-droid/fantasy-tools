@@ -884,7 +884,11 @@
   const FINDER_MAX_SIDE = 40;   // a crafted link cannot freeze the page
   const finderKeys = list => (list || []).map(p => (typeof p === "string" ? p : p && p.key))
     .filter(k => k !== undefined && k !== null && k !== "").map(k => encodeURIComponent(String(k))).join(",");
-  // state: {mine, theirs, maxSize, keepMine, keepTheirs}; leagueQuery: the page's leagueLinkParts().join("&") (may be "").
+  // JEG-1328: the link also names the saved teams the two rosters were loaded from (ws = the league's id, mt / tt = the
+  // teams' ids). They only matter to a reader with that same saved league; anywhere else the rosters stay a working copy.
+  const FINDER_TEAM_ID = /^[0-9A-Za-z_-]{1,64}$/;
+  // state: {mine, theirs, maxSize, keepMine, keepTheirs, guardrails, viableOnly, teams: {workspaceId, mineId, theirId}};
+  // leagueQuery: the page's leagueLinkParts().join("&") (may be "").
   function encodeFinderHash(state, leagueQuery) {
     const s = state || {};
     const parts = [];
@@ -905,6 +909,10 @@
     if (g.minDdfEdge > 0) parts.push(`minEdge=${g.minDdfEdge}`);
     if (g.minUserLineupGain !== null && g.minUserLineupGain !== undefined) parts.push(`minMine=${g.minUserLineupGain}`);
     if (g.minTheirLineupGain !== null && g.minTheirLineupGain !== undefined) parts.push(`minTheirs=${g.minTheirLineupGain}`);
+    if (s.viableOnly) parts.push("viable=1");
+    const t = s.teams || {};
+    const ids = [["mt", t.mineId], ["tt", t.theirId]].filter(([, id]) => FINDER_TEAM_ID.test(String(id || "")));
+    if (FINDER_TEAM_ID.test(String(t.workspaceId || "")) && ids.length) parts.push(`ws=${t.workspaceId}`, ...ids.map(([k, id]) => `${k}=${id}`));
     const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
     if (tail) parts.push(tail);
     return `#find-trade?${parts.join("&")}`;
@@ -951,8 +959,12 @@
       const match = /^(QB|RB|WR|TE):(\d{1,2})$/.exec(entry);
       if (match && Number(match[2]) <= 20) backups[match[1]] = Number(match[2]);
     });
+    const teamId = name => (FINDER_TEAM_ID.test(params.get(name) || "") ? params.get(name) : null);
+    const teams = {workspaceId: teamId("ws"), mineId: teamId("mt"), theirId: teamId("tt")};
+    if (!teams.workspaceId || teams.mineId === teams.theirId) { teams.mineId = null; teams.theirId = null; }
+    if (!teams.mineId && !teams.theirId) teams.workspaceId = null;
     return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
-      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length,
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", viableOnly: params.get("viable") === "1", teams, dropped, unknown, both: both.length,
       guardrails: {protectedPositions: GUARDRAIL_POSITIONS.filter(pos => (params.get("protect") || "").split(",").includes(pos)), minBackups: backups,
         minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
@@ -1164,6 +1176,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     setSides: (mine, theirs) => {
       snapshot();
       rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true};
+      adoptLinkTeams();
       const have = new Set(mine.map(p => p.key));
       S.mine = mine.map(p => ({...p}));
       S.theirs = theirs.filter(p => !have.has(p.key)).map(p => ({...p}));
@@ -1203,7 +1216,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
     if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
     const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
-    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails}, league);
+    const teams = rosterCopy ? {workspaceId: rosterCopy.workspaceId, mineId: rosterCopy.teamId, theirId: rosterCopy.theirTeamId} : null;
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails,
+      viableOnly: S.viableOnly, teams}, league);
     const ov = root.DDFOverrides;
     const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
     const url = location.href.split("#")[0] + shared.hash;
@@ -1218,7 +1233,24 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     try { await navigator.clipboard.writeText(url); }
     catch (error) { say(`Copy this link: ${url}`); }
   }
-  api.applyHash = applyHash;
+  // JEG-1328: a search link's viable-only tick and the saved teams its rosters came from. The teams are adopted when
+  // setSides puts the link's rosters in, and only when this reader has that saved league and both teams in it.
+  let linkTeams = null;
+  function adoptLinkTeams() {
+    const t = linkTeams;
+    linkTeams = null;
+    const ws = t && sharedStore() ? sharedStore().get() : null;
+    if (!ws || ws.id !== t.workspaceId) return;
+    const has = id => Boolean(id) && ws.teams.some(team => team.id === id);
+    if (has(t.mineId)) rosterCopy.teamId = t.mineId;
+    if (has(t.theirId)) rosterCopy.theirTeamId = t.theirId;
+  }
+  api.applyHash = params => {
+    const decoded = applyHash(params);
+    linkTeams = decoded && decoded.teams.workspaceId && (params.has("mine") || params.has("theirs")) ? decoded.teams : null;
+    if (decoded) S.viableOnly = decoded.viableOnly;
+    return decoded;
+  };
   api.copyLink = copyLink;
 
   function el(tag, props, ...kids) {

@@ -423,6 +423,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1216_lineup
 	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
 	python3 -m unittest tests.test_jeg1229_trade_context
+	# JEG-1328: share links keep the league setup, the route's controls and both teams (pure codec checks).
+	python3 -m unittest tests.test_jeg1328_share_links
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
