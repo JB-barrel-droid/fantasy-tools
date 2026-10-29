@@ -1051,6 +1051,8 @@
     if (!UI.inclusion) {
       const change = fn => update(w => W.ops.setUi(w, OI.patch(fn(OI.read(w), w))), "ui:inclusion");
       UI.inclusion = OI.createControl({document, idPrefix: "v2LgOi", legend: "Opponents to include",
+        // rowsOfTeam counts matched players only; unresolved names are not searched, so say "matched".
+        countLabel: n => `${n} matched ${n === 1 ? "player" : "players"}`,
         onToggle: (id, include) => change((s, w) => OI.setIncluded(s, w, id, include)),
         onIncludeAll: () => change((s, w) => OI.includeAll(s, w)),
         onExcludeAll: () => change((s, w) => OI.excludeAll(s, w))});

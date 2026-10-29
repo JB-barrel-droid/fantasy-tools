@@ -28,6 +28,10 @@ class LeagueInclusionRenderTest(unittest.TestCase):
                     self.assertEqual(boxes.count(), 3, "every other team, never my own")
                     self.assertEqual(page.inner_text("#v2LgOppsInclusion legend"), "Opponents to include")
                     self.assertEqual(page.inner_text("#v2LgOiNone"), "Clear")
+                    metas = page.evaluate("() => [...document.querySelectorAll('#v2LgOppsInclusion .oi-meta')].map(n => n.textContent)")
+                    self.assertTrue(metas and all(" matched player" in m for m in metas), metas)
+                    first = boxes.first.get_attribute("aria-describedby").split()[0]
+                    self.assertIn("matched player", page.evaluate("(id) => document.getElementById(id).textContent", first))
                     self.assertEqual(page.locator("#v2LgOppsInclusion input:checked").count(), 3, "today's baseline: every opponent searched")
                     full = page.evaluate(ROWS)
                     before = page.evaluate(WORKSPACE)

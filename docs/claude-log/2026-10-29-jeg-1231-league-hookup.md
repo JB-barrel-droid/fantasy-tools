@@ -27,3 +27,5 @@ main with #1072. No conflicts. The league control now reads "Opponents to includ
 counts the team's matched players (the same `rowsOfTeam` count that decides whether a team has a roster). The control
 keeps today's `--ddf-*` palette on the public page. Verified here: `tests.test_jeg1231_opponent_inclusion` and the league
 unit modules named below pass; the built-page render test runs in CI.
+- Review follow-up: the league rows say "N matched players" (`countLabel`), since rowsOfTeam leaves out unresolved
+  names, and that count is each box's description for screen readers.
