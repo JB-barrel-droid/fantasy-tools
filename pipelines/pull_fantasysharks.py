@@ -192,7 +192,8 @@ def week_segment(html: str, week: int) -> int:
     """The Period option labelled 'Week <week>' on the page's own list."""
     found = {int(w): int(seg) for seg, w in WEEK_OPTION_RE.findall(html)}
     if not found:
-        raise PullError("no 'Week N' options in the Period list")
+        labels = re.findall(r'<option value="?(\d+)"?[^>]*>\s*([^<]{1,40}?)\s*</option>', html)[:12]
+        raise PullError(f"no 'Week N' options in the Period list (options seen: {labels})")
     if week not in found:
         raise PullError(f"no 'Week {week}' option in the Period list (have {sorted(found)})")
     return found[week]
@@ -345,7 +346,8 @@ def main(argv=None) -> int:
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     (out / "snapshot.json").write_text(json.dumps(snap, indent=1) + "\n", encoding="utf-8")
-    print(f"{snap['source']}: {snap['row_count']} rows, fingerprint {snap['fingerprint']}, vintage {snap['vintage_date']}")
+    where = f", week {snap['week']} (Segment {snap['segment']})" if "week" in snap else ""
+    print(f"{snap['source']}: {snap['row_count']} rows{where}, fingerprint {snap['fingerprint']}, vintage {snap['vintage_date']}")
     return 0
 
 

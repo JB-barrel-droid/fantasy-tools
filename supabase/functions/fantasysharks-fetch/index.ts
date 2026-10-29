@@ -9,7 +9,8 @@
 // service role only (verify_jwt checks the signature; this checks the role
 // claim, so the public anon key is refused), and every URL, including each
 // redirect hop, must match ALLOWED (host + exact path).
-// NOT DEPLOYED: deploy from this file (verify_jwt true) only on Jeremy's yes.
+// Deployed from this file (Supabase MCP deploy_edge_function, verify_jwt true)
+// on Jeremy's yes, 2026-10-29: "try the relay, and if it doesn't work, run it on mac".
 const ALLOWED: Record<string, RegExp[]> = {
   "www.fantasysharks.com": [/^\/apps\/bert\/forecasts\/projections\.php$/],
 };

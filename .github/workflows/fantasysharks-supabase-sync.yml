@@ -107,6 +107,31 @@ jobs:
           echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
 
+      # JEG-621: the weekly pull is held (no table, no saver). Dry runs only
+      # read it, to check the relay and the page's "Week N" labels; it never
+      # touches the rest-of-year snapshot or the saver.
+      - name: Weekly pull (held, dry runs only)
+        if: always() && steps.cfg.outputs.mode == 'dry'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          rc=0
+          python3 pipelines/pull_fantasysharks.py --period weekly --out-dir /tmp/fantasysharks-weekly > /tmp/fantasysharks-weekly.log 2>&1 || rc=$?
+          level=notice; [ "$rc" = 0 ] || level=warning
+          tail -4 /tmp/fantasysharks-weekly.log | cut -c1-900 | sed "s/^/::$level title=fantasysharks weekly rc=$rc::/"
+          exit $rc
+
+      - name: Keep the weekly snapshot
+        if: always() && steps.cfg.outputs.mode == 'dry'
+        uses: actions/upload-artifact@v4
+        with:
+          name: fantasysharks-weekly-snapshot
+          path: /tmp/fantasysharks-weekly/snapshot.json
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Keep the snapshot
         if: always()
         uses: actions/upload-artifact@v4
