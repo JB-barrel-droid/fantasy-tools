@@ -61,3 +61,8 @@ list" whenever the work list is longer than N_p).
   at that depth). #1077 averages the 7 players around N. Whether a loaded
   league uses the band around R or the one player at R is a methodology
   call, recorded on JEG-1244; neither branch composes them.
+
+### 2026-10-29 evening: release gate on main bfb124d
+- Codex's fresh-input run: standard/10 CBS ROS WR, Coker −1 PPG moves Smith-Njigba 2.352. Cause: Coker is the league's flex winner by mean PPG (WR21, 8.668); the flex slot flips WR→RB and bench seats reallocate (WR rostered 38→35). With the allocation held at base the worst move is 0.189; the one-player rule (main) gives 1.622.
+- Jeremy picked A: the tolerance check holds the league allocation fixed; flex flips get their own ticket. `OnePlayerPerturbationTest` now replays the base run's allocation calls in the perturbed run (call count asserted). New `test_only_slot_flips_break_the_bar_with_slots_free` runs the same 288 moves with the allocation free and fails if any case over the bar left the allocation unchanged. The mutation check runs with slots held.
+- Before (59d6a10, guard as at 4b6b2b6): FAILED, `standard/10 cbsros WR 4581 -1.0: 2.352`. After: OK.
