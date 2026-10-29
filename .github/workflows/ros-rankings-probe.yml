@@ -1,0 +1,24 @@
+name: ROS rankings page probe (JEG-1198, temporary)
+
+# Research probe for JEG-1198: reads candidate public ROS ranking pages from a runner
+# and prints summaries. Reads only; no secrets, no writes. Lives on a probe branch only.
+
+on:
+  push:
+    branches: ["claude/JEG-1198-ros-probe"]
+    paths: ["tools/research/ros_rankings_probe.py", ".github/workflows/ros-rankings-probe.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Probe pages
+        run: python3 tools/research/ros_rankings_probe.py
