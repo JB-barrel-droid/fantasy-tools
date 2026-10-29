@@ -15,6 +15,13 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Six-file restoration release (JEG-1263, Codex, 2026-10-29 UTC)
+
+- Existing [PR #1117](https://github.com/JB-barrel-droid/fantasy-tools/pull/1117), branch `claude/JEG-1263-revert-direct-push`, now has normal main integration at `37b49b6e41c9a6345ce7da56e4839ca0b5754cb3`. Jeremy specifically authorized this one cross-agent branch integration; other Claude branches remain outside that exception.
+- Its net diff against main `430791c4` is exactly the six approved Simplified site deletions. All unrelated Fieldnotes/data changes are preserved. Focused build/token tests: nine PASS; independent read-only integration delta review PASS. Both implementation branches and draft #1118 remain preserved.
+- Next: wait for exact-head Preview `40921629158`, v2-render `40921629146` and current-main health; recheck latest main and scope immediately before the authorized #1117-only squash merge. Then await publication and coordinate the existing Mac live smoke. No merge/publication/live success at this checkpoint. Do not broaden the revert or cancel deployments. Queue automation is paused by the coordinator, who owns restoring it.
+- Evidence: `docs/claude-log/2026-10-29-jeg-1263-restoration-integration.md`. This separate documentation branch is `codex/JEG-1263-restoration-handoff`; its merge and automatic cleanup are not approved.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
