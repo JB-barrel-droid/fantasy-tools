@@ -35,12 +35,15 @@ VALUES = "tests/test_endpoint_parity.py"
 ROUND_TRIP = "tests/node/connector_roundtrip_check.mjs"
 REMOTE = "tests/node/mcp_remote_check.mjs"
 FIT = "tests/node/connector_fit_check.mjs"
+# JEG-1029: the analyses' reference parity (edge vs value_reference, tool vs page module) and the page half.
+ANALYSES = "tests/node/connector_analyses_driver.mjs"
+ANALYSES_PAGE = "tests/test_connector_analyses_page.py"
 
 TOOLS = {
     "get_values": {"route": "#trade-targets", "checks": [VALUES, ROUND_TRIP, REMOTE]},
     "get_player_value": {"route": "#trade-targets", "checks": [VALUES, ROUND_TRIP, REMOTE]},
     "trade_targets": {"route": "#trade-targets", "checks": [VALUES, ROUND_TRIP, REMOTE]},
-    "compare_trade": {"route": "#compare-trade", "checks": [VALUES, ROUND_TRIP, REMOTE]},
+    "compare_trade": {"route": "#compare-trade", "checks": [VALUES, ROUND_TRIP, REMOTE, ANALYSES]},
     # read_state links to the view its work belongs to (give/get here, so Compare a trade).
     "read_state": {"route": "#compare-trade", "checks": [ROUND_TRIP, REMOTE]},
     "make_state": {"route": "#find-trade", "checks": [ROUND_TRIP, REMOTE]},
@@ -48,13 +51,14 @@ TOOLS = {
     "find_trades_league": {"route": "#find-trade", "checks": [VALUES, ROUND_TRIP, REMOTE]},
     # explain prices nothing and links to the front page without a league.
     "explain": {"route": "/", "checks": [ROUND_TRIP, REMOTE]},
+    # JEG-1029: priced from get-values' include=series,prior / include=audit, read by the page's modules.
+    "risers_fallers": {"route": "#risers-fallers", "checks": [ROUND_TRIP, ANALYSES, ANALYSES_PAGE]},
+    "audit_values": {"route": "#values-auditing", "checks": [ROUND_TRIP, ANALYSES, ANALYSES_PAGE]},
 }
 
 # Site routes no tool links to. "JEG-n": the ticket that adds the analysis. "by design: ...": none
 # will. "unresolved: ...": open work, a gap found by JEG-1030 with no ticket yet (reported on JEG-1030).
 ROUTE_EXCEPTIONS = {
-    "#risers-fallers": "JEG-1029",  # risers_fallers (state.ts already has the route)
-    "#values-auditing": "JEG-1029",  # audit_values with the health and source views
     "#value-overrides": "JEG-1224",  # value basis and overrides are not part of the DDF state yet
     "#writing": "by design: prose pages, nothing to compute",
     "#player-values": "unresolved: get_values links to Trade targets, not the value chart (JEG-1030 F2)",
@@ -129,7 +133,7 @@ class ConnectorInventoryTests(unittest.TestCase):
         self.assertEqual(unresolved, {}, "site routes no tool reaches and no ticket covers")
 
     def test_inventory_check_catches_drift(self):
-        new_tool = {**self.dump, "tools": self.dump["tools"] + ["risers_fallers"]}
+        new_tool = {**self.dump, "tools": self.dump["tools"] + ["waiver_targets"]}
         moved = {**self.dump, "routes": {**self.dump["routes"], "compare_trade": "#find-trade"}}
         cases = {
             "unlisted new tool": (new_tool, TOOLS, ROUTE_EXCEPTIONS, self.routes),

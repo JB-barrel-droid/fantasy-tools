@@ -35,10 +35,14 @@ import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
 import { leagueKey, mapLeague } from "../../supabase/functions/get-values/league.ts";
+import { evalPageModule, PAGE_MODULE_FILES } from "../../supabase/functions/mcp/analyses.ts";
 
 const require = createRequire(import.meta.url);
 const codec = require("../../app/v2/ddf-state.js");
 const finder = require("../../app/v2/finder.js");
+// JEG-1029: the analyses' page modules, loaded the way the endpoint loads them from the site.
+const modules = Object.fromEntries(Object.entries(PAGE_MODULE_FILES)
+  .map(([name, m]) => [name, evalPageModule(readFileSync(new URL(`../../app/${m.file}`, import.meta.url), "utf8"), name)]));
 const STRICT = process.argv.includes("--strict");
 const ORIGIN = "https://site.test";
 
@@ -91,6 +95,11 @@ const TOOLS = [
   { name: "find_trades", args: { mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ja'Marr Chase" }, route: "#find-trade" },
   { name: "find_trades_league", args: { mine: "Josh Allen, Josh Jacobs",
     opponents: [{ name: "Opp", roster: "Bijan Robinson, Ja'Marr Chase" }] }, route: "#find-trade" },
+  // JEG-1029: the analyses read get-values' analysis blocks (fetchAnalysis) for the same league.
+  { name: "risers_fallers", args: { series: "fantasycalc" }, route: "#risers-fallers" },
+  { name: "audit_values", args: { view: "source", source: "cbs" }, route: "#values-auditing" },
+  { name: "compare_trade", id: "compare_trade by_source", args: { side_a: "Josh Allen", side_b: "Bijan Robinson", by_source: true },
+    route: "#compare-trade", work: { give: [{ key: "3" }], get: [{ key: "1" }] } },
 ];
 // A pasted work section every tool receives; read_state must hand it back unchanged.
 const PASTED_WORK = { mine: [{ key: "4" }], theirs: [{ key: "2" }] };
@@ -114,12 +123,9 @@ const OVERRIDES = [
 ];
 
 // id -> the ticket and the only engine fields the gap may get wrong.
-const KNOWN_GAPS = {
-  // state.ts finish() rebuilds the link's league from the pasted league and adds SUPERFLEX only when
-  // the pasted roster has none, so an explicit superflex argument prices one league and links another.
-  "explicit superflex false over pasted SF1 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
-  "explicit superflex true over pasted SF0 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
-};
+// F1 (an explicit superflex argument priced one league and linked another) is fixed by JEG-1179's
+// state.ts finish(); its two entries are removed, so both cases now pass as ordinary checks.
+const KNOWN_GAPS = {};
 
 // ---------- stub get-values (prices nothing; records what it was asked for) ----------
 const chart = (v) => ({ usatoday: v, fantasycalc: v, fantasypros: v, cbs: v });
@@ -139,7 +145,10 @@ function makeRecorder() {
       players: PLAYERS, sources_included: ["espn", "usatoday", "fantasycalc", "fantasypros", "cbs"], sources_excluded: [],
       bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 } };
   };
-  return { sent, values: async (...a) => answer(...a), charts: async (...a) => answer(...a) };
+  // The analysis blocks are empty: the round trip checks what was sent and linked, not the numbers.
+  const analysis = async (...a) => ({ ...answer(...a), series: {}, audit: {},
+    prior: { available: false, reason: "stub", current_week: null, prior_week: null, series: {} } });
+  return { sent, values: async (...a) => answer(...a), charts: async (...a) => answer(...a), analysis };
 }
 
 // get-values' own merge of the top-level fields and the league section (get-values/index.ts). It
@@ -178,7 +187,8 @@ function engineDiff(got, want) {
 
 async function call(deps, rec, name, args) {
   const msg = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } };
-  const r = await handleRpc(msg, rec.values, deps, { finder, fetchCharts: rec.charts });
+  const r = await handleRpc(msg, rec.values, deps, { finder, fetchCharts: rec.charts,
+    analysis: { fetchAnalysis: rec.analysis, modules } });
   return r.result;
 }
 
@@ -191,7 +201,7 @@ async function runChecks(deps, opts = {}) {
     const pasted = codec.normalize({ league }).state.league;
     const block = codec.encodeBlock({ league, work: PASTED_WORK });
     for (const tool of TOOLS) {
-      const id = `${tool.name} / ${leagueName}`;
+      const id = `${tool.id ?? tool.name} / ${leagueName}`;
       const rec = makeRecorder();
       const args = opts.dropState ? { ...tool.args } : { state: block, ...tool.args };
       const result = await call(deps, rec, tool.name, args);
