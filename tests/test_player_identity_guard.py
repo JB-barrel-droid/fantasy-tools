@@ -438,6 +438,22 @@ def _module_aliases(tree, stem):
     return mods, names
 
 
+def _is_dunder(name) -> bool:
+    return name.startswith("__") and name.endswith("__")
+
+
+def _alias_escapes(tree, mods, parents):
+    """Loads of a module alias in `mods` that are not the `.value` of a plain
+    (non-dunder) attribute access: `m = pc`, `pc.__dict__`, `vars(pc)`,
+    `getattr(pc, ...)`, `attrgetter(...)(pc)`, `pc` passed as an argument."""
+    for n in ast.walk(tree):
+        if (isinstance(n, (ast.Name, ast.Attribute)) and isinstance(n.ctx, ast.Load)
+                and ast.unparse(n) in mods):
+            p = parents.get(id(n))
+            if not (isinstance(p, ast.Attribute) and p.value is n and not _is_dunder(p.attr)):
+                yield n
+
+
 def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
     """JEG-1238: functions that take the resolver as a parameter (e.g.
     projection_capture.cbs_capture_rows) and how each pipeline caller wires it.
@@ -468,8 +484,56 @@ def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
             index = positional.index(param) if param in positional else None
             entry = {"file": rel, "function": fn_name, "param": param, "callers": []}
             seen = set()
+            # JEG-1315: modules that bind the function or its module under a
+            # name another module could import from them (a re-export hop).
+            holders = []
+            for hrel, _hlocal, hstem, htree, _hc, _hcache in trees:
+                hmods, hnames = _module_aliases(htree, stem)
+                held = ({a for a in hmods if "." not in a}
+                        | {k for k, v in hnames.items() if v == fn_name}
+                        | ({fn_name} if "*" in hnames else set()))
+                if hrel != rel and held:
+                    holders.append((hrel, hstem, held))
             for crel, clocal, _cstem, ctree, cchains, ccache in trees:
                 mods, names = _module_aliases(ctree, stem)
+                parents = {id(ch): p for p in ast.walk(ctree) for ch in ast.iter_child_nodes(p)}
+
+                def flag(n, what):
+                    issues.append({"file": crel, "issue": f"line {n.lineno}: {what}, so calls to {fn_name}() "
+                                   f"through it cannot be checked for the injected {param!r}"})
+
+                # JEG-1315: the pinned caller uses the module-attribute form, so
+                # importing the function by name anywhere else is a re-export hop.
+                if crel != rel and clocal not in pinned:
+                    for n in ast.walk(ctree):
+                        if (isinstance(n, ast.ImportFrom) and n.module and n.module.split(".")[-1] == stem
+                                and any(a.name in (fn_name, "*") for a in n.names)):
+                            flag(n, f"imports {fn_name}() by name outside a pinned caller")
+                # The module alias may only be used as `alias.<plain attribute>`.
+                for n in _alias_escapes(ctree, mods, parents):
+                    flag(n, f"lets the {stem} module alias {ast.unparse(n)!r} escape a plain attribute access")
+                # Re-exports through a module that holds the function or its module.
+                for hrel, hstem, held in holders:
+                    if hrel == crel:
+                        continue
+                    hmods, _hn = _module_aliases(ctree, hstem)
+                    for n in ast.walk(ctree):
+                        if (isinstance(n, ast.ImportFrom) and n.module and n.module.split(".")[-1] == hstem
+                                and any(a.name in held or a.name == "*" for a in n.names)):
+                            flag(n, f"imports from {hstem}, which holds {fn_name}() or its module")
+                        elif (isinstance(n, ast.Attribute) and n.attr in held
+                              and ast.unparse(n.value) in hmods):
+                            flag(n, f"reaches {ast.unparse(n)!r} through {hstem}, which holds {fn_name}() "
+                                    "or its module")
+                    for n in _alias_escapes(ctree, hmods, parents):
+                        flag(n, f"lets the {hstem} module alias {ast.unparse(n)!r} escape a plain attribute access")
+                # A package attribute (`lib.projection_capture`) that is not an
+                # imported alias reaches the module without the guard seeing it.
+                for ystem in [stem] + [h[1] for h in holders]:
+                    ymods = mods if ystem == stem else _module_aliases(ctree, ystem)[0]
+                    for n in ast.walk(ctree):
+                        if isinstance(n, ast.Attribute) and n.attr == ystem and ast.unparse(n) not in ymods:
+                            flag(n, f"reaches {ystem} as {ast.unparse(n)!r}, not through an imported alias")
                 bare = names | ({fn_name: fn_name} if crel == rel or "*" in names else {})
 
                 def names_fn(f):
@@ -527,6 +591,14 @@ def check_canonical_resolution_usage(pipelines_dir: Path, contracts=None):
     rebinding, a comprehension variable, an unregistered or untraceable
     injection, an unpinned caller, or any use of an injection function other
     than a direct call (alias, functools.partial, argument; JEG-1293) fails.
+    JEG-1315: so does a second hop to it. Importing the function by name outside
+    a pinned caller, a module alias used other than as `alias.<plain attribute>`
+    (`m = pc`, `pc.__dict__`, `vars(pc)`, `getattr(pc, ...)`, passed as an
+    argument), a package attribute that is not an imported alias
+    (`lib.projection_capture`), and re-exporting the function or its module from
+    a module that holds it (`from holder import pc`, `holder.pc`, star imports)
+    all fail. Dynamic `globals()`, `sys.modules`, `importlib` and cross-module
+    monkeypatching remain outside this static check.
     """
     issues = []
     for rel, _local, _stem, tree in _iter_pipeline_trees(pipelines_dir):
@@ -781,6 +853,106 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         got = self._scan({**real, "save_cbsros_references.py": stored}, contracts=INJECTED_RESOLVER_CONTRACTS)
         self.assertTrue(any(g.startswith("save_cbsros_references.py: ") and "reference to cbs_capture_rows()" in g
                             for g in got), got)
+        self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
+
+    def test_reexport_and_alias_escapes_fail(self):
+        """Claude's delta review of #1103 at 29367e71 (JEG-1315): a second hop
+        hid the injection function. A re-export through a middle module, a
+        rebound or reflected module alias, and a package attribute each passed.
+        Each case calls build() with a permit-all resolver."""
+        call = "(rows, lambda n: n)"
+        mid = "lib/mid.py"
+        cases = {
+            "re-export, attribute call": {
+                mid: "from cap import build\n",
+                "other.py": f"import mid as rx\n\ndef go(rows):\n    return rx.build{call}\n"},
+            "re-export, from-import": {
+                mid: "from cap import build\n",
+                "other.py": f"from mid import build\n\ndef go(rows):\n    return build{call}\n"},
+            "renamed re-export": {
+                mid: "from cap import build as capture\n",
+                "other.py": f"from mid import capture\n\ndef go(rows):\n    return capture{call}\n"},
+            "module alias rebound": {
+                "other.py": f"import cap as c\nm = c\n\ndef go(rows):\n    return m.build{call}\n"},
+            "module __dict__": {
+                "other.py": f"import cap as c\n\ndef go(rows):\n    return c.__dict__['build']{call}\n"},
+            "vars() on the module": {
+                "other.py": f"import cap as c\n\ndef go(rows):\n    return vars(c)['build']{call}\n"},
+            "operator.attrgetter": {
+                "other.py": "import operator\nimport cap as c\n\ndef go(rows):\n"
+                            f"    return operator.attrgetter('build')(c){call}\n"},
+            "inspect.getattr_static": {
+                "other.py": "import inspect\nimport cap as c\n\ndef go(rows):\n"
+                            f"    return inspect.getattr_static(c, 'build'){call}\n"},
+            "getattr with a computed name": {
+                "other.py": f"import cap as c\nNAME = 'bu' + 'ild'\n\ndef go(rows):\n    return getattr(c, NAME){call}\n"},
+            "package attribute": {
+                "other.py": f"import lib\n\ndef go(rows):\n    return lib.cap.build{call}\n"},
+            "through the pinned caller's module alias": {
+                "other.py": f"import caller as k\n\ndef go(rows):\n    return k.c.build{call}\n"},
+            "pinned caller's alias imported by name": {
+                "other.py": f"from caller import c as c2\n\ndef go(rows):\n    return c2.build{call}\n"},
+            "star import from the pinned caller": {
+                "other.py": f"from caller import *\n\ndef go(rows):\n    return c.build{call}\n"},
+            "pinned caller's module rebound": {
+                "other.py": f"import caller as k\nm = k\n\ndef go(rows):\n    return m.c.build{call}\n"},
+            "pinned caller's bare import re-exported": {
+                "caller.py": "from canonical_players import resolve\nfrom cap import build as b\n\n"
+                             "def go(rows):\n    return b(rows, resolve)\n",
+                "other.py": f"from caller import b\n\ndef go(rows):\n    return b{call}\n"},
+        }
+        for why, files in cases.items():
+            with self.subTest(why=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn"), **files})
+                hit = [g for g in got if g.startswith(("other.py: ", mid + ": "))]
+                self.assertTrue(hit, got)
+                self.assertTrue(all("cannot be checked" in g or "not a pinned caller" in g for g in hit), got)
+        # The middle module itself fails at the first hop.
+        got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn"), mid: "from cap import build\n"})
+        self.assertTrue(any(g.startswith(mid + ": ") and "imports build() by name" in g for g in got), got)
+        # Positive controls: plain attribute use of a non-held name, and the
+        # pinned caller's direct calls (attribute or bare import).
+        plain = "import caller as k\n\ndef go(rows):\n    return k.go(rows)\n"
+        self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn"), "other.py": plain}), [])
+        for arg in ("rn", "canonical_players.resolve"):
+            self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)}), [])
+
+    def test_real_capture_reexport_probes_fail(self):
+        """JEG-1315: the reviewer's seven probes, each a new module next to the
+        real projection_capture and save_cbsros_references, calling
+        cbs_capture_rows with the permit-all resolver `lambda n, p, norm: n`."""
+        cap = (PIPELINES_DIR / "lib" / "projection_capture.py").read_text(encoding="utf-8")
+        saver = (PIPELINES_DIR / "save_cbsros_references.py").read_text(encoding="utf-8")
+        real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
+        call = ("(rows, weekly, lambda n, p, norm: n, season=1, source_week=1, capture_at=None, "
+                "phase=None, batch_id=None, vintage=None)")
+        run = "def run(rows, weekly):\n    return {}" + call + "\n"
+        reexport = {"lib/reexport.py": "from lib.projection_capture import cbs_capture_rows\n"}
+        probes = {
+            "1 re-export, attribute call": {**reexport, "zz.py": "import lib.reexport as rx\n\n"
+                                            + run.format("rx.cbs_capture_rows")},
+            "2 re-export, from-import": {**reexport, "zz.py": "from lib.reexport import cbs_capture_rows\n\n"
+                                         + run.format("cbs_capture_rows")},
+            "3 renamed re-export": {"lib/reexport.py": "from lib.projection_capture import cbs_capture_rows as capture\n",
+                                    "zz.py": "from lib.reexport import capture\n\n" + run.format("capture")},
+            "4 module alias rebound": {"zz.py": "import lib.projection_capture as pc\nm = pc\n\n"
+                                       + run.format("m.cbs_capture_rows")},
+            "5 module __dict__": {"zz.py": "import lib.projection_capture as pc\n\n"
+                                  + run.format("pc.__dict__['cbs_capture_rows']")},
+            "6a operator.attrgetter": {"zz.py": "import operator\nimport lib.projection_capture as pc\n\n"
+                                       + run.format("operator.attrgetter('cbs_capture_rows')(pc)")},
+            "6b inspect.getattr_static": {"zz.py": "import inspect\nimport lib.projection_capture as pc\n\n"
+                                          + run.format("inspect.getattr_static(pc, 'cbs_capture_rows')")},
+            "7 package attribute": {"zz.py": "import lib\n\n" + run.format("lib.projection_capture.cbs_capture_rows")},
+        }
+        for why, files in probes.items():
+            with self.subTest(probe=why):
+                got = self._scan({**real, **files}, contracts=INJECTED_RESOLVER_CONTRACTS)
+                self.assertTrue(any(g.startswith(("zz.py: ", "lib/reexport.py: ")) for g in got), got)
+        direct = "import lib.projection_capture as pc\n\n" + run.format("pc.cbs_capture_rows")
+        got = self._scan({**real, "zz.py": direct}, contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertEqual(len(got), 1, got)
+        self.assertIn("not a pinned caller", got[0])
         self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
 
     def test_wrapper_and_lambda_fallbacks_fail(self):
