@@ -17,6 +17,10 @@ tests/source_freshness_harness.js before it evaluates the file):
 - FRESH-DEFAULTS: curve-widget's first-load default set and its
   defaultGroupedSources guard both honour the exclusion; a widget that drops
   the exclusion from the guard must fail it.
+- FRESH-WEEKMAX (JEG-1155): curve-widget's content-week setter accepts every
+  week the calendar can produce (1 to nfl_week.py's last week) and rejects the
+  rest with text naming that bound; the bound is product-data.js's
+  CONTENT_WEEK_MAX, so moving that one constant moves the widget's check.
 - REG-PAIRS / REG-DERIVED / REG-COPY: one row per (source, method), the
   design's allowed pairs, availability derived from the data (not counts in
   code), and reason text that obeys the copy rules.
@@ -37,7 +41,7 @@ FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json
 INDEX = ROOT / "app" / "trade-value-chart" / "index.html"
 
 sys.path.insert(0, str(ROOT / "pipelines"))
-from nfl_week import current_nfl_week  # noqa: E402
+from nfl_week import REGULAR_SEASON_WEEKS, current_nfl_week  # noqa: E402
 
 WEEKLY_CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs",
                      "fantasycalc_adjusted", "usatoday_adjusted",
@@ -149,6 +153,44 @@ class FreshnessCalendarTest(unittest.TestCase):
     def test_negative_thursday_flip_calendar_is_caught(self):
         self.assertTrue(calendar_mismatches(THURSDAY_FLIP),
                         "a Thursday-flip (watchdog) calendar must not pass FRESH-CAL")
+
+
+def content_week_bound(weeks, mutations=()):
+    return run({"cmd": "content_week_bound", "weeks": list(weeks), "mutations": list(mutations)})
+
+
+class ContentWeekBoundTest(unittest.TestCase):
+    """FRESH-WEEKMAX (JEG-1155, from JEG-1128 item 2). On main before the fix
+    the widget took weeks 1 to 17 while the calendar runs to 18, so in NFL week
+    18 the page's own content week was one the reader could not set."""
+
+    def test_calendar_max_is_nfl_week_py_last_week(self):
+        out = content_week_bound([])
+        self.assertEqual(out["calendar_max"], REGULAR_SEASON_WEEKS,
+                         "product-data.js must export CONTENT_WEEK_MAX = nfl_week.py REGULAR_SEASON_WEEKS")
+        late = run({"cmd": "weeks", "days": ["2027-01-30"]})["weeks"]["2027-01-30"]
+        self.assertEqual(late, REGULAR_SEASON_WEEKS)
+
+    def test_widget_accepts_every_calendar_week(self):
+        weeks = list(range(1, REGULAR_SEASON_WEEKS + 1))
+        results = content_week_bound(weeks)["results"]
+        rejected = {w: r for w, r in results.items() if r != "ok"}
+        self.assertEqual(rejected, {}, "the widget rejects content weeks the calendar produces")
+
+    def test_widget_rejects_outside_the_bound_with_matching_text(self):
+        bad = [0, REGULAR_SEASON_WEEKS + 1, 1.5]
+        results = content_week_bound(bad)["results"]
+        expected = f"RangeError: Content week must be a week from 1 to {REGULAR_SEASON_WEEKS}"
+        self.assertEqual(results, {str(w): expected for w in bad})
+
+    def test_widget_bound_follows_product_data_constant(self):
+        """One definition: moving product-data.js's CONTENT_WEEK_MAX moves the
+        widget's check and its error text with it."""
+        moved = [("const CONTENT_WEEK_MAX = 18;", "const CONTENT_WEEK_MAX = 20;")]
+        out = content_week_bound([20, 21], moved)
+        self.assertEqual(out["calendar_max"], 20)
+        self.assertEqual(out["results"], {
+            "20": "ok", "21": "RangeError: Content week must be a week from 1 to 20"})
 
 
 class FreshnessFlagTest(unittest.TestCase):
