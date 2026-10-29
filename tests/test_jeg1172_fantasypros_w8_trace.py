@@ -6,7 +6,8 @@ divergence:fantasypros:w8) and b863069 (main once the Week 8 article landed),
 by docs/research/JEG-1172/extract_fixture.py. No network, Supabase or data/raw.
 
 Pins, with expected numbers calculated here rather than read back from the
-reporter: the flagged run served the Week 7 article under a week-8 label, the
+reporter: the flagged run served the Week 7 article under a week-8 label (all
+178 FantasyPros natives equal frozen week 7), the
 scraped column is the one scoring-agnostic base Value, native x the combo's one
 Indexed factor equals the shown value for five named players, missing stays
 missing and a stored 0 is not a price. Each negative mutation (2QB column,
@@ -114,6 +115,20 @@ class FantasyProsWeek8Trace(unittest.TestCase):
         for name in self.samples:
             for sc in SCORINGS:
                 self.assertEqual(week7[name][sc], self.flagged["players"][name]["fantasypros_native"], name)
+
+    def test_whole_flagged_population_is_the_frozen_week7_chart(self):
+        pop = self.flagged["population"]
+        self.assertEqual([], pop["unkeyed_names"])
+        for sc in SCORINGS:
+            flagged, week7 = pop["flagged_natives"][sc], pop["history_week7_natives"][sc]
+            self.assertEqual(178, len(flagged), sc)
+            self.assertEqual(set(week7), set(flagged), sc)
+            self.assertEqual([], [k for k in flagged if flagged[k] != week7[k]], sc)
+        # Mutation: one changed native is caught.
+        mutated = dict(pop["flagged_natives"]["half"])
+        first = sorted(mutated)[0]
+        mutated[first] += 0.1
+        self.assertNotEqual(pop["history_week7_natives"]["half"], mutated)
 
     def test_independent_consensus_matches_the_recorded_report(self):
         report = self.flagged["report"]["combos"]

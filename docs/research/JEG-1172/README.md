@@ -5,10 +5,17 @@ main `b86306972f0a31e9a91cb2ea73fdcbfa723ece3c`). Parent: JEG-460.
 
 ## Verdict
 
-**Week label error, not a parser error.** The flagged "week 8" run compared
-the FantasyPros **Week 7** article with the other charts' Week 7 charts. The
-disagreement it measured is FantasyPros' normal opinion, already accepted for
-Week 7 (JEG-796). On the real Week 8 article FantasyPros is not flagged.
+**Week label error in the committed data.** The flagged "week 8" run
+compared the FantasyPros **Week 7** article with the other charts' Week 7
+charts. On the stored inputs, the measured disagreement matches FantasyPros'
+Week 7 rate, which was accepted as its normal opinion (JEG-796). On the real
+Week 8 article FantasyPros is not flagged.
+
+Not confirmed: whether the stored values match the FantasyPros pages. The raw
+captures are not in git and the live articles were not re-read. So this
+shows a week-label mix-up in the committed data and rules out a column or
+scaling error after the scrape. It does not rule out a parse error at the
+source.
 
 1. The alert comes from `dist/modules/source-divergence.json` at `e2c191c`
    (generated 2026-10-27T10:56:44Z), run on the fixture built
@@ -72,8 +79,10 @@ Current run (`b863069`, all charts week 8):
 | Brock Bowers | TE | 28.0 | 0.718691 | 20.12 | 32.9 / 40.0 / 30.0 | 32.9 | −12.8 | yes |
 
 The same players stay far from the consensus in both weeks, in the same
-direction, after their natives trace exactly. That is the chart's own opinion,
-not a broken step. Josh Allen's 2QB Value (69.5) is not what was used.
+direction, after their natives trace exactly. In the committed data that
+looks like the chart's own opinion, not a broken step after the scrape; the
+scrape itself was not checked against the page. Josh Allen's 2QB Value (69.5)
+is not what was used.
 
 Missing versus zero: Davante Adams is priced by the other three charts and
 absent from FantasyPros. He stays out of FantasyPros' count and is not read as
@@ -83,11 +92,15 @@ read that 0 as a price.
 ## Fixtures and test
 
 - `tests/fixtures/JEG-1172/fantasypros-w8-trace.json`: values copied from
-  committed files at `e2c191c` and `b863069` by `extract_fixture.py`. No source
+  committed files at `e2c191c` and `b863069` by `extract_fixture.py`
+  (`b863069` is main at diagnosis time; the Week 8 article first appeared at
+  `e55755c`). It includes every FantasyPros native of the flagged run and of
+  frozen week 7, by player key. No source
   page was fetched or reconstructed.
-- `tests/test_jeg1172_fantasypros_w8_trace.py` (12 tests): served week and
+- `tests/test_jeg1172_fantasypros_w8_trace.py` (13 tests): served week and
   article, base column, exact trace for five players and three scorings, week 7
-  equality, independent consensus against the recorded report examples, the
+  equality for the five samples and for the whole population (178 of 178 in
+  all three scorings), independent consensus against the recorded report examples, the
   reporter's `divergence()` agreeing on the frozen rows, missing versus zero.
   Negative mutations: 2QB column, another combo's factor, the other week's
   natives (Nabers, McCaffrey) and missing read as a price each break the trace.

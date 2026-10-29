@@ -7,8 +7,9 @@ already stored in the repo; it never fetches or invents a source capture.
 
   FLAGGED = e2c191c  the commit whose dist/modules/source-divergence.json raised
                      divergence:fantasypros:w8 (fixture built 2026-10-26T15:42Z)
-  CURRENT = b863069  main when this diagnosis ran (fixture built 2026-10-29T14:09Z,
-                     the first week with the real FantasyPros Week 8 article)
+  CURRENT = b863069  main when this diagnosis ran (fixture built 2026-10-29T14:09Z),
+                     serving the FantasyPros Week 8 article. The Week 8 article first
+                     reached the fixture earlier, at e55755c (built 2026-10-28T13:19Z).
 
     python3 docs/research/JEG-1172/extract_fixture.py
 """
@@ -84,6 +85,18 @@ def main() -> int:
         "natives": {name: {sc: week7["natives"][HISTORY_SCORING[sc]].get(str(row["player_key"]))
                            for sc in SCORINGS}
                     for name, row in flagged["players"].items() if row["player_key"] is not None},
+    }
+    # Whole FantasyPros population of the flagged run against frozen week 7,
+    # keyed by player_key, so the 178-of-178 claim is asserted, not hand-checked.
+    fixture = show(FLAGGED, "data/fixtures/current/comparison-sources-data.json")
+    keys = fixture["player_keys"]
+    fp_combos = fixture["sources"]["fantasypros"]["combos"]
+    flagged["population"] = {
+        "flagged_natives": {sc: {str(keys[n]): v for n, v in fp_combos[combo_key("fantasypros", sc)]["native"].items()
+                                 if keys.get(n) is not None}
+                            for sc in SCORINGS},
+        "unkeyed_names": sorted(n for n in fp_combos["half_12"]["native"] if keys.get(n) is None),
+        "history_week7_natives": {sc: week7["natives"][HISTORY_SCORING[sc]] for sc in SCORINGS},
     }
     report = show(FLAGGED, "dist/modules/source-divergence.json")["sources"]["fantasypros"]
     flagged["report"] = {
