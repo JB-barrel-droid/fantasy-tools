@@ -9,16 +9,19 @@ Cross-tab roster precedence stays with JEG-1114. Public wording stays with JEG-1
 - `main` at `021c5bfd6d631ba6ddfd4347e60d43fab71132b1` (2026-10-29 01:37 UTC), which includes
   the league finder release #1062 (complete value context on finder and league links) and the
   interactive trades release #1069.
-- Harness: `tests/jeg-1224/shared_link_regressions.mjs` (Node 22, no network, no build).
+- Harness: `tests/jeg-1224/shared_link_regressions.mjs` (Node 22, no network, no build), and its
+  negative mutations `tests/jeg-1224/harness_mutations.mjs` (JEG-1254).
 
 ```
 node --experimental-strip-types --no-warnings tests/jeg-1224/shared_link_regressions.mjs
 node --experimental-strip-types --no-warnings tests/jeg-1224/shared_link_regressions.mjs --strict
+node --experimental-strip-types --no-warnings tests/jeg-1224/harness_mutations.mjs
 ```
 
-The first command exits 0 when every case matches its recorded state (14 failing specs, 6 passing
-guards on the pinned revision). `--strict` exits 1 while any spec fails; it is the
-"failing before, passing after" check for the fix. The harness loads `app/v2/ddf-state.js`,
+The first command exits 0 when every case matches its recorded state (22 cases: 14 failing
+specs, 8 passing guards on the pinned revision). `--strict` exits 1 while any spec fails; it is
+the "failing before, passing after" check for the fix. Any harness error (see "Unmet contract
+or broken harness" below) exits 2 in every mode and is never counted as a failing spec. The harness loads `app/v2/ddf-state.js`,
 `app/v2/overrides.js`, `app/v2/ddf-assist.js` and `supabase/functions/mcp/rpc.ts` read-only,
 with stubbed storage, engine and get-values. It is not wired into `make`, so it cannot turn
 `make validate` red. When a fix lands, its PR flips the case's `today` to `"pass"` and moves the
@@ -41,8 +44,8 @@ page closure and needs the built site.
 | C1-C3 | DDFState codec | `basis`, `ov` and `valuecontext` are not fields of the state. `decodeQuery` drops them with no warning; `encodeQuery` cannot write them. `normalize` ignores unknown fields by design (ddf-state.js:52-53). | executed |
 | L1-L3 | Copy link (overflow menu) on Compare, Find a trade, Trade targets | `DDFAssist.buildState` builds the state from the codec only (ddf-assist.js:52-78) and `siteLink` uses `DDFState.encodeQuery` (ddf-assist.js:79-82). It never calls `DDFOverrides.shareLink`, so the sender's custom basis and overrides are not in the link. The two page-local buttons do carry them: "Copy link to this search" (finder.js:1084) and league Copy link (league.js:1359). | executed |
 | L4 | Copy link, sender on our methodology | No `valuecontext=1`, so a reader with a saved custom basis keeps it. | executed |
-| O1 | Compare a trade link (`tradeHash`, v2.js:6143-6160) | Writes `basis=` and `ov=` but never `valuecontext=1`. The reader then merges the sender's overrides into their own saved ones: reader saved 202:30, link ov=101:58, the visit prices both. | executed |
-| O2 | Compare link, sender on our methodology | No `basis=` is written for ours and no marker, so `applyLink` returns false and a reader with a saved custom basis (ESPN in the fixture) sees different values from the sender. | executed |
+| O1 | Compare a trade link (`tradeHash`, v2.js:6143-6160) | Writes `basis=` and `ov=` but never `valuecontext=1`. The reader then merges the sender's overrides into their own saved ones: reader saved 202:30, link ov=101:58, the visit prices both. The case runs the shipped `tradeHash` and opens its link in the shipped reader. | executed |
+| O2 | Compare link, sender on our methodology | No `basis=` is written for ours and no marker, so `applyLink` returns false and a reader with a saved custom basis (ESPN in the fixture) sees different values from the sender. Same writer-to-reader run as O1. | executed |
 | O7 | Any link with `valuecontext=1` and a bad `basis` or `ov` | `applyLink` returns false (overrides.js:818) with no note: the whole value context is silently skipped and the reader's own settings stay. | executed |
 | O8 | Override for a player not in this week's values | Kept and counted: "This link uses our methodology and 2 player overrides" when one applies. | executed |
 | M1 | MCP `read_state` | Prices with our methodology and says nothing about the pasted basis or overrides (tools.ts:1106-1145; state.ts `prepare` reads only `league` and `work`). | executed, stub get-values |
@@ -57,7 +60,9 @@ the AI hand-off (shell.html:96-101). Wherever the ticket says Copy for AI, read 
 Guards that pass today and must keep passing: old links without any value context (C4), the
 #1062 finder/league explicit default over a saved custom reader with the saved record untouched
 (O3), custom blend plus adjustment round trip (O4), the same link applied twice applies once
-(O5), league import Undo restoring the prior context (O6), and `read_state` applying league
+(O5), league import Undo restoring the prior context (O6), unmarked legacy links keeping
+today's reader behaviour (O1L merges a legacy Compare link's ov into the reader's saved ones;
+O2L leaves the reader's settings when a legacy link has no basis or ov), and `read_state` applying league
 settings (M4).
 
 ## Contract matrix
@@ -114,8 +119,8 @@ n/a = not part of that surface.
 
 Every case is in the harness with its expected and actual result. Cases the ticket names:
 
-- Old links: C4 (pass), O2 (the old Compare shape over a custom reader).
-- Reader with conflicting saved settings: O1, O2, O3.
+- Old links: C4 (pass), O1L and O2L (pass: unmarked legacy links keep today's reader behaviour).
+- Reader with conflicting saved settings: O1, O2 (writer to reader), O3.
 - Repeated use: O5 (pass), S3 (open question).
 - Cancel and undo: O6 covers league import Undo (pass). League import Cancel is guarded by the
   existing #1062 render checks (`docs/claude-log/2026-10-28-league-import-undo-context.md`),
@@ -188,3 +193,42 @@ Cross-tab roster replacement on Find a trade links is JEG-1114, not this ticket.
 
 Open question, not blocking: after "Use our methodology", should reopening the same link in the
 same tab apply it again (S3)? Today it does not.
+
+## JEG-1254 corrections (review eddb32b1 on #1080)
+
+Spec and harness only; no runtime file changed. All three findings still applied at head
+`8ce4ae6e` (the reviewed head was `2845ba6b`; 8ce4ae6 changed only case M1, the README and the log).
+
+1. O1/O2 now run the writer. They lift the shipped `tradeHash` out of `v2.js` (by name, read
+   only), run it beside the real Overrides module holding the sender's context, and open the
+   link it writes in a reader with conflicting saved settings. They pass once the writer adds
+   `valuecontext=1` (slice 3, D2: A), with no reader change. The old hard-coded unmarked links
+   moved to two guards, O1L and O2L, that pin today's unmarked-reader behaviour
+   (overrides.js:810-825 reads only `valuecontext=1` as a complete context). Changing that is a
+   legacy policy call nobody has made, so a fix that changes it fails those guards. If
+   `tradeHash` is renamed or moved, O1/O2 report a harness error rather than a spec failure.
+2. Unmet contract or broken harness. Only the shipped call a case is about is wrapped in
+   `underTest`: its wrong answer, its throw, or a JSON-RPC error from the MCP fails the spec.
+   Everything else that throws (loading a module, a fixture, a `precondition`, a writer that
+   cannot be found, a case result that is not `{pass, actual}`) is `HARNESS ERROR`, exits 2 in
+   the default, `--strict` and `--json` runs, and is not counted as a failing spec.
+3. M2 checks every value exactly. The link back must carry exactly `valuecontext=1`, and the
+   shipped reader must decode it to exactly blend ESPN 60 / Razzball 40 and a +5 adjustment on
+   202: nothing missing, extra or changed. A marker-only link fails. The writer may encode ov
+   plain or packed (`z:`/`z2:`); the decoded values are the contract.
+
+Negative mutations (`harness_mutations.mjs`, in-memory edits of the shipped sources, nothing on
+disk changed) show each guard rejecting the input it exists for:
+
+| Finding | Mutation | Answer the harness must give |
+| -- | -- | -- |
+| 1 | W1 approved writer fix: `tradeHash` adds `valuecontext=1`, reader unchanged | O1, O2 now pass; O1L, O2L still pass |
+| 1 | W2 unapproved legacy change: reader treats every link as complete | O1L, O2L regress |
+| 1 | W3 writer marks the link but drops the override | O1 fails, O2 passes |
+| 1 | W4 `tradeHash` renamed | O1, O2 harness error, exit 2 |
+| 2 | E1 sender precondition breaks (shareParams loses the single basis) | L1, O1 harness error, exit 2 |
+| 2 | E2 overrides.js throws on load; E3 Copy link module missing | harness error, exit 2 |
+| 2 | E4 malformed case result, bare setup TypeError, failed precondition | harness error, exit 2 (and 2 under `--strict`) |
+| 2 | E5/E6 controls: `read_state` throws or answers a JSON-RPC error | M1/M2 stay unmet specs, exit 0 |
+| 3 | V1-V9 site_url marker only, basis only, ov only, no marker, +4, absolute 5, weights 50/50, an extra override, `valuecontext=true` | M2 fails each |
+| 3 | V10 control: complete exact site_url | M2 passes |
