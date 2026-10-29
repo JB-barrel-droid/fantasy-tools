@@ -14,8 +14,8 @@ At 390, 360 and 320 px with the 4-team fixture in the workspace:
   * a team folds with the keyboard and Escape inside it.
 
 Discrimination: test_guard_fails_on_broken_builds serves a build with the cards hidden, the sort selector dead, a 30 px control,
-the low-contrast tint colour back, a summary column checkbox without its label, that label under 44 px, and that label not taking
-the tap, and requires the checks to fail.
+the low-contrast tint colour back, a summary column checkbox without its label, that label under 44 px, that label not taking
+the tap, and the summary filter value box back at 26 px, and requires the checks to fail.
 """
 from __future__ import annotations
 
@@ -59,21 +59,27 @@ LABELLED = """() => { const out = [];
       const data = [...n.attributes].find(a => a.name.startsWith('data-'));
       const css = n.id ? '#' + CSS.escape(n.id) : data ? `input[${data.name}="${CSS.escape(data.value)}"]` : null;
       const group = n.closest('fieldset') || root;
-      out.push({css, name: (n.labels[0].textContent || '').replace(/\\s+/g, ' ').trim(), type: n.type, group: [...document.querySelectorAll('fieldset')].indexOf(group) + ':' + sel}); }); }
+      out.push({css, name: (n.labels[0].textContent || '').replace(/\\s+/g, ' ').trim(), type: n.type, disabled: n.disabled || n.getAttribute('aria-disabled') === 'true', group: [...document.querySelectorAll('fieldset')].indexOf(group) + ':' + sel}); }); }
   return out; }"""
 
-# Opens the folds around a control and returns its label's box after scrolling it into view, or null when it is gone.
+# Opens the folds around a control, scrolls its label to the middle of the viewport and returns the label's box, or null when it
+# is gone. The page sets html { scroll-behavior: smooth }, so a plain scrollIntoView is still moving when the box is read (Mac run
+# on 24c9f19: labels measured thousands of px off screen); behavior 'instant' lands before the read. inView says the box is wholly
+# on screen, which every hit test and click below requires.
+IN_VIEW = "r.top >= 0 && r.left >= 0 && r.bottom <= innerHeight && r.right <= innerWidth"
+SCROLL_TO = "label.scrollIntoView({block: 'center', inline: 'nearest', behavior: 'instant'})"
 LABEL_BOX = """(css) => { const n = document.querySelector(css); if (!n || !n.labels || !n.labels.length) return null;
   for (let d = n.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;
-  const label = n.labels[0]; label.scrollIntoView({block: 'center'}); const r = label.getBoundingClientRect();
-  return {left: r.left, top: r.top, right: r.right, bottom: r.bottom}; }"""
+  const label = n.labels[0]; """ + SCROLL_TO + """; const r = label.getBoundingClientRect();
+  return {left: r.left, top: r.top, right: r.right, bottom: r.bottom, inView: """ + IN_VIEW + """}; }"""
 
 # Every labelled box: open its folds, scroll its label into view and ask what a pointer 2 px inside each label corner lands on.
 # It must be the label (or the box itself); anything else covers that edge. No click, so nothing redraws.
 CORNERS = """(list) => { const out = [];
   for (const c of list) { const n = document.querySelector(c.css); if (!n || !n.labels || !n.labels.length) { out.push(`${c.css} has no label`); continue; }
     for (let d = n.closest('details'); d; d = d.parentElement && d.parentElement.closest('details')) d.open = true;
-    const label = n.labels[0]; label.scrollIntoView({block: 'center'}); const r = label.getBoundingClientRect();
+    const label = n.labels[0]; """ + SCROLL_TO + """; const r = label.getBoundingClientRect();
+    if (!(""" + IN_VIEW + """)) { out.push(`${c.css} (${c.name}): its label is not in view after scrolling to it (${Math.round(r.left)},${Math.round(r.top)} ${Math.round(r.width)}x${Math.round(r.height)} in ${innerWidth}x${innerHeight}), so its label edges could not be hit-tested`); continue; }
     for (const [corner, x, y] of [['top-left', r.left + 2, r.top + 2], ['top-right', r.right - 2, r.top + 2], ['bottom-left', r.left + 2, r.bottom - 2], ['bottom-right', r.right - 2, r.bottom - 2]]) {
       const hit = document.elementFromPoint(x, y);
       if (!hit || !(hit === n || label.contains(hit))) out.push(`${c.css} (${c.name}): the ${corner} label edge is covered by ${hit ? hit.tagName.toLowerCase() + '.' + hit.className.toString().split(' ')[0] : 'nothing'}, so a tap there misses the box`); } }
@@ -201,22 +207,30 @@ def check_label_targets(browser, base, overrides, errors):
                 errors.append(f"{tag}{css} has an empty label")
             # A real pointer click at each label corner, 2 px in, toggles the box; four clicks restore it. Each click saves and redraws
             # the workspace, so this runs on each group's first and last box; CORNERS above hit-tests every box without clicking.
-            if c not in sample:
+            # A disabled or aria-disabled box must not toggle, and a radio only turns on, so neither runs the toggle checks; both are
+            # still measured and hit-tested above.
+            if c not in sample or c["disabled"]:
                 continue
+            radio = c["type"] == "radio"
             for corner in ("top-left", "top-right", "bottom-left", "bottom-right"):
                 box = page.evaluate(LABEL_BOX, css)
                 if not box:
                     errors.append(f"{tag}{css} lost its label before the {corner} label edge click")
                     break
+                if not box["inView"]:
+                    errors.append(f"{tag}{css} ({name}): its label is not in view before the {corner} label edge click")
+                    break
                 x = box["left"] + 2 if "left" in corner else box["right"] - 2
                 y = box["top"] + 2 if "top" in corner else box["bottom"] - 2
                 before = page.evaluate("(css) => document.querySelector(css).checked", css)
                 page.mouse.click(x, y)
-                if not toggled(page, css, not before):
+                if not toggled(page, css, True if radio else not before):
                     errors.append(f"{tag}{css} ({name}): a tap at the {corner} label edge did not toggle it")
                     break
             # Keyboard and name: the box takes focus, is named by its label, and Space toggles it (then again to restore).
-            page.evaluate(LABEL_BOX, css)
+            if not (page.evaluate(LABEL_BOX, css) or {}).get("inView"):
+                errors.append(f"{tag}{css} ({name}): its label is not in view before the keyboard check")
+                continue
             loc = page.locator(css)
             loc.focus()
             if not page.evaluate("(css) => document.activeElement === document.querySelector(css)", css):
@@ -226,8 +240,10 @@ def check_label_targets(browser, base, overrides, errors):
                 errors.append(f"{tag}{css} is not named {name!r} by its label")
             before = loc.is_checked()
             page.keyboard.press("Space")
-            if not toggled(page, css, not before):
+            if not toggled(page, css, True if radio else not before):
                 errors.append(f"{tag}{css} ({name}): Space did not toggle it")
+                continue
+            if radio:
                 continue
             page.evaluate(LABEL_BOX, css)
             page.locator(css).focus()
@@ -336,6 +352,7 @@ class LeaguePhoneRenderTest(unittest.TestCase):
             # JEG-1236: the 20 px summary column boxes pass only through their 44 px labels, so each part of that must be load-bearing.
             "a summary column checkbox loses its label": ({"league.js": league.replace('group.append(el("label", {}, input, " ", field.label));', 'group.append(el("span", {}, input, " ", field.label));', 1)}, {"phone"}, "controls under 44px"),
             "the summary column label is under 44px": ({"v2.css": css.replace(".v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }", ".v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 24px; gap: 6px; }", 1)}, {"phone"}, "through its label"),
+            "the summary filter value box is under 44px": ({"v2.css": css.replace('.v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }\n', '', 1)}, {"phone"}, "Summary filter value"),
             "the summary column label does not take the tap": ({"v2.css": css.replace(".v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }", ".v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; pointer-events: none; }", 1)}, {"labels"}, "label edge"),
         }
         for name, (overrides, only, *rest) in broken.items():

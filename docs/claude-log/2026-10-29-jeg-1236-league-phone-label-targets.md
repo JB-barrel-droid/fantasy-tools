@@ -40,3 +40,20 @@ than assuming it from geometry.
   24 px label and label-less box fail with the expected messages, a covered edge fails the hit test, folds are restored.
 - Still required: the focused module on a real browser, `python3 -m unittest tests.test_v2_league_phone_render`
   (both tests, including the mutation guard), at the release coordinator's Mac, plus screenshots at 390 and 320 px.
+
+## Round 2, after the Mac run on 24c9f19 (both tests ran, guard PASS, phone check FAIL)
+
+Codex's Mac run found two real problems; both fixed here.
+
+1. Real UI defect: `#v2LgSummaryFilterValue` (the "Filter by team summary" value box) drew 162x26 at 390/360/320. Fix, one
+   scoped line in v2.css, posted on JEG-1236 first: `.v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }`.
+   Height only, only inside the league summary folds. Overlap: of the open UI PRs only #1069 touches v2.css (hunks near 2007 and
+   2260); this line is next to the existing checkbox rule near 2203. New mutation: drop the line, and the phone check must name
+   "Summary filter value".
+2. Test timing defect: the page sets `html { scroll-behavior: smooth }`, so LABEL_BOX and CORNERS read the label box while the
+   scroll was still moving. Both now scroll with `behavior: 'instant'` after opening the folds, and require the label to be
+   wholly in the viewport before any hit test, click or keyboard check, with a "not in view" diagnostic otherwise.
+3. From the independent review: radios are expected only to turn on (no toggle-off), and disabled or aria-disabled boxes are
+   still measured and hit-tested but not activation-toggled.
+
+Verified here: compile, node parse, jsdom (in-view and off-screen cases). Still needs the coordinator's two-test browser rerun.
