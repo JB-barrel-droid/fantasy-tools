@@ -20,3 +20,10 @@ active PR branch changed.
   context, reopen after "Use our methodology") are from source reading only.
 - Not checked against the live site, the deployed mcp function or a real chat client:
   github.io is blocked from this environment.
+
+### Update: decisions recorded (same PR)
+- Jeremy's calls, relayed with his words attached: D1 "B" (chat prices under the link's basis
+  and overrides, JEG-1225), D2 "A" (Compare links use only the sender's settings), D3 "A"
+  (overflow Copy link carries the value context). README plan slices 3 and 4 updated; harness
+  case M1 now specs pricing under the override (58, not 40). Rerun: 20 cases, 14 failing specs,
+  6 guards, 0 differ from the record.

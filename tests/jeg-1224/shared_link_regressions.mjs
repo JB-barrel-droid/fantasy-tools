@@ -247,12 +247,12 @@ const CASES = [
 
   // MCP read_state / make_state and the return-to-site link
   { id: "M1", surface: "read_state", today: "fail", observed: "executed locally (stub get-values)",
-    title: "read_state on a custom-basis link says the basis and override were not applied",
-    expected: "a note that the pasted basis/overrides are not used, or values priced under them",
+    title: "read_state on a custom-basis link prices under the link's basis and override",
+    expected: "Alpha Back priced with the override (58, not 40) and the reply names the basis (D1: B)",
     async run() {
       const r = await mcp("read_state", { state: COMPARE_CUSTOM });
       const t = mcpText(r);
-      return { pass: /basis|override/i.test(t), actual: t.split("\n").slice(0, 6).join(" | ") };
+      return { pass: /Alpha Back \(RB\): 58\b/.test(t) && /fantasycalc|basis/i.test(t), actual: t.split("\n").slice(0, 6).join(" | ") };
     } },
   { id: "M2", surface: "return-to-site", today: "fail", observed: "executed locally (stub get-values)",
     title: "read_state's site_url keeps basis, ov and valuecontext",

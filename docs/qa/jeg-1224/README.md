@@ -89,7 +89,7 @@ n/a = not part of that surface.
 1. One value context, written by one function. Every link writer (tradeHash, finder Copy link,
    league Copy link, overflow Copy link, MCP `finish`) appends the output of
    `DDFOverrides.shareLink` (or its codec twin): `valuecontext=1`, plus `basis=` when not ours,
-   plus `ov=` when any. Compare links gain `valuecontext=1` (Decision D2).
+   plus `ov=` when any. Compare links gain `valuecontext=1` (Decision D2: A).
 2. The codec carries it. `DDFState` gains an optional `value` section,
    `{complete: true, basis: "<basis param>", ov: "<ov param>"}`, read from and written to the
    same three query parameters. It is opaque to the codec (no parsing of weights or packed
@@ -102,9 +102,10 @@ n/a = not part of that surface.
      reader on our methodology for the visit, and shows a note saying which part was not read.
      (Today the whole value context is skipped and the reader's own custom settings stay.)
    - Overrides for unpriced players are left out of the count and named in the note.
-   - MCP `read_state` and the tools that take `state` carry `value` through to the link back
-     unchanged, and say in the reply that the chat's numbers use our methodology and the
-     link back opens the sender's basis and overrides (Decision D1).
+   - MCP `read_state` and every tool that takes `state` price under the link's basis and
+     overrides (Decision D1: B, Jeremy, 2026-10-28), say in the reply which basis and how many
+     overrides were used, and carry `value` unchanged into the link back. A malformed value
+     context gets the same rule as the site: our methodology plus a note naming what was not read.
 4. Separate concerns stay separate: the source week, basis and overrides travel in the link;
    saved workspace teams and the reader's saved view selection stay browser-local; a link never
    writes to the reader's saved settings (O3 guards this).
@@ -146,33 +147,44 @@ No fix PR here. Proposed slices, each with its harness cases flipped to pass:
 2. Overrides reader (`app/v2/overrides.js`): warn instead of silently skipping (O7), count only
    priced overrides (O8). Not a hot file.
 3. Site writers and routing (`app/v2/ddf-assist.js`, `app/v2/v2.js` `tradeHash` and
-   `readTradeHash`): Copy link appends `shareLink` (L1-L4), Compare links write
-   `valuecontext=1` (O1, O2, after D2), one `applyLink` call first on every route (S1, S2).
+   `readTradeHash`): Copy link appends `shareLink` (L1-L4; D3 decided A), Compare links write
+   `valuecontext=1` (O1, O2; D2 decided A), one `applyLink` call first on every route (S1, S2).
    `v2.js` is a hot file and #1071 has it open: land after #1071 merges, then retest on the
    merged result. `league.js` is not touched (#1072 has it open).
-4. MCP (`supabase/functions/mcp/state.ts`, `tools.ts`, `tests/node/mcp_remote_check.mjs`):
-   carry `value` through `prepare` and `finish`, add the reply note (M1-M3, after D1). #1024 and
-   #1032 also edit `tools.ts`: integrate after them. Needs Jeremy's fresh yes naming the `mcp`
-   function before any deploy.
-5. AI onboarding copy (JEG-1223): until slice 4 is live, public copy must not promise that a
-   chat sees the site's custom basis or overrides.
+4. Chat prices under the link's value context (JEG-1225; D1 is B). No new value math: the
+   engine `get-values` already loads (`app/trade-value-chart/assets/value-model.js`) takes a
+   `basisConfig` (JEG-1044, VP-6.3) and normalizes overrides (JEG-1058); the site applies both
+   through `curve-widget.js` `setBasis` and `setValueOverrides`. Steps:
+   - 4a. Move the link parsing (`parseBasisParam`, `parseOvParam`, the `z:`/`z2:` unpackers)
+     out of `overrides.js` into one pure UMD module beside `ddf-state.js`, used by the site and
+     the MCP function, so there is one reader of the link format. Covered by O4 and O7.
+   - 4b. `get-values` accepts an optional basis and override map, passes the basis to the
+     pipeline as `basisConfig` and applies overrides the way `setValueOverrides` does. Its
+     cache key includes both. Add an endpoint parity case (`tests/test_endpoint_parity.py`
+     style): same synthetic basis and overrides, site engine and `get-values` give the same
+     DDF Value per player in Standard, Half PPR and PPR.
+   - 4c. MCP `prepare` decodes `value`, sends it to `get-values`, every tool's reply names the
+     basis and override count, and `finish` writes `value` into the link back (M1-M3).
+   `get-values` and `mcp` are both edge functions: #1024 and #1032 also edit `mcp/tools.ts`, so
+   integrate after them, and each deploy needs Jeremy's fresh yes naming the function. Value
+   path work is T1 per AGENTS.md (it decides the numbers a chat shows).
+5. AI onboarding copy (JEG-1223, PR #1078): Jeremy chose to leave the caveat out, since
+   slice 4 closes the gap; no copy change is needed once it ships.
 
 Cross-tab roster replacement on Find a trade links is JEG-1114, not this ticket.
 
-## Decisions for Jeremy
+## Decisions (all settled by Jeremy, 2026-10-28 CT)
 
-- D1. What a chat does with a pasted link's custom basis and overrides.
-  A) Carry them through to the link back and say the chat's numbers use our methodology
-  (recommended: honest, no new math, small change).
-  B) Price the chat's answer under the pasted basis and overrides (new get-values path, bigger).
-  C) Drop them with a warning.
-- D2. Compare a trade links over a reader's own saved settings.
-  A) Same as Find a trade and league links: the sender's basis, or ours, and only the sender's
-  overrides, for the visit (recommended: one rule everywhere).
-  B) Keep today's mix: sender's overrides added to the reader's own.
-- D3. The overflow Copy link.
-  A) Carry the full value context like the page buttons do (recommended).
-  B) Leave it out and add a line saying the link uses our methodology.
+- D1. What a chat does with a pasted link's custom basis and overrides. Decided: B (Jeremy,
+  2026-10-28, "B"): the chat prices its answer under the pasted basis and overrides. Tracked
+  as JEG-1225; plan in slice 4. (Options were A, carry through and say the chat uses our
+  methodology; B, price under them; C, drop with a warning.)
+- D2. Compare a trade links over a reader's own saved settings. Decided: A (Jeremy, 2026-10-28,
+  "A"): same rule as Find a trade and league links, the sender's basis (or ours) and only the
+  sender's overrides, for the visit. Compare links write `valuecontext=1` (slice 3; O1, O2).
+  (Option B was to keep today's mix.)
+- D3. The overflow Copy link. Decided: A (Jeremy, 2026-10-28, "A"): it carries the full value
+  context like the page buttons do (slice 3; L1-L4). (Option B was to leave it out and say so.)
 
 Open question, not blocking: after "Use our methodology", should reopening the same link in the
 same tab apply it again (S3)? Today it does not.
