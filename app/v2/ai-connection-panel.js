@@ -41,7 +41,7 @@
     "ai.next.note": "Each answer gives the date of the values and a link to the matching page here, usually with your league settings and the players you asked about filled in. After a league-wide search, the link brings only your roster: add the other teams on the page.",
     "ai.link.line": "Opens this view. A chat with the DDF tool reads it too.",
     "ai.link.more": "Copy link puts this view's address on your clipboard: your league settings and the trade, rosters or target you're working on. Paste it into a chat that has the DDF tool connected and the tool reads your league settings and players from it. Pasting a link does not connect the tool.",
-    "ai.link.local": "Your saved work stays in this browser. A link carries only what is in its address.",
+    "ai.link.local": "Your saved work stays on this device. A link carries only what is in its address.",
     "ai.err.copy": "Couldn't copy. Copy this link:"
   });
   // This page's own controls and states. No AI or connector claim belongs here.

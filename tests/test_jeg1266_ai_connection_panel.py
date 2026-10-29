@@ -20,6 +20,12 @@ APP = ROOT / "app" / "v2"
 SOURCE = APP / "ai-connection-panel.js"
 HARNESS = ROOT / "tests" / "ai_connection_panel_harness.cjs"
 COPY_PACK = ROOT / "docs" / "product" / "jeg-1223-ai-onboarding-copy.md"   # lands with PR #1078
+# JEG-1130's launch copy rule (tests/test_launch_copy_guard.py) wins over the pack: storage copy says "on this device",
+# never "in this browser". The pack at PR #1078 head 91b0328 still has the browser wording for this one line.
+LAUNCH_COPY_RULE = {  # pack wording -> wording the launch rule allows (ai.link.local)
+    "Your saved work stays in this browser. A link carries only what is in its address.":
+        "Your saved work stays on this device. A link carries only what is in its address.",
+}
 
 REQUIRED = [
     "test_states_are_distinct", "test_never_claims_connected", "test_unknown_is_not_true", "test_connect_explained_once",
@@ -129,6 +135,7 @@ class AiConnectionPanelCopyTest(unittest.TestCase):
             with self.subTest(key):
                 self.assertIn(key, pack)
                 want = pack[key].replace(" `<url>` (matches today's fallback, `v2.js` `Copy this link:`)", "")
+                want = LAUNCH_COPY_RULE.get(want, want)
                 self.assertEqual(value, want)
 
     def test_guide_link_is_the_footer_link(self):

@@ -20,14 +20,20 @@ What the panel can show:
 ### Verified (check named)
 - `python3 -m unittest tests.test_jeg1266_ai_connection_panel`: 7 pass, 1 skip (the verbatim pack check skips until PR #1078's
   doc is on the branch). 14 harness checks pass; 14 mutation proofs each caught by the named check.
-- Copy is the pack verbatim: with `docs/product/jeg-1223-ai-onboarding-copy.md` from PR #1078 head 91b0328 copied in temporarily,
-  `test_copy_is_the_pack_verbatim` passed for all 13 strings (file removed again; it lands with #1078).
+- Copy is the pack verbatim except one line: with `docs/product/jeg-1223-ai-onboarding-copy.md` from PR #1078 head 91b0328
+  copied in temporarily, `test_copy_is_the_pack_verbatim` passed for all 13 strings (file removed again; it lands with #1078).
+  The exception is `ai.link.local`: the pack says "stays in this browser", which `tests/test_launch_copy_guard.py` (JEG-1130)
+  forbids, so the panel says "stays on this device" and the verbatim test maps that one pack line to the launch wording.
+- CI v2-render on 2458fb0: the JEG-1266 step ran 12 tests, OK (skipped=1). Its first run (1962b44) caught a real bug: mount's
+  `update()` returned the container, not the view model, so the result after a click threw before it was announced or the
+  link was selected. Fixed in 2458fb0.
+- Preview shard 1 on 2458fb0 failed `test_launch_copy_guard` on the browser wording above; fixed in the next commit.
 - Acceptance checks 2, 3, 4, 8, 9, 10 of the pack run over every COPY and UI string (`AiConnectionPanelCopyTest`).
 
 ### Claimed, not confirmed
 - `tests.test_jeg1266_ai_connection_panel_render` (9 states x 1280/390/320, keyboard order, focus ring, copy success and failure,
-  no storage writes) skipped here: this container has no Chromium and Playwright's browser download is disabled. It runs in the
-  PR's v2-render workflow; see the PR for the result.
+  no storage writes) ran only in CI (above): this container has no Chromium. Screenshots are the run's `ai-panel-previews`
+  artifact; nobody has looked them over by eye yet.
 - The live adapter is checked against fake pages only. It has not run on the built dashboard (the panel is not loaded there).
 - `make validate` and the contract test were not run: no loaded file changed.
 
