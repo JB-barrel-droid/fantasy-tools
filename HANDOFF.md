@@ -39,7 +39,8 @@ No moving-main data exemption; keep USO valuation separate. Failed live checks
 require a whole-batch revert PR. Docs/tests need exact-SHA publication plus the
 synthetic check; bench values, JSN discovery, pricing context and large UI need
 their named browser journey before the next batch. Supabase/deletion approvals
-are unchanged. #1073 has no automatic-cleanup approval; retain its branch.
+are unchanged. Automatic cleanup of #1073's specific branch is approved;
+this does not authorize deletion of other branches.
 
 Use audited `ready-for-claude` work only after actionable active/Todo work is
 exhausted, and remove readiness on claim/block/handback. Significant corrections

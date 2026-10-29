@@ -17,3 +17,9 @@ Contract: correct existing PR #1073 before any next release, preserving unrelate
 - Independent protocol review, current-main health/freshness, applicable exact-head CI, publication and synthetic verification are still pending at this checkpoint. Previous review receipts do not approve this material protocol delta; AGENTS/protocol changes are not review-exempt.
 - Repository metadata has `delete_branch_on_merge=true`. Specific automatic-cleanup approval for #1073 is absent, so merging is held while its branch is retained; no cleanup authority is inferred from other PR approvals.
 - No authenticated managed-agent paused-state reads or active-run inventory were performed. The separate operational pause remains unverified. No Supabase operation, direct main push, force push or deletion occurred.
+
+### Later preflight checkpoint (2026-10-29)
+
+- Independent substantive review and focused corrective-delta review PASS on `18a84af266195cb174f1b8ee3d48a8ab39154df3`; unconditional integration claims and fresh named Supabase approval were the two findings resolved. Final-head doc-staleness tests passed (four tests, 0.001 seconds), with scoped whitespace checks and a clean worktree.
+- The coordinator subsequently forwarded specific approval for automatic deletion of `codex/JEG-1218-two-agent-protocol` when #1073 merges. The earlier absence noted above is historical; other deletion/Supabase permissions are unchanged. HANDOFF's current status is corrected accordingly.
+- Main `430791c4` build and all four validation shards passed; its deploy job remained queued at the last read. No #1073 merge, exact-SHA publication or synthetic success is claimed at this checkpoint. #1117 remains unmerged/paused; no batch cut has begun.
