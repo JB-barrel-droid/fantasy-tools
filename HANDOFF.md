@@ -15,11 +15,36 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### League candidate completeness fix (Codex, 2026-10-28 UTC)
+
+- Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
+  per-opponent top-10 truncation before fit ranking and filtering; no value,
+  fairness, or package-enumeration rule change. All qualified candidates remain.
+- Synthetic default-size regression: 52 qualified trades, 22 sending JSN;
+  old path retained 10 with zero JSN, corrected path retains all 52.
+  Not a reproduction of Jeremy's current league or a promise about its JSN deals.
+- Compact lazy fit details, cooperative fit evaluation/cancellation, and bounded
+  cache retention prevent the naive uncapped full-fit memory regression.
+  Optional size4 is still expensive; see the measured benchmark and limits in
+  `docs/claude-log/2026-10-28-league-candidate-completeness.md`.
+- Initial exact-head CI and isolated Mac browser tests passed. Release sequence
+  gate opened after #1069 and #1071 published/live passed. Current main is being
+  merged normally; fresh CI and independent delta review are required before merge.
+  Parent coordinates Mac live QA. No Supabase changes.
+  Linear issue creation was rejected by auto-review; do not retry without approval.
+
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
 
 - Branch `fe/jeg-1216-lineup-stability` begins at PR #1062 candidate `50f76b95`. Keep it separate from active JEG-1213 release #1062 and do not merge to production until JEG-1213 lands.
 - New shared `app/v2/lineup-comparison.js` exports `buildRows(before, after, shape)` and `renderTable(impact, shape, valueKey, caption)` as `TradeValueLineupComparison`. The former returns `{starters, bench}` groups of `{slot, before, after, changed}`; the latter returns a DOM wrapper containing the four-column table and a keyboard-accessible bench expander. Load order is finder, lineup-comparison, league, v2. Interactive Compare (JEG-1214) can call this helper directly.
 - Draft [PR #1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066) targets the release candidate, not main. League hookup, CSS, build registration and focused unit/browser tests are on this branch. The original JEG-1213 acceptance render flows also passed locally. See `docs/claude-log/2026-10-28-jeg-1216-lineup-stability.md` for commands and the intentionally stopped duplicate full gate. Final-head CI and independent review remain required before merge.
+
+### Saved-team picker lane (JEG-1219, Codex, 2026-10-29 UTC)
+
+- Draft [PR #1094](https://github.com/JB-barrel-droid/fantasy-tools/pull/1094), branch `codex/JEG-1219-saved-team-picker`. Both pair-finder sides select saved League teams as tab-local copies; untouched Your roster defaults only to the star, while explicit manual/session/link context wins. No finder roster/star writes or new UI/math scope. Source and required CI passed on `e1174207`; main `dbe06a7e` has since been merged normally and cleanly (merge `3e87c250`) under the parent's integration instruction, retaining #1071/#1072 runtime and data unchanged.
+- Integrated runtime focused tests **15 PASS**; independent delta review and exact-head Preview/v2-render CI **PASS** on `35c18978`. #1086's working-copy mismatch was fixed at `8c677a23` and verified read-only; its module remains unloaded/unmerged here. Evidence: `docs/claude-log/2026-10-29-jeg-1219-main-integration.md` plus current PR/ticket metadata. Parent reports #1072 live gate passed; PR merge/deletion remains held.
+- Follow-up fresh-page Bench backups fix (Linear comment `97fc817c`): backup buttons initialize the DOM `disabled` property instead of serializing `disabled=false`. Desktop/phone failing-before proof, focused **14 PASS/no skips**, independent delta review and exact-head CI **PASS** on `359d3613` (11 picker CI tests/no skips). No defaults, math, selectors or pending JEG-1237 folding changes; its #1100 patch still applies cleanly in a read-only check. Evidence: `docs/claude-log/2026-10-29-jeg-1219-backup-initialization.md` plus final PR metadata.
+- Current release preparation: parent explicitly requested normal integration of main `a75b6a28`; clean merge `75e440ec` preserves all picker/backup code and brings in only data/history/monitoring. Current-data focused group **16 PASS/no skips**, independent delta review **PASS**; fresh final-head CI follows the documentation commit, without a full local-suite repeat. Parent then authorized #1094's first release slot after green exact-head gates and an immediately-before-merge healthy-main check; Jeremy approved this branch's automatic cleanup. Prior release hold is superseded only for #1094. Live Pages access here fails proxy HTTP 403, so provide published SHA/build to parent for the existing Mac QA task; no live browser success is claimed. Evidence: `docs/claude-log/2026-10-29-jeg-1219-release-preparation.md` and current PR/ticket metadata. No direct main push, force push, manual deletion, other PR release or Supabase change.
 
 ### League finder release batch (Codex, 2026-10-28 UTC)
 
