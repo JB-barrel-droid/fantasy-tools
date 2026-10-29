@@ -1,0 +1,43 @@
+{
+  "_comment": "JEG-1263 SYNTHETIC fixture. Made-up league, teams and players, shaped like manager-recs.js build() output (JEG-1217). Not a live answer and not anyone's league. Values were typed by hand for the tests, not computed by the engine.",
+  "status": "ready",
+  "fixture": {"kind": "synthetic", "label": "Made-up league and players to show the layout. Not your league and not a live answer."},
+  "league": {"name": "Synthetic League", "myTeam": "Synthetic Team A"},
+  "basis": {"horizon": "ros", "label": "Rest of season, DDF Value"},
+  "missing": [],
+  "ideas": {
+    "recommendations": [
+      {"id": "t2|syn-rb-1|syn-wr-9", "opponentId": "t2", "opponent": "Synthetic Team B",
+       "give": [{"player_key": "syn-rb-1", "name": "RB Alpha", "pos": "RB"}],
+       "receive": [{"player_key": "syn-wr-9", "name": "WR India", "pos": "WR"}],
+       "ourGain": 4.24, "theirGain": 2.1, "share": 0.12, "band": "likely", "likelihood": "Likely", "fit": "natural",
+       "basis": [{"anchor": "market", "weight": 1, "gain": 2.1}], "fallback": null,
+       "why": ["By the trade charts, which you said they weigh a lot, they come out +2.1.", "You ticked that they are win-now; weigh that yourself."],
+       "sources": [{"anchor": "market", "label": "Trade chart average", "status": "published"}]},
+      {"id": "t3|syn-wr-2,syn-te-4|syn-rb-7", "opponentId": "t3", "opponent": "Synthetic Team C",
+       "give": [{"player_key": "syn-wr-2", "name": "WR Bravo", "pos": "WR"}, {"player_key": "syn-te-4", "name": "TE Delta", "pos": "TE"}],
+       "receive": [{"player_key": "syn-rb-7", "name": "RB Golf", "pos": "RB"}],
+       "ourGain": 2.95, "theirGain": -0.4, "share": -0.03, "band": "possible", "likelihood": "Possible", "fit": "market",
+       "basis": [{"anchor": "market", "weight": 1, "gain": -0.4}], "fallback": "nothing marked",
+       "why": ["Judged on the trade charts (nothing marked): they come out −0.4."],
+       "sources": [{"anchor": "market", "label": "Trade chart average", "status": "published"}]},
+      {"id": "t4|syn-qb-3|syn-qb-8", "opponentId": "t4", "opponent": "Synthetic Team D",
+       "give": [{"player_key": "syn-qb-3", "name": "QB Charlie", "pos": "QB"}],
+       "receive": [{"player_key": "syn-qb-8", "name": "QB Hotel", "pos": "QB"}],
+       "ourGain": 0.05, "theirGain": 0.3, "share": 0.02, "band": "possible", "likelihood": "Possible", "fit": null,
+       "basis": [{"anchor": "draft", "weight": 2, "gain": 0.3}], "fallback": null,
+       "why": ["By preseason draft rankings, which you said they weigh a lot, they come out +0.3.", "You marked this profile as a guess."],
+       "sources": [{"anchor": "draft", "label": "Preseason FantasyPros draft rankings", "status": "published, preseason (not your league's own draft; does not change with scoring)"}]}
+    ],
+    "stretch": [
+      {"id": "t5|syn-wr-5|syn-wr-12", "opponentId": "t5", "opponent": "Synthetic Team E",
+       "give": [{"player_key": "syn-wr-5", "name": "WR Echo", "pos": "WR"}],
+       "receive": [{"player_key": "syn-wr-12", "name": "WR Lima", "pos": "WR"}],
+       "ourGain": 6.5, "theirGain": -2.2, "share": -0.18, "band": "longShot", "likelihood": "Long shot", "fit": "force",
+       "basis": [{"anchor": "market", "weight": 1, "gain": -2.2}], "fallback": null,
+       "why": ["By the trade charts, which you said they weigh somewhat, they come out −2.2.", "This needs them to lean on the trade charts more than you marked."],
+       "sources": [{"anchor": "market", "label": "Trade chart average", "status": "published"}]}
+    ],
+    "counts": {"considered": 41, "excluded": 6, "notWin": 29, "noAppeal": 1, "hidden": 1}
+  }
+}
