@@ -128,6 +128,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
+	python3 -m unittest tests.test_connector_roundtrip
+	python3 -m unittest tests.test_connector_inventory
 	python3 -m unittest tests.test_league_mapping
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
