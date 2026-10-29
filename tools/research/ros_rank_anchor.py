@@ -17,17 +17,17 @@ W = REPO / "docs/research/data/jeg1198"
 SCORINGS = ["ppr", "half_ppr", "standard"]
 POS = ["QB", "RB", "WR", "TE"]
 DEPTH = {"QB": 12, "RB": 30, "WR": 36, "TE": 12}  # comparison depth (about starters + flex)
-ALIAS = {"chigoziemokonkwo": "chigokonkwo"}
+sys.path.insert(0, str(REPO / "pipelines" / "lib"))
+from canonical_players import norm_player_name  # noqa: E402  the one name rule
+import player_aliases  # noqa: E402  shared alias list (data/inputs/player_aliases.json)
 
-def norm(s):
-    s = s.lower()
-    for suf in (" jr.", " sr.", " iii", " ii"):
-        s = s.replace(suf, "")
-    k = re.sub(r"[^a-z]", "", s)
-    return ALIAS.get(k, k)
+
+def key(name):
+    return norm_player_name(player_aliases.canonical_spelling(name))
+
 
 players = json.load(open(REPO / "data/fixtures/current/players.json"))["players"]
-by_norm = {norm(p["name"]): p for p in players}
+by_norm = {key(p["name"]): p for p in players}
 
 def load_pub(s):
     out = {}
@@ -35,7 +35,7 @@ def load_pub(s):
         if not line.strip():
             continue
         name, pos, v = line.strip().split("|")
-        out[norm(name)] = (name, pos, float(v))
+        out[key(name)] = (name, pos, float(v))
     return out
 
 def spearman(a, b):
@@ -73,7 +73,7 @@ def ranker_points(s):
     for p in players:
         if p["pos"] not in POS:
             continue
-        k = norm(p["name"])
+        k = key(p["name"])
         if p.get("espn_complete") and p.get("espn_ros"):
             R["espn"][k] = (p["pos"], p["espn_ros"][s])
         if p.get("cbsros_complete") and p.get("cbsros_ppg"):
@@ -89,7 +89,7 @@ def sttm_ranks():
             continue
         pos, names = line.strip().split("|")
         for i, nm in enumerate(names.split(";")):
-            out[norm(nm)] = (pos, i + 1)
+            out[key(nm)] = (pos, i + 1)
     return out
 
 report = {"scorings": {}}
