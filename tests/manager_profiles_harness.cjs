@@ -34,6 +34,8 @@ check("test_unknown_profile_is_default", () => {
   M.ANCHORS.forEach(a => assert.strictEqual(p.anchors[a], "unknown", a));
   assert.strictEqual(p.confidence, "unknown");
   assert.strictEqual(p.excluded, false);
+  assert.deepStrictEqual(p.tags, [], "nothing ticked to start");
+  assert.ok(!("note" in p), "no free-text field");
   assert.strictEqual(M.describe(p).kind, "unknown");
   assert.strictEqual(M.isBlank(p), true);
 });
@@ -57,7 +59,7 @@ check("test_describe_single_mixed_none", () => {
   assert.strictEqual(d.kind, "mixed");
   assert.deepStrictEqual(d.active, ["draft", "names"]);
   assert.deepStrictEqual(d.strong, ["draft"]);
-  assert.deepStrictEqual(d.unknownAnchors, ["market", "rankings", "subjective"]);
+  assert.deepStrictEqual(d.unknownAnchors, ["market", "rankings"]);
   let none = M.ops.setAnchor(M.emptyBook(), ws, "t2", "market", "none", 2);
   assert.strictEqual(M.describe(M.get(none, ws, "t2")).kind, "none");
 });
@@ -110,12 +112,12 @@ check("test_rename_keeps_profile", () => {
 check("test_removal_drops_profile", () => {
   let ws = league();
   let book = M.ops.setAnchor(M.emptyBook(), ws, "t1", "rankings", "strong", 2);
-  book = M.ops.setNote(book, ws, "t2", "Loves rookies", 2);
+  book = M.ops.setTag(book, ws, "t2", "rookies", true, 2);
   ws = W.ops.removeTeam(ws, "t1");
   const out = M.ops.reconcile(book, ws);
   assert.deepStrictEqual(out.dropped, ["t1"]);
   assert.strictEqual(out.book.leagues["league-a"].t1, undefined);
-  assert.strictEqual(out.book.leagues["league-a"].t2.note, "Loves rookies");
+  assert.deepStrictEqual(out.book.leagues["league-a"].t2.tags, ["rookies"]);
   // A new team with the same name gets a new id and starts unknown.
   ws = W.ops.addTeam(ws, "Alpha", {id: "t9"});
   assert.strictEqual(M.describe(M.get(out.book, ws, "t9")).kind, "unknown");
@@ -142,10 +144,19 @@ check("test_unchanged_write_returns_same_book", () => {
   assert.strictEqual(M.get(M.ops.setConfidence(book, ws, "t1", "low", 9), ws, "t1").updatedAt, 9);
 });
 
-check("test_note_is_bounded", () => {
+check("test_tags_fixed_list_no_free_text", () => {
   const ws = league();
-  const book = M.ops.setNote(M.emptyBook(), ws, "t1", `  ${"x".repeat(400)}  `, 2);
-  assert.strictEqual(M.get(book, ws, "t1").note.length, M.MAX_NOTE);
+  assert.deepStrictEqual(M.TAGS.map(tag => M.TAG_LABELS[tag]), ["Likes rookies", "Wants draft picks", "Win-now", "Rebuilding", "Slow to reply", "Rarely trades"]);
+  assert.strictEqual(M.ops.setNote, undefined, "no note to write");
+  let book = M.ops.setTag(M.emptyBook(), ws, "t1", "rarelyTrades", true, 2);
+  book = M.ops.setTag(book, ws, "t1", "rookies", true, 2);
+  assert.deepStrictEqual(M.get(book, ws, "t1").tags, ["rookies", "rarelyTrades"], "kept in list order");
+  assert.strictEqual(M.ops.setTag(book, ws, "t1", "rookies", true, 3), book, "ticking twice changes nothing");
+  assert.strictEqual(M.ops.setTag(book, ws, "t1", "Loves young players", true, 3), book, "free text is not a tag");
+  assert.strictEqual(M.isBlank(M.get(book, ws, "t1")), false);
+  book = M.ops.setTag(book, ws, "t1", "rookies", false, 4);
+  book = M.ops.setTag(book, ws, "t1", "rarelyTrades", false, 4);
+  assert.strictEqual(book.leagues["league-a"], undefined, "unticking everything is back to the default");
 });
 
 check("test_store_reload", () => {
@@ -213,8 +224,8 @@ check("test_store_other_tab", () => {
 
 check("test_legacy_and_partial_state", () => {
   // An older or hand-edited profile with missing or unknown fields loads with "unknown" in their place.
-  const text = JSON.stringify({v: 1, leagues: {"league-a": {t1: {anchors: {draft: "strong", market: "huge", rankings: 0.7}, excluded: "yes", createdAt: 5},
-    t2: {anchors: {}}, t3: "junk"}, "league-z": []}});
+  const text = JSON.stringify({v: 1, leagues: {"league-a": {t1: {anchors: {draft: "strong", market: "huge", rankings: 0.7}, excluded: "yes", createdAt: 5,
+    tags: ["rookies", "bogus", "rookies", 3]}, t2: {anchors: {}}, t3: "junk", t4: {anchors: {subjective: "strong"}, note: "loves rookies"}}, "league-z": []}});
   const parsed = M.parseStored(text);
   assert.strictEqual(parsed.status, "ok");
   const ws = league();
@@ -224,8 +235,10 @@ check("test_legacy_and_partial_state", () => {
   assert.strictEqual(p.anchors.rankings, "unknown", "a number is never a level");
   assert.strictEqual(p.excluded, false, "only a literal true excludes");
   assert.strictEqual(p.createdAt, 5);
+  assert.deepStrictEqual(p.tags, ["rookies"], "only known tags, once each");
+  assert.ok(!("note" in M.get(parsed.book, ws, "t3")), "an older note is dropped");
   assert.deepStrictEqual(Object.keys(parsed.book.leagues), ["league-a"]);
-  assert.deepStrictEqual(Object.keys(parsed.book.leagues["league-a"]), ["t1"], "blank and junk profiles are not kept");
+  assert.deepStrictEqual(Object.keys(parsed.book.leagues["league-a"]), ["t1"], "blank, junk and note-only profiles are not kept");
   // A league saved before profiles existed has every team unknown and eligible.
   assert.deepStrictEqual(M.eligibleOpponents(M.emptyBook(), ws).map(r => r.description.kind), ["unknown", "unknown", "unknown"]);
 });
@@ -243,6 +256,7 @@ check("test_export_import_round_trip", () => {
   const ws = league();
   let book = M.ops.setAnchor(M.emptyBook(), ws, "t1", "market", "strong", 2);
   book = M.ops.setExcluded(book, ws, "t3", true, 2);
+  book = M.ops.setTag(book, ws, "t3", "winNow", true, 2);
   const text = M.exportJson(book, ws);
   const data = JSON.parse(text);
   assert.strictEqual(data.kind, "ddf.managerProfiles");

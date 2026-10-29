@@ -7,7 +7,7 @@
 // Decisions (Jeremy, 2026-10-29, JEG-1217; picks log):
 //   * Appeal (pick A): the other manager's gain is a blend of the anchors the reader marked for them, "a lot" counting double
 //     "somewhat"; "doesn't care" and "not sure" do not count. A manager with nothing usable marked stays on the market view.
-//     Big names and other leanings have no data, so they change the explanation only.
+//     Big names and the ticked boxes (likes rookies, win-now, rarely trades...) have no data, so they change the words only.
 //   * Ranking: by the reader's own gain (DDF Value received minus given), not a blend. Each trade shows how likely the other
 //     manager may take it, in words; "a manager could just work down the list until a trade is accepted".
 //   * Likelihood (pick A): their gain as a share of what they send, in DDF Value. Likely at +10% or more; Possible from -10%
@@ -91,6 +91,9 @@
   }
 
   const ANCHOR_WORDS = {market: "the trade charts", draft: "preseason draft rankings", rankings: "player rankings"};
+  const TAG_WORDS = {rookies: "like rookies", picks: "want draft picks", winNow: "are win-now", rebuilding: "are rebuilding",
+    slowReply: "are slow to reply", rarelyTrades: "rarely trade"};
+  const tagWords = tags => (list => (list.length <= 1 ? list.join("") : `${list.slice(0, -1).join(", ")} and ${list[list.length - 1]}`))(tags.map(tag => TAG_WORDS[tag]).filter(Boolean));
   const signed = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   // Words for the row: why it may appeal, what stays unmodeled, and (for a stretch) which belief has to hold.
   function explain(profile, a, gains, b) {
@@ -100,7 +103,7 @@
     if (!a.fallback && a.missing.length) lines.push(`No data yet for ${a.missing.map(m => ANCHOR_WORDS[m]).join(" or ")}.`);
     if (!a.basis.some(x => x.anchor === "market") && finite(gains.market)) lines.push(`The trade charts say ${signed(gains.market)} for them.`);
     if (profile.anchors.names === "some" || profile.anchors.names === "strong") lines.push("You said they like big names; weigh the names in this deal yourself.");
-    if (profile.anchors.subjective === "some" || profile.anchors.subjective === "strong") lines.push(profile.note ? `Your note: ${profile.note}` : "You marked other leanings; weigh those yourself.");
+    if (profile.tags.length) lines.push(`You ticked that they ${tagWords(profile.tags)}; weigh that yourself.`);
     if (b === "longShot") {
       const best = a.basis.slice().sort((x, y) => y.gain - x.gain)[0];
       lines.push(best && best.gain < 0 ? "They lose on every view you marked, so this needs them to value these players more than any of those views do."

@@ -64,6 +64,7 @@ MUTATIONS = [
     ("missing draft rank counted as zero", "if (!Number.isInteger(rank) || rank < 1) return null;", "if (!Number.isInteger(rank) || rank < 1) return 0;", "test_missing_draft_rank_falls_back"),
     ("draft rank read as overall", "const list = curve[row.pos];", "const list = Object.values(curve).flat().sort((a, b) => b - a);", "test_draft_curve_positional"),
     ("no fallback to the market", "return finite(gains.market) ? {gain: gains.market,", "return false ? {gain: gains.market,", "test_unmarked_manager_uses_market"),
+    ("ticked boxes not explained", "if (profile.tags.length) lines.push(", "if (false) lines.push(", "test_names_and_other_change_words_only"),
     ("sources not labelled", "sources: a.basis.map(x => ({anchor: x.anchor, ...SOURCES[x.anchor]}))", "sources: []", "test_sources_labelled"),
     ("rows edited in place", "(opts.rows || []).forEach(row => {", "(opts.rows || []).forEach(row => { row.edge = row.edge;  row.give.forEach(p => { p.values.ddf_value += 0; p.recommended = true; });", "test_values_untouched"),
 ]

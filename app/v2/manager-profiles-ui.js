@@ -1,7 +1,8 @@
 // Trade Value v2 — Managers card on Find a trade (JEG-1217 stage 1): describe how each league-mate values players.
 //
 // A card between Team summary and Trade opportunities. For every team except yours: a "Won't trade" switch and, under
-// Describe, how much the manager leans on each anchor (manager-profiles.js), how sure you are, and a short note. Saved
+// Describe, how much the manager leans on each anchor (manager-profiles.js), how sure you are, and a few fixed boxes to
+// tick (Likes rookies, Win-now, Rarely trades...). No free text, and every manager starts with nothing set. Saved
 // on this device as you change it, with Download / Load of a profiles file. Nothing here changes a value, a fit or the
 // opportunities ranking; Trade ideas (manager-recs-ui.js) reads them.
 //
@@ -21,7 +22,7 @@
   const LEVEL_TEXT = {unknown: "Not sure", none: "Doesn't care", some: "Somewhat", strong: "A lot"};
   const CONFIDENCE_TEXT = {unknown: "Not set", low: "A guess", medium: "Fairly sure", high: "Sure"};
   const ANCHOR_HELP = {draft: "Values players by where they were drafted", market: "Goes by trade value charts and market prices",
-    rankings: "Goes by player rankings", names: "Wants well-known players", subjective: "Other leanings (say which in the note)"};
+    rankings: "Goes by player rankings", names: "Wants well-known players"};
   const UI = {open: new Set(), status: "", mounted: false};
 
   function el(tag, props, ...kids) {
@@ -38,12 +39,15 @@
     const d = row.description;
     if (d.excluded) return "Won't trade: left out of trade ideas.";
     const name = a => lower(M.ANCHOR_LABELS[a]);
+    const ticked = d.tags.map(tag => M.TAG_LABELS[tag]);
     let text;
+    if (d.kind === "unknown" && ticked.length) return `${listJoin(ticked)}.`;
     if (d.kind === "unknown") text = "Not described yet.";
     else if (d.kind === "none") text = "None of the usual anchors.";
     else if (d.kind === "single") text = `Leans on ${name(d.active[0])}${d.strong.length ? " a lot" : ""}.`;
     else text = `Mixed: ${listJoin(d.active.map(a => name(a) + (d.strong.includes(a) ? " (a lot)" : "")))}.`;
     if (d.kind !== "unknown" && d.confidence !== "unknown") text += ` ${CONFIDENCE_TEXT[d.confidence]}.`;
+    if (ticked.length) text += ` ${listJoin(ticked)}.`;
     return text;
   }
 
@@ -80,9 +84,14 @@
       }));
     const confidence = select(`v2MgConf-${key}`, "How sure are you?", M.CONFIDENCE.map(c => [c, CONFIDENCE_TEXT[c]]), p.confidence,
       v => edit(row.teamId, (b, w, id) => M.ops.setConfidence(b, w, id, v)));
-    const note = el("textarea", {id: `v2MgNote-${key}`, class: "v2-mg-note", rows: "2", maxlength: String(M.MAX_NOTE), placeholder: "Anything else, like \"loves rookies\""});
-    note.value = p.note;
-    note.addEventListener("change", () => edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, note.value)));
+    const tags = el("fieldset", {class: "v2-mg-tags"}, el("legend", {text: "Anything else that fits?"}),
+      ...M.TAGS.map(tag => {
+        const id = `v2MgT-${tag}-${key}`;
+        const box = el("input", {type: "checkbox", id, class: "v2-mg-tag"});
+        box.checked = p.tags.includes(tag);
+        box.addEventListener("change", () => edit(row.teamId, (b, w, teamId) => M.ops.setTag(b, w, teamId, tag, box.checked)));
+        return el("label", {class: "v2-mg-tag-label", for: id}, box, el("span", {text: M.TAG_LABELS[tag]}));
+      }));
     const reset = el("button", {type: "button", class: "v2-btn v2-mg-reset", text: "Clear this profile"});
     reset.addEventListener("click", () => {
       profiles.update(book => M.ops.reset(book, ws(), row.teamId), "reset");
@@ -92,8 +101,7 @@
     });
     const describe = el("details", {class: "v2-mg-describe", id: `v2MgDescribe-${key}`, open: UI.open.has(row.teamId)},
       el("summary", {text: "Describe"}),
-      el("div", {class: "v2-mg-body"}, anchors, confidence,
-        el("label", {class: "v2-mg-field v2-mg-note-field", for: `v2MgNote-${key}`}, el("span", {class: "v2-mg-field-name", text: "Note"}), note), reset));
+      el("div", {class: "v2-mg-body"}, anchors, confidence, tags, reset));
     describe.addEventListener("toggle", () => { if (describe.open) UI.open.add(row.teamId); else UI.open.delete(row.teamId); });
     return el("li", {class: "v2-mg-team", "data-team-id": row.teamId},
       el("div", {class: "v2-mg-head"},
@@ -108,7 +116,7 @@
     if (!node) return;
     const rows = M.roster(profiles.get(), ws()).filter(r => !r.mine);
     const out = rows.filter(r => r.profile.excluded).length;
-    const described = rows.filter(r => r.description.kind !== "unknown").length;
+    const described = rows.filter(r => r.description.kind !== "unknown" || r.description.tags.length).length;
     node.textContent = rows.length ? `${described} of ${rows.length} described${out ? `, ${out} won't trade` : ""}` : "";
   }
   function renderStatus() {

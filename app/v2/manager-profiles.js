@@ -5,12 +5,14 @@
 // DOM, no engine values, no weights and no ranking. One profile per team in the saved league, keyed by the stable
 // workspace team id (workspace.js), so a rename keeps the profile and a removed team's profile is dropped.
 //
-//   Profile: {teamId, anchors: {draft, market, rankings, names, subjective}, confidence, excluded, note,
+//   Profile: {teamId, anchors: {draft, market, rankings, names}, confidence, excluded, tags,
 //             source: "user", createdAt, updatedAt}
 //   Anchor levels are ordinal labels only: "unknown" | "none" | "some" | "strong". Mapping them to numbers is a
 //   separate decision for Jeremy (JEG-1217 stage 3) and does not live here.
 //   confidence: how sure the reader is of this profile: "unknown" | "low" | "medium" | "high".
 //   excluded: true when the reader says this manager will not trade. Excluded teams are left out of recommendations.
+//   tags: fixed checkboxes for other leanings (TAGS), in TAGS order. No free text (Jeremy, 2026-10-29: no text boxes for
+//   how league-mates trade, everyone starts at the default). Every manager starts with nothing marked.
 //
 // Saved in this browser only (localStorage key ddf.v2.managerProfiles, versioned), separately from the league so an
 // older build that rewrites ddf.v2.workspaces cannot drop profiles. A corrupt or unknown-version value is ignored,
@@ -21,28 +23,29 @@
   const STORAGE_KEY = "ddf.v2.managerProfiles";
   const VERSION = 1;
   const SAVE_DELAY_MS = 1000;
-  const MAX_NOTE = 280;
-  const ANCHORS = ["draft", "market", "rankings", "names", "subjective"];
-  const ANCHOR_LABELS = {draft: "Draft capital", market: "Market and trade charts", rankings: "Player rankings", names: "Big names",
-    subjective: "Other preferences"};
+  const ANCHORS = ["draft", "market", "rankings", "names"];
+  const ANCHOR_LABELS = {draft: "Draft capital", market: "Market and trade charts", rankings: "Player rankings", names: "Big names"};
+  const TAGS = ["rookies", "picks", "winNow", "rebuilding", "slowReply", "rarelyTrades"];
+  const TAG_LABELS = {rookies: "Likes rookies", picks: "Wants draft picks", winNow: "Win-now", rebuilding: "Rebuilding",
+    slowReply: "Slow to reply", rarelyTrades: "Rarely trades"};
   const LEVELS = ["unknown", "none", "some", "strong"];
   const CONFIDENCE = ["unknown", "low", "medium", "high"];
 
   const isObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
   const clone = value => JSON.parse(JSON.stringify(value));
   const pick = (value, allowed) => (allowed.includes(value) ? value : allowed[0]);
-  const cleanNote = text => String(text == null ? "" : text).replace(/\s+/g, " ").trim().slice(0, MAX_NOTE);
+  const cleanTags = list => (Array.isArray(list) ? TAGS.filter(tag => list.includes(tag)) : []);
   const time = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback);
 
   // ---------- shapes ----------
   function newProfile(teamId, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
-    return {teamId: String(teamId), anchors: Object.fromEntries(ANCHORS.map(a => [a, "unknown"])), confidence: "unknown", excluded: false, note: "",
+    return {teamId: String(teamId), anchors: Object.fromEntries(ANCHORS.map(a => [a, "unknown"])), confidence: "unknown", excluded: false, tags: [],
       source: "user", createdAt: now, updatedAt: now};
   }
   // Fills anything missing so a profile saved by an older build still loads. Unknown fields and levels fall back to
-  // "unknown"; nothing is guessed.
+  // "unknown"; nothing is guessed. An older free-text note and "Other preferences" level are dropped, not converted.
   function normalizeProfile(raw, teamId, now) {
     if (!isObject(raw)) return null;
     const id = String(teamId == null ? raw.teamId : teamId);
@@ -50,10 +53,10 @@
     const base = newProfile(id, {now: time(raw.createdAt, now || Date.now())});
     const anchors = isObject(raw.anchors) ? raw.anchors : {};
     return {...base, anchors: Object.fromEntries(ANCHORS.map(a => [a, pick(anchors[a], LEVELS)])), confidence: pick(raw.confidence, CONFIDENCE),
-      excluded: raw.excluded === true, note: cleanNote(raw.note), updatedAt: time(raw.updatedAt, base.createdAt)};
+      excluded: raw.excluded === true, tags: cleanTags(raw.tags), updatedAt: time(raw.updatedAt, base.createdAt)};
   }
-  // A profile that says nothing: every anchor unknown, no confidence, not excluded and no note. Saved as nothing.
-  const isBlank = p => !p || (!p.excluded && !p.note && p.confidence === "unknown" && ANCHORS.every(a => p.anchors[a] === "unknown"));
+  // A profile that says nothing: every anchor unknown, no confidence, not excluded and nothing ticked. Saved as nothing.
+  const isBlank = p => !p || (!p.excluded && !p.tags.length && p.confidence === "unknown" && ANCHORS.every(a => p.anchors[a] === "unknown"));
 
   // How the reader described this manager, for labels and later explanations. "unknown" when nothing is set,
   // "single" when exactly one anchor is above "none", "mixed" when two or more are, "none" when every set anchor is "none".
@@ -63,7 +66,7 @@
     const active = ANCHORS.filter(a => p.anchors[a] === "some" || p.anchors[a] === "strong");
     const kind = !known.length ? "unknown" : active.length === 0 ? "none" : active.length === 1 ? "single" : "mixed";
     return {kind, active, strong: active.filter(a => p.anchors[a] === "strong"), unknownAnchors: ANCHORS.filter(a => p.anchors[a] === "unknown"),
-      confidence: p.confidence, excluded: p.excluded};
+      confidence: p.confidence, excluded: p.excluded, tags: p.tags.slice()};
   }
 
   // ---------- the profile book: {v, leagues: {workspaceId: {teamId: profile}}} ----------
@@ -114,7 +117,8 @@
     setConfidence: (book, ws, teamId, level, now) => (CONFIDENCE.includes(level) ? change(book, ws, teamId, p => ({...p, confidence: level}), now) : book),
     setExcluded: (book, ws, teamId, excluded, now) => change(book, ws, teamId, p => ({...p, excluded: excluded === true}), now),
     toggleExcluded: (book, ws, teamId, now) => change(book, ws, teamId, p => ({...p, excluded: !p.excluded}), now),
-    setNote: (book, ws, teamId, note, now) => change(book, ws, teamId, p => ({...p, note: cleanNote(note)}), now),
+    setTag: (book, ws, teamId, tag, on, now) => (TAGS.includes(tag)
+      ? change(book, ws, teamId, p => ({...p, tags: cleanTags(on === true ? p.tags.concat([tag]) : p.tags.filter(x => x !== tag))}), now) : book),
     reset: (book, ws, teamId) => put(book, ws, teamId, null),
     // Drops profiles for teams no longer in the league (removed, cleared, or a league replaced by a file or link).
     // Returns {book, dropped: [teamId]}. A team added later gets a new id, so an old profile never attaches to it.
@@ -287,7 +291,7 @@
     } catch (error) { return null; }
   }
 
-  const api = {STORAGE_KEY, VERSION, ANCHORS, ANCHOR_LABELS, LEVELS, CONFIDENCE, MAX_NOTE, newProfile, normalizeProfile, isBlank, describe, emptyBook,
+  const api = {STORAGE_KEY, VERSION, ANCHORS, ANCHOR_LABELS, LEVELS, CONFIDENCE, TAGS, TAG_LABELS, newProfile, normalizeProfile, isBlank, describe, emptyBook,
     normalizeBook, get, ops, roster, eligibleOpponents, parseStored, serialize, exportJson, importJson, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueManagerProfiles = api;

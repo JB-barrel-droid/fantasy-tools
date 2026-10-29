@@ -12,8 +12,11 @@
 .v2-mg-anchors legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
 .v2-mg-field { display: grid; gap: 2px; }
 .v2-mg-field-name { font-size: 14px; color: var(--v2-muted); }
-.v2-mg-select, .v2-mg-note { min-height: 44px; border: 1px solid var(--v2-field-border); border-radius: 6px; background: var(--v2-surface); color: var(--v2-ink); font: inherit; padding: 6px 8px; max-width: 100%; }
-.v2-mg-note { min-height: 64px; resize: vertical; width: 100%; box-sizing: border-box; }
+.v2-mg-select { min-height: 44px; border: 1px solid var(--v2-field-border); border-radius: 6px; background: var(--v2-surface); color: var(--v2-ink); font: inherit; padding: 6px 8px; max-width: 100%; }
+.v2-mg-tags { border: 0; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(11em, 1fr)); gap: 0 12px; }
+.v2-mg-tags legend { font-weight: 600; margin-bottom: 4px; padding: 0; }
+.v2-mg-tag-label { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; cursor: pointer; }
+.v2-mg-tag { width: 20px; height: 20px; accent-color: var(--v2-action); }
 .v2-mg-reset { justify-self: start; }
 .v2-mg :focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 2px; }
 

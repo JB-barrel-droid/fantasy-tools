@@ -21,7 +21,7 @@ MODULES = ["manager-profiles.js", "workspace.js"]
 REQUIRED = [
     "test_unknown_profile_is_default", "test_no_numeric_weights", "test_describe_single_mixed_none", "test_exclusion_toggle",
     "test_my_team_never_eligible", "test_duplicate_names_keep_separate_profiles", "test_rename_keeps_profile", "test_removal_drops_profile",
-    "test_profiles_are_per_league", "test_unchanged_write_returns_same_book", "test_note_is_bounded", "test_store_reload",
+    "test_profiles_are_per_league", "test_unchanged_write_returns_same_book", "test_tags_fixed_list_no_free_text", "test_store_reload",
     "test_store_debounce", "test_store_corrupt_and_version_not_overwritten", "test_store_unavailable", "test_store_other_tab",
     "test_legacy_and_partial_state", "test_profiles_do_not_touch_workspace", "test_export_import_round_trip",
     "test_import_matches_by_unique_name_only", "test_import_rejects_bad_files",
@@ -72,7 +72,10 @@ MUTATIONS = [
      "", "test_import_rejects_bad_files"),
     ("blank profiles kept", "if (isBlank(profile)) delete league[id];", "if (!profile) delete league[id];", "test_exclusion_toggle"),
     ("mixed not detected", "active.length === 1 ? \"single\" : \"mixed\"", "\"single\"", "test_describe_single_mixed_none"),
-    ("note unbounded", ".trim().slice(0, MAX_NOTE)", ".trim()", "test_note_is_bounded"),
+    ("free text accepted as a tag", "const cleanTags = list => (Array.isArray(list) ? TAGS.filter(tag => list.includes(tag)) : []);",
+     "const cleanTags = list => (Array.isArray(list) ? [...new Set(list)] : []);", "test_tags_fixed_list_no_free_text"),
+    ("tags start ticked", "excluded: false, tags: [],", "excluded: false, tags: [\"rookies\"],", "test_unknown_profile_is_default"),
+    ("ticked tags not saved", "!p.excluded && !p.tags.length &&", "!p.excluded &&", "test_tags_fixed_list_no_free_text"),
 ]
 
 

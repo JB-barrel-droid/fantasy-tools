@@ -73,15 +73,16 @@ check("test_doesnt_care_and_unknown_do_not_count", () => {
 check("test_names_and_other_change_words_only", () => {
   const ws = league();
   let book = M.ops.setAnchor(M.emptyBook(), ws, "t1", "names", "strong", 1);
-  book = M.ops.setAnchor(book, ws, "t1", "subjective", "some", 1);
-  book = M.ops.setNote(book, ws, "t1", "Loves rookies", 1);
+  book = M.ops.setTag(book, ws, "t1", "rookies", true, 1);
+  book = M.ops.setTag(book, ws, "t1", "rarelyTrades", true, 1);
   const row = opp("x", "t1", [P(11, "RB", 20)], [P(12, "RB", 18)], 2, 3);
   const plain = run([row]).recommendations[0];
   const marked = run([row], book).recommendations[0];
   assert.strictEqual(marked.theirGain, plain.theirGain, "no number for big names or other leanings");
   assert.strictEqual(marked.fallback, "nothing marked");
   assert.ok(marked.why.some(l => l.includes("big names")));
-  assert.ok(marked.why.some(l => l.includes("Loves rookies")));
+  assert.ok(marked.why.some(l => l.includes("they like rookies and rarely trade")), "ticked boxes named in the words");
+  assert.strictEqual(marked.band, plain.band, "ticked boxes never move the likelihood");
 });
 
 check("test_rankings_unavailable_falls_back", () => {
