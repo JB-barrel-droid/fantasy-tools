@@ -145,6 +145,22 @@ const checks = {
     ok(!h.includes("<img"), "markup in a name is escaped");
     ok(h.includes("&lt;img src=x onerror=&quot;alert(1)&quot;&gt;"), "escaped name shown");
     ok(h.includes("a &amp; b &lt;b&gt;"), "escaped reason shown");
+    // Every other supplied string reaches innerHTML through esc() too.
+    const X = "<i>x</i>", EX = "&lt;i&gt;x&lt;/i&gt;";
+    const every = input("buy", c => {
+      c.player.pos = X; c.player.team = X; c.fixture.label = X;
+      c.values[0].label = X; c.values[1].display = X; c.values.push({key: "nil", label: "Nil", value: null, reason: X});
+      c.sources[0].name = X; c.sources[2].reason = X; c.sources[0].display = X;
+    });
+    const all = C.markup(C.viewModel(every), {uid: "t", open: {sources: true}});
+    ok(!all.includes("<i>"), "no supplied markup survives: " + all.slice(0, 200));
+    eq((all.match(/&lt;i&gt;x&lt;\/i&gt;/g) || []).length, 9, "every probed field shown escaped");
+    ["empty", "unavailable", "missing"].forEach(name => {
+      const m = C.markup(C.viewModel(input(name, c => { c.message = X; c.reason = X; c.missing = [X]; })), {uid: "t"});
+      ok(!m.includes("<i>") && m.includes(EX), `${name} message and reasons escaped`);
+    });
+    const lab = C.markup(C.viewModel(raw("buy"), {buy: X, sources: X}), {uid: "t", labels: {sources: X}});
+    ok(!lab.includes("<i>") && lab.includes(EX), "caller labels escaped");
   },
   test_disclosures_closed_by_default() {
     const h = html(C.viewModel(raw("buy")));
@@ -206,6 +222,9 @@ MUTATIONS = [
      "return (Array.isArray(list) ? list.slice().sort((a, b) => String(a.name).localeCompare(String(b.name))) : []).map((item, i) => {\n      const key = str(item && item.key) || `source-",
      "test_reasons_and_sources_pass_through"),
     ("escaping removed", "const esc = v => String(v).replace(", "const esc = v => String(v); const _unused = v => String(v).replace(", "test_escaping"),
+    ("value label unescaped", "<dt>${esc(v.label)}</dt>", "<dt>${v.label}</dt>", "test_escaping"),
+    ("message unescaped", '<p class="tac-message">${esc(vm.message)}</p>', '<p class="tac-message">${vm.message}</p>', "test_escaping"),
+    ("source reason unescaped", '(s.reason ? `<span class="tac-reason">${esc(s.reason)}</span>` : "")', '(s.reason ? `<span class="tac-reason">${s.reason}</span>` : "")', "test_escaping"),
     ("panels open by default", '${open ? "" : " hidden"}', "", "test_disclosures_closed_by_default"),
     ("fixture label dropped", "if (vm.fixture) out.push(", "if (false) out.push(", "test_fixture_labelled"),
     ("storage read", "function render() {", 'function render() { try { localStorage.getItem("tac"); } catch (e) {}', "test_no_storage_network_engine"),

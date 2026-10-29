@@ -229,6 +229,30 @@ class TargetAnswerCardRenderTest(unittest.TestCase):
         self.assertEqual(page.locator("#card-throws .tac-detail-slot").inner_text(), "Details could not be shown.")
         self.assertEqual(page.locator("#card-throws").get_attribute("data-state"), "buy")
 
+    def test_no_renderer_means_no_detail_disclosure(self):
+        page = self.open(390, "buy")
+        count = page.evaluate("""() => { const host = document.createElement('div'); document.body.appendChild(host);
+          const h = TradeValueTargetAnswerCard.mount(host, {});
+          h.update(Object.assign({fixture: window.__tacCases.fixture}, window.__tacCases.cases.buy));
+          return [host.querySelectorAll('[data-tac-toggle=detail]').length, host.querySelectorAll('[data-tac-toggle=sources]').length]; }""")
+        self.assertEqual(count, [0, 1])
+
+    def test_escape_in_a_nested_card_closes_only_that_card(self):
+        page = self.open(390, "buy")
+        result = page.evaluate("""() => { const host = document.createElement('div'); document.body.appendChild(host);
+          let inner = null; const C = window.__tacCases;
+          const outer = TradeValueTargetAnswerCard.mount(host, {renderDetail: slot => { const box = document.createElement('div'); slot.appendChild(box);
+            inner = TradeValueTargetAnswerCard.mount(box, {}); inner.update(Object.assign({fixture: C.fixture}, C.cases.sell)); inner.open('sources');
+            return () => inner.destroy(); }});
+          outer.update(Object.assign({fixture: C.fixture}, C.cases.buy)); outer.open('detail');
+          let bubbled = 0; document.addEventListener('keydown', e => { if (e.key === 'Escape') bubbled += 1; });
+          const innerToggle = host.querySelector('.tac-detail-slot [data-tac-toggle=sources]');
+          host.querySelector('.tac-detail-slot .tac-panel .tac-source').setAttribute('tabindex', '-1');
+          host.querySelector('.tac-detail-slot .tac-panel .tac-source').focus();
+          document.activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Escape', bubbles: true}));
+          return {inner: inner.isOpen('sources'), outer: outer.isOpen('detail'), focus: document.activeElement === innerToggle, bubbled}; }""")
+        self.assertEqual(result, {"inner": False, "outer": True, "focus": True, "bubbled": 0})
+
     def test_no_storage_or_network(self):
         page = self.open(390)
         self.open_all(page)

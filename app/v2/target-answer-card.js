@@ -175,18 +175,23 @@
       const id = vm.player ? vm.player.id : null;
       if (id !== playerId) { open.sources = false; open.detail = false; playerId = id; }
       if (!vm.sources.length) open.sources = false;
+      // No renderer, no detail disclosure: an empty "Evidence details" panel would promise something it cannot show.
+      if (typeof o.renderDetail !== "function") vm = Object.assign({}, vm, {hasDetail: false});
       if (!vm.hasDetail) open.detail = false;
       el.innerHTML = markup(vm, {uid, open, headingLevel: o.headingLevel, labels: o.labels});
       el.setAttribute("data-state", vm.state);
       if (open.detail) mountDetail();
       if (focusKey) {
-        const again = el.querySelector(`[data-tac-focus="${focusKey}"]`);
+        const again = Array.from(el.querySelectorAll(`[data-tac-focus="${focusKey}"]`)).find(own);
         if (again) again.focus();
       }
     }
+    // This card's own nodes only: a detail slot may hold other content, even another card.
+    const own = node => Boolean(node) && node.closest(".tac") === el.firstElementChild;
+    const ownToggle = key => Array.from(el.querySelectorAll(`[data-tac-toggle="${key}"]`)).find(own) || null;
     function setOpen(key, want) {
       if (key !== "sources" && key !== "detail") return;
-      const button = el.querySelector(`[data-tac-toggle="${key}"]`);
+      const button = ownToggle(key);
       if (!button) return;
       const panel = el.querySelector(`#${panelId(uid, key)}`);
       if (open[key] === want) return;
@@ -197,17 +202,18 @@
     }
     function onClick(event) {
       const button = event.target.closest && event.target.closest("[data-tac-toggle]");
-      if (!button || !el.contains(button)) return;
+      if (!button || !own(button)) return;
       const key = button.getAttribute("data-tac-toggle");
       setOpen(key, !open[key]);
     }
     function onKeydown(event) {
       if (event.key !== "Escape") return;
       const panel = event.target.closest && event.target.closest(".tac-panel");
-      if (!panel || panel.hidden) return;
+      if (!panel || panel.hidden || !own(panel)) return;
+      event.stopPropagation();
       const key = panel.parentElement.getAttribute("data-key");
       setOpen(key, false);
-      const button = el.querySelector(`[data-tac-toggle="${key}"]`);
+      const button = ownToggle(key);
       if (button) button.focus();
     }
     el.addEventListener("click", onClick);

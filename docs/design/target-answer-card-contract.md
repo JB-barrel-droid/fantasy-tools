@@ -21,7 +21,8 @@ JEG-1130 / JEG-1212 copy, and the coordinator serializes it. Files: `app/v2/targ
 {
   status: "ready" | "empty" | "unavailable",          // default "ready"
   fixture: {kind, label} | undefined,                // shown as a visible label when present (synthetic data)
-  player: {id, name, pos?, team?},                   // id and name required: the id is the identity
+  player: {id, name, pos?, team?},                   // id and name are required non-empty strings: the id is the identity
+                                                     // (a numeric id gives the missing state, so the adapter stringifies it)
   answer: {side: "buy" | "sell" | "fair", reasons: [string]} | null,
   values: [{key, label, value: number | null, display?: string, reason?: string}],
   sources: [{key, name, status: "priced" | "waiver" | "missing" | "unavailable", value?, display?, reason?}],
@@ -49,7 +50,9 @@ not this card. It decides the side; the card only shows it.
 One rule, `valueText`: a non-empty `display` string is shown verbatim; otherwise a finite number is shown as the number
 itself (`String(value)`, so nothing is rounded), with `-0` shown as `0`. A real `0` is a value and shows `0`. A null,
 absent or non-numeric value shows "No value" and its `reason`, never `0`. A source with status `missing` or
-`unavailable` shows no number. The raw number is kept on `data-value` for checks.
+`unavailable` shows no number. The raw number is kept on `data-value` for checks. Because nothing is rounded, the
+adapter passes a `display` string wherever the page shows a formatted number (one decimal, a sign), so the card
+matches the page.
 
 ## Mount API
 
@@ -64,11 +67,13 @@ handle.open("sources" | "detail"); handle.close(key); handle.isOpen(key);
 handle.destroy();
 ```
 
-- Two disclosures, Sources and Evidence details, are buttons with `aria-expanded` and `aria-controls`, closed by
+- Two disclosures, Sources and Evidence details (the second only when `detail` is supplied and `renderDetail` is given), are buttons with `aria-expanded` and `aria-controls`, closed by
   default, at least 44 px tall. Enter, Space, a click or a tap toggles; Escape inside an open panel closes it and
-  returns focus to its toggle.
+  returns focus to its toggle. Both act only on this card's own nodes and an Escape the card handles does not
+  bubble further, so a card inside a detail slot or a page-level Escape handler is left alone.
 - Open state lives in the handle only. It survives `update` with the same player id and resets when the id changes.
-- Focus on a toggle survives a re-render.
+- Focus on a toggle survives a re-render. Focus inside the detail slot is the slot's own concern: the slot is
+  re-mounted on re-render.
 - `renderDetail` runs when the detail opens (and again after a re-render while open); its cleanup runs before every
   re-render, on close and on destroy. A throwing renderer leaves the card up with "Details could not be shown."
 

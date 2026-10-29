@@ -10,6 +10,10 @@ evidence detail slot, its contract doc, synthetic fixtures, a preview and tests,
   focus stays on the detail toggle across 4 toggles and 3 re-renders; open state kept on re-render and reset on a new
   player; Escape closes and returns focus; slot mounts minus cleanups is 1; a throwing slot leaves the card up; destroy
   clears the host; zero shows 0 and a missing value shows No value.
+- Review nits 1, 3 and 4 fixed on this PR: escaping now probed across every supplied string (contract test, 3 more
+  mutations caught: value label, message, source reason); Escape and toggles act only on the card's own nodes and a
+  handled Escape stops there (jsdom smoke: nested card closes only itself, nothing bubbles); no `renderDetail`, no
+  detail disclosure (jsdom smoke); string ids and display strings documented in the contract.
 - No shared or excluded file changed: `git diff --name-only origin/main` lists only the new paths.
 
 ### Claimed, not confirmed
