@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en" data-design="fieldnotes">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compare evidence view preview (JEG-1271, synthetic)</title>
+<!-- JEG-1271 isolated preview. Serve the repository root over http and open
+     /tests/fixtures/compare_evidence_view/preview.html (optionally ?case=<id>).
+     Every case is synthetic. The readout slot holds a mock placeholder: JEG-1260 owns the real readout.
+     Not part of the site build; nothing here is loaded by shell.html. -->
+<link rel="stylesheet" href="../../../app/v2/compare-evidence-view.css">
+<style>
+  html { background: #F5F2EA; }
+  body { margin: 0; padding: 16px; color: #182D27; font-family: system-ui, sans-serif; }
+  .preview-case { margin: 0 0 32px; min-width: 0; }
+  .preview-case > h2 { margin: 0 0 8px; font-size: 13px; font-weight: 650; color: #52635C; }
+  .preview-mock-readout { padding: 12px; border: 1px dashed #79897F; border-radius: 9px; font-size: 13px; color: #52635C; }
+</style>
+</head>
+<body>
+<main id="preview"></main>
+<script src="../../../app/v2/compare-evidence-view.js"></script>
+<script>
+(async function () {
+  "use strict";
+  const deepFreeze = o => { if (o && typeof o === "object" && !Object.isFrozen(o)) { Object.values(o).forEach(deepFreeze); Object.freeze(o); } return o; };
+  const data = await (await fetch("cases.json", {cache: "no-store"})).json();
+  const only = new URLSearchParams(location.search).get("case");
+  const host = document.getElementById("preview");
+  const handles = {};
+  data.cases.filter(c => !only || c.id === only).forEach(c => {
+    const section = document.createElement("section");
+    section.className = "preview-case";
+    section.dataset.case = c.id;
+    const h = document.createElement("h2");
+    h.textContent = `${c.id}: ${c.description}`;
+    const mountPoint = document.createElement("div");
+    section.append(h, mountPoint);
+    host.appendChild(section);
+    handles[c.id] = window.CompareEvidenceView.mount(mountPoint, deepFreeze(c.input), {
+      readout(slot) {
+        const mock = document.createElement("p");
+        mock.className = "preview-mock-readout";
+        mock.dataset.mockReadout = c.id;
+        mock.textContent = "Mock readout slot (preview only; JEG-1260 owns the shared readout).";
+        slot.appendChild(mock);
+      }
+    });
+  });
+  window.__cevPreview = {cases: data.cases, handles, ready: true};
+})().catch(error => { window.__cevPreview = {error: String(error)}; throw error; });
+</script>
+</body>
+</html>
