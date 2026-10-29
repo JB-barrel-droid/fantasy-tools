@@ -730,6 +730,34 @@
   // Force: everything else.
   // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey (and optionally projectionsKey). null when the market view is not available.
   const FIT_VARIANTS = ["natural", "market", "force"];
+  // JEG-1324: Natural fit 1a (Jeremy, 2026-10-29: "1a"; and "Natural means both sides, not just 1 side"). This is the one
+  // predicate every route uses to call a trade Natural: tradeFit here, ourFitOf (opportunities.js) through tradeFit's
+  // `natural` field, and the connector, which evaluates this file. Each side passes three tests: its value test (yours: DDF
+  // Value total up past 0.05 with starters no worse; theirs: Trade chart average up or within its noise floor), its own
+  // roster construction, and its DDF Value (projections) not declining.
+  // "Not declining" is D2 pick A (Claude, reversible, JEG-1220 spec section 5): a fall that shows as 0.0 (under 0.05)
+  // holds, so a Natural trade never shows a negative projections change. A side's projections are judged only when every
+  // moving player has a DDF Value (projections); otherwise the side is not judged (null), and a side that is not judged is
+  // not Natural (missing-projection pick A on JEG-1324): a missing projection is never read as 0.
+  const PROJ_FLOOR = NET_FLOOR;
+  const projectionsHold = net => (finite(net) ? net >= 0 || Math.abs(net) < PROJ_FLOOR : null);
+  // The bench-weighted change of one team in one view (the same measure as teamFit's net), without the depth readout.
+  function viewNet(team, ctx, key) {
+    const gone = new Set(team.leaving.map(r => String(r.player_key)));
+    const after = team.roster.filter(r => !gone.has(String(r.player_key))).concat(team.arriving);
+    return netOf(lineupValue(after, ctx.shape, key), key, ctx.weights) - netOf(lineupValue(team.roster, ctx.shape, key), key, ctx.weights);
+  }
+  // parts: {yourValueOk, theirValueOk, myConstruction, theirConstruction, usProjNet, themProjNet} (a net is null when not judged).
+  function naturalFit(parts) {
+    const side = (value, construction, projNet) => {
+      const projections = projectionsHold(projNet);
+      return {value: Boolean(value), construction: Boolean(construction && construction.ok), projections, projNet: finite(projNet) ? projNet : null,
+        ok: Boolean(value) && Boolean(construction && construction.ok) && projections === true};
+    };
+    const us = side(parts.yourValueOk, parts.myConstruction, parts.usProjNet);
+    const them = side(parts.theirValueOk, parts.theirConstruction, parts.themProjNet);
+    return {ok: us.ok && them.ok, us, them};
+  }
   function tradeFit(sides, ctx) {
     if (!ctx || !ctx.marketKey) return null;
     const projKey = ctx.projectionsKey || PROJECTIONS_KEY;
@@ -758,8 +786,10 @@
     // Value, so on real charts the other team's gain never cleared its noise floor and the label could not appear. The
     // noise floor stays where Jeremy put it (2026-10-25): the tolerance for a loss on their side of Natural fit.
     const marketSupported = theirNet > NET_FLOOR;
-    // Natural: all three conditions pass.
-    const isNatural = constructionOk && yourValueOk && theirOk;
+    // Natural: both sides pass the 1a predicate (JEG-1324), which adds both sides' projections to the tests above.
+    const natural = naturalFit({yourValueOk, theirValueOk: theirOk, myConstruction, theirConstruction,
+      usProjNet: projected ? usProj.net : null, themProjNet: projected ? viewNet(sides.theirs, ctx, projKey) : null});
+    const isNatural = natural.ok;
     const label = isNatural ? "natural" : marketSupported ? "market" : "force";
     // Keep variant for backward compat; no projections variant now (simplified).
     const variant = label;
@@ -767,7 +797,7 @@
     const usServing = us;
     const fillsNeed = us.toward || them.toward;
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
-      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
+      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported, natural};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
@@ -788,8 +818,18 @@
     const depth = us.ready || them.ready
       ? ` ${us.ready ? `You are ${stateText(us)}` : ""}${us.ready && them.ready ? "; " : ""}${them.ready ? `${us.ready ? "they" : "They"} are ${stateText(them)}` : ""}.`
       : "";
+    // JEG-1324: both sides' DDF Value (projections), the 1a test. A side that is not judged says so; never a 0.
+    const proj = fit.natural || null;
+    const projWhy = [];
+    if (proj) {
+      [[proj.us, "Your"], [proj.them, "Their"]].forEach(([side, who]) => {
+        if (side.projections === false) projWhy.push(`${who} DDF Value (projections) falls ${Math.abs(side.projNet).toFixed(1)}.`);
+      });
+      if (proj.us.projections === null || proj.them.projections === null) projWhy.push("DDF Value (projections) not checked: a player in the trade has none, so it cannot be a Natural fit.");
+    }
     if (fit.label === "natural") {
-      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}. Roster construction works for both teams.${depth}`;
+      const held = proj ? ` DDF Value (projections) holds for both teams (you ${fitFmt(proj.us.projNet)}, they ${fitFmt(proj.them.projNet)}).` : "";
+      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}. Roster construction works for both teams.${held}${depth}`;
     }
     if (fit.label === "market") {
       const why = [];
@@ -798,6 +838,7 @@
         why.push(`Roster construction issue${issues.length > 1 ? "s" : ""}: ${issues.join("; ")}.`);
       }
       if (!fit.yourValueOk) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}, starters ${fitFmt(us.starterDelta)}).`);
+      why.push(...projWhy);
       return `Market supported: the trade charts favor them (${fitFmt(them.net)}).${why.length ? ` ${why.join(" ")}` : ""}${depth}`;
     }
     const why = [];
@@ -811,6 +852,7 @@
     }
     if (them.net < -them.tau) why.push(`They lose ${Math.abs(them.net).toFixed(1)} on ${VIEW_NAME[them.key]}, outside the ${them.tau.toFixed(1)} noise floor.`);
     if (!fit.marketSupported) why.push(`The trade charts do not favor them (${fitFmt(them.net)}).`);
+    why.push(...projWhy);
     const other = [[fit.usOther, "you", us], [fit.themOther, "they", them]].filter(([o, , own]) => !own.ok && o.up).map(([o, who]) => `Only on ${VIEW_NAME[o.key]} do ${who} gain (${fitFmt(o.net)}).`);
     return `Force fit: ${why.join(" ")}${other.length ? ` ${other.join(" ")}` : ""}${depth}`;
   }
@@ -870,7 +912,7 @@
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Fit totals weight bench value by the league's bench share.",
+    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Neither team's DDF Value (projections) falls (a change under 0.05 counts as level), and every player in the trade has one. Fit totals weight bench value by the league's bench share.",
     market: "Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details.",
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
@@ -957,7 +999,7 @@
         minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,

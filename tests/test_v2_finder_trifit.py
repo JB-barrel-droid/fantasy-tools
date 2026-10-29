@@ -1,5 +1,8 @@
 """JEG-1108: verify projections data is still computed but does NOT affect the fit label.
 
+JEG-1324 changes this: Natural fit 1a also needs both sides' DDF Value (projections) not to decline (check 4 and
+tests/test_v2_finder_fit.py checks 16 to 19). The other checks here still hold: projections never upgrade a trade.
+
 Before JEG-1108, the tri-view rule (JEG-1081) let projections upgrade a force trade to natural.
 After JEG-1108, the label depends only on construction + DDF Value total + their Trade chart average.
 Projections are still computed (usProj) for informational display, but variant = label and qualifier = null.
@@ -104,14 +107,17 @@ def check(finder_js: Path) -> list[str]:
     if f2["label"] != f["label"]:
         say(f"projectionsKey should not change label: {f2['label']} vs {f['label']}")
 
-    # 4. Missing projections: usProj is null, label unchanged.
+    # 4. Missing projections: usProj is null. JEG-1324 (Natural fit 1a, missing-projection pick A): the projections test
+    # is not judged on either side, so the trade is not Natural; before 1a the label ignored projections and stayed natural.
     f = scenario(finder_js, 16, None, market=16)
     if f["projected"]:
         say("should not be projected when projections missing")
     if f["usProj"] is not None:
         say(f"usProj should be null when not projected: {f['usProj']}")
-    if f["label"] != "natural":
-        say(f"missing projections with ddf=16: should be natural: {f['label']}")
+    if f["label"] == "natural":
+        say(f"missing projections with ddf=16: not judged, so not natural: {f['label']}")
+    if f["natural"]["us"]["projections"] is not None or f["natural"]["them"]["projections"] is not None:
+        say(f"missing projections should be not judged (null) on both sides: {f['natural']}")
 
     # 5. Neither DDF view serves you (5,5) but market does (16): market supported.
     f = scenario(finder_js, 5, 5, market=16)
