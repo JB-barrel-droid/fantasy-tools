@@ -15,6 +15,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
 | [jeg1286-flex-flips.md](jeg1286-flex-flips.md) | JEG-1286 flex and bench slot flips: how often one fringe player at the flex or bench cutoff reprices a position (real bakes and a one-player sweep), and options A to D for Jeremy's pick (2026-10-29). Script `tools/research/jeg1286_flex_flips.py`, figures in [data/jeg1286_flex_flips.md](data/jeg1286_flex_flips.md). |
+| [jeg1336-fill-in.md](jeg1336-fill-in.md) | JEG-1336 chart fill-in step at the rostered cutoff: CBS's near-flat curve estimate gives RBs no chart lists a DDF Value of 1.4 to 1.95, which steps to 0 when they leave the fill set; replay of real bakes, a one-player sweep, and options A to D (pick D, order cap) for Jeremy (2026-10-29). Script `tools/research/jeg1336_fill_in.py`, figures in [data/jeg1336_fill_in.md](data/jeg1336_fill_in.md). |
 
 ## Post drafts
 
