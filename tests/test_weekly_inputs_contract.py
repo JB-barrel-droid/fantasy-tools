@@ -186,6 +186,12 @@ class RemainingCodesTest(unittest.TestCase):
                 mutate(d)
                 self.assertEqual(codes(wic.validate(d)), [code])
 
+    def test_optional_provenance_fields_are_checked(self):
+        d = build_fixtures.base()
+        d["legs"]["status"]["inputs"] = [{"name": "status.json", "sha256": "abc"}]
+        d["players"][2]["legs"]["status"]["values"]["injury_start_date"] = "10/26/2026"
+        self.assertEqual(codes(wic.validate(d)), ["field.type", "timestamp.format"])
+
     def test_unparseable_and_non_object_documents(self):
         self.assertEqual(codes(wic.validate_text("{not json")), ["json.invalid"])
         self.assertEqual(codes(wic.validate([])), ["type.document"])

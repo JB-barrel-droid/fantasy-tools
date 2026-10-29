@@ -38,6 +38,7 @@ def base() -> dict:
         "content_week": 8,
         "built_at": "2026-10-28T13:30:00Z",
         "producer": "tests/fixtures/weekly_inputs/build_fixtures.py",
+        "input_report": {"experts.espn_weekly": {"read": 4, "duplicate": 0}, "unresolved_rows": 0},
         "legs": {
             "bye": {
                 "kind": "bye", "source": "nfl_byes_2026", "horizon": "week", "units": "bye_week",
@@ -57,6 +58,7 @@ def base() -> dict:
                 "scoring": None, "content_season": 2026, "content_week": 8,
                 "content_vintage": "2026-10-28", "captured_at": "2026-10-28T13:10:00Z",
                 "availability": "complete", "freshness": "current", "label": "published",
+                "inputs": [{"name": "player_status_history.json", "sha256": "0" * 64}],
             },
         },
         "players": [
@@ -70,13 +72,16 @@ def base() -> dict:
 
 def _row(key, name, pos, team, pts, bye, status) -> dict:
     s, inj, prac, depth = status
-    status_values = {"status": s, "injury": inj, "practice": prac, "depth_order": depth}
+    status_values = {"status": s, "injury_status": inj, "injury_body_part": "Hamstring" if inj else None,
+                     "injury_start_date": "2026-10-26" if inj else None, "practice_participation": prac,
+                     "depth_chart_position": pos, "depth_chart_order": depth}
     status_reasons = {k: "no designation this week" for k, v in status_values.items() if v is None}
     status_cell = {"provenance": "partial" if status_reasons else "complete", "values": status_values}
     if status_reasons:
         status_cell["missing_reason"] = status_reasons
     return {
         "player_key": key, "name": name, "position": pos, "team": team,
+        "resolved_by": "espn_player_id", "source_ids": {"espn_player_id": key - 9000000, "sleeper_id": f"S{key}"},
         "legs": {
             "bye": {"provenance": "complete", "values": {"bye_week": bye}},
             "experts.espn_weekly": {
@@ -177,8 +182,8 @@ def v_zero_value(d):
 
 def v_unresolved_player(d):
     row = copy.deepcopy(d["players"][1])
-    row.update(player_key=None, name="Fixture Unmatched Back", team="EEE",
-               unresolved_reason="no player_key match for name and position")
+    row.update(player_key=None, name="Fixture Unmatched Back", team="EEE", resolved_by=None,
+               source_ids={"espn_player_id": 999}, unresolved_reason="no player_key match for name and position")
     d["players"].append(row)
     return d
 

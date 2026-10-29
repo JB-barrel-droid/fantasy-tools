@@ -2,6 +2,13 @@
   "built_at": "2026-10-28T13:30:00Z",
   "content_week": 8,
   "horizon": "week",
+  "input_report": {
+    "experts.espn_weekly": {
+      "duplicate": 0,
+      "read": 4
+    },
+    "unresolved_rows": 0
+  },
   "legs": {
     "bye": {
       "availability": "complete",
@@ -60,6 +67,12 @@
       "content_week": 8,
       "freshness": "current",
       "horizon": "week",
+      "inputs": [
+        {
+          "name": "player_status_history.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
       "kind": "status",
       "label": "published",
       "scoring": null,
@@ -92,13 +105,18 @@
         },
         "status": {
           "missing_reason": {
-            "injury": "no designation this week"
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
           },
           "provenance": "partial",
           "values": {
-            "depth_order": 1,
-            "injury": null,
-            "practice": "Full",
+            "depth_chart_order": 1,
+            "depth_chart_position": "QB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
             "status": "Active"
           }
         }
@@ -106,6 +124,11 @@
       "name": "Fixture Quarterback",
       "player_key": 9000101,
       "position": "QB",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 101,
+        "sleeper_id": "S9000101"
+      },
       "team": "AAA"
     },
     {
@@ -132,13 +155,18 @@
         },
         "status": {
           "missing_reason": {
-            "injury": "no designation this week"
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
           },
           "provenance": "partial",
           "values": {
-            "depth_order": 1,
-            "injury": null,
-            "practice": "Full",
+            "depth_chart_order": 1,
+            "depth_chart_position": "RB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
             "status": "Active"
           }
         }
@@ -146,6 +174,11 @@
       "name": "Fixture Running Back",
       "player_key": 9000102,
       "position": "RB",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 102,
+        "sleeper_id": "S9000102"
+      },
       "team": "BBB"
     },
     {
@@ -173,9 +206,12 @@
         "status": {
           "provenance": "complete",
           "values": {
-            "depth_order": 2,
-            "injury": "Questionable",
-            "practice": "Limited",
+            "depth_chart_order": 2,
+            "depth_chart_position": "WR",
+            "injury_body_part": "Hamstring",
+            "injury_start_date": "2026-10-26",
+            "injury_status": "Questionable",
+            "practice_participation": "Limited",
             "status": "Active"
           }
         }
@@ -183,6 +219,11 @@
       "name": "Fixture Wide Receiver",
       "player_key": 9000103,
       "position": "WR",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 103,
+        "sleeper_id": "S9000103"
+      },
       "team": "CCC"
     },
     {
@@ -209,13 +250,18 @@
         },
         "status": {
           "missing_reason": {
-            "injury": "no designation this week"
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
           },
           "provenance": "partial",
           "values": {
-            "depth_order": 1,
-            "injury": null,
-            "practice": "Full",
+            "depth_chart_order": 1,
+            "depth_chart_position": "TE",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
             "status": "Active"
           }
         }
@@ -223,6 +269,11 @@
       "name": "Fixture Tight End",
       "player_key": 9000104,
       "position": "TE",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 104,
+        "sleeper_id": "S9000104"
+      },
       "team": "DDD"
     }
   ],

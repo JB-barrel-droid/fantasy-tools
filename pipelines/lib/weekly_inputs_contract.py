@@ -71,25 +71,28 @@ UNITS_BY_KIND = {
     "bye": ("bye_week",),
 }
 SCORED_UNITS = ("fantasy_points", "rank")
-STATUS_FIELDS = ("status", "injury", "practice", "depth_order")
+# Field names follow the stored Sleeper status history (pipelines/save_player_status_history.py).
+STATUS_FIELDS = ("status", "injury_status", "injury_body_part", "injury_start_date",
+                 "practice_participation", "depth_chart_position", "depth_chart_order")
 BYE_FIELDS = ("bye_week",)
 # Provenance per row leg. td-filled is the archived Vegas value (a leg filled
 # from the touchdown market) and is valid on the vegas leg only.
 PROVENANCE = ("complete", "td-filled", "partial", "missing")
 
 LEG_ID_RE = re.compile(r"^(vegas|status|bye|experts\.[a-z][a-z0-9_]*)$")
+SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 ROS_TOKEN_RE = re.compile(r"(^|[._\-])(ros|rest_of_season|restofseason)([._\-]|$)", re.I)
 
 TOP_REQUIRED = ("schema", "schema_version", "horizon", "season", "content_week",
                 "built_at", "producer", "legs", "players")
-TOP_OPTIONAL = ()
+TOP_OPTIONAL = ("input_report",)
 LEG_REQUIRED = ("kind", "source", "horizon", "units", "scoring", "content_season",
                 "content_week", "content_vintage", "captured_at", "availability",
                 "freshness", "label")
-LEG_OPTIONAL = ("game_week", "missing_reason", "note")
+LEG_OPTIONAL = ("game_week", "missing_reason", "note", "inputs")
 ROW_REQUIRED = ("player_key", "name", "position", "team", "legs")
-ROW_OPTIONAL = ("unresolved_reason",)
+ROW_OPTIONAL = ("unresolved_reason", "resolved_by", "source_ids")
 ROW_LEG_REQUIRED = ("provenance", "values")
 ROW_LEG_OPTIONAL = ("missing_reason",)
 
@@ -285,6 +288,8 @@ class _Validator:
                 self.timestamp(doc["built_at"], "$.built_at")
         if "producer" in doc:
             self.string(doc["producer"], "$.producer")
+        if "input_report" in doc and not isinstance(doc["input_report"], dict):
+            self.add("field.type", "$.input_report", "input_report is an object (the producer's read counts)")
         season = doc.get("season") if season_ok else None
         week = doc.get("content_week") if week_ok else None
 
@@ -387,6 +392,8 @@ class _Validator:
             self.timestamp(meta["content_vintage"], f"{path}.content_vintage", date_only=True)
         if "captured_at" in meta:
             self.timestamp(meta["captured_at"], f"{path}.captured_at")
+        if "inputs" in meta:
+            self.inputs(meta["inputs"], f"{path}.inputs")
 
         if unavailable:
             if not isinstance(meta.get("missing_reason"), str) or not meta["missing_reason"].strip():
@@ -435,6 +442,21 @@ class _Validator:
                 "scoring": scoring if units_ok and units in SCORED_UNITS else None,
                 "unavailable": unavailable, "availability": availability}
 
+    def inputs(self, inputs: Any, path: str) -> None:
+        if not isinstance(inputs, list):
+            self.add("field.type", path, "inputs is a list of {name, sha256}")
+            return
+        for i, item in enumerate(inputs):
+            ipath = f"{path}[{i}]"
+            if not isinstance(item, dict):
+                self.add("field.type", ipath, "an input is an object with name and sha256")
+                continue
+            self.fields(item, ipath, ("name", "sha256"), ())
+            if "name" in item:
+                self.string(item["name"], f"{ipath}.name")
+            if "sha256" in item and not (isinstance(item["sha256"], str) and SHA256_RE.match(item["sha256"])):
+                self.add("field.type", f"{ipath}.sha256", "sha256 is 64 lowercase hex characters")
+
     def players(self, players: list, declared: dict[str, dict], legs: dict) -> None:
         seen: dict[int, int] = {}
         order: list[tuple] = []
@@ -467,6 +489,10 @@ class _Validator:
                 self.add("player.position", f"{path}.position", f"got {row['position']!r}")
             if "team" in row:
                 self.string(row["team"], f"{path}.team", nullable=True)
+            if "resolved_by" in row:
+                self.string(row["resolved_by"], f"{path}.resolved_by", nullable=True)
+            if "source_ids" in row and not isinstance(row["source_ids"], dict):
+                self.add("field.type", f"{path}.source_ids", "source_ids is an object of source id names to ids")
             if key != "invalid" and isinstance(row.get("name"), str):
                 order.append((i, key, row["name"]))
 
@@ -609,11 +635,13 @@ class _Validator:
             elif not WEEK_RANGE[0] <= v <= WEEK_RANGE[1]:
                 self.add("value.range", path, f"a bye week is in 1..18, got {v}")
         elif units == "status":
-            if key == "depth_order":
+            if key == "depth_chart_order":
                 if not self.is_int(v):
-                    self.add("value.type", path, f"depth_order is a whole number or null, got {v!r}")
+                    self.add("value.type", path, f"depth_chart_order is a whole number or null, got {v!r}")
                 elif v < 1:
-                    self.add("value.range", path, f"depth_order starts at 1, got {v}")
+                    self.add("value.range", path, f"depth_chart_order starts at 1, got {v}")
+            elif key == "injury_start_date":
+                self.timestamp(v, path, date_only=True)
             elif not isinstance(v, str) or not v.strip():
                 self.add("value.type", path, f"'{key}' is a non-empty string or null, got {v!r}")
 

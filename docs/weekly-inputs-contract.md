@@ -63,8 +63,10 @@ assert is_valid(issues)       # no errors (warnings allowed)
     labelled `published`. A 2026 leg in a 2027 artifact must say
     previous-season, so 2026 data is never shown as 2027.
 - **Units are fixed per leg and never converted.** `fantasy_points` (finite
-  numbers), `rank` (whole numbers from 1), `status` (strings, plus a whole
-  `depth_order`), `bye_week` (1 to 18). Nothing here turns a rank into points
+  numbers), `rank` (whole numbers from 1), `status` (`status`, `injury_status`,
+  `injury_body_part`, `practice_participation`, `depth_chart_position` as
+  strings, `injury_start_date` as an ISO date, `depth_chart_order` a whole
+  number from 1; the names of the stored Sleeper status history), `bye_week` (1 to 18). Nothing here turns a rank into points
   or compares two legs.
 - **Scoring formats** are `standard`, `half_ppr`, `ppr` (the keys of
   `pipelines/lib/scoring.py`). A points or rank leg lists the formats it
@@ -78,7 +80,8 @@ assert is_valid(issues)       # no errors (warnings allowed)
 Top level: `schema` (`"weekly-inputs"`), `schema_version` (semver, `"1.0.0"`),
 `horizon` (`"week"`), `season`, `content_week` (the Tuesday-flip week of
 `pipelines/nfl_week.py`), `built_at` (UTC timestamp), `producer`, `legs`,
-`players`.
+`players`, and an optional `input_report` (the producer's read and drop counts,
+free-form object).
 
 `legs` declares each leg once, keyed by leg id: `vegas`, `status`, `bye`, or
 `experts.<name>` for any weekly expert source (`experts.espn_weekly`,
@@ -87,7 +90,8 @@ status / bye, matching the id), `source`, `horizon`, `units`, `scoring`,
 `content_season`, `content_week`, optional `game_week` (Thursday flip, slate
 fields only), `content_vintage` (ISO date), `captured_at` (UTC timestamp),
 `availability`, `freshness`, `label`, `missing_reason` (required when
-unavailable) and an optional `note`. A leg with no producer yet is declared
+unavailable), an optional `note` and optional `inputs` (the local files the
+leg was built from, each `{name, sha256}`). A leg with no producer yet is declared
 unavailable with nulls, not left out:
 
 ```json
@@ -113,7 +117,8 @@ unavailable with nulls, not left out:
 ```
 
 Each row has `player_key`, `name`, `position` (QB / RB / WR / TE / K / DST),
-`team` (or null), optional `unresolved_reason`, and `legs`: one cell per
+`team` (or null), optional `unresolved_reason`, optional `resolved_by` (which
+identity rule matched) and `source_ids` (the source ids seen), and `legs`: one cell per
 declared leg (none omitted), each with `provenance` (`complete`, `partial`,
 `missing`, or `td-filled` on the vegas leg only), `values` and, for nulls,
 `missing_reason`:
@@ -144,9 +149,12 @@ declared leg (none omitted), each with `provenance` (`complete`, `partial`,
     "status": {
       "provenance": "complete",
       "values": {
-        "depth_order": 2,
-        "injury": "Questionable",
-        "practice": "Limited",
+        "depth_chart_order": 2,
+        "depth_chart_position": "WR",
+        "injury_body_part": "Hamstring",
+        "injury_start_date": "2026-10-26",
+        "injury_status": "Questionable",
+        "practice_participation": "Limited",
         "status": "Active"
       }
     },
@@ -162,6 +170,11 @@ declared leg (none omitted), each with `provenance` (`complete`, `partial`,
   "name": "Fixture Wide Receiver",
   "player_key": 9000103,
   "position": "WR",
+  "resolved_by": "espn_player_id",
+  "source_ids": {
+    "espn_player_id": 103,
+    "sleeper_id": "S9000103"
+  },
   "team": "CCC"
 }
 ```

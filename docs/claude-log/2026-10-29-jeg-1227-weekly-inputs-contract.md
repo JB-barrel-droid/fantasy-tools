@@ -16,8 +16,12 @@ complete / partial / unavailable; `freshness` current / one_week_behind /
 stale / unknown (check_reference_freshness vocabulary and 0/1/2+ rule), null
 exactly when unavailable; `label` keeps the five standing labels.
 
+Aligned with JEG-1228's draft (#1085 head `bf585cc`): status field names follow
+the stored Sleeper history; optional `inputs` (name, sha256), `input_report`,
+`resolved_by` and `source_ids` are accepted.
+
 ### Verified (check named)
-- `python3 -m unittest tests.test_weekly_inputs_contract`: 27 tests OK
+- `python3 -m unittest tests.test_weekly_inputs_contract`: 28 tests OK
   (every fixture's exact error and warning codes, byte match with the builder,
   every code exercised and documented, versions, CLI exit codes).
 - Failing before: with the module absent the suite errors on import; four
