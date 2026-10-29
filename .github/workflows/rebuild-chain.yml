@@ -492,6 +492,10 @@ jobs:
             git add dist/modules/input-lineage.json 2>/dev/null || true
             # JEG-479: engine vs Python reference report (own add, may be absent).
             git add dist/modules/value-check.json 2>/dev/null || true
+            # JEG-1314: the divergence report the chain's make sync just wrote.
+            # Without this add only a hand-run sync refreshed it (stale from
+            # 2026-10-27 to 10-29), and divergence-issues.yml reads this copy.
+            git add dist/modules/source-divergence.json 2>/dev/null || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true

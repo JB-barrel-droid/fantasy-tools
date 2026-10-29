@@ -36,7 +36,13 @@ Status per source (worst over the three scorings):
   blends and comparisons (held semantics per JEG-569: grayed out, stays in
   the pool for weights and pie).
 
-The trailing baseline (up to BASELINE_WEEKS prior weeks) is computed for the
+Each source-week is labelled by the week the source is served as (JEG-1314:
+`week_state.source_weeks`, else the content week), not the content week
+alone: on the Tuesday flip content_week moves before the charts publish.
+Resolutions and the baseline use that week; a saved week whose inputs have
+the served fingerprint is the same chart and never counts as a prior week.
+
+The trailing baseline (up to BASELINE_WEEKS weeks before the served week) is computed for the
 trade charts from data/history/week-N.json natives times the current fixture's
 own Indexed factor for that chart and combo (Indexed is one factor per chart
 and setting, JEG-482). Projection history holds per-game points, not chart
@@ -215,8 +221,9 @@ def indexed_factor(combo: dict) -> float | None:
     return statistics.median(ratios) if ratios else None
 
 
-def history_weeks(history_dir: Path, before_week: int | None) -> list[tuple[int, dict]]:
-    """[(week, doc)] for week files before `before_week`, newest first."""
+def history_weeks(history_dir: Path, before_week: int | None,
+                  limit: int | None = BASELINE_WEEKS) -> list[tuple[int, dict]]:
+    """[(week, doc)] for week files before `before_week`, newest first (at most `limit`)."""
     out = []
     if before_week is None or not history_dir.is_dir():
         return out
@@ -227,7 +234,8 @@ def history_weeks(history_dir: Path, before_week: int | None) -> list[tuple[int,
             continue
         if week < before_week:
             out.append((week, json.loads(path.read_text(encoding="utf-8"))))
-    return sorted(out, key=lambda w: -w[0])[:BASELINE_WEEKS]
+    out.sort(key=lambda w: -w[0])
+    return out if limit is None else out[:limit]
 
 
 def history_values(doc: dict, sources, scoring: str, factors: dict) -> dict:
@@ -259,17 +267,41 @@ def load_resolutions(path: Path) -> tuple[dict, list[str]]:
         if not entry.get("note"):
             problems.append(f"{entry.get('source')}/week {entry.get('week')}: resolution needs a note")
             continue
+        if kind == "exclude" and entry.get("inputs_fingerprint"):
+            # value_reference applies exclusions by source and week only.
+            problems.append(f"{entry.get('source')}/week {entry.get('week')}: exclude cannot be scoped to inputs_fingerprint")
+            continue
         out[(entry.get("source"), entry.get("week"))] = entry
     return out, problems
 
 
-def current_week(fixture: dict, history_dir: Path) -> int | None:
+def read_index(history_dir: Path) -> dict:
     index = history_dir / "index.json"
-    if index.is_file():
-        week = json.loads(index.read_text(encoding="utf-8")).get("content_week")
-        if isinstance(week, int):
-            return week
-    return None
+    return json.loads(index.read_text(encoding="utf-8")) if index.is_file() else {}
+
+
+def served_weeks(fixture: dict, index: dict, content_week: int | None) -> dict:
+    """{source: (week, basis, fingerprint)}: the week each source's values are
+    served as (JEG-1314), by the shared definition `week_state.source_weeks`
+    (the history index's fingerprint match, else the section's own label),
+    else the content week. On the Tuesday flip content_week moves before the
+    charts publish the new week; labelling a still-served week-N chart N+1
+    filed a false "week N+1" flag against week N's article (JEG-1172).
+    fingerprint is the served inputs' (index), None when unknown."""
+    from week_state import source_weeks
+    served = index.get("served") or {}
+    out = {}
+    for source, rec in source_weeks(fixture, index).items():
+        week, basis = rec.get("served_week"), rec.get("basis")
+        if not isinstance(week, int) or isinstance(week, bool):
+            week, basis = content_week, "content_week"
+        fp = (served.get(source) or {}).get("fingerprint") if rec.get("basis") == "history_index" else None
+        out[source] = (week, basis, fp)
+    return out
+
+
+def history_fingerprint(doc: dict, source: str) -> str | None:
+    return ((doc.get("sources") or {}).get(source) or {}).get("fingerprint")
 
 
 def message(source: str, group: str, status: str, row: dict, base: dict | None) -> str:
@@ -293,8 +325,13 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
     positions = {p["player_key"]: p.get("pos") for p in
                  json.loads(players_path.read_text(encoding="utf-8")).get("players", [])}
     name_to_key = fixture.get("player_keys") or {}
-    week = current_week(fixture, history_dir)
-    past = history_weeks(history_dir, week)
+    index = read_index(history_dir)
+    week = index.get("content_week") if isinstance(index.get("content_week"), int) else None
+    weeks = served_weeks(fixture, index, week)
+    # Every saved week before the newest week any source serves; each source
+    # then keeps the BASELINE_WEEKS before its own served week.
+    newest = max([w for w, _, _ in weeks.values() if isinstance(w, int)] + ([week] if week else []), default=None)
+    past = history_weeks(history_dir, None if newest is None else newest + 1, limit=None)
     resolutions, resolution_problems = load_resolutions(resolutions_path)
     sections = fixture.get("sources") or {}
 
@@ -320,8 +357,14 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
         for s in members:
             if s not in sections:
                 continue
+            s_week, s_basis, s_fp = weeks.get(s, (week, "content_week", None))
+            # A saved week with the very inputs served now is the same chart,
+            # not a prior week: never its own baseline or "also warned".
+            same = {w for w, doc in past if s_fp and history_fingerprint(doc, s) == s_fp}
             combos, status, reasons, chosen = {}, "ok", [], None
-            for scoring, (now_rows, prior) in per_scoring.items():
+            for scoring, (now_rows, prior_all) in per_scoring.items():
+                prior = [(w, p) for w, p in prior_all
+                         if (s_week is None or w < s_week) and w not in same][:BASELINE_WEEKS]
                 row = now_rows.get(s)
                 if not row:
                     continue
@@ -346,11 +389,16 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
                     status, chosen = st, scoring
                     reasons = [f"{scoring}: {r}" for r in why + pos_why]
             if chosen is None:
-                report_sources[s] = {"label": LABEL[s], "group": group, "status": "n/a", "week": week,
+                report_sources[s] = {"label": LABEL[s], "group": group, "status": "n/a", "week": s_week,
+                                     "week_basis": s_basis,
                                      "message": message(s, group, "n/a", {}, None), "combos": {}}
                 continue
             head = combos[combo_key(s, chosen)]
-            resolution = resolutions.get((s, week))
+            resolution = resolutions.get((s, s_week))
+            # A resolution scoped to the inputs it was decided on (JEG-1314)
+            # does not carry over to other inputs served under the same week.
+            if resolution and resolution.get("inputs_fingerprint") and resolution["inputs_fingerprint"] != s_fp:
+                resolution = None
             # JEG-610 item 2: 'exclude' resolution -> status 'excluded' (hidden from blends
             # and comparisons, held semantics per JEG-569). Other resolutions -> 'reviewed'.
             if resolution and status != "ok":
@@ -358,7 +406,8 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
             else:
                 shown = status
             report_sources[s] = {
-                "label": LABEL[s], "group": group, "week": week, "status": shown, "computed_status": status,
+                "label": LABEL[s], "group": group, "week": s_week, "week_basis": s_basis,
+                "status": shown, "computed_status": status,
                 "headline_combo": combo_key(s, chosen), "reasons": reasons,
                 "n": head["n"], "bias": head["bias"], "mad": head["mad"], "outlier_rate": head["outlier_rate"],
                 "usual_outlier_rate": (head["baseline"] or {}).get("outlier_rate"),
