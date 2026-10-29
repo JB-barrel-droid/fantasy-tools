@@ -1,6 +1,6 @@
 -- Migration 015: rest-of-season rankings table (JEG-1198 option C)
--- DRAFT. NOT APPLIED. Jeremy picked option C on 2026-10-29 ("start with 4-5 sources, piped through
--- supabase") but has NOT approved this table. Do not apply until his own message names this migration.
+-- APPLIED 2026-10-29 on Jeremy's approval ("Approve 015 and 016"); option C was his pick the same day
+-- ("start with 4-5 sources, piped through supabase").
 -- CREATE TABLE only (no drops, no alters, no deletes of existing objects).
 -- RLS on, no policies: service_role only (pipeline writers), like 008-013.
 --

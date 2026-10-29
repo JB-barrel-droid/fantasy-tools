@@ -2,18 +2,18 @@ name: ROS rankings scrape to Supabase
 
 # JEG-1198 option C (Jeremy 2026-10-29): public rest-of-season rankings, piped
 # through Supabase for research and review. Rankings never feed DDF Value or
-# DDF Projections (docs/pipeline-rules.md section 8).
+# DDF Projections (docs/pipeline-rules.md section 7). ROS only: Jeremy
+# 2026-10-29, "do not blend weekly data with ROS data, ever".
 #
 #   pipelines/pull_ros_rankings.py -> /tmp/ros/snapshot.json, fail closed with
 #     named codes (SOURCE_BLOCKED, SOURCE_LAYOUT, SOURCE_TRUNCATED); vintage =
 #     each source's own stamp, not the run date
 #   pipelines/save_ros_rankings.py -> public.ros_rankings
-#     (grain source + scoring + pos + player_key + source_vintage)
+#     (grain source + analyst + scoring + pos + player_key + source_vintage)
 #
-# public.ros_rankings does not exist until Jeremy approves and applies
-# sql/migrations/015_ros_rankings.sql. Until then only dry runs work.
-# No `schedule:` here: once approved, pg_cron owns it
-# (sql/migrations/016_ros_rankings_sync_schedule.sql, a draft).
+# public.ros_rankings: sql/migrations/015_ros_rankings.sql, applied 2026-10-29
+# on Jeremy's approval. No `schedule:` here: pg_cron owns it, 13:40 UTC daily
+# with mode=write (supabase/migrations/ros_rankings_sync_schedule_20261029.sql).
 #
 #   push to ros-rankings/dry-*            -> dry run
 #   push to claude/JEG-1198-ros-rankings-feed -> dry run (review branch; drop after merge)
@@ -64,6 +64,7 @@ jobs:
           echo "::notice title=ros-rankings::mode=$mode"
 
       - name: Scrape and save
+        id: sync
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -80,7 +81,33 @@ jobs:
           grep '^ROSLIST|' /tmp/ros.log > /tmp/ros/lists.txt || true
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/ros.log | cut -c1-900 | sed "s/^/::$level title=ros-rankings rc=$rc::/"
+          # Named codes from the puller: SOURCE_BLOCKED, SOURCE_LAYOUT, SOURCE_TRUNCATED;
+          # SYNC_FAILED = the saver.
+          code=SYNC_FAILED
+          pulled=$(grep -o "ROS RANKINGS PULL FAILED \[[A-Z_]*\]" /tmp/ros.log | sed 's/.*\[\(.*\)\]/\1/' | head -1 || true)
+          [ -n "$pulled" ] && code=$pulled
+          echo "error_code=$code" >> $GITHUB_OUTPUT
           exit $rc
+
+      - name: Record the monitored check
+        if: always() && steps.cfg.outputs.mode == 'write'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          OK: ${{ steps.sync.outcome == 'success' }}
+          ERROR_CODE: ${{ steps.sync.outputs.error_code }}
+        run: |
+          python3 - <<'PY'
+          import os, sbclient
+          ok = os.environ["OK"] == "true"
+          sbclient.rpc("monitoring_record_observation", {
+              "p_check_id": "ros_rankings_sync",
+              "p_ok": ok, "p_content_ok": ok,
+              "p_error_code": None if ok else (os.environ.get("ERROR_CODE") or "SYNC_FAILED"),
+              "p_scheduler_owner_id": "ros-rankings-sync.yml",
+          })
+          print("recorded ok=%s" % ok)
+          PY
 
       - name: Print the ranking lists
         if: always()

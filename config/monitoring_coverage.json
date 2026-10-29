@@ -52,6 +52,8 @@
      "records": [{"check_id": "draftsharks_trade_chart_sync", "file": ".github/workflows/draftsharks-supabase-sync.yml", "contains": "\"p_check_id\": \"draftsharks_trade_chart_sync\""}]},
     {"workflow": "fantasysharks-supabase-sync.yml", "scheduler": "source_probe", "pg_cron_job": null, "dispatched_by": "source-probe.yml (on change or max age)",
      "records": [{"check_id": "fantasysharks_projections_sync", "file": ".github/workflows/fantasysharks-supabase-sync.yml", "contains": "\"p_check_id\": \"fantasysharks_projections_sync\""}]},
+    {"workflow": "ros-rankings-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "ros-rankings-sync-live",
+     "records": [{"check_id": "ros_rankings_sync", "file": ".github/workflows/ros-rankings-sync.yml", "contains": "\"p_check_id\": \"ros_rankings_sync\""}]},
     {"workflow": "fidelity-pulse.yml", "scheduler": "pg_cron", "pg_cron_job": "fidelity-pulse-live",
      "records": [{"check_id": "fidelity_pulse", "file": ".github/workflows/fidelity-pulse.yml", "contains": "--check-id fidelity_pulse --owner fidelity-pulse.yml"}]},
     {"workflow": "player-identity-reconcile.yml", "scheduler": "pg_cron", "pg_cron_job": "player-identity-reconcile-nightly",
@@ -73,7 +75,6 @@
     {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
   ],
   "unmonitored_workflows": {
-    "ros-rankings-sync.yml": "manual until Jeremy approves public.ros_rankings (sql/migrations/015, JEG-1198); its pg_cron schedule and check row are in the draft sql/migrations/016_ros_rankings_sync_schedule.sql, not applied",
     "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
     "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",

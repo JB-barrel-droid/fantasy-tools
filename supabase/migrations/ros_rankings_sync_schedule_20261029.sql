@@ -1,9 +1,9 @@
--- Migration 016: schedule the ROS rankings scrape (JEG-1198 option C)
--- DRAFT. NOT APPLIED. Apply only after 015_ros_rankings.sql, and only when Jeremy's own message
--- names this migration. Moves to supabase/migrations/ with config/monitoring_coverage.json
--- (ros-rankings-sync.yml from unmonitored to a pg_cron pipeline) in the same change.
--- The workflow must then record the check (a "Record the monitored check" step, as in
--- razzball-supabase-sync.yml).
+-- Schedule the ROS rankings scrape (JEG-1198 option C). Was sql/migrations/016.
+-- APPLIED 2026-10-29 on Jeremy's approval ("Approve 015 and 016"), after the table migration
+-- (sql/migrations/015_ros_rankings.sql). config/monitoring_coverage.json lists
+-- ros-rankings-sync.yml as a pg_cron pipeline; the workflow records the check in its
+-- "Record the monitored check" step.
+-- dispatch_gha_workflow dispatches on main, so scheduled runs need the workflow on main.
 --
 -- 13:40 UTC daily: after the expert consensus' overnight update; Yahoo tiers articles post
 -- mid-week, so a daily read picks each up within a day.
