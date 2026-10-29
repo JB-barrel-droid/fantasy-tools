@@ -14,7 +14,8 @@ calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 
 ## Two-agent protocol
 
-Confirmed by Jeremy on 2026-10-28 (America/Chicago), JEG-1218. This section
+Confirmed by Jeremy on 2026-10-28 (America/Chicago), with explicit updates on
+2026-10-29 through 18:08 UTC, JEG-1218. This section
 supersedes older instructions below wherever they conflict with this protocol,
 including overlap, review, release and approval rules. Unrelated requirements still
 apply. Current release boundaries are recorded in `HANDOFF.md`.
@@ -42,39 +43,83 @@ apply. Current release boundaries are recorded in `HANDOFF.md`.
 
 - Codex tickets carry a `codex` label or Linear agent assignment. Claude tickets
   carry a `claude` label. Create both labels in Jegabee if missing.
-- Before claiming, check both agent labels and the Linear assignment. A missing
-  label does not by itself mean unclaimed.
-- Claim with a ticket comment naming the owner and branch, then recheck for a
-  simultaneous claim. Resolve any conflict before editing.
+- Before claiming, check both agent labels, native assignee/delegate, comments,
+  open PRs/branches, parent/child scope, acceptance criteria and explicit holds.
+  A missing label or blocker relation does not prove that work is unclaimed or ready.
+- Claim with a ticket comment naming worker, branch, exact files, bounded
+  deliverable and dependencies, then recheck for a simultaneous claim. Resolve
+  conflicts before editing; mark In Progress only when work actually starts.
 - Only one agent works a ticket at a time. To hand off, comment with current
   state, PR link and next step, then swap the label.
 - Keep a ready Claude queue larger than Claude can work concurrently so it does
   not wait for Codex to assign the next task. Queue future work in Backlog or
   Todo, not In Progress; active ownership and release boundaries still apply.
+- `ready-for-claude` means audited, approved, bounded and unclaimed. After
+  exhausting actionable active/Todo work, including review corrections, Claude
+  may promote only such ready-labeled Backlog work to Todo and claim it. Recheck
+  ownership/races without repeating an unchanged substantive readiness audit.
+  Remove readiness immediately on claim, block or handback. Unknown readiness
+  stays Backlog. Name dependencies and use actual blocker relations where
+  appropriate (`blocked-dependency`); use `needs-jeremy` for decision/approval
+  holds. Independent scaffold/module/test children can proceed inside their
+  explicit boundary while parent live integration is held; do not count both twice.
+- Substantial review corrections use a bounded child ticket linked to the SAME
+  existing PR/branch. Small fixes return the original ticket to In Progress.
+  Both require an explicit corrective claim and owner acknowledgment; never
+  duplicate a live corrective worker. Hand back the corrected exact head/tests.
 
 ### Branches and overlap
 
 - New work uses `codex/JEG-###-slug` or `claude/JEG-###-slug`.
 - Existing branches and owners are grandfathered. Do not rename or transfer
   active branches during the release queue.
-- Never push to the other agent's branch or directly to main. Never delete a
-  branch, data, file or work in progress without Jeremy's yes.
+- Never push directly to main or force-push. Use an explicit branch push
+  refspec so an inherited upstream cannot send a bare push to main.
+- A normal main-only merge into another agent's branch is allowed only after
+  posting a ticket claim and checking that its owner pushed nothing in the
+  preceding 30 minutes, or obtaining the owner's OK. Make no other edits under
+  this exception. Coordinate concurrent writes; the owner pulls before its next
+  push. Other changes require the normal ownership/corrective handoff.
+- Never delete a branch, data, file or work in progress without Jeremy's yes.
+  Automatic branch cleanup also needs specific approval; retain branches otherwise.
 - File overlap triggers coordination, not an automatic stop. Independent
   changes can proceed on separate branches. When changes conflict, serialize
   integration and retest against the merged result.
 
 ### Review and release
 
-- Every PR needs one independent review pass. The author's own self-check does
-  not count. A separate automated review pass (such as Codex automatic review)
-  counts as independent on either agent's PRs. No second review is required.
-- Material changes after review need a focused review of the delta, not another
-  full review.
-- Codex merges one PR at a time, only when PR CI is green, the independent review
-  is clean and main is currently green. If main moves, integrate it and rerun CI.
-- After each merge, wait for the site to publish and verify the live change and
-  regressions before the next merge. Revert breakages through a revert PR.
-- Only merge work Jeremy asked for. Old backlog PRs in bulk go to Jeremy first.
+- Use `review-light` for bounded low-risk copy/docs, `review-standard` for
+  ordinary features/UX/tests, and `review-high-risk` for calculations, identity,
+  persistence/provenance, shared context and similarly sensitive behavior.
+- One independent reviewer pass is sufficient; the author's self-check does
+  not count and the coordinator does not repeat the same review. A separate
+  automated review can count. After corrections, review only material changed
+  code and affected integration; reuse unchanged evidence.
+- `review-passed` records the receipt's exact head and scope. It means release
+  preflight, not Done or permission to ship; a material unreviewed delta needs
+  its own review. Labels never create a synthetic approving GitHub review.
+- Pure docs-only typos, formatting and status notes can be `review-exempt`
+  after scope verification. This excludes AGENTS/protocol/permission changes,
+  substantive architecture or calculation/methodology claims, behavior, tests
+  and deployment configuration. This protocol change requires independent review.
+- Only release work Jeremy asked for. Codex prepares each batch on pinned
+  current main, with at most seven PRs of the SAME risk class. USO valuation
+  stays in its own batch. Run combined required CI once on that exact batch
+  head and obtain one integration review of conflicts and changed code only.
+  Do not repeat unchanged constituent reviews or waive required CI.
+- Main must be green and fresh immediately before merge. If main moves,
+  normally integrate current main and rerun required CI on the resulting head;
+  there is no generated-data-only moving-main exemption. Apply the branch
+  claim/30-minute-or-owner-OK rule before cross-agent integration.
+- Squash-merge the reviewed release PR, then wait for exact-SHA publication.
+  Docs/tests batches need the exact-SHA publish check plus the synthetic check
+  before the next batch. Bench values, JSN discovery, pricing context and large
+  UI changes require their named browser journey first. Other feature batches
+  verify their live acceptance and affected regressions before the next batch.
+- A failed live check stops the next batch and requires reverting the WHOLE
+  batch through a revert PR, never a direct main change. Supabase and deletion
+  permissions remain separate and unchanged. Routine Linear updates, research
+  drafts and private preview preparation need no release review to begin.
 
 ### Jeremy's approvals
 
@@ -93,22 +138,28 @@ apply. Current release boundaries are recorded in `HANDOFF.md`.
 - Claude leaves handoff notes in tickets and PRs. Codex maintains `HANDOFF.md`.
 - Support Standard, Half PPR and PPR. Label data as published, previous-season,
   modeled, stale or unavailable; never present 2026 data as 2027.
+- Never blend weekly and rest-of-season data. Natural fit means BOTH teams,
+  not one side; new fit mathematics still needs Jeremy's approval.
+- JEG-1217 is Claude-owned implementation in the existing dashboard first;
+  a simpler experience follows working features. This grants no new numerical
+  ranking, default, design or methodology authority.
 
 ## Pre-launch: ship, and keep the numbers honest
 
 Jeremy, 2026-10-07: no users yet, and the late-September multi-agent policing
 is retired. Get fresh data live every week, protect only what keeps the numbers
 honest, refine methodology after launch. Linear is the source of truth.
-Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two agents
-on one code path, value changes paired with the Python reference on one branch,
-merges ordered so main stays green.
+Parallel work is uncapped (Jeremy, 2026-10-09). Coordinate overlapping files
+and serialize conflicting hunks; pair value changes with the Python reference
+on one branch and order releases so main stays green.
 
 ## Who does what
 
-### Model tiers (the `Model tier` label)
+### Model capability guidance (legacy tier names)
 
-The label is the **minimum** model. Names rot, tiers don't. Pick the best
-current model in the lane.
+Choose capability from the scope using the tier guidance below; do not recreate
+retired Model-tier labels as mandatory ownership gates. Names rot, tiers don't.
+Pick the best current model in the lane.
 
 | Tier | Claude subscription | ChatGPT subscription | OpenRouter / MiniMax | Use for |
 | -- | -- | -- | -- | -- |
@@ -123,13 +174,13 @@ Rules:
    spec (a config switch, porting a rule to a second path, a fixture refresh)
    is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
    until the cause is named.
-2. **Other model families never merge.** Their output is a draft PR on
-   `be/<ticket>` or `fe/<ticket>`. The Claude lead re-reads the diff, runs the
-   gate, and merges.
+2. **Codex coordinates merges.** Other implementation workers return a draft
+   PR for the independent review and release gates above. Existing branch
+   names remain valid; new work follows the two-agent branch convention.
 3. **T3 output is untrusted** until the gate passes. T3 never resolves player
    identity, edits fixtures, or touches `config/` values.
-4. A ticket that says T2 but needs a judgement call on the numbers is really
-   T1: relabel it.
+4. A task described as T2 that needs a judgement call on the numbers needs T1
+   capability: correct its brief and routing.
 5. Reviews of T2/T3 work are T1, and are a different model from the author
    where possible.
 
@@ -137,23 +188,24 @@ Rules:
 
 | Work type | Route |
 | --- | --- |
-| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
-| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session, T1 (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
+| PM: Linear tickets, bounded work and questions to Jeremy | Codex coordinates; Claude may claim approved ready work. Ba-Nana's earlier role is historical; see `HANDOFF.md`. |
+| Independent review, integration, releases and production QA | Codex coordinates under the two-agent protocol; an independent reviewer checks Codex-authored work. Earlier Claude-only release routing is retired. |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
 - **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
   ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
   2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
-  2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
+  2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, independent review.
 - **Muse (Roman)** owns only Linear tickets labeled `muse` (Jeremy,
   2026-10-26; one owner per ticket, see `HANDOFF.md` "Working with Muse").
   On those it works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Otherwise Muse
+  rebases or force-pushes) and opens PRs for independent review. Otherwise Muse
   works here only as a last resort when Jeremy asks. Muse output is untrusted
   input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
-- **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
+- **MiniMax: M3 or newer only.** The managed agent is retired (JEG-1173);
+  this model constraint still applies to any approved MiniMax use (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
   more recent one Minimax added to the subscription"). Earlier rule (2026-10-09:
   "I only want to use M3 if we use it. 2.5 stinks.") still holds: never M2.5,
@@ -172,10 +224,9 @@ Source: Linear document "Board operating conventions (2026-10-10)", folded in
 here. Ticket per workstream, status comments, quoted decisions, agents name
 their ticket, PR titles carry "(JEG-xxx)" or "(part of JEG-xxx)".
 
-- The back end owns tickets for pipelines, Supabase, engine math and
-  workflows. Each front-end session owns its own tickets. Front-end requests
-  that need engine or data changes become back-end tickets, linked to the
-  front-end ticket.
+- Route pipelines, engine/data and UI work to bounded domain tickets with
+  explicit Codex/Claude ownership. Link dependent backend work instead of
+  assuming a front-end owner can change math or deploy Supabase.
 - Fidelity findings from the pulse, an audit or a reviewer get a ticket
   (Urgent if live numbers are wrong) and a row in `docs/risk-register.md`.
 
@@ -190,8 +241,8 @@ directly. It closes when its last child closes.
 | Title | The outcome, in plain words. No "Facts:", "Back end:" prefixes stacked on prefixes. |
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
-| Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | exactly one `Session` (owner), exactly one `Model tier`, and for back end one `BE priority`. |
+| Touches | Exact files/hunks and shared-file coordination; serialize conflicting edits. |
+| Labels | `codex` or `claude` ownership/agent assignment and relevant readiness/review state. Legacy Session/Model-tier/BE-priority labels are not mandatory ownership gates. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -201,74 +252,47 @@ directly. It closes when its last child closes.
 * **High**: on the critical path of the current milestone.
 * **Medium**: next milestone.
 * **Low**: parked. Nobody picks it up unless the queue is empty.
-* **BE priority** (Now / Next / Then / Later) orders the back end within a
-  Linear priority. Now means start today.
+* Use Linear priority, named dependencies and the coordinator's current release
+  order. Legacy BE-priority tags are not required and are not recreated.
 
 Backlog = not scheduled. Todo = in a session's queue. In Progress = an agent is
-working it now and heartbeats. **In Review = waiting on Jeremy** (with
-`needs-review` and the question plus a recommendation in a comment). Done =
-merged and live.
+working it now and heartbeats. In Review names the awaited independent review,
+correction or Jeremy decision; mark explicit decision holds `needs-jeremy` with
+the question and recommendation. `review-passed` goes to release preflight.
+Done = merged and live, with the applicable risk-based verification.
 
-### Session ownership and takeover (Jeremy, 2026-10-10)
+### Ownership and queue operation (updated 2026-10-29)
 
-Several sessions work this repo at once: the back end, and the front end on the
-Windows PC, on the Mac and in the cloud, plus the hosted Claude Managed Agent.
-Linear decides who owns what.
+The old `session:be`, `session:fe-pc`, `session:fe-mac` and `session:fe-cloud`
+labels describe historical execution locations, not mandatory current ownership.
+Use the two-agent claim, readiness and handoff rules above, checking native
+assignments/delegates as well as labels. Preserve existing active owners.
+The hosted Claude Managed Agent (`session:cma`) was retired by Jeremy on
+2026-10-27 (JEG-1173): assign nothing to its queue. Its former four-hour
+standing takeover is ended; it takes over nothing.
 
-- **Owner label.** Every ticket a session works carries exactly one label from
-  the `Session` group: `session:be`, `session:fe-pc`, `session:fe-mac`,
-  `session:fe-cloud` (Jeremy, 2026-10-24) or `session:cma` (the hosted Managed
-  Agent: queue run every 2 hours, up to 3 non-overlapping tickets in parallel,
-  merges on green gates; config and rules in `managed-agents/`, Jeremy
-  2026-10-27, JEG-1173). The label is the owner; the Linear
-  assignee stays Jeremy. The `owner:*` labels are retired.
-- **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that
-  carry its own Session label. Backlog is not the queue: a ticket enters it when
-  Jeremy moves it to Todo. At session start, and each time a ticket closes, the
-  session reads its queue and claims the top ticket:
-  - back end: by `BE priority`, then Linear priority;
-  - front end: by Linear priority, then oldest first.
-- **Unrouted tickets.** A Todo ticket with no Session label has no owner yet. A
-  session whose queue is empty routes the ones that are clearly its domain
-  (engine, pipelines, data and research math go to `session:be`; pages and copy
-  to a front-end session): it adds its label, comments `routed to <session>`,
-  and works its queue. If the domain is unclear, it adds `needs-review` and asks
-  Jeremy in a comment instead of guessing.
-- **Claim.** Before starting, a session sets the ticket In Progress, checks the
-  `Session` label is its own and that the ticket has one `Model tier` label,
-  and comments `taken by <session> · <UTC time> · branch <name>`. It doesn't
-  start a ticket that carries another session's label without a takeover.
-- **Heartbeat.** While a ticket is In Progress, the owner comments at least
-  every 4 hours of active work, at every push, and when it parks the ticket:
-  what's done, what's next, and the backup branch (`fe/<ticket>` or
-  `be/<ticket>`), pushed to GitHub at each heartbeat so work never lives on one
-  machine only.
-- **Lag and takeover.** Another session may take over a ticket when it is In
-  Progress with no heartbeat or commit for 4 hours; or its owner is offline or
-  idle and the taker's own queue is empty; or Jeremy says so. Comment `taking
-  over from <session> · last heartbeat <time> · continuing from <branch>`, swap
-  the Session label, continue from the backup branch. The previous owner, on
-  returning, reads the comment and doesn't resume.
-  The `session:cma` managed agent has a standing takeover (Jeremy, 2026-10-27,
-  JEG-1173: "You can take back any tickets assigned to other harnesses unless
-  you can tell they have sessions actively moving forward"): it may take any
-  Trade Value Chart ticket from another Session label, `muse` or `owner:*` that
-  shows no comment, commit or PR update in the last 4 hours. A session that
-  wants to keep a ticket keeps its heartbeat current.
-- **Idle hands.** A session with an empty queue may pick up another session's
-  **Todo** tickets (not In Progress ones), oldest priority first. It swaps the
-  label and comments `picked up by <session>`.
-- **Handoff.** A session that is stopping comments on each of its In Progress
-  tickets with its state and branch, then moves them back to Todo.
+- **Queue:** work actionable active/Todo assignments first. Backlog self-service
+  is limited to audited `ready-for-claude` work under the rules above; an empty
+  personal queue does not authorize stealing another owner's Todo or active work.
+- **Claim:** record worker, branch, exact files/hunks, deliverable and dependencies;
+  reread for races before editing. Owner reassignment requires an explicit
+  coordinated handoff or Jeremy's direction. Silence or four-hour inactivity
+  alone does not transfer ownership.
+- **Heartbeat:** on each push, every four active hours and when parking, record
+  what is done, exact head/tests, next action and remote backup branch. Push
+  validated slices explicitly so work does not live on one machine only.
+- **Handoff:** record state, PR/branch and exact next step, remove readiness,
+  and coordinate the new owner/status. Only genuinely independent audited work
+  proceeds while a named dependency or decision holds the remaining part.
 
 ### Decisions go to Jeremy as multiple choice
 
 Product, copy and method choices that are his are posted on the ticket as
 options with context and a recommendation; agents do not pick defaults
-(Jeremy, 2026-10-22, JEG-850). Add `needs-review`, move the ticket to In
+(Jeremy, 2026-10-22, JEG-850). Add `needs-jeremy`, move the ticket to In
 Review, and claim the next ticket rather than waiting. Batch questions and
 never repeat one he has answered; check the ticket first. When he answers, the
-owner quotes the decision with the date, removes `needs-review`, and moves the
+owner quotes the decision with the date, removes `needs-jeremy`, and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes
 a rule also lands in `docs/decisions.md`. Pre-launch, block only on wrong
 numbers and finish end to end.
@@ -278,25 +302,31 @@ Ticket descriptions are working notes, not the record. A finished fact goes in
 
 ## Hot files and merging
 
-**Hot files** (one In Progress ticket at a time): `app/v2/v2.js`,
+**Shared files requiring hunk coordination:** `app/v2/v2.js`,
 `curve-widget.js`, `value-model.js`, `value_reference.py` (and its spec
 reference), `config/roster.json`, `config/lineup_parameters.json`,
 `pipelines/bake_players.py`.
 
-**Merge protocol** (lead only):
+Sharing a file is not a blanket prohibition: independent hunks may proceed on
+separate branches; serialize conflicting edits and verify their integrated result.
 
-1. Merge one engine PR at a time. Re-run `make test-core` after each. Two PRs
-   on `curve-widget.js` merged minutes apart broke deploys twice.
+**Merge protocol** (Codex coordinates):
+
+1. Use the approved same-risk batch limit (at most seven), pinned current main,
+   combined CI once and focused integration review above. Keep USO valuation
+   separate. Historical curve-widget collisions are why conflicting hunks and
+   engine/reference parity must be checked in the integrated result.
 2. Bring the branch up to date by merging `origin/main` into it. Never
-   rebase, never force-push (Jeremy, 2026-10-26). Then `make validate`
+   rebase, never force-push (Jeremy, 2026-10-26). Cross-agent main-only merges
+   require the ticket claim and 30-minute inactivity or owner OK above. Then `make validate`
    and the contract test (`tests/test_v2_contract_render.py`). Value changes
    pair JS, Python reference and spec reference on one branch with
    `value_check compare` at 0 and zero rank-guard inversions.
-3. Squash-merge as "(JEG-xxx)". Wait for Deploy dashboard. Verify live
-   (`verify_live.py`) when published output changed.
-4. Heavy suites (render, contract, 12-combo sweep) run on **one machine at a
-   time, sequentially**: the Mac or Linux CI, not the laptop with several
-   sessions running.
+3. Squash-merge as "(JEG-xxx)". Wait for exact-SHA Deploy dashboard and perform
+   the applicable synthetic/named-browser live gate before the next batch.
+4. Use the required CI matrix for heavy suites (render, contract, 12-combo
+   sweep); avoid duplicating the same heavy validation across local machines
+   and CI. Run local heavy checks sequentially on the designated machine.
 5. Order across lanes: back end engine, then front end that depends on it,
    then copy.
 6. The per-PR checks (bot report matches head, `v2-render` green, mergeable,
@@ -308,15 +338,17 @@ reference), `config/roster.json`, `config/lineup_parameters.json`,
 - **Finish end to end.** For a fix, refresh or deploy repair: commit, merge to
   `main`, wait for GitHub Actions, and check the live site when published
   output changes. Stop only if Jeremy says not to publish, the change needs a
-  force push or history rewrite, or it is a production Supabase schema change
-  he hasn't approved.
+  force push or history rewrite, or a separate required approval (including
+  every Supabase change or deletion) is missing. Report the exact gate; retain
+  branches when cleanup is unapproved.
 - **Block only on the data math.** `make validate` is the deploy gate. It runs
   the build plus `make test-core`: curve shapes and starts, missing values
   never shown as zero, source integrity, and the published surfaces the page
-  needs. The full suite (`make test-unit`) runs in preview CI and does not
+  needs. The separate full suite (`make test-unit`) does not
   block. Staleness, review holds, coverage drift, import health and monitoring
   are warnings: label them on the page and don't stop the site. For narrower
   work, run the smallest meaningful command first, then `make validate`.
+  These warning-only rules do not waive ownership, review or approval gates.
 - **A shorter or longer chart list is filled in, not held.** Jeremy,
   2026-10-16: "When lists get longer or shorter we need to follow the
   conventions we've set, filling in where needed from other charts to get to

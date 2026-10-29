@@ -6,7 +6,8 @@ specifics) still apply and win on conflict about repo process; this file adds
 the live state, Jeremy's requirements and what only lived in chat. GitHub and
 Linear hold the state, never a chat thread.
 
-Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
+Initially maintained by the Claude lead session at Jeremy's request (2026-10-27 CT);
+Codex now maintains it under the two-agent protocol below. Historical request:
 "Please maintain a takeover handoff in GitHub so Codex can continue this
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
@@ -17,17 +18,46 @@ and after each milestone; commit and push it with the relevant code.
 
 Codex maintains this handoff and is the single release coordinator under the
 [Two-agent protocol](AGENTS.md#two-agent-protocol), confirmed by Jeremy on
-2026-10-28 (America/Chicago). That protocol supersedes older ownership/routing
-notes below; preserve unrelated historical evidence.
+2026-10-28 (America/Chicago), updated through Jeremy's 2026-10-29 18:08 UTC
+approval. Older dated ownership and release sequences below are historical
+evidence, not current release authority. Preserve that evidence without resuming
+an obsolete queue.
 
-Release status updated 2026-10-29 UTC (Codex coordinates releases):
+Current release order (2026-10-29, Codex): land and verify protocol #1073 FIRST.
+#1117 is unmerged and paused at `37b49b6e41c9a6345ce7da56e4839ca0b5754cb3`;
+its normal main integration, nine focused checks and independent delta review
+passed, with fresh Preview/current-main health still pending at this checkpoint.
+Preserve its six-file scope, Fieldnotes/data and implementation branches.
+
+Current protocol limits: a main-only merge into another agent's branch needs a
+ticket claim plus no owner push in the preceding 30 minutes or the owner's OK;
+normal merge only, no other edits/force push, and the owner pulls before its
+next push. Batches contain at most seven same-risk PRs on pinned current main,
+with combined required CI once and focused review of conflicts/changed code.
+No moving-main data exemption; keep USO valuation separate. Failed live checks
+require a whole-batch revert PR. Docs/tests need exact-SHA publication plus the
+synthetic check; bench values, JSN discovery, pricing context and large UI need
+their named browser journey before the next batch. Supabase/deletion approvals
+are unchanged. #1073 has no automatic-cleanup approval; retain its branch.
+
+Use audited `ready-for-claude` work only after actionable active/Todo work is
+exhausted, and remove readiness on claim/block/handback. Significant corrections
+use a bounded child on the same existing PR/branch; small fixes return the
+original ticket to In Progress. Reclaim explicitly without duplicate workers.
+One independent risk-tier review receipt covers its exact head/scope; review
+material deltas only. AGENTS/protocol changes are not typo-exempt.
+Correction evidence: `docs/claude-log/2026-10-29-jeg-1218-protocol-corrections.md`.
+
+Historical release evidence recorded 2026-10-29 UTC:
 - #1069 trade controls and details: merged, published and live-verified.
 - #1071 values source breakdown: merged, published and live-verified.
 - #1072 missing trade candidates: merged, published and live-verified with
   synthetic rosters; Jeremy's exact league replay remains unverified.
   Detailed evidence is in [draft #1095](https://github.com/JB-barrel-droid/fantasy-tools/pull/1095).
-- Visual redesign: preview awaiting Jeremy's review. Stricter Natural fit rule
-  unresolved.
+- Visual redesign: preview awaiting Jeremy's review. Natural fit means BOTH
+  teams, not one side; stricter calculation details remain unresolved.
+- Never blend weekly and rest-of-season data. No new fit math, defaults or
+  numerical ranking authority follows from this documentation.
 
 Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
 - JEG-1217 manager-aware recommendations: Claude builds the features into the
@@ -39,6 +69,23 @@ Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
   remains release coordinator; this assignment does not alter release gates.
 
 ## Resume here
+
+### Managed agent retirement (JEG-1173/1269, Claude handoff 2026-10-29 17:07 UTC)
+
+- Jeremy retired `session:cma` on 2026-10-27. It has no queue, takeover or merge
+  authority. #1001/#1002 were already merged; #1003 is the last open managed-agent
+  PR for Codex disposition. The leftover `cma/JEG-925` branch is retained.
+- Open #1107 owns the managed-agents README, script guard and tests. Its proposed
+  guard requires `CMA_ALLOW_RETIRED=1`; that unmerged code is not asserted to be
+  active on main. Only its AGENTS/HANDOFF retirement text is incorporated here;
+  no runtime or script changes are copied. #1055 must preserve this protocol and
+  current additive handoffs when its separate owner integrates its trim.
+- Deployment pause state remains **UNVERIFIED**. Authenticated paused-state
+  reads of `depl_0194kATtQ6xdicZiw7wnkzmT` (ddf-queue) and
+  `depl_01PE9v6akCH9muDEUwxdioSs` (ddf-weekly-usage) in
+  `wrkspc_01A4qjuy7wHWubEvx73fHKym`, plus an active-run inventory, are required.
+  Claude reported a run at 16:05 UTC after an empty Deployments page around
+  15:20 UTC; missing comments or an empty page do not establish a paused state.
 
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
@@ -137,7 +184,7 @@ Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
 
 Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
 
-- **Merge rule (Jeremy, Oct 28):** merge work he asked for on green CI plus a passed independent review, without asking him again. That includes PRs built on a logged pick, which he can reverse. Merge one PR at a time, wait for its Pages deploy and check the live site before the next. A pick alone never deploys a backend. Edge-function deploys (get-values, mcp) need his explicit yes. He keeps holds of his own (JEG-1125 / #1033).
+- **Historical merge rule (Jeremy, Oct 28):** green CI, independent review and requested scope remain required. Its one-PR-at-a-time sequence was superseded by the Oct 29 same-risk batch and live-check limits in the current protocol above. A logged pick alone never deploys a backend; every Supabase change still requires fresh explicit approval. Jeremy keeps his explicit holds (JEG-1125 / #1033).
 - **Merged today:** #1023 (JEG-1190), #1027 (JEG-1176), #1028 (get-values week-flip fix), #1038 (JEG-1194), #1040 (render tests), #1031 (handoff), and #1030 (JEG-1187, Market supported, merged by the fit labels lane). #1023 and #1027 are confirmed live. The rest ride the Pages deploy for `059674f` (pending at 14:10Z); earlier deploys were cancelled by newer pushes. Deploys take 50 to 70 min, and a newer one cancels any that are pending. Confirm a Pages change by fetching its own file.
 - **Edge functions (verified 13:45 UTC):** live `get-values` is v8 (13:00Z) and matches main, including #1028. Live `mcp` is v12 (04:27Z) and matches main as of #958. Both have verify_jwt false. Copies of both deployed versions for rollback are in `/mnt/project-files/ddf/edge-rollback-2026-10-28/`.
 - **Reviewed and green, not yet merged (do next, one at a time):**
@@ -379,14 +426,9 @@ here, coordinate first (bottom of this section).
 
 **Other agents (from `AGENTS.md`; activity inferred from open PRs, not checked
 on their machines):**
-- **Claude Managed Agent** (`session:cma`, `managed-agents/`): deployment
-  `ddf-queue` runs hourly (America/Chicago), claims up to 3 Linear tickets
-  labeled `session:cma`, and merges on green gates; `ddf-weekly-usage` runs
-  Mondays 7 AM CT. Branches `cma/<ticket>` (open: #1003, #1011). Pause:
-  `ant beta:deployments pause --deployment-id <id>` (ids in
-  `managed-agents/README.md`; needs Jeremy's Anthropic account). It has a
-  standing takeover of any ticket with no activity for 4 hours, so keep your
-  heartbeat comments current.
+- **Claude Managed Agent** (`session:cma`, `managed-agents/`): retired, with no
+  queue, takeover or merge authority. Deployment pause is UNVERIFIED; see the
+  dated retirement handoff above. Last open PR #1003 is retained for Codex.
 - **Muse** (GitHub user `jkb-bur-bot`): only Linear tickets labeled `muse`;
   branches `muse/jeg-<id>-<slug>` (open: #981, #982, #1024). Never merges.
   Stop: remove the `muse` label or ask Jeremy.
@@ -394,8 +436,8 @@ on their machines):**
   Its last handoff update was 2026-10-27 8:08 AM CT; whether it still runs is
   unknown. Runs live on grok-bot-vm (`/workspace/logs/`) and the Mac; stop by
   asking Jeremy.
-- **Front-end sessions** `session:fe-pc` (Windows PC), `session:fe-mac`,
-  `session:fe-cloud`, and `session:be`: owners are the Linear `Session` label.
+- **Front-end/back-end session labels** describe historical execution locations;
+  current owners are explicit Codex/Claude claims and native assignments.
 - **Cursor cloud agent**: branch `cursor/mcp-assistant-outputs-b7b6` (PR #958).
 - Other open PR branches: `research/position-weights` (#837), `fe/JEG-950`
   (#920), `fe/jeg-1107` (#939), `fe/JEG-890-team-summary` (#964),
@@ -420,13 +462,14 @@ on their machines):**
 
 **How to coordinate (for Codex or any successor):**
 1. Check open PRs (`gh pr list`) and the branches above before touching the
-   same files; two In Progress tickets may not share a hot file.
-2. Announce a takeover with a comment on the Linear ticket
-   (`taking over from <session> · last heartbeat <time> · continuing from
-   <branch>`) and swap its `Session` label (`AGENTS.md`).
-3. Ask Jeremy to pause the overnight routine before working the same branches
-   as the Claude lanes (#1021, #1022, #1023).
-4. Never force-push or rebase someone else's branch; merge `origin/main` in.
+   same hunks; coordinate shared files and serialize conflicting edits.
+2. Follow the explicit Codex/Claude claim/handoff procedure in `AGENTS.md`;
+   inactivity and legacy Session labels do not transfer ownership.
+3. Coordinate active automation and existing branch writers. The Oct 28 lane
+   list above is historical, not a current instruction to pause deployments.
+4. Never force-push or rebase. A cross-agent main-only merge needs the ticket
+   claim and 30-minute inactivity or owner OK, no other edits, and an owner pull
+   before its next push.
 
 ---
 
@@ -478,9 +521,9 @@ is now history, last commit `d967e93`, 2026-10-27 8:06 AM CT).
   I want to reverse something later." Lanes go with Claude's pick and log it in
   the picks log (source in Jeremy's main Duet chat; repo copy
   `docs/picks-log.md`). Nothing merges or deploys on a pick alone.
-- 2026-10-27: approved merging DDF fixes to `main` on green CI with a passed
-  review, one at a time, checking the live site after each. Bulk PR backlog is
-  review-only; each backlog PR goes to him.
+- 2026-10-27 historical approval: requested DDF fixes need green CI and a passed
+  review. The earlier serial-only sequence is superseded by the Oct 29 same-risk
+  batch/live gates above; old unrequested backlog PRs still need Jeremy's scope approval.
 - 2026-10-27 backlog decisions: merge #1006, #1004, #1005, #963, #1011 (then
   close #968), #958 (then deploy mcp, approved); #920 new wording approved;
   close #997, #971; #837 stays open until its replacement lands. Sunday
@@ -583,7 +626,7 @@ source data -> reference compute -> dashboard build -> frontend/site
   `trade.js` Compare, `targets.js`, `league.js`, `waivers.js`, `overrides.js`,
   `roster-paste.js`, `ddf-state.js`), plus the engine in
   `app/trade-value-chart/assets/`.
-- **Value math (hot files, one In Progress ticket at a time):**
+- **Value math (shared files; coordinate hunks and integrated parity):**
   `app/trade-value-chart/assets/value-model.js` (`runValuePipeline`, `// VP-x`
   step comments), `curve-widget.js` (curves, diagnostics, overrides API),
   `pipelines/value_reference.py` (Python reference) and its spec reference,
@@ -603,7 +646,8 @@ source data -> reference compute -> dashboard build -> frontend/site
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
   in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
   server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
-- **Managed agent:** `managed-agents/` (`session:cma`, queue run every 2 hours).
+- **Managed agent:** `managed-agents/`, retired (`session:cma`, JEG-1173);
+  deployment pause remains unverified. #1107's unmerged script guard is separate.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
 - **Business rules (summary; full text in methodology/decisions):** Indexed is
   one order-preserving factor per chart and league setting (JEG-482); missing
