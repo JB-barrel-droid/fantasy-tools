@@ -79,6 +79,13 @@ merged into e094d6aa:
 - Chromium, `python -m unittest -v tests.test_waivers_mutation_specificity`: 27 OK, 0 skipped, 268 s. All eight mutants are
   `killed`, the restored control passes and the four injected failures are still `harness`.
 
+On the branch after #1149 merged (squash 99be687d): `origin/main` f57040e8 merged in normally as d9e087de, then the two
+prepared commits applied unchanged.
+- Before them, the offline classes fail once: the same mirror-test failure on "no aria-sort".
+- After them: 21 offline OK and `tests.test_run_suite` OK. Chromium with `RENDER_TESTS_REQUIRED=1`: 27 OK, 0 skipped, 273 s,
+  with all eight killed, the restored control passing and the four injections still `harness`.
+- `tests.test_render_sweep_coverage` lists the same five unwired render modules on main and on this branch.
+
 ### Injected harness failures (real harness, real Chromium), none killed
 
 Each is also called caught by the old rule.
@@ -125,13 +132,15 @@ Failing before, passing after:
   `killed` where `harness` is wanted, including both of Codex's examples) and pass after the fix. The observed Chromium lines
   are still `killed`.
 
-### Proposed wiring (Codex owns the Makefile; not edited here)
-In `test-unit-modules`, after `python3 -m unittest tests.test_waivers_render`:
+### Wiring (coordinator, 2026-10-29 20:17 UTC: "Codex is out, so the CI wiring doesn't wait on Codex. Add the proposed test-unit-modules line on the same branch as part of the JEG-1296 correction.")
+`test-unit-modules` now runs, right after `python3 -m unittest tests.test_waivers_render`:
 
     python3 -m unittest -v tests.test_waivers_mutation_specificity
 
-It takes about five minutes in Chromium. The `-v` log prints one `MUTANT <verdict> legacy=<caught|missed>` line per mutant. The
-offline classes need no browser and could also go in `test-core`:
+It takes about five minutes in Chromium. The log prints one `MUTANT <verdict> legacy=<caught|missed>` line per mutant (stderr).
+`tests.test_run_suite` passes with the line. `tests.test_render_sweep_coverage` shows the same five unwired render modules as
+main, which this does not change (the module has no `render` in its name). Not wired into `test-core`; the offline classes need
+no browser and could go there:
 
     python3 -m unittest tests.test_waivers_mutation_specificity.ClassifierOfflineTests tests.test_waivers_mutation_specificity.AnchorOfflineTests tests.test_waivers_mutation_specificity.FixtureOfflineTests
 
