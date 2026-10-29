@@ -38,8 +38,8 @@ PAGE = """<!doctype html>
 <link rel="stylesheet" href="v2.css"><link rel="stylesheet" href="values-fieldnotes.css">
 <script src="source-views.js"></script><script src="values-fieldnotes.js"></script>
 </head><body class="v2"><div class="v2-app">
-<main id="vfRoot" aria-labelledby="vfTitle"></main></div>
-<div id="vfMockDrawer" role="dialog" aria-label="Player details (mock)" hidden><button type="button" id="vfMockDrawerClose">Close</button></div>
+<main id="vfRoot" aria-labelledby="vfTitle"></main>
+<div id="vfMockDrawer" role="dialog" aria-label="Player details (mock)" hidden><button type="button" id="vfMockDrawerClose">Close</button></div></div>
 <script>
 // Mocked preview controller (test scaffolding only). The live page filters view.visible itself and owns state.
 (() => {
@@ -69,6 +69,7 @@ PAGE = """<!doctype html>
     showMore: () => { ui.shown += 25; handle.update(); },
     // Mock drawer, as v2.js openDrawer/closeDrawer: remember the opener, focus the drawer, and on close send focus back
     // to the opener. The page then redraws (handle.update() runs wherever renderTable() does).
+    // It sits inside .v2-app because v2.css hides every other child of body.v2.
     open: key => { window.__vfOpened.push(key); drawerOpener = document.activeElement;
       document.getElementById("vfMockDrawer").hidden = false; document.getElementById("vfMockDrawerClose").focus(); },
     clear: () => { ui.search = ""; ui.position = "ALL"; handle.update(true); }
