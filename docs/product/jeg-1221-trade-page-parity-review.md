@@ -31,6 +31,8 @@ Two pending conflicts the owners should settle before strings move:
 - **T1.** #1037 rewrites the League-wide intro (league.js:1440) as "the market (at least three of the four trade charts) says the other manager breaks even or wins". JEG-1130 makes "the Market" the four-chart *average*. The listing rule is a chart *count*. After both land, "the market" would mean an average in one sentence and a count in the next. Keep the count sentence free of the Market name (string S2 below).
 - **T2.** #1071 shows "Published charts" (three sources) while the trade pages keep "Trade chart average" (four, including FantasyCalc). A reader sees "charts" for two different sets. When JEG-1130 renames the average to the Market, the collision goes away; until then, don't add "Published charts" to any trade page.
 
+**Settled definition.** Natural fit means the trade works for both sides, never one side only (Jeremy, 2026-10-29). Every page that says "Natural" must mean both sides.
+
 ## 2. Label map across the three pages
 
 One row per user-facing concept. "Decides" says whether the concept decides listing, the label or the verdict on that page, or is display only.
@@ -54,6 +56,8 @@ One row per user-facing concept. "Decides" says whether the concept decides list
 Severity: **High** = a reader can draw the wrong conclusion about the same trade. **Medium** = inconsistent or misleading but recoverable. **Low** = polish. "UI only" = no math, default or ranking change.
 
 **F1 (High, UI only). League-wide uses "Natural" for two different tests in one table.** `ourFitOf` (opportunities.js:33-36) labels *your side only* "natural" (total rises, starters hold, construction OK), "partial" or "force". league.js:1155 capitalizes it into the "Our fit" column and league.js:1188 prints "Our fit: natural · …". The Overall fit column and filter use "Natural fit", which needs *both* sides. A row can read "Our fit: Natural" and "Overall: Force fit". "Partial" appears nowhere else on the site. Fix: strings S5 and S6.
+
+  Decision (Jeremy, 2026-10-29 01:59 UTC, on the D1 question): "Natural means both sides, not just 1 side". So the one-side "natural" in `ourFitOf` is a defect, not a wording choice: no one-side check may carry the word Natural. The fix belongs to Codex, who owns the stricter Natural fit rule. S5/S6 are the recommended labels for the one-side column; this review changes no code.
 
 **F2 (High, UI only, contract GL-03). The finders never show "◐ 1 source" or "≈ estimated".** GL-03 sits under "Everywhere": a single-source DDF Value is shown with "◐ 1 source". Compare renders it through `appendLowConfidence` (v2.js:5359, 5648). finder.js, league.js, opportunities.js and team-summary.js have no reference to `ddfLowConfidence` or `appendLowConfidence`. The same player in the same trade is tagged on Compare and untagged on both finders. Fix: render the existing tag next to the DDF Value chip (league.js:113, finder.js chip builder) and in the "Target:" line (finder.js:1981). Reuse the v2.js helper; no new rule.
 
@@ -91,7 +95,7 @@ Copy only, current terminology with `{Market}`/`{Projections}` tokens. Destinati
 | S2 | league.js:1440 (League-wide intro; #1037 also edits it, see T1) | Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture. | Your team against every other team. Each trade is one you win on DDF Value while at least 3 trade charts (or every available chart, when fewer are available) say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture. | F3, T1 |
 | S3 | finder.js:873 FIT_TIPS.market, used by both finders | Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details. | Market supported: their `{Market}` rises by more than 0.05 points, using the league's bench share. This uses the average of the charts, not the chart count that put the trade on the list. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details. | F3 |
 | S4 | finder.js:1791 (no-results note) | No trade found where DDF Value says you win and at least 3 of 4 charts agree they break even or win. Try a larger package. | Keep #1037's version. Change only "charts agree they break even or win" to "charts say they break even or win", so the word "agree" stays with projections. | F3 |
-| S5 | opportunities.js:33-36 `ourFitOf` labels, shown at league.js:1155 and :1188 | natural / partial / force | works / gains, roster issue / doesn't work | F1 |
+| S5 | opportunities.js:33-36 `ourFitOf` labels, shown at league.js:1155 and :1188 | natural / partial / force | works / gains, roster issue / doesn't work (never "natural": Jeremy, 2026-10-29, Natural means both sides) | F1 |
 | S6 | league.js:1188 detail line and the column header | Our fit: … · Their fit: … ; "Their team fit" | Your side: … · Their side: … ; header "Their side" | F1 |
 | S7 | league.js:1051 filter | Min charts fair: Any, 1, 2, 3, 4 | Charts fair to them: Every listed trade, All 4. Hide the control when fewer than 4 charts are available. | F4 |
 | S8 | every page, K/DEF | Not evaluated / Kept, not evaluated (no value for defenses and kickers) / not in values | Not evaluated: kickers and defenses have no trade value. Kept on the roster, left out of every sum. | F5 |
@@ -164,6 +168,8 @@ Then they can answer from that text: (1) which value decided whether T is listed
 - C. Change nothing until Natural fit and the JEG-1125 even band are settled.
 
 Recommended: **B**. It's copy only, true under any outcome of the held Natural fit and even-band decisions, and it doesn't put a disputed label on a new page.
+
+Status 2026-10-29: Jeremy answered this question with the definition "Natural means both sides, not just 1 side" (recorded under F1). That settles the term; he hasn't picked A, B or C, so the Compare link stays open.
 
 **D2. Which name does the contract use for the projections view on the trade pages?** The contract (GL-26, CT-08) says "DDF Projections", the code says "DDF Value (projections)", and JEG-1130's final decisions say "DDF Projected Value".
 - A. Use "DDF Projected Value" and update GL-26 and CT-08 when JEG-1130's runtime slice ships.
