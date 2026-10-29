@@ -91,7 +91,7 @@ Copy only, current terminology with `{Market}`/`{Projections}` tokens. Destinati
 
 | ID | Destination | Before | After | Finding |
 |---|---|---|---|---|
-| S1 | finder.js:2346 (Your-team intro) | Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins. | Lists trades you win on DDF Value where at least 3 trade charts (or every available chart, when fewer are available) say the other manager breaks even or wins. Each trade is then labelled Natural fit, Market supported or Force fit. | F3 |
+| S1 | finder.js:2346 (Your-team intro) | Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins. | Lists trades you win on DDF Value where at least 3 trade charts (or every available chart, when fewer are available) say the other manager breaks even or wins. When at least 3 trade charts are available, each trade is then labelled Natural fit, Market supported or Force fit; with fewer, trades are listed without a fit label (S13). | F3, F7 |
 | S2 | league.js:1440 (League-wide intro; #1037 also edits it, see T1) | Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture. | Your team against every other team. Each trade is one you win on DDF Value while at least 3 trade charts (or every available chart, when fewer are available) say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture. | F3, T1 |
 | S3 | finder.js:873 FIT_TIPS.market, used by both finders | Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details. | Market supported: their `{Market}` rises by more than 0.05 points, using the league's bench share. This uses the average of the charts, not the chart count that put the trade on the list. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details. | F3 |
 | S4 | finder.js:1791 (no-results note) | No trade found where DDF Value says you win and at least 3 of 4 charts agree they break even or win. Try a larger package. | Keep #1037's version. Change only "charts agree they break even or win" to "charts say they break even or win", so the word "agree" stays with projections. | F3 |
@@ -112,7 +112,7 @@ Copy only, current terminology with `{Market}`/`{Projections}` tokens. Destinati
 Run each in Standard, Half PPR and PPR at 12 teams unless the case says otherwise. "Same" means equal to 0.1 point as rendered.
 
 **AC1. One identical explicit trade across all three pages.**
-Given a saved league with my team A (starred) and team B, and a trade T (A gives X, receives Y) that the Your-team finder lists for A vs B,
+Given a saved league with my team A (starred) and team B, at least 3 trade charts with values this week, and a trade T (A gives X, receives Y) that the Your-team finder lists for A vs B,
 When T is opened on the League-wide finder (opponent filter B) and in Compare with A and B loaded (via "Open in Compare a trade" and also by picking X and Y by hand),
 Then the DDF Value net, the `{Market}` net and both teams' starter before/after values are the same on all three pages; both finders show the same fit label and the same "◐ 1 source" / "≈ estimated" tags; Compare's verdict says it reads DDF Value; and the by-hand Compare result equals the opened one.
 
@@ -129,7 +129,7 @@ Then the finders count "3 of 3" charts and say so; Compare lists FantasyCalc und
 **AC4. Player states.**
 Given A's roster holds a kicker, a player with no engine row, and a player priced by DDF Value but missing in the series shown on Compare,
 When each page shows A,
-Then all three pages show S8, S9 and S10 respectively, with the same words, and none of the three counts toward any sum.
+Then all three pages show S8, S9 and S10 respectively, with the same words; the kicker and the no-row player count toward no sum; the third player is left out of the shown series only and still counts, as now, in DDF Value and every other series that prices it. Current behaviour this case pins, not a change: lineup sums set an unpriced player aside per series (pickStarters, finder.js:398-418, returns them as `unvalued`, outside starters and bench); a trade net in the shown series that includes that player shows no result instead of a partial or 0-filled total (Compare v2.js:5443, :5904; League-wide opportunities.js:104); and a player missing from any compared chart has no `{Market}` average (withChartAverage, finder.js:433). Copy-only work must not change any of these sums.
 
 **AC5. Single-source DDF Value.**
 Given Y's DDF Value rests on one source,

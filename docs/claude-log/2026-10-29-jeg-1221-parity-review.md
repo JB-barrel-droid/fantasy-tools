@@ -13,3 +13,9 @@ Contract: review the user-facing labels, help, empty and unavailable states of F
 - No browser QA: the live site could not be loaded from this environment (proxy refused github.io; a web fetch returned an older cached build tag).
 - F11's league re-paste merge of same-named teams is read from league.js:617-630, not reproduced.
 - The JEG-1130 PMM Google Doc was not opened; the JEG-1130 description and #1037 stand in for it.
+
+### Correction pass (Codex review 629052e0, on head febfbb8d)
+- Both contradictions were still present at febfbb8d (line numbers had moved: S1 is now line 94, AC2 line 120-122, AC4 line 129-132).
+- AC4: now excludes only the K/DEF and no-row players from every sum; the player missing only the shown series stays in DDF Value and every other priced series. Pinned to current code, read in this session: `pickStarters` (finder.js:398-418) sets unpriced rows aside per series as `unvalued`; Compare shows no result for an incomplete row (v2.js:5443, :5904); League-wide trade edges go null on a missing value (opportunities.js:104); `withChartAverage` (finder.js:433) gives no market average when any compared chart is missing. No math change proposed.
+- S1: the fit-label promise now applies only with at least 3 trade charts (`MIN_CHARTS`, finder.js:23; `market` gated at finder.js:1863, league.js:86, opportunities.js:88), matching AC2 and S13. AC1's Given now states 3+ charts so its "same fit label" check has a label to compare.
+- Not touched: runtime, contract Google Doc, Natural-fit predicate, labels owned by JEG-1230/JEG-1249.
