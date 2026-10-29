@@ -459,6 +459,42 @@ rules, except that only charts are filled in (VP-2.4).
    - Rank `<= N*_p`: bench.
    - Otherwise waiver.
    - No DDF Value: no tier.
+
+   **Tiers follow seats, not the sign of the value** (JEG-1128, Jeremy's
+   logged pick A, 2026-10-28). The tier says where a player ranks against the
+   league's starter and roster seats; it does not say whether his DDF Value
+   is above 0. Two cases follow, both expected:
+   - *Positive-valued waiver.* A player ranked below `N*_p` can keep a small
+     positive DDF Value and is still waiver. DDF Value blends each source's
+     own VORP vs waivers (VP-5), and each source draws its waiver line in its
+     own order, so a player one publisher rosters can rank below the blended
+     roster seats. The player tag is Drop (or Stash on a high start
+     probability), never Hold.
+   - *Zero inside the seats.* A player ranked within `N*_p` whose DDF Value
+     is exactly 0 is waiver, not bench, so no starter or bench player is
+     ever at 0. This only happens when a position has fewer positive values
+     than roster seats.
+
+   Making the tier follow positive value instead (option B) would add up to
+   29 bench players per league and move curve zones and Drop tags; it is a
+   method change only Jeremy can authorize. `tests/test_tiers_follow_seats.py`
+   pins both cases in the engine and both references.
+
+   *Current example* (data of 2026-10-28, content week 9, 12 teams, Full
+   PPR, no superflex; engine and Python reference agree on every tier):
+
+   | Position | Seats (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
+   | --- | --- | --- | --- | --- |
+   | WR | 32 / 65 | #65 Brian Thomas Jr. 0.062 | #66 Demario Douglas 0.054, #67 Kalif Raymond 0.020 | #77 |
+   | TE | 12 / 22 | #22 Pat Freiermuth 0.115 | #23 Tyler Higbee 0.109 | #28 |
+   | RB | 28 / 61 | #61 MarShawn Lloyd 0.013 | #62 Jacory Croskey-Merritt 0.008 | #71 |
+   | QB | 12 / 20 | #20 Kirk Cousins 0.027 | #21 Bo Nix 0.021 | #24 |
+
+   Across the 12 combos (3 scorings x 8/10/12/14 teams) that day, 11 to 28
+   players per league were positive-valued waivers (largest 0.620, TE T.J.
+   Hockenson in Standard 10 teams), and no position had a zero inside its
+   seats, so every 0 was waiver by rank as well. Full table:
+   `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
 4. **Default ranking, lock and curve**: blended `ddf_value`, descending, then
    key ascending; nulls last. The other two versions can be chosen like any
    series.
