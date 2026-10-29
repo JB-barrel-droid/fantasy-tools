@@ -277,19 +277,83 @@ class Freshness(ProducerCase):
         self.assertEqual(self.row(doc, 101)["legs"]["experts.espn_weekly"]["values"]["standard"], 1.0)
         self.assertEqual(bwi.validate(doc), [])
 
-    def test_one_week_behind_status(self):
+    def test_earlier_week_status_is_not_carried_forward(self):
+        # JEG-1305: pick A (JEG-1228, 10-28) is "within the week, older days not
+        # carried forward". A week-7 snapshot never fills week 8; the leg is empty
+        # with a reason. (This test asserted one_week_behind before the fix.)
         status = self.write("status.json", json.dumps([
             {"snapshot_date": "2026-10-23", "fetched_at": "2026-10-23T13:00:00+00:00",
              "sleeper_id": "S101", "player_key": 101,
              "team": "AAA", "position": "WR", "status": "Active"}]))
-        meta = self.build(status=status, espn_weekly=None)["legs"]["status"]
-        self.assertEqual((meta["availability"], meta["freshness"]), ("complete", "one_week_behind"))
-        self.assertEqual(bwi.validate(json.loads(self.out.read_text())), [])
+        doc = self.build(status=status, espn_weekly=None)
+        meta = doc["legs"]["status"]
+        self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
+                         ("unavailable", None, "unavailable"))
+        self.assertEqual(meta["missing_reason"],
+                         "no status snapshot in content week 8 on or before --as-of")
+        self.assertIsNone(meta["captured_at"])
+        self.assertEqual(doc["input_report"]["status"]["wrong_week"], 1)
+        self.assertFalse(any(v is not None for r in doc["players"]
+                             for v in r["legs"]["status"]["values"].values()))
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_earlier_week_rows_beside_target_week_rows_are_left_out(self):
+        status = self.write("status.json", json.dumps([
+            {"snapshot_date": "2026-10-26", "fetched_at": "2026-10-26T13:00:00+00:00",
+             "sleeper_id": "S102", "player_key": 102, "team": "BBB", "position": "RB",
+             "status": "Active", "injury_status": "Out"},
+            {"snapshot_date": "2026-10-28", "fetched_at": "2026-10-28T13:00:00+00:00",
+             "sleeper_id": "S101", "player_key": 101, "team": "AAA", "position": "WR",
+             "status": "Active"}]))
+        doc = self.build(status=status, espn_weekly=None)
+        self.assertEqual(doc["input_report"]["status"]["wrong_week"], 1)
+        self.assertEqual(doc["legs"]["status"]["content_week"], 8)
+        self.assertFalse(any(r["player_key"] == 102 and r["legs"]["status"]["values"]["injury_status"]
+                             for r in doc["players"]))
+
+    def test_status_captured_after_the_as_of_time_is_left_out(self):
+        # JEG-1305 repro: same New York day as --as-of, captured hours after it.
+        status = self.write("status.json", json.dumps([
+            {"snapshot_date": "2026-10-28", "fetched_at": "2026-10-28T23:30:00+00:00",
+             "sleeper_id": "S101", "player_key": 101, "team": "AAA", "position": "WR",
+             "status": "Active"}]))
+        doc = self.build(status=status, espn_weekly=None, as_of="2026-10-28T20:00:00Z")
+        meta = doc["legs"]["status"]
+        self.assertEqual(meta["availability"], "unavailable")
+        self.assertIsNone(meta["captured_at"])
+        self.assertEqual(doc["input_report"]["status"]["after_as_of"], 1)
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_only_rows_captured_by_the_as_of_time_set_the_vintage(self):
+        status = self.write("status.json", json.dumps([
+            {"snapshot_date": "2026-10-28", "fetched_at": "2026-10-28T13:00:00+00:00",
+             "sleeper_id": "S101", "player_key": 101, "team": "AAA", "position": "WR",
+             "status": "Active"},
+            {"snapshot_date": "2026-10-28", "fetched_at": "2026-10-28T23:30:00+00:00",
+             "sleeper_id": "S102", "player_key": 102, "team": "BBB", "position": "RB",
+             "status": "Active", "injury_status": "Out"}]))
+        doc = self.build(status=status, espn_weekly=None, as_of="2026-10-28T20:00:00Z")
+        meta = doc["legs"]["status"]
+        self.assertEqual(meta["captured_at"], "2026-10-28T13:00:00Z")
+        self.assertLessEqual(meta["captured_at"], doc["built_at"])
+        self.assertEqual(doc["input_report"]["status"]["after_as_of"], 1)
+        self.assertEqual(self.row(doc, 101)["legs"]["status"]["values"]["status"], "Active")
+        self.assertFalse(any(r["player_key"] == 102 and r["legs"]["status"]["values"]["injury_status"]
+                             for r in doc["players"]))
+
+    def test_unreadable_status_capture_time_is_a_bad_row(self):
+        status = self.write("status.json", json.dumps([
+            {"snapshot_date": "2026-10-28", "fetched_at": "not a time",
+             "sleeper_id": "S101", "player_key": 101, "team": "AAA", "position": "WR",
+             "status": "Active"}]))
+        doc = self.build(status=status, espn_weekly=None)
+        self.assertEqual(doc["legs"]["status"]["availability"], "unavailable")
+        self.assertEqual(doc["input_report"]["status"]["bad_row"], 1)
 
     def test_status_without_a_capture_time_is_unknown_not_aged(self):
         # JEG-1267: no fetched_at means no captured_at, so no age or published claim.
         status = self.write("status.json", json.dumps([
-            {"snapshot_date": "2026-10-23", "sleeper_id": "S101", "player_key": 101,
+            {"snapshot_date": "2026-10-28", "sleeper_id": "S101", "player_key": 101,
              "team": "AAA", "position": "WR", "status": "Active"}]))
         doc = self.build(status=status, espn_weekly=None)
         meta = doc["legs"]["status"]
@@ -297,7 +361,7 @@ class Freshness(ProducerCase):
                          ("complete", "unknown", "modeled"))
         self.assertIsNone(meta["captured_at"])
         self.assertIsNone(meta["content_week"])
-        self.assertEqual(meta["content_vintage"], "2026-10-23")  # what the input stamps stays
+        self.assertEqual(meta["content_vintage"], "2026-10-28")  # what the input stamps stays
         self.assertEqual(bwi.validate(doc), [])
 
     def test_unstamped_bye_table_is_unknown_and_not_published(self):

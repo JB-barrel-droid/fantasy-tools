@@ -320,7 +320,7 @@ def read_espn(path: Path, season: int, week: int, as_of: datetime, ident: Identi
 
 def read_status(path: Path, season: int, week: int, as_of: datetime, ident: Identity, report):
     meta = _leg_meta("status", "sleeper", "status", None,
-                     f"no status snapshot in or before week {week} on or before --as-of",
+                     f"no status snapshot in content week {week} on or before --as-of",
                      [_file_meta(path)])
     data = json.loads(path.read_text())
     if isinstance(data, dict):
@@ -340,12 +340,28 @@ def read_status(path: Path, season: int, week: int, as_of: datetime, ident: Iden
         if day > as_of_day:
             report["after_as_of"] += 1
             continue
+        # --as-of is the only clock, to the second: a row captured later on
+        # the as-of day is left out like any other row after it (JEG-1305).
+        if r.get("fetched_at"):
+            try:
+                fetched_at = _iso_utc(r["fetched_at"])
+            except ValueError:
+                report["bad_row"] += 1
+                continue
+            if fetched_at > as_of:
+                report["after_as_of"] += 1
+                continue
         cw = content_week_or_none(day)
         if cw is None:  # before content week 1 of this season
             report["wrong_season"] += 1
             continue
         if cw > week:
             report["later_content_week"] += 1
+            continue
+        if cw != week:
+            # Only the target week's own snapshots count; an earlier week is
+            # never carried forward to fill this one (pick A, JEG-1228/JEG-1305).
+            report["wrong_week"] += 1
             continue
         usable.append((day, r))
     if not usable:
@@ -359,10 +375,7 @@ def read_status(path: Path, season: int, week: int, as_of: datetime, ident: Iden
             continue
         by_sid.setdefault(str(r.get("sleeper_id") or ""), []).append(r)
         if r.get("fetched_at"):
-            try:
-                fetched.append(_iso_utc(r["fetched_at"]))
-            except ValueError:
-                pass
+            fetched.append(_iso_utc(r["fetched_at"]))  # parsed and checked above
     rows = {}
     for sid in sorted(by_sid):
         group = by_sid[sid]

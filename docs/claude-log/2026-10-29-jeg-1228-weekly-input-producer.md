@@ -99,3 +99,32 @@ Slice S2 of JEG-1195. Branch `claude/JEG-1228-weekly-input-producer`, draft PR f
   50 OK, 1 skipped against e2a2a07; 50 OK, 3 skipped with no S1. Golden and
   the real 478-player week-8 run: 0 issues against 86c854d, real run
   byte-identical on repeat.
+
+## JEG-1305 correction (sixth push, review of f668c87)
+- Status rows whose `fetched_at` is after `--as-of` are now counted as
+  `after_as_of` and left out; before, only the New York day was compared, so a
+  row captured later on the as-of day set `captured_at` past `built_at`. An
+  unreadable `fetched_at` is a `bad_row`.
+- The status leg keeps only snapshots whose content week is the target week
+  (pick A, 10-28: "within the week, older days not carried forward"). An earlier
+  week is counted as `wrong_week`, never used; a week with no snapshot gives an
+  unavailable leg with its reason. `test_one_week_behind_status` asserted the old
+  carry-forward and is replaced by `test_earlier_week_status_is_not_carried_forward`
+  (the rule it pinned was wrong per the logged pick).
+- `test_status_without_a_capture_time_is_unknown_not_aged` now uses a week-8
+  date: its week-7 date was incidental and would now be skipped as another week.
+- Residual: a status row with no `fetched_at` can only be checked by day, so
+  one on the as-of day is kept. Real `player_status_history` exports carry
+  `fetched_at`; the fixture's unstamped rows rely on this.
+
+### Verified (check named)
+- Failing before: the five new status tests fail on f668c87's producer
+  (5 failures); passing after: `python3 -m unittest tests.test_build_weekly_inputs`
+  54 OK with #1087's contract at 86c854d in place.
+- main 5c07ad6 + #1087 86c854d + this head: `tests.test_build_weekly_inputs`
+  and `tests.test_weekly_inputs_contract` 89 OK.
+- Golden fixture bytes unchanged. Real stored-input week-8 run (no status
+  export): byte-identical to f668c87's output, 0 contract issues.
+
+### Claimed, not confirmed
+- CI on this head (read by the owner after push).
