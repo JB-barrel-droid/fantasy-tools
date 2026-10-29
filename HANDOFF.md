@@ -29,8 +29,9 @@ its normal main integration, nine focused checks and independent delta review
 passed, with fresh Preview/current-main health still pending at this checkpoint.
 Preserve its six-file scope, Fieldnotes/data and implementation branches.
 
-Current protocol limits: a main-only merge into another agent's branch needs a
-ticket claim plus no owner push in the preceding 30 minutes or the owner's OK;
+Current protocol limits: first post a ticket claim before any main-only merge
+into another agent's branch. Then verify no owner push in the preceding
+30 minutes or obtain the owner's OK;
 normal merge only, no other edits/force push, and the owner pulls before its
 next push. Batches contain at most seven same-risk PRs on pinned current main,
 with combined required CI once and focused review of conflicts/changed code.
@@ -581,12 +582,15 @@ safeguards in the same request belong to a different project, not this one
 ### Other hard rules (from the prior PM handoff and AGENTS.md)
 - No force-push, no history rewrite, never rebase; merge `origin/main` into
   branches (Jeremy 2026-10-26).
-- Runs from other model families never merge; output is a draft PR for a Claude
-  T1 review. Never MiniMax 2.5 (M3 or newer only). No value math on cheap models.
-- Never deploy the `mcp` edge function except the approved deploys above.
+- Implementation workers return draft PRs for the applicable independent
+  risk-tier review; Codex coordinates releases. Never MiniMax 2.5 (M3 or newer
+  only). No value math on cheap models.
+- Every Supabase change, including each `mcp` deployment, needs Jeremy's fresh
+  approval naming the function or PR every time. Historical approvals above
+  are evidence of those specific actions, not reusable permission.
 - Don't touch dirty generated files in the Mac checkout `~/code/fantasy-tools`,
   or `~/Projects/"fantasy tools"` beyond its `Claude outputs/` folder.
-- Production Supabase writes and schema changes need Jeremy's approval.
+- Production Supabase writes and schema changes follow that same fresh-approval rule.
 - No big product decisions without Jeremy.
 
 ---

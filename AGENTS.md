@@ -75,9 +75,9 @@ apply. Current release boundaries are recorded in `HANDOFF.md`.
   active branches during the release queue.
 - Never push directly to main or force-push. Use an explicit branch push
   refspec so an inherited upstream cannot send a bare push to main.
-- A normal main-only merge into another agent's branch is allowed only after
-  posting a ticket claim and checking that its owner pushed nothing in the
-  preceding 30 minutes, or obtaining the owner's OK. Make no other edits under
+- Before any normal main-only merge into another agent's branch, post a ticket
+  claim. Then either verify that its owner pushed nothing in the preceding
+  30 minutes or obtain the owner's OK. Make no other edits under
   this exception. Coordinate concurrent writes; the owner pulls before its next
   push. Other changes require the normal ownership/corrective handoff.
 - Never delete a branch, data, file or work in progress without Jeremy's yes.
