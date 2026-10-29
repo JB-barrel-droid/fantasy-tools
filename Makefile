@@ -202,6 +202,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
+	python3 -m unittest tests.test_v2_compare_rosters_render
 	python3 -m unittest tests.test_v2_ddf_render
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render

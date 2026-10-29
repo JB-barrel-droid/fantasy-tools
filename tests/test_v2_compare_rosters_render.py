@@ -1,7 +1,10 @@
 """JEG-1214: Compare edits a trade from saved rosters without editing those rosters."""
 from __future__ import annotations
 
+import functools
+import sys
 import unittest
+from pathlib import Path
 
 from tests import _render_env
 from tests.test_v2_deal_read_render import _served
@@ -201,9 +204,17 @@ CARRY_REPLACE = """([rows, id, teams]) => {
 }"""
 
 
-def check_carried_trade():
+V2_JS = Path(__file__).resolve().parents[1] / "app" / "v2" / "v2.js"
+
+
+def _serve(body, ctype, route, *_):
+    route.fulfill(status=200, content_type=ctype, body=body)
+
+
+def check_carried_trade(v2_js=None):
     """JEG-1259 / JEG-1285: a trade carried to Compare (tc=) keeps its rosters, deal and numbers on another device, after a reload
-    and under Swap; a mismatch holds it with the reasons; choosing a team ends it. Saved rosters are never written."""
+    and under Swap; a mismatch holds it with the reasons and no number priced here; choosing a team ends it, and Cancel
+    brings it back. Saved rosters are never written. v2_js: serve this page script instead (the guard's mutations)."""
     from playwright.sync_api import sync_playwright
 
     with _served() as base, sync_playwright() as playwright:
@@ -214,6 +225,8 @@ def check_carried_trade():
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+            if v2_js is not None:
+                page.route("**/v2/v2.js*", functools.partial(_serve, v2_js, "application/javascript"))
             page.goto(base + "#compare-trade", wait_until="networkidle")
             page.wait_for_selector("#v2CRosters", state="attached")
             rows = page.evaluate("""() => window.TradeValueCurveControls.getAllRows()
@@ -279,6 +292,15 @@ def check_carried_trade():
             suppressed("override hold")
             if [s["mine"], s["theirs"], s["carried"], s["ready"]] != ["", "", "hold", "false"] or "overrides" not in s["status"] or not s["tc"]:
                 errors.append(f"a changed override was not held with its reason: {s}")
+            # Share while held: the address still carries the trade exactly as it arrived, so the next reader holds too.
+            if page.evaluate("() => new URLSearchParams(location.hash.split('?')[1]).get('tc')") != link.split("tc=", 1)[1]:
+                errors.append("sharing a held trade changed the carried context in the address")
+            page.evaluate("snap => window.DDFOverrides.restoreContext(snap)", before)
+            page.evaluate("() => window.DDFOverrides.applyLink(new URLSearchParams('basis=fantasycalc'))")
+            s = go(link)
+            suppressed("basis hold")
+            if s["carried"] != "hold" or "basis" not in s["status"]:
+                errors.append(f"a changed value basis was not held with its reason: {s}")
             page.evaluate("snap => window.DDFOverrides.restoreContext(snap)", before)
             s = go(league_link)
             suppressed("league-level hold")
@@ -308,6 +330,13 @@ def check_carried_trade():
             if [s["mine"], s["theirs"], s["ready"], s["give"]] != ["r2", "r1", "true", get]:
                 errors.append(f"Swap did not exchange the carried rosters with the trade: {s}")
             page.locator("#v2CSwap").click()
+            # Swap inside an edit, then Cancel: the carried rosters and the deal come back the way round they were.
+            page.locator("#v2CEditRosters").click()
+            page.locator("#v2CSwap").click()
+            page.locator("#v2CCancelRosterEdit").click()
+            s = page.evaluate(CARRY_STATE)
+            if [s["mine"], s["theirs"], s["carried"], s["give"], s["get"]] != ["r1", "r2", "ok", give, get]:
+                errors.append(f"Swap then Cancel in an edit did not restore the carried trade: {s}")
             page.evaluate("() => { location.hash = '#values'; }")
             page.wait_for_timeout(250)
             page.go_back()
@@ -319,9 +348,41 @@ def check_carried_trade():
             browser.close()
 
 
+# JEG-1311: each JEG-1285 fix taken back out of v2.js must fail the check above (the failing-before proof, run in CI).
+CARRIED_MUTATIONS = {
+    "held trade still priced": [
+        ("const ready = !held && giveRows.length > 0 && receiveRows.length > 0;", "const ready = giveRows.length > 0 && receiveRows.length > 0;"),
+        ("totals: TR.shown && !held ?", "totals: TR.shown ?"),
+        ("    if (compareView.held) return {kind: \"none\", title: \"No verdict while this trade is held\"", "    if (false) return {kind: \"none\", title: \"No verdict while this trade is held\""),
+        ("      if (compareView.held) {\n        value.textContent = \"held\";", "      if (false) {\n        value.textContent = \"held\";"),
+    ],
+    "Cancel forgets the carried trade": [
+        ("          carriedTrade = compareTeams.snapshot.carriedTrade || null;\n", ""),
+    ],
+}
+CARRIED_EXPECT = {"held trade still priced": "override hold:", "Cancel forgets the carried trade": "Cancel did not restore"}
+
+
+def mutated_v2(edits):
+    js = V2_JS.read_text(encoding="utf-8")
+    for old, new in edits:
+        if js.count(old) != 1:
+            raise AssertionError(f"mutation anchor is stale (found {js.count(old)} times): {old[:70]!r}")
+        js = js.replace(old, new)
+    return js
+
+
 class CompareRosterRenderTest(unittest.TestCase):
     def test_roster_editing(self):
         self.assertEqual(check_roster_editing(), [])
 
     def test_carried_trade(self):
         self.assertEqual(check_carried_trade(), [])
+
+    def test_carried_guard_fails_without_the_fixes(self):
+        for name, edits in CARRIED_MUTATIONS.items():
+            errors = check_carried_trade(mutated_v2(edits))
+            caught = any(CARRIED_EXPECT[name] in e for e in errors)
+            print(f"GUARD {'CAUGHT' if caught else 'NOT CAUGHT'}: {name} ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+                  file=sys.stderr, flush=True)
+            self.assertTrue(caught, f"{name}: {errors}")
