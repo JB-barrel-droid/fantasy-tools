@@ -5194,7 +5194,8 @@
       edit.addEventListener("click", () => {
         if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
           undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped};
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped,
+          carriedTrade};   // JEG-1285: Cancel brings back a carried trade that a team choice ended
         else compareTeams.snapshot = null;
         compareTeams.editing = !compareTeams.editing;
         renderCompare();
@@ -5211,6 +5212,8 @@
           ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
           ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
             mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped} = compareTeams.snapshot);
+          carriedTrade = compareTeams.snapshot.carriedTrade || null;
+          compareCarried = null;
           endCompareEdit();
           renderCompare();
           $("v2CEditRosters")?.focus();
@@ -5378,7 +5381,9 @@
     const example = isUntouchedExample();
     const giveRows = resolve(TR.give);
     const receiveRows = resolve(TR.receive);
-    const ready = giveRows.length > 0 && receiveRows.length > 0;
+    // JEG-1285: a held carried trade shows its players but no number or claim priced on this page.
+    const held = compareCarried && compareCarried.status === "hold" ? compareCarried : null;
+    const ready = !held && giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
@@ -5393,8 +5398,8 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
-      totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
-      vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+      totals: TR.shown && !held ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
+      held, vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
 
   // True while the sides are exactly the sample "Try a sample trade" loaded; any change drops the Example mark for good.
@@ -5750,13 +5755,17 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
+        : compareView.held ? `${row.pos} · ${row.team || "Free agent"}`
         : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) {
+      if (compareView.held) {
+        value.textContent = "held";
+        value.dataset.held = "true";
+      } else if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
         // JEG-1059: the badge next to the value the reader set.
@@ -6071,6 +6080,7 @@
     if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
     // JEG-1190: the empty start, in the approved copy (PMM doc 3.3, "Check a trade (empty)").
     if (!TR.give.length && !TR.receive.length) return {kind: "none", title: "Who's on the table?", text: "Add players to each side and we'll call it."};
+    if (compareView.held) return {kind: "none", title: "No verdict while this trade is held", text: carriedHoldText(compareView.held)};
     if (!compareView.ready || !v.kind) {
       return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
     }
@@ -6181,7 +6191,8 @@
     $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
     $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
-    $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
+    $("v2CEmpty").textContent = compareView.held ? "No result while this trade is held; the verdict says why."
+      : !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
@@ -6202,6 +6213,7 @@
     $("v2CMeta").textContent = ready
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
+      : compareView.held ? "Held: no values are shown until this trade can be priced the same way here."
       : "Receive − give, one row per source, once both sides have a player.";
     // JEG-1190: the sample trade is a real trade, so Clear, Swap and Share work on it too. Each side has its own Clear,
     // and Undo puts back what the last Clear took.

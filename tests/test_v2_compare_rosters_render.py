@@ -180,6 +180,19 @@ CARRY_STATE = """() => {
         status: document.getElementById('v2CRosterStatus')?.textContent || '', give: keys('v2GivePlayers'), get: keys('v2GetPlayers'),
         tc: /[?&]tc=/.test(location.hash), saved: JSON.stringify(window.TradeValueWorkspace.store.get().teams)};
 }"""
+CARRY_READOUT = """() => {
+    const $ = id => document.getElementById(id);
+    const strip = t => ['Alpha', 'Bravo', 'Me', 'Them', 'Your team (from the link)', 'Their team (from the link)'].reduce((x, n) => x.split(n).join('#'), t || '');
+    const v = window.TradeValueV2.compare();
+    return {giveValues: [...document.querySelectorAll('#v2GivePlayers .v2-trade-value')].map(x => x.textContent),
+        getValues: [...document.querySelectorAll('#v2GetPlayers .v2-trade-value')].map(x => x.textContent),
+        totals: [$('v2GiveTotal').hidden ? null : $('v2GiveTotal').textContent, $('v2GetTotal').hidden ? null : $('v2GetTotal').textContent],
+        verdict: $('v2CVerdictTitle').textContent, table: $('v2CTable').hidden ? null : $('v2CTable').textContent,
+        vorp: $('v2CVorpCard').hidden ? null : $('v2CVorpTable').textContent, deal: $('v2CDeal').hidden ? null : $('v2CDeal').textContent,
+        story: $('v2CStory').hidden ? null : $('v2CStory').textContent,
+        construction: $('v2CConstruction').dataset.ready === 'true' ? strip($('v2CConstructionBody').textContent) : null,
+        view: {points: v.points.length, vorp: v.vorp.length, verdict: v.verdict.kind, totals: Boolean(v.totals), deal: Boolean(v.deal)}};
+}"""
 CARRY_REPLACE = """([rows, id, teams]) => {
     const W = window.TradeValueWorkspace;
     let ws = W.newWorkspace({id});
@@ -189,7 +202,7 @@ CARRY_REPLACE = """([rows, id, teams]) => {
 
 
 def check_carried_trade():
-    """JEG-1259: a trade carried to Compare (tc=) keeps its rosters, deal and values on another device, after a reload
+    """JEG-1259 / JEG-1285: a trade carried to Compare (tc=) keeps its rosters, deal and numbers on another device, after a reload
     and under Swap; a mismatch holds it with the reasons; choosing a team ends it. Saved rosters are never written."""
     from playwright.sync_api import sync_playwright
 
@@ -209,7 +222,6 @@ def check_carried_trade():
                 .map(r => ({key: String(r.player_key), name: r.name, pos: r.pos}))""")
             if len(rows) < 12:
                 raise AssertionError("fixture needs twelve priced RB/WR/TE players")
-            link = page.evaluate(CARRY_SETUP, rows)
             give, get = [rows[0]["key"]], [rows[4]["key"]]
 
             def go(hash_):
@@ -219,40 +231,89 @@ def check_carried_trade():
                 page.wait_for_timeout(400)
                 return page.evaluate(CARRY_STATE)
 
+            def suppressed(label):
+                r = page.evaluate(CARRY_READOUT)
+                if r["giveValues"] != ["held"] or r["getValues"] != ["held"] or r["totals"] != [None, None]:
+                    errors.append(f"{label}: values or totals shown on a held trade: {r['giveValues']} {r['getValues']} {r['totals']}")
+                if "held" not in r["verdict"] or any(r[k] is not None for k in ("table", "vorp", "deal", "story", "construction")):
+                    errors.append(f"{label}: a verdict or result shown on a held trade: {r['verdict']!r}")
+                if r["view"] != {"points": 0, "vorp": 0, "verdict": None, "totals": False, "deal": False}:
+                    errors.append(f"{label}: the compare view is still priced: {r['view']}")
+
+            # The sender's own Compare readout on its saved teams, with no carried context: the numbers to keep.
+            page.evaluate(CARRY_REPLACE, [rows, "sender", [["Alpha", "tA", 0, 4, True], ["Bravo", "tB", 4, 8, False]]])
+            plain = page.evaluate("keys => `#compare-trade?give=${keys[0]}&get=${keys[1]}&${window.TradeValueV2.leagueQuery()}`", [give[0], get[0]])
+            go(plain)
+            expected = page.evaluate(CARRY_READOUT)
+            if not (expected["totals"][0] and expected["table"] and expected["construction"]):
+                raise AssertionError(f"sender readout incomplete: {expected}")
+            link = page.evaluate(CARRY_SETUP, rows)
+            league_link = page.evaluate("""(rows) => {
+                const C = window.TradeValueCurveControls, TC = window.TradeValueTradeContext, ws = window.TradeValueWorkspace.store.get();
+                const deal = {give: [rows[0].key], get: [rows[4].key]};
+                const keys = TC.pricingKeys({mine: rows.slice(0, 4), theirs: rows.slice(4, 8), deal});
+                const all = C.getAllRows();
+                const pricing = {mode: 'league', levels: {ddf: TC.levelIdentity('ddf', {rows: all, keys}), market: TC.levelIdentity('market', {rows: all, keys})}, rostered: keys, reserve: []};
+                const common = TC.commonFromPage({leagueQuery: window.TradeValueV2.leagueQuery(), valueContext: window.DDFOverrides.snapshotContext(),
+                    sources: TC.sourcesFromEngine(C.getSourceInfo())});
+                return `#compare-trade?give=${deal.give[0]}&get=${deal.get[0]}&${window.TradeValueV2.leagueQuery()}&tc=${TC.encodeTransfer(TC.toTransfer(TC.fromLeague({common, deal, pricing}, ws)))}`;
+            }""", rows)
+
             # Another device: the same saved IDs hold other players (today's link prices those instead).
             page.evaluate(CARRY_REPLACE, [rows, "reader", [["Alpha", "tA", 8, 12, True], ["Bravo", "tB", 2, 6, False]]])
             saved = page.evaluate(CARRY_STATE)["saved"]
             s = go(link)
-            if [s["mine"], s["theirs"]] != ["carried-mine", "carried-theirs"]:
-                errors.append(f"foreign device priced its own teams {s['mine']}/{s['theirs']}, not the carried rosters")
-            if [s["ready"], s["carried"], s["level"]] != ["true", "ok", "modeled"]:
-                errors.append(f"foreign device: construction {s['ready']}, carried {s['carried']}, level {s['level']}")
-            if [s["give"], s["get"]] != [give, get] or not s["tc"]:
-                errors.append(f"foreign device lost the deal or the carried context: {s}")
-            if s["saved"] != saved:
-                errors.append("receiving a carried trade changed the saved rosters")
-            again = go(page.evaluate("() => location.hash"))
-            if [again["carried"], again["ready"], again["mine"]] != ["ok", "true", "carried-mine"]:
-                errors.append(f"reload lost the carried trade: {again}")
-            # The same league saved under other IDs: an exact roster match shows the reader's own teams.
-            page.evaluate(CARRY_REPLACE, [rows, "reader2", [["Me", "r1", 0, 4, True], ["Them", "r2", 4, 8, False]]])
+            if [s["mine"], s["theirs"], s["ready"], s["carried"], s["level"]] != ["carried-mine", "carried-theirs", "true", "ok", "modeled"]:
+                errors.append(f"foreign device did not price the carried rosters: {s}")
+            if page.evaluate(CARRY_READOUT) != expected:
+                errors.append("foreign device shows other numbers than the sender for the same trade")
+            if [s["give"], s["get"]] != [give, get] or not s["tc"] or s["saved"] != saved:
+                errors.append(f"foreign device lost the deal or context, or wrote the saved rosters: {s}")
+            go(page.evaluate("() => location.hash"))
+            if page.evaluate(CARRY_READOUT) != expected:
+                errors.append("reload changed the carried trade's numbers")
+            # Holds: a changed override, and a trade priced at the league levels. No number or claim, players and reasons kept.
+            before = page.evaluate("() => window.DDFOverrides.snapshotContext()")
+            page.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams(`ov=${key}:42.5`))", rows[0]["key"])
+            s = go(link)
+            suppressed("override hold")
+            if [s["mine"], s["theirs"], s["carried"], s["ready"]] != ["", "", "hold", "false"] or "overrides" not in s["status"] or not s["tc"]:
+                errors.append(f"a changed override was not held with its reason: {s}")
+            page.evaluate("snap => window.DDFOverrides.restoreContext(snap)", before)
+            s = go(league_link)
+            suppressed("league-level hold")
+            if s["carried"] != "hold" or "level" not in s["status"]:
+                errors.append(f"a league-level trade was not held on the modeled bench: {s}")
+            # Edit players, choose another saved team, Cancel: the carried trade comes back, through reload and Back.
+            page.evaluate(CARRY_REPLACE, [rows, "reader3", [["Me", "r1", 0, 4, True], ["Them", "r2", 4, 8, False], ["Other", "r3", 8, 12, False]]])
             s = go(link)
             if [s["mine"], s["theirs"], s["carried"]] != ["r1", "r2", "ok"]:
                 errors.append(f"exact roster match not shown as the reader's teams: {s}")
+            page.locator("#v2CEditRosters").click()
+            page.select_option("#v2CTheirTeam", "r3")
+            s = page.evaluate(CARRY_STATE)
+            if s["carried"] != "none" or s["tc"]:
+                errors.append(f"choosing a team did not end the carried trade: {s}")
+            page.locator("#v2CCancelRosterEdit").click()
+            s = page.evaluate(CARRY_STATE)
+            if [s["mine"], s["theirs"], s["carried"], s["give"], s["get"]] != ["r1", "r2", "ok", give, get] or not s["tc"]:
+                errors.append(f"Cancel did not restore the carried trade: {s}")
+            if page.evaluate(CARRY_READOUT) != expected:
+                errors.append("Cancel restored other numbers")
+            go(page.evaluate("() => location.hash"))
+            if page.evaluate(CARRY_STATE)["carried"] != "ok":
+                errors.append("reload after Cancel lost the carried trade")
             page.locator("#v2CSwap").click()
             s = page.evaluate(CARRY_STATE)
             if [s["mine"], s["theirs"], s["ready"], s["give"]] != ["r2", "r1", "true", get]:
                 errors.append(f"Swap did not exchange the carried rosters with the trade: {s}")
             page.locator("#v2CSwap").click()
-            # A player override differs here: held with the reason, nothing shown as priced, still carried on reload.
-            page.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams(`ov=${key}:42.5`))", rows[1]["key"])
-            s = go(link)
-            if [s["mine"], s["theirs"], s["carried"], s["ready"]] != ["", "", "hold", "false"] or "overrides" not in s["status"] or not s["tc"]:
-                errors.append(f"a changed override was not held with its reason: {s}")
-            page.select_option("#v2CMyTeam", "r1")
-            s = page.evaluate(CARRY_STATE)
-            if s["carried"] != "none" or s["tc"]:
-                errors.append(f"choosing a team did not end the carried trade: {s}")
+            page.evaluate("() => { location.hash = '#values'; }")
+            page.wait_for_timeout(250)
+            page.go_back()
+            page.wait_for_timeout(400)
+            if page.evaluate(CARRY_STATE)["carried"] != "ok" or page.evaluate(CARRY_READOUT) != expected:
+                errors.append("Back did not return to the carried trade")
             return errors
         finally:
             browser.close()
