@@ -40,7 +40,18 @@ What changed:
   stops there. The 25 test-core modules after it were run one by one: all OK. The generated dist/ churn from the sync
   was not committed.
 
+- CI `v2-render` on acf49664 failed `tests.test_jeg1213_acceptance_render.test_opportunity_order_projection_position_and_fit_explanations`
+  ("fixture has no natural info control"). Reproduced in node with the get-values handler on the dist built from acf49664
+  (12 teams, PPR, QB1 RB2 WR2 TE1 FLEX1): the frozen 4-team league has 20 Natural rows on main and 0 here (58 Market,
+  41 Force). Every former Natural row has one team's DDF Value (projections) falling, often the mirror of the other's gain.
+  The test now requires the Market control as before, checks a Natural control only when the league has one, and reads the
+  Natural definition from `fitTip("natural")` (roster, starter, projections). The assertion changed because Jeremy's 1a
+  changed what Natural means, not to go green.
+
 ### Claimed, not confirmed
+- The fixed acceptance test was not run here (no Chromium); CI runs it.
+- `tests.test_v2_finder_eval_render` (daily render sweep, not PR CI) expects Natural groups for ESPN mine / Yahoo theirs on
+  current data. Not checked; the rule may leave that pair with none.
 - `value-check-compare` and `test-integration` need Playwright and did not run here; CI runs them. No engine or value
   file changed (finder.js and opportunities.js only), so `value_check compare` and the rank guard should stay
   unchanged.
