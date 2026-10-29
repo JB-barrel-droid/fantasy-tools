@@ -283,38 +283,114 @@ Natural fit, JEG-1217, JEG-1220).
    per position and ranks beyond. Separately, for JEG-1196 only: whether to
    bring back an ESPN roster% pull.
 
-### Weekly FantasyPros feed from Muse (spec, 2026-10-29)
+### Weekly FantasyPros feed from Muse (spec, 2026-10-29, revised after Muse's review)
 
 Jeremy, 2026-10-29: "i could have muse run this daily" and "muse can push the
 data right to supabase". Plan: the weekly page compares on ranks first and
 adds points once Muse's signed-in pull lands. Muse writes raw page data only;
 the S3b producer owns identity (`player_key`), freshness labels and everything
-downstream, so each keeps one owner.
+downstream, so each keeps one owner. Muse reviewed the first draft and asked
+for six amendments (freshness hash, completeness gate, batch manifest, scoring
+verification, FantasyPros player ID, placeholders as empty); all six are in.
 
-- **Table:** `public.weekly_fantasypros_raw`, drafted in
-  `supabase/migrations/jeg1195_weekly_fantasypros_raw_20261029.sql`.
+- **Tables**, drafted in `supabase/migrations/jeg1195_weekly_fantasypros_20261029.sql`.
   **Proposed, not applied**: applying it needs Jeremy's yes naming it.
-- **Auth, least privilege:** a login role `weekly_fp_writer` that can only
-  INSERT into that table (no read, update or delete, nothing else). Jeremy sets
-  its password after applying; it never goes in the repo. Muse connects through
-  the Supabase pooler as `weekly_fp_writer.<project_ref>`. No service key.
-- **What, once a day:** the weekly projections and weekly ECR rankings pages
-  for QB, RB, WR and TE, signed in so every player shows. Projections in
-  Standard, Half PPR and PPR; ECR in Half PPR.
-- **One row per player per page:** a new `batch_id` per pull; `page_kind`
-  (`projections` or `ecr`); `season`; `week` taken from the page heading;
-  `position`; `scoring_format` (`standard`, `half_ppr`, `full_ppr`);
-  `page_url`; `full_list`; `player_name`; `team`; ECR rows fill `ecr_rank`
-  and the best, worst, average and std columns; projection rows fill `fpts`;
-  every other column as shown in `raw_columns` (header to value); `pulled_at`.
-- **Rules (enforced where the table can):** weekly only (`horizon` is fixed to
-  `week`; a rest-of-season row is refused); blank stays null, never 0;
-  append-only (no update or delete); a re-sent row in the same pull is a no-op;
-  no RETURNING on insert, since the role cannot read.
-- **Checked locally** on a throwaway Postgres 16: the migration applies and
-  re-applies cleanly; the writer role inserts projection and ECR rows; its
-  SELECT and UPDATE are refused; a `ros` row is refused; delete is refused by
-  the append-only trigger.
+  - `public.weekly_fantasypros_batches`: the manifest, one row per daily pull
+    (pages expected, pages and rows landed, completed or failed with a reason).
+    One completed batch per New York day.
+  - `public.weekly_fantasypros_pages`: one row per page per batch (week from
+    the heading, URL, heading, the page's own last-updated stamp, content hash,
+    "showing X of Y", rows expected, `full_list`, `scoring_verified` and the
+    players checked, and the database's own row count).
+  - `public.weekly_fantasypros_raw`: one row per player per page
+    (`fp_player_id`, name, team, ECR rank and spread or FPTS, other columns as
+    shown).
+- **What the database enforces:** weekly only (`horizon` fixed to `week`); a
+  page lands only with `full_list` and `scoring_verified` true, at least three
+  checked players, its row count at or above the floor (QB 20, RB 40, WR 60,
+  TE 25) and equal to any "showing X of Y" count with X = Y; player rows land
+  only on a page not yet counted, in an open batch; `weekly_fp_finish_page`
+  counts the rows itself and raises on a mismatch, rolling the page back;
+  `weekly_fp_complete_batch` refuses until every expected page is counted; a
+  second completed batch on the same day is refused; a re-run supersedes an
+  unfinished batch from the same day; a page whose hash matches the previous
+  completed batch is flagged `same_as_previous` (with `previous_batch_id`), so
+  the producer never treats it as a fresh pull; append-only throughout.
+- **Auth, least privilege:** login role `weekly_fp_writer`. INSERT on the pages
+  and player tables, EXECUTE on `weekly_fp_start_batch`, `weekly_fp_finish_page`,
+  `weekly_fp_complete_batch` and `weekly_fp_fail_batch`, nothing else: no SELECT,
+  UPDATE or DELETE anywhere. The previous-hash lookup and the counts run inside
+  the database, so the role never reads. Jeremy sets its password after
+  applying; it never goes in the repo. Muse connects through the Supabase pooler
+  as `weekly_fp_writer.<project_ref>`. No service key, no RETURNING.
+- **Downstream rule:** the producer reads completed batches only. A
+  `same_as_previous` page takes its vintage from the first batch that carried
+  that hash.
+- **Checked locally** on a throwaway Postgres 16: applies and re-applies
+  cleanly; a full batch lands and completes; a page one row short raises and
+  lands nothing; completion with a page missing is refused; a resent row is a
+  no-op; rows after a page is counted, pages into a closed batch, a second
+  completed run the same day, floor, X-of-Y, `full_list`, scoring, check-count,
+  `ros` and bad-hash pages are all refused; the stale flag sets on a matching
+  hash; a re-run supersedes the open batch; the writer's SELECT, UPDATE, DELETE
+  and direct manifest insert are refused; anon and authenticated cannot read or
+  call anything.
+
+The revised run spec handed to Muse:
+
+```text
+Muse daily run: FantasyPros weekly pages to Supabase (JEG-1195, revised)
+
+Connection
+- Postgres through the Supabase pooler as weekly_fp_writer.<project_ref>, with the password Jeremy sets. No service key.
+- The role can only INSERT into weekly_fantasypros_pages and weekly_fantasypros_raw and call four functions. It cannot SELECT, so never use RETURNING.
+
+Pages, signed in, weekly only (never rest of season or draft)
+- Weekly projections, QB, RB, WR, TE, each in Standard, Half PPR and PPR, always via the explicit scoring URL variant (the bare page is Standard): 12 pages.
+- Weekly ECR rankings, QB, RB, WR, TE, in Half PPR: 4 pages.
+- 16 pages per run.
+
+Run order
+1. select weekly_fp_start_batch(<season>::smallint, 16::smallint) returns the batch_id. If it raises "already has a completed batch", today is done: stop quietly. A re-run after a failure just runs; the database supersedes the earlier unfinished batch.
+2. Read all 16 pages and run every check below in memory before inserting anything.
+3. If any check fails: select weekly_fp_fail_batch(<batch_id>, '<page and reason>'), alert loudly with the same reason, and stop. Nothing is inserted.
+4. Insert each page in its own transaction:
+   begin;
+   insert into weekly_fantasypros_pages (batch_id, page_kind, position, scoring_format, season, week, page_url, page_heading, page_updated_text, page_updated_at, content_hash, shown_count, total_count, rows_expected, full_list, scoring_verified, scoring_check, pulled_at) values (...);
+   insert into weekly_fantasypros_raw (batch_id, page_kind, position, scoring_format, fp_player_id, player_name, team, ecr_rank, ecr_best, ecr_worst, ecr_avg, ecr_std, fpts, raw_columns) values (...), (...) on conflict do nothing;
+   select weekly_fp_finish_page(<batch_id>, '<page_kind>', '<position>', '<scoring_format>');
+   commit;
+   finish_page returns the row count the database counted: log it next to rows_expected. If it raises, the transaction rolls back and nothing from that page lands: fail the batch as in step 3 and stop.
+5. select weekly_fp_complete_batch(<batch_id>) returns the rows landed: log it. If it raises, fail the batch and alert.
+
+Per-page fields
+- page_kind: projections or ecr. position: QB, RB, WR, TE. scoring_format: standard, half_ppr, full_ppr.
+- season, and week as printed in the page heading, never the week requested. page_heading as shown.
+- page_updated_text: the page's own "last updated" stamp as shown; page_updated_at when it parses, else null.
+- content_hash: sha256 hex of JSON.stringify({"headers": [...], "rows": [[...], ...]}) over the player table only, cells as shown and trimmed, in page order. Leave out the last-updated stamp, ads and anything outside the table. Do not compare hashes yourself; the database flags a page that matches the previous completed batch.
+- shown_count and total_count: the "showing X of Y" numbers when the page shows them, else both null.
+- rows_expected: player rows parsed from the page.
+- pulled_at: when the page was read.
+
+Completeness gate (full_list)
+- full_list is true only when all of these hold: signed in; rows_expected at least QB 20, RB 40, WR 60, TE 25; and when "showing X of Y" is shown, X = Y and rows_expected = X.
+- A top-10 render, an expired login or any truncated list fails the run. Never land a page with full_list false; the database refuses it anyway.
+
+Scoring verification (scoring_verified), fail closed
+- RB, WR, TE projections: pick 3 players with at least 3 receptions who appear on all three scoring pages. Half PPR FPTS minus Standard FPTS must equal REC/2, and PPR FPTS minus Standard FPTS must equal REC, each within 0.3.
+- QB projections: the same 3 top QBs have the same FPTS on all three QB pages within 0.3, and each URL carries its scoring variant.
+- Half PPR ECR: the heading or URL says Half PPR, and when the page shows projected points, 3 players match the Half PPR projections page within 0.1.
+- scoring_check: a JSON array of the players compared with the values used, for example [{"player_name": "...", "fp_player_id": "...", "rec": 6.1, "fpts_standard": 9.8, "fpts_half_ppr": 12.85, "fpts_full_ppr": 15.9}]. At least 3 entries.
+- Any mismatch fails the run. Standard data labeled half_ppr is the failure this guards against.
+
+Player rows
+- fp_player_id: FantasyPros' own player ID when the markup shows one, else null.
+- player_name and team as shown.
+- ECR rows: ecr_rank (required) and the best, worst, average and std columns when shown; fpts null.
+- Projection rows: fpts as shown; ecr columns null.
+- raw_columns: every other column, header to value, text exactly as shown.
+- Blanks and non-numeric markers (-, en dash, em dash, N/A, NA, BYE, ?) are null in numeric fields, never 0.
+```
 
 ## 8. Minimum missing to recover the originals
 
