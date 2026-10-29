@@ -357,6 +357,18 @@ def sync_week_history(target: Path) -> None:
                           target / "served.json", load_weeks(HISTORY_DIR))
 
 
+def publish_week_state(fixture_dest: Path, history_root: Path) -> None:
+    """JEG-1177: every served source's served_week and published_at, and per
+    league setting the week views (default week, sources, missing_sources),
+    in the published fixture copy (`week_state`). The canonical fixture in
+    data/fixtures/ is not modified. Without a history there is no week view;
+    the per-source weeks then come from the section labels."""
+    from week_state import published_week_state
+    doc = read_json(fixture_dest)
+    doc["week_state"] = published_week_state(fixture_dest, history_root, FIXTURES / "players.json")
+    fixture_dest.write_text(json.dumps(doc, separators=(",", ":"), sort_keys=True), encoding="utf-8")
+
+
 def main() -> int:
     players = read_json(FIXTURES / "players.json")
     import_health = import_health_source()
@@ -391,6 +403,7 @@ def main() -> int:
         shutil.copy2(FIXTURES / "comparison-sources-data.json", fixture_dest)
     shutil.copy2(REFERENCE_FRESHNESS, APP / "assets" / "reference-freshness.json")
     sync_week_history(APP / "assets" / "history")
+    publish_week_state(fixture_dest, APP / "assets" / "history")
     # JEG-536 (ES-1, ES-14): the expected-starts building blocks the engine
     # resolves the reader's league weeks and advanced settings against.
     # JEG-1034: content_week first follows the served data (the index above).

@@ -52,6 +52,9 @@ PIE_PER_STARTING_SLOT = 28.0
 
 PROJECTION = "projection"
 CHART = "chart"
+# JEG-1058: the fixed-pie scale a reader override lives on (spec 3.6).
+OVERRIDE_MIN = 0.0
+OVERRIDE_MAX = 100.0
 
 
 @dataclass
@@ -421,6 +424,12 @@ def es_parts(values: list, S: int, T: int, w: float, line: float, m: float, bye:
 
 import json as _json
 
+# JEG-1142 (Jeremy, 2026-10-27): no role-change math (bench promotion boost
+# or starter demotion cut) until the JEG-1144 research supports it. Master
+# switch overriding every promotion_model flag; mirrors value_reference.py
+# and value-model.js. The model code is kept for later.
+PROMOTION_MODEL_ENABLED = False
+
 _PROMOTION_CONFIG = _REPO / "config" / "promotion_rates.json"
 
 
@@ -746,22 +755,74 @@ def ddf_version(values: dict, members: list, weights: dict | None = None) -> dic
     return out
 
 
+def _override_number(value):
+    """JEG-1058: a number or a numeric string, the same set the JS engine's
+    normalizeOverride accepts. None when the value cannot be a number."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value) if math.isfinite(value) else None
+    if isinstance(value, str):
+        if value == "":
+            return None
+        try:
+            text = float(value)
+        except ValueError:
+            return None
+        return text if math.isfinite(text) else None
+    return None
+
+
+def _override_spec(override) -> dict | None:
+    """JEG-1058: what the reader set, as one record: {"type": "absolute",
+    "value"} or {"type": "adjustment", "delta"}. None when it cannot be used.
+    A value past the top of the scale is capped and an adjustment is capped to
+    the scale's span, so an override from outside the editor lands on the same
+    numbers the editor shows."""
+    if override is None or isinstance(override, bool):
+        return None
+    if isinstance(override, (int, float, str)):
+        value = _override_number(override)
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    if isinstance(override, dict):
+        if override.get("type") == "adjustment":
+            delta = _override_number(override.get("delta"))
+            if delta is None:
+                return None
+            return {"type": "adjustment", "delta": min(OVERRIDE_MAX, max(-OVERRIDE_MAX, delta))}
+        value = _override_number(override.get("value"))
+        if value is None or value < OVERRIDE_MIN:
+            return None
+        return {"type": "absolute", "value": min(OVERRIDE_MAX, value)}
+    return None
+
+
 def apply_value_overrides(rows: dict, overrides: dict) -> None:
-    """JEG-1035 / JEG-1044: the reader's per-player DDF Value overrides, a
-    row-level overlay applied after the pipeline. It replaces the blended and
-    DDF value only (JEG-1073: the projections version is a separate alternate);
-    Adjusted values, Indexed values, the pie and the charts-only and projections
-    versions are never touched. Absolute values."""
+    """JEG-1035 / JEG-1044 / JEG-1058: the reader's per-player DDF Value
+    overrides, a row-level overlay applied after the pipeline. It replaces the
+    blended DDF value only (JEG-1073: the projections version is a separate
+    alternate); Adjusted values, Indexed values, the pie and the charts-only and
+    projections versions are never touched. An override is an absolute value or
+    an adjustment to the pipeline's own value, clamped to the fixed-pie scale."""
     for k, row in rows.items():
         ov = overrides.get(k)
         for field_ in ("ddf_blended",):
             entry = row[field_]
             entry["pipeline_value"] = entry["value"]
-            entry["overridden"] = ov is not None
-            if ov is not None:
-                entry["value"] = float(ov)
-                entry["low_confidence"] = False
-                entry.pop("reason", None)
+            spec = _override_spec(ov)
+            entry["overridden"] = spec is not None
+            if spec is None:
+                continue
+            if spec["type"] == "adjustment":
+                base = entry["pipeline_value"]
+                base = float(base) if isinstance(base, (int, float)) else 0.0
+                entry["value"] = min(OVERRIDE_MAX, max(OVERRIDE_MIN, base + spec["delta"]))
+            else:
+                entry["value"] = float(spec["value"])
+            entry["low_confidence"] = False
+            entry.pop("reason", None)
 
 
 # ---------------------------------------------------------------- one week
@@ -813,9 +874,10 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                                             flex_bench_seats=flex_bench_seats)}
         bs = setting.bench_share_override
 
-    # JEG-969: promotion/demotion model (off by default)
+    # JEG-969: promotion/demotion model, off for everyone since JEG-1142
+    # (PROMOTION_MODEL_ENABLED master switch).
     promo = None
-    if promotion_model and es is not None and lineup is not None:
+    if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = _load_promotion_config()
         season_wks = float(promo_cfg.get("season_weeks", 17))
         window = lineup.get("window")

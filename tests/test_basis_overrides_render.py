@@ -6,8 +6,10 @@ and four others (one chart, one projection, a three-source blend, a two-source
 projection blend):
 
 1. DEFAULT PATH IS BYTE-IDENTICAL. Every value and DDF field of every row on
-   the default basis equals what the engine on origin/main at 61ecb39e (frozen
-   in tests/fixtures/baseline_main_61ecb39e/) gives on the same data, and so do
+   the default basis equals what the engine on origin/main at 771c3422 (frozen
+   in tests/fixtures/baseline_main_771c3422/; re-frozen from 61ecb39e after
+   JEG-1121's deliberate bench-seat value change, see its README) gives on the
+   same data, and so do
    setBasis(null), setBasis({mode: "default"}) and a blend of the four
    trade charts at equal weights (all our methodology since JEG-1073; the
    baseline engine takes the same default-rule change, see its README).
@@ -38,7 +40,7 @@ from tests import _render_env
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app" / "trade-value-chart" / "assets"
-BASELINE = ROOT / "tests" / "fixtures" / "baseline_main_61ecb39e"
+BASELINE = ROOT / "tests" / "fixtures" / "baseline_main_771c3422"
 COMBOS = [[s, t] for s in ("standard", "half_ppr", "ppr") for t in (8, 10, 12, 14)]
 
 

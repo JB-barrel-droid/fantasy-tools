@@ -13,9 +13,13 @@
 
 .v2-ov-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
 .v2-ov-head h2 { font-size: var(--v2-title-2); }
-.v2-ov-yours { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.v2-ov-yours { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; font-weight: 600; }
+.v2-ov-yours-label { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
 .v2-ov-yours input { width: 96px; min-height: 44px; padding: 8px 10px; font: 700 16px/1 Inter, system-ui, sans-serif; text-align: right;
   border: 1px solid var(--v2-action); border-radius: var(--v2-radius-btn); background: var(--v2-surface); color: var(--v2-ddf); }
+/* JEG-1058: the kind of the override (a value or an adjustment) next to the input. */
+.v2-ov-type { display: inline-flex; gap: 4px; }
+.v2-app .v2-ov-type .v2-select { min-height: 36px; padding: 4px 12px; }
 .v2-ov-scope { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 
 .v2-ov-plot { margin-top: 12px; }
@@ -42,6 +46,9 @@
 .v2-ov-table tr.is-selected td { background: var(--v2-rank-tint); }
 .v2-ov-yours-cell { color: var(--v2-ddf); }
 .v2-ov-mark { color: var(--v2-ddf); font-size: 12px; font-weight: 600; }
+/* JEG-1059: the badge next to a value the reader set (on every view). */
+.v2-ov-flag { display: inline-block; margin-left: 4px; font-size: 12px; line-height: 1; color: var(--v2-ddf); cursor: help; }
+.v2-ov-flag:focus-visible { outline: 2px solid var(--v2-focus); outline-offset: 1px; }
 .v2-app .v2-ov-link { background: none; border: 0; padding: 0; min-height: 32px; color: var(--v2-action-text); font: inherit; font-weight: 600; cursor: pointer; text-align: left; }
 @media (hover: hover) { .v2-ov-link:hover { text-decoration: underline; } }
 .v2-ov-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
@@ -79,6 +86,13 @@
 
 .v2-ov-bar { display: inline-flex; align-items: center; gap: 8px; }
 .v2-ov-bar[hidden], .v2-ov-banners[hidden] { display: none; }
+.v2-ov-phone-row { display: none; }
+@media (max-width: 767px) {
+  .v2-ov-phone-row:not([hidden]) { display: flex; padding: 4px 16px; background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
+  #v2Context[hidden] + .v2-ov-phone-row { display: none; }
+  .v2-ov-phone-row .v2-ov-bar { min-width: 0; }
+  .v2-app .v2-ov-phone-row .v2-ov-badge, .v2-app .v2-ov-phone-row .v2-ov-reset { min-height: 44px; }
+}
 .v2-ov-banner-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 6px; margin-inline: auto; }
 .v2-ov-banner { background: var(--v2-rank-tint); }
 .v2-ov-bar .v2-ov-badge { margin-right: 0; white-space: nowrap; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; }

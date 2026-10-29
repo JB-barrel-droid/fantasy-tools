@@ -62,14 +62,19 @@ BORDER_CONTRAST = "() => {" + HELPERS + r"""
   return out;
 }"""
 
+# The probe sits in the always-visible top bar. Since JEG-1106 (9cffc5cb, Jeremy 2026-10-25) the tabs live in a menu
+# that is closed (display: none) until opened, so a probe next to a tab could not take focus and the check passed
+# without measuring anything. A probe that is not focused or does not match :focus-visible is now an error.
 FOCUS_RING = "() => {" + HELPERS + r"""
-  const tab = document.querySelector('.v2-nav .v2-tab');
+  const bar = document.querySelector('.v2-nav .v2-nav-inner');
   const probe = document.createElement('a'); probe.href = '#'; probe.textContent = 'x';
-  tab.parentElement.appendChild(probe); probe.focus();
+  bar.appendChild(probe); probe.focus();
+  const focused = document.activeElement === probe;
   const cs = getComputedStyle(probe); const matched = probe.matches(':focus-visible');
   const ring = parse(cs.outlineColor); const nav = bgOf(document.querySelector('.v2-nav'));
   probe.remove();
-  return matched ? ratio(ring, nav) : 99;
+  if (!focused || !matched) return {error: `nav focus probe not measured (focused=${focused}, focus-visible=${matched})`};
+  return {ratio: ratio(ring, nav)};
 }"""
 
 TITLES = {
@@ -113,8 +118,10 @@ def run_checks(v2_js=None, v2_css=None, only=("dialog", "titles", "contrast")) -
                     page.mouse.move(0, 0)
                     errors += [f"{tag}{e}" for e in page.evaluate(BORDER_CONTRAST)]
                     ring = page.evaluate(FOCUS_RING)
-                    if ring < 3:
-                        errors.append(f"{tag}nav focus ring {ring:.2f}<3")
+                    if "error" in ring:
+                        errors.append(f"{tag}{ring['error']}")
+                    elif ring["ratio"] < 3:
+                        errors.append(f"{tag}nav focus ring {ring['ratio']:.2f}<3")
                     page.click("#v2ExpandChart")
                     page.wait_for_timeout(300)
                     errors += [f"{tag}expanded {e}" for e in page.evaluate(TEXT_CONTRAST)]

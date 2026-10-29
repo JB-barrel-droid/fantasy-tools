@@ -64,6 +64,7 @@ concurrency:
 permissions:
   contents: write  # needed to commit and push the rebuilt fixture
   actions: write  # needed to dispatch pages.yml via API (JEG-274)
+  issues: write  # JEG-1194: open/close the one chain-stuck issue
 
 jobs:
   rebuild:
@@ -660,6 +661,17 @@ jobs:
           path: output/reviewed/
           if-no-files-found: warn
           retention-days: 14
+
+      # JEG-1194: the chain failed every run for ~44 hours (Oct 26-28) and the
+      # only trace was the status file and the monitoring table. Once the
+      # published fixture is 6 hours old and the chain still fails, open one
+      # `chain-stuck` issue (GitHub emails the owner); close it when the chain
+      # publishes. Never fails the job.
+      - name: Alert when the board stops publishing (JEG-1194)
+        if: always() && github.ref == 'refs/heads/main'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}"
 
       - name: Fail the job if the chain failed
         if: steps.chain.outcome == 'failure'

@@ -77,7 +77,16 @@ assert.equal(r.state, null);
 r = S.decodeBlock("```ddf-state\n{not json\n```");
 assert.equal(r.state, null);
 
-// Names with commas, spaces and unicode survive the URL.
-r = S.decodeQuery(S.encodeQuery({work: {theirs: [{name: "Amon-Ra St. Brown, Jr"}, {name: "José Ramírez"}]}}));
+// Names with commas, spaces and unicode survive the URL. A space is encoded once (%20),
+// not twice (%2520). A comma is encoded again so URLSearchParams does not split the name.
+const spaced = S.encodeQuery({work: {get: [{name: "Ghost Player"}], theirs: [{name: "Amon-Ra St. Brown, Jr"}, {name: "José Ramírez"}]}});
+assert.equal(spaced.includes("%2520"), false, spaced);
+assert.match(spaced, /n:Ghost%20Player/);
+assert.match(spaced, /%252C/);
+r = S.decodeQuery(spaced);
+assert.deepEqual(r.state.work.get, [{name: "Ghost Player"}]);
 assert.deepEqual(r.state.work.theirs, [{name: "Amon-Ra St. Brown, Jr"}, {name: "José Ramírez"}]);
+// An older link that encoded the space twice still decodes.
+r = S.decodeQuery("get=n:Ghost%2520Player&v=1");
+assert.deepEqual(r.state.work.get, [{name: "Ghost Player"}]);
 console.log("ok");

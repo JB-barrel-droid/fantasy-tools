@@ -426,7 +426,9 @@
       else if (!row) tail = el("span", {class: "v2-find-noteval", text: "No longer in the data"});
       else {
         const avg = charts ? withChartAverage([row], charts)[0] : null;
-        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), chip("Trade chart average", avg ? api.marketOf(avg) : null));
+        // JEG-1059: the badge that marks a value the reader set, right after the DDF Value chip.
+        const badge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(row) : null;
+        tail = el("span", {class: "v2-find-chips"}, chip("DDF Value", api.ddfOf(row)), badge, chip("Trade chart average", avg ? api.marketOf(avg) : null));
       }
       return el("li", {class: "v2-wv-row"}, el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}${p.team ? ` ${p.team}` : ""}` : ""}), injuryTag(row) ? document.createTextNode(" ") : null, injuryTag(row), tail), remove);
     }));
@@ -442,16 +444,27 @@
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole page`}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}Help`,
       text: target === "mine"
-        ? "Type a name to search, or paste your team page from any fantasy site (Ctrl+A, Ctrl+C on the page). Pasted text stays in this browser; nothing is sent anywhere."
-        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. Pasted text stays in this browser."});
+        ? "Type a name to search, or paste your team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. It stays on this device; nothing is sent anywhere."
+        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
+    // JEG-1190: Clear says what it did and offers Undo. Your roster is the one shared with both Find a trade screens, so
+    // the message says it is cleared there too (Claude's pick under Jeremy's 2026-10-28 rule; see the picks log).
     clear.addEventListener("click", () => {
+      const before = stores[target].get().slice();
       stores[target].set([]);
-      result.replaceChildren();
       input.value = "";
       results.replaceChildren();
       results.hidden = true;
+      const undo = el("button", {type: "button", class: "v2-link v2-wv-undo", id: `${id}Undo`, text: "Undo"});
+      undo.addEventListener("click", () => {
+        stores[target].set(before);
+        result.replaceChildren(el("p", {class: "v2-meta", text: `${title} is back.`}));
+        schedule();
+        input.focus();
+      });
+      result.replaceChildren(el("p", {class: "v2-meta v2-wv-cleared"},
+        document.createTextNode(target === "mine" ? "Cleared your roster here and on both Find a trade screens. " : `Cleared ${title.toLowerCase()}. `), undo));
       schedule();
       input.focus();
     });
@@ -644,8 +657,13 @@
     return starters.concat(l.bench.map(r => ({slot: "Bench", r})));
   }
   function lineupTable(title, l, mark) {
+    // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+    const ddfCell = r => {
+      const badge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r) : null;
+      return el("td", {class: "num"}, api.ddfOf(r) === null ? "—" : api.ddfOf(r).toFixed(1), badge);
+    };
     const body = lineupRows(l).map(({slot, r}) => el("tr", mark && mark(r) ? {class: "is-new"} : {}, el("td", {text: slot}), el("td", {text: r.name + (mark && mark(r) ? " (new)" : "")}),
-      el("td", {class: "num", text: api.ddfOf(r) === null ? "—" : api.ddfOf(r).toFixed(1)})));
+      ddfCell(r)));
     return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"},
       el("caption", {text: `${title}: starters ${l.starterValue.toFixed(1)}, bench ${l.benchValue.toFixed(1)}, total ${l.total.toFixed(1)}`}),
       el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Slot"}), el("th", {scope: "col", text: "Player"}), el("th", {scope: "col", text: "DDF Value"}))), el("tbody", {}, ...body)));
@@ -683,12 +701,14 @@
     return el("span", {class: "v2-wv-verdict", "data-verdict": VERDICT_CLASS[r.verdict], text: r.verdict});
   }
   function cardFor(r, roster) {
-    const rowsDef = [["DDF Value", numCell(r.ddf)], ["Value above waivers", numCell(r.vaw)], ["Market value", numCell(r.market)],
+    // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+    const ddfBadge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r.candidate) : null;
+    const rowsDef = [["DDF Value", [numCell(r.ddf), ddfBadge]], ["Value above waivers", numCell(r.vaw)], ["Market value", numCell(r.market)],
       ["Starter change", numCell(r.starterDelta, true)], ["Bench change", numCell(r.benchDelta, true)], ["Best drop", dropText(r) || dash()]];
     return el("li", {class: "v2-wv-card", "data-verdict": VERDICT_CLASS[r.verdict]},
       el("div", {class: "v2-wv-card-banner"}, verdictTag(r)),
       el("div", {class: "v2-wv-card-name"}, el("b", {text: r.name}), el("span", {class: "v2-meta", text: ` ${r.pos || ""}${r.team ? ` ${r.team}` : ""}`})),
-      el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, v)])),
+      el("dl", {class: "v2-wv-card-facts"}, ...rowsDef.flatMap(([k, v]) => [el("dt", {text: k}), el("dd", {}, ...(Array.isArray(v) ? v : [v]))])),
       el("p", {class: "v2-wv-card-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null),
       el("details", {class: "v2-wv-detail"}, el("summary", {text: `Details for ${r.name}`}), detailBlock(r, roster)));
   }
@@ -712,9 +732,11 @@
     }));
     const body = [];
     list.forEach(r => {
+      // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
+      const ddfBadge = root.DDFOverrides && root.DDFOverrides.flag ? root.DDFOverrides.flag(r.candidate) : null;
       body.push(el("tr", {class: "v2-wv-main", "data-verdict": VERDICT_CLASS[r.verdict]},
         el("th", {scope: "row", class: "v2-wv-name"}, el("b", {text: r.name}), injuryTag(r.candidate) ? document.createTextNode(" ") : null, injuryTag(r.candidate)), el("td", {text: r.pos || ""}),
-        el("td", {class: "num"}, numCell(r.ddf)), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
+        el("td", {class: "num"}, numCell(r.ddf), ddfBadge), el("td", {class: "num"}, numCell(r.vaw)), el("td", {class: "num"}, numCell(r.market)),
         el("td", {class: "num"}, numCell(r.starterDelta, true)), el("td", {class: "num"}, numCell(r.benchDelta, true)),
         el("td", {}, dropText(r) || dash()), el("td", {}, verdictTag(r)), el("td", {class: "v2-wv-reason"}, r.reason, r.context ? el("span", {class: "v2-meta v2-wv-ctx", text: ` Other views: ${r.context}.`}) : null)));
       body.push(el("tr", {class: "v2-wv-detailrow"}, el("td", {colspan: String(COLS.length)},
@@ -922,7 +944,7 @@
       autocomplete: "off", spellcheck: "false", "aria-describedby": "v2WaiversAnyHelp"});
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole roster page or waiver page from a fantasy site"}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: "v2WaiversAnyHelp",
-      text: "On your team page or the free-agent page of ESPN, Yahoo or Sleeper, press Ctrl+A then Ctrl+C, and paste here. It works out which list it is and fills it in. Pasted text stays in this browser."});
+      text: "Open your team page or your league's free-agent page, press Ctrl+A, then Ctrl+C (Cmd on a Mac), and paste here. We work out which list it is and fill it in. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: "v2WaiversAnyResult", role: "status", "aria-live": "polite"});
     const siteName = site => ({espn: "ESPN", yahoo: "Yahoo", sleeper: "Sleeper"}[site] || "");
     function route(text, kind, site) {

@@ -22,11 +22,10 @@ window.TradeValueCurveControls.getAllRows():
     waterfall is DDF Value's, the same steps as its table row;
   * layout: at 1440×900 and 1366×768 both sides, the verdict card and its
     waterfall are on screen without scrolling, and the per-source table starts
-    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1279 in DejaVu Sans, the face GitHub's
-    runner falls back to without Inter (JEG-1056; at 1280 DejaVu Sans may squeeze the real nav on CI --
-    GAP-WATERFALL-NAV-1280-SQUEEZE -- so the real-page check stops at 1279;
-    test_wide_font_guard_fails_on_broken_nav serves the old nav rule
-    and a tab row that shrinks before the freshness label, and requires both to be caught,
+    directly below; no horizontal scroll at 1100 or 390, nor at 1024-1439 in DejaVu Sans, the face GitHub's
+    runner falls back to without Inter (JEG-1056; the 1280 squeeze -- GAP-WATERFALL-NAV-1280-SQUEEZE -- went
+    with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
+    test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
   * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
     and the address keeps no trade.
@@ -481,14 +480,18 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.goto(base + "#compare-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
                 page.wait_for_timeout(200)
-                # Example empty state.
+                # JEG-1190: Compare opens empty; Try a sample trade loads the sample, marked Example.
+                empty = page.evaluate(READ)
+                if empty["give"] or empty["receive"] or empty["example"] or empty["rows"]:
+                    errors.append(tag + f"Compare does not open empty: {empty['give']} / {empty['receive']}, banner {empty['example']!r}")
+                if page.is_visible("#v2CTryExample"):
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(300)
                 ex = page.evaluate(READ)
                 if not ex["example"] or "Example" not in ex["example"] or "Example" not in ex["verdictEyebrow"]:
                     errors.append(tag + f"no example trade marked Example: {ex['example']!r} / {ex['verdictEyebrow']!r}")
                 elif len(ex["give"]) != 2 or len(ex["receive"]) != 2 or not ex["rows"]:
                     errors.append(tag + f"example is not a drawn 2-for-2: {ex['give']} / {ex['receive']}")
-                elif "give=" in ex["hash"]:
-                    errors.append(tag + f"example leaked into the address: {ex['hash']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
                 # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
@@ -562,7 +565,7 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
 WIDE_FONT_CSS = '\n.v2-app, .v2-app * { font-family: "DejaVu Sans", sans-serif !important; }\n'
 
 
-def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280)) -> dict:
+def wide_font_overflow(css: str, widths=(1024, 1100, 1279, 1280, 1366, 1439)) -> dict:
     """Page overflow and tab-row squeeze per width with the app drawn in DejaVu Sans, the font CI falls back to
     when Inter is not installed (the hermetic browser blocks Google Fonts). Local Inter hid JEG-1056's overflow."""
     try:
@@ -622,15 +625,19 @@ EXAMPLE_READ = """() => {
   return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
     give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
     boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
-      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), useExample: q('#v2CUseExample'), picker: q('#v2CShown')},
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown')},
     innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
+# JEG-1190: the button on the empty page that opens first.
+TRY_READ = """() => { const n = document.getElementById('v2CTryExample'); if (!n || n.closest('[hidden]') || !n.getClientRects().length) return null;
+  const b = n.getBoundingClientRect(); return {top: b.top, bottom: b.bottom, width: b.width, height: b.height}; }"""
 EXAMPLE_FOLD_VIEWPORTS = ((1366, 768), (1440, 900))
 EXAMPLE_PHONE_VIEWPORTS = ((390, 844), (360, 740), (320, 640))
 
 
 def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS + EXAMPLE_PHONE_VIEWPORTS) -> dict:
-    """The Compare example view per viewport: boxes of the sides, the verdict, the totals and the Use this example button."""
+    """The Compare example view per viewport: boxes of the sides, the verdict and the totals once Try a sample trade is
+    pressed, and that button's box on the empty page that opens first (JEG-1190)."""
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -654,7 +661,13 @@ def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS 
                 if font_css:
                     page.add_style_tag(content=font_css)
                 page.wait_for_timeout(300)
-                out[(width, height)] = page.evaluate(EXAMPLE_READ)
+                start = page.evaluate(TRY_READ)
+                if start:
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(300)
+                snap = page.evaluate(EXAMPLE_READ)
+                snap["boxes"]["tryExample"] = start
+                out[(width, height)] = snap
                 page.close()
         finally:
             browser.close()
@@ -666,14 +679,16 @@ def check_example_state(result: dict) -> list[str]:
     for (width, height), snap in result.items():
         tag = f"[{width}x{height}] "
         b = snap["boxes"]
-        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2 or "give=" in snap["hash"]:
+        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2:
             errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
             continue
         if snap["overflow"] > 0:
             errors.append(tag + f"horizontal overflow {snap['overflow']}px")
-        button = b.get("useExample")
+        button = b.get("tryExample")
         if not button or button["height"] < 44 or button["width"] < 44:
-            errors.append(tag + f"'Use this example' is missing or under 44 px: {button}")
+            errors.append(tag + f"'Try a sample trade' is missing or under 44 px: {button}")
+        elif (width, height) in EXAMPLE_FOLD_VIEWPORTS and button["bottom"] > height - EXAMPLE_FOLD_MARGIN:
+            errors.append(f"{tag}'Try a sample trade' ends at {button['bottom']:.1f}, below the fold")
         if not b.get("picker"):
             errors.append(tag + "the 'Player values shown' picker is not reachable")
         if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
@@ -723,8 +738,8 @@ class WaterfallRenderTest(unittest.TestCase):
 
     def test_example_state_fits_the_fold(self):
         """JEG-1112: the first view a new visitor sees (the Example, nothing seeded) ends above the fold at 1366x768 and
-        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Use this example
-        button and no sideways scroll."""
+        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Try a sample trade
+        button and no sideways scroll. JEG-1190: the page opens empty, so this is the view one tap on that button gives."""
         errors = []
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
             result = example_state(font_css=font_css)
@@ -740,14 +755,21 @@ class WaterfallRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
-        self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
-        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
-        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
-        # back, so it still proves the fold check catches the old header's extra 55 px.
-        old_header += "\n#v2Compare { padding-top: 75px; }\n"
+        # JEG-1119 freed 75 px above Compare, and JEG-1190 took the Use this example button out of the Example banner,
+        # so the old header alone now ends above the fold. The guard pushes Compare down (margin) until the clean build's lowest box sits
+        # 2 px above the limit (measured per font), then proves the old header's extra height is caught there.
+        limit = 768 - EXAMPLE_FOLD_MARGIN
+        names = ("give", "receive", "verdict", "giveTotal", "receiveTotal")
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
-            errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
-            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+            clean = example_state(None, font_css, EXAMPLE_FOLD_VIEWPORTS)
+            self.assertEqual(check_example_state(clean), [], f"the clean build must pass first ({label})")
+            low = max(clean[(1366, 768)]["boxes"][n]["bottom"] for n in names)
+            pad = max(0, int(limit - low) - 2)
+            padded = f"\n#v2Compare {{ margin-top: {pad}px; }}\n"
+            self.assertEqual(check_example_state(example_state({"v2.css": (css + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS)), [],
+                             f"the padded clean build must still pass ({label}, {pad} px)")
+            errors = check_example_state(example_state({"v2.css": (old_header + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
+            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] pad {pad} px ({len(errors)} errors; first: {errors[0] if errors else '-'})",
                   file=sys.stderr, flush=True)
             self.assertTrue(any("1366x768" in e and "past" in e for e in errors), f"the old header was not caught at 1366x768 in {label}: {errors}")
 
@@ -775,7 +797,7 @@ class WaterfallRenderTest(unittest.TestCase):
                 WIN_AGAINST_COPY,
                 "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
             "no example": {"v2.js": (v2.replace(
-                "verdictKey() ? exampleTrade(pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
+                "verdictKey() ? exampleTrade(compareView.pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},

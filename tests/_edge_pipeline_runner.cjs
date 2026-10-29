@@ -77,6 +77,9 @@ function contentWeekForDay(day) {
 }
 
 function todayIso() {
+  // The test pins the content-week clock to the served data's week (JEG-982), as the page's
+  // window.TRADE_VALUE_TODAY does; the deployed function has no such override and uses the real date.
+  if (process.env.TRADE_VALUE_TODAY) return process.env.TRADE_VALUE_TODAY;
   // ET-aware date.
   try {
     return new Intl.DateTimeFormat("en-CA", {
@@ -214,10 +217,8 @@ for (const key of PIPELINE_SOURCE_KEYS) {
   const svStatus = sourceValidation[key];
   const isValidationHeld = svStatus !== undefined && svStatus !== "live";
 
-  // Check staleness (chart is older than current content week).
-  const isStale = WEEKED_SOURCES.has(key) && freshnessRows[key]?.status === "older";
-  const isFirstLoadExcluded = firstLoadExcluded.has(key);
-  const isOlderWeek = isStale || isFirstLoadExcluded;
+  // Older week: behind the newest published week (first-load rule), never the calendar's week.
+  const isOlderWeek = firstLoadExcluded.has(key);
 
   // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
   const divergenceExclusions = (detail.snapshot && Array.isArray(detail.snapshot.divergence_exclusions))

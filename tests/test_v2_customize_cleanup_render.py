@@ -105,6 +105,7 @@ def _open(browser, base, width, height=900, js=None, css=None, assets=None, scri
 
 
 def _customize(page):
+    _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
     page.click("#v2EditSources")
     page.wait_for_selector("#v2Popover .v2-panel-body")
 
@@ -209,11 +210,13 @@ def check_d3_charts_only_survives_blend_edit(page):
     if page.evaluate(DDF_NOW) == ddf_before:
         errors.append("D3: the basis edit changed no DDF Value, so the check is not discriminating")
     _customize(page)
-    # JEG-930: charts-only must NOT show the blend warning. JEG-863: ddf_value_projections hidden, use ddf_value_charts.
-    page.click("#v2Popover [data-series='ddf_value_charts']")
-    note = page.text_content("#v2Popover [data-series='ddf_value_charts'] >> xpath=ancestor::label")
+    # JEG-930: the alternate DDF version's row must NOT show the blend warning. JEG-1073 (679fa54e, Jeremy 2026-10-25)
+    # made ddf_value_charts the same series as DDF Value and hid its id from every picker (`sameAs`); the alternate
+    # the dialog lists is now ddf_value_projections, which also ignores the basis. Tick it and read its row.
+    page.click("#v2Popover [data-series='ddf_value_projections']")
+    note = page.text_content("#v2Popover [data-series='ddf_value_projections'] >> xpath=ancestor::label")
     if "No sources on in the DDF blend" in note:
-        errors.append(f"D3: the dialog row of 'DDF Value: charts only' warns about the DDF blend after a basis edit: {note!r}")
+        errors.append(f"D3: the dialog row of 'DDF Value (projections)' warns about the DDF blend after a basis edit: {note!r}")
     _done(page)
     after = page.evaluate(CHARTS_COUNT)
     if after != before:

@@ -20,7 +20,7 @@
   const CARDS = [
     {title: "v2ChartTitle", name: "Chart", expand: "v2ExpandChart", summary: () => text("v2TableMeta")},
     {title: "v2TableTitle", name: "Table", expand: "v2ExpandTable", summary: () => text("v2TableMeta")},
-    {title: "v2VorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2VorpTitle", name: "Value above waivers", summary: () => "How much better each player is than the best free pickup"},
     {title: "v2TSellTitle", name: "Sell", summary: () => `Sell: ${text("v2TSellMeta")}`},
     {title: "v2TBuyTitle", name: "Buy", summary: () => `Buy: ${text("v2TBuyMeta")}`},
     {title: "v2TCheck2Title", name: "Positional weight inflation", summary: () => text("v2WeightHeadline")},
@@ -35,6 +35,8 @@
     {title: "v2GiveTitle", name: "You give", summary: () => sideSummary("You give", "v2GivePlayers", "v2GiveTotal")},
     {title: "v2GetTitle", name: "You receive", summary: () => sideSummary("You receive", "v2GetPlayers", "v2GetTotal")},
     {title: "v2CVerdictTitle", name: "Verdict", summary: () => text("v2CVerdictTitle")},
+    {title: "v2CRostersTitle", name: "Loaded rosters", summary: () => text("v2CRosterStatus") || "Choose two loaded rosters"},
+    {title: "v2CConstructionTitle", name: "Both rosters after this trade", summary: () => text("v2CConstructionBody") || "Add players on both sides"},
     {title: "v2CResultTitle", name: "Difference by source",
       summary: () => text("v2CMeta") || text("v2CEmpty")},
     {title: "v2FindTitle", name: "Find a trade",
@@ -42,7 +44,7 @@
     {title: "v2LgTitle", name: "Your league", summary: () => text("v2LgCount") || "Your league"},
     {title: "v2LgSummaryTitle", name: "Team summary", summary: () => text("v2LgSummaryHeadline") || "Roster, starter and bench value for every team"},
     {title: "v2LgOppsTitle", name: "Trade opportunities", summary: () => text("v2LgOppsHeadline") || "Your team against every other team"},
-    {title: "v2CVorpTitle", name: "Value over a waiver player", summary: () => "Raw value above a waiver-level player"},
+    {title: "v2CVorpTitle", name: "Value above waivers", summary: () => "How much better each player is than the best free pickup"},
   ];
 
   function sideSummary(label, listId, totalId) {

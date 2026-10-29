@@ -24,13 +24,14 @@ that check to report an error.
 from __future__ import annotations
 
 import functools
+import json
 import unittest
 
 from playwright.sync_api import Error as PlaywrightError  # noqa: F401
 
 from tests import _render_env  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
-from tests.test_v2_expand_render import V2_CSS, _built_dist, _serve  # noqa: E402
+from tests.test_v2_expand_render import DIST, V2_CSS, _built_dist, _serve  # noqa: E402
 
 AUDIT_PIE_CSS = V2_CSS.parent / "audit-pie.css"
 NAMEFMT_JS = (V2_CSS.parent / "name-format.js").read_text(encoding="utf-8")
@@ -61,6 +62,8 @@ TAP = r"""() => {
   const bad = [];
   for (const el of document.querySelectorAll(sel.split(', ').map(s => '.v2-app ' + s).join(', '))) {
     if (!el.checkVisibility() || el.closest(CHART) || el.matches('input[type=hidden]')) continue;
+    // JEG-1193: the one-line context strip (JEG-1119) clips its legend, Reviewed chip included; tracked there, not here.
+    if (el.matches('#v2ShowingLegend a.v2-div-chip')) continue;
     // A checkbox or radio is tapped through its label.
     const box = el.matches('input[type=checkbox], input[type=radio]') && el.labels && el.labels[0] ? el.labels[0] : el;
     box.scrollIntoView({block: 'center', inline: 'center', behavior: 'instant'});
@@ -212,7 +215,8 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
             page.on("pageerror", lambda e: errors.append(f"[{width}x{height}] page error {e}"))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             for name, (body, ctype) in (overrides or {}).items():
-                page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
+                # "assets/..." is published data the page fetches from the site root (its <base> is ../).
+                page.route(f"**/{name}*" if name.startswith("assets/") else f"**/v2/{name}*", functools.partial(_serve, body, ctype))
             page.goto(base + "#player-values", wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueV2 && document.querySelector('#v2Table tbody tr')", timeout=60000)
             return ctx, page
@@ -264,6 +268,15 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                         go(page, tab)
                         errors += [f"[{width}x{height}] {tab}: tap target under 44x44 {e}" for e in page.evaluate(TAP)]
                     ctx.close()
+            if "reviewedlink" in checks:   # the pinned Reviewed chip is a visible link the tap check measures (outside the JEG-1193 strip)
+                ctx, page = open_page(*PHONES[0], True)
+                seen = 0
+                for tab in TAP_TABS:
+                    go(page, tab)
+                    seen += page.evaluate("() => [...document.querySelectorAll('.v2-app a.v2-div-chip[data-status=reviewed][href]')].filter(a => a.checkVisibility() && !a.closest('#v2ShowingLegend')).length")
+                if not seen:
+                    errors.append("no visible linked Reviewed chip on " + ", ".join(TAP_TABS))
+                ctx.close()
             if "tables" in checks:
                 ctx, page = open_page(*LANDSCAPE, True)       # a landscape phone is 844 px wide: touch rules, not width rules
                 for tab in ("player-values", "trade-targets"):
@@ -286,6 +299,32 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
     return errors
 
 
+def flagged_chart_freshness() -> str:
+    """The built reference-freshness.json with a default Values column (USA Today) flagged out of range.
+
+    The header chip word only exists when a column the Values table shows by default (the four trade charts) carries a
+    worded chip. Week 7 had FantasyPros "Reviewed" (JEG-1048 wrote the mutation against it); from week 8 every default
+    chart is ok or in range (a checkmark, no word), so the mutation changed nothing on the page. Pin one flagged chart."""
+    doc = json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+    doc.setdefault("source_divergence", {})["usatoday"] = {
+        "status": "warn", "message": "USA Today disagrees with the other charts on 38% of players this week (usually 20%).",
+        "resolution_issue": None, "outlier_rate": 0.38, "usual_outlier_rate": 0.20}
+    return json.dumps(doc)
+
+
+def reviewed_chart_freshness() -> str:
+    """The built reference-freshness.json with a default Values column (FantasyPros) reviewed, linked to a public page.
+
+    The Reviewed chip is a link only when its resolution issue is a public http(s) page (no Linear links since #916), and
+    the week's data may have none, so "Reviewed chip loses its hit area" changed nothing on the page and was caught only
+    while another tap target failed. Pin one linked Reviewed chip (the page never fetches it: outside requests abort)."""
+    doc = json.loads((DIST / "assets" / "reference-freshness.json").read_text(encoding="utf-8"))
+    doc.setdefault("source_divergence", {})["fantasypros"] = {
+        "status": "reviewed", "message": "FantasyPros was reviewed: its ordering is unusual but correct.",
+        "resolution_issue": "https://example.com/ddf-review/fantasypros"}
+    return json.dumps(doc)
+
+
 class MobilePhase1RenderTest(unittest.TestCase):
     def test_phase1_guards_hold(self):
         self.assertEqual(run_checks(), [])
@@ -294,6 +333,15 @@ class MobilePhase1RenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         pie = AUDIT_PIE_CSS.read_text(encoding="utf-8")
         text_css = "text/css"
+        flagged = flagged_chart_freshness()
+        reviewed = reviewed_chart_freshness()
+        # The pinned data alone must pass the text check, so the mutation below is caught for the 0 px word, not the data.
+        with self.subTest(mutation="baseline: a flagged default chart, unbroken CSS"):
+            self.assertEqual(run_checks({"assets/reference-freshness.json": (flagged, "application/json")}, checks=("text",)), [])
+        with self.subTest(mutation="baseline: a linked Reviewed chip, unbroken CSS"):
+            self.assertEqual(run_checks({"assets/reference-freshness.json": (reviewed, "application/json")}, checks=("tap",)), [])
+            links = run_checks({"assets/reference-freshness.json": (reviewed, "application/json")}, checks=("reviewedlink",))
+            self.assertEqual(links, [], "the pinned Reviewed chip must be a link on the page")
         broken = {
             # name: (check, {file: (body, type)}, anchor text that must exist in the source)
             "table scroll container removed": ("tables", {"v2.css": (css.replace(".v2-table-wrap { overflow-x: auto; margin-top: 12px; }", ".v2-table-wrap { overflow-x: visible; margin-top: 12px; }", 1).replace("#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: auto; }", "#v2Main .v2-table-wrap { position: relative; margin-top: 8px; overflow: visible; }", 1), text_css)},
@@ -318,9 +366,12 @@ class MobilePhase1RenderTest(unittest.TestCase):
             "suffix dropped from the last name": ("names", {"name-format.js": (NAMEFMT_JS.replace("var SUFFIX_RE = /^(jr|sr|ii|iii|iv|v)\\.?$/i;", "var SUFFIX_RE = /^$/;", 1), "application/javascript")}, None),
             "names no longer clip": ("names", {"v2.css": (css + "\n@media (max-width: 767px), (pointer: coarse) { .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { text-overflow: clip; white-space: normal; } }\n", text_css)}, None),
             # JEG-1048: the Reviewed chip is a link (JEG-609) and needs its 44 px hit area; a header chip word must not be a 0 px text node.
-            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css.replace("  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }", "", 1), text_css)},
-                                                  "  a.v2-div-chip::after { content: \"\"; position: absolute; left: 50%; top: 50%; width: max(100%, 44px); height: 44px; transform: translate(-50%, -50%); }"),
-            "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css)},
+            # The chip that stays on screen on a phone is Targets' (the context strip's is clipped, JEG-1193). Three rules give a
+            # linked chip its hit area (every width, phones, Targets), so the mutation turns the hit area off outright.
+            "Reviewed chip loses its hit area": ("tap", {"v2.css": (css + "\na.v2-div-chip::after { content: none !important; }\n", text_css),
+                                                         "assets/reference-freshness.json": (reviewed, "application/json")}, None),
+            "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css),
+                                                           "assets/reference-freshness.json": (flagged, "application/json")},
                                                   ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }"),
             "touch rules leak to desktop": ("desktop", {"v2.css": (css + "\n.v2-table-wrap { -webkit-mask-image: linear-gradient(to right, #000 90%, transparent); mask-image: linear-gradient(to right, #000 90%, transparent); }\n", text_css)}, None),
         }
@@ -331,7 +382,7 @@ class MobilePhase1RenderTest(unittest.TestCase):
                         self.assertNotEqual(body, NAMEFMT_JS, f"mutation {name!r} changed nothing")
                 if anchor is not None:
                     self.assertIn(anchor, css + pie, f"mutation anchor for {name!r} is stale")
-                    self.assertTrue(any(body != (css if fname == "v2.css" else pie) for fname, (body, _) in files.items()), f"mutation {name!r} changed nothing")
+                    self.assertTrue(any(body != (css if fname == "v2.css" else pie) for fname, (body, _) in files.items() if not fname.startswith("assets/")), f"mutation {name!r} changed nothing")
                 self.assertNotEqual(run_checks(files, checks=(check,)), [], f"render checks did not catch: {name}")
 
 
