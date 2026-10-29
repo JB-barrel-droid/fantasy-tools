@@ -1,9 +1,9 @@
 """JEG-1114: an opened Find a trade link keeps its rosters and settings while another tab writes the saved league.
 
-Jeremy's option A: the opened link wins, including across tabs. Its trade settings become the saved ones, so the other
-tabs follow them; its rosters stay the opening tab's working copy, because JEG-1219 lets no finder side write a League
-roster or the star. Before the fix, any write from another tab (even a rename) put the older saved settings back over
-the link's and cleared the search the link had run.
+The link wins in the tab that opened it. Its rosters and trade settings stay that tab's (JEG-1219 lets no finder side
+write a League roster or the star, and nothing authorizes saving a link's settings for every tab). Before the fix, any
+write from another tab (even a rename) put the older saved settings back over the link's and cleared the search the
+link had run. A same-tab load or replace (League Load/Undo) still reconciles, even after an ignored other-tab update.
 """
 from __future__ import annotations
 
@@ -88,26 +88,35 @@ class FinderLinkTabsRenderTest(unittest.TestCase):
             self.assert_link_holds(b, fx, "reload")
             a.context.close()
 
-    def test_other_tabs_follow_the_link_and_sync_resumes_after_an_edit(self):
+    def seeded_pair(self, browser, base):
+        a = self.opened(browser, base)
+        fx = a.evaluate(SEED)
+        a.reload(wait_until="networkidle")
+        a.evaluate("location.hash = '#find-trade'")
+        a.wait_for_function("window.TradeValueFinder.ui.getMine().length === 2")
+        link = a.evaluate("""fx => window.TradeValueFinder.encodeFinderHash({mine: fx.linkMine.map(p => p.key),
+          theirs: fx.linkTheirs.map(p => p.key), maxSize: 1, keepMine: false})""", fx)
+        return a, fx, link
+
+    def set_size(self, page, n):
+        page.evaluate("""n => { const W = window.TradeValueWorkspace;
+          W.store.update(w => W.ops.setUi(w, {finderSettings: W.normalizeFinderSettings({...w.ui.finderSettings, maxSize: n})}), 'finder-settings');
+          W.store.flush(); }""", n)
+
+    def test_link_stays_in_its_tab_and_sync_resumes_after_an_edit(self):
         with browser_on_build() as (browser, base):
-            a = self.opened(browser, base)
-            fx = a.evaluate(SEED)
-            a.reload(wait_until="networkidle")
-            a.evaluate("location.hash = '#find-trade'")
-            a.wait_for_function("window.TradeValueFinder.ui.getMine().length === 2")
+            a, fx, link = self.seeded_pair(browser, base)
             before = a.evaluate(STATE)
-            self.assertEqual(a.evaluate(VIEW)["size"], "2")
-            link = a.evaluate("""fx => window.TradeValueFinder.encodeFinderHash({mine: fx.linkMine.map(p => p.key),
-              theirs: fx.linkTheirs.map(p => p.key), maxSize: 1, keepMine: false})""", fx)
             b = self.open_link(a, base, link)
             b.wait_for_function("!document.getElementById('v2FindOut').hidden", timeout=30000)
             b.evaluate("window.TradeValueWorkspace.store.flush()")
-            # The other tab follows the link's trade settings ...
-            a.wait_for_function("document.getElementById('v2FindSize').value === '1'", timeout=10000)
-            self.assertFalse(a.evaluate(VIEW)["keepMine"])
-            saved = a.evaluate(VIEW)["saved"]
-            self.assertEqual((saved["maxSize"], saved["keepMine"]), (1, False))
-            # ... while its working rosters, the League teams and the star stay as they were (JEG-1219).
+            b.wait_for_timeout(500)
+            # The link's settings are not written to the saved league: the other tab keeps its own.
+            view = a.evaluate(VIEW)
+            self.assertEqual((view["size"], view["keepMine"]), ("2", True))
+            self.assertEqual((view["saved"]["maxSize"], view["saved"]["keepMine"]), (2, True))
+            self.assertEqual((b.evaluate(VIEW)["saved"]["maxSize"], b.evaluate(VIEW)["saved"]["keepMine"]), (2, True))
+            # Its working rosters, the League teams and the star stay as they were (JEG-1219).
             after = a.evaluate(STATE)
             self.assertEqual(after["mine"], before["mine"])
             self.assertEqual(after["teams"], fx["teams"])
@@ -116,19 +125,42 @@ class FinderLinkTabsRenderTest(unittest.TestCase):
             # A rename in the other tab still reaches the link tab's pickers: normal synchronization is kept.
             a.evaluate(WRITES[0][1])
             b.wait_for_function("document.querySelector('#v2FindSavedTeam option[value=alpha]').textContent.includes('Late storage')", timeout=10000)
-            # Once the reader changes a setting in the link tab, it saves and follows other tabs again.
+            # Once the reader changes a setting in the link tab, it saves and the two tabs sync settings again.
             if b.locator("#v2FindInput").is_hidden():
                 b.locator("#v2FindEdit").click()
-            b.locator("#v2FindSize").select_option("2")
+            b.locator("#v2FindSize").select_option("3")
             b.evaluate("window.TradeValueWorkspace.store.flush()")
-            a.wait_for_function("document.getElementById('v2FindSize').value === '2'", timeout=10000)
-            a.locator("#v2FindSize").select_option("3")
+            a.wait_for_function("document.getElementById('v2FindSize').value === '3'", timeout=10000)
+            a.locator("#v2FindSize").select_option("2")
             a.evaluate("window.TradeValueWorkspace.store.flush()")
-            b.wait_for_function("document.getElementById('v2FindSize').value === '3'", timeout=10000)
+            b.wait_for_function("document.getElementById('v2FindSize').value === '2'", timeout=10000)
             self.assertEqual(b.evaluate(STATE)["mine"], fx["linkMine"])
             self.assertEqual(b.evaluate(STATE)["theirs"], fx["linkTheirs"])
             a.context.close()
 
+    def test_same_tab_replace_after_an_ignored_other_tab_update_reconciles(self):
+        # Codex's review of ef5dfef: held size 1, other-tab size 3, then a same-tab replace (League Load/Undo) carrying
+        # size 3 left size 1 and the hold on, because the ignored value had been recorded as seen.
+        with browser_on_build() as (browser, base):
+            a, fx, link = self.seeded_pair(browser, base)
+            b = self.open_link(a, base, link)
+            b.wait_for_function("!document.getElementById('v2FindOut').hidden", timeout=30000)
+            self.set_size(a, 3)
+            b.wait_for_function("window.TradeValueWorkspace.store.get().ui.finderSettings.maxSize === 3", timeout=10000)
+            self.assert_link_holds(b, fx, "ignored other-tab settings")
+            b.evaluate("() => { const W = window.TradeValueWorkspace; W.store.replace(W.store.get(), 'replace'); W.store.flush(); }")
+            view = b.evaluate(VIEW)
+            self.assertEqual(view["size"], "3", "same-tab replace did not apply the loaded settings")
+            self.assertFalse(view["results"], "stale results kept after the loaded settings changed")
+            # The hold is released: a later other-tab settings change reaches this tab again.
+            self.set_size(a, 2)
+            b.wait_for_function("document.getElementById('v2FindSize').value === '2'", timeout=10000)
+            state = b.evaluate(STATE)
+            self.assertEqual(state["mine"], fx["linkMine"])
+            self.assertEqual(state["theirs"], fx["linkTheirs"])
+            self.assertEqual(state["marked"], "alpha")
+            self.assertEqual(state["teams"], fx["teams"])
+            a.context.close()
 
 if __name__ == "__main__":
     unittest.main()
