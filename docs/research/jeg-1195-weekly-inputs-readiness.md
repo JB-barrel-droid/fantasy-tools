@@ -219,6 +219,15 @@ Jeremy, 2026-10-29 02:11 UTC: "do not blend weekly data with ROS data, ever".
 | W2 | Option-value layer | — | Scorer source from the old workspace, or a decision to drop it | Blocked |
 | W3 | Waiver board on the shared contract and the one waiver line | `pipelines/` | S2, W1, W2, the weekly/ROS rule above | Blocked |
 
+**Build pieces for the separate weekly page (after Decision 3).** S1, S2, S3,
+S3b, S4 and S5 above, with S5 scoped as: one page at the old Weekly Signals
+address (replacing the retired stub `weekly_vegas/dashboard/index.html` and its
+copy to `dist/weekly-signals/`), using the prior page's sections and filters
+(dataset health, scoreboard, reads, all players, provenance; scoring, position,
+coverage, sort), reading only S4's computed artifact, weekly data only.
+W1 to W3 are paused: the waiver board stays as specified in JEG-1196 with no
+weekly input.
+
 No slice touches Codex-owned work (#1069, #1071, #1072, visual redesign,
 Natural fit, JEG-1217, JEG-1220).
 
@@ -249,8 +258,17 @@ Natural fit, JEG-1217, JEG-1220).
    secret himself. The archived collector authenticated through a workspace
    skill that was never committed, so the request format is taken from
    PropLine's own API reference when S3 is built.
-3. **Waiver availability.** Bring back an ESPN roster% pull, or build the board
-   without availability.
+3. **Weekly data and the waiver board. Decided 2026-10-29 by Jeremy.** His
+   words: "we arent ready for integration yet on that page. set up a seperate
+   page from the prior artifact, and we will blend after understanding." So
+   weekly signals get their own page, set up from the prior Versus Vegas page
+   (`archive/2026-10-07/weekly_vegas/index.html`, the artifact in the ticket's
+   screenshot). The waiver board (JEG-1196) takes no weekly data for now;
+   whether and how to combine them is decided after Jeremy has seen the page.
+   Options offered were A a "This week" column (Claude's pick), B two boards,
+   C no weekly data.
+4. **Still open: how weekly ECR arrives** (see item 1) and, for JEG-1196 only,
+   whether to bring back an ESPN roster% pull.
 
 ## 8. Minimum missing to recover the originals
 
