@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-29T04:53:53.786587+00:00",
+  "run_at": "2026-10-29T13:01:16.297610+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,11 +14,25 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
+    "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Kylen Granson, Tip Reiman); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['K",
+      "hold_severity": "amber",
+      "week": 8
+    },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -166,7 +180,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-29T00:05:24+00:00",
+      "published_at": "2026-10-29T07:05:24+00:00",
       "basis": "section_label"
     },
     "fantasypros": {
@@ -189,6 +203,7 @@
     }
   },
   "fidelity_holds": {
+    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
   }
 }
