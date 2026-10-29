@@ -283,13 +283,13 @@ def parse_expert_page(page: str, url: str, analyst: str, vintage: str, code: str
         tds = re.findall(r"<td\b[^>]*>(.*?)</td", tr, re.S | re.I)
         if len(tds) < 4:
             continue
-        nm = re.search(r'fp-player-name="([^"]+)"', tr)
         rank, pm = _text(tds[0]), re.match(r"^([A-Z]+)(\d+)$", _text(tds[2]))
+        if pm and pm.group(1) not in POSITIONS:  # defenses and kickers are not tracked
+            continue
+        nm = re.search(r'fp-player-name="([^"]+)"', tr)
         if not nm or not rank.isdigit() or not pm:
             review.append({"source": "fantasypros_expert_ros", "reason": "bad_row", "analyst": analyst,
                            "player_name": _text(tds[1])[:60]})
-            continue
-        if pm.group(1) not in POSITIONS:
             continue
         rows.append({
             "source": "fantasypros_expert_ros", "analyst": analyst, "scoring": FP_SCORING[code],
@@ -463,14 +463,6 @@ def main(argv=None) -> int:
         return 1
     args.out_dir.mkdir(parents=True, exist_ok=True)
     (args.out_dir / "snapshot.json").write_text(json.dumps(snap, indent=1), encoding="utf-8")
-    for src, meta in snap["sources"].items():
-        for pg in meta["pages"]:
-            print(f"ros {src} {pg.get('analyst') or ''} {pg.get('pos') or pg.get('scoring')} vintage {pg['vintage']} "
-                  f"tiers={pg.get('tiers')} experts={pg.get('experts')} {pg['url']}")
-    for src in snap["sources"]:
-        for r in [x for x in snap["rows"] if x["source"] == src][:3]:
-            print(f"  sample {src}: {r['pos']}{r['pos_rank']} {r['player_name']} value={r['source_value']} tier={r['tier']}")
-        print(f"ros {src}: {snap['sources'][src]['row_count']} rows")
     if args.print_lists:  # one compact line per source/scoring/position, for review in the run log
         groups: dict[tuple, list[str]] = {}
         for r in snap["rows"]:
@@ -479,7 +471,20 @@ def main(argv=None) -> int:
                 f":{'' if r['tier'] is None else r['tier']}")
         for k, items in groups.items():
             print("ROSLIST|" + "|".join(k) + "|" + ";".join(items))
-    for r in snap["review_rows"][:40]:
+    for src, meta in snap["sources"].items():
+        for pg in meta["pages"]:
+            print(f"ros {src} {pg.get('analyst') or ''} {pg.get('pos') or pg.get('scoring')} vintage {pg['vintage']} "
+                  f"tiers={pg.get('tiers')} experts={pg.get('experts')}{' STALE' if pg.get('stale') else ''} {pg['url']}")
+    for src in snap["sources"]:
+        for r in [x for x in snap["rows"] if x["source"] == src][:3]:
+            print(f"  sample {src}: {r['pos']}{r['pos_rank']} {r['player_name']} value={r['source_value']} tier={r['tier']}")
+        print(f"ros {src}: {snap['sources'][src]['row_count']} rows")
+    reasons: dict[tuple, int] = {}
+    for r in snap["review_rows"]:
+        reasons[(r.get("source"), r.get("reason"))] = reasons.get((r.get("source"), r.get("reason")), 0) + 1
+    for k in sorted(reasons, key=str):
+        print(f"review {k[0]} {k[1]}: {reasons[k]}")
+    for r in [x for x in snap["review_rows"] if x.get("reason") != "bad_row"][:40]:
         print(f"  review: {json.dumps(r)[:220]}")
     print(f"ros rankings: {snap['row_count']} rows, {len(snap['review_rows'])} review, "
           f"{len(snap['unavailable'])} sources unavailable")

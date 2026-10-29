@@ -140,6 +140,10 @@ class ExpertLists(unittest.TestCase):
         pg = pull.parse_expert_page(expert_page("PPR"), "u", "Pat Fitzmaurice (FantasyPros)", "2026-10-27", "PPR")
         self.assertEqual(pg["scoring"], "ppr")
         self.assertEqual({r["pos"] for r in pg["rows"]}, set(pull.POSITIONS))  # kickers dropped
+        dst = expert_page("PPR").replace("</table>", '<tr><td class="center">300</td><td class="player-label">'
+                                         '<a href="/x">Chicago Bears</a></td><td class="center">DST1</td>'
+                                         '<td class="center">CHI</td></tr></table>')
+        self.assertEqual(pull.parse_expert_page(dst, "u", "x", "2026-10-27", "PPR")["review_rows"], [])
         first = pg["rows"][0]
         self.assertEqual((first["pos"], first["pos_rank"], first["overall_rank"], first["experts"]), ("QB", 1, 1.0, 1))
         self.assertTrue(all(r["source"] == "fantasypros_expert_ros" and r["source_vintage"] == "2026-10-27"
