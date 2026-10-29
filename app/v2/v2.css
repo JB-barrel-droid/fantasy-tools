@@ -2205,6 +2205,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
 .v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
 .v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+/* JEG-1236: the summary filter value box was 26 px tall on a phone; the 44 px tap height the other controls here keep. */
+.v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
@@ -2399,6 +2401,15 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-tabs { overscroll-behavior-x: contain; }
 #v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
 .v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }
+
+/* JEG-1281: league entry on the default site; under ?design=fieldnotes the JEG-1137 rules style these instead.
+   The league paste boxes take the 3:1 field edge the finder search box has (WCAG 1.4.11, JEG-902), and the league
+   card's summary keeps "Your league" on one line beside its ▸, the arrow on the heading's baseline. */
+:root:not([data-design="fieldnotes"]) .v2-find-import-body input[type="text"],
+:root:not([data-design="fieldnotes"]) .v2-find-import-body textarea,
+:root:not([data-design="fieldnotes"]) .v2-find-import-body select,
+:root:not([data-design="fieldnotes"]) .v2-find-paste textarea { border-color: var(--v2-field-border); }
+:root:not([data-design="fieldnotes"]) .v2-lg-card-summary { justify-content: flex-start; flex-wrap: nowrap; align-items: baseline; }
 
 /* JEG-1137: Fieldnotes foundation (opt-in). Approved source: docs/design/jeg-1209-fieldnotes/recommendation.md
    "Shared visual and interaction system" and prototype.html. Every rule below is scoped to
