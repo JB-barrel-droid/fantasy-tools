@@ -58,6 +58,9 @@ Related suites on this branch: `tests.test_validate_shards`, `tests.test_render_
 pass. `tests.test_render_sweep_coverage` has the same 4 failures on main `bf0cfee` without this change (three unwired
 render modules); not touched here.
 
+`dealPartner(ctx)`: on the league finder a readout uses the one opponent holding every received key, so the same
+explicit trade has the same readout key on all three routes (asserted in the fixture).
+
 ## Next (not in this PR)
 
 Route wiring after JEG-1219's reviewed head lands, serialized by Codex: register the script in `build_v2_page.py`,

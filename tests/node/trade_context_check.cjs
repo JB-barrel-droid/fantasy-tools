@@ -63,6 +63,11 @@ test("the same explicit settings reach every route", () => {
   assert.deepEqual(league.teams.mine.roster, compare.teams.mine.roster);
   // The readout key for the same explicit deal is the same on the pair finder and Compare (same two rosters).
   assert.equal(T.cacheKey(pair, "readout"), T.cacheKey(compare, "readout"));
+  // On the league finder the deal's partner is the one opponent holding the received players; the rest do not count.
+  assert.equal(T.dealPartner(league).id, "tB");
+  assert.equal(T.cacheKey(league, "readout"), T.cacheKey(pair, "readout"));
+  const noPartner = T.fromLeague({...e, deal: {give: ["102"], get: ["204", "302"]}}, ws);
+  assert.equal(T.dealPartner(noPartner), null, "keys from two opponents have no single partner");
 });
 test("the real finder lineup math gives identical numbers on every route's context", () => {
   const ws = workspace();

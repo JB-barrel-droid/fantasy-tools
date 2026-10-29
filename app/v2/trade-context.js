@@ -308,16 +308,24 @@
   // Everything that can change a result, nothing that only changes a label: team names and provenance are left out, roster
   // order is not significant. purpose "discovery" adds the route's controls (so a changed control can never show stale
   // offers); "readout" adds the explicit deal and leaves the discovery controls out.
+  // The other side of the explicit deal: Their team, or on the league finder the one opponent holding every received key.
+  function dealPartner(context) {
+    if (context.teams.theirs || !context.deal) return context.teams.theirs;
+    const holders = context.teams.opponents.filter(o => context.deal.get.length && context.deal.get.every(k => o.roster.some(e => e.key === k)));
+    return holders.length === 1 ? holders[0] : null;
+  }
   function cacheParts(context, purpose) {
     const kind = purpose === "readout" ? "readout" : "discovery";
     if (kind === "discovery" && !context.capabilities.discovery) return null;
     const team = t => (t ? {missing: t.missing, roster: t.rosterKey} : null);
+    const readout = kind === "readout";
     const basis = context.common.valuation.basis;
     const canonicalBasis = basis && basis.mode === "blend" ? {...basis, sources: basis.sources.slice().sort()} : basis;
     return {v: VERSION, kind, route: kind === "discovery" ? context.route : null,
       league: context.common.league, valuation: {basis: canonicalBasis, overrides: context.common.valuation.overrides}, sources: context.common.sources,
-      mine: team(context.teams.mine), theirs: team(context.teams.theirs),
-      opponents: context.teams.opponents.map(team).sort((a, b) => (a.roster < b.roster ? -1 : a.roster > b.roster ? 1 : 0)),
+      mine: team(context.teams.mine), theirs: team(readout ? dealPartner(context) : context.teams.theirs),
+      // A readout is one explicit trade between two rosters: the league's other opponents do not change it.
+      opponents: readout ? [] : context.teams.opponents.map(team).sort((a, b) => (a.roster < b.roster ? -1 : a.roster > b.roster ? 1 : 0)),
       controls: kind === "discovery" ? context.controls : null,
       deal: kind === "readout" && context.deal ? {give: context.deal.give.slice().sort(), get: context.deal.get.slice().sort()} : null};
   }
@@ -366,5 +374,5 @@
 
   return {VERSION, ROUTES, CAPABILITIES, ROUTE_DISCREPANCIES, normalizeCommon, commonFromPage, leagueFromQuery, resolveCommon,
     savedTeam, rosterTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
-    cacheParts, cacheKey, commonKey, fromPair, fromLeague, fromCompare, stable};
+    cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable};
 });
