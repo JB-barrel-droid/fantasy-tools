@@ -9,7 +9,8 @@ is tests/test_uso_site_journey_contract.py.
 journey() drives the page in stages and records, for each stage, whether the destination was read or what blocked it.
 Every comparison reads both ends off the page: the league settings, the value basis (DDFOverrides.shareParams), the
 source availability (TradeValueCurveControls.getSourceInfo, in the JEG-1259 {status, reason, version} shape), the bench
-level (#v2LgLevelCounts on the league page, a data-bench-level marker elsewhere, else modeled), both rosters, the package,
+level (#v2LgLevelCounts on the league page, else a data-bench-level marker inside the view the stage reads: #v2FindLeague,
+#v2Compare or #v2FindTrade; no marker inside that view reads modeled), both rosters, the package,
 each player's DDF Value, both sides' starter gains, and the starters and bench by position from the lineup tables the
 page draws. Stages, for an equal and a throw-in candidate the league page itself found sending JSN:
 
@@ -28,7 +29,8 @@ and a saved league whose "my team" is Team 05. A link that carries the trade's c
 rosters and numbers there; one that does not shows this device's.
 
 A HarnessError means the test could not drive the page (a script, wait or selector failed outside a destination read). It
-is never counted as a finding. test_guard_fails_on_a_link_without_get runs the journey on the build and on a copy whose
+is never counted as a finding. A bench-level scope that matches no element is HarnessError code level-scope-missing, never
+a silent modeled (JEG-1304: the scopes were route hashes that matched nothing, so every destination read modeled). test_guard_fails_on_a_link_without_get runs the journey on the build and on a copy whose
 league link drops get=, requires both to read every stage, and requires the mutant's new codes to include
 package-changed on league -> Compare and to be only package loss and its consequences.
 
@@ -64,8 +66,32 @@ FOREIGN_INIT = ("try { localStorage.setItem('ddf-v2-value-overrides', "
 PACKAGE_LOSS = {"package-changed", "value-missing", "gains-missing", "gains-changed", "readout-changed", "readout-missing"}
 
 
+# The view each stage reads its bench level in (app/v2/shell.html). JEG-1304: these were the route hashes
+# (#find-league, #compare-trade, #find-trade), which match no element. LevelScopeTest pins them to shell.html.
+LEVEL_SCOPES = {"league": "#v2FindLeague", "compare": "#v2Compare", "pair": "#v2FindTrade"}
+SHELL = ROOT / "app" / "v2" / "shell.html"
+
+
 class HarnessError(Exception):
     """The test could not drive the page: not a finding about the trade."""
+
+    def __init__(self, message, code="harness"):
+        super().__init__(message)
+        self.code = code
+
+
+def checked_level(stage: str, read):
+    """Raise level-scope-missing when the page's level() found no element for its scope."""
+    level = read.get("level") if isinstance(read, dict) else None
+    if isinstance(level, dict):
+        raise HarnessError(f"{stage}: bench-level scope {level.get('missing')} matches no element", code="level-scope-missing")
+    return read
+
+
+def level_scopes(*scripts: str) -> list[str]:
+    """Every scope the in-page scripts pass to level()."""
+    import re
+    return [m for s in scripts for m in re.findall(r"level\('([^']+)'\)", s)]
 
 
 def league() -> dict:
@@ -127,7 +153,8 @@ COMMON = """
   const sources = () => Object.fromEntries(C.getSourceInfo().filter(i => !i.composite).map(i => [i.key, {
     status: i.excludedReason && /^held/i.test(i.excludedReason) ? 'held' : i.available ? 'available' : 'unavailable',
     reason: i.excludedReason || null, version: i.week === undefined || i.week === null ? null : String(i.week)}]));
-  const level = scope => { const m = document.querySelector(`${scope} [data-bench-level]`); return m ? m.dataset.benchLevel : 'modeled'; };
+  const level = scope => { const v = document.querySelector(scope); if (!v) return {missing: scope};
+    const m = v.matches('[data-bench-level]') ? v : v.querySelector('[data-bench-level]'); return m ? m.dataset.benchLevel : 'modeled'; };
   const side = team => team ? {id: team.id || null, keys: team.entries.filter(e => !F.isNotEvaluated(e) && have.has(String(e.key))).map(e => String(e.key)).sort(),
     notEvaluated: team.entries.filter(e => F.isNotEvaluated(e) || !have.has(String(e.key))).length} : null;
   const num = t => { const n = parseFloat(String(t || '').replace('\\u2212', '-').replace(/,/g, '')); return Number.isFinite(n) ? n : null; };
@@ -165,7 +192,7 @@ ORIGIN = "([id]) => {" + COMMON + """
   const values = {};
   r.give.concat(r.receive).forEach(x => { const v = x.values && x.values.ddf_value; values[String(x.player_key)] = {ddf: Number.isFinite(v) ? v : null}; });
   const table = s => p.querySelector(`[data-side="${s}"] table[data-view="DDF Value"]`);
-  return {settings: settings(), basis: basis(), sources: sources(), level: document.getElementById('v2LgLevelCounts') ? 'league' : level('#find-league'),
+  return {settings: settings(), basis: basis(), sources: sources(), level: document.getElementById('v2LgLevelCounts') ? 'league' : level('""" + LEVEL_SCOPES["league"] + """'),
     mine: side(ws.teams.find(t => t.id === ws.myTeamId)), theirs: side(ws.teams.find(t => t.id === r.opponentId)),
     give: r.give.map(x => String(x.player_key)), get: r.receive.map(x => String(x.player_key)), values,
     gains: gainsOf(table('Your team'), table('Their team')), readout: readout(table('Your team'), table('Their team'))}; }"""
@@ -185,7 +212,7 @@ DEST = "() => {" + COMMON + """
   const panels = [...document.querySelectorAll('#v2CConstructionBody .v2-cconstruction-panels > section')];
   const ready = card && card.dataset.ready === 'true';
   const us = ready && panels[0] ? panels[0].querySelector('table') : null, them = ready && panels[1] ? panels[1].querySelector('table') : null;
-  return {settings: settings(), basis: basis(), sources: sources(), level: level('#compare-trade'),
+  return {settings: settings(), basis: basis(), sources: sources(), level: level('""" + LEVEL_SCOPES["compare"] + """'),
     mine: side(team(mineSel && mineSel.value)), theirs: side(team(theirSel && theirSel.value)), give, get, values,
     gains: gainsOf(us, them), readout: readout(us, them),
     note: (document.getElementById('v2CRosterStatus') || {}).textContent || '', hash: location.hash}; }"""
@@ -196,7 +223,7 @@ DEST = "() => {" + COMMON + """
 PAIR = "([give, get]) => {" + COMMON + """
   const ui = F.ui;
   const pickerTeam = (entries, id) => ({id: (document.getElementById(id) || {}).value || null, entries});
-  const base = {settings: settings(), basis: basis(), sources: sources(), level: level('#find-trade'),
+  const base = {settings: settings(), basis: basis(), sources: sources(), level: level('""" + LEVEL_SCOPES["pair"] + """'),
     mine: side(pickerTeam(ui.getMine(), 'v2FindSavedTeam')), theirs: side(pickerTeam(ui.getTheirs(), 'v2FindTheirSavedTeam'))};
   const groups = [...document.querySelectorAll('#v2FindList li.v2-find-group')];
   const want = new Set(give.concat(get));
@@ -282,6 +309,10 @@ class _Journey:
             return page.evaluate(script, arg)
         except Exception as exc:
             raise HarnessError(f"{stage}: in-page script failed: {exc}") from exc
+
+    def view(self, page, stage, script, arg=None):
+        """A destination or origin read; a bench-level scope that matches nothing is a harness failure, not modeled."""
+        return checked_level(stage, self.eval(page, stage, script, arg))
 
     def page(self, foreign=False):
         stage = "another device" if foreign else "league page"
@@ -380,7 +411,7 @@ def journey(browser, base, overrides=None) -> Run:
             run.problem(f"{tag}: pick", "package-changed", "the row id and its package disagree")
         stage = f"{tag}: league panel"
         J.open_league_pick(page, pick)
-        origin = J.eval(page, stage, ORIGIN, [pick["id"]])
+        origin = J.view(page, stage, ORIGIN, [pick["id"]])
         if origin.get("error"):
             run.blocked(stage, "panel-missing", f"{origin['error']} after opening ?trade= and reloading")
             continue
@@ -395,7 +426,7 @@ def journey(browser, base, overrides=None) -> Run:
         if not J.wait_compare(page):
             run.blocked(stage, "trade-not-opened", f"Compare did not draw the trade from {href}")
             continue
-        run.compare(stage, origin, J.eval(page, stage, DEST))
+        run.compare(stage, origin, J.view(page, stage, DEST))
         share = J.eval(page, stage, "() => location.href")
         stage = f"{tag}: Compare reload"
         try:
@@ -403,14 +434,14 @@ def journey(browser, base, overrides=None) -> Run:
         except Exception as exc:
             raise HarnessError(f"{stage}: reload failed: {exc}") from exc
         if J.wait_compare(page):
-            run.compare(stage, origin, J.eval(page, stage, DEST))
+            run.compare(stage, origin, J.view(page, stage, DEST))
         else:
             run.blocked(stage, "trade-not-opened", "Compare did not draw the trade after a reload")
         stage = f"{tag}: pair finder"
         if not J.open_pair(page, found["myTeamId"], pick["opponentId"]):
             run.blocked(stage, "pair-not-run", "the pair finder showed no result for the two saved teams")
         else:
-            shown = J.eval(page, stage, PAIR, [pick["give"], pick["get"]])
+            shown = J.view(page, stage, PAIR, [pick["give"], pick["get"]])
             if not shown["listed"]:
                 run.blocked(stage, "package-not-listed", f"none of the pair finder's {shown['groups']} groups lists {pick['id']}")
             else:
@@ -437,13 +468,13 @@ def arrival(J, run, stage, url, origin, pair=False, pick=None):
         if not J.wait_pair(other):
             run.blocked(stage, "pair-not-run", "the pair finder link ran no search on another device")
         else:
-            shown = J.eval(other, stage, PAIR, [pick["give"], pick["get"]])
+            shown = J.view(other, stage, PAIR, [pick["give"], pick["get"]])
             if shown["listed"]:
                 run.compare(stage, _anon(_pair_view(origin, shown)), _anon(shown))
             else:
                 run.blocked(stage, "package-not-listed", f"none of the pair finder's {shown['groups']} groups lists {pick['id']} on another device")
     elif J.wait_compare(other):
-        run.compare(stage, _anon(origin), _anon(J.eval(other, stage, DEST)))
+        run.compare(stage, _anon(origin), _anon(J.view(other, stage, DEST)))
     else:
         run.blocked(stage, "trade-not-opened", "Compare's address did not draw the trade on another device")
     other.context.close()
@@ -475,7 +506,7 @@ def unequal_deal(browser, base) -> list[str]:
         if not J.wait_compare(page, len(give), len(get)):
             problems.append(f"[unequal {when}] [package-changed] Compare does not show {len(give)} for {len(get)}")
             break
-        dest = J.eval(page, "unequal", DEST)
+        dest = J.view(page, "unequal", DEST)
         if sorted(dest["give"]) != sorted(give) or sorted(dest["get"]) != sorted(get):
             problems.append(f"[unequal {when}] [package-changed] package {dest['give']} for {dest['get']}, wanted {give} for {get}")
         if (dest["theirs"] or {}).get("id") != pick["opponentId"]:
@@ -497,7 +528,40 @@ def unequal_deal(browser, base) -> list[str]:
     return problems + J.errors
 
 
+class LevelScopeTest(unittest.TestCase):
+    """JEG-1304: every bench-level read is scoped to a view that exists. Runs without a browser."""
+
+    def test_every_level_scope_is_an_element_in_the_shell(self):
+        shell = SHELL.read_text(encoding="utf-8")
+        scopes = level_scopes(ORIGIN, DEST, PAIR)
+        self.assertEqual(len(scopes), 3, f"each of ORIGIN, DEST and PAIR reads one bench level: {scopes}")
+        missing = [s for s in scopes if not (s.startswith("#") and f'id="{s[1:]}"' in shell)]
+        self.assertEqual(missing, [], "bench-level scopes that match no element in app/v2/shell.html")
+
+    def test_a_missing_scope_is_its_own_harness_code(self):
+        with self.assertRaises(HarnessError) as caught:
+            checked_level("Compare", {"level": {"missing": "#compare-trade"}})
+        self.assertEqual(caught.exception.code, "level-scope-missing")
+        self.assertIn("#compare-trade", str(caught.exception))
+        self.assertEqual(checked_level("Compare", {"level": "modeled"}), {"level": "modeled"})
+
+
 class UsoSiteJourneyRenderTest(unittest.TestCase):
+    def test_level_reads_the_rendered_view(self):
+        """In the browser: each real view reads a level string; a scope matching nothing raises level-scope-missing."""
+        from tests._league_render import browser_on_build
+        probe = "(scopes) => {" + COMMON + " return scopes.map(s => ({level: level(s)})); }"
+        with browser_on_build() as (browser, base):
+            J = _Journey(browser, base)
+            page = J.page()
+            reads = J.eval(page, "probe", probe, list(LEVEL_SCOPES.values()) + ["#compare-trade"])
+            page.close()
+        for scope, read in zip(LEVEL_SCOPES.values(), reads):
+            self.assertIsInstance(checked_level(scope, read)["level"], str, scope)
+        with self.assertRaises(HarnessError) as caught:
+            checked_level("#compare-trade", reads[-1])
+        self.assertEqual(caught.exception.code, "level-scope-missing")
+
     def test_journey_keeps_the_trade_context(self):
         from tests._league_render import browser_on_build
         with browser_on_build() as (browser, base):

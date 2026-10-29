@@ -141,3 +141,27 @@ python3 -m unittest tests.test_uso_site_journey_render
   `package-not-listed`, a finding, not a harness error.
 - The browser's other device differs in settings, basis and saved league but not in sources (the page offers no way to
   switch a source off); the Node contract covers source loss.
+
+## JEG-1304 correction (bench-level scopes), 2026-10-29
+
+Finding: `level(scope)` was called with route hashes (`#find-league`, `#compare-trade`, `#find-trade`) that match no
+element, so every destination read `modeled` whatever the page drew. Fix in `tests/test_uso_site_journey_render.py`
+only: scopes are the real views (`LEVEL_SCOPES`: `#v2FindLeague`, `#v2Compare`, `#v2FindTrade`), the marker may sit on
+the view or inside it (#1147 puts it at `#v2CConstruction[data-bench-level]`, inside `#v2Compare`), and a scope that
+matches nothing is `HarnessError` code `level-scope-missing`, never `modeled`. No page, value or wiring change.
+
+### Verified (check named)
+
+- `LevelScopeTest.test_every_level_scope_is_an_element_in_the_shell`, run against ebb96a0's in-page scripts: FAIL,
+  `['#find-league', '#compare-trade', '#find-trade']` match no element in `app/v2/shell.html`. On the corrected head:
+  pass.
+- `LevelScopeTest.test_a_missing_scope_is_its_own_harness_code`: pass (ebb96a0 had no such code; its `level()` returned
+  `modeled`).
+- ORIGIN, DEST and PAIR parse in Node; `level()` on a fake DOM returns the inner marker, `modeled` for a view with no
+  marker, and `{missing}` for `#compare-trade`.
+- `tests.test_uso_site_journey_contract`: unchanged, 3 expected continuity reds.
+
+### Claimed, not confirmed
+
+- `UsoSiteJourneyRenderTest.test_level_reads_the_rendered_view` (browser) has not run: no Chromium here and the module
+  is not wired into CI. Needs a Mac run.
