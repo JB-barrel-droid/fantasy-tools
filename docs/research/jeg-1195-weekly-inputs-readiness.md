@@ -292,6 +292,10 @@ the S3b producer owns identity (`player_key`), freshness labels and everything
 downstream, so each keeps one owner. Muse reviewed the first draft and asked
 for six amendments (freshness hash, completeness gate, batch manifest, scoring
 verification, FantasyPros player ID, placeholders as empty); all six are in.
+A second review added three: every page in a batch reports the same season and
+week, last-updated stamps read as America/New_York, and a database-side daily
+check so a silent failure still shows red. Muse posts every run's result on
+JEG-1195 (Jeremy, 2026-10-29: "B").
 
 - **Tables**, drafted in `supabase/migrations/jeg1195_weekly_fantasypros_20261029.sql`.
   **Proposed, not applied**: applying it needs Jeremy's yes naming it.
@@ -315,7 +319,17 @@ verification, FantasyPros player ID, placeholders as empty); all six are in.
   second completed batch on the same day is refused; a re-run supersedes an
   unfinished batch from the same day; a page whose hash matches the previous
   completed batch is flagged `same_as_previous` (with `previous_batch_id`), so
-  the producer never treats it as a fresh pull; append-only throughout.
+  the producer never treats it as a fresh pull; a page reporting a different
+  season or week from the batch's other pages is refused; append-only
+  throughout.
+- **Daily safety net:** monitoring check `weekly_fantasypros_pull` is recorded
+  on every completion (ok) and failure (`BATCH_FAILED`), and again by pg_cron
+  job `weekly-fantasypros-daily-check` at 16:00 UTC: red when the New York day
+  has no batch, an unfinished one, or a failed latest one. The monitoring
+  evaluator marks it missed if that job stops. When the migration is applied,
+  the same change adds the job to `pg_cron_sql_jobs` in
+  `config/monitoring_coverage.json` (adding it earlier would fail the live
+  coverage audit).
 - **Auth, least privilege:** login role `weekly_fp_writer`. INSERT on the pages
   and player tables, EXECUTE on `weekly_fp_start_batch`, `weekly_fp_finish_page`,
   `weekly_fp_complete_batch` and `weekly_fp_fail_batch`, nothing else: no SELECT,
@@ -331,15 +345,16 @@ verification, FantasyPros player ID, placeholders as empty); all six are in.
   lands nothing; completion with a page missing is refused; a resent row is a
   no-op; rows after a page is counted, pages into a closed batch, a second
   completed run the same day, floor, X-of-Y, `full_list`, scoring, check-count,
-  `ros` and bad-hash pages are all refused; the stale flag sets on a matching
-  hash; a re-run supersedes the open batch; the writer's SELECT, UPDATE, DELETE
+  `ros` bad-hash and mixed-week pages are all refused; the stale flag sets on a
+  matching hash; the daily check records red with no completed batch and green
+  after one; a re-run supersedes the open batch; the writer's SELECT, UPDATE, DELETE
   and direct manifest insert are refused; anon and authenticated cannot read or
-  call anything.
+  call anything; the writer cannot call the check functions.
 
 The revised run spec handed to Muse:
 
 ```text
-Muse daily run: FantasyPros weekly pages to Supabase (JEG-1195, revised)
+Muse daily run: FantasyPros weekly pages to Supabase (JEG-1195, revision 3)
 
 Connection
 - Postgres through the Supabase pooler as weekly_fp_writer.<project_ref>, with the password Jeremy sets. No service key.
@@ -348,25 +363,31 @@ Connection
 Pages, signed in, weekly only (never rest of season or draft)
 - Weekly projections, QB, RB, WR, TE, each in Standard, Half PPR and PPR, always via the explicit scoring URL variant (the bare page is Standard): 12 pages.
 - Weekly ECR rankings, QB, RB, WR, TE, in Half PPR: 4 pages.
-- 16 pages per run.
+- 16 pages per run. Finish before 16:00 UTC (11 a.m. Eastern in winter, noon in summer): the database checks then and flags a day with no completed batch.
 
 Run order
-1. select weekly_fp_start_batch(<season>::smallint, 16::smallint) returns the batch_id. If it raises "already has a completed batch", today is done: stop quietly. A re-run after a failure just runs; the database supersedes the earlier unfinished batch.
-2. Read all 16 pages and run every check below in memory before inserting anything.
-3. If any check fails: select weekly_fp_fail_batch(<batch_id>, '<page and reason>'), alert loudly with the same reason, and stop. Nothing is inserted.
+1. select weekly_fp_start_batch(<season>::smallint, 16::smallint) returns the batch_id. If it raises "already has a completed batch", today is done: post the one-line comment below and stop. A re-run after a failure just runs; the database supersedes the earlier unfinished batch.
+2. Read all 16 pages and run every check below in memory before inserting anything, including that all 16 headings report the same season and week.
+3. If any check fails: select weekly_fp_fail_batch(<batch_id>, '<page and reason>'), post the failure comment below, and stop. Nothing is inserted.
 4. Insert each page in its own transaction:
    begin;
    insert into weekly_fantasypros_pages (batch_id, page_kind, position, scoring_format, season, week, page_url, page_heading, page_updated_text, page_updated_at, content_hash, shown_count, total_count, rows_expected, full_list, scoring_verified, scoring_check, pulled_at) values (...);
    insert into weekly_fantasypros_raw (batch_id, page_kind, position, scoring_format, fp_player_id, player_name, team, ecr_rank, ecr_best, ecr_worst, ecr_avg, ecr_std, fpts, raw_columns) values (...), (...) on conflict do nothing;
    select weekly_fp_finish_page(<batch_id>, '<page_kind>', '<position>', '<scoring_format>');
    commit;
-   finish_page returns the row count the database counted: log it next to rows_expected. If it raises, the transaction rolls back and nothing from that page lands: fail the batch as in step 3 and stop.
-5. select weekly_fp_complete_batch(<batch_id>) returns the rows landed: log it. If it raises, fail the batch and alert.
+   finish_page returns {"rows_inserted", "rows_expected", "same_as_previous"}: keep it for the comment. If it raises, the transaction rolls back and nothing from that page lands: fail the batch as in step 3 and stop.
+5. select weekly_fp_complete_batch(<batch_id>) returns {"season", "week", "pages_landed", "rows_landed", "same_as_previous": [pages unchanged since the last completed batch]}. If it raises, fail the batch as in step 3.
+
+Reporting: one comment on Linear JEG-1195 every run (Jeremy's pick)
+- Success: season and week; pages landed of 16; rows landed; one line per page with rows inserted vs expected; the pages flagged same_as_previous (unchanged since the last pull), or "none".
+- Failure: the page that failed, the check that failed and why, and that nothing from the failed batch is used.
+- Already done today: one line saying today's batch was already complete.
+- No links, passwords or connection details in the comment.
 
 Per-page fields
 - page_kind: projections or ecr. position: QB, RB, WR, TE. scoring_format: standard, half_ppr, full_ppr.
-- season, and week as printed in the page heading, never the week requested. page_heading as shown.
-- page_updated_text: the page's own "last updated" stamp as shown; page_updated_at when it parses, else null.
+- season, and week as printed in the page heading, never the week requested. All 16 pages must agree; the database refuses a page from a different week. page_heading as shown.
+- page_updated_text: the page's own "last updated" stamp as shown. page_updated_at: that stamp read as America/New_York time when it parses, else null.
 - content_hash: sha256 hex of JSON.stringify({"headers": [...], "rows": [[...], ...]}) over the player table only, cells as shown and trimmed, in page order. Leave out the last-updated stamp, ads and anything outside the table. Do not compare hashes yourself; the database flags a page that matches the previous completed batch.
 - shown_count and total_count: the "showing X of Y" numbers when the page shows them, else both null.
 - rows_expected: player rows parsed from the page.

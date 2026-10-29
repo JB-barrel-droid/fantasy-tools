@@ -31,9 +31,27 @@
 --   5. identity: fp_player_id when the markup shows one.
 --   6. placeholders: dashes and other non-numeric markers land as null, never 0
 --      (the writer's parse rule; numeric columns cannot hold text).
+-- Muse's second review (2026-10-29), folded in:
+--   7. one week per batch: a page whose heading reports a different season or
+--      week from the batch's other pages is refused, and completion checks it
+--      again.
+--   8. page_updated_at: FantasyPros stamps are read as America/New_York (the
+--      writer's parse rule; page_updated_text keeps the stamp as shown).
+--   9. silence can't hide a failure: the check weekly_fantasypros_pull is
+--      recorded on every completion and failure, and pg_cron job
+--      weekly-fantasypros-daily-check records it again at 16:00 UTC: red when
+--      the New York day has no completed batch or its latest batch failed. The
+--      monitoring evaluator marks it missed if that job stops. Muse also posts
+--      every run's result on JEG-1195 (Jeremy, 2026-10-29: "B").
+--
+-- When this is applied, add {"jobname": "weekly-fantasypros-daily-check",
+-- "check_id": "weekly_fantasypros_pull"} to pg_cron_sql_jobs in
+-- config/monitoring_coverage.json in the same change (the live coverage audit
+-- reads that list, so it is not added before the job exists).
 --
 -- Auth, least privilege: Muse connects as the login role weekly_fp_writer. It
--- can INSERT pages and player rows and EXECUTE the four batch functions, and
+-- can INSERT pages and player rows and EXECUTE the four batch functions (not
+-- the two check functions), and
 -- nothing else: no SELECT, UPDATE or DELETE on any table. The previous-hash
 -- lookup and the row counts run inside the database, so the role never reads.
 -- Jeremy sets its password himself after applying (alter role weekly_fp_writer
@@ -192,6 +210,12 @@ begin
     if new.season <> b.season then
         raise exception 'weekly_fantasypros_pages: season % does not match batch season %', new.season, b.season;
     end if;
+    -- one week per batch: every page heading reports the same season and week
+    if exists (select 1 from public.weekly_fantasypros_pages
+                where batch_id = new.batch_id and (season, week) <> (new.season, new.week)) then
+        raise exception 'weekly_fantasypros_pages: week % differs from the other pages in batch %',
+            new.week, new.batch_id;
+    end if;
 
     select p.batch_id, p.content_hash into prev
       from public.weekly_fantasypros_pages p
@@ -324,15 +348,17 @@ end;
 $$;
 
 -- count a page's rows after its inserts, in the same transaction; a short or
--- long count raises, so the whole page rolls back and nothing lands
+-- long count raises, so the whole page rolls back and nothing lands. Returns
+-- the count and the stale flag, since the writer cannot read them.
 create or replace function public.weekly_fp_finish_page(
     p_batch_id uuid, p_page_kind text, p_position text, p_scoring_format text)
-returns integer language plpgsql security definer set search_path = public, pg_temp as $$
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
     v_expected integer;
+    v_stale boolean;
     v_count integer;
 begin
-    select rows_expected into v_expected from public.weekly_fantasypros_pages
+    select rows_expected, same_as_previous into v_expected, v_stale from public.weekly_fantasypros_pages
      where batch_id = p_batch_id and page_kind = p_page_kind
        and position = p_position and scoring_format = p_scoring_format
        and verified_at is null;
@@ -351,18 +377,32 @@ begin
        set rows_inserted = v_count, verified_at = now()
      where batch_id = p_batch_id and page_kind = p_page_kind
        and position = p_position and scoring_format = p_scoring_format;
-    return v_count;
+    return jsonb_build_object('rows_inserted', v_count, 'rows_expected', v_expected,
+                              'same_as_previous', v_stale);
 end;
 $$;
 
--- close a batch as complete: every expected page landed and was counted
+-- record the weekly_fantasypros_pull check; never blocks the caller
+create or replace function public.weekly_fp_record_check(p_ok boolean, p_error_code text, p_source text)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+    insert into monitoring.check_observations (check_id, run_at, ok, content_ok, error_code, source)
+    values ('weekly_fantasypros_pull', clock_timestamp(), p_ok, p_ok, p_error_code, p_source)
+    on conflict do nothing;
+end;
+$$;
+
+-- close a batch as complete: every expected page landed, was counted, and
+-- reports the same season and week. Returns what the run's comment needs.
 create or replace function public.weekly_fp_complete_batch(p_batch_id uuid)
-returns integer language plpgsql security definer set search_path = public, pg_temp as $$
+returns jsonb language plpgsql security definer set search_path = public, pg_temp as $$
 declare
     b record;
     v_pages integer;
     v_open integer;
     v_rows integer;
+    v_weeks integer;
+    v_stale jsonb;
 begin
     select * into b from public.weekly_fantasypros_batches where batch_id = p_batch_id;
     if not found or b.completed or b.failed_reason is not null then
@@ -375,10 +415,24 @@ begin
         raise exception 'weekly_fp_complete_batch: % of % pages counted (% uncounted)',
             v_pages - v_open, b.pages_expected, v_open;
     end if;
+    select count(distinct (season, week)) into v_weeks
+      from public.weekly_fantasypros_pages where batch_id = p_batch_id;
+    if v_weeks <> 1 then
+        raise exception 'weekly_fp_complete_batch: pages report % different weeks', v_weeks;
+    end if;
+    select coalesce(jsonb_agg(jsonb_build_object('page_kind', page_kind, 'position', position,
+                                                 'scoring_format', scoring_format)
+                              order by page_kind, position, scoring_format), '[]'::jsonb)
+      into v_stale
+      from public.weekly_fantasypros_pages where batch_id = p_batch_id and same_as_previous;
     update public.weekly_fantasypros_batches
        set completed = true, completed_at = now(), pages_landed = v_pages, rows_landed = v_rows
      where batch_id = p_batch_id;
-    return v_rows;
+    perform public.weekly_fp_record_check(true, null, 'weekly_fp_writer');
+    return jsonb_build_object(
+        'season', b.season,
+        'week', (select max(week) from public.weekly_fantasypros_pages where batch_id = p_batch_id),
+        'pages_landed', v_pages, 'rows_landed', v_rows, 'same_as_previous', v_stale);
 end;
 $$;
 
@@ -395,8 +449,54 @@ begin
     if not found then
         raise exception 'weekly_fp_fail_batch: batch % is missing or closed', p_batch_id;
     end if;
+    perform public.weekly_fp_record_check(false, 'BATCH_FAILED', 'weekly_fp_writer');
 end;
 $$;
+
+-- the database's own daily check, so a run that never happens still shows red:
+-- ok only when the New York day has a completed batch
+create or replace function public.weekly_fp_record_daily_check()
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+declare
+    v_day date := (now() at time zone 'America/New_York')::date;
+    v_latest record;
+begin
+    if exists (select 1 from public.weekly_fantasypros_batches
+                where source = 'fantasypros' and pull_date = v_day and completed) then
+        perform public.weekly_fp_record_check(true, null, 'pg_cron');
+        return;
+    end if;
+    select completed, failed_reason into v_latest from public.weekly_fantasypros_batches
+     where source = 'fantasypros' and pull_date = v_day
+     order by started_at desc limit 1;
+    perform public.weekly_fp_record_check(false,
+        case when not found then 'NO_BATCH_TODAY'
+             when v_latest.failed_reason is not null then 'LATEST_BATCH_FAILED'
+             else 'BATCH_NOT_COMPLETED' end,
+        'pg_cron');
+end;
+$$;
+
+insert into monitoring.check_config
+    (check_id, check_type, cadence_seconds, grace_override_seconds,
+     scheduler_owner_type, scheduler_owner_id, alert_policy)
+values
+    ('weekly_fantasypros_pull', 'http_status_and_content', 86400, 1800,
+     'pg_cron', 'weekly-fantasypros-daily-check',
+     '{"severity": "warn", "what": "Muse''s daily FantasyPros weekly pull completed for the New York day (public.weekly_fantasypros_batches); checked 16:00 UTC by pg_cron weekly-fantasypros-daily-check and on every completion or failure. Research input, no published value depends on it"}')
+on conflict (check_id) do update set
+    cadence_seconds = excluded.cadence_seconds,
+    grace_override_seconds = excluded.grace_override_seconds,
+    scheduler_owner_type = excluded.scheduler_owner_type,
+    scheduler_owner_id = excluded.scheduler_owner_id,
+    alert_policy = excluded.alert_policy,
+    updated_at = now();
+
+-- Rollback for the check: select cron.unschedule('weekly-fantasypros-daily-check');
+-- delete from monitoring.check_config where check_id = 'weekly_fantasypros_pull'
+-- (after its observations).
+select cron.schedule('weekly-fantasypros-daily-check', '0 16 * * *',
+                     $$select public.weekly_fp_record_daily_check()$$);
 
 -- ---------------------------------------------------------------------------
 -- Access.
@@ -411,6 +511,8 @@ revoke all on function
     public.weekly_fp_finish_page(uuid, text, text, text),
     public.weekly_fp_complete_batch(uuid),
     public.weekly_fp_fail_batch(uuid, text),
+    public.weekly_fp_record_check(boolean, text, text),
+    public.weekly_fp_record_daily_check(),
     public.weekly_fantasypros_pages_before_insert(),
     public.weekly_fantasypros_raw_before_insert(),
     public.weekly_fantasypros_pages_guard(),
