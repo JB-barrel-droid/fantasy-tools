@@ -38,6 +38,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
 | [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
 | [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
+| [product/jeg-1221-trade-page-parity-review.md](product/jeg-1221-trade-page-parity-review.md) | Record | - | - | Trade-page parity review of labels, help and empty states across the two finders and Compare, with recommended strings, acceptance cases and two decisions for Jeremy (JEG-1221). |
 
 ## Architecture and data
 
