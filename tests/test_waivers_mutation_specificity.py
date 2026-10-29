@@ -1,9 +1,10 @@
 """JEG-1279: a Waivers render mutant counts as killed only when its own check catches it.
 
-tests/test_waivers_render.py::test_guard_fails_on_broken_builds serves eight broken copies of app/v2/waivers.js / waivers.css and
-counts a mutant as caught when run_checks returns any error or raises anything (`except Exception`). So a missing browser (a
-SkipTest locally, a RuntimeError under RENDER_TESTS_REQUIRED=1), a navigation timeout, a stray page error or an unrelated failed
-check all read as a kill, and the guard can pass without testing anything.
+tests/test_waivers_render.py::test_guard_fails_on_broken_builds serves eight broken copies of app/v2/waivers.js / waivers.css. At
+430791c4 it counted a mutant as caught when run_checks returned any error or raised anything (`except Exception`), so a missing
+browser (a SkipTest locally, a RuntimeError under RENDER_TESTS_REQUIRED=1), a navigation timeout, a stray page error or an
+unrelated failed check all read as a kill. JEG-1282 (#1149) made the guard name each mutant's own check (CAUGHT_BY) and stop
+catching exceptions; this module stays the stricter, independent evidence.
 
 This module runs the same eight production-source mutants through the same run_checks (imported, unchanged) and counts a kill
 only when:
@@ -16,16 +17,16 @@ only when:
     a harness failure, even when the designated diagnostic also fired;
   * the original files served through the same override route pass afterwards (the restored control).
 
-At audited main 430791c4 six of the eight are killed this way. Two are counted as caught by the suite only because the harness
-raised (JEG-1282): "no aria-sort" leaves a dangling `if` that removes the header buttons, so the click times out; "no verdict text"
-makes check() itself raise ValueError after appending its diagnostic. The fixture records each of those as `expect: harness` with
-its exact exception, so a fix to the suite fails this module until the entry expects a kill. The variant "no aria-sort, whole
-statement" shows the aria-sort check does kill a well-formed mutant.
+With JEG-1282 on main all eight are killed this way. At 430791c4 two were harness failures that the old guard counted: "no
+aria-sort" left a dangling `if` that removed the header buttons, so the click timed out, and "no verdict text" made check() raise
+ValueError after appending its diagnostic (each fixture entry's `note`). A mutant the suite cannot kill cleanly would be recorded
+as `expect: harness` with its exact exception and defect ticket, and a fixture variant can show its check kills a well-formed
+copy; none is needed now.
 
 Offline (no browser): the classifier and the anchor rule on synthetic outcomes, the old rule's false greens, and the fixture
 mirrors the suite's mutation table (read from its source with ast, so the two cannot drift). In Chromium: the baseline, the eight
-mutants and the variant, the restored control, and four failures injected through the real harness (browser unavailable,
-navigation timeout, unrelated page error, unrelated diagnostic), none of which may classify as killed.
+mutants, the restored control, and four failures injected through the real harness (browser unavailable, navigation timeout,
+unrelated page error, unrelated diagnostic), none of which may classify as killed.
 """
 from __future__ import annotations
 
@@ -368,21 +369,53 @@ class FixtureOfflineTests(unittest.TestCase):
 
     def test_sort_consequence_and_designations_need_a_correctly_ordered_payload(self):
         fixture = load_fixture()
-        variant = fixture["variants"]["no aria-sort, whole statement"]
+        aria = fixture["mutants"]["no aria-sort"]
         observed = ("[1366px] aria-sort after one click: []",
                     "[1366px] DDF Value ascending, dashes last: [] [0.0, 13.9, 16.1, 17.3, 26.5, 30.6, 30.6, 32.6, 34.1, None]")
-        self.assertEqual(KILLED, classify(Outcome(errors=observed), variant).kind)
+        self.assertEqual(KILLED, classify(Outcome(errors=observed), aria).kind)
         for case, values in {"numbers out of order": "[3.0, 1.0, 2.0, None]", "dashes first": "[None, 1.0, 2.0]",
                              "no dash": "[1.0, 2.0]", "not a list of numbers": "[1.0, 'x', None]"}.items():
-            with self.subTest(variant=case):
+            with self.subTest(aria_sort=case):
                 broken = observed[:1] + (f"[1366px] DDF Value ascending, dashes last: [] {values}",)
-                self.assertEqual(HARNESS, classify(Outcome(errors=broken), variant).kind)
+                self.assertEqual(HARNESS, classify(Outcome(errors=broken), aria).kind)
         dashes = fixture["mutants"]["dashes sorted first"]
         observed = ("[1366px] DDF Value descending, dashes last: [None, 34.1, 32.6, 30.6, 30.6, 26.5, 17.3, 16.1, 13.9, 0.0]",
                     "[1366px] DDF Value ascending, dashes last: [['ddf', 'ascending']] [None, 0.0, 13.9, 16.1, 17.3, 26.5, 30.6, 30.6, 32.6, 34.1]")
         self.assertEqual(KILLED, classify(Outcome(errors=observed), dashes).kind)
         unsorted = ("[1366px] DDF Value descending, dashes last: [None, 13.9, 34.1, 0.0]",) + observed[1:]
         self.assertEqual(HARNESS, classify(Outcome(errors=unsorted), dashes).kind, "dashes first plus a broken numeric sort is two failures")
+
+    # JEG-1296: with JEG-1282's ranking fix the verdict-text mutant returns its list, and three other checks that read the same
+    # verdict text fire with it. Each consequence is pinned to that empty verdict, so the same checks failing some other way stay stray.
+    VERDICT_TEXT = (   # as observed in Chromium on #1149 (87b4f7b4)
+        "[1366px] verdict cells ['', '', '', '', '', '', '', '', '', '']",
+        "[1366px] the defense row: {'name': 'Arizona Cardinals', 'pos': 'DEF', 'ddf': '— no value', 'vaw': '— no value', 'market': '— no value', "
+        "'starter': '— no value', 'bench': '— no value', 'drop': '— no value', 'verdict': '', 'reason': 'Arizona Cardinals: kickers and defenses are not evaluated.'}",
+        "[1366px] the Verdict header does not return to the ranked order",
+        "[390px] a card has no verdict banner",
+        "[390px] verdict cells ['', '', '', '', '', '', '', '', '', '']",
+        "[390px] the defense row: {'name': 'Arizona Cardinals', 'pos': 'DEF', 'ddf': '—no value', 'vaw': '—no value', 'market': '—no value', "
+        "'starter': '—no value', 'bench': '—no value', 'drop': '—no value', 'verdict': '', 'reason': 'Arizona Cardinals: kickers and defenses are not evaluated.'}",
+    )
+
+    def test_verdict_text_consequences_are_pinned_to_the_empty_verdict(self):
+        m = load_fixture()["mutants"]["no verdict text"]
+        self.assertEqual(KILLED, classify(Outcome(errors=self.VERDICT_TEXT), m).kind)
+        swaps = {
+            "a verdict cell that is not empty": ("verdict cells ['', ''", "verdict cells ['Skip', ''"),
+            "the defense priced instead of a dash": ("'ddf': '— no value'", "'ddf': '12.3'"),
+            "the defense given a verdict": ("'verdict': '', 'reason'", "'verdict': 'Skip', 'reason'"),
+            "the defense reason changed": ("kickers and defenses are not evaluated.", "worth a pickup."),
+            "a defense row that is not a defense": ("'pos': 'DEF'", "'pos': 'RB'"),
+        }
+        for case, (old, new) in swaps.items():
+            with self.subTest(case=case):
+                lines = list(self.VERDICT_TEXT)
+                i = next(i for i, line in enumerate(lines) if old in line)
+                lines[i] = lines[i].replace(old, new, 1)
+                self.assertNotEqual(KILLED, classify(Outcome(errors=tuple(lines)), m).kind)
+        moved = self.VERDICT_TEXT + ("[1366px] a card has no verdict banner",)   # the card banner is a phone check
+        self.assertEqual(HARNESS, classify(Outcome(errors=moved), m).kind)
 
     def test_suite_table_reader_rejects_a_changed_shape(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -448,7 +481,7 @@ class MutationSpecificityRenderTests(unittest.TestCase):
         self.assert_baseline_clean()
 
     def test_each_mutant_classifies_as_recorded_then_the_restored_control_passes(self):
-        """Killed means the designated check caught it. The suite's two known false greens must fail in their recorded way."""
+        """Killed means the designated check caught it; an entry recorded as a known false green must fail in its recorded way."""
         self.assert_baseline_clean()
         before = digests()
         problems = []

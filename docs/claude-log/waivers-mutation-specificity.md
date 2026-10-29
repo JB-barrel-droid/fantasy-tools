@@ -53,6 +53,32 @@ The two harness kills, filed as JEG-1282 for the suite's owner:
 The fixture records both as `expect: harness`, with the exact exception type and message. When JEG-1282 lands, the mirror test
 fails by name and both entries must change to `killed`.
 
+### JEG-1296 (correction child of the independent Claude review): the fixture follows JEG-1282 (#1149)
+
+#1149 fixes both suite defects: the aria-sort mutant removes the whole statement, check() ranks only known verdicts, and the
+guard names each mutant's own check instead of catching exceptions. Once it is on main this branch merges main, and then:
+
+- **no aria-sort:** #1149's whole-statement find, `expect: killed`. It takes the variant's designation and its ordered consequence
+  (`DDF Value ascending, dashes last: [] [...]`, values ascending with dashes last). The variant is dropped.
+- **no verdict text:** `expect: killed`. The designation is now every verdict cell empty. The three checks that read the same
+  verdict text are its consequences, each pinned to the empty verdict:
+  - the defense row at 1366 and 390: every value cell still a dash, `'verdict': ''`, and the not-evaluated reason;
+  - the Verdict header sort at 1366;
+  - the phone card banner at 390, which is the same `verdictTag` (`waivers.js:709`).
+- Each entry keeps a `note` on how it failed at 430791c4.
+
+Result with #1149 merged: all eight are killed by their own check. Table above is history.
+
+Failing before, passing after (2026-10-29, local Google Chrome, `RENDER_TESTS_REQUIRED=1`). Before the fix, #1149 (87b4f7b4) is
+merged into e094d6aa:
+- Offline, old fixture: 1 failure, `test_fixture_mirrors_the_suite_mutation_table (mutation='no aria-sort')`. The suite's `find`
+  is the whole statement; the fixture still holds the call alone.
+- Offline, new fixture: 21 OK. The new `test_verdict_text_consequences_are_pinned_to_the_empty_verdict` fails on the old
+  fixture (no consequences, so the observed run is harness) and passes now. A non-empty verdict cell, a priced or given-a-verdict
+  defense row, a changed reason, a non-DEF row or a card-banner line at 1366 all stay out of `killed`.
+- Chromium, `python -m unittest -v tests.test_waivers_mutation_specificity`: 27 OK, 0 skipped, 268 s. All eight mutants are
+  `killed`, the restored control passes and the four injected failures are still `harness`.
+
 ### Injected harness failures (real harness, real Chromium), none killed
 
 Each is also called caught by the old rule.
