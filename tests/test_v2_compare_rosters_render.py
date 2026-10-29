@@ -160,6 +160,107 @@ def check_roster_editing():
             browser.close()
 
 
+CARRY_SETUP = """(rows) => {
+    const C = window.TradeValueCurveControls, TC = window.TradeValueTradeContext, W = window.TradeValueWorkspace;
+    let ws = W.newWorkspace({id: 'sender'});
+    ws = W.ops.addTeam(ws, 'Alpha', {id: 'tA', entries: rows.slice(0, 4), mine: true});
+    ws = W.ops.addTeam(ws, 'Bravo', {id: 'tB', entries: rows.slice(4, 8)});
+    const common = TC.commonFromPage({leagueQuery: window.TradeValueV2.leagueQuery(), valueContext: window.DDFOverrides.snapshotContext(),
+        sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    const deal = {give: [rows[0].key], get: [rows[4].key]};
+    const keys = TC.pricingKeys({mine: rows.slice(0, 4), theirs: rows.slice(4, 8), deal});
+    const ctx = TC.fromLeague({common, deal, pricing: TC.modeledPricing(C, keys)}, ws);
+    return `#compare-trade?give=${deal.give[0]}&get=${deal.get[0]}&${window.TradeValueV2.leagueQuery()}&tc=${TC.encodeTransfer(TC.toTransfer(ctx))}`;
+}"""
+CARRY_STATE = """() => {
+    const card = document.getElementById('v2CConstruction');
+    const keys = id => [...document.querySelectorAll(`#${id} li[data-player-key]`)].map(li => li.dataset.playerKey);
+    return {mine: document.getElementById('v2CMyTeam')?.value ?? null, theirs: document.getElementById('v2CTheirTeam')?.value ?? null,
+        ready: card.dataset.ready, carried: card.dataset.carried || null, level: card.dataset.benchLevel || null,
+        status: document.getElementById('v2CRosterStatus')?.textContent || '', give: keys('v2GivePlayers'), get: keys('v2GetPlayers'),
+        tc: /[?&]tc=/.test(location.hash), saved: JSON.stringify(window.TradeValueWorkspace.store.get().teams)};
+}"""
+CARRY_REPLACE = """([rows, id, teams]) => {
+    const W = window.TradeValueWorkspace;
+    let ws = W.newWorkspace({id});
+    teams.forEach(([name, tid, from, to, mine]) => { ws = W.ops.addTeam(ws, name, {id: tid, entries: rows.slice(from, to), mine}); });
+    W.store.replace(ws, 'test');
+}"""
+
+
+def check_carried_trade():
+    """JEG-1259: a trade carried to Compare (tc=) keeps its rosters, deal and values on another device, after a reload
+    and under Swap; a mismatch holds it with the reasons; choosing a team ends it. Saved rosters are never written."""
+    from playwright.sync_api import sync_playwright
+
+    with _served() as base, sync_playwright() as playwright:
+        browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS,
+                                             executable_path=_render_env.chromium_executable(playwright))
+        try:
+            page = browser.new_page(viewport={"width": 1000, "height": 900})
+            errors = []
+            page.on("pageerror", lambda e: errors.append(str(e)))
+            page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
+            page.goto(base + "#compare-trade", wait_until="networkidle")
+            page.wait_for_selector("#v2CRosters", state="attached")
+            rows = page.evaluate("""() => window.TradeValueCurveControls.getAllRows()
+                .filter(r => Number.isFinite(r.values.ddf_value) && ['RB','WR','TE'].includes(r.pos))
+                .sort((a,b) => b.values.ddf_value - a.values.ddf_value).slice(0, 12)
+                .map(r => ({key: String(r.player_key), name: r.name, pos: r.pos}))""")
+            if len(rows) < 12:
+                raise AssertionError("fixture needs twelve priced RB/WR/TE players")
+            link = page.evaluate(CARRY_SETUP, rows)
+            give, get = [rows[0]["key"]], [rows[4]["key"]]
+
+            def go(hash_):
+                page.evaluate("() => { location.hash = '#values'; }")
+                page.wait_for_timeout(250)
+                page.evaluate("h => { location.hash = h; }", hash_)
+                page.wait_for_timeout(400)
+                return page.evaluate(CARRY_STATE)
+
+            # Another device: the same saved IDs hold other players (today's link prices those instead).
+            page.evaluate(CARRY_REPLACE, [rows, "reader", [["Alpha", "tA", 8, 12, True], ["Bravo", "tB", 2, 6, False]]])
+            saved = page.evaluate(CARRY_STATE)["saved"]
+            s = go(link)
+            if [s["mine"], s["theirs"]] != ["carried-mine", "carried-theirs"]:
+                errors.append(f"foreign device priced its own teams {s['mine']}/{s['theirs']}, not the carried rosters")
+            if [s["ready"], s["carried"], s["level"]] != ["true", "ok", "modeled"]:
+                errors.append(f"foreign device: construction {s['ready']}, carried {s['carried']}, level {s['level']}")
+            if [s["give"], s["get"]] != [give, get] or not s["tc"]:
+                errors.append(f"foreign device lost the deal or the carried context: {s}")
+            if s["saved"] != saved:
+                errors.append("receiving a carried trade changed the saved rosters")
+            again = go(page.evaluate("() => location.hash"))
+            if [again["carried"], again["ready"], again["mine"]] != ["ok", "true", "carried-mine"]:
+                errors.append(f"reload lost the carried trade: {again}")
+            # The same league saved under other IDs: an exact roster match shows the reader's own teams.
+            page.evaluate(CARRY_REPLACE, [rows, "reader2", [["Me", "r1", 0, 4, True], ["Them", "r2", 4, 8, False]]])
+            s = go(link)
+            if [s["mine"], s["theirs"], s["carried"]] != ["r1", "r2", "ok"]:
+                errors.append(f"exact roster match not shown as the reader's teams: {s}")
+            page.locator("#v2CSwap").click()
+            s = page.evaluate(CARRY_STATE)
+            if [s["mine"], s["theirs"], s["ready"], s["give"]] != ["r2", "r1", "true", get]:
+                errors.append(f"Swap did not exchange the carried rosters with the trade: {s}")
+            page.locator("#v2CSwap").click()
+            # A player override differs here: held with the reason, nothing shown as priced, still carried on reload.
+            page.evaluate("key => window.DDFOverrides.applyLink(new URLSearchParams(`ov=${key}:42.5`))", rows[1]["key"])
+            s = go(link)
+            if [s["mine"], s["theirs"], s["carried"], s["ready"]] != ["", "", "hold", "false"] or "overrides" not in s["status"] or not s["tc"]:
+                errors.append(f"a changed override was not held with its reason: {s}")
+            page.select_option("#v2CMyTeam", "r1")
+            s = page.evaluate(CARRY_STATE)
+            if s["carried"] != "none" or s["tc"]:
+                errors.append(f"choosing a team did not end the carried trade: {s}")
+            return errors
+        finally:
+            browser.close()
+
+
 class CompareRosterRenderTest(unittest.TestCase):
     def test_roster_editing(self):
         self.assertEqual(check_roster_editing(), [])
+
+    def test_carried_trade(self):
+        self.assertEqual(check_carried_trade(), [])

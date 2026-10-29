@@ -5084,7 +5084,11 @@
     const ws = store?.get();
     if (!ws) return {teams: [], mine: null, theirs: null, ready: false};
     const teams = ws.teams || [];
-    if (compareCarried && compareCarried.status === "hold") return {teams, mine: null, theirs: null, ready: false, held: compareCarried};
+    if (compareCarried && compareCarried.status === "hold") {
+      // Held: no team is shown as chosen, so nothing reads as priced on this reader's saved rosters.
+      Object.assign(compareTeams, {mineId: null, theirId: null, mineChosen: false, theirChosen: false});
+      return {teams, mine: null, theirs: null, ready: false, held: compareCarried};
+    }
     if (compareCarried && compareCarried.status === "ok") {
       // The carried rosters are authoritative; a saved team they exactly match keeps its option in the pickers.
       const shown = (team, side) => ({id: team.id || `carried-${side}`, name: team.name || (side === "mine" ? "Your team (from the link)" : "Their team (from the link)"),
