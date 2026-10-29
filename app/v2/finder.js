@@ -1235,6 +1235,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
   api.applyHash = applyHash;
   api.copyLink = copyLink;
 
+  // JEG-892: the bye week (player-flags.js) on a player row; null when there is none.
+  const flagsOf = row => (root.DDFPlayerFlags ? root.DDFPlayerFlags.node(row) : null);
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
     Object.entries(props || {}).forEach(([k, v]) => { if (k === "text") node.textContent = v; else node.setAttribute(k, v); });
@@ -1798,7 +1800,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
         const move = el("button", {type: "button", class: "v2-link v2-find-move", "aria-label": `Move ${p.name} to the other team`, text: "Move"});
         move.addEventListener("click", () => moveKeys([p.key]));
         const badge = isNotEvaluated(p) ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
-        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge, scoreChips(p, byKey, charts)), move, remove);
+        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}, flagsOf(byKey[p.key] || p)), badge, scoreChips(p, byKey, charts)), move, remove);
       }));
       if (side === "mine") mineChanged();
       else saveRosterCopy();
@@ -2133,7 +2135,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
     const coreBadge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(group.core) : null;
     target.append(el("span", {class: "v2-find-target-label", text: "Target: "}), el("span", {class: "v2-find-target-name", text: names(group.heavy)}),
-      el("span", {class: "v2-meta"}, ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)}`, coreBadge, " DDF Value"));
+      el("span", {class: "v2-meta"}, ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)}`, coreBadge, " DDF Value", flagsOf(group.core)));
     const boxes = [];
     const sideSet = (title, rows, sel, fixed) => {
       const box = el("fieldset", {class: "v2-find-side-pick"}, el("legend", {text: title}));
@@ -2145,7 +2147,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
         input.addEventListener("change", () => { if (input.checked) sel.add(keyOf(r)); else sel.delete(keyOf(r)); refresh(); });
         // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
         const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(r) : null;
-        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta"}, `(${valueText(r, ourKey)}`, badge, " DDF Value)"));
+        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta"}, `(${valueText(r, ourKey)}`, badge, " DDF Value)", flagsOf(r)));
         box.append(label);
         if (!fixed) boxes.push({input, row: r, sel, side: title});
       });
