@@ -216,37 +216,66 @@
     return container;
   }
 
-  // opts: {getContext() -> context, getLink() -> url | null, writeClipboard(text) -> Promise}. Returns {update(), destroy()}.
+  // opts: {getContext() -> context, getLink() -> url | null, writeClipboard(text) -> Promise}. Returns {update(), reset(), destroy()}.
   // The live region sits outside the re-rendered body, so a copy result is announced; focus stays on Copy link after a copy and
   // moves to the selected link text when the reader has to copy by hand.
+  // A copy result belongs to the view it was started on (JEG-1300). Each press takes a revision and the view's key (its context
+  // and link); a result that settles after a newer press, a hashchange, reset() or destroy(), or after the key moved, is dropped,
+  // so the panel never shows an old link as the fallback or says "Copied" for a view that was not copied. update() keeps the
+  // last result only while the key still matches.
   function mount(container, opts) {
     const o = opts || {};
+    const getLink = o.getLink || (() => null);
     container.classList.add(NAME);
     if (!container.getAttribute("aria-labelledby")) container.setAttribute("aria-labelledby", "aipTitle");
     const live = el("p", {class: "aip-live", role: "status", "aria-live": "polite", "aria-atomic": "true"});
     let last = null;
-    function update(copy) {
+    let lastKey = null;
+    let revision = 0;
+    let destroyed = false;
+    function viewKey(ctx) {
+      let link;
+      try { link = getLink(); } catch (error) { link = {error: true}; }
+      return JSON.stringify({ctx: ctx === undefined ? null : ctx, link: link === undefined ? null : link});
+    }
+    function show(ctx, copy, key) {
       last = copy || null;
-      const vm = viewModel(o.getContext(), last);
+      lastKey = last ? key : null;
+      const vm = viewModel(ctx, last);
       render(container, vm);
       container.append(live);
       return vm;
     }
-    async function onClick(event) {
-      if (!event.target.closest || !event.target.closest("#aipCopy")) return;
+    function update(copy) { return show(o.getContext(), copy, null); }
+    function refresh() {
       const ctx = o.getContext();
-      const result = await copyLink({getLink: o.getLink || (() => null), writeClipboard: o.writeClipboard,
+      const key = viewKey(ctx);
+      if (last && key !== lastKey) { revision += 1; live.textContent = ""; return show(ctx, null, null); }
+      return show(ctx, last, key);
+    }
+    function clear() { revision += 1; live.textContent = ""; return update(null); }
+    async function onClick(event) {
+      if (destroyed || !event.target.closest || !event.target.closest("#aipCopy")) return;
+      const mine = ++revision;
+      const ctx = o.getContext();
+      const key = viewKey(ctx);
+      const result = await copyLink({getLink, writeClipboard: o.writeClipboard,
         clipboard: ctx && ctx.capabilities ? ctx.capabilities.clipboard : null});
-      const vm = update(result);
+      if (destroyed || mine !== revision) return;   // the view moved on, or a newer press owns the result
+      const now = o.getContext();
+      if (viewKey(now) !== key) { clear(); return; }   // same route, but the league, roster or link changed while copying
+      const vm = show(now, result, key);
       live.textContent = vm.copy.text;
       const area = container.querySelector("#aipLinkText");
       if (area) { area.focus(); area.select(); } else { const b = container.querySelector("#aipCopy"); if (b) b.focus(); }
     }
-    const onHash = () => { live.textContent = ""; update(null); };   // a new view means a new link: the old result no longer holds
+    const onHash = () => { clear(); };   // a new view means a new link: the old result, and any copy still running, no longer hold
     container.addEventListener("click", onClick);
     root.addEventListener("hashchange", onHash);
     update(null);
-    return {update: () => update(last), reset: () => update(null), destroy: () => {
+    return {update: () => refresh(), reset: () => clear(), destroy: () => {
+      destroyed = true;
+      revision += 1;
       container.removeEventListener("click", onClick);
       root.removeEventListener("hashchange", onHash);
     }};

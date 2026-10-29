@@ -49,3 +49,29 @@ What the panel can show:
    built-page check that `#v2AiPanel` shows `data-setup="available"` and `data-share` of `ready` or `missing`, never `unknown`
    after load. Fixtures stay labelled; the live adapter never sets `fixture`.
 5. Public rollout still waits on JEG-1209 design review and the JEG-1130 copy gate.
+
+## Correction JEG-1300: a late copy result no longer lands on a newer view (2026-10-29)
+
+Reviewer finding (P2, on 41a4e932): `mount()` awaited `copyLink()` and then applied the result to whatever view was showing, so a
+slow or rejected copy that settled after a hashchange, or after a same-route league or roster change, showed view A's link as
+view B's fallback or said "Copied" for B. `update()` also replayed the old result after a same-hash context change.
+
+Fix (`app/v2/ai-connection-panel.js` `mount()` only): each press takes a revision and the view's key (context plus link). The
+result is dropped when a newer press, a hashchange, `reset()` or `destroy()` bumped the revision, or when the key moved while
+copying. `update()` keeps the last result only while the key matches; otherwise it clears the result and the live region. No
+copy strings, values, storage or runtime wiring changed.
+
+### Verified (check named)
+- New harness checks on a minimal fake DOM (`tests/ai_connection_panel_harness.cjs`): `test_copy_result_on_its_own_view`,
+  `test_late_copy_dropped_after_hashchange` (delayed resolve and reject, and a bare hashchange), `test_same_route_change_drops_copy`
+  (shown result, and in-flight resolve/reject with and without `update()`), `test_newer_press_and_destroy_drop_copy`.
+- Failing before: run against the 41a4e932 module, the three stale-result checks fail (late resolve shows "Copied" on view B; late
+  reject shows view A's link on view B; a roster change keeps "Copied"; an older press overwrites a newer one; a copy settled
+  after `destroy()` is applied). Passing after: 18 of 18 on the new head.
+- Five new mutation proofs in `test_checks_fail_on_broken_builds`, one per guard, each caught by its named check.
+- `python3 -m unittest tests.test_jeg1266_ai_connection_panel tests.test_launch_copy_guard`: OK (pack-verbatim check still skips
+  until #1078 lands).
+
+### Claimed, not confirmed
+- `test_late_copy_after_the_view_moved_is_dropped` (render, delayed resolve/reject x hashchange/same-route) runs only in CI's
+  v2-render job: this cloud container can't download Playwright Chromium.

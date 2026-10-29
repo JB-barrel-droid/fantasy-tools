@@ -45,7 +45,10 @@ PAGE = """<!doctype html>
 SPY = """(() => { window.__aipWrites = []; window.__aipClip = [];
   for (const name of ["setItem", "removeItem", "clear"]) { const real = Storage.prototype[name];
     Storage.prototype[name] = function (...args) { window.__aipWrites.push([name, args[0]]); return real.apply(this, args); }; }
-  const writeText = t => { window.__aipClip.push(t); return window.__AIP_CLIP_FAILS ? Promise.reject(new DOMException("denied", "NotAllowedError")) : Promise.resolve(); };
+  window.__aipHold = [];   // with __AIP_CLIP_HOLD set, each write waits until the test settles it (JEG-1300)
+  const writeText = t => { window.__aipClip.push(t);
+    if (window.__AIP_CLIP_HOLD) return new Promise((resolve, reject) => window.__aipHold.push({resolve, reject}));
+    return window.__AIP_CLIP_FAILS ? Promise.reject(new DOMException("denied", "NotAllowedError")) : Promise.resolve(); };
   Object.defineProperty(navigator, "clipboard", {value: {writeText}, configurable: true}); })();"""
 
 STATES = {name: (name, *want) for name, *want in [
@@ -222,6 +225,34 @@ class AiConnectionPanelRenderTest(unittest.TestCase):
         page.wait_for_selector("#v2AiPanel[data-copy=idle]")
         self.assertEqual(page.inner_text(".aip-live"), "")
         page.context.close()
+
+    def test_late_copy_after_the_view_moved_is_dropped(self):
+        # JEG-1300: a slow copy started on view A settles after the reader opened view B (hashchange) or changed the league or
+        # roster on the same route. Neither "Copied" nor A's link as the fallback may show on the newer view.
+        other = "https://example.invalid/fantasy-tools/#trade-targets?v=1&scoring=half_ppr&teams=12&target=9"
+        for settle in ("resolve", "reject"):
+            for move in ("hashchange", "same-route"):
+                with self.subTest(settle=settle, move=move):
+                    errors = []
+                    page = self.open(ctx_for("ready"), 390, errors=errors)
+                    page.evaluate("window.__AIP_CLIP_HOLD = true")
+                    page.click("#aipCopy")
+                    page.wait_for_function("window.__aipHold.length === 1")
+                    page.evaluate(f"window.__AIP_CTX = {json.dumps(ctx_for('default-league'))}; window.__AIP_LINK = {json.dumps(other)};")
+                    if move == "hashchange":
+                        page.evaluate("location.hash = '#trade-targets'")
+                    else:
+                        page.evaluate("window.__aipHandle.update()")
+                    page.evaluate(f"window.__aipHold[0].{settle}(new DOMException('slow', 'NotAllowedError'))" if settle == "reject"
+                                  else "window.__aipHold[0].resolve()")
+                    page.wait_for_timeout(100)
+                    self.assertEqual(page.get_attribute("#v2AiPanel", "data-copy"), "idle")
+                    self.assertEqual(page.locator("#aipResult").count(), 0)
+                    self.assertEqual(page.locator("#aipLinkText").count(), 0, "view A's link shown as view B's fallback")
+                    self.assertEqual(page.inner_text(".aip-live"), "")
+                    self.assertIn("the default league settings", page.inner_text(".aip-carries"))
+                    self.assertEqual(errors, [])
+                    page.context.close()
 
 
 if __name__ == "__main__":

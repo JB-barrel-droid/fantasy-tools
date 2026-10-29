@@ -32,6 +32,9 @@ REQUIRED = [
     "test_copy_actions", "test_copy_failure_shows_link", "test_copy_result_only_when_ready", "test_missing_league",
     "test_default_league_labelled", "test_fixture_labelled", "test_context_not_mutated", "test_live_adapter_unknown_before_attach",
     "test_live_adapter_reads_link", "test_live_adapter_guide_and_clipboard",
+    # mount(): a copy result belongs to the view it was started on (JEG-1300)
+    "test_copy_result_on_its_own_view", "test_late_copy_dropped_after_hashchange", "test_same_route_change_drops_copy",
+    "test_newer_press_and_destroy_drop_copy",
 ]
 
 # (what is broken, old text, new text, the check that must catch it)
@@ -56,6 +59,15 @@ MUTATIONS = [
     ("adapter assumes the guide", 'setupGuide: guide ? true : (doc && doc.readyState !== "loading" ? false : null)', 'setupGuide: true',
      "test_live_adapter_guide_and_clipboard"),
     ("adapter ignores insecure pages", ' && r.isSecureContext !== false', '', "test_live_adapter_guide_and_clipboard"),
+    # JEG-1300: each guard on a late copy result, removed one at a time
+    ("older press overwrites a newer one", 'if (destroyed || mine !== revision) return;', 'if (destroyed) return;',
+     "test_newer_press_and_destroy_drop_copy"),
+    ("hashchange keeps a running copy", 'const onHash = () => { clear(); };', 'const onHash = () => { live.textContent = ""; update(null); };',
+     "test_late_copy_dropped_after_hashchange"),
+    ("late copy ignores a same-route change", 'if (viewKey(now) !== key) { clear(); return; }', '',
+     "test_same_route_change_drops_copy"),
+    ("update() replays an old result", 'if (last && key !== lastKey)', 'if (false)', "test_same_route_change_drops_copy"),
+    ("destroy() keeps a running copy", 'destroyed = true;\n      revision += 1;\n', '', "test_newer_press_and_destroy_drop_copy"),
 ]
 
 FORBIDDEN = ["tested", "import", "sync", "automatic", "same numbers", "guarantee", "will accept", "perfect", "sleeper", "espn", "yahoo",

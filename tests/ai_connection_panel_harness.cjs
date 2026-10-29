@@ -182,6 +182,155 @@ check("test_live_adapter_guide_and_clipboard", () => {
   assert(P.liveAdapter(fakeRoot({clipboard: null})).getContext().capabilities.clipboard === null, "no navigator not unknown");
 });
 
+// ---- mount(), on a minimal fake DOM: a copy result belongs to the view it was started on (JEG-1300) ----
+function fakeNode(tag) {
+  const node = {
+    tagName: tag.toUpperCase(), attrs: {}, children: [], parent: null, dataset: {}, listeners: {}, _text: "", value: "",
+    classList: {add: c => { node.attrs.class = [node.attrs.class, c].filter(Boolean).join(" "); }},
+    setAttribute(k, v) { node.attrs[k] = String(v); }, getAttribute: k => (k in node.attrs ? node.attrs[k] : null),
+    get id() { return node.attrs.id || ""; },
+    get textContent() { return node._text + node.children.map(c => c.textContent).join(""); },
+    set textContent(v) { node.children = []; node._text = String(v); },
+    append(...kids) { kids.forEach(k => { const n = typeof k === "string" ? textNode(k) : k; if (n.parent) n.parent.children = n.parent.children.filter(c => c !== n); n.parent = node; node.children.push(n); }); },
+    appendChild(n) { node.append(n); return n; },
+    replaceChildren(...kids) { node.children.forEach(c => { c.parent = null; }); node.children = []; node._text = ""; node.append(...kids); },
+    matches(sel) {
+      if (sel.startsWith("#")) return node.id === sel.slice(1);
+      if (sel.startsWith(".")) return (node.attrs.class || "").split(" ").includes(sel.slice(1));
+      return node.tagName === sel.toUpperCase();
+    },
+    querySelector(sel) {
+      if (sel.startsWith(":scope > ")) return node.children.find(c => c.matches(sel.slice(9))) || null;
+      for (const c of node.children) { if (c.matches(sel)) return c; const deep = c.querySelector(sel); if (deep) return deep; }
+      return null;
+    },
+    closest(sel) { let n = node; while (n) { if (n.matches(sel)) return n; n = n.parent; } return null; },
+    addEventListener(type, fn) { (node.listeners[type] = node.listeners[type] || []).push(fn); },
+    removeEventListener(type, fn) { node.listeners[type] = (node.listeners[type] || []).filter(f => f !== fn); },
+    focus() { fakeDom.active = node; }, select() { node.selected = true; }
+  };
+  return node;
+}
+function textNode(text) { const n = fakeNode("#text"); n._text = text; n.matches = () => false; n.querySelector = () => null; return n; }
+const fakeDom = {active: null};
+const windowListeners = {};
+globalThis.document = {createElement: fakeNode};
+globalThis.addEventListener = (type, fn) => { (windowListeners[type] = windowListeners[type] || []).push(fn); };
+globalThis.removeEventListener = (type, fn) => { windowListeners[type] = (windowListeners[type] || []).filter(f => f !== fn); };
+const fireHash = () => (windowListeners.hashchange || []).slice().forEach(fn => fn({type: "hashchange"}));
+
+// A mounted panel whose context and link the check can change, and whose clipboard writes wait until the check settles them.
+function mounted(name) {
+  const page = {ctx: ctxOf(name), link: FIX.link, writes: [], pending: []};
+  page.container = fakeNode("section");
+  page.handle = P.mount(page.container, {
+    getContext: () => page.ctx, getLink: () => page.link,
+    writeClipboard: text => { page.writes.push(text); return new Promise((resolve, reject) => page.pending.push({resolve, reject})); }
+  });
+  page.click = () => {
+    const button = page.container.querySelector("#aipCopy");
+    assert(button, "no Copy link button to press");
+    return Promise.all((page.container.listeners.click || []).map(fn => fn({target: button})));
+  };
+  page.shown = () => {
+    const area = page.container.querySelector("#aipLinkText");
+    const result = page.container.querySelector("#aipResult");
+    return {copy: page.container.dataset.copy, result: result ? result.textContent : null, link: area ? area.value : null,
+      live: page.container.querySelector(".aip-live").textContent, carries: (page.container.querySelector(".aip-carries") || {}).textContent};
+  };
+  return page;
+}
+const LINK_B = "https://example.invalid/fantasy-tools/#trade-targets?v=1&scoring=half_ppr&teams=12&target=9";
+function moveToViewB(page) { page.ctx = ctxOf("default-league"); page.link = LINK_B; }
+function assertIdle(page, label) {
+  const s = page.shown();
+  assert(s.copy === "idle" && s.result === null && s.link === null && s.live === "", `${label}: ${JSON.stringify(s)}`);
+}
+
+check("test_copy_result_on_its_own_view", async () => {
+  const ok = mounted("ready");
+  const pressed = ok.click();
+  ok.pending[0].resolve();
+  await pressed;
+  const s = ok.shown();
+  assert(s.copy === "copied" && s.live === P.UI.copied && ok.writes[0] === FIX.link, `copy on the same view not shown: ${JSON.stringify(s)}`);
+  const bad = mounted("ready");
+  const pressedBad = bad.click();
+  bad.pending[0].reject(new Error("NotAllowedError"));
+  await pressedBad;
+  const f = bad.shown();
+  assert(f.copy === "failed" && f.link === FIX.link && f.live === P.COPY["ai.err.copy"], `failure on the same view not shown: ${JSON.stringify(f)}`);
+  ok.handle.destroy(); bad.handle.destroy();
+});
+
+check("test_late_copy_dropped_after_hashchange", async () => {
+  for (const settle of ["resolve", "reject"]) {
+    const page = mounted("ready");
+    const pressed = page.click();
+    moveToViewB(page);
+    fireHash();
+    page.pending[0][settle](settle === "reject" ? new Error("NotAllowedError") : undefined);
+    await pressed;
+    assertIdle(page, `late ${settle} for view A shown on view B`);
+    assert(page.shown().carries === P.viewModel(ctxOf("default-league"), null).share.carries, "view B not shown");
+    page.handle.destroy();
+  }
+  // A hashchange alone ends the view, even if the adapter still reads the same context and link.
+  const same = mounted("ready");
+  const pressed = same.click();
+  fireHash();
+  same.pending[0].resolve();
+  await pressed;
+  assertIdle(same, "a copy started before a hashchange was applied after it");
+  same.handle.destroy();
+});
+
+check("test_same_route_change_drops_copy", async () => {
+  // A result already shown does not survive a league or roster change on the same route.
+  const shownFirst = mounted("ready");
+  const pressed = shownFirst.click();
+  shownFirst.pending[0].resolve();
+  await pressed;
+  assert(shownFirst.shown().copy === "copied", "precondition: the copy was shown");
+  shownFirst.handle.update();
+  assert(shownFirst.shown().copy === "copied", "update() with nothing changed dropped a current result");
+  shownFirst.ctx.share.work = ["a trade (2 for 1)"];
+  shownFirst.handle.update();
+  assertIdle(shownFirst, "a copied result survived a roster change");
+  // A copy still running when the settings change is dropped when it settles, with or without update() in between.
+  for (const callUpdate of [true, false]) {
+    for (const settle of ["resolve", "reject"]) {
+      const page = mounted("ready");
+      const pressing = page.click();
+      page.ctx.share.league = "default";
+      page.link = LINK_B;
+      if (callUpdate) page.handle.update();
+      page.pending[0][settle](settle === "reject" ? new Error("NotAllowedError") : undefined);
+      await pressing;
+      assertIdle(page, `late ${settle} applied after a settings change (update ${callUpdate})`);
+      page.handle.destroy();
+    }
+  }
+});
+
+check("test_newer_press_and_destroy_drop_copy", async () => {
+  const page = mounted("ready");
+  const first = page.click();
+  const second = page.click();
+  page.pending[1].resolve();
+  page.pending[0].reject(new Error("slow and denied"));
+  await Promise.all([first, second]);
+  assert(page.shown().copy === "copied", `an older press overwrote the newer one: ${JSON.stringify(page.shown())}`);
+  page.handle.destroy();
+  const gone = mounted("ready");
+  const pressed = gone.click();
+  gone.handle.destroy();
+  gone.pending[0].reject(new Error("late"));
+  await pressed;
+  assertIdle(gone, "a copy settled after destroy() was applied");
+  gone.handle.destroy();
+});
+
 (async () => {
   for (const [name, fn] of checks) {
     try { await fn(); results[name] = true; } catch (error) { results[name] = String(error && error.message || error); }
