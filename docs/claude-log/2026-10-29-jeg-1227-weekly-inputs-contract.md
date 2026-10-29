@@ -54,3 +54,21 @@ the stored Sleeper history; optional `inputs` (name, sha256), `input_report`,
 - Producer (#1085 at 86031bbc), run against this validator: its bye leg is current/published
   with null content_vintage and captured_at, so its golden output fails the new rule. That fix
   is the producer's (JEG-1245), coordinated on Linear; the producer was not edited here.
+
+## 2026-10-29 20:10 UTC: built files taken out of the PR
+
+The #1085 reviewer found that commit e2a2a07 had swept 20 generated `dist/` and
+`app/trade-value-chart/` files into this branch. Against main they would have reverted about
+135,000 lines of CI-built output. Merged `origin/main` in (normal merge, no rebase), then one
+commit put the 17 files main has back to main's version and removed the 3 that main doesn't
+track (`dist/connect/index.html`, `dist/ddf-skill.zip`, `dist/get-values.openapi.yaml`).
+No source, test or fixture changed.
+
+Verified:
+- `git diff --shortstat origin/main HEAD`: before, 87 files, +18,846 / -135,482; after,
+  67 files, +17,148 / -0, none under `dist/` or `app/`.
+- `python3 -m unittest tests.test_weekly_inputs_contract`: 35 tests OK.
+- #1085 at f668c874 with this branch's `weekly_inputs_contract.py` dropped in:
+  `python3 -m unittest tests.test_build_weekly_inputs`, 50 tests OK, 0 skipped.
+
+Claimed, not confirmed: preview CI on the new head (reported on JEG-1227 once it runs).
