@@ -172,6 +172,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_tokens
+	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
@@ -578,6 +579,7 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
@@ -674,6 +676,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
