@@ -2416,7 +2416,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       const readout = el("output", {id: `v2FindBackups${pos}`, "aria-live": "polite", text: String(n)});
       const adjust = (delta, suffix, label) => {
         const button = el("button", {type: "button", id: `v2FindBackups${pos}${suffix}`, class: "v2-btn", text: delta < 0 ? "−" : "+",
-          "aria-label": `${label} minimum ${pos} bench backups`, disabled: delta < 0 ? n === 0 : n === 20});
+          "aria-label": `${label} minimum ${pos} bench backups`});
+        button.disabled = delta < 0 ? n === 0 : n === 20;
         button.addEventListener("click", () => {
           S.guardrails.minBackups[pos] = Math.max(0, Math.min(20, S.guardrails.minBackups[pos] + delta));
           const count = S.guardrails.minBackups[pos];

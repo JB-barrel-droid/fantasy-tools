@@ -31,6 +31,84 @@ STATE = """() => ({mine: window.TradeValueFinder.ui.getMine(), theirs: window.Tr
 
 
 class FinderSavedTeamRenderTest(unittest.TestCase):
+    def test_fresh_backup_controls_click_keyboard_bounds_and_persistence(self):
+        # Do not reset/import/apply settings before these checks: those paths repaired the old broken initial DOM.
+        with browser_on_build() as (browser, base):
+            for width in (1366, 390):
+                with self.subTest(width=width):
+                    errors = []
+                    page = open_page(browser, base, width=width, errors=errors,
+                                     init_script="window.initialStorage = [localStorage.length, sessionStorage.length];")
+                    page.evaluate("location.hash = '#find-trade'")
+                    self.assertEqual(page.evaluate('window.initialStorage'), [0, 0])
+                    for pos in ('QB', 'RB', 'WR', 'TE'):
+                        up = page.locator(f'#v2FindBackups{pos}Up')
+                        down = page.locator(f'#v2FindBackups{pos}Down')
+                        readout = page.locator(f'#v2FindBackups{pos}')
+                        self.assertEqual(readout.inner_text(), '0')
+                        self.assertTrue(down.is_disabled())
+                        self.assertFalse(up.is_disabled(), f'{pos} + must work before any settings update')
+                        self.assertFalse(up.evaluate("button => button.hasAttribute('disabled')"))
+                        if pos in ('QB', 'TE'):
+                            up.click()
+                        else:
+                            up.focus()
+                            page.keyboard.press('Enter' if pos == 'RB' else 'Space')
+                        self.assertEqual(readout.inner_text(), '1')
+                        self.assertFalse(down.is_disabled())
+                    up = page.locator('#v2FindBackupsRBUp')
+                    down = page.locator('#v2FindBackupsRBDown')
+                    readout = page.locator('#v2FindBackupsRB')
+                    for _ in range(19):
+                        up.click()
+                    self.assertEqual(readout.inner_text(), '20')
+                    self.assertTrue(up.is_disabled())
+                    down.focus()
+                    page.keyboard.press('Enter')
+                    self.assertEqual(readout.inner_text(), '19')
+                    self.assertFalse(up.is_disabled())
+                    page.evaluate('window.TradeValueWorkspace.store.flush()')
+                    page.reload(wait_until='networkidle')
+                    self.assertEqual(page.locator('#v2FindBackupsRB').inner_text(), '19')
+                    self.assertFalse(page.locator('#v2FindBackupsRBUp').is_disabled())
+                    self.assertFalse(page.locator('#v2FindBackupsRBDown').is_disabled())
+                    page.locator('.v2-find-advanced summary').click()
+                    page.locator('#v2FindResetSettings').click()
+                    for pos in ('QB', 'RB', 'WR', 'TE'):
+                        self.assertEqual(page.locator(f'#v2FindBackups{pos}').inner_text(), '0')
+                        self.assertTrue(page.locator(f'#v2FindBackups{pos}Down').is_disabled())
+                        self.assertFalse(page.locator(f'#v2FindBackups{pos}Up').is_disabled())
+                    page.locator('#v2FindBackupsRBUp').focus()
+                    page.keyboard.press('Space')
+                    page.locator('#v2FindBackupsRBDown').focus()
+                    page.keyboard.press('Enter')
+                    self.assertEqual(page.locator('#v2FindBackupsRB').inner_text(), '0')
+                    self.assertTrue(page.locator('#v2FindBackupsRBDown').is_disabled())
+                    link = page.evaluate("""() => {
+                      const rows = window.TradeValueCurveControls.getAllRows().filter(r => Number.isFinite(r.values?.ddf_value));
+                      return window.TradeValueFinder.encodeFinderHash({mine: [String(rows[0].player_key)],
+                        theirs: [String(rows[1].player_key)], guardrails: {minBackups: {TE: 20, WR: 2}}});
+                    }""")
+                    page.goto(base + link, wait_until='networkidle')
+                    self.assertEqual(page.locator('#v2FindBackupsTE').inner_text(), '20')
+                    self.assertTrue(page.locator('#v2FindBackupsTEUp').is_disabled())
+                    self.assertFalse(page.locator('#v2FindBackupsTEDown').is_disabled())
+                    self.assertEqual(page.locator('#v2FindBackupsWR').inner_text(), '2')
+                    self.assertFalse(page.locator('#v2FindBackupsWRUp').is_disabled())
+                    page.locator('#v2FindBackupsWRUp').click()
+                    self.assertEqual(page.locator('#v2FindBackupsWR').inner_text(), '3')
+                    page.reload(wait_until='networkidle')
+                    self.assertEqual(page.locator('#v2FindBackupsTE').inner_text(), '20')
+                    self.assertEqual(page.locator('#v2FindBackupsWR').inner_text(), '2')
+                    # Reopening a link replays its controls; a plain route reload retains the reader's saved choice.
+                    page.goto(base + '#find-trade', wait_until='networkidle')
+                    page.locator('#v2FindBackupsWRUp').click()
+                    page.evaluate('window.TradeValueWorkspace.store.flush()')
+                    page.reload(wait_until='networkidle')
+                    self.assertEqual(page.locator('#v2FindBackupsWR').inner_text(), '3')
+                    self.assertEqual(errors, [])
+                    page.context.close()
+
     def opened(self, browser, base, width=1366, context=None, overrides=None):
         page = open_page(browser, base, width=width, context=context, overrides=overrides)
         page.evaluate("location.hash = '#find-trade'")
