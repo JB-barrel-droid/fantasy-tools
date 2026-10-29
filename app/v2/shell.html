@@ -69,6 +69,11 @@
   <!-- Context row: compact sticky bar with league summary, value basis, freshness (JEG-1119) -->
   <div class="v2-context" id="v2Context">
     <div class="v2-wrap v2-context-inner">
+      <!-- JEG-1134: below 768 px the row collapses to this summary line and the freshness chip; tapping it opens the
+           roster, Edit league, Customize, the ⋯ menu and the "On the chart" line under it. Not rendered on wider screens. -->
+      <button type="button" class="v2-ctx-summary" id="v2ContextSummary" aria-expanded="false">
+        <span class="v2-sr">League settings: </span><span class="v2-ctx-summary-text" id="v2ContextSummaryText">—</span><span class="v2-ctx-summary-caret" aria-hidden="true"></span>
+      </button>
       <div class="v2-ctx-league">
         <strong id="v2LeagueName">—</strong>
         <span class="v2-meta v2-ctx-roster" id="v2RosterLine">—</span>
@@ -90,12 +95,16 @@
       </button>
       <div class="v2-ctx-menuwrap">
         <button type="button" class="v2-btn v2-btn-sm v2-ctx-more" id="v2ContextMore" aria-expanded="false" aria-controls="v2ContextMenu" aria-label="More settings">⋯</button>
-        <!-- JEG-1119: Position weights and Copy / Paste for ChatGPT/Claude live in the overflow menu. -->
+        <!-- JEG-1119: Position weights and Copy link live in the overflow menu. -->
         <div class="v2-ctx-menu" id="v2ContextMenu" hidden>
           <button type="button" class="v2-btn v2-btn-adjust" id="v2Weights" aria-haspopup="dialog">Position weights</button>
+          <!-- JEG-1101 (Jeremy, 2026-10-26: copy the site link to LLMs and have them decode it, not a code): one Copy link
+               button; the line under it says a chat with the DDF tool reads the same link. ddf-assist.js unhides both. -->
           <div class="v2-assist-actions" id="v2AssistActions">
-            <button type="button" class="v2-btn" id="v2AssistCopy" hidden>Copy for ChatGPT/Claude</button>
-            <button type="button" class="v2-btn" id="v2AssistPasteToggle" aria-expanded="false" aria-controls="v2AssistPaste" hidden>Paste from ChatGPT/Claude</button>
+            <div class="v2-assist-action">
+              <button type="button" class="v2-btn" id="v2AssistCopy" aria-describedby="v2AssistCopyHint" hidden>Copy link</button>
+              <p class="v2-assist-hint" id="v2AssistCopyHint" hidden>Opens this view. A chat with the DDF tool reads it too.</p>
+            </div>
           </div>
         </div>
       </div>
@@ -105,11 +114,6 @@
     <p class="v2-wrap v2-weeknote-text" id="v2WeekNote" role="status"></p>
   </div>
   <div class="v2-wrap v2-assist-panel">
-    <div class="v2-assist-paste" id="v2AssistPaste" hidden>
-      <label class="v2-field-label" for="v2AssistPasteText">Paste a ddf-state block, its JSON or a Data Driven Football link</label>
-      <textarea id="v2AssistPasteText" class="v2-assist-text" rows="5" spellcheck="false" autocomplete="off"></textarea>
-      <button type="button" class="v2-btn v2-btn-primary" id="v2AssistApply">Apply to this page</button>
-    </div>
     <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
   </div>
 
@@ -183,6 +187,7 @@
     <section class="v2-card v2-chart-card" aria-labelledby="v2ChartTitle">
       <div class="v2-card-head v2-chart-head">
         <h2 id="v2ChartTitle">Trade value by player rank</h2>
+        <button type="button" class="v2-btn v2-fullscreen" id="v2FullScreen" aria-haspopup="dialog" aria-expanded="false">Full screen</button>
         <div class="v2-legend" id="v2Legend"></div>
       </div>
       <div class="v2-empty" id="v2Empty" hidden>
@@ -289,6 +294,11 @@
           </div>
           <button type="button" class="v2-select" id="v2AxisZoom" aria-pressed="true">Y axis fits the value range · On</button>
           <div class="v2-legend" id="v2ExpandLegend"></div>
+        </div>
+        <div class="v2-rotate-hint" id="v2RotateHint" role="status" hidden>
+          <span class="v2-rotate-icon" aria-hidden="true">&#x21BB;</span>
+          <span class="v2-rotate-text">Rotate your phone to landscape for a wider chart.</span>
+          <button type="button" class="v2-btn" id="v2RotateDismiss">Dismiss</button>
         </div>
         <div class="v2-expand-body" id="v2ExpandBody"></div>
       </div>
@@ -479,11 +489,18 @@
         <div class="v2-ctools">
           <button type="button" class="v2-link" id="v2CSwap" hidden>Swap sides <span aria-hidden="true">⇄</span></button>
           <button type="button" class="v2-link" id="v2CClear" hidden>Clear trade</button>
+          <button type="button" class="v2-link" id="v2CUndo" hidden>Undo</button>
         </div>
       </div>
-      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values, so you can see how the page reads it. Search either side to start your own.</span> <button type="button" class="v2-link" id="v2CUseExample">Use this example</button></p>
+      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; "Try a sample trade" loads the sample as an editable trade,
+           marked Example until the reader changes it. -->
+      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span></p>
     </div>
 
+    <section class="v2-card v2-crosters" id="v2CRosters" aria-labelledby="v2CRostersTitle" hidden>
+      <div class="v2-card-head"><h2 id="v2CRostersTitle">Loaded rosters</h2></div>
+      <div id="v2CRostersBody"></div>
+    </section>
     <div class="v2-trade-sides">
       <section class="v2-card v2-trade-side" data-trade-side="give" aria-labelledby="v2GiveTitle">
         <h2 id="v2GiveTitle">You give</h2>
@@ -494,6 +511,7 @@
           <ul class="v2-trade-results" id="v2GiveResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GivePlayers"></ul>
+        <button type="button" class="v2-link v2-cside-clear" id="v2GiveClear" data-side="give" aria-label="Clear You give" hidden>Clear side</button>
         <p class="v2-side-total" id="v2GiveTotal" hidden></p>
       </section>
       <section class="v2-card v2-trade-side" data-trade-side="receive" aria-labelledby="v2GetTitle">
@@ -505,14 +523,20 @@
           <ul class="v2-trade-results" id="v2GetResults" role="listbox" aria-label="Matching players" hidden></ul>
         </div>
         <ul class="v2-trade-players" id="v2GetPlayers"></ul>
+        <button type="button" class="v2-link v2-cside-clear" id="v2GetClear" data-side="receive" aria-label="Clear You receive" hidden>Clear side</button>
         <p class="v2-side-total" id="v2GetTotal" hidden></p>
       </section>
       <section class="v2-card v2-cverdict" id="v2CVerdict" aria-labelledby="v2CVerdictTitle">
-        <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+        <header class="v2-cverdict-head">
+          <p class="v2-eyebrow" id="v2CVerdictEyebrow">Verdict</p>
+          <button type="button" class="v2-link v2-cshare-link" id="v2CShare" hidden>Copy link to this trade</button>
+        </header>
         <div aria-live="polite">
           <h2 id="v2CVerdictTitle">No verdict yet</h2>
           <p id="v2CVerdictText"></p>
         </div>
+        <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
+        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Try a sample trade</button></p>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
         </div>
@@ -534,7 +558,10 @@
         </details>
       </section>
     </div>
-    <button type="button" class="v2-cverdict-bar" id="v2CVerdictBar" hidden></button>
+    <div class="v2-cverdict-bar" id="v2CVerdictBarWrap" hidden>
+      <button type="button" class="v2-cverdict-bar-go" id="v2CVerdictBar"></button>
+      <button type="button" class="v2-link v2-cshare-bar" id="v2CShare2" hidden>Copy link</button>
+    </div>
     <p class="v2-filter-note" id="v2CNote" hidden></p>
 
     <section class="v2-card v2-table-card" aria-labelledby="v2CResultTitle">
@@ -543,15 +570,16 @@
           <h2 id="v2CResultTitle">Difference by source &amp; method</h2>
           <p class="v2-meta" id="v2CMeta">—</p>
         </div>
-        <div class="v2-ctools">
-          <button type="button" class="v2-btn" id="v2CShare" hidden>Copy link to this trade</button>
-        </div>
       </div>
-      <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
       <p class="v2-meta v2-t-empty" id="v2CEmpty">No result until both sides have at least one player.</p>
       <div class="v2-table-wrap">
         <table class="v2-table v2-ctable" id="v2CTable" aria-labelledby="v2CResultTitle" hidden></table>
       </div>
+    </section>
+
+    <section class="v2-card v2-cconstruction" id="v2CConstruction" aria-labelledby="v2CConstructionTitle" aria-live="polite">
+      <div class="v2-card-head"><h2 id="v2CConstructionTitle">Both rosters after this trade</h2></div>
+      <div id="v2CConstructionBody"></div>
     </section>
 
     <section class="v2-card v2-table-card" id="v2CVorpCard" hidden aria-labelledby="v2CVorpTitle">
@@ -885,7 +913,7 @@
   </main>
 
   <!-- JEG-1026: on every tab. The line is static HTML (an assistant that does not run JavaScript reads it).
-       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy / Paste buttons live in the league strip. -->
+       The link is the connect guide published at connect/ (build_llm_surfaces.py; the URL is written out here so the built page embeds this file verbatim). The Copy link button lives in the league strip. -->
   <footer class="v2-assist" id="v2Assist" aria-label="ChatGPT and Claude">
     <div class="v2-wrap v2-assist-inner">
       <p class="v2-assist-line" id="v2AssistLine">Using ChatGPT or Claude? <a class="v2-link" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Connect the tool</a></p>

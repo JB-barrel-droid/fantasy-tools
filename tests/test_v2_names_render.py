@@ -110,6 +110,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
         def open_page(hash_, width=1440, height=1000):
             page = browser.new_page(viewport={"width": width, "height": height})
+            page.add_init_script(_render_env.pin_data_week_script())   # JEG-1152: the data's week, not the wall clock
             page.on("pageerror", lambda e: page_errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
             if js_patch:
@@ -158,6 +159,10 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
             # Compare: the deal-read nets define themselves with the shared wording.
             page.evaluate("() => { location.hash = '#compare-trade'; }")
             page.wait_for_timeout(1200)
+            # JEG-1190: Compare opens empty; the sample loads on Try a sample trade.
+            if page.is_visible("#v2CTryExample"):
+                page.click("#v2CTryExample")
+                page.wait_for_timeout(400)
             nets = page.evaluate("""() => [...document.querySelectorAll('#v2CDealNets li')].map(li => [li.querySelector('.v2-deal-name').textContent, li.querySelector('.v2-deal-def').textContent])""")
             for name, definition in nets:
                 want = next((text for n, text in DEFS + NET_ONLY_DEFS if n == name), None)

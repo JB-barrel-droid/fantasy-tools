@@ -103,7 +103,8 @@ def check_phone(browser, base, overrides, errors):
         # The sort selector's default order is the rank order; it must differ from alphabetical or this check proves nothing.
         page.select_option("#v2LgSummarySortBy", "team")
         names = clean(page.evaluate(CARDS, "#v2LgSummaryCards"))
-        if names != sorted(names, key=str.lower) and names != sorted(names, key=str.lower, reverse=True):
+        # The column's first direction is ascending (table-sort nextState), so the cards must come out A to Z, not merely ordered.
+        if names != sorted(names, key=str.lower):
             errors.append(f"{tag}summary cards after sorting by team: {names}")
         if names == rank_order:
             errors.append(f"{tag}sorting by team did not reorder the summary cards ({names}); if the fixture's rank order is alphabetical this check proves nothing")
@@ -207,18 +208,22 @@ class LeaguePhoneRenderTest(unittest.TestCase):
         league = source("league.js")
         broken = {
             "the cards are never shown": ({"v2.css": css.replace("  .v2-lg-tablewrap { display: none; }\n  .v2-lg-cards { display: grid; }", "  .v2-lg-cards { display: none; }", 1)}, {"phone"}),
-            "the sort selector is dead": ({"league.js": league.replace('sel.addEventListener("change", () => onSort(S.nextState({col: null}, sel.value, columns)));', '', 1)}, {"phone"}),
+            "the sort selector is dead": ({"league.js": league.replace('sel.addEventListener("change", () => onSort(S.nextState({col: null}, sel.value, columns)));', '', 1)}, {"phone"}, "sort selector"),
             "the fit filter is wider than a 320 px phone": ({"v2.css": css.replace("  .v2-lg-filters .v2-field { min-width: 0; max-width: 100%; flex: 1 1 100%; }\n  .v2-lg-filters .v2-field select { min-width: 0; max-width: 100%; }\n", "", 1)}, {"fit-filter"}),
             "a 30px control": ({"v2.css": css.replace(".v2-lg-toggle { min-width: 44px; min-height: 44px;", ".v2-lg-toggle { min-width: 30px; min-height: 30px;", 1)}, {"phone"}),
             "low contrast tint": ({"v2.css": css.replace(".v2-lg-sort.is-active { color: var(--v2-action-strong); }", ".v2-lg-sort.is-active { color: #9FD8BE; }", 1)}, {"contrast"}),
             "aria-sort on the button": ({"league.js": league.replace('const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});', 'const th = el("th", {scope: "col", "data-col": id, ...(attrs || {})});', 1)}, {"keyboard"}),
             "Escape does not fold": ({"league.js": league.replace('if (event.key === "Escape" && !comp.collapsed', 'if (false && !comp.collapsed', 1)}, {"keyboard"}),
         }
-        for name, (overrides, only) in broken.items():
+        for name, (overrides, only, *rest) in broken.items():
+            names_it = rest[0] if rest else None   # a phrase the error must carry, so the named bug is caught by the check that names it, not by unrelated noise
             with self.subTest(mutation=name):
                 key = next(iter(overrides))
                 self.assertNotEqual(overrides[key], source(key), f"mutation anchor for {name!r} is stale")
-                self.assertNotEqual(caught(overrides, only), [], f"not caught: {name}")
+                found = caught(overrides, only)
+                self.assertNotEqual(found, [], f"not caught: {name}")
+                if names_it:
+                    self.assertTrue(any(names_it in e for e in found), f"caught, but not by the check that names it: {name} -> {found[:3]}")
 
 
 if __name__ == "__main__":

@@ -8,9 +8,8 @@
 // value stays missing, never 0.
 //
 // Decisions (Jeremy, 2026-10-09 / 2026-10-10, recorded on JEG-481):
-//   * rosters are typed in with player search; the second slice (2026-10-16) adds import from a Sleeper league,
-//     a public ESPN league, or pasted names. Direct fetches need no key and no account; a private league is
-//     refused by the host, and the card says to paste the roster instead;
+//   * rosters are typed in with player search; the second slice (2026-10-16) adds pasted names. The Sleeper / ESPN
+//     league-ID fetchers were deleted (Jeremy, 2026-10-27, JEG-1131): paste is the only way to load a league;
 //   * default 1-for-1 up to 2-for-2, a toggle raises the maximum players per side;
 //   * "fair to the rival" = at least 3 of the 4 trade charts say the rival breaks even or wins;
 //   * ranking prefers simpler trades.
@@ -22,7 +21,7 @@
   const OUR_KEY = "ddf_value";
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const MIN_CHARTS = 3;
-  const MAX_SIZE_CHOICES = [2, 3, 4];
+  const MAX_SIZE_CHOICES = [1, 2, 3, 4];
   const MAX_SUBSETS = 6000;          // per side; larger rosters search the top players by DDF Value
   const EXTRA_PLAYER_WEIGHT = 0.1;   // each player beyond a 1-for-1 takes 10% off the ranking score
   const LIMIT = 10;
@@ -88,6 +87,55 @@
       theirs: lineupIssues(sanity.theirCounts, getRows, giveRows, sanity.shape)};
     return {issues, passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))};
   }
+  const GUARDRAIL_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const activeGuardrails = g => Boolean(g && ((Array.isArray(g.protectedPositions) && g.protectedPositions.length)
+    || GUARDRAIL_POSITIONS.some(pos => g.minBackups && g.minBackups[pos] > 0)
+    || g.minDdfEdge > 0 || typeof g.minUserLineupGain === "number" || typeof g.minTheirLineupGain === "number"));
+  // The starter picker allocates QB/RB/WR/TE, then FLEX and SUPERFLEX once each. Only its remaining valued players
+  // count as backups; a real 0 is valued, while a missing DDF value is never silently treated as a player at 0.
+  function benchBackups(rows, shape, valueKey) {
+    const bench = pickStarters(rows, shape, valueKey).bench;
+    return Object.fromEntries(GUARDRAIL_POSITIONS.map(pos => [pos, bench.filter(row => row.pos === pos).length]));
+  }
+  // Mirrors viability.ts's neverWeaker guardrail using this page's existing starter picker and DDF values.
+  function judgeGuardrails(giveRows, getRows, guardrails) {
+    if (!guardrails || !guardrails.shape) return true;
+    const protectedPositions = Array.isArray(guardrails.protectedPositions) ? guardrails.protectedPositions : [];
+    const userMinimum = guardrails.minUserLineupGain;
+    const theirMinimum = guardrails.minTheirLineupGain;
+    const minimumBackups = guardrails.minBackups || {};
+    if (!protectedPositions.length && userMinimum == null && theirMinimum == null
+      && !GUARDRAIL_POSITIONS.some(pos => minimumBackups[pos] > 0)) return true;
+    const valueKey = guardrails.ourKey || OUR_KEY;
+    const after = rosterAfter(guardrails.mine, giveRows, getRows);
+    if (GUARDRAIL_POSITIONS.some(pos => minimumBackups[pos] > 0)) {
+      const counts = benchBackups(after, guardrails.shape, valueKey);
+      if (GUARDRAIL_POSITIONS.some(pos => counts[pos] < (minimumBackups[pos] || 0))) return false;
+    }
+    if (protectedPositions.length) {
+      const beforePicked = pickStarters(guardrails.mine, guardrails.shape, valueKey);
+      const afterPicked = pickStarters(after, guardrails.shape, valueKey);
+      for (const pos of protectedPositions) {
+        if (!GUARDRAIL_POSITIONS.includes(pos)) continue;
+        const valueAt = picked => picked.starters.filter(r => r.pos === pos).reduce((sum, r) => sum + r.values[valueKey], 0);
+        if (valueAt(afterPicked) < valueAt(beforePicked) - 0.05) return false;
+      }
+    }
+    if (typeof userMinimum === "number" && Number.isFinite(userMinimum)) {
+      if (!(rosterImpact(guardrails.mine, giveRows, getRows, guardrails.shape, valueKey).starterDelta > userMinimum)) return false;
+    }
+    if (typeof theirMinimum === "number" && Number.isFinite(theirMinimum)) {
+      const charts = guardrails.chartKeys || CHART_KEYS;
+      const theirImpact = rosterImpact(withChartAverage(guardrails.theirs, charts), withChartAverage(getRows, charts),
+        withChartAverage(giveRows, charts), guardrails.shape, MARKET_KEY);
+      if (!(theirImpact.starterDelta > theirMinimum)) return false;
+    }
+    return true;
+  }
+  function rosterAfter(roster, leaving, arriving) {
+    const gone = new Set(leaving.map(r => String(r.player_key)));
+    return roster.filter(r => !gone.has(String(r.player_key))).concat(arriving);
+  }
   const scoreOf = (edge, players) => edge * (1 - EXTRA_PLAYER_WEIGHT * (players - 2));
   // Any package, judged exactly as the search judges it. ctx comes from findTrades (result.ctx).
   function evaluateCombo(giveRows, receiveRows, ctx) {
@@ -97,7 +145,9 @@
     const edge = judged.edge;
     return {edge, charts: judged.charts, pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, issues: lineup.issues,
       score: edge === null ? null : scoreOf(edge, giveRows.length + receiveRows.length),
-      passes: {edge: judged.passes.edge, charts: judged.passes.charts, lineup: lineup.passes}};
+      passes: {edge: judged.passes.edge && (!(ctx.guardrails && ctx.guardrails.minDdfEdge > 0) || edge > ctx.guardrails.minDdfEdge),
+        charts: judged.passes.charts, lineup: lineup.passes,
+        ...(ctx.guardrails ? {guardrails: judgeGuardrails(giveRows, receiveRows, ctx.guardrails)} : {})}};
   }
 
   // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
@@ -111,9 +161,11 @@
     const chartKeys = (o.chartKeys || CHART_KEYS).slice();
     const minCharts = o.minCharts || Math.min(MIN_CHARTS, chartKeys.length);
     const limit = o.limit || LIMIT;
+    const guardrails = activeGuardrails(o.guardrails) ? o.guardrails : null;
     // Optional roster sanity: {shape, mine, theirs (all the side's rows), keepMine, keepTheirs}.
     const sanity = o.sanity ? {...o.sanity, mineCounts: countByPos(o.sanity.mine || []), theirCounts: countByPos(o.sanity.theirs || [])} : null;
     let sanityDropped = 0;
+    let guardrailDropped = 0;
     const mineP = pool(mine, ourKey, maxSize);
     const theirsP = pool(theirs, ourKey, maxSize);
     const keys = [ourKey].concat(chartKeys);
@@ -164,6 +216,8 @@
         }
         const lineup = judgeLineup(giveRows, getRows, sanity);
         if (!lineup.passes) { sanityDropped += 1; continue; }
+        if (guardrails && ((guardrails.minDdfEdge > 0 && !(verdict.edge > guardrails.minDdfEdge))
+          || !judgeGuardrails(giveRows, getRows, guardrails))) { guardrailDropped += 1; continue; }
         const entry = {give: giveRows, receive: getRows, edge: verdict.edge, charts: verdict.charts, issues: lineup.issues,
           pricedCharts: verdict.pricedCharts, rivalOkCount: verdict.rivalOkCount, score: scoreOf(verdict.edge, giveRows.length + getRows.length),
           ...(addedThrowIns.length ? {addedThrowIns} : {}), ...(unbalanced ? {unbalanced: true} : {})};
@@ -182,8 +236,9 @@
       || (a.give.length + a.receive.length) - (b.give.length + b.receive.length)
       || idOf(a).localeCompare(idOf(b)));
     const collapsed = collapseThrowIns(found, chartKeys, ourKey);
-    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped, ourKey, chartKeys, minCharts, maxSize,
-      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity}};
+    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped,
+      ...(guardrails ? {guardrailDropped} : {}), ourKey, chartKeys, minCharts, maxSize,
+      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity, ...(guardrails ? {guardrails} : {})}};
   }
   const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
 
@@ -405,6 +460,16 @@
     if (impact.spotsOpened > 0) parts.push(`opens ${countWord(impact.spotsOpened, "roster spot")} (fill from waivers)`);
     return parts.length ? parts.join("; ") : "Starters by position unchanged";
   }
+  // JEG-1043: a team's starters at each position it gives up, before and after the trade (names in lineup order;
+  // FLEX and SUPERFLEX starters count at their own position). One entry per QB/RB/WR/TE among the leaving players.
+  function startersAtGivenPositions(impact, leaving) {
+    const names = (l, pos) => l.starters.filter(r => r.pos === pos).map(r => r.name);
+    return ["QB", "RB", "WR", "TE"].filter(pos => leaving.some(r => r.pos === pos))
+      .map(pos => ({pos, before: names(impact.before, pos), after: names(impact.after, pos)}));
+  }
+  const givenPositionsLine = entries => entries.map(e => `${e.pos} ${e.before.join(", ") || "none"} → ${e.after.join(", ") || "none"}`).join("; ");
+  // JEG-1043: "Show viable offers only" keeps the groups whose best package has a viability label, in the same order.
+  const viableGroups = (groups, labelOf) => groups.filter(g => Boolean(labelOf(g)));
 
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
@@ -451,7 +516,7 @@
   }
 
   // ---------- league import (JEG-481, second slice) ----------
-  // Rosters come from a public league (Sleeper or ESPN) or pasted names; they become the same typed-in lists the
+  // Rosters come from pasted names (JEG-1131: no platform fetchers); they become the same typed-in lists the
   // search card already uses. Names are matched to the engine's own rows, never invented.
   const SUFFIX = /\b(jr|sr|ii|iii|iv|v)\b\.?$/;
   const normName = name => String(name || "").toLowerCase().replace(/[.'’`]/g, "").replace(/[^a-z0-9 ]+/g, " ")
@@ -479,33 +544,6 @@
       matched.push(hits[0]);
     });
     return {matched, unmatched};
-  }
-  const SLEEPER_POS = {DEF: "DEF"};
-  // Sleeper: league rosters + league users + the player directory. Returns [{id, label, entries}].
-  function parseSleeper(rosters, users, directory) {
-    const owners = new Map((users || []).map(u => [String(u.user_id), (u.metadata && u.metadata.team_name) || u.display_name || u.username]));
-    return (rosters || []).map(r => ({
-      id: String(r.roster_id),
-      label: owners.get(String(r.owner_id)) || `Team ${r.roster_id}`,
-      entries: (r.players || []).map(id => {
-        const p = (directory || {})[id];
-        if (!p) return null;
-        const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ");
-        return name ? {name, pos: SLEEPER_POS[p.position] || p.position || ""} : null;
-      }).filter(Boolean)
-    }));
-  }
-  const ESPN_POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"};
-  // ESPN (public league, view=mRoster&view=mTeam). Returns [{id, label, entries}].
-  function parseEspn(json) {
-    return ((json && json.teams) || []).map(team => ({
-      id: String(team.id),
-      label: team.name || [team.location, team.nickname].filter(Boolean).join(" ") || `Team ${team.id}`,
-      entries: (((team.roster || {}).entries) || []).map(entry => {
-        const player = (entry.playerPoolEntry || {}).player || {};
-        return player.fullName ? {name: player.fullName, pos: ESPN_POS[player.defaultPositionId] || ""} : null;
-      }).filter(Boolean)
-    }));
   }
   // Pasted names: one per line or comma-separated; a trailing "(QB - TEN)" style note is dropped.
   function parsePasted(text) {
@@ -588,7 +626,7 @@
   // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
-  // is favorable. Independent of the roster test.
+  // is favorable (their change above 0.05, as shown; JEG-1187). Independent of the roster test.
   // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
   const NET_FLOOR = 0.05;
@@ -651,6 +689,9 @@
     const before = lineupValue(team.roster, ctx.shape, key);
     const next = lineupValue(after, ctx.shape, key);
     const starterDelta = next.starterValue - before.starterValue;
+    // A roster's raw total is different from the bench-weighted net used for fit. Only report its change when every
+    // moving player has this view: lineupValue omits unpriced rows, which must not turn a missing trade value into zero.
+    const totalDelta = team.leaving.concat(team.arriving).every(r => r.values && finite(r.values[key])) ? next.total - before.total : null;
     const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
     const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
     const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
@@ -679,7 +720,7 @@
     const away = needAfter > needBefore;
     const awayAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter > depth[pos].distBefore);
     const towardAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter < depth[pos].distBefore);
-    return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
+    return {key, net, totalDelta, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
   // JEG-1108: rewritten fit labels. Three labels: natural, market, force (value retired).
@@ -712,8 +753,11 @@
     const theirNet = them.net;
     const theirTau = them.tau;
     const theirOk = theirNet >= -theirTau;
-    // Market supported: the Trade chart average says the other team's side is favorable (they gain).
-    const marketSupported = theirNet > theirTau;
+    // Market supported: the Trade chart average says the other team's side is favorable (they gain). Any gain the page
+    // shows (above the 0.05 display floor), not the noise floor (JEG-1187): the finder only lists trades you win on DDF
+    // Value, so on real charts the other team's gain never cleared its noise floor and the label could not appear. The
+    // noise floor stays where Jeremy put it (2026-10-25): the tolerance for a loss on their side of Natural fit.
+    const marketSupported = theirNet > NET_FLOOR;
     // Natural: all three conditions pass.
     const isNatural = constructionOk && yourValueOk && theirOk;
     const label = isNatural ? "natural" : marketSupported ? "market" : "force";
@@ -825,12 +869,94 @@
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: neither roster is broken (no bench player is forced into a starting spot and no starter is lost without a starter coming back), your DDF Value total rises with your starters no worse, and the Trade chart average does not show the other team losing.",
-    market: "Market supported: the Trade chart average says the other team comes out ahead on this trade.",
+    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Fit totals weight bench value by the league's bench share.",
+    market: "Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details.",
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+
+  // ---------- JEG-894: a Find a trade search link ----------
+  // A search is a roster pair, a package size and the two lineup ticks; the link carries all of them, plus the league
+  // settings (the caller passes the page's own league query, so the reader's numbers are the sender's). Ids are the
+  // engine player_key. The link is a plain URL fragment: it is never sent to a server.
+  const FINDER_ID = /^[0-9A-Za-z_-]+$/;
+  const FINDER_MAX_SIDE = 40;   // a crafted link cannot freeze the page
+  const finderKeys = list => (list || []).map(p => (typeof p === "string" ? p : p && p.key))
+    .filter(k => k !== undefined && k !== null && k !== "").map(k => encodeURIComponent(String(k))).join(",");
+  // state: {mine, theirs, maxSize, keepMine, keepTheirs}; leagueQuery: the page's leagueLinkParts().join("&") (may be "").
+  function encodeFinderHash(state, leagueQuery) {
+    const s = state || {};
+    const parts = [];
+    const mine = finderKeys(s.mine);
+    const theirs = finderKeys(s.theirs);
+    if (mine) parts.push(`mine=${mine}`);
+    if (theirs) parts.push(`theirs=${theirs}`);
+    const size = Number(s.maxSize);
+    parts.push(`size=${MAX_SIZE_CHOICES.includes(size) ? size : 2}`);
+    parts.push(`km=${s.keepMine === false ? 0 : 1}`);
+    parts.push(`kt=${s.keepTheirs === false ? 0 : 1}`);
+    const g = s.guardrails || {};
+    const backups = GUARDRAIL_POSITIONS.filter(pos => g.minBackups && g.minBackups[pos] > 0)
+      .map(pos => `${pos}:${g.minBackups[pos]}`);
+    if (backups.length) parts.push(`backups=${backups.join(",")}`);
+    const positions = GUARDRAIL_POSITIONS.filter(pos => Array.isArray(g.protectedPositions) && g.protectedPositions.includes(pos));
+    if (positions.length) parts.push(`protect=${positions.join(",")}`);
+    if (g.minDdfEdge > 0) parts.push(`minEdge=${g.minDdfEdge}`);
+    if (g.minUserLineupGain !== null && g.minUserLineupGain !== undefined) parts.push(`minMine=${g.minUserLineupGain}`);
+    if (g.minTheirLineupGain !== null && g.minTheirLineupGain !== undefined) parts.push(`minTheirs=${g.minTheirLineupGain}`);
+    const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
+    if (tail) parts.push(tail);
+    return `#find-trade?${parts.join("&")}`;
+  }
+  // Pure: ids must look like keys, each side is capped, an id on both sides stays on "mine", `size` is 2/3/4 (else 2),
+  // km/kt default on. knownKeys (a Set or array of engine keys) drops ids the engine no longer prices and counts them;
+  // without it every well-formed id is kept. Returns {mine, theirs, size, keepMine, keepTheirs, dropped, unknown, both}.
+  function decodeFinderHash(query, knownKeys) {
+    // Accept a bare query ("mine=1"), a "?mine=1" query, or a full fragment ("#find-trade?mine=1").
+    const raw = String(query || "");
+    const params = new URLSearchParams(raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw.replace(/^[#?]+/, ""));
+    const known = knownKeys ? new Set([...knownKeys].map(String)) : null;
+    let dropped = 0;
+    let unknown = 0;
+    const readSide = name => {
+      const out = [];
+      const seen = new Set();
+      String(params.get(name) || "").split(",").map(s => s.trim()).filter(Boolean).forEach(raw => {
+        let id; try { id = decodeURIComponent(raw); } catch (error) { id = raw; }
+        if (!FINDER_ID.test(id)) { dropped += 1; return; }
+        if (seen.has(id)) return;
+        if (known && !known.has(id)) { unknown += 1; return; }
+        if (out.length >= FINDER_MAX_SIDE) { dropped += 1; return; }
+        seen.add(id);
+        out.push(id);
+      });
+      return out;
+    };
+    const mine = readSide("mine");
+    const mineSet = new Set(mine);
+    const theirsAll = readSide("theirs");
+    const both = theirsAll.filter(k => mineSet.has(k));
+    const theirs = theirsAll.filter(k => !mineSet.has(k));
+    const size = Number(params.get("size"));
+    const validMinimum = name => {
+      if (!params.has(name)) return null;
+      const raw = params.get(name);
+      if (!/^(?:\d{1,3})(?:\.\d)?$/.test(raw)) return null;
+      const n = Number(raw);
+      return n <= 100 ? n : null;
+    };
+    const backups = {};
+    (params.get("backups") || "").split(",").forEach(entry => {
+      const match = /^(QB|RB|WR|TE):(\d{1,2})$/.exec(entry);
+      if (match && Number(match[2]) <= 20) backups[match[1]] = Number(match[2]);
+    });
+    return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length,
+      guardrails: {protectedPositions: GUARDRAIL_POSITIONS.filter(pos => (params.get("protect") || "").split(",").includes(pos)), minBackups: backups,
+        minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
+  }
+
+  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -841,16 +967,50 @@
   // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
-const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
-    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
+const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
+    guardrails: {protectedPositions: [], minBackups: {QB: 0, RB: 0, WR: 0, TE: 0}, minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null},
+    sel: new Set(), undo: null, label: {mine: "", theirs: ""},
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set(), viableOnly: false};
   const renders = {};
   // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
   const mineListeners = [];
   // JEG-1021: "my roster" is one list: this card's "Your roster", the league's marked team and the Waivers tab all read and write the
   // workspace store (workspace.js). A change here is pushed to it; a change there (the league page, Waivers, another tab) is pulled in.
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
+  const savedSettings = () => {
+    const W = root.TradeValueWorkspace;
+    return W && W.store ? W.normalizeFinderSettings(W.store.get().ui.finderSettings) : null;
+  };
+  const applySettings = settings => {
+    if (!settings) return;
+    S.maxSize = settings.maxSize;
+    S.keepMine = settings.keepMine;
+    S.keepTheirs = settings.keepTheirs;
+    S.guardrails = {protectedPositions: settings.protectedPositions.slice(), minBackups: {...settings.minBackups}, minDdfEdge: settings.minDdfEdge,
+      minUserLineupGain: settings.minUserLineupGain, minTheirLineupGain: settings.minTheirLineupGain};
+    const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    GUARDRAIL_POSITIONS.forEach(pos => { const box = $(`v2FindProtect${pos}`); if (box) box.checked = S.guardrails.protectedPositions.includes(pos); });
+    GUARDRAIL_POSITIONS.forEach(pos => {
+      const n = S.guardrails.minBackups[pos];
+      const readout = $(`v2FindBackups${pos}`); if (readout) readout.textContent = String(n);
+      const down = $(`v2FindBackups${pos}Down`); if (down) down.disabled = n === 0;
+      const up = $(`v2FindBackups${pos}Up`); if (up) up.disabled = n === 20;
+    });
+    [["minDdfEdge", "v2FindMinEdge"], ["minUserLineupGain", "v2FindMinMine"], ["minTheirLineupGain", "v2FindMinTheirs"]].forEach(([key, id]) => {
+      const input = $(id); if (input) input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+    });
+  };
+  const saveSettings = () => {
+    const W = root.TradeValueWorkspace;
+    if (!W || !W.store) return;
+    const value = W.normalizeFinderSettings({...S.guardrails, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs});
+    W.store.update(w => W.ops.setUi(w, {finderSettings: value}), "finder-settings");
+  };
   const keysOf = list => list.map(p => p.key).join(",");
   let syncing = false;
+  let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
   const pushMine = () => {
     const store = sharedStore();
     if (!store || syncing || keysOf(store.getMyRoster()) === keysOf(S.mine)) return;
@@ -889,8 +1049,53 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       S.sel.clear();
       renderBoth();
       if ($("v2FindOut")) clearOutput();
+      // JEG-894: a search link sets the rosters through here; run the search it asked for now that they are in.
+      if (linkPending) { linkPending = false; if (S.mine.length && S.theirs.length) { if ($("v2FindSummary")) updateSummary(); run(); } }
       return {bothSides: theirs.filter(p => have.has(p.key)).map(p => p.name)};
     }};
+
+  // JEG-894: the finder's own part of a search link. The rosters and the league settings arrive through the shared link
+  // path (ddf-assist.js, which owns #find-trade?mine=..&theirs=..); this sets the package size and the two lineup ticks
+  // and asks for the search to run as soon as setSides has the rosters in.
+  function applyHash(params) {
+    if (!params || location.hash.split("?")[0] !== "#find-trade") return null;
+    if (!params.has("mine") && !params.has("theirs")) return null;
+    const decoded = decodeFinderHash(params.toString(), null);
+    S.maxSize = decoded.size;
+    S.keepMine = decoded.keepMine;
+    S.keepTheirs = decoded.keepTheirs;
+    applySettings(root.TradeValueWorkspace.normalizeFinderSettings({...decoded.guardrails, maxSize: decoded.size,
+      keepMine: decoded.keepMine, keepTheirs: decoded.keepTheirs}));
+    const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    linkPending = true;
+    return decoded;
+  }
+  // The "Copy link to this search" button: both rosters, the package size, the lineup ticks and the league settings.
+  async function copyLink(button) {
+    const note = $("v2FindShareNote");
+    const say = text => { if (note) { note.hidden = false; note.textContent = text; } };
+    const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
+    if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
+    const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails}, league);
+    const ov = root.DDFOverrides;
+    const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
+    const url = location.href.split("#")[0] + shared.hash;
+    say("\u2713 Link copied. It opens this search with both rosters and these trade settings.");
+    if (button) {
+      if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
+      button.textContent = "Copied";
+      clearTimeout(button.copyTimer);
+      button.copyTimer = setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 2000);
+    }
+    if (shared.dropped) say(ov.dropOverridesNote());
+    try { await navigator.clipboard.writeText(url); }
+    catch (error) { say(`Copy this link: ${url}`); }
+  }
+  api.applyHash = applyHash;
+  api.copyLink = copyLink;
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
@@ -925,6 +1130,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function updateArrange() {
     const undo = $("v2FindUndo");
     if (undo) undo.disabled = !S.undo;
+    const clearBothButton = $("v2FindClearBoth");
+    if (clearBothButton) clearBothButton.disabled = !S.mine.length && !S.theirs.length;
     ["mine", "theirs"].forEach(side => {
       const button = $(`v2Find${side[0].toUpperCase()}${side.slice(1)}MoveSel`);
       if (!button) return;
@@ -960,6 +1167,16 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.theirs = S.theirs.filter(p => !set.has(p.key)).concat(toTheirs);
     afterArrange(`Moved ${going.map(p => p.name).join(", ")} to the other team. Undo puts them back.`);
   }
+  // JEG-1190: both rosters at once. Yours is the shared roster, so it clears on League-wide and Waivers too; Undo restores both.
+  function clearBoth() {
+    if (!S.mine.length && !S.theirs.length) return;
+    snapshot();
+    S.mine = [];
+    S.theirs = [];
+    S.src = {mine: null, theirs: null};
+    S.label = {mine: "", theirs: ""};
+    afterArrange("Cleared both rosters. Yours is cleared on every tab too. Undo puts them back.");
+  }
   function undoArrange() {
     if (!S.undo) return;
     S.mine = S.undo.mine;
@@ -968,29 +1185,6 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (S.undo.src) S.src = {...S.undo.src};
     S.undo = null;
     afterArrange("Undone.");
-  }
-
-  // Public league endpoints. Both answer cross-origin requests; a private ESPN league answers 401/403.
-  let sleeperDirectory = null;
-  async function getJson(url, what) {
-    let response;
-    try { response = await root.fetch(url); } catch (error) { throw new Error(`Could not reach ${what}.`); }
-    if (response.status === 401 || response.status === 403) throw new Error(`${what} says that league is private.`);
-    if (response.status === 404) throw new Error(`${what} has no league with that ID.`);
-    if (!response.ok) throw new Error(`${what} answered with an error (${response.status}).`);
-    return response.json();
-  }
-  async function loadSleeper(leagueId) {
-    const base = "https://api.sleeper.app/v1";
-    const [rosters, users] = await Promise.all([getJson(`${base}/league/${leagueId}/rosters`, "Sleeper"), getJson(`${base}/league/${leagueId}/users`, "Sleeper")]);
-    if (!sleeperDirectory) sleeperDirectory = await getJson(`${base}/players/nfl`, "Sleeper");
-    return parseSleeper(rosters, users, sleeperDirectory);
-  }
-  async function loadEspn(leagueId) {
-    const now = new Date();
-    const season = now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
-    const json = await getJson(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&view=mTeam`, "ESPN");
-    return parseEspn(json);
   }
 
   // ---------- JEG-853: a whole page pasted in (Jeremy, 2026-10-22: "control all, copy the whole page, drop the text in") ----------
@@ -1511,47 +1705,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (rest.length) parts.push(`Not matched (${rest.length}): ${rest.slice(0, 8).map(u => u.name).join(", ")}${rest.length > 8 ? ", …" : ""}.`);
       return parts.join(" ");
     }
-    // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
+    // Import: pasted names (JEG-1131: paste is the only league load). Names are matched to the engine's rows.
     function importBox() {
-      const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
-        el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"}),
-        el("option", {value: "paste", text: "Pasted names"}));
-      const leagueId = el("input", {type: "text", id: `${id}League`, placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"});
-      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", hidden: "", "aria-label": "Pasted player names"});
-      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Load teams"});
-      const team = el("select", {id: `${id}Team`, hidden: "", "aria-label": "Team to import"});
-      const use = el("button", {type: "button", class: "v2-btn", id: `${id}Use`, text: "Use this team", hidden: ""});
+      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", "aria-label": "Pasted player names"});
+      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Add players"});
       const status = el("p", {class: "v2-meta", id: `${id}Status`, role: "status"});
-      let teams = [];
-      const say = text => { status.textContent = text; };
-      sel.addEventListener("change", () => {
-        const isPaste = sel.value === "paste";
-        paste.hidden = !isPaste;
-        leagueId.hidden = isPaste;
-        load.textContent = isPaste ? "Add players" : "Load teams";
-        team.hidden = true; use.hidden = true; say("");
-      });
-      load.addEventListener("click", async () => {
-        if (sel.value === "paste") { say(apply(parsePasted(paste.value), "", false)); paste.value = ""; return; }
-        const idText = leagueId.value.trim();
-        if (!/^[A-Za-z0-9_-]+$/.test(idText)) { say("Enter the league ID: the number in your league's web address."); return; }
-        say(sel.value === "sleeper" ? "Loading the league and Sleeper's player names (about 15 MB the first time)…" : "Loading the league…");
-        try {
-          teams = await (sel.value === "sleeper" ? loadSleeper(idText) : loadEspn(idText));
-        } catch (error) {
-          teams = [];
-          say(`${error.message} You can paste the roster instead.`);
-          team.hidden = true; use.hidden = true;
-          return;
-        }
-        team.replaceChildren(...teams.map((t, i) => el("option", {value: String(i), text: `${t.label} (${t.entries.length} players)`})));
-        team.hidden = !teams.length; use.hidden = !teams.length;
-        say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
-      });
-      use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) say(apply(t.entries, t.label, true)); });
-      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
-        el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
-          leagueId, paste, load, team, use, status));
+      load.addEventListener("click", () => { status.textContent = apply(parsePasted(paste.value), "", false); paste.value = ""; });
+      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a list of names"}),
+        el("div", {class: "v2-find-import-body"}, paste, load, status));
     }
     window.TradeValueNameSearch.combobox(input, results);   // JEG-900
     input.addEventListener("input", () => {
@@ -1614,7 +1775,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       rosterGaps(rows, shape).forEach(g => note(`${who} roster has ${g.have} ${g.pos} for ${g.need} starting slot${g.need === 1 ? "" : "s"} in this league.`));
     });
     const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize, limit: 1e7,
+      guardrails: {...S.guardrails, shape, mine: mineRows, theirs: theirRows, chartKeys: charts, ourKey: OUR_KEY},
       sanity: shape ? {shape, mine: mineRows, theirs: theirRows, keepMine: S.keepMine, keepTheirs: S.keepTheirs} : null});
+    if (res.guardrailDropped) note(`${res.guardrailDropped} trade${res.guardrailDropped === 1 ? " was" : "s were"} left out by your protected positions or Advanced minimums.`);
     if (res.sanityDropped) note(`${res.sanityDropped} trade${res.sanityDropped === 1 ? "" : "s"} left out because ${res.sanityDropped === 1 ? "it leaves" : "they leave"} a starting lineup short at a position. Untick the boxes below to see ${res.sanityDropped === 1 ? "it" : "them"}.`);
     // JEG-988: defenses and kickers stay on the rosters and are not evaluated: they are named apart from players who merely lack a value.
     const notEval = S.mine.concat(S.theirs).filter(isNotEvaluated).length;
@@ -1660,14 +1823,36 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : "") + foldNote);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    groups.slice(0, shownCount).forEach(g => list.append(groupCard(g, ctx)));
-    if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
-    out.append(list);
-    if (groups.length > shownCount) {
-      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shownCount, "more group")}`});
-      more.addEventListener("click", () => { groups.slice(shownCount).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
-      out.append(more);
+    // JEG-1043: "Show viable offers only" filters the groups by their best package's viability label (JEG-1108) and
+    // re-lists them; the ranking and the top-10 limit stay as they are.
+    const viabOf = fitCtx ? g => viabilityFor(ctx, fitFor(lineup, fitCtx, g.best.give, g.best.receive), g.best.give, g.best.receive) : null;
+    const tail = el("div", {class: "v2-find-list-tail"});
+    const renderList = () => {
+      const shown = S.viableOnly && viabOf ? viableGroups(groups, viabOf) : groups;
+      const count = Math.min(GROUP_LIMIT, shown.length);
+      list.replaceChildren(...shown.slice(0, count).map(g => groupCard(g, ctx)));
+      const first = list.firstElementChild;
+      if (naturalCount && first && first.dataset.findFit === "natural") { first.id = "v2FindFirstNatural"; first.tabIndex = -1; }
+      tail.replaceChildren();
+      if (!shown.length) {
+        tail.append(el("p", {class: "v2-find-empty", id: "v2FindViableEmpty"}, el("b", {text: "No slam dunks with this team."}),
+          " Your rosters fit a little too well. Try another team, or turn off \u201cShow viable offers only\u201d to see every offer."));
+      } else if (shown.length > count) {
+        const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(shown.length - count, "more group")}`});
+        more.addEventListener("click", () => { shown.slice(count).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+        tail.append(more);
+      }
+    };
+    if (viabOf) {
+      const viableCount = groups.filter(viabOf).length;
+      const box = el("input", {type: "checkbox", id: "v2FindViableOnly"});
+      box.checked = S.viableOnly;
+      box.addEventListener("change", () => { S.viableOnly = box.checked; renderList(); });
+      out.append(el("label", {class: "v2-find-viable-toggle", for: "v2FindViableOnly"}, box,
+        ` Show viable offers only (${viableCount} of ${plural(groups.length, "group")})`));
     }
+    renderList();
+    out.append(list, tail);
   }
 
   // ---------- roster impact on the page (display only) ----------
@@ -1750,6 +1935,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        // JEG-1043: the starters at each position this side gives up, before → after (DDF Value lineup).
+        const given = startersAtGivenPositions(imps.ddf, sideRows(lineup, "ddf", who, giveRows, recvRows).leaving);
+        if (given.length) lines.append(el("p", {class: "v2-meta v2-find-given", "data-line": "given"},
+          `${who === "mine" ? "Your starters at the positions you give up" : "Their starters at the positions they give up"}: ${givenPositionsLine(given)}.`));
         // JEG-1081: the same trade in the other views, one line each for starters and bench (hidden on a phone until expanded).
         const own = sideRows(lineup, "ddf", who, giveRows, recvRows);
         const projImp = hasProjections(own.roster.concat(own.arriving)) ? rosterImpact(own.roster, own.leaving, own.arriving, lineup.shape, PROJECTIONS_KEY) : null;
@@ -1765,6 +1954,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // One group: the player you receive, the best package for him preselected, side players selectable.
   // Each toggle re-judges the package with evaluateCombo, the function the search itself uses.
   const GROUP_LIMIT = 10;
+  // JEG-1108 / JEG-1043: the viability label of one package (null when it is not viable or cannot be judged).
+  function viabilityFor(ctx, fit, giveRows, recvRows) {
+    const lineup = ctx.lineup;
+    const mineAvg = lineup && lineup.mine ? lineup.mine.market || lineup.mine.ddf : null;
+    const theirAvg = lineup && lineup.theirs ? lineup.theirs.market || lineup.theirs.ddf : null;
+    return fit && mineAvg && theirAvg && lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, lineup.shape, ctx.ourKey, ctx.chartKeys || []) : null;
+  }
   const valueText = (row, key) => (finite(row.values[key]) ? row.values[key].toFixed(1) : "no value");
   function groupCard(group, ctx) {
     const ourKey = ctx.ourKey;
@@ -1832,6 +2028,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
       if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
+      if (e.passes.guardrails === false) warn.push("It breaks your protected positions or Advanced minimums.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give, same.throwIns.receive) : [];
       // JEG-1059: the badge that marks a value the reader set, next to the throw-in's DDF Value.
@@ -1872,9 +2069,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         // JEG-1108: viability label alongside fit.
         const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
         const VIAB_LABEL = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
-        const mineAvg = ctx.lineup && ctx.lineup.mine ? ctx.lineup.mine.market || ctx.lineup.mine.ddf : null;
-        const theirAvg = ctx.lineup && ctx.lineup.theirs ? ctx.lineup.theirs.market || ctx.lineup.theirs.ddf : null;
-        const viab = mineAvg && theirAvg && ctx.lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, ctx.lineup.shape, ourKey, ctx.chartKeys || []) : null;
+        const viab = viabilityFor(ctx, fit, giveRows, recvRows);
+        li.dataset.findViable = viab || "";
         const viabSuffix = viab ? ` · ${VIAB_LABEL[viab] || viab}` : "";
         fitLine.replaceChildren(el("b", {text: `${FIT_LABEL[fit.label] || text.slice(0, cut + 1)}${viabSuffix}:`}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
@@ -2051,20 +2247,94 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function build() {
     const host = $("v2FindTrade");
     if (!host || $("v2Find")) return;
-    const size = el("select", {id: "v2FindSize"}, ...MAX_SIZE_CHOICES.map(n => el("option", {value: String(n), text: `Up to ${n}-for-${n}`})));
-    size.addEventListener("change", () => { S.maxSize = Number(size.value); clearOutput(); });
+    const size = el("select", {id: "v2FindSize"}, ...MAX_SIZE_CHOICES.map(n => el("option", {value: String(n), text: n === 1 ? "1-for-1 only" : `Up to ${n}-for-${n}`})));
+    size.value = String(S.maxSize);
+    size.addEventListener("change", () => { S.maxSize = Number(size.value); saveSettings(); clearOutput(); });
     const keep = (id, label, field) => {
       const box = el("input", {type: "checkbox", id});
       box.checked = S[field];
-      box.addEventListener("change", () => { S[field] = box.checked; clearOutput(); });
+      box.addEventListener("change", () => { S[field] = box.checked; saveSettings(); clearOutput(); });
       return el("label", {class: "v2-field"}, box, el("span", {text: ` ${label}`}));
     };
+    const protectedBoxes = GUARDRAIL_POSITIONS.map(pos => {
+      const box = el("input", {type: "checkbox", id: `v2FindProtect${pos}`});
+      box.checked = S.guardrails.protectedPositions.includes(pos);
+      box.addEventListener("change", () => {
+        S.guardrails.protectedPositions = GUARDRAIL_POSITIONS.filter(p => {
+          const input = $(`v2FindProtect${p}`); return input && input.checked;
+        });
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-protect-choice"}, box, el("span", {text: pos}));
+    });
+    const protectedField = el("fieldset", {class: "v2-find-protect"},
+      el("legend", {text: "Protect my starting group at"}),
+      el("p", {class: "v2-meta", text: "Hide trades that weaken your starters at a selected position on DDF Value."}),
+      el("div", {class: "v2-find-protect-choices"}, ...protectedBoxes));
+    const backupRows = GUARDRAIL_POSITIONS.map(pos => {
+      const n = S.guardrails.minBackups[pos];
+      const readout = el("output", {id: `v2FindBackups${pos}`, "aria-live": "polite", text: String(n)});
+      const adjust = (delta, suffix, label) => {
+        const button = el("button", {type: "button", id: `v2FindBackups${pos}${suffix}`, class: "v2-btn", text: delta < 0 ? "−" : "+",
+          "aria-label": `${label} minimum ${pos} bench backups`, disabled: delta < 0 ? n === 0 : n === 20});
+        button.addEventListener("click", () => {
+          S.guardrails.minBackups[pos] = Math.max(0, Math.min(20, S.guardrails.minBackups[pos] + delta));
+          const count = S.guardrails.minBackups[pos];
+          readout.textContent = String(count);
+          $(`v2FindBackups${pos}Down`).disabled = count === 0;
+          $(`v2FindBackups${pos}Up`).disabled = count === 20;
+          saveSettings(); clearOutput();
+        });
+        return button;
+      };
+      return el("div", {class: "v2-find-backup-row"}, el("span", {text: pos}),
+        adjust(-1, "Down", "Decrease"), readout, adjust(1, "Up", "Increase"));
+    });
+    const backupField = el("fieldset", {class: "v2-find-protect v2-find-backups"},
+      el("legend", {text: "Minimum bench backups on my team"}),
+      el("p", {class: "v2-meta", text: "After starters, FLEX and superflex are filled. Current default: 0 at every position. Players without a DDF Value do not count."}),
+      el("div", {class: "v2-find-backup-rows"}, ...backupRows));
+    const advancedStatus = el("p", {class: "v2-meta", id: "v2FindAdvancedStatus", role: "status"});
+    const minimum = (key, id, label) => {
+      const input = el("input", {type: "number", id, min: "0", max: "100", step: "0.1", inputmode: "decimal"});
+      input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+      input.addEventListener("change", () => {
+        const raw = input.value.trim();
+        const valid = (raw === "" && key !== "minDdfEdge") || (/^\d{1,3}(?:\.\d)?$/.test(raw) && Number(raw) <= 100);
+        if (!valid) {
+          advancedStatus.textContent = `${label}: enter 0 to 100, in steps of 0.1.`;
+          input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+          input.focus();
+          return;
+        }
+        S.guardrails[key] = raw === "" ? null : Number(raw);
+        advancedStatus.textContent = "Trade settings saved on this device.";
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-minimum"}, el("span", {text: label}), input);
+    };
+    const advanced = el("details", {class: "v2-find-advanced"}, el("summary", {text: "Advanced trade minimums"}),
+      el("p", {class: "v2-meta", text: "A starting-lineup minimum is off when blank. Setting it to 0 requires a strictly positive gain. Your DDF Value gain must always be positive."}),
+      minimum("minDdfEdge", "v2FindMinEdge", "Minimum DDF Value gain"),
+      minimum("minUserLineupGain", "v2FindMinMine", "Minimum gain for my starting lineup"),
+      minimum("minTheirLineupGain", "v2FindMinTheirs", "Minimum market gain for their starting lineup"), advancedStatus,
+      el("button", {type: "button", class: "v2-btn", id: "v2FindResetSettings", text: "Reset trade settings"}));
+    advanced.querySelector("#v2FindResetSettings").addEventListener("click", () => {
+      applySettings({protectedPositions: [], minBackups: {QB: 0, RB: 0, WR: 0, TE: 0}, maxSize: 2, keepMine: true, keepTheirs: true,
+        minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null});
+      advancedStatus.textContent = "Trade settings reset and saved.";
+      saveSettings(); clearOutput();
+    });
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
     go.addEventListener("click", findPressed);
+    const share = el("button", {type: "button", class: "v2-btn", id: "v2FindShare", text: "Copy link to this search"});
+    share.addEventListener("click", () => copyLink(share));
     const swap = el("button", {type: "button", class: "v2-btn", id: "v2FindSwap", text: "Swap teams"});
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
     undo.addEventListener("click", undoArrange);
+    const clearBothButton = el("button", {type: "button", class: "v2-btn", id: "v2FindClearBoth", text: "Clear both", disabled: ""});
+    clearBothButton.addEventListener("click", clearBoth);
     const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
     edit.addEventListener("click", () => setCollapsed(false, "input"));
     const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
@@ -2076,10 +2346,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
-        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
+        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, clearBothButton, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
-        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
+        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go, share),
+      protectedField, backupField, advanced,
+      el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
       el("p", {class: "v2-meta", id: "v2FindSettingsNote"}),
@@ -2090,9 +2362,16 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
-  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
-  if (sharedStore()) sharedStore().subscribe(pullMine);
-  const start = () => { build(); pullMine(); };
+  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
+  if (sharedStore()) {
+    sharedStore().subscribe(pullMine);
+    sharedStore().onChange((w, change) => {
+      if (!["load", "replace", "other-tab"].includes(change.reason)) return;
+      applySettings(root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings));
+      if ($("v2FindOut")) clearOutput();
+    });
+  }
+  const start = () => { applySettings(savedSettings()); build(); pullMine(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);

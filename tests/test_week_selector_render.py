@@ -5,7 +5,7 @@ the default is the newer week once MORE than half of the league's sources serve 
 a missing source is named and left out (no carry-forward), the reader's pick is kept for the session and
 rides in share links as `wk=`, and the selector goes away once every source has the newer week.
 
-The committed data has every source on week 7. Each scenario serves a history index that puts the lagging
+The committed data has every source on its newest week (derived below). Each scenario serves a history index that puts the lagging
 sources back on week 6 (the engine drops a source whose served week is before the view's week; the BE sentinel,
 tests/test_week_history.py WeekTransitionSentinelTest, pins the value math of a real transition). Coverage is
 sources on week 7 of the 7 that feed DDF Value at Full PPR / 12: 0, 3 (43%), 4 (57%) and 7 (100%).
@@ -25,6 +25,7 @@ import socketserver
 import sys
 import tempfile
 import threading
+import datetime
 import unittest
 from pathlib import Path
 
@@ -36,7 +37,17 @@ from tests import _render_env  # noqa: E402
 from tests.test_week_history import _fixture_today  # noqa: E402
 
 SOURCES = ("espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs")
-NEWER, OLDER = 7, 6
+def _served_newest() -> int:
+    """The newest content week any source serves in the built dist; the test replays a transition into it."""
+    try:
+        index = json.loads((DIST / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+        return max(v["week"] for v in index["served"].values() if isinstance(v.get("week"), int))
+    except (OSError, ValueError, KeyError):
+        return 7
+
+
+NEWER = _served_newest()
+OLDER = NEWER - 1
 # lagging sources (served week 6), expected default week, and whether a selector shows
 SCENARIOS = {
     "0%": {"lagging": SOURCES, "on_newer": 0},
@@ -45,7 +56,7 @@ SCENARIOS = {
     "100%": {"lagging": (), "on_newer": 7},
 }
 NAMES = {"espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball", "cbs": "CBS Sports"}
-THURSDAY = "2026-10-22"  # Thursday of content week 7
+THURSDAY = (datetime.date(2026, 10, 22) + datetime.timedelta(days=7 * (NEWER - 7))).isoformat()  # Thursday of content week NEWER (week 7 = 2026-10-22)
 BEFORE_NOON = f"{THURSDAY}T16:00:00Z"   # 11:00 CDT
 AT_NOON = f"{THURSDAY}T17:00:00Z"       # 12:00 CDT exactly: not yet after noon
 AFTER_NOON = f"{THURSDAY}T18:00:00Z"    # 13:00 CDT
@@ -141,6 +152,13 @@ def open_page(browser, url, width, height, today=None, now=None, errors=None):
     return page
 
 
+def pick_week(page, week):
+    """Choose a week in the selector. Below 768 px the context row is collapsed (JEG-1134), so a reader opens it first."""
+    if not page.is_visible("#v2WeekSelect"):
+        page.click("#v2ContextSummary")
+    page.select_option("#v2WeekSelect", str(week))
+
+
 def launch(playwright):
     from playwright.sync_api import Error as PlaywrightError
     try:
@@ -188,7 +206,7 @@ def check_scenario(browser, base, label, spec, width, height, errors, now=None):
         if "wk=" in s["link"]:
             errors.append(f"{tag}: the default week is in the link: {s['link']!r}")
         # The newer week names every source it lacks and says they are left out, not carried forward.
-        page.select_option("#v2WeekSelect", str(NEWER))
+        pick_week(page, NEWER)
         page.wait_for_timeout(300)
         newer = page.evaluate(PROBE)
         for source in lagging:
@@ -199,7 +217,7 @@ def check_scenario(browser, base, label, spec, width, height, errors, now=None):
         if newer["priced"] < 50:
             errors.append(f"{tag}: Week {NEWER} view priced only {newer['priced']} players (blank values)")
         # The older week has every source and shows no missing-source note.
-        page.select_option("#v2WeekSelect", str(OLDER))
+        pick_week(page, OLDER)
         page.wait_for_timeout(300)
         older = page.evaluate(PROBE)
         if older["engineWeek"] != OLDER or older["priced"] < 50:
@@ -233,7 +251,7 @@ def contributed_week_checks() -> list[str]:
         try:
             with served_dist({"assets/history/index.json": transition_index(spec["lagging"])}) as (base, _dist):
                 page = open_page(browser, base, 1366, 768)
-                page.select_option("#v2WeekSelect", str(OLDER))
+                pick_week(page, OLDER)
                 page.wait_for_timeout(400)
                 older = page.evaluate(CONTRIBUTED)
                 for key in moved:
@@ -244,7 +262,7 @@ def contributed_week_checks() -> list[str]:
                         errors.append(f"{key} should be a source that moved on to Week {NEWER}: {got}")
                     if got["week"] != OLDER:
                         errors.append(f"Week {OLDER} view: {key} is labelled Week {got['week']} (data says {got['served']}), expected Week {OLDER}")
-                page.select_option("#v2WeekSelect", str(NEWER))
+                pick_week(page, NEWER)
                 page.wait_for_timeout(400)
                 for key, got in page.evaluate(CONTRIBUTED).items():
                     if key in moved and got["week"] != NEWER:
@@ -305,7 +323,7 @@ def compare_fit_checks() -> list[str]:
                 with served_dist(overrides) as (base, _dist):
                     page = open_page(browser, base + "#compare-trade", 1366, 768)
                     page.wait_for_function("() => window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=30000)
-                    page.click("#v2CUseExample")
+                    page.click("#v2CTryExample")
                     page.wait_for_timeout(500)
                     seen[label] = page.evaluate(COMPARE_FIT)
                     page.close()
@@ -334,8 +352,8 @@ def link_round_trip() -> list[str]:
             overrides = {"assets/history/index.json": transition_index(spec["lagging"])}
             with served_dist(overrides) as (base, _dist):
                 page = open_page(browser, base + "#compare-trade", 1366, 768)
-                page.click("#v2CUseExample")
-                page.select_option("#v2WeekSelect", str(OLDER))
+                page.click("#v2CTryExample")
+                pick_week(page, OLDER)
                 page.wait_for_timeout(500)
                 link = page.evaluate("() => location.href")
                 if f"wk={OLDER}" not in link:
@@ -366,7 +384,7 @@ def link_round_trip() -> list[str]:
                 if got["priced"] < 50:
                     errors.append(f"the opened link priced only {got['priced']} players")
                 # Picking the default week again takes wk= back out of the link.
-                fresh.select_option("#v2WeekSelect", str(NEWER))
+                pick_week(fresh, NEWER)
                 fresh.wait_for_timeout(500)
                 if "wk=" in fresh.evaluate("() => location.hash"):
                     errors.append("the default week is still in the link after picking it again")

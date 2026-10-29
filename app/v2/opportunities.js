@@ -37,9 +37,13 @@
   }
   function theirFitOf(fit) {
     const them = fit.them;
-    if (fit.marketSupported) return {label: "favorable", detail: "trade charts favor them"};
-    if (them.net >= -them.tau) return {label: "neutral", detail: "within noise floor"};
-    return {label: "hurts", detail: "loses value on trade charts"};
+    const label = fit.marketSupported ? "favorable" : them.net >= -them.tau ? "neutral" : "hurts";
+    const total = finite(them.totalDelta) ? them.totalDelta : null;
+    const starters = total !== null && finite(them.starterDelta) ? them.starterDelta : null;
+    const construction = fit.theirConstruction || null;
+    const constructionText = construction ? construction.ok ? "OK" : (construction.issues || []).join("; ") || "issue" : "not judged";
+    return {label, totalDelta: total, starterDelta: starters, construction,
+      detail: `market total ${total === null ? "unavailable" : fmt(total)}; market starters ${starters === null ? "unavailable" : fmt(starters)}; roster construction ${constructionText}`};
   }
   // JEG-1108: the overall fit now comes straight from tradeFit's label. The overallFit function bridges older callers.
   function overallFit(ourLabel, marketOk, chartEdge, theirLabel, fit) {
@@ -112,7 +116,8 @@
       const core = F.coreOf(t.receive, OUR_KEY);
       return {id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null,
+        addedThrowIns: t.addedThrowIns || null, unbalanced: Boolean(t.unbalanced), size: t.give.length + t.receive.length};
     });
     return {opponentId: opp.id, rows, total: res.total, partial, evaluated: theirRows.length, searched: {mine: res.mine, theirs: res.theirs}, sanityDropped: res.sanityDropped};
   }
@@ -125,6 +130,27 @@
   // Rank is the position in that order: 1..N, no gaps, no repeats.
   function rankRows(rows) {
     return rows.slice().sort(compareRows).map((row, i) => ({...row, rank: i + 1}));
+  }
+
+  // JEG-885 (Jeremy, 2026-10-25, option B): the list shows at most CAP_PER_CORE rows for one received core player; the rest
+  // fold under a "N more for <player>" control that expands in place (league.js draws it). Selection only: keyFn(row) is the
+  // received core player's key, the order is the ranking order the caller passes in, and every value on a row is untouched.
+  const CAP_PER_CORE = 2;
+  // rows -> {list (at most n per key, in the order given), folds (key -> the rows beyond the cap, in the order given)}.
+  function capPerCore(rows, keyFn, n) {
+    const limit = Math.max(1, n || 1);
+    const seen = new Map();
+    const list = [];
+    const folds = new Map();
+    rows.forEach(row => {
+      const key = String(keyFn(row));
+      const used = seen.get(key) || 0;
+      seen.set(key, used + 1);
+      if (used < limit) { list.push(row); return; }
+      if (!folds.has(key)) folds.set(key, []);
+      folds.get(key).push(row);
+    });
+    return {list, folds};
   }
 
   // ---------- all pairings: cached, chunked ----------
@@ -223,7 +249,7 @@
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, CAP_PER_CORE, capPerCore, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;

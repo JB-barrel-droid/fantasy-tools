@@ -110,6 +110,20 @@ t("test_team_reorder", () => {
   assert.strictEqual(W.ops.moveTeam(ws, ws.teams[0].id, -1), ws, "first team cannot move up");
   assert.strictEqual(W.ops.moveTeam(ws, ws.teams[2].id, 1), ws, "last team cannot move down");
 });
+// JEG-1190: Clear league drops every team and the mark, and keeps the league's settings and name.
+t("test_clear_league", () => {
+  let ws = W.ops.rename(W.newWorkspace(), "Sunday league");
+  ["A", "B"].forEach(n => { ws = W.ops.addTeam(ws, n, {entries: [{key: "1", name: "X", pos: "WR"}]}); });
+  ws = W.ops.setSettings(W.ops.setMyTeam(ws, ws.teams[0].id), {teams: 12});
+  const cleared = W.ops.clearLeague(ws);
+  assert.deepStrictEqual(cleared.teams, []);
+  assert.strictEqual(cleared.myTeamId, null, "clearing the league clears the mark");
+  assert.deepStrictEqual(cleared.settings, {teams: 12});
+  assert.strictEqual(cleared.name, "Sunday league");
+  assert.strictEqual(ws.teams.length, 2, "the old workspace is untouched, so Undo can put it back");
+  const empty = W.newWorkspace();
+  assert.strictEqual(W.ops.clearLeague(empty), empty, "an empty league is returned as is");
+});
 t("test_share_link_encode", () => {
   const f = fx("20team");
   const ws = teamsOf(f).slice(0, 12).reduce((w, team, i) => W.ops.addTeam(w, team.name, {entries: team.entries.slice(0, 15)}), W.newWorkspace());
@@ -490,6 +504,37 @@ t("test_opportunities_tier_before_edge", () => {
   const out = O.rankRows([mk("a", "force", 20), mk("b", "natural", 1), mk("c", "market", 9), mk("d", "market", 3), mk("e", "natural", 4)]);
   assert.deepStrictEqual(out.map(r => r.id), ["e", "b", "c", "d", "a"]);
   assert.deepStrictEqual(out.map(r => r.rank), [1, 2, 3, 4, 5]);
+});
+// ---------- JEG-885: at most CAP_PER_CORE rows for one received core player, the rest folded ----------
+t("test_opportunities_cap_per_core", () => {
+  const rows = [{key: "a", core: {player_key: "A"}}, {key: "b", core: {player_key: "A"}}, {key: "c", core: {player_key: "A"}},
+    {key: "d", core: {player_key: "A"}}, {key: "e", core: {player_key: "B"}}];
+  const out = O.capPerCore(rows, r => r.core.player_key, O.CAP_PER_CORE);
+  assert.strictEqual(O.CAP_PER_CORE, 2);
+  assert.deepStrictEqual(out.list.map(r => r.key), ["a", "b", "e"], "at most two rows per received core player, in the order given");
+  assert.deepStrictEqual([...out.folds].map(([k, v]) => [k, v.map(r => r.key)]), [["A", ["c", "d"]]], "the rest fold under the core player");
+  // Selection only: the very same row objects, in the very same order, and a core with no overflow has no fold.
+  assert.strictEqual(out.list[0], rows[0]);
+  assert.strictEqual(out.list[2], rows[4]);
+  assert.strictEqual(out.folds.has("B"), false, "a core with rows under the cap has no fold");
+  // A core with exactly the cap keeps both rows and folds nothing.
+  const exact = O.capPerCore(rows.slice(0, 2), r => r.core.player_key, 2);
+  assert.deepStrictEqual(exact.list.map(r => r.key), ["a", "b"]);
+  assert.strictEqual(exact.folds.size, 0);
+  // The key is matched as a string: 7 and "7" are the same core player.
+  const mixed = O.capPerCore([{core: {player_key: 7}}, {core: {player_key: "7"}}, {core: {player_key: 7}}], r => r.core.player_key, 2);
+  assert.deepStrictEqual(mixed.list.map(r => r.core.player_key), [7, "7"]);
+  assert.strictEqual(mixed.folds.get("7").length, 1);
+});
+t("test_opportunities_cap_on_a_fixture", async () => {
+  const d = await opportunityRows("2team");
+  const key = r => r.core.player_key;
+  assert.ok(new Set(d.rows.map(key)).size === 1, "the 2-team fixture receives one core player in every row");
+  assert.ok(d.rows.length >= 4, `the core player has 4 or more rows (${d.rows.length})`);
+  const out = O.capPerCore(d.rows, key, O.CAP_PER_CORE);
+  assert.strictEqual(out.list.length, 2, "two rows stay visible");
+  assert.strictEqual(out.folds.get(String(d.rows[0].core.player_key)).length, d.rows.length - 2, "the rest fold under that player");
+  assert.deepStrictEqual(out.list.map(r => r.id), d.rows.slice(0, 2).map(r => r.id), "the two best stay, in rank order");
 });
 t("test_opportunities_1_opponent", async () => {
   const d = await opportunityRows("2team");
