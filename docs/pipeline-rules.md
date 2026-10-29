@@ -158,6 +158,15 @@ See also: `docs/modular-pipeline.md` for the four-stage flow these rules guard.
   exclusion (`tests/test_ros_rankings.py` pins both). Any use of them in DDF
   Value or DDF Projections is a separate decision for Jeremy. Section 6 still
   applies to anything shown publicly.
+- Rest-of-season only (Jeremy 2026-10-29: "do not blend weekly data with ROS
+  data, ever"): `public.ros_rankings` holds rest-of-season lists only. A
+  weekly ranking never goes in it, and no study or stage averages a weekly
+  list with a ROS list. The expert-list parser refuses any page whose title
+  is not a rest-of-season list.
+- Double count: the expert consensus (`fantasypros_ros_ecr`) averages a
+  subset of the experts' own lists (`fantasypros_expert_ros`). Use one or the
+  other, never both averaged together, and never stack the consensus's
+  positional pages on its overall pages (they are the same consensus).
 
 ### 7a. Week versioning: multiple immutable bakes per week (Jeremy 2026-10-02)
 

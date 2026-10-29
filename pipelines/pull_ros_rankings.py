@@ -6,14 +6,25 @@ and other yahoo analysts, the rankings from espn analysts ... start with 4-5 sou
 through supabase". These are RANKINGS for research and review. They never feed DDF Value or
 DDF Projections (docs/pipeline-rules.md section 7; tests/test_ros_rankings.py).
 
+Jeremy, 2026-10-29, on reaching 4-5: "try fantasylife, footballguys, rotoballer, roto street
+journal, and multiple cuts of the fantasypros data". And, standing: "do not blend weekly data
+with ROS data, ever". Every source here is a rest-of-season list; a page that is not one
+(title, ecrData type) fails closed, and no weekly ranking is ever stored in this table.
+
 Sources that read cleanly from a GitHub runner without a sign-in (probe runs 2026-10-29):
 
-  fantasypros_ros_ecr   the public ROS expert-consensus page. Start page
-                        https://www.fantasypros.com/nfl/rankings/?type=ros links one ROS page
-                        (Half PPR overall); the full list is the page's embedded `ecrData`
-                        JSON (400 players, QB/RB/WR/TE/K/DST, positional rank, min/max/avg/std,
-                        expert count, `last_updated_ts`). Only the scorings the start page links
-                        are pulled; addresses are never guessed.
+  fantasypros_ros_ecr   the public ROS expert-consensus pages, one per scoring. Start page
+                        https://www.fantasypros.com/nfl/rankings/?type=ros links the Half PPR
+                        overall page, which names the PPR and Standard overall pages; each
+                        carries its full list as embedded `ecrData` JSON (~400 players,
+                        positional rank, min/max/avg/std, expert count, `last_updated_ts`).
+                        Positional pages are the same consensus cut by position: not pulled.
+  fantasypros_expert_ros each expert's own ROS list that the consensus start page links in its
+                        expert table (about 20 experts, among them Roto Street Journal's "Wolf
+                        of Roto Street"), in Half PPR, PPR and Standard, the scorings the page
+                        offers. Vintage is the table's "Updated" date for that expert. DOUBLE
+                        COUNT: the consensus averages a subset of these lists, so a study uses
+                        the consensus or the expert lists, never both averaged together.
   yahoo_pianowski_ros   Scott Pianowski's Yahoo "rest-of-season rankings: <POS> Tiers" articles,
                         one position per article on a rotating week. Discovered from his author
                         page plus the seed articles below; the newest article per position wins.
@@ -27,6 +38,14 @@ Not pulled (named in the snapshot's `unavailable` list so the gap stays visible)
                         loads by embed; his author page lists weekly "Blueprint" articles only).
   usat_ros_overall      the USA Today ROS table is its trade chart re-sorted (same numbers), and
                         that chart is already a DDF Value input: storing it here would double count.
+  fantasylife_ros       the ROS page ships an empty table and fills it in the browser behind a
+                        sign-in wall; nothing readable without signing in.
+  footballguys_ros      Dave Kluge's weekly ROS article shows QBs only; the rest needs a free
+                        account sign-up, which this feed never does.
+  rotoballer_ros        the ROS page carries no ranking list; its ranking widget is not a ROS list.
+  rsj_ros_article       Roto Street Journal's own site answers a runner with a bot check, and its
+                        ROS articles are images; its ROS list is read through the consensus
+                        site's expert table instead (fantasypros_expert_ros).
 
 Output: <out-dir>/snapshot.json
   {"schema": "ros-rankings-snapshot-v1", "fetched_at", "sources": {src: {url(s), vintage,
@@ -43,7 +62,7 @@ A source that fails is reported and the others still save only when --allow-part
 passed; by default any source failure fails the run.
 Identity (player_key) is resolved by the saver through lib/canonical_players, never here.
 DATING: source_vintage is the source's own stamp (ecrData last_updated_ts; the article's
-datePublished), never the run date.
+datePublished; the expert table's Updated date), never the run date.
 """
 from __future__ import annotations
 
@@ -53,7 +72,8 @@ import json
 import re
 import subprocess
 import sys
-from datetime import datetime, timezone
+import time
+from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
@@ -71,6 +91,14 @@ FP_START = "https://www.fantasypros.com/nfl/rankings/?type=ros"
 FP_LINK_RE = re.compile(r"^/nfl/rankings/ros-[a-z-]+\.php$")
 FP_SCORING = {"HALF": "half_ppr", "PPR": "ppr", "STD": "standard"}
 FP_FLOORS = {"QB": 30, "RB": 60, "WR": 80, "TE": 30}
+FP_CUTS_RE = re.compile(r"\bros-(?:half-point-ppr-|ppr-)?overall\.php\b")  # overall page per scoring
+FP_EXPERT_RE = re.compile(r"^/nfl/rankings/[a-z0-9-]+\.php$")
+FP_EXPERT_TITLE = {"HALF": re.compile(r"\bHalf PPR Rankings\b", re.I),
+                   "PPR": re.compile(r"(?<!Half )\bPPR Rankings\b", re.I),
+                   "STD": re.compile(r"Fantasy Football Rankings\b", re.I)}
+EXPERT_FLOORS = {"QB": 20, "RB": 40, "WR": 50, "TE": 20}
+EXPERT_DELAY_S = 0.5  # between expert pages, to read the site gently
+EXPERT_STALE_DAYS = 14  # an expert list older than this is kept but labelled stale
 
 YAHOO_AUTHOR = "https://sports.yahoo.com/author/scott-pianowski/"
 # Articles a web search returned on 2026-10-29; discovery adds newer ones from the author page.
@@ -92,6 +120,11 @@ UNAVAILABLE = [
     {"source": "espn_ros_article", "reason": "ESPN's ROS article answers a runner with HTTP 202 and an empty body; not read any other way"},
     {"source": "hayden_winks_ros", "reason": "no Hayden Winks rest-of-season ranking page found; his Yahoo pages are preseason or weekly"},
     {"source": "usat_ros_overall", "reason": "USA Today's ROS table repeats its trade chart, already a DDF Value input (double count)"},
+    {"source": "fantasylife_ros", "reason": "Fantasy Life's ROS table is empty in the page and fills only behind a sign-in wall"},
+    {"source": "footballguys_ros", "reason": "Footballguys shows only its QB ROS list without an account; RB/WR/TE need a sign-up"},
+    {"source": "rotoballer_ros", "reason": "RotoBaller's ROS page holds no list; its ranking widget serves draft-style data, not ROS"},
+    {"source": "rsj_ros_article", "reason": "Roto Street Journal's site refuses a runner and posts its ROS lists as images; "
+                                            "its list is read instead from the expert table (Wolf of Roto Street)"},
 ]
 
 
@@ -179,7 +212,7 @@ def parse_ecr_page(page: str, url: str) -> dict:
                            "player_name": name, "pos": pos, "pos_rank": p.get("pos_rank")})
             continue
         rows.append({
-            "source": "fantasypros_ros_ecr", "analyst": f"consensus of {experts} experts",
+            "source": "fantasypros_ros_ecr", "analyst": "expert consensus",
             "scoring": scoring, "pos": pos, "player_name": name,
             "team": str(p.get("player_team_id") or "").strip() or None,
             "pos_rank": int(pm.group(2)), "overall_rank": _num(p.get("rank_ecr")),
@@ -202,10 +235,107 @@ def pull_ecr(fetcher=fetch) -> dict:
     links = same_site_links(start, FP_START, FP_LINK_RE)
     if not links:
         raise PullError(f"{FP_START}: links no ROS rankings page", "SOURCE_LAYOUT")
-    pages = [parse_ecr_page(get_page(u, fetcher), u) for u in links]
+    first = get_page(links[0], fetcher)
+    # The linked overall page names the other scorings' overall pages; follow only those names.
+    for name in sorted(set(FP_CUTS_RE.findall(first))):
+        u = f"https://www.fantasypros.com/nfl/rankings/{name}"
+        if u not in links:
+            links.append(u)
+    pages = [parse_ecr_page(first if u == links[0] else get_page(u, fetcher), u) for u in links]
+    got = sorted(pg["scoring"] for pg in pages)
+    if len(set(got)) != len(got):
+        raise PullError(f"expert consensus: two pages share a scoring {got}", "SOURCE_LAYOUT")
     return {"pages": [{k: v for k, v in pg.items() if k not in ("rows", "review_rows")} for pg in pages],
             "rows": [r for pg in pages for r in pg["rows"]],
             "review_rows": [r for pg in pages for r in pg["review_rows"]]}
+
+
+# --- each expert's own ROS list ------------------------------------------------------------
+
+def expert_table(start: str) -> list[dict]:
+    """The start page's expert table: name (site), their ROS list link, Updated date."""
+    out = []
+    for row in re.findall(r"<tr\b.*?</tr>", start, re.S | re.I):
+        hrefs = [htmllib.unescape(h) for h in re.findall(r'href="([^"]+)"', row)]
+        link = next((h for h in hrefs if "type=ros" in h and FP_EXPERT_RE.match(urlparse(h).path)), None)
+        dm = re.search(r"\b(\d{2})/(\d{2})/(\d{4})\b", _text(row))
+        nm = re.match(r"^(.+?\(.+?\))", _text(row))
+        if link and dm and nm:
+            out.append({"analyst": nm.group(1).strip(),
+                        "path": urlparse(link).path,
+                        "vintage": date(int(dm.group(3)), int(dm.group(1)), int(dm.group(2))).isoformat()})
+    return out
+
+
+def parse_expert_page(page: str, url: str, analyst: str, vintage: str, code: str) -> dict:
+    """One expert's ROS list in one scoring. rows is empty when the site says it is not available."""
+    title = re.search(r"<title[^>]*>(.*?)</title>", page, re.S | re.I)
+    t = _text(title.group(1)) if title else ""
+    if "Rest of Season" not in t or not FP_EXPERT_TITLE[code].search(t):
+        raise PullError(f"{url}: title {t[:90]!r} is not a {code} rest-of-season list", "SOURCE_LAYOUT")
+    vint = date.fromisoformat(vintage)
+    season = vint.year if vint.month >= 8 else vint.year - 1
+    if not re.search(rf"\b{season}\b", t):
+        raise PullError(f"{url}: title is not the {season} season", "SOURCE_LAYOUT")
+    tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
+    rows, review = [], []
+    for tr in re.findall(r"<tr\b.*?</tr>", tables[0], re.S | re.I) if tables else []:
+        tds = re.findall(r"<td\b[^>]*>(.*?)</td", tr, re.S | re.I)
+        if len(tds) < 4:
+            continue
+        nm = re.search(r'fp-player-name="([^"]+)"', tr)
+        rank, pm = _text(tds[0]), re.match(r"^([A-Z]+)(\d+)$", _text(tds[2]))
+        if not nm or not rank.isdigit() or not pm:
+            review.append({"source": "fantasypros_expert_ros", "reason": "bad_row", "analyst": analyst,
+                           "player_name": _text(tds[1])[:60]})
+            continue
+        if pm.group(1) not in POSITIONS:
+            continue
+        rows.append({
+            "source": "fantasypros_expert_ros", "analyst": analyst, "scoring": FP_SCORING[code],
+            "pos": pm.group(1), "player_name": htmllib.unescape(nm.group(1)).strip(),
+            "team": _text(tds[3]) or None, "pos_rank": int(pm.group(2)), "overall_rank": float(rank),
+            "source_value": None, "tier": None, "rank_min": None, "rank_max": None, "rank_avg": None,
+            "rank_std": None, "experts": 1, "source_vintage": vintage, "source_url": url,
+        })
+    if not rows and "not available" not in _text(page).lower():
+        raise PullError(f"{url}: no ranking rows", "SOURCE_LAYOUT")
+    return {"url": url, "scoring": FP_SCORING[code], "analyst": analyst, "vintage": vintage,
+            "rows": rows, "review_rows": review}
+
+
+def pull_experts(fetcher=fetch, delay: float | None = None) -> dict:
+    start = get_page(FP_START, fetcher)
+    experts = expert_table(start)
+    if not experts:
+        raise PullError(f"{FP_START}: no expert ROS lists linked", "SOURCE_LAYOUT")
+    delay = EXPERT_DELAY_S if delay is None and fetcher is fetch else (delay or 0)
+    pages, rows, review = [], [], []
+    for ex in experts:
+        for code in FP_SCORING:
+            url = f"https://www.fantasypros.com{ex['path']}?type=ros&scoring={code}"
+            if delay:
+                time.sleep(delay)
+            try:
+                pg = parse_expert_page(get_page(url, fetcher), url, ex["analyst"], ex["vintage"], code)
+            except PullError as e:  # one expert's page does not sink the others
+                review.append({"source": "fantasypros_expert_ros", "reason": e.code, "analyst": ex["analyst"],
+                               "scoring": FP_SCORING[code], "error": str(e)[:160]})
+                continue
+            counts = {p: sum(1 for r in pg["rows"] if r["pos"] == p) for p in POSITIONS}
+            short = [p for p in POSITIONS if counts[p] < EXPERT_FLOORS[p]]
+            if not pg["rows"] or short:
+                review.append({"source": "fantasypros_expert_ros", "reason": "list_short_or_unavailable",
+                               "analyst": ex["analyst"], "scoring": FP_SCORING[code], "counts": counts})
+                continue
+            age = (datetime.now(CT).date() - date.fromisoformat(ex["vintage"])).days
+            pages.append({k: v for k, v in pg.items() if k not in ("rows", "review_rows")}
+                         | {"counts": counts, "age_days": age, "stale": age > EXPERT_STALE_DAYS})
+            rows += pg["rows"]
+            review += pg["review_rows"]
+    if not rows:
+        raise PullError("expert lists: none read in full", "SOURCE_TRUNCATED")
+    return {"pages": pages, "rows": rows, "review_rows": review}
 
 
 # --- Yahoo, Scott Pianowski ---------------------------------------------------------------
@@ -290,7 +420,8 @@ def pull_pianowski(fetcher=fetch) -> dict:
             "rows": [r for p in POSITIONS for r in newest[p]["rows"]], "review_rows": []}
 
 
-PULLERS = {"fantasypros_ros_ecr": pull_ecr, "yahoo_pianowski_ros": pull_pianowski}
+PULLERS = {"fantasypros_ros_ecr": pull_ecr, "fantasypros_expert_ros": pull_experts,
+           "yahoo_pianowski_ros": pull_pianowski}
 
 
 def build_snapshot(sources, fetcher=fetch, allow_partial=False) -> dict:
@@ -334,20 +465,22 @@ def main(argv=None) -> int:
     (args.out_dir / "snapshot.json").write_text(json.dumps(snap, indent=1), encoding="utf-8")
     for src, meta in snap["sources"].items():
         for pg in meta["pages"]:
-            print(f"ros {src} {pg.get('pos') or pg.get('scoring')} vintage {pg['vintage']} "
+            print(f"ros {src} {pg.get('analyst') or ''} {pg.get('pos') or pg.get('scoring')} vintage {pg['vintage']} "
                   f"tiers={pg.get('tiers')} experts={pg.get('experts')} {pg['url']}")
     for src in snap["sources"]:
         for r in [x for x in snap["rows"] if x["source"] == src][:3]:
             print(f"  sample {src}: {r['pos']}{r['pos_rank']} {r['player_name']} value={r['source_value']} tier={r['tier']}")
-        print(f"ros {src}: {meta['row_count']} rows")
+        print(f"ros {src}: {snap['sources'][src]['row_count']} rows")
     if args.print_lists:  # one compact line per source/scoring/position, for review in the run log
         groups: dict[tuple, list[str]] = {}
         for r in snap["rows"]:
-            groups.setdefault((r["source"], r["scoring"], r["pos"], r["source_vintage"]), []).append(
+            groups.setdefault((r["source"], r["analyst"], r["scoring"], r["pos"], r["source_vintage"]), []).append(
                 f"{r['pos_rank']}:{r['player_name']}:{'' if r['source_value'] is None else r['source_value']:}"
                 f":{'' if r['tier'] is None else r['tier']}")
         for k, items in groups.items():
             print("ROSLIST|" + "|".join(k) + "|" + ";".join(items))
+    for r in snap["review_rows"][:40]:
+        print(f"  review: {json.dumps(r)[:220]}")
     print(f"ros rankings: {snap['row_count']} rows, {len(snap['review_rows'])} review, "
           f"{len(snap['unavailable'])} sources unavailable")
     return 0

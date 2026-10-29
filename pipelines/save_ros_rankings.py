@@ -11,7 +11,11 @@ applied, run with --dry-run only.
 Rankings only: nothing here feeds DDF Value or DDF Projections, and the trade-value
 importer never reads this table (tests/test_ros_rankings.py).
 
-Grain (upsert key): (source, scoring, pos, player_key, source_vintage). Idempotent.
+Grain (upsert key): (source, analyst, scoring, pos, player_key, source_vintage). Idempotent.
+The analyst is part of the key because fantasypros_expert_ros carries one list per expert.
+
+ROS only (Jeremy, 2026-10-29: "do not blend weekly data with ROS data, ever"): every
+source here is a rest-of-season list; no weekly ranking is ever saved into this table.
 
 Identity (fail closed): numeric player_key only, through lib/canonical_players (the one
 name rule, curated nicknames, verified aliases, position check). Unmatched, ambiguous or
@@ -35,8 +39,8 @@ import canonical_players  # noqa: E402 -- the one name -> player_key rule (JEG-4
 from nfl_week import current_nfl_week  # noqa: E402
 
 TABLE = "ros_rankings"
-CONFLICT = "source,scoring,pos,player_key,source_vintage"
-SOURCES = {"fantasypros_ros_ecr", "yahoo_pianowski_ros"}
+CONFLICT = "source,analyst,scoring,pos,player_key,source_vintage"
+SOURCES = {"fantasypros_ros_ecr", "fantasypros_expert_ros", "yahoo_pianowski_ros"}
 COLUMNS = ("source", "analyst", "scoring", "pos", "player_name", "team", "pos_rank", "overall_rank",
            "source_value", "tier", "rank_min", "rank_max", "rank_avg", "rank_std", "experts",
            "source_vintage", "source_url")
@@ -98,6 +102,8 @@ def build_rows(snap: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[st
     for row in rows:
         if row.get("source") not in SOURCES:
             raise SystemExit(f"Fail closed: unknown source {row.get('source')!r} in snapshot.")
+        if not str(row.get("analyst") or "").strip():
+            raise SystemExit(f"Fail closed: {row['source']} row without an analyst.")
         name, pos = str(row.get("player_name") or "").strip(), str(row.get("pos") or "").upper()
         key, reason = canonical_players.resolve_with_reason(name, position=pos or None, registry=registry)
         if key is None:
@@ -114,7 +120,7 @@ def build_rows(snap: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[st
     # Two printed names can resolve to one player_key: keep the better (lower) rank, flag it.
     best: dict[tuple, dict[str, Any]] = {}
     for r in clean:
-        ck = (r["source"], r["scoring"], r["pos"], r["player_key"], r["source_vintage"])
+        ck = (r["source"], r["analyst"], r["scoring"], r["pos"], r["player_key"], r["source_vintage"])
         if ck in best:
             review.append({"source": r["source"], "reason": "duplicate_player_key",
                            "player_name": r["player_name"], "pos": r["pos"],
@@ -133,11 +139,13 @@ def main(argv=None) -> int:
     snap = json.loads(args.snapshot.read_text(encoding="utf-8"))
     clean, review = build_rows(snap)
     by: dict[tuple, int] = {}
+    lists: dict[tuple, set] = {}
     for r in clean:
-        by[(r["source"], r["scoring"], r["pos"], r["source_vintage"])] = by.get(
-            (r["source"], r["scoring"], r["pos"], r["source_vintage"]), 0) + 1
+        k = (r["source"], r["scoring"], r["pos"])
+        by[k] = by.get(k, 0) + 1
+        lists.setdefault(k, set()).add(r["analyst"])
     for k in sorted(by):
-        print(f"ros {k[0]} {k[1]} {k[2]} vintage {k[3]}: {by[k]} rows")
+        print(f"ros {k[0]} {k[1]} {k[2]}: {by[k]} rows from {len(lists[k])} list(s)")
     print(f"ros rankings: {len(clean)} clean rows, {len(review)} review rows")
     for r in review[:15]:
         print(f"  review: {r.get('source')} {r.get('reason')}: {r.get('player_name')} ({r.get('pos')})")
