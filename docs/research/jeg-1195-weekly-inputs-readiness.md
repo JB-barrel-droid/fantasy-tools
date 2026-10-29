@@ -184,6 +184,26 @@ Churn only read it.
   lines come from `pipelines/lib/roster_convention.py` `waiver_line()` (l.165),
   per `AGENTS.md` l.268 (JEG-556), not from a ported boundary.
 
+### Standing rule: weekly and ROS never blend
+
+Jeremy, 2026-10-29 02:11 UTC: "do not blend weekly data with ROS data, ever".
+
+- The weekly-input artifact holds weekly sources only (weekly start
+  projections, weekly lines, this week's status). No ROS field, ROS ranking or
+  ROS-derived value enters it, and no weekly number is filled, shaded or
+  scaled from a ROS one.
+- Versus Vegas compares weekly against weekly only.
+- Old code that breaks the rule and must not be ported:
+  `game_day.py` `load_espn_ros` used ESPN ROS as the expert leg of a weekly
+  comparison (`95d6aa12`, JEG-418), and the waiver Monday legs mixed a ROS
+  prior with weekly form (`impute_monday_tv.py`: `new_pg = prior + (form −
+  prior)/9`; `waiver_boundary.py` `price_vector()` adds weekly-driven change to
+  the ROS chart base).
+- The waiver board (JEG-1196) prices on ROS values from `players.json`. Any
+  weekly signal it shows sits beside those values as its own column, never
+  combined into them. How the board uses weekly signals is a design question
+  for Jeremy before W3.
+
 ## 6. Slices, readiness and file ownership
 
 | Slice | What | Files (new unless noted) | Depends on | Ready? |
@@ -196,7 +216,7 @@ Churn only read it.
 | S5 | Versus Vegas page with URL-persisted scoring/position filters | `app/` (replaces `weekly_vegas/dashboard/index.html`; updates `tests/test_launch_front_door.py` l.59/409 and `tests/test_launch_qa_surfaces.py` l.18) | S4, design direction (JEG-1209 pending) | Blocked |
 | W1 | Availability input (roster%) | `producers/` | Decision 3 | Blocked |
 | W2 | Option-value layer | — | Scorer source from the old workspace, or a decision to drop it | Blocked |
-| W3 | Waiver board on the shared contract and the one waiver line | `pipelines/` | S2, W1, W2 | Blocked |
+| W3 | Waiver board on the shared contract and the one waiver line | `pipelines/` | S2, W1, W2, the weekly/ROS rule above | Blocked |
 
 No slice touches Codex-owned work (#1069, #1071, #1072, visual redesign,
 Natural fit, JEG-1217, JEG-1220).
