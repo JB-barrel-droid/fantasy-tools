@@ -617,6 +617,7 @@ test-core:
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
 	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
@@ -744,6 +745,7 @@ test-core-shard-3:
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
 	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -836,6 +838,8 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
 	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
@@ -924,6 +928,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_override_adjustments_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
