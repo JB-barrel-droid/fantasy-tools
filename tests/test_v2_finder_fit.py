@@ -10,8 +10,8 @@ smallest change the page shows (JEG-1187; not the noise floor). Independent of t
 Force fit = everything else. Value fit is RETIRED.
 
 JEG-1324 (Natural fit 1a, Jeremy 2026-10-29): Natural also needs both teams' DDF Value (projections) not to decline. A
-fall under 0.05 (shown as 0.0) holds (D2 pick A). A trade with a moving player that has no DDF Value (projections) is
-not judged on projections and is not Natural (missing-projection pick A). The natural cases below price the moving
+fall under 0.05 (shown as 0.0) holds (Jeremy, 2026-10-29, D2 "A"). A trade with a moving player that has no DDF Value
+(projections) is not judged on projections and is not Natural (Jeremy, 2026-10-29, "A"). The natural cases below price the moving
 players' projections level, so they test the rule they were written for; checks 16 to 19 test the projections rule.
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks on mutated copies of finder.js.

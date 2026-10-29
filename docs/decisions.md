@@ -1038,3 +1038,13 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1324: Natural fit 1a tolerance and missing projections
+
+Jeremy, 2026-10-29 (multiple choice, quoted on JEG-1324):
+- D2, how far DDF Value (projections) may fall before a trade stops being Natural fit: "A", under 0.05 (a change that
+  shows as 0.0 holds). Built for both teams (`PROJ_FLOOR` = the 0.05 display floor in `app/v2/finder.js`).
+- A moving player with no DDF Value (projections): "A", that side is not judged, so the trade is not Natural, and the fit
+  text says projections were not checked. A missing value is never read as 0.
+
+Shipped in #1178 (`naturalFit`, `projectionsHold`); guarded by `tests/test_v2_finder_fit.py` checks 16 to 19.

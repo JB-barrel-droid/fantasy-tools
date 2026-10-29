@@ -107,7 +107,7 @@ def check(finder_js: Path) -> list[str]:
     if f2["label"] != f["label"]:
         say(f"projectionsKey should not change label: {f2['label']} vs {f['label']}")
 
-    # 4. Missing projections: usProj is null. JEG-1324 (Natural fit 1a, missing-projection pick A): the projections test
+    # 4. Missing projections: usProj is null. JEG-1324 (Natural fit 1a; Jeremy, 2026-10-29, "A"): the projections test
     # is not judged on either side, so the trade is not Natural; before 1a the label ignored projections and stayed natural.
     f = scenario(finder_js, 16, None, market=16)
     if f["projected"]:

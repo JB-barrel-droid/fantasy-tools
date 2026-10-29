@@ -13,9 +13,9 @@ What changed:
   follows the rule with no edge change. That still takes the site deploy, then the connector's 5-minute cache.
 - `app/v2/opportunities.js`: `ourFitOf` reads `fit.natural.us` and never says "natural". The labels are JEG-1221's S5
   strings: works / gains, roster issue / gains, projections fall / gains, projections not checked / doesn't work.
-- Claude picks awaiting Jeremy (logged in the picks log): D2 A, a fall under 0.05 holds. If a moving player has no DDF
-  Value (projections), the test is not judged and the trade is not Natural. The measure is the bench-weighted net, the
-  same as the other Natural tests.
+- Jeremy decided both picks on 2026-10-29 ("A" and "A"; `docs/decisions.md`): a fall under 0.05 holds, and if a moving
+  player has no DDF Value (projections) the test is not judged and the trade is not Natural. The measure is the
+  bench-weighted net, the same as the other Natural tests (Claude pick, in the picks log).
 
 ### Verified (check named)
 - `python3 -m unittest tests.test_v2_finder_fit tests.test_v2_finder_trifit tests.test_v2_league_units

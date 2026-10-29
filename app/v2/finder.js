@@ -735,10 +735,10 @@
   // `natural` field, and the connector, which evaluates this file. Each side passes three tests: its value test (yours: DDF
   // Value total up past 0.05 with starters no worse; theirs: Trade chart average up or within its noise floor), its own
   // roster construction, and its DDF Value (projections) not declining.
-  // "Not declining" is D2 pick A (Claude, reversible, JEG-1220 spec section 5): a fall that shows as 0.0 (under 0.05)
-  // holds, so a Natural trade never shows a negative projections change. A side's projections are judged only when every
-  // moving player has a DDF Value (projections); otherwise the side is not judged (null), and a side that is not judged is
-  // not Natural (missing-projection pick A on JEG-1324): a missing projection is never read as 0.
+  // "Not declining" (Jeremy, 2026-10-29, D2 "A"): a fall that shows as 0.0 (under 0.05) holds, so a Natural trade never
+  // shows a negative projections change. A side's projections are judged only when every moving player has a DDF Value
+  // (projections); otherwise the side is not judged (null), and a side that is not judged is not Natural (Jeremy,
+  // 2026-10-29, "A" on JEG-1324): a missing projection is never read as 0.
   const PROJ_FLOOR = NET_FLOOR;
   const projectionsHold = net => (finite(net) ? net >= 0 || Math.abs(net) < PROJ_FLOOR : null);
   // The bench-weighted change of one team in one view (the same measure as teamFit's net), without the depth readout.
