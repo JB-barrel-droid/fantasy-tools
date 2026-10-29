@@ -9,9 +9,32 @@ Contract: integrate current main normally into the owned #1094 branch and verify
 - Current-data focused verification: `CHROMIUM_PATH=/usr/bin/chromium RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render tests.test_v2_finder_guardrails tests.test_v2_finder_guardrails_render tests.test_v2_contract_render.ContractRenderTest.test_every_live_contract_line tests.test_v2_source_count_render`: **16 passed, no skips, 179.380s**. No repeated full local suite; required CI follows the final documentation-only commit.
 - Previous exact picker/backup head `359d3613` completed Preview/v2-render successfully, with 11 picker checks passing without skips; these results remain historical and do not replace new integrated-head CI. See PR/ticket metadata for final CI and release evidence.
 - Read-only preflight sees main Deploy dashboard run `40865850771` completed successfully on `a75b6a28`; immediately-before-merge health and ancestry checks remain required.
-- This environment cannot reach the live Pages origin: a HEAD request to `https://jb-barrel-droid.github.io/fantasy-tools/` failed with `Tunnel connection failed: 403 Forbidden` under the enforced proxy policy. No bypass/retry. Parent's authorized fallback is the existing Mac QA task after publication, using exact published SHA/build to check both selectors, saved-team/star preservation, persistence/shared context, and fresh backup click/keyboard/bounds behavior.
+- Historical worker check: a HEAD request to `https://jb-barrel-droid.github.io/fantasy-tools/` failed with `Tunnel connection failed: 403 Forbidden` under the enforced proxy policy. This is scoped to that worker/check, not a general claim that every cloud or Mac environment cannot reach the origin. The 18:47 UTC worker capability recheck below still does not establish access; retain the exact published SHA/build relay and applicable browser checks.
 
 ### Claimed, not confirmed
 
 - Fresh final-head CI, PR readiness/merge, publication and automatic cleanup are pending at this checkpoint. No release action has yet been performed; final evidence will be posted to PR/Linear metadata without restarting CI for a documentation-only result.
 - Live browser verification is not claimed here. After publication, coordinate through parent with the existing Mac QA task; do not release another PR.
+
+### Worker capability recheck (2026-10-29, 18:47 UTC / 13:47 CDT)
+
+Verified in this release-prep worker, using the exact requested commands:
+
+```text
+$ curl -sI https://jb-barrel-droid.github.io/fantasy-tools/ | head -1 ;
+[no stdout or stderr; pipeline exit 0]
+
+$ gh run list --repo JB-barrel-droid/fantasy-tools --branch main --limit 3
+failed to get runs: Get "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/runs?per_page=3&exclude_pull_requests=true&branch=main": proxyconnect tcp: dial tcp 172.31.19.189:8080: socket: operation not permitted
+[exit 1]
+```
+
+The silent curl pipeline does not establish HTTP success: `-s` suppresses curl diagnostics and the pipeline exit status is head's. The gh failure identifies this worker's sandbox/proxy socket restriction. Neither is an automatic approval-review rejection. No workaround or alternate execution mode was attempted. Retain the relay for exact-SHA publication checks in this worker. Risk-based rendered browser gates for USO, pricing and large UI batches remain required independently of HTTP/CLI capability.
+
+Claimed by the coordinating Mac chat, not independently rerun here:
+
+- Playwright rendered the actual live origin with title `Player values · Data Driven Football` and main/input-status regions. Its `v2/ddf-state.js` resource returned HTTP 503. This proves that chat's browser capability, not a clean release gate or this worker's access.
+- Linear capability probe JEG-1284 was created in Jegabee, then successfully set Canceled at `2026-10-29T18:47:37.832Z`, with no automatic approval-review rejection there. This does not change earlier worker-specific denials or authorize new Linear writes here.
+- Main runs were queued 5–11 minutes at 18:46 UTC / 13:46 CDT, making #1142 urgent. This worker's failed gh command did not verify queue state.
+
+Documentation only; no merge or deployment performed or authorized by this check.
