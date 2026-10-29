@@ -8,11 +8,10 @@ Baseline: #1089 head `2c8931231ccd2bbeb4946ac031aee5ac655182f4`, `prototype.html
 - With all opponents included, 1 of the 30 stored opportunities is a Trade idea; the other 29 lower our starters (main's `ourFitOf` on the fixture's own fit fields).
 - `python3 -m unittest tests.test_ci_speedup_workflows tests.test_gha_schedules_pg_cron tests.test_deploy_gate_unconditional`: 35 tests pass with the new workflow.
 
-- No free text inputs (2026-10-29): jsdom run of `index.html#finder` and all 11 `revision2.html` routes at desktop and phone media finds no text input, text area or editable region and no script errors; Paste from clipboard reads a stubbed clipboard ("Read 2 lines from your clipboard."), the sample reaches the matches ("Got it: 1 team, 4 players"), the RB button leaves only RB targets, and ticking Likes rookies saves `"note":"Likes rookies"` in the Managers store.
-- CI (`checks.py`) adds the same no-free-text check at every width and on every revision-2 route, plus screenshots of the paste, Buy & sell and Values screens.
+- How leaguemates trade (2026-10-29): jsdom run of `index.html#finder` finds 3 managers in the Managers card, no text input, text area or editable region in it, all 18 selects at Not sure / Not set, no box ticked, each summary "Not described yet.", no script errors; ticking Likes rookies saves `"note":"Likes rookies"`. `revision2.html` differs from the #1089 prototype only in its Find a trade route (checked with diff), so its paste box, team name and searches are back.
+- CI (`checks.py`) runs the same Managers checks at every width.
 
 ## Claimed, not confirmed
-- Reading the clipboard needs the browser's permission (Chrome asks; Safari shows a Paste button). Headless CI can't grant it, so only the sample path is browser-checked.
 - Layout, overflow at 1280/768/390/320, 44px targets, dark theme and the screenshots come from `checks.py` in the `JEG-1209 Fieldnotes preview` workflow. This sandbox cannot download a Chromium build, so those checks had not run here when this was written; the PR's workflow run and its artifact are the record.
 - No screen reader was used. Announcements are checked only as `role="status"` / `aria-live` text.
 - The vendored components are exactly their PR heads at the pinned commits; if those PRs change before merging, `build.py --vendor` must be rerun with new pins.

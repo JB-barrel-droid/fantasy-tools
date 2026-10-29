@@ -13,3 +13,5 @@ Changes: new `preview/jeg-1209-fieldnotes/` (build script, browser checks, `src/
 
 ### Update: no free text inputs
 Jeremy, 2026-10-29, approving Fieldnotes with changes: "Make it, and no free text inputs". `build.py` now applies `NO_FREE_TEXT` (exact replacements, each must match once) to the pinned revision-2 page and to `manager-profiles-ui.js`, and writes `revision2.html`; the pinned sources are unchanged. Replacements and checks are listed in `continuation/brief.md` and `continuation/verification.md`. The production note field in #1084 (JEG-1217) still has a text box until that PR follows the rule.
+
+Narrowed the same day. Jeremy: "I just didn't want text boxes for how my leaguemates trade, and set everyone to default initially." `NO_FREE_TEXT` now changes only the Managers note (checkboxes) in the pinned #1084 copy; the revision-2 inputs are back as revision 3 had them, and `revision2.html` differs from the prototype only in its Find a trade route. `checks.py` checks the Managers card for text boxes and that every manager starts at the default profile.

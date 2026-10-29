@@ -5,7 +5,8 @@
 
 Serves the repo root on 127.0.0.1, opens preview/jeg-1209-fieldnotes/index.html in Chromium (Playwright) and checks, at
 1280x900, 768x1024, 390x844 and 320x700: no sideways page scroll, no script error, no request leaving 127.0.0.1, controls
-at least 44px tall, no free text input (Jeremy, 2026-10-29: "no free text inputs"; also on every revision2.html route). Then, keyboard only: a column moves and focus stays on the pressed button; details open with focus on
+at least 44px tall; the Managers card has no free text input and every manager starts at the default profile (Jeremy,
+2026-10-29); the revision2.html routes load without errors. Then, keyboard only: a column moves and focus stays on the pressed button; details open with focus on
 their heading and Escape returns focus to the row's button; Clear and Select all in Opponents to include; a preference
 change marks the results out of date; each review state (loading, no league, projections missing) says so. Screenshots
 are named with the commit, route and width and listed in shots.json. Exit 1 on any failure.
@@ -26,7 +27,8 @@ PAGE = "/preview/jeg-1209-fieldnotes/index.html"
 WIDTHS = [(1280, 900), (768, 1024), (390, 844), (320, 700)]
 ROUTES = ["finder", "flow", "handoffs"]
 R2_ROUTES = ["home", "paste", "compare", "targets", "settings", "more", "review", "values", "chatbot", "guides", "rosters"]
-# Anything a reader could type into. Checkboxes, radios, file pickers, buttons and selects are choices.
+# Anything a reader could type into. Checkboxes, radios, file pickers, buttons and selects are choices. Checked inside the
+# Managers card only: "I just didn't want text boxes for how my leaguemates trade" (Jeremy, 2026-10-29).
 FREE_TEXT = ("input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=range])"
              ":not([type=button]):not([type=submit]):not([type=reset]), textarea, [contenteditable]:not([contenteditable=false])")
 
@@ -83,9 +85,13 @@ def main(argv):
                 check(f"{route}@{w}: no sideways scroll", overflow <= 0, f"overflow {overflow}px {wide}")
                 check(f"{route}@{w}: no script errors", not errors, "; ".join(errors[:3]))
                 check(f"{route}@{w}: no external requests", not external, ", ".join(external[:3]))
-                free = page.evaluate("s => [...document.querySelectorAll(s)].map(e => e.tagName.toLowerCase() + '#' + e.id)", FREE_TEXT)
-                check(f"{route}@{w}: no free text inputs", not free, ", ".join(free[:5]))
                 if route == "finder":
+                    free = page.evaluate("s => [...document.querySelectorAll('#v2LgManagers ' + s.split(', ').join(', #v2LgManagers '))].map(e => e.tagName.toLowerCase() + '#' + e.id)", FREE_TEXT)
+                    check(f"finder@{w}: Managers card has no free text inputs", not free, ", ".join(free[:5]))
+                    teams = page.evaluate("document.querySelectorAll('#v2LgManagers .v2-mg-team').length")
+                    off = page.evaluate("""[...document.querySelectorAll('#v2LgManagers select')].filter(s => s.value !== 'unknown').map(s => s.id)
+                      .concat([...document.querySelectorAll('#v2LgManagers input[type=checkbox]')].filter(b => b.checked).map(b => b.id))""")
+                    check(f"finder@{w}: every manager starts at the default profile", teams > 0 and not off, f"{teams} managers; not default: {', '.join(off[:5])}")
                     small = page.evaluate("""[...document.querySelectorAll('main button, main a.buttonlike, main a.journeystep, main summary')]
                       .filter(e => e.offsetParent && e.getBoundingClientRect().height < 44)
                       .map(e => (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 30))""")
@@ -104,29 +110,15 @@ def main(argv):
             check(f"finder@{w} dark: no script errors", not errors, "; ".join(errors[:3]))
             ctx.close()
 
-        # The revision-2 routes the page links to, as built with the no-free-text changes.
+        # The revision-2 routes the page links to.
         r2 = base.replace("index.html", "revision2.html")
         for w, h in [(1280, 900), (390, 844)]:
             for route in R2_ROUTES:
                 ctx, page, errors, external = page_at(w, h)
                 page.goto(f"{r2}?shot=1#{route}")
                 page.wait_for_timeout(300)
-                free = page.evaluate("s => [...document.querySelectorAll(s)].map(e => e.tagName.toLowerCase() + '#' + e.id)", FREE_TEXT)
-                check(f"revision2 {route}@{w}: no free text inputs", not free, ", ".join(free[:5]))
                 check(f"revision2 {route}@{w}: no script errors", not errors, "; ".join(errors[:3]))
                 check(f"revision2 {route}@{w}: no external requests", not external, ", ".join(external[:3]))
-                if route == "paste" and w == 1280:
-                    page.locator("#loadSample").click()
-                    page.locator("#checkPaste").click()
-                    page.wait_for_timeout(100)
-                    check("revision2 paste: the sample reaches the matches without typing", "Puka Nacua" in page.inner_text("#main"))
-                    name = f"{rev}-revision2-paste-{w}.png"
-                    page.screenshot(path=str(shots / name), full_page=True)
-                    listed.append({"file": name, "route": "revision2 paste", "width": w, "height": h, "theme": "light", "commit": rev})
-                if route in ("targets", "values") and w == 390:
-                    name = f"{rev}-revision2-{route}-{w}.png"
-                    page.screenshot(path=str(shots / name), full_page=True)
-                    listed.append({"file": name, "route": f"revision2 {route}", "width": w, "height": h, "theme": "light", "commit": rev})
                 ctx.close()
         ctx, page, errors, _ = page_at(1280, 900)
         page.goto(f"{r2}?shot=1#finder")

@@ -12,7 +12,7 @@
   "use strict";
   const W = window.TradeValueWorkspace, S = window.TradeValueLeagueStatus, OI = window.TradeValueOpponentInclusion;
   const CO = window.TradeValueColumnOrder, M = window.TradeValueManagerProfiles;
-  const BASE = "revision2.html";   // the revision-2 routes, built with the no-free-text changes
+  const BASE = "revision2.html";   // the revision-2 routes, built next to this page so the links work wherever it is opened
   const POS = ["QB", "RB", "WR", "TE"];
   const PAGE = 8;
   const $ = id => document.getElementById(id);
@@ -287,7 +287,7 @@
     ["League status header and folded summary", "JEG-1233 · #1091", "league-status.js mounted on the real workspace store", "JEG-1137 shell and league entry"],
     ["Opponents to include (stable ids, Select all, Clear)", "JEG-1231 · #1090, hookup #1092", "opponent-inclusion.js createControl and filterRows", "JEG-1139 trade targets / league finder"],
     ["Column order with Move up / Move down", "JEG-1232 · #1093", "column-order.js over the revision-2 outcome columns", "JEG-1139"],
-    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js and manager-recs-ui.js, unchanged", "JEG-1139"],
+    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js (note as checkboxes) and manager-recs-ui.js", "JEG-1139"],
     ["Shared and page-only trade preferences", "JEG-1229 · #1086", "Named in Trade preferences; TradeContext not run here", "JEG-1137 common controls, JEG-1140 Settings"],
     ["Row details readout", "JEG-1230 · #1088", "Revision-2 detail panel from fixture impacts; production draws the JEG-1230 readout", "JEG-1138 Compare, reused by JEG-1139"],
     ["Both saved-team selectors", "JEG-1219", "Not on the whole-league page; Your team follows the star", "JEG-1138 / JEG-1139"],
