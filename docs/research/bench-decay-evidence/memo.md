@@ -127,3 +127,30 @@ today's week-aware fill-in share and leave option value out; (B) add a
 week-aware bench readout, with DDF Value unchanged; or (C) plan a later DDF
 Value change that scales bench value with weeks left, built only after the
 evidence gaps above are closed and you approve its before/after?
+
+## Decision (2026-10-29)
+
+Jeremy picked **B**: bench keeps its share, DDF Value stays unchanged, and a
+readout of weeks left, byes left and breakout odds goes beside the values. He
+first picked C, then reversed it once the per-week framing was clear. The
+answers that settled it, from the pinned files:
+
+- The pie is fixed: 28 per starting slot per team (2,352 at PPR/12), the same
+  in every week. Bench and starter values are both shares of it, so neither
+  falls in DDF points as weeks run out. A starter loses one week of starts per
+  week and a bench player loses one week's chance of filling in, so the ratio
+  holds; only the end of byes trims bench share (8.7% to 7.2%).
+- In DDF points, fill-in value for all RBs goes from 196 to 176 (week 1 to 17)
+  and for all WRs from 234 to 179. Scaling the snapshot's first bench RB and WR
+  by those shares (hypothetical, no per-player series exists) gives 23.5 to
+  21.0 and 37.3 to 28.5.
+- The #604 timing series' week-17 jump (G10) reaches nothing a user sees:
+  only the engine and the reference compute it, and no page, finder, compare
+  view, connector or edge function reads it.
+
+The waiver-coverage measurement that C would have needed is dropped. Before a
+readout shows breakout odds by week, G1 to G5 matter: the by-week series has
+no counts and its method differs from its label. The week-9 rates by depth
+(O3) carry counts today. The readout is a separate build ticket proposed to
+Codex; this PR changes no values.
+
