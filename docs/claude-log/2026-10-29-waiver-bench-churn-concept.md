@@ -37,3 +37,15 @@ Contract: the entry above says JEG-1317 is Canceled. On the coordinator's follow
 
 ### Verified (check named)
 - JEG-1317 reads Backlog with labels review-high-risk and Feature only (Linear `save_issue` response).
+
+## 2026-10-29 - JEG-1338 review corrections on PR #1160
+
+Contract: fix the five findings from the independent review at 16a7e571 (docs only).
+
+### Verified (check named)
+- "Not counted twice" is gone from the concept and mock; both now say the chain sums ROS DDF Value only (`rg "counted twice" docs/design/` finds nothing).
+- Hit chance lists a ROS/season role option and a weekly depth-chart option, the second stated as feeding this week's depth chart into the verdict; no pick is made (read the Still open section).
+- Landing chance has no source in the repo and is now listed under Still open with three candidates (read the section).
+- The "Source is an still open" typo is gone (`rg "is an still"` finds nothing).
+- origin/main merged in with a normal merge commit; the docs/README.md conflict kept both new rows (fieldnotes-components and this concept); no conflict markers left (`grep -c` on both rows returns 2).
+- The mock parses (Python `html.parser`).

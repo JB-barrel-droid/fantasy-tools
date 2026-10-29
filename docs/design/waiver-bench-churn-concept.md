@@ -144,15 +144,15 @@ slate strip scrolls sideways.
 
 - **Keep**: the bench player's DDF Value. With pick B it keeps its share as
   weeks pass; the readout shows weeks and byes left.
-- **Landing chance**: the chance the claim is won (from the board's existing
-  model). Shown as a percent.
-- **Hit chance**: the chance the target becomes worth holding. Source is an
+- **Landing chance**: the chance the claim is won. Shown as a percent. No
+  model for it exists in the repo; its source is still open (below).
+- **Hit chance**: the chance the target becomes worth holding. Its source is
   still open (below).
 - **Survival**: the chance the chain is still running at that step (earlier
   steps missed).
-- **Step value**: survival × landing × hit × the target's future usable DDF
-  Value. Future value only, so this week's
-  lineup points are not counted twice.
+- **Step value**: survival × landing × hit × the target's DDF Value. The
+  sum is rest-of-season DDF Value only; this week's points are counted
+  nowhere in it.
 - **Net chain**: the sum of step values, in DDF Value. CHURN iff Net chain >
   Keep. The ticket's `evaluateChain` / `bestChainFromItems` remain the
   reference; this concept only lays out what they return.
@@ -184,11 +184,29 @@ slate strip scrolls sideways.
 
 ## Still open
 
-1. **Hit chance** (the chance a claimed player turns out worth holding): A, the
-   JEG-1276 historical breakout rates by depth, looked up by the contract's
-   weekly depth-chart order *(recommended; a lookup by category, so nothing is
-   blended)*; B, leave it at 1 until research lands, labelled on the card.
-2. **Chain helpers.** JEG-1197 names `evaluateChain` and `bestChainFromItems`
+Hit chance and landing chance both multiply into Net chain, which decides
+CHURN or KEEP, so whatever they read is part of the verdict. No pick is made
+here.
+
+1. **Hit chance** (the chance a claimed player turns out worth holding):
+   - A: the JEG-1276 historical breakout rates by depth, looked up by a ROS or
+     season measure of role (his depth on the team in the ROS projections, or
+     his season-to-date snap share). Keeps the verdict ROS-only.
+   - B: the same rates, looked up by this week's depth-chart order from the
+     weekly-input contract. This feeds this week's depth chart into the CHURN
+     or KEEP verdict, which the rule "do not blend weekly data with ROS data,
+     ever" would have to allow.
+   - C: hit chance left at 1 until research lands, labelled on the card.
+2. **Landing chance** (the chance a claim is won). The retired board's model
+   is not in the repo. Candidate sources:
+   - A: the league's waiver order alone (in rolling-priority leagues, you win
+     any claim where you are ahead of every team likely to want him). Season
+     state, not weekly data.
+   - B: demand from the adds trend (how fast he is being added this week).
+     This feeds weekly data into the verdict, as in hit chance B.
+   - C: landing chance left at 1, labelled on the card, until a source is
+     chosen.
+3. **Chain helpers.** JEG-1197 names `evaluateChain` and `bestChainFromItems`
    from the retired artifact; neither is in the repo or the archive. If they no
    longer exist, the build writes them fresh against this concept.
 
