@@ -1,0 +1,192 @@
+{
+ "recipe": "The study's baseline is the `value` field the DDF connector's get_values returned on 2026-10-29 01:3x UTC (as_of 2026-10-28, 12 teams, 1QB). In the code that serves it (supabase/functions/get-values/index.ts) that field is ddfByVersion.blended.value from value-model.js runValuePipeline: under JEG-1073 the equal-weight mean of the Adjusted values of the trade charts included that week (FantasyCalc, an observed-trade estimate, plus the USA Today, FantasyPros and CBS publisher charts), not a publisher-only average and not a raw chart value. The capture did not record which charts were included.",
+ "bundle_commit": "cbaac757e609e93eb2e18e8d86a426514bdf5379",
+ "scorings": {
+  "ppr": {
+   "captured_rows": 163,
+   "compared": 163,
+   "within_0_05": 6,
+   "median_abs_gap": 1.1,
+   "max_abs_gap": 8.5,
+   "largest": [
+    {
+     "player": "Nico Collins",
+     "captured": 25.7,
+     "rebuilt": 34.2
+    },
+    {
+     "player": "Josh Jacobs",
+     "captured": 30.5,
+     "rebuilt": 23.3
+    },
+    {
+     "player": "Jonah Coleman",
+     "captured": 7.5,
+     "rebuilt": 0.4
+    },
+    {
+     "player": "Tee Higgins",
+     "captured": 28.2,
+     "rebuilt": 21.4
+    },
+    {
+     "player": "DeVonta Smith",
+     "captured": 14.7,
+     "rebuilt": 21.2
+    },
+    {
+     "player": "Chase Brown",
+     "captured": 23.8,
+     "rebuilt": 30.2
+    },
+    {
+     "player": "Luther Burden III",
+     "captured": 22.6,
+     "rebuilt": 16.5
+    },
+    {
+     "player": "Justin Jefferson",
+     "captured": 34.3,
+     "rebuilt": 40.3
+    }
+   ]
+  },
+  "half_ppr": {
+   "captured_rows": 165,
+   "compared": 165,
+   "within_0_05": 5,
+   "median_abs_gap": 1.3,
+   "max_abs_gap": 8.2,
+   "largest": [
+    {
+     "player": "Chase Brown",
+     "captured": 25.5,
+     "rebuilt": 33.7
+    },
+    {
+     "player": "Jonah Coleman",
+     "captured": 8.9,
+     "rebuilt": 0.9
+    },
+    {
+     "player": "Tee Higgins",
+     "captured": 26.1,
+     "rebuilt": 18.3
+    },
+    {
+     "player": "Luther Burden III",
+     "captured": 20.5,
+     "rebuilt": 13.1
+    },
+    {
+     "player": "Malik Nabers",
+     "captured": 42.2,
+     "rebuilt": 35.5
+    },
+    {
+     "player": "Nico Collins",
+     "captured": 23.8,
+     "rebuilt": 30.3
+    },
+    {
+     "player": "Derrick Henry",
+     "captured": 47.1,
+     "rebuilt": 53.5
+    },
+    {
+     "player": "Jonathan Taylor",
+     "captured": 52.7,
+     "rebuilt": 58.2
+    }
+   ]
+  },
+  "standard": {
+   "captured_rows": 166,
+   "compared": 166,
+   "within_0_05": 13,
+   "median_abs_gap": 1.3,
+   "max_abs_gap": 10.8,
+   "largest": [
+    {
+     "player": "Jonah Coleman",
+     "captured": 13.4,
+     "rebuilt": 2.6
+    },
+    {
+     "player": "Chase Brown",
+     "captured": 30.0,
+     "rebuilt": 37.1
+    },
+    {
+     "player": "Nico Collins",
+     "captured": 18.6,
+     "rebuilt": 25.5
+    },
+    {
+     "player": "Tee Higgins",
+     "captured": 20.7,
+     "rebuilt": 14.5
+    },
+    {
+     "player": "Derrick Henry",
+     "captured": 53.9,
+     "rebuilt": 59.9
+    },
+    {
+     "player": "Malik Nabers",
+     "captured": 35.6,
+     "rebuilt": 29.7
+    },
+    {
+     "player": "Luther Burden III",
+     "captured": 15.1,
+     "rebuilt": 9.3
+    },
+    {
+     "player": "Ollie Gordon II",
+     "captured": 25.3,
+     "rebuilt": 19.6
+    }
+   ]
+  }
+ },
+ "bundle_sha256": {
+  "assets/comparison-sources-data.json": "236da7bc8057e36383f94af95ce943324ef6f0239f36e879862b6631b725afa6",
+  "assets/value-model.js": "ad93b1f69146f4939fcd3cf3baf2c8c84586a9c09c516d7ba9df01aa6c2628f1",
+  "index.html": "6890df1c08cf7ace8e2aa6ec6cdfeb05b2862ecb8b12a6e4a69f0e30fcb1b8e0"
+ },
+ "joins": {
+  "published_half_ppr": {
+   "counts": {
+    "ok": 165
+   },
+   "not_joined": []
+  },
+  "published_ppr": {
+   "counts": {
+    "ok": 163
+   },
+   "not_joined": []
+  },
+  "published_standard": {
+   "counts": {
+    "ok": 166
+   },
+   "not_joined": []
+  }
+ },
+ "provenance": {
+  "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
+  "registry_snapshot": {
+   "path": "data/inputs/players_identity_snapshot.json",
+   "sha256": "e1ff38fc9aa662451bd8f1d70dba0d02f8402283d56716c4c6910aa191a1f362",
+   "rows": 4702,
+   "active_flag": "absent; all rows treated active"
+  },
+  "alias_list": {
+   "path": "data/inputs/player_aliases.json",
+   "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994",
+   "source": "json"
+  }
+ }
+}

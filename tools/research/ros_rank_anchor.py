@@ -7,6 +7,11 @@ Research only. Reads:
   - data/fixtures/current/players.json (as_of 2026-10-28; ROS weeks 8-18): ESPN, CBS ROS,
     Razzball rest-of-season projections, converted to positional ranks (MODELED ranks)
   - StickToTheModel ROS PPR top-30 per position, page dated 2026-10-20 (STALE: weeks 7-18)
+  - data/fixtures/snapshots/players_2026-09-23.json: the earlier ESPN ROS read, for the
+    stability comparison (fixture as_of 2026-09-23, its ESPN pull labelled 2026-09-29)
+Joins are on canonical player_key (tools/research/ros_rank_keys.py, stored registry
+snapshot); players.json rows carry the bake's own player_key. Unresolved names are
+reported in the output's "joins" block, never collapsed (JEG-1251).
 Writes docs/research/data/jeg1198/ros_rank_study_out.json only. No production math is changed.
 """
 import json, re, statistics as st, sys
@@ -17,17 +22,13 @@ W = REPO / "docs/research/data/jeg1198"
 SCORINGS = ["ppr", "half_ppr", "standard"]
 POS = ["QB", "RB", "WR", "TE"]
 DEPTH = {"QB": 12, "RB": 30, "WR": 36, "TE": 12}  # comparison depth (about starters + flex)
-sys.path.insert(0, str(REPO / "pipelines" / "lib"))
-from canonical_players import norm_player_name  # noqa: E402  the one name rule
-import player_aliases  # noqa: E402  shared alias list (data/inputs/player_aliases.json)
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ros_rank_keys as K  # noqa: E402  canonical player_key joins (JEG-1251)
 
-
-def key(name):
-    return norm_player_name(player_aliases.canonical_spelling(name))
-
-
-players = json.load(open(REPO / "data/fixtures/current/players.json"))["players"]
-by_norm = {key(p["name"]): p for p in players}
+PLAYERS_PATH = REPO / "data/fixtures/current/players.json"
+PRIOR_PATH = REPO / "data/fixtures/snapshots/players_2026-09-23.json"
+players = json.load(open(PLAYERS_PATH))["players"]
+by_key = {p["player_key"]: p for p in players}
 
 def load_pub(s):
     out = {}
@@ -35,7 +36,7 @@ def load_pub(s):
         if not line.strip():
             continue
         name, pos, v = line.strip().split("|")
-        out[key(name)] = (name, pos, float(v))
+        K.put(out, name, pos, f"published_{s}", (name, pos, float(v)))
     return out
 
 def spearman(a, b):
@@ -68,12 +69,12 @@ def interp_curve(curve, r):
     return curve[lo - 1] * (1 - f) + curve[lo] * f
 
 def ranker_points(s):
-    """Modeled ROS points per ranker for one scoring, keyed by norm name, with pos."""
+    """Modeled ROS points per ranker for one scoring, keyed by the bake's player_key, with pos."""
     R = {"espn": {}, "cbsros": {}, "razzball": {}}
     for p in players:
         if p["pos"] not in POS:
             continue
-        k = key(p["name"])
+        k = p["player_key"]
         if p.get("espn_complete") and p.get("espn_ros"):
             R["espn"][k] = (p["pos"], p["espn_ros"][s])
         if p.get("cbsros_complete") and p.get("cbsros_ppg"):
@@ -89,10 +90,13 @@ def sttm_ranks():
             continue
         pos, names = line.strip().split("|")
         for i, nm in enumerate(names.split(";")):
-            out[key(nm)] = (pos, i + 1)
+            K.put(out, nm, pos, "sttm_ros_ppr_2026-10-20", (pos, i + 1))
     return out
 
-report = {"scorings": {}}
+report = {"provenance": {**K.provenance(),
+                         "players_json": {"path": str(PLAYERS_PATH.relative_to(REPO)), "sha256": K.sha256(PLAYERS_PATH)},
+                         "prior_players_json": {"path": str(PRIOR_PATH.relative_to(REPO)), "sha256": K.sha256(PRIOR_PATH)}},
+          "scorings": {}}
 for s in SCORINGS:
     pub = load_pub(s)
     curves = {pos: sorted([v for (_, pp, v) in pub.values() if pp == pos], reverse=True) for pos in POS}
@@ -178,10 +182,43 @@ for s in SCORINGS:
         for pos in POS:
             for k, r in rk[pos].items():
                 if r <= DEPTH[pos] and (k not in pubpos[pos] or pubpos[pos][k] == 0):
-                    u.append(f"{by_norm[k]['name'] if k in by_norm else k} ({pos}{r})")
+                    u.append(f"{by_key[k]['name'] if k in by_key else k} ({pos}{r})")
         unpriced[rn] = u
     res["ranked_but_unpriced"] = unpriced
     report["scorings"][s] = res
+
+# 6. stability: ESPN ROS ranks in the earlier fixture vs now, joined on player_key.
+# Interval: fixture as_of 2026-09-23 (ESPN pull labelled 2026-09-29) to 2026-10-28, i.e.
+# 29 to 35 days, one pair of reads. Horizons differ (weeks 4-18 then, 8-18 now). This
+# bounds how far ESPN's order moved over that interval only; it is not a weekly rate.
+prior = json.load(open(PRIOR_PATH))
+prior_by_key = {p["player_key"]: p for p in prior["players"]}
+stab = {"interval": {"from_fixture_as_of": prior["meta"]["as_of"], "from_espn_snapshot": prior["meta"].get("espn_snapshot"),
+                     "to_fixture_as_of": json.load(open(PLAYERS_PATH))["meta"]["as_of"],
+                     "days": "29 to 35 (one pair of reads, not week to week)"},
+        "scorings": {}}
+for s in SCORINGS:
+    pub = load_pub(s)
+    curves = {pos: sorted([v for (_, pp, v) in pub.values() if pp == pos], reverse=True) for pos in POS}
+    row = {}
+    for pos in POS:
+        now = {p["player_key"]: p["espn_ros"][s] for p in players
+               if p["pos"] == pos and p.get("espn_complete") and p.get("espn_ros")}
+        then = {k: q["espn_ros"][s] for k, q in prior_by_key.items()
+                if q.get("pos") == pos and q.get("espn_complete") and q.get("espn_ros")}
+        rnow, rthen = ranks_from_points(now), ranks_from_points(then)
+        top = [k for k, r in rnow.items() if r <= DEPTH[pos]]
+        both = [k for k in top if k in rthen]
+        rho, n = spearman({k: rnow[k] for k in both}, {k: rthen[k] for k in both})
+        moves = [abs(rnow[k] - rthen[k]) for k in both]
+        pts = [abs((interp_curve(curves[pos], rnow[k]) or 0) - (interp_curve(curves[pos], rthen[k]) or 0)) for k in both]
+        row[pos] = {"n_now_top": len(top), "n_joined": n, "missing_then": [by_key[k]["name"] for k in top if k not in rthen],
+                    "spearman": None if rho is None else round(rho, 2),
+                    "median_rank_move": st.median(moves) if moves else None,
+                    "median_points_on_today_curve": round(st.median(pts), 1) if pts else None}
+    stab["scorings"][s] = row
+report["stability_espn"] = stab
+report["joins"] = K.join_report()
 
 json.dump(report, open(W / "ros_rank_study_out.json", "w"), indent=1)
 
@@ -211,3 +248,10 @@ for s in SCORINGS:
         print("  ", x)
     print("thin anchors:", r["thin_anchor_players"])
     print("ranked but unpriced:", {k: v for k, v in r["ranked_but_unpriced"].items()})
+print("\n===== stability (ESPN, player_key join) =====")
+print(json.dumps(report["stability_espn"]["interval"]))
+for s in SCORINGS:
+    print(s, {pos: {k: v for k, v in d.items() if k != "missing_then"} for pos, d in report["stability_espn"]["scorings"][s].items()})
+print("\n===== joins =====")
+for lid, j in report["joins"].items():
+    print(lid, j["counts"], [f"{x['name']} {x['pos']} {x['reason']}" for x in j["not_joined"]])

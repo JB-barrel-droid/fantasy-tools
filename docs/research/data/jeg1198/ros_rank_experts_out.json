@@ -1,4 +1,18 @@
 {
+ "provenance": {
+  "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
+  "registry_snapshot": {
+   "path": "data/inputs/players_identity_snapshot.json",
+   "sha256": "e1ff38fc9aa662451bd8f1d70dba0d02f8402283d56716c4c6910aa191a1f362",
+   "rows": 4702,
+   "active_flag": "absent; all rows treated active"
+  },
+  "alias_list": {
+   "path": "data/inputs/player_aliases.json",
+   "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994",
+   "source": "json"
+  }
+ },
  "vintages": {
   "fantasypros_ros_ecr:RB": {
    "vintage": "2026-10-28",
@@ -6556,6 +6570,44 @@
      ]
     ]
    }
+  }
+ },
+ "joins": {
+  "espn_ros_karabell_2026-10-27": {
+   "counts": {
+    "ok": 200
+   },
+   "not_joined": []
+  },
+  "fantasypros_ros_ecr:half_ppr": {
+   "counts": {
+    "ok": 190
+   },
+   "not_joined": []
+  },
+  "published_half_ppr": {
+   "counts": {
+    "ok": 165
+   },
+   "not_joined": []
+  },
+  "published_ppr": {
+   "counts": {
+    "ok": 163
+   },
+   "not_joined": []
+  },
+  "published_standard": {
+   "counts": {
+    "ok": 166
+   },
+   "not_joined": []
+  },
+  "yahoo_pianowski_ros:unstated": {
+   "counts": {
+    "ok": 187
+   },
+   "not_joined": []
   }
  }
 }

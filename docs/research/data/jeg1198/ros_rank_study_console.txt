@@ -91,3 +91,15 @@ material divergences (>5% and >2 pts): 56 of 90
    (8.4, 'Chase Brown', 'RB', 30.0, 38.4, [30.0, 44.2], {'espn': 18, 'cbsros': 11, 'razzball': 12})
 thin anchors: []
 ranked but unpriced: {'espn': ['Malik Willis (QB12)', 'Malik Washington (WR35)'], 'cbsros': ['Malik Willis (QB10)', 'Alec Pierce (WR25)', 'Caleb Douglas (WR30)', 'Mike Gesicki (TE9)', 'Greg Dulcich (TE12)'], 'razzball': ['Justin Herbert (QB8)']}
+
+===== stability (ESPN, player_key join) =====
+{"from_fixture_as_of": "2026-09-23", "from_espn_snapshot": "2026-09-29", "to_fixture_as_of": "2026-10-28", "days": "29 to 35 (one pair of reads, not week to week)"}
+ppr {'QB': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.46, 'median_rank_move': 5.5, 'median_points_on_today_curve': 6.9}, 'RB': {'n_now_top': 30, 'n_joined': 30, 'spearman': 0.72, 'median_rank_move': 4.0, 'median_points_on_today_curve': 9.4}, 'WR': {'n_now_top': 36, 'n_joined': 36, 'spearman': 0.77, 'median_rank_move': 7.0, 'median_points_on_today_curve': 8.4}, 'TE': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.79, 'median_rank_move': 4.5, 'median_points_on_today_curve': 4.0}}
+half_ppr {'QB': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.46, 'median_rank_move': 5.5, 'median_points_on_today_curve': 7.1}, 'RB': {'n_now_top': 30, 'n_joined': 30, 'spearman': 0.69, 'median_rank_move': 5.0, 'median_points_on_today_curve': 9.6}, 'WR': {'n_now_top': 36, 'n_joined': 36, 'spearman': 0.73, 'median_rank_move': 6.0, 'median_points_on_today_curve': 7.9}, 'TE': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.83, 'median_rank_move': 4.0, 'median_points_on_today_curve': 3.8}}
+standard {'QB': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.46, 'median_rank_move': 5.5, 'median_points_on_today_curve': 7.3}, 'RB': {'n_now_top': 30, 'n_joined': 30, 'spearman': 0.67, 'median_rank_move': 5.5, 'median_points_on_today_curve': 11.7}, 'WR': {'n_now_top': 36, 'n_joined': 36, 'spearman': 0.71, 'median_rank_move': 7.0, 'median_points_on_today_curve': 8.2}, 'TE': {'n_now_top': 12, 'n_joined': 12, 'spearman': 0.72, 'median_rank_move': 3.0, 'median_points_on_today_curve': 4.5}}
+
+===== joins =====
+published_half_ppr {'ok': 165} []
+published_ppr {'ok': 163} []
+published_standard {'ok': 166} []
+sttm_ros_ppr_2026-10-20 {'ok': 120} []

@@ -1,4 +1,18 @@
 {
+ "provenance": {
+  "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
+  "registry_snapshot": {
+   "path": "data/inputs/players_identity_snapshot.json",
+   "sha256": "e1ff38fc9aa662451bd8f1d70dba0d02f8402283d56716c4c6910aa191a1f362",
+   "rows": 4702,
+   "active_flag": "absent; all rows treated active"
+  },
+  "alias_list": {
+   "path": "data/inputs/player_aliases.json",
+   "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994",
+   "source": "json"
+  }
+ },
  "lists": {
   "consensus": {
    "source": "fantasypros_ros_ecr",
@@ -8719,6 +8733,422 @@
      ]
     ]
    }
+  }
+ },
+ "joins": {
+  "espn_ros_karabell_2026-10-27": {
+   "counts": {
+    "ok": 200
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Aaron St Denis (Fantasy Sports Advice Network):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Aaron St Denis (Fantasy Sports Advice Network):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Aaron St Denis (Fantasy Sports Advice Network):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Andrew Erickson (FantasyPros):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Andrew Erickson (FantasyPros):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Andrew Erickson (FantasyPros):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Brad Beatson (Bandit Fantasy Football):half_ppr": {
+   "counts": {
+    "ok": 174
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Brad Beatson (Bandit Fantasy Football):ppr": {
+   "counts": {
+    "ok": 174
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Brad Beatson (Bandit Fantasy Football):standard": {
+   "counts": {
+    "ok": 174
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Chris Dell (The Fantasy Edge):half_ppr": {
+   "counts": {
+    "ok": 196
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Chris Dell (The Fantasy Edge):ppr": {
+   "counts": {
+    "ok": 196
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Chris Dell (The Fantasy Edge):standard": {
+   "counts": {
+    "ok": 196
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:David Heilman (Dynasty Trade Calculator):half_ppr": {
+   "counts": {
+    "ok": 265
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:David Heilman (Dynasty Trade Calculator):ppr": {
+   "counts": {
+    "ok": 265
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:David Heilman (Dynasty Trade Calculator):standard": {
+   "counts": {
+    "ok": 265
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Derek Brown (FantasyPros):half_ppr": {
+   "counts": {
+    "ok": 264
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Derek Brown (FantasyPros):ppr": {
+   "counts": {
+    "ok": 269
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Derek Brown (FantasyPros):standard": {
+   "counts": {
+    "ok": 269
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:James Emrick-Wilson (The Armchair Sports Corner):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:James Emrick-Wilson (The Armchair Sports Corner):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:James Emrick-Wilson (The Armchair Sports Corner):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jeff Boggis (Fantasy Football Empire):half_ppr": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jeff Boggis (Fantasy Football Empire):ppr": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jeff Boggis (Fantasy Football Empire):standard": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jonathan Stone (Stone Cold Fantasy):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jonathan Stone (Stone Cold Fantasy):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Jonathan Stone (Stone Cold Fantasy):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Justin Fuhr (Pro Football Mania):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Justin Fuhr (Pro Football Mania):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Justin Fuhr (Pro Football Mania):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kelly Smelser (Punch Drunk Wonderland):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kelly Smelser (Punch Drunk Wonderland):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kelly Smelser (Punch Drunk Wonderland):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kev Wheeler (Wheel Route FF):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kev Wheeler (Wheel Route FF):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kev Wheeler (Wheel Route FF):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kyle Yates (Yates Fantasy Football):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kyle Yates (Yates Fantasy Football):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Kyle Yates (Yates Fantasy Football):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Mike Maher (BettingPros):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Mike Maher (BettingPros):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Mike Maher (BettingPros):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:NFL Fantasy BR (NFL Fantasy BR):half_ppr": {
+   "counts": {
+    "ok": 269
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:NFL Fantasy BR (NFL Fantasy BR):ppr": {
+   "counts": {
+    "ok": 269
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:NFL Fantasy BR (NFL Fantasy BR):standard": {
+   "counts": {
+    "ok": 269
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Owen MacCarrick (Chop Fantasy Football):half_ppr": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Owen MacCarrick (Chop Fantasy Football):ppr": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Owen MacCarrick (Chop Fantasy Football):standard": {
+   "counts": {
+    "ok": 268
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Pat Fitzmaurice (FantasyPros):half_ppr": {
+   "counts": {
+    "ok": 260
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Pat Fitzmaurice (FantasyPros):ppr": {
+   "counts": {
+    "ok": 260
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Pat Fitzmaurice (FantasyPros):standard": {
+   "counts": {
+    "ok": 260
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ryan Linkletter (Blitz Sports Media):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ryan Linkletter (Blitz Sports Media):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ryan Linkletter (Blitz Sports Media):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Tal Malachovsky (The Fantasy Scout):half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Tal Malachovsky (The Fantasy Scout):ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Tal Malachovsky (The Fantasy Scout):standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ted Chmyz (Fantasy Football Bots):half_ppr": {
+   "counts": {
+    "ok": 254
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ted Chmyz (Fantasy Football Bots):ppr": {
+   "counts": {
+    "ok": 254
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Ted Chmyz (Fantasy Football Bots):standard": {
+   "counts": {
+    "ok": 254
+   },
+   "not_joined": []
+  },
+  "fantasypros_expert_ros:Wolf of Roto Street (Roto Street Journal):half_ppr": {
+   "counts": {
+    "ok": 233
+   },
+   "not_joined": []
+  },
+  "fantasypros_ros_ecr:expert consensus:half_ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_ros_ecr:expert consensus:ppr": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "fantasypros_ros_ecr:expert consensus:standard": {
+   "counts": {
+    "ok": 270
+   },
+   "not_joined": []
+  },
+  "published_half_ppr": {
+   "counts": {
+    "ok": 165
+   },
+   "not_joined": []
+  },
+  "published_ppr": {
+   "counts": {
+    "ok": 163
+   },
+   "not_joined": []
+  },
+  "published_standard": {
+   "counts": {
+    "ok": 166
+   },
+   "not_joined": []
+  },
+  "yahoo_pianowski_ros:Scott Pianowski:unstated": {
+   "counts": {
+    "ok": 221
+   },
+   "not_joined": []
   }
  }
 }

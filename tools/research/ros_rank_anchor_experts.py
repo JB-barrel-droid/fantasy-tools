@@ -12,7 +12,9 @@ Research only. Reads, besides the published values of the first study (published
   - data/fixtures/current/players.json: the modeled ranks of the first study (ESPN, CBS ROS,
     Razzball projections), for expert-vs-model agreement.
 Pianowski ranks are by dollar value, ties sharing the average rank (he treats equal salaries
-as even); his injury tier is placed by value too. Writes ros_rank_experts_out.json only.
+as even); his injury tier is placed by value too. Joins are on canonical player_key
+(tools/research/ros_rank_keys.py); unresolved names are reported in the output's "joins"
+block, never collapsed (JEG-1251). Writes ros_rank_experts_out.json only.
 """
 import json
 import statistics as st
@@ -26,13 +28,8 @@ POS = ["QB", "RB", "WR", "TE"]
 DEPTH = {"QB": 12, "RB": 30, "WR": 36, "TE": 12}
 EXPERTS = ["ecr_consensus", "yahoo_pianowski", "espn_karabell"]
 MODELED = ["espn_proj", "cbsros_proj", "razzball_proj"]
-sys.path.insert(0, str(REPO / "pipelines" / "lib"))
-from canonical_players import norm_player_name  # noqa: E402  the one name rule
-import player_aliases  # noqa: E402  shared alias list
-
-
-def key(name):
-    return norm_player_name(player_aliases.canonical_spelling(name))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ros_rank_keys as K  # noqa: E402  canonical player_key joins (JEG-1251)
 
 
 def load_pub(s):
@@ -40,7 +37,7 @@ def load_pub(s):
     for line in open(W / f"published_{s}.txt"):
         if line.strip():
             name, pos, v = line.strip().split("|")
-            out[key(name)] = (name, pos, float(v))
+            K.put(out, name, pos, f"published_{s}", (name, pos, float(v)))
     return out
 
 
@@ -70,16 +67,18 @@ def load_experts():
         for item in body.split(";"):
             rank, name, value, _tier = item.split(":")
             if src == "fantasypros_ros_ecr":
-                R["ecr_consensus"][pos][key(name)] = int(rank)
+                K.put(R["ecr_consensus"][pos], name, pos, f"{src}:{scoring}", int(rank))
             else:
-                yahoo[pos].append((key(name), float(value)))
+                k = K.pk(name, pos, f"{src}:{scoring}")
+                if k is not None:
+                    yahoo[pos].append((k, float(value)))
     for pos in POS:
         R["yahoo_pianowski"][pos] = ranks_by_value(yahoo[pos])
     for line in open(W / "espn_ros_karabell_2026-10-27.txt"):
         if line.strip():
             pos, names = line.strip().split("|")
             for i, nm in enumerate(names.split(";")):
-                R["espn_karabell"][pos][key(nm)] = i + 1
+                K.put(R["espn_karabell"][pos], nm, pos, "espn_ros_karabell_2026-10-27", i + 1)
     vint["espn_karabell"] = {"vintage": "2026-10-27", "scoring": "unstated"}
     return R, vint
 
@@ -90,7 +89,7 @@ def load_modeled(s):
     for p in players:
         if p["pos"] not in POS:
             continue
-        k = key(p["name"])
+        k = p["player_key"]  # the bake's canonical key
         if p.get("espn_complete") and p.get("espn_ros"):
             pts["espn_proj"][p["pos"]].append((k, p["espn_ros"][s]))
         if p.get("cbsros_complete") and p.get("cbsros_ppg"):
@@ -128,7 +127,7 @@ def material(diff, pub):
 
 
 EXPERT_R, VINTAGES = load_experts()
-report = {"vintages": VINTAGES, "scorings": {}}
+report = {"provenance": K.provenance(), "vintages": VINTAGES, "scorings": {}}
 for s in SCORINGS:
     pub = load_pub(s)
     curves = {p: sorted([v for (_, pp, v) in pub.values() if pp == p], reverse=True) for p in POS}
@@ -178,6 +177,7 @@ for s in SCORINGS:
     }
     report["scorings"][s] = res
 
+report["joins"] = K.join_report()
 json.dump(report, open(W / "ros_rank_experts_out.json", "w"), indent=1)
 for s in SCORINGS:
     r = report["scorings"][s]

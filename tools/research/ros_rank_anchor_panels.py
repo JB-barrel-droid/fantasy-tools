@@ -18,6 +18,8 @@ averaged together. Two panels are compared instead, each one analyst one vote:
   consensus panel  = expert consensus + Pianowski + Karabell
   expert panel     = every expert list updated within 14 days + Pianowski + Karabell
 Lists older than 14 days are reported but left out of the expert panel.
+Joins are on canonical player_key (tools/research/ros_rank_keys.py); unresolved names are
+reported in the output's "joins" block, never collapsed (JEG-1251).
 Writes ros_rank_panels_out.json only.
 """
 import json
@@ -33,13 +35,8 @@ POS = ["QB", "RB", "WR", "TE"]
 DEPTH = {"QB": 12, "RB": 30, "WR": 36, "TE": 12}
 STUDY_DAY = date(2026, 10, 29)
 STALE_DAYS = 14
-sys.path.insert(0, str(REPO / "pipelines" / "lib"))
-from canonical_players import norm_player_name  # noqa: E402  the one name rule
-import player_aliases  # noqa: E402  shared alias list
-
-
-def key(name):
-    return norm_player_name(player_aliases.canonical_spelling(name))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import ros_rank_keys as K  # noqa: E402  canonical player_key joins (JEG-1251)
 
 
 def load_pub(s):
@@ -47,7 +44,7 @@ def load_pub(s):
     for line in open(W / f"published_{s}.txt"):
         if line.strip():
             name, pos, v = line.strip().split("|")
-            out[key(name)] = (name, pos, float(v))
+            K.put(out, name, pos, f"published_{s}", (name, pos, float(v)))
     return out
 
 
@@ -84,7 +81,7 @@ def load_lists():
         for item in body.split(";"):
             rank, rest = item.split(":", 1)
             name, _value, _tier = rest.rsplit(":", 2)
-            ranks[key(name)] = float(rank)
+            K.put(ranks, name, pos, f"{src}:{analyst}:{scoring}", float(rank))
         if scoring == "unstated":
             shared.setdefault(lid, {})[pos] = ranks
         else:
@@ -92,7 +89,10 @@ def load_lists():
     for line in open(W / "espn_ros_karabell_2026-10-27.txt"):
         if line.strip():
             pos, names = line.strip().split("|")
-            shared.setdefault("karabell", {})[pos] = {key(n): i + 1 for i, n in enumerate(names.split(";"))}
+            kr = {}
+            for i, n in enumerate(names.split(";")):
+                K.put(kr, n, pos, "espn_ros_karabell_2026-10-27", i + 1)
+            shared.setdefault("karabell", {})[pos] = kr
     meta["karabell"] = {"source": "espn_ros_article", "vintages": {p: "2026-10-27" for p in POS}, "stale": False}
     for s in SCORINGS:
         lists[s].update(shared)
@@ -129,7 +129,7 @@ def spearman(a, b):
 LISTS, META = load_lists()
 fresh_experts = sorted(l for l, m in META.items() if m["source"] == "fantasypros_expert_ros" and not m["stale"])
 stale_experts = sorted(l for l, m in META.items() if m["source"] == "fantasypros_expert_ros" and m["stale"])
-report = {"lists": META, "fresh_experts": fresh_experts, "stale_experts": stale_experts, "scorings": {}}
+report = {"provenance": K.provenance(), "lists": META, "fresh_experts": fresh_experts, "stale_experts": stale_experts, "scorings": {}}
 
 for s in SCORINGS:
     pub = load_pub(s)
@@ -188,6 +188,7 @@ for s in SCORINGS:
     res["summary"] = summ
     report["scorings"][s] = res
 
+report["joins"] = K.join_report()
 json.dump(report, open(W / "ros_rank_panels_out.json", "w"), indent=1)
 print("fresh expert lists:", len(fresh_experts), fresh_experts)
 print("stale expert lists:", len(stale_experts), {e: META[e]["vintages"].get("RB") for e in stale_experts})

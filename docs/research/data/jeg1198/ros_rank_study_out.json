@@ -1,4 +1,26 @@
 {
+ "provenance": {
+  "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
+  "registry_snapshot": {
+   "path": "data/inputs/players_identity_snapshot.json",
+   "sha256": "e1ff38fc9aa662451bd8f1d70dba0d02f8402283d56716c4c6910aa191a1f362",
+   "rows": 4702,
+   "active_flag": "absent; all rows treated active"
+  },
+  "alias_list": {
+   "path": "data/inputs/player_aliases.json",
+   "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994",
+   "source": "json"
+  },
+  "players_json": {
+   "path": "data/fixtures/current/players.json",
+   "sha256": "eef4f2a2c3d0bf4e4f5a9d75e313fe2f017df67a7ec8b096d5597ba5162e4647"
+  },
+  "prior_players_json": {
+   "path": "data/fixtures/snapshots/players_2026-09-23.json",
+   "sha256": "6add0a7673dd1e9e1fbf1f9212a93a5dff2c8b72b96da9ecfb370e149abaf98e"
+  }
+ },
  "scorings": {
   "ppr": {
    "curve_shape": {
@@ -7582,6 +7604,144 @@
      "Justin Herbert (QB8)"
     ]
    }
+  }
+ },
+ "stability_espn": {
+  "interval": {
+   "from_fixture_as_of": "2026-09-23",
+   "from_espn_snapshot": "2026-09-29",
+   "to_fixture_as_of": "2026-10-28",
+   "days": "29 to 35 (one pair of reads, not week to week)"
+  },
+  "scorings": {
+   "ppr": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 6.9
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.72,
+     "median_rank_move": 4.0,
+     "median_points_on_today_curve": 9.4
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.77,
+     "median_rank_move": 7.0,
+     "median_points_on_today_curve": 8.4
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.79,
+     "median_rank_move": 4.5,
+     "median_points_on_today_curve": 4.0
+    }
+   },
+   "half_ppr": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 7.1
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.69,
+     "median_rank_move": 5.0,
+     "median_points_on_today_curve": 9.6
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.73,
+     "median_rank_move": 6.0,
+     "median_points_on_today_curve": 7.9
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.83,
+     "median_rank_move": 4.0,
+     "median_points_on_today_curve": 3.8
+    }
+   },
+   "standard": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 7.3
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.67,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 11.7
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.71,
+     "median_rank_move": 7.0,
+     "median_points_on_today_curve": 8.2
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.72,
+     "median_rank_move": 3.0,
+     "median_points_on_today_curve": 4.5
+    }
+   }
+  }
+ },
+ "joins": {
+  "published_half_ppr": {
+   "counts": {
+    "ok": 165
+   },
+   "not_joined": []
+  },
+  "published_ppr": {
+   "counts": {
+    "ok": 163
+   },
+   "not_joined": []
+  },
+  "published_standard": {
+   "counts": {
+    "ok": 166
+   },
+   "not_joined": []
+  },
+  "sttm_ros_ppr_2026-10-20": {
+   "counts": {
+    "ok": 120
+   },
+   "not_joined": []
   }
  }
 }
