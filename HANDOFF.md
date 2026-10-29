@@ -20,12 +20,12 @@ Codex maintains this handoff and is the single release coordinator under the
 2026-10-28 (America/Chicago). That protocol supersedes older ownership/routing
 notes below; preserve unrelated historical evidence.
 
-Release boundaries at confirmation (Codex owns these; Claude stays off them
-until the queue is done):
-- #1069 trade controls and details: merged and live.
-- #1071 values source breakdown: next in the release queue.
-- #1072 missing trade candidates: follows; per-opponent cutoff fix tested,
-  not live yet.
+Release status updated 2026-10-29 UTC (Codex coordinates releases):
+- #1069 trade controls and details: merged, published and live-verified.
+- #1071 values source breakdown: merged, published and live-verified.
+- #1072 missing trade candidates: merged, published and live-verified with
+  synthetic rosters; Jeremy's exact league replay remains unverified.
+  Detailed evidence is in [draft #1095](https://github.com/JB-barrel-droid/fantasy-tools/pull/1095).
 - Visual redesign: preview awaiting Jeremy's review. Stricter Natural fit rule
   unresolved.
 
@@ -36,9 +36,27 @@ Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
   This scoped implementation supersedes the earlier Codex/backlog-only boundary
   and prototype/site-choice scope, not the general role split. Jeremy still
   approves new numerical ranking, defaults and methodology decisions. Codex
-  remains release coordinator; the release queue above is unchanged.
+  remains release coordinator; this assignment does not alter release gates.
 
 ## Resume here
+
+### League candidate completeness fix (Codex, 2026-10-28 UTC)
+
+- Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
+  per-opponent top-10 truncation before fit ranking and filtering; no value,
+  fairness, or package-enumeration rule change. All qualified candidates remain.
+- Synthetic default-size regression: 52 qualified trades, 22 sending JSN;
+  old path retained 10 with zero JSN, corrected path retains all 52.
+  Not a reproduction of Jeremy's current league or a promise about its JSN deals.
+- Compact lazy fit details, cooperative fit evaluation/cancellation, and bounded
+  cache retention prevent the naive uncapped full-fit memory regression.
+  Optional size4 is still expensive; see the measured benchmark and limits in
+  `docs/claude-log/2026-10-28-league-candidate-completeness.md`.
+- Initial exact-head CI and isolated Mac browser tests passed. Release sequence
+  gate opened after #1069 and #1071 published/live passed. Current main is being
+  merged normally; fresh CI and independent delta review are required before merge.
+  Parent coordinates Mac live QA. No Supabase changes.
+  Linear issue creation was rejected by auto-review; do not retry without approval.
 
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
 

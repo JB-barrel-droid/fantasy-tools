@@ -20,6 +20,7 @@ FIXTURES = ROOT / "tests" / "fixtures" / "league"
 MODULES = ["workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
 
 REQUIRED = [
+    "test_opportunities_preserve_qualified_candidates", "test_opportunities_fit_after_full_search", "test_opportunities_cancel_during_pairing", "test_opportunities_cache_row_budget",
     "test_workspace_create", "test_workspace_corrupt", "test_workspace_versioned", "test_team_add_remove", "test_team_reorder", "test_clear_league",
     "test_share_link_encode", "test_share_link_decode", "test_export_import", "test_store_my_roster", "test_store_status_and_debounce",
     "test_sort_core", "test_summary_roster_value", "test_summary_ranks_fund", "test_summary_ranks_market", "test_summary_ranks_dense",
@@ -60,6 +61,7 @@ def mutated(changes: dict[str, tuple[str, str]]):
 
 # name -> (file, old, new, the checks that must fail)
 MUTATIONS = {
+    "pairing truncates before fit and filters": ("opportunities.js", "limit: Infinity,", "limit: F.LIMIT,", {"test_opportunities_preserve_qualified_candidates"}),
     "strength rule inverted (below the median counts)": ("team-summary.js", "const valueLow = med !== null && shown(sum) < shown(med);",
         "const valueLow = med !== null && shown(sum) > shown(med);", {"test_summary_strengths", "test_summary_weaknesses"}),
     "noise floor 1.0 instead of 2.0": ("team-summary.js", "const NOISE_FLOOR = 2.0;", "const NOISE_FLOOR = 1.0;", {"test_summary_gap_noise"}),
