@@ -119,3 +119,12 @@ Route integration (not in this commit): league.js builds `pricing` from #1105's 
 puts `encodeTransfer(toTransfer(ctx))` on "Open in Compare a trade"; Compare and the pair finder run the same levels
 with the carried `rostered` set and call `receive`, showing the hold's reason instead of modeled numbers. Those hunks
 belong to the league.js / v2.js / finder.js owners (#1105 / JEG-1249, JEG-1219) and are serialized by Codex.
+
+### Review 010ffe96 (JEG-1259, on 8599560)
+
+`receive` now compares the normalized reserve set as well as the rostered set (`level-changed` at `level.reserve`) and
+each level's `players` count (`rows-changed` at `level.<level>.players`), and an ok context carries the receiving page's
+validated pricing. An unreported reserve normalizes to none, as before. Regression: Codex's exact repro
+(`reserve: ["301"]` against a transfer with `[]`) holds; the same test file against `8599560`'s module fails that case.
+`node tests/node/trade_context_check.cjs`: 27 passed, 0 failed (also with #1110's contract). Mutations: 24, all fail a
+case (adds: receive ignoring reserve, receive ignoring the players count).

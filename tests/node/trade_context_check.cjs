@@ -571,6 +571,12 @@ test("a page that cannot reproduce the trade holds it with the reason, never rep
   holdOnly(arrive(tr, {pricing: null}), "level-changed");                        // cannot run the league levels
   holdOnly(arrive(tr, {tweak: (level, r) => (level === "market" ? r.map(x => (x.player_key === "204" ? {...x, values: {...x.values, fantasycalc: 30}} : x)) : r)}), "rows-changed");
   holdOnly(arrive(tr, {pricing: {...levelsFor("league", A, B, deal), rostered: A.map(e => e.key)}}), "level-changed");
+  // Codex review 010ffe96: the same levels run with a different reserve set, or pricing another number of the trade's
+  // players, are not the trade's levels.
+  holdOnly(arrive(tr, {pricing: {...tr.pricing, reserve: ["301"]}}), "level-changed");
+  assert.ok(arrive(tr, {pricing: {...tr.pricing, reserve: ["301"]}}).reasons.some(r => r.where === "level.reserve"));
+  holdOnly(arrive(tr, {pricing: {...tr.pricing, levels: {...tr.pricing.levels, ddf: {...tr.pricing.levels.ddf, players: tr.pricing.levels.ddf.players - 1}}}}), "rows-changed");
+  assert.equal(arrive(tr, {pricing: {...tr.pricing, reserve: [...tr.pricing.reserve]}}).status, "ok", "an equal reserve set is the same level");
   const sources = (patch) => T.normalizeCommon({league: tr.settings, basis: tr.valuation.basis, overrides: tr.valuation.overrides, sources: {...SOURCES, ...patch}});
   holdOnly(arrive(tr, {common: sources({espn: {available: false, reason: "not loaded"}})}), "sources-changed");     // missing source
   holdOnly(arrive(tr, {common: sources({fantasycalc: {held: true}})}), "sources-changed");                           // held source

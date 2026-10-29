@@ -529,8 +529,12 @@
         ["rows", "allocation", "weights"].forEach(part => {
           if (a[part] !== b[part]) add(`${part}-changed`, `level.${level}.${part}`, `the ${level} level's ${part} were rebuilt since the trade was priced`);
         });
+        if (a.players !== b.players) add("rows-changed", `level.${level}.players`, `the ${level} level prices ${b.players} of the trade's players, not ${a.players}`);
       });
-      if (pricing.mode === "league" && json(pricing.rostered) !== json(herePricing.rostered)) add("level-changed", "level.rostered", "the league rosters behind the levels differ");
+      // The league levels are run with both key sets: rostered (active depth) and reserve (IR / taxi, held but not depth).
+      ["rostered", "reserve"].forEach(set => {
+        if (json(pricing[set]) !== json(herePricing[set])) add("level-changed", `level.${set}`, `the league's ${set} players behind the levels differ`);
+      });
     }
     if (!isObject(transfer.mine) || !Array.isArray(transfer.mine.roster)) add("team-missing", "mine", "your roster did not arrive");
     if (!isObject(transfer.theirs) || !Array.isArray(transfer.theirs.roster)) add("team-missing", "theirs", "the other team's roster did not arrive");
@@ -544,7 +548,8 @@
     const team = t => (sameWorkspace ? workingTeam(ws, t.id, t.roster) : rosterTeam(t.roster, "link"));
     const context = createContext({route: h.route, common: mineCommon, commonProvenance: h.commonProvenance,
       provenance: sameWorkspace ? (PROVENANCE.includes(h.provenance) ? h.provenance : "local") : "link",
-      workspaceId: ws ? ws.id : null, pricing, mine: team(transfer.mine), theirs: team(transfer.theirs), deal,
+      // The receiving page's own pricing, now validated equal to the trade's in every compared part.
+      workspaceId: ws ? ws.id : null, pricing: herePricing, mine: team(transfer.mine), theirs: team(transfer.theirs), deal,
       origin: {route: ROUTES.includes(transfer.from) ? transfer.from : null, workspaceId: transfer.workspaceId || null,
         mineId: transfer.mine.id || null, theirId: transfer.theirs.id || null,
         partnerIds: Array.isArray(transfer.partnerIds) ? transfer.partnerIds.map(String) : [], sameWorkspace}});
