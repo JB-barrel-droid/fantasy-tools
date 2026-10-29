@@ -15,6 +15,24 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Draft PR CI deferral (Codex, 2026-10-29 UTC)
+
+- Branch `be/draft-ci-deferral` changes only PR Preview/v2-render scheduling,
+  a shared PR-state guard, parity tests and this evidence. The required `preview`
+  and `v2-render` checks stay named the same for PRs. Drafts run cheap guards,
+  skip browser/build shards, and receive a visible failed required check saying
+  full verification is deferred; ready-for-review triggers the full path.
+- The live PR head/draft state is checked before runner-heavy work and again
+  before a required check succeeds. Stale events, API errors and non-successful
+  dependencies fail closed. Manual runs use separate check names so a manual
+  run on a draft branch cannot satisfy a required PR check. Main push and
+  manual full-verification paths remain.
+- Focused workflow/guard tests: 103 PASS locally. Independent review and
+  exact PR CI evidence remain before merge. Branch protection settings were
+  inaccessible (connector 403); no protection change was made. The parent owns
+  merge and release. The expiring main-write pause is still unactivated; see
+  draft PR #1125 and its runbook before any release-window activation.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the

@@ -16,6 +16,7 @@ name: v2 render test
 # "Dispatch v2-render" step. The `push` trigger covers human/PAT/merge pushes.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
     # file is Markdown or under docs/. Tests-only PRs still run it. The docs
     # the build reads (sync_dashboard_artifacts -> build_values_explainer,
@@ -39,13 +40,33 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: v2-render-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  v2-render:
+  pr-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_expensive: ${{ steps.gate.outputs.run_expensive }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Cheap draft CI guards
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_ci_speedup_workflows
+      - name: Check current PR head and draft state
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate gate
+
+  render-tests:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
     runs-on: ubuntu-latest
     # JEG-1169: 15 minutes was used up by an 11-minute browser install.
     timeout-minutes: 25
@@ -53,6 +74,11 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -79,3 +105,31 @@ jobs:
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+
+  # Keep the existing required check name. Drafts and stale events fail this
+  # lightweight finalizer even though the expensive job is skipped.
+  v2-render:
+    # Manual dispatches keep full verification but cannot satisfy a draft PR's required check.
+    name: ${{ github.event_name == 'workflow_dispatch' && 'v2-render-manual' || 'v2-render' }}
+    needs: [pr-state, render-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Full render verification completed at the current PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_RESULT: ${{ needs.pr-state.result }}
+          RUN_EXPENSIVE: ${{ needs.pr-state.outputs.run_expensive }}
+          RENDER_RESULT: ${{ needs.render-tests.result }}
+        run: |
+          echo "state: $STATE_RESULT, render: $RENDER_RESULT"
+          if [ "$STATE_RESULT" != "success" ] || [ "$RUN_EXPENSIVE" != "true" ] || \
+             [ "$RENDER_RESULT" != "success" ]; then
+            echo "Full render verification deferred or incomplete; required v2-render check cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python3 -m pipelines.ci_pr_gate verify
