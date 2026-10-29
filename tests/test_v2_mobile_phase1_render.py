@@ -52,6 +52,14 @@ def setUpModule():
 # Chart internals (SVG, legend row, brush) are phase 2.
 CHART = ".v2-chart-head, .v2-plot, .v2-brush, .v2-ybrush, svg"
 
+# JEG-1193: the context strip's Reviewed chips. On a phone the strip is behind the JEG-1134 summary line, so open it first.
+STRIP_CHIPS = r"""() => {
+  const summary = document.getElementById('v2ContextSummary');
+  if (summary && summary.checkVisibility() && summary.getAttribute('aria-expanded') !== 'true') summary.click();
+  return [...document.querySelectorAll('#v2ShowingLegend .v2-div-chip[data-status=reviewed]')]
+    .map(c => ({tag: c.tagName, href: c.getAttribute('href') || '', visible: c.checkVisibility()}));
+}"""
+
 # Under mobile emulation the layout viewport grows to fit overflowing content (innerWidth == scrollWidth), exactly like a
 # phone zooming the page out; so overflow is measured against the device width, not innerWidth.
 OVERFLOW = "(w) => ({doc: Math.max(document.documentElement.scrollWidth, innerWidth) - w, body: document.body.scrollWidth - w})"
@@ -274,14 +282,24 @@ def run_checks(overrides=None, checks=("overflow", "tables", "tap", "hover", "te
                     go(page, tab)
                     seen += page.evaluate("() => [...document.querySelectorAll('.v2-app a.v2-div-chip[data-status=reviewed][href]')].filter(a => a.checkVisibility()).length")
                     # JEG-1193: the one-line context strip clips its legend on a phone, so its chip shows without a link.
-                    strip = page.evaluate("() => [...document.querySelectorAll('#v2ShowingLegend .v2-div-chip[data-status=reviewed]')].map(c => c.tagName)")
-                    strip_seen += len(strip)
-                    if "A" in strip:
+                    # Since JEG-1134 the strip sits behind the phone summary line; open it so the chip is on screen.
+                    strip = page.evaluate(STRIP_CHIPS)
+                    strip_seen += sum(1 for c in strip if c["visible"])
+                    if any(c["tag"] == "A" or c["href"] for c in strip):
                         errors.append(f"{tab}: the context strip's Reviewed chip is a link on a phone")
                 if not seen:
                     errors.append("no visible linked Reviewed chip on " + ", ".join(TAP_TABS))
                 if not strip_seen:
-                    errors.append("no Reviewed chip in the context strip on " + ", ".join(TAP_TABS))
+                    errors.append("no visible Reviewed chip in the opened context strip on " + ", ".join(TAP_TABS))
+                ctx.close()
+                # Desktop keeps the strip's link (JEG-1193).
+                ctx, page = open_page(*DESKTOPS[0], False)
+                desk = []
+                for tab in TAP_TABS:
+                    go(page, tab)
+                    desk += page.evaluate(STRIP_CHIPS)
+                if not any(c["visible"] and c["tag"] == "A" and c["href"] for c in desk):
+                    errors.append(f"[{DESKTOPS[0][0]}x{DESKTOPS[0][1]}] no linked Reviewed chip in the context strip on " + ", ".join(TAP_TABS))
                 ctx.close()
             if "tables" in checks:
                 ctx, page = open_page(*LANDSCAPE, True)       # a landscape phone is 844 px wide: touch rules, not width rules
@@ -376,9 +394,16 @@ class MobilePhase1RenderTest(unittest.TestCase):
             # linked chip its hit area (every width, phones, Targets), so the mutation turns the hit area off outright.
             "Reviewed chip loses its hit area": ("tap", {"v2.css": (css + "\na.v2-div-chip::after { content: none !important; }\n", text_css),
                                                          "assets/reference-freshness.json": (reviewed, "application/json")}, None),
-            # JEG-1193: the clipped context strip links its Reviewed chip again on phones.
-            "context strip chip linked on phones": ("tap", {"v2.js": (V2_JS.replace("appendDivergence(li, key, {noLink: PHONE_NAMES.matches});", "appendDivergence(li, key);", 1), "application/javascript"),
-                                                            "assets/reference-freshness.json": (reviewed, "application/json")}, None),
+            # JEG-1193: the clipped context strip links its Reviewed chip again on phones. The tap check alone passed this
+            # vacuously once JEG-1134 hid the strip behind the phone summary line, so the reviewedlink check opens it.
+            "context strip chip linked on phones": ("reviewedlink", {"v2.js": (V2_JS.replace("appendDivergence(li, key, {noLink: PHONE_NAMES.matches});", "appendDivergence(li, key);", 1), "application/javascript"),
+                                                                     "assets/reference-freshness.json": (reviewed, "application/json")}, None),
+            # JEG-1193: desktop keeps the strip's link.
+            "context strip chip unlinked on desktop": ("reviewedlink", {"v2.js": (V2_JS.replace("appendDivergence(li, key, {noLink: PHONE_NAMES.matches});", "appendDivergence(li, key, {noLink: true});", 1), "application/javascript"),
+                                                                        "assets/reference-freshness.json": (reviewed, "application/json")}, None),
+            # JEG-1193: the strip's chip disappears on phones instead of showing without a link.
+            "context strip chip dropped on phones": ("reviewedlink", {"v2.js": (V2_JS.replace("appendDivergence(li, key, {noLink: PHONE_NAMES.matches});", "if (!PHONE_NAMES.matches) appendDivergence(li, key);", 1), "application/javascript"),
+                                                                      "assets/reference-freshness.json": (reviewed, "application/json")}, None),
             "header chip word back to 0px text": ("text", {"v2.css": (css.replace(".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }", ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { font-size: 0; }", 1), text_css),
                                                            "assets/reference-freshness.json": (flagged, "application/json")},
                                                   ".v2-vtable .th-2 .v2-div-chip > .v2-div-word { display: none; }"),
