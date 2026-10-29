@@ -15,6 +15,12 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1234 source-contract integration (Codex, 2026-10-29 UTC)
+
+- New branch `codex/JEG-1234-release-prep-20261029`, isolated from preserved Claude source PR #1099 at `161a2e8ccfc1489465f895549bf4c4a1f0778568`. Normal clean merge `7de84f40` integrates main `430791c41ca9578d878c14c3a37d37a0f3fe0670`; no conflict resolution or runtime edit. All three reviewed test files remain byte-identical to independent-review head `fc3cf76c` and source head `161a2e8c`.
+- Focused build-adapter tests: 3 PASS; AST parsing, scope and complete app/pipelines tree identity to integrated main PASS. Prior independent Mac 18 tests and mutation evidence is retained for unchanged tests; no duplicate browser or broad suite was launched. Fresh required CI and independent integration-delta review remain required. Release owner chooses the final candidate; no merge, deployment, original-branch push, deletion or Supabase action. Existing cleanup approval does not transfer.
+- Evidence: `docs/claude-log/2026-10-29-jeg-1234-release-integration.md`. Linear claim comment was denied by automatic approval review and did not execute; no retry or alternate route was used. Coordination continues through the parent handback.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the

@@ -99,6 +99,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [claude-log/](claude-log/) | Record | - | - | One log file per PR, since 2026-10-07; see its README. |
+| [JEG-1234 integration evidence](claude-log/2026-10-29-jeg-1234-release-integration.md) | Record | JEG-1234 | 2026-10-29 | New Codex branch, clean main integration and unchanged reviewed-test evidence for source PR #1099. |
 | [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
 | [../archive/](../archive/) | Record | - | - | Archived material by date; see its README. `2026-10-15-docs/` holds the v2 design-notes build log (JEG-602). `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
