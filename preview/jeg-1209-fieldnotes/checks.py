@@ -12,7 +12,7 @@ change marks the results out of date; each review state (loading, no league, pro
 (ddf.v2.workspaces, ddf.v2.managerProfiles) seeded, using the preview leaves them byte-for-byte unchanged; a left-out
 opponent and a ticked manager box survive reload, No league and back, and reload in No league; Also show and Reset
 preview write their final text into one stable live region and keep focus; a note saved before the checkboxes keeps
-its text through tag changes, and a box that would cut it short is refused. Screenshots
+its exact text through box changes and reloads, even when it starts with a box label or is only one. Screenshots
 are named with the commit, route and width and listed in shots.json. Exit 1 on any failure.
 """
 import functools
@@ -35,8 +35,8 @@ R2_ROUTES = ["home", "paste", "compare", "targets", "settings", "more", "review"
 # Managers card only: "I just didn't want text boxes for how my leaguemates trade" (Jeremy, 2026-10-29).
 FIXED = ["us", "usProj", "ourRoster", "them", "themProj", "theirRoster"]
 LIVE_KEYS = ["ddf.v2.workspaces", "ddf.v2.managerProfiles"]
-PREVIEW_KEYS = ["ddf.preview.jeg1209.workspaces", "ddf.preview.jeg1209.managerProfiles"]
-LEGACY_NOTE = "Prefers WR depth; answers on weekends"
+PREVIEW_KEYS = ["ddf.preview.jeg1209.workspaces", "ddf.preview.jeg1209.managerProfiles", "ddf.preview.jeg1209.managerTags"]
+LEGACY_NOTES = ["Likes rookies; answers on weekends", "Likes rookies", "Win-now; Rebuilding; prefers WR depth"]
 FREE_TEXT = ("input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=hidden]):not([type=range])"
              ":not([type=button]):not([type=submit]):not([type=reset]), textarea, [contenteditable]:not([contenteditable=false])")
 
@@ -193,6 +193,8 @@ def main(argv):
         page.keyboard.press("Space")
         team = page.evaluate("document.querySelector('#v2LgManagers .v2-mg-team').dataset.teamId")
         page.evaluate("id => document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] .v2-mg-tags input`).click()", team)
+        anchor = page.evaluate("id => document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] select`).id", team)
+        page.evaluate("id => { const s = document.getElementById(id); s.value = 'some'; s.dispatchEvent(new Event('change', {bubbles: true})); }", anchor)
         page.wait_for_timeout(1300)   # both stores save 1 second after a change
         page.reload()
         page.wait_for_timeout(500)
@@ -205,6 +207,7 @@ def main(argv):
         check("persistence: an opponent left out stays left out after reload", page.evaluate("id => !document.getElementById(id).checked", first_opp))
         check("persistence: a ticked manager box stays ticked after reload",
               page.evaluate("id => document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] .v2-mg-tags input`).checked", team))
+        check("persistence: a manager's anchor choice stays after reload", page.evaluate("id => document.getElementById(id).value === 'some'", anchor))
         # No league, then Loaded: the saved filter carries through; reloading in No league keeps it too.
         page.locator('#stateSwitch button[data-state="empty"]').click()
         page.wait_for_timeout(100)
@@ -237,42 +240,43 @@ def main(argv):
               page.evaluate("(document.getElementById('previewLive') || {}).textContent"))
         check("reset: focus stays on Reset preview", page.evaluate("document.activeElement.id === 'resetPreview'"))
         check("reset: every opponent included and every manager at the default",
-              page.evaluate("[...document.querySelectorAll('#oiFinder input[type=checkbox]:not([disabled])')].every(b => b.checked) && ![...document.querySelectorAll('#v2LgManagers input[type=checkbox]')].some(b => b.checked)"))
+              page.evaluate("[...document.querySelectorAll('#oiFinder input[type=checkbox]:not([disabled])')].every(b => b.checked) && ![...document.querySelectorAll('#v2LgManagers input[type=checkbox]')].some(b => b.checked) && [...document.querySelectorAll('#v2LgManagers select')].every(s => s.value === 'unknown')"))
         page.wait_for_timeout(1300)
         check("reset: live keys still unchanged",
               page.evaluate("r => localStorage.getItem('ddf.v2.workspaces') === r.ws && localStorage.getItem('ddf.v2.managerProfiles') === r.mp", real))
         check("storage checks: no script errors", not errors, "; ".join(errors[:3]))
         ctx.close()
 
-        # JEG-1250: a note saved before the checkboxes keeps its text through tag changes.
+        # JEG-1250: a note saved before the checkboxes is never changed or read as ticks, even when it starts with a
+        # box label or is only a label. One legacy note per manager.
         ctx, page, errors, _ = page_at(390, 844)
         page.goto(f"{base}?shot=1#finder")
         page.wait_for_timeout(400)
-        team = page.evaluate("document.querySelector('#v2LgManagers .v2-mg-team').dataset.teamId")
-        page.evaluate("""([id, note]) => { const M = TradeValueManagerProfiles, W = TradeValueWorkspace;
-          M.store.update(b => M.ops.setNote(b, W.store.get(), id, note), "test"); M.store.flush(); }""", [team, LEGACY_NOTE])
+        teams = page.evaluate("[...document.querySelectorAll('#v2LgManagers .v2-mg-team')].map(t => t.dataset.teamId)")
+        cases = list(zip(teams, LEGACY_NOTES))
+        page.evaluate("""cases => { const M = TradeValueManagerProfiles, W = TradeValueWorkspace;
+          cases.forEach(([id, note]) => M.store.update(b => M.ops.setNote(b, W.store.get(), id, note), "test")); M.store.flush(); }""", cases)
         page.reload()
         page.wait_for_timeout(500)
         note = "id => TradeValueManagerProfiles.get(TradeValueManagerProfiles.store.get(), TradeValueWorkspace.store.get(), id).note"
         box = "([id, i]) => { const b = document.querySelectorAll(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] .v2-mg-tags input`)[i]; if (b) b.click(); }"
-        check("legacy note: shown as kept text",
-              page.evaluate("([id, n]) => (document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] [data-kept-note]`) || {}).textContent === `Kept from an earlier note: ${n}`", [team, LEGACY_NOTE]))
-        page.evaluate(box, [team, 2])   # Win-now
-        page.evaluate(box, [team, 0])   # Likes rookies
-        got = page.evaluate(note, team)
-        check("legacy note: ticking boxes keeps the earlier text", got == f"Likes rookies; Win-now; {LEGACY_NOTE}", got)
-        page.evaluate(box, [team, 2]); page.evaluate(box, [team, 0])
-        got = page.evaluate(note, team)
-        check("legacy note: unticking every box gives the earlier text back exactly", got == LEGACY_NOTE, got)
-        page.evaluate("([id, note]) => { const M = TradeValueManagerProfiles, W = TradeValueWorkspace; M.store.update(b => M.ops.setNote(b, W.store.get(), id, note), 'test'); M.store.flush(); }",
-                      [team, "x" * 275])
+        ticked = "id => [...document.querySelectorAll(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] .v2-mg-tags input`)].map(b => b.checked)"
+        for team, legacy in cases:
+            label = f"legacy note {legacy!r}"
+            check(f"{label}: no box starts ticked", not any(page.evaluate(ticked, team)), str(page.evaluate(ticked, team)))
+            check(f"{label}: shown as written", page.evaluate("([id, n]) => (document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"] [data-kept-note]`) || {}).textContent === `Earlier note, kept as written: ${n}`", [team, legacy]))
+            for i in (0, 2, 0):   # tick Likes rookies and Win-now, then untick Likes rookies
+                page.evaluate(box, [team, i])
+            got = page.evaluate(note, team)
+            check(f"{label}: unchanged after ticking and unticking", got == legacy, got)
+        page.wait_for_timeout(1300)
         page.reload()
         page.wait_for_timeout(500)
-        page.evaluate(box, [team, 1])   # "Wants draft picks" would push the note past 280 characters
-        got = page.evaluate(note, team)
-        check("legacy note: a box that would cut the note short is refused, note unchanged", got == "x" * 275, f"{len(got)} chars")
-        check("legacy note: the refusal is announced and the box stays clear",
-              page.evaluate("id => { const t = document.querySelector(`#v2LgManagers .v2-mg-team[data-team-id=\"${id}\"]`); const b = t.querySelectorAll('.v2-mg-tags input')[1], m = t.querySelector('[role=status].v2-mg-kept'); return Boolean(b && m) && !b.checked && m.textContent.includes('too long'); }", team))
+        for team, legacy in cases:
+            label = f"legacy note {legacy!r}"
+            check(f"{label}: after reload, note unchanged and only Win-now ticked",
+                  page.evaluate(note, team) == legacy and page.evaluate(ticked, team) == [False, False, True, False, False, False],
+                  f"{page.evaluate(note, team)!r} {page.evaluate(ticked, team)}")
         check("legacy note checks: no script errors", not errors, "; ".join(errors[:3]))
         ctx.close()
         browser.close()

@@ -17,6 +17,10 @@ Baseline: #1089 head `2c8931231ccd2bbeb4946ac031aee5ac655182f4`, `prototype.html
 - New checks (desktop 1280 unless named): live keys seeded first, then left out an opponent, ticked a manager box, reloaded, No league, reload in No league, back to Loaded, Reset preview: both live keys byte-for-byte unchanged and no other non-preview key added or removed; the filter and the ticked box survive each step; Also show and Reset preview write their final text into the same `#previewLive` node with focus on the pressed control. At 390: a note saved before the checkboxes ("Prefers WR depth; answers on weekends") shows as kept text, ticking Win-now and Likes rookies saves "Likes rookies; Win-now; Prefers WR depth; answers on weekends", unticking both returns the exact earlier text, and with a 275-character note a box is refused, announced and leaves the note unchanged.
 - Column order picker removed after Jeremy's fixed-order decision (JEG-1232); checks assert the table and phone cards draw the fixed order and no picker exists.
 
+## JEG-1250 second delta (review 38ed85e1)
+- Legacy-note prefix ambiguity: ticks now live on `ddf.preview.jeg1209.managerTags`; the note is never written by the boxes. `checks.py` 148/148 locally. The same `checks.py` against `82dcb092` fails all 12 new legacy checks for notes `Likes rookies; answers on weekends`, `Likes rookies` and `Win-now; Rebuilding; prefers WR depth` (boxes start ticked; untick drops text, e.g. the third note became `Rebuilding; prefers WR depth`).
+- `vendor/column-order.js` and `.css` restored byte-for-byte from `840cd4e1` and kept pinned in `MANIFEST.json` with `"loaded": false`; the branch no longer deletes any file.
+
 ## Claimed, not confirmed
 - Layout, overflow at 1280/768/390/320, 44px targets, dark theme and the screenshots come from `checks.py` in the `JEG-1209 Fieldnotes preview` workflow. This sandbox cannot download a Chromium build, so those checks had not run here when this was written; the PR's workflow run and its artifact are the record.
 - No screen reader was used. Announcements are checked only as `role="status"` / `aria-live` text.

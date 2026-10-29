@@ -24,3 +24,5 @@ Review e1e9a3b2 / a284ed4d, CHANGES REQUIRED at `840cd4e1`. Fixed on this branch
 - Legacy note: ticked boxes lead, earlier text kept verbatim, over-length ticks refused.
 - Pins: #1090 to `a5471429`; column-order dropped (Jeremy's fixed order, #1093 `b7e076f8`); open findings for #1091 and #1084 in `MANIFEST.json` and the brief; JEG-1230 readout and JEG-1229 preferences relabelled as planned.
 Checks: `checks.py` 140/140 locally; the same checks fail 19 at `840cd4e1`.
+Second delta (review 38ed85e1): Managers ticks moved to a preview-only key so no note is rewritten or parsed as ticks; column-order copies restored and pinned as not loaded (no file deletion on the branch). `checks.py` 148/148; the new legacy checks fail 12 at `82dcb092`.
+Decisions recorded on JEG-1209 (Jeremy, 2026-10-29): Fieldnotes as shown ("so A"); Values and AI path as separate scopes via Codex; JEG-1141 matches Fieldnotes motion.

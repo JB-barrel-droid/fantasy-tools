@@ -50,6 +50,24 @@
    "blob": "a8b34cb1c4e6b767d8a853df6b5a5e46c9fd2aa4"
   },
   {
+   "file": "column-order.js",
+   "from": "#1093 JEG-1232",
+   "branch": "claude/JEG-1232-column-order",
+   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
+   "path": "app/v2/column-order.js",
+   "blob": "1941cb4702ee7bc83ab3c891426e539fb1a7c9ca",
+   "loaded": false
+  },
+  {
+   "file": "column-order.css",
+   "from": "#1093 JEG-1232",
+   "branch": "claude/JEG-1232-column-order",
+   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
+   "path": "app/v2/column-order.css",
+   "blob": "fc9b449e6f09b48f371be51a969aeeab4a28c2d1",
+   "loaded": false
+  },
+  {
    "file": "manager-profiles.js",
    "from": "#1084 JEG-1217",
    "branch": "claude/JEG-1217-manager-profiles",
@@ -94,7 +112,7 @@
   {
    "pr": 1093,
    "ticket": "JEG-1232",
-   "reason": "Jeremy, 2026-10-29: \"Go with the fixed order value first.\" Reviewed #1093 head b7e076f80b597140b298a8ecd2bfa04c8f506ea2 has no column-order picker or saved order, so column-order.js/.css are no longer vendored; the preview draws its columns in one fixed order."
+   "reason": "Jeremy, 2026-10-29: \"Go with the fixed order value first.\" Reviewed #1093 head b7e076f80b597140b298a8ecd2bfa04c8f506ea2 has no column-order picker or saved order. column-order.js/.css stay pinned here (\"loaded\": false) but build.py no longer loads them; the preview draws its columns in one fixed order."
   }
  ],
  "open_findings": [

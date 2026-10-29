@@ -11,7 +11,7 @@ The page is assembled from three inputs, none of which this script changes:
 
 No free text for how leaguemates trade (Jeremy, 2026-10-29: "I just didn't want text boxes for how my leaguemates trade,
 and set everyone to default initially"). The Managers card's note box becomes checkboxes and every manager starts at the
-default profile; ticking a box keeps any other text already in the note. The baseline and the vendor copies stay
+default profile; ticked boxes are saved apart from the note, so an earlier note is never changed. The baseline and the vendor copies stay
 byte-for-byte pinned; PREVIEW_STORAGE (preview-only storage keys) and NO_FREE_TEXT below list every change the build
 makes to them, each an exact replacement that must match once. Every other input is as revision 3 had it.
 revision2.html is the revision-2 page, so the preview's links work wherever it is opened.
@@ -53,37 +53,31 @@ PREVIEW_STORAGE = [
 
 # (file, what it replaces it with, old, new). "baseline" is the revision-2 prototype; other names are vendor files.
 NO_FREE_TEXT = [
-    ("manager-profiles-ui.js", "Managers note box (JEG-1217): checkboxes for common leanings, saved in the same note field",
+    ("manager-profiles-ui.js", "Managers note box (JEG-1217): checkboxes for common leanings, saved apart from the note",
      'const note = el("textarea", {id: `v2MgNote-${key}`, class: "v2-mg-note", rows: "2", maxlength: String(M.MAX_NOTE), placeholder: "Anything else, like \\"loves rookies\\""});\n'
      '    note.value = p.note;\n'
      '    note.addEventListener("change", () => edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, note.value)));',
      'const NOTE_TAGS = ["Likes rookies", "Wants draft picks", "Win-now", "Rebuilding", "Slow to reply", "Rarely trades"];\n'
-     '    // Ticked boxes lead the note; any other text already in it stays after them word for word, never dropped (JEG-1250).\n'
-     '    const parts = String(p.note || "").split("; ");\n'
-     '    let lead = 0;\n'
-     '    while (lead < parts.length && NOTE_TAGS.includes(parts[lead]) && parts.indexOf(parts[lead]) === lead) lead += 1;\n'
-     '    const picked = new Set(parts.slice(0, lead));\n'
-     '    const kept = parts.slice(lead).join("; ");\n'
-     '    const compose = () => NOTE_TAGS.filter(x => picked.has(x)).concat(kept ? [kept] : []).join("; ");\n'
-     '    const full = el("p", {id: `v2MgTagMsg-${key}`, class: "v2-mg-kept", role: "status", "aria-live": "polite"});\n'
+     '    // Ticked boxes are saved on their own preview-only key, never in the note, so an earlier note is never rewritten\n'
+     '    // or mistaken for ticks (JEG-1250). The earlier note shows as plain text.\n'
+     '    const TAG_KEY = "ddf.preview.jeg1209.managerTags", tagId = `${ws().id}:${row.teamId}`;\n'
+     '    const readTags = () => { try { const v = JSON.parse(root.localStorage.getItem(TAG_KEY)); return v && typeof v === "object" ? v : {}; } catch (error) { return {}; } };\n'
+     '    const writeTags = list => { const all = readTags(); all[tagId] = list; try { root.localStorage.setItem(TAG_KEY, JSON.stringify(all)); } catch (error) { /* preview only */ } };\n'
+     '    const picked = new Set((readTags()[tagId] || []).filter(t => NOTE_TAGS.includes(t)));\n'
      '    const note = el("fieldset", {id: `v2MgNote-${key}`, class: "v2-mg-tags"}, el("legend", {text: "Also true of them"}),\n'
      '      ...NOTE_TAGS.map((t, i) => {\n'
      '        const box = el("input", {type: "checkbox", id: `v2MgTag-${key}-${i}`});\n'
      '        box.checked = picked.has(t);\n'
      '        box.addEventListener("change", () => {\n'
      '          if (box.checked) picked.add(t); else picked.delete(t);\n'
-     '          const next = compose();\n'
-     '          if (next.length > M.MAX_NOTE) {   // saving would cut the earlier note short, so this box is not saved\n'
-     '            picked.delete(t); box.checked = false;\n'
-     '            full.textContent = "The earlier note is too long to add this. Nothing was changed.";\n'
-     '            return;\n'
-     '          }\n'
-     '          full.textContent = "";\n'
-     '          edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, next));\n'
+     '          writeTags(NOTE_TAGS.filter(x => picked.has(x)));\n'
      '        });\n'
      '        return el("label", {class: "v2-mg-tag", for: box.id}, box, el("span", {text: t}));\n'
      '      }),\n'
-     '      kept ? el("p", {class: "v2-mg-kept", "data-kept-note": "", text: `Kept from an earlier note: ${kept}`}) : null, full);'),
+     '      p.note ? el("p", {class: "v2-mg-kept", "data-kept-note": "", text: `Earlier note, kept as written: ${p.note}`}) : null);'),
+    ("manager-profiles-ui.js", "Clear this profile also clears its ticked boxes",
+     'profiles.update(book => M.ops.reset(book, ws(), row.teamId), "reset");',
+     'profiles.update(book => M.ops.reset(book, ws(), row.teamId), "reset");\n      writeTags([]);'),
     ("manager-profiles-ui.js", "",
      'el("label", {class: "v2-mg-field v2-mg-note-field", for: `v2MgNote-${key}`}, el("span", {class: "v2-mg-field-name", text: "Note"}), note)', 'note'),
     ("manager-profiles-ui.js", "", "Other leanings (say which in the note)", "Other leanings (tick which below)"),

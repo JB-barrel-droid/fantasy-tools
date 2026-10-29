@@ -6,7 +6,7 @@ Decision, 2026-10-29: Jeremy approved Fieldnotes with one change, then narrowed 
 
 ## How leaguemates trade: no free text, default to start (Jeremy, 2026-10-29)
 
-The Managers card has no text box. Its note became checkboxes saved in the same note field: Likes rookies, Wants draft picks, Win-now, Rebuilding, Slow to reply, Rarely trades; the Other leanings anchor says "tick which below". Ticked boxes lead the note and any text already in it stays after them word for word, shown as "Kept from an earlier note" (JEG-1250); a box that would push the note past its length limit is refused and says so, rather than cutting the earlier text. Every manager starts at the default profile: each anchor Not sure, confidence Not set, no box ticked, Won't trade off ("Not described yet."). `build.py` applies the note change to the pinned #1084 copy (`NO_FREE_TEXT`), and `checks.py` fails if the Managers card has a text box or any manager starts away from the default.
+The Managers card has no text box. Its note became checkboxes saved in the same note field: Likes rookies, Wants draft picks, Win-now, Rebuilding, Slow to reply, Rarely trades; the Other leanings anchor says "tick which below". Ticked boxes are saved on their own preview-only key (`ddf.preview.jeg1209.managerTags`), never in the note, so a note saved before the checkboxes is never changed or mistaken for ticks, even when it starts with a box label. It shows as "Earlier note, kept as written" (JEG-1250). The real schema is #1084's to settle (its newer head has a separate `tags` field). Every manager starts at the default profile: each anchor Not sure, confidence Not set, no box ticked, Won't trade off ("Not described yet."). `build.py` applies the note change to the pinned #1084 copy (`NO_FREE_TEXT`), and `checks.py` fails if the Managers card has a text box or any manager starts away from the default.
 
 League paste, team name, the Buy & sell and Values searches and the read-only URL and copy boxes keep their text boxes. Revision 2's own Find a trade route opens the revision-3 page, so there is one finder to review.
 
@@ -36,12 +36,12 @@ Copies sit in `preview/jeg-1209-fieldnotes/vendor/` with the commit and git blob
 |---|---|---|
 | #1090 JEG-1231 | `a5471429` | Repinned to the reviewed accessibility fix (count described with each box). |
 | #1091 JEG-1233 | `571876f0` | Open: empty league with unavailable or full storage still promises saving; Undo reads as a file or link import (review 00895375). Owner fix pending, then repin. |
-| #1093 JEG-1232 | not vendored | Picker and saved order removed by Jeremy's fixed-order decision; the hidden-column Reset finding is superseded. |
+| #1093 JEG-1232 | `0953404c`, not loaded | Picker and saved order removed by Jeremy's fixed-order decision; the copies stay pinned but `build.py` no longer loads them. The hidden-column Reset finding is superseded. |
 | #1084 JEG-1217 | `a1e62342` | Open: Trade ideas drop partial or unjudged roster warnings, blank card after hide and show, stale names or gains after a rename (review 9e681c74), capture findings (59c00401). Newer `b29aac31` (fixed tags) is unreviewed and drops an existing note on load, so the preview stays on `a1e62342` with its own lossless note patch. |
 
 ### Preview storage (JEG-1250)
 
-`build.py` (`PREVIEW_STORAGE`) moves both stores to preview-only keys, `ddf.preview.jeg1209.workspaces` and `ddf.preview.jeg1209.managerProfiles`; the live `ddf.v2.workspaces` and `ddf.v2.managerProfiles` are never read or written. The sample league is written only when the preview has no league of its own, or on Reset preview. Filters and manager profiles survive reload, No league and back, and reload in No league. Review-state changes, Also show and Reset preview write their final text into one live region outside the rerendered controls, and focus stays on the control pressed.
+`build.py` (`PREVIEW_STORAGE`) moves both stores to preview-only keys, `ddf.preview.jeg1209.workspaces` and `ddf.preview.jeg1209.managerProfiles` (Managers ticks use `ddf.preview.jeg1209.managerTags`); the live `ddf.v2.workspaces` and `ddf.v2.managerProfiles` are never read or written. The sample league is written only when the preview has no league of its own, or on Reset preview. Filters and manager profiles survive reload, No league and back, and reload in No league. Review-state changes, Also show and Reset preview write their final text into one live region outside the rerendered controls, and focus stays on the control pressed.
 
 The components read the live page's `--v2-*` / `--ddf-*` token names. The preview points those names at the revision-2 roles (`src/continuation.css`), so they draw in Fieldnotes without any change to their own files. JEG-1231 already follows revision 2. The JEG-1232 and JEG-1233 concept previews were built on the older `app/v2-concept/concept.css` palette because no Fieldnotes revision had been handed over then; their components need no change, only their concept pages would.
 
@@ -79,5 +79,5 @@ Historical Week 7 fixture (`tv-20261027-0014-1bdef712`), synthetic four-team lea
 
 ## Decisions for Jeremy, one at a time
 
-1. Design language: approved with changes on 2026-10-29 (no text boxes for how leaguemates trade; everyone at default to start).
-2. Values page and homepage AI path ownership: add them to JEG-1137's scope, or give each its own rollout ticket.
+1. Design language: Jeremy picked A, Fieldnotes as shown (2026-10-29: "I like the look", "so A"), recorded on JEG-1209 with the review canvas https://claude.ai/artifact/JpXVs2CYzZKyxzvQeEtjf2.
+2. Values page and homepage AI path: separate rollout scopes reusing JEG-1137's foundation; Codex creates and sequences them (Jeremy, 2026-10-29). JEG-1141 motion matches Fieldnotes (Jeremy, 2026-10-29).

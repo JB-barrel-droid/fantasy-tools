@@ -277,6 +277,7 @@
     Object.assign(UI, {mode: "normal", size: 2, backups: {QB: 0, RB: 0, WR: 0, TE: 0}, open: null, shown: PAGE, optional: new Set()});
     UI.ran = JSON.stringify([UI.size, UI.backups]);
     document.querySelectorAll("#stateSwitch button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.state === "normal")));
+    try { localStorage.setItem("ddf.preview.jeg1209.managerTags", "{}"); } catch (error) { /* preview only */ }
     M.store.update(() => M.emptyBook(), "reset");
     store.replace(fixtureWorkspace(), "reset");
     renderAll();
@@ -288,8 +289,8 @@
   const HANDOFFS = [
     ["League status header and folded summary", "JEG-1233 · #1091", "league-status.js mounted on the real workspace store", "JEG-1137 shell and league entry"],
     ["Opponents to include (stable ids, Select all, Clear)", "JEG-1231 · #1090, hookup #1092", "opponent-inclusion.js createControl and filterRows", "JEG-1139 trade targets / league finder"],
-    ["Columns in one fixed order, value first", "JEG-1232 · #1093", "Fixed revision-2 outcome order, no picker (Jeremy, Oct 29); column-order.js no longer vendored", "JEG-1139"],
-    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js (note as checkboxes, earlier note text kept) and manager-recs-ui.js", "JEG-1139"],
+    ["Columns in one fixed order, value first", "JEG-1232 · #1093", "Fixed revision-2 outcome order, no picker (Jeremy, Oct 29); column-order.js pinned but not loaded", "JEG-1139"],
+    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js (checkboxes saved apart from the note; earlier notes unchanged) and manager-recs-ui.js", "JEG-1139"],
     ["Shared and page-only trade preferences", "JEG-1229 · #1086", "Planned: named in Trade preferences only; TradeContext is not run or integrated here", "JEG-1137 common controls, JEG-1140 Settings"],
     ["Row details readout", "JEG-1230 · #1088", "Revision-2 detail panel from fixture impacts. Planned: the rollout swaps in the JEG-1230 readout (#1088 wires no routes yet)", "JEG-1138 Compare, reused by JEG-1139"],
     ["Both saved-team selectors", "JEG-1219", "Not on the whole-league page; Your team follows the star", "JEG-1138 / JEG-1139"],
