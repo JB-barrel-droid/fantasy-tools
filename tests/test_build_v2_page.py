@@ -41,6 +41,18 @@ class BuildV2PageTest(unittest.TestCase):
         self.assertIn('href="v2/audit-pie.css"', html)
         self.assertIn('href="v2/audit-source.css"', html)
 
+    def test_design_flag_loads_in_head_before_paint(self):
+        # JEG-1137: ?design=fieldnotes must set data-design before first paint, on both pages, after v2.css.
+        for at_root in (False, True):
+            html = build_v2_page.build_v2_html(INDEX, '<div id="v2App"></div>', at_root=at_root)
+            tag = '<script src="v2/design-flag.js"></script>'
+            self.assertEqual(html.count(tag), 1)
+            self.assertLess(html.index(tag), html.index("</head>"))
+            self.assertGreater(html.index(tag), html.index('href="v2/v2.css"'))
+        flag_js = (build_v2_page.APP_V2 / "design-flag.js").read_text(encoding="utf-8")
+        self.assertIn('get("design")', flag_js)
+        self.assertIn('=== "fieldnotes"', flag_js)
+
     def test_missing_engine_script_fails_closed(self):
         broken = INDEX.replace('<script src="assets/value-model.js?v=x" defer></script>', "")
         with self.assertRaises(SystemExit):

@@ -212,7 +212,9 @@ class LeagueCoreCapRenderTest(unittest.TestCase):
         league = source("league.js")
         broken = {
             "cap off": league.replace("O.capPerCore(sorted, coreKey, O.CAP_PER_CORE)", "{list: sorted, folds: new Map()}"),
-            "no fold control": league.replace("if (capped.folds.has(key) && foldAt.get(key) === i) {", "if (false) {"),
+            # JEG-1235: the table's fold control is drawn at displayFoldAt (the row order after open folds join the
+            # sort, JEG-885); the old foldAt anchor no longer exists, so that mutation changed nothing.
+            "no fold control": league.replace("if (capped.folds.has(key) && displayFoldAt.get(key) === i) {", "if (false) {"),
         }
         with browser_on_build() as (browser, base):
             for name, body in broken.items():
