@@ -15,6 +15,20 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Shared regression CI wiring (2026-10-29, Codex)
+
+- Owner branch `be/ci-regression-wiring` owns Makefile render-sweep recipes,
+  render-sweep parity and coverage guards. JEG-1264/#1110 owner retains only
+  its USO harness/fixture/tests; no competing Makefile/workflow edit here.
+- Four current-main release render modules are now visible in the informational
+  three-shard render sweep; no KNOWN_RED exemption or deploy gate was added.
+- Class-qualified unittest targets are supported by shard parity, ready for
+  JEG-1264's proposed green harness/mutation vs expected-red continuity split.
+- The six unmerged suites need their tested files on the integration head before
+  wiring. Do not call expected-red USO context a release pass; route/context
+  must truly pass before required-release success. See the dated CI wiring log.
+
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the

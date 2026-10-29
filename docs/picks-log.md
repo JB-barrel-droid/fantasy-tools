@@ -21,6 +21,8 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 
 ## Picks
 
+- 10-29 | Regression CI wiring | JEG-1264 and current-main render checks | Where to surface four newly merged render modules | required release gate / informational three-shard sweep / KNOWN_RED | informational sweep with parity and coverage guards | baseline green is unverified, and a real red must remain visible without claiming release success | be/ci-regression-wiring; reverse with a reviewed revert PR | no
+
 - 10-27 9:42 PM | Clearing players and teams | JEG-1190 | How Compare a trade opens | A empty with Try an example / B labeled example / C as is | A (Jeremy chose) | his call | not built yet | no
 - 10-27 9:50 PM | Main green | PR #1021 | Footer "Connect the tool" and Find intro links are 15 to 18 px tall on phones (under the 44 px rule) | A invisible 44x44 hit area / B taller footer link row on phones / C 44 px on every link on touch screens | A | follows the existing 44 px rule with no visible change | PR #1021 (app/v2/v2.css) | no
 - 10-27 9:50 PM | Main green | PR #1021 | Basis default-path test compares against a frozen engine from before JEG-1121 | re-freeze the baseline from current main / retire the frozen-engine comparison | re-freeze | keeps the regression lock; the fixture README says to re-freeze after a deliberate value change | PR #1021 (tests/fixtures/baseline_main_771c3422) | no

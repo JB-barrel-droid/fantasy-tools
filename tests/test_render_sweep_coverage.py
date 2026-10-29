@@ -52,6 +52,11 @@ class RenderSweepCoverageTest(unittest.TestCase):
         self.assertEqual(1, len(found))
         self.assertIn("test_v2_names_render", found[0])
 
+    def test_class_target_counts_as_wiring_for_its_module(self):
+        module = "test_uso_site_journey_contract"
+        recipe = "\tpython3 -m unittest tests.test_uso_site_journey_contract.UsoJourneyContinuityTest\n"
+        self.assertEqual([], problems([module], recipe, {}))
+
     def test_a_new_unlisted_module_is_caught(self):
         found = problems(self.modules + ["test_v2_brand_new_render"], self.makefile, KNOWN_RED)
         self.assertEqual(["test_v2_brand_new_render: in no Makefile run list and not known red"], found)

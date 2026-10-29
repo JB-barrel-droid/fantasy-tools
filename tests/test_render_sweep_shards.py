@@ -20,7 +20,7 @@ def recipe_modules(makefile_text, target):
     for line in lines[start + 1:]:
         if not line.startswith("\t"):
             break
-        found = re.fullmatch(r"\tpython3 -m unittest tests\.(\w+)", line.rstrip())
+        found = re.fullmatch(r"\tpython3 -m unittest tests\.(\w+(?:\.\w+)*)", line.rstrip())
         if line.strip() and not line.strip().startswith("#"):
             assert found, f"{target}: unexpected recipe line {line!r}"
             out.append(found.group(1))
@@ -56,6 +56,14 @@ class RenderSweepShardsTest(unittest.TestCase):
     def test_every_shard_has_modules(self):
         for t in SHARD_TARGETS:
             self.assertGreater(len(recipe_modules(self.makefile, t)), 5, t)
+
+    def test_a_class_target_must_match_in_full_and_one_shard(self):
+        line = "\tpython3 -m unittest tests.test_uso_site_journey_contract.UsoJourneyContinuityTest\n"
+        wired = self.makefile.replace("test-render-sweep-3:\n", "test-render-sweep-3:\n" + line, 1)
+        wired = wired.replace("test-render-extra:\n", "test-render-extra:\n" + line, 1)
+        self.assertEqual([], problems(wired))
+        dropped = wired.replace("test-render-sweep-3:\n" + line, "test-render-sweep-3:\n", 1)
+        self.assertIn("test_uso_site_journey_contract.UsoJourneyContinuityTest: in test-render-extra but in no shard", problems(dropped))
 
     def test_a_module_dropped_from_every_shard_is_caught(self):
         victim = recipe_modules(self.makefile, "test-render-sweep-2")[0]
