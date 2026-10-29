@@ -12,7 +12,7 @@
   "use strict";
   const W = window.TradeValueWorkspace, S = window.TradeValueLeagueStatus, OI = window.TradeValueOpponentInclusion;
   const CO = window.TradeValueColumnOrder, M = window.TradeValueManagerProfiles;
-  const BASE = "../../docs/design/jeg-1209-fieldnotes/prototype.html";
+  const BASE = "revision2.html";   // the revision-2 routes, built with the no-free-text changes
   const POS = ["QB", "RB", "WR", "TE"];
   const PAGE = 8;
   const $ = id => document.getElementById(id);

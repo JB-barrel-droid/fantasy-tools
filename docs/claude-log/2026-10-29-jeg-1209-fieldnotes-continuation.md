@@ -10,3 +10,6 @@ Changes: new `preview/jeg-1209-fieldnotes/` (build script, browser checks, `src/
 ### Claimed, not confirmed
 - Browser checks and screenshots run only in CI (no Chromium download in the sandbox).
 - The JEG-1232 and JEG-1233 concept pages still use the older `concept.css` palette; their components draw in Fieldnotes here through token mapping, not by changing them.
+
+### Update: no free text inputs
+Jeremy, 2026-10-29, approving Fieldnotes with changes: "Make it, and no free text inputs". `build.py` now applies `NO_FREE_TEXT` (exact replacements, each must match once) to the pinned revision-2 page and to `manager-profiles-ui.js`, and writes `revision2.html`; the pinned sources are unchanged. Replacements and checks are listed in `continuation/brief.md` and `continuation/verification.md`. The production note field in #1084 (JEG-1217) still has a text box until that PR follows the rule.

@@ -316,6 +316,10 @@ html[data-theme="dark"]{--canvas:#101b17;--surface:#192720;--subtle:#26372d;--in
 .v2-mi-why, .v2-mi-stretch { margin-top: 10px; }
 .v2-mi-lines { margin: 8px 0; padding-left: 20px; font-size: 14px; }
 .v2-mi-stretch > summary { font-family: Fraunces, Georgia, serif; font-size: 18px; }
+/* No free text (2026-10-29): the Managers note is a set of checkboxes. */
+.v2-mg-tags { border: 0; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.v2-mg-tags legend { font-size: 14px; font-weight: 650; margin-bottom: 6px; padding: 0; }
+.v2-mg-tag { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
 
 /* Journey, layout and stages. */
 .finder-journey .journeystep { display: block; text-decoration: none; color: var(--ink); border: 1px solid var(--control); border-radius: 9px;
@@ -413,7 +417,7 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
 
   <nav class="finder-journey" aria-label="Find a trade steps">
     <a class="journeystep" href="#stageLeague" data-stage="league">League<small id="stepLeague">Loaded league</small></a>
-    <a class="journeystep" data-base="rosters" href="#">Explore rosters<small>Side by side, every team (revision 2, unchanged)</small></a>
+    <a class="journeystep" data-base="rosters" href="#">Explore rosters<small>Side by side, every team (revision 2)</small></a>
     <a class="journeystep" href="#stagePrefs" data-stage="prefs">Trade preferences<small id="stepPrefs">Up to 2 players a side</small></a>
     <a class="journeystep" href="#stageResults" data-stage="results">Opportunities<small id="stepResults">Results</small></a>
   </nav>
@@ -470,7 +474,7 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
       <li><b>Row details</b><p>Open below the row.</p></li></ol></article>
     <article class="card"><h2>Proposed in revision 3</h2><ol class="flowsteps">
       <li><b>League status</b><p>One truthful line: teams, players, your team and whether it is saved on this device. Folds away once checked (JEG-1233).</p></li>
-      <li><b>Explore rosters</b><p>Unchanged from revision 2: both teams side by side, every team discoverable.</p></li>
+      <li><b>Explore rosters</b><p>From revision 2: both teams side by side, every team discoverable.</p></li>
       <li><b>Trade preferences</b><p>Package size and minimum backups, with shared preferences named. A change marks results out of date instead of pretending they reran.</p></li>
       <li><b>Managers, then Trade ideas</b><p>Your read of each manager, then ideas ranked by your gain with Likely or Possible, and long shots in their own Stretch offers section (JEG-1217).</p></li>
       <li><b>Trade opportunities</b><p>Outcomes first: your starters, then theirs, then package capture. Columns move with buttons (JEG-1232); Filters choose opponents by stable team id with Select all and Clear (JEG-1231).</p></li>
@@ -2340,7 +2344,7 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
   const LEVEL_TEXT = {unknown: "Not sure", none: "Doesn't care", some: "Somewhat", strong: "A lot"};
   const CONFIDENCE_TEXT = {unknown: "Not set", low: "A guess", medium: "Fairly sure", high: "Sure"};
   const ANCHOR_HELP = {draft: "Values players by where they were drafted", market: "Goes by trade value charts and market prices",
-    rankings: "Goes by player rankings", names: "Wants well-known players", subjective: "Other leanings (say which in the note)"};
+    rankings: "Goes by player rankings", names: "Wants well-known players", subjective: "Other leanings (tick which below)"};
   const UI = {open: new Set(), status: "", mounted: false};
 
   function el(tag, props, ...kids) {
@@ -2399,9 +2403,18 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
       }));
     const confidence = select(`v2MgConf-${key}`, "How sure are you?", M.CONFIDENCE.map(c => [c, CONFIDENCE_TEXT[c]]), p.confidence,
       v => edit(row.teamId, (b, w, id) => M.ops.setConfidence(b, w, id, v)));
-    const note = el("textarea", {id: `v2MgNote-${key}`, class: "v2-mg-note", rows: "2", maxlength: String(M.MAX_NOTE), placeholder: "Anything else, like \"loves rookies\""});
-    note.value = p.note;
-    note.addEventListener("change", () => edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, note.value)));
+    const NOTE_TAGS = ["Likes rookies", "Wants draft picks", "Win-now", "Rebuilding", "Slow to reply", "Rarely trades"];
+    const picked = new Set(String(p.note || "").split(";").map(t => t.trim()).filter(t => NOTE_TAGS.includes(t)));
+    const note = el("fieldset", {id: `v2MgNote-${key}`, class: "v2-mg-tags"}, el("legend", {text: "Also true of them"}),
+      ...NOTE_TAGS.map((t, i) => {
+        const box = el("input", {type: "checkbox", id: `v2MgTag-${key}-${i}`});
+        box.checked = picked.has(t);
+        box.addEventListener("change", () => {
+          if (box.checked) picked.add(t); else picked.delete(t);
+          edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, NOTE_TAGS.filter(x => picked.has(x)).join("; ")));
+        });
+        return el("label", {class: "v2-mg-tag", for: box.id}, box, el("span", {text: t}));
+      }));
     const reset = el("button", {type: "button", class: "v2-btn v2-mg-reset", text: "Clear this profile"});
     reset.addEventListener("click", () => {
       profiles.update(book => M.ops.reset(book, ws(), row.teamId), "reset");
@@ -2412,7 +2425,7 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
     const describe = el("details", {class: "v2-mg-describe", id: `v2MgDescribe-${key}`, open: UI.open.has(row.teamId)},
       el("summary", {text: "Describe"}),
       el("div", {class: "v2-mg-body"}, anchors, confidence,
-        el("label", {class: "v2-mg-field v2-mg-note-field", for: `v2MgNote-${key}`}, el("span", {class: "v2-mg-field-name", text: "Note"}), note), reset));
+        note, reset));
     describe.addEventListener("toggle", () => { if (describe.open) UI.open.add(row.teamId); else UI.open.delete(row.teamId); });
     return el("li", {class: "v2-mg-team", "data-team-id": row.teamId},
       el("div", {class: "v2-mg-head"},
@@ -2661,7 +2674,7 @@ html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
   "use strict";
   const W = window.TradeValueWorkspace, S = window.TradeValueLeagueStatus, OI = window.TradeValueOpponentInclusion;
   const CO = window.TradeValueColumnOrder, M = window.TradeValueManagerProfiles;
-  const BASE = "../../docs/design/jeg-1209-fieldnotes/prototype.html";
+  const BASE = "revision2.html";   // the revision-2 routes, built with the no-free-text changes
   const POS = ["QB", "RB", "WR", "TE"];
   const PAGE = 8;
   const $ = id => document.getElementById(id);

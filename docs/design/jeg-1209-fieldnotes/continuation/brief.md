@@ -1,10 +1,28 @@
 # Fieldnotes revision 3: Find a trade review brief (JEG-1209)
 
-Claude continuation of the revision-2 Fieldnotes preview handed over in #1089 (`2c8931231ccd2bbeb4946ac031aee5ac655182f4`). The baseline files in `docs/design/jeg-1209-fieldnotes/` are unchanged; this folder and `preview/jeg-1209-fieldnotes/` add revision 3. Private review only: nothing is published, deployed or merged by this work. Jeremy selects the language before any JEG-1137 to JEG-1140 rollout.
+Claude continuation of the revision-2 Fieldnotes preview handed over in #1089 (`2c8931231ccd2bbeb4946ac031aee5ac655182f4`). The baseline files in `docs/design/jeg-1209-fieldnotes/` are unchanged; this folder and `preview/jeg-1209-fieldnotes/` add revision 3. Private review only: nothing is published, deployed or merged by this work.
+
+Decision, 2026-10-29: Jeremy approved Fieldnotes with one change: "no free text inputs". Every screen in the preview now follows that rule (see No free text inputs below), and it is part of the rollout handoffs.
+
+## No free text inputs (Jeremy, 2026-10-29)
+
+Nothing in the preview can be typed into. `build.py` applies each change below as an exact replacement to the pinned revision-2 page and vendor copies (`NO_FREE_TEXT`), and `checks.py` fails if any route on either page has a text box, text area or editable region.
+
+| Was | Now |
+|---|---|
+| League paste box (Your league) | Paste from clipboard button that reads what was copied and says how many lines it read; Use a sample roster stays |
+| Team name box (single roster) | Dropped: a single roster is My team; a league paste names its own teams, and Which team is yours is a choice |
+| Buy & sell name search | Position buttons: All, QB, RB, WR, TE |
+| Values name search | Dropped: the position buttons and Show more already narrow the list |
+| Managers note box (JEG-1217) | Checkboxes: Likes rookies, Wants draft picks, Win-now, Rebuilding, Slow to reply, Rarely trades (saved in the same note field) |
+| Server URL box, read-only (Take it to your chatbot) | The URL as text beside its Copy button |
+| Copy fallback box, read-only | The text shown already selected |
+
+Revision 2's own Find a trade route now opens the revision-3 page, so there is one finder to review.
 
 ## What to look at
 
-Open `preview/jeg-1209-fieldnotes/index.html` (self-contained; or serve the repo root with `python3 -m http.server 8767 --bind 127.0.0.1` and open `/preview/jeg-1209-fieldnotes/index.html`). Review at 1280 and 390 px. Routes: `#finder` (the page), `#flow` (current vs proposed), `#handoffs`. The top nav and Explore rosters open the unchanged revision-2 routes. The dashed Review states bar swaps in Values loading, No league and Projections missing; it is not part of the design.
+Open `preview/jeg-1209-fieldnotes/index.html` (self-contained; or serve the repo root with `python3 -m http.server 8767 --bind 127.0.0.1` and open `/preview/jeg-1209-fieldnotes/index.html`). Review at 1280 and 390 px. Routes: `#finder` (the page), `#flow` (current vs proposed), `#handoffs`. The top nav and Explore rosters open the revision-2 routes in `revision2.html`, built with the no-free-text changes. The dashed Review states bar swaps in Values loading, No league and Projections missing; it is not part of the design.
 
 Screenshots and browser checks come from the `JEG-1209 Fieldnotes preview` workflow on the PR, as the `jeg1209-fieldnotes-r3-shots` artifact. Each file name carries the commit, route and width; `shots.json` lists them with the check results.
 
@@ -50,13 +68,15 @@ Historical Week 7 fixture (`tv-20261027-0014-1bdef712`), synthetic four-team lea
 
 ## Rollout handoffs (after approval)
 
-- JEG-1137 shell and league entry: tokens and type from revision 2, the League status header (JEG-1233), the shared and page-only preference labels (JEG-1229).
+- All four: no free text inputs on any screen (Jeremy, 2026-10-29). Use buttons, checkboxes, selects, steppers and the clipboard Paste button; the table under No free text inputs lists each replacement.
+- JEG-1137 shell and league entry: tokens and type from revision 2, the League status header (JEG-1233), the shared and page-only preference labels (JEG-1229), and league entry by Paste from clipboard instead of a text box.
 - JEG-1138 Compare: the row-detail readout (JEG-1230) and value views, reused by targets.
-- JEG-1139 targets and the league finder: Opponents to include (JEG-1231), Column order (JEG-1232), Managers and Trade ideas (JEG-1217), outcome-first columns.
+- JEG-1139 targets and the league finder: Opponents to include (JEG-1231), Column order (JEG-1232), Managers and Trade ideas (JEG-1217, with the note as checkboxes), outcome-first columns, position buttons instead of name search.
 - JEG-1140 Settings and explanations: independent; common preference fields with JEG-1137.
 - Values and the homepage AI path (revision 2) still need an owner: a scope line on JEG-1137 or their own tickets.
 
 ## Decisions for Jeremy, one at a time
 
-1. Design language: approve Fieldnotes (revision 2 visuals, revision 3 finder) for the JEG-1137 to JEG-1140 rollout, approve with changes, or hold.
-2. Values page and homepage AI path ownership: add them to JEG-1137's scope, or give each its own rollout ticket.
+1. Design language: approved with changes on 2026-10-29 (no free text inputs).
+2. League entry when the browser won't read the clipboard: open.
+3. Values page and homepage AI path ownership: add them to JEG-1137's scope, or give each its own rollout ticket.

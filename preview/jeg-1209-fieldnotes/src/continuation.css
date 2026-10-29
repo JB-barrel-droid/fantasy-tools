@@ -32,6 +32,10 @@
 .v2-mi-why, .v2-mi-stretch { margin-top: 10px; }
 .v2-mi-lines { margin: 8px 0; padding-left: 20px; font-size: 14px; }
 .v2-mi-stretch > summary { font-family: Fraunces, Georgia, serif; font-size: 18px; }
+/* No free text (2026-10-29): the Managers note is a set of checkboxes. */
+.v2-mg-tags { border: 0; padding: 0; margin: 12px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.v2-mg-tags legend { font-size: 14px; font-weight: 650; margin-bottom: 6px; padding: 0; }
+.v2-mg-tag { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; font-size: 14px; }
 
 /* Journey, layout and stages. */
 .finder-journey .journeystep { display: block; text-decoration: none; color: var(--ink); border: 1px solid var(--control); border-radius: 9px;
