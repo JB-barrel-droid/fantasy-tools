@@ -39,6 +39,7 @@ PAGE = """<!doctype html>
 <script src="source-views.js"></script><script src="values-fieldnotes.js"></script>
 </head><body class="v2"><div class="v2-app">
 <main id="vfRoot" aria-labelledby="vfTitle"></main></div>
+<div id="vfMockDrawer" role="dialog" aria-label="Player details (mock)" hidden><button type="button" id="vfMockDrawerClose">Close</button></div>
 <script>
 // Mocked preview controller (test scaffolding only). The live page filters view.visible itself and owns state.
 (() => {
@@ -55,12 +56,21 @@ PAGE = """<!doctype html>
     return {...base, rows, sort: ui.sort, shown: ui.shown, rankKey: ui.rankKey, filters: {search: ui.search, position: ui.position}};
   };
   let handle = null;
+  let drawerOpener = null;
+  document.getElementById("vfMockDrawerClose").addEventListener("click", () => {
+    document.getElementById("vfMockDrawer").hidden = true;
+    if (drawerOpener && drawerOpener.focus) drawerOpener.focus();
+    handle.update();
+  });
   const on = {
     sort: next => { ui.sort = next; handle.update(); },
     filter: change => { Object.assign(ui, change); handle.update(); },
     rankBy: key => { ui.rankKey = key; ui.sort = null; handle.update(); },
     showMore: () => { ui.shown += 25; handle.update(); },
-    open: key => { window.__vfOpened.push(key); },
+    // Mock drawer, as v2.js openDrawer/closeDrawer: remember the opener, focus the drawer, and on close send focus back
+    // to the opener. The page then redraws (handle.update() runs wherever renderTable() does).
+    open: key => { window.__vfOpened.push(key); drawerOpener = document.activeElement;
+      document.getElementById("vfMockDrawer").hidden = false; document.getElementById("vfMockDrawerClose").focus(); },
     clear: () => { ui.search = ""; ui.position = "ALL"; handle.update(true); }
   };
   handle = TradeValueValuesFieldnotes.mount(document.getElementById("vfRoot"), {getContext: ctx, on});
@@ -327,6 +337,57 @@ class ValuesFieldnotesRenderTest(unittest.TestCase):
                 ev.locator("summary").focus()
                 page.keyboard.press("Enter")
                 self.assertIn("Observed-trade estimates", ev.inner_text())
+                page.context.close()
+
+    # JEG-1299: the table row and the phone card both have a Details button. After a redraw, focus must go back to the one
+    # the reader was on, which on a phone is the card's (the table is display: none at 719px and below).
+    FOCUSED = """() => { const a = document.activeElement; const li = a && a.closest('.vf-cards > li, .vf-table tbody tr');
+      return {tag: a ? a.tagName : null, label: a ? a.getAttribute('aria-label') : null, visible: !!(a && a.offsetParent !== null),
+        where: li ? (li.matches('tr') ? 'table' : 'card') : null, key: li ? li.dataset.playerKey : null}; }"""
+
+    def details_button(self, page, width, key):
+        where = ".vf-table tbody tr" if width >= 720 else ".vf-cards > li"
+        return page.locator(f'{where}[data-player-key="{key}"] button[aria-label^="Details for"]')
+
+    def test_details_focus_survives_redraw(self):
+        name = next(r["name"] for r in FIXTURE["rows"] if r["player_key"] == "syn-03")
+        for width in (390, 320, 1280):
+            with self.subTest(width=width):
+                page = self.open(state("ready"), width)
+                button = self.details_button(page, width, "syn-03")
+                self.assertTrue(button.is_visible(), "the Details button for this width is the visible one")
+                button.focus()
+                page.evaluate("window.__vfHandle.update()")
+                want = {"tag": "BUTTON", "label": f"Details for {name}", "visible": True,
+                        "where": "table" if width >= 720 else "card", "key": "syn-03"}
+                self.assertEqual(page.evaluate(self.FOCUSED), want, "after a redraw focus is back on the visible Details button")
+                page.context.close()
+
+    def test_details_drawer_return_after_redraw(self):
+        name = next(r["name"] for r in FIXTURE["rows"] if r["player_key"] == "syn-02")
+        for width in (390, 320, 1280):
+            with self.subTest(width=width):
+                page = self.open(state("ready"), width)
+                self.details_button(page, width, "syn-02").focus()
+                page.keyboard.press("Enter")
+                self.assertEqual(page.evaluate("window.__vfOpened"), ["syn-02"])
+                self.assertEqual(page.evaluate("document.activeElement.id"), "vfMockDrawerClose", "the drawer has focus")
+                page.keyboard.press("Enter")
+                want = {"tag": "BUTTON", "label": f"Details for {name}", "visible": True,
+                        "where": "table" if width >= 720 else "card", "key": "syn-02"}
+                self.assertEqual(page.evaluate(self.FOCUSED), want, "closing the drawer returns focus to the Details button")
+                page.context.close()
+
+    def test_details_focus_falls_back_to_title(self):
+        # The focused player is filtered out by the redraw: nothing visible matches, so focus goes to the title.
+        for width in (390, 1280):
+            with self.subTest(width=width):
+                page = self.open(state("ready"), width)
+                self.details_button(page, width, "syn-03").focus()
+                page.evaluate("() => { window.__VF_CTX.rows = window.__VF_CTX.rows.filter(r => r.player_key !== 'syn-03'); }")
+                page.evaluate("window.__vfHandle.update()")
+                self.assertEqual(page.locator('[data-player-key="syn-03"]').count(), 0)
+                self.assertEqual(page.evaluate("document.activeElement.id"), "vfTitle", "nothing visible matches, so focus goes to the title")
                 page.context.close()
 
     def test_dark_theme(self):
