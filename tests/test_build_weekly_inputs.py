@@ -23,6 +23,11 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 
 import build_weekly_inputs as bwi  # noqa: E402
 
+try:
+    import weekly_inputs_contract as CONTRACT  # JEG-1227
+except ImportError:
+    CONTRACT = None
+
 FX = ROOT / "tests" / "fixtures" / "weekly_inputs_producer"
 AS_OF = "2026-10-29T02:00:00Z"
 HEADER = "season,week,player_key,pos,team,std,half_ppr,ppr,snapshot_at,pre_kickoff,basis\n"
@@ -69,7 +74,7 @@ class ProducerCase(unittest.TestCase):
         return p
 
     def row(self, doc, key):
-        return next(r for r in doc["rows"] if r["player_key"] == key)
+        return next(r for r in doc["players"] if r["player_key"] == key)
 
 
 class GoldenAndDeterminism(ProducerCase):
@@ -96,8 +101,9 @@ class GoldenAndDeterminism(ProducerCase):
         for doc in (a, b):
             for meta in doc["legs"].values():
                 meta["inputs"] = []
-            for r in doc["rows"]:
-                r["identity"]["source_ids"].pop("espn_row", None)
+            for r in doc["players"]:
+                if r["source_ids"].pop("espn_row", None) is not None:
+                    r["name"] = "Unresolved espn_row"
         self.assertEqual(a, b)
 
     def test_no_network(self):
@@ -109,100 +115,111 @@ class Values(ProducerCase):
     def test_latest_snapshot_wins_and_other_weeks_seasons_are_left_out(self):
         doc = self.build()
         cell = self.row(doc, 101)["legs"]["experts.espn_weekly"]
-        self.assertEqual(cell["value"], {"std": 10.5, "half_ppr": 12.0, "ppr": 13.5})
-        self.assertEqual(cell["captured_at"], "2026-10-28T12:40:00Z")
+        self.assertEqual(cell["values"], {"standard": 10.5, "half_ppr": 12.0, "ppr": 13.5})
+        meta = doc["legs"]["experts.espn_weekly"]
+        self.assertEqual((meta["content_vintage"], meta["captured_at"]), ("2026-10-28", "2026-10-28T12:40:00Z"))
         rep = doc["input_report"]["experts.espn_weekly"]
         self.assertEqual((rep["wrong_week"], rep["wrong_season"], rep["after_as_of"]), (1, 1, 1))
 
     def test_zero_is_a_value_not_missing(self):
         cell = self.row(self.build(), 102)["legs"]["experts.espn_weekly"]
-        self.assertEqual(cell["value"], {"std": 0.0, "half_ppr": 0.0, "ppr": 0.0})
-        self.assertIsNone(cell["missing_reason"])
+        self.assertEqual(cell["values"], {"standard": 0.0, "half_ppr": 0.0, "ppr": 0.0})
+        self.assertEqual(cell["provenance"], "complete")
+        self.assertNotIn("missing_reason", cell)
 
     def test_partial_row_is_kept_with_null_scoring(self):
         doc = self.build()
         cell = self.row(doc, 103)["legs"]["experts.espn_weekly"]
-        self.assertEqual(cell["value"], {"std": 6.2, "half_ppr": 7.1, "ppr": None})
+        self.assertEqual(cell["values"], {"standard": 6.2, "half_ppr": 7.1, "ppr": None})
         self.assertEqual(cell["provenance"], "partial")
+        self.assertEqual(cell["missing_reason"], {"ppr": "blank in the ESPN weekly file"})
         self.assertEqual(doc["legs"]["experts.espn_weekly"]["availability"], "partial")
 
     def test_conflicting_duplicates_give_null_and_reason(self):
         doc = self.build()
         cell = self.row(doc, 104)["legs"]["experts.espn_weekly"]
-        self.assertIsNone(cell["value"])
-        self.assertIn("conflicting", cell["missing_reason"])
+        self.assertEqual(set(cell["values"].values()), {None})
+        self.assertIn("conflicting", cell["missing_reason"]["standard"])
         self.assertEqual(doc["input_report"]["experts.espn_weekly"]["conflict"], 1)
 
     def test_all_blank_row_is_missing_not_zero(self):
         cell = self.row(self.build(), 105)["legs"]["experts.espn_weekly"]
-        self.assertIsNone(cell["value"])
-        self.assertEqual(cell["missing_reason"], "no projection values")
+        self.assertEqual(set(cell["values"].values()), {None})
+        self.assertEqual(cell["provenance"], "missing")
+        self.assertEqual(cell["missing_reason"]["ppr"], "blank in the ESPN weekly file")
 
     def test_unresolved_players_stay_in_with_reason(self):
         doc = self.build()
-        unresolved = [r for r in doc["rows"] if r["player_key"] is None]
-        reasons = sorted(r["identity"]["unresolved_reason"] for r in unresolved)
+        unresolved = [r for r in doc["players"] if r["player_key"] is None]
+        reasons = sorted(r["unresolved_reason"] for r in unresolved)
         self.assertEqual(len(unresolved), 3)
         self.assertIn("player_key 999 not in players snapshot", reasons)
         self.assertIn("espn row has no player_key", reasons)
         self.assertTrue(any(x.startswith("unresolved: name") for x in reasons))
-        self.assertEqual(doc["rows"][-3:], unresolved)  # resolved rows first
+        self.assertEqual(doc["players"][-3:], unresolved)  # resolved rows first, then by name
+        self.assertEqual([r["name"] for r in unresolved], sorted(r["name"] for r in unresolved))
         self.assertEqual(doc["input_report"]["unresolved_rows"], 3)
 
     def test_missing_legs_are_null_with_reason_never_fabricated(self):
         doc = self.build()
-        for r in doc["rows"]:
+        for r in doc["players"]:
             for leg in ("experts.ecr_weekly", "vegas"):
-                self.assertEqual(r["legs"][leg], {"value": None, "missing_reason": "leg unavailable",
-                                                  "captured_at": None, "provenance": None})
+                self.assertEqual(r["legs"][leg], {"provenance": "missing", "values": {
+                    "standard": None, "half_ppr": None, "ppr": None}})
         for leg in ("experts.ecr_weekly", "vegas"):
             meta = doc["legs"][leg]
             self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
                              ("unavailable", None, "unavailable"))
-            self.assertTrue(meta["unavailable_reason"])
+            self.assertTrue(meta["missing_reason"])
 
 
 class StatusAndByes(ProducerCase):
     def test_latest_status_snapshot_in_week_on_or_before_as_of(self):
         doc = self.build()
         cell = self.row(doc, 101)["legs"]["status"]
-        self.assertEqual(cell["value"]["injury_status"], "Questionable")
-        self.assertEqual(cell["captured_at"], "2026-10-28")
-        self.assertEqual(doc["legs"]["status"]["content_vintage"], "2026-10-28")
+        self.assertEqual(cell["values"]["injury_status"], "Questionable")
+        meta = doc["legs"]["status"]
+        self.assertEqual((meta["content_vintage"], meta["captured_at"]), ("2026-10-28", "2026-10-28T13:10:05Z"))
 
     def test_status_from_a_later_content_week_is_wrong_week(self):
         doc = self.build(as_of="2026-11-04T02:00:00Z")
-        self.assertEqual(self.row(doc, 101)["legs"]["status"]["value"]["injury_status"], "Questionable")
-        self.assertEqual(doc["input_report"]["status"]["wrong_week"], 1)
+        self.assertEqual(self.row(doc, 101)["legs"]["status"]["values"]["injury_status"], "Questionable")
+        self.assertEqual(doc["input_report"]["status"]["later_content_week"], 1)
 
     def test_null_status_key_resolves_through_player_index(self):
         r = self.row(self.build(), 106)
-        self.assertEqual(r["identity"]["resolved_by"], "player_index:sleeper_id")
-        self.assertEqual(r["legs"]["experts.espn_weekly"]["missing_reason"], "not in input")
+        self.assertEqual(r["resolved_by"], "player_index:sleeper_id")
+        self.assertEqual(r["legs"]["experts.espn_weekly"]["missing_reason"]["ppr"], "player not in this input")
 
     def test_two_sleeper_ids_on_one_key_is_a_conflict(self):
         cell = self.row(self.build(), 108)["legs"]["status"]
-        self.assertIsNone(cell["value"])
-        self.assertEqual(cell["missing_reason"], "two sleeper ids for one player_key")
+        self.assertEqual(cell["provenance"], "missing")
+        self.assertEqual(cell["missing_reason"]["status"], "two sleeper ids for one player_key")
 
     def test_identical_duplicate_status_rows_collapse(self):
         doc = self.build()
-        self.assertEqual(self.row(doc, 109)["legs"]["status"]["provenance"], "complete")
+        cell = self.row(doc, 109)["legs"]["status"]
+        self.assertEqual(cell["values"]["status"], "Active")
+        # Sleeper leaves injury fields unset for a healthy player: null plus a reason.
+        self.assertEqual(cell["provenance"], "partial")
+        self.assertEqual(cell["missing_reason"]["injury_status"], "not set in the Sleeper record")
         self.assertEqual(doc["input_report"]["status"]["duplicate"], 1)
 
     def test_byes(self):
         doc = self.build()
-        self.assertEqual(self.row(doc, 102)["legs"]["bye"]["value"],
-                         {"team": "BBB", "bye_week": 8, "on_bye": True})
-        self.assertFalse(self.row(doc, 101)["legs"]["bye"]["value"]["on_bye"])
+        self.assertEqual(self.row(doc, 102)["legs"]["bye"], {"provenance": "complete",
+                                                              "values": {"bye_week": 8}})
+        self.assertEqual(self.row(doc, 101)["legs"]["bye"]["values"], {"bye_week": 10})
         self.assertEqual(self.row(doc, 109)["legs"]["bye"]["missing_reason"],
-                         "team ZZZ not in bye table")
+                         {"bye_week": "team ZZZ not in bye table"})
+        self.assertEqual(doc["legs"]["bye"]["availability"], "partial")
 
     def test_bye_table_for_another_season_is_unavailable(self):
         byes = self.write("byes.json", json.dumps({"season": 2025, "byes": {"AAA": 8}}))
         doc = self.build(byes=byes)
         self.assertEqual(doc["legs"]["bye"]["availability"], "unavailable")
-        self.assertEqual(self.row(doc, 101)["legs"]["bye"]["missing_reason"], "leg unavailable")
+        self.assertEqual(self.row(doc, 101)["legs"]["bye"], {"provenance": "missing",
+                                                              "values": {"bye_week": None}})
 
 
 class Freshness(ProducerCase):
@@ -211,23 +228,25 @@ class Freshness(ProducerCase):
                           "2026,8,101,WR,AAA,1.0,1.5,2.0,2026-10-13T12:40:00+00:00,false,team_week\n")
         doc = self.build(espn_weekly=espn, status=None)
         meta = doc["legs"]["experts.espn_weekly"]
-        self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
-                         ("complete", "stale", "stale"))
-        self.assertEqual(self.row(doc, 101)["legs"]["experts.espn_weekly"]["value"]["std"], 1.0)
+        self.assertEqual((meta["availability"], meta["freshness"], meta["label"], meta["content_week"]),
+                         ("complete", "stale", "stale", 6))
+        self.assertEqual(self.row(doc, 101)["legs"]["experts.espn_weekly"]["values"]["standard"], 1.0)
+        self.assertEqual(bwi.validate(doc), [])
 
     def test_one_week_behind_status(self):
         status = self.write("status.json", json.dumps([
             {"snapshot_date": "2026-10-23", "sleeper_id": "S101", "player_key": 101,
              "team": "AAA", "position": "WR", "status": "Active"}]))
-        meta = self.build(status=status)["legs"]["status"]
+        meta = self.build(status=status, espn_weekly=None)["legs"]["status"]
         self.assertEqual((meta["availability"], meta["freshness"]), ("complete", "one_week_behind"))
+        self.assertEqual(bwi.validate(json.loads(self.out.read_text())), [])
 
     def test_wrong_week_only_input_is_unavailable_not_substituted(self):
         espn = self.write("espn.csv", HEADER +
                           "2026,7,101,WR,AAA,9.0,10.0,11.0,2026-10-21T12:40:00+00:00,false,team_week\n")
         doc = self.build(espn_weekly=espn, status=None)
         self.assertEqual(doc["legs"]["experts.espn_weekly"]["availability"], "unavailable")
-        self.assertEqual(doc["rows"], [])
+        self.assertEqual(doc["players"], [])
 
 
 class EmptyAndMissingInputs(ProducerCase):
@@ -235,22 +254,26 @@ class EmptyAndMissingInputs(ProducerCase):
         espn = self.write("espn.csv", HEADER)
         status = self.write("status.json", "[]")
         doc = self.build(espn_weekly=espn, status=status)
-        self.assertEqual(doc["rows"], [])
+        self.assertEqual(doc["players"], [])
         for leg in ("experts.espn_weekly", "status"):
             self.assertEqual(doc["legs"][leg]["availability"], "unavailable")
         self.assertEqual(bwi.validate(doc), [])
 
     def test_inputs_not_supplied(self):
-        doc = self.build(espn_weekly=None, status=None, byes=None, players=None, sleeper_base=None)
+        doc = self.build(espn_weekly=None, status=None, byes=None, sleeper_base=None)
         for meta in doc["legs"].values():
             self.assertEqual(meta["availability"], "unavailable")
-        self.assertEqual(doc["legs"]["status"]["unavailable_reason"], "input not supplied")
+        self.assertEqual(doc["legs"]["status"]["missing_reason"], "input not supplied")
 
-    def test_without_players_snapshot_keys_pass_through_and_null_keys_stay_unresolved(self):
-        doc = self.build(players=None, sleeper_base=None)
-        self.assertIn(999, [r["player_key"] for r in doc["rows"]])
-        s106 = next(r for r in doc["rows"] if r["identity"]["source_ids"].get("sleeper_id") == "S106")
-        self.assertIsNone(s106["player_key"])
+    def test_players_snapshot_is_required(self):
+        with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
+            bwi.main(_args(self.out, players=None))
+
+    def test_another_season_is_refused_not_guessed(self):
+        code, err = _run(_args(self.out, season=2027))
+        self.assertEqual(code, 2)
+        self.assertIn("2026", err)
+        self.assertFalse(self.out.exists())
 
 
 class RosNeverMixes(ProducerCase):
@@ -284,6 +307,12 @@ class RosNeverMixes(ProducerCase):
 
 class Validation(ProducerCase):
     def test_fixture_output_validates(self):
+        self.assertEqual(bwi.validate(self.build()), [])
+
+    @unittest.skipUnless(CONTRACT is not None, "JEG-1227 contract module not on this branch yet")
+    def test_validates_against_the_jeg1227_contract(self):
+        issues = CONTRACT.validate_file(FX / "expected_wk8.json")
+        self.assertEqual([str(i) for i in issues], [])
         self.assertEqual(bwi.validate(self.build()), [])
 
     def test_invalid_document_is_not_written(self):

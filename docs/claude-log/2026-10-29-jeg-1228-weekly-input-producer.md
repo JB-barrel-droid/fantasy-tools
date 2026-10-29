@@ -28,7 +28,27 @@ Slice S2 of JEG-1195. Branch `claude/JEG-1228-weekly-input-producer`, draft PR f
 - Real stored-input run (ESPN weekly CSV + byes, week 8, as of 2026-10-29T02:00Z):
   478 rows, two runs byte-identical; status unavailable (no stored export in git).
 
-## Claimed, not verified
-- Validation against the S1 contract: JEG-1227 had not pushed when this was
-  written; `validate()` uses `weekly_inputs_contract.validate` when it is on the
-  path and a minimal structural check until then.
+## Aligned to the JEG-1227 contract (second push)
+- Output now follows `weekly-inputs` 1.0.0 from branch
+  `claude/JEG-1227-weekly-inputs-contract` (`e2a2a07`): `players`, `built_at`,
+  `schema_version`, per-leg `kind`/`content_season`/`captured_at`, cell
+  `values` + per-key `missing_reason`, scoring keys `standard/half_ppr/ppr`,
+  bye values `{bye_week}` only.
+- Leg `content_week` is the content week of the newest capture, so the
+  contract's freshness rule (artifact week minus leg week) holds.
+- `--players` is now required (the contract needs a name and position per row);
+  an unresolved ESPN row with no name in its source is named after its source id.
+- Only the season `nfl_week.py` defines (2026) is accepted.
+- Status fields Sleeper leaves unset (a healthy player's injury fields) are
+  null with "not set in the Sleeper record", provenance partial, as in the
+  contract's own fixtures.
+- Read-only check of `public.player_status_history` (2026-10-29): minimum
+  `depth_chart_order` is 1, latest day 2026-10-28 with 951 rows, so stored
+  rows fit the contract's status units.
+
+## Verified (second push)
+- With the JEG-1227 module copied in locally (not committed):
+  `python3 pipelines/lib/weekly_inputs_contract.py tests/fixtures/weekly_inputs_producer/expected_wk8.json`
+  OK, 0 errors, 0 warnings; the real week-8 run (478 players) also validates;
+  `python3 -m unittest tests.test_build_weekly_inputs` 35 OK.
+- Without it (this branch as pushed): 35 run, 1 skipped (the contract test).
