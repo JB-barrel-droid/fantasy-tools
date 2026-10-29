@@ -15,6 +15,12 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### USO site journey regressions lane (JEG-1240, Claude, 2026-10-29 UTC)
+
+- Branch `claude/JEG-1240-uso-site-journey`, test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_render.py`. Synthetic rosters in USO's roster shape (shape from #1105's 2026-10-29 settings read); no USO rosters or notes.
+- Node contract on main: 9 checks pass; three mutations (search capped at 10, Compare link without opponent, pair link without opponent) each fail the named check. On #1105 it passes; on #1086 and #1088 the discovery check fails until they merge main (#1072).
+- The browser journey has not run (no Chromium here, not wired). It is expected red on main for JEG-1229 (league link carries only give/get; Compare picks its default opponent). Wiring (Makefile shard or `KNOWN_RED` "JEG-1229") waits on Codex's handshake. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
