@@ -208,7 +208,8 @@ The other options offered with A:
   rule (same day). The rule forbids blending 1-week-forward data with ROS
   projection data. The weights path averages rest-of-season charts' mixes
   with rest-of-season projections' mixes. No 1-week-forward values enter
-  it. One input is open (next section).
+  it. The one weekly-derived parameter was ruled not a blend (next
+  section).
 - **C (held sources in the pricing stages)** was not chosen. Recommended
   for `docs/math-review-agenda.md`, not decided.
 - **D (zero listings in mean points)** was not chosen. Recommended for
@@ -234,9 +235,10 @@ One parameter reads weekly projection data, and the ledger does not cover it
 - It is a statistic about how projections move, measured on past seasons.
   No current weekly value is averaged into a rest-of-season projection.
 
-Whether that counts as blending under the rule is Jeremy's call, asked on
-JEG-1280. Recommendation: not a blend, because it sizes the uncertainty of a
-rest-of-season level, and no weekly value prices any player.
+Jeremy ruled on it, 2026-10-29: "sigma_weekly is not a blend: it is a
+past-seasons statistic sizing ROS uncertainty." So nothing at this SHA
+breaks the weekly vs ROS rule as scoped. The one input left unconfirmed is
+FantasyPros' horizon, because its section states none.
 
 ## Run it (offline)
 
