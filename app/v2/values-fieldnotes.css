@@ -1,10 +1,10 @@
 /* Values page in the Fieldnotes presentation (JEG-1265). Every rule is scoped to .values-fieldnotes.
    Type sizes are the shared scale (--ddf-type-*), plus 16px for inputs and names as v2.css uses it.
    Colours, lines, radii and spacing come from the shared --ddf-* and --v2-* tokens in v2.css; no colour value is defined
-   here. Warm paper is the existing opt-in, :root[data-canvas="paper"]. The serif headline stack is local and gives way to a
-   shared headline token when JEG-1137 lands one (see the integration plan). */
+   here. Headings use the shared --ddf-font-headline (Fraunces under the JEG-1137 :root[data-design="fieldnotes"] opt-in);
+   the stack after it is only the fallback for a page without that token. */
 .values-fieldnotes {
-  --vf-serif: Fraunces, Georgia, "Times New Roman", serif;
+  --vf-serif: var(--ddf-font-headline, Fraunces, Georgia, "Times New Roman", serif);
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--ddf-space-3, 16px) var(--ddf-page-pad-phone, 16px) var(--ddf-space-5, 32px);

@@ -33,7 +33,7 @@ WIDTHS = (1280, 390, 320)
 LONG_NAME = next(r["name"] for r in FIXTURE["rows"] if "Long-Named" in r["name"])
 
 PAGE = """<!doctype html>
-<html lang="en" data-canvas="paper"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html lang="en" data-canvas="paper" data-design="fieldnotes"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Values Fieldnotes view (test harness, synthetic data)</title>
 <link rel="stylesheet" href="v2.css"><link rel="stylesheet" href="values-fieldnotes.css">
 <script src="source-views.js"></script><script src="values-fieldnotes.js"></script>
@@ -113,6 +113,7 @@ def harness():
     with tempfile.TemporaryDirectory() as tmp:
         for name in ("v2.css", "values-fieldnotes.css", "source-views.js", "values-fieldnotes.js"):
             shutil.copy2(APP / name, Path(tmp) / name)
+        shutil.copytree(APP / "fonts", Path(tmp) / "fonts")   # Fraunces, which the Fieldnotes opt-in names
         (Path(tmp) / "index.html").write_text(PAGE, encoding="utf-8")
 
         class Quiet(http.server.SimpleHTTPRequestHandler):

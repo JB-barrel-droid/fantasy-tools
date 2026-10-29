@@ -39,6 +39,8 @@ The existing chart card is unchanged and stays where it is (pick logged in the p
   wrapper is now `position: relative`. (2) Focus fell to the page body when the title had focus and the component
   redrew; it now returns to the title. (3) The test's expected number used Python rounding (70.25 -> 70.2); the page's
   `toFixed` gives 70.3, which the component showed. The test now rounds as `toFixed` does (5,237 values compared, 0 differ).
+- After merging main (JEG-1137 foundation, fc70923): headings now read the shared `--ddf-font-headline`, and the render
+  harness opts into `data-design="fieldnotes"`.
 
 ### Claimed, not confirmed
 - The render test was not run in this session: the cloud container has no browser and browser downloads are disabled
@@ -81,8 +83,9 @@ The existing chart card is unchanged and stays where it is (pick logged in the p
 4. Rollout switch: show `#v2ValuesFieldnotes` in place of the toolbar and table card behind the JEG-1209 private-preview
    gate only; public rollout waits on the JEG-1209 design review and copy gates. Keep the chart card, its brushes and the
    drawer as they are.
-5. Tokens: when JEG-1137 adds a shared headline (serif) token, replace the local `--vf-serif` stack with it. No other
-   token is defined locally.
+5. Tokens: done. The JEG-1137 foundation on main added `--ddf-font-headline`; headings read it, so they are Fraunces under
+   `:root[data-design="fieldnotes"]` and the UI face without it. The render harness sets that opt-in. No token is defined
+   locally.
 6. Gate: `tests.test_jeg1265_values_fieldnotes` stays as is; turn `test_page_does_not_load_it_yet` into a check that the
    page loads it, and add a contract render test on the real page comparing the component's cells to `#v2Table` cell text
    for the default and one sorted state.
