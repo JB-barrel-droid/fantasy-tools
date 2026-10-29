@@ -1,7 +1,8 @@
 /* Values auditing > Single-source build-up view (JEG-849, parent JEG-847).
  *
- * Trade charts: Published, Indexed, Adjusted. Projections: points per game
- * through the league model to the displayed published (Adjusted) value.
+ * Trade charts: Published, Indexed, Adjusted. Projections: what the publisher
+ * supplies (where the player records carry it), points per game, then the
+ * league model to the displayed published (Adjusted) value.
  * A curve chart, worked projection player and table, laid out like Player values.
  * Reads the engine's own pipeline output
  * (TradeValueCurveControls.getInspection(), the runValuePipeline result);
@@ -95,6 +96,7 @@
     const sum = stage => series[stage].reduce((t, pt) => t + pt.value, 0);
     return {
       method: pipeline.method || null, pie: finite(pipeline.pie),
+      scoringField: (inspection && inspection.setting && inspection.setting.scoringField) || null,
       source: meta.key, label: meta.label, family: meta.family, position: pos,
       engineLabel: (inspection && inspection.labels && inspection.labels[meta.key]) || meta.label,
       status: excluded ? excluded.reason : "",
@@ -372,10 +374,39 @@
     host.append(tableCard(model));
   }
 
+  // The publisher's own projection before the bake turns it into points per
+  // game, read from the player records the engine loads (product-data.js).
+  // Only ESPN's rest-of-season total is carried there; CBS ROS totals and
+  // games are not, and Razzball publishes per-game points. Nothing is derived.
+  let playerRecords = null;
+  function playerRecord(key) {
+    if (!playerRecords) {
+      const P = root.TradeValueProductData;
+      let list = [];
+      try { list = (P && typeof P.getPlayers === "function" && P.getPlayers()) || []; } catch (e) { return null; }
+      if (!list.length) return null;
+      playerRecords = new Map(list.map(r => [String(r.player_key), r]));
+    }
+    return playerRecords.get(String(key)) || null;
+  }
+  const scoringValue = (field, model) => (field && model.scoringField ? finite(field[model.scoringField]) : null);
+  function rawStep(model, player, metric, step) {
+    const rec = playerRecord(player.key) || {};
+    if (model.source === "espn") {
+      return step("What ESPN publishes", "ESPN projects total points for the rest of the season at your scoring. The bake divides that total by the team's games left in ESPN's window (bye weeks excluded; the whole window for a player ESPN lists without a team) to get points per game. That games count is not carried in the page data, so it is not shown here.",
+        [metric("rawTotal", "ESPN rest-of-season points", scoringValue(rec.espn_ros, model), " pts")]);
+    }
+    if (model.source === "cbsros") {
+      return step("What CBS publishes", "CBS publishes rest-of-season points at non-PPR scoring and a games column. The bake adds 0.5 (half PPR) or 1 (PPR) per projected reception, then divides by CBS's games to get points per game. CBS's totals and games are not carried in the page data, so the trace starts at points per game.", []);
+    }
+    return step("What Razzball publishes", "Razzball publishes points per game at each scoring, so the engine reads them as published. Razzball's own Games column (which counts each game twice) and its season totals are not used.",
+      [metric("rawPerGame", "Razzball points/game as published", scoringValue(rec.rz_ppg, model), " PPG")]);
+  }
+
   function projectionCard(model) {
     const card = h("section", {class: "as-card as-projection", "aria-label": "Projection path to published value"},
       h("h3", {class: "as-card-title", text: "From projection to published value"}),
-      h("p", {class: "as-foot", text: "Published here means the modeled value displayed in Player values, not a trade value supplied by the projection publisher. The trace starts at the points per game supplied to the engine; source totals and their conversion are not exposed in this readout."}));
+      h("p", {class: "as-foot", text: "Published here means the modeled value displayed in Player values, not a trade value supplied by the projection publisher. The trace starts with what the publisher supplies, then the points per game the engine reads, then the league model."}));
     const player = model.rows.find(r => r.key === state.playerKey) || model.rows[0];
     if (!player) {
       card.append(h("p", {class: "as-foot", text: "No player at this position has an engine readout."}));
@@ -392,9 +423,10 @@
         title: value === null ? "Not exposed by the engine" : String(value),
         text: value === null ? "— (unavailable)" : `${minus(value.toFixed(4))}${unit}`}));
     const step = (title, text, metrics) => h("li", {class: "as-path-step"},
-      h("h4", {text: title}), h("p", {class: "as-foot", text}), h("ul", {class: "as-metrics"}, metrics));
+      h("h4", {text: title}), h("p", {class: "as-foot", text}), metrics.length ? h("ul", {class: "as-metrics"}, metrics) : null);
     card.append(h("ol", {class: "as-path", "data-player-key": player.key},
-      step("Source input", "The source's points per game at the current scoring, before the league model.",
+      rawStep(model, player, metric, step),
+      step("Points per game the engine reads", "The source's points per game at the current scoring, before the league model.",
         [metric("input", "Projected points/game", player.published, " PPG")]),
       step("League lines and value above waivers", "The league's roster determines the waiver line and starter line at this position. Value above waivers is the positive surplus over the waiver line, with a floor of zero.",
         [metric("waiver", `${player.pos} waiver line`, t.waiver, " PPG"), metric("starterLine", `${player.pos} starter line`, t.starterLine, " PPG"), metric("aboveWaivers", "Value above waivers", t.aboveWaivers, " PPG")]),

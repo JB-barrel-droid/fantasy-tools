@@ -7,6 +7,9 @@ from tests import _render_env
 from tests.test_v2_audit_source_render import SELECT
 from tests.test_v2_panels_render import _built_dist
 
+RAW_STEP = {'espn': 'What ESPN publishes', 'cbsros': 'What CBS publishes',
+            'razzball': 'What Razzball publishes'}
+
 READ_PATH = """() => {
   const card = document.querySelector('.as-projection');
   const key = card.querySelector('.as-path').dataset.playerKey;
@@ -14,12 +17,18 @@ READ_PATH = """() => {
   const i = window.TradeValueCurveControls.getInspection();
   const p = i.players[src][key], d = i.valuePipeline.sources[src], pos = d.positions[p.pos];
   const fin = v => typeof v === 'number' && Number.isFinite(v) ? v : null;
+  const field = i.setting.scoringField;
+  const rec = window.TradeValueProductData.getPlayers().find(r => String(r.player_key) === key) || {};
   return {
+    steps: [...card.querySelectorAll('.as-path-step h4')].map(e => e.textContent),
     expected: {input: fin(p.native), waiver: fin(pos.waiver), starterLine: fin(pos.starterLine),
       availability: fin(pos.avail), aboveWaivers: fin(p.vorp), startWorthy: fin(p.startWorthy), lineupShare: fin(p.lineupShare), starterPart: fin(p.starterSlice),
       fillInPart: fin(p.benchSlice), starterRate: fin(d.rates[p.pos + '|starter']),
       fillInRate: fin(d.rates[p.pos + '|bench']), pie: fin(i.valuePipeline.pie),
-      output: fin(i.rows[key].adjusted[src])},
+      output: fin(i.rows[key].adjusted[src]),
+      // The publisher's own number, read from the player records the engine loads.
+      ...(src === 'espn' ? {rawTotal: fin((rec.espn_ros || {})[field])} : {}),
+      ...(src === 'razzball' ? {rawPerGame: fin((rec.rz_ppg || {})[field])} : {})},
     actual: Object.fromEntries([...card.querySelectorAll('[data-readout]')].map(e =>
       [e.dataset.readout, e.dataset.value === '' ? null : Number(e.dataset.value)])),
     published: window.TradeValueCurveControls.getAllRows().find(r => String(r.player_key) === key).values[src],
@@ -64,6 +73,14 @@ class ProjectionPathRenderTest(unittest.TestCase):
                                 self.assertFalse(got['overflow'], (width, source))
                                 self.assertIn('not a trade value supplied', got['text'])
                                 self.assertIn('Expected lineup share', got['text'])
+                                # JEG-1199: the trace starts at the publisher's own number.
+                                self.assertEqual(got['steps'][:2], [RAW_STEP[source], 'Points per game the engine reads'], source)
+                                if source == 'razzball':
+                                    # Razzball publishes per game: the engine reads the published number as is.
+                                    self.assertEqual(got['actual']['rawPerGame'], got['actual']['input'])
+                                if source == 'espn' and got['actual']['rawTotal'] and got['actual']['input']:
+                                    # ESPN's total, divided by games left, is the engine's input.
+                                    self.assertGreater(got['actual']['rawTotal'], got['actual']['input'])
                         # Changing a real league setting must produce a fresh engine trace.
                         page.evaluate('() => window.TradeValueCurveControls.setTeams(10)')
                         for source in ('espn', 'cbsros', 'razzball'):

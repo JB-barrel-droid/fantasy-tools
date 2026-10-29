@@ -791,6 +791,8 @@ test-render-sweep:
 test-render-sweep-1:
 	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	# JEG-1199: each projection's path from the publisher's number to the published value.
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_zones_render
 	python3 -m unittest tests.test_v2_customize_cleanup_render
 	python3 -m unittest tests.test_v2_finder_import_render
@@ -859,6 +861,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_height_render
 	python3 -m unittest tests.test_v2_advanced_render
 	python3 -m unittest tests.test_v2_chart_zones_render

@@ -283,6 +283,7 @@ the same source's freshness in `api.product_snapshot` and renders
 | `ir_zeroed` | `bool` | no | TRUE for the 4 `espn_zeroed` player_key IDs that carry an IR badge; the FE renders the badge from this column instead of an `espn_zeroed[]` array on the snapshot. |
 | `kdst_excluded_from_chart` | `bool` | no | TRUE for K/DST positions; the FE filters them at render. Computed data for them stays internal (they appear in the table for canonical-naming coverage but the chart never renders them). |
 | `espn_ppg` | `jsonb` | yes | `{"ppr": <num>, "half_ppr": <num>, "standard": <num>}` — ESPN's per-game projections. |
+| `espn_ros` | `jsonb` | yes | Same shape; ESPN's rest-of-season points total behind `espn_ppg`. Display only (Values auditing, JEG-1199); no value reads it. |
 | `rz_ppg` | `jsonb` | yes | Same shape; Razzball. |
 | `cbsros_ppg` | `jsonb` | yes | Same shape; CBS ROS. |
 | `ecr_ppg` | `jsonb` | yes | ECR leg's per-scoring PPG (for blending; pipeline decides what fills this). |
