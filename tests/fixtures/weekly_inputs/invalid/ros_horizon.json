@@ -1,0 +1,243 @@
+{
+  "built_at": "2026-10-28T13:30:00Z",
+  "content_week": 8,
+  "horizon": "ros",
+  "input_report": {
+    "experts.espn_weekly": {
+      "duplicate": 0,
+      "read": 4
+    },
+    "unresolved_rows": 0
+  },
+  "legs": {
+    "bye": {
+      "availability": "complete",
+      "captured_at": "2026-09-01T12:00:00Z",
+      "content_season": 2026,
+      "content_vintage": "2026-09-01",
+      "content_week": 8,
+      "freshness": "current",
+      "horizon": "week",
+      "kind": "bye",
+      "label": "published",
+      "scoring": null,
+      "source": "nfl_byes_2026",
+      "units": "bye_week"
+    },
+    "experts.espn_weekly": {
+      "availability": "complete",
+      "captured_at": "2026-10-28T12:40:00Z",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "freshness": "current",
+      "horizon": "week",
+      "kind": "expert",
+      "label": "published",
+      "scoring": [
+        "standard",
+        "half_ppr",
+        "ppr"
+      ],
+      "source": "espn",
+      "units": "fantasy_points"
+    },
+    "status": {
+      "availability": "complete",
+      "captured_at": "2026-10-28T13:10:00Z",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "freshness": "current",
+      "horizon": "week",
+      "inputs": [
+        {
+          "name": "player_status_history.json",
+          "sha256": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      ],
+      "kind": "status",
+      "label": "published",
+      "scoring": null,
+      "source": "sleeper",
+      "units": "status"
+    }
+  },
+  "players": [
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 1
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 18.4,
+            "ppr": 18.4,
+            "standard": 18.4
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "QB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
+            "status": "Active"
+          }
+        }
+      },
+      "name": "Fixture Quarterback",
+      "player_key": 9000101,
+      "position": "QB",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 101,
+        "sleeper_id": "S9000101"
+      },
+      "team": "AAA"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 11
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 13.6,
+            "ppr": 15.1,
+            "standard": 12.1
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "RB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
+            "status": "Active"
+          }
+        }
+      },
+      "name": "Fixture Running Back",
+      "player_key": 9000102,
+      "position": "RB",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 102,
+        "sleeper_id": "S9000102"
+      },
+      "team": "BBB"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 7
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 12.3,
+            "ppr": 14.8,
+            "standard": 9.8
+          }
+        },
+        "status": {
+          "provenance": "complete",
+          "values": {
+            "depth_chart_order": 2,
+            "depth_chart_position": "WR",
+            "injury_body_part": "Hamstring",
+            "injury_start_date": "2026-10-26",
+            "injury_status": "Questionable",
+            "practice_participation": "Limited",
+            "status": "Active"
+          }
+        }
+      },
+      "name": "Fixture Wide Receiver",
+      "player_key": 9000103,
+      "position": "WR",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 103,
+        "sleeper_id": "S9000103"
+      },
+      "team": "CCC"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 9
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 6.9,
+            "ppr": 8.6,
+            "standard": 5.2
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "no designation this week",
+            "injury_start_date": "no designation this week",
+            "injury_status": "no designation this week"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "TE",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": "Full",
+            "status": "Active"
+          }
+        }
+      },
+      "name": "Fixture Tight End",
+      "player_key": 9000104,
+      "position": "TE",
+      "resolved_by": "espn_player_id",
+      "source_ids": {
+        "espn_player_id": 104,
+        "sleeper_id": "S9000104"
+      },
+      "team": "DDD"
+    }
+  ],
+  "producer": "tests/fixtures/weekly_inputs/build_fixtures.py",
+  "schema": "weekly-inputs",
+  "schema_version": "1.0.0",
+  "season": 2026
+}
