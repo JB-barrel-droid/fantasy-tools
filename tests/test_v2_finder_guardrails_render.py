@@ -1,4 +1,4 @@
-"""JEG-1184: guardrail controls are usable by keyboard and persist across a visit."""
+"""JEG-1184: guardrail controls are usable by keyboard and persist across a visit (JEG-1237: they fold with the rosters after Find)."""
 from __future__ import annotations
 
 import unittest
@@ -49,6 +49,12 @@ class FinderGuardrailsRenderTest(unittest.TestCase):
                 page.locator(".v2-find-advanced summary").click()
                 self.assertEqual(page.locator("#v2FindSize option[value='1']").inner_text(), "1-for-1 only")
                 page.locator("#v2FindSize").select_option("1")
+                # JEG-1237: after Find the protected-position and bench-backup settings fold with the rosters; the
+                # folded summary reads them back and Edit rosters opens them again.
+                self.assertTrue(page.locator("#v2FindGuardrails").is_hidden())
+                self.assertIn("Trade settings: no protected positions", page.locator("#v2FindGuardrailSummary").inner_text())
+                page.locator("#v2FindEdit").click()
+                self.assertTrue(page.locator("#v2FindGuardrails").is_visible())
                 page.locator("#v2FindBackupsRBUp").focus()
                 page.keyboard.press("Enter")
                 self.assertEqual(page.locator("#v2FindBackupsRB").inner_text(), "1")
