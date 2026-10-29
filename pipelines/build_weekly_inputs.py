@@ -60,10 +60,11 @@ sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from nfl_week import NEW_YORK, SEASON as CALENDAR_SEASON, content_week_or_none  # noqa: E402
 from timestamps import parse_iso_timestamp  # noqa: E402
+import player_aliases  # noqa: E402 -- no read at import
 
 SCHEMA = "weekly-inputs"
 CONTRACT_MODULE = "weekly_inputs_contract"  # JEG-1227, pipelines/lib/
-ALIAS_FILE = ROOT / "data" / "inputs" / "player_aliases.json"
+ALIAS_FILE = Path(player_aliases.ALIAS_FILE)  # the one shared list; read locally only
 SCHEMA_VERSION = "1.0.0"
 PRODUCER = "pipelines/build_weekly_inputs.py"
 # CSV column -> contract scoring key (pipelines/lib/scoring.py keys).
@@ -185,7 +186,6 @@ def _local_aliases(path: Path):
     a failed request). The producer pins the default load to the local file
     itself, so no request is ever attempted, whatever the environment holds.
     """
-    import player_aliases  # noqa: PLC0415
     pinned = player_aliases.load(str(path))  # a path read never touches Supabase
     real = player_aliases.load
     player_aliases.load = lambda p=None: pinned if p is None else real(p)

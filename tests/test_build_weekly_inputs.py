@@ -527,7 +527,7 @@ class OfflineIdentity(ProducerCase):
         doc = self.build()
         ident = doc["input_report"]["identity"]
         self.assertEqual(ident["alias_source"], "local_file")
-        self.assertEqual(ident["aliases"]["name"], "player_aliases.json")
+        self.assertEqual(ident["aliases"]["name"], bwi.ALIAS_FILE.name)
         alt = self.write("aliases.json", json.dumps({"schema": "player-aliases-v1", "aliases": []}))
         doc2 = self.build(aliases=alt)
         self.assertNotEqual(doc2["input_report"]["identity"]["aliases"]["sha256"],
