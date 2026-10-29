@@ -10,9 +10,15 @@ and 390 x 844. For every card that is on screen:
     row at full width and returns on a second press (aria-pressed);
   * no page errors and no sideways scroll at 390.
 
+The league editor is a native <details> card (JEG-1213): its module controls are found from its
+nearest .v2-card ancestor like every other card's, and its summary must close it on Enter and open
+it on a click with the title kept in view (JEG-1234).
+
 Discrimination: test_guard_fails_on_broken_builds serves modules.js / v2.css with one fault each
 (state not saved, collapsed card hides nothing, empty summary, chevron that does not announce
 its state, expand that does nothing, small chevron) and requires each to fail.
+test_guard_fails_on_broken_league_disclosure does the same on Find in league (collapse hides
+nothing, expand does nothing, summary turned into a div, summary toggle cancelled).
 """
 from __future__ import annotations
 
@@ -42,6 +48,7 @@ def setUpModule():
 
 MODULES_JS = ROOT / "app" / "v2" / "modules.js"
 V2_CSS = ROOT / "app" / "v2" / "v2.css"
+LEAGUE_JS = ROOT / "app" / "v2" / "league.js"
 
 # tab hash -> heading ids of the cards that must be on screen there
 TABS = {
@@ -53,6 +60,19 @@ TABS = {
     "#find-league": ["v2LgTitle"],
 }
 REUSED_EXPAND = {"v2ChartTitle", "v2TableTitle"}
+# JEG-1213 made the league editor a native disclosure (<details class="v2-card"> whose <summary> holds the title). Its
+# module controls are still checked like every card's, and its own summary must open and close it too (JEG-1234).
+DISCLOSURE = {"v2LgTitle"}
+
+DISCLOSURE_STATE = """(id) => { const card = document.getElementById(id).closest('.v2-card');
+  const summary = card.tagName === 'DETAILS' ? card.querySelector(':scope > summary') : null;
+  // A closed <details> hides its content with content-visibility (offsetParent stays set), so ask checkVisibility().
+  const vis = el => Boolean(el && el.checkVisibility() && el.getBoundingClientRect().height > 0);
+  const body = [...card.children].filter(c => c !== summary && !c.classList.contains('v2-mod-ctl')
+    && !c.classList.contains('v2-mod-sum') && !c.hidden);
+  return {details: card.tagName === 'DETAILS', summary: Boolean(summary), titleInSummary: Boolean(summary && summary.contains(document.getElementById(id))),
+    open: card.open === true, titleShown: vis(document.getElementById(id)), bodyShown: body.some(vis),
+    focused: Boolean(summary && document.activeElement === summary)}; }"""
 
 CARD = """(id) => { const h = document.getElementById(id); const card = h && h.closest('.v2-card');
   if (!card) return null;
@@ -107,7 +127,34 @@ def _ready(page, hash_):
 
 
 def _control(id_, cls):
-    return f"#{id_} >> xpath=ancestor::section[contains(@class,'v2-card')] >> .{cls}"
+    # The card is the heading's nearest .v2-card ancestor, a <section> or (the league editor) a <details>; the class is
+    # matched as a whole token, the same element modules.js finds with closest('.v2-card').
+    return (f"#{id_} >> xpath=ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' v2-card ')][1]"
+            f" >> :scope > .v2-mod-ctl .{cls}")
+
+
+def check_disclosure(page, t, id_) -> list[str]:
+    """A native disclosure card: its summary is a keyboard and pointer control that hides and shows the body while the
+    title stays in view. Leaves the card open."""
+    errors = []
+    s = page.evaluate(DISCLOSURE_STATE, id_)
+    if not (s["details"] and s["summary"] and s["titleInSummary"]):
+        return [t + f"not a disclosure with its title in the summary ({s})"]
+    if not s["open"] or not s["bodyShown"]:
+        return [t + f"disclosure starts closed (open {s['open']}, body {s['bodyShown']})"]
+    card = f"#{id_} >> xpath=ancestor::details[1] >> :scope > summary"
+    page.focus(card)
+    page.keyboard.press("Enter")
+    _settle(page, 150)
+    closed = page.evaluate(DISCLOSURE_STATE, id_)
+    if not closed["focused"] or closed["open"] or closed["bodyShown"] or not closed["titleShown"]:
+        errors.append(t + f"Enter on the summary did not close it with the title kept ({closed})")
+    page.click(card)
+    _settle(page, 150)
+    opened = page.evaluate(DISCLOSURE_STATE, id_)
+    if not opened["open"] or not opened["bodyShown"] or not opened["titleShown"]:
+        errors.append(t + f"a click on the summary did not open it again ({opened})")
+    return errors
 
 
 def check_tab(page, tag, hash_, ids, width) -> list[str]:
@@ -128,6 +175,8 @@ def check_tab(page, tag, hash_, ids, width) -> list[str]:
             errors.append(t + f"starts collapsed ({s['expanded']}, body {s['bodyShown']})")
         if s["expH"] < 44:
             errors.append(t + f"expand control is {s['expH']:.0f} px tall")
+        if id_ in DISCLOSURE:
+            errors += check_disclosure(page, t, id_)
         # Expand
         if id_ not in REUSED_EXPAND:
             before = s["width"]
@@ -251,6 +300,34 @@ class ModulesRenderTest(unittest.TestCase):
                     source = {"modules.js": js, "v2.css": css}[file]
                     self.assertNotEqual(body, source, f"mutation anchor for {name!r} is stale")
                 self.assertNotEqual(run_checks(overrides, viewports=((1440, 900),), tabs=("#trade-targets",)), [],
+                                    f"render checks did not catch: {name}")
+
+    def test_guard_fails_on_broken_league_disclosure(self):
+        # JEG-1234: the league editor (a <details> card since JEG-1213) is held to the same module checks, and its own
+        # summary must stay a working disclosure. One fault each, on Find in league, must fail.
+        js = MODULES_JS.read_text(encoding="utf-8")
+        css = V2_CSS.read_text(encoding="utf-8")
+        league = LEAGUE_JS.read_text(encoding="utf-8")
+        mj, cs = "text/javascript", "text/css"
+        broken = {
+            "collapsed card hides nothing": {"v2.css": (css.replace(
+                '.v2-mod[data-collapsed="true"] > :not(.v2-mod-ctl):not(.v2-mod-head):not(.v2-mod-sum) { display: none !important; }',
+                "", 1), cs)},
+            "expand does nothing": {"modules.js": (js.replace('card.dataset.xl = String(on);', "", 1), mj)},
+            "summary is not a disclosure": {"league.js": (league.replace(
+                'el("summary", {class: "v2-card-head v2-lg-card-summary"}', 'el("div", {class: "v2-card-head v2-lg-card-summary"}', 1), mj)},
+            "summary toggle cancelled": {"league.js": (league.replace(
+                'const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},',
+                'const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true,'
+                ' onclick: "if (event.target.closest(\'summary\') && event.target.closest(\'summary\').parentElement === this) event.preventDefault()"},',
+                1), mj)},
+        }
+        sources = {"modules.js": js, "v2.css": css, "league.js": league}
+        for name, overrides in broken.items():
+            with self.subTest(mutation=name):
+                for file, (body, _) in overrides.items():
+                    self.assertNotEqual(body, sources[file], f"mutation anchor for {name!r} is stale")
+                self.assertNotEqual(run_checks(overrides, viewports=((1440, 900),), tabs=("#find-league",)), [],
                                     f"render checks did not catch: {name}")
 
 
