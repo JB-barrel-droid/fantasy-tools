@@ -331,6 +331,39 @@ class PublicationArrivalTest(unittest.TestCase):
         rc, result, _, _, _, _ = self.run_watch(served)
         self.assertEqual({"unverified"}, set(self.outcomes(result).values()))
 
+    def test_arrival_seen_then_previous_copy_at_judgment_is_not_arrived(self):
+        # Codex review f97f58ed (a): the wait saw this run's copy, then the
+        # judged copy is the previous deploy again (CDN flip or rollback).
+        def served(name, n):
+            kind = "published" if n == 1 else "served_previous"
+            return fixture(kind, name), 200, 5
+        rc, result, _, err, counts, _ = self.run_watch(served)
+        self.assertEqual({CHECKPOINTS: 2, IMPORT_HEALTH: 2}, counts, "one poll, then the judging fetch")
+        for check_id, r in result["publication_arrival"].items():
+            self.assertEqual(("not_arrived", "served_copy_older_than_published"), (r["outcome"], r["reason"]), check_id)
+            self.assertEqual("arrived", r["observed_during_wait"]["outcome"], "the earlier observation is kept")
+            self.assertEqual(r["expected_at"], r["observed_during_wait"]["served_at"])
+        self.assertEqual("2026-10-28T12:51:00+00:00",
+                         result["publication_arrival"]["served_pipeline_checkpoints_fresh"]["served_at"],
+                         "served_at is the judged copy's, not the polled one")
+        self.assertEqual(w.EXIT_NOT_ARRIVED, rc, "a regressed served copy is not current publication success")
+        self.assertIn("did not arrive", err)
+
+    def test_arrival_seen_then_denied_judging_fetch_is_unverified(self):
+        # Codex review f97f58ed (b): the wait saw this run's copy (HTTP 200),
+        # then the judging fetch is denied (HTTP 403).
+        def served(name, n):
+            return (fixture("published", name), 200, 5) if n == 1 else (None, 403, 5)
+        rc, result, _, err, _, _ = self.run_watch(served)
+        for check_id, r in result["publication_arrival"].items():
+            self.assertEqual(("unverified", "fetch_denied", 403), (r["outcome"], r["reason"], r["http_status"]), check_id)
+            self.assertIsNone(r["served_at"])
+            self.assertEqual(("arrived", 200), (r["observed_during_wait"]["outcome"],
+                                                r["observed_during_wait"]["http_status"]))
+        self.assertEqual(w.EXIT_STALE, rc, "freshness stays fail-closed on the denied copy (precedence)")
+        self.assertNotIn("did not arrive", err)
+        self.assertIn("not declared failed or recovered", err)
+
     def test_fetch_json_keeps_the_http_status_of_a_denial(self):
         denied = w.urllib.error.HTTPError("https://example.invalid/x.json", 403, "Forbidden", {}, None)
         with mock.patch.object(w.urllib.request, "urlopen", side_effect=denied):

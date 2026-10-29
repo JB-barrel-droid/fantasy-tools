@@ -45,9 +45,12 @@ and from source coverage:
                     arrival is unknown: not declared failed or recovered;
   * not_awaited  -- no --await-published, nothing was expected.
 
-The wait window is unchanged (--await-timeout-minutes, default 25). The
-judging fetch after the window also counts, so a copy that lands late still
-arrives. The outcome is printed as one `publication_arrival: {json}` line and,
+The wait window is unchanged (--await-timeout-minutes, default 25). Each
+outcome describes the copy judged after the wait (the fetch freshness also
+reads), not the best copy the wait saw: a copy that lands late still arrives,
+and one seen during the wait but replaced by the previous deploy or denied at
+judgment is not_arrived or unverified. The wait's last observation is kept as
+`observed_during_wait`. The outcome is printed as one `publication_arrival: {json}` line and,
 with --result-json PATH, written to a file. Exit codes: 0 fresh and arrived,
 1 a served artifact is stale (unchanged, takes precedence), 2 this run's
 publication did not arrive, 3 its arrival could not be verified.
@@ -330,12 +333,17 @@ def main(argv=None) -> int:
         if args.await_published is None:
             arrival[check_id] = {"file": name, "outcome": NOT_AWAITED}
             continue
-        result = awaited.get(name) or judge_arrival(None, (None, None, 0), fields)
-        if result["outcome"] != ARRIVED and result["expected_at"] is not None:
-            # The judging fetch is later evidence: a late deploy still arrives,
-            # and a denied fetch now makes the outcome unknown, not not_arrived.
-            result = judge_arrival(parse_ts(result["expected_at"]), fetched, fields)
-        arrival[check_id] = {"file": name, **result}
+        observed = awaited.get(name) or judge_arrival(None, (None, None, 0), fields)
+        current = observed
+        if observed["expected_at"] is not None:
+            # The outcome is the currently judged copy, the same fetch freshness
+            # reads: a late deploy still arrives, a copy that went back to the
+            # previous deploy is not_arrived, and a denied fetch is unverified,
+            # whatever the wait saw earlier. The wait's last observation is
+            # kept beside it as evidence, never as the outcome.
+            current = judge_arrival(parse_ts(observed["expected_at"]), fetched, fields)
+        arrival[check_id] = {"file": name, **current, "observed_during_wait": {
+            k: observed[k] for k in ("outcome", "reason", "served_at", "http_status")}}
 
     print("publication_arrival: " + json.dumps(
         {"awaited": args.await_published is not None, "artifacts": arrival}, sort_keys=True))
