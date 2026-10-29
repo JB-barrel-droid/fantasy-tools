@@ -11,7 +11,9 @@ Two rosters from the frozen 20-team league fixture are typed in (JEG-1235), size
   * the last player given cannot be unticked; every side-player row is at least 44 px; no sideways scroll; no errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with a stale package math after a toggle, a link
-that is not rebuilt, and a cap that is not enforced, and requires each to fail.
+that is not rebuilt, and a cap that is not enforced, and requires each to fail. test_empty_receive_side_prints_no_null
+runs a card with no receive-side list (JEG-1235), and the guard serves the mutant that drops the filter on optional
+nodes against that case and requires it to report the null text itself.
 """
 from __future__ import annotations
 
@@ -37,6 +39,13 @@ def setUpModule():
 # from the engine; nothing about the search changes. A fixture name that is not exactly one engine row is an error, so
 # the typed-in search can only add the fixture's own player.
 FINDER_TEAMS = (1, 0)   # (yours, theirs): indexes into fixture-20team.json
+# JEG-1235 (Codex Mac run): those rosters give every group a "You also receive" list, so no card has an empty optional
+# side and the "empty side lists print null" mutation went uncaught. The empty-side case keeps your team and gives them
+# one player only (Rome Odunze, key 2677, of fixture team 0): every trade then receives just the core player, so each
+# card has no receive-side list at all (recvBox is null in groupCard). The check requires that precondition, then that
+# no card prints a literal null or undefined. On the 2026-10-29 data: 1 group, 5 trades.
+EMPTY_SIDE_TEAMS = (1, "2677")   # (yours: team index, theirs: one fixture player key)
+NULL_TEXT = "an empty side list prints null/undefined"
 PICK = """([fx, mine, theirs]) => {
   const rows = window.TradeValueCurveControls.getAllRows();
   const byKey = new Map(rows.map(r => [String(r.player_key), r]));
@@ -47,7 +56,9 @@ PICK = """([fx, mine, theirs]) => {
     if (!r || count.get(r.name) !== 1) bad.push(p.name);
     return r ? r.name : p.name;
   });
-  return {mine: side(fx.teams[mine]), theirs: side(fx.teams[theirs]), bad};
+  const theirTeam = typeof theirs === 'number' ? fx.teams[theirs]
+    : {players: fx.teams.flatMap(t => t.players).filter(p => String(p.key) === String(theirs))};
+  return {mine: side(fx.teams[mine]), theirs: side(theirTeam), bad};
 }"""
 
 
@@ -174,7 +185,39 @@ def check(page, tag, width) -> list[str]:
     return errors
 
 
-def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (320, 640))) -> list[str]:
+EMPTY_CARDS = """() => [...document.querySelectorAll('#v2FindList > li.v2-find-group')].map(li => ({
+  target: (li.querySelector('.v2-find-target-name') || {}).textContent || '',
+  sides: [...li.querySelectorAll('fieldset.v2-find-side-pick > legend')].map(l => l.textContent),
+  literal: (li.textContent.match(/.{0,30}(?:null|undefined).{0,20}/) || [''])[0]}))"""
+
+
+def check_empty_side(page, tag, width) -> list[str]:
+    """JEG-1235: a group card whose optional receive-side list is absent prints no literal null/undefined."""
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2FindEdit') && !document.getElementById('v2FindTrade').hidden", timeout=60000)
+    pick = page.evaluate(PICK, [fixture("20team"), *EMPTY_SIDE_TEAMS])
+    if pick["bad"] or len(pick["theirs"]) != 1:
+        return [tag + f"empty-side fixture does not resolve to one player for them: {pick['theirs']} {pick['bad']}"]
+    for name in pick["mine"]:
+        add(page, "Mine", name)
+    for name in pick["theirs"]:
+        add(page, "Theirs", name)
+    page.select_option("#v2FindSize", "2")
+    page.click("#v2FindGo")
+    page.wait_for_timeout(500)
+    cards = page.evaluate(EMPTY_CARDS)
+    if not cards:
+        return [tag + "no group card for the empty-side case: the null check proved nothing"]
+    errors = []
+    for c in cards:
+        if any(side != "You give" for side in c["sides"]):
+            errors.append(tag + f"precondition failed: group {c['target']} has a receive-side list {c['sides']}, so no optional side is empty")
+        if c["literal"]:
+            errors.append(tag + f"group {c['target']}: {NULL_TEXT}: {c['literal']!r}")
+    return errors
+
+
+def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (320, 640)), checker=None) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -197,7 +240,7 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (320, 640))) 
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
                 page.goto(base + "#find-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
-                errors += check(page, f"[{width}px] ", width)
+                errors += (checker or check)(page, f"[{width}px] ", width)
                 if page_errors:
                     errors.append(f"[{width}px] page errors {page_errors}")
                 context.close()
@@ -209,6 +252,9 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (320, 640))) 
 class FinderGroupsRenderTest(unittest.TestCase):
     def test_grouped_results(self):
         self.assertEqual(run_checks(), [])
+
+    def test_empty_receive_side_prints_no_null(self):
+        self.assertEqual(run_checks(checker=check_empty_side), [])
 
     def test_guard_fails_on_broken_builds(self):
         js = FINDER_JS.read_text(encoding="utf-8")
@@ -223,6 +269,13 @@ class FinderGroupsRenderTest(unittest.TestCase):
         for name, body in broken.items():
             with self.subTest(mutation=name):
                 self.assertNotEqual(body, js, f"mutation anchor for {name!r} is stale")
+                if name == "empty side lists print null":
+                    # JEG-1235: only a card with an absent optional side can show this, so the mutant runs on the
+                    # empty-side case and must fail for the null text itself, not for any other reason.
+                    errors = run_checks({"finder.js": body}, viewports=((1366, 768),), checker=check_empty_side)
+                    self.assertTrue(any(NULL_TEXT in e for e in errors), f"not caught: {name}: {errors}")
+                    self.assertFalse(any("precondition failed" in e or "proved nothing" in e for e in errors), errors)
+                    continue
                 try:
                     errors = run_checks({"finder.js": body}, viewports=((1366, 768),))
                 except Exception as exc:
