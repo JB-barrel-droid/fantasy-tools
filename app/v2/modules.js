@@ -35,6 +35,8 @@
     {title: "v2GiveTitle", name: "You give", summary: () => sideSummary("You give", "v2GivePlayers", "v2GiveTotal")},
     {title: "v2GetTitle", name: "You receive", summary: () => sideSummary("You receive", "v2GetPlayers", "v2GetTotal")},
     {title: "v2CVerdictTitle", name: "Verdict", summary: () => text("v2CVerdictTitle")},
+    {title: "v2CRostersTitle", name: "Loaded rosters", summary: () => text("v2CRosterStatus") || "Choose two loaded rosters"},
+    {title: "v2CConstructionTitle", name: "Both rosters after this trade", summary: () => text("v2CConstructionBody") || "Add players on both sides"},
     {title: "v2CResultTitle", name: "Difference by source",
       summary: () => text("v2CMeta") || text("v2CEmpty")},
     {title: "v2FindTitle", name: "Find a trade",

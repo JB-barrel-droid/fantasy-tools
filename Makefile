@@ -171,6 +171,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_tokens
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
@@ -194,6 +195,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_v2_share_links
+	python3 -m unittest tests.test_v2_share_links_render
 	python3 -m unittest tests.test_v2_assist_render
 	python3 -m unittest tests.test_v2_season_weeks_render
 	python3 -m unittest tests.test_weekly_matchup_swaps
@@ -416,6 +419,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_trifit
 	python3 -m unittest tests.test_v2_finder_balance
 	python3 -m unittest tests.test_v2_league_units
+	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
+	python3 -m unittest tests.test_jeg1216_lineup
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
@@ -591,6 +596,8 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -604,12 +611,14 @@ test-core:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
@@ -673,6 +682,7 @@ test-core-shard-1:
 	node tests/test_v2_roster_paste.js
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_view_invariants
@@ -722,10 +732,13 @@ test-core-shard-3:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -797,6 +810,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
@@ -837,6 +851,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
 	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
@@ -891,7 +906,9 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
 	python3 -m unittest tests.test_v2_league_top10_render
 	python3 -m unittest tests.test_v2_find_split_render

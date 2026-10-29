@@ -130,6 +130,7 @@ def _built_dist():
 def check_sources(page, width) -> list[str]:
     errors = []
     before = page.evaluate(ACTIVE)
+    _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
     page.click("#v2EditSources")
     box = page.evaluate("() => { const b = document.getElementById('v2Popover').getBoundingClientRect(); return {w: b.width, h: b.height}; }")
     if width <= 390 and (box["w"] < 389 or box["h"] < 800):

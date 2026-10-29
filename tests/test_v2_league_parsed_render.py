@@ -2,7 +2,8 @@
 
   * a 12-team ESPN-style paste: the summary names the team count, every team with its roster size, says which team is
     yours (none marked yet, then the one whose star is pressed), and lists a line that matched no player;
-  * a paste with no teams in it shows a plain error and no team list.
+  * a paste with no teams in it shows a plain error and no team list. It is pasted the way a reader would: the first
+    paste folds the import box away, so the test opens "Load a whole league" again by its summary first (JEG-1235).
 
 Discrimination: test_guard_fails_on_broken_builds serves league.js with the summary never shown, and with the unmatched
 lines dropped, and requires the checks to fail on each.
@@ -74,6 +75,18 @@ def check(browser, base, overrides=None):
         errors.append(f"marked team not shown as yours: {s['mine']!r}")
     # A paste with no teams: a plain error.
     page.click("#v2LgParsedClose")
+    # JEG-1235: a whole-league paste folds "Load a whole league" away (and the league card too when nothing needs
+    # checking), so the paste box is hidden now. Pasting again is the reader's journey: open what is folded by its own
+    # summary, then paste into the box. A paste box that stays hidden is a failure, never something to type into.
+    if not page.is_visible("#v2LgLeaguePaste"):
+        if not page.evaluate("() => document.getElementById('v2LgCard').open"):
+            page.click("#v2LgCard > summary")
+        if not page.evaluate("() => document.getElementById('v2LgImport').open"):
+            page.click("#v2LgImport > summary")
+    if not page.is_visible("#v2LgLeaguePaste"):
+        errors.append("the league paste box is still hidden after opening 'Load a whole league' again")
+        page.close()
+        return errors
     page.fill("#v2LgLeaguePaste", "")
     page.evaluate("""() => { const t = document.getElementById('v2LgLeaguePaste'); const data = new DataTransfer();
       data.setData('text', 'League Rosters\\nnothing useful here\\n'.repeat(30));
