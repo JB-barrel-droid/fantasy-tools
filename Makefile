@@ -423,6 +423,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1216_lineup
 	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
 	python3 -m unittest tests.test_jeg1229_trade_context
+	# JEG-1320: one stored record for the finders' discovery controls (pure module; no route reads it yet).
+	python3 -m unittest tests.test_jeg1320_discovery_controls
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
