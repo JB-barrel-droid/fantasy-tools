@@ -146,6 +146,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	# JEG-1354: players.active follows the active NFL universe (ids first).
+	python3 -m unittest tests.test_sync_players_active
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
