@@ -20,11 +20,11 @@ position separately, which broke rankings. This post explains the problem, the
 rule we use now, what the factors are this week, and how to read the rescaled
 charts in the Market view.
 
-Terms used below. DDF Value is our one number per player: the four trade
-charts (FantasyCalc, USA Today, FantasyPros and CBS), each adjusted to your
-league settings and averaged. Adjusted means turned into value above waivers
-and re-weighted to our position weights, so it is our opinion, informed by the
-chart. Rescaled values are a trade chart's own published values multiplied by
+Terms used below. DDF Value is our one number per player: the average of the
+four trade charts' (FantasyCalc, USA Today, FantasyPros and CBS) weight-adjusted
+values at your league settings. Weight-adjusted means turned into value above
+waivers and re-weighted to our position weights, so it is our opinion,
+informed by the chart. Rescaled values are a trade chart's own published values multiplied by
 one factor so they sit on the DDF Value scale: the publisher's opinion, on our
 scale. Value above waivers is how much better a player is than the best player
 you could pick up for free at his position. The rosterable count is the number
@@ -133,6 +133,14 @@ the tool's opinion about positional value lives.
 
 The Market view shows each chart's own opinion, rescaled to our scale. The DDF
 Value view shows our opinion, built from the charts' data.
+
+The two connect exactly. The weight adjustment ignores a chart's scale, so
+adjusting a chart's rescaled values gives the same numbers as adjusting its
+published ones: DDF Value is the average of the four charts' weight-adjusted
+rescaled values. It is not the trade chart average, the plain average of the
+four rescaled values, which Compare uses as the market's view. For rostered
+players this week the two differ by 2.8 points for the middle player and by up
+to 18.2.
 
 ### When a chart cannot be rescaled
 

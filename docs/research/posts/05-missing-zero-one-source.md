@@ -17,9 +17,11 @@ player gives him a real 0, or an estimate if he is rosterable, and that number
 counts. A source with no opinion shows a dash, and a dash is left out, never
 counted as 0.
 
-Terms used below. DDF Value is our one number per player: the four trade
-charts (FantasyCalc, USA Today, FantasyPros and CBS), each adjusted to your
-league settings and averaged. DDF Value (projections) is the alternate: the
+Terms used below. DDF Value is our one number per player: the average of the
+four trade charts' (FantasyCalc, USA Today, FantasyPros and CBS) weight-adjusted
+values at your league settings (value above waivers, re-weighted to our
+position weights). It is not the plain average of the rescaled charts. DDF
+Value (projections) is the alternate: the
 three projection sources (ESPN, CBS rest of season and Razzball), each turned
 into a value at your league settings and averaged. The rosterable count is the
 number of players at a position that the league's teams can actually hold,

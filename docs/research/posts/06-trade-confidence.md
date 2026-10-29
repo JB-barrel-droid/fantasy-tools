@@ -14,9 +14,11 @@ all its sources behind it, the charts agree on the market, and the projections
 point the same way is well supported. A trade where any of those breaks is
 closer than the headline number suggests.
 
-Terms used below. DDF Value is our one number per player: the four trade
-charts (FantasyCalc, USA Today, FantasyPros and CBS), each adjusted to your
-league settings and averaged. DDF Value (projections) is the alternate: the
+Terms used below. DDF Value is our one number per player: the average of the
+four trade charts' (FantasyCalc, USA Today, FantasyPros and CBS) weight-adjusted
+values at your league settings (value above waivers, re-weighted to our
+position weights). It is not the trade chart average, which Compare uses
+separately as the market's view. DDF Value (projections) is the alternate: the
 three projection sources (ESPN, CBS rest of season and Razzball), averaged the
 same way. A rescaled chart value is a chart's own published value on our
 scale, with the publisher's ranking unchanged. Value above waivers is how much

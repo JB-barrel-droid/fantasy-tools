@@ -168,7 +168,33 @@ def post4(inp, hist, div):
                                "native": [native[a], native[b]], "native_ratio": round(gap, 3),
                                "one_factor": [round(native[a] * d["factor"], 1), round(native[b] * d["factor"], 1)],
                                "per_position": [round(native[a] * f[pa], 1), round(native[b] * f[pb], 1)]}
-    return {"factors": factors, "default_detail": detail, "counterfactual_example": example}
+    # DDF Value as "the weight-adjusted indexed values": the adjustment ignores
+    # a chart's scale (VP-5.5), so re-running the pipeline on the rescaled
+    # (Indexed) values must give the same Adjusted values and DDF Value. And it
+    # is not the trade chart average (the plain mean of the rescaled charts).
+    nat = {k: dict(v) for k, v in st["current"].items()}
+    for c in CHARTS:
+        if res["indexed"][c]["factor"]:
+            nat[c] = {i: v * res["indexed"][c]["factor"] for i, v in nat[c].items()}
+    res2 = vr.run_pipeline(s.league, s._sources(nat), s.pos_of, st["included"], s.selection, lineup=s.lineup,
+                           hidden=st.get("hidden"), promotion_model=s.promotion_model,
+                           flex_bench_seats=s.flex_bench_seats, basis=s.basis)
+    adj_diff = max((abs(r["adjusted"][c] - res2["rows"][i]["adjusted"][c]) for i, r in res["rows"].items()
+                    for c in CHARTS if r["adjusted"].get(c) is not None and res2["rows"][i]["adjusted"].get(c) is not None),
+                   default=0.0)
+    ddf_diff = max((abs(r["ddf"]["blended"]["value"] - res2["rows"][i]["ddf"]["blended"]["value"])
+                    for i, r in res["rows"].items() if r["ddf"]["blended"]["value"] is not None), default=0.0)
+    gaps = []
+    for i, r in res["rows"].items():
+        ix = [r["indexed"][c] for c in CHARTS if r["indexed"].get(c) is not None]
+        if r.get("ddf_tier") in ("starter", "bench") and len(ix) == len(CHARTS):
+            gaps.append(abs(r["ddf"]["blended"]["value"] - sum(ix) / len(ix)))
+    gaps.sort()
+    vs_chart_average = {"rostered": len(gaps), "median_abs_gap": round(gaps[len(gaps) // 2], 1) if gaps else None,
+                        "max_abs_gap": round(gaps[-1], 1) if gaps else None,
+                        "adjusted_from_rescaled_max_diff": adj_diff, "ddf_from_rescaled_max_diff": ddf_diff}
+    return {"factors": factors, "default_detail": detail, "counterfactual_example": example,
+            "ddf_value_vs_rescaled": vs_chart_average}
 
 
 # ---------------------------------------------------------------------------
