@@ -9,6 +9,8 @@
   --ls-focus: var(--v2-focus, #087F5B);
   --ls-warn-bg: #F8EFE1; --ls-warn-ink: #7A4510;
   --ls-bad-bg: #F8E8EA; --ls-bad-ink: #8C2434;
+  --ls-warn-dark-bg: #3A2A16; --ls-warn-dark-ink: #F6D7AE;
+  --ls-bad-dark-bg: #3A2228; --ls-bad-dark-ink: #F6C2CA;
   --ls-radius: var(--v2-radius-card, 12px);
   --ls-title-font: inherit;
   background: var(--ls-surface);
@@ -17,6 +19,11 @@
   border-radius: var(--ls-radius);
   padding: 12px 16px;
 }
+/* The live v2 theme has no warn or bad surface tokens, so the dark pair follows the same switches v2.css uses (JEG-1295). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .v2-ls { --ls-warn-bg: var(--ls-warn-dark-bg); --ls-warn-ink: var(--ls-warn-dark-ink); --ls-bad-bg: var(--ls-bad-dark-bg); --ls-bad-ink: var(--ls-bad-dark-ink); }
+}
+:root[data-theme="dark"] .v2-ls { --ls-warn-bg: var(--ls-warn-dark-bg); --ls-warn-ink: var(--ls-warn-dark-ink); --ls-bad-bg: var(--ls-bad-dark-bg); --ls-bad-ink: var(--ls-bad-dark-ink); }
 .v2-ls-heading { margin: 0; font-size: 20px; line-height: 1.25; font-weight: 600; }
 .v2-ls-toggle {
   display: inline-flex; align-items: center; gap: 8px;

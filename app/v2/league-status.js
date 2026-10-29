@@ -21,8 +21,12 @@
 //     after store.load(), and restores origin() it snapshotted when Undo puts an earlier league back.
 //     A heading button that folds and opens the details (aria-expanded/aria-controls), the one-line summary that shows
 //     in both states, and a body holding the facts, any issues and opts.controls (the existing edit controls, moved
-//     in, never rebuilt). Expanded by default, as the league card is today; only the reader folds it. Escape inside
-//     the body folds it and returns focus to the button. Reads the store; never writes to it.
+//     in, never rebuilt; destroy() puts them back where they were). Expanded by default, as the league card is today;
+//     only the reader folds it. Escape inside the body folds it and returns focus to the button, except where a
+//     control inside handled it: a handler that called preventDefault, an open menu, or a nested disclosure (a team
+//     row's own body, which folds that team on Escape; JEG-1295). Reads the store; never writes to it.
+//   TradeValueLeagueStatus.storedOrigin(loadStatus, workspace) reads the workspace it is given, so call it right after
+//     store.load(), before anything else changes the league.
 (function (root) {
   "use strict";
 
@@ -96,7 +100,9 @@
     // knows why nothing carries the star. The status never picks a team for them.
     let mine;
     if (marked) mine = {state: "marked", text: `Your team: ${marked.name}`};
-    else if (o.removedMine && o.removedMine.name && !teams.some(t => t.id === o.removedMine.id)) mine = {state: "removed", text: `Your team (${o.removedMine.name}) was removed. Star a team to mark yours.`};
+    else if (o.removedMine && o.removedMine.name && !teams.some(t => t.id === o.removedMine.id)) mine = {state: "removed", text: teams.length
+      ? `Your team (${o.removedMine.name}) was removed. Star a team to mark yours.`
+      : `Your team (${o.removedMine.name}) was removed with the rest of the league.`};
     else if (teams.length) mine = {state: "none", text: "No team marked as yours yet"};
     else mine = {state: "none", text: ""};
 
@@ -122,7 +128,7 @@
     // The collapsed line: counts, the star and the saved state. Nothing here is a value or a rank.
     const summary = teams.length
       ? [countText, mine.state === "marked" ? mine.text : mine.state === "removed" ? "Your team was removed" : "No team marked", storage ? storage.text : null].filter(Boolean).join(" · ")
-      : [headline, storage ? storage.text : null].filter(Boolean).join(" · ");
+      : [headline, mine.state === "removed" ? "Your team was removed" : null, storage ? storage.text : null].filter(Boolean).join(" · ");
 
     const facts = teams.length ? [
       {id: "teams", label: "Teams", value: String(teams.length)},
@@ -133,6 +139,7 @@
     ].filter(Boolean) : storage ? [{id: "storage", label: "Saved", value: storage.text}] : [];
 
     const notes = [];
+    if (!teams.length && mine.state === "removed") notes.push(mine.text);
     if (state === "loading") notes.push("Player values are still loading. Counts above are from your saved rosters.");
     // The "saves on this device" promise only while the store can save (JEG-1261).
     if (state === "empty") notes.push(saving ? "Paste your league's rosters page, or add a team and fill it. It saves on this device."
@@ -171,6 +178,7 @@
     let lastMine = null;
     let removedMine = null;
     let lastSummary = null;
+    let lastLeague;
 
     const titleText = el(doc, "span", {class: "v2-ls-title"});
     const toggle = el(doc, "button", {type: "button", class: "v2-ls-toggle", id: `${base}Toggle`, "aria-controls": `${base}Body`, "aria-expanded": String(expanded)},
@@ -182,6 +190,8 @@
     const issues = el(doc, "ul", {class: "v2-ls-issues", id: `${base}Issues`});
     const notes = el(doc, "div", {class: "v2-ls-notes", id: `${base}Notes`});
     const slot = el(doc, "div", {class: "v2-ls-controls", id: `${base}Controls`});
+    // Where the caller's controls lived, so destroy() can put them back.
+    const home = o.controls && o.controls.parentNode ? {parent: o.controls.parentNode, next: o.controls.nextSibling} : null;
     if (o.controls) slot.append(o.controls);
     const body = el(doc, "div", {class: "v2-ls-body", id: `${base}Body`, role: "region", "aria-labelledby": toggle.id}, facts, issues, notes, slot);
     const live = el(doc, "p", {class: "v2-sr v2-ls-live", id: `${base}Live`, role: "status", "aria-live": "polite"});
@@ -217,7 +227,11 @@
       // A starred team that leaves the league (Remove, Clear all) is named once. A new league from a file, a link or
       // the saved copy is not a removal. The store may report a save before the change itself, so this keys off the
       // team's id being gone, not the change reason.
-      if (reason === "load" || reason === "replace" || reason === "mount") { removedMine = null; lastMine = null; }
+      // A different league (by workspace id) is a new league too, whatever event reports it first: the store reports
+      // "saving" before the replace itself, so keying off the reason alone named the old league's star (JEG-1295).
+      const leagueId = ws ? ws.id : null;
+      if (reason === "load" || reason === "replace" || reason === "mount" || leagueId !== lastLeague) { removedMine = null; lastMine = null; }
+      lastLeague = leagueId;
       if (marked) { lastMine = {id: marked.id, name: marked.name}; removedMine = null; }
       else if (lastMine && ws && !ws.teams.some(t => t.id === lastMine.id)) { removedMine = lastMine; lastMine = null; }
       else lastMine = null;
@@ -239,12 +253,24 @@
       if (typeof o.onToggle === "function") o.onToggle(expanded);
     }
 
+    function insideNested(t) {
+      if (!t || typeof body.querySelectorAll !== "function") return false;
+      const ids = new Set();
+      body.querySelectorAll("[aria-controls]").forEach(b => { const id = b.getAttribute("aria-controls"); if (id) ids.add(id); });
+      for (let n = t; n && n !== body; n = n.parentNode) if (n.id && ids.has(n.id)) return true;
+      return false;
+    }
+
     toggle.addEventListener("click", () => setExpanded(!expanded));
     body.addEventListener("keydown", event => {
       if (event.key !== "Escape" || !expanded) return;
       // An open menu or listbox inside the controls handles its own Escape first.
+      if (event.defaultPrevented) return;
       const t = event.target;
       if (t && t.closest && t.closest("[aria-expanded='true']")) return;
+      // A nested disclosure (a team row) folds itself on Escape and moves focus to its own button. Its body is a
+      // sibling of its toggle, so the open-menu check above can't see it, and the toggle may already read "false".
+      if (insideNested(t)) return;
       setExpanded(false);
       toggle.focus();
     });
@@ -255,7 +281,11 @@
     if (o.origin) setOrigin(o.origin);
     else update("mount");
     return {update, setOrigin, origin: () => origin, setExpanded, isExpanded: () => expanded, model: () => model, node: card, toggle,
-      destroy() { offs.forEach(off => { if (typeof off === "function") off(); }); card.remove(); }};
+      destroy() {
+        offs.forEach(off => { if (typeof off === "function") off(); });
+        if (home && o.controls.parentNode === slot) home.parent.insertBefore(o.controls, home.next && home.next.parentNode === home.parent ? home.next : null);
+        card.remove();
+      }};
   }
 
   const api = {describe, storedOrigin, mount, STORAGE, ORIGIN};

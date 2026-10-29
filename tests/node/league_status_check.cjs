@@ -18,10 +18,26 @@ class FakeNode {
   get textContent() { return this._text + this.children.map(c => c.textContent).join(""); }
   append(...kids) { kids.forEach(k => { if (k.parent) k.parent.children = k.parent.children.filter(c => c !== k); k.parent = this; this.children.push(k); }); }
   replaceChildren(...kids) { this.children.forEach(c => { c.parent = null; }); this.children = []; this._text = ""; this.append(...kids); }
+  get parentNode() { return this.parent; }
+  get nextSibling() { if (!this.parent) return null; const i = this.parent.children.indexOf(this); return this.parent.children[i + 1] || null; }
+  insertBefore(kid, ref) {
+    if (kid.parent) kid.parent.children = kid.parent.children.filter(c => c !== kid);
+    kid.parent = this;
+    const i = ref ? this.children.indexOf(ref) : -1;
+    if (i < 0) this.children.push(kid); else this.children.splice(i, 0, kid);
+    return kid;
+  }
+  querySelectorAll(sel) {
+    assert.equal(sel, "[aria-controls]");
+    const out = [];
+    const walk = n => { n.children.forEach(c => { if (c.getAttribute("aria-controls") !== null) out.push(c); walk(c); }); };
+    walk(this);
+    return out;
+  }
   remove() { if (this.parent) { this.parent.children = this.parent.children.filter(c => c !== this); this.parent = null; } }
   addEventListener(type, fn) { (this.listeners[type] = this.listeners[type] || []).push(fn); }
   dispatch(type, extra) {
-    const event = {type, target: this, ...(extra || {})};
+    const event = {type, target: this, defaultPrevented: false, preventDefault() { this.defaultPrevented = true; }, ...(extra || {})};
     for (let n = this; n; n = n.parent) (n.listeners[type] || []).forEach(fn => fn(event));
     return event;
   }
@@ -204,7 +220,8 @@ function setup(initial, opts) {
   controls.setAttribute("id", "editControls");
   const inner = doc.createElement("button");
   controls.append(inner);
-  // stored: true mounts the way league.js will: origin only from what store.load() proved.
+  // stored: true mounts the way league.js will: origin only from what store.load() proved, computed straight after
+  // newStore()'s load() with nothing in between (storedOrigin reads the workspace it's given).
   const o = {...(opts || {})};
   if (o.stored) { delete o.stored; o.origin = S.storedOrigin(store.loadStatus(), store.get()); }
   const status = S.mount(host, {store, document: doc, id: "lgs", controls, ...o});
@@ -468,6 +485,109 @@ check("mount: destroy unsubscribes and removes", () => {
   t.status.destroy();
   assert.equal(t.host.children.length, 0);
   t.store.update(w => W.ops.addTeam(w, "Bravo"), "add");
+});
+
+// ---------- JEG-1295: Escape inside a nested team row, and the P3 follow-ups ----------
+// A team row built the way league.js createTeam builds it: a head with the team's toggle (aria-controls -> its body),
+// and the body as the toggle's sibling, holding a search box. Its li keydown folds the team on Escape and focuses the
+// team toggle, without preventDefault or stopPropagation (league.js line 353).
+function teamRow(doc, id) {
+  const li = doc.createElement("li");
+  const head = doc.createElement("div");
+  const toggle = doc.createElement("button");
+  toggle.setAttribute("aria-controls", `v2LgBody-${id}`);
+  toggle.setAttribute("aria-expanded", "true");
+  head.append(toggle);
+  const body = doc.createElement("div");
+  body.setAttribute("id", `v2LgBody-${id}`);
+  body.className = "v2-lg-team-body";
+  const search = doc.createElement("input");
+  body.append(search);
+  li.append(head, body);
+  const row = {li, toggle, body, search, collapsed: false};
+  const inBody = n => { for (let x = n; x; x = x.parent) if (x === body) return true; return false; };
+  li.addEventListener("keydown", event => {
+    if (event.key === "Escape" && !row.collapsed && inBody(event.target)) {
+      row.collapsed = true; toggle.setAttribute("aria-expanded", "false"); body.hidden = true; toggle.focus();
+    }
+  });
+  return row;
+}
+
+check("JEG-1295 Escape in an open team's search folds only that team; focus stays on the team toggle", () => {
+  const t = setup(saved(league(["Alpha"])));
+  const row = teamRow(t.doc, "a1");
+  t.controls.append(row.li);
+  row.search.focus();
+  row.search.dispatch("keydown", {key: "Escape"});
+  assert.equal(row.collapsed, true, "the team folded");
+  assert.equal(t.status.isExpanded(), true, "the status card stays open");
+  assert.equal(t.doc.activeElement, row.toggle, "focus is on the team's own toggle");
+  // A second Escape, now on the team toggle (outside any nested body), folds the card as before.
+  row.toggle.dispatch("keydown", {key: "Escape"});
+  assert.equal(t.status.isExpanded(), false);
+  assert.equal(t.doc.activeElement, t.node("lgsToggle"));
+});
+
+check("JEG-1295 Escape a control already handled (preventDefault) is left alone", () => {
+  const t = setup(saved(league(["Alpha"])));
+  t.inner.addEventListener("keydown", event => event.preventDefault());
+  t.inner.focus();
+  t.inner.dispatch("keydown", {key: "Escape"});
+  assert.equal(t.status.isExpanded(), true);
+  assert.equal(t.doc.activeElement, t.inner);
+});
+
+check("JEG-1295 Escape in a plain control still folds the card (negative case)", () => {
+  const t = setup(saved(league(["Alpha"])));
+  const row = teamRow(t.doc, "a2");
+  t.controls.append(row.li);
+  t.inner.focus();
+  t.inner.dispatch("keydown", {key: "Escape"});
+  assert.equal(t.status.isExpanded(), false);
+  assert.equal(row.collapsed, false, "the team was not touched");
+  assert.equal(t.doc.activeElement, t.node("lgsToggle"));
+});
+
+check("JEG-1295 Clear league with a starred team says so in the card, not only the live region", () => {
+  let ws = league(["Alpha", "Bravo"]);
+  ws = W.ops.setMyTeam(ws, ws.teams[0].id);
+  const t = setup(saved(ws));
+  t.store.update(w => W.ops.clearLeague(w), "remove");
+  const m = t.status.model();
+  assert.equal(m.state, "empty");
+  assert.match(t.node("lgsSummary").textContent, /^No league loaded yet · Your team was removed/);
+  assert.match(allText(t.node("lgsNotes")), /Your team \(Alpha\) was removed with the rest of the league\./);
+  assert.doesNotMatch(allText(t.node("lgsLive")), /Star a team/, "no star hint with no teams to star");
+});
+
+check("JEG-1295 replacing with another league never announces the old league's star as removed", () => {
+  let ws = league(["Alpha", "Bravo"]);
+  ws = W.ops.setMyTeam(ws, ws.teams[0].id);
+  const t = setup(saved(ws));
+  const spoken = [];
+  const live = t.node("lgsLive");
+  const orig = Object.getOwnPropertyDescriptor(FakeNode.prototype, "textContent");
+  Object.defineProperty(live, "textContent", {get: () => orig.get.call(live), set: v => { spoken.push(String(v)); orig.set.call(live, v); }});
+  t.store.replace(league(["One", "Two", "Three"], {name: "Office league"}), "replace");
+  assert.ok(spoken.length, "the new league was announced");
+  spoken.forEach(line => assert.doesNotMatch(line, /was removed/, line));
+  assert.equal(t.status.model().mine.state, "none");
+});
+
+check("JEG-1295 destroy() puts the caller's controls back where they were", () => {
+  const doc = makeDoc();
+  const page = doc.createElement("div");
+  const before = doc.createElement("p");
+  const controls = doc.createElement("div");
+  const after = doc.createElement("p");
+  page.append(before, controls, after);
+  const host = doc.createElement("div");
+  const st = S.mount(host, {store: newStore(memoryStorage()), document: doc, id: "d", controls});
+  assert.equal(controls.parent.id, "dControls");
+  st.destroy();
+  assert.deepEqual(page.children, [before, controls, after]);
+  assert.equal(host.children.length, 0);
 });
 
 if (failed.length) { console.log(`league_status_check: ${failed.length} of ${checks} checks failed`); process.exit(1); }
