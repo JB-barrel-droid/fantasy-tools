@@ -179,6 +179,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_league_entry_default_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
