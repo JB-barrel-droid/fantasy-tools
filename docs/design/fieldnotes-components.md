@@ -70,6 +70,32 @@ least 4.5:1, control edges and focus at least 3:1.
 - `tests/test_v2_tokens.py`: role values in all three modes, contrast in both themes, flag scoping, unchanged default token values, the self-hosted font with its license, and mutation checks.
 - `tests/test_v2_fieldnotes_league_entry_render.py`: the JEG-1137 done-when, checked at 390 and 1280 px with the flag on. A new visitor pastes the Yahoo whole-league fixture and sees the team count and each team's matched players, presses a team's star, and gets the same teams, rosters and marked team back after a reload. At each step it checks for no sideways scroll, 44 px targets, text contrast, the paste box's 3:1 edge, and a keyboard focus ring. It also checks that the unflagged league section's computed styles are unchanged, and runs a guard that fails without this slice.
 
+## Compare a trade (JEG-1138)
+
+The `v2.css` block between `/* JEG-1138: Compare a trade in Fieldnotes` and `/* JEG-1138 end */` puts Compare into
+Fieldnotes under the same flag. It's presentation only: the markup, copy, numbers and verdict rules stay with `v2.js` and
+`trade.js`, and no verdict cutoff is added.
+
+**Reusable for other pages (JEG-1139 adds its selectors to these lists):**
+- Kicker: the 12 px, 750, all-caps label above an answer or a value (the verdict eyebrow, "Deal read").
+- Value view: muted 12 px column heads, rows on `--ddf-line`, tabular figures.
+- Expandable detail: the Fieldnotes disclosure on an existing `<details>` (rule above, ink label, 44 px summary, plus and
+  minus at the end), and row toggles ("Show players") whose own box is the 44 px target.
+
+**Compare only:**
+- The verdict card is the prototype's result card: card radius, 24 px padding (16 on phone), and the heading in the
+  display face at 28 px (24 on phone). The left edge keeps its meaning (win `--v2-action`, lose `--v2-negative`,
+  incomplete `--v2-older`), and a verdict with no side (even, none) takes `--ddf-ink`. The phone verdict bar follows the
+  same rule.
+- "Copy link to this trade" is a 44 px target at every width, not only on touch screens.
+- The sides: kicker headings, the search box on the control edge at 44 px, totals in tabular figures.
+
+**Evidence:** `tests/test_v2_fieldnotes_compare_render.py`. At 390 and 1280 px it opens each verdict branch (none, win,
+lose, even, incomplete) as a trade link. For each, it checks that Compare's text is identical to the unflagged page's,
+the display face, the edge colour, no sideways scroll, 44 px targets and text contrast. It also drives Tab and Enter
+on "Every pairing", on a row's "Show players" and on "Copy link", and checks the phone verdict bar. The unflagged page's
+computed styles are unchanged, and a guard fails without the block.
+
 ## Boundary and what's next
 
 - **JEG-1137 owns:** the tokens, type, controls and flag above; league entry in Fieldnotes; and later the shell and navigation (slice 2b: the Fieldnotes phone bar, a Home route, and the phone "Set up your league on desktop" entry). Slice 2b touches `shell.html`, `v2.js` (a hot file) and `league.js`. Codex sequences it against JEG-1130, JEG-1263, JEG-1140 and JEG-1259.
