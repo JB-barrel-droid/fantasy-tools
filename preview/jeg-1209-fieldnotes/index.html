@@ -325,6 +325,7 @@ html[data-theme="dark"]{--canvas:#101b17;--surface:#192720;--subtle:#26372d;--in
 .stage:focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
 .finder-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 24px; align-items: start; margin-top: 24px; }
 .finder-main > .card + .card, .finder-main > .v2-card { margin-top: 24px; }
+.finder-main, .finder-rail { min-width: 0; }
 .finder-rail { display: grid; gap: 24px; position: sticky; top: 16px; }
 .sidecard { padding: 20px; }
 .sidecard h2 { margin-bottom: 8px; }
@@ -376,11 +377,11 @@ html[data-theme="dark"]{--canvas:#101b17;--surface:#192720;--subtle:#26372d;--in
 html[data-theme="dark"] .finder-table tr.selected { background: #253c2c; }
 
 @media (max-width: 900px) {
-  .finder-layout { grid-template-columns: 1fr; }
-  .finder-rail { position: static; order: -1; grid-template-columns: 1fr 1fr; }
+  .finder-layout { grid-template-columns: minmax(0, 1fr); }
+  .finder-rail { position: static; order: -1; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 700px) {
-  .finder-rail { grid-template-columns: 1fr; }
+  .finder-rail { grid-template-columns: minmax(0, 1fr); }
   .finder-tablewrap { display: none; }
   .finder-cards { display: block; }
   .finder-result .opener { margin-top: 12px; width: 100%; }

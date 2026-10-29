@@ -73,7 +73,10 @@ def main(argv):
                 page.goto(f"{base}?shot=1#{route}")
                 page.wait_for_timeout(400)
                 overflow = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
-                check(f"{route}@{w}: no sideways scroll", overflow <= 0, f"overflow {overflow}px")
+                wide = "" if overflow <= 0 else page.evaluate("""(() => { const vw = document.documentElement.clientWidth;
+                  return [...document.querySelectorAll('body *')].filter(e => e.offsetParent && e.getBoundingClientRect().right > vw + 1)
+                    .slice(0, 4).map(e => e.tagName.toLowerCase() + (e.id ? '#' + e.id : '') + (e.className && typeof e.className === 'string' ? '.' + e.className.split(' ')[0] : '')).join(' ') })()""")
+                check(f"{route}@{w}: no sideways scroll", overflow <= 0, f"overflow {overflow}px {wide}")
                 check(f"{route}@{w}: no script errors", not errors, "; ".join(errors[:3]))
                 check(f"{route}@{w}: no external requests", not external, ", ".join(external[:3]))
                 if route == "finder":
@@ -100,6 +103,11 @@ def main(argv):
             ctx, page, errors, _ = page_at(w, h)
             page.goto(f"{base}?shot=1#finder")
             page.wait_for_timeout(400)
+            # Column order starts folded: open it from the keyboard the way a reader would.
+            page.locator("#colOrder > summary").focus()
+            page.keyboard.press("Enter")
+            page.wait_for_timeout(50)
+            check(f"@{w}: Column order opens from the keyboard", page.evaluate("document.getElementById('colOrder').open"))
             page.locator('#colOrder button[data-column="them"][data-move="up"]').focus()
             page.keyboard.press("Enter")
             page.wait_for_timeout(80)
