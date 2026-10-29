@@ -1,6 +1,6 @@
 # Homepage AI onboarding: copy pack and capability checklist
 
-Draft for Jeremy's review (JEG-1223, part of JEG-1137). Nothing here publishes. It feeds the Codex-owned design preview: strings and checks only, no layout, design choice, runtime change or deploy. Terminology for DDF Value and the value views stays with JEG-1212; this copy avoids defining DDF Value so it survives that decision.
+Jeremy's decisions are in (see the end). Ready for Codex's review and integration (JEG-1223, part of JEG-1137). Nothing here publishes. It feeds the Codex-owned design preview: strings and checks only, no layout, design choice, runtime change or deploy. Terminology for DDF Value and the value views stays with JEG-1212; this copy avoids defining DDF Value so it survives that decision.
 
 Checked 2026-10-29 (UTC) against `origin/main` 021c5bfd and the live DDF connector. Values in the live answers were dated 2026-10-28.
 
@@ -24,7 +24,7 @@ IDs are for the implementer. Every string is a draft for Jeremy. Destinations ar
 
 | ID | String | Destination |
 |---|---|---|
-| `ai.h` | Find your best trade in Claude or ChatGPT | none (see decision 2 for alternatives) |
+| `ai.h` | Find your best trade in Claude or ChatGPT | none |
 | `ai.body` | Give the chat your roster and the other team's, or your whole league's. It looks for trades that add value for you and still look fair to them on the trade charts, checks each one against both lineups and depth, and labels how natural a fit each one is. Every answer links back here so you can keep working. | none |
 | `ai.cta` | Connect the tool | `https://jb-barrel-droid.github.io/fantasy-tools/connect/` |
 | `ai.cta.note` | Connect the tool once: free, no account, no sign-in. You add one web address as a custom connector. | none |
@@ -102,7 +102,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 
 1. Every string in the copy pack appears verbatim, or with Jeremy's edits, and no other AI claim is added.
 2. `ai.cta` and `ai.err.notconnected` link exactly `https://jb-barrel-droid.github.io/fantasy-tools/connect/`, the same href as the footer's `Connect the tool` (the existing `test_v2_assist_render` footer check).
-3. No homepage or Copy link string contains "tested", "import", "sync", "automatic", "same numbers", "guarantee", "will accept", "perfect" (unless Jeremy picks headline C), "Sleeper", "ESPN" or "Yahoo". A grep over the built page's AI block passes.
+3. No homepage or Copy link string contains "tested", "import", "sync", "automatic", "same numbers", "guarantee", "will accept", "perfect", "Sleeper", "ESPN" or "Yahoo". A grep over the built page's AI block passes.
 4. The connected-user step never reads as a detected state: no checkmark, "you're connected" or similar.
 5. No string says or implies that the chat uses the reader's value basis or player overrides. Revisit when JEG-1225 ships and the live `read_state` check in claim 8 returns the custom values.
 6. Before launch, re-run both example prompts through the live connector and confirm each still returns a value and a `site_url`; swap names if not.
@@ -111,10 +111,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 ## Decisions for Jeremy
 
 1. **The custom-values caveat: decided.** Jeremy, 2026-10-28 CT: "we should fix the tech, and leave it out. File a ticket to fix the tech." No caveat string; the connector fix is JEG-1225.
-2. **Headline (open).** Jeremy, 2026-10-28 CT: "it's not about using ddf, right now it is about finding the perfect trade." The lead copy now sells the trade finder.
-   - **A: "Find your best trade in Claude or ChatGPT" (my pick: the tool ranks trades and picks a best package, so "best" is something it does).**
-   - B: "Find trades the other team can say yes to, in Claude or ChatGPT."
-   - C: "Find the perfect trade in Claude or ChatGPT." His word, but the tool scores trades rather than guaranteeing one, so "perfect" promises more than it shows.
+2. **Headline: decided.** Jeremy, 2026-10-28 CT, first: "it's not about using ddf, right now it is about finding the perfect trade." Then, picking from three options: "A", which is "Find your best trade in Claude or ChatGPT". The lead copy sells the trade finder.
 
 ## Sources
 
