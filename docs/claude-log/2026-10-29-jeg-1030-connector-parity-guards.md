@@ -77,3 +77,19 @@ different field list is reported as a real failure. `python3 -m unittest tests.t
 tests.test_connector_inventory tests.test_mcp_remote tests.test_run_suite tests.test_validate_shards
 tests.test_doc_staleness tests.test_ddf_state`: 36 OK, 1 expected failure.
 Still not run here: `tests.test_endpoint_parity` on current head (no Chromium in this environment).
+
+## Round 2: F1 fixed on main (22:40 UTC)
+
+#1119 (JEG-1179/1115) landed the F1 fix in `state.ts finish()` on main (d67848c9). Merged
+`origin/main` (c03eb05) into the branch normally and emptied `KNOWN_GAPS`; no other change.
+
+Verified (check named):
+- Before the edit, on the merge commit: `connector_roundtrip_check.mjs` exits 1 with "FIXED? known gap
+  ... now passes" for both F1 ids, so `tests.test_connector_roundtrip.test_round_trips` fails.
+- After: exits 0, "8 tools x 4 leagues, 3 override cases, 0 failures, 0 known gaps", 8 mutations
+  caught, `ok`; `--strict` exits 0.
+- `python3 -m unittest tests.test_connector_roundtrip tests.test_connector_inventory
+  tests.test_mcp_remote tests.test_ddf_state`: 12 tests OK, 1 expected failure (unresolved routes).
+
+Claimed, not confirmed: the F1 fix is live (that needs the mcp deploy, not checked here).
+`tests.test_endpoint_parity` still not run on this head (no Chromium in the cloud).

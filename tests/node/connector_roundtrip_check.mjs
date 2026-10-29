@@ -114,12 +114,9 @@ const OVERRIDES = [
 ];
 
 // id -> the ticket and the only engine fields the gap may get wrong.
-const KNOWN_GAPS = {
-  // state.ts finish() rebuilds the link's league from the pasted league and adds SUPERFLEX only when
-  // the pasted roster has none, so an explicit superflex argument prices one league and links another.
-  "explicit superflex false over pasted SF1 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
-  "explicit superflex true over pasted SF0 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
-};
+// None open. F1 (an explicit superflex argument priced one league and linked another) was fixed in
+// state.ts finish() by #1119 (JEG-1179/1115), so both override cases now pass [B] outright.
+const KNOWN_GAPS = {};
 
 // ---------- stub get-values (prices nothing; records what it was asked for) ----------
 const chart = (v) => ({ usatoday: v, fantasycalc: v, fantasypros: v, cbs: v });
