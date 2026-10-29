@@ -14,6 +14,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-q4-context.md](jeg613-q4-context.md) | JEG-613 open question 4: whether bias-adjusted charts belong in DDF Value, written for Jeremy's decision (2026-10-22). |
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
+| [jeg1150-qb-miss-rate.md](jeg1150-qb-miss-rate.md) | JEG-1150 QB miss_rate alternatives (0.06 to 0.15): bench seats and absolute values at 12 settings, for Jeremy's decision (2026-10-29); no value math changed. |
 
 ## Post drafts
 
