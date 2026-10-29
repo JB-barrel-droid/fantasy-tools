@@ -147,7 +147,7 @@ class WorkedExampleTest(unittest.TestCase):
     def test_estimated_reasons(self):
         rows = self.actual["rows"]
         self.assertEqual(rows["207"]["estimated_reason"]["c5"],
-                         "Estimated: no chart lists him; from c5's values against projected points")
+                         "Estimated: c5 doesn't list him; scaled from p1")
         # With VORP bench, player 306 is below rostered depth in c5 (WR bench=1 in 2-team fixture).
         self.assertEqual(rows["306"]["reasons"]["c5"], "Below rosterable depth; c5 doesn't list him")
         self.assertEqual(rows["205"]["reasons"]["c2"], "Below rosterable depth; c2 doesn't list him")
@@ -278,7 +278,8 @@ def _spec_args():
     setting = sp.Setting.from_fixture({**doc["setting"], **(variant.get("setting_change") or {})})
     pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
     sources_raw = doc.get("inputs") or doc.get("sources")
-    sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+    sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"],
+                   "fill_peer": v.get("fill_peer", False)}
                for s, v in sources_raw.items()}
     inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
     return setting, pos_of, sources, inc_keys, variant.get("lineup")
@@ -412,7 +413,8 @@ class TestPromotionModel(unittest.TestCase):
         setting = sp.Setting.from_fixture(setting_d)
         pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
         sources_raw = doc.get("inputs") or doc.get("sources")
-        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"],
+                       "fill_peer": v.get("fill_peer", False)}
                    for s, v in sources_raw.items()}
         inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
         lineup = variant.get("lineup")
@@ -521,7 +523,8 @@ class TestFlexBenchSeats(unittest.TestCase):
         setting = sp.Setting.from_fixture(setting_d)
         pos_of = {int(k): v["pos"] for k, v in doc["players"].items()}
         sources_raw = doc.get("inputs") or doc.get("sources")
-        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"]}
+        sources = {s: {"family": v["family"], "status": v["status"], "values": v["values"],
+                       "fill_peer": v.get("fill_peer", False)}
                    for s, v in sources_raw.items()}
         inc_keys = [s for s, v in sources.items() if v["status"] == "included"]
         lineup = variant.get("lineup")

@@ -49,7 +49,8 @@ def league_of(fx: dict, bench_share: float | None = None) -> ref.League:
 
 
 def sources_of(fx: dict) -> dict:
-    return {k: ref.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()})
+    return {k: ref.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()},
+                               fill_peer=v.get("fill_peer", False))
             for k, v in fx["inputs"].items()}
 
 
@@ -187,12 +188,12 @@ class WorkedExample(unittest.TestCase):
         three DDF versions. Values updated for convention bench seats and
         midpoint starter line (JEG-560). JEG-1073: blended = the charts (Adjusted)."""
         res = run(load())
-        self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.445413, places=6)
+        self.assertAlmostEqual(res["sources"]["p1"]["players"][201]["adjusted"], 49.407160, places=6)
         ddf = res["rows"][201]["ddf"]
         # JEG-1073: blended DDF Value is the chart average (== charts version).
-        self.assertAlmostEqual(ddf["blended"]["value"], 50.760350, places=6)
-        self.assertAlmostEqual(ddf["charts"]["value"], 50.760350, places=6)
-        self.assertAlmostEqual(ddf["projections"]["value"], 46.192053, places=6)
+        self.assertAlmostEqual(ddf["blended"]["value"], 51.102890, places=6)
+        self.assertAlmostEqual(ddf["charts"]["value"], 51.102890, places=6)
+        self.assertAlmostEqual(ddf["projections"]["value"], 46.140677, places=6)
         bench = sum(v for g, v in res["ddf_weights"].items() if g.endswith("|bench"))
         self.assertAlmostEqual(bench, 0.15, places=12)
 

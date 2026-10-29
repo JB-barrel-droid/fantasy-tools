@@ -49,7 +49,8 @@ if (varFlag !== -1) {
 
 const sources = {};
 Object.entries(doc.inputs || doc.sources).forEach(([key, s]) => {
-  sources[key] = {family: s.family, status: s.status, values: s.values, label: s.label || key};
+  sources[key] = {family: s.family, status: s.status, values: s.values,
+    label: s.label || key, fillPeer: s.fill_peer === true};
 });
 const result = ValueModel.runValuePipeline({
   setting, players: doc.players, sources,

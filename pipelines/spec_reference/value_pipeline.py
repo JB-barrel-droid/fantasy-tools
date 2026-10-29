@@ -865,7 +865,9 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         fill_sets = {p: p_order[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
-    peers_all = sorted(s for s in inc if family[s] == CHART)
+    peers_all = sorted(s for s in inc if family[s] == PROJECTION or
+                       (family[s] == CHART and
+                        (s == "fantasycalc" or sources[s].get("fill_peer") is True)))
     es = None
     if lineup is not None:
         charts_in = [s for s in inc if family[s] == CHART]
