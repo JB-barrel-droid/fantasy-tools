@@ -4,6 +4,10 @@
 -- fresh database); every other statement ran as written. Additive: three new tables, their triggers, four functions and one
 -- login role; nothing else is touched, no existing row, view or published
 -- output changes.
+-- JEG-1268: this file stays as it ran. Its weekly_fantasypros_pages_shown check
+-- admits a page with only one of shown_count/total_count (a CHECK passes on
+-- NULL); jeg1268_weekly_fantasypros_shown_check_20261029.sql (proposed, not
+-- applied) replaces it with a null-safe one.
 --
 -- Purpose: Muse, signed in to FantasyPros, writes the weekly projections and
 -- weekly ECR rankings pages here once a day (Jeremy 2026-10-29: "i could have
@@ -33,6 +37,8 @@
 --   5. identity: fp_player_id when the markup shows one.
 --   6. placeholders: dashes and other non-numeric markers land as null, never 0
 --      (the writer's parse rule; numeric columns cannot hold text).
+--      The ECR rank is required: a rank shown as a dash fails the page (the
+--      kind check refuses the row, so finish_page comes up short); never 0.
 -- Muse's second review (2026-10-29), folded in:
 --   7. one week per batch: a page whose heading reports a different season or
 --      week from the batch's other pages is refused, and completion checks it

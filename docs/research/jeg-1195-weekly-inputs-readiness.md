@@ -297,8 +297,20 @@ week, last-updated stamps read as America/New_York, and a database-side daily
 check so a silent failure still shows red. Muse posts every run's result on
 JEG-1195 (Jeremy, 2026-10-29: "B").
 
-- **Tables**, drafted in `supabase/migrations/jeg1195_weekly_fantasypros_20261029.sql`.
-  **Proposed, not applied**: applying it needs Jeremy's yes naming it.
+- **Tables**, in `supabase/migrations/jeg1195_weekly_fantasypros_20261029.sql`.
+  **Applied** 2026-10-29 03:09 UTC on Jeremy's yes ("Approve the migration"),
+  as Supabase migration `jeg1195_weekly_fantasypros_20261029` (schema_migrations
+  version 20261029030901). Receipts: the coordinator's apply message, the
+  JEG-1195 apply comment, and a read-only check right after (3 tables with RLS,
+  5 triggers, 11 functions, the writer's grants, the cron job and the check
+  row all present). Not verifiable from the repo: the exact SQL text that ran.
+  It was applied from the main chat with the six "drop ... if exists" lines and
+  some comments left out, so the file here is the source, not a byte copy.
+  **Follow-up, proposed and not applied:**
+  `supabase/migrations/jeg1268_weekly_fantasypros_shown_check_20261029.sql`
+  (JEG-1268) makes the "showing X of Y" check null-safe (below). Applying it
+  needs Jeremy's fresh yes naming it. Until then the live check admits a page
+  with only one of the two counts, so the writer must never send one alone.
   - `public.weekly_fantasypros_batches`: the manifest, one row per daily pull
     (pages expected, pages and rows landed, completed or failed with a reason).
     One completed batch per New York day.
@@ -312,7 +324,11 @@ JEG-1195 (Jeremy, 2026-10-29: "B").
 - **What the database enforces:** weekly only (`horizon` fixed to `week`); a
   page lands only with `full_list` and `scoring_verified` true, at least three
   checked players, its row count at or above the floor (QB 20, RB 40, WR 60,
-  TE 25) and equal to any "showing X of Y" count with X = Y; player rows land
+  TE 25) and equal to any "showing X of Y" count with X = Y (both counts or
+  neither: as applied, a page with only one count gets through, because a
+  CHECK passes when it evaluates to NULL; the JEG-1268 follow-up closes it);
+  an ECR row with no rank is refused, so a page whose rank shows "-" cannot be
+  counted and its batch cannot complete (no zero, no default); player rows land
   only on a page not yet counted, in an open batch; `weekly_fp_finish_page`
   counts the rows itself and raises on a mismatch, rolling the page back;
   `weekly_fp_complete_batch` refuses until every expected page is counted; a
@@ -326,10 +342,9 @@ JEG-1195 (Jeremy, 2026-10-29: "B").
   on every completion (ok) and failure (`BATCH_FAILED`), and again by pg_cron
   job `weekly-fantasypros-daily-check` at 16:00 UTC: red when the New York day
   has no batch, an unfinished one, or a failed latest one. The monitoring
-  evaluator marks it missed if that job stops. When the migration is applied,
-  the same change adds the job to `pg_cron_sql_jobs` in
-  `config/monitoring_coverage.json` (adding it earlier would fail the live
-  coverage audit).
+  evaluator marks it missed if that job stops. The job is listed in
+  `pg_cron_sql_jobs` in `config/monitoring_coverage.json` on this branch; until
+  the branch merges, the live coverage audit reports it as unlisted.
 - **Auth, least privilege:** login role `weekly_fp_writer`. INSERT on the pages
   and player tables, EXECUTE on `weekly_fp_start_batch`, `weekly_fp_finish_page`,
   `weekly_fp_complete_batch` and `weekly_fp_fail_batch`, nothing else: no SELECT,
@@ -349,12 +364,17 @@ JEG-1195 (Jeremy, 2026-10-29: "B").
   matching hash; the daily check records red with no completed batch and green
   after one; a re-run supersedes the open batch; the writer's SELECT, UPDATE, DELETE
   and direct manifest insert are refused; anon and authenticated cannot read or
-  call anything; the writer cannot call the check functions.
+  call anything; the writer cannot call the check functions. JEG-1268 added
+  `tests/test_weekly_fantasypros_contract.py`, which evaluates the effective
+  checks under SQL three-valued logic in CI and, with `WEEKLY_FP_PG_DSN` set to
+  a throwaway local Postgres, on a real server too. It fails against the
+  applied check for (shown NULL, total 100, rows 60) and (shown 60, total NULL,
+  rows 60) and passes with the follow-up.
 
 The revised run spec handed to Muse:
 
 ```text
-Muse daily run: FantasyPros weekly pages to Supabase (JEG-1195, revision 3)
+Muse daily run: FantasyPros weekly pages to Supabase (JEG-1195, revision 4)
 
 Connection
 - Postgres through the Supabase pooler as weekly_fp_writer.<project_ref>, with the password Jeremy sets. No service key.
@@ -389,7 +409,7 @@ Per-page fields
 - season, and week as printed in the page heading, never the week requested. All 16 pages must agree; the database refuses a page from a different week. page_heading as shown.
 - page_updated_text: the page's own "last updated" stamp as shown. page_updated_at: that stamp read as America/New_York time when it parses, else null.
 - content_hash: sha256 hex of JSON.stringify({"headers": [...], "rows": [[...], ...]}) over the player table only, cells as shown and trimmed, in page order. Leave out the last-updated stamp, ads and anything outside the table. Do not compare hashes yourself; the database flags a page that matches the previous completed batch.
-- shown_count and total_count: the "showing X of Y" numbers when the page shows them, else both null.
+- shown_count and total_count: the "showing X of Y" numbers when the page shows them, else both null. Both or neither: if the line is shown but either number can't be read, the run fails (step 3). Never send one without the other.
 - rows_expected: player rows parsed from the page.
 - pulled_at: when the page was read.
 
@@ -407,10 +427,10 @@ Scoring verification (scoring_verified), fail closed
 Player rows
 - fp_player_id: FantasyPros' own player ID when the markup shows one, else null.
 - player_name and team as shown.
-- ECR rows: ecr_rank (required) and the best, worst, average and std columns when shown; fpts null.
+- ECR rows: ecr_rank (required) and the best, worst, average and std columns when shown; fpts null. A rank shown as - or any other non-numeric marker fails the run (step 3): never 0, never a rank from row order. The database refuses a row with no rank anyway.
 - Projection rows: fpts as shown; ecr columns null.
 - raw_columns: every other column, header to value, text exactly as shown.
-- Blanks and non-numeric markers (-, en dash, em dash, N/A, NA, BYE, ?) are null in numeric fields, never 0.
+- Blanks and non-numeric markers (-, en dash, em dash, N/A, NA, BYE, ?) are null in optional numeric fields (FPTS, ECR best, worst, average, std), never 0. The ECR rank is not optional: see above.
 ```
 
 ## 8. Minimum missing to recover the originals
