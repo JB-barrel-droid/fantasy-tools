@@ -269,15 +269,16 @@ Natural fit, JEG-1217, JEG-1220).
    C no weekly data.
 4. **How weekly ECR arrives (checked 2026-10-29, read only, no sign-in).**
    The archived snapshotter `archive/2026-10-07/weekly_vegas/pipeline/ecr_snapshot.gs`
-   l.4-7 records that FantasyPros ECR cheatsheet pages embed the full
-   `ecrData` JSON per position without a login, while weekly projection pages
-   show only the top 10 per position without a login (l.34). The old page used
+   l.4-7 records that FantasyPros ECR cheatsheet pages (the season boards it
+   pulled) embed the full `ecrData` JSON per position without a login, while
+   projection pages show only the top 10 per position without a login (l.34).
+   That weekly ranking pages carry the same embed is inferred, not checked. The old page used
    both: points from signed-in projection CSVs and positional ranks
    (`vegas_pos_rank`, `ecr_pos_rank`, `delta`). Not re-verified live: this
    environment's proxy refuses fantasypros.com from the shell, and a page fetch
    returns the tables without their script data. A one-off read-only probe from
    GitHub Actions would confirm it. Open choice for Jeremy: compare on weekly
-   ECR ranks (public, full depth), have Jeremy export the full weekly
+   ECR ranks (public, full depth if the inference holds), have Jeremy export the full weekly
    projections CSV each week (points), or use public projections for the top 10
    per position and ranks beyond. Separately, for JEG-1196 only: whether to
    bring back an ESPN roster% pull.
