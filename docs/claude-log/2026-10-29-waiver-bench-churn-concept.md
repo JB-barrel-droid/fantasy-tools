@@ -11,3 +11,14 @@ Contract: a docs-only design concept for the waiver dashboard (JEG-1196) and Ben
 ### Claimed, not confirmed
 - The mock's desktop and 390px phone layouts were not rendered in a browser here (no Chromium in this cloud session). A Mac screenshot would confirm them.
 - My reading of the retired Bench Churn windows (After his game, Before the weekend, continuation after misses) comes from the JEG-1197 text only; the artifact itself was not found.
+
+## 2026-10-29 - Follow-up: Jeremy's answers and the objective (JEG-1196, JEG-1197, JEG-1317)
+
+Contract: record Jeremy's three answers, lead the concept with the one objective the questions serve, and file the FAAB conversion as its own decision ticket. Still docs only.
+
+### Verified (check named)
+- JEG-1317 filed in Linear with options A/B/C and a recommendation; it blocks JEG-1197 (Linear `save_issue` response).
+- The mock still parses as HTML (Python `html.parser`).
+
+### Claimed, not confirmed
+- The FAAB options on JEG-1317 are proposals only; none is measured or approved.

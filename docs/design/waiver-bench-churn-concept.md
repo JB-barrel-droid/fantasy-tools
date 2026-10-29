@@ -8,16 +8,33 @@ beside it). All names and numbers in the mock are invented.
 Last updated: 2026-10-29. Status: Proposal. Both tickets stay in Backlog behind
 the weekly-input contract (JEG-1227, PR #1087) and producer (JEG-1228).
 
-## The answer in one paragraph
+## The objective
 
+Both views answer one question: **is this move worth making this week?**
+
+Net gain = the free agent's DDF Value − what you give up.
+What you give up = the bench player you drop (his DDF Value) + the FAAB you
+bid, converted to DDF Value.
+
+Make the move when the net gain is above zero. Bench Churn is the same sum
+run over this week's claim windows, with the chance each claim lands and hits.
+
+Every input exists to fill in that one sum, or to say when it can be made:
+
+| Input | Its job in the sum |
+| -- | -- |
+| Free agent's DDF Value (published chart) | the gain side |
+| Dropped player's DDF Value | the cost side |
+| FAAB bid converted to DDF Value (JEG-1317) | the cost side |
+| Rostered % | is he likely on your wire at all |
+| Kickoff times | which windows exist and when each call locks |
+| Status and bye | is the move allowed (out, IR, locked) |
+| This week's expert points | context in a grey column, never in the sum |
+
+All values are DDF Value (rest of season), so weekly data never enters the
+sum. That keeps Jeremy's rule: "do not blend weekly data with ROS data, ever."
 One computed artifact, the **waiver board** (`data/weekly/waiver-board-wk{N}.json`,
-owned by JEG-1196), feeds two views: the **Waiver board** (who to add, pass on,
-hold or drop this week) and **Bench Churn** (for each bench player: keep him, or
-rotate the spot through this week's waiver windows). Every value on both views is
-in the trade-value unit (DDF Value, ROS, from the published chart). Weekly data
-from the contract only decides *when* and *whether* a move is possible (status,
-bye, kickoff slate, freshness). It never enters a value, a gain or a verdict.
-That keeps Jeremy's rule: "do not blend weekly data with ROS data, ever."
+owned by JEG-1196), feeds both the Waiver board view and Bench Churn.
 
 ## Settled picks this concept follows
 
@@ -66,7 +83,8 @@ lanes are never added, averaged or sorted together. Sorting is by Value only.
    bye), and a one-line grounded case ("Took 71% of snaps after the trade").
 5. **Your swaps.** Paste a roster. Rows read "Drop X, add Y · +3.1 value",
    gain 2 or more, each player used once, thin positions protected (as before).
-   A FAAB hint shows in dollars beside the gain, never folded into it.
+   The gain is net of the bid once JEG-1317 sets the FAAB conversion; until
+   then the bid shows in dollars beside it.
 
 ### Phone
 
@@ -88,7 +106,8 @@ on the second; the case on the third. Controls sit behind one "Adjust" pill.
   who is on the wire.
 - **This week**: points from the named weekly expert leg, status and bye.
   Shown for context, never ranked.
-- **Swap gain**: Value of the add minus Value of the drop.
+- **Swap gain**: Value of the add minus Value of the drop minus the bid in
+  DDF Value (JEG-1317). This is the objective sum above.
 
 ## Bench Churn (JEG-1197)
 
@@ -129,7 +148,7 @@ slate strip scrolls sideways.
 - **Landing chance**: the chance the claim is won (from the board's existing
   model). Shown as a percent.
 - **Hit chance**: the chance the target becomes worth holding. Source is an
-  open question below.
+  still open (below).
 - **Survival**: the chance the chain is still running at that step (earlier
   steps missed).
 - **Step value**: survival × landing × hit × the target's future usable DDF
@@ -146,48 +165,40 @@ slate strip scrolls sideways.
 | Header, board week | `season`, `content_week` (Tuesday flip), `built_at` | `pipelines/nfl_week.py` | none |
 | Source strip | every leg's `availability`, `freshness`, `label`, `missing_reason`, `content_vintage` | chart freshness from the chart build | chart freshness is not a contract leg |
 | Value, Change, waiver line | none (by rule) | published `players.json`, value model at the league setting, last week's board | needs last week's board kept (versioned artifact) |
-| Rostered %, most-added | none | ESPN roster % and adds trend (retired board read ESPN directly) | **not in the contract**; see question 4 |
+| Rostered %, most-added | none | ESPN roster % and adds trend (retired board read ESPN directly) | **not in the contract yet**; new contract field (decided) |
 | This week column | `experts.<name>` values for the scoring, `status.values.injury_status`, `status.values.practice_participation`, `bye.values.bye_week` | none | which expert leg is named (S4 setting) |
 | Your swaps | none | pasted roster, `players.json` | none |
-| Slate strip, windows | `game_week` on slate fields | kickoff times per team | **kickoff times are not in the contract**; see question 5 |
+| Slate strip, windows | `game_week` on slate fields | kickoff times per team | **not in the contract yet**; new contract field (decided) |
 | Bench readout | none | lineup resolve `objective_window`, `bye_share`; JEG-1276 breakout rates | readout build ticket not filed yet |
-| Chain steps | `status` (eligibility: out, IR, locked), `bye` | landing chances, FAAB budget and league claim rules | **FAAB budget and claim rules have no home**; see question 2 |
+| Chain steps | `status` (eligibility: out, IR, locked), `bye` | landing chances, FAAB budget and league claim rules | **FAAB budget and claim rules have no home**; FAAB conversion is JEG-1317 |
 
-## Open questions for Jeremy
+## Decided (Jeremy, 2026-10-29)
 
-Each has a recommendation. None is decided here.
+Asked in PR #1160 and on JEG-1196/1197; his reply on the timeline:
+"There is no artifact that turns FAAB cost into ddf, we'll have to create one.
+But the logic should be fairly similar to how we approach trade charts since
+there are values assigned to every drafted player. 2) yes, 3) yes"
 
-1. **Which weekly numbers may the waiver board show?** The contract notes say
-   JEG-1196 "takes no weekly data for now".
-   - A: status, bye and kickoff only, no weekly points.
-   - B: also this week's expert points, in the grey column, never in a verdict
-     or sort. *(Recommended: useful context, and the lanes stay apart.)*
-   - C: weekly points may break ties between equal values. (This blends; not
-     recommended.)
-2. **How does FAAB cost become DDF Value?** The ticket wants the chain "net of
-   expected waiver cost" in the same unit.
-   - A: reuse the retired Bench Churn artifact's conversion as is. *(Recommended
-     if you can point me to that artifact; it isn't in the repo.)*
-   - B: a new conversion, designed and approved as T1 value math.
-   - C: keep FAAB in dollars beside the chain, and require both "net chain
-     beats keep" and "bid under your cap".
-3. **Where does the hit chance come from?**
-   - A: the JEG-1276 historical breakout rates by depth (O3), looked up by the
-     contract's weekly depth-chart order. The lookup uses a weekly category,
-     not a weekly number, so nothing is blended. *(Recommended.)*
-   - B: the retired artifact's hit chances.
-   - C: leave hit chance at 1 until research lands, and say so on the card.
-4. **Where do rostered % and the adds trend live?**
-   - A: a new `espn_roster` leg on the weekly-input contract (a minor version
-     bump, one ingestion). *(Recommended.)*
-   - B: the waiver-board builder reads ESPN itself.
-5. **Where do kickoff times live?**
-   - A: slate fields on the contract (`game_week` plus kickoff per team).
-     *(Recommended.)*
-   - B: a separate schedule file the board reads.
-6. **Where is the retired Bench Churn artifact?** The ticket says to reuse its
-   `evaluateChain` and `bestChainFromItems` with snapshot tests; neither is in
-   the repo or the archive. A link or file would let the build start from it.
+- **FAAB cost:** no existing conversion; a new one is built, with logic like
+  the trade charts. Options and a recommendation are on JEG-1317. No math
+  ships until he picks.
+- **This week's expert points:** shown in the grey column as context, never in
+  a verdict or a sort.
+- **Rostered % and kickoff times:** new fields on the weekly-input contract
+  (a minor version bump, one ingestion), proposed on JEG-1227.
+
+## Still open
+
+1. **FAAB to DDF Value method** (JEG-1317): A, one league-wide rate like a
+   trade chart's pie *(recommended)*; B, a per-team rate from your own budget
+   left; C, a curve fitted to real winning bids.
+2. **Hit chance** (the chance a claimed player turns out worth holding): A, the
+   JEG-1276 historical breakout rates by depth, looked up by the contract's
+   weekly depth-chart order *(recommended; a lookup by category, so nothing is
+   blended)*; B, leave it at 1 until research lands, labelled on the card.
+3. **Chain helpers.** JEG-1197 names `evaluateChain` and `bestChainFromItems`
+   from the retired artifact; neither is in the repo or the archive. If they no
+   longer exist, the build writes them fresh against this concept.
 
 ## Not in scope
 
