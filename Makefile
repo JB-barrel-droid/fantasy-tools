@@ -808,9 +808,10 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
-	-python3 -m tests._jeg1237_trace
-	-python3 -m tests._jeg1237_probe
+	-python3 -m tests._jeg1237_bisect
 	-python3 -m unittest -v tests.test_v2_finder_collapse_render
+	-python3 -m unittest -v tests.test_v2_finder_guardrails_render
+	-python3 -m tests._jeg1237_probe_eval
 
 test-render-sweep-3:
 	python3 -m unittest tests.test_v2_consistency_render
