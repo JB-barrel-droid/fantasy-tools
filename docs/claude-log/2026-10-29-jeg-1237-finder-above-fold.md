@@ -27,6 +27,16 @@ assertions or changing search, values, fit or defaults.
 - JEG-1184 bug: bench-backup "+" buttons start disabled on a fresh page because `el()` calls
   `setAttribute("disabled", false)`. Posted to JEG-1219 for its owner; tests here avoid relying on it.
 
+### Update 22:40 UTC (takeover)
+- Jeremy picked A (fold after Find, one "Trade settings" line in the summary), Oct 29 12:01 UTC; this is the layout
+  here. Settings also fold on phones (there is no desktop-only condition); the PR text said otherwise and is corrected.
+- Took over the idle branch (last push 08:08 UTC) and merged `origin/main` c03eb05 in normally: no conflicts. The
+  JEG-1219 backup-button fix and saved-team picker are now on main, so they come in with the merge.
+- Verified: `node --check app/v2/finder.js`; `make validate` on the merged head (result in the PR thread).
+
 ### Claimed, not confirmed
-- Jeremy has not chosen this behavior (settings hidden after Find). Exact-head PR CI, independent review, merge and
-  live checks are pending. Nothing deployed.
+- Collapse/eval render tests on the merged head: they are not in the v2-render workflow and there is no local
+  Chromium here, so they need the Mac (command on JEG-1237). Delta review of the main merge, merge and live checks are
+  pending. Nothing deployed.
+- The eval "ESPN mine, Yahoo theirs" natural-group failure is data or fixture drift, separate from this layout fix,
+  and the Natural rule itself is being changed under JEG-1324; tracked as its own follow-up ticket.
