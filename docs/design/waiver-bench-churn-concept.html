@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Waiver board and Bench Churn concept</title>
+<!-- Design concept for JEG-1196 / JEG-1197. Not published; not read by make sync.
+     Every name and number below is invented. Notes: waiver-bench-churn-concept.md -->
+<style>
+:root {
+  --canvas:#F6F3EC; --surface:#FFFCF8; --ink:#1A2824; --muted:#52635C; --line:#E3DCD0;
+  --action:#0C7A56; --action-ink:#FFFFFF;
+  --good-t:#E4F5ED; --good:#085C40; --warn-t:#F8EFE1; --warn:#7A4510;
+  --bad-t:#F8E8EA; --bad:#8C2434; --info-t:#E6F0FA; --info:#18467A;
+  --week-t:#EFEDE8; --week:#6B6A66;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --canvas:#101614; --surface:#18211D; --ink:#E8F2ED; --muted:#9DB0A8; --line:#2A3631;
+    --action:#6EE4B8; --action-ink:#062018; --good-t:#123527; --good:#7FE0B5; --warn-t:#3A2A14; --warn:#F0C07A;
+    --bad-t:#3B1A20; --bad:#F2A1AD; --info-t:#14283E; --info:#9CC4F0; --week-t:#22292A; --week:#A3A9A6; }
+}
+* { box-sizing:border-box; }
+body { margin:0; background:var(--canvas); color:var(--ink); font:14px/1.45 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+.num { font-variant-numeric:tabular-nums; }
+.page { display:flex; gap:32px; align-items:flex-start; padding:24px; }
+.desk { flex:1; min-width:0; max-width:1100px; }
+.phone { flex:none; width:390px; height:844px; border:10px solid #1A2824; border-radius:40px; overflow:hidden; background:var(--canvas); position:sticky; top:24px; }
+.phone iframe { width:100%; height:100%; border:0; }
+body.framed .page { padding:16px; display:block; }
+body.framed .phone, body.framed .concept-note { display:none; }
+.concept-note { background:var(--warn-t); color:var(--warn); border-radius:12px; padding:8px 16px; margin-bottom:16px; font-size:12px; }
+h1 { font-size:28px; line-height:1.15; margin:0 0 4px; }
+h2 { font-size:20px; margin:24px 0 8px; }
+.meta { color:var(--muted); font-size:12px; }
+.tabs { display:flex; gap:8px; margin:16px 0; }
+.tab { border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:999px; padding:10px 16px; min-height:44px; font:inherit; cursor:pointer; }
+.tab[aria-selected="true"] { background:var(--action); color:var(--action-ink); border-color:var(--action); }
+.view[hidden] { display:none; }
+.chips { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0 16px; }
+.chip { border-radius:999px; padding:4px 12px; font-size:12px; background:var(--surface); border:1px solid var(--line); }
+.chip b { font-weight:600; }
+.chip.ok { background:var(--good-t); color:var(--good); border-color:transparent; }
+.chip.late { background:var(--warn-t); color:var(--warn); border-color:transparent; }
+.chip.off { background:var(--bad-t); color:var(--bad); border-color:transparent; }
+.chip.wk { background:var(--week-t); color:var(--week); border-color:transparent; }
+.sources-short { display:none; }
+.controls { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; margin-bottom:16px; }
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; font-size:12px; color:var(--muted); font-weight:500; padding:4px 8px; border-bottom:1px solid var(--line); }
+td { padding:8px; border-bottom:1px solid var(--line); vertical-align:top; }
+tr:last-child td { border-bottom:0; }
+th.wkcol, td.wkcol { background:var(--week-t); color:var(--week); }
+th.wkhead { text-align:center; background:var(--week-t); color:var(--week); border-radius:8px 8px 0 0; }
+.pos { display:inline-block; border-radius:999px; padding:0 8px; font-size:12px; margin-left:4px; }
+.RB { background:var(--good-t); color:var(--good); } .WR { background:var(--info-t); color:var(--info); }
+.TE { background:var(--warn-t); color:var(--warn); } .QB { background:var(--week-t); color:var(--ink); }
+.verdict { display:inline-block; border-radius:999px; padding:2px 10px; font-size:12px; font-weight:700; letter-spacing:.03em; }
+.v-add, .v-churn { background:var(--good-t); color:var(--good); }
+.v-pass, .v-keep { background:var(--week-t); color:var(--ink); }
+.v-hold { background:var(--info-t); color:var(--info); }
+.v-drop { background:var(--bad-t); color:var(--bad); }
+.val { font-weight:600; }
+.up { color:var(--good); } .down { color:var(--bad); }
+.case { color:var(--muted); font-size:12px; }
+.missing { color:var(--muted); font-style:italic; }
+.explain { font-size:12px; color:var(--muted); margin:4px 0 0; }
+.swap { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); }
+.swap:last-child { border-bottom:0; }
+.faab { color:var(--muted); font-size:12px; }
+textarea { width:100%; min-height:72px; border:1px solid var(--line); border-radius:12px; padding:8px; font:inherit; background:var(--canvas); color:var(--ink); }
+.btn { background:var(--action); color:var(--action-ink); border:0; border-radius:999px; padding:10px 20px; min-height:44px; font:inherit; font-weight:600; }
+/* Bench Churn */
+.slate { display:grid; grid-template-columns:repeat(5, minmax(96px, 1fr)); gap:4px; margin:8px 0 16px; overflow-x:auto; }
+.win { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:8px; font-size:12px; }
+.win.locked { background:repeating-linear-gradient(135deg, var(--week-t) 0 6px, var(--surface) 6px 12px); color:var(--muted); }
+.win b { display:block; font-size:14px; }
+.dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--action); margin-right:4px; }
+.readout { display:flex; gap:16px; flex-wrap:wrap; font-size:12px; color:var(--muted); }
+.readout span b { color:var(--ink); font-size:14px; }
+.churn { display:grid; grid-template-columns:160px 1fr; gap:16px; }
+.big { font-size:34px; font-weight:600; line-height:1; }
+.label { font-size:12px; color:var(--muted); }
+.chain { display:flex; gap:8px; align-items:stretch; flex-wrap:wrap; }
+.step { flex:1; min-width:150px; border:1px solid var(--line); border-radius:8px; padding:8px; font-size:12px; }
+.step h4 { margin:0 0 4px; font-size:12px; color:var(--muted); font-weight:500; }
+.step .who { font-size:14px; font-weight:600; color:var(--ink); }
+.step dl { display:grid; grid-template-columns:auto auto; gap:0 8px; margin:4px 0 0; }
+.step dt { color:var(--muted); } .step dd { margin:0; text-align:right; }
+.arrow { align-self:center; color:var(--muted); }
+.net { display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--line); margin-top:12px; padding-top:12px; }
+details summary { cursor:pointer; color:var(--action); font-size:12px; margin-top:8px; }
+.math { font-size:12px; color:var(--muted); }
+.lists { display:grid; grid-template-columns:repeat(3, 1fr); gap:16px; }
+.lists ul { margin:0; padding-left:16px; }
+/* Phone */
+@media (max-width:640px) {
+  .page { padding:16px; }
+  h1 { font-size:20px; }
+  .sources-full { display:none; }
+  .sources-short { display:flex; }
+  .controls .chip:not(.adjust) { display:none; }
+  table, thead, tbody, tr, td { display:block; }
+  thead { display:none; }
+  tr { border-bottom:1px solid var(--line); padding:8px 0; display:grid; grid-template-columns:1fr auto; gap:2px 8px; }
+  td { border:0; padding:0; }
+  td.wkcol { background:none; grid-column:1 / -1; font-size:12px; }
+  td.wkcol::before { content:attr(data-l) " "; }
+  td.c-case { grid-column:1 / -1; }
+  td.c-ros::before { content:"Rostered "; color:var(--muted); font-size:12px; }
+  td.c-ros, td.c-chg { font-size:12px; }
+  .churn { grid-template-columns:1fr; }
+  .chain { flex-direction:column; }
+  .arrow { transform:rotate(90deg); align-self:flex-start; margin-left:16px; }
+  .lists { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+<main class="desk">
+  <p class="concept-note">Design concept for JEG-1196 and JEG-1197. Every name and number is invented. Grey cells are this week's data: shown for context, never part of a value or a verdict.</p>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-view="board">Waiver board</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="churn">Bench Churn</button>
+  </div>
+
+  <!-- ===================== WAIVER BOARD ===================== -->
+  <section class="view" id="view-board">
+    <h1>Week 9 waiver board</h1>
+    <p class="meta">Lasts through Mon, Nov 2 · Half PPR · 12 teams · <a href="#">Change league</a></p>
+
+    <div class="chips sources-full" aria-label="Sources">
+      <span class="chip ok"><b>Values</b> · current · Oct 28</span>
+      <span class="chip ok"><b>Rostered %</b> · current · Oct 29</span>
+      <span class="chip ok"><b>Weekly experts</b> · current · Oct 28</span>
+      <span class="chip late"><b>Status</b> · one week behind</span>
+      <span class="chip off" title="Feed on hold until the key exists"><b>Vegas</b> · unavailable · feed on hold</span>
+    </div>
+    <div class="chips sources-short"><span class="chip late">3 of 5 sources current · 2 off · Details</span></div>
+
+    <div class="controls">
+      <span class="chip">Rostered below <b>70%</b></span>
+      <span class="chip">Your league's wire · <b>2 overrides</b></span>
+      <span class="chip adjust">Adjust</span>
+    </div>
+
+    <h2>Hot pickups</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>Player</th><th></th><th>Rostered</th><th>Value</th><th>Change</th>
+            <th class="wkcol">Pts this week</th><th class="wkcol">Status</th><th class="wkcol">Bye</th><th>Why</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><b>Dee Marlow</b><span class="pos WR">WR</span> <span class="meta">CCC</span></td>
+            <td><span class="verdict v-add">ADD</span></td>
+            <td class="num c-ros">41%</td><td class="num val">6.2</td><td class="num up c-chg">+4.0</td>
+            <td class="num wkcol" data-l="This week">11.8 pts</td><td class="wkcol" data-l="·">Active</td><td class="num wkcol" data-l="· Bye">12</td>
+            <td class="case c-case">Took 71% of snaps after the trade; values agree.</td></tr>
+          <tr><td><b>Rocco Vance</b><span class="pos RB">RB</span> <span class="meta">EEE</span></td>
+            <td><span class="verdict v-pass">PASS</span></td>
+            <td class="num c-ros">58%</td><td class="num val">0.4</td><td class="num up c-chg">+0.4</td>
+            <td class="num wkcol" data-l="This week">14.1 pts</td><td class="wkcol" data-l="·">Questionable</td><td class="num wkcol" data-l="· Bye">10</td>
+            <td class="case c-case">Big game while the starter sat; starter is back. Near the line.</td></tr>
+          <tr><td><b>Tate Okafor</b><span class="pos TE">TE</span> <span class="meta">BBB</span></td>
+            <td><span class="verdict v-add">ADD</span></td>
+            <td class="num c-ros">22%</td><td class="num val">3.1</td><td class="num up c-chg">+1.9</td>
+            <td class="wkcol missing" data-l="This week">no projection · source missing him</td><td class="wkcol" data-l="·">Active</td><td class="num wkcol" data-l="· Bye">—</td>
+            <td class="case c-case">Route share up three weeks running.</td></tr>
+        </tbody>
+      </table>
+      <p class="explain">Sorted by Value. "Pts this week" is the named weekly expert source, shown for context only. A missing projection says so; it is never a zero.</p>
+    </div>
+
+    <h2>Hold</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Player</th><th></th><th>Rostered</th><th>Value</th><th>Change</th>
+          <th class="wkcol">Pts this week</th><th class="wkcol">Status</th><th class="wkcol">Bye</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><b>Milo Ferris</b><span class="pos WR">WR</span> <span class="meta">AAA</span></td>
+            <td><span class="verdict v-hold">HOLD</span></td>
+            <td class="num c-ros">77%</td><td class="num val">2.6</td><td class="num down c-chg">−5.3</td>
+            <td class="num wkcol" data-l="This week">6.0 pts</td><td class="wkcol" data-l="·">Out</td><td class="num wkcol" data-l="· Bye">9</td>
+            <td class="case c-case">Fell from 7.9, still above the line. Out this week, not a drop.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Drop</h2>
+    <div class="card">
+      <table>
+        <thead><tr><th>Player</th><th></th><th>Rostered</th><th>Value</th><th>Change</th>
+          <th class="wkcol">Pts this week</th><th class="wkcol">Status</th><th class="wkcol">Bye</th><th>Why</th></tr></thead>
+        <tbody>
+          <tr><td><b>Jory Penn</b><span class="pos RB">RB</span> <span class="meta">DDD</span></td>
+            <td><span class="verdict v-drop">DROP</span></td>
+            <td class="num c-ros">64%</td><td class="num val">0</td><td class="num down c-chg">−2.2</td>
+            <td class="num wkcol" data-l="This week">4.3 pts</td><td class="wkcol" data-l="·">Active</td><td class="num wkcol" data-l="· Bye">14</td>
+            <td class="case c-case">Lost the goal-line role; now on the waiver line.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h2>Your swaps</h2>
+    <div class="card">
+      <textarea aria-label="Your roster, one player per line">Milo Ferris
+Jory Penn
+…</textarea>
+      <p><button class="btn" type="button">Check my roster</button></p>
+      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Dee Marlow</b></span><span><b class="num up">+6.2 value</b> <span class="faab num">· bid $9–14</span></span></div>
+      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Tate Okafor</b></span><span><b class="num up">+3.1 value</b> <span class="faab num">· bid $2–4</span></span></div>
+      <p class="explain">Gain is Value of the add minus Value of the drop, 2 or more. The bid is a hint in dollars beside the gain, not folded into it. Each player is used once; thin positions stay protected.</p>
+    </div>
+    <p class="meta">Value is DDF Value at this league setting, rest of season. 0 is the waiver line (the 7-player average around the replacement spot).</p>
+  </section>
+
+  <!-- ===================== BENCH CHURN ===================== -->
+  <section class="view" id="view-churn" hidden>
+    <h1>Bench Churn · Week 9 slate</h1>
+    <p class="meta">Lasts through Mon, Nov 2 · times in Chicago time · Half PPR · 12 teams</p>
+    <div class="readout">
+      <span><b>9</b> weeks left</span><span><b>2</b> byes left on your roster</span>
+      <span>Bench share held through the season</span><span>Breakout odds: historical, by depth</span>
+    </div>
+
+    <div class="slate" aria-label="This week's windows">
+      <div class="win locked"><b>Thu night</b>7:15 PM · locked</div>
+      <div class="win"><b>Sat claims</b>Waivers run 11 PM Fri</div>
+      <div class="win"><b>Sun early</b>12:00 PM <span class="dot"></span>Weston</div>
+      <div class="win"><b>Sun late</b>3:25 PM</div>
+      <div class="win"><b>Mon night</b>7:15 PM</div>
+    </div>
+
+    <div class="card">
+      <div class="churn">
+        <div>
+          <div class="label">Keep · Lane Arbor <span class="pos RB">RB</span></div>
+          <div class="big num">1.4</div>
+          <div class="label">his DDF Value · played Thu</div>
+        </div>
+        <div>
+          <div class="label">Best rotation</div>
+          <div class="chain">
+            <div class="step"><h4>After his game · Fri</h4><div class="who">Tate Okafor TE</div>
+              <dl><dt>Lands</dt><dd class="num">60%</dd><dt>Hits</dt><dd class="num">35%</dd><dt>Future value</dt><dd class="num">3.1</dd><dt>FAAB if lands</dt><dd class="num">$3</dd></dl></div>
+            <span class="arrow">→ if it misses</span>
+            <div class="step"><h4>Before the weekend · Sat</h4><div class="who">Pax Doyle WR</div>
+              <dl><dt>Still running</dt><dd class="num">40%</dd><dt>Lands</dt><dd class="num">80%</dd><dt>Hits</dt><dd class="num">30%</dd><dt>Future value</dt><dd class="num">2.4</dd><dt>FAAB if lands</dt><dd class="num">$1</dd></dl></div>
+          </div>
+        </div>
+      </div>
+      <div class="net"><span><span class="label">Net chain</span> <b class="num">0.9</b> <span class="label">vs Keep 1.4</span></span><span class="verdict v-keep">KEEP</span></div>
+      <details><summary>Show the math</summary>
+        <p class="math">Step 1: 1.00 still running × 60% lands × 35% hits × 3.1 = 0.65, FAAB is not yet in DDF Value, so it is left out until open question 2 is answered. Step 2: 40% × 80% × 30% × 2.4 = 0.23. Net chain 0.88, rounds to 0.9. Keep 1.4 is higher, so KEEP. Only future value counts, so this week's points are not counted twice.</p>
+      </details>
+    </div>
+
+    <div class="card">
+      <div class="churn">
+        <div>
+          <div class="label">Keep · Cal Weston <span class="pos WR">WR</span></div>
+          <div class="big num">0.2</div>
+          <div class="label">his DDF Value · plays Sun early</div>
+        </div>
+        <div>
+          <div class="label">Best rotation</div>
+          <div class="chain">
+            <div class="step"><h4>Before the weekend · Sat</h4><div class="who">Dee Marlow WR</div>
+              <dl><dt>Lands</dt><dd class="num">45%</dd><dt>Hits</dt><dd class="num">50%</dd><dt>Future value</dt><dd class="num">6.2</dd><dt>FAAB if lands</dt><dd class="num">$12</dd></dl></div>
+          </div>
+        </div>
+      </div>
+      <div class="net"><span><span class="label">Net chain</span> <b class="num">1.4</b> <span class="label">vs Keep 0.2</span></span><span class="verdict v-churn">CHURN</span></div>
+      <p class="explain">One target per window. His game is Sunday, so there is no "after his game" window before the weekend.</p>
+    </div>
+
+    <div class="lists">
+      <div class="card"><h2 style="margin-top:0">Grab</h2><ul><li>Dee Marlow WR · Sat claims</li><li>Tate Okafor TE · Fri</li></ul></div>
+      <div class="card"><h2 style="margin-top:0">Avoid</h2><ul><li>Rocco Vance RB · starter back, near the line</li></ul></div>
+      <div class="card"><h2 style="margin-top:0">Partial-cycle upgrades</h2><ul><li>Pax Doyle WR · pays only if Sat claim lands</li></ul></div>
+    </div>
+    <p class="meta">Every number on this page is DDF Value (rest of season). The slate, status and byes only decide which moves are possible and when.</p>
+  </section>
+</main>
+
+<aside class="phone" aria-label="Phone preview, 390 wide">
+  <iframe id="phoneFrame" title="Phone preview"></iframe>
+</aside>
+</div>
+
+<script>
+(function () {
+  var params = new URLSearchParams(location.search);
+  var framed = params.get('frame') === 'phone';
+  if (framed) document.body.classList.add('framed');
+  function show(view) {
+    document.querySelectorAll('.tab').forEach(function (t) { t.setAttribute('aria-selected', String(t.dataset.view === view)); });
+    document.getElementById('view-board').hidden = view !== 'board';
+    document.getElementById('view-churn').hidden = view !== 'churn';
+    var f = document.getElementById('phoneFrame');
+    if (!framed && f) f.src = location.pathname + '?frame=phone&view=' + view;
+  }
+  document.querySelectorAll('.tab').forEach(function (t) { t.addEventListener('click', function () { show(t.dataset.view); }); });
+  show(params.get('view') === 'churn' ? 'churn' : 'board');
+})();
+</script>
+</body>
+</html>
