@@ -58,6 +58,9 @@ from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from zoneinfo import ZoneInfo
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "lib"))
+from timestamps import parse_iso_timestamp  # noqa: E402  the repo's stamp parser
+
 POSITIONS = ("QB", "RB", "WR", "TE")
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
@@ -236,7 +239,10 @@ def parse_pianowski_page(page: str, url: str) -> dict | None:
     dm = re.search(r'"datePublished"\s*:\s*"([^"]+)"', page)
     if not dm:
         raise PullError(f"{url}: no datePublished", "SOURCE_LAYOUT")
-    published = datetime.fromisoformat(dm.group(1).replace("Z", "+00:00"))
+    try:
+        published = parse_iso_timestamp(dm.group(1))
+    except ValueError:
+        raise PullError(f"{url}: unreadable datePublished {dm.group(1)!r}", "SOURCE_LAYOUT")
     vintage = published.astimezone(CT).date().isoformat()
     rows, tier, in_tier = [], 0, False
     for m in re.finditer(r"<(h[2-4])\b[^>]*>(.*?)</\1>|<li\b[^>]*>(.*?)</li>", page, re.S | re.I):
