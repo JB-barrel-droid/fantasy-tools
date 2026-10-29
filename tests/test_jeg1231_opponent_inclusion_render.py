@@ -58,7 +58,9 @@ def _open(browser, base, width, state="league", theme="light"):
     errors = []
     page = browser.new_page(viewport={"width": width, "height": 900 if width > 500 else 844})
     page.on("pageerror", lambda e: errors.append(str(e)))
-    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    # A failed load is reported with its address (the console line alone does not name it).
+    page.on("response", lambda r: errors.append(f"{r.status} {r.url}") if r.status >= 400 else None)
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" and not m.text.startswith("Failed to load resource") else None)
     page.goto(f"{base}{PAGE}?state={state}&theme={theme}")
     page.wait_for_selector("#pvOi .oi-item")
     return page, errors
