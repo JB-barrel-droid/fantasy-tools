@@ -1,0 +1,562 @@
+{
+ "about": "SYNTHETIC contract fixture for tests/test_divergence_evidence.py (JEG-1277). Four invented weekly reports for two sources, dated 2099 with synthetic-* commits and fingerprints. It proves the audit's rules and NEVER counts as real divergence evidence.",
+ "extracted_from": {
+  "head": "synthetic",
+  "ref": "synthetic",
+  "report_path": "synthetic"
+ },
+ "receipts": [
+  {
+   "commit": "synthetic-commit-week-1",
+   "committed_at": "2099-01-01T12:00:00Z",
+   "report": {
+    "error": null,
+    "fixture_built_at": "2099-01-01T10:00:00+00:00",
+    "flagged": [],
+    "generated_at": "2099-01-01T12:00:00Z",
+    "investigate": [],
+    "schema": "source-divergence-v1",
+    "status": "ok",
+    "thresholds": {
+     "min_sources": 3,
+     "warn_bias": 5.0,
+     "warn_outlier_rate": 0.45
+    },
+    "week": 1
+   },
+   "report_blob": "synthetic-blob-week-1",
+   "reporter_blob": "synthetic-reporter",
+   "served": {
+    "content_week": 1,
+    "index_commit": "synthetic-commit-week-1",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fingerprint": "sha256:synthetic-cbsros-week-1",
+      "label_week": 1,
+      "week": 1
+     },
+     "usatoday": {
+      "fingerprint": "sha256:synthetic-usatoday-week-1",
+      "label_week": 1,
+      "week": 1
+     }
+    }
+   },
+   "source_meta": {
+    "fixture_commit": "synthetic-commit-week-1",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fetched_at": "2099-01-01T09:00:00Z",
+      "scoring_basis": "SYNTHETIC projections: nonppr page, reception rescore",
+      "source_date": "2099-01-01",
+      "week_designated": "rest of season"
+     },
+     "usatoday": {
+      "fetched_at": "2099-01-01T09:00:00Z",
+      "scoring_basis": "SYNTHETIC chart: STD / Half / Full PPR columns",
+      "source_date": "2099-01-01",
+      "week_designated": "Week 1"
+     }
+    }
+   },
+   "sources": {
+    "cbsros": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.392,
+       "outliers": 51,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.392,
+       "outliers": 51,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.392,
+       "outliers": 51,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 1
+    },
+    "usatoday": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.241,
+       "outliers": 41,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.241,
+       "outliers": 41,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.241,
+       "outliers": 41,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 1
+    }
+   },
+   "synthetic": true
+  },
+  {
+   "commit": "synthetic-commit-week-2",
+   "committed_at": "2099-01-02T12:00:00Z",
+   "report": {
+    "error": null,
+    "fixture_built_at": "2099-01-02T10:00:00+00:00",
+    "flagged": [],
+    "generated_at": "2099-01-02T12:00:00Z",
+    "investigate": [],
+    "schema": "source-divergence-v1",
+    "status": "ok",
+    "thresholds": {
+     "min_sources": 3,
+     "warn_bias": 5.0,
+     "warn_outlier_rate": 0.45
+    },
+    "week": 2
+   },
+   "report_blob": "synthetic-blob-week-2",
+   "reporter_blob": "synthetic-reporter",
+   "served": {
+    "content_week": 2,
+    "index_commit": "synthetic-commit-week-2",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fingerprint": "sha256:synthetic-cbsros-week-2",
+      "label_week": 2,
+      "week": 2
+     },
+     "usatoday": {
+      "fingerprint": "sha256:synthetic-usatoday-week-2",
+      "label_week": 2,
+      "week": 2
+     }
+    }
+   },
+   "source_meta": {
+    "fixture_commit": "synthetic-commit-week-2",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fetched_at": "2099-01-02T09:00:00Z",
+      "scoring_basis": "SYNTHETIC projections: nonppr page, reception rescore",
+      "source_date": "2099-01-02",
+      "week_designated": "rest of season"
+     },
+     "usatoday": {
+      "fetched_at": "2099-01-02T09:00:00Z",
+      "scoring_basis": "SYNTHETIC chart: STD / Half / Full PPR columns",
+      "source_date": "2099-01-02",
+      "week_designated": "Week 2"
+     }
+    }
+   },
+   "sources": {
+    "cbsros": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.4,
+       "outliers": 52,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.4,
+       "outliers": 52,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.4,
+       "outliers": 52,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 2
+    },
+    "usatoday": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.247,
+       "outliers": 42,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.247,
+       "outliers": 42,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.247,
+       "outliers": 42,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 2
+    }
+   },
+   "synthetic": true
+  },
+  {
+   "commit": "synthetic-commit-week-3",
+   "committed_at": "2099-01-03T12:00:00Z",
+   "report": {
+    "error": null,
+    "fixture_built_at": "2099-01-03T10:00:00+00:00",
+    "flagged": [],
+    "generated_at": "2099-01-03T12:00:00Z",
+    "investigate": [],
+    "schema": "source-divergence-v1",
+    "status": "ok",
+    "thresholds": {
+     "min_sources": 3,
+     "warn_bias": 5.0,
+     "warn_outlier_rate": 0.45
+    },
+    "week": 3
+   },
+   "report_blob": "synthetic-blob-week-3",
+   "reporter_blob": "synthetic-reporter",
+   "served": {
+    "content_week": 3,
+    "index_commit": "synthetic-commit-week-3",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fingerprint": "sha256:synthetic-cbsros-week-3",
+      "label_week": 3,
+      "week": 3
+     },
+     "usatoday": {
+      "fingerprint": "sha256:synthetic-usatoday-week-3",
+      "label_week": 3,
+      "week": 3
+     }
+    }
+   },
+   "source_meta": {
+    "fixture_commit": "synthetic-commit-week-3",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fetched_at": "2099-01-03T09:00:00Z",
+      "scoring_basis": "SYNTHETIC projections: nonppr page, reception rescore",
+      "source_date": "2099-01-03",
+      "week_designated": "rest of season"
+     },
+     "usatoday": {
+      "fetched_at": "2099-01-03T09:00:00Z",
+      "scoring_basis": "SYNTHETIC chart: STD / Half / Full PPR columns",
+      "source_date": "2099-01-03",
+      "week_designated": "Week 3"
+     }
+    }
+   },
+   "sources": {
+    "cbsros": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.408,
+       "outliers": 53,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.408,
+       "outliers": 53,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.408,
+       "outliers": 53,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 3
+    },
+    "usatoday": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.253,
+       "outliers": 43,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.253,
+       "outliers": 43,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.253,
+       "outliers": 43,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 3
+    }
+   },
+   "synthetic": true
+  },
+  {
+   "commit": "synthetic-commit-week-4",
+   "committed_at": "2099-01-04T12:00:00Z",
+   "report": {
+    "error": null,
+    "fixture_built_at": "2099-01-04T10:00:00+00:00",
+    "flagged": [
+     "CBS rest of season"
+    ],
+    "generated_at": "2099-01-04T12:00:00Z",
+    "investigate": [],
+    "schema": "source-divergence-v1",
+    "status": "warn",
+    "thresholds": {
+     "min_sources": 3,
+     "warn_bias": 5.0,
+     "warn_outlier_rate": 0.45
+    },
+    "week": 4
+   },
+   "report_blob": "synthetic-blob-week-4",
+   "reporter_blob": "synthetic-reporter",
+   "served": {
+    "content_week": 4,
+    "index_commit": "synthetic-commit-week-4",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fingerprint": "sha256:synthetic-cbsros-week-4",
+      "label_week": 4,
+      "week": 4
+     },
+     "usatoday": {
+      "fingerprint": "sha256:synthetic-usatoday-week-4",
+      "label_week": 4,
+      "week": 4
+     }
+    }
+   },
+   "source_meta": {
+    "fixture_commit": "synthetic-commit-week-4",
+    "match": "same_commit",
+    "sources": {
+     "cbsros": {
+      "fetched_at": "2099-01-04T09:00:00Z",
+      "scoring_basis": "SYNTHETIC projections: nonppr page, reception rescore",
+      "source_date": "2099-01-04",
+      "week_designated": "rest of season"
+     },
+     "usatoday": {
+      "fetched_at": "2099-01-04T09:00:00Z",
+      "scoring_basis": "SYNTHETIC chart: STD / Half / Full PPR columns",
+      "source_date": "2099-01-04",
+      "week_designated": "Week 4"
+     }
+    }
+   },
+   "sources": {
+    "cbsros": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.415,
+       "outliers": 54,
+       "status": "warn"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.415,
+       "outliers": 54,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 130,
+       "outlier_rate": 0.415,
+       "outliers": 54,
+       "status": "ok"
+      }
+     },
+     "computed_status": "warn",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "warn",
+     "week": 4
+    },
+    "usatoday": {
+     "combos": {
+      "full_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.259,
+       "outliers": 44,
+       "status": "ok"
+      },
+      "half_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.259,
+       "outliers": 44,
+       "status": "ok"
+      },
+      "standard_12": {
+       "bias": 0.5,
+       "by_position": true,
+       "examples": 5,
+       "mad": 4.0,
+       "n": 170,
+       "outlier_rate": 0.259,
+       "outliers": 44,
+       "status": "ok"
+      }
+     },
+     "computed_status": "ok",
+     "headline_combo": "full_12",
+     "resolution": null,
+     "status": "ok",
+     "week": 4
+    }
+   },
+   "synthetic": true
+  }
+ ],
+ "schema": "divergence-evidence-receipts/1",
+ "synthetic": true
+}

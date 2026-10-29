@@ -127,6 +127,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
+	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
+	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
 	python3 -m unittest tests.test_endpoint_parity
@@ -171,6 +173,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_tokens
+	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
@@ -182,6 +186,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
+	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
 	python3 -m unittest tests.test_v2_espn_held_chip_render
@@ -419,6 +424,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_league_units
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
+	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
+	python3 -m unittest tests.test_jeg1229_trade_context
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
@@ -574,6 +581,7 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
@@ -609,6 +617,7 @@ test-core:
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
 	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
@@ -670,6 +679,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
@@ -735,6 +745,7 @@ test-core-shard-3:
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
 	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -827,6 +838,8 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
 	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
@@ -915,6 +928,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_override_adjustments_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
