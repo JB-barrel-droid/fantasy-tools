@@ -128,6 +128,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1225: the shared value-context link format (basis=, ov=).
+	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
