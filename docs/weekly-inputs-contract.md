@@ -56,6 +56,11 @@ assert is_valid(issues)       # no errors (warnings allowed)
     more is stale, no stamped week is unknown). Content vintage, never pull time
     (`docs/pipeline-rules.md` section 5). `null` exactly when the leg is
     unavailable.
+  - Provenance backs the claim. A leg with data whose freshness is `current`,
+    `one_week_behind` or `stale`, or whose label is `published`, has non-null
+    `content_season`, `content_week`, `content_vintage` and `captured_at`. When
+    the source stamps none of these, the leg is `unknown` and not `published`
+    (`valid/unknown_no_provenance.json`).
   - `label`: `published` / `previous-season` / `modeled` / `stale` /
     `unavailable` (the standing labels). `unavailable` exactly when the leg is
     unavailable; `previous-season` exactly when the leg's content season is
@@ -181,6 +186,7 @@ declared leg (none omitted), each with `provenance` (`complete`, `partial`,
 
 Full examples: `tests/fixtures/weekly_inputs/valid/complete.json` (every leg
 current), `valid/partial.json`, `valid/stale.json`, `valid/unknown.json`,
+`valid/unknown_no_provenance.json`,
 `valid/unavailable.json`, `valid/rank_leg.json`, `valid/zero_value.json`,
 `valid/unresolved_player.json`, `valid/previous_season.json`. The players and
 numbers in them are synthetic.
@@ -227,6 +233,7 @@ exercises every code.
 | `leg.none` | The document declares no legs. |
 | `leg.kind_mismatch` | A leg's kind does not match its id. |
 | `leg.no_reason` | An unavailable leg has no missing_reason. |
+| `leg.provenance_unknown` | A leg with data that claims current, one_week_behind or stale freshness, or a published label, has a null content_season, content_week, content_vintage or captured_at. |
 | `leg.unavailable_has_values` | A row carries a value for a leg declared unavailable. |
 | `availability.value` | availability is not complete, partial or unavailable. |
 | `availability.inconsistent` | A points or rank leg is complete but a row has a null, or partial with no null in any row. |

@@ -21,6 +21,40 @@
     ],
     "warnings": []
   },
+  "invalid/current_null_captured_at.json": {
+    "errors": [
+      "leg.provenance_unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/current_null_provenance.json": {
+    "errors": [
+      "leg.provenance_unknown",
+      "leg.provenance_unknown",
+      "leg.provenance_unknown",
+      "leg.provenance_unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/current_null_season.json": {
+    "errors": [
+      "leg.provenance_unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/current_null_vintage.json": {
+    "errors": [
+      "leg.provenance_unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/current_null_week.json": {
+    "errors": [
+      "leg.provenance_unknown",
+      "freshness.inconsistent"
+    ],
+    "warnings": []
+  },
   "invalid/duplicate_key.json": {
     "errors": [
       "player.duplicate_key"
@@ -153,9 +187,33 @@
     ],
     "warnings": []
   },
+  "invalid/scoring_list_entry.json": {
+    "errors": [
+      "field.type"
+    ],
+    "warnings": []
+  },
+  "invalid/scoring_mixed_entry.json": {
+    "errors": [
+      "field.type"
+    ],
+    "warnings": []
+  },
+  "invalid/scoring_object_entry.json": {
+    "errors": [
+      "field.type"
+    ],
+    "warnings": []
+  },
   "invalid/stale_labelled_published.json": {
     "errors": [
       "label.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/stale_null_vintage.json": {
+    "errors": [
+      "leg.provenance_unknown"
     ],
     "warnings": []
   },
@@ -192,6 +250,15 @@
   "invalid/unknown_field_known_minor.json": {
     "errors": [
       "field.unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/unknown_labelled_published.json": {
+    "errors": [
+      "leg.provenance_unknown",
+      "leg.provenance_unknown",
+      "leg.provenance_unknown",
+      "leg.provenance_unknown"
     ],
     "warnings": []
   },
@@ -267,6 +334,10 @@
     "warnings": []
   },
   "valid/unknown.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/unknown_no_provenance.json": {
     "errors": [],
     "warnings": []
   },

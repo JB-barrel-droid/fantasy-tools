@@ -37,3 +37,20 @@ the stored Sleeper history; optional `inputs` (name, sha256), `input_report`,
 ### Claimed, not confirmed
 - JEG-1228's producer output will validate; it does not exist yet.
 - Preview CI's `make test-unit` runs the new line; not watched at commit time.
+
+## JEG-1267 corrections (review of e2a2a07)
+
+- Unknown provenance no longer passes as trustworthy. A leg with data whose freshness is
+  current, one_week_behind or stale, or whose label is published, now needs non-null
+  content_season, content_week, content_vintage and captured_at (new code
+  `leg.provenance_unknown`). Before, the code passed `nullable=True` unconditionally, so
+  these nulls validated clean. Leaving the source unstamped is still valid when freshness is
+  unknown and the label isn't published (`valid/unknown_no_provenance.json` is the control).
+- A malformed scoring list (`[{}]`, `[[]]`, `["half_ppr", {}]`) now returns `field.type`
+  issues instead of raising TypeError from `set(scoring)`. A sweep that replaces every value in
+  `valid/complete.json` with ten malformed shapes now pins that validate() never raises.
+- Partial, unavailable, and zero-versus-missing semantics are unchanged. The suite now has 35
+  tests, 12 valid fixtures and 47 invalid fixtures.
+- Producer (#1085 at 86031bbc), run against this validator: its bye leg is current/published
+  with null content_vintage and captured_at, so its golden output fails the new rule. That fix
+  is the producer's (JEG-1245), coordinated on Linear; the producer was not edited here.

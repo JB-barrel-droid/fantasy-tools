@@ -69,7 +69,9 @@ class FixtureFilesTest(unittest.TestCase):
                     "invalid/wrong_week_current.json", "invalid/future_season.json",
                     "invalid/last_season_as_current.json", "invalid/rank_as_points.json",
                     "invalid/points_units_on_status.json", "invalid/ros_horizon.json",
-                    "invalid/ros_leg_id.json", "invalid/ros_field.json"):
+                    "invalid/ros_leg_id.json", "invalid/ros_field.json",
+                    "valid/unknown_no_provenance.json", "invalid/current_null_provenance.json",
+                    "invalid/unknown_labelled_published.json", "invalid/scoring_object_entry.json"):
             self.assertIn(rel, names)
 
 
@@ -118,6 +120,78 @@ class MissingVersusZeroTest(unittest.TestCase):
     def test_booleans_are_not_points(self):
         self.cell["values"]["standard"] = False
         self.assertEqual(codes(wic.validate(self.doc)), ["value.type"])
+
+
+class NullProvenanceTest(unittest.TestCase):
+    """Unknown provenance never passes as current or published data (JEG-1267)."""
+
+    def setUp(self):
+        self.doc = build_fixtures.base()
+        self.leg = self.doc["legs"]["experts.espn_weekly"]
+
+    def test_each_null_field_fails_a_current_published_leg(self):
+        for name in wic.PROVENANCE_FIELDS:
+            with self.subTest(field=name):
+                doc = copy.deepcopy(self.doc)
+                doc["legs"]["experts.espn_weekly"][name] = None
+                issues = [i for i in wic.validate(doc) if i.code == "leg.provenance_unknown"]
+                self.assertEqual([i.path for i in issues], [f"$.legs.experts.espn_weekly.{name}"])
+
+    def test_every_aged_freshness_and_published_label_needs_provenance(self):
+        for freshness, label in (("current", "modeled"), ("one_week_behind", "modeled"),
+                                 ("stale", "stale"), ("unknown", "published")):
+            with self.subTest(freshness=freshness, label=label):
+                self.leg.update(freshness=freshness, label=label, content_vintage=None)
+                self.assertIn("leg.provenance_unknown", codes(wic.validate(self.doc)))
+
+    def test_same_nulls_pass_as_unknown_and_unpublished(self):
+        # The control: only freshness and label change, so the rule turns on exactly those.
+        self.leg.update(content_season=None, content_week=None, content_vintage=None, captured_at=None)
+        self.assertEqual(codes(wic.validate(self.doc)), ["leg.provenance_unknown"] * 4)
+        self.leg.update(freshness="unknown", label="modeled")
+        self.assertEqual(codes(wic.validate(self.doc)), [])
+
+    def test_unavailable_partial_and_zero_semantics_unchanged(self):
+        for rel in ("valid/unavailable.json", "valid/partial.json", "valid/zero_value.json",
+                    "valid/unknown.json", "valid/unknown_no_provenance.json"):
+            with self.subTest(case=rel):
+                self.assertEqual(codes(wic.validate_file(FIXTURES / rel)), [])
+
+
+class MalformedShapeTest(unittest.TestCase):
+    """Malformed JSON shapes come back as issues, never as exceptions (JEG-1267)."""
+
+    SHAPES = ([{}], [[]], [None], {}, [], None, "x", 1.5, True, {"a": {}})
+
+    def test_malformed_scoring_entries_are_reported(self):
+        for scoring in ([{}], [[]], [None], ["half_ppr", {}], [1]):
+            with self.subTest(scoring=scoring):
+                doc = build_fixtures.base()
+                doc["legs"]["experts.espn_weekly"]["scoring"] = scoring
+                issues = wic.validate(doc)
+                self.assertIn("field.type", codes(issues))
+                self.assertTrue(any(i.path.startswith("$.legs.experts.espn_weekly.scoring[") for i in issues))
+
+    def test_no_value_anywhere_raises(self):
+        base = json.loads((FIXTURES / "valid/complete.json").read_text())
+
+        def paths(obj, at=()):
+            yield at
+            items = obj.items() if isinstance(obj, dict) else enumerate(obj) if isinstance(obj, list) else ()
+            for k, v in items:
+                yield from paths(v, at + (k,))
+
+        for at in list(paths(base))[1:]:
+            for shape in self.SHAPES:
+                doc = copy.deepcopy(base)
+                target = doc
+                for k in at[:-1]:
+                    target = target[k]
+                target[at[-1]] = copy.deepcopy(shape)
+                try:
+                    wic.validate(doc)
+                except Exception as exc:  # noqa: BLE001 - the point is that nothing escapes
+                    self.fail(f"{at} = {shape!r} raised {type(exc).__name__}: {exc}")
 
 
 class VersionTest(unittest.TestCase):
@@ -260,6 +334,13 @@ class CliTest(unittest.TestCase):
         self.assertEqual(rc, 1)
         report = json.loads(out)
         self.assertEqual([i["code"] for i in next(iter(report.values()))], ["ros.horizon"])
+
+    def test_malformed_scoring_fails_informatively(self):
+        proc = subprocess.run([sys.executable, str(MODULE), str(FIXTURES / "invalid/scoring_object_entry.json")],
+                              capture_output=True, text=True)
+        self.assertEqual(proc.returncode, 1, proc.stdout + proc.stderr)
+        self.assertIn("field.type", proc.stdout)
+        self.assertNotIn("Traceback", proc.stdout + proc.stderr)
 
     def test_script_runs_standalone(self):
         proc = subprocess.run([sys.executable, str(MODULE), str(FIXTURES / "valid/complete.json")],

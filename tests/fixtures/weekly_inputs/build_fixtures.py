@@ -155,6 +155,13 @@ def v_unknown(d):
     return d
 
 
+def v_unknown_no_provenance(d):
+    # Valid control for the null-provenance cases: nothing stamped, so freshness unknown and not published.
+    v_unknown(d)
+    d["legs"]["experts.cbs_weekly"].update(content_season=None, captured_at=None)
+    return d
+
+
 def v_unavailable(d):
     unavailable_leg(d, "experts.ecr_weekly", "expert", "fantasypros",
                     "no weekly ECR producer yet (S3b)", ["half_ppr"])
@@ -207,7 +214,8 @@ def v_additive_minor(d):
 
 VALID: dict[str, Callable] = {
     "complete": v_complete, "partial": v_partial, "stale": v_stale,
-    "one_week_behind": v_one_week_behind, "unknown": v_unknown, "unavailable": v_unavailable,
+    "one_week_behind": v_one_week_behind, "unknown": v_unknown,
+    "unknown_no_provenance": v_unknown_no_provenance, "unavailable": v_unavailable,
     "rank_leg": v_rank_leg, "zero_value": v_zero_value, "unresolved_player": v_unresolved_player,
     "previous_season": v_previous_season, "additive_minor": v_additive_minor,
 }
@@ -297,6 +305,24 @@ INVALID: dict[str, tuple[Callable, list[str]]] = {
     "bad_leg_id": (lambda d: (d["legs"].update({"Experts.ESPN": d["legs"].pop("experts.espn_weekly")}), d)[-1],
                    ["leg.id"] + ["row.undeclared_leg"] * 4),
     "out_of_order": (lambda d: (d["players"].reverse(), d)[-1], ["order.players"]),
+    # Unknown provenance never passes as current or published (JEG-1267).
+    "current_null_season": (lambda d: (espn(d).update(content_season=None), d)[-1], ["leg.provenance_unknown"]),
+    "current_null_week": (lambda d: (espn(d).update(content_week=None), d)[-1],
+                          ["leg.provenance_unknown", "freshness.inconsistent"]),
+    "current_null_vintage": (lambda d: (espn(d).update(content_vintage=None), d)[-1], ["leg.provenance_unknown"]),
+    "current_null_captured_at": (lambda d: (espn(d).update(captured_at=None), d)[-1], ["leg.provenance_unknown"]),
+    "current_null_provenance": (lambda d: (espn(d).update(content_season=None, content_week=None,
+                                                          content_vintage=None, captured_at=None), d)[-1],
+                                ["leg.provenance_unknown"] * 4),
+    "stale_null_vintage": (lambda d: (v_stale(d), d["legs"]["status"].update(content_vintage=None), d)[-1],
+                           ["leg.provenance_unknown"]),
+    "unknown_labelled_published": (lambda d: (v_unknown_no_provenance(d),
+                                              d["legs"]["experts.cbs_weekly"].update(label="published"), d)[-1],
+                                   ["leg.provenance_unknown"] * 4),
+    # A malformed scoring list is reported, not raised (JEG-1267).
+    "scoring_object_entry": (lambda d: (espn(d).update(scoring=[{}]), d)[-1], ["field.type"]),
+    "scoring_list_entry": (lambda d: (espn(d).update(scoring=[[]]), d)[-1], ["field.type"]),
+    "scoring_mixed_entry": (lambda d: (espn(d).update(scoring=["half_ppr", {}]), d)[-1], ["field.type"]),
 }
 
 

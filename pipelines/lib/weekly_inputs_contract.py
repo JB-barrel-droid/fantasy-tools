@@ -67,6 +67,8 @@ WEEK_RANGE = (1, 18)
 LEG_KINDS = ("vegas", "expert", "status", "bye")
 AVAILABILITY = ("complete", "partial", "unavailable")
 FRESHNESS = ("current", "one_week_behind", "stale", "unknown")
+AGED_FRESHNESS = ("current", "one_week_behind", "stale")  # freshness that rests on a known content week
+PROVENANCE_FIELDS = ("content_season", "content_week", "content_vintage", "captured_at")
 LABELS = ("published", "previous-season", "modeled", "stale", "unavailable")
 # Units each leg kind may carry. No unit is ever converted into another here.
 UNITS_BY_KIND = {
@@ -124,6 +126,9 @@ CODES = {
     "leg.none": "The document declares no legs.",
     "leg.kind_mismatch": "A leg's kind does not match its id.",
     "leg.no_reason": "An unavailable leg has no missing_reason.",
+    "leg.provenance_unknown": ("A leg with data that claims current, one_week_behind or stale freshness, or a "
+                               "published label, has a null content_season, content_week, content_vintage or "
+                               "captured_at."),
     "leg.unavailable_has_values": "A row carries a value for a leg declared unavailable.",
     "availability.value": "availability is not complete, partial or unavailable.",
     "availability.inconsistent": "A points or rank leg is complete but a row has a null, or partial with no null in any row.",
@@ -360,12 +365,19 @@ class _Validator:
                              f"a {units} leg lists the scoring formats it carries, got {scoring!r}")
                     scoring = None
                 else:
-                    bad = [s for s in scoring if s not in SCORINGS]
+                    # Type each entry before hashing: set() on a dict or list entry would raise.
+                    names = []
+                    for i, s in enumerate(scoring):
+                        if isinstance(s, str):
+                            names.append(s)
+                        else:
+                            self.add("field.type", f"{path}.scoring[{i}]", f"a scoring format is a string, got {s!r}")
+                    bad = [s for s in names if s not in SCORINGS]
                     for s in bad:
                         self.add("scoring.unknown", f"{path}.scoring", f"unknown scoring format {s!r}")
-                    if len(set(scoring)) != len(scoring):
+                    if len(set(names)) != len(names):
                         self.add("scoring.mismatch", f"{path}.scoring", "scoring lists a format twice")
-                    if bad:
+                    if bad or len(names) != len(scoring):
                         scoring = None
             elif scoring is not None:
                 self.add("scoring.mismatch", f"{path}.scoring", f"a {units} leg has no scoring formats; use null")
@@ -384,7 +396,6 @@ class _Validator:
             label = "invalid"
 
         unavailable = availability == "unavailable"
-        nullable = unavailable or freshness == "unknown"
         c_season = meta.get("content_season")
         c_week = meta.get("content_week")
         s_ok = "content_season" in meta and self.int_in(c_season, *SEASON_RANGE, f"{path}.content_season",
@@ -399,6 +410,15 @@ class _Validator:
             self.timestamp(meta["captured_at"], f"{path}.captured_at")
         if "inputs" in meta:
             self.inputs(meta["inputs"], f"{path}.inputs")
+        # A leg that claims a known age or a published label must say where its content came from;
+        # a source that stamps no week or vintage is freshness unknown and not published.
+        if not unavailable and (freshness in AGED_FRESHNESS or label == "published"):
+            for name in PROVENANCE_FIELDS:
+                if name in meta and meta[name] is None:
+                    claim = f"freshness {freshness}" if freshness in AGED_FRESHNESS else "label published"
+                    self.add("leg.provenance_unknown", f"{path}.{name}",
+                             f"{name} is null on a leg with {claim}; use freshness unknown and a "
+                             f"non-published label when the source does not stamp it")
 
         if unavailable:
             if not isinstance(meta.get("missing_reason"), str) or not meta["missing_reason"].strip():
