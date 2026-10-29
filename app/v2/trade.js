@@ -166,8 +166,10 @@
   //            under 5%, Low when DDF Value is even or missing;
   //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
   //   few sources fewer than 3 complete sources caps at Medium;
+  //   charts   propose "High" needs 3 or more trade charts on the answer's side, else Medium (JEG-950);
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
+  const MIN_CHARTS_FOR_HIGH = 3;
   const LEVELS = ["Low", "Medium", "High"];
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
   const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
@@ -217,6 +219,13 @@
         else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
+      // JEG-950 (Jeremy, 2026-10-23 and 2026-10-25): 3+ trade charts on the answer's side keep the level,
+      // 2 cap it at Medium, 1 or none cap it at Low. No extra reason line:
+      // the "N of M charts agree" reason line says why (keeps Compare's height).
+      if (answer === "Yes" || answer === "No") {
+        if (chartAgree < MIN_CHARTS_FOR_HIGH - 1) level = capped(level, "Low");
+        else if (chartAgree < MIN_CHARTS_FOR_HIGH) level = capped(level, "Medium");
+      }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
       reasons.push(`${chartAgree} of ${chartTotal} charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
@@ -286,7 +295,9 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Value win, charts say you lose: send it", action: "Send it",
+    // JEG-950 (Jeremy, 2026-10-26): the title is the verdict; the live read's text is the real market gap
+    // (marketGapText, below). The static text stays for the 3x3 grid, where there is no single net to show.
+    "win|lose": {title: "DDF Value likes it. The market doesn't.", action: "",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
@@ -328,6 +339,15 @@
     return {...SPLIT_READS[vSide],
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
+  // JEG-950 (Jeremy, 2026-10-26): the win|lose sub-line shows the real computed market gap, so the number
+  // and the direction word always come from the market net, never hard-coded: "ahead" or "behind", "even"
+  // at exactly zero. On the win|lose cell the market always has you behind, and that gap is why the other
+  // manager is likely to accept, so the line says so instead of advising to close it (Jeremy, 2026-10-28:
+  // the old "down ... Close the gap to land it." read like advice to give up more). One decimal.
+  const marketGapWord = net => (net > 0 ? "ahead" : net < 0 ? "behind" : "even");
+  const marketGapText = net => (net === 0 ? "The trade charts call it even."
+    : net > 0 ? `The trade charts have you ${Math.abs(net).toFixed(1)} points ahead.`
+      : `The trade charts have you ${Math.abs(net).toFixed(1)} points behind, so the other manager will likely see it as their win.`);
   // One production sentence: P's side against V's side.
   // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
   // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.
@@ -371,13 +391,17 @@
     if (market.tooFew) {
       return {kind: "incomplete", ...out, text: `Not enough compared charts to read the market (${market.chartCount} of ${MIN_DEAL_CHARTS} needed).`};
     }
-    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[`${out.value.side}|${out.market.side}`];
-    return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
+    const cellKey = `${out.value.side}|${out.market.side}`;
+    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[cellKey];
+    // JEG-950: on the win|lose cell the live read shows the market gap instead of the static grid explanation.
+    const text = !market.split && cellKey === "win|lose" ? marketGapText(market.net) : cell.text;
+    return {kind: "read", ...out, cell: cellKey, title: cell.title, action: cell.action, text,
       production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS};
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
+    marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

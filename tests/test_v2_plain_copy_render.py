@@ -98,11 +98,17 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
                             toggle = page.locator("[data-expand][aria-expanded=false]").first
                             if toggle.count() and toggle.is_visible():
                                 toggle.click()
+                    # Compare hides its subtitle and week line once a trade is on (`#v2Compare.has-trade`), and the sample
+                    # is now a trade (JEG-1190), so its title is read on the empty start, as it was read before the sample.
+                    title = page.evaluate(TITLE) if tab in VALUE_TABS else ""
+                    if tab == "#compare-trade" and page.locator("#v2CTryExample").is_visible():
+                        # JEG-1190: Compare opens empty, so load the sample to read a full verdict.
+                        page.click("#v2CTryExample")
+                        page.wait_for_timeout(400)
                     found = bad_words(page.evaluate(READ))
                     if found:
                         errors.append(f"[{width}px {tab}] banned words in visible text: {found}")
                     if tab in VALUE_TABS:
-                        title = page.evaluate(TITLE)
                         if not STAMP.search(title):
                             errors.append(f"[{width}px {tab}] title lacks the 'NFL Week N · as of Mon D' line: {title!r}")
                     if tab == "#trade-targets":
@@ -145,7 +151,7 @@ def run_checks(v2_patch=None, shell_patch=None, trade_patch=None) -> list[str]:
 PATCHES = {
     "USAT label back": {"v2_patch": ('{label: "USA Today", color', '{label: "USAT", color')},
     "Wk back": {"v2_patch": ("`Week ${item.week}`", "`Wk ${item.week}`")},
-    "old panel title": {"shell_patch": ('<h2 id="v2VorpTitle">Value over a waiver player</h2>', '<h2 id="v2VorpTitle">VORP vs waivers</h2>')},
+    "old panel title": {"shell_patch": ('<h2 id="v2VorpTitle">Value above waivers</h2>', '<h2 id="v2VorpTitle">VORP vs waivers</h2>')},
     "old research line": {"shell_patch": ("Nothing is published here yet.", "No posts are published yet.")},
     "median back": {"v2_patch": ("`middle of ${m.count} chart${m.count === 1 ? \"\" : \"s\"}", "`median of ${m.count}")},
     "page stamp not rendered": {"v2_patch": ("    renderPageStamps();\n    const s = view.state;", "    const s = view.state;")},

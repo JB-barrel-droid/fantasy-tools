@@ -5,11 +5,14 @@
 // Deploy: supabase functions deploy mcp --no-verify-jwt
 // URL:    https://<project>.supabase.co/functions/v1/mcp
 
-import { handleRpc } from "./rpc.ts";
+import { handleRpc, setMcpBuild } from "./rpc.ts";
+import { MCP_BUILD_SHA } from "./build.ts";
 import type { Codec, Deps } from "./state.ts";
-import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
+import { type ChartValuesResponse, type FetchValues, type FetchValuesWithCharts, ToolInputError, type ValuesResponse } from "./tools.ts";
 import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
+
+setMcpBuild(Deno.env.get("DDF_BUILD_SHA") || MCP_BUILD_SHA);
 
 // Same site origin as get-values; DDF_SITE_ORIGIN overrides it once the custom domain is live.
 const SITE_ORIGIN = (Deno.env.get("DDF_SITE_ORIGIN") ||
@@ -25,8 +28,19 @@ const cache = new Map<string, { at: number; data: ValuesResponse }>();
 
 const CACHE_MAX = 12;
 
-const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
+// JEG-1179: a week with no published sources comes back from get-values as a 400 with
+// code "week_unavailable" and a message naming the weeks there are; the tool shows that message.
+async function readValues(res: Response): Promise<unknown> {
+  if (res.ok) return await res.json();
+  if (res.status === 400) {
+    const body = await res.json().catch(() => null) as { code?: string; error?: string } | null;
+    if (body?.code === "week_unavailable" && body.error) throw new ToolInputError(body.error);
+  }
+  throw new Error(`get-values ${res.status}`);
+}
+
+const fetchValues: FetchValues = async (scoring, teams, superflex, league, week) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
@@ -34,9 +48,9 @@ const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
   if (league) url.searchParams.set("league", JSON.stringify(league));
+  if (week) url.searchParams.set("week", String(week));
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`get-values ${res.status}`);
-  const data = await res.json() as ValuesResponse;
+  const data = await readValues(res) as ValuesResponse;
   if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
   return data;
@@ -71,8 +85,8 @@ async function loadCodec(): Promise<Codec | null> {
 
 // Chart-enriched fetch: get-values with include=charts for the finder.
 const chartCache = new Map<string, { at: number; data: ChartValuesResponse }>();
-const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
+const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league, week) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
   const hit = chartCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
@@ -80,10 +94,10 @@ const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, lea
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
   if (league) url.searchParams.set("league", JSON.stringify(league));
+  if (week) url.searchParams.set("week", String(week));
   url.searchParams.set("include", "charts");
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`get-values ${res.status}`);
-  const data = await res.json() as ChartValuesResponse;
+  const data = await readValues(res) as ChartValuesResponse;
   chartCache.set(key, { at: Date.now(), data });
   return data;
 };

@@ -127,12 +127,18 @@ test-unit-modules:
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
+	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
+	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
+	python3 -m unittest tests.test_mcp_week
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
+	# Weekly-input contract validator and fixtures (JEG-1227, S1 of JEG-1195). Offline.
+	python3 -m unittest tests.test_weekly_inputs_contract
 	python3 -m unittest tests.test_gh_sbclient_bytes
 	python3 -m unittest tests.test_usatoday_relay_source
 	python3 -m unittest tests.test_bake_espn_zero_universe
@@ -171,15 +177,21 @@ test-unit-modules:
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_tokens
+	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
+	python3 -m unittest tests.test_v2_targets_thin_render
 	python3 -m unittest tests.test_v2_compare_render
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_league_entry_default_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
+	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
+	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
 	python3 -m unittest tests.test_v2_espn_held_chip_render
@@ -192,6 +204,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_v2_share_links
+	python3 -m unittest tests.test_v2_share_links_render
 	python3 -m unittest tests.test_v2_assist_render
 	python3 -m unittest tests.test_v2_season_weeks_render
 	python3 -m unittest tests.test_weekly_matchup_swaps
@@ -229,6 +243,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_article_discovery
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
+	python3 -m unittest tests.test_build_weekly_inputs
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -294,6 +309,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
+	# ROS rankings feed (JEG-1198/1303): isolation and ECR-exclusion guards.
+	python3 -m unittest tests.test_ros_rankings
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
@@ -413,6 +430,10 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_trifit
 	python3 -m unittest tests.test_v2_finder_balance
 	python3 -m unittest tests.test_v2_league_units
+	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
+	python3 -m unittest tests.test_jeg1216_lineup
+	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
+	python3 -m unittest tests.test_jeg1229_trade_context
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
@@ -431,6 +452,10 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_player_tags_render
 	python3 -m unittest tests.test_v2_compare_empty_side_render
 	python3 -m unittest tests.test_v2_disagree_render
+	# Mobile phase 4 and 5 (JEG-955 layout collapse, JEG-956 safe areas, JEG-903 target size).
+	python3 -m unittest tests.test_v2_phone_layout_collapse_render
+	python3 -m unittest tests.test_v2_phone_safe_area_render
+	python3 -m unittest tests.test_v2_phone_target_size_render
 	# Dashboard render harnesses (JEG-308/310/312/318) that no target ran
 	# until 2026-10-08. They need tests/rendered_gate's playwright-core
 	# (npm ci --prefix tests/rendered_gate) and a Chromium (CHROMIUM_PATH).
@@ -533,9 +558,9 @@ preview-vorp-views:
 # JEG-668: value-check-compare wired after held-source reference fix landed.
 validate: reference sync guard-harness test-core value-check-compare test-integration
 
-# JEG-1170: preview.yml runs validate as validate-base (validate minus test-core) in one job
-# and test-core as the test-core-shard-N targets in parallel matrix jobs. pages.yml still runs
-# `make validate`. tests/test_validate_shards.py fails unless the shards together run exactly
+# JEG-1170: preview.yml and pages.yml run validate-base (validate minus test-core) in one job
+# and test-core as the test-core-shard-N targets in parallel matrix jobs.
+# tests/test_validate_shards.py fails unless the shards together run exactly
 # test-core's lines (none missing, none twice) and validate == validate-base + test-core.
 validate-base: reference sync guard-harness value-check-compare test-integration
 
@@ -564,10 +589,13 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
@@ -582,6 +610,10 @@ test-core:
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
+	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
+	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -595,12 +627,15 @@ test-core:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_rank_overflow_render
@@ -615,6 +650,7 @@ test-core:
 	python3 -m unittest tests.test_math_inspector
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_asset_load_retry
 	python3 -m unittest tests.test_espn_listed_rows
@@ -631,6 +667,8 @@ test-core:
 	python3 -m unittest tests.test_search_players_universe
 	python3 -m unittest tests.test_source_scale_agreement_retired
 	python3 -m unittest tests.test_week_calendar
+	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -643,7 +681,7 @@ test-core:
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
 
-# JEG-1170: test-core split into parallel shards for preview.yml (one matrix job each). Their union
+# JEG-1170: test-core split into parallel shards for preview.yml and pages.yml. Their union
 # is exactly test-core: a line added to test-core must also go into one shard, or
 # tests/test_validate_shards.py fails. Balanced by the per-module times of preview run 40199508029
 # (about 7.5 minutes of tests each); within a shard the lines keep test-core's order.
@@ -652,7 +690,10 @@ test-core-shard-1:
 	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
 	python3 -m unittest tests.test_verify_live
@@ -660,10 +701,12 @@ test-core-shard-1:
 	node tests/test_v2_roster_paste.js
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
+	python3 -m unittest tests.test_v2_phone_context_row_render
 	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
 	python3 -m unittest tests.test_view_invariants
 	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_lineup_content_week_advance
@@ -707,10 +750,16 @@ test-core-shard-3:
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_finder
+	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
+	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
+	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -720,6 +769,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_ddf_composite_value
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
+	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_razzball_outlier_guard
 
@@ -763,7 +813,10 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
+	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	# JEG-1199: each projection's path from the publisher's number to the published value.
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_zones_render
 	python3 -m unittest tests.test_v2_customize_cleanup_render
 	python3 -m unittest tests.test_v2_finder_import_render
@@ -779,8 +832,12 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
+	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
+	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
+	python3 -m unittest tests.test_v2_chart_fullscreen_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_advanced_render
 	python3 -m unittest tests.test_v2_ddf_versions_render
@@ -797,8 +854,12 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
+	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
+	python3 -m unittest tests.test_v2_consistency_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
 	python3 -m unittest tests.test_v2_chart_height_render
@@ -815,7 +876,9 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_overrides_basis_render
+	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
 	python3 -m unittest tests.test_v2_override_adjustments_render
 
@@ -824,6 +887,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_height_render
 	python3 -m unittest tests.test_v2_advanced_render
 	python3 -m unittest tests.test_v2_chart_zones_render
@@ -847,6 +911,9 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_values_tab_ux_render
 	python3 -m unittest tests.test_v2_writing_routes_render
 	python3 -m unittest tests.test_v2_finder_paste_render
+	python3 -m unittest tests.test_v2_chart_fullscreen_render
+	python3 -m unittest tests.test_v2_consistency_render
+	python3 -m unittest tests.test_v2_paste_only_render
 	# Render modules added on main after the sweep (wired here so the coverage guard passes; green status not yet verified).
 	python3 -m unittest tests.test_basis_overrides_render
 	python3 -m unittest tests.test_v2_all_projections_paused_render
@@ -865,7 +932,9 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_v2_league_tables_render
+	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
 	python3 -m unittest tests.test_v2_league_top10_render
 	python3 -m unittest tests.test_v2_find_split_render
@@ -876,6 +945,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_override_adjustments_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
+	python3 -m unittest tests.test_v2_league_status_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:

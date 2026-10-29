@@ -47,6 +47,7 @@ def run_checks() -> list[str]:
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 page.goto(base + "#compare-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare()", timeout=30000)
+                _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
                 page.click("#v2EditLeague")
                 page.wait_for_timeout(300)
                 s = page.evaluate(PROBE)

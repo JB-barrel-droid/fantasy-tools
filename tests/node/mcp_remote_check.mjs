@@ -3,6 +3,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
+import { MCP_BUILD_SHA } from "../../supabase/functions/mcp/build.ts";
+import { checkTradeReplySize, ToolInputError } from "../../supabase/functions/mcp/tools.ts";
 import { evalFinder } from "../../supabase/functions/mcp/find-trades.ts";
 import { readFileSync } from "node:fs";
 const codec = createRequire(import.meta.url)("../../app/v2/ddf-state.js");
@@ -15,6 +17,10 @@ const players = [
   { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: "starter" },
   { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: "starter" },
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver" },
+  { player_key: 6, name: "Amon-Ra St. Brown", pos: "WR", value: 55, tier: "starter" },
+  { player_key: 7, name: "Brian Thomas Jr.", pos: "WR", value: 33, tier: "starter" },
+  { player_key: 8, name: "Keenan Allen", pos: "WR", value: 22, tier: "starter" },
+  { player_key: 9, name: "DJ Moore", pos: "WR", value: 28, tier: "starter" },
 ];
 let calls = [];
 let leagues = [];
@@ -33,6 +39,9 @@ const call = (name, args) => rpc("tools/call", { name, arguments: args });
 let r = await rpc("initialize", { protocolVersion: "2025-06-18" });
 assert.equal(r.result.protocolVersion, "2025-06-18");
 assert.ok(r.result.capabilities.tools);
+assert.equal(r.result.serverInfo.version, "1.2.0");
+assert.equal(r.result.serverInfo.build, MCP_BUILD_SHA);
+assert.match(r.result.serverInfo.build, /^[0-9a-f]{40}$/);
 r = await rpc("initialize", { protocolVersion: "1999-01-01" });
 assert.equal(r.result.protocolVersion, "2025-06-18");
 
@@ -58,9 +67,13 @@ assert.equal(res[1].player.value, 0);
 assert.equal(res[2].player, null);
 assert.match(r.result.content[0].text, /nobody: NOT FOUND/);
 
-// Partial match picks the best-valued candidate, exact wins over partial.
+// A shared first name is ambiguous. It is not given to the best-valued player.
 r = await call("get_player_value", { names: "josh" });
-assert.equal(r.result.structuredContent.results[0].player.name, "Josh Allen");
+assert.equal(r.result.structuredContent.results[0].player, null);
+assert.equal(r.result.structuredContent.results[0].match, "ambiguous");
+assert.match(r.result.content[0].text, /AMBIGUOUS/);
+assert.match(r.result.content[0].text, /Josh Allen/);
+assert.match(r.result.content[0].text, /Josh Jacobs/);
 
 r = await call("trade_targets", { player_name: "Josh Allen", range_pct: 10 });
 assert.deepEqual(r.result.structuredContent.targets.map((t) => t.name), ["Josh Jacobs"]);
@@ -220,36 +233,49 @@ r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague 
 assert.deepEqual(calls.at(-1), ["ppr", 12, 0]);
 // JEG-1029 (interim): the chat verdict says what it is, so it is not mistaken for the site's lineup-aware view.
 r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
-assert.match(r.result.content[0].text, /market-value sum, not lineup-aware/);
-assert.match(r.result.content[0].text, /per-source breakdown/);
-assert.equal(r.result.structuredContent.method, "sum_of_blended_values");
+assert.match(r.result.content[0].text, /DDF Value sum, not lineup-aware/);
+assert.match(r.result.content[0].text, /per-chart breakdown/);
+assert.equal(r.result.structuredContent.method, "sum_of_ddf_values");
 assert.match((await rpc("tools/list")).result.tools.find((t) => t.name === "compare_trade").description, /not lineup-aware/);
 
 // ---------- find_trades tool ----------
 const finder = createRequire(import.meta.url)("../../app/v2/finder.js");
 
-// Chart-enriched stub: adds chart_values and DDF sub-versions to each player.
+// Chart-enriched stub: adds chart_values (Adjusted), chart_indexed (Indexed) and DDF sub-versions to each player.
 const chartPlayers = [
   { player_key: 1, name: "Bijan Robinson", pos: "RB", value: 71.8, tier: "starter",
     chart_values: { usatoday: 65, fantasycalc: 68, fantasypros: 70, cbs: 66 },
+    chart_indexed: { usatoday: 65, fantasycalc: 68, fantasypros: 70, cbs: 66 },
     ddf_value_charts: 72, ddf_value_projections: 71.5 },
   { player_key: 2, name: "Ja'Marr Chase", pos: "WR", value: 70.2, tier: "starter",
     chart_values: { usatoday: 64, fantasycalc: 67, fantasypros: 69, cbs: 65 },
+    chart_indexed: { usatoday: 64, fantasycalc: 67, fantasypros: 69, cbs: 65 },
     ddf_value_charts: 70, ddf_value_projections: 70.5 },
   { player_key: 3, name: "Josh Allen", pos: "QB", value: 40, tier: "starter",
     chart_values: { usatoday: 35, fantasycalc: 38, fantasypros: 42, cbs: 36 },
+    chart_indexed: { usatoday: 35, fantasycalc: 38, fantasypros: 42, cbs: 36 },
     ddf_value_charts: 41, ddf_value_projections: 39 },
   { player_key: 4, name: "Josh Jacobs", pos: "RB", value: 39, tier: "starter",
     chart_values: { usatoday: 34, fantasycalc: 37, fantasypros: 41, cbs: 35 },
+    chart_indexed: { usatoday: 34, fantasycalc: 37, fantasypros: 41, cbs: 35 },
     ddf_value_charts: 40, ddf_value_projections: 38 },
   { player_key: 5, name: "Zero Guy", pos: "TE", value: 0, tier: "waiver",
     chart_values: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
+    chart_indexed: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
     ddf_value_charts: 0, ddf_value_projections: 0 },
+  // JEG-1115: a player the trade charts price far below DDF Value, so a trade exists
+  // (you gain on DDF Value, the charts say the rival breaks even or wins).
+  { player_key: 6, name: "Chart Gem", pos: "RB", value: 45, tier: "starter",
+    chart_values: { usatoday: 45, fantasycalc: 45, fantasypros: 45, cbs: 45 },
+    chart_indexed: { usatoday: 10, fantasycalc: 11, fantasypros: 9, cbs: 10 },
+    ddf_value_charts: 45, ddf_value_projections: 45 },
 ];
 const chartStub = async (scoring, teams, superflex) => ({
   attribution: "Data Driven Football", as_of: "2026-10-24",
   setting: { scoring, teams, superflex }, players: chartPlayers,
   sources_included: ["espn", "usatoday", "fantasycalc", "fantasypros", "cbs"], sources_excluded: [],
+  // JEG-1115: the engine's bench-share readout, the fit rule's bench weights.
+  bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 },
 });
 const finderDeps = { finder, fetchCharts: chartStub };
 const callF = (name, args) => handleRpc(
@@ -274,11 +300,74 @@ if (ft.trades.length > 0) {
   assert.ok(Array.isArray(first.userGets) && first.userGets.length > 0, "userGets is a non-empty array");
   assert.equal(typeof first.ddfEdge, "number", "ddfEdge is a number");
   assert.equal(typeof first.viable, "boolean", "viable is a boolean");
-  assert.ok(Array.isArray(first.checks), "checks is an array");
-  assert.equal(first.checks.length, 9, "9 viability checks");
+  assert.equal(first.checks, undefined, "compact trades omit the nine check writeups");
+  assert.ok(Array.isArray(first.failed), "failed check names are a short list");
+  assert.equal(typeof first.lineup, "number");
   assert.ok(first.ddfEdge > 0, "your edge is positive (you gain)");
   if (first.viable) {
     assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
+  }
+}
+
+// JEG-1115: every returned trade carries the finder's fit label and reason, in the text too.
+// Chart Gem is cheap on the charts and dear on DDF Value, so trades exist.
+{
+  r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Chart Gem, Bijan Robinson" });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const trades = r.result.structuredContent.trades;
+  assert.ok(trades.length > 0, "the fit fixture finds trades");
+  for (const t of trades) {
+    assert.ok(["Natural", "Market supported", "Force"].includes(t.fit), "trade has a fit label: " + JSON.stringify(t));
+    assert.equal(typeof t.fitReason, "string", "trade has a fit reason");
+    assert.ok(t.fitReason.startsWith(t.fit === "Market supported" ? "Market supported" : `${t.fit} fit`), "the reason names the label: " + t.fitReason);
+  }
+  assert.match(r.result.content[0].text, /\n   (Natural fit|Market supported|Force fit): /, "the text shows the fit and its reason");
+  r = await callF("find_trades_league", { mine: "Josh Allen, Josh Jacobs", opponents: [{ name: "Gem Team", roster: "Chart Gem, Bijan Robinson" }] });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const lt = r.result.structuredContent.trades;
+  assert.ok(lt.length > 0 && lt.every((t) => ["Natural", "Market supported", "Force"].includes(t.fit)), "league trades carry the fit: " + JSON.stringify(lt));
+  for (const o of r.result.structuredContent.package.offers) assert.ok(o.fit, "package offers carry the fit");
+  // An older get-values with no bench_share readout: the fit is left out, never approximated.
+  const noReadout = async (scoring, teams, superflex) => { const { bench_share, ...rest } = await chartStub(scoring, teams, superflex); return rest; };
+  r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "find_trades",
+    arguments: { mine: "Josh Allen, Josh Jacobs", theirs: "Chart Gem, Bijan Robinson" } } }, stub, deps, { finder, fetchCharts: noReadout });
+  assert.notEqual(r.result.isError, true);
+  assert.ok(r.result.structuredContent.trades.length > 0 && r.result.structuredContent.trades.every((t) => t.fit === undefined), "no readout, no fit");
+}
+
+// JEG-1129: the other team is judged on the trade charts' Indexed values (chart_indexed), never on
+// the Adjusted values (chart_values), whose mean is DDF Value itself. Here the Adjusted values mirror
+// DDF Value, as they do live, so the old rows gave theirMarketNet = -ddfEdge and nothing could pass.
+{
+  const ch = (v) => ({ usatoday: v, fantasycalc: v, fantasypros: v, cbs: v });
+  const arb = [
+    { player_key: 11, name: "Market Darling", pos: "RB", value: 30, tier: "starter", chart_values: ch(30), chart_indexed: ch(40),
+      ddf_value_charts: 30, ddf_value_projections: 30 },
+    { player_key: 12, name: "Market Laggard", pos: "RB", value: 35, tier: "starter", chart_values: ch(35), chart_indexed: ch(32),
+      ddf_value_charts: 35, ddf_value_projections: 35 },
+  ];
+  const arbCharts = async (scoring, teams, superflex) => ({ ...(await chartStub(scoring, teams, superflex)), players: arb });
+  const callA = (args) => handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "find_trades", arguments: args } },
+    stub, deps, { finder, fetchCharts: arbCharts });
+  r = await callA({ mine: "Market Darling", theirs: "Market Laggard", max_per_side: 1 });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const t = r.result.structuredContent.trades.find((x) => x.userGives[0].name === "Market Darling");
+  assert.ok(t, "the arbitrage trade is found: " + JSON.stringify(r.result.structuredContent.trades));
+  assert.ok(Math.abs(t.ddfEdge - 5) < 1e-9, `you gain 5 on DDF Value, got ${t.ddfEdge}`);
+  // The compact reply (JEG-1012) lists only failed checks: they gain 8 on the Indexed chart mean, so the other team's
+  // market check passes; on the Adjusted values they would lose 5 and it would fail.
+  assert.ok(Array.isArray(t.failed) && !t.failed.includes("perceived_fairness"),
+    "the other team's market check passes on the Indexed chart mean: " + JSON.stringify(t));
+
+  // A get-values without Indexed chart values (the old shape) is unavailable, never silently priced on Adjusted.
+  const oldShape = arb.map(({ chart_indexed, ...rest }) => rest);
+  const oldCharts = async (scoring, teams, superflex) => ({ ...(await chartStub(scoring, teams, superflex)), players: oldShape });
+  for (const name of ["find_trades", "find_trades_league"]) {
+    const args = name === "find_trades" ? { mine: "Market Darling", theirs: "Market Laggard" }
+      : { mine: "Market Darling", opponents: [{ name: "Them", roster: "Market Laggard" }] };
+    r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, stub, deps, { finder, fetchCharts: oldCharts });
+    assert.equal(r.result.isError, true, `${name} without chart_indexed is an error`);
+    assert.match(r.result.content[0].text, /Chart values are unavailable/);
   }
 }
 
@@ -338,5 +427,295 @@ assert.ok(r.result.structuredContent.site_url.includes("#find-trade"), "link poi
   assert.equal(evalFinder("throw new Error('boom')", eval, {}), null, "a source that never publishes the API is unavailable");
   delete globalThis.TradeValueFinder;
 }
+
+// ---------- compact answers, name matching, validation ----------
+const valuesTool = (await rpc("tools/list")).result.tools.find((t) => t.name === "get_values");
+assert.match(valuesTool.description, /average of the four adjusted trade charts/);
+assert.doesNotMatch(valuesTool.description, /blended across/);
+
+// Typos, hyphens and a suffix comma resolve. A shared name or a bare suffix does not pick one player.
+r = await call("get_player_value", { names: "Jamar Chase, Bijan Robinsen, Amon Ra St Brown, Brian Thomas, Jr" });
+assert.equal(r.result.isError, undefined);
+const named = r.result.structuredContent.results;
+assert.equal(named[0].player.name, "Ja'Marr Chase");
+assert.equal(named[1].player.name, "Bijan Robinson");
+assert.equal(named[2].player.name, "Amon-Ra St. Brown");
+assert.equal(named[2].match, "exact");
+assert.equal(named[3].player.name, "Brian Thomas Jr.");
+r = await call("get_player_value", { names: "Allen" });
+assert.equal(r.result.structuredContent.results[0].player, null);
+assert.match(r.result.content[0].text, /Keenan Allen/);
+assert.match(r.result.content[0].text, /Josh Allen/);
+r = await call("get_player_value", { names: "Jr" });
+assert.equal(r.result.structuredContent.results[0].player, null);
+assert.match(r.result.content[0].text, /Brian Thomas Jr/);
+
+// Bad input is rejected instead of coerced.
+for (const [tool, args, needle] of [
+  ["get_values", { superflex: "maybe" }, /superflex/],
+  ["get_values", { limit: 0 }, /limit/],
+  ["get_values", { scoring: "points" }, /scoring/],
+  ["trade_targets", { player_name: "" }, /player_name is required/],
+  ["trade_targets", { player_name: "   " }, /player_name is required/],
+  ["find_trades_league", { mine: "Josh Allen", opponents: "Bijan Robinson" }, /array/],
+]) {
+  const e = await call(tool, args);
+  assert.equal(e.result.isError, true, tool + JSON.stringify(args));
+  assert.match(e.result.content[0].text, needle, e.result.content[0].text);
+  assert.equal(e.result.content[0].text.split("DDF state").length, 1);
+}
+// JEG-1124: a name under 2 characters is rejected with a clear error, in the schema and at run time.
+// Empty and blank names are rejected too. "Jr" (2 characters) still reaches the matcher above.
+{
+  const tools = (await rpc("tools/list")).result.tools;
+  const prop = (tool, key) => tools.find((t) => t.name === tool).inputSchema.properties[key];
+  for (const [tool, key] of [
+    ["get_player_value", "names"], ["trade_targets", "player_name"], ["compare_trade", "side_a"], ["compare_trade", "side_b"],
+    ["make_state", "give"], ["make_state", "get"], ["make_state", "mine"], ["make_state", "theirs"], ["make_state", "target"],
+    ["find_trades", "mine"], ["find_trades", "theirs"], ["find_trades_league", "mine"],
+  ]) assert.equal(prop(tool, key).minLength, 2, `${tool}.${key} has minLength 2`);
+  assert.equal(prop("find_trades_league", "opponents").items.properties.roster.minLength, 2);
+  assert.equal(prop("find_trades_league", "limit").default, 10, "find_trades_league schema default is 10");
+  assert.equal(prop("find_trades_league", "limit").maximum, 100);
+
+  const tooShort = /name too short \("J"\)\. Use a fuller player name/;
+  const shortCases = [
+    ["get_player_value", { names: "J" }, tooShort],
+    ["get_player_value", { names: "Josh Allen, J" }, tooShort],
+    ["get_player_value", { names: "" }, /names is required/],
+    ["get_player_value", { names: "   " }, /names is required/],
+    ["trade_targets", { player_name: "J" }, tooShort],
+    ["compare_trade", { side_a: "J", side_b: "Bijan Robinson" }, /side_a: name too short/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "J" }, /side_b: name too short/],
+    ["compare_trade", { side_a: "", side_b: "Bijan Robinson" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "   ", side_b: "Bijan Robinson" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "" }, /side_a and side_b each need at least one name/],
+    ["compare_trade", { side_a: "Bijan Robinson", side_b: "   " }, /side_a and side_b each need at least one name/],
+    ["find_trades", { mine: "Josh Allen, J", theirs: "Bijan Robinson" }, /mine: name too short/],
+    ["find_trades", { mine: "Josh Allen", theirs: "J" }, /theirs: name too short/],
+    ["find_trades_league", { mine: "J", opponents: [{ name: "Opp", roster: "Bijan Robinson" }] }, /mine: name too short/],
+    ["find_trades_league", { mine: "Josh Allen", opponents: [{ name: "Opp", roster: "Bijan Robinson, J" }] }, /opponents\[0\]\.roster: name too short/],
+  ];
+  for (const [tool, args, needle] of shortCases) {
+    const e = await call(tool, args);
+    assert.equal(e.result.isError, true, tool + JSON.stringify(args));
+    assert.match(e.result.content[0].text, needle, e.result.content[0].text);
+  }
+  for (const args of [{ give: "J" }, { target: "J" }]) {
+    const e = await callD("make_state", args);
+    assert.equal(e.result.isError, true, "make_state" + JSON.stringify(args));
+    assert.match(e.result.content[0].text, /name too short/, e.result.content[0].text);
+  }
+
+  // A typo resolves and says how it was read, so the model can tell the user.
+  r = await call("get_player_value", { names: "Jamar Chase, Bijan Robinsen" });
+  assert.equal(r.result.isError, undefined);
+  const [jamar, bijan] = r.result.structuredContent.results;
+  assert.match(jamar.note, /^(matched|interpreted) "Jamar Chase" (to|as) Ja'Marr Chase$/, jamar.note);
+  assert.equal(bijan.note, 'interpreted "Bijan Robinsen" as Bijan Robinson');
+  assert.match(r.result.content[0].text, /Bijan Robinson \(RB\): value 71\.8, tier starter — interpreted "Bijan Robinsen" as Bijan Robinson/);
+}
+r = await call("get_values", { scoring: "PPR", teams: 12, superflex: "yes", limit: 1 });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+assert.deepEqual(calls.at(-1), ["ppr", 12, 1]);
+r = await call("get_values", { scoring: "0.5ppr", limit: 1 });
+assert.deepEqual(calls.at(-1), ["half_ppr", 12, 0]);
+
+// A repeated player is counted once. The same player on both sides stays on team A.
+r = await call("compare_trade", { side_a: "Josh Allen, Josh Allen", side_b: "Bijan Robinson" });
+assert.equal(r.result.structuredContent.side_a.total, 40);
+assert.match(r.result.content[0].text, /counted once/);
+r = await call("compare_trade", { side_a: "DJ Moore", side_b: "DJ Moore" });
+assert.equal(r.result.isError, true);
+assert.match(r.result.content[0].text, /team A only/);
+
+// Identical rosters do not propose a player for himself.
+r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Josh Allen, Josh Jacobs" });
+assert.equal(r.result.isError, true, JSON.stringify(r.result));
+assert.match(r.result.content[0].text, /also on yours/);
+
+// A pasted league's roster and shares are in the settings line. A bad paste says so once.
+r = await callD("get_values", { state: codec.encodeBlock({ league: customLeague }), limit: 1 });
+assert.match(r.result.content[0].text, /roster QB1 RB2 WR3 TE1 FLEX1 BENCH6/);
+assert.match(r.result.content[0].text, /shares QB 0\.20 RB 0\.40 WR 0\.30 TE 0\.10/);
+r = await callD("read_state", { state: "no state here" });
+assert.equal(r.result.isError, true);
+assert.equal(r.result.content[0].text.match(/DDF state/gi).length, 1, r.result.content[0].text);
+
+// A name with a space is encoded once in the site link.
+r = await callD("make_state", { scoring: "ppr", teams: 12, give: "Josh Allen", get: "Ghost Player" });
+assert.match(r.result.structuredContent.site_url, /n:Ghost%20Player/);
+assert.doesNotMatch(r.result.structuredContent.site_url, /%2520/);
+assert.equal(codec.decodeQuery(r.result.structuredContent.site_url.split("?")[1]).state.work.get[0].name, "Ghost Player");
+
+// Response size. Before this change a 15-for-15 default find_trades was ~23KB for 10 trades,
+// get_values limit 200 was ~26KB, and an 11-opponent scan was ~36KB on this fixture (about 212KB
+// on a full live scan). The caps below fail if the full viability objects are copied into the payload again.
+// JEG-1123 follow-up: the text lists the top 5 trades and structuredContent carries every row once, and
+// find_trades_league defaults to 10. On 951b32be this fixture measured findDefault 6748, find50 20941 and
+// league 8892 bytes; after, 6056, 15374 and 7221. The caps sit about 10% above the after numbers.
+const TEXT_ROWS = 5;
+const tradeTextLines = (res) => res.result.content[0].text.split("\n").filter((l) => /^\d+\. /.test(l));
+function sizedPlayer(i, side, pos) {
+  const value = side === 1 ? 12 + i : 40 + i;
+  const chart = side === 1 ? 70 - i : 20 + i * 0.2;
+  const charts = { usatoday: chart, fantasycalc: chart - 1, fantasypros: chart + 1, cbs: chart - 0.5 };
+  return {
+    player_key: side * 1000 + i, name: `${side === 1 ? "Mine" : "Theirs"} Player ${i}`, pos,
+    value: Math.round(value * 10) / 10, tier: "starter", chart_values: charts, chart_indexed: charts,
+    ddf_value_charts: chart, ddf_value_projections: value,
+  };
+}
+const sizePos = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "RB", "WR", "QB", "TE", "RB", "WR", "WR", "RB"];
+const sizeMine = sizePos.map((pos, i) => sizedPlayer(i + 1, 1, pos));
+const sizeTheirs = sizePos.map((pos, i) => sizedPlayer(i + 1, 2, pos));
+const sizeAll = sizeMine.concat(sizeTheirs);
+const sizeCharts = async () => ({
+  attribution: "Data Driven Football", as_of: "2026-10-26",
+  setting: { scoring: "ppr", teams: 12, superflex: 0 }, players: sizeAll,
+  sources_included: ["espn", "usatoday", "fantasycalc", "fantasypros", "cbs"], sources_excluded: [],
+  bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 },
+  week: 7, default_week: 7, weeks: [7], missing_sources: [],
+});
+const sizeCall = (name, args, fetch = sizeCharts) => handleRpc(
+  { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+  stub, deps, { finder, fetchCharts: fetch });
+const nbytes = (res) => Buffer.byteLength(JSON.stringify(res.result), "utf8");
+const mineList = sizeMine.map((p) => p.name).join(", ");
+const theirList = sizeTheirs.map((p) => p.name).join(", ");
+const sizes = {};
+r = await sizeCall("find_trades", { mine: mineList, theirs: theirList });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
+// Jeremy's limits are upper bounds; fit reasons may require a shorter prefix.
+assert.ok(r.result.structuredContent.shown >= 1 && r.result.structuredContent.shown <= 10);
+assert.equal(r.result.structuredContent.trades.length, r.result.structuredContent.shown);
+const defaultFind = r.result;
+const assertFitReply = (reply) => {
+  const rows = reply.structuredContent.trades;
+  assert.ok(rows.length > 0 && rows.every(t => t.fit && typeof t.fitReason === "string" && t.fitReason.length > 0));
+  assert.equal(reply.structuredContent.shown, rows.length);
+  assert.ok(rows.length <= reply.structuredContent.limit);
+  assert.ok((reply.structuredContent.package?.offers ?? []).every(t => t.fit && t.fitReason));
+  assert.match(reply.content[0].text, new RegExp(`showing ${rows.length}\\b`));
+  assert.ok(reply.content[0].text.includes(reply.structuredContent.site_url));
+  const [, candidates = reply.content[0].text] = reply.content[0].text.split("\nCandidates:\n");
+  assert.equal(candidates.split("\n").filter(l => /^\d+\. /.test(l)).length, Math.min(5, rows.length));
+  if (rows.length > 5) assert.match(candidates, new RegExp(`^${rows.length - 5} more in the structured result`, "m"));
+};
+assertFitReply(r.result);
+sizes.findDefault = nbytes(r);
+assert.ok(sizes.findDefault < 6700, `find_trades default ${sizes.findDefault} bytes`);
+// The final guard measures the complete UTF-8 result after decorators such as week metadata.
+// Pin its exact boundary separately from the ranked-prefix trimming below.
+for (const [name, limit, budget] of [["find_trades", 10, 6700], ["find_trades", 50, 17000],
+  ["find_trades_league", 10, 8000], ["find_trades_league", 100, 11500]]) {
+  const decorated = structuredClone(defaultFind);
+  decorated.structuredContent.limit = limit;
+  decorated.structuredContent.week_note = "足🏈";
+  const padding = budget - Buffer.byteLength(JSON.stringify(decorated), "utf8") - 1;
+  decorated.structuredContent.week_note += "x".repeat(padding);
+  assert.doesNotThrow(() => checkTradeReplySize(name, decorated));
+  decorated.structuredContent.week_note += "x";
+  assert.throws(() => checkTradeReplySize(name, decorated), ToolInputError);
+}
+r = await sizeCall("find_trades", { mine: mineList, theirs: theirList, limit: 50 });
+// Jeremy, 2026-10-26: the rewritten finder may yield fewer distinct trades than the limit; accept 1..limit.
+const shown50 = r.result.structuredContent.shown;
+assert.ok(shown50 >= 1 && shown50 <= 50, `showing ${shown50} of limit 50`);
+assert.equal(r.result.structuredContent.trades.length, shown50);
+assert.equal(new Set(r.result.structuredContent.trades.map((t) => JSON.stringify(t))).size, shown50, "find_trades limit 50 has duplicates");
+assert.match(r.result.content[0].text, new RegExp(`showing ${shown50}\\b`));
+assertFitReply(r.result);
+assert.deepEqual(defaultFind.structuredContent.trades, r.result.structuredContent.trades.slice(0, defaultFind.structuredContent.shown), "budget trimming preserves rank order");
+assert.match(defaultFind.content[0].text, /Fewer candidates shown to keep this reply compact/);
+sizes.find50 = nbytes(r);
+assert.ok(sizes.find50 < 17000, `find_trades limit 50 ${sizes.find50} bytes`);
+const sizeOpps = Array.from({ length: 11 }, (_, i) => ({ name: `Opp ${i + 1}`, roster: theirList }));
+r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
+assert.equal(r.result.structuredContent.limit, 10);
+assertFitReply(r.result);
+const defaultLeague = r.result;
+sizes.league = nbytes(r);
+assert.ok(sizes.league < 8000, `find_trades_league ${sizes.league} bytes`);
+// The larger league budget still preserves the same entire package and a ranked candidate prefix.
+r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps, limit: 100 });
+assertFitReply(r.result);
+sizes.league100 = nbytes(r);
+assert.ok(sizes.league100 < 11500, `league limit 100 ${sizes.league100} bytes`);
+assert.deepEqual(defaultLeague.structuredContent.package, r.result.structuredContent.package);
+assert.deepEqual(defaultLeague.structuredContent.trades,
+  r.result.structuredContent.trades.slice(0, defaultLeague.structuredContent.shown));
+
+// UTF-8 bytes (not JS code units), and an irreducible state/package must give a small error.
+const unicodeMine = sizeMine.map(p => ({ ...p, name: `${p.name} 足🏈` }));
+const unicodeCharts = async () => ({ ...await sizeCharts(), players: unicodeMine.concat(sizeTheirs) });
+r = await sizeCall("find_trades", { mine: unicodeMine.map(p => p.name).join(", "), theirs: theirList }, unicodeCharts);
+assertFitReply(r.result);
+assert.ok(nbytes(r) < 6700);
+r = await sizeCall("find_trades_league", { mine: mineList,
+  opponents: [{ name: "足🏈".repeat(1800), roster: theirList }], limit: 1 });
+assert.equal(r.result.isError, true);
+assert.match(r.result.content[0].text, /reply is too large/);
+assert.ok(nbytes(r) < 300, "size errors never echo the oversized input");
+
+// Two display names may coincide. Fit must still use the right roster, and package team
+// identity must not collapse distinct opponents. Original index travels with every row.
+const extraPlayer = { ...sizeTheirs[0], player_key: 9001, name: "Third Roster QB" };
+const duplicateCharts = async () => ({ ...await sizeCharts(), players: [...sizeAll, extraPlayer] });
+const scan = async (opponents) => (await sizeCall("find_trades_league", { mine: mineList, opponents, limit: 100 }, duplicateCharts)).result;
+const original = await scan([{ name: "Same", roster: theirList }]);
+const duplicate = await scan([{ name: "Same", roster: theirList }, { name: "Same", roster: extraPlayer.name }]);
+const renamed = await scan([{ name: "First", roster: theirList }, { name: "Second", roster: extraPlayer.name }]);
+const reordered = await scan([{ name: "Same", roster: extraPlayer.name }, { name: "Same", roster: theirList }]);
+const tradeKey = t => JSON.stringify([t.userGives, t.userGets]);
+const originals = new Map(original.structuredContent.trades.map(t => [tradeKey(t), t]));
+for (const [reply, index] of [[duplicate, 0], [renamed, 0], [reordered, 1]]) {
+  assert.notEqual(reply.isError, true);
+  const comparable = reply.structuredContent.trades.filter(t => t.opponent_index === index && originals.has(tradeKey(t)));
+  assert.ok(comparable.length > 0, "duplicate-name regression compares real trades");
+  for (const t of comparable) {
+    assert.equal(t.fit, originals.get(tradeKey(t)).fit);
+    assert.equal(t.fitReason, originals.get(tradeKey(t)).fitReason);
+  }
+  assert.ok(reply.structuredContent.package.offers.every(t => Number.isInteger(t.opponent_index)));
+  assert.equal(new Set(reply.structuredContent.package.offers.map(t => t.opponent_index)).size,
+    reply.structuredContent.package.offers.length, "at most one package trade per input opponent");
+}
+assert.deepEqual(duplicate.structuredContent.perOpponent.map(t => [t.name, t.opponent_index]), [["Same", 0], ["Same", 1]]);
+assert.ok(duplicate.structuredContent.trades.every(t => t.team === "Same"));
+
+// Force one distinct candidate per opponent through the real viability/package and fit rules.
+// Both are valid offers; equal display names must not turn the second into the same team.
+const otherTeam = sizeTheirs.map(p => ({ ...p, player_key: p.player_key + 1000, name: p.name.replace("Theirs", "Other") }));
+const packageCharts = async () => ({ ...await sizeCharts(), players: [...sizeAll, ...otherTeam] });
+const pairFinder = { ...finder, findTrades: (mine, theirs) => {
+  const second = theirs[0].player_key >= 3000;
+  const give = [mine[second ? 3 : 1]], receive = [theirs[second ? 13 : 14]];
+  const count = { searched: 15, of: 15, unpriced: 0 };
+  return { trades: [{ give, receive, edge: 40, score: 40, rivalOkCount: 4, pricedCharts: 4, charts: [] }],
+    total: 1, mine: count, theirs: count, chartKeys: finder.CHART_KEYS };
+} };
+r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: {
+  name: "find_trades_league", arguments: { mine: mineList, limit: 100,
+    opponents: [{ name: "Same", roster: theirList }, { name: "Same", roster: otherTeam.map(p => p.name).join(", ") }] }
+} }, stub, deps, { finder: pairFinder, fetchCharts: packageCharts });
+assert.notEqual(r.result.isError, true);
+assert.deepEqual(r.result.structuredContent.package.offers.map(t => t.opponent_index).sort(), [0, 1],
+  "equal display names keep both distinct teams in the package");
+assert.ok(r.result.structuredContent.package.offers.every(t => t.team === "Same" && t.fit && t.fitReason));
+
+const board = Array.from({ length: 200 }, (_, i) => ({
+  player_key: i + 1, name: `Player Number ${i + 1}`, pos: "WR",
+  value: Math.round((200 - i) * 0.4 * 10) / 10, tier: i < 80 ? "starter" : "bench",
+}));
+r = await handleRpc(
+  { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "get_values", arguments: { limit: 200 } } },
+  async () => ({ attribution: "Data Driven Football", as_of: "2026-10-26", setting: { scoring: "ppr", teams: 12, superflex: 0 }, players: board, sources_included: ["espn"], sources_excluded: [] }),
+  deps);
+assert.equal(r.result.structuredContent.players.length, 200);
+sizes.values200 = nbytes(r);
+assert.ok(sizes.values200 < 24000, `get_values 200 ${sizes.values200} bytes`);
+console.log("sizes", sizes);
 
 console.log("ok");

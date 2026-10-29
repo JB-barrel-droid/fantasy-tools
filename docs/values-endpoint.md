@@ -3,12 +3,16 @@
 Ticket JEG-616. Hosting decision: Supabase edge function (Jeremy, 2026-10-19).
 
 - Function: `supabase/functions/get-values/index.ts`. Reads the published site
-  (`value-model.js`, `lineup-parameters.json`, the comparison bundle, and the
-  `players-data` island on the home page), runs `runValuePipeline`, returns
-  blended values. No database access, no schema change, no service-role key.
+  (`value-model.js`, `lineup-parameters.json`, the comparison bundle, the
+  `players-data` island on the home page, and the week history under
+  `assets/history/`), runs `runValuePipeline`, returns blended values. No
+  database access, no schema change, no service-role key. The engine input
+  (source eligibility, the week view) is built in `get-values/pipeline.ts`,
+  which the parity runner (`tests/_edge_pipeline_runner.cjs`) imports too.
 - Public: `verify_jwt = false` in `supabase/config.toml`; per-IP rate limit
   (30/min, in memory per instance); CORS allow-list in the function.
-- Parity with the page is pinned by `tests/test_endpoint_parity.py`.
+- Parity with the page is pinned by `tests/test_endpoint_parity.py` (including
+  each week of a week transition, JEG-1179).
 - MCP server, local: `mcp-server/` (stdio), set `DDF_API_URL` to the function URL.
 - MCP server, remote (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses). See "Remote MCP" below.
 
@@ -20,10 +24,48 @@ normalized DDF league section (`roster`, `shares`, `bso`, `inj`, `conf`, `weeks`
 a JSON object in a POST body, a JSON string in a GET query). The top-level
 `scoring`, `teams` and `superflex` win over the same fields inside `league`.
 The response lists the settings that differ from the site defaults in
-`league_custom`. Optional `include=charts` adds
-per-chart adjusted values (`chart_values`) and DDF sub-versions
-(`ddf_value_charts`, `ddf_value_projections`) to each player record (used
-internally by the MCP `find_trades` tool).
+`league_custom`. Optional `include=charts` adds per-chart Adjusted values
+(`chart_values`), per-chart Indexed values (`chart_indexed`) and DDF
+sub-versions (`ddf_value_charts`, `ddf_value_projections`) to each player
+record (used internally by the MCP `find_trades` tools). The trade finder
+judges the other team on the mean of `chart_indexed`, the market: the mean of
+`chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
+since JEG-1073 (JEG-1129).
+
+### Week (JEG-1179)
+
+Sources publish week N+1 at different times. Each answer is priced on one week,
+with the site's own rule and data:
+
+- **Default week**: `ValueModel.weekState` from the published `value-model.js`
+  (the code the page runs, not a copy) over the DDF Value sources at the
+  requested setting, each with the week it serves in
+  `assets/history/index.json`. N+1 only when more than half of those sources
+  serve it; exactly half stays on N (Jeremy, 2026-10-27, JEG-1176).
+- **`week`** (optional, GET query or POST body): N or N+1 during a transition,
+  the one week otherwise. Not a whole number from 1 to 22: 400 `invalid week`.
+  A week with no published sources: 400 with `code: "week_unavailable"`,
+  `weeks` and `default_week`, and an `error` that names them, for example
+  `Week 9 has no published sources at this setting. Weeks available: 8, 7 (default 8).`
+  Never an empty list.
+- **No carry-forward**: a source still on week N is left out of week N+1 (named in
+  `missing_sources`); a source already on N+1 is priced on its saved copy of
+  week N (`assets/history/week-<N>.json`), or named missing when none is saved.
+- Without a history index for the served build (or a `value-model.js` without
+  `weekState`), the calendar fallback applies: the week is the newest week any
+  weekly chart serves (capped at the calendar's week), and a weekly chart counts
+  as older only when it is behind that week, never just because the calendar has
+  moved on (#1028). That is the only week that can be asked for then.
+- This fixes JEG-1157: from the Tuesday flip until the charts land, the
+  calendar says N+1 while the charts serve N, and the endpoint used to price
+  almost nothing. The default now stays on N.
+
+Response fields: `week` (the week priced), `default_week`, `weeks` (the weeks
+that can be asked for), `sources_included`, `missing_sources` (DDF Value sources
+at this setting that have not published this week). Tests:
+`tests/node/get_values_week_check.mjs` (the handler on the built `dist/`,
+synthetic transitions), `tests/test_endpoint_parity.py test_week_parity` (page
+parity per week).
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
@@ -79,7 +121,9 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
   pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
   the function stores nothing, so abuse costs CPU only (about 0.3 s per
   fresh league).
-- Cold start fetches about 3.7 MB; first call is slow, results cached 5 minutes.
+- Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
+  document (about 70 KB) is fetched only when the week priced needs a saved
+  copy. First call is slow, results cached 5 minutes per league and week.
 
 ## Remote MCP (JEG-1012)
 
@@ -112,6 +156,25 @@ that needs a URL instead of a local process.
   the recommended package, and your projected lineup after. Optional:
   `max_per_side`, `min_rival_edge`, `limit`, `viable_only`, viability threshold
   overrides.
+- **Week (JEG-1179):** every tool that prices players takes an optional `week`
+  (passed to get-values; absent = the site's default week). `read_state` reads
+  `wk=N` from a pasted site link; an explicit `week` wins. Every result carries
+  `week`, `default_week`, `weeks`, `sources_included` and `missing_sources` in
+  `structuredContent`, a "Week:" line after the settings line, and, when a
+  week was asked for, `wk=N` on the site link. A week with no published sources
+  comes back as a tool error with get-values' message. Tests:
+  `tests/node/mcp_week_check.mjs` (`tests/test_mcp_week.py`).
+- Both finder tools default to at most 10 candidates. Text lists up to five;
+  structured candidates keep complete fit reasons. A reply may return a shorter
+  ranked prefix to fit its UTF-8 budget (pair: 6,700 bytes for limits up to 10,
+  17,000 above; league: 8,000 / 11,500). `shown` and the text report the actual
+  count. The selected league package, its total edge and projected lineup stay
+  intact. If even one candidate plus the complete envelope cannot fit, the tool
+  returns a concise error asking for fewer opponents or shorter names.
+- Opponent display names may repeat. League candidates, package offers and
+  `perOpponent` entries include `opponent_index`, the zero-based index in the
+  supplied `opponents` array. Identity follows this index through scoring and
+  package selection, so equal names never share a roster.
 - Tests: `tests/test_mcp_remote.py` (node, stub values, no network) in
   `make test-unit`.
 
@@ -189,5 +252,5 @@ once. Output includes the user's lineup after the package.
 | `depthPlayerCutoff` | 0.5 | Minimum DDF value for a player to count as depth _(pending Jeremy's answer)_ |
 | `deadWeightCutoff` | 0.5 | Maximum DDF value for a player to be considered droppable _(pending Jeremy's answer)_ |
 | `minRbBackups` | 1 | Minimum healthy RB backups beyond starters |
-| `minWrBackups` | 1 | Minimum healthy WR backups beyond starters |
+| `minWrBackups` | 0 | Minimum healthy WR backups beyond starters (Jeremy 2026-10-28: lowered from 1, JEG-1129) |
 | `guardrails` | `[]` | User-defined position protections |

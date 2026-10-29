@@ -64,9 +64,9 @@ The rules behind the labels:
 - **Deal read.** DDF Value against the plain mean of the chart results, each
   called win, even or lose at a threshold of 3% of the average side total (at
   least 1 point). That gives nine cells. One of them is a split: our value says
-  yes and the market says no ("Value yes, market no"). It is a trade where you
-  gain on our numbers while the trade charts, taken together, say you lose. It
-  needs three complete charts.
+  yes and the market says no ("DDF Value likes it. The market doesn't."). It is
+  a trade where you gain on our numbers while the trade charts, taken together,
+  say you lose. It needs three complete charts.
 - **Find a trade** lists a package when DDF Value says you win and at least 3 of
   the 4 charts have the other manager even or winning.
 - A net under 0.05 shows as 0.0 and counts as even.
@@ -196,9 +196,9 @@ What this means for you: treat a "Yes, High" as firm when at least three of the
 four charts agree with it. When none do, it is a split between our value and
 the market, not a settled answer.
 
-### The split: value yes, market no
+### The split: DDF Value says yes, the market says no
 
-The "Value yes, market no" cell is exactly the trade with no chart on your side:
+The "DDF Value likes it. The market doesn't." cell is exactly the trade with no chart on your side:
 our value says you win and the market says you lose. It is the least stable kind
 of "Yes", for the reason above. It is also the trade where our value and the
 market most disagree, which is where the opportunity is if our value is right
@@ -241,8 +241,9 @@ one-third cuts, so every non-unanimous trade is "Likely" or "Unlikely" at
    charts agree" line before you read the confidence level.
 2. "Will they accept?" is the most stable line on the page. "Toss-up" means the
    charts are split, and a different answer next week is likely.
-3. A "Value yes, market no" trade is a disagreement between our numbers and the
-   market's. It can be a real edge, but it is the least settled kind of "Yes".
+3. A "DDF Value likes it. The market doesn't." trade is a disagreement between
+   our numbers and the market's. It can be a real edge, but it is the least
+   settled kind of "Yes".
 
 Acceptance itself stays untested: we do not record proposals or their outcomes.
 

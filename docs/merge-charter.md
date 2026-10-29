@@ -1,8 +1,8 @@
 # Merge Charter (JEG-91)
 
 > **Superseded in part (2026-10-10, JEG-603).** The merge protocol in
-> `AGENTS.md` ("Hot files and merge order", from the Linear document "Board
-> operating conventions") and `CLAUDE.md` govern merges today: the Claude lead
+> `AGENTS.md` ("Hot files and merging", from the Linear document "Board
+> operating conventions") governs merges today: the Claude lead
 > merges, one engine PR at a time, and other model families never merge. The
 > Roman, Muse and lane references below describe the retired multi-lane setup
 > and are kept as history. `lanes/plan.json` and `lanes/merge_charter.py` are
@@ -78,7 +78,7 @@ go hands-off.
 
 Merges to `main` serialize. One PR at a time. Before each item merges:
 
-1. Rebase onto the current `main` tip
+1. Merge the current `origin/main` tip into the branch (never rebase, never force-push; Jeremy, 2026-10-26)
 2. Re-run `make validate`
 3. Re-run `verify_live.py`
 4. Re-classify the tier (the reviewer may upgrade)
@@ -86,7 +86,7 @@ Merges to `main` serialize. One PR at a time. Before each item merges:
 
 Rationale: 5 of the 20 most recent Deploy dashboard runs on 2026-10-02 were
 cancelled by newer pushes. WIP limits alone only reduce collision rate; a
-serial queue with rebase-and-re-verify eliminates them.
+serial queue with merge-and-re-verify eliminates them.
 
 Encoded in `lanes/merge_charter.py::MergeQueue`.
 

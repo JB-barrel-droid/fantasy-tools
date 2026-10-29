@@ -145,6 +145,10 @@ def check(page, tag, width) -> list[str]:
         add(page, "Mine", name)
     for name in pick["theirs"]:
         add(page, "Theirs", name)
+    # Up to 3-for-3, as test_v2_finder_render searches the same PICK rosters. Since JEG-1108 count balancing (e696bf25;
+    # Jeremy 2026-10-26: the throw-in is the supplying team's least valuable bench player) these rosters have no 2-for-2
+    # trade left, so the default size gave the equality check below nothing to compare.
+    page.select_option("#v2FindSize", "3")
     page.click("#v2FindGo")
     page.wait_for_timeout(700)
     trades_a, groups_a = page.evaluate(TRADES), page.evaluate(GROUPS)

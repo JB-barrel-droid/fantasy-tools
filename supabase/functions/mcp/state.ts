@@ -53,7 +53,8 @@ export function prepare(args: Record<string, unknown>, deps?: Deps): Prepared {
     } else {
       const r = deps.codec.decodeBlock(args.state);
       state = r.state;
-      warnings.push(...r.warnings);
+      // The codec's "no DDF state found" line repeats the sentence added below.
+      warnings.push(...r.warnings.filter((w) => !/no ddf state found/i.test(w)));
       if (!state) warnings.push("No usable DDF state was found in the pasted text; using the other settings.");
     }
   }
@@ -88,11 +89,13 @@ export function finish<R extends { content: Array<{ type: "text"; text: string }
   f: Finish,
 ): R {
   const { prepared, deps, settings: s } = f;
-  const notes = [...prepared.warnings];
+  const notes = [...new Set(prepared.warnings)];
 
   const league: State = { ...(prepared.state?.league ?? {}), scoring: s.scoring, teams: s.teams };
-  if (s.superflex && !(league.roster && league.roster.SUPERFLEX !== undefined)) {
-    league.roster = { ...(league.roster ?? {}), SUPERFLEX: 1 };
+  // The link must describe the league actually priced. An explicit superflex argument
+  // can override SF1 or SF0 in a pasted state, so replace that slot in either case.
+  if (s.superflex || league.roster?.SUPERFLEX !== undefined) {
+    league.roster = { ...(league.roster ?? {}), SUPERFLEX: s.superflex ? 1 : 0 };
   }
   const state: State = { v: 1, league, work: { ...(prepared.state?.work ?? {}), ...(f.work ?? {}), view: f.view } };
 

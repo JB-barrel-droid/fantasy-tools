@@ -7,9 +7,12 @@
 // The package selector picks the best combination of viable offers across all
 // opponents that never sends the same player twice.
 //
-// Value lenses: the user's side is judged on DDF Value ("ddf_value");
-// the other team's side on market value (mean of trade chart values, same
-// as the site's "chart_avg").
+// Value lenses (Jeremy, 2026-10-26 and 2026-10-28; JEG-1129): the user's side
+// is judged on DDF Value ("ddf_value", the mean of the charts' weight-adjusted
+// Indexed values); the other team's side on market value, the mean of the
+// trade charts' Indexed values (the site's "chart_avg" in the Indexed view).
+// The chart keys must therefore carry Indexed values: get-values sends them as
+// chart_indexed. Never ddf_value_charts, which equals DDF Value since JEG-1073.
 //
 // Every threshold is configurable through ViabilityConfig. Defaults listed
 // in DEFAULT_CONFIG are conservative and await Jeremy's review.
@@ -71,8 +74,9 @@ export interface ViabilityConfig {
   depthPlayerCutoff: number;
   /** Dead-weight cutoff: a player below this value is droppable for roster space. Default 0.5. */
   deadWeightCutoff: number;
-  /** Minimum healthy RB + WR backup count beyond starters. Default 1 each. */
+  /** Minimum healthy RB backups beyond starters. Default 1. */
   minRbBackups: number;
+  /** Minimum healthy WR backups beyond starters. Default 0 (Jeremy 2026-10-28, JEG-1129). */
   minWrBackups: number;
   /** User-defined guardrails. Default empty. */
   guardrails: Guardrail[];
@@ -89,7 +93,7 @@ export const DEFAULT_CONFIG: ViabilityConfig = {
   depthPlayerCutoff: 0.5,
   deadWeightCutoff: 0.5,
   minRbBackups: 1,
-  minWrBackups: 1,
+  minWrBackups: 0,
   guardrails: [],
 };
 
@@ -324,10 +328,7 @@ export function runViabilityChecks(
   const userLineupAfter = lineupStarterValue(userAfter, shape, ddf);
   const userLineupDelta = userLineupAfter - userLineupBefore;
 
-  const theirLineupBefore = lineupStarterValue(theirRoster, shape, "chart_avg_internal");
-  const theirLineupAfter = lineupStarterValue(theirAfter, shape, "chart_avg_internal");
-
-  // We need market-value lineup calculation. Attach chart_avg to rows.
+  // Their lineup on market value: attach each player's Indexed chart mean.
   const withMarket = (rows: ViabilityRow[]): ViabilityRow[] =>
     rows.map((r) => ({
       ...r,

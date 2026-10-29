@@ -1,44 +1,38 @@
 {
-  "run_at": "2026-10-27T19:29:00.459681+00:00",
+  "run_at": "2026-10-29T21:11:52.735419+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-full-12-qb1-section full_12_qb1/TE list 28 -> 27: dropped darren waller; added none | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-half-12-qb1-section half_12_qb1/TE list 28 -> 27: dropped darren waller; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 28 -> 27: dropped darren waller; added none)",
-    "fantasypros": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasypros-full-12-section full_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-full-12-section full_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-full-12-section full_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry | fantasypros-half-12-section half_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-half-12-section half_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-half-12-section half_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry | fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry)",
+    "fantasycalc": "promoted 3/3",
+    "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
+  "held": [
+    "razzball"
   ],
-  "success": false,
-  "outcome": "failed",
-  "held": [],
-  "hold_severity": "none",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-      "fantasycalc-full-12-qb1-section full_12_qb1/TE list 28 -> 27: dropped darren waller; added none",
-      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-      "fantasycalc-half-12-qb1-section half_12_qb1/TE list 28 -> 27: dropped darren waller; added none",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 28 -> 27: dropped darren waller; added none"
-    ],
-    "fantasypros": [
-      "fantasypros-full-12-section full_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-      "fantasypros-full-12-section full_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-      "fantasypros-full-12-section full_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry",
-      "fantasypros-half-12-section half_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-      "fantasypros-half-12-section half_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-      "fantasypros-half-12-section half_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry",
-      "fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-      "fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-      "fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry"
-    ]
+  "hold_severity": "amber",
+  "list_changes": {},
+  "held_detail": {
+    "razzball": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "2028/2028 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
+      "week": 8
+    }
   },
-  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -54,36 +48,19 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-full-12-qb1-section full_12_qb1/TE list 28 -> 27: dropped darren waller; added none | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-half-12-qb1-section half_12_qb1/TE list 28 -> 27: dropped darren waller; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 28 -> 27: dropped darren waller; added none",
+      "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-        "fantasycalc-full-12-qb1-section full_12_qb1/TE list 28 -> 27: dropped darren waller; added none",
-        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-        "fantasycalc-half-12-qb1-section half_12_qb1/TE list 28 -> 27: dropped darren waller; added none",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped rashid shaheed; added cooper kupp, rashod bateman",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 28 -> 27: dropped darren waller; added none"
-      ]
+      "list_change_warnings": []
     },
     "fantasypros": {
       "source": "fantasypros",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasypros-full-12-section full_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-full-12-section full_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-full-12-section full_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry | fantasypros-half-12-section half_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-half-12-section half_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-half-12-section half_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry | fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr | fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas | fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry",
+      "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasypros-full-12-section full_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-        "fantasypros-full-12-section full_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-        "fantasypros-full-12-section full_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry",
-        "fantasypros-half-12-section half_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-        "fantasypros-half-12-section half_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-        "fantasypros-half-12-section half_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry",
-        "fantasypros-standard-12-section standard_12/RB list 52 -> 52: dropped samaje perine; added chris rodriguez jr",
-        "fantasypros-standard-12-section standard_12/WR list 74 -> 74: dropped terry mclaurin; added demario douglas",
-        "fantasypros-standard-12-section standard_12/TE list 20 -> 20: dropped kenyon sadiq, pat freiermuth; added chig okonkwo, hunter henry"
-      ]
+      "list_change_warnings": []
     },
     "espn": {
       "source": "espn",
@@ -106,7 +83,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -114,7 +91,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-26 -> 12 DDF legs -> section; review passed (7776 values)",
+      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -125,10 +102,10 @@
   },
   "source_vintages": {
     "usatoday": {
-      "content_vintage": "2026-10-20",
-      "content_week": 7,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "2026-10-27",
+      "content_week": 8,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "fantasycalc": {
       "content_vintage": "Week 8",
@@ -143,46 +120,75 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-10-29",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "cbs": {
-      "content_vintage": "Week 7",
-      "content_week": 7,
-      "health_status": "warning",
-      "lagging_one_week": true
+      "content_vintage": "Week 8",
+      "content_week": 8,
+      "health_status": "ok",
+      "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-10-29",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-26",
-      "content_week": 7,
+      "content_vintage": "2026-10-27",
+      "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     }
   },
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs",
-      "FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash"
-    ],
-    "assertions": [
-      "AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []",
-      "AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []"
-    ],
-    "make_targets": [
-      "Makefile:618: test-core"
-    ],
-    "detail": "FAIL tests.test_week_history.DeltaRecomputeTest.test_delta_guard_fails_on_broken_states; FAIL tests.test_week_history.DeltaRecomputeTest.test_prior_week_is_engine_math_on_saved_inputs; FAIL tests.test_week_history.DeltaRecomputeTest.test_unmatched_served_week_is_a_warning_not_a_crash; AssertionError: Lists differ: [\"usatoday served week != chart: ['Efton C[1720 chars]rs)\"] != []; AssertionError: Lists differ: [\"cbs served week != chart: ['Brock Bowers[886 chars]rs)\"] != []",
-    "recorded_at": "2026-10-27T19:54:42.452924+00:00"
+  "source_weeks": {
+    "cbs": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-28T12:23:16+00:00",
+      "basis": "section_label"
+    },
+    "cbsros": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-29",
+      "basis": "section_label"
+    },
+    "espn": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-29",
+      "basis": "section_label"
+    },
+    "fantasycalc": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-29T14:07:10+00:00",
+      "basis": "section_label"
+    },
+    "fantasypros": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "razzball": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    },
+    "usatoday": {
+      "served_week": 8,
+      "label_week": 8,
+      "published_at": "2026-10-27",
+      "basis": "section_label"
+    }
+  },
+  "fidelity_holds": {
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }

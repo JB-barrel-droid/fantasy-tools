@@ -221,6 +221,7 @@ def run_checks(js_patch=None) -> list[str]:
 
             # 4. 390 px: the Advanced section opens without sideways scroll.
             phone = open_page(base + "#player-values", 390, 844)
+            _render_env.open_phone_context(phone)  # JEG-1134: on a phone the context row opens first
             phone.click("#v2EditLeague")
             phone.click("#v2Popover details.v2-padv summary")
             phone.click("#v2BenchOverride")

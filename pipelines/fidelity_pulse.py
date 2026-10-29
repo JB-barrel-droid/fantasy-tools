@@ -1313,7 +1313,8 @@ def stage_chart(source: str, site_doc: dict | None, site_error: str | None, stor
         newer_g, _ = stored_grains(source, newer["rows"], ident)
         diff = compare(stored_g, newer_g, printed=False)
         if problem_count(diff) or stored.get("week") != week:
-            behind = {"bake_id": newer["bake_id"], "saved_at": iso(newer["saved_at"]), "week": stored.get("week"),
+            behind = {"bake_id": newer["bake_id"], "saved_at": iso(newer["saved_at"]),
+                      "pulled_at": iso(newer.get("pulled_at")), "week": stored.get("week"),
                       "changed_values": len(diff["mismatches"]), "added": len(diff["extra"]),
                       "dropped": len(diff["missing"])}
             status = worst(status, "amber")
@@ -2289,6 +2290,42 @@ def _is_merely_lagging(stage_name: str, stage_dict: dict) -> bool:
     return False
 
 
+SCOPE_STORED_NEWER = "stored_newer_than_site"  # == fidelity_hold.SCOPE_STORED_NEWER
+
+
+def _red_is_stored_side(stage_name: str, stage_dict: dict) -> bool:
+    """A red that judges the stored rows only, never the live chart.
+
+    publisher_vs_stored compares the publisher with the latest stored save.
+    scrape_validity is stored-side when every red count drop is on the
+    stored side; rank inversions and sentinel failures read the chart."""
+    if stage_name == "publisher_vs_stored":
+        return True
+    if stage_name == "scrape_validity":
+        signals = stage_dict.get("signals") or {}
+        if signals.get("rank_inversions") or signals.get("sentinel_failures"):
+            return False
+        red = [d for d in signals.get("count_drops") or [] if d.get("severity") == "red"]
+        return bool(red) and all(d.get("side") == "stored" for d in red)
+    return False
+
+
+def red_scope(stages: dict, red: list[str]) -> str | None:
+    """JEG-1194: SCOPE_STORED_NEWER when every red judges only a stored save
+    that is newer than the live chart (stored_vs_chart reports `behind`).
+
+    On 10-28 the CBS week 8 save had no tight ends (scrape_validity red,
+    "stored TE 10->0") while the live chart was the good week 7 one. The
+    hold carried the live chart's identity as measured_site, so the chain
+    held the week 7 section, hid its values and failed validate for every
+    source. Such a red says nothing about the live chart; it is about any
+    build made from the newer save."""
+    behind = (stages.get("stored_vs_chart") or {}).get("behind")
+    if behind and red and all(_red_is_stored_side(n, stages.get(n) or {}) for n in red):
+        return SCOPE_STORED_NEWER
+    return None
+
+
 def hold_decision(result: dict, identity: str | None, held: dict | None, now: datetime,
                    measured_site: str | None = None) -> dict | None:
     """JEG-520: a red in a holding stage holds the source; amber and unknown never do.
@@ -2301,11 +2338,23 @@ def hold_decision(result: dict, identity: str | None, held: dict | None, now: da
     red = [n for n in HOLD_STAGES if (result["stages"].get(n) or {}).get("status") == "red"]
     if red:
         first = red[0]
-        return {"stage": first, "stages": red, "hold_level": "red",
+        hold = {"stage": first, "stages": red, "hold_level": "red",
                 "reason": HOLD_PREFIX + first, "identity": identity,
                 "measured_site": measured_site,
                 "since": (held or {}).get("since") if (held or {}).get("reason") == HOLD_PREFIX + first else iso(now),
                 "summary": str(result["stages"][first].get("summary") or "")[:300]}
+        scope = red_scope(result["stages"], red)
+        if scope:
+            hold["scope"] = scope
+            # The save the red judged, as the chain names it: a chart bake's
+            # pulled_at (= a section's snapshot_fetched_at) or a projection
+            # snapshot. The chain then skips a build from a later save, such
+            # as a fixed re-ingest, instead of holding it (JEG-1194).
+            behind = result["stages"]["stored_vs_chart"]["behind"]
+            judged = behind.get("snapshot") or behind.get("pulled_at")
+            if judged:
+                hold["judged_save"] = judged
+        return hold
     # JEG-726: amber holds for merely-lagging conditions (visible label only,
     # source stays in DDF Value).
     amber = [n for n in HOLD_STAGES

@@ -42,5 +42,5 @@ Contract: one or two sentences — what was the session's goal?
 
 ## Archive
 
-`docs/claude-log.md` is the frozen archive of entries from before 2026-10-07.
+`archive/2026-10-12-docs/claude-log.md` is the frozen archive of entries from before 2026-10-07.
 Its format is identical; read it for historical context but do not append to it.

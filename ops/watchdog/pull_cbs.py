@@ -178,6 +178,13 @@ def parse_tables(html):
         for tr in re.finditer(r"<tr.*?>(.*?)</tr>", body, re.S):
             cells = [re.sub(r"<.*?>", "", c).strip()
                      for c in re.findall(r"<td.*?>(.*?)</td>", tr.group(1), re.S)]
+            # Week 8 2026: the TE table's header was a bold <td> row, not <th>,
+            # so it had no headers and every TE was dropped downstream for
+            # missing columns. A "Player" row is a header row, never a player.
+            if cells and cells[0].lower() == "player":
+                if not headers:
+                    headers = cells
+                continue
             # CBS tables have no rank column: first cell is the player name.
             # (An isdigit() filter here silently dropped every row.)
             if cells and cells[0].strip():

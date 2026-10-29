@@ -444,16 +444,27 @@
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole page`}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}Help`,
       text: target === "mine"
-        ? "Type a name to search, or paste your team page from any fantasy site (Ctrl+A, Ctrl+C on the page). Pasted text stays in this browser; nothing is sent anywhere."
-        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. Pasted text stays in this browser."});
+        ? "Type a name to search, or paste your team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. It stays on this device; nothing is sent anywhere."
+        : "Type a name to search, or paste a waiver wire page or a list of names. As many as you like: each paste adds to the list. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
+    // JEG-1190: Clear says what it did and offers Undo. Your roster is the one shared with both Find a trade screens, so
+    // the message says it is cleared there too (Claude's pick under Jeremy's 2026-10-28 rule; see the picks log).
     clear.addEventListener("click", () => {
+      const before = stores[target].get().slice();
       stores[target].set([]);
-      result.replaceChildren();
       input.value = "";
       results.replaceChildren();
       results.hidden = true;
+      const undo = el("button", {type: "button", class: "v2-link v2-wv-undo", id: `${id}Undo`, text: "Undo"});
+      undo.addEventListener("click", () => {
+        stores[target].set(before);
+        result.replaceChildren(el("p", {class: "v2-meta", text: `${title} is back.`}));
+        schedule();
+        input.focus();
+      });
+      result.replaceChildren(el("p", {class: "v2-meta v2-wv-cleared"},
+        document.createTextNode(target === "mine" ? "Cleared your roster here and on both Find a trade screens. " : `Cleared ${title.toLowerCase()}. `), undo));
       schedule();
       input.focus();
     });
@@ -595,7 +606,7 @@
       if (!q || !engine() || !root.TradeValueNameSearch) return;
       const onList = stores.mine.get().concat(stores.cands.get());
       const hits = root.TradeValueNameSearch.search(rowsAll().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = onList.some(p => p.key === key || (F.isNotEvaluated(p) && F.isNotEvaluated(row) && p.pos === row.pos && F.normName(p.name) === F.normName(row.name)));
@@ -661,7 +672,7 @@
     const rows = [r.candidate].concat(dropRow ? [dropRow] : []);
     // A chart price that shows as 0.0 is no price: a dash, never zero.
     const cell = (row, k) => (row.values && typeof row.values[k] === "number" && Number.isFinite(row.values[k]) && row.values[k] >= USABLE_MIN ? row.values[k].toFixed(1) : "—");
-    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "Market value by trade chart"}),
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "The Market, by chart"}),
       el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Player"}), ...CHART_KEYS.map(k => el("th", {scope: "col", text: CHART_NAMES[k]})), el("th", {scope: "col", text: "Average"}))),
       el("tbody", {}, ...rows.map(row => el("tr", {}, el("th", {scope: "row", text: row.name}), ...CHART_KEYS.map(k => el("td", {class: "num", text: cell(row, k)})),
         el("td", {class: "num", text: row.values && api.marketOf(row) !== null ? api.marketOf(row).toFixed(1) : "—"}))))));
@@ -933,7 +944,7 @@
       autocomplete: "off", spellcheck: "false", "aria-describedby": "v2WaiversAnyHelp"});
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole roster page or waiver page from a fantasy site"}), input);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: "v2WaiversAnyHelp",
-      text: "On your team page or the free-agent page of ESPN, Yahoo or Sleeper, press Ctrl+A then Ctrl+C, and paste here. It works out which list it is and fills it in. Pasted text stays in this browser."});
+      text: "Open your team page or your league's free-agent page, press Ctrl+A, then Ctrl+C (Cmd on a Mac), and paste here. We work out which list it is and fill it in. It stays on this device."});
     const result = el("div", {class: "v2-find-paste-result", id: "v2WaiversAnyResult", role: "status", "aria-live": "polite"});
     const siteName = site => ({espn: "ESPN", yahoo: "Yahoo", sleeper: "Sleeper"}[site] || "");
     function route(text, kind, site) {

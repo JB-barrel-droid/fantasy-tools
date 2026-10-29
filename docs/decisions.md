@@ -262,6 +262,8 @@ Option 2, chosen by Jeremy (2026-10-06, explicit): "I don't want muse owning thi
 
 Approved by Jeremy in session on 2026-10-06; recorded as `proceeded` because the format has no `approved` outcome.
 
+Amended 2026-10-26 (Jeremy, in chat: "Set it up with two tickets for now, items in backlog that are low risk"; "I gave muse the one ticket"): Muse owns Linear tickets labeled `muse` (first: JEG-1145), on `muse/*` branches, and opens PRs but never merges. Everything else above stands.
+
 ## league-settings-001: Save one league setup; derive other league settings in the browser
 - id: league-settings-001
 - created: 2026-10-06
@@ -1036,3 +1038,11 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1218: Claude reviews and merges; Codex is out
+
+Jeremy, 2026-10-29 19:12 UTC (in chat): "I want to get off of Codex I think, having you use a seperate reviewer makes sense. Codex is slowing us down." Claude sessions now own review and merging; every PR gets one independent review from a Claude session that did not write it. At 20:10 UTC he picked A: a Codex pass on a PR's exact current head counts as that PR's one review. He approves merges by PR number, and at 21:08 UTC gave a standing OK: "merge anything you recommend once it is green". Value changes, Supabase changes and edge deploys still need his yes each time. The rules are in `AGENTS.md` "Review and merge protocol"; they replace the Codex-coordinator protocol of closed PR #1073.
+
+## JEG-1310: CBS rest of season stays as it has been
+
+Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.
