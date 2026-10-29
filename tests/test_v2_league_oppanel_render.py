@@ -13,7 +13,7 @@ from __future__ import annotations
 import re
 import unittest
 
-from tests._league_render import browser_on_build, open_page, seed, source, wait_opps
+from tests._league_render import SEED, browser_on_build, fixture, open_page, seed, source, wait_opps
 
 PANEL = """() => { const p = document.getElementById('v2LgOppPanel'); if (!p) return null;
   const side = s => { const n = p.querySelector(`[data-side="${s}"]`); if (!n) return null;
@@ -62,6 +62,13 @@ def check(browser, base, overrides=None):
         errors.append(f"viability slot does not carry '<fit> · <level> viability' (JEG-1108): {s['viability']!r}")
     if s["selected"] != [first_id] or f"trade=" not in s["hash"]:
         errors.append(f"row not highlighted or address has no pick: {s['selected']} {s['hash']}")
+    if not page.evaluate("""() => { const row = document.querySelector('#v2LgOppsTable tr.v2-lg-opp.is-selected');
+      const panel = document.getElementById('v2LgOppPanel');
+      return row && row.nextElementSibling?.contains(panel) &&
+        panel.querySelector('h3')?.textContent.startsWith('Trade details:') &&
+        document.activeElement === panel.querySelector('h3') &&
+        row.querySelector('[data-pick-for]')?.getAttribute('aria-expanded') === 'true'; }"""):
+        errors.append("selected trade details are not immediately below the selected row with focus and expanded state")
     # The pick survives Show all and Show top 10 only.
     page.click("#v2LgOppsAll")
     page.wait_for_timeout(200)
@@ -100,12 +107,39 @@ class LeagueOppPanelRenderTest(unittest.TestCase):
     def test_panel(self):
         self.assertEqual(run_checks(), [])
 
+    def test_phone_panel_stays_inside_selected_card(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, width=390, height=844)
+            seed(page, "20team")
+            wait_opps(page, timeout=90000)
+            page.locator("#v2LgOppsCards .v2-lg-pick-btn").first.click()
+            page.wait_for_selector("#v2LgOppPanel")
+            self.assertTrue(page.evaluate("""() => { const card = document.querySelector('#v2LgOppsCards .v2-lg-card.is-selected');
+              const panel = document.getElementById('v2LgOppPanel');
+              return card?.contains(panel) && document.activeElement === panel.querySelector('h3') &&
+                card.querySelector('[data-pick-for]')?.getAttribute('aria-expanded') === 'true'; }"""))
+            page.locator("#v2LgOppPanelClose").click()
+            self.assertFalse(page.locator("#v2LgOppPanel").count())
+            self.assertTrue(page.evaluate("() => Boolean(document.activeElement.closest('#v2LgOppsCards'))"))
+            page.close()
+
+    def test_eight_team_mismatch_has_no_null_and_quick_fix_works(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base)
+            page.evaluate(SEED, [{"teams": fixture("20team")["teams"][:8]}, 0])
+            page.wait_for_selector("#v2LgMatchTeams")
+            self.assertNotIn("null", page.locator("#v2LgMismatch").inner_text().lower())
+            page.locator("#v2LgMatchTeams").click()
+            self.assertTrue(page.locator("#v2LgMismatch").is_hidden())
+            self.assertEqual(page.evaluate("() => window.TradeValueCurveControls.getState().teams"), 8)
+            page.close()
+
     def test_guard_fails_on_broken_builds(self):
         league = source("league.js")
         broken = {
-            "row click ignored": league.replace('if (!tr || event.target.closest("button, a, select, input")) return;', "return;", 1),
+            "row click ignored": league.replace('if (!tr || event.target.closest("button, a, select, input, summary, details")) return;', "return;", 1),
             "escape ignored": league.replace('if (event.key !== "Escape" || !UI.selectedOpp) return;', "return;", 1),
-            "pick dropped on re-render": league.replace("const chosen = UI.selectedOpp ? sorted.find(r => r.id === UI.selectedOpp) : null;", "const chosen = null;", 1),
+            "pick dropped on re-render": league.replace('const picked = UI.selectedOpp === r.id;', 'const picked = false;', 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):

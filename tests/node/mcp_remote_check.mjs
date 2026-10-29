@@ -262,11 +262,19 @@ const chartPlayers = [
     chart_values: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
     chart_indexed: { usatoday: 0, fantasycalc: 0, fantasypros: 0, cbs: 0 },
     ddf_value_charts: 0, ddf_value_projections: 0 },
+  // JEG-1115: a player the trade charts price far below DDF Value, so a trade exists
+  // (you gain on DDF Value, the charts say the rival breaks even or wins).
+  { player_key: 6, name: "Chart Gem", pos: "RB", value: 45, tier: "starter",
+    chart_values: { usatoday: 45, fantasycalc: 45, fantasypros: 45, cbs: 45 },
+    chart_indexed: { usatoday: 10, fantasycalc: 11, fantasypros: 9, cbs: 10 },
+    ddf_value_charts: 45, ddf_value_projections: 45 },
 ];
 const chartStub = async (scoring, teams, superflex) => ({
   attribution: "Data Driven Football", as_of: "2026-10-24",
   setting: { scoring, teams, superflex }, players: chartPlayers,
   sources_included: ["espn", "usatoday", "fantasycalc", "fantasypros", "cbs"], sources_excluded: [],
+  // JEG-1115: the engine's bench-share readout, the fit rule's bench weights.
+  bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 },
 });
 const finderDeps = { finder, fetchCharts: chartStub };
 const callF = (name, args) => handleRpc(
@@ -298,6 +306,32 @@ if (ft.trades.length > 0) {
   if (first.viable) {
     assert.ok(["High", "Med-High", "Medium"].includes(first.label), "viable offer has a label");
   }
+}
+
+// JEG-1115: every returned trade carries the finder's fit label and reason, in the text too.
+// Chart Gem is cheap on the charts and dear on DDF Value, so trades exist.
+{
+  r = await callF("find_trades", { mine: "Josh Allen, Josh Jacobs", theirs: "Chart Gem, Bijan Robinson" });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const trades = r.result.structuredContent.trades;
+  assert.ok(trades.length > 0, "the fit fixture finds trades");
+  for (const t of trades) {
+    assert.ok(["Natural", "Market supported", "Force"].includes(t.fit), "trade has a fit label: " + JSON.stringify(t));
+    assert.equal(typeof t.fitReason, "string", "trade has a fit reason");
+    assert.ok(t.fitReason.startsWith(t.fit === "Market supported" ? "Market supported" : `${t.fit} fit`), "the reason names the label: " + t.fitReason);
+  }
+  assert.match(r.result.content[0].text, /\n   (Natural fit|Market supported|Force fit): /, "the text shows the fit and its reason");
+  r = await callF("find_trades_league", { mine: "Josh Allen, Josh Jacobs", opponents: [{ name: "Gem Team", roster: "Chart Gem, Bijan Robinson" }] });
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+  const lt = r.result.structuredContent.trades;
+  assert.ok(lt.length > 0 && lt.every((t) => ["Natural", "Market supported", "Force"].includes(t.fit)), "league trades carry the fit: " + JSON.stringify(lt));
+  for (const o of r.result.structuredContent.package.offers) assert.ok(o.fit, "package offers carry the fit");
+  // An older get-values with no bench_share readout: the fit is left out, never approximated.
+  const noReadout = async (scoring, teams, superflex) => { const { bench_share, ...rest } = await chartStub(scoring, teams, superflex); return rest; };
+  r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "find_trades",
+    arguments: { mine: "Josh Allen, Josh Jacobs", theirs: "Chart Gem, Bijan Robinson" } } }, stub, deps, { finder, fetchCharts: noReadout });
+  assert.notEqual(r.result.isError, true);
+  assert.ok(r.result.structuredContent.trades.length > 0 && r.result.structuredContent.trades.every((t) => t.fit === undefined), "no readout, no fit");
 }
 
 // JEG-1129: the other team is judged on the trade charts' Indexed values (chart_indexed), never on

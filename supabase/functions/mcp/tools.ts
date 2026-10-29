@@ -7,11 +7,13 @@
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
 import { type NameMatch, matchName, splitNames } from "./names.ts";
+import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
 import {
   type RosterShape,
   type ViabilityConfig,
   type ViabilityRow,
   type TradeOfferInput,
+  type ScoredOffer,
   DEFAULT_CONFIG,
   runViabilityChecks,
   scoreAndRankOffers,
@@ -57,6 +59,8 @@ export interface ChartPlayerValue extends PlayerValue {
 
 export interface ChartValuesResponse extends ValuesResponse {
   players: ChartPlayerValue[];
+  /** The engine's bench-share readout, the fit rule's bench weights (JEG-1115). */
+  bench_share?: BenchShareReadout;
 }
 
 /** Fetches values with chart series included (for find_trades). */
@@ -241,7 +245,7 @@ export const TOOLS = [
   {
     name: "make_state",
     description:
-      "Save work from this chat as a DDF state the person can paste into the Data Driven Football site (or open by link): league settings plus a trade, rosters or a target player, by name. Returns the pasteable block and the link.",
+      "Save work from this chat as a Data Driven Football site link the person opens to continue there: league settings plus a trade, rosters or a target player, by name. Returns the link (and the same state as a block).",
     inputSchema: {
       type: "object",
       properties: {
@@ -255,7 +259,7 @@ export const TOOLS = [
   {
     name: "find_trades",
     description:
-      "Find trade packages between two rosters, scored for viability. Lists trades where you gain DDF Value and at least 3 of 4 trade charts say the other team breaks even or wins. Each trade is scored on 9 viability checks (arbitrage, fairness, lineup improvement, position protection, depth, roster space, QB, guardrails) and labelled High/Med-High/Medium when viable. Set viable_only to see only the trades most likely to be accepted.",
+      "Find trade packages between two rosters, scored for viability. Lists trades where you gain DDF Value and at least 3 of 4 trade charts say the other team breaks even or wins. Each trade is scored on 9 viability checks (arbitrage, fairness, lineup improvement, position protection, depth, roster space, QB, guardrails) and labelled High/Med-High/Medium when viable. Each trade also carries the fit label the site's finder shows (Natural / Market supported / Force) with a one-line reason. Set viable_only to see only the trades most likely to be accepted.",
     inputSchema: {
       type: "object",
       properties: {
@@ -274,7 +278,7 @@ export const TOOLS = [
   {
     name: "find_trades_league",
     description:
-      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns a short line per trade (players, DDF edge, lineup change, label, failed check names) and the package with your projected lineup after.",
+      "Find the best trades across an entire league. Takes your roster and a list of opponents with their rosters, scores every candidate on 9 viability checks, ranks viable offers first, and selects the best package of trades (no player sent twice, each opponent at most once). Returns a short line per trade (players, DDF edge, lineup change, label, failed check names, and the fit label Natural / Market supported / Force with its reason) and the package with your projected lineup after.",
     inputSchema: {
       type: "object",
       properties: {
@@ -448,6 +452,8 @@ function slimOffer(o: {
   label: string | null;
   temporaryGap: boolean;
   checks: Array<{ name: string; passed: boolean }>;
+  fit?: string | null;
+  fitReason?: string | null;
 }, withTeam: boolean) {
   const side = (rows: Array<{ name: string; pos: string; ddfValue: number | null }>): SlimPlayer[] =>
     rows.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue }));
@@ -462,6 +468,8 @@ function slimOffer(o: {
     label: o.label,
     failed,
     ...(o.temporaryGap ? { temporaryGap: true } : {}),
+    // JEG-1115: the fit label the finder shows (Natural / Market supported / Force) and its reason.
+    ...(o.fit ? { fit: o.fit, fitReason: o.fitReason ?? null } : {}),
   };
 }
 
@@ -471,7 +479,9 @@ function tradeLine(index: number, o: ReturnType<typeof slimOffer>, team?: string
   const vs = team ? ` vs ${team}` : "";
   const edge = o.ddfEdge >= 0 ? `+${o.ddfEdge.toFixed(1)}` : o.ddfEdge.toFixed(1);
   const lineup = o.lineup >= 0 ? `+${o.lineup.toFixed(1)}` : o.lineup.toFixed(1);
-  return `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
+  const line = `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
+  // JEG-1115: the finder's fit label and one-line reason (fitText opens with the label).
+  return o.fit ? `${line}${o.fitReason ? `\n   ${o.fitReason}` : ` | ${o.fit}`}` : line;
 }
 
 // JEG-1123: the text lists the top rows only, so a long result is not sent twice;
@@ -877,7 +887,10 @@ async function findTradesHandler(
   let scored = scoreAndRankOffers(offers, shape, vConfig);
   if (viableOnly) scored = scored.filter((o) => o.viable);
   scored = scored.slice(0, limit);
-  const trades = scored.map((o) => slimOffer(o, false));
+  // JEG-1115: the fit label the finder shows, judged only for the trades returned.
+  const finder = finderDeps.finder;
+  const fitCtx = fitContextFor(finder, data, shape);
+  const trades = scored.map((o) => slimOffer(withFit(o, finder, fitCtx, mineRows, theirRows, rowByKey), false));
 
   const entry = (input: string, p: PlayerValue | null) =>
     p ? { key: String(p.player_key), name: p.name } : { name: input };
@@ -919,6 +932,42 @@ async function findTradesHandler(
   return finish(ok(lines.join("\n"), structured), {
     prepared, deps, settings: s, view: "finder", work,
   });
+}
+
+/**
+ * JEG-1115: the fit context for a chart response. The compared charts are the ones get-values
+ * priced (a Trade chart average needs MIN_CHARTS of them, the page's marketKeys() bar); the
+ * bench weights are the engine's own readout, published by get-values as bench_share
+ * (Jeremy's pick B, 2026-10-26). With no readout the fit is left unjudged rather than
+ * approximated. Expected depth is not published, so it stays null: that only drops the depth
+ * sentence from the reason and never moves the label.
+ */
+function fitContextFor(finder: Finder, data: ChartValuesResponse, shape: RosterShape): FitContext | null {
+  const weights = benchWeightsFromReadout(data.bench_share);
+  if (!weights) return null;
+  const f = finder as unknown as FitFinder;
+  const chartKeys = (f.CHART_KEYS || []).filter((k) => data.sources_included.includes(k));
+  return buildFitContext(f, { shape, chartKeys, weights, expected: null, z: f.FIT_Z });
+}
+
+/** JEG-1115: one scored offer with the finder's fit label and reason (null when not judged). */
+function withFit<T extends ScoredOffer>(
+  o: T,
+  finder: Finder,
+  ctx: FitContext | null,
+  mineRows: FinderRow[],
+  theirRows: FinderRow[],
+  rowByKey: Map<number, FinderRow>,
+): T & { fit: string | null; fitReason: string | null } {
+  if (!ctx) return { ...o, fit: null, fitReason: null };
+  const rows = (side: Array<{ player_key: number }>) =>
+    side.map((p) => rowByKey.get(p.player_key)).filter((r): r is FinderRow => !!r) as unknown as FitRow[];
+  const give = rows(o.userGives);
+  const receive = rows(o.userGets);
+  if (give.length !== o.userGives.length || receive.length !== o.userGets.length) return { ...o, fit: null, fitReason: null };
+  const fit = fitForTrade(finder as unknown as FitFinder, mineRows as unknown as FitRow[], theirRows as unknown as FitRow[],
+    give, receive, ctx);
+  return { ...o, fit: fit.fit, fitReason: fit.fit_reason };
 }
 
 /** Minimal ViabilityRow from a trade candidate player summary. */
@@ -965,6 +1014,8 @@ async function findTradesLeagueHandler(
   const limit = parseBounded(a.limit, "limit", 10, 1, 100);
 
   const allOffers: TradeOfferInput[] = [];
+  const theirRowsByTeam = new Map<string, FinderRow[]>();
+  const allRowsByKey = new Map<number, FinderRow>();
   const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
   const nameNotes = [...mineRes.notes];
 
@@ -987,6 +1038,8 @@ async function findTradesLeagueHandler(
     const rowByKey = new Map<number, FinderRow>();
     for (const r of mineRows) rowByKey.set(r.player_key, r);
     for (const r of theirRows) rowByKey.set(r.player_key, r);
+    theirRowsByTeam.set(opp.name, theirRows);
+    for (const [k, r] of rowByKey) allRowsByKey.set(k, r);
 
     const pairResult = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
       maxSize: maxPerSide,
@@ -1019,9 +1072,14 @@ async function findTradesLeagueHandler(
   // Package: best viable combination.
   const pkg = selectPackage(scored, mineRows, shape, vConfig.ddfKey);
 
-  const shownTrades = scored.slice(0, limit).map((o) => slimOffer(o, true));
+  // JEG-1115: the fit label the finder shows, judged only for the trades returned.
+  const finder = finderDeps.finder;
+  const fitCtx = fitContextFor(finder, data, shape);
+  const fitted = (o: ScoredOffer) =>
+    withFit(o, finder, fitCtx, mineRows, theirRowsByTeam.get(o.team) ?? [], allRowsByKey);
+  const shownTrades = scored.slice(0, limit).map((o) => slimOffer(fitted(o), true));
   const viableCount = scored.filter((o) => o.viable).length;
-  const packageOffers = pkg.offers.map((o) => slimOffer(o, true));
+  const packageOffers = pkg.offers.map((o) => slimOffer(fitted(o), true));
 
   const lines: string[] = [
     ...header(data, s),
@@ -1187,7 +1245,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const text = [
     ...header(data, s),
     "",
-    "Saved as a DDF state. The person can paste the block below into the site's paste box, or open the link.",
+    "Saved as a DDF state. The person opens the link below to continue on the site.",
     ...(unmatched.length ? [`Could not match: ${unmatched.join(", ")} (kept by name; the site will try again).`] : []),
   ].join("\n");
   return finish(ok(text, { as_of: data.as_of, setting: data.setting, unmatched }), {

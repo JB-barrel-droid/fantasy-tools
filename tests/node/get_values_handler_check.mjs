@@ -88,6 +88,19 @@ if (body.players.length) {
   assert.ok(differs.length > body.players.length / 4,
     `Indexed and Adjusted chart values differ for most players (${differs.length} of ${body.players.length})`);
 }
+// JEG-1115: include=charts also sends the engine's bench-share readout (bench_share), the weights the
+// connector's fit label counts bench players at, so it matches the site instead of rebuilding them.
+{
+  const bs = body.bench_share;
+  assert.ok(bs && typeof bs === "object", "include=charts sends bench_share");
+  for (const k of ["QB", "RB", "WR", "TE", "overall", "input"]) {
+    assert.ok(k in bs, `bench_share.${k} is present`);
+    assert.ok(bs[k] === null || (Number.isFinite(bs[k]) && bs[k] >= 0 && bs[k] <= 1), `bench_share.${k} is a share or null: ${bs[k]}`);
+  }
+  assert.ok(Number.isFinite(bs.overall) || Number.isFinite(bs.input), "an overall share or the league input is set");
+  res = await ask({ scoring: "half_ppr", teams: 12 }, "6.6.6.7");
+  assert.equal((await res.json()).bench_share, undefined, "plain get-values stays as it was");
+}
 
 // GET with a JSON league string works; garbage league is ignored, not a 500.
 res = await handler(new Request("https://fn.test/functions/v1/get-values?scoring=ppr&teams=12&league=" +
