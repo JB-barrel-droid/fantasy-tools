@@ -4,7 +4,7 @@
 Jeremy, 2026-10-29 (option C): "get the fantasy pros ranking, the rankings from hayden winks
 and other yahoo analysts, the rankings from espn analysts ... start with 4-5 sources, piped
 through supabase". These are RANKINGS for research and review. They never feed DDF Value or
-DDF Projections (docs/pipeline-rules.md section 8; tests/test_ros_rankings_isolation.py).
+DDF Projections (docs/pipeline-rules.md section 7; tests/test_ros_rankings.py).
 
 Sources that read cleanly from a GitHub runner without a sign-in (probe runs 2026-10-29):
 
