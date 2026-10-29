@@ -983,6 +983,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
   const mineListeners = [];
   // JEG-1219: the matchup is view context. League/Waivers keep the marked roster; neither finder side writes it.
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
+  // JEG-1114: the settings this tab last applied, and whether an opened link's settings hold this tab. Another tab's
+  // unrelated write (a rename, the star) carries the same saved settings and must not re-apply them or clear the results;
+  // while a link holds the tab, no other-tab pull replaces its settings until the reader changes one here or loads a
+  // league (a same-tab load or replace always reconciles).
+  const settingsKey = settings => JSON.stringify(settings);
+  let appliedSettings = null;
+  let linkHolds = false;
   const savedSettings = () => {
     const W = root.TradeValueWorkspace;
     return W && W.store ? W.normalizeFinderSettings(W.store.get().ui.finderSettings) : null;
@@ -1012,6 +1019,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const W = root.TradeValueWorkspace;
     if (!W || !W.store) return;
     const value = W.normalizeFinderSettings({...S.guardrails, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs});
+    linkHolds = false;
+    appliedSettings = settingsKey(value);
     W.store.update(w => W.ops.setUi(w, {finderSettings: value}), "finder-settings");
   };
   let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
@@ -1188,12 +1197,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     S.maxSize = decoded.size;
     S.keepMine = decoded.keepMine;
     S.keepTheirs = decoded.keepTheirs;
-    applySettings(root.TradeValueWorkspace.normalizeFinderSettings({...decoded.guardrails, maxSize: decoded.size,
-      keepMine: decoded.keepMine, keepTheirs: decoded.keepTheirs}));
+    const linkSettings = root.TradeValueWorkspace.normalizeFinderSettings({...decoded.guardrails, maxSize: decoded.size,
+      keepMine: decoded.keepMine, keepTheirs: decoded.keepTheirs});
+    applySettings(linkSettings);
     const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
     const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
     const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
     linkPending = hasRosters;
+    // The opened link wins in this tab, across other tabs' writes. Like its rosters (JEG-1219), its settings stay this
+    // tab's: nothing is written to the saved league.
+    appliedSettings = settingsKey(linkSettings);
+    linkHolds = true;
     return decoded;
   }
   // The "Copy link to this search" button: both rosters, the package size, the lineup ticks and the league settings.
@@ -2511,11 +2525,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       pullMine();
       updateSavedTeamPicker();
       if (!["load", "replace", "other-tab"].includes(change.reason)) return;
-      applySettings(root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings));
+      if (linkHolds && change.reason === "other-tab") return;
+      linkHolds = false;
+      const incoming = root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings);
+      const key = settingsKey(incoming);
+      if (key === appliedSettings) return;
+      appliedSettings = key;
+      applySettings(incoming);
       if ($("v2FindOut")) clearOutput();
     });
   }
-  const start = () => { restoreRosterCopy(); applySettings(savedSettings()); build(); pullMine(); if (rosterCopy) renderBoth(); updateSavedTeamPicker(); };
+  const start = () => { restoreRosterCopy(); const saved = savedSettings(); if (saved) appliedSettings = settingsKey(saved); applySettings(saved); build(); pullMine(); if (rosterCopy) renderBoth(); updateSavedTeamPicker(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);
