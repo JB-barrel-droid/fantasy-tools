@@ -15,6 +15,20 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1236 Codex integration preparation (2026-10-29 UTC)
+
+- New branch `codex/JEG-1236-release-prep-20261029` preserves Claude PR #1097 at
+  `18571e920f8e1da080ae06ac8a58d5578e1e8573`; the source branch is unchanged.
+  Normal clean merge `843eacc54abaf9473d0197aca866b0237dceab2d` integrates main
+  `430791c41ca9578d878c14c3a37d37a0f3fe0670`, including all of its existing files.
+- Phone-test bytes and the scoped 44 px CSS rule are preserved. Nine focused
+  build/token checks and compile/JS parse checks pass. Prior independent Mac
+  two-test / eleven-mutation evidence is reused for unchanged code; no fresh
+  browser PASS is claimed. Exact-head CI and coordinator delta review remain.
+- Draft integration only; no merge/deploy/deletion authorization. New-branch
+  cleanup permission is not inherited. Evidence:
+  `docs/claude-log/2026-10-29-jeg-1236-codex-integration.md`.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
