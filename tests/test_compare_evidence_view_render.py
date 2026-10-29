@@ -48,8 +48,14 @@ READ = r"""() => {
     if (!root) { bad(`${c.id}: not rendered`); return; }
     const box = root.getBoundingClientRect();
     root.querySelectorAll("*").forEach(el => {
-      if (!el.closest('[data-cev-slot="readout"]') && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).display !== "inline")
-        bad(`${c.id}: ${el.className || el.tagName} content is wider than its box (${el.scrollWidth} > ${el.clientWidth})`);
+      if (!el.closest('[data-cev-slot="readout"]') && el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).display !== "inline") {
+        // Name the widest descendant past the box's right edge, so a CI failure says what to fix.
+        const edge = el.getBoundingClientRect().right;
+        let worst = null;
+        el.querySelectorAll("*").forEach(d => { const r = d.getBoundingClientRect(); if (r.width && r.right > edge + 1 && (!worst || r.right > worst.r)) worst = {d, r: r.right, w: r.width}; });
+        const who = worst ? ` by ${worst.d.className || worst.d.tagName} (${Math.round(worst.w)} wide, ${Math.round(worst.r - edge)} past)` : "";
+        bad(`${c.id}: ${el.className || el.tagName} content is wider than its box (${el.scrollWidth} > ${el.clientWidth})${who}`);
+      }
       const r = el.getBoundingClientRect();
       if (r.width && (r.right > box.right + 1 || r.left < box.left - 1)) bad(`${c.id}: ${el.className || el.tagName} overflows its card (${Math.round(r.left)}..${Math.round(r.right)} vs ${Math.round(box.left)}..${Math.round(box.right)})`);
     });
@@ -88,6 +94,7 @@ SLOT_FOCUS = r"""([id, changed]) => {
   const c = P.cases.find(x => x.id === id);
   const other = P.cases.find(x => x.id !== id);
   const control = document.querySelector(`[data-case="${id}"] [data-mock-control="${id}"]`);
+  if (!control) return {before: false, after: false, active: "no mock control in the readout slot"};
   control.focus();
   const before = document.activeElement === control;
   P.handles[id].update(changed ? other.input : c.input);
@@ -232,7 +239,8 @@ def run_checks(js_patch=None, css_patch=None, shots=None) -> list[str]:
 
 class CompareEvidenceViewRenderTest(unittest.TestCase):
     def test_widths_values_keyboard_and_retained_state(self):
-        self.assertEqual([], run_checks(shots=os.environ.get("CEV_SCREENSHOT_DIR")))
+        problems = run_checks(shots=os.environ.get("CEV_SCREENSHOT_DIR"))
+        self.assertFalse(problems, f"{len(problems)} problems:\n" + "\n".join(problems))
 
     def test_guard_fails_on_broken_builds(self):
         broken = {
