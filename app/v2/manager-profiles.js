@@ -231,6 +231,24 @@
     }
     return mine;
   }
+  // Merges whole books profile by profile. A blank profile and an empty league are never stored, so a missing one is read
+  // as the blank profile (JEG-1339): a first mark, a reset or an untick that blanks a manager then merges field by field
+  // like any other change instead of one side winning the whole manager.
+  function mergeBook(base, mine, theirs) {
+    // A missing profile takes the base's timestamps, so being absent is not itself read as a change.
+    const blank = (teamId, ref) => ({...newProfile(teamId), createdAt: ref ? ref.createdAt : 0, updatedAt: ref ? ref.updatedAt : 0});
+    const leagues = {};
+    new Set([base, mine, theirs].flatMap(b => Object.keys(b.leagues))).forEach(wsId => {
+      const sides = [base, mine, theirs].map(b => b.leagues[wsId] || {});
+      const out = {};
+      new Set(sides.flatMap(Object.keys)).forEach(teamId => {
+        const [b, m, t] = sides.map(league => league[teamId] || blank(teamId, sides[0][teamId]));
+        out[teamId] = merge3(b, m, t);
+      });
+      leagues[wsId] = out;
+    });
+    return normalizeBook({v: VERSION, leagues}) || mine;
+  }
 
   // ---------- the store ----------
   // opts: {storage, delay, setTimer, clearTimer}. status(): "idle" | "saving" | "saved" | "unavailable" | "full".
@@ -256,10 +274,28 @@
       state = next;
       statusListeners.forEach(fn => { try { fn(state); } catch (error) { /* a listener must not stop the save */ } });
     };
+    // Folds another tab's saved book into this tab's: merged with an unsaved edit here, taken as is otherwise. Returns
+    // true when this tab's book changed.
+    function absorb(theirs) {
+      const next = dirty ? mergeBook(shared, book, theirs) : theirs;
+      shared = theirs;
+      if (serialize(next) === serialize(book)) return false;
+      book = next;
+      return true;
+    }
+    // Another tab's save this tab has not heard about yet (its storage event can come after this tab's timer), or null.
+    function unheard() {
+      let text = null;
+      try { text = storage.getItem(STORAGE_KEY); } catch (error) { return null; }
+      const parsed = parseStored(text);
+      return parsed.status === "ok" && serialize(parsed.book) !== serialize(shared) ? parsed.book : null;
+    }
     function write() {
       timer = null;
       if (!dirty) return true;
       if (!storage) { setState("unavailable"); return false; }
+      const theirs = unheard();   // JEG-1339: never write over a save not yet merged
+      if (theirs && absorb(theirs)) notify("other-tab");
       try {
         storage.setItem(STORAGE_KEY, serialize(book));
         dirty = false;
@@ -321,16 +357,13 @@
         const parsed = parseStored(text);
         if (parsed.status !== "ok") return;
         // An unsaved edit here is merged onto the other tab's book and stays owed, never dropped (JEG-1318).
-        const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;
-        shared = parsed.book;
-        if (dirty && serialize(next) === serialize(shared)) {   // storage already holds this edit: nothing is owed
+        const changed = absorb(parsed.book);
+        if (dirty && serialize(book) === serialize(shared)) {   // storage already holds this edit: nothing is owed
           dirty = false;
           if (timer !== null) { clearTimer(timer); timer = null; }
           setState("saved");
         }
-        if (serialize(next) === serialize(book)) return;
-        book = next;
-        notify("other-tab");
+        if (changed) notify("other-tab");
       }
     };
     return api;

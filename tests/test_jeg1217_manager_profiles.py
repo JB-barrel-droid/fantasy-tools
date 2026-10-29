@@ -27,7 +27,9 @@ REQUIRED = [
     "test_import_matches_by_unique_name_only", "test_import_rejects_bad_files", "test_legacy_note_round_trip",
     "test_store_save_failure_reported_and_recovers", "test_legacy_note_starting_with_tag_label",
     "test_store_pending_edit_survives_other_tab", "test_store_pending_edit_merges_same_manager",
-    "test_store_reload_without_pending_edit_takes_other_tab",
+    "test_store_reload_without_pending_edit_takes_other_tab", "test_store_merge_first_mark_on_blank_manager",
+    "test_store_merge_other_tab_clears_league", "test_store_merge_this_tab_blanks_manager", "test_store_merge_other_tab_blanks_manager",
+    "test_store_write_merges_unhandled_other_tab_save",
 ]
 
 
@@ -92,17 +94,26 @@ MUTATIONS = [
     ("failed save not retried", "storage.setItem(STORAGE_KEY, serialize(book));\n        dirty = false;", "dirty = false;\n        storage.setItem(STORAGE_KEY, serialize(book));",
      "test_store_save_failure_reported_and_recovers"),
     # JEG-1318: another tab saves inside this tab's write delay.
-    ("pending edit dropped by another tab's save", "const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;", "const next = parsed.book;",
+    ("pending edit dropped by another tab's save", "const next = dirty ? mergeBook(shared, book, theirs) : theirs;", "const next = theirs;",
      "test_store_pending_edit_survives_other_tab"),
-    ("pending edit overwrites another tab's save", "const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;", "const next = dirty ? book : parsed.book;",
+    ("pending edit overwrites another tab's save", "const next = dirty ? mergeBook(shared, book, theirs) : theirs;", "const next = dirty ? book : theirs;",
      "test_store_pending_edit_survives_other_tab"),
     ("merge base not moved on save", "        shared = book;\n        setState(\"saved\");", "        setState(\"saved\");",
      "test_store_pending_edit_survives_other_tab"),
     ("ticked boxes not combined", "return [...new Set(mine.concat(theirs))]", "return mine; void [...new Set(mine.concat(theirs))]",
      "test_store_pending_edit_merges_same_manager"),
-    ("a field both tabs set goes to the other tab", "    return mine;\n  }\n\n  // ---------- the store", "    return theirs;\n  }\n\n  // ---------- the store",
+    ("a field both tabs set goes to the other tab", "    return mine;\n  }\n  // Merges whole books", "    return theirs;\n  }\n  // Merges whole books",
      "test_store_pending_edit_merges_same_manager"),
-    ("save still owed once storage holds the edit", "if (dirty && serialize(next) === serialize(shared)) {", "if (false) {",
+    # JEG-1339: a missing (blank) profile or league, and a save the write has not heard about.
+    ("missing profile merged as a whole value", "league[teamId] || blank(teamId, sides[0][teamId])", "league[teamId]",
+     "test_store_merge_first_mark_on_blank_manager"),
+    ("whole books merged as values", "const next = dirty ? mergeBook(shared, book, theirs) : theirs;", "const next = dirty ? normalizeBook(merge3(shared, book, theirs)) || theirs : theirs;",
+     "test_store_merge_other_tab_clears_league"),
+    ("blanked manager on this tab wins outright", "league[teamId] || blank(teamId, sides[0][teamId])", "league[teamId] || (league === sides[1] ? undefined : blank(teamId, sides[0][teamId]))",
+     "test_store_merge_this_tab_blanks_manager"),
+    ("write ignores a save not yet heard", "if (theirs && absorb(theirs)) notify", "if (false) notify",
+     "test_store_write_merges_unhandled_other_tab_save"),
+    ("save still owed once storage holds the edit", "if (dirty && serialize(book) === serialize(shared)) {", "if (false) {",
      "test_store_reload_without_pending_edit_takes_other_tab"),
 ]
 
