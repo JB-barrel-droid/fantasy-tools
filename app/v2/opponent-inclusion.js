@@ -149,7 +149,7 @@
   const selectionKey = (ws, rawState, opts) => describe(ws, rawState, opts).rows.filter(r => r.included).map(r => r.id).join("|");
 
   // ---------- the checkbox component ----------
-  // createControl({document, idPrefix, legend, onToggle(teamId, include), onIncludeAll(), onExcludeAll(), profileNote})
+  // createControl({document, idPrefix, legend, onToggle(teamId, include), onIncludeAll(), onExcludeAll(), profileNote, countLabel(n)})
   // returns {element, update(model)}. update keeps each team's row and box by team id, so the focused box keeps focus
   // while the page redraws around it.
   function createControl(options) {
@@ -182,21 +182,23 @@
     noneBtn.addEventListener("click", () => { if (o.onExcludeAll) o.onExcludeAll(); });
     const items = new Map();
     const profileNote = o.profileNote || "Marked won't trade in Managers. Change it there.";
+    const countLabel = typeof o.countLabel === "function" ? o.countLabel : n => `${n} ${n === 1 ? "player" : "players"}`;
 
     function makeItem(row) {
       const boxId = `${prefix}Box-${safe(row.id)}`;
       const noteId = `${prefix}Note-${safe(row.id)}`;
+      const metaId = `${prefix}Meta-${safe(row.id)}`;
       const box = el("input", {type: "checkbox", class: "oi-box", id: boxId, "data-team-id": row.id});
       const name = el("span", {class: "oi-name"});
       const tag = el("span", {class: "oi-tag", "aria-hidden": "true"});
-      const meta = el("span", {class: "oi-meta", "aria-hidden": "true"});
+      const meta = el("span", {class: "oi-meta", id: metaId});
       const label = el("label", {class: "oi-label", for: boxId}, name, tag, meta);
       const note = el("span", {class: "oi-note", id: noteId});
       const li = el("li", {class: "oi-item", "data-team-id": row.id}, box, label, note);
       // A won't-trade manager stays out: the box stays focusable so a screen reader reaches it and hears why, but it cannot be ticked.
       box.addEventListener("click", event => { if (box.getAttribute("aria-disabled") === "true") event.preventDefault(); });
       box.addEventListener("change", () => { if (box.getAttribute("aria-disabled") !== "true" && o.onToggle) o.onToggle(row.id, box.checked); });
-      return {li, box, name, tag, meta, note, noteId};
+      return {li, box, name, tag, meta, metaId, note, noteId};
     }
 
     function update(model) {
@@ -209,14 +211,15 @@
         item.name.textContent = row.name;
         item.tag.textContent = row.duplicate ? `team ${row.position}` : "";
         item.tag.hidden = !row.duplicate;
-        item.meta.textContent = `${row.players} ${row.players === 1 ? "player" : "players"}`;
+        item.meta.textContent = countLabel(row.players);
         // The accessible name carries the team number when names repeat; the visible tag is the same words.
         item.box.setAttribute("aria-label", row.label);
         item.box.checked = row.included;
         const note = row.profileExcluded ? profileNote : !row.hasRoster ? "No roster yet, so nothing to search." : "";
         item.note.textContent = note;
         item.note.hidden = !note;
-        if (note) item.box.setAttribute("aria-describedby", item.noteId); else item.box.removeAttribute("aria-describedby");
+        // The box's description is the player count, then why it is locked or empty when it is.
+        item.box.setAttribute("aria-describedby", note ? `${item.metaId} ${item.noteId}` : item.metaId);
         if (row.profileExcluded) item.box.setAttribute("aria-disabled", "true"); else item.box.removeAttribute("aria-disabled");
         item.li.dataset.state = row.profileExcluded ? "profile" : row.included ? "included" : "excluded";
         if (list.children[i] !== item.li) list.insertBefore(item.li, list.children[i] || null);

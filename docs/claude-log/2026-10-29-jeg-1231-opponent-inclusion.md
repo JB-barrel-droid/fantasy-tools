@@ -48,3 +48,5 @@ with `acceptance-amendment.md`). Reconciled against that baseline and amendment:
   (scratch only). The browser render tests and screenshots for this head come from CI.
 - Not adopted from the prototype: it puts the control inside a Filters modal; placement on the league page belongs to
   the hookup PR and the redesign owners.
+- Review follow-up: the player count is now the box's description (`aria-describedby` names the count, then any lock or
+  empty note), no longer hidden from screen readers. Callers can word it with `countLabel(n)`.
