@@ -856,14 +856,15 @@
     if (!finite(d.ddf)) return `${what}: no value`;
     return `${what} ${sign(d.ddf)} DDF Value${others.length ? ` (${others.join(", ")})` : ""}`;
   }
-  const VIEW_TIPS = {ddf: "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
-    market: "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
-    projections: "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."};
+  // JEG-1130 (PMM doc, final naming 2026-10-26): one plain sentence per read, and no publisher names in a definition.
+  const VIEW_TIPS = {ddf: "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    market: "What other managers will pay: the public trade market on one scale, before any position-weight adjustment. The common language for trade proposals.",
+    projections: "The same read rooted in projections: projected points, adjusted for position weight and your league's rosters. Good for steady producers; it can underrate upside."};
   // Spec 4c; under a basis of the reader's own (Overrides) DDF Value is theirs, and the market's point scale follows it (spec 5b).
   function viewTip(id, basis) {
     const custom = Boolean(basis && !basis.isDefault);
     const name = custom ? basis.label : "";
-    if (id === "ddf" && custom) return `Your basis, not our methodology: ${name}, adjusted for your league's position weights. Change it on Overrides.`;
+    if (id === "ddf" && custom) return `Your basis, not the default DDF Value: ${name}, adjusted for your league's position weights. Change it on Overrides.`;
     if (id === "market" && custom) return `${VIEW_TIPS.market} Rescaled to ${basis.mode === "single" ? `${name}'s point scale` : `the point scale of ${name}`}.`;
     return VIEW_TIPS[id];
   }
@@ -1859,7 +1860,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains". JEG-995: priced
       // players first, so on a tie they come before a defense or kicker.
       const hits = window.TradeValueNameSearch.search(engine().getAllRows().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = alreadyOnRoster(row, onRosters);
@@ -1894,7 +1895,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     if (rosterCopy?.teamId && rosterCopy.teamId === rosterCopy.theirTeamId) {
       setHeadline("pending"); return note("Choose different saved teams for the two sides before finding trades.");
     }
-    if (!S.mine.length || !S.theirs.length) { setHeadline("missing"); return note("Add at least one player to each roster."); }
+    if (!S.mine.length || !S.theirs.length) { setHeadline("missing"); return note("Pick a trade partner. Paste in their roster and yours, and we'll find deals they'll like."); }
     const both = S.mine.filter(p => S.theirs.some(q => q.key === p.key));
     if (both.length) { setHeadline("pending"); return note(`Players on both rosters: ${both.map(p => p.name).join(", ")}. Remove them from one side before finding trades.`); }
     const all = C.getAllRows();
@@ -1927,7 +1928,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      note(`No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try a larger package.`);
+      note(`No slam dunks with this team. No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try another team, or a larger package.`);
       setHeadline("none", {reason: "no trades were found"});
       return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }
