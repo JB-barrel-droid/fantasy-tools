@@ -2542,3 +2542,32 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   :root[data-design="fieldnotes"] .ddf-fn-btn--primary:hover:not(:disabled) { border-color: var(--ddf-action-hover); background: var(--ddf-action-hover); }
   :root[data-design="fieldnotes"] .ddf-fn-segmented > button:hover:not([aria-pressed="true"]) { background: var(--ddf-subtle); }
 }
+/* JEG-1137 slice 2a: Fieldnotes on the shared v2 controls and on league entry (opt-in, same flag). Source: prototype.html
+   button, field and disclosure rules. Existing markup and class names only, so every page and the sibling Fieldnotes
+   components (JEG-1138/1139/1140) pick this up without edits. Contract: docs/design/fieldnotes-components.md. */
+:root[data-design="fieldnotes"] .v2-app .v2-btn {
+  border-radius: var(--ddf-radius-control);
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease), border-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+@media (hover: hover) {
+  :root[data-design="fieldnotes"] .v2-app .v2-btn:not(.v2-btn-primary):not([aria-pressed="true"]):not(:disabled):hover { border-color: var(--ddf-ink); background: var(--ddf-subtle); }
+  :root[data-design="fieldnotes"] .v2-app .v2-btn-primary:not(:disabled):hover { border-color: var(--ddf-action-hover); background: var(--ddf-action-hover); filter: none; }
+}
+/* Fields sit on the control edge (3:1 on the surface, WCAG 1.4.11); the default paste boxes use the 1.3:1 line color. */
+:root[data-design="fieldnotes"] .v2-find-import-body input[type="text"],
+:root[data-design="fieldnotes"] .v2-find-import-body textarea,
+:root[data-design="fieldnotes"] .v2-find-import-body select,
+:root[data-design="fieldnotes"] .v2-find-paste textarea,
+:root[data-design="fieldnotes"] .v2-popover input[type=number],
+:root[data-design="fieldnotes"] .v2-popover select { border-color: var(--v2-field-border); }
+/* League entry is one paste box: the prototype's large field. */
+:root[data-design="fieldnotes"] .v2-find-import-body textarea { min-height: 176px; padding: 12px; resize: vertical; }
+/* Disclosures read left to right: the league card's heading sits beside its arrow, not pushed to the far edge, and the
+   whole-league import uses the Fieldnotes disclosure (ink label, rule above, plus and minus at the end). */
+:root[data-design="fieldnotes"] .v2-lg-card-summary { justify-content: flex-start; }
+:root[data-design="fieldnotes"] .v2-find-import > summary {
+  gap: 10px; padding-top: var(--ddf-space-mid); border-top: 1px solid var(--ddf-line); color: var(--ddf-ink); font-weight: 650; list-style: none;
+}
+:root[data-design="fieldnotes"] .v2-find-import > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] .v2-find-import > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] .v2-find-import[open] > summary::after { content: "\2212"; }
