@@ -17,8 +17,9 @@ SELECT queries only. Repo state: `main` at `021c5bfd` (2026-10-29 UTC).
   committed. The Vegas page builder and the waiver lottery scorer were never in
   git.
 - **Versus Vegas is blocked** on inputs: there is no Vegas input on `main`
-  (last odds row 2026-10-05) and no weekly ECR producer. Jeremy chose weekly
-  ECR as the comparison side on 2026-10-29 (section 7).
+  (last odds row 2026-10-05) and no weekly ECR producer. On 2026-10-29 Jeremy
+  chose weekly ECR as the comparison side and PropLine as the only Vegas feed
+  (section 7).
 - **The waiver dashboard is blocked** on missing inputs (no ESPN roster% puller,
   lottery scorer lost) and on JEG-556: its old waiver boundary is a second
   waiver-line definition and must be replaced by the repo's one rule.
@@ -210,7 +211,7 @@ Jeremy, 2026-10-29 02:11 UTC: "do not blend weekly data with ROS data, ever".
 |---|---|---|---|---|
 | S1 | Contract doc + JSON schema + fixture test | `docs/weekly-inputs-contract.md`, `tests/test_weekly_inputs_contract.py`, Makefile test line | none | Ready (no math, no fetch) |
 | S2 | Producer from stored inputs only (ESPN weekly CSV, status history, byes, `nfl_week`) | `pipelines/build_weekly_inputs.py`, test | S1 | Ready (no new fetch; a schedule needs Jeremy's yes) |
-| S3 | Vegas leg producer (port PropLine collector + `engine/vegas.py` translation, keyed on `player_key`) | `producers/`, workflow, secret | Decisions 1 and 2, a PropLine key | Blocked |
+| S3 | Vegas leg producer (port PropLine collector + `engine/vegas.py` translation, keyed on `player_key`; PropLine only) | `producers/`, workflow reading secret `PROPLINE_API_KEY` | the secret; T1 review of the ported translation; a schedule needs Jeremy's yes | Blocked on the secret |
 | S3b | Weekly ECR leg (`experts.ecr_weekly`, weekly start projections, std/half/ppr) | `producers/` | how ECR arrives (section 7, item 1) | Blocked |
 | S4 | Versus Vegas compute (disagreement, play gate) | `pipelines/` | S3, S3b, T1 review of the ported math | Blocked |
 | S5 | Versus Vegas page with URL-persisted scoring/position filters | `app/` (replaces `weekly_vegas/dashboard/index.html`; updates `tests/test_launch_front_door.py` l.59/409 and `tests/test_launch_qa_surfaces.py` l.18) | S4, design direction (JEG-1209 pending) | Blocked |
@@ -238,8 +239,16 @@ Natural fit, JEG-1217, JEG-1220).
    Jeremy to choose how it arrives (for example a file he exports, or an
    approved signed-in pull), and Standard and PPR would be derived from Half
    PPR unless pulled separately.
-2. **Vegas input.** Bring back the PropLine collector (needs a key and a new
-   scheduled fetch), or keep Versus Vegas parked.
+2. **Vegas input. Decided 2026-10-29 by Jeremy: A, PropLine as the only Vegas
+   feed** (options were A PropLine alone, Claude's pick; B PropLine plus the
+   paid Odds API audit; C park Vegas). No Odds API leg and no FDS fill.
+   Key handling for S3: the collector reads the key from the GitHub Actions
+   secret `PROPLINE_API_KEY` through the environment and never prints, logs or
+   writes it. Jeremy creates the PropLine account (prop-line.com, free tier
+   1,000 requests a day per the PropLine Python SDK page on PyPI) and adds the
+   secret himself. The archived collector authenticated through a workspace
+   skill that was never committed, so the request format is taken from
+   PropLine's own API reference when S3 is built.
 3. **Waiver availability.** Bring back an ESPN roster% pull, or build the board
    without availability.
 
