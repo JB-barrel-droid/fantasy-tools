@@ -633,6 +633,7 @@ test-core:
 	node tests/node/source_views_check.mjs
 	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
+	python3 -m unittest tests.test_v2_examples
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
@@ -792,6 +793,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_v2_finder_triview_display
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_waterfall
+	python3 -m unittest tests.test_v2_examples
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
