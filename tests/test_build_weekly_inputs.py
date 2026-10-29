@@ -279,11 +279,47 @@ class Freshness(ProducerCase):
 
     def test_one_week_behind_status(self):
         status = self.write("status.json", json.dumps([
-            {"snapshot_date": "2026-10-23", "sleeper_id": "S101", "player_key": 101,
+            {"snapshot_date": "2026-10-23", "fetched_at": "2026-10-23T13:00:00+00:00",
+             "sleeper_id": "S101", "player_key": 101,
              "team": "AAA", "position": "WR", "status": "Active"}]))
         meta = self.build(status=status, espn_weekly=None)["legs"]["status"]
         self.assertEqual((meta["availability"], meta["freshness"]), ("complete", "one_week_behind"))
         self.assertEqual(bwi.validate(json.loads(self.out.read_text())), [])
+
+    def test_status_without_a_capture_time_is_unknown_not_aged(self):
+        # JEG-1267: no fetched_at means no captured_at, so no age or published claim.
+        status = self.write("status.json", json.dumps([
+            {"snapshot_date": "2026-10-23", "sleeper_id": "S101", "player_key": 101,
+             "team": "AAA", "position": "WR", "status": "Active"}]))
+        doc = self.build(status=status, espn_weekly=None)
+        meta = doc["legs"]["status"]
+        self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
+                         ("complete", "unknown", "modeled"))
+        self.assertIsNone(meta["captured_at"])
+        self.assertIsNone(meta["content_week"])
+        self.assertEqual(meta["content_vintage"], "2026-10-23")  # what the input stamps stays
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_unstamped_bye_table_is_unknown_and_not_published(self):
+        # JEG-1245/JEG-1267: the bye table stamps no date, so none is invented.
+        meta = self.build()["legs"]["bye"]
+        self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
+                         ("partial", "unknown", "modeled"))
+        for name in ("content_week", "content_vintage", "captured_at"):
+            self.assertIsNone(meta[name], name)
+        self.assertEqual(meta["content_season"], 2026)
+
+    @unittest.skipUnless(CONTRACT is not None, "JEG-1227 contract module not on this branch yet")
+    def test_contract_rejects_the_old_published_bye_leg(self):
+        # The shape 86031bb emitted: current/published with no vintage or capture time.
+        if "leg.provenance_unknown" not in getattr(CONTRACT, "CODES", {}):
+            self.skipTest("contract predates JEG-1267")
+        doc = self.build()
+        self.assertEqual(bwi.validate(doc), [])
+        doc["legs"]["bye"].update(content_week=8, freshness="current", label="published")
+        doc["legs"]["bye"].pop("note")
+        codes = {i.code for i in CONTRACT.errors(CONTRACT.validate(doc))}
+        self.assertIn("leg.provenance_unknown", codes)
 
     def test_wrong_week_only_input_is_unavailable_not_substituted(self):
         espn = self.write("espn.csv", HEADER +

@@ -83,3 +83,19 @@ Slice S2 of JEG-1195. Branch `claude/JEG-1228-weekly-input-producer`, draft PR f
   Identity 1 (`.../rest/v1/player_name_aliases`) -> 0.
 - Real week-8 run (478 players) with dummy credentials: S1 0 errors,
   byte-identical on repeat, no Supabase log line.
+
+## JEG-1267 alignment (fifth push, S1 #1087 at 86c854d)
+- The corrected S1 validator rejects an aged or `published` leg with a null
+  content_season, content_week, content_vintage or captured_at
+  (`leg.provenance_unknown`). The bye table stamps none, so the bye leg is now
+  freshness `unknown`, label `modeled`, `content_week` null, with a `note`
+  (option b on JEG-1245; the contract's own `valid/unknown_no_provenance.json`
+  shape). No date is invented.
+- Same rule for any leg whose input lacks a vintage or a capture time (a
+  status export without `fetched_at`): unknown/modeled, content_week null, the
+  stamps it does carry kept.
+- Golden diff: the bye leg meta only.
+- Verified: 50 OK against 86c854d (with and without dummy Supabase creds);
+  50 OK, 1 skipped against e2a2a07; 50 OK, 3 skipped with no S1. Golden and
+  the real 478-player week-8 run: 0 issues against 86c854d, real run
+  byte-identical on repeat.

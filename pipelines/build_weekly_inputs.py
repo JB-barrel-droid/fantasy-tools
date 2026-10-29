@@ -157,6 +157,12 @@ def _mark_available(meta, season, target_week, vintage_day: date | None, capture
                 captured_at=captured_at, availability="complete",
                 freshness=_freshness(target_week, vweek))
     meta["label"] = "stale" if meta["freshness"] == "stale" else "published"
+    if vweek is None or captured_at is None:
+        # The contract (JEG-1267) only lets a leg claim an age or "published"
+        # when its input stamps both the vintage and the capture time. Missing
+        # either, the age is unknown; nothing is filled in to make it look known.
+        meta.update(content_week=None, freshness="unknown", label="modeled",
+                    note="the input does not stamp both a content date and a capture time")
 
 
 def _cell(values: dict, reason: str | None = None, reasons: dict | None = None):
@@ -403,10 +409,12 @@ def read_byes(path: Path, season: int, week: int):
     if _int(data.get("season")) != season or not isinstance(data.get("byes"), dict):
         return meta, None
     byes = {str(t).upper(): _int(w) for t, w in data["byes"].items()}
-    # A season table: no capture date, valid for every week of its season.
+    # A season table, valid for every week of its season, but its source stamps
+    # no capture date or content week. The contract (JEG-1267) then wants
+    # freshness unknown and a non-published label; no date is invented here.
     meta.pop("missing_reason")
-    meta.update(content_season=season, content_week=week, availability="complete",
-                freshness="current", label="published")
+    meta.update(content_season=season, availability="complete", freshness="unknown",
+                label="modeled", note="season bye table; the source stamps no capture date or week")
     return meta, byes
 
 
