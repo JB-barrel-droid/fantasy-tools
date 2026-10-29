@@ -53,16 +53,18 @@
       note: "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
-    {id: "pub", title: "Trade charts (rescaled)", one: "rescaled trade chart", many: "rescaled trade charts",
-      note: "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged."},
+    {id: "pub", title: "Published charts", one: "published chart", many: "published charts",
+      note: "Published trade-value opinions. Each series labels its transformation."},
+    {id: "observed", title: "Observed-trade estimates", one: "observed-trade estimate", many: "observed-trade estimates",
+      note: "Algorithmic estimates from completed fantasy trades. Each series labels its transformation."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
       note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
   ];
   function seriesGroup(key) {
     if (isDdfKey(key)) return "ddf";
     if (key.endsWith("_vorp")) return "vorp";
-    if (key === "espn" || key === "cbsros" || key === "razzball") return "proj";
-    return "pub";
+    const kind = window.DDFSourceViews.categoryOf(key)?.id;
+    return {projections: "proj", published: "pub", observed: "observed"}[kind] || "pub";
   }
   // A series named in the JEG-474 group vocabulary: "DDF Value", "ESPN projection",
   // "FantasyCalc chart (rescaled)", "ESPN value above waivers".
@@ -71,6 +73,7 @@
     const meta = sourceMeta(key);
     const name = PLAIN_NAMES[meta.publisher] || PUBLISHER_NAMES[meta.publisher] || meta.label;
     return {proj: `${name} projection`, pub: `${name} chart (rescaled${RESCALED_TO})`,
+      observed: `${name} observed-trade estimate (rescaled${RESCALED_TO})`,
       vorp: `${name} value above waivers`}[seriesGroup(key)];
   }
   const pickerGroupTitle = group => (group.id === "vorp" ? `${group.title} (Advanced)` : group.title);
@@ -1663,16 +1666,16 @@
   }
 
   // ---------- table ----------
-  // JEG-473: value columns are grouped by each series' existing method (and the publisher's kind for
-  // Data Driven Adjustments), in this order. The Columns menu hides whole groups.
+  // JEG-1212: group columns by input category; each column keeps its method label.
+  // The Columns menu hides whole groups.
   const TABLE_GROUPS = [["ddf", "DDF Value"], ["projections", "Projections"],
-    ["published", "Trade charts (rescaled)"], ["vorp", "Value above waivers"], ["spread", "Spread"]];
+    ["published", "Published charts"], ["observed", "Observed-trade estimates"],
+    ["vorp", "Value above waivers"], ["spread", "Spread"]];
   function tableGroup(key) {
     if (isDdfKey(key)) return "ddf";
     const meta = sourceMeta(key);
     if (meta.method === "vorp") return "vorp";
-    if (meta.method === "indexed") return "published";
-    return "projections";
+    return window.DDFSourceViews.categoryOf(key)?.id || "projections";
   }
   const groupOrder = id => TABLE_GROUPS.findIndex(([g]) => g === id);
 
@@ -1977,6 +1980,50 @@
     return section;
   }
 
+  function drawerSourceComparisons(row) {
+    const sourceViews = window.DDFSourceViews;
+    const section = drawerSection("Trade-value comparisons",
+      "Your Rank by choice orders players. DDF Value follows your selected basis (the default uses four trade-value inputs). These two readouts are comparisons only; existing trade verdict rules are unchanged.");
+    // The engine reuses these source keys for different units in its other views.
+    // This readout is defined only for the Indexed values in row.values.
+    if (view.state.viewMode !== "indexed") {
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      note.textContent = "Switch to Market values to compare published charts and the observed-trade estimate on the same scale.";
+      section.appendChild(note);
+      return section;
+    }
+    const available = view.info.filter(item => item.available).map(item => item.key);
+    sourceViews.VIEWS.forEach(def => {
+      const result = sourceViews.read(row, def.id, available);
+      const line = document.createElement("p");
+      line.dataset.comparisonView = def.id;
+      const label = document.createElement("strong");
+      label.textContent = `${def.label}: `;
+      line.append(label, document.createTextNode(result.complete ? fmt(result.value) : "Unavailable"));
+      const detail = document.createElement("span");
+      detail.className = "v2-meta";
+      detail.textContent = ` · ${result.sourceCount}/${result.expectedSourceCount} series`
+        + ` · ${result.listedCount} listed, ${result.estimatedCount} DDF estimate${result.estimatedCount === 1 ? "" : "s"}`
+        + (result.unlistedZeroCount ? `, ${result.unlistedZeroCount} unlisted zero${result.unlistedZeroCount === 1 ? "" : "es"}` : "")
+        + (result.zeroUnknownCount ? `, ${result.zeroUnknownCount} zero${result.zeroUnknownCount === 1 ? "" : "es"} with listing unknown` : "");
+      line.appendChild(detail);
+      if (result.inputs.some(input => input.estimated || input.missingReason)) {
+        const ancestry = document.createElement("span");
+        ancestry.className = "v2-meta";
+        ancestry.textContent = ` · ${result.inputs.filter(input => input.estimated || input.missingReason)
+          .map(input => `${input.key}: ${input.estimateReason || input.missingReason}`).join("; ")}`;
+        line.appendChild(ancestry);
+      }
+      section.appendChild(line);
+    });
+    const caution = document.createElement("p");
+    caution.className = "v2-meta";
+    caution.textContent = "The published-chart average gives equal weight to USA Today, FantasyPros and CBS when all three have values. FantasyCalc is separate here, but DDF estimates can still borrow from it; the views are not independent evidence. A numeric zero is kept even when its listing status is unknown; a missing value is unavailable.";
+    section.appendChild(caution);
+    return section;
+  }
+
   // Hero (frame 13): the ranking series' value, and the range across the selected
   // Data Driven Adjustments series (the same unit; frame 03: DDA only in a spread).
   function drawerHero(row) {
@@ -2241,7 +2288,11 @@
       zeroBadge.removeAttribute("title");
       drawer.appendChild(zeroNote);
     }
-    drawer.append(drawerHero(row), drawerMatrix(row), ...drawerContext(row), tradeActions(row));
+    drawer.append(drawerHero(row));
+    // Risers can pass a row with one historical series over current other
+    // series; do not compute a new aggregate from that mixed-week row.
+    if (currentView() === "values") drawer.appendChild(drawerSourceComparisons(row));
+    drawer.append(drawerMatrix(row), ...drawerContext(row), tradeActions(row));
     $("v2Scrim").hidden = false;
     drawer.hidden = false;
     close.focus();
@@ -2509,7 +2560,8 @@
   // on this device. Player values drives the engine's shown series; the other pages keep a list of their own (pageKeys).
   const DIALOG_GROUPS = [
     {id: "ddf", title: "DDF Value", note: ""},
-    {id: "pub", title: "Published trade charts", note: "What the major sites say each player is worth, adjusted to your league's scale."},
+    {id: "pub", title: "Published charts", note: "Published trade-value opinions, rescaled to your league's scale."},
+    {id: "observed", title: "Observed-trade estimates", note: "Estimates derived from completed trades."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
     {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
@@ -3826,16 +3878,16 @@
   // Shared ⓘ (JEG-458): why trade chart values are "rescaled". A 44 px
   // target that opens a small popover (Esc or a click outside closes it); it
   // never reaches a row or column-header handler behind it.
-  const INDEXED_INFO_DEFAULT = "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
+  const INDEXED_INFO_DEFAULT = "Each source's trade-value estimate, rescaled to our point scale for your league. Its ranking order is unchanged.";
   const INDEXED_INFO = INDEXED_INFO_DEFAULT;
   // JEG-490: our names, defined once and used wherever they are shown (the "On the chart" row, Risers,
   // Customize, the disagreement card, the deal read, How values work). Plain words, no numbers.
   // JEG-863 / JEG-1073: two names. DDF Value is the Adjusted trade charts averaged (Jeremy, 2026-10-25); the trade
-  // chart average is the published charts rescaled (Indexed) and averaged, the market. The projections version is
-  // the alternate, named for the deal read's production check.
+  // chart average is the existing four rescaled chart inputs, including FantasyCalc, averaged. The projections
+  // version is the alternate, named for the deal read's production check.
   const NAME_DEFS = [
     ["DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."],
-    ["Trade chart average", "What the market will pay: the rescaled trade charts, averaged."]];
+    ["Trade chart average", "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."]];
   // The deal read's nets (DEAL_NETS) by the name they define themselves with. Since JEG-1073 the projections net is
   // the alternate version, not DDF Value; the net itself is trade.js's.
   const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."];
@@ -6960,9 +7012,13 @@
     METHOD_COLUMNS[1][1] = `Market${to}`;
     METHOD_FULL.indexed = `Market${to}`;
     const pub = SERIES_GROUPS.find(g => g.id === "pub");
-    pub.title = custom ? `Trade charts (rescaled${to})` : "Trade charts (rescaled)";
-    pub.note = custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis). Their ranking order is unchanged.`
-      : "Each publisher's trade values, rescaled to our point scale for your league. Their ranking order is unchanged.";
+    pub.title = custom ? `Published charts (rescaled${to})` : "Published charts";
+    pub.note = custom ? `Published trade-value opinions. Rescaled series use ${b.label}'s point scale for your league (your basis); adjusted series follow their own label.`
+      : "Published trade-value opinions. Rescaled series use our point scale for your league; adjusted series follow their own label.";
+    const observed = SERIES_GROUPS.find(g => g.id === "observed");
+    observed.title = custom ? `Observed-trade estimates (rescaled${to})` : "Observed-trade estimates";
+    observed.note = custom ? `Algorithmic estimates from completed trades. Rescaled series use ${b.label}'s point scale for your league (your basis); adjusted series follow their own label.`
+      : "Algorithmic estimates from completed trades. Rescaled series use our point scale for your league; adjusted series follow their own label.";
     SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `Our value for each player, following your basis: ${basisPhrase()}.`
       : "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.";
     DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `Our value: ${OURS_DEFAULT}.`;

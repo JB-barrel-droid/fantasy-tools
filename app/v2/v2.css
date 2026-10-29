@@ -1630,6 +1630,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-481: Find a trade (finder.js). */
 .v2-find-side { position: relative; }
+.v2-find-saved-team { margin: 8px 0 12px; min-width: 0; }
+.v2-find-saved-team .v2-field { display: grid; gap: 6px; }
+.v2-find-saved-team select { width: 100%; min-width: 0; max-width: 100%; }
+.v2-find-saved-team p { margin: 6px 0; }
 .v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
 .v2-find-side .v2-trade-results { left: 0; right: 0; }
 #v2Find .v2-trade-sides { margin-top: 12px; }
