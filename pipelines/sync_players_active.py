@@ -146,6 +146,10 @@ def main(argv=None) -> int:
         print(f"FAILED: plan changes more than {MAX_CHANGE_SHARE:.0%} of skill rows; nothing written",
               file=sys.stderr)
         return 1
+    # Every key, so a write can be undone from the run log.
+    for label, rows in (("true", result["activate"]), ("false", result["deactivate"])):
+        if rows:
+            print(f"set {label} player_keys: " + ",".join(str(r["player_key"]) for r in rows))
     if args.write:
         write(sbclient, result)
         print(f"written: {len(result['activate'])} true, {len(result['deactivate'])} false")
