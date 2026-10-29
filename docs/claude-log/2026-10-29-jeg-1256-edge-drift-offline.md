@@ -10,7 +10,7 @@ This entry corrects the 2026-10-27 entry (`2026-10-27-edge-drift-check.md`, port
 - Drift (exit 1), intent kept from #1003: tool names on main vs deployed (missing and extra), and a chart field (`chart_values`, `ddf_value_charts`, `ddf_value_projections`) absent from every player. When one side shows drift and the other is unavailable, exit is 1 and the unavailable side is listed under "Also could not compare".
 - Legitimate zero stays numeric (`value: 0`, `ddf_value_*: 0`, chart value 0 pass).
 - `tests/node/edge_drift_check.mjs`: 30 fake-server cases (5 in sync, 4 drift, 21 could not compare), including SSE positive, 403 on each side, unreachable, and every case above.
-- `Makefile`: `tests.test_edge_drift_check` added to `test-unit-modules` (preview CI full suite, non-blocking), right after `tests.test_mcp_remote`. Not added to `test-core`.
+- `Makefile`: `tests.test_edge_drift_check` added to `test-unit-modules`, right after `tests.test_mcp_remote`. That list runs as `make test-unit` in `full-suite.yml` (nightly on main plus workflow_dispatch, non-blocking; JEG-1169 moved it off PRs), so this PR's own CI does not run it. Not added to `test-core` or a preview shard.
 - Not ported: `.github/workflows/edge-drift-check.yml` (the daily 12:40 UTC cron). JEG-1256 forbids enabling or dispatching it; merging it to main would enable the schedule. It stays on #1003.
 
 ### Fixture contract review (what is allowed to be null)
@@ -29,7 +29,7 @@ Read from `supabase/functions/get-values/index.ts` (`include=charts` branch) and
 
 ### Claimed, not confirmed
 - Behaviour against production endpoints: not run (out of scope; JEG-1248 saw `ENOTFOUND` / proxy 403 from the sandbox).
-- That `test-unit-modules` runs this module in preview CI: inferred from the Makefile; confirmed only once the PR's CI runs.
+- That the nightly `full-suite.yml` run picks the module up after merge: inferred from the Makefile; PR CI (preview, v2-render) went green on `bd3e37a` but does not run `test-unit-modules`.
 
 ### Held, not decided here (JEG-1248 items b and c)
 - `serverInfo.build` vs main's last `supabase/functions/mcp` commit: not checked. Depends on deploys setting `DDF_BUILD_SHA`; build-SHA provenance is held separately.
