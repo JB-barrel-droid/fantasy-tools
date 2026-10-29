@@ -14,6 +14,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-q4-context.md](jeg613-q4-context.md) | JEG-613 open question 4: whether bias-adjusted charts belong in DDF Value, written for Jeremy's decision (2026-10-22). |
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
+| [jeg-1195-weekly-inputs-readiness.md](jeg-1195-weekly-inputs-readiness.md) | JEG-1195 evidence inventory for the retired Versus Vegas and waiver products, today's weekly inputs, a shared input contract and ready/blocked slices (2026-10-29); no production change. |
 
 ## Post drafts
 
