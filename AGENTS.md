@@ -59,6 +59,14 @@ Rules:
 | Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session, T1 (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
 
+- **Review and merge (Jeremy, 2026-10-29).** Codex is no longer release
+  coordinator or required reviewer ("I want to get off of Codex I think, having
+  you use a seperate reviewer makes sense"). Claude owns review and merging.
+  Every PR gets one independent review from a Claude reviewer who did not
+  write it, and Jeremy approves each merge by PR number. Supabase deploys and
+  deletions still need his explicit approval. Where JEG-1218 / draft #1073
+  name Codex as coordinator, this replaces them.
+
 - **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
   ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
   2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
@@ -71,7 +79,8 @@ Rules:
   input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
-- **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
+- **MiniMax: M3 or newer only, for the managed agent's bulk work** (that agent
+  is retired, JEG-1173; the model rule stands for any MiniMax use) (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
   more recent one Minimax added to the subscription"). Earlier rule (2026-10-09:
   "I only want to use M3 if we use it. 2.5 stinks.") still holds: never M2.5,
@@ -129,16 +138,21 @@ merged and live.
 
 ### Session ownership and takeover (Jeremy, 2026-10-10)
 
+> **Superseded where it names `Session` labels.** The `session:*` labels were
+> retired in Linear on 2026-10-28; tickets are owned by the `claude` / `codex`
+> labels (JEG-1218). Queue, routing and takeover rules below that depend on a
+> `session:*` label no longer apply. Kept as history.
+
 Several sessions work this repo at once: the back end, and the front end on the
-Windows PC, on the Mac and in the cloud, plus the hosted Claude Managed Agent.
+Windows PC, on the Mac and in the cloud. (The hosted Claude Managed Agent,
+`session:cma`, was retired by Jeremy on 2026-10-27; torn down under JEG-1173.)
 Linear decides who owns what.
 
 - **Owner label.** Every ticket a session works carries exactly one label from
   the `Session` group: `session:be`, `session:fe-pc`, `session:fe-mac`,
-  `session:fe-cloud` (Jeremy, 2026-10-24) or `session:cma` (the hosted Managed
-  Agent: queue run every 2 hours, up to 3 non-overlapping tickets in parallel,
-  merges on green gates; config and rules in `managed-agents/`, Jeremy
-  2026-10-27, JEG-1173). The label is the owner; the Linear
+  `session:fe-cloud` (Jeremy, 2026-10-24). `session:cma` (the hosted Managed
+  Agent, `managed-agents/`) is retired (Jeremy, 2026-10-27, JEG-1173): no
+  ticket goes to it and nobody works its queue. The label is the owner; the Linear
   assignee stays Jeremy. The `owner:*` labels are retired.
 - **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that
   carry its own Session label. Backlog is not the queue: a ticket enters it when
@@ -167,12 +181,8 @@ Linear decides who owns what.
   over from <session> · last heartbeat <time> · continuing from <branch>`, swap
   the Session label, continue from the backup branch. The previous owner, on
   returning, reads the comment and doesn't resume.
-  The `session:cma` managed agent has a standing takeover (Jeremy, 2026-10-27,
-  JEG-1173: "You can take back any tickets assigned to other harnesses unless
-  you can tell they have sessions actively moving forward"): it may take any
-  Trade Value Chart ticket from another Session label, `muse` or `owner:*` that
-  shows no comment, commit or PR update in the last 4 hours. A session that
-  wants to keep a ticket keeps its heartbeat current.
+  The `session:cma` managed agent's standing takeover (Jeremy, 2026-10-27)
+  ended with its retirement (JEG-1173); it takes over nothing.
 - **Idle hands.** A session with an empty queue may pick up another session's
   **Todo** tickets (not In Progress ones), oldest priority first. It swaps the
   label and comments `picked up by <session>`.

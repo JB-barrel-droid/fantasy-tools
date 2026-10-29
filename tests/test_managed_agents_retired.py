@@ -34,9 +34,9 @@ class ManagedAgentsRetiredTests(unittest.TestCase):
                 # Sourcing lib.sh is the first command, so its guard runs before ant or Keychain.
                 self.assertEqual(lines[0], SOURCE_LIB)
 
-    def test_readme_marks_pause_unverified_and_silence_corroboration_only(self):
+    def test_readme_states_receipt_and_silence_corroboration_only(self):
         text = (MA / "README.md").read_text()
-        self.assertIn("Operational state: UNVERIFIED", text)
+        self.assertIn("Operational state:", text)
         self.assertIn("corroboration only", text)
         for dep in ("depl_0194kATtQ6xdicZiw7wnkzmT", "depl_01PE9v6akCH9muDEUwxdioSs"):
             self.assertIn(dep, text)

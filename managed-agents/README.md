@@ -2,15 +2,9 @@
 
 **Retired by Jeremy on 2026-10-27; torn down under JEG-1173 (corrections JEG-1269).** Don't apply these files, create deployments or start sessions from here. Every script in `scripts/` exits unless `CMA_ALLOW_RETIRED=1`.
 
-**Which protocol applies.** Work is split between Codex and Claude under the two-agent protocol Jeremy confirmed on 2026-10-28 (JEG-1218, draft PR #1073): `codex` / `claude` labels, Codex coordinates and merges. The `session:*` labels were retired in Linear on 2026-10-28. Until #1073 lands, the `AGENTS.md` rules on `Session` labels, session queues, takeover and Claude merging are obsolete where they conflict with that protocol; this file grants no merge authority.
+**Which protocol applies.** The `session:*` labels were retired in Linear on 2026-10-28; tickets are owned by the `claude` / `codex` labels (JEG-1218). Review and merging follow the rule Jeremy set on 2026-10-29 in `AGENTS.md` (Routing): Claude merges after one independent Claude review, with Jeremy approving each merge by PR number. Nothing in this folder grants merge authority.
 
-**Operational state: UNVERIFIED.** The repository guard does not pause anything already deployed. No authenticated read has shown either deployment paused. To close the teardown, from Jeremy's Anthropic account in workspace `wrkspc_01A4qjuy7wHWubEvx73fHKym`:
-
-1. A paused-state read of `depl_0194kATtQ6xdicZiw7wnkzmT` (`ddf-queue`, hourly).
-2. A paused-state read of `depl_01PE9v6akCH9muDEUwxdioSs` (`ddf-weekly-usage`, Mondays 7 AM CT).
-3. An inventory of active runs/sessions in that workspace showing none doing project work.
-
-Record each with the time it was read on JEG-1173. A missing run comment on JEG-1173 is corroboration only, never proof. Last observed run: `ddf-queue` at 16:05 UTC on 2026-10-29. Jeremy saw an empty Deployments page at about 15:20 UTC that day, so that view was likely another workspace. Pause only (`ant beta:deployments pause --deployment-id <id>`); deleting a deployment, agent, environment or vault waits for Jeremy's yes.
+**Operational state: deleted, on Jeremy's report.** On 2026-10-29 at 19:18 UTC Jeremy said he "found it and deleted the scheduled jobs" in the Claude Console: `depl_0194kATtQ6xdicZiw7wnkzmT` (`ddf-queue`, hourly) and `depl_01PE9v6akCH9muDEUwxdioSs` (`ddf-weekly-usage`, Mondays 7 AM CT), workspace `wrkspc_01A4qjuy7wHWubEvx73fHKym`. No agent has an authenticated read of that workspace, so his report is the receipt. A missing run comment on JEG-1173 afterwards is corroboration only, never proof. The last run on record is `ddf-queue` at 19:08 UTC, before the deletion. The repository guard pauses nothing by itself; it only stops these scripts recreating the jobs.
 
 PRs #1001 and #1002 merged on 2026-10-27; nothing to close. The agent's last open PR is #1003 (`cma/JEG-1049`).
 
