@@ -7,8 +7,8 @@
 // Decisions (Jeremy, 2026-10-24, JEG-1021):
 //   * ranking = fit tiers first (natural, market supported, force; JEG-1108 retired Value fit), then the fundamentals edge (DDF Value receive - give);
 //   * default order is best first; force fits are shown, labelled, with a one-click Hide force fits.
-// Defaults chosen here, to log in docs/math-review-agenda.md: at most PER_PAIRING trades per pairing (the finder's LIMIT),
-// at most MAX_OPPONENTS opponents per run.
+// At most MAX_OPPONENTS opponents per run. Qualified trades are not truncated per pairing:
+// fit, global ranking and filters must see every candidate; league.js paginates the final display.
 (function (root) {
   "use strict";
 
@@ -19,6 +19,9 @@
   const TIERS = {natural: 0, market: 1, force: 2};
   const UNJUDGED_TIER = 4;
   const CACHE_LIMIT = 400;
+  // Bound retained optimization state, never the active search result. Oversized pairings
+  // remain complete but are recomputed next time instead of accumulating in the cache.
+  const CACHE_MAX_ROWS = 150000;
   const finite = value => typeof value === "number" && Number.isFinite(value);
   const finder = () => (typeof module !== "undefined" && module.exports ? require("./finder.js") : root.TradeValueFinder);
   const shown = n => Math.round(n * 10) / 10;
@@ -37,9 +40,13 @@
   }
   function theirFitOf(fit) {
     const them = fit.them;
-    if (fit.marketSupported) return {label: "favorable", detail: "trade charts favor them"};
-    if (them.net >= -them.tau) return {label: "neutral", detail: "within noise floor"};
-    return {label: "hurts", detail: "loses value on trade charts"};
+    const label = fit.marketSupported ? "favorable" : them.net >= -them.tau ? "neutral" : "hurts";
+    const total = finite(them.totalDelta) ? them.totalDelta : null;
+    const starters = total !== null && finite(them.starterDelta) ? them.starterDelta : null;
+    const construction = fit.theirConstruction || null;
+    const constructionText = construction ? construction.ok ? "OK" : (construction.issues || []).join("; ") || "issue" : "not judged";
+    return {label, totalDelta: total, starterDelta: starters, construction,
+      detail: `market total ${total === null ? "unavailable" : fmt(total)}; market starters ${starters === null ? "unavailable" : fmt(starters)}; roster construction ${constructionText}`};
   }
   // JEG-1108: the overall fit now comes straight from tradeFit's label. The overallFit function bridges older callers.
   function overallFit(ourLabel, marketOk, chartEdge, theirLabel, fit) {
@@ -74,12 +81,13 @@
 
   // mine, opp: {id, name, entries}. ctx: {rowsByKey, shape, expected, weights, charts (available trade charts), market (charts when there are
   // enough for a Trade chart average, else null), maxSize, keepMine, keepTheirs}. Returns the pairing's rows (not yet ranked).
-  function computePairing(mine, opp, ctx) {
+  // A shared iterator keeps the sync API and the responsive league path numerically identical.
+  function* pairingSteps(mine, opp, ctx) {
     const F = finder();
     const mineRows = rowsFor(mine.entries, ctx.rowsByKey);
     const theirRows = rowsFor(opp.entries, ctx.rowsByKey);
     const find = ctx.findTrades || F.findTrades;
-    const res = find(mineRows, theirRows, {chartKeys: ctx.charts, maxSize: ctx.maxSize || 2, limit: F.LIMIT,
+    const res = find(mineRows, theirRows, {chartKeys: ctx.charts, maxSize: ctx.maxSize || 2, limit: Infinity,
       sanity: ctx.shape ? {shape: ctx.shape, mine: mineRows, theirs: theirRows, keepMine: ctx.keepMine !== false, keepTheirs: ctx.keepTheirs !== false} : null});
     const market = ctx.market && ctx.market.length >= F.MIN_CHARTS ? ctx.market : null;
     const judged = Boolean(market && ctx.expected && ctx.shape);
@@ -92,7 +100,11 @@
     const myStart = ctx.shape ? F.lineupValue(mineRows, ctx.shape, OUR_KEY).starterValue : 0;
     const slots = ctx.shape ? ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"].reduce((n, s) => n + (ctx.shape[s] || 0), 0) : 0;
     const partial = theirRows.filter(r => ["QB", "RB", "WR", "TE"].includes(r.pos)).length < slots;
-    const rows = res.trades.map(t => {
+    // Retain a shared context, not the verbose five-view fit object on every candidate.
+    // Expanded details recover the exact same fit on demand via fullFit().
+    const details = fitCtx ? {mine: mineAvg, theirs: theirAvg, byKey, ctx: fitCtx} : null;
+    const rows = [];
+    for (const t of res.trades) {
       const give = wide(t.give);
       const recv = wide(t.receive);
       let fit = null;
@@ -110,11 +122,28 @@
       const theirs = fit ? theirFitOf(fit) : null;
       const overall = fit ? overallFit(ours.label, marketOk, chartEdge, theirs.label, fit) : null;
       const core = F.coreOf(t.receive, OUR_KEY);
-      return {id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
+      rows.push({id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit, partial, throwIns: t.throwIns || null, size: t.give.length + t.receive.length};
-    });
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit: fit ? {label: fit.label, variant: fit.variant, us: {starterDelta: fit.us.starterDelta}} : null, fitDetails: details, partial, throwIns: t.throwIns || null,
+        addedThrowIns: t.addedThrowIns || null, unbalanced: Boolean(t.unbalanced), size: t.give.length + t.receive.length});
+      yield;
+    }
     return {opponentId: opp.id, rows, total: res.total, partial, evaluated: theirRows.length, searched: {mine: res.mine, theirs: res.theirs}, sanityDropped: res.sanityDropped};
+  }
+
+  function computePairing(mine, opp, ctx) {
+    const steps = pairingSteps(mine, opp, ctx);
+    let step = steps.next();
+    while (!step.done) step = steps.next();
+    return step.value;
+  }
+  function fullFit(row) {
+    const d = row.fitDetails;
+    if (!d) return row.fit;
+    const wide = rows => rows.map(r => d.byKey.get(String(r.player_key)) || r);
+    const give = wide(row.give), receive = wide(row.receive);
+    return finder().tradeFit({mine: {roster: d.mine, leaving: give, arriving: receive},
+      theirs: {roster: d.theirs, leaving: receive, arriving: give}}, d.ctx);
   }
 
   // The order of the table: fit tier, then fundamentals edge (best first), then the finder's own score, simpler trade, opponent, trade key.
@@ -125,6 +154,27 @@
   // Rank is the position in that order: 1..N, no gaps, no repeats.
   function rankRows(rows) {
     return rows.slice().sort(compareRows).map((row, i) => ({...row, rank: i + 1}));
+  }
+
+  // JEG-885 (Jeremy, 2026-10-25, option B): the list shows at most CAP_PER_CORE rows for one received core player; the rest
+  // fold under a "N more for <player>" control that expands in place (league.js draws it). Selection only: keyFn(row) is the
+  // received core player's key, the order is the ranking order the caller passes in, and every value on a row is untouched.
+  const CAP_PER_CORE = 2;
+  // rows -> {list (at most n per key, in the order given), folds (key -> the rows beyond the cap, in the order given)}.
+  function capPerCore(rows, keyFn, n) {
+    const limit = Math.max(1, n || 1);
+    const seen = new Map();
+    const list = [];
+    const folds = new Map();
+    rows.forEach(row => {
+      const key = String(keyFn(row));
+      const used = seen.get(key) || 0;
+      seen.set(key, used + 1);
+      if (used < limit) { list.push(row); return; }
+      if (!folds.has(key)) folds.set(key, []);
+      folds.get(key).push(row);
+    });
+    return {list, folds};
   }
 
   // ---------- all pairings: cached, chunked ----------
@@ -153,15 +203,33 @@
       if (result) out.reused += 1;
       else {
         if (o.onProgress) o.onProgress({index: i, total: run.length, name: opp.name});
-        result = computePairing(mine, opp, ctx);
-        cache.set(key, result);
-        if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value);
+        const steps = pairingSteps(mine, opp, ctx);
+        let step = steps.next();
+        while (!step.done) {
+          if (clock() - last > budget) {
+            await yieldFn();
+            last = clock();
+            // Do not cache a partial pairing or publish results from an interrupted search.
+            if (o.isCancelled && o.isCancelled()) { out.cancelled = true; return out; }
+          }
+          step = steps.next();
+        }
+        result = step.value;
+        if (result.rows.length <= CACHE_MAX_ROWS) {
+          cache.set(key, result);
+          let retained = [...cache.values()].reduce((n, entry) => n + entry.rows.length, 0);
+          while (cache.size > CACHE_LIMIT || retained > CACHE_MAX_ROWS) {
+            const oldest = cache.keys().next().value;
+            retained -= cache.get(oldest).rows.length;
+            cache.delete(oldest);
+          }
+        }
         out.computed += 1;
         if (clock() - last > budget) { await yieldFn(); last = clock(); }
       }
       // A cached pairing belongs to whichever team had these players; re-label it for this opponent.
       const rows = result.rows.map(r => ({...r, opponentId: opp.id, opponent: opp.name, id: `${opp.id}|${r.id.split("|").slice(1).join("|")}`}));
-      out.rows.push(...rows);
+      for (const row of rows) out.rows.push(row);
       out.perOpponent.push({id: opp.id, name: opp.name, count: rows.length, partial: result.partial, evaluated: result.evaluated, sanityDropped: result.sanityDropped,
         natural: rows.filter(r => r.overall === "natural").length,
         market: rows.filter(r => r.overall === "market").length, force: rows.filter(r => r.overall === "force").length});
@@ -223,7 +291,7 @@
   const OPP_DEFAULT = {col: "rank", dir: "asc"};
   const OPP_TIES = [{get: r => r.rank, type: "number", dir: "asc"}, {get: r => r.opponent, type: "text", dir: "asc"}, {get: r => r.id, type: "text", dir: "asc"}];
 
-  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, computePairing, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
+  const api = {OPP_COLUMNS, OPP_DEFAULT, OPP_TIES, MAX_OPPONENTS, CACHE_MAX_ROWS, TIERS, FIT_WORD, ourFitOf, theirFitOf, overallFit, projAgreement, PROJ_KEY, CAP_PER_CORE, capPerCore, computePairing, fullFit, compareRows, rankRows, createCache, runAll, filterRows, leagueHeadline,
     opponentHeadline, contextSig, sigOf, fmt};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueOpportunities = api;

@@ -18,7 +18,7 @@
 // a graph with a draggable value line, the players nearest that value) and keeps them in the browser
 // (localStorage).
 //
-// Contract: window.DDFOverrides = {boot(engine), render(), count(), all(), basis(), shareParams(), applyLink(params)}.
+// Contract: window.DDFOverrides = {boot(engine), render(), count(), all(), basis(), shareParams(), shareLink(hash), applyLink(params)}.
 //   boot(engine)  v2.js calls it once the engine is ready, before the first view renders, so the saved basis and
 //                 overrides apply everywhere from the first paint.
 //   render()      v2.js calls it when the Overrides tab shows; idempotent.
@@ -179,8 +179,9 @@
     S.session = true;
     S.linkSig = rec.sig || null;
     S.linkNote = rec.note || null;
-    S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours)};
+    S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours), replace: Boolean(rec.replace)};
     if (rec.ours) { setBasisState(null); S.values = {}; S.names = {}; return; }
+    if (rec.replace) { S.values = {}; S.names = {}; }
     if (rec.basis) setBasisState(rec.basis);
     if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
   }
@@ -194,9 +195,9 @@
     try { record = JSON.parse(localStorage.getItem(LEGACY_SELECTION_KEY) || "null"); } catch (error) { return; }
     const inputs = record && Array.isArray(record.inputs) ? record.inputs.filter(key => LEGACY_PROJECTIONS.includes(key)) : [];
     if (!inputs.length) return;
-    // The old default (every projection ticked) is gone with JEG-1073; any projections they ticked carry over as
-    // the same equal-weight average of what was ticked.
-    if (inputs.length) {
+    // Every projection ticked was the old default: it maps to our methodology (Jeremy, 2026-10-27, JEG-1135).
+    // Fewer carry over as the same equal-weight average of what was ticked.
+    if (inputs.length < LEGACY_PROJECTIONS.length) {
       setBasisState({mode: "blend", sources: inputs, weights: Object.fromEntries(inputs.map(key => [key, 1]))});
       S.notice = "The DDF blend control has moved to the Overrides tab, with more options. Your previous selection has been carried over.";
     }
@@ -315,7 +316,8 @@
 
   // ---------- the bar under the header (every view) ----------
   // "Overrides active: ..." with a one-click reset, a shared link's banner, and the one-time carry-over notice.
-  // The indicator sits in the league row (no extra height on any tab); banners get their own strip under the header.
+  // Desktop keeps the indicator in the context row. Phones use a separate notification strip so the summary,
+  // freshness, and one-tap Reset / Undo remain readable without expanding the closed context row (JEG-1134).
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
@@ -324,6 +326,23 @@
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
     inner.insertBefore(bar, $("v2EditSources"));
     return bar;
+  }
+  function placeBar(bar) {
+    const context = $("v2Context");
+    let phoneRow = $("v2OvPhoneRow");
+    if (!context) return;
+    const phone = window.matchMedia("(max-width: 767px)").matches;
+    if (phone) {
+      if (!phoneRow) {
+        phoneRow = el("div", {id: "v2OvPhoneRow", class: "v2-ov-phone-row", hidden: true});
+        context.after(phoneRow);
+      }
+      if (bar.parentNode !== phoneRow) phoneRow.appendChild(bar);
+    } else {
+      const inner = context.querySelector(".v2-context-inner");
+      if (inner && bar.parentNode !== inner) inner.insertBefore(bar, $("v2EditSources"));
+    }
+    if (phoneRow) phoneRow.hidden = !phone || bar.hidden;
   }
   function bannerHost() {
     let box = $("v2OvBanners");
@@ -352,9 +371,14 @@
     const text = activeText();
     const line = [];
     if (text) {
+      // JEG-1135: the badge sits in the league row, so it shows a compact word only. The full
+      // "Overrides active: ..." line stays in the DOM as visually-hidden text (so screen readers and
+      // inner_text still read it) and as the tooltip.
       line.push(el("a", {id: "v2OverrideBadge", class: "v2-ov-badge", href: "v2/#value-overrides", role: "status", "aria-live": "polite",
-          title: "Your basis and player values replace our methodology on every tab. Open Overrides to change them.", text}),
-        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset all",
+          title: `${text}. Your basis and player values replace our methodology on every tab. Open Overrides to change them.`},
+          [el("span", {class: "v2-ov-badge-short", "aria-hidden": "true", text: "Overrides on"}),
+           el("span", {class: "v2-sr", text})]),
+        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset",
           "aria-label": "Reset to our methodology: clear the custom basis and every player override", onclick: resetAll}));
     } else if (S.undo) {
       line.push(el("span", {class: "v2-ov-bar-msg", role: "status", "aria-live": "polite", text: "Back to our methodology."}),
@@ -362,6 +386,7 @@
     }
     bar.replaceChildren(...line);
     bar.hidden = !line.length;
+    placeBar(bar);
     const notes = [];
     if (S.linkNote) {
       notes.push(el("div", {class: "v2-ov-banner", id: "v2OvLinkBanner", role: "region", "aria-label": "Shared link settings"}, [
@@ -726,6 +751,16 @@
     }
     return out;
   }
+  // Complete value context for finder/league links, including explicit defaults.
+  function shareLink(hash) {
+    const shared = shareParams();
+    // Keep the bounded workspace codec's raw separators/escaping unchanged.
+    const base = hash + (hash.includes("?") ? "&" : "?") + "valuecontext=1"
+      + (shared.basis ? `&basis=${encodeURIComponent(shared.basis)}` : "");
+    const full = base + (shared.ov ? `&ov=${encodeURIComponent(shared.ov)}` : "");
+    const dropped = Boolean(shared.ov && full.length > LINK_BUDGET);
+    return {hash: dropped ? base : full, dropped};
+  }
   // The share-link text a recipient is told about; also what an over-long link falls back to.
   function dropOverridesNote() {
     S.exportHint = true;
@@ -774,15 +809,20 @@
   function applyLink(params) {
     const basisText = params.get("basis");
     const ovText = params.get("ov");
-    if (!basisText && !ovText) return false;
-    const sig = `${basisText || ""}|${ovText || ""}`;
+    const complete = params.get("valuecontext") === "1";
+    if (!complete && !basisText && !ovText) return false;
+    const sig = `${complete ? "full:" : ""}${basisText || ""}|${ovText || ""}`;
     if (sig === S.linkSig) return false;
-    const basis = parseBasisParam(basisText);
-    const overrides = parseOvParam(ovText);
+    const parsedBasis = parseBasisParam(basisText);
+    const parsedOverrides = parseOvParam(ovText);
+    if (complete && ((basisText && !parsedBasis) || (ovText && !parsedOverrides))) return false;
+    const basis = parsedBasis || (complete ? {mode: "default"} : null);
+    const overrides = parsedOverrides || (complete ? {} : null);
     if (!basis && !overrides) return false;
     S.linkSig = sig;
     S.session = true;
     if (basis) setBasisState(basis);
+    if (complete) { S.values = {}; S.names = {}; }
     if (overrides) {
       Object.entries(overrides).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
       Object.keys(overrides).forEach(key => { const row = rowOf(key); if (row) S.names[key] = row.name; });
@@ -794,14 +834,36 @@
     }
     const parts = [];
     const info = basisInfo();
-    if (basis) parts.push(`a custom basis (${info ? info.label : "see Overrides"})`);
+    if (basis) parts.push(info && info.isDefault ? "our methodology" : `a custom basis (${info ? info.label : "see Overrides"})`);
     if (overrides) parts.push(`${Object.keys(overrides).length} player override${Object.keys(overrides).length === 1 ? "" : "s"}`);
     S.linkNote = `This link uses ${parts.join(" and ")}. They apply for this visit only.`;
-    S.linkExtra = {basis: basis || null, values: overrides || null};
+    S.linkExtra = {basis: basis || null, values: overrides || null, replace: complete};
     saveLinkState(S.linkExtra);
     syncBar();
     announce("sources");
     return true;
+  }
+  // An accepted league import may be undone without changing saved preferences.
+  function snapshotContext() {
+    return {basis: basisRecord(), values: JSON.parse(JSON.stringify(S.values)),
+      names: {...S.names}, session: S.session, linkSig: S.linkSig,
+      linkNote: S.linkNote, linkExtra: S.linkExtra ? JSON.parse(JSON.stringify(S.linkExtra)) : null};
+  }
+  function restoreContext(snapshot) {
+    if (!snapshot) return;
+    setBasisState(snapshot.basis);
+    S.values = {...snapshot.values};
+    S.names = {...snapshot.names};
+    S.session = snapshot.session;
+    S.linkSig = snapshot.linkSig;
+    S.linkNote = snapshot.linkNote;
+    S.linkExtra = snapshot.linkExtra;
+    if (S.engine) { S.engine.setBasis(engineBasis(), true); S.engine.setValueOverrides(S.values); }
+    S.applied = JSON.stringify(engineBasis());
+    saveLinkState(S.linkExtra || {});
+    syncBar();
+    announce("sources");
+    if ($("v2Overrides") && !$("v2Overrides").hidden) render();
   }
   function useOurs() {
     S.linkNote = null;
@@ -1170,8 +1232,12 @@
     syncBar();
     // Anything else that sets the basis (a script, a link) moves the indicator too.
     window.addEventListener("trade-value-shared-change", () => syncBar());
+    window.matchMedia("(max-width: 767px)").addEventListener("change", () => {
+      const bar = $("v2OvBar");
+      if (bar) placeBar(bar);
+    });
   }
 
   root.DDFOverrides = {boot, render, count: () => Object.keys(S.values).length, all: () => ({...S.values}),
-    basis: () => basisRecord(), shareParams, applyLink, dropOverridesNote, flag, state: S};
+    basis: () => basisRecord(), shareParams, shareLink, applyLink, snapshotContext, restoreContext, dropOverridesNote, flag, state: S};
 })(window);

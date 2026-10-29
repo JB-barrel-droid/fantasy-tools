@@ -50,12 +50,11 @@ SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # serves it (JEG-453); /classic/ in dist/ is a redirect to the root.
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
 TITLE = "Data Driven Football"   # brand only (Jeremy, 2026-10-08)
-DESCRIPTION = ("Rest-of-season fantasy football trade values for your league settings, "
-               "trade targets where the published charts disagree with our values, "
-               "and a trade calculator.")
+DESCRIPTION = ("Know who to trade for, before your league does. Fantasy football trade values "
+               "built for your league, plus the trades your league-mates will actually say yes to.")
 OG_TITLE = TITLE
-OG_DESCRIPTION = ("Rest-of-season trade values for your league settings, with trade targets "
-                  "where the published charts disagree with our values.")
+OG_DESCRIPTION = ("Trade values built for your league, plus the trades your league-mates "
+                  "will actually say yes to.")
 
 # JEG-1026: the footer line "Using ChatGPT or Claude? Connect the tool" on every tab (static HTML), linking the connect guide that
 # build_llm_surfaces.py publishes at connect/ (shell.html carries the same URL literally: the contract test needs the built page to embed it verbatim). The marker is where the footer starts in shell.html.
@@ -268,6 +267,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     line_end = html.index("</script>", last_at) + len("</script>")
     v2_scripts = ('\n  <script src="assets/player-tags.js" defer></script>'
                   '\n  <script src="v2/namesearch.js" defer></script>'
+                  '\n  <script src="v2/source-views.js" defer></script>'
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
@@ -278,6 +278,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/team-summary.js" defer></script>'
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
+                  '\n  <script src="v2/lineup-comparison.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
                   '\n  <script src="v2/waivers.js" defer></script>'
@@ -341,7 +342,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "league.js", "modules.js",
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "modules.js",
                  "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "ddf-assist.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"

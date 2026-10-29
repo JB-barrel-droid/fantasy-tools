@@ -231,6 +231,32 @@ SETTER = """async () => {""" + HELPERS + """
 
 RANK = """async () => {""" + HELPERS + """
   const problems = [];
+  const firstTierInversion = rows => {
+    const rank = ['starter', 'bench', 'waiver', null];
+    let previousValue, groupWorst = -1, priorWorst = -1;
+    for (let i = 0; i < rows.length; i += 1) {
+      const value = rows[i].values.ddf_value, tier = rank.indexOf(rows[i].ddfTier);
+      if (i > 0 && value !== previousValue) {
+        priorWorst = Math.max(priorWorst, groupWorst);
+        groupWorst = -1;
+      }
+      if (tier < priorWorst) return i;
+      groupWorst = Math.max(groupWorst, tier);
+      previousValue = value;
+    }
+    return -1;
+  };
+  // The display breaks exact value ties by name, while VP-7.3 uses mean PPG
+  // then key. Check distinct value groups without imposing a display tie order.
+  // Negative cases also catch an inversion hidden behind a mixed-tier tie group.
+  const tierRow = (value, tier) => ({values: {ddf_value: value}, ddfTier: tier});
+  if (firstTierInversion([tierRow(2, 'waiver'), tierRow(2, 'bench')]) !== -1)
+    problems.push('tier-order guard rejects an exact value tie');
+  for (const rows of [
+    [tierRow(2, 'waiver'), tierRow(1, 'bench')],
+    [tierRow(2, 'waiver'), tierRow(2, 'bench'), tierRow(1, 'bench')],
+    [tierRow(2, 'waiver'), tierRow(2 - Number.EPSILON, 'bench')]
+  ]) if (firstTierInversion(rows) < 0) problems.push('tier-order guard missed a strict value inversion');
   const P = ['QB', 'RB', 'WR', 'TE'];
   const sum = shape => P.reduce((s, p) => s + shape[p], 0) + shape.FLEX + (shape.SUPERFLEX || 0);
   c.setLockOrder('ddf_value');
@@ -282,11 +308,10 @@ RANK = """async () => {""" + HELPERS + """
       if (zones.starter_to_bench !== at(s)) problems.push(`${t}: starter zone ${zones.starter_to_bench}, DDF starters ${s}`);
       if (zones.bench_to_waiver !== at(n)) problems.push(`${t}: bench zone ${zones.bench_to_waiver}, DDF rostered ${n}`);
       if (P.includes(pos)) {
-        // Within one position the tiers are a prefix of the DDF order (not in
-        // ALL or FLEX: a slot can go to a lower value at another position).
-        const rank = ['starter', 'bench', 'waiver', null];
-        const order = rows.map(r => rank.indexOf(r.ddfTier));
-        const firstBad = order.findIndex((tier, i) => i > 0 && tier < order[i - 1]);
+        // Across distinct values within one position, tiers are a prefix of
+        // DDF order. Exact per-player VP-7.3 tie breaks are checked above.
+        // ALL/FLEX can assign a slot to a lower value at another position.
+        const firstBad = firstTierInversion(rows);
         if (firstBad >= 0) problems.push(`${t}: tiers out of DDF order at ${firstBad}`);
       }
       if (!window.TradeValueCurveDiagnostics.fixedPieIndexed) problems.push(`${t}: fixedPieIndexed false`);

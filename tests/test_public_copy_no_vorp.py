@@ -332,6 +332,7 @@ def dom_vorp_hits(shell_patch=None, v2_patch=None):
                         hits += [f"[{width}px {tab} drawer] {h}" for h in page.evaluate(SWEEP)]
                         page.keyboard.press("Escape")
                         page.wait_for_timeout(100)
+                    _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
                     if page.locator("#v2EditSources").count() and page.locator("#v2EditSources").first.is_visible():
                         page.click("#v2EditSources")
                         page.wait_for_timeout(200)

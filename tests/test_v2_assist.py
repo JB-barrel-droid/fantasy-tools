@@ -44,6 +44,14 @@ class AssistBuildTest(unittest.TestCase):
         self.assertLess(assist, page)
         self.assertIn("ddf-assist.js", Path(build_v2_page.__file__).read_text(encoding="utf-8"))
 
+    def test_one_copy_link_button_and_no_chatgpt_claude_buttons(self):
+        """JEG-1101 (Jeremy, 2026-10-26): the ChatGPT/Claude Copy / Paste buttons and the paste box are gone; one Copy link
+        button with one line under it, both hidden until ddf-assist.js binds them."""
+        for gone in ("Copy for ChatGPT/Claude", "Paste from ChatGPT/Claude", "v2AssistPasteToggle", 'id="v2AssistPaste"', "v2AssistApply"):
+            self.assertNotIn(gone, SHELL)
+        self.assertIn('id="v2AssistCopy" aria-describedby="v2AssistCopyHint" hidden>Copy link</button>', SHELL)
+        self.assertIn('id="v2AssistCopyHint" hidden>', SHELL)
+
     def test_the_connect_guide_the_footer_links_is_published(self):
         with tempfile.TemporaryDirectory() as tmp:
             build_llm_surfaces.build(Path(tmp), "https://example.test/", "https://example.test/mcp")

@@ -3,6 +3,7 @@
 At 390, 360 and 320 px with the 4-team fixture in the workspace:
 
   * no sideways scroll; the tables become cards; every control is at least 44 px tall;
+  * the opportunities filter row shrinks its "Overall fit:" select (#v2LgFilterFit) instead of running past the edge;
   * the sort selector sorts the cards, both directions, and equals an independent sort of the numbers shown on the cards;
   * every visible text meets WCAG AA contrast in light and dark, on the league cards at 1366 and 390;
   * the headers are keyboard operable: Enter on a sort button sorts, one tab stop per header, aria-sort on exactly one th;
@@ -34,6 +35,22 @@ SMALL = """() => { const out = []; for (const sel of ['#v2LgCard', '#v2LgSummary
 ACTIVE_SORT = """(table) => [...document.querySelectorAll(table + ' thead th[aria-sort]')].filter(t => t.getAttribute('aria-sort') !== 'none').map(t => t.dataset.col + ':' + t.getAttribute('aria-sort'))"""
 
 CARDS = """(sel) => [...document.querySelectorAll(sel + ' > li')].map(li => li.innerText)"""
+
+# JEG-1154: the "Overall fit:" select is as wide as its longest option ("Natural and market supported"), which is wider than a 320 px phone.
+# The row must shrink it rather than run the page sideways, so the failure names the select instead of only reporting a pixel count.
+FIT_FILTER_OVERFLOW = """() => {
+  const w = document.documentElement.clientWidth;
+  const sel = document.querySelector('#v2LgFilterFit');
+  if (!sel) return ['#v2LgFilterFit is not on the page'];
+  const out = [];
+  const field = sel.closest('.v2-field') || sel;
+  for (const [name, node] of [['#v2LgFilterFit', sel], ['the #v2LgFilterFit label', field]]) {
+    const r = node.getBoundingClientRect();
+    if (r.width && r.right > w + 0.5) out.push(`${name} runs to ${Math.round(r.right)}px on a ${w}px phone`);
+  }
+  if (document.documentElement.scrollWidth > w) out.push(`the page is ${document.documentElement.scrollWidth - w}px wider than a ${w}px phone with #v2LgFilterFit on it`);
+  return out;
+}"""
 
 
 def setUpModule():
@@ -86,7 +103,8 @@ def check_phone(browser, base, overrides, errors):
         # The sort selector's default order is the rank order; it must differ from alphabetical or this check proves nothing.
         page.select_option("#v2LgSummarySortBy", "team")
         names = clean(page.evaluate(CARDS, "#v2LgSummaryCards"))
-        if names != sorted(names, key=str.lower) and names != sorted(names, key=str.lower, reverse=True):
+        # The column's first direction is ascending (table-sort nextState), so the cards must come out A to Z, not merely ordered.
+        if names != sorted(names, key=str.lower):
             errors.append(f"{tag}summary cards after sorting by team: {names}")
         if names == rank_order:
             errors.append(f"{tag}sorting by team did not reorder the summary cards ({names}); if the fixture's rank order is alphabetical this check proves nothing")
@@ -98,6 +116,15 @@ def check_phone(browser, base, overrides, errors):
         if any(v is None for v in caps) or caps != sorted(caps, reverse=True):
             errors.append(f"{tag}opportunity cards after sorting by capture: {caps}")
         page.context.close()
+
+
+def check_fit_filter(browser, base, overrides, errors):
+    """JEG-1154: the opportunities filter row fits a 320 px phone, select named."""
+    page = open_page(browser, base, width=320, height=800, overrides=overrides, errors=errors, tag="[320px fit] ")
+    seed(page, "4team")
+    wait_opps(page)
+    errors += [f"[320px fit] {b}" for b in page.evaluate(FIT_FILTER_OVERFLOW)]
+    page.context.close()
 
 
 def check_contrast(browser, base, overrides, errors):
@@ -150,7 +177,7 @@ def check_keyboard(browser, base, overrides, errors):
     page.context.close()
 
 
-CHECKS = {"phone": check_phone, "contrast": check_contrast, "keyboard": check_keyboard}
+CHECKS = {"phone": check_phone, "fit-filter": check_fit_filter, "contrast": check_contrast, "keyboard": check_keyboard}
 
 
 def run_checks(overrides=None, only=None) -> list[str]:
@@ -181,17 +208,22 @@ class LeaguePhoneRenderTest(unittest.TestCase):
         league = source("league.js")
         broken = {
             "the cards are never shown": ({"v2.css": css.replace("  .v2-lg-tablewrap { display: none; }\n  .v2-lg-cards { display: grid; }", "  .v2-lg-cards { display: none; }", 1)}, {"phone"}),
-            "the sort selector is dead": ({"league.js": league.replace('sel.addEventListener("change", () => onSort(S.nextState({col: null}, sel.value, columns)));', '', 1)}, {"phone"}),
+            "the sort selector is dead": ({"league.js": league.replace('sel.addEventListener("change", () => onSort(S.nextState({col: null}, sel.value, columns)));', '', 1)}, {"phone"}, "sort selector"),
+            "the fit filter is wider than a 320 px phone": ({"v2.css": css.replace("  .v2-lg-filters .v2-field { min-width: 0; max-width: 100%; flex: 1 1 100%; }\n  .v2-lg-filters .v2-field select { min-width: 0; max-width: 100%; }\n", "", 1)}, {"fit-filter"}),
             "a 30px control": ({"v2.css": css.replace(".v2-lg-toggle { min-width: 44px; min-height: 44px;", ".v2-lg-toggle { min-width: 30px; min-height: 30px;", 1)}, {"phone"}),
             "low contrast tint": ({"v2.css": css.replace(".v2-lg-sort.is-active { color: var(--v2-action-strong); }", ".v2-lg-sort.is-active { color: #9FD8BE; }", 1)}, {"contrast"}),
             "aria-sort on the button": ({"league.js": league.replace('const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});', 'const th = el("th", {scope: "col", "data-col": id, ...(attrs || {})});', 1)}, {"keyboard"}),
             "Escape does not fold": ({"league.js": league.replace('if (event.key === "Escape" && !comp.collapsed', 'if (false && !comp.collapsed', 1)}, {"keyboard"}),
         }
-        for name, (overrides, only) in broken.items():
+        for name, (overrides, only, *rest) in broken.items():
+            names_it = rest[0] if rest else None   # a phrase the error must carry, so the named bug is caught by the check that names it, not by unrelated noise
             with self.subTest(mutation=name):
                 key = next(iter(overrides))
                 self.assertNotEqual(overrides[key], source(key), f"mutation anchor for {name!r} is stale")
-                self.assertNotEqual(caught(overrides, only), [], f"not caught: {name}")
+                found = caught(overrides, only)
+                self.assertNotEqual(found, [], f"not caught: {name}")
+                if names_it:
+                    self.assertTrue(any(names_it in e for e in found), f"caught, but not by the check that names it: {name} -> {found[:3]}")
 
 
 if __name__ == "__main__":

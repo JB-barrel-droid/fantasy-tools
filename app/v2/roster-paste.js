@@ -160,6 +160,8 @@
   //   "Deebo Samuel Sr.OVideo ForecastNew Player Note"
   //   "ChiefsNo new player Notes"
   var YAHOO_GLUED_RE = /(?:Video Forecast|New Player Note|No new player Notes|Player Note|Notes?)\s*$/i;
+  // Yahoo's page-wide search header is navigation, even when its labels are glued together.
+  var YAHOO_SEARCH_NOISE_RE = /^(?:Yahoo\s*Sports\s*)+(?:Search\s*query\s*S?)?$|^Search\s*query\s*S?$/i;
   // Injury tags glued directly onto a name: "LoveQ", "EgbukaQ", "Samuel Sr.O"
   // Single uppercase letter Q/O/D right after a lowercase letter or period, or
   // multi-char tags like IR/SSPD/PUP/DTD after a lowercase letter.
@@ -1186,6 +1188,7 @@
       var line = rawLines[lineIdx];
       var trimmed = line.trim();
       if (!trimmed) continue;
+      if (YAHOO_SEARCH_NOISE_RE.test(trimmed)) continue;
 
       // Clean Yahoo-style glued text and ESPN doubled names
       var cleaned = cleanYahooName(trimmed);
@@ -1323,7 +1326,8 @@
   var RECORD_INLINE_RE = /^(.{2,80}?)\s*\(\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)\s*$/;
   var RECORD_ALONE_RE = /^\(?\s*\d{1,2}\s*-\s*\d{1,2}(?:\s*-\s*\d{1,2})?\s*\)?$/;
   var TABLE_MARKER_RE = /^(SLOT|Pos|Position|Starters)(\s|$)/i;
-  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye\b.*)$/i;
+  // Only ESPN's actual section header is noise: a team is allowed to start with "Bye Week" (JEG-1110).
+  var TEAM_NAME_NOISE_RE = /^(offense|kickers?|defen[cs]e.*|starters|bench|reserve|taxi|ir|empty|view team|propose trade|trade|rosters?|league rosters|edit|player|acq|slot|pos|position|status|action|opp|proj|score|manager|owner|record|w-l-t|free agency|draft|waivers?|keeper|my team|league|players|scoreboard|standings|fantasycast|get another team|opposing teams|\(?\d+(st|nd|rd|th) of \d+\)?|[\d.,%+\-\s]+|(mon|tue|wed|thu|fri|sat|sun)\b.*|.*\b\d{1,2}:\d{2}\b.*|bye(?:\s+weeks?(?:\s+players)?)?)$/i;
 
   function cleanTeamName(raw) {
     var s = cleanESPNDoubled(String(raw || "").replace(/\t+/g, " ").replace(/\s+/g, " ").trim());
@@ -1338,6 +1342,7 @@
   }
   function plausibleTeamName(line, index) {
     var t = cleanTeamName(line);
+    if (YAHOO_SEARCH_NOISE_RE.test(t)) return false;
     if (t.length < 2 || t.length > 60) return false;
     if (!/[A-Za-z]/.test(t) || /\t/.test(line)) return false;
     if (t.charAt(0) === "@") return false;

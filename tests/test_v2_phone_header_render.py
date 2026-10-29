@@ -9,7 +9,7 @@ Loads the built page headless at 320, 360, 375, 390 and 412 px wide (812 tall), 
 #compare-trade, and requires at scrollY 0: the wordmark fully inside the viewport and inside the painted header,
 and (360 px and up) the header no taller than two rows. JEG-1119 (Jeremy's scope, 2026-10-26) moved the freshness
 button out of the header into the context row, so on a phone it must sit on the league summary's line there, short
-label and all.
+label and all. Since JEG-1134 that line is the row's summary button (#v2ContextSummary).
 Discrimination: test_guard_fails_on_broken_builds serves v2.css with the wordmark pushed 41 px up (the reported
 -31 px top) and with the phone rules broken (the freshness button back on its own row; the full text instead of "Week 7"), and requires failures.
 """
@@ -27,7 +27,9 @@ TABS = ("#trade-targets", "#compare-trade")
 TWO_ROWS_MAX = 120  # wordmark row (44 + 10 padding) + tab row (52) + gap
 MEASURE = """() => {
   const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return {top: b.top, bottom: b.bottom, left: b.left, right: b.right}; };
-  return {scrollY: window.scrollY, brand: r('.v2-brand'), nav: r('.v2-nav'), fresh: r('#v2Freshness'), league: r('.v2-ctx-league')};
+  // JEG-1134: below 768 px the league summary is the context row's summary line (the league block opens under it).
+  const league = document.getElementById('v2ContextSummary')?.offsetParent ? '#v2ContextSummary' : '.v2-ctx-league';
+  return {scrollY: window.scrollY, brand: r('.v2-brand'), nav: r('.v2-nav'), fresh: r('#v2Freshness'), league: r(league)};
 }"""
 
 

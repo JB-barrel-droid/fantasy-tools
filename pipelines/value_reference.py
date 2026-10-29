@@ -36,7 +36,7 @@ import math
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -52,6 +52,8 @@ from lib.roster_convention import (
     vorp_bench_allocate as _vorp_bench_allocate,
     POSITIONS as _CONV_POSITIONS,
 )
+from nfl_week import today_ny  # noqa: E402  (JEG-1177: one New York-time calendar)
+from week_state import week_state as _week_state  # noqa: E402  (JEG-1177: shared defaultWeek rule)
 
 VERSION = "value-reference-002/2"
 PIPELINE_VERSION = "value-pipeline/2"
@@ -558,6 +560,13 @@ def _expected_start_parts(xs: list, starters: int, teams: int, w: float, line: f
 # JEG-969: promotion/demotion-aware expected starts (off by default)
 # ---------------------------------------------------------------------------
 
+# JEG-1142 (Jeremy, 2026-10-27): no role-change math (neither the bench
+# promotion boost nor the starter demotion cut) applies to values until the
+# JEG-1144 risk research supports it. This master switch overrides every
+# caller's promotion_model flag; the model code below is kept for later.
+# Mirrored in value-model.js and spec_reference/value_pipeline.py.
+PROMOTION_MODEL_ENABLED = False
+
 PROMOTION_CONFIG = REPO / "config" / "promotion_rates.json"
 
 
@@ -926,9 +935,10 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     if es is not None:
         share_in = league.bench_share_override   # None = computed (ES-14)
 
-    # JEG-969: promotion/demotion model (off by default)
+    # JEG-969: promotion/demotion model, off for everyone since JEG-1142
+    # (PROMOTION_MODEL_ENABLED master switch).
     promo = None
-    if promotion_model and es is not None and lineup is not None:
+    if PROMOTION_MODEL_ENABLED and promotion_model and es is not None and lineup is not None:
         promo_cfg = load_promotion_config()
         season_wks = float(promo_cfg.get("season_weeks", 17))
         # weeks_remaining from the lineup config window
@@ -1354,7 +1364,7 @@ class Inputs:
             n = _num(k)
             if n is not None and n == int(n):
                 key_of[slug] = int(n)
-        return cls(fx, canon, key_of, today or datetime.now(timezone.utc).date(), {})
+        return cls(fx, canon, key_of, today or today_ny(), {})
 
     def section(self, source: str) -> dict | None:
         sec = (self.fixture.get("sources") or {}).get(source)
@@ -1568,7 +1578,7 @@ class Setting:
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
                  promotion_model: bool = True, flex_bench_seats: bool = True,
-                 basis: dict | None = None):
+                 basis: dict | None = None, week: int | None = None):
         """basis: JEG-1044, the reader's value basis (None = default).
         lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
@@ -1576,12 +1586,15 @@ class Setting:
         False runs the VP-2.6 slices at bench_share (the JEG-508 pipeline).
         divergence_exclusions: source keys excluded by a JEG-610 'exclude'
         resolution (treated as hidden, held semantics per JEG-569).
-        promotion_model: JEG-969, on by default (2026-10-23, Jeremy approved).
-        Adjusts expected starts for promotion/demotion dynamics (persistent
-        role changes scaled by weeks remaining).
+        promotion_model: JEG-969 (2026-10-23). Adjusts expected starts for
+        promotion/demotion dynamics (persistent role changes scaled by weeks
+        remaining). JEG-1142 (2026-10-27): ignored while the module-level
+        PROMOTION_MODEL_ENABLED master switch is False (pending JEG-1144).
         flex_bench_seats: MR-28/JEG-969, on by default (2026-10-23, Jeremy
         approved). Bench-seat weights include flex starters (matching
-        allocate_league in the ES model). QB drops from ~15 bench seats to ~4."""
+        allocate_league in the ES model). QB drops from ~15 bench seats to ~4.
+        week: JEG-1177, the week view the reader picked (None = the default
+        week, week_state over this setting's DDF Value sources)."""
         self.inp, self.scoring, self.teams = inp, scoring, int(teams)
         self.promotion_model = promotion_model
         self.flex_bench_seats = flex_bench_seats
@@ -1593,6 +1606,8 @@ class Setting:
         self.selection = selection
         self.basis = basis
         self.divergence_exclusions = divergence_exclusions or set()
+        self.week = week
+        self._week_view = False  # not resolved yet (None = no week view)
         self.league = League(
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
@@ -1630,6 +1645,65 @@ class Setting:
                 out[k] = 0.0
         return out
 
+    # -- JEG-1177 the week view -------------------------------------------
+    def _history_matches_build(self) -> bool:
+        hist = self.hist
+        if hist is None:
+            return False
+        built = hist.index.get("fixture_built_at")
+        return not (built and self.inp.fixture.get("built_at") and built != self.inp.fixture["built_at"])
+
+    def week_view(self) -> dict | None:
+        """The week this setting is priced on during a week transition, as
+        curve-widget.js resolveWeekView: week_state over the DDF Value
+        sources (eligible, not hidden; no week rule), each with its served
+        week (history index). None without a matching history.
+        {week, default_week, selected, newest, previous, transition, weeks,
+        on_newest, total, views, served_weeks, saved, missing_saved}."""
+        if self._week_view is not False:
+            return self._week_view
+        self._week_view = None
+        if not self._history_matches_build():
+            return None
+        hist = self.hist
+        served = {}
+        for k in SOURCES:
+            w = (hist.served(k) or {}).get("week")
+            served[k] = w if isinstance(w, int) and not isinstance(w, bool) else None
+        candidates = []
+        for k in SOURCES:
+            if self.inp.section(k) is None or not self.natives(k):
+                continue
+            if section_hold(self.inp, k) and section_hold_level(self.inp, k) != "amber":
+                continue
+            if k in self.divergence_exclusions:
+                continue
+            candidates.append(k)
+        state = _week_state([{"source": k, "week": served[k]} for k in candidates])
+        if state["default_week"] is None:
+            return None
+        week = self.week if (isinstance(self.week, int) and self.week in state["weeks"]) else state["default_week"]
+        saved, missing_saved = {}, {}
+        for k in SOURCES:
+            if served[k] is None or served[k] <= week:
+                continue
+            entry, why = history_entry(hist, k, week)
+            nat = snapshot_natives(self.inp, k, entry, self.scoring) if entry else {}
+            if nat:
+                saved[k] = nat
+            else:
+                missing_saved[k] = why or f"no {self.scoring} values saved for Week {week}"
+        views = {}
+        for w, view in state["views"].items():
+            gone = [k for k in view["sources"] if int(w) == week and k in missing_saved]
+            views[w] = {"sources": [k for k in view["sources"] if k not in gone],
+                        "missing_sources": sorted(view["missing_sources"] + gone)}
+        self._week_view = {**{k: state[k] for k in ("default_week", "newest", "previous", "transition", "weeks",
+                                                     "on_newest", "total")},
+                           "week": week, "selected": week != state["default_week"], "views": views,
+                           "served_weeks": served, "saved": saved, "missing_saved": missing_saved}
+        return self._week_view
+
     # -- VP-1 the included set -------------------------------------------
     def state(self) -> dict:
         """Eligible and included sources, exclusion reasons and the prior
@@ -1638,11 +1712,33 @@ class Setting:
             return self._state
         fresh = freshness(self.inp)
         current = {k: self.natives(k) for k in SOURCES}
+        view = self.week_view()
         eligible, excluded, hidden = [], {}, set()
         for k in SOURCES:
             hold = section_hold(self.inp, k)
             hold_level = section_hold_level(self.inp, k)
             row = fresh["series"].get(k) or {}
+            served = view["served_weeks"].get(k) if view else None
+            if view and served is not None and served != view["week"]:
+                # JEG-1177, no carry-forward: a source on an earlier week is
+                # left out of this view; one on a later week is priced on its
+                # saved copy of this week (curve-widget.js computePipeline).
+                if served < view["week"]:
+                    excluded[k] = f"not yet published for Week {view['week']} (serves Week {served})"
+                    current[k] = {}
+                    continue
+                if k not in view["saved"]:
+                    excluded[k] = f"no Week {view['week']} saved ({view['missing_saved'].get(k)})"
+                    current[k] = {}
+                    continue
+                current[k] = dict(view["saved"][k])
+            if view and served is not None:
+                # Inside a week view "older" is judged against the view's week
+                # (a weekly chart whose own label is behind it), not the
+                # calendar's (curve-widget.js compositeKeyOlderWeek).
+                row = {**row, "first_load_excluded": False,
+                       "older": bool(row.get("weekly") and row.get("week") is not None
+                                     and row["week"] < view["week"])}
             if hold:
                 # JEG-569 part 2: a held source with data stays in the pipeline
                 # (weights, pie, allocation) but is hidden: left out of the DDF
@@ -1665,7 +1761,7 @@ class Setting:
                     eligible.append(k)
                     hidden.add(k)
             elif row.get("older") or row.get("first_load_excluded"):
-                excluded[k] = f"not yet published for week {fresh['current_week']}"
+                excluded[k] = f"not yet published for week {view['week'] if view else fresh['current_week']}"
             elif self.inp.section(k) is None:
                 excluded[k] = "missing from this build"
             elif not current[k]:
@@ -1679,6 +1775,9 @@ class Setting:
         if hist is not None and same_build:
             weeks = {k: (hist.served(k) or {}).get("week") for k in eligible}
             weeks = {k: w for k, w in weeks.items() if isinstance(w, int)}
+            if view:
+                # Every source left in the view is priced on the view's week.
+                weeks = {k: view["week"] for k in weeks}
             current_week = max(weeks.values()) if weeks else None
             for k in eligible:
                 if weeks.get(k) != current_week or current_week is None:

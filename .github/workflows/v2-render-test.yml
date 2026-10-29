@@ -16,6 +16,18 @@ name: v2 render test
 # "Dispatch v2-render" step. The `push` trigger covers human/PAT/merge pushes.
 on:
   pull_request:
+    # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
+    # file is Markdown or under docs/. Tests-only PRs still run it. The docs
+    # the build reads (sync_dashboard_artifacts -> build_values_explainer,
+    # build_llm_surfaces) stay included.
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "docs/methodology.md"
+      - "docs/math-review-agenda.md"
+      - "docs/use-ddf-in-claude-chatgpt.md"
+      - "app/llm/**"
   push:
     branches: [main]
     paths:
@@ -35,7 +47,8 @@ concurrency:
 jobs:
   v2-render:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # JEG-1169: 15 minutes was used up by an 11-minute browser install.
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,6 +56,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
       - name: Browser for the render test
         run: |
           python3 -m pip install --quiet playwright==1.49.1
@@ -50,6 +72,9 @@ jobs:
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
       - run: python3 -m unittest tests.test_v2_contract_render
+      - run: python3 -m unittest tests.test_v2_finder_guardrails_render
+      - run: python3 -m unittest tests.test_interactive_trades_release_render
+      - run: python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render
       # JEG-1056: the Compare 1366x768 fit guard (JEG-917/JEG-932) lives here, not in the deploy gate. Its
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.

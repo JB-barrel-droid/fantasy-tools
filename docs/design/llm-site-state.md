@@ -29,7 +29,7 @@ Every section is optional. `league` carries the sender's settings so the receive
 
 ## Players
 
-A list entry is `{key, name?}` or a name-only `{name}`. Keys are the engine's `player_key` and win when present. An LLM does not know keys, so name-only entries are normal: the site resolves them with the roster-paste matcher (JEG-1010) and says which it could not match. Names in the URL are written `n:<name encoded twice>`, because `URLSearchParams` decodes once before the comma split. Lists are capped at 40 and de-duplicated.
+A list entry is `{key, name?}` or a name-only `{name}`. Keys are the engine's `player_key` and win when present. An LLM does not know keys, so name-only entries are normal: the site resolves them with the roster-paste matcher (JEG-1010) and says which it could not match. Names in the URL are written `n:<name>`. The name is percent-encoded once (a space is `%20`). Commas, ampersands and equals are encoded a second time, because `URLSearchParams` decodes once before the comma split. Lists are capped at 40 and de-duplicated.
 
 ## Rules a reader follows
 

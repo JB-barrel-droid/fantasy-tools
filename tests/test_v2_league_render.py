@@ -213,6 +213,8 @@ def check_saved(browser, base, overrides, errors):
 def check_files(browser, base, overrides, errors):
     page = open_page(browser, base, overrides=overrides, errors=errors, tag="[files] ")
     seed(page, "4team")
+    # JEG-1213 moves transfer actions into the Import / export menu.
+    page.locator("#v2LgTransfer > summary").click()
     with page.expect_download() as info:
         page.click("#v2LgDownload")
     download = info.value
