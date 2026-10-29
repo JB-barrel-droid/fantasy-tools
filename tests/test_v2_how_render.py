@@ -351,6 +351,15 @@ class ValueLogicInDashboardTest(unittest.TestCase):
         template = (ROOT / "app" / "values-explainer" / "template.html").read_text(encoding="utf-8")
         self.assertIn('location.replace("../#writing/how-values")', template)
 
+    def test_value_logic_does_not_call_fantasycalc_a_published_chart(self):
+        # JEG-1247: the embedded page follows the JEG-1212 taxonomy (app/v2/source-views.js).
+        template = (ROOT / "app" / "values-explainer" / "template.html").read_text(encoding="utf-8")
+        self.assertNotIn("published trade charts (USA Today, FantasyCalc", template)
+        self.assertIn("three published charts (USA Today, FantasyPros, CBS) and one observed-trade estimate (FantasyCalc", template)
+        self.assertIn('const OBSERVED = ["fantasycalc"]', template)
+        views = (ROOT / "app" / "v2" / "source-views.js").read_text(encoding="utf-8")
+        self.assertIn('const OBSERVED = Object.freeze(["fantasycalc"])', views)
+
 
 if __name__ == "__main__":
     unittest.main()

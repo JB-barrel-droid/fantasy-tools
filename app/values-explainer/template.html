@@ -23,8 +23,15 @@
   }
   theme();
   try { new MutationObserver(theme).observe(window.parent.document.documentElement, {attributes: true, attributeFilter: ["data-theme"]}); } catch (e) {}
-  function report() { window.parent.postMessage({type: "ddf-value-logic-height", height: root.scrollHeight}, location.origin); }
-  addEventListener("load", function () { report(); if (window.ResizeObserver) new ResizeObserver(report).observe(document.body); });
+  // Measure the content (.wrap), not root.scrollHeight or the body: this page has no doctype, so in quirks
+  // mode the body stretches to the frame and scrollHeight never drops below it. A wider frame (shorter
+  // content) would otherwise keep the old, taller height.
+  function report() {
+    var wrap = document.querySelector(".wrap") || document.body;
+    var height = wrap.getBoundingClientRect().bottom + window.scrollY + parseFloat(getComputedStyle(document.body).marginBottom);
+    window.parent.postMessage({type: "ddf-value-logic-height", height: height}, location.origin);
+  }
+  addEventListener("load", function () { report(); if (window.ResizeObserver) new ResizeObserver(report).observe(document.querySelector(".wrap") || document.body); });
 })();
 </script>
 <style>
@@ -235,7 +242,7 @@ html.embed section.sec { scroll-margin-top: 12px; }
     <header>
       <div class="eyebrow">1 · The pipeline</div>
       <h2>One recipe for all seven sources</h2>
-      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball) and four published trade charts (USA Today, FantasyCalc, FantasyPros, CBS) all go through the same steps. No source is an anchor. DDF Value is the mean of the four trade charts' Adjusted values and the projections are the alternate version; Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
+      <p class="muted">Three projections (ESPN, CBS rest of season, Razzball), three published charts (USA Today, FantasyPros, CBS) and one observed-trade estimate (FantasyCalc, estimated from completed fantasy trades) all go through the same steps. No source is an anchor. DDF Value is the mean of the four trade charts' Adjusted values (the three published charts and FantasyCalc) and the projections are the alternate version; Indexed exists only to show the charts on one scale and never feeds DDF Value.</p>
       <p class="muted">Sources publish a new week at different times, so every source carries its own week. While some are on week N and others on N+1, the values are priced one week at a time: the N+1 view uses only the sources that have published N+1, and the week N view uses only week N data (a source that already moved on is read from its saved week N). A source still on N is left out of the N+1 view and named, never mixed in. The page opens on N+1 once more than half of the sources feeding DDF Value at your league setting have published it; at exactly half it stays on N.</p>
     </header>
     <div class="panel"><ol class="recipe" id="pipeSteps"></ol></div>
@@ -379,6 +386,11 @@ const NAME = {usatoday: "USA Today", fantasycalc: "FantasyCalc", fantasypros: "F
   ddf_value: "DDF Value", ddf_value_charts: "DDF Value · trade charts", ddf_value_projections: "DDF Value · projections"};
 const nameOf = k => NAME[k] || k;
 const isChart = k => CHARTS.includes(k);
+// JEG-1212 taxonomy (app/v2/source-views.js): FantasyCalc is an observed-trade estimate, not a published chart.
+// It is still one of the four trade charts DDF Value averages; only its description differs.
+const OBSERVED = ["fantasycalc"];
+const isObserved = k => OBSERVED.includes(k);
+const ownValue = k => isObserved(k) ? "observed-trade value" : "published value";
 const colorOf = k => DDF_KEYS.includes(k) ? "var(--accent)" : `var(--s-${k})`;
 const dashOf = k => k === "ddf_value_charts" ? "7 4" : k === "ddf_value_projections" ? "2 3" : "";
 const $ = id => document.getElementById(id);
@@ -484,12 +496,12 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
     ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
     ["DDF Value", `The equal-weight mean of the Adjusted values of the included, non-hidden sources that price the player. Zeros count; a source that does not price him is left out. Three versions: blended (the default, DDF Value: the trade charts' Adjusted values only, Jeremy 2026-10-25, JEG-1073), trade charts only (the same set), projections only (the alternate). With no trade chart available DDF Value is unavailable, never a projection fallback. Option value and the timing horizon also leave hidden sources out. One number in every view. Tiers rank DDF Value and cut at the allocation's counts. Option value (convex upside) and the timing horizon are separate series and do not change DDF Value. A reader's own override (Overrides tab, off by default) replaces DDF Value on that player's row only, in that reader's browser: either an absolute value or an adjustment (+/-) added to DDF Value, both put on the 0-100 value scale; it never feeds the pipeline, Indexed, tiers, the trade chart average or the prior week.`, `DDF Value = mean(Adjusted over included, non-hidden sources that price him)`],
-    ["Indexed (display only)", `Each chart's published values times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each publisher's own shape on our scale and never feeds DDF Value.`, `Indexed = published value × (Σ DDF Value ÷ Σ published value, over listed players)`],
+    ["Indexed (display only)", `Each trade chart's own values (a published chart's published values, or FantasyCalc's observed-trade estimate) times one factor, set so the chart's total over the players it lists equals DDF Value's total over the same players. It shows each source's own shape on our scale and never feeds DDF Value.`, `Indexed = own value × (Σ DDF Value ÷ Σ own value, over listed players)`],
   ];
   $("pipeSteps").innerHTML = steps.map(([t, body, f]) => `<li><div><b>${t}</b><p class="muted small">${body}</p>${f ? `<div class="formula">${esc(f)}</div>` : ""}</div></li>`).join("");
 
   const rows = [
-    ["Trade charts", CHARTS, ["Published value × one factor against DDF Value", "v × pie ÷ the chart's total v", "Paid on the DDF weights from the chart's slices"]],
+    ["Trade charts", CHARTS, ["Own value (published, or observed-trade for FantasyCalc) × one factor against DDF Value", "v × pie ÷ the chart's total v", "Paid on the DDF weights from the chart's slices"]],
     ["Projections", PROJ, ["Their Adjusted values, off by default", "v × pie ÷ the projection's total v", "Paid on the DDF weights from the projection's slices"]],
     ["DDF Value (three versions)", DDF_KEYS, ["Mean of Adjusted values", "Same", "Same"]],
   ];
@@ -669,12 +681,12 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     return `<div class="panel cards">
       <h3>${label(k)} <span class="muted small">${chart ? `Week ${weekOf[k] ?? "?"} · ` : ""}${Object.keys(SRC[k] || {}).length} players on its work list${s.included ? "" : " · not included"}</span></h3>
       <ol class="recipe">
-        <li><div><b>${chart ? "Take the published trade value" : "Take the per-game projection"}</b><p class="muted small">${chart ? `The publisher's own trade values from its saved 12-team ${SCORING[S.scoring]} list, in its own units.` : `Rest-of-season points per game for ${SCORING[S.scoring]}, at full precision.`}${chart ? " Rosterable players it doesn't list get an estimate (list below)." : ""}</p></div></li>
+        <li><div><b>${chart ? (isObserved(k) ? "Take the observed-trade value" : "Take the published trade value") : "Take the per-game projection"}</b><p class="muted small">${chart ? (isObserved(k) ? `The source's own trade values, estimated from completed fantasy trades, from its saved 12-team ${SCORING[S.scoring]} list, in its own units.` : `The publisher's own trade values from its saved 12-team ${SCORING[S.scoring]} list, in its own units.`) : `Rest-of-season points per game for ${SCORING[S.scoring]}, at full precision.`}${chart ? " Rosterable players it doesn't list get an estimate (list below)." : ""}</p></div></li>
         <li><div><b>Read the waiver and starter lines at the league's counts</b><p class="muted small">Counts come from the one league allocation (by mean projected points), not from this source. Waiver line = this source's own value at the first rank past the rostered count; starter line = the midpoint of its last starter and first non-starter, in ${unit}.</p></div></li>
         <li><div><b>${ES ? "Split by expected starts and group" : "Slice and group"}</b><p class="muted small">Total value above waivers ${fmtN(s.totalVorp)} ${unit}, in eight groups below.</p></div></li>
         <li><div><b>Pay the pie on the DDF weights</b><div class="formula">rate[group] = pie × W[group] ÷ group total\nAdjusted = rate[pos, bench] × ${ES ? "fill-in part" : "bench slice"} + rate[pos, starter] × ${ES ? "start-worthy part" : "starter slice"}</div></div></li>
         <li><div><b>Value above waivers</b><div class="formula">v × ${sig(s.vorpFactor, 5)}   (${fmt(PIE, 0)} ÷ ${fmtN(s.totalVorp)})</div></div></li>
-        ${chart ? `<li><div><b>Indexed</b><div class="formula">published value × ${sig(s.indexedFactor, 5)}</div></div></li>` : ""}
+        ${chart ? `<li><div><b>Indexed</b><div class="formula">${ownValue(k)} × ${sig(s.indexedFactor, 5)}</div></div></li>` : ""}
       </ol>
       <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Listed${chart ? " + estimated" : ""}</th><th class="r">Starters / rostered</th><th class="r">Starter line</th><th class="r">Waiver line</th><th>Waiver player</th><th class="r">Starter group</th><th class="r">Bench group</th><th class="r">Starter rate</th><th class="r">Bench rate</th></tr></thead><tbody>${rows}</tbody></table></div>
       <div class="tablewrap"><table><thead><tr><th>Pos</th><th class="r">Starter mix</th><th class="r">Bench mix</th><th class="r">Own starter weight</th><th class="r">DDF starter weight</th><th class="r">Own bench weight</th><th class="r">DDF bench weight</th></tr></thead><tbody>${mix}</tbody></table></div>
@@ -730,11 +742,11 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
       const a = SRC[src]?.[k];
       let chain;
       if (!a) {
-        chain = step(isChart(src) ? "Published value" : "Projection", esc(p.why?.[src] || "not on its list")) + op("→") + step("Adjusted", (valueOf("adj", src, k) ?? "—") === "—" ? "—" : fmt(valueOf("adj", src, k)), true);
+        chain = step(isChart(src) ? (isObserved(src) ? "Observed-trade value" : "Published value") : "Projection", esc(p.why?.[src] || "not on its list")) + op("→") + step("Adjusted", (valueOf("adj", src, k) ?? "—") === "—" ? "—" : fmt(valueOf("adj", src, k)), true);
       } else {
         const [nat, est, rank, role, v, bsl, ssl, A, Vd, Ix] = a;
         const rb = s.rates?.[pos + "|bench"], rs = s.rates?.[pos + "|starter"];
-        chain = step(`${isChart(src) ? "Published" : "ppg"}${est ? " (estimated)" : ""} · ${pos}${rank} ${ROLE_NAME[role]}`, fmtN(nat))
+        chain = step(`${isChart(src) ? (isObserved(src) ? "Observed-trade" : "Published") : "ppg"}${est ? " (estimated)" : ""} · ${pos}${rank} ${ROLE_NAME[role]}`, fmtN(nat))
           + op("−") + step(`Waiver line (${pos}${(x.rostered ?? 0) + 1})`, fmtN(x.waiver)) + op("=") + step("v", fmtN(v))
           + op("→") + (ES ? step("Fill-in part", fmtN(bsl)) + step(`Start-worthy part (line ${fmtN(x.starterLine)})`, fmtN(ssl))
                : step(`Bench slice (to ${fmtN(x.starterLine)})`, fmtN(bsl)) + step("Starter slice", fmtN(ssl)))
