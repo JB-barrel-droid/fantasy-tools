@@ -15,11 +15,11 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-### USO site journey regressions lane (JEG-1240, Claude, 2026-10-29 UTC)
+### USO site journey regressions lane (JEG-1240, correction JEG-1264, Claude, 2026-10-29 UTC)
 
-- Branch `claude/JEG-1240-uso-site-journey`, test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_render.py`. Synthetic rosters in USO's roster shape (shape from #1105's 2026-10-29 settings read); no USO rosters or notes.
-- Node contract on main: 9 checks pass; three mutations (search capped at 10, Compare link without opponent, pair link without opponent) each fail the named check. On #1105 it passes; on #1086 and #1088 the discovery check fails until they merge main (#1072).
-- The browser journey has not run (no Chromium here, not wired). It is expected red on main for JEG-1229 (league link carries only give/get; Compare picks its default opponent). Wiring (Makefile shard or `KNOWN_RED` "JEG-1229") waits on Codex's handshake. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
+- Branch `claude/JEG-1240-uso-site-journey` (#1110), test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_contract.py` (Node: harness, continuity, mutation classes), `tests/test_uso_site_journey_render.py` (browser only). Synthetic rosters in USO's roster shape; no USO rosters or notes.
+- On main: 9 harness checks green, 3 mutations each add only their intended code; 3 continuity checks red by design (another device loses basis and sources; no trade-context.js yet). On main merged with #1086 the transfer check passes (same device carried, another device held for sources-changed + rows-changed); state and pair links stay red.
+- Browser journey (stages incl. pair finder, readouts, strict get= guard) has not run: no Chromium here. Wiring is the infrastructure owner's (`be/ci-regression-wiring`); no Makefile, coverage or `KNOWN_RED` hunk on this branch. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
 
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 

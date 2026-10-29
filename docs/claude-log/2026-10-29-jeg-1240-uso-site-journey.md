@@ -64,3 +64,80 @@ page publishes for its pinned week.
 Proposed to Codex on JEG-1240: either add `python3 -m unittest tests.test_uso_site_journey_render` to a render-sweep
 shard (and `test-render-extra`), or list it in `KNOWN_RED` in `tests/test_render_sweep_coverage.py` as `"JEG-1229"` until
 #1086 carries the context. The Node part could also join `test-unit-modules`. None of these hunks is in this PR.
+
+## 2026-10-29 - JEG-1264 correction (review f58ed5d1 on #1110 @ `7c45a47`)
+
+Supersedes the first round's counts above (9 checks, the Node classes in the render file, the broad guard catch).
+Files: `tests/node/uso_site_journey_contract.cjs` (rewritten), `tests/test_uso_site_journey_contract.py` (new: Node
+classes), `tests/test_uso_site_journey_render.py` (browser only), `HANDOFF.md`. No app, Makefile, coverage or workflow
+file. The fixture is unchanged and still says synthetic, shape only.
+
+What changed, per finding:
+
+1. Guard: the browser journey records each stage as read or blocked with a code; a page or script failure outside a read
+   raises `HarnessError` and is never a finding. `test_guard_fails_on_a_link_without_get` runs the build and the mutant,
+   requires both picks' league -> Compare stage read on the build with no `package-changed`, the same stage outcomes on
+   the mutant, `package-changed` among the mutant's new codes there, and nothing new outside package loss and its
+   repricing.
+2. Self-supplied context: destinations are built on their own state, the same device (a deep copy) and another device
+   (PPR, 10 teams, WR 2, BN 7, FantasyCalc-only basis, CBS unavailable, its own saved league with Team 05 as my team).
+   Modeled values are salted with settings, basis and level and price a chart only where the device has it, so a lost
+   piece moves numbers. Sources use the JEG-1259 `{status, reason, version}` shape (the browser reads
+   `getSourceInfo()`); the pair link destination reruns its own search on its own values. Negatives: scoring, basis,
+   held CBS, level, substituted team, missing team and emptied get each fail with their own code, on the equal and the
+   2-for-1 package. `judge()` accepts a hold only when it names a reason for every lost piece and something was lost.
+3. Pair finder and readouts: the Node envelope carries both sides' starters by slot and bench, before and after, from
+   `trade-readout.js` (JEG-1260) when app/v2 has it, else finder.js `rosterImpact` (checked equal). The browser adds the
+   pair finder (saved-team pickers, the listed group ticked to the exact package, aria-label values, its own lineup
+   tables, starters only since it draws no bench rows), its own share link and Compare's address on another device.
+4. Wiring: not on this branch. The infrastructure owner (`be/ci-regression-wiring`, per JEG-1264 comment 09600170) wires
+   the classes below. No `KNOWN_RED`, no skip marker added.
+
+Commands for the wiring owner:
+
+```
+# gating, green on main
+python3 -m unittest tests.test_uso_site_journey_contract.UsoJourneyHarnessTest tests.test_uso_site_journey_contract.UsoJourneyMutationTest
+# visible, expected red until JEG-1259 carries the context or holds the trade
+python3 -m unittest tests.test_uso_site_journey_contract.UsoJourneyContinuityTest
+python3 -m unittest tests.test_uso_site_journey_render
+```
+
+### Verified (check named)
+
+- `python3 -m unittest -v tests.test_uso_site_journey_contract tests.test_uso_site_journey_render` on this branch (main
+  `6be60d2` merged in): `UsoJourneyHarnessTest` 2 ok, `UsoJourneyMutationTest` ok, `UsoJourneyContinuityTest` 3 FAIL
+  (expected), the 3 browser tests skipped (no Chromium). About 5 s.
+- Node contract facts on main: 3397 candidates, 434 send JSN, across 11 opponents. Equal pick
+  `team-o-05|1338,3247|3993,2791`, throw-in pick `team-o-06|3315,3247|1029,2140` (throw-in `receive:2140`), explicit
+  2-for-1 from it.
+- Continuity on main, by code:
+  - state link: same device clean; another device `basis-changed`, `sources-changed` (CBS) and the repricing.
+  - pair link: same device clean; another device `basis-changed`, `sources-changed`, and for the equal pick
+    `package-not-rediscovered` (its own search on its own values does not list the package).
+  - transfer: `context-missing` on every case (no trade-context.js).
+- Mutations (each compared case by case with the build): search capped at 10 fails only
+  `test_jsn_discoverable_in_the_uncapped_search` ("none truncated"); the DDF state link without `theirs=` adds
+  `team-missing` on same-device state-link cases and nothing outside repricing; the pair link without `theirs=` adds
+  `team-missing` on same-device pair-link cases plus package loss and repricing only.
+- Same contract on app/v2 of each dependency head merged with main (scratch `git merge-tree`, read only):
+  - #1086 `8599560`: harness green; transfer check passes. receive() returned ok with the carried rosters on the same
+    device and a hold naming `sources-changed`, `rows-changed` on another device, for all three picks. State and pair
+    links stay red as on main.
+  - #1088 `b18c503`: harness green with the readout from `trade-readout.js` equal to the lineup math; continuity as on
+    main.
+  - #1105 `5427971`: harness green; continuity as on main.
+- The seven in-page browser scripts parse (`new Function` in Node); the readout label parser handles "Name 12.3",
+  "Name no value" and "empty".
+
+### Claimed, not confirmed
+
+- No browser test has run anywhere: no Chromium in this container (the Playwright download is refused by the proxy) and
+  the module is not wired, so CI does not run it. Selectors (pair pickers, group checkboxes, the pair lineup table
+  captions, Compare panels) are written from the source.
+- Expected on main once it runs, from reading the source: league -> Compare `team-substituted` (Compare's default
+  opponent) with `gains-missing` / `readout-missing`; Compare elsewhere `team-substituted` (its address carries no
+  rosters). The pair finder may not list a league pick when its group ranking folds it; that would show as
+  `package-not-listed`, a finding, not a harness error.
+- The browser's other device differs in settings, basis and saved league but not in sources (the page offers no way to
+  switch a source off); the Node contract covers source loss.
