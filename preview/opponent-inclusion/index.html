@@ -5,19 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Opponent inclusion preview (JEG-1231)</title>
   <!-- Private component preview. Not part of the publish: pipelines/build_v2_page.py copies a named file list and this
-       folder is not on it. Tokens come from the Oct 26 direction (JEG-1209). Team names are illustrative. -->
+       folder is not on it. Colors, type and controls follow the JEG-1209 Fieldnotes revision 2 handoff
+       (docs/design/jeg-1209-fieldnotes, pinned at 2c8931231ccd2bbeb4946ac031aee5ac655182f4); the role values below are
+       copied from its prototype.html. Team names are illustrative. -->
   <link rel="icon" href="data:,">
-  <link rel="stylesheet" href="../../app/v2-concept/concept.css">
   <link rel="stylesheet" href="../../app/v2/opponent-inclusion.css">
   <style>
+    @font-face { font-family: "Fraunces"; src: url("../../app/v2-concept/fonts/fraunces-latin.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+    :root { --canvas: #f5f2ea; --surface: #fffdf8; --subtle: #eae8df; --ink: #182d27; --muted: #52635c; --line: #d4d8cd;
+      --control: #79897f; --action: #126044; --action-ink: #ffffff; --negative: #922f3e; --warning: #80500f; --focus: #175bc1;
+      --radius: 16px; --duration: 160ms; --ease: cubic-bezier(.2, .7, .2, 1);
+      font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--canvas); }
+    html[data-theme="dark"] { --canvas: #101b17; --surface: #192720; --subtle: #26372d; --ink: #eef3e8; --muted: #b5c4b8; --line: #3d4e43;
+      --control: #7f9688; --action: #a6dfbe; --action-ink: #11271c; --negative: #ffb4be; --warning: #ebc486; --focus: #a9c7ff; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); }
+    button, select { font: inherit; color: inherit; }
+    :focus-visible { outline: 3px solid var(--focus); outline-offset: 3px; }
+    @media (prefers-reduced-motion: reduce) { :root { --duration: 0ms; } }
+    html.is-shot *, html.is-shot *::before, html.is-shot *::after { transition: none !important; animation: none !important; }
     .pv { max-width: 960px; margin: 0 auto; padding: 24px 16px 48px; display: grid; gap: 16px; }
-    .pv h1 { font-family: var(--display); font-size: 28px; font-weight: 600; line-height: 1.2; }
-    .pv-note { color: var(--muted); font-size: 12px; }
+    .pv h1 { font-family: "Fraunces", Georgia, serif; font-size: 28px; font-weight: 600; line-height: 1.2; margin: 0 0 8px; }
+    .pv-note { color: var(--muted); font-size: 13px; }
     .pv-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-    .pv-bar label { display: inline-flex; gap: 8px; align-items: center; font-size: 12px; color: var(--muted); }
-    .pv-bar select, .pv-bar button { min-height: 44px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); }
-    .pv-card { padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
-    .pv-card h2 { font-size: 14px; font-weight: 600; margin: 0 0 8px; }
+    .pv-bar label { display: inline-flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); }
+    .pv-bar select, .pv-bar button { min-height: 44px; padding: 0 16px; border: 1px solid var(--control); border-radius: 9px; background: var(--surface); font-weight: 600; }
+    .pv-card { padding: 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+    .pv-card h2 { font-size: 14px; font-weight: 650; margin: 0 0 8px; }
     .pv-card ol { margin: 0; padding-left: 20px; }
     .pv-card code { font-size: 12px; color: var(--muted); }
     @media (min-width: 900px) { .pv-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; align-items: start; } }
@@ -27,7 +41,7 @@
 <body>
   <main class="pv">
     <header>
-      <h1>Opponents to search</h1>
+      <h1>Opponents to include</h1>
       <p class="pv-note">Private preview of the league trade search control (JEG-1231). Sample teams, no values. Nothing here is saved.</p>
     </header>
     <div class="pv-bar" role="group" aria-label="Preview controls">
@@ -60,16 +74,17 @@
   (function () {
     "use strict";
     const I = window.TradeValueOpponentInclusion;
-    const roster = [{key: "p1", name: "Sample player", pos: "RB"}];
+    // Placeholder entries: only the count shows here (no names, no values). Sizes vary like a real league's.
+    const roster = n => Array.from({length: n}, (_, i) => ({key: `p${i + 1}`, name: `Sample player ${i + 1}`, pos: "RB"}));
     let seq = 0;
-    const team = (name, entries) => ({id: `team_preview_${++seq}`, name, entries: entries === undefined ? roster : entries});
+    const team = (name, entries) => ({id: `team_preview_${++seq}`, name, entries: entries === undefined ? roster(15) : entries});
     function league(kind) {
       seq = 0;
       const names = ["Your team", "Gridiron Gang", "Sunday Scaries", "Waiver Wire Warriors", "Bench Mob", "Taco Corp", "Fourth and Long",
         "The Replacements", "Hail Marys", "Red Zone Regulars", "Ground Game", "Two Minute Drill"];
       if (kind === "none") names.length = 1;
       if (kind === "duplicates") { names[5] = "Sunday Scaries"; }
-      const teams = names.map((n, i) => team(n, i === 9 ? [] : roster));
+      const teams = names.map((n, i) => team(n, i === 9 ? [] : roster(14 + (i * 5) % 4)));
       return {id: "league_preview", teams, myTeamId: teams[0].id, ui: {}};
     }
     const params = new URLSearchParams(location.search);

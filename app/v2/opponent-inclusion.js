@@ -53,16 +53,18 @@
   // ---------- who counts ----------
   const opponents = ws => teamsOf(ws).filter(t => idOf(t) !== String(ws && ws.myTeamId));
   const profileTest = opts => (opts && typeof opts.profileExcluded === "function" ? id => opts.profileExcluded(id) === true : () => false);
+  const playerCount = opts => (opts && typeof opts.playerCount === "function" ? t => Math.max(0, Number(opts.playerCount(t)) || 0) : t => (Array.isArray(t.entries) ? t.entries.length : 0));
   const rosterTest = opts => (opts && typeof opts.hasRoster === "function" ? t => Boolean(opts.hasRoster(t)) : t => Array.isArray(t.entries) && t.entries.length > 0);
 
   // One row per opponent, in league order:
-  //   {id, name, label, duplicate, position, viewExcluded, profileExcluded, included, hasRoster, searched}
+  //   {id, name, label, duplicate, position, players, viewExcluded, profileExcluded, included, hasRoster, searched}
   // label adds "team N" (its place in the league list) when two opponents share a name, so a screen reader can tell them apart.
   function describe(ws, rawState, opts) {
     const state = normalize(rawState === undefined ? (ws && ws.ui && ws.ui[UI_KEY]) : rawState, ws);
     const excluded = new Set(state.excluded);
     const isProfile = profileTest(opts);
     const hasRoster = rosterTest(opts);
+    const countOf = playerCount(opts);
     const all = teamsOf(ws);
     const opps = opponents(ws);
     const counts = new Map();
@@ -76,7 +78,8 @@
       const included = !viewExcluded && !profileExcluded;
       const roster = hasRoster(t);
       const name = String(t.name || "");
-      return {id, name, label: duplicate ? `${name} · team ${position}` : name, duplicate, position, viewExcluded, profileExcluded,
+      const players = countOf(t);
+      return {id, name, label: duplicate ? `${name} · team ${position}` : name, duplicate, position, players, viewExcluded, profileExcluded,
         included, hasRoster: roster, searched: included && roster};
     });
     const total = rows.length;
@@ -167,10 +170,10 @@
     };
     const safe = id => String(id).replace(/[^A-Za-z0-9_-]/g, c => `_${c.charCodeAt(0).toString(16)}`);
     const countId = `${prefix}Count`;
-    const legend = el("legend", {class: "oi-legend", text: o.legend || "Opponents to search"});
+    const legend = el("legend", {class: "oi-legend", text: o.legend || "Opponents to include"});
     const count = el("p", {class: "oi-count", id: countId, role: "status", "aria-live": "polite"});
     const allBtn = el("button", {type: "button", class: "oi-btn", id: `${prefix}All`, text: "Select all"});
-    const noneBtn = el("button", {type: "button", class: "oi-btn", id: `${prefix}None`, text: "Clear all"});
+    const noneBtn = el("button", {type: "button", class: "oi-btn", id: `${prefix}None`, text: "Clear"});
     const actions = el("div", {class: "oi-actions"}, allBtn, noneBtn);
     const list = el("ul", {class: "oi-list", id: `${prefix}List`});
     const empty = el("p", {class: "oi-empty", id: `${prefix}Empty`, hidden: true});
@@ -186,13 +189,14 @@
       const box = el("input", {type: "checkbox", class: "oi-box", id: boxId, "data-team-id": row.id});
       const name = el("span", {class: "oi-name"});
       const tag = el("span", {class: "oi-tag", "aria-hidden": "true"});
-      const label = el("label", {class: "oi-label", for: boxId}, name, tag);
+      const meta = el("span", {class: "oi-meta", "aria-hidden": "true"});
+      const label = el("label", {class: "oi-label", for: boxId}, name, tag, meta);
       const note = el("span", {class: "oi-note", id: noteId});
       const li = el("li", {class: "oi-item", "data-team-id": row.id}, box, label, note);
       // A won't-trade manager stays out: the box stays focusable so a screen reader reaches it and hears why, but it cannot be ticked.
       box.addEventListener("click", event => { if (box.getAttribute("aria-disabled") === "true") event.preventDefault(); });
       box.addEventListener("change", () => { if (box.getAttribute("aria-disabled") !== "true" && o.onToggle) o.onToggle(row.id, box.checked); });
-      return {li, box, name, tag, note, noteId};
+      return {li, box, name, tag, meta, note, noteId};
     }
 
     function update(model) {
@@ -205,6 +209,7 @@
         item.name.textContent = row.name;
         item.tag.textContent = row.duplicate ? `team ${row.position}` : "";
         item.tag.hidden = !row.duplicate;
+        item.meta.textContent = `${row.players} ${row.players === 1 ? "player" : "players"}`;
         // The accessible name carries the team number when names repeat; the visible tag is the same words.
         item.box.setAttribute("aria-label", row.label);
         item.box.checked = row.included;

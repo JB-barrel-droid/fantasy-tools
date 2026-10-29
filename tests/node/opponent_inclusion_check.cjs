@@ -66,6 +66,9 @@ t("test_baseline_every_opponent_included", () => {
   assert.ok(m.rows.every(r => r.included && r.searched));
   assert.deepStrictEqual(ids(I.searchOpponents(ws, I.read(ws))), ids(ws.teams.slice(1)), "the search runs against every opponent, as today");
   assert.strictEqual(I.summary(m), "Searching 3 of 3 opponents.");
+  assert.deepStrictEqual(m.rows.map(r => r.players), ws.teams.slice(1).map(x => x.entries.length), "each row counts that team's players");
+  const counted = I.describe(ws, I.read(ws), {playerCount: x => (x.id === ws.teams[1].id ? 2 : -3)});
+  assert.deepStrictEqual(counted.rows.map(r => r.players), [2, 0, 0], "a caller's count wins and never goes below 0");
 });
 
 t("test_explicit_exclude_and_include", () => {

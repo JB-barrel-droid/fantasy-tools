@@ -1,7 +1,7 @@
 ## 2026-10-29 - JEG-1231 opponent inclusion checkboxes (component lane)
 
 Contract: an isolated, stable-ID opponent inclusion helper and accessible checkbox component for the league-wide trade
-search, a private preview drawn in the JEG-1209 tokens, and tests. No league.js, finder.js, workspace.js, value, fit or
+search, a private preview drawn in the JEG-1209 Fieldnotes direction, and tests. No league.js, finder.js, workspace.js, value, fit or
 ranking change in this PR; the league hookup is a separate PR after #1072.
 
 New paths: `app/v2/opponent-inclusion.js`, `app/v2/opponent-inclusion.css`, `preview/opponent-inclusion/index.html`,
@@ -22,7 +22,7 @@ box is unticked, focusable, `aria-disabled`, and says the choice lives in Manage
   (`test_search_excludes_offers_without_changing_values`).
 - Rename keeps the choice, removal drops the id, a same-name team added back arrives included, duplicates stay apart,
   star moves, no opponents, all excluded, and the state survives `W.serialize`/`W.parseStored` (named tests in the harness).
-- The preview page's logic in jsdom (scratch only, not committed): counts, rename, re-add, Select all / Clear all,
+- The preview page's logic in jsdom (scratch only, not committed): counts, rename, re-add, Select all / Clear,
   won't-trade lock, duplicates and the empty state behave as the render test expects.
 
 ### Claimed, not confirmed
@@ -30,5 +30,21 @@ box is unticked, focusable, `aria-disabled`, and says the choice lives in Manage
   one column and no sideways scroll at 390) has not run here: this container has no Chromium. It runs in the v2 render
   workflow on the PR.
 - Screenshots at 1280 and 390, light and dark, come from that CI run's artifact, not from this session.
-- The exact Fieldnotes preview revision was not found in GitHub; the control uses the Oct 26 direction tokens
-  (`app/v2-concept/concept.css`) through CSS variables with fallbacks. Asked the release coordinator on JEG-1231 for the link.
+
+### Fieldnotes alignment (correction)
+An earlier note on this PR and on JEG-1231 said no Fieldnotes artifact had been provided. That was wrong: it was in
+#1089, handed off at `docs/design/jeg-1209-fieldnotes/` (pinned at `2c8931231ccd2bbeb4946ac031aee5ac655182f4`, revision 2,
+with `acceptance-amendment.md`). Reconciled against that baseline and amendment:
+- Labels follow the prototype's Filters panel: "Opponents to include", "Select all" and "Clear" (Clear means none). Each row
+  shows its team's player count as the prototype does, from `playerCount` when the caller supplies one.
+- The amendment's opponent-inclusion terms hold: stable team IDs, default all, explicit Select all/Clear, deleted teams
+  dropped, my own team never listed.
+- CSS fallbacks are the Fieldnotes light roles (canvas #F5F2EA, surface #FFFDF8, ink #182D27, line #D4D8CD, control #79897F,
+  action #126044, focus #175BC1 as a 3px outline), 9px control radius, 44px controls, 48px rows, 160ms motion. The
+  `--ddf-*` tokens still come first, so the public league page keeps today's palette until the shell rollout (JEG-1137).
+- The preview page now sets the Fieldnotes light and dark roles copied from `prototype.html` instead of loading the
+  Oct 26 concept stylesheet.
+- Verified here: the Node harness and mutations (now 7) pass, and the preview's labels and counts check out in jsdom
+  (scratch only). The browser render tests and screenshots for this head come from CI.
+- Not adopted from the prototype: it puts the control inside a Filters modal; placement on the league page belongs to
+  the hookup PR and the redesign owners.
