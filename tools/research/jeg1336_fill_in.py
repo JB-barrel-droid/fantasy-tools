@@ -48,7 +48,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -386,10 +386,11 @@ def ranks(res, inp):
 def history_cell(args):
     repo, cell, snaps = args
     setup(repo)
+    from lib.timestamps import parse_iso_timestamp  # on the path after setup()
     rows, prev = [], None
     for sha, when, players, fixture in snaps:
         try:
-            day = datetime.fromisoformat(when).astimezone(timezone(timedelta(hours=-5))).date()
+            day = parse_iso_timestamp(when).astimezone(timezone(timedelta(hours=-5))).date()
             inp = VR.Inputs.load(fixture=fixture, players=players, today=day)
             cur = {o: run(inp, cell, o) for o in OPTIONS}
         except Exception as e:  # an old fixture today's code can't read
