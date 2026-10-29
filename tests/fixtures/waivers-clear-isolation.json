@@ -1,0 +1,17 @@
+{
+ "ticket": "JEG-1278",
+ "description": "Seed for tests/test_waivers_clear_isolation_render.py: a saved league with my team and two league teammates, plus a waiver candidate list. Players are picked from the built data by position and DDF Value rank (unique names only), so the keys are the real stable player_keys of the build; K and DEF use the x:K:<name> and x:DEF:<team> keys the page itself gives them. Every key across roster, teammates and candidates must be distinct.",
+ "workspace": {
+  "id": "league-jeg1278",
+  "name": "Clear isolation league",
+  "my_team": {"id": "team-mine", "name": "My team"},
+  "teammates": [
+   {"id": "team-north", "name": "North", "picks": [["QB", 8, 1], ["RB", 20, 3], ["WR", 30, 3], ["TE", 6, 1]]},
+   {"id": "team-south", "name": "South", "picks": [["QB", 12, 1], ["RB", 30, 3], ["WR", 45, 3], ["TE", 9, 1]]}
+  ]
+ },
+ "roster": {"picks": [["QB", 3, 2], ["RB", 4, 5], ["WR", 5, 5], ["TE", 2, 2]], "kickers": [0], "defenses": [0]},
+ "candidates": {"picks": [["RB", 14, 3], ["WR", 18, 3], ["TE", 4, 1]], "kickers": [], "defenses": [3]},
+ "viewports": [[320, 640], [390, 844], [1366, 768]],
+ "mutant_viewport": [390, 844]
+}

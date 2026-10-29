@@ -606,7 +606,7 @@
       if (!q || !engine() || !root.TradeValueNameSearch) return;
       const onList = stores.mine.get().concat(stores.cands.get());
       const hits = root.TradeValueNameSearch.search(rowsAll().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = onList.some(p => p.key === key || (F.isNotEvaluated(p) && F.isNotEvaluated(row) && p.pos === row.pos && F.normName(p.name) === F.normName(row.name)));
@@ -672,7 +672,7 @@
     const rows = [r.candidate].concat(dropRow ? [dropRow] : []);
     // A chart price that shows as 0.0 is no price: a dash, never zero.
     const cell = (row, k) => (row.values && typeof row.values[k] === "number" && Number.isFinite(row.values[k]) && row.values[k] >= USABLE_MIN ? row.values[k].toFixed(1) : "—");
-    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "Market value by trade chart"}),
+    return el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup"}, el("caption", {text: "The Market, by chart"}),
       el("thead", {}, el("tr", {}, el("th", {scope: "col", text: "Player"}), ...CHART_KEYS.map(k => el("th", {scope: "col", text: CHART_NAMES[k]})), el("th", {scope: "col", text: "Average"}))),
       el("tbody", {}, ...rows.map(row => el("tr", {}, el("th", {scope: "row", text: row.name}), ...CHART_KEYS.map(k => el("td", {class: "num", text: cell(row, k)})),
         el("td", {class: "num", text: row.values && api.marketOf(row) !== null ? api.marketOf(row).toFixed(1) : "—"}))))));
