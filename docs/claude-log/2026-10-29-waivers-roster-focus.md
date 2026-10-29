@@ -1,9 +1,8 @@
 ## 2026-10-29 - Waivers: focus after roster Clear and Undo (JEG-1316)
 
-Contract: build option A of JEG-1316 as a draft for Jeremy's pick. After roster Clear, focus lands on the unfolded roster
+Contract: build option A of JEG-1316 (the coordinator's pick, 21:53 UTC, under Jeremy's standing OK to make picks and log them). After roster Clear, focus lands on the unfolded roster
 input. After roster Undo, focus lands on the roster control that is on screen (Edit roster once results fold the input), and
 "Your roster is back." shows outside the folded input. Candidate Clear/Undo and all Clear/Undo data behavior are unchanged.
-Not for merge until Jeremy picks A, B or C on JEG-1316.
 
 ### Verified (check named)
 - `node --check app/v2/waivers.js` passes.

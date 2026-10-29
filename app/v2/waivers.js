@@ -460,7 +460,7 @@
       undo.addEventListener("click", () => {
         stores[target].set(before);
         if (target === "mine") {
-          // JEG-1316 (option A, pending Jeremy's pick): results fold the roster input again on the next render, so the
+          // JEG-1316 (option A): results fold the roster input again on the next render, so the
           // message goes where it stays visible and focus waits for that render (render() moves it to Edit roster).
           result.replaceChildren();
           S.backSig = rosterSig(before);

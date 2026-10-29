@@ -9,7 +9,7 @@ waiver candidate list, all real player keys from the build and all distinct. The
   * Clear on Your roster empties the shared roster (the store Find a trade reads, and Find a trade's own list), says on the
     page that it was cleared on both Find a trade screens, and leaves the candidates, teammates and settings alone; Enter on
     Undo puts back the exact keys in order, the kicker and the defense included, and Find a trade shows the roster again;
-  * focus (JEG-1316, option A pending Jeremy's pick): after roster Clear it lands on the unfolded roster input, with Undo
+  * focus (JEG-1316, option A): after roster Clear it lands on the unfolded roster input, with Undo
     reached by Tab; after roster Undo it lands on the roster control that is on screen (Edit roster once results fold the
     input), and "Your roster is back." shows outside the folded input;
   * no page errors, no request leaves the local server, no sideways scroll.
