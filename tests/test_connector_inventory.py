@@ -3,8 +3,15 @@
 Every tool the MCP endpoint lists must be in TOOLS below, with the site route its link opens (observed
 by calling it, tests/node/connector_inventory_dump.mjs) and the checks that guard it. Every top-level
 route the site's tabs open must be reached by a tool's link or be an explicit exception in
-ROUTE_EXCEPTIONS, naming the ticket that adds it or why none will. A new tool (JEG-1029) fails here
-until it is listed with its own parity coverage, and its exception is removed when it lands.
+ROUTE_EXCEPTIONS, naming the ticket that adds it, why none will, or that it is unresolved. A new tool
+(JEG-1029) fails here until it is listed with its own parity coverage, and its exception is removed
+when it lands.
+
+The inventory is not complete while any exception is "unresolved: ...": a route no tool reaches and no
+ticket covers yet (JEG-1030 findings F2 and F3, which need a product call). test_no_unresolved_routes
+lists them and is an expected failure until each has a ticket or a tool, so the run shows them as open
+work rather than passing quietly. Fixing the last one makes that test an unexpected success: drop the
+decorator then.
 
 Offline only: this is the engine and tool code, not the deployed function or a live chat client.
 
@@ -44,17 +51,18 @@ TOOLS = {
 }
 
 # Site routes no tool links to. "JEG-n": the ticket that adds the analysis. "by design: ...": none
-# will. "untracked: ...": a gap found by JEG-1030 that still needs a ticket (reported on JEG-1030).
+# will. "unresolved: ...": open work, a gap found by JEG-1030 with no ticket yet (reported on JEG-1030).
 ROUTE_EXCEPTIONS = {
     "#risers-fallers": "JEG-1029",  # risers_fallers (state.ts already has the route)
     "#values-auditing": "JEG-1029",  # audit_values with the health and source views
     "#value-overrides": "JEG-1224",  # value basis and overrides are not part of the DDF state yet
     "#writing": "by design: prose pages, nothing to compute",
-    "#player-values": "untracked: get_values links to Trade targets, not the value chart (JEG-1030 F2)",
-    "#find-league": "untracked: find_trades_league links to the one-opponent finder (JEG-1030 F2)",
-    "#waivers": "untracked: no waiver analysis in the connector or in JEG-1029's proposal (JEG-1030 F3)",
+    "#player-values": "unresolved: get_values links to Trade targets, not the value chart (JEG-1030 F2)",
+    "#find-league": "unresolved: find_trades_league links to the one-opponent finder (JEG-1030 F2)",
+    "#waivers": "unresolved: no waiver analysis in the connector or in JEG-1029's proposal (JEG-1030 F3)",
 }
-EXCEPTION_FORM = re.compile(r"^(JEG-\d+|by design: .+|untracked: .+)$")
+EXCEPTION_FORM = re.compile(r"^(JEG-\d+|by design: .+|unresolved: .+)$")
+UNRESOLVED = "unresolved: "
 
 
 def site_routes(html: str) -> set[str]:
@@ -113,6 +121,12 @@ class ConnectorInventoryTests(unittest.TestCase):
         self.assertGreater(len(self.dump["tools"]), 5)
         self.assertIn("#compare-trade", self.routes)
         self.assertEqual(inventory_errors(self.dump, TOOLS, ROUTE_EXCEPTIONS, self.routes), [])
+
+    @unittest.expectedFailure
+    def test_no_unresolved_routes(self):
+        # Open work, not a pass: each unresolved route needs a ticket (or a tool) before this succeeds.
+        unresolved = {r: why for r, why in ROUTE_EXCEPTIONS.items() if why.startswith(UNRESOLVED)}
+        self.assertEqual(unresolved, {}, "site routes no tool reaches and no ticket covers")
 
     def test_inventory_check_catches_drift(self):
         new_tool = {**self.dump, "tools": self.dump["tools"] + ["risers_fallers"]}

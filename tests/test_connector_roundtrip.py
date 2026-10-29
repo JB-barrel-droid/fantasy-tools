@@ -1,8 +1,11 @@
 """JEG-1030: state -> connector tool -> get-values -> site link round trips (node, no network).
 
+Input and state round-trip coverage (what each tool prices and what its link opens), not pricing
+parity: the page side of parity is tests/test_endpoint_parity.py.
+
 The checks, the leagues (3-WR / 6-bench, three scorings, shares, bench override, injury history,
-confidence, season weeks) and the deliberately broken variants are in
-tests/node/connector_roundtrip_check.mjs. The page side of parity is tests/test_endpoint_parity.py.
+confidence, season weeks), the explicit-override cases with their engine inputs written out, and the
+deliberately broken variants are in tests/node/connector_roundtrip_check.mjs.
 """
 import shutil
 import subprocess

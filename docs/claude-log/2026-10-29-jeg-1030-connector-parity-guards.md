@@ -53,3 +53,27 @@ Added:
   environment cannot download; main has changed value-model.js and get-values/index.ts since
   `759a4f90`. The next nightly full suite on main is the check.
 - Nothing here was run against the deployed `mcp` or `get-values` functions or a live chat client.
+
+### Codex review round 1 (Linear, 08:34 UTC)
+Scope wording: this is input and state round-trip coverage (what each tool prices and what its link
+opens), not pricing parity. Pricing parity is `tests.test_endpoint_parity`.
+- Item 1: the three override cases now assert engine inputs written out per case, for what was priced
+  (`[A]`) and what the link opens (`[B]`), not against what the tool sent. A known gap matches only its
+  id and the exact engine fields it gets wrong (F1: `setting.superflex` on the two `[B]` ids), so any
+  other failure on those cases is reported. New mutation: the same calls without their explicit
+  arguments must fail `[A]` on all three cases.
+- Item 2: inventory gaps are now "unresolved: ..." and `test_no_unresolved_routes` is an expected
+  failure listing them, so a run shows them as open work (`OK (expected failures=1)`), not a pass.
+- Item 4 (F4): `connector_fit_check.mjs` checks population identity instead of a row count: the 189
+  trades judged per opponent are distinct and all among the diagnostic's 5693 rows, and every row's
+  label still matches. Dropping half the rows fails it. `tests.test_mcp_remote` is green again.
+- Item 3 (F1 fix): routed to the connector owner; Jeremy said "Yes, deploy it" (relayed 12:01 UTC).
+  Codex merges and deploys.
+
+Verified on the round-1 commit: `node --experimental-strip-types tests/node/connector_roundtrip_check.mjs`
+ok (0 failures, 2 known gaps, 8 mutations caught), `--strict` exits 1; with the F1 fix applied locally
+both gaps report fixed and the script exits 1 until they are removed (reverted). A known gap given a
+different field list is reported as a real failure. `python3 -m unittest tests.test_connector_roundtrip
+tests.test_connector_inventory tests.test_mcp_remote tests.test_run_suite tests.test_validate_shards
+tests.test_doc_staleness tests.test_ddf_state`: 36 OK, 1 expected failure.
+Still not run here: `tests.test_endpoint_parity` on current head (no Chromium in this environment).

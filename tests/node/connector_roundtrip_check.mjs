@@ -11,16 +11,26 @@
 //   C. the link loses no league field: it decodes to the pasted league, field for field;
 //   D. the link is a fixed point: pasting it back into read_state sends the same settings and returns
 //      the same link; work lists (give/get/mine/theirs/target) survive.
-// Engine-input equality is the offline half of parity. The page half (the page applies a league the
-// same way league.ts maps it) is tests/test_endpoint_parity.py, which needs a browser and a build.
+// This is input and state round-trip coverage: what each tool sends to get-values and what its link
+// opens. It is not pricing parity. Engine-input equality is the offline half; the page half (the page
+// applies a league the same way league.ts maps it, and prices it the same) is
+// tests/test_endpoint_parity.py, which needs a browser and a build.
 //
-// Discrimination: the same checks run against deliberately broken codecs and a tool call that drops
-// the pasted league, and each must report failures (exit 1 otherwise).
+// Explicit arguments (superflex, scoring, teams) over a pasted state are checked against engine
+// inputs written out in OVERRIDES, not against what the tool sent: A for what was priced, B for what
+// the link opens.
+//
+// Discrimination: the same checks run against deliberately broken codecs, a tool call that drops the
+// pasted league and calls that drop the explicit overrides; each must report failures (exit 1
+// otherwise).
 //
 // KNOWN_GAPS are real defects found by this check that need a runtime fix outside this test's ticket
-// (JEG-1030 is tests only); each is written up with its repro on JEG-1030 for the connector owner. They must still fail today: a gap that starts passing makes this script exit 1 so
+// (JEG-1030 is tests only); each is written up with its repro on JEG-1030 for the connector owner. A
+// gap is matched by id and by the exact engine fields it gets wrong, so any other failure on the same
+// case is reported. Gaps must still fail today: one that starts passing makes this script exit 1 so
 // the fixer removes it. --strict treats them as failures ("failing before, passing after").
 import assert from "node:assert/strict";
+import { isDeepStrictEqual as isDeepEqual } from "node:util";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
@@ -85,19 +95,30 @@ const TOOLS = [
 // A pasted work section every tool receives; read_state must hand it back unchanged.
 const PASTED_WORK = { mine: [{ key: "4" }], theirs: [{ key: "2" }] };
 
-// Explicit arguments win over the pasted state. The link must then open the overridden league.
-const OVERRIDES = [
-  { id: "explicit superflex false over pasted SF1", league: "wr3_bn6_all_fields", args: { superflex: false } },
-  { id: "explicit superflex true over pasted SF0", league: "sf0", args: { superflex: true } },
-  { id: "explicit scoring and teams", league: "wr3_bn6_all_fields", args: { scoring: "standard", teams: 12 } },
-];
+// Explicit arguments win over the pasted state. Each case's engine inputs are written out: what the
+// answer must price (A) and what the link must open (B).
+const WR3_SHARES = { QB: 0.2, RB: 0.4, WR: 0.3, TE: 0.1 };
+const WR3_WITH_SHARES = { ...WR3_ENGINE, setting: { ...WR3_ENGINE.setting, position_shares: WR3_SHARES } };
 LEAGUES.sf0 = { scoring: "ppr", teams: 12, roster: { QB: 1, RB: 2, WR: 3, TE: 1, FLEX: 1, SUPERFLEX: 0, BENCH: 6 } };
+const OVERRIDES = [
+  { id: "explicit superflex false over pasted SF1", league: "wr3_bn6_all_fields", args: { superflex: false },
+    expect: { ...WR3_WITH_SHARES, setting: { ...WR3_WITH_SHARES.setting, superflex: 0 } } },
+  { id: "explicit superflex true over pasted SF0", league: "sf0", args: { superflex: true },
+    expect: { scoring: "ppr", teams: 12,
+      setting: { teams: 12, slots: { QB: 1, RB: 2, WR: 3, TE: 1 }, flex: 1, superflex: 1, bench_per_team: 6,
+        bench_share: 0.15, bench_share_override: null, position_shares: null },
+      lineupArgs: { objective: "season", injury_history: "recent",
+        league_weeks: { regular_season_end: 14, playoff_weeks: [15, 17] }, projection_confidence: 1, content_week: null } } },
+  { id: "explicit scoring and teams", league: "wr3_bn6_all_fields", args: { scoring: "standard", teams: 12 },
+    expect: { ...WR3_WITH_SHARES, scoring: "standard", teams: 12, setting: { ...WR3_WITH_SHARES.setting, teams: 12 } } },
+];
 
+// id -> the ticket and the only engine fields the gap may get wrong.
 const KNOWN_GAPS = {
   // state.ts finish() rebuilds the link's league from the pasted league and adds SUPERFLEX only when
   // the pasted roster has none, so an explicit superflex argument prices one league and links another.
-  "explicit superflex false over pasted SF1": "JEG-1030 finding F1",
-  "explicit superflex true over pasted SF0": "JEG-1030 finding F1",
+  "explicit superflex false over pasted SF1 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
+  "explicit superflex true over pasted SF0 [B]": { ticket: "JEG-1030 finding F1", diff: ["setting.superflex"] },
 };
 
 // ---------- stub get-values (prices nothing; records what it was asked for) ----------
@@ -139,6 +160,21 @@ const key = (league) => leagueKey(engine(league));
 const linkOf = (result) => result.structuredContent?.site_url ?? "";
 const linkState = (url) => codec.decodeQuery(url.split("?")[1] ?? "").state;
 const routeOf = (url) => (/\/(#[a-z-]+)/.exec(url) || [])[1];
+const engineInputs = (league) => {
+  const m = engine(league);
+  return { scoring: m.scoring, teams: m.teams, setting: m.setting, lineupArgs: m.lineupArgs };
+};
+// The engine fields where got differs from want ("scoring", "setting.superflex", ...).
+function engineDiff(got, want) {
+  const out = [];
+  for (const k of ["scoring", "teams"]) if (!isDeepEqual(got[k], want[k])) out.push(k);
+  for (const part of ["setting", "lineupArgs"]) {
+    for (const k of new Set([...Object.keys(got[part] ?? {}), ...Object.keys(want[part] ?? {})])) {
+      if (!isDeepEqual(got[part]?.[k], want[part]?.[k])) out.push(`${part}.${k}`);
+    }
+  }
+  return out;
+}
 
 async function call(deps, rec, name, args) {
   const msg = { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } };
@@ -149,7 +185,7 @@ async function call(deps, rec, name, args) {
 // Run every check against `deps` (a codec and origin). Returns {failures: [{id, msg}]}.
 async function runChecks(deps, opts = {}) {
   const failures = [];
-  const fail = (id, msg) => failures.push({ id, msg });
+  const fail = (id, msg, diff) => failures.push({ id, msg, diff });
   for (const [leagueName, league] of Object.entries(LEAGUES)) {
     if (leagueName === "sf0") continue;
     const pasted = codec.normalize({ league }).state.league;
@@ -198,12 +234,17 @@ async function runChecks(deps, opts = {}) {
   }
   for (const o of OVERRIDES) {
     const rec = makeRecorder();
-    const r = await call(deps, rec, "get_values", { state: codec.encodeBlock({ league: LEAGUES[o.league] }), limit: 1, ...o.args });
-    const priced = getValuesMerge(rec.sent.at(-1));
+    const args = { state: codec.encodeBlock({ league: LEAGUES[o.league] }), limit: 1, ...(opts.dropOverrides ? {} : o.args) };
+    const r = await call(deps, rec, "get_values", args);
+    if (r.isError || !rec.sent.length) { fail(`${o.id} [A]`, `tool error or no get-values call`); continue; }
+    const priced = engineInputs(getValuesMerge(rec.sent.at(-1)));
+    const pricedDiff = engineDiff(priced, o.expect);
+    if (pricedDiff.length) fail(`${o.id} [A]`, `A: priced wrong ${pricedDiff.join(", ")}: ${JSON.stringify(priced)}`, pricedDiff);
     const back = linkState(linkOf(r));
-    if (!back?.league || key(back.league) !== key(priced)) {
-      fail(o.id, `B: priced ${key(priced)} but the link opens ${back?.league ? key(back.league) : "no league"}`);
-    }
+    if (!back?.league) { fail(`${o.id} [B]`, `B: the link carries no league: ${linkOf(r)}`, ["league"]); continue; }
+    const linked = engineInputs(back.league);
+    const linkDiff = engineDiff(linked, o.expect);
+    if (linkDiff.length) fail(`${o.id} [B]`, `B: the link opens wrong ${linkDiff.join(", ")}: ${JSON.stringify(linked)}`, linkDiff);
   }
   return { failures };
 }
@@ -214,16 +255,18 @@ for (const line of GET_VALUES_MERGE) assert.ok(src.includes(line), `get-values m
 
 const deps = { codec, siteOrigin: ORIGIN };
 const { failures } = await runChecks(deps);
-const gapIds = new Set(Object.keys(KNOWN_GAPS));
-const real = failures.filter((f) => !gapIds.has(f.id));
-const failedGaps = new Set(failures.filter((f) => gapIds.has(f.id)).map((f) => f.id));
+// A failure is a known gap only when its id is listed and it gets exactly the listed fields wrong.
+const isGap = (f) => KNOWN_GAPS[f.id] && isDeepEqual(f.diff, KNOWN_GAPS[f.id].diff);
+const real = failures.filter((f) => !isGap(f));
+const failedGaps = new Set(failures.filter(isGap).map((f) => f.id));
 let bad = false;
 for (const f of real) { console.log(`FAIL ${f.id}: ${f.msg}`); bad = true; }
-for (const [id, ticket] of Object.entries(KNOWN_GAPS)) {
-  if (!failedGaps.has(id)) { console.log(`FIXED? known gap ${id} (${ticket}) now passes: remove it from KNOWN_GAPS`); bad = true; }
-  else {
+for (const [id, gap] of Object.entries(KNOWN_GAPS)) {
+  if (!failedGaps.has(id)) {
+    if (!real.some((f) => f.id === id)) { console.log(`FIXED? known gap ${id} (${gap.ticket}) now passes: remove it from KNOWN_GAPS`); bad = true; }
+  } else {
     const f = failures.find((x) => x.id === id);
-    console.log(`${STRICT ? "FAIL" : "known gap"} ${id} (${ticket}): ${f.msg}`);
+    console.log(`${STRICT ? "FAIL" : "known gap"} ${id} (${gap.ticket}): ${f.msg}`);
     if (STRICT) bad = true;
   }
 }
@@ -242,12 +285,17 @@ const MUTATIONS = {
 };
 for (const [name, broken] of Object.entries(MUTATIONS)) {
   const r = await runChecks({ codec: broken, siteOrigin: ORIGIN });
-  if (!r.failures.some((f) => !gapIds.has(f.id))) { console.log(`MUTATION NOT CAUGHT: ${name}`); bad = true; }
+  if (!r.failures.some((f) => !isGap(f))) { console.log(`MUTATION NOT CAUGHT: ${name}`); bad = true; }
 }
 // A tool that ignores the pasted league prices the default league (the JEG-1070 bug shape).
 const dropped = await runChecks(deps, { dropState: true });
 if (!dropped.failures.some((f) => /^A: /.test(f.msg))) { console.log("MUTATION NOT CAUGHT: pasted league ignored"); bad = true; }
-console.log(`mutations: ${Object.keys(MUTATIONS).length + 1} broken variants checked`);
+// Calls that drop the explicit overrides but keep the pasted state must fail A on every override case.
+const noOverrides = await runChecks(deps, { dropOverrides: true });
+for (const o of OVERRIDES) {
+  if (!noOverrides.failures.some((f) => f.id === `${o.id} [A]`)) { console.log(`MUTATION NOT CAUGHT: ${o.id} without its arguments`); bad = true; }
+}
+console.log(`mutations: ${Object.keys(MUTATIONS).length + 2} broken variants checked`);
 
 if (bad) process.exit(1);
 console.log("ok");
