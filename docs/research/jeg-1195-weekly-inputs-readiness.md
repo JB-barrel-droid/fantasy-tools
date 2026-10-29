@@ -16,9 +16,9 @@ SELECT queries only. Repo state: `main` at `021c5bfd` (2026-10-29 UTC).
   `~/workspace/...` skills (Supabase client, PropLine, Odds API) that were never
   committed. The Vegas page builder and the waiver lottery scorer were never in
   git.
-- **Versus Vegas is blocked** on two things only Jeremy can settle: there is no
-  Vegas input on `main` (last odds row 2026-10-05), and the old comparison side
-  was FantasyPros ECR, which left the project under JEG-ECR-EXIT.
+- **Versus Vegas is blocked** on inputs: there is no Vegas input on `main`
+  (last odds row 2026-10-05) and no weekly ECR producer. Jeremy chose weekly
+  ECR as the comparison side on 2026-10-29 (section 7).
 - **The waiver dashboard is blocked** on missing inputs (no ESPN roster% puller,
   lottery scorer lost) and on JEG-556: its old waiver boundary is a second
   waiver-line definition and must be replaced by the repo's one rule.
@@ -151,8 +151,9 @@ was "Vegas vs ECR". Against that:
 - JEG-1198 found FantasyPros ROS is ECR and excluded; `ranker_rankings` is ECR
   only (last ROS Sep 11). No weekly ECR producer exists.
 
-This is a policy decision for Jeremy. The rule is not lifted here and no source
-is added.
+Jeremy decided this on 2026-10-29: weekly ECR (weekly start projections) for
+this view only, with ESPN and other weekly sources folded in later (section 7).
+No source is added by this research PR.
 
 ## 5. Proposed shared input contract (JEG-1195 to 1197)
 
@@ -162,9 +163,14 @@ Churn only read it.
 - **Artifact:** `data/weekly/inputs-wk{N}.json`, schema `weekly-inputs-v1`.
   One row per numeric `player_key` (resolved by `PlayerIndex`; unmatched rows
   kept with `player_key: null` and a reason, never guessed).
-- **Legs per row:** `espn_weekly` (std/half/ppr), `status` (Sleeper status,
-  injury, practice, depth), `bye`, and slots for `vegas` and `consensus` that
-  stay `null` with `state: "unavailable"` until a producer exists.
+- **Legs per row:** `vegas` (std/half/ppr), an `experts` map of weekly
+  start-projection sources, `status` (Sleeper status, injury, practice, depth)
+  and `bye`. Per Decision 1, `experts.ecr_weekly` is the comparison side first;
+  `experts.espn_weekly` is carried from day one, and later weekly sources join
+  the map as new keys with no schema change. Which expert keys the comparison
+  reads is a named, versioned setting, so adding a source is a reviewed config
+  change, not new code. Legs with no producer stay `null` with
+  `state: "unavailable"`.
 - **Per leg meta (once, at the top):** source, `content_week` (Tuesday flip),
   `game_week` (Thursday flip, only for slate fields), `content_vintage`,
   `captured_at`, `state` in the existing `current / one_week_behind / stale /
@@ -185,7 +191,8 @@ Churn only read it.
 | S1 | Contract doc + JSON schema + fixture test | `docs/weekly-inputs-contract.md`, `tests/test_weekly_inputs_contract.py`, Makefile test line | none | Ready (no math, no fetch) |
 | S2 | Producer from stored inputs only (ESPN weekly CSV, status history, byes, `nfl_week`) | `pipelines/build_weekly_inputs.py`, test | S1 | Ready (no new fetch; a schedule needs Jeremy's yes) |
 | S3 | Vegas leg producer (port PropLine collector + `engine/vegas.py` translation, keyed on `player_key`) | `producers/`, workflow, secret | Decisions 1 and 2, a PropLine key | Blocked |
-| S4 | Versus Vegas compute (disagreement, play gate) | `pipelines/` | S3, Decision 1, T1 review of the ported math | Blocked |
+| S3b | Weekly ECR leg (`experts.ecr_weekly`, weekly start projections, std/half/ppr) | `producers/` | how ECR arrives (section 7, item 1) | Blocked |
+| S4 | Versus Vegas compute (disagreement, play gate) | `pipelines/` | S3, S3b, T1 review of the ported math | Blocked |
 | S5 | Versus Vegas page with URL-persisted scoring/position filters | `app/` (replaces `weekly_vegas/dashboard/index.html`; updates `tests/test_launch_front_door.py` l.59/409 and `tests/test_launch_qa_surfaces.py` l.18) | S4, design direction (JEG-1209 pending) | Blocked |
 | W1 | Availability input (roster%) | `producers/` | Decision 3 | Blocked |
 | W2 | Option-value layer | — | Scorer source from the old workspace, or a decision to drop it | Blocked |
@@ -196,13 +203,21 @@ Natural fit, JEG-1217, JEG-1220).
 
 ## 7. Decisions for Jeremy
 
-1. **Comparison side of Versus Vegas** (the old one was ECR).
-   A. ESPN weekly (Mike Clay model), already current and shared; rename the
-   view "Vegas vs ESPN". *(Claude's pick: it is current and the project already
-   moved the gates and the staged bundle to ESPN.)*
-   B. A projections consensus of ESPN weekly and CBS weekly (CBS weekly is
-   captured but not published).
-   C. Lift JEG-ECR-EXIT for this view and bring back weekly ECR.
+1. **Comparison side of Versus Vegas. Decided 2026-10-29 by Jeremy: C.**
+   His words: "C - ECR, based on weekly start projections, not rest of season
+   ranking. Assume we will fold in ESPN and other weekly sources over time as we
+   figure it out." So weekly ECR (weekly start projections) is the comparison
+   side for this view only; ROS ECR stays out, and the trade-value
+   `HARD_EXCLUSIONS` are unchanged. The contract in section 5 carries an
+   extensible `experts` map for the later sources. Options offered were
+   A ESPN weekly (Claude's pick), B ESPN plus CBS weekly, C weekly ECR.
+   Open follow-on: there is no weekly ECR producer. The old one was a signed-in
+   FantasyPros CSV download (USO account, Half PPR only, per
+   `archive/2026-10-07/weekly_vegas/pipeline/docs/fantasypros_accounts.md`);
+   the anonymous page shows only a few rows (JEG-1198). Getting it back needs
+   Jeremy to choose how it arrives (for example a file he exports, or an
+   approved signed-in pull), and Standard and PPR would be derived from Half
+   PPR unless pulled separately.
 2. **Vegas input.** Bring back the PropLine collector (needs a key and a new
    scheduled fetch), or keep Versus Vegas parked.
 3. **Waiver availability.** Bring back an ESPN roster% pull, or build the board
