@@ -12,6 +12,9 @@ Contract: Prepare already-reviewed Claude PR [#1099](https://github.com/JB-barre
 - The current-main adapter adds the opt-in design script; reviewed Names, Customize groups, module/disclosure runtime files are unchanged by our lane. Existing source-framework, native disclosure, keyboard, phone and mutation assertions are untouched.
 - Automatic approval review denied the exact `linear_save_comment` claim to JEG-1234 as external organizational communication/coordination lacking exact payload/destination authorization. It did not execute. No retry or workaround was used; parent was promptly informed and independent local integration continued.
 
+- Explicit `git push --set-upstream origin HEAD:refs/heads/codex/JEG-1234-release-prep-20261029` succeeded. Remote new-branch head before the blocked draft action was `99dd646f7679cf3d461749b19b44545778b5e815`; original author branch was not pushed.
+- GitHub `create_pull_request` for a draft from `codex/JEG-1234-release-prep-20261029` to `main` in `JB-barrel-droid/fantasy-tools` was denied by automatic approval review: publishing nonpublic repository/project details and making an external repository commitment lacked trusted exact PR/payload/destination authorization. It did not execute. No retry, alternate route or bypass was used; draft creation and fresh PR CI remain blocked pending parent/user authorization evidence. Parent was informed promptly.
+
 ### Claimed, not confirmed
 
 - Prior independent-review comment on #1099 and JEG-1234 records 18 Mac browser tests and Modules/Names plus Customize mutations PASS at `fc3cf76c`. This run retains that evidence for byte-identical reviewed tests; it does not claim a fresh local browser execution or whole-suite PASS.
