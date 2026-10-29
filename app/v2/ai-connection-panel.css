@@ -1,0 +1,84 @@
+/* Homepage AI connection panel (JEG-1266). Every rule is scoped to .ai-connection-panel; colours come from the v2.css tokens.
+   Layout only: no new design language (the Fieldnotes direction in JEG-1209 is an input, not approved here). */
+.ai-connection-panel {
+  max-width: 760px;
+  margin: 0 auto var(--v2-gap, 12px);
+  padding: var(--v2-pad-card, 12px) var(--v2-pad-card-x, 16px);
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-border);
+  border-radius: var(--v2-radius-card, 12px);
+  color: var(--v2-ink);
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
+}
+.ai-connection-panel *, .ai-connection-panel *::before, .ai-connection-panel *::after { box-sizing: inherit; }
+.ai-connection-panel h2 { font-size: var(--v2-title-2, 20px); margin: 4px 0 6px; }
+.ai-connection-panel h3 { font-size: 16px; margin: 16px 0 6px; }
+.ai-connection-panel p { margin: 0 0 8px; }
+.ai-connection-panel a { color: var(--v2-action-text); }
+.ai-connection-panel a:focus-visible, .ai-connection-panel button:focus-visible, .ai-connection-panel textarea:focus-visible {
+  outline: 2px solid var(--v2-focus);
+  outline-offset: 2px;
+}
+.ai-connection-panel .aip-note { color: var(--v2-muted); font-size: 14px; }
+
+.ai-connection-panel .aip-fixture {
+  border: 1px dashed var(--v2-field-border);
+  background: var(--v2-canvas);
+  border-radius: var(--v2-radius-btn, 8px);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+/* The one setup path: a link that looks like the page's primary button (it goes to the connect guide, so it stays a link). */
+.ai-connection-panel .aip-cta {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 10px 24px;
+  margin: 4px 0 8px;
+  border-radius: var(--v2-radius-btn, 8px);
+  background: var(--v2-action);
+  color: var(--v2-action-ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.ai-connection-panel .aip-unavailable {
+  border-left: 4px solid var(--v2-older);
+  padding: 4px 0 4px 10px;
+}
+
+.ai-connection-panel .aip-examples { margin: 0 0 8px; padding-left: 20px; }
+.ai-connection-panel .aip-examples li { margin: 0 0 6px; }
+
+.ai-connection-panel .aip-share { border-top: 1px solid var(--v2-border); margin-top: 12px; }
+.ai-connection-panel .aip-carries { font-weight: 600; }
+.ai-connection-panel .aip-btn {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--v2-field-border);
+  border-radius: var(--v2-radius-btn, 8px);
+  background: var(--v2-surface);
+  color: var(--v2-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ai-connection-panel .aip-result { font-weight: 600; margin-top: 8px; }
+.ai-connection-panel .aip-result.is-failed, .ai-connection-panel .aip-result.is-error { color: var(--v2-negative); }
+.ai-connection-panel .aip-linktext {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--v2-ink);
+  background: var(--v2-surface);
+  border: 1px solid var(--v2-field-border);
+  border-radius: var(--v2-radius-btn, 8px);
+  padding: 8px;
+  resize: vertical;
+}
+.ai-connection-panel .aip-live { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 420px) {
+  .ai-connection-panel .aip-cta, .ai-connection-panel .aip-btn { width: 100%; justify-content: center; }
+}

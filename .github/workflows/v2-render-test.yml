@@ -79,3 +79,5 @@ jobs:
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+      # JEG-1266: the homepage AI connection panel, isolated on its own harness page (not loaded by the site yet).
+      - run: python3 -m unittest tests.test_jeg1266_ai_connection_panel tests.test_jeg1266_ai_connection_panel_render
