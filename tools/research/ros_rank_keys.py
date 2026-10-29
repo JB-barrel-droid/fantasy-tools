@@ -4,8 +4,12 @@ Every name in the study inputs (published DDF capture, expert lists, StickToTheM
 Karabell) is resolved to the numeric public.players `player_key` through the repo's one
 resolver (pipelines/lib/canonical_players.resolve_with_reason, with the shared alias list),
 built from the committed registry snapshot data/inputs/players_identity_snapshot.json.
-No Supabase read: the alias list is forced to the committed JSON and the registry comes
-from the snapshot, so a rerun is reproducible from the repo alone.
+No Supabase read: PLAYER_ALIASES_SOURCE is overwritten to "json" before the resolver is
+imported (any other value, including "supabase" or empty, is replaced, and Supabase
+credentials in the environment are then ignored by player_aliases), the alias list is
+loaded once at import, and the run stops if it came from anywhere but the committed JSON.
+The registry comes from the snapshot, so a rerun is reproducible from the repo alone.
+tests/test_ros_rank_keys.py checks this with a conflicting value and dummy credentials.
 
 Joins are on player_key. A name that does not resolve to exactly one player_key
 (unmatched, ambiguous, position conflict) is left out and logged with its reason, never
@@ -23,7 +27,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-os.environ.setdefault("PLAYER_ALIASES_SOURCE", "json")  # stored fixture, not the live table
+os.environ["PLAYER_ALIASES_SOURCE"] = "json"  # stored fixture, never the live table
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
@@ -32,6 +36,10 @@ import player_aliases  # noqa: E402  owns the alias list's path (tests/test_play
 
 REGISTRY_PATH = REPO / "data/inputs/players_identity_snapshot.json"
 ALIASES_PATH = Path(player_aliases.ALIAS_FILE)
+
+ALIASES = player_aliases.load()  # cached; every resolve below uses this list
+if player_aliases.loaded_from() != "json":
+    sys.exit(f"ros_rank_keys: alias list came from {player_aliases.loaded_from()!r}, not the committed JSON")
 
 
 def sha256(path):
@@ -95,11 +103,18 @@ def join_report():
     return out
 
 
+def _alias_digest():
+    """sha256 of the alias entries actually loaded, sorted, so it names the data used."""
+    rows = sorted((e["alias"], e["player_key"], e["full_name"], e["pos"] or "") for e in ALIASES.values())
+    return hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
+
+
 def provenance():
     return {
         "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
         "registry_snapshot": {"path": str(REGISTRY_PATH.relative_to(REPO)), "sha256": sha256(REGISTRY_PATH),
                               "rows": len(REGISTRY.by_key), "active_flag": "absent; all rows treated active"},
-        "alias_list": {"path": str(ALIASES_PATH.relative_to(REPO)), "sha256": sha256(ALIASES_PATH),
-                       "source": os.environ.get("PLAYER_ALIASES_SOURCE")},
+        "alias_list": {"path": str(ALIASES_PATH.relative_to(REPO)), "file_sha256": sha256(ALIASES_PATH),
+                       "loaded_from": player_aliases.loaded_from(), "entries_loaded": len(ALIASES),
+                       "entries_sha256": _alias_digest()},
     }

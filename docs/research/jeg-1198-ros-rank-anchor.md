@@ -16,7 +16,9 @@ mean of the fresh expert lists; the one value under .93 is the standard TE conse
 Adding lists widens the spread between rankers; it does not move the center.
 
 Recommendation, unchanged across all three runs: no-go on anchoring DDF Value to ROS
-rankings. If anything is built, a review-only flag on players where the fresh expert
+rankings. Every figure behind it is measured against the captured baseline, which did not
+reproduce offline (see The baseline), so the no-go is not numerically validated across that
+gap. If anything is built, a review-only flag on players where the fresh expert
 panel (lists updated within 14 days) disagrees with DDF Value, with the middle-half band
 as the tolerance. Using ROS ranks in DDF Value or DDF Projections is a separate decision
 for Jeremy.
@@ -84,8 +86,9 @@ The players with the largest capture-vs-rebuild gaps include several the study n
 Nico Collins (PPR 25.7 captured, 34.2 rebuilt), Josh Jacobs (30.5, 23.3), Chase Brown
 (Half PPR 25.5, 33.7), Tee Higgins, Luther Burden III and Malik Nabers. Gaps of that size
 for those players are within baseline uncertainty and should not be read as findings on
-their own. The rank-agreement results are less sensitive, but were not rerun on the
-rebuilt baseline.
+their own. The rank-agreement results were not rerun on the rebuilt baseline. Whether
+they hold against it is untested; no claim is made that they are more robust than the
+named gaps.
 
 ## Provenance and joins
 
@@ -93,7 +96,10 @@ All joins are on the canonical `player_key` (public.players), resolved through t
 one resolver (`pipelines/lib/canonical_players.resolve_with_reason`, with the shared alias
 list), built from the committed registry snapshot `data/inputs/players_identity_snapshot.json`
 (sha256 `e1ff38fc…a1f362`, 4,702 rows; no active flag, so same-name same-position players
-fail closed as ambiguous). The alias list is read from the committed JSON, not the table.
+fail closed as ambiguous). The alias list is the committed JSON, never the table: the helper overwrites
+`PLAYER_ALIASES_SOURCE` to `json` before the resolver loads, stops if the list came from
+anywhere else, and records in each `provenance` block where the list was loaded from,
+how many entries were loaded and a sha256 of those entries.
 Rows from `players.json` carry the bake's own `player_key`. A name that does not resolve
 to exactly one key is left out and listed in each output's `joins` block with its reason.
 
@@ -375,8 +381,9 @@ depth). Outputs: `data/jeg1198/ros_rank_panels_out.json`,
 
 - The DDF Value baseline is pinned as captured files; recomputing it offline from the
   committed bundle differs by a median 1.1 to 1.3 points and up to 10.8. The named-player
-  gaps above are not robust to that; the agreement statistics were not rerun on the
-  rebuilt baseline.
+  gaps above are not robust to that. The agreement statistics were not rerun on the
+  rebuilt baseline, so their robustness to it, and the no-go recommendation's, is
+  untested.
 - The StickToTheModel and Karabell captures have no recorded page address; they are
   identified by name, date and, for Karabell, ESPN's story id only.
 - The stability comparison is one pair of reads 29 to 35 days apart, for ESPN only.
@@ -393,7 +400,8 @@ All from stored files; no network and no Supabase read.
 
 They write `data/jeg1198/ros_rank_{study,experts,panels,baseline_check}_out.json`; the
 console summaries are the matching `_console.txt` files. Each output carries a
-`provenance` block (input sha256s, registry snapshot, alias list) and a `joins` block.
+`provenance` block (input sha256s, registry snapshot, alias list as loaded) and a `joins` block.
 `players.json` and the registry snapshot change as fixtures are rebuilt, so later runs
 need the pinned versions (sha256 in the provenance block) to match these figures. The
-alias list is forced to the committed JSON (`PLAYER_ALIASES_SOURCE=json`).
+alias list is forced to the committed JSON whatever `PLAYER_ALIASES_SOURCE` or Supabase
+credentials say; `tests/test_ros_rank_keys.py` checks that with a network spy.
