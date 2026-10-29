@@ -64,15 +64,79 @@ assert.equal(L.packOverrides({101: 58, 202: 42.5}), "AABlAkQAAMoBqQ");
 const ctx = L.readValueContext(new URLSearchParams("valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5"));
 assert.deepEqual(plain(ctx), {present: true, complete: true, basisText: "blend:espn.60_razzball.40", ovText: "202:+5",
   basis: {mode: "blend", sources: ["espn", "razzball"], weights: {espn: 60, razzball: 40}},
-  overrides: {202: {type: "adjustment", delta: 5}}, unread: []});
+  overrides: {202: {type: "adjustment", delta: 5}}, unread: [], reasons: {}});
 assert.deepEqual(plain(L.readValueContext({basis: "fantasycalc", ov: "101:58"})),
   {present: true, complete: false, basisText: "fantasycalc", ovText: "101:58",
-    basis: {mode: "single", source: "fantasycalc"}, overrides: {101: 58}, unread: []});
+    basis: {mode: "single", source: "fantasycalc"}, overrides: {101: 58}, unread: [], reasons: {}});
 assert.deepEqual(L.readValueContext(new URLSearchParams("valuecontext=1&basis=notasource&ov=x")).unread, ["basis", "ov"]);
 assert.equal(L.readValueContext(new URLSearchParams("valuecontext=1")).present, true);
 assert.equal(L.readValueContext(new URLSearchParams("give=101")).present, false);
 assert.equal(L.readValueContext(null).present, false);
 assert.equal(L.readValueContext({valuecontext: 1}).complete, true);
+
+// ---------- JEG-1288: the strict reader (get-values, the chat) takes a whole context or none of it ----------
+{
+  const strictBasis = text => L.readValueContext({basis: text}, {strict: true});
+  const strictOv = text => L.readValueContext({ov: text}, {strict: true});
+  const b64 = bytes => Buffer.from(bytes).toString("base64url");
+  // Everything the site's writer produces reads back the same under the strict reader.
+  for (const text of ["fantasycalc", "cbs", "blend:espn.60_razzball.40", "blend:cbs.5", "blend:espn.10_cbs.30_fantasycalc.60"]) {
+    const read = strictBasis(text);
+    assert.deepEqual(read.unread, [], text);
+    assert.deepEqual(read.basis, L.parseBasisParam(text), text);
+  }
+  let seed = 11;
+  const rand = n => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed % n; };
+  let trips = 0;
+  for (let i = 0; i < 2000; i++) {
+    const map = {};
+    for (let j = 0, n = 1 + rand(14); j < n; j++) {
+      const key = String(rand(3) ? rand(5000) : rand(0xFFFFFF));
+      const entry = rand(2) ? L.normalizeEntry(rand(1001) / 10)
+        : L.normalizeEntry({type: "adjustment", delta: (rand(2001) - 1000) / 10});
+      if (entry !== null) map[key] = entry;
+    }
+    if (!Object.keys(map).length) continue;
+    const text = L.formatOvParam(map);
+    const read = strictOv(text);
+    assert.deepEqual(read.unread, [], text);
+    assert.deepEqual(read.overrides, map, `strict round trip ${text}`);
+    trips++;
+  }
+  assert.ok(trips > 1900, "the writer round trip covers plain, z: and z2: links");
+  assert.deepEqual(strictOv("z:AABlAkQAAMoBqQ").overrides, {101: 58, 202: 42.5}, "frozen z: bytes read strictly");
+  assert.deepEqual(strictOv(new URLSearchParams("ov=202:+5").get("ov")).overrides, {202: {type: "adjustment", delta: 5}});
+  // A part with any entry that cannot be read is unread as a whole, with the reason (review of #1124).
+  for (const [text, why] of [
+    ["blend:espn.50_nope.50", /nope/], ["blend:espn.50_espn.50", /twice/], ["blend:espn.0", /weight/],
+    ["blend:espn.140", /weight/], ["blend:espn.7.6", /espn\.7\.6/], ["blend:", /no source/], ["Espn", /Espn/],
+  ]) {
+    const read = strictBasis(text);
+    assert.deepEqual(read.unread, ["basis"], text);
+    assert.equal(read.basis, null, text);
+    assert.match(read.reasons.basis, why, text);
+  }
+  for (const [text, why] of [
+    ["101:58,202:garbage", /202:garbage/], ["101:58,", /empty/], ["101:58,101:40", /101.*twice/], ["101:140", /101:140/],
+    ["101:-0", /101:-0/], ["101:+140", /101:\+140/], ["abc:5", /abc:5/], ["101:1e1", /101:1e1/],
+    ["z2:AAABAgJEAQ", /z2/],                                         // the review's case: type 2 and a trailing byte
+    [`z2:${b64([0, 0, 1, 2, 2, 68])}`, /type/],                       // unknown type, whole entry
+    [`z2:${b64([0, 1, 1, 1, 0, 0])}`, /257/],                         // an adjustment of 0
+    [`z2:${b64([0, 0, 101, 0, 2, 68, 0, 0, 101, 1, 0, 50])}`, /101.*twice/],
+    ["z:AABlAkQAAMoB", /z:/],                                         // the frozen bytes less one: not whole entries
+    [`z:${b64([0, 0, 101, 0x27, 0x10])}`, /101/],                     // 1000.0: off the 0 to 100 scale
+    ["z2:@@@@", /z2/],
+  ]) {
+    const read = strictOv(text);
+    assert.deepEqual(read.unread, ["ov"], text);
+    assert.equal(read.overrides, null, text);
+    assert.match(read.reasons.ov, why, text);
+  }
+  // The lenient reader the site uses for old links is unchanged.
+  assert.deepEqual(L.parseOvParam("101:58,202:garbage"), {101: 58});
+  assert.deepEqual(L.readValueContext({ov: "101:58,202:garbage"}).unread, []);
+  assert.deepEqual(L.parseBasisParam("blend:espn.50_nope.50"), {mode: "blend", sources: ["espn"], weights: {espn: 50}});
+}
 
 // ---------- the site's Overrides module reads and writes links through the shared module ----------
 function overridesPage() {

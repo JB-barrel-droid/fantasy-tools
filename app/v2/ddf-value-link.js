@@ -160,15 +160,104 @@
     } catch (error) { return null; }
     return Object.keys(map).length ? map : null;
   }
+  // ---------- strict reading (JEG-1288) ----------
+  // The readers above keep what they can of a link, as the site has always done with old or hand-edited links.
+  // get-values and the chat answer under a context the caller asked for, so they read it strictly: a part is taken
+  // whole or not at all, and the reason names the first entry that could not be read. Everything formatBasisParam
+  // and formatOvParam write reads back the same.
+  const fail = reason => ({ok: false, reason});
+  // basis= text -> {ok: true, basis} | {ok: false, reason}.
+  function parseBasisStrict(text) {
+    const t = String(text);
+    if (!t.startsWith("blend:")) {
+      return BASIS_KEYS.includes(t) ? {ok: true, basis: {mode: "single", source: t}}
+        : fail(`"${t}" is not a source (${BASIS_KEYS.join(", ")})`);
+    }
+    const body = t.slice(6);
+    if (!body) return fail("the blend names no source");
+    const sources = [];
+    const weights = {};
+    for (const part of body.split("_")) {
+      const m = /^([a-z]+)\.(\d{1,3})$/.exec(part);
+      if (!m) return fail(`"${part}" is not <source>.<whole percent>`);
+      const key = m[1];
+      const weight = Number(m[2]);
+      if (!BASIS_KEYS.includes(key)) return fail(`"${key}" is not a source (${BASIS_KEYS.join(", ")})`);
+      if (weights[key] !== undefined) return fail(`"${key}" is in the blend twice`);
+      if (weight < 1 || weight > 100) return fail(`"${part}": a weight is a whole percent from 1 to 100`);
+      sources.push(key);
+      weights[key] = weight;
+    }
+    return {ok: true, basis: {mode: "blend", sources, weights}};
+  }
+  // One override read strictly: on the editor's scale, kept as the editor keeps it. null when it is not.
+  function strictEntry(adjustment, value) {
+    if (!Number.isFinite(value)) return null;
+    if (adjustment) {
+      if (value === 0 || Math.abs(value) > OVERRIDE_MAX) return null;
+      return normalizeEntry({type: "adjustment", delta: value});
+    }
+    if (value < OVERRIDE_MIN || value > OVERRIDE_MAX) return null;
+    return normalizeEntry(value);
+  }
+  function unpackStrict(text, width) {
+    const prefix = width === 6 ? "z2" : "z";
+    if (!/^[A-Za-z0-9_-]+$/.test(text)) return fail(`the packed ${prefix}: overrides are not base64url`);
+    let bytes;
+    try { bytes = unb64(text); } catch (error) { return fail(`the packed ${prefix}: overrides are not base64url`); }
+    if (!bytes.length || bytes.length % width) return fail(`the packed ${prefix}: overrides are not whole ${width}-byte entries`);
+    const out = {};
+    for (let i = 0; i < bytes.length; i += width) {
+      const key = String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]);
+      let adjustment = false;
+      let tenths;
+      if (width === 5) {
+        tenths = (bytes[i + 3] << 8) | bytes[i + 4];
+      } else {
+        const type = bytes[i + 3];
+        if (type !== 0 && type !== 1) return fail(`player ${key}: override type ${type} is not 0 (value) or 1 (adjustment)`);
+        adjustment = type === 1;
+        const raw = (bytes[i + 4] << 8) | bytes[i + 5];
+        tenths = raw >= 32768 ? raw - 65536 : raw;
+      }
+      if (out[key] !== undefined) return fail(`player ${key} is overridden twice`);
+      const entry = strictEntry(adjustment, tenths / 10);
+      if (entry === null) return fail(`player ${key}: ${adjustment ? "an adjustment of " : ""}${tenths / 10} is not an override on the 0 to 100 scale`);
+      out[key] = entry;
+    }
+    return {ok: true, overrides: out};
+  }
+  // ov= text -> {ok: true, overrides} | {ok: false, reason}.
+  function parseOvStrict(text) {
+    const t = String(text);
+    if (t.startsWith("z2:")) return unpackStrict(t.slice(3), 6);
+    if (t.startsWith("z:")) return unpackStrict(t.slice(2), 5);
+    const out = {};
+    for (const part of t.split(",")) {
+      if (!part) return fail("an override is empty (a stray comma)");
+      // A leading space is the "+" that a URL parser read as a space.
+      const m = /^(\d{1,8}):([+\- ]?)(\d+(?:\.\d+)?)$/.exec(part);
+      if (!m) return fail(`"${part}" is not <player_key>:<value> or <player_key>:+<delta>`);
+      const key = String(Number(m[1]));
+      if (out[key] !== undefined) return fail(`player ${key} is overridden twice`);
+      const entry = strictEntry(m[2] !== "", (m[2] === "-" ? -1 : 1) * Number(m[3]));
+      if (entry === null) return fail(`"${part}" is not an override on the 0 to 100 scale (an adjustment is not 0)`);
+      out[key] = entry;
+    }
+    return {ok: true, overrides: out};
+  }
+
   // A link's value context. `params` is URLSearchParams (or anything with get()) or a plain object
-  // {basis, ov, valuecontext}. Returns {present, complete, basisText, ovText, basis, overrides, unread}:
+  // {basis, ov, valuecontext}. Returns {present, complete, basisText, ovText, basis, overrides, unread, reasons}:
   //   present   the link says anything about values (a basis, overrides, or the complete marker)
   //   complete  valuecontext=1: the sender's whole context (absent basis = ours, absent ov = none)
   //   basis     the parsed basis, or null (absent or unreadable)
   //   overrides the parsed overrides, or null (absent or nothing usable)
   //   unread    the parts that were present but could not be read: "basis", "ov"
+  //   reasons   with options.strict, why each unread part could not be read ({basis?, ov?})
+  // options.strict (JEG-1288): read each part whole or not at all. Without it, keep what can be read.
   // What a reader does with an unread part is the reader's call; this only says what the link holds.
-  function readValueContext(params) {
+  function readValueContext(params, options) {
     const get = name => {
       if (!params) return null;
       const v = typeof params.get === "function" ? params.get(name) : params[name];
@@ -177,18 +266,34 @@
     const basisText = get("basis");
     const ovText = get("ov");
     const complete = get("valuecontext") === "1";
-    const basis = parseBasisParam(basisText);
-    const overrides = parseOvParam(ovText);
     const unread = [];
-    if (basisText && !basis) unread.push("basis");
-    if (ovText && !overrides) unread.push("ov");
-    return {present: Boolean(complete || basisText || ovText), complete, basisText, ovText, basis, overrides, unread};
+    const reasons = {};
+    let basis = null;
+    let overrides = null;
+    if (options && options.strict) {
+      if (basisText) {
+        const read = parseBasisStrict(basisText);
+        if (read.ok) basis = read.basis;
+        else { unread.push("basis"); reasons.basis = read.reason; }
+      }
+      if (ovText) {
+        const read = parseOvStrict(ovText);
+        if (read.ok) overrides = read.overrides;
+        else { unread.push("ov"); reasons.ov = read.reason; }
+      }
+    } else {
+      basis = parseBasisParam(basisText);
+      overrides = parseOvParam(ovText);
+      if (basisText && !basis) unread.push("basis");
+      if (ovText && !overrides) unread.push("ov");
+    }
+    return {present: Boolean(complete || basisText || ovText), complete, basisText, ovText, basis, overrides, unread, reasons};
   }
 
   return {
     BASIS_KEYS, PACK_AFTER, OVERRIDE_MIN, OVERRIDE_MAX,
     normalizeEntry, isAdjustment, clampWeight,
     packOverrides, unpackOverrides, packOverridesWithTypes, unpackOverridesWithTypes,
-    formatBasisParam, formatOvParam, parseBasisParam, parseOvParam, readValueContext,
+    formatBasisParam, formatOvParam, parseBasisParam, parseOvParam, parseBasisStrict, parseOvStrict, readValueContext,
   };
 });

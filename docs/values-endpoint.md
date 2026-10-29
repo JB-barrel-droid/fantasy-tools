@@ -88,20 +88,44 @@ tier, the charts' values and the projections version are the pipeline's, as on
 the page.
 
 - The response adds `value_context`: `basis` (null = our methodology),
-  `basis_applied`, `basis_members`, `basis_fell_back_to_default` (none of the
-  basis' sources is usable this week), `overrides`, `overrides_applied`, and
-  `overrides_not_priced` (keys with no pipeline row: named, not added). An
-  overridden player also carries `override` and `pipeline_value`.
-- A part that is sent but cannot be read: 400 with
-  `code: "value_context_unreadable"` and `unread` (`basis`, `ov`). Never a silent
-  fall back to our methodology.
+  `basis_applied`, `basis_members`, `basis_fell_back_to_default`, `overrides`,
+  `overrides_applied`, and `overrides_not_priced` (keys with no pipeline row:
+  named, not added). An overridden player also carries `override` and
+  `pipeline_value`. A 200 always follows the whole basis asked for.
+
+get-values answers only under the exact context it was asked for (JEG-1288,
+review of #1124). Each of these is refused with no prices, never answered under
+the fallback, part of the basis, or part of the overrides:
+
+- **A basis source that is not available here** (held, hidden, or not published
+  at this setting and week), alone or in a blend: 422 with
+  `code: "basis_unavailable"`, `requested`, `unavailable` and `available` (the
+  sources a basis could follow now). The refusal is cached like an answer.
+- **A part with anything unreadable in it**: 400 with
+  `code: "value_context_unreadable"`, `unread` (`basis`, `ov`) and the reason in
+  `error`. get-values reads strictly (`readValueContext(params, {strict: true})`
+  in the shared module): an unknown or repeated source, a weight outside 1 to
+  100, an override that is not a number on the 0 to 100 scale (an adjustment of
+  0, or past ±100), a repeated player, a stray comma, or packed bytes that are
+  not whole entries or carry an unknown type. Everything the site writes reads
+  back the same (2,000 random links in `tests/node/ddf_value_link_check.cjs`).
+  The site itself still reads old links leniently, keeping what it can.
+- **Too large**: 413 with `code: "value_context_too_large"`, before the link is
+  read, cached or priced. The bounds, in `get-values/value-context.ts`:
+  `basis` at most 256 characters (all seven sources take 91), `ov` at most
+  32,768 characters and 2,000 overrides. Why 2,000: the site lists 1,163 players
+  and prices 741 at a time (Oct 29, 2026), so it is every player with room to
+  spare, and 2,000 overrides take at most 29,999 characters plain or 16,003
+  packed. Nothing a site link writes is excluded. To change a bound, change the
+  constant and this paragraph; nothing else depends on the numbers.
 - A site that does not publish `v2/ddf-value-link.js` yet: requests without a
   basis or overrides answer as before; with one, 503
   `code: "value_context_unavailable"`.
 - The answer cache key and the compute rate limit include the context.
 - Tests: `tests/node/get_values_value_context_check.mjs` (the handler on the
   built `dist/` against the parity runner, errors, cache, the site's share link
-  read back, the basis form against `curve-widget.js`),
+  read back, the basis form against `curve-widget.js`, and the JEG-1288
+  refusals with ESPN held),
   `tests/test_endpoint_parity.py test_value_context_parity` (page parity in
   Standard, Half PPR and PPR).
 - Not yet: the MCP tools passing a pasted link's context through (JEG-1225

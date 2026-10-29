@@ -20,7 +20,7 @@ const { canonicalBasis } = await import("../../supabase/functions/get-values/val
 
 // One handler instance per scenario (the bundle and the link reader are cached per instance).
 let scenario = 0;
-async function handlerFor({ drop = [] } = {}) {
+async function handlerFor({ drop = [], bundle: patchBundle = null } = {}) {
   let handler = null;
   globalThis.Deno = { env: { get: () => undefined }, serve: (h) => { handler = h; } };
   delete globalThis.DDFValueLink;
@@ -31,6 +31,11 @@ async function handlerFor({ drop = [] } = {}) {
       : join(dist, path === "/" || path === "" ? "index.html" : path);
     let body;
     try { body = readFileSync(file); } catch { return new Response("not found", { status: 404 }); }
+    if (patchBundle && path === "/assets/comparison-sources-data.json") {
+      const doc = JSON.parse(String(body));
+      patchBundle(doc);
+      body = JSON.stringify(doc);
+    }
     return new Response(body, { status: 200 });
   };
   scenario += 1;
@@ -221,6 +226,61 @@ for (const [body, unread] of [
     assert.ok(want.ok, t);
     assert.deepEqual(JSON.parse(JSON.stringify(canonicalBasis(ValueLink, parsed))), JSON.parse(JSON.stringify(want.value)), t);
   }
+}
+
+// 8. JEG-1288 (review of #1124): get-values answers only under the exact context it was asked for.
+// 8a. A requested basis source that is not available here (ESPN held) is refused, never priced under the fallback.
+{
+  const held = await handlerFor({ bundle: (doc) => { doc.source_validation = { ...(doc.source_validation || {}), espn: "held" }; } });
+  for (const basis of ["espn", "blend:espn.50_fantasycalc.50"]) {
+    for (const time of ["first", "again"]) {
+      const res = await held.post({ scoring: "ppr", teams: 12, basis });
+      const out = await res.json();
+      assert.equal(res.status, 422, `${basis} (${time}): an unavailable basis is refused, got ${res.status}`);
+      assert.equal(out.code, "basis_unavailable", basis);
+      assert.deepEqual(out.unavailable, ["espn"], basis);
+      assert.ok(!("players" in out), `${basis}: no prices under another basis`);
+      assert.ok(!out.available.includes("espn") && out.available.includes("fantasycalc"), `${basis}: names what is available`);
+    }
+  }
+  const fine = await held.post({ scoring: "ppr", teams: 12, basis: "fantasycalc" });
+  assert.equal(fine.status, 200, "an available basis still answers");
+  assert.equal((await fine.json()).value_context.basis_applied, true);
+  assert.equal((await held.post({ scoring: "ppr", teams: 12 })).status, 200, "no context still answers");
+}
+// 8b. A part with any entry that cannot be read is refused as a whole (the review's three cases).
+for (const [body, unread, why] of [
+  [{ basis: "blend:espn.50_nope.50" }, ["basis"], /nope/],
+  [{ ov: "101:58,202:garbage" }, ["ov"], /202:garbage/],
+  [{ ov: "z2:AAABAgJEAQ" }, ["ov"], /z2/],
+]) {
+  const res = await post({ scoring: "ppr", teams: 12, ...body });
+  const out = await res.json();
+  assert.equal(res.status, 400, `${JSON.stringify(body)}: partly unreadable is refused, got ${res.status}`);
+  assert.equal(out.code, "value_context_unreadable", JSON.stringify(body));
+  assert.deepEqual(out.unread, unread, JSON.stringify(body));
+  assert.match(out.error, why, JSON.stringify(body));
+}
+// 8c. Size bounds, checked before the link is read or anything is cached or priced: the reader is dropped here, so
+// a bounded request that got as far as reading would be a 503, not a 413.
+{
+  const { MAX_BASIS_TEXT, MAX_OV_TEXT, MAX_OVERRIDES } = await import("../../supabase/functions/get-values/value-context.ts");
+  assert.ok(MAX_OVERRIDES >= 2000 && MAX_OV_TEXT >= 32768 && MAX_BASIS_TEXT >= 256, "bounds have headroom over the site's player list");
+  const noReader = await handlerFor({ drop: ["/v2/ddf-value-link.js"] });
+  const big = Array.from({ length: 10001 }, (_, i) => `${i + 1}:50`).join(",");
+  for (const [body, label] of [[{ ov: big }, "10,001 plain overrides"], [{ basis: `blend:${"cbs.1_".repeat(60)}` }, "a long basis"]]) {
+    for (const h of [noReader, { post }]) {
+      const res = await h.post({ scoring: "ppr", teams: 12, ...body });
+      assert.equal(res.status, 413, `${label}: refused before reading, got ${res.status}`);
+      assert.equal((await res.json()).code, "value_context_too_large", label);
+    }
+  }
+  const pack = (n) => `z2:${ValueLink.packOverridesWithTypes(Object.fromEntries(Array.from({ length: n }, (_, i) => [String(i + 1), 50])))}`;
+  const over = await post({ scoring: "ppr", teams: 12, ov: pack(MAX_OVERRIDES + 1) });
+  assert.equal(over.status, 413, `${MAX_OVERRIDES + 1} packed overrides (short text) are refused by count`);
+  assert.equal((await over.json()).code, "value_context_too_large");
+  const most = await post({ scoring: "ppr", teams: 12, ov: pack(MAX_OVERRIDES) });
+  assert.equal(most.status, 200, `${MAX_OVERRIDES} overrides, the most allowed, still answer`);
 }
 
 console.log("ok");

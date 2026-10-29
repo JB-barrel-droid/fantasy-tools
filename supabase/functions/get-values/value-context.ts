@@ -27,7 +27,16 @@ export interface ValueContext {
 
 export type ReadResult =
   | { ok: true; context: ValueContext }
-  | { ok: false; error: string; unread: string[] };
+  | { ok: false; status: number; code: string; error: string; unread?: string[] };
+
+// JEG-1288: request size bounds, checked before the link is read, cached or priced. The site lists 1,163 players and
+// prices 741 at a time (Oct 29, 2026), so 2,000 overrides is every player with room to spare. The texts are what
+// 2,000 overrides take written the longest way the site writes them (plain, "16777215:+99.9," is 15 characters
+// each, so 29,999; packed z2: is 16,003) and the longest basis (all seven sources: 91 characters), with headroom.
+// To change one, change it here and in docs/values-endpoint.md; nothing else depends on the numbers.
+export const MAX_OVERRIDES = 2000;
+export const MAX_OV_TEXT = 32768;
+export const MAX_BASIS_TEXT = 256;
 
 // curve-widget.js COMPOSITE_INPUT_KEYS: our methodology is these four charts at equal weight.
 const OUR_METHODOLOGY = ["fantasycalc", "usatoday", "fantasypros", "cbs"];
@@ -52,25 +61,72 @@ export function canonicalBasis(link: Any, parsed: Any): Basis | null {
   return equalDefault ? null : { mode: "blend", sources, weights };
 }
 
+const tooLarge = (error: string): ReadResult => ({ ok: false, status: 413, code: "value_context_too_large", error });
+
+/** JEG-1288: the size bounds, on the raw text alone (no link reader needed). null when within them. */
+export function checkBounds(rawBasis: unknown, rawOv: unknown): ReadResult | null {
+  const basis = text(rawBasis);
+  const ov = text(rawOv);
+  if (basis !== null && basis.length > MAX_BASIS_TEXT) {
+    return tooLarge(`basis is ${basis.length} characters; the most is ${MAX_BASIS_TEXT}`);
+  }
+  if (ov !== null && ov.length > MAX_OV_TEXT) {
+    return tooLarge(`ov is ${ov.length} characters; the most is ${MAX_OV_TEXT} (up to ${MAX_OVERRIDES} overrides)`);
+  }
+  return null;
+}
+
+/** True when the published link reader can read a context strictly (JEG-1288); an older one cannot. */
+export function canReadStrictly(link: Any): boolean {
+  return Boolean(link && typeof link.readValueContext === "function" && typeof link.parseOvStrict === "function");
+}
+
 /**
- * Read the caller's `basis` and `ov` (the link's own parameter text). A part that is sent but cannot be read is an
- * error naming it, never a silent fall back to our methodology.
+ * Read the caller's `basis` and `ov` (the link's own parameter text), strictly: a part is taken whole or refused,
+ * naming what could not be read, never a silent fall back to our methodology or a part of what was asked.
  */
 export function readValueContext(link: Any, rawBasis: unknown, rawOv: unknown): ReadResult {
-  const read = link.readValueContext({ basis: text(rawBasis), ov: text(rawOv) });
+  const bounds = checkBounds(rawBasis, rawOv);
+  if (bounds) return bounds;
+  const read = link.readValueContext({ basis: text(rawBasis), ov: text(rawOv) }, { strict: true });
   if (read.unread.length) {
-    const what = read.unread.map((part: string) => (part === "basis" ? `basis "${read.basisText}"` : `ov "${read.ovText}"`));
+    const what = read.unread.map((part: string) => `${part}: ${read.reasons?.[part] ?? "unreadable"}`);
     return {
       ok: false,
+      status: 400,
+      code: "value_context_unreadable",
       unread: read.unread,
-      error: `could not read ${what.join(" or ")}. basis is a source key (${link.BASIS_KEYS.join(", ")}) or ` +
+      error: `could not read ${what.join("; ")}. basis is a source key (${link.BASIS_KEYS.join(", ")}) or ` +
         `blend:<source>.<percent>_..., as a share link writes it; ov is <player_key>:<value> or <player_key>:+<delta>, ` +
         `comma separated, or the packed z:/z2: form.`,
     };
   }
-  const basis = canonicalBasis(link, read.basis);
   const overrides: Record<string, Override> = read.overrides ?? {};
-  return { ok: true, context: { basis, overrides, custom: Boolean(basis || Object.keys(overrides).length) } };
+  const count = Object.keys(overrides).length;
+  if (count > MAX_OVERRIDES) return tooLarge(`ov has ${count} overrides; the most is ${MAX_OVERRIDES}`);
+  const basis = canonicalBasis(link, read.basis);
+  return { ok: true, context: { basis, overrides, custom: Boolean(basis || count) } };
+}
+
+/**
+ * JEG-1288: the requested basis sources the pipeline could not use here (held, hidden or not published at this
+ * setting and week), or null when it used every one. An answer is never priced under part of a basis or under the
+ * fallback: the caller is told what is unavailable and what is.
+ */
+export function basisShortfall(
+  context: ValueContext,
+  pipeline: Any,
+  input: Any,
+): { requested: string[]; unavailable: string[]; available: string[] } | null {
+  if (!context.basis) return null;
+  const requested = [...context.basis.sources];
+  const members: string[] = pipeline.basis?.applied ? [...(pipeline.basis.members ?? [])] : [];
+  const unavailable = requested.filter((key) => !members.includes(key));
+  if (!unavailable.length) return null;
+  // The pipeline's own sources, less those it hides (pipeline input.hidden): what a basis could follow here.
+  const hidden = new Set<string>(input?.hidden ?? []);
+  const available = (pipeline.included ?? []).filter((key: string) => !hidden.has(key));
+  return { requested, unavailable, available };
 }
 
 /** A cache key part that is the same for the same context however it was written. */

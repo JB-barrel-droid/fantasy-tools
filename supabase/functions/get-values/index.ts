@@ -40,7 +40,9 @@ import {
   todayIso,
   type WeekInfo,
 } from "./pipeline.ts";
-import { applyOverrides, basisConfigOf, contextKey, readValueContext, type ValueContext } from "./value-context.ts";
+import {
+  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, readValueContext, type ValueContext,
+} from "./value-context.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
@@ -320,7 +322,7 @@ const RATE_WINDOW_MS = 60_000; // 1 minute
 const COMPUTE_RATE_LIMIT = 10;
 // Answers kept in memory only: a few entries, the same 5-minute TTL. Nothing is written anywhere.
 const ANSWER_CACHE_MAX = 6;
-const answerCache = new Map<string, { at: number; body: unknown }>();
+const answerCache = new Map<string, { at: number; body: unknown; status?: number }>();
 
 function checkRate(ip: string, limit = RATE_LIMIT): boolean {
   const now = Date.now();
@@ -420,12 +422,19 @@ Deno.serve(async (req: Request) => {
       merged.roster = { ...(merged.roster ?? {}), SUPERFLEX: 1 };
     }
 
+    // JEG-1288: basis and ov past their size bounds are refused before anything is loaded, read or cached.
+    const bounds = checkBounds(rawBasis, rawOv);
+    if (bounds && !bounds.ok) {
+      return Response.json({ error: bounds.error, code: bounds.code }, { status: bounds.status, headers: cors });
+    }
+
     // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
-    // JEG-1225: the caller's basis and overrides, as a share link writes them. Unreadable is an error, never ours.
+    // JEG-1225: the caller's basis and overrides, as a share link writes them. Unreadable is an error, never ours,
+    // and (JEG-1288) a part with anything unreadable in it is refused whole.
     let context: ValueContext = { basis: null, overrides: {}, custom: false };
     if ((rawBasis !== null && rawBasis !== "") || (rawOv !== null && rawOv !== "")) {
-      if (!bundle.valueLink) {
+      if (!canReadStrictly(bundle.valueLink)) {
         return Response.json(
           { error: "basis and ov are not available yet: the site does not publish its link reader", code: "value_context_unavailable" },
           { status: 503, headers: cors },
@@ -434,8 +443,8 @@ Deno.serve(async (req: Request) => {
       const read = readValueContext(bundle.valueLink, rawBasis, rawOv);
       if (!read.ok) {
         return Response.json(
-          { error: read.error, code: "value_context_unreadable", unread: read.unread },
-          { status: 400, headers: cors },
+          { error: read.error, code: read.code, ...(read.unread ? { unread: read.unread } : {}) },
+          { status: read.status, headers: cors },
         );
       }
       context = read.context;
@@ -477,17 +486,35 @@ Deno.serve(async (req: Request) => {
       }
       // deno-lint-ignore no-explicit-any
       const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
-      response = {
-        at: Date.now(),
-        body: formatResponse(
-          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
-          mapped.custom, input.week, bundle.ValueModel, context,
-        ),
-      };
+      // JEG-1288: a basis source that is not available here is refused, never priced under part of the basis or the
+      // fallback. The refusal is cached like an answer, so asking again costs no new run.
+      const shortfall = basisShortfall(context, pipeline, input);
+      response = shortfall
+        ? {
+          at: Date.now(),
+          status: 422,
+          body: {
+            error: `basis ${shortfall.unavailable.join(", ")} ${shortfall.unavailable.length === 1 ? "is" : "are"} not ` +
+              `available at this setting and week, so these values cannot follow the basis asked for. Available: ` +
+              `${shortfall.available.join(", ") || "none"}.`,
+            code: "basis_unavailable",
+            ...shortfall,
+          },
+        }
+        : {
+          at: Date.now(),
+          body: formatResponse(
+            pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
+            mapped.custom, input.week, bundle.ValueModel, context,
+          ),
+        };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
       answerCache.set(key, response);
     }
 
+    if (response.status && response.status !== 200) {
+      return Response.json(response.body, { status: response.status, headers: cors });
+    }
     return Response.json(response.body, {
       status: 200,
       headers: { ...cors, "Cache-Control": "public, max-age=300" },
