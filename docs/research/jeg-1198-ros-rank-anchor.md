@@ -17,6 +17,9 @@ Option C rerun (below, same day): with real expert ROS ranks, the answer holds b
 different reason. Expert ranks exist and agree with the published chart closely, so as a
 value anchor they would mostly confirm it. They work as a review check, not a new value.
 
+Second rerun (below, same day), with the consensus in all three scorings and 21 experts'
+own lists: the same answer. More lists widen the spread rather than move the center.
+
 ## Data and labels
 
 | Input | Label | Vintage | Depth | Scoring |
@@ -197,6 +200,69 @@ Inputs: `data/jeg1198/roslist_2026-10-29.txt` (feed lists, trimmed to study dept
 `data/jeg1198/espn_ros_karabell_2026-10-27.txt`. Outputs:
 `data/jeg1198/ros_rank_experts_out.json`, `data/jeg1198/ros_rank_experts_console.txt`.
 
+## Second rerun: consensus cuts and each expert's own list
+
+Jeremy asked on 2026-10-29 to "try fantasylife, footballguys, rotoballer, roto street
+journal, and multiple cuts of the fantasypros data", and set the rule "do not blend
+weekly data with ROS data, ever". Every list below is rest-of-season; no weekly ranking
+is read. Script: `tools/research/ros_rank_anchor_panels.py`.
+
+What read (feed on PR #1081, dry run 40806312909):
+
+| Ranker | Label | Vintage | Scoring |
+|---|---|---|---|
+| Expert consensus, one list per scoring | published | 2026-10-28 | Half PPR, PPR, standard |
+| 21 experts' own ROS lists | published; 8 stale (older than 14 days) | 2026-09-15 to 10-29 | Half PPR (21), PPR and standard (20) |
+| Wolf of Roto Street (Roto Street Journal), one of the 21 | published | 2026-10-26 | Half PPR only; PPR and standard say not available |
+| Scott Pianowski, Yahoo | published, QB and TE stale | as above | unstated |
+| Eric Karabell, ESPN | published | 2026-10-27 | unstated |
+
+What did not read: Fantasy Life's ROS table fills only behind a sign-in wall;
+Footballguys shows only QBs without an account; RotoBaller's ROS page has no list, and
+its ranking widget serves draft-style data; Roto Street Journal's own site refuses a
+runner and posts its lists as images (its list arrives through the expert table instead).
+
+Double count: the consensus averages a subset of the experts' lists, so the two are never
+averaged together. Two panels are compared, one analyst one vote:
+- consensus panel: the consensus (matched to scoring), Pianowski, Karabell (3 lists);
+- expert panel: the 13 expert lists updated within 14 days (12 in PPR and standard, where
+  Roto Street Journal has no list), Pianowski, Karabell (14 to 15 lists).
+
+Results, 89 players at study depth:
+
+| | PPR | Half PPR | Standard |
+|---|---|---|---|
+| Consensus vs fresh-expert mean, rank agreement | .93 to .98 | .97 to .99 | .94 to .98 |
+| Material moves vs published, consensus panel | 38 | 35 | 33 |
+| Material moves vs published, expert panel | 36 | 31 | 28 |
+| Median gap to published, expert panel (points) | 0.6 to 2.3 | 0.5 to 1.6 | 0.7 to 2.0 |
+| Median full range across expert panel (points) | 12 to 19 | 11 to 18 | 9 to 21 |
+| Median middle-half range, expert panel (points) | 2.1 to 5.3 | 2.6 to 4.6 | 2.5 to 6.3 |
+
+What this shows:
+- The consensus and the mean of the experts' own lists order players almost the same.
+  The consensus is a fair stand-in for the lists; using both would count the same
+  experts twice.
+- One expert alone agrees with the published chart less (median .85 to .97 by position)
+  than their mean does (.94 to .98). Single lists are noisy; the full range across 14 lists
+  is 9 to 21 points, so a range is not a useful band. The middle half (2 to 6 points) is.
+- The same names lead the gaps as in the first rerun, in all three scorings: Malik
+  Nabers lower (PPR 35.3 vs 45.4 published), Chase Brown higher (32.2 vs 23.8), Josh
+  Jacobs lower (22.7 vs 30.5), Nico Collins higher, Luther Burden III lower, Drake Maye
+  lower (15.5 vs 21.0: the six-expert consensus has him QB2, matching published, but most
+  of the fresh expert lists have him QB3 to QB5).
+- Where the two panels part materially it is mostly late RBs and WRs with a wide expert
+  middle half (Cam Skattebo, Matthew Golden, Christian Watson), which is where single
+  lists and the 3-list panel are both thin.
+
+The recommendation does not change: no anchoring of published values to ROS rankings.
+If a review flag is built, the expert panel with a 14-day vintage cutoff and the
+middle-half band is the better input than the consensus alone, and never both.
+
+Inputs: `data/jeg1198/roslist_2026-10-29b.txt` (feed lists, each cut to three times study
+depth). Outputs: `data/jeg1198/ros_rank_panels_out.json`,
+`data/jeg1198/ros_rank_panels_console.txt`.
+
 ## Reproduce
 
     python3 tools/research/ros_rank_anchor.py
@@ -209,3 +275,7 @@ summary from the 2026-10-29 run is `data/jeg1198/ros_rank_study_console.txt`.
 The option C rerun:
 
     PLAYER_ALIASES_SOURCE=json python3 tools/research/ros_rank_anchor_experts.py
+
+The second rerun:
+
+    PLAYER_ALIASES_SOURCE=json python3 tools/research/ros_rank_anchor_panels.py
