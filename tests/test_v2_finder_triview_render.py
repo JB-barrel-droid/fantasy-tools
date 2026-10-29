@@ -143,9 +143,9 @@ def check(page, tag, width) -> list[str]:
                 say("phone: Show other views did not reveal the secondary line")
     # JEG-1081 PR 7: the view tooltips are the spec's sentences; a fit line says in words what its label means.
     tips = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#v2FindAssess thead tr:nth-child(2) th[title]')].slice(0, 3).map(th => [th.textContent.trim(), th.title]))")
-    want = {"DDF Value": "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
-            "Trade chart average": "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
-            "DDF Value (projections)": "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."}
+    want = {"DDF Value": "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+            "Trade chart average": "What other managers will pay: the public trade market on one scale, before any position-weight adjustment. The common language for trade proposals.",
+            "DDF Value (projections)": "The same read rooted in projections: projected points, adjusted for position weight and your league's rosters. Good for steady producers; it can underrate upside."}   # JEG-1130: PMM doc glossary
     if tips != want:
         say(f"assessment tooltips {tips}")
     fit_tips = page.evaluate("() => [...document.querySelectorAll('#v2FindList .v2-find-fit')].map(p => [p.dataset.fitVariant, p.title])")
@@ -156,7 +156,7 @@ def check(page, tag, width) -> list[str]:
     page.wait_for_timeout(800)
     basis = page.evaluate("() => Object.fromEntries([...document.querySelectorAll('#v2FindAssess thead tr:nth-child(2) th[title]')].slice(0, 3).map(th => [th.textContent.trim(), th.title]))")
     heads = list(basis)
-    if not heads or heads[0] != "DDF Value (FantasyCalc)" or "not our methodology" not in basis.get("DDF Value (FantasyCalc)", "") \
+    if not heads or heads[0] != "DDF Value (FantasyCalc)" or "not the default DDF Value" not in basis.get("DDF Value (FantasyCalc)", "") \
             or "Rescaled to FantasyCalc's point scale." not in basis.get("Trade chart average", ""):
         say(f"under a FantasyCalc basis the assessment says {basis}")
     page.evaluate("() => { window.TradeValueCurveControls.setBasis(null, false); document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'basis', notes: []}})); }")
