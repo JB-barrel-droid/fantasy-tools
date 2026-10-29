@@ -12,8 +12,9 @@ Pins:
 * native -> raw -> x scale -> displayed value for five sample players, with the
   Indexed factor at 1.0, and missing kept apart from 0.0;
 * the URL, vintage, served week and half/full derivation as stored;
-* CBS's nonppr fpts fit 6-pt passing TDs and whole-point yardage per game,
-  not the 4-pt fractional scoring the other projection sources use;
+* on the stored 2026-09-30 raw only, CBS's nonppr fpts fit 6-pt passing TDs
+  and whole-point yardage per game better than the 4-pt fractional scoring the
+  ESPN leg uses (an approximate fit, not a check of the 2026-10-26 pull);
 * wrong column, wrong week and wrong factor mutations all fail.
 """
 from __future__ import annotations

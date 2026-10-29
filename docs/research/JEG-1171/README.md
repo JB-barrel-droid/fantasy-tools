@@ -6,26 +6,43 @@ source-feed branch was changed. Evidence checked 2026-10-29 against `main` at
 
 ## Verdict
 
-**Mostly a scoring-basis (column) mismatch, with genuine CBS opinion on top.
-Not a parser or date error.**
+**Unresolved. A scoring-basis mismatch is a plausible contributor. It is not
+proven for week 8.**
 
-CBS's `nonppr` ROS page scores with CBS's own rules. On the one stored raw
-snapshot that has stat components (2026-09-30), CBS's fpts match 6-point
-passing TDs plus whole-point yardage per game. They do not match the 4-point,
-fractional scoring the ESPN leg uses (`pipelines/fidelity_sources/espn.py`).
-Against that basis CBS's points run QB x1.12, RB x0.86, WR x0.89 and TE x0.91.
-This is the same sign pattern as the week-8 position biases: CBS QBs high,
-CBS RBs and WRs low.
+What the stored evidence does establish:
 
-Re-pricing CBS with those position factors (a counterfactual only, see below)
-takes it from 46.7% to 40.0% outliers in half PPR and from 43.3% to 39.3% in
-full PPR. Both land under the 45% ceiling. The remaining disagreement is CBS's
-own view: David Montgomery 6.1 points a game against 10.1 and 12.1 elsewhere,
-and Tyler Warren 12.5 against 8.5 and 8.1.
+- The warn reproduces exactly from the stored inputs.
+- The audited path from the stored 2026-10-26 legs to the fixture is
+  consistent. Native, raw, displayed and the Indexed factor (1.0) all match
+  for 366 players in three combos.
+- The URL, the base `nonppr` column, the half and full reception rescore and
+  the served-week labels are consistent with each other.
 
-The fix belongs in a follow-on ticket (a mapping fix: rescore CBS's stat
-components to the shared basis, or document the basis and accept it). It needs
-review and an ownership handshake first. This PR does not resolve the warn.
+That rules out a transformation or metadata error *in the stages audited
+here*. It does not rule out an error upstream of the stored legs: in the
+2026-10-26 pull, its vintage (recorded as `legacy_fallback`) or its components.
+CBS ROS is also held amber for `publisher_vs_stored`.
+
+The scoring-basis lead is conditional. On the one stored raw snapshot that has
+stat components (2026-09-30), CBS's fpts fit 6-point passing TDs plus
+whole-point yardage per game better than the 4-point fractional basis the ESPN
+leg uses (`pipelines/fidelity_sources/espn.py`). This is an approximate fit.
+CBS's published rules are unconfirmed. Against the 4-point basis, CBS's 09-30
+points run QB x1.12, RB x0.86, WR x0.89 and TE x0.91. The week-8 position
+biases have the same signs (CBS QBs high, RBs and WRs low). *If* the 10-26 pull
+used the same basis, a counterfactual re-pricing by those position factors
+takes CBS from 46.7% to 40.0% outliers in half PPR and from 43.3% to 39.3% in
+full PPR, under the 45% ceiling. That is consistent with the scoring basis
+contributing, but it is not a measurement of week 8.
+
+Whether the remaining disagreement is CBS's own opinion is unproven without
+the 10-26 components. One example is David Montgomery at 6.1 points a game
+against 10.1 and 12.1 elsewhere.
+
+Next step (a follow-on, after review and an ownership handshake): get or keep
+the CBS ROS stat components for a served week and rescore them to the shared
+basis. That would confirm or rule out the lead before any parser, mapping or
+accept decision. This PR does not resolve the warn.
 
 ## Evidence
 
@@ -92,7 +109,14 @@ each game.
   to carry over, since the URL and parser are the same. A per-player rescore
   of week 8 needs those components. I did not read Supabase.
 - CBS's published scoring rules were not confirmed from a CBS page. The basis
-  is inferred from the fit.
+  is inferred from an approximate fit on 09-30 data.
+- The CBS section's vintage is recorded as `vintage_source: legacy_fallback`,
+  so the 2026-10-26 date comes from the fallback path and is not confirmed
+  against the page.
+- Codex's independent review (2026-10-29 16:05Z) reran the 11 tests and the
+  five-player trace. It did not rerun the counterfactual scripts or the
+  366-player, all-combo leg-to-fixture comparison. Those rest on this note's
+  runs only.
 - The 12:07Z / 7:07 AM CBS import job no longer exists, and CBS ROS is held
   amber. The live feed reloads only when CBS changes its page. Later builds
   (for example the 2026-10-29 rebuild at `ca51f2f`, CBS vintage 2026-10-29)
