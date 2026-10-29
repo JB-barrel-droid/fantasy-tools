@@ -308,6 +308,44 @@ check("test_legacy_note_round_trip", () => {
   assert.ok(!("note" in M.get(store.get(), ws, "t1")));
 });
 
+check("test_legacy_note_starting_with_tag_label", () => {
+  // JEG-1255 coordination f1cc155c: an earlier note that starts with, or is only, a tag label is the manager's own text,
+  // not tag state. It is never read as ticked, and ticking or unticking the tag never trims it.
+  const ws = league();
+  const prefixed = "Likes rookies; answers on weekends";
+  const tagOnly = M.TAG_LABELS.rookies;
+  const profile = (teamId, note, tags) => ({teamId, anchors: {draft: "unknown", market: "unknown", rankings: "unknown", names: "unknown", subjective: "unknown"},
+    confidence: "unknown", excluded: false, note, ...(tags ? {tags} : {}), source: "user", createdAt: 3, updatedAt: 4});
+  const saved = JSON.stringify({v: 1, leagues: {"league-a": {
+    t1: profile("t1", prefixed), t2: profile("t2", tagOnly), t3: profile("t3", prefixed, ["rookies"])}}});
+  const storage = flakyStorage({[M.STORAGE_KEY]: saved});
+  const store = M.createStore({storage, delay: 0});
+  assert.strictEqual(store.load(), "ok");
+  const read = id => M.get(store.get(), ws, id);
+  assert.deepStrictEqual(read("t1").tags, [], "a note starting with a tag label is not a ticked tag");
+  assert.strictEqual(read("t1").note, prefixed, "kept whole, label included");
+  assert.deepStrictEqual(read("t2").tags, [], "a note that is only a tag label is not a ticked tag");
+  assert.strictEqual(read("t2").note, tagOnly, "a tag-only note is kept, not emptied");
+  assert.ok(!M.isBlank(read("t2")), "and the profile still counts as saved");
+  assert.deepStrictEqual(read("t3").tags, ["rookies"], "a saved tick stays ticked");
+  // Tick then untick on the prefixed and tag-only notes; untick a saved tick next to a prefixed note.
+  ["t1", "t2"].forEach(id => {
+    store.update(b => M.ops.setTag(b, ws, id, "rookies", true, 5));
+    store.update(b => M.ops.setTag(b, ws, id, "rookies", false, 6));
+  });
+  store.update(b => M.ops.setTag(b, ws, "t3", "rookies", false, 6));
+  assert.strictEqual(read("t1").note, prefixed, "unticking does not delete the note's prose");
+  assert.strictEqual(read("t2").note, tagOnly, "unticking does not delete a tag-only note");
+  assert.strictEqual(read("t3").note, prefixed);
+  ["t1", "t2", "t3"].forEach(id => assert.deepStrictEqual(read(id).tags, []));
+  // Saved verbatim and loaded again unchanged.
+  const raw = JSON.parse(storage.getItem(M.STORAGE_KEY)).leagues["league-a"];
+  assert.deepStrictEqual([raw.t1.note, raw.t2.note, raw.t3.note], [prefixed, tagOnly, prefixed]);
+  const again = M.createStore({storage, delay: 0});
+  again.load();
+  assert.deepStrictEqual(again.get(), store.get());
+});
+
 check("test_store_save_failure_reported_and_recovers", () => {
   const ws = league();
   const storage = flakyStorage();
