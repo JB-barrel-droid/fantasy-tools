@@ -17,6 +17,30 @@
   const MAX_PAIRS = 100;             // the two-for-two search looks at no more than this many candidate pairs
   const NET_FLOOR = 0.05;            // a change that shows as 0.0 is no change (same floor as finder.js)
   const OUT_STATUS = ["Out", "Doubtful", "IR", "PUP"];
+  // JEG-1312: injury status is Sleeper's, as of the identity base the bake used (window.TradeValueStatus, player-status.js).
+  // The refresh runs Tue + Thu, so a healthy copy is at most 5 days old; past STATUS_MAX_AGE_DAYS, or with no date, the tab
+  // shows no status at all (no tag, no "Your X is Out") and says why, so an old status never reads as current.
+  const STATUS_MAX_AGE_DAYS = 6;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const statusDay = ms => new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"}).format(new Date(ms));
+  // status: {as_of: ISO time} or null. nowMs: the reader's clock. -> {shown, asOf, ageDays, label, text}.
+  function statusFreshness(status, nowMs) {
+    const at = status && typeof status.as_of === "string" ? Date.parse(status.as_of) : NaN;
+    if (!Number.isFinite(at) || !finite(nowMs)) {
+      return {shown: false, asOf: null, ageDays: null, label: null, text: "Injury status is not shown: the Sleeper status copy has no date."};
+    }
+    const ageDays = Math.max(0, (nowMs - at) / DAY_MS);
+    const day = statusDay(at);
+    if (ageDays > STATUS_MAX_AGE_DAYS) {
+      const old = Math.floor(ageDays);
+      return {shown: false, asOf: status.as_of, ageDays, label: null,
+        text: `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
+    }
+    return {shown: true, asOf: status.as_of, ageDays, label: `Sleeper status as of ${day}`, text: `Injury status: Sleeper, as of ${day}.`};
+  }
+  // The status a row may show: null when the copy is stale or undated, or the player has no status (never "healthy").
+  const statusOf = (row, freshness) => (freshness && freshness.shown && row && row.injury_status && !["Active", "Inactive"].includes(row.injury_status)
+    ? row.injury_status : null);
 
   // JEG-1081 (PR 6): the view that decides the verdict. ddf = DDF Value (adjusted trade charts, the default), projections = DDF Value
   // (projections), market = Trade chart average, basis = whatever the Overrides basis makes DDF Value (same key as ddf), src:<key> = one source alone.
@@ -148,11 +172,12 @@
     const clash = Object.keys(weeks).map(Number).filter(w => weeks[w] >= 2 && w !== byes[candidate.team]).sort((a, b) => a - b);
     return clash.length ? {pos: candidate.pos, week: clash[0], text: `Fills bye-week gap at ${candidate.pos} week ${clash[0]}.`} : null;
   }
-  function injuryNote(roster, lineup, candidate) {
+  function injuryNote(roster, lineup, candidate, freshness) {
+    if (!freshness || !freshness.shown) return null;
     const hurt = lineup.starters.find(r => r.pos === candidate.pos && OUT_STATUS.includes(r.injury_status));
     return hurt ? {name: hurt.name, status: hurt.injury_status, text: `Your ${hurt.name} is ${hurt.injury_status}, which adds to the need at ${candidate.pos}.`} : null;
   }
-  // ctx: {shape, expected, chartKeys, rosterSize, byes}. roster: rows (engine rows plus unpriced kicker / defense rows),
+  // ctx: {shape, expected, chartKeys, rosterSize, byes, status (statusFreshness; missing = no status shown)}. roster: rows (engine rows plus unpriced kicker / defense rows),
   // all carrying chart_avg when charts are available. candidate: an engine row, or an unpriced row.
   // The worth change of a swap in one view (starters in full, bench at its weights): null when the candidate has no value there.
   function worthChange(roster, leaving, candidate, shape, key, weights) {
@@ -206,7 +231,7 @@
     const towardAt = fit.towardAt;
     const slot = slotOf(impact.after, candidate);
     const bye = byeNote(ctx, roster, ctx.shape, candidate, impact.before);
-    const injury = injuryNote(roster, impact.before, candidate);
+    const injury = injuryNote(roster, impact.before, candidate, ctx.status);
     const verdict = up ? (fit.away ? VERDICT.force : VERDICT.pick) : down ? VERDICT.skip : fit.toward ? VERDICT.consider : VERDICT.hold;
     const dropClause = dropName ? `, drop ${dropName}` : " (open roster slot, no drop needed)";
     const need = towardAt.length ? ` Fills ${towardAt[0]} need (${fit.depth[towardAt[0]].before} counted, ${fit.depth[towardAt[0]].range} expected).` : (fit.toward ? " Fills an open starting slot." : "");
@@ -328,7 +353,7 @@
     return {mine: read("mine"), cands: read("cands"), params};
   }
 
-  const api = {VERDICT, TIER, MAX_PAIRS, NET_FLOOR, OUT_STATUS, rowsFor, dedupe, netOf, marginalValue, dropRanking, bestDrops, openSlots, rosterSizeOf, evaluateCandidate,
+  const api = {VERDICT, TIER, MAX_PAIRS, NET_FLOOR, OUT_STATUS, STATUS_MAX_AGE_DAYS, statusFreshness, statusOf, injuryNote, rowsFor, dedupe, netOf, marginalValue, dropRanking, bestDrops, openSlots, rosterSizeOf, evaluateCandidate,
     orderResults, pairsOf, evaluateCombos, headlineFor, evaluateAll, viewFor, viewValueOf, worthChange, contextFor, VIEW_DEFAULT, CONTEXT_VIEWS, SOURCE_NAMES, encodeHash, decodeHash, ddfOf, marketOf, fmt, isRequiredSpecial};
   if (isNode) { module.exports = api; return; }
   root.TradeValueWaivers = api;
@@ -403,8 +428,12 @@
   }
   const dash = () => el("span", {}, el("span", {"aria-hidden": "true", text: "—"}), el("span", {class: "v2-sr", text: "no value"}));
   const numCell = (value, signed) => (value === null || value === undefined ? dash() : document.createTextNode(signed ? api.fmt(value) : value.toFixed(1)));
-  const injuryOf = row => (row && row.injury_status && !["Active", "Inactive"].includes(row.injury_status) ? row.injury_status : null);
-  const injuryTag = row => (injuryOf(row) ? el("span", {class: "v2-wv-inj", "data-status": injuryOf(row), text: injuryOf(row)}) : null);
+  const freshness = () => api.statusFreshness(root.TradeValueStatus || null, Date.now());
+  const injuryTag = row => {
+    const f = freshness();
+    const status = api.statusOf(row, f);
+    return status ? el("span", {class: "v2-wv-inj", "data-status": status, title: f.label, text: status}) : null;
+  };
 
   // ---------- the one box ----------
   const chip = (label, value) => el("span", {class: `v2-find-chip${value === null ? " is-missing" : ""}`},
@@ -795,7 +824,7 @@
     const depth = UI().depthContext();
     const shape = C.getRosterShape();
     return {shape, weights: UI().benchWeights(), expected: depth ? depth.expected : null, chartKeys: UI().marketKeys(), rosterSize: rosterSizeOf(shape),
-      byes: root.TradeValueByes ? root.TradeValueByes.byes : null, view: api.viewFor(viewChoice(), basisName())};
+      byes: root.TradeValueByes ? root.TradeValueByes.byes : null, status: freshness(), view: api.viewFor(viewChoice(), basisName())};
   }
   function compute() {
     const ctx = context();
@@ -892,6 +921,12 @@
     const c = compute();
     S.last = c;
     fillViews();
+    const statusLine = $("v2WaiversStatus");
+    if (statusLine) {
+      const f = freshness();
+      setText(statusLine, f.text);
+      statusLine.dataset.shown = f.shown ? "true" : "false";
+    }
     const headline = $("v2WaiversHeadline");
     const state = c.state === "ok" ? c.out.headline.state : c.state;
     const text = c.state === "ok" ? c.out.headline.text : HEAD_TEXT[c.state];
@@ -1012,7 +1047,8 @@
       summary, mineBox.wrap, el("section", {class: "v2-find-assess", id: "v2WaiversAssess", "aria-label": "Roster assessment", hidden: ""}));
     const candsCard = el("section", {class: "v2-card", id: "v2WaiversCands", "aria-labelledby": "v2WaiversCandsTitle"},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversCandsTitle", text: "Waiver candidates"}),
-        el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."})), candsBox.clear),
+        el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."}),
+        el("p", {class: "v2-meta v2-wv-status", id: "v2WaiversStatus", text: freshness().text})), candsBox.clear),
       candsBox.wrap);
     const anyCard = anyPageCard(mineBox, candsBox);
     const outCard = el("section", {class: "v2-card", id: "v2WaiversResults", "aria-labelledby": "v2WaiversResultsTitle"},

@@ -598,6 +598,8 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
 	python3 -m unittest tests.test_v2_finder_trifit
@@ -734,6 +736,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
