@@ -121,6 +121,8 @@ test-unit:
 
 test-unit-modules:
 	python3 -m unittest tests.test_run_suite
+	# JEG-1275: selected-package composition preview view model (node, no browser).
+	python3 -m unittest tests.test_package_composition_preview_contract
 	# Render-sweep coverage guard (JEG-976): a warning, not a deploy gate (Jeremy, 2026-10-26).
 	python3 -m unittest tests.test_render_sweep_coverage
 	python3 -m unittest tests.test_render_sweep_shards
@@ -853,6 +855,8 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
 	python3 -m unittest tests.test_v2_override_adjustments_render
+	# JEG-1275: selected-package composition preview at 1280/390/320.
+	python3 -m unittest tests.test_package_composition_preview_render
 
 test-render-extra:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
@@ -916,6 +920,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_override_adjustments_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_inputs_status_render
+	# JEG-1275: selected-package composition preview at 1280/390/320.
+	python3 -m unittest tests.test_package_composition_preview_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
