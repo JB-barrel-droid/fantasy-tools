@@ -348,7 +348,7 @@
   const NAME_LIST_SHARE = 0.8;
   const SLOT_WORD = {SUPERFLEX: "Superflex"};
   const boxes = {};
-  const S = {view: (() => { try { return root.localStorage.getItem("ddf.v2.waivers.view") || "ddf"; } catch (error) { return "ddf"; } })(), viewSig: "", cands: [], sort: {key: "verdict", dir: "asc"}, collapsed: false, hadResults: false, answered: new Set(), linkRead: false, scheduled: false,
+  const S = {view: (() => { try { return root.localStorage.getItem("ddf.v2.waivers.view") || "ddf"; } catch (error) { return "ddf"; } })(), viewSig: "", cands: [], sort: {key: "verdict", dir: "asc"}, collapsed: false, hadResults: false, backSig: "", focusAfterUndo: false, answered: new Set(), linkRead: false, scheduled: false,
     notes: [], last: null, mineSig: ""};
 
   function el(tag, props, ...kids) {
@@ -459,13 +459,21 @@
       const undo = el("button", {type: "button", class: "v2-link v2-wv-undo", id: `${id}Undo`, text: "Undo"});
       undo.addEventListener("click", () => {
         stores[target].set(before);
-        result.replaceChildren(el("p", {class: "v2-meta", text: `${title} is back.`}));
+        if (target === "mine") {
+          // JEG-1316 (option A, pending Jeremy's pick): results fold the roster input again on the next render, so the
+          // message goes where it stays visible and focus waits for that render (render() moves it to Edit roster).
+          result.replaceChildren();
+          S.backSig = rosterSig(before);
+          S.focusAfterUndo = true;
+        } else result.replaceChildren(el("p", {class: "v2-meta", text: `${title} is back.`}));
         schedule();
         input.focus();
       });
       result.replaceChildren(el("p", {class: "v2-meta v2-wv-cleared"},
         document.createTextNode(target === "mine" ? "Cleared your roster here and on both Find a trade screens. " : `Cleared ${title.toLowerCase()}. `), undo));
       schedule();
+      // JEG-1316: an empty roster unfolds its input, but only on the next render; unfold it now so focus can land there.
+      if (target === "mine") renderSummary();
       input.focus();
     });
     const wrap = el("div", {class: "v2-wv-input", id: `${id}Input`}, el("div", {class: "v2-find-search-wrap"}, label, results), help, result, list);
@@ -819,10 +827,16 @@
     list.forEach(p => { counts[p.pos] = (counts[p.pos] || 0) + 1; });
     return ["QB", "RB", "WR", "TE", "K", "DEF"].filter(pos => counts[pos]).map(pos => `${pos} ${counts[pos]}`).join(", ");
   }
+  const rosterSig = list => list.map(p => p.key).join("|");
   function renderSummary() {
     const mine = mineStore.get();
     const box = $("v2WaiversSummary");
     if (!box) return;
+    // JEG-1316: "Your roster is back." stays up until the roster changes again.
+    const back = $("v2WaiversMineBack");
+    if (S.backSig && S.backSig !== rosterSig(mine)) S.backSig = "";
+    if (back && !S.backSig && back.firstChild) back.replaceChildren();
+    else if (back && S.backSig && !back.firstChild) back.replaceChildren(el("p", {class: "v2-meta", text: `${TITLES.mine} is back.`}));
     const names = mine.slice(0, 3).map(p => p.name).join(", ");
     box.querySelector(".v2-wv-sumtext").replaceChildren(
       el("span", {class: "v2-find-sum-names", text: `${names}${mine.length > 3 ? ` + ${mine.length - 3} more` : ""}`}),
@@ -922,6 +936,11 @@
     renderSummary();
     boxes.mine.render();
     boxes.cands.render();
+    // JEG-1316: after roster Undo, focus the roster control that is on screen: Edit roster when the input folded, else the input.
+    if (S.focusAfterUndo && c.state !== "loading") {
+      S.focusAfterUndo = false;
+      ($("v2WaiversMineInput").hidden ? $("v2WaiversEdit") : boxes.mine.input).focus();
+    }
     syncHash();
   }
   function schedule() {
@@ -1009,7 +1028,8 @@
     const mineCard = el("section", {class: "v2-card", id: "v2WaiversMine", "aria-labelledby": "v2WaiversMineTitle"},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversMineTitle", text: "Your roster"}),
         el("p", {class: "v2-meta", text: "The same roster as Find a trade: enter it once."})), mineBox.clear),
-      summary, mineBox.wrap, el("section", {class: "v2-find-assess", id: "v2WaiversAssess", "aria-label": "Roster assessment", hidden: ""}));
+      summary, el("div", {class: "v2-find-paste-result", id: "v2WaiversMineBack", role: "status", "aria-live": "polite"}),
+      mineBox.wrap, el("section", {class: "v2-find-assess", id: "v2WaiversAssess", "aria-label": "Roster assessment", hidden: ""}));
     const candsCard = el("section", {class: "v2-card", id: "v2WaiversCands", "aria-labelledby": "v2WaiversCandsTitle"},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2WaiversCandsTitle", text: "Waiver candidates"}),
         el("p", {class: "v2-meta", text: "The top options on the wire. Kickers and defenses are kept but not evaluated."})), candsBox.clear),
