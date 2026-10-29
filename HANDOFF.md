@@ -15,11 +15,16 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
+### Interactive trades release (completed 2026-10-29 UTC)
 
-- Branch `fe/jeg-1216-lineup-stability` begins at PR #1062 candidate `50f76b95`. Keep it separate from active JEG-1213 release #1062 and do not merge to production until JEG-1213 lands.
-- New shared `app/v2/lineup-comparison.js` exports `buildRows(before, after, shape)` and `renderTable(impact, shape, valueKey, caption)` as `TradeValueLineupComparison`. The former returns `{starters, bench}` groups of `{slot, before, after, changed}`; the latter returns a DOM wrapper containing the four-column table and a keyboard-accessible bench expander. Load order is finder, lineup-comparison, league, v2. Interactive Compare (JEG-1214) can call this helper directly.
-- Draft [PR #1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066) targets the release candidate, not main. League hookup, CSS, build registration and focused unit/browser tests are on this branch. The original JEG-1213 acceptance render flows also passed locally. See `docs/claude-log/2026-10-28-jeg-1216-lineup-stability.md` for commands and the intentionally stopped duplicate full gate. Final-head CI and independent review remain required before merge.
+- [PR #1069](https://github.com/JB-barrel-droid/fantasy-tools/pull/1069) merged as `d68c89fa74460ca0ca45e0375e6a07130bdcdf74`. [Deploy dashboard run 40794331479](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40794331479) succeeded, including all four validation shards, build and deploy. GitHub automatically deleted the approved `release/interactive-trades-20261028` branch.
+- Mac live QA passed **14/14** on served build `tv-20261028-1928-d68c89f`: selected trade details opened inline on desktop and phone with focus/close behavior, bench expansion worked, Compare edit/cancel/swap restored the lineup and saved roster, a raised RB backup minimum excluded a 1-for-1 trade, the eight-team warning no longer showed `null`, a copied link retained eight teams, Week 8 Values search worked, and there were no page errors. QA used synthetic rosters, not Jeremy's saved leagues.
+- Shipped scope: JEG-1214 interactive Compare roster editing and resulting construction; JEG-1216 stable before/after starters and expandable bench through shared `TradeValueLineupComparison`; JEG-1184 finder guardrails, 1-for-1 option and positional backup minima. Inline opportunity details and the eight-team warning correction also shipped in this release. JEG-1214, JEG-1216 and JEG-1184 are Done in Linear. The original feature PRs [#1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066), [#1067](https://github.com/JB-barrel-droid/fantasy-tools/pull/1067) and [#1068](https://github.com/JB-barrel-droid/fantasy-tools/pull/1068) are integration records; do not merge their changes a second time.
+- Release head `99544e4b` passed its preview and v2-render workflows after the final current-main data merge. Eight focused browser/render tests passed locally on that head. Independent review passed on the application code through `4ef4f140`; subsequent branch merges brought in only main's data/status files. The separate #1071 source framework lane was released to its owner only after Mac live QA passed.
+- Still separate: Find a Trade roster exploration and league-wide strengths, the JSN candidate-truncation fix, broader visual redesign/source taxonomy, and any stronger Natural-fit projection threshold. This release did not add waiver recommendations or change trade math.
+
+The following lane notes are historical snapshots from 2026-10-28; check current
+GitHub and Linear state before acting on them.
 
 ### League finder release batch (Codex, 2026-10-28 UTC)
 
