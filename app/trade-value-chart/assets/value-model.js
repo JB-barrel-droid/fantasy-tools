@@ -237,7 +237,8 @@
   // `rostered`: every key on a team; `reserve`: keys in IR or taxi slots.
   // Keys compare as strings. Mirrors roster_convention.league_depth.
   var VP_BENCH_LEVELS = ["ddf", "market"];
-  var VP_LEAGUE_DEPTH_FIELDS = ["replacement", "held", "reserve", "bench_basis"];
+  var VP_LEAGUE_DEPTH_FIELDS = ["replacement", "replacement_key", "held", "reserve", "bench_basis",
+    "modeled_starters"];
   function vpLeagueDepth(starters, orders, rostered, level, reserve) {
     var lvl = level == null ? "ddf" : level;
     if (VP_BENCH_LEVELS.indexOf(lvl) === -1) throw new Error("bench level must be ddf or market, got " + lvl);
@@ -258,10 +259,40 @@
       var bench, line, basis;
       if (lvl === "ddf") { bench = Math.max(0, free - s); line = free; basis = "above_replacement"; }
       else { bench = Math.max(0, nHeld - s); line = s + bench; basis = "rostered_depth"; }
-      out[pos] = { bench: bench, replacement: line, held: nHeld, reserve: nRes, best_free_index: free,
-        bench_basis: basis };
+      out[pos] = { bench: bench, replacement: line,
+        replacement_key: free < order.length ? String(order[free].key) : null,
+        held: nHeld, reserve: nRes, best_free_index: free, bench_basis: basis };
     });
     return out;
+  }
+  // JEG-1249: `orders` kept to the players held on active roster spots. The
+  // market level fills its starters from these, so a position the league
+  // holds fewer players at shows a shortage, never invented holdings.
+  // Mirrors roster_convention.market_order.
+  function vpMarketOrder(orders, rostered, reserve) {
+    var held = {}, res = {};
+    (reserve || []).forEach(function (k) { res[String(k)] = true; });
+    rostered.forEach(function (k) { if (!res[String(k)]) held[String(k)] = true; });
+    var out = {};
+    Object.keys(orders).forEach(function (pos) {
+      out[pos] = (orders[pos] || []).filter(function (r) { return held[String(r.key)]; });
+    });
+    return out;
+  }
+  // JEG-1249: the ddf level's waiver row in one source's work order: the
+  // replacement player's own row, else the source's own best free player
+  // (first row no team holds; IR and taxi count as held), else -1 (the
+  // caller's insufficient_coverage path). Mirrors
+  // roster_convention.replacement_waiver_index.
+  function vpReplacementWaiverIndex(work, replacementKey, rostered) {
+    var i;
+    if (replacementKey != null) {
+      for (i = 0; i < work.length; i += 1) if (String(work[i].key) === String(replacementKey)) return i;
+    }
+    var held = {};
+    (rostered || []).forEach(function (k) { held[String(k)] = true; });
+    for (i = 0; i < work.length; i += 1) if (!held[String(work[i].key)]) return i;
+    return -1;
   }
   function vpLeagueBench(starters, orders, rostered, level, reserve) {
     var d = vpLeagueDepth(starters, orders, rostered, level, reserve);
@@ -325,10 +356,10 @@
       alloc[pos] = { dedicated: teams * (Number(slots[pos]) || 0), superflex: 0, flex: 0,
         bench: 0, starters: 0, rostered: 0 };
     });
-    function takeBest(eligiblePositions, offsetOf, count) {
+    function takeBest(eligiblePositions, offsetOf, count, from) {
       var cand = [];
       eligiblePositions.forEach(function (pos) {
-        var order = orders[pos] || [];
+        var order = (from || orders)[pos] || [];
         for (var i = offsetOf(pos); i < order.length; i += 1) {
           cand.push({ pos: pos, key: order[i].key, score: order[i].score });
         }
@@ -352,13 +383,30 @@
     var benchPerTeam = Math.max(0, Number(setting.bench_per_team) || 0);
     if (Array.isArray(setting.league_rostered)) {
       // JEG-1188: a loaded league sets the bench from its own rosters.
-      var lgStarters = {};
+      var lgModeled = {}, lgStarters = {};
+      POSITION_ORDER.forEach(function (pos) {
+        lgModeled[pos] = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+      });
+      if (setting.bench_level === "market") {
+        // JEG-1249: market starters come from held players only.
+        var heldOrders = vpMarketOrder(orders, setting.league_rostered, setting.league_reserve);
+        POSITION_ORDER.forEach(function (pos) {
+          alloc[pos].dedicated = Math.min(alloc[pos].dedicated, (heldOrders[pos] || []).length);
+        });
+        sf = takeBest(POSITION_ORDER, function (pos) { return alloc[pos].dedicated; }, teams * sfSlots,
+          heldOrders);
+        POSITION_ORDER.forEach(function (pos) { alloc[pos].superflex = sf[pos]; });
+        fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
+          return alloc[pos].dedicated + alloc[pos].superflex;
+        }, teams * flexSlots, heldOrders);
+      }
       POSITION_ORDER.forEach(function (pos) {
         lgStarters[pos] = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
       });
       var lgDepth = vpLeagueDepth(lgStarters, orders, setting.league_rostered, setting.bench_level,
         setting.league_reserve);
       POSITION_ORDER.forEach(function (pos) {
+        lgDepth[pos].modeled_starters = lgModeled[pos];
         alloc[pos].bench = lgDepth[pos].bench;
         VP_LEAGUE_DEPTH_FIELDS.forEach(function (f) { alloc[pos][f] = lgDepth[pos][f]; });
       });
@@ -1200,6 +1248,11 @@
         // JEG-1188: the waiver line sits at the replacement index, which a
         // loaded league can put inside the starter line.
         var W = a.replacement !== undefined ? a.replacement : N;
+        if (a.bench_basis === "above_replacement") {
+          // JEG-1249: the replacement player's own row in this source.
+          W = vpReplacementWaiverIndex(work, a.replacement_key, setting.league_rostered);
+          if (W < 0) W = work.length;
+        }
         var method, waiver = null, starterLine = null;
         if (work.length > W) {
           waiver = work[W].native;

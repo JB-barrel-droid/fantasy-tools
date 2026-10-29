@@ -145,8 +145,27 @@ def check_invariants(case, doc: dict, res: dict, level: str, held, reserve):
     held_s, res_s = set(held), set(reserve)
     starters_total = sum(alloc[p]["starters"] for p in POS)
     seats = teams * (sum(s["slots"].values()) + s["flex"] + s.get("superflex", 0))
-    # No FLEX or superflex seat counted twice: starters fill exactly the starting seats (or every player, if fewer).
-    case.assertEqual(starters_total, min(seats, sum(len(order[p]) for p in POS)))
+    active = {p: [k for k in order[p] if k in set(held) and k not in set(reserve)] for p in POS}
+    # No FLEX or superflex seat counted twice: modeled starters fill exactly
+    # the starting seats (or every player, if fewer). JEG-1249: the market
+    # level's starters come from held players only, so they fill the seats
+    # from the active held players and any gap is a shortage, not players.
+    modeled_total = sum(alloc[p]["modeled_starters"] for p in POS)
+    case.assertEqual(modeled_total, min(seats, sum(len(order[p]) for p in POS)))
+    if level == "market":
+        # Dedicated seats take held players at the position; superflex, then
+        # FLEX, take what held players remain; unfilled seats stay unfilled.
+        ded = {p: min(teams * s["slots"].get(p, 0), len(active[p])) for p in POS}
+        left = sum(len(active[p]) - ded[p] for p in POS)
+        sf = min(teams * s.get("superflex", 0), left)
+        case.assertEqual({p: alloc[p]["dedicated"] for p in POS}, ded)
+        case.assertEqual(sum(alloc[p]["superflex"] for p in POS), sf)
+        left_fx = sum(len(active[p]) - ded[p] - alloc[p]["superflex"] for p in ("RB", "WR", "TE"))
+        case.assertEqual(sum(alloc[p]["flex"] for p in POS), min(teams * s["flex"], left_fx))
+        case.assertLessEqual(starters_total, modeled_total)
+        case.assertEqual(sum(alloc[p]["rostered"] for p in POS), sum(len(active[p]) for p in POS))
+    else:
+        case.assertEqual(starters_total, modeled_total)
     for p in POS:
         a = alloc[p]
         with case.subTest(level=level, pos=p):
@@ -162,13 +181,18 @@ def check_invariants(case, doc: dict, res: dict, level: str, held, reserve):
                 case.assertEqual(a["bench"], max(0, free - a["starters"]))
                 case.assertEqual(a["bench_basis"], "above_replacement")
             else:
-                case.assertEqual(a["bench"], max(0, n_held - a["starters"]))
+                # JEG-1249: actual held depth, never more than the league holds.
+                case.assertEqual(a["rostered"], n_held)
+                case.assertEqual(a["bench"], n_held - a["starters"])
                 case.assertEqual(a["replacement"], a["starters"] + a["bench"])
                 case.assertEqual(a["bench_basis"], "rostered_depth")
-            # Each source's waiver line is its own value at the replacement index.
             for src, info in res["sources"].items():
                 pos = info["positions"][p]
                 case.assertEqual(pos["replacement"], a["replacement"])
+                rk = a["replacement_key"]
+                if level == "ddf" and rk is not None and rk in info["players"]:
+                    # JEG-1249: the waiver is the replacement player's own value in this source.
+                    case.assertEqual(pos["waiver_value"], info["players"][rk]["native"])
 
 
 class TestAccounting(unittest.TestCase):
@@ -329,7 +353,8 @@ PINNED = {
     "uso_market": {"QB": (6, 18, 0), "RB": (17, 52, 0), "WR": (29, 66, 0), "TE": (8, 20, 0)},
     # Charlotte: 22 above replacement, 65 active beyond starters (65 valued players on its 72 seats), 11 in IR.
     "cha_ddf": {"QB": (4, 20, 1), "RB": (6, 56, 3), "WR": (8, 54, 6), "TE": (4, 19, 1)},
-    "cha_market": {"QB": (8, 20, 1), "RB": (27, 56, 3), "WR": (23, 54, 6), "TE": (7, 19, 1)},
+    # JEG-1249: market starters from held players only moved one flex seat from a free WR to a held RB.
+    "cha_market": {"QB": (8, 20, 1), "RB": (26, 56, 3), "WR": (24, 54, 6), "TE": (7, 19, 1)},
 }
 
 

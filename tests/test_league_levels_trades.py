@@ -39,9 +39,13 @@ CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 VARIANTS = {"ddf": ("ddf", "ddf"), "market": ("market", "market"), "page": ("ddf", "market")}
 
 # (trades, throw-ins added by the other team for a 2-for-1, added by you for a 1-for-2), his team vs every other.
+# JEG-1249 (Codex review): the ddf waiver is the replacement player's own
+# value in each source and market starters come from held players only, so
+# the evened-trade counts moved from (92, 16, 11) / (787, 190, 49) for USO and
+# (21, 1, 5) / (76, 9, 12) / (505, 121, 32) for Charlotte.
 PINNED = {
-    ("uso", "ddf"): (92, 16, 11), ("uso", "market"): (112, 9, 8), ("uso", "page"): (787, 190, 49),
-    ("charlotte", "ddf"): (21, 1, 5), ("charlotte", "market"): (76, 9, 12), ("charlotte", "page"): (505, 121, 32),
+    ("uso", "ddf"): (99, 9, 16), ("uso", "market"): (112, 9, 8), ("uso", "page"): (317, 44, 25),
+    ("charlotte", "ddf"): (136, 15, 24), ("charlotte", "market"): (97, 12, 21), ("charlotte", "page"): (720, 65, 104),
 }
 
 
@@ -145,7 +149,10 @@ class TestUnevenTrades(unittest.TestCase):
                 self.assertEqual((len(trades), sides.count("receive"), sides.count("give")), PINNED[case])
 
     def test_page_throw_ins_include_players_only_the_charts_price(self):
-        for name in ("uso", "charlotte"):
+        # USO only since JEG-1249: with the waiver priced at the replacement
+        # player in each source, Charlotte's evened trades no longer use a
+        # throw-in at 0.0 DDF Value.
+        for name in ("uso",):
             inp, out = self.cases[(name, "page")]
             values = {str(r["player_key"]): r["values"] for r in inp["rows"]}
             gap = {a["key"] for o in out["opponents"].values() for t in o["trades"] for a in t["added"]

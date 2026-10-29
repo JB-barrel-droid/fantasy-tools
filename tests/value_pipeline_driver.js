@@ -112,7 +112,8 @@ Object.entries(result.sources).forEach(([src, o]) => {
         sigma_floor: p.lineup.sigmaFloor, m: p.lineup.m} : null};
     // JEG-1188: a loaded league's counts and replacement line.
     if (p.replacement !== undefined) {
-      ["replacement", "held", "reserve", "bench_basis"].forEach(f => { positions[pos][f] = p[f]; });
+      ["replacement", "replacement_key", "held", "reserve", "bench_basis", "modeled_starters"]
+        .forEach(f => { positions[pos][f] = p[f]; });
     }
   });
   const playersOut = {};

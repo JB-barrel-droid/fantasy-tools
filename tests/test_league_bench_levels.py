@@ -42,6 +42,18 @@ BENCH = {"ddf": {"QB": 0, "RB": 1, "WR": 1, "TE": 0},
 POS = ("QB", "RB", "WR", "TE")
 # Keys the two engines name differently or the spec reference adds.
 IGNORED = ("indexed_factor", ".name:")
+PARTS = ("allocation", "fill_sets", "sources", "indexed", "rows")
+
+
+def ranking_problems(spec: dict, js: dict) -> list:
+    """default_ranking agrees once values equal to 1e-9 count as ties: the
+    spec reference can leave 1e-17 where the engine has 0, and the leaf
+    comparison already allows that."""
+    def canon(res):
+        val = {str(k): res["rows"][str(k)]["ddf_blended"]["value"] for k in res["default_ranking"]}
+        return sorted(val, key=lambda k: (val[k] is None, -round(val[k] or 0.0, 9), int(k)))
+    a, b = canon(spec), canon(js)
+    return [] if a == b else [f"default_ranking: spec {a} js {b}"]
 
 
 def run_js(level: str | None, rostered=LEAGUE) -> dict:
@@ -105,20 +117,35 @@ class TestEngineLevels(unittest.TestCase):
 
     def test_js_matches_spec_reference_at_both_levels(self):
         for lvl in ("ddf", "market"):
-            for key in ("allocation", "fill_sets", "sources", "indexed", "rows", "default_ranking"):
+            for key in PARTS:
                 with self.subTest(level=lvl, part=key):
                     problems = [d for d in diff(self.spec[lvl][key], self.js[lvl].get(key), key)
                                 if not any(i in d for i in IGNORED)]
                     self.assertEqual(problems, [], problems[:5])
+            with self.subTest(level=lvl, part="default_ranking"):
+                self.assertEqual(ranking_problems(self.spec[lvl], self.js[lvl]), [])
         self.assertEqual(len(self.spec["ddf"]["rows"]), 30, "the comparison must cover every fixture player")
 
-    def test_rostered_below_the_best_free_agent_is_worth_nothing_to_him(self):
-        # RB 205 is rostered but ranks below RB 207, a free agent: zero at the
-        # DDF level, worth something at the market level (a sell candidate).
-        ddf = self.js["ddf"]["rows"]["205"]["ddf_blended"]["value"]
-        market = self.js["market"]["rows"]["205"]["ddf_blended"]["value"]
-        self.assertEqual(ddf, 0)
-        self.assertGreater(market, 0)
+    def test_rostered_below_the_best_free_agent_is_priced_against_him(self):
+        # RB 205 is rostered and ranks below RB 207, the best free agent in
+        # the common order. JEG-1249: in each source his value over
+        # replacement is his value minus 207's own value in that source, so
+        # he is worth nothing where that source has 207 above him. The
+        # market level still prices him.
+        for name, res in (("js", self.js["ddf"]), ("spec", self.spec["ddf"])):
+            for src, info in res["sources"].items():
+                with self.subTest(engine=name, source=src):
+                    pl = info["players"]
+                    if "207" in pl:
+                        waiver = pl["207"]["native"]
+                    else:
+                        # The source has no row for him: its own best free RB.
+                        held = {str(k) for k in LEAGUE}
+                        waiver = max(r["native"] for k, r in pl.items() if r["pos"] == "RB" and k not in held)
+                    self.assertEqual(info["positions"]["RB"]["waiver_value"], waiver)
+                    if "205" in pl:
+                        self.assertAlmostEqual(pl["205"]["vorp"], max(0.0, pl["205"]["native"] - waiver))
+        self.assertGreater(self.js["market"]["rows"]["205"]["ddf_blended"]["value"], 0)
 
     def test_no_league_is_the_modeled_rule(self):
         base = run_js(None)
@@ -171,10 +198,10 @@ class TestLeagueDepthFields(unittest.TestCase):
         rostered, reserve = ["1", "2", "3", "5", "11", "12", "13", "31"], ["3"]
         ddf = league_depth(self.starters, self.order, rostered, "ddf", reserve)
         market = league_depth(self.starters, self.order, rostered, "market", reserve)
-        self.assertEqual(ddf["QB"], {"bench": 1, "replacement": 3, "held": 3, "reserve": 1,
-                                     "best_free_index": 3, "bench_basis": "above_replacement"})
-        self.assertEqual(market["QB"], {"bench": 1, "replacement": 3, "held": 3, "reserve": 1,
-                                        "best_free_index": 3, "bench_basis": "rostered_depth"})
+        self.assertEqual(ddf["QB"], {"bench": 1, "replacement": 3, "replacement_key": "4", "held": 3,
+                                     "reserve": 1, "best_free_index": 3, "bench_basis": "above_replacement"})
+        self.assertEqual(market["QB"], {"bench": 1, "replacement": 3, "replacement_key": "4", "held": 3,
+                                        "reserve": 1, "best_free_index": 3, "bench_basis": "rostered_depth"})
         # Without the reserve list QB 3 counts as depth: market bench 2.
         self.assertEqual(league_depth(self.starters, self.order, rostered, "market")["QB"]["bench"], 2)
 
@@ -237,11 +264,13 @@ class TestReplacementInsideStarters(unittest.TestCase):
 
     def test_js_matches_spec_reference(self):
         for lvl in ("ddf", "market"):
-            for key in ("allocation", "fill_sets", "sources", "indexed", "rows", "default_ranking"):
+            for key in PARTS:
                 with self.subTest(level=lvl, part=key):
                     problems = [d for d in diff(self.spec[lvl][key], self.js[lvl].get(key), key)
                                 if not any(i in d for i in IGNORED)]
                     self.assertEqual(problems, [], problems[:5])
+            with self.subTest(level=lvl, part="default_ranking"):
+                self.assertEqual(ranking_problems(self.spec[lvl], self.js[lvl]), [])
 
     def test_python_reference_eight_team_probe(self):
         # Codex's numbers: 8 teams, QB1, Q1 (29 PPG) free, Q2..Q17 held.
