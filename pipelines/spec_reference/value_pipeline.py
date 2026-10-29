@@ -37,6 +37,7 @@ from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
     vorp_bench_allocate as _vorp_bench,
+    league_bench as _league_bench,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -69,6 +70,11 @@ class Setting:
     flex_eligible: tuple = ("RB", "WR", "TE")
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14 override (off = None)
+    # JEG-1188: a loaded league's rostered keys and which bench level to
+    # price at ("ddf" = his value, "market" = the other side's). None = no
+    # league: the modeled bench rule runs.
+    league_rostered: tuple | None = None
+    bench_level: str = "ddf"
 
     @classmethod
     def from_fixture(cls, s: dict) -> "Setting":
@@ -78,7 +84,10 @@ class Setting:
                    bench_share=float(s.get("bench_share", DEFAULT_BENCH_SHARE)),
                    flex_eligible=tuple(s.get("flex_eligible") or ("RB", "WR", "TE")),
                    position_shares=s.get("position_shares"),
-                   bench_share_override=s.get("bench_share_override"))
+                   bench_share_override=s.get("bench_share_override"),
+                   league_rostered=(tuple(s["league_rostered"])
+                                    if s.get("league_rostered") is not None else None),
+                   bench_level=s.get("bench_level") or "ddf")
 
     def starting_slots_per_team(self) -> int:
         return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + self.flex + self.superflex
@@ -185,7 +194,11 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
-    if flex_bench_seats:
+    if setting.league_rostered is not None:
+        # JEG-1188: a loaded league sets the bench from its own rosters.
+        bench = _league_bench({p: ded[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                              setting.league_rostered, setting.bench_level)
+    elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
         _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}

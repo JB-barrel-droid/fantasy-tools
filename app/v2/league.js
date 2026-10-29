@@ -71,10 +71,54 @@
   }
 
   // ---------- the engine, read once per render ----------
+  // JEG-1188 (Jeremy, 2026-10-29: "we focus on vorp, let other managers make stupid decisions and capitalize"): with every team
+  // of the league loaded, the league's own rosters set the bench at two levels. DDF Value is the DDF level (replacement is the
+  // league's best available player at each position); the trade chart values that judge the other side's acceptance are the
+  // market level (the league's rostered depth). A partial league keeps the modeled bench: a player on a team not loaded would
+  // look available and set replacement too high.
+  let levelMemo = null;
+  if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
+  function leagueLevels(C) {
+    if (!C.getLeagueRows || !C.getState) return null;
+    const ws = store.get();
+    if (!ws || ws.teams.length < 2 || ws.teams.length !== C.getState().teams || ws.teams.some(t => !t.entries.length)) return null;
+    const rostered = [...new Set(ws.teams.flatMap(t => t.entries.map(e => String(e.key))))].sort();
+    const sig = rostered.join(",");
+    if (levelMemo && levelMemo.sig === sig) return levelMemo.levels;
+    const ddfRows = C.getLeagueRows({rostered, level: "ddf"});
+    const marketRows = C.getLeagueRows({rostered, level: "market"});
+    if (!ddfRows.length || !marketRows.length) return null;
+    const market = new Map(marketRows.map(r => [String(r.player_key), r]));
+    const ddf = new Map(ddfRows.map(r => [String(r.player_key), r]));
+    const rows = ddfRows.map(r => {
+      const m = market.get(String(r.player_key));
+      if (!m) return r;
+      const values = {...r.values};
+      F.CHART_KEYS.forEach(key => { values[key] = m.values[key]; });
+      return {...r, values};
+    });
+    const levels = {rows, ddf, market, rostered: rostered.length};
+    levelMemo = {sig, levels};
+    return levels;
+  }
+  // His players worth more to the market than to him (JEG-1188): DDF Value at the DDF level against DDF Value at the market
+  // level, gap first. Empty without a full league.
+  const SELL_MIN_GAP = 2;
+  function sellCandidates(team, ctx, limit = 5) {
+    if (!team || !ctx || !ctx.levels) return [];
+    return team.entries.map(e => {
+      const d = ctx.levels.ddf.get(e.key), m = ctx.levels.market.get(e.key);
+      const ours = d && finite(d.values[OUR_KEY]) ? d.values[OUR_KEY] : null;
+      const theirs = m && finite(m.values[OUR_KEY]) ? m.values[OUR_KEY] : null;
+      return ours === null || theirs === null ? null : {key: e.key, name: d.name, pos: d.pos, ours, theirs, gap: theirs - ours};
+    }).filter(c => c && c.gap >= SELL_MIN_GAP).sort((a, b) => b.gap - a.gap || a.name.localeCompare(b.name)).slice(0, limit);
+  }
   function mathContext() {
     const C = engine();
     if (!C || !C.getAllRows) return null;
-    const all = C.getAllRows();
+    let levels = null;
+    try { levels = leagueLevels(C); } catch (error) { levels = null; }
+    const all = levels ? levels.rows : C.getAllRows();
     if (!all.length) return null;
     const rowsByKey = new Map(all.map(r => [String(r.player_key), r]));
     const shape = C.getRosterShape ? C.getRosterShape() : null;
@@ -88,7 +132,7 @@
     const overall = readout && finite(readout.overall) ? readout.overall : (C.getBenchShare ? C.getBenchShare() : null);
     const weights = {overall: finite(overall) ? overall : 0};
     F.DEPTH_POS.forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
-    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights};
+    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
   const isK = entry => F.isNotEvaluated(entry);
@@ -748,6 +792,18 @@
     return wrap;
   }
   const rankText = (r, ranked) => (r === null || r === undefined ? "—" : ranked < 2 ? "—" : String(r));
+  // JEG-1188: with the whole league loaded, say which bench the numbers use and list his sell candidates.
+  function sellBlock(ws, ctx) {
+    if (!ctx || !ctx.levels) return null;
+    const mine = teamById(ws, ws.myTeamId);
+    const sells = sellCandidates(mine, ctx);
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a bench player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept count the bench depth your league actually rosters."});
+    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, basisNote);
+    return el("div", {id: "v2LgSell"}, basisNote,
+      el("p", {class: "v2-find-headline", id: "v2LgSellHead", text: `Sell candidates on ${mine.name}: worth more to your league than to you.`}),
+      el("ul", {class: "v2-lg-sell", id: "v2LgSellList"}, ...sells.map(c => el("li", {"data-key": c.key},
+        el("b", {text: `${c.name} (${c.pos})`}), ` ${money(c.ours)} to you, ${money(c.theirs)} at your league's depth`))));
+  }
   function renderSummaryNow() {
     const card = $("v2LgSummary");
     if (!card) return;
@@ -807,7 +863,7 @@
         el("p", {}, detailText(t, summary, basis)),
         el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
     const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
-    body.replaceChildren(head, tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
+    body.replaceChildren(head, sellBlock(ws, ctx), tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
   }

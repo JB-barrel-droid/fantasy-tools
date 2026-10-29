@@ -244,6 +244,43 @@ def vorp_bench_allocate(
     return counts
 
 
+BENCH_LEVELS = ("ddf", "market")
+
+
+def league_bench(starters: dict, order: dict, league_rostered, level: str = "ddf") -> dict:
+    """Bench seats per position from a loaded league's rosters (JEG-1188).
+
+    Two levels (Jeremy, 2026-10-29: "we focus on vorp, let other managers
+    make stupid decisions and capitalize"):
+
+    ddf     Pure value over replacement. Replacement is the league's best
+            available player at each position: the first player in `order`
+            that no team rosters. Every player ranked above him is rostered,
+            so bench_p = index of that player - starters_p. A bench seat only
+            goes to a player who beats the league's real waiver option.
+    market  What the league actually holds: bench_p = rostered players at
+            the position in `order` - starters_p. Feeds the other side's
+            acceptance, never the reader's own value.
+
+    starters: {pos: league-wide starters}. order: {pos: [key, ...]} best
+    first (the allocation's order). league_rostered: keys rostered on any
+    team; compared as strings, so int and str keys both work. A position
+    whose best free agent ranks inside the starter line gets 0 bench seats.
+    """
+    if level not in BENCH_LEVELS:
+        raise ValueError(f"bench level must be one of {BENCH_LEVELS}, got {level!r}")
+    held = {str(k) for k in league_rostered}
+    out = {}
+    for pos in POSITIONS:
+        keys = [str(k) for k in order.get(pos, [])]
+        if level == "ddf":
+            depth = next((i for i, k in enumerate(keys) if k not in held), len(keys))
+        else:
+            depth = sum(1 for k in keys if k in held)
+        out[pos] = max(0, depth - int(starters.get(pos, 0)))
+    return out
+
+
 def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
                     flex_count: int, superflex_count: int,
                     player_order: dict[str, list],

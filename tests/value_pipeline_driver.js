@@ -32,6 +32,10 @@ if (args.indexOf("--no-flex-bench-seats") !== -1) setting.flex_bench_seats = fal
 // sources?, weights?}); --overrides '<json>' is {playerKey: value}, applied
 // to the blended and projections DDF entries after the pipeline with the same
 // ValueModel.applyDdfOverride the widget uses.
+// JEG-1188: --setting '<json>' merges into the setting (league_rostered,
+// bench_level, ...), applied after any --variant setting_change.
+const settingFlag = args.indexOf("--setting");
+const settingExtra = settingFlag !== -1 ? JSON.parse(args[settingFlag + 1]) : null;
 const basisFlag = args.indexOf("--basis");
 const basisConfig = basisFlag !== -1 ? JSON.parse(args[basisFlag + 1]) : (doc.basisConfig || null);
 const ovFlag = args.indexOf("--overrides");
@@ -46,6 +50,7 @@ if (varFlag !== -1) {
   lineup = variant.lineup || null;
   Object.assign(setting, variant.setting_change || {});
 }
+if (settingExtra) Object.assign(setting, settingExtra);
 
 const sources = {};
 Object.entries(doc.inputs || doc.sources).forEach(([key, s]) => {

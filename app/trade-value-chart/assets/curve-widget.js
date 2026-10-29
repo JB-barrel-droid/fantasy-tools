@@ -768,7 +768,10 @@
     return out;
   };
 
+  // extra.setting merges into the reader's setting (JEG-1188: a loaded
+  // league's league_rostered and bench_level); the rest goes to the input.
   function runPipeline(nativesByKey, included, extra = {}) {
+    const {setting: settingExtra, ...inputExtra} = extra;
     const sources = {};
     PIPELINE_SOURCE_KEYS.forEach(key => {
       const natives = nativesByKey[key];
@@ -777,10 +780,47 @@
         values: mapToValues(natives), label: pipelineLabel(key)};
     });
     return ValueModel.runValuePipeline({
-      setting: pipelineSetting(), players: pipelinePlayers(), sources, included,
+      setting: {...pipelineSetting(), ...(settingExtra || {})}, players: pipelinePlayers(), sources, included,
       basisConfig: basisConfig ? {...basisConfig, sources: [...basisConfig.sources], weights: {...basisConfig.weights}} : null,
-      lineup: resolvedLineup(), ...extra,
+      lineup: resolvedLineup(), ...inputExtra,
     });
+  }
+
+  // JEG-1188: the current week's rows priced with a loaded league's own
+  // rosters setting the bench, at one level: "ddf" (his value: replacement
+  // is the league's best available player) or "market" (the other side:
+  // the league's rostered depth). Same sources, included set, pie and
+  // overrides as the page's rows; no prior week. Cached per level and
+  // roster set until the page's values are rebuilt. Row copies, the shape
+  // getAllRows() returns.
+  let leagueRowsCache = new Map();
+  function leagueLevelRows(rostered, level = "ddf") {
+    if (!pipeline) return [];
+    const keys = [...new Set((rostered || []).map(String))].sort();
+    const cacheKey = `${level}|${keys.join(",")}`;
+    if (leagueRowsCache.has(cacheKey)) return leagueRowsCache.get(cacheKey).map(rowCopy);
+    const saved = {pipeline, pipelinePrior, sourceMaps, compositeMap};
+    let rows;
+    try {
+      pipeline = runPipeline(pipelineNatives, pipelineState.included, {pie: saved.pipeline.pie,
+        hidden: [...(pipelineState.hidden || [])], setting: {league_rostered: keys, bench_level: level}});
+      pipelinePrior = null;
+      sourceMaps = new Map();
+      visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
+      rows = Object.keys(pipeline.rows).map(Number)
+        .map(playerKey => canonicalByKey.get(playerKey))
+        .filter(Boolean)
+        .map(player => buildRow(player));
+      applyComposite(rows);
+      rows.leagueAllocation = pipeline.allocation;
+    } finally {
+      ({pipeline, pipelinePrior, sourceMaps, compositeMap} = saved);
+    }
+    const copies = rows.map(rowCopy);
+    copies.allocation = rows.leagueAllocation ? JSON.parse(JSON.stringify(rows.leagueAllocation)) : null;
+    if (leagueRowsCache.size >= 8) leagueRowsCache.delete(leagueRowsCache.keys().next().value);
+    leagueRowsCache.set(cacheKey, copies);
+    return copies.map(rowCopy);
   }
 
   // The current and prior week (VP-1, VP-8), rebuilt by computePipeline().
@@ -1442,6 +1482,7 @@
   }
 
   function rebuildDomain() {
+    leagueRowsCache = new Map();
     computePipeline();
     sourceMaps = new Map();
     visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
@@ -3182,6 +3223,15 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(rowCopy),
+    // JEG-1188: rows priced with a loaded league's rosters setting the bench
+    // ({rostered: [player keys], level: "ddf" | "market"}).
+    getLeagueRows: ({rostered, level} = {}) => leagueLevelRows(rostered, level || "ddf"),
+    getLeagueAllocation: ({rostered, level} = {}) => {
+      const keys = [...new Set((rostered || []).map(String))].sort();
+      leagueLevelRows(keys, level || "ddf");
+      const hit = leagueRowsCache.get(`${level || "ddf"}|${keys.join(",")}`);
+      return hit && hit.allocation ? JSON.parse(JSON.stringify(hit.allocation)) : null;
+    },
     // JEG-502 (read-only, lazy): search every player in players.json, the
     // whole active NFL universe included, and get any one player's row. A
     // player no source prices is materialised on demand (materialized: true,

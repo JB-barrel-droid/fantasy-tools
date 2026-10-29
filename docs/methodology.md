@@ -203,6 +203,19 @@ rules, except that only charts are filled in (VP-2.4).
    - d. Bench: `b_p` = D'Hondt apportionment of `round_half_up(T x B)` seats
      over `BENCH_MIX_12`. Each seat goes to the position with the largest
      `weight / (seats + 1)`, with ties going to position order.
+   - d2. **A loaded league (JEG-1188, Jeremy 2026-10-29: "we focus on vorp,
+     let other managers make stupid decisions and capitalize").** When the
+     setting carries the league's rostered players (`league_rostered`), its
+     rosters set `b_p` instead of d, at one of two levels (`bench_level`):
+     **ddf** (his value): `b_p` = the index in the projected-points order of
+     the first player no team rosters (the best available free agent) minus
+     `S_p`, so a bench seat only goes to a player better than the league's
+     real waiver option; **market** (the other side's acceptance): `b_p` =
+     the league's rostered players at `p` in that order minus `S_p`. Both are
+     floored at 0. The league page uses them only with every team loaded:
+     DDF Value from the ddf level, the trade charts that judge acceptance
+     from the market level. `roster_convention.league_bench` and the
+     engine's `vpLeagueBench` are the one rule.
    - e. Starters `S_p = d_p + sf_p + fx_p`. Rostered `N_p = S_p + b_p`. If the
      candidates run out, the untaken slots stay empty.
    - f. **No projection in `I`** (degenerate week). **Lead's reading:** there

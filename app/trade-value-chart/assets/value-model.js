@@ -223,6 +223,41 @@
 
   function vpNumKey(a, b) { return Number(a) - Number(b); }
 
+  // JEG-1188: bench seats per position from a loaded league's rosters, at
+  // one of two levels (Jeremy, 2026-10-29: "we focus on vorp, let other
+  // managers make stupid decisions and capitalize").
+  //   "ddf" (default): pure value over replacement. Replacement is the
+  //     league's best available player at the position, the first player in
+  //     the order no team rosters; every player above him is rostered, so
+  //     bench = his index - starters. His own value prices here.
+  //   "market": what the league actually holds, bench = rostered players at
+  //     the position in the order - starters. Feeds the other side only.
+  // `rostered` is the league's rostered player keys (compared as strings).
+  // A position whose best free agent ranks inside the starter line gets 0.
+  // Mirrors roster_convention.league_bench.
+  var VP_BENCH_LEVELS = ["ddf", "market"];
+  function vpLeagueBench(starters, orders, rostered, level) {
+    var lvl = level == null ? "ddf" : level;
+    if (VP_BENCH_LEVELS.indexOf(lvl) === -1) throw new Error("bench level must be ddf or market, got " + lvl);
+    var held = {};
+    rostered.forEach(function (k) { held[String(k)] = true; });
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) {
+      var order = orders[pos] || [];
+      var depth = 0;
+      if (lvl === "ddf") {
+        depth = order.length;
+        for (var i = 0; i < order.length; i += 1) {
+          if (!held[String(order[i].key)]) { depth = i; break; }
+        }
+      } else {
+        order.forEach(function (r) { if (held[String(r.key)]) depth += 1; });
+      }
+      out[pos] = Math.max(0, depth - (starters[pos] || 0));
+    });
+    return out;
+  }
+
   // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
   // sorted best first; `score` is m (or the source's own native in the
   // degenerate case, VP-2.2f). Returns {pos: {dedicated, superflex, flex,
@@ -262,7 +297,15 @@
     }, teams * flexSlots);
     // JEG-1121 revised: bench allocation.
     var benchPerTeam = Math.max(0, Number(setting.bench_per_team) || 0);
-    if (setting.flex_bench_seats === false) {
+    if (Array.isArray(setting.league_rostered)) {
+      // JEG-1188: a loaded league sets the bench from its own rosters.
+      var lgStarters = {};
+      POSITION_ORDER.forEach(function (pos) {
+        lgStarters[pos] = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
+      });
+      var lgBench = vpLeagueBench(lgStarters, orders, setting.league_rostered, setting.bench_level);
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = lgBench[pos]; });
+    } else if (setting.flex_bench_seats === false) {
       // D'Hondt path (backward compat; flex_bench_seats=false used by fixture tests).
       var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
       var ff = null;

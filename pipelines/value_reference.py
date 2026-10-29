@@ -50,6 +50,7 @@ from lib.roster_convention import (
     waiver_line as _convention_waiver_line,
     market_bench_ratios as _convention_market_bench_ratios,
     vorp_bench_allocate as _vorp_bench_allocate,
+    league_bench as _league_bench,
     POSITIONS as _CONV_POSITIONS,
 )
 from nfl_week import today_ny  # noqa: E402  (JEG-1177: one New York-time calendar)
@@ -241,6 +242,11 @@ class League:
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14: the reader's override, off by default
+    # JEG-1188: a loaded league's rostered keys and the bench level ("ddf" =
+    # his value, best free agent as replacement; "market" = the league's
+    # rostered depth, for the other side). None = no league.
+    league_rostered: tuple | None = None
+    bench_level: str = "ddf"
 
     @property
     def starting_slots(self) -> int:
@@ -312,7 +318,11 @@ def allocate(league: League, order: dict, score: dict, *,
     fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
                for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
               t * int(league.flex))
-    if flex_bench_seats:
+    if league.league_rostered is not None:
+        # JEG-1188: a loaded league sets the bench from its own rosters.
+        b = _league_bench({p: d[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                          league.league_rostered, league.bench_level)
+    elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
         _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
@@ -1578,8 +1588,11 @@ class Setting:
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
                  promotion_model: bool = True, flex_bench_seats: bool = True,
-                 basis: dict | None = None, week: int | None = None):
-        """basis: JEG-1044, the reader's value basis (None = default).
+                 basis: dict | None = None, week: int | None = None,
+                 league_rostered=None, bench_level: str = "ddf"):
+        """league_rostered / bench_level: JEG-1188, a loaded league's
+        rostered keys and the bench level to price at (League fields).
+        basis: JEG-1044, the reader's value basis (None = default).
         lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
@@ -1612,7 +1625,9 @@ class Setting:
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
             bench_share=DEFAULT_BENCH_SHARE if bench_share is None else float(bench_share),
-            position_shares=position_shares, bench_share_override=bench_share_override)
+            position_shares=position_shares, bench_share_override=bench_share_override,
+            league_rostered=tuple(league_rostered) if league_rostered is not None else None,
+            bench_level=bench_level)
         self.pos_of = {k: p["pos"] for k, p in inp.players.items()}
         self._current = None
         self._prior = None
