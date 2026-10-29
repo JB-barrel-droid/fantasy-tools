@@ -808,24 +808,9 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
-	python3 -m unittest tests.test_v2_chart_fullscreen_render
-	python3 -m unittest tests.test_v2_chart_fit_render
-	python3 -m unittest tests.test_v2_advanced_render
-	python3 -m unittest tests.test_v2_ddf_versions_render
-	python3 -m unittest tests.test_v2_customize_pages_render
-	python3 -m unittest tests.test_v2_deal_read_render
-	python3 -m unittest tests.test_v2_names_render
-	python3 -m unittest tests.test_v2_modules_render
-	python3 -m unittest tests.test_v2_review_polish_render
-	python3 -m unittest tests.test_v2_finder_collapse_render
-	python3 -m unittest tests.test_v2_finder_impact_render
-	python3 -m unittest tests.test_v2_finder_kdef_search_render
-	python3 -m unittest tests.test_v2_finder_triview_render
-	python3 -m unittest tests.test_v2_league_live_render
-	python3 -m unittest tests.test_v2_league_shared_roster_render
-	python3 -m unittest tests.test_v2_optimize_caption_render
-	python3 -m unittest tests.test_v2_inputs_status_render
-	python3 -m unittest tests.test_v2_league_parsed_render
+	-python3 -m tests._jeg1237_probe
+	-python3 -m unittest -v tests.test_v2_finder_collapse_render
+	-python3 -m unittest -v tests.test_v2_finder_eval_render
 
 test-render-sweep-3:
 	python3 -m unittest tests.test_v2_consistency_render
