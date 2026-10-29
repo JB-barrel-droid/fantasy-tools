@@ -5030,6 +5030,13 @@
   // give/receive: [{key, name}]. example: the keys "Try a sample trade" loaded, while the trade is still exactly that
   // sample (JEG-1190). undo: the sides before the last Clear.
   const TR = {give: [], receive: [], shown: null, open: new Set(), example: null, undo: null};
+  // Compare's team choice is view state. The saved league remains the source of truth;
+  // trying a trade never moves players between its stored rosters.
+  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null};
+  function endCompareEdit() {
+    compareTeams.snapshot = null;
+    compareTeams.editing = false;
+  }
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
   // available it decides the verdict, whatever "Player values shown" picks; the picker drives the
@@ -5046,6 +5053,235 @@
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
+
+  function compareRosterContext() {
+    const store = window.TradeValueWorkspace?.store;
+    const ws = store?.get();
+    if (!ws) return {teams: [], mine: null, theirs: null, ready: false};
+    const teams = ws.teams || [];
+    if (!compareTeams.mineChosen && !compareTeams.mineId) compareTeams.mineId = ws.myTeamId || null;
+    if (!compareTeams.theirChosen && !compareTeams.theirId)
+      compareTeams.theirId = teams.find(t => t.id !== compareTeams.mineId && t.entries.length)?.id || null;
+    if (compareTeams.mineId && !teams.some(t => t.id === compareTeams.mineId)) { compareTeams.mineId = ws.myTeamId || null; compareTeams.mineChosen = false; }
+    if ((compareTeams.theirId && !teams.some(t => t.id === compareTeams.theirId)) || (compareTeams.theirId && compareTeams.theirId === compareTeams.mineId)) {
+      compareTeams.theirId = teams.find(t => t.id !== compareTeams.mineId && t.entries.length)?.id || null;
+      compareTeams.theirChosen = false;
+    }
+    const mine = teams.find(t => t.id === compareTeams.mineId) || null;
+    const theirs = teams.find(t => t.id === compareTeams.theirId) || null;
+    const ready = Boolean(mine?.entries.length && theirs?.entries.length && mine.id !== theirs.id);
+    return {teams, mine, theirs, ready};
+  }
+
+  function compareRosterRows(team) {
+    return (team?.entries || []).map(e => compareView.rowsByKey.get(e.key)).filter(Boolean);
+  }
+
+  function compareRosterMembership(ctx) {
+    const own = new Set((ctx.mine?.entries || []).map(e => e.key));
+    const other = new Set((ctx.theirs?.entries || []).map(e => e.key));
+    return TR.give.every(p => own.has(p.key)) && TR.receive.every(p => other.has(p.key));
+  }
+
+  function renderCompareRosterPicker() {
+    const card = $("v2CRosters");
+    const host = $("v2CRostersBody");
+    const ctx = compareRosterContext();
+    const options = (selected, side) => {
+      const select = document.createElement("select");
+      select.id = side === "give" ? "v2CMyTeam" : "v2CTheirTeam";
+      select.setAttribute("aria-label", side === "give" ? "Your team" : "Their team");
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "Choose a team";
+      select.appendChild(blank);
+      ctx.teams.forEach(team => {
+        const option = document.createElement("option");
+        option.value = team.id;
+        option.textContent = `${team.name} (${team.entries.length})`;
+        option.disabled = team.id === (side === "give" ? compareTeams.theirId : compareTeams.mineId);
+        select.appendChild(option);
+      });
+      select.value = selected || "";
+      select.addEventListener("change", () => {
+        if (side === "give") { compareTeams.mineId = select.value || null; compareTeams.mineChosen = true; }
+        else { compareTeams.theirId = select.value || null; compareTeams.theirChosen = true; }
+        TR.example = null;
+        renderCompare();
+        $(select.id).focus();
+      });
+      return select;
+    };
+    const field = (label, select) => {
+      const node = document.createElement("label");
+      node.className = "v2-croster-field";
+      const title = document.createElement("span");
+      title.textContent = label;
+      node.append(title, select);
+      return node;
+    };
+    const intro = document.createElement("p");
+    intro.className = "v2-meta";
+    intro.textContent = "Choose two loaded rosters, then add or remove players to test a trade. Your saved rosters stay as they are.";
+    const controls = document.createElement("div");
+    controls.className = "v2-croster-controls";
+    controls.append(field("Your team", options(compareTeams.mineId, "give")), field("Their team", options(compareTeams.theirId, "receive")));
+    const actions = document.createElement("div");
+    actions.className = "v2-croster-actions";
+    if (ctx.ready) {
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.className = "v2-link";
+      edit.id = "v2CEditRosters";
+      edit.textContent = compareTeams.editing ? "Back to trade" : "Edit players from rosters";
+      edit.setAttribute("aria-expanded", String(compareTeams.editing));
+      edit.setAttribute("aria-controls", "v2CRosterLists");
+      edit.addEventListener("click", () => {
+        if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
+          undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen};
+        else compareTeams.snapshot = null;
+        compareTeams.editing = !compareTeams.editing;
+        renderCompare();
+        $("v2CEditRosters")?.focus();
+      });
+      actions.appendChild(edit);
+      if (compareTeams.editing && compareTeams.snapshot) {
+        const cancel = document.createElement("button");
+        cancel.type = "button";
+        cancel.className = "v2-link";
+        cancel.id = "v2CCancelRosterEdit";
+        cancel.textContent = "Cancel edits";
+        cancel.addEventListener("click", () => {
+          ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
+          ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
+            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen} = compareTeams.snapshot);
+          endCompareEdit();
+          renderCompare();
+          $("v2CEditRosters")?.focus();
+        });
+        actions.appendChild(cancel);
+      }
+    }
+    const status = document.createElement("p");
+    status.className = "v2-meta";
+    status.id = "v2CRosterStatus";
+    status.setAttribute("role", "status");
+    status.textContent = !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
+      : !compareRosterMembership(ctx) ? "This trade includes players outside the selected rosters. Choose players from those rosters to see lineup changes."
+      : "Select players from either roster below. Values and lineups update after each change.";
+    const lists = document.createElement("div");
+    lists.className = "v2-croster-lists";
+    lists.id = "v2CRosterLists";
+    lists.hidden = !compareTeams.editing;
+    if (ctx.ready) [["give", ctx.mine], ["receive", ctx.theirs]].forEach(([side, team]) => {
+      const section = document.createElement("section");
+      section.setAttribute("aria-label", `${team.name} roster`);
+      const heading = document.createElement("h3");
+      heading.textContent = `${team.name} · ${side === "give" ? "You give" : "You receive"}`;
+      const list = document.createElement("ul");
+      list.className = "v2-croster-list";
+      team.entries.forEach(entry => {
+        const row = compareView.rowsByKey.get(entry.key);
+        const selected = TR[side].some(p => p.key === entry.key);
+        const onOther = TR[side === "give" ? "receive" : "give"].some(p => p.key === entry.key);
+        const li = document.createElement("li");
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.playerKey = entry.key;
+        button.setAttribute("aria-pressed", String(selected));
+        button.setAttribute("aria-label", `${selected ? "Remove" : "Add"} ${entry.name} ${side === "give" ? "from You give" : "to You receive"}`);
+        button.disabled = !row || onOther;
+        const name = document.createElement("span");
+        name.textContent = `${selected ? "✓ " : "+ "}${entry.name} · ${entry.pos || row?.pos || "?"}`;
+        const value = document.createElement("span");
+        const n = row?.values?.[TR.shown];
+        value.textContent = row ? (Number.isFinite(n) ? fmt(n) : "no value") : "not in values";
+        button.append(name, value);
+        button.addEventListener("click", () => {
+          if (selected) TR[side] = TR[side].filter(p => p.key !== entry.key);
+          else {
+            if (isUntouchedExample()) { TR.give = []; TR.receive = []; }
+            TR[side] = TR[side].concat({key: entry.key, name: row.name});
+          }
+          TR.example = null;
+          TR.undo = null;
+          renderCompare();
+          host.querySelector(`.v2-croster-list button[data-player-key="${CSS.escape(entry.key)}"]`)?.focus();
+        });
+        li.appendChild(button);
+        list.appendChild(li);
+      });
+      section.append(heading, list);
+      lists.appendChild(section);
+    });
+    host.replaceChildren(intro, controls, actions, status, lists);
+    card.hidden = !ctx.teams.length;
+  }
+
+  function compareConstructionInput() {
+    const ctx = compareRosterContext();
+    if (!ctx.ready) return {reason: "Add both rosters in Your league to see starters, bench and open spots."};
+    if (!compareRosterMembership(ctx)) return {reason: "Choose trade players from the selected rosters to see lineup changes."};
+    if (!compareView.ready) return {reason: "Add a player to both sides to see how each roster changes."};
+    if (compareView.giveRows.concat(compareView.receiveRows).some(row => !Number.isFinite(row.values?.[DDF_KEY])))
+      return {reason: "A traded player has no DDF Value this week; lineup values cannot be judged."};
+    const unresolved = [ctx.mine, ctx.theirs].flatMap(team => team.entries.filter(entry =>
+      !["K", "DEF"].includes(entry.pos) && !compareView.rowsByKey.has(entry.key)));
+    if (unresolved.length) return {reason: `${unresolved.length} roster player${unresolved.length === 1 ? " is" : "s are"} missing from this week's values; lineup fit cannot be judged.`};
+    const F = window.TradeValueFinder;
+    const shape = C.getRosterShape();
+    const key = DDF_KEY;
+    const mine = F.rosterImpact(compareRosterRows(ctx.mine), compareView.giveRows, compareView.receiveRows, shape, key);
+    const theirs = F.rosterImpact(compareRosterRows(ctx.theirs), compareView.receiveRows, compareView.giveRows, shape, key);
+    return {ctx, shape, key, mine, theirs};
+  }
+
+  function renderCompareConstruction() {
+    const card = $("v2CConstruction");
+    const host = $("v2CConstructionBody");
+    const input = compareConstructionInput();
+    host.replaceChildren();
+    if (input.reason) {
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      note.textContent = input.reason;
+      host.appendChild(note);
+      card.dataset.ready = "false";
+      return;
+    }
+    card.dataset.ready = "true";
+    const L = window.TradeValueLineupComparison;
+    if (!L?.renderTable) {
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      note.textContent = "Lineup display is unavailable.";
+      host.appendChild(note);
+      card.dataset.ready = "false";
+      return;
+    }
+    const panels = document.createElement("div");
+    panels.className = "v2-cconstruction-panels";
+    [[input.ctx.mine, input.mine], [input.ctx.theirs, input.theirs]].forEach(([team, impact]) => {
+      const panel = document.createElement("section");
+      panel.setAttribute("aria-label", `${team.name} lineup before and after`);
+      const heading = document.createElement("h3");
+      heading.textContent = team.name;
+      panel.appendChild(heading);
+      panel.appendChild(L.renderTable(impact, input.shape, input.key, `${team.name}: best starting lineup in DDF Value`));
+      const note = document.createElement("p");
+      note.className = "v2-meta";
+      const spots = impact.spotsOpened;
+      const spotsText = spots > 0 ? ` Opens ${spots} roster/bench spot${spots === 1 ? "" : "s"}.`
+        : spots < 0 ? ` Uses ${-spots} roster/bench spot${spots === -1 ? "" : "s"}.` : " Roster spots unchanged.";
+      const empty = (picked) => Object.entries(picked.empty || {}).filter(([, count]) => count > 0)
+        .map(([slot, count]) => `${slot} ${count}`).join(", ") || "none";
+      note.textContent = `Empty starting slots: ${empty(impact.before)} before, ${empty(impact.after)} after.${spotsText}`;
+      panel.appendChild(note);
+      panels.appendChild(panel);
+    });
+    host.appendChild(panels);
+  }
 
   function seriesName(key) {
     const meta = sourceMeta(key);
@@ -5065,8 +5301,8 @@
     const vorpKeys = usable(mineOrdered.filter(key => sourceMeta(key).method === "vorp"));
     const unavailable = mine.filter(key => !view.infoByKey[key]?.available);
     // "Player values shown": one exact series; DDF Value unless picked, then the ranking series.
-    // GL-09: all three DDF Value versions are offered here, shown in Customize or not.
-    const ddfOffered = DDF_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
+    // The charts alias is the same visible DDF Value (JEG-1073); offer each distinct series once.
+    const ddfOffered = DDF_PICK_KEYS.filter(key => view.infoByKey[key]?.available && !pointKeys.includes(key));
     const shownChoices = pointKeys.concat(vorpKeys);
     if (!shownChoices.includes(TR.shown) && !ddfOffered.includes(TR.shown)) {
       TR.shown = [DDF_KEY, view.rankKey].find(key => shownChoices.includes(key)) || shownChoices[0] || null;
@@ -5507,16 +5743,21 @@
     }
   }
 
-  function searchMatches(needle) {
+  function searchMatches(needle, allowed) {
     const rankKey = view.rankKey;
     const value = row => (Number.isFinite(row.values[rankKey]) ? row.values[rankKey] : -Infinity);
-    const byValue = [...compareView.rowsByKey.values()]
+    const byValue = [...compareView.rowsByKey.values()].filter(row => !allowed || allowed.has(String(row.player_key)))
       .sort((a, b) => value(b) - value(a) || String(a.name).localeCompare(String(b.name)));
     // Exact and prefix matches first, then by value; a typo-tolerant fallback when nothing matches.
     return window.TradeValueNameSearch.search(byValue, needle).slice(0, 8);
   }
 
   function addToSide(side, row) {
+    const roster = compareRosterContext();
+    if (roster.ready && !(side === "give" ? roster.mine : roster.theirs).entries.some(e => e.key === String(row.player_key))) {
+      $("v2CRosterStatus").textContent = `${row.name} is not on the selected ${side === "give" ? "your" : "their"} roster.`;
+      return;
+    }
     // JEG-1190: a player of the reader's own replaces an untouched sample trade instead of joining it.
     if (isUntouchedExample()) { TR.give = []; TR.receive = []; TR.example = null; TR.open.clear(); }
     TR.undo = null;
@@ -5538,7 +5779,9 @@
     results.replaceChildren();
     if (!needle || !compareView) { results.hidden = true; return []; }
     const where = new Map(["give", "receive"].flatMap(s => TR[s].map(p => [p.key, s])));
-    const matches = searchMatches(needle);
+    const roster = compareRosterContext();
+    const allowed = roster.ready ? new Set((side === "give" ? roster.mine : roster.theirs).entries.map(e => e.key)) : null;
+    const matches = searchMatches(needle, allowed);
     const addable = [];
     matches.forEach(row => {
       const key = String(row.player_key);
@@ -5866,6 +6109,8 @@
     renderShownPicker();
     renderSidePlayers("give");
     renderSidePlayers("receive");
+    renderCompareRosterPicker();
+    renderCompareConstruction();
     const ready = compareView.ready;
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
@@ -6065,6 +6310,7 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
+    if (base === "#compare-trade") endCompareEdit();
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
     // Apply value context before the shared reader resolves rows and starts the finder.
@@ -6137,6 +6383,9 @@
   }
 
   function bindCompare() {
+    window.TradeValueWorkspace?.store?.onChange(() => {
+      if (currentView() === "compare") renderCompare();
+    });
     $("v2CShare").addEventListener("click", () => copyTradeLink($("v2CShare")));
     $("v2CShare2").addEventListener("click", () => copyTradeLink($("v2CShare2")));
     // JEG-468: hover / focus tooltip for every waterfall step.
@@ -6203,7 +6452,12 @@
       renderCompare();
       $("v2CClear").focus();
     });
-    $("v2CSwap").addEventListener("click", () => { [TR.give, TR.receive] = [TR.receive, TR.give]; TR.undo = null; renderCompare(); });
+    $("v2CSwap").addEventListener("click", () => {
+      [TR.give, TR.receive] = [TR.receive, TR.give];
+      [compareTeams.mineId, compareTeams.theirId] = [compareTeams.theirId, compareTeams.mineId];
+      TR.undo = null;
+      renderCompare();
+    });
     // JEG-914: a disabled (held or unavailable) option is never applied, however the change arrives; the picker
     // stays on the series whose numbers the side lists show.
     $("v2CShown").addEventListener("change", event => {
@@ -7373,7 +7627,7 @@
       leagueText: () => `${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}`,
       sources: () => C.getActiveSources(),
       getTrade: () => ({give: TR.give.map(p => ({...p})), get: TR.receive.map(p => ({...p}))}),
-      setTrade: (give, get) => { TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
+      setTrade: (give, get) => { endCompareEdit(); TR.give = give; TR.receive = get; if (currentView() === "compare") renderCompare(); },
       getTarget: () => T.search,
       setTarget: name => {
         T.search = name;

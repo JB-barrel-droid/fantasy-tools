@@ -20,9 +20,27 @@
   const MAX_TEAMS = 20;
   const SAVE_DELAY_MS = 1000;
   const SHARE_LIMIT = 1800;
+  const FINDER_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const FINDER_LIMITS = ["minDdfEdge", "minUserLineupGain", "minTheirLineupGain"];
 
   const clone = value => JSON.parse(JSON.stringify(value));
   const isObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  // Finder settings are stored with the league, including in JSON exports. Invalid imports reset to safe defaults.
+  function normalizeFinderSettings(raw) {
+    const value = isObject(raw) ? raw : {};
+    const positions = Array.isArray(value.protectedPositions) ? value.protectedPositions : [];
+    const out = {protectedPositions: FINDER_POSITIONS.filter(pos => positions.includes(pos)), keepMine: value.keepMine !== false,
+      keepTheirs: value.keepTheirs !== false, maxSize: [1, 2, 3, 4].includes(value.maxSize) ? value.maxSize : 2,
+      minBackups: Object.fromEntries(FINDER_POSITIONS.map(pos => [pos, Number.isInteger(value.minBackups && value.minBackups[pos])
+        && value.minBackups[pos] >= 0 && value.minBackups[pos] <= 20 ? value.minBackups[pos] : 0])),
+      minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null};
+    FINDER_LIMITS.forEach(key => {
+      const n = value[key];
+      if (key !== "minDdfEdge" && (n === null || n === undefined || n === "")) return;
+      if (typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100 && Math.round(n * 10) === n * 10) out[key] = n;
+    });
+    return out;
+  }
   const cleanName = (name, fallback) => {
     const text = String(name == null ? "" : name).replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
     return text || fallback || "";
@@ -64,7 +82,8 @@
     const o = opts || {};
     const now = o.now || Date.now();
     return {id: o.id || newId("league"), name: cleanName(o.name, "My league"), settings: null, teams: [], myTeamId: null, createdAt: now, updatedAt: now,
-      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2}};
+      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2,
+        finderSettings: normalizeFinderSettings(null)}};
   }
   // Fills anything missing so a workspace saved by an older build still loads.
   function normalizeWorkspace(raw) {
@@ -84,7 +103,7 @@
     const ui = isObject(raw.ui) ? raw.ui : {};
     return {...base, id: String(raw.id || base.id), settings: isObject(raw.settings) ? raw.settings : null, teams,
       myTeamId: ids.has(String(raw.myTeamId)) ? String(raw.myTeamId) : null, updatedAt: Number(raw.updatedAt) || base.updatedAt,
-      ui: {...base.ui, ...ui, filters: {...base.ui.filters, ...(isObject(ui.filters) ? ui.filters : {})}, sort: {...base.ui.sort, ...(isObject(ui.sort) ? ui.sort : {})}}};
+      ui: {...base.ui, ...ui, finderSettings: normalizeFinderSettings(ui.finderSettings), filters: {...base.ui.filters, ...(isObject(ui.filters) ? ui.filters : {})}, sort: {...base.ui.sort, ...(isObject(ui.sort) ? ui.sort : {})}}};
   }
 
   // ---------- pure operations: each returns a new workspace ----------
@@ -348,7 +367,7 @@
     } catch (error) { return null; }
   }
 
-  const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, cleanEntries, cleanName, ops, parseStored, serialize,
+  const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, normalizeFinderSettings, cleanEntries, cleanName, ops, parseStored, serialize,
     exportJson, importJson, copyText, encodeShare, shareHash, decodeShare, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueWorkspace = api;
