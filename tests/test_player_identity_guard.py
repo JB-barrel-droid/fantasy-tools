@@ -470,14 +470,28 @@ def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
             seen = set()
             for crel, clocal, _cstem, ctree, cchains, ccache in trees:
                 mods, names = _module_aliases(ctree, stem)
-                bare = names | ({fn_name: fn_name} if crel == rel else {})
+                bare = names | ({fn_name: fn_name} if crel == rel or "*" in names else {})
+
+                def names_fn(f):
+                    return ((isinstance(f, ast.Attribute) and f.attr == fn_name and ast.unparse(f.value) in mods)
+                            or (isinstance(f, ast.Name) and bare.get(f.id) == fn_name))
+
+                # JEG-1293: only a direct call can be checked, so any other load
+                # of the function (stored alias, functools.partial, argument,
+                # container, decorator, getattr) fails, pinned callers included.
+                called = {id(c.func) for c in ast.walk(ctree) if isinstance(c, ast.Call)}
+                for n in ast.walk(ctree):
+                    getattr_ref = (isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+                                   and n.func.id == "getattr" and len(n.args) >= 2
+                                   and ast.unparse(n.args[0]) in mods
+                                   and isinstance(n.args[1], ast.Constant) and n.args[1].value == fn_name)
+                    load = isinstance(getattr(n, "ctx", None), ast.Load) and names_fn(n) and id(n) not in called
+                    if load or getattr_ref:
+                        issues.append({"file": crel, "issue": f"line {n.lineno}: holds a reference to "
+                                       f"{fn_name}() instead of calling it, so the injected {param!r} "
+                                       "cannot be checked"})
                 for c in ast.walk(ctree):
-                    if not isinstance(c, ast.Call):
-                        continue
-                    f = c.func
-                    hit = ((isinstance(f, ast.Attribute) and f.attr == fn_name and ast.unparse(f.value) in mods)
-                           or (isinstance(f, ast.Name) and bare.get(f.id) == fn_name))
-                    if not hit:
+                    if not isinstance(c, ast.Call) or not names_fn(c.func):
                         continue
                     seen.add(clocal)
                     if clocal not in pinned:
@@ -511,7 +525,8 @@ def check_canonical_resolution_usage(pipelines_dir: Path, contracts=None):
     callers each inject a resolver with proven canonical provenance
     (injected_resolver_wiring). An unbound global, a local or shadowing
     rebinding, a comprehension variable, an unregistered or untraceable
-    injection, or an unpinned caller fails.
+    injection, an unpinned caller, or any use of an injection function other
+    than a direct call (alias, functools.partial, argument; JEG-1293) fails.
     """
     issues = []
     for rel, _local, _stem, tree in _iter_pipeline_trees(pipelines_dir):
@@ -690,6 +705,83 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         # The positive path is unchanged: the plain wrapper and the direct resolver pass.
         for arg in ("rn", "canonical_players.resolve"):
             self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)}), [])
+
+    def test_stored_or_partial_reference_fails(self):
+        """Claude's review of #1128 at 62a67ef2 (JEG-1293): a module that stores
+        the injection function, or wraps it in functools.partial, hid the call
+        from the guard. Any reference that is not the func of a call now fails,
+        in every module, pinned callers included."""
+        permit_all = "lambda n: n"
+        unpinned = {
+            "stored attribute alias": "import cap as c\n\ndef go(rows):\n    capture = c.build\n"
+                                      f"    return capture(rows, {permit_all})\n",
+            "functools.partial over the attribute": "import functools\nimport cap as c\n\n"
+                f"go = functools.partial(c.build, resolve={permit_all})\n",
+            "partial imported bare": "from functools import partial\nfrom cap import build\n\n"
+                f"go = partial(build, resolve={permit_all})\n",
+            "stored bare-name alias": "from cap import build as b\n\ndef go(rows):\n    f = b\n"
+                                      f"    return f(rows, {permit_all})\n",
+            "passed as an argument": f"import cap as c\n\ndef go(rows, run):\n    return run(c.build, rows, {permit_all})\n",
+            "kept in a container": f"import cap as c\nFNS = {{'b': c.build}}\n\ndef go(rows):\n"
+                                   f"    return FNS['b'](rows, {permit_all})\n",
+            "used as a decorator": "import cap as c\n\n@c.build\ndef go(rows):\n    return rows\n",
+            "getattr with a literal name": "import cap as c\n\ndef go(rows):\n"
+                                           f"    return getattr(c, 'build')(rows, {permit_all})\n",
+        }
+        for why, other in unpinned.items():
+            with self.subTest(unpinned=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn"), "other.py": other})
+                self.assertTrue(any(g.startswith("other.py: ") and "reference to build()" in g for g in got), got)
+        star = f"from cap import *\n\ndef go(rows):\n    return build(rows, {permit_all})\n"
+        got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn"), "other.py": star})
+        self.assertTrue(any(g.startswith("other.py: ") and "not a pinned caller" in g for g in got), got)
+        # A pinned caller must call directly too, even with a canonical resolver.
+        pinned = {
+            "pinned caller stores the function": self._caller("rn").replace(
+                "    return c.build(rows, rn)\n", "    capture = c.build\n    return capture(rows, rn)\n"),
+            "pinned caller uses partial": "import functools\n" + self._caller("rn").replace(
+                "    return c.build(rows, rn)\n", "    return functools.partial(c.build, resolve=rn)(rows)\n"),
+        }
+        for why, caller in pinned.items():
+            with self.subTest(pinned=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": caller})
+                self.assertTrue(any(g.startswith("caller.py: ") and "reference to build()" in g for g in got), got)
+        own = self.CAP + "\nALIAS = build\n"
+        got = self._scan({"lib/cap.py": own, "caller.py": self._caller("rn")})
+        self.assertTrue(any(g.startswith("lib/cap.py: ") and "reference to build()" in g for g in got), got)
+        # Positive controls: direct calls by the pinned caller still pass.
+        for arg in ("rn", "canonical_players.resolve"):
+            self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)}), [])
+
+    def test_real_capture_stored_reference_fails(self):
+        """The exact JEG-1293 reproduction against the real projection_capture
+        and save_cbsros_references: a new module that stores or partials
+        pc.cbs_capture_rows with a non-canonical resolver must fail."""
+        cap = (PIPELINES_DIR / "lib" / "projection_capture.py").read_text(encoding="utf-8")
+        saver = (PIPELINES_DIR / "save_cbsros_references.py").read_text(encoding="utf-8")
+        real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
+        kw = "season=1, source_week=1, capture_at=None, phase=None, batch_id=None, vintage=None"
+        probes = {
+            "stored alias": "import lib.projection_capture as pc\n\ndef run(rows, weekly):\n"
+                            "    capture = pc.cbs_capture_rows\n"
+                            f"    return capture(rows, weekly, lambda n, p, norm: n, {kw})\n",
+            "functools.partial": "import functools\nimport lib.projection_capture as pc\n\n"
+                                 "def run(rows, weekly):\n"
+                                 f"    f = functools.partial(pc.cbs_capture_rows, resolve=lambda n, p, norm: n)\n"
+                                 f"    return f(rows, weekly, {kw})\n",
+        }
+        for why, probe in probes.items():
+            with self.subTest(probe=why):
+                got = self._scan({**real, "zz_probe_alias.py": probe}, contracts=INJECTED_RESOLVER_CONTRACTS)
+                self.assertTrue(any(g.startswith("zz_probe_alias.py: ") and "reference to cbs_capture_rows()" in g
+                                    for g in got), got)
+        stored = saver.replace("rows, rep = pc.cbs_capture_rows(",
+                               "capture = pc.cbs_capture_rows\n        rows, rep = capture(", 1)
+        self.assertNotEqual(stored, saver)
+        got = self._scan({**real, "save_cbsros_references.py": stored}, contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertTrue(any(g.startswith("save_cbsros_references.py: ") and "reference to cbs_capture_rows()" in g
+                            for g in got), got)
+        self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
 
     def test_wrapper_and_lambda_fallbacks_fail(self):
         wrappers = {
