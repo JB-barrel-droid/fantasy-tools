@@ -15,6 +15,21 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
+
+- Current-main integration branch `be/release-pause-current-main` preserves
+  original draft #1059 as fallback; Pages #1056 is already merged.
+- Guards twelve publication blocks across ten workflows. Default unpaused;
+  six-hour maximum expiry; checked against fetched main before commit/push.
+  Deferred candidates are retained as patch/metadata artifacts, with visible
+  summaries. Existing ingestion, validation and Pages workflows remain active.
+- Review repair: alert recovery requires confirmed publication; shard leg-staging
+  parser corrected. Current integration needs independent delta review and full CI.
+- No live activation, settings changes, Supabase changes or cancellation performed.
+- Next: parent reviews/merges after green CI, coordinates rebuild-chain overlap
+  with #1054, drains old-code writers, then activates only for the release window.
+  Parent restores `paused: false` and verifies resumed publication before closure.
+- Procedure: `runbooks/main-write-pause.md`; evidence in the JEG-1215 session log.
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the

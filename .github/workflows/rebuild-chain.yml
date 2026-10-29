@@ -477,6 +477,20 @@ jobs:
           BAKE_PLAYERS: ${{ inputs.bake_players || 'false' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer rebuild-chain-1 --phase "$1" --target "main"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ "$CHAIN_OUTCOME" = "success" ]; then
@@ -524,6 +538,7 @@ jobs:
             echo "No changes to commit."
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
+            release_guard stage
             git commit -m "$MESSAGE"
             # JEG-299: main is hot (health pushes + lane merges move it during
             # the chain run). Rebase onto the latest tip before pushing so a
@@ -541,7 +556,7 @@ jobs:
             outcome=rejected
             for try in 1 2 3; do
               if git pull --rebase --autostash origin main; then
-                if git push; then outcome=pushed; break; fi
+                if release_push; then outcome=pushed; break; fi
               elif [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
                 git rebase --abort || true
                 outcome=conflict; break
@@ -581,6 +596,15 @@ jobs:
       # honored when triggered via GITHUB_TOKEN (the documented exception).
       # This only fires for chain commits (always GITHUB_TOKEN-originated), so
       # it cannot double-fire on PAT pushes — those never run this workflow.
+      - name: Retain deferred publication (rebuild-chain-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-rebuild-chain-1-${{ github.run_attempt }}
+          path: output/release-publications/rebuild-chain-1/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Trigger Pages deploy after chain push (JEG-274)
         # !cancelled(): once the fixture is on main it is deployed, whatever
         # an earlier non-publishing step (e.g. the consolidation write) did.
@@ -671,7 +695,7 @@ jobs:
         if: always() && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}"
+        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}" --published "${{ steps.push.outputs.pushed }}"
 
       - name: Fail the job if the chain failed
         if: steps.chain.outcome == 'failure'
