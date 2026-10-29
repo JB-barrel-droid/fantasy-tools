@@ -45,3 +45,20 @@ Base: `claude/JEG-1230-trade-readout` at `b18c503` (#1088, still a draft). Branc
 - Copy composed from existing words, pending review: the context line wording ("DDF Value basis", "Standard bench",
   "Bench from your league's rosters", "1QB"), the sell-gap lines and the no-viability line.
 - Browser render of `renderRows` not checked here (no Chromium); the node check uses a minimal fake document.
+
+## 2026-10-29 - JEG-1340 correction (review of #1174 at 4051fe0)
+
+Contract: readout rows show player names, never raw player keys; three review nits.
+
+### Verified (check named)
+
+- Golden players now have names that differ from their keys. On `4051fe0` the rows check fails at "unpriced player drawn
+  by name with its reason" (rendered: "tWR3 (you get): …", "Their team, tWR1: ◐ 1 source…"). On the corrected head
+  `node tests/node/jeg1323_trade_readout_rows_check.cjs` passes 85 checks, including "no player key in the rendered rows"
+  and a name on every data-label item and sell-gap player (roster entries with no engine row use `entry.name`).
+- `tradeFit` returns its own `theirOk` (finder.js, no value change); the verdict's their-market test reads it.
+  `tests.test_v2_finder_fit`, `test_v2_finder_trifit`, `test_jeg1213_logic`: OK.
+- `contextRow`: `superflex`, `teams` and `week` of `null` are unknown (listed as missing, never "1QB" or 0).
+- Data labels dedupe by key (rows and entries); named case passes.
+- `node tests/node/jeg1230_trade_readout_check.cjs`: 315 passed. `make validate`: 70 test-core modules OK, then the
+  same cloud Playwright stop at `tests.test_week_history`.

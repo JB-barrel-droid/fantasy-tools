@@ -21,6 +21,11 @@ const SHAPE = {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, K: 1, DST: 0, 
 const CHARTS = ["usatoday", "fantasycalc", "fantasypros"];
 const SPREAD = {usatoday: 1.04, fantasycalc: 0.97, fantasypros: 1.01, cbs: 0.98};
 const r1 = n => Math.round(n * 10) / 10;
+// JEG-1340: every player's name differs from its key, so a key drawn where a name belongs shows up in the render check.
+const NAMES = {mQB: "Avery Lund", mQB2: "Bo Kestrel", mRB1: "Cal Ormond", mRB2: "Dax Fenwick", mRB3: "Eli Strand", mWR1: "Flynn Ashby",
+  mWR2: "Gus Harlow", mWR3: "Hal Pryce", mTE: "Ivo Marchetti", mTE2: "Jory Vale", mK: "Kit Leclair",
+  tQB: "Lars Penhall", tQB2: "Milo Drayton", tRB1: "Nico Farrow", tRB2: "Otis Quill", tRB3: "Pax Hendry", tWR1: "Quinn Talbot",
+  tWR2: "Rory Castellan", tWR3: "Sol Whitcombe", tTE1: "Tad Merriam", tTE2: "Uri Blackwood", tGhost: "Vance Okafor"};
 function player(key, pos, ddf, opts = {}) {
   const values = {ddf_value: ddf, ddf_value_charts: ddf === null ? null : r1(ddf * 1.02)};
   Object.entries(SPREAD).forEach(([c, k]) => {
@@ -29,7 +34,7 @@ function player(key, pos, ddf, opts = {}) {
   });
   values.ddf_value_projections = ddf === null ? null : r1(ddf * 0.95);
   F.PROJECTION_KEYS.forEach(p => { values[p] = values.ddf_value_projections; });
-  return {player_key: key, name: opts.name || key, pos, values,
+  return {player_key: key, name: opts.name || NAMES[key], pos, values,
     ...(opts.lowConfidence ? {ddfLowConfidence: true, ddfCount: 1, ddfConfidenceNote: "Only one source prices this player: ESPN."} : {}),
     ...(opts.estimated ? {estimated: opts.estimated} : {}),
     ...(opts.override !== undefined ? {valueOverride: ddf, ddfPipelineValue: opts.override, valueOverrideSpec: {type: "value"}} : {})};
@@ -38,7 +43,7 @@ const MINE = () => [
   player("mQB", "QB", 24), player("mQB2", "QB", 8), player("mRB1", "RB", 26), player("mRB2", "RB", 17), player("mRB3", "RB", 9),
   player("mWR1", "WR", 22, {market: {usatoday: 1.2, fantasycalc: 1.15, fantasypros: 1.18}}), player("mWR2", "WR", 16),
   player("mWR3", "WR", 7, {override: 5.5}), player("mTE", "TE", 12), player("mTE2", "TE", 4),
-  {player_key: "mK", name: "mK", pos: "K", values: {}}
+  {player_key: "mK", name: NAMES.mK, pos: "K", values: {}}
 ];
 const THEIRS = () => [
   player("tQB", "QB", 19), player("tQB2", "QB", 10), player("tRB1", "RB", 28, {market: {usatoday: 0.85, fantasycalc: 0.88, fantasypros: 0.86}}),
@@ -47,7 +52,7 @@ const THEIRS = () => [
   player("tWR3", "WR", 5, {market: {fantasypros: null}}), player("tTE1", "TE", 13), player("tTE2", "TE", 7)
 ];
 // Their roster also lists a player the engine has no row for this week.
-const THEIR_ENTRIES = rows => rows.map(r => ({key: r.player_key, name: r.name, pos: r.pos})).concat([{key: "tGhost", name: "Ghost", pos: "WR"}]);
+const THEIR_ENTRIES = rows => rows.map(r => ({key: r.player_key, name: r.name, pos: r.pos})).concat([{key: "tGhost", name: NAMES.tGhost, pos: "WR"}]);
 const GIVE = ["mWR1", "mRB2"];
 const RECEIVE = ["tRB1", "tWR1", "tWR3"];
 const SOURCE_INFO = [
@@ -102,6 +107,7 @@ const route = leagueRoute(input());
 eq(out.rows.verdict.label, route.fit.label, "verdict label = league finder tradeFit");
 eq(out.rows.verdict.text, F.fitText(route.fit), "verdict text = fitText");
 eq(out.rows.verdict.name, R.FIT_NAME[route.fit.label]);
+eq(out.rows.verdict.tests.theirMarket.pass, route.fit.theirOk, "their-market test is tradeFit's own theirOk (JEG-1340)");
 eq(out.rows.verdict.failed, ["construction", "yourValue", "theirMarket"].filter(id => !{construction: route.fit.constructionOk,
   yourValue: route.fit.yourValueOk, theirMarket: route.fit.them.net >= -route.fit.them.tau}[id]), "failed tests named");
 // Will they accept, no profile: the viability label and the chart count, as the league finder computes them.
@@ -112,7 +118,7 @@ eq(out.rows.accept.charts, {even: route.combo.rivalOkCount, priced: route.combo.
 eq(out.rows.sellGap.basis, "market");
 const gapOf = new Map(route.gaps.under.concat(route.gaps.over).map(g => [g.key, g.gap]));
 out.rows.sellGap.players.filter(p => p.status === "priced").forEach(p => eq(p.gap, gapOf.get(p.key) || 0, `sell gap ${p.key} = marketGaps`));
-eq(out.rows.sellGap.players.find(p => p.key === "tWR3"), {key: "tWR3", side: "receive", status: "unpriced",
+eq(out.rows.sellGap.players.find(p => p.key === "tWR3"), {key: "tWR3", side: "receive", name: NAMES.tWR3, status: "unpriced",
   reason: "No Trade chart average value: left out of this series, not counted as 0."}, "unpriced throw-in keeps its reason");
 eq(out.rows.sellGap.players.find(p => p.key === "mWR1").direction, "market-higher", "mWR1 is priced higher by the market");
 eq(out.rows.sellGap.players.find(p => p.key === "tRB1").direction, "ddf-higher", "tRB1 is priced higher by DDF Value");
@@ -195,6 +201,20 @@ if (process.argv.includes("--write-golden")) {
   eq(R.build(input({context: {...CONTEXT, basis: {mode: "blend"}, benchLevel: "league"}, shape: {...SHAPE, SUPERFLEX: 1}})).rows.context.text,
     "Full PPR · 12 teams · Superflex · Your basis, not ours · Bench from your league's rosters · Week 8");
 }
+// JEG-1340: null is unknown, never "1QB" or 0 teams.
+{
+  const c = R.build(input({context: {...CONTEXT, superflex: null, teams: null, week: null}, shape: null})).rows.context;
+  eq([c.superflex, c.teams, c.week], [null, null, null]);
+  eq(c.missing, ["teams", "superflex", "week"]);
+  ok(!c.text.includes("1QB"), c.text);
+}
+// JEG-1340: a player listed twice on a roster gets each label once.
+{
+  const twice = input();
+  twice.theirs.rows.push({...twice.theirs.rows.find(r => r.player_key === "tWR1")});
+  twice.theirs.entries.push({key: "tGhost", name: NAMES.tGhost, pos: "WR"});
+  eq(R.build(twice).rows.dataLabels.theirs.map(l => `${l.key}:${l.kind}`), out.rows.dataLabels.theirs.map(l => `${l.key}:${l.kind}`));
+}
 // TradeContext: inputFromContext fills the context line from common.league, the basis and pricing.mode.
 {
   const all = MINE().concat(THEIRS());
@@ -218,8 +238,14 @@ if (process.argv.includes("--write-golden")) {
   eq(node.children.map(c => c.dataset.row), ["verdict", "accept", "sell-gap", "data-labels", "context"]);
   const text = node.textContent;
   ok(text.includes(out.rows.verdict.text), "verdict text drawn");
-  ok(text.includes("tWR3 (you get): No Trade chart average value"), "unpriced player drawn with its reason");
-  ok(text.includes("Their team, tWR1: ◐ 1 source: Only one source prices this player: ESPN."), "single-source tag drawn");
+  ok(text.includes("Sol Whitcombe (you get): No Trade chart average value"), "unpriced player drawn by name with its reason");
+  ok(text.includes("Their team, Quinn Talbot: ◐ 1 source: Only one source prices this player: ESPN."), "single-source tag drawn by name");
+  ok(text.includes("Their team, Vance Okafor: No value this week"), "a roster entry with no engine row is drawn by its entry name");
+  // JEG-1340: no raw player key is drawn anywhere a name belongs (data-label and sell-gap lines included).
+  const keysDrawn = Object.keys(NAMES).filter(key => new RegExp(`\\b${key}\\b`).test(text));
+  eq(keysDrawn, [], "no player key in the rendered rows");
+  out.rows.dataLabels.mine.concat(out.rows.dataLabels.theirs).forEach(item => eq(item.name, NAMES[item.key], `data label ${item.key} carries its name`));
+  out.rows.sellGap.players.forEach(p => eq(p.name, NAMES[p.key], `sell gap ${p.key} carries its name`));
   ok(text.includes("Held this week (data check), not in the Trade chart average: CBS Sports."), "held chart drawn");
   ok(text.includes("Full PPR · 12 teams · 1QB · DDF Value basis · Standard bench · Week 8"), "context line drawn");
   const two = R.renderRows(R.build(input({chartKeys: ["usatoday"]})), {document: doc}).textContent;

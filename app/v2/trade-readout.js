@@ -255,7 +255,7 @@
     const tests = {
       construction: {pass: fit.constructionOk, issues: (fit.myConstruction.issues || []).concat(fit.theirConstruction.issues || [])},
       yourValue: {pass: fit.yourValueOk, net: fit.us.net, starterDelta: fit.us.starterDelta},
-      theirMarket: {pass: fit.them.net >= -fit.them.tau, net: fit.them.net, tau: fit.them.tau},
+      theirMarket: {pass: fit.theirOk, net: fit.them.net, tau: fit.them.tau},
       marketSupported: {pass: fit.marketSupported}
     };
     const failed = ["construction", "yourValue", "theirMarket"].filter(id => !tests[id].pass);
@@ -301,11 +301,12 @@
     if (leagueOk) {
       const players = moving.map(({key, side, row}) => {
         const g = depth.gapOf(key);
-        if (!g || !finite(g.ours) || !finite(g.theirs) || !finite(g.gap)) return {key, side, status: "unpriced", reason: STRINGS.noSeriesValue("league-depth DDF Value")};
+        const name = row ? row.name : key;
+        if (!g || !finite(g.ours) || !finite(g.theirs) || !finite(g.gap)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue("league-depth DDF Value")};
         // A lean is named only at or above the caller's floor (#1105's SELL_MIN_GAP), else by sign alone.
         const floor = finite(depth.floor) ? depth.floor : 0;
         return {key, side, status: "priced", ours: g.ours, theirs: g.theirs, gap: g.gap,
-          direction: g.gap > 0 && g.gap >= floor ? "market-higher" : g.gap < 0 && -g.gap >= floor ? "ddf-higher" : "even", name: row ? row.name : key};
+          direction: g.gap > 0 && g.gap >= floor ? "market-higher" : g.gap < 0 && -g.gap >= floor ? "ddf-higher" : "even", name};
       });
       return {status: "available", reason: null, basis: "league", label: "League depth: DDF Value at your league's market level against its DDF level",
         leagueReasons: [], floor: finite(depth.floor) ? depth.floor : null, heldCharts: [], players};
@@ -324,11 +325,12 @@
       const r = rows[i];
       const ddf = r.values ? r.values[out.ourKey] : null;
       const chart = r.values ? r.values[F.MARKET_KEY] : null;
-      if (F.isNotEvaluated(r)) return {key, side, status: "not-evaluated", reason: STRINGS.notEvaluated};
-      if (!finite(ddf)) return {key, side, status: "unpriced", reason: STRINGS.noSeriesValue("DDF Value")};
-      if (!finite(chart)) return {key, side, status: "unpriced", reason: STRINGS.noSeriesValue(MARKET_LABEL)};
+      const name = row.name;
+      if (F.isNotEvaluated(r)) return {key, side, name, status: "not-evaluated", reason: STRINGS.notEvaluated};
+      if (!finite(ddf)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue("DDF Value")};
+      if (!finite(chart)) return {key, side, name, status: "unpriced", reason: STRINGS.noSeriesValue(MARKET_LABEL)};
       const item = byKey.get(key);
-      return {key, side, status: "priced", name: row.name, ddf, market: chart, gap: item ? item.gap : 0, direction: lean.get(key) || "even"};
+      return {key, side, name, status: "priced", ddf, market: chart, gap: item ? item.gap : 0, direction: lean.get(key) || "even"};
     });
     return {status: "available", reason: null, ...base, floor: TS.NOISE_FLOOR, heldCharts: (out.views.market.held || []).slice(), players};
   }
@@ -340,33 +342,34 @@
     const sideOf = who => {
       const raw = (input[who] && input[who].rows) || [];
       const entries = (input[who] && input[who].entries) || [];
-      const rows = raw;   // each player once, on the roster he is on before the trade
+      const rows = raw.filter((row, i) => raw.findIndex(other => keyOf(other) === keyOf(row)) === i);   // each player once
       const have = new Set(rows.map(keyOf));
       const labels = [];
       const views = VIEWS.filter(v => out.views[v.id].status === "available").map(v => ({...v, valueKey: out.views[v.id].valueKey}));
       const shown = rows.map(row => (w && w.market ? F.withChartAverage([row], w.market)[0] : row));
       shown.forEach(row => {
         const key = keyOf(row);
+        const name = row.name || key;
         const v = row.values || {};
-        if (F.isNotEvaluated(row)) { labels.push({key, kind: "not-evaluated", text: STRINGS.notEvaluated}); return; }
+        if (F.isNotEvaluated(row)) { labels.push({key, name, kind: "not-evaluated", text: STRINGS.notEvaluated}); return; }
         const priced = views.filter(view => finite(v[view.valueKey]));
-        if (!priced.length) { labels.push({key, kind: "no-value-this-week", text: STRINGS.noValueThisWeek}); return; }
+        if (!priced.length) { labels.push({key, name, kind: "no-value-this-week", text: STRINGS.noValueThisWeek}); return; }
         views.filter(view => !finite(v[view.valueKey])).forEach(view =>
-          labels.push({key, kind: "no-series-value", series: view.label, text: STRINGS.noSeriesValue(view.label)}));
+          labels.push({key, name, kind: "no-series-value", series: view.label, text: STRINGS.noSeriesValue(view.label)}));
         if (row.ddfLowConfidence && finite(v[out.ourKey])) {
           const count = finite(row.ddfCount) ? row.ddfCount : 1;
-          labels.push({key, kind: "single-source", tag: `◐ ${count} source${count === 1 ? "" : "s"}`, text: row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE});
+          labels.push({key, name, kind: "single-source", tag: `◐ ${count} source${count === 1 ? "" : "s"}`, text: row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE});
         }
         const est = row.estimated || {};
         [out.ourKey].concat(w && w.market ? w.market : []).forEach(series => {
           const reason = est[series];
-          if (typeof reason === "string" && reason.trim() && finite(v[series])) labels.push({key, kind: "estimated", series, tag: "≈ estimated", text: reason});
+          if (typeof reason === "string" && reason.trim() && finite(v[series])) labels.push({key, name, kind: "estimated", series, tag: "≈ estimated", text: reason});
         });
-        if (row.valueOverride !== null && row.valueOverride !== undefined) labels.push({key, kind: "override", text: overrideText(row, deps)});
+        if (row.valueOverride !== null && row.valueOverride !== undefined) labels.push({key, name, kind: "override", text: overrideText(row, deps)});
       });
-      entries.filter(entry => !have.has(String(entry.key))).forEach(entry => labels.push(F.isNotEvaluated(entry)
-        ? {key: String(entry.key), kind: "not-evaluated", text: STRINGS.notEvaluated}
-        : {key: String(entry.key), kind: "no-value-this-week", text: STRINGS.noValueThisWeek}));
+      entries.filter((entry, i) => !have.has(String(entry.key)) && entries.findIndex(e => String(e.key) === String(entry.key)) === i).forEach(entry => labels.push(F.isNotEvaluated(entry)
+        ? {key: String(entry.key), name: entry.name || String(entry.key), kind: "not-evaluated", text: STRINGS.notEvaluated}
+        : {key: String(entry.key), name: entry.name || String(entry.key), kind: "no-value-this-week", text: STRINGS.noValueThisWeek}));
       return labels;
     };
     return {status: "available", reason: null, mine: sideOf("mine"), theirs: sideOf("theirs")};
@@ -375,22 +378,25 @@
   // Context line: scoring, teams, superflex, basis, bench level, week. A part the caller does not know is left out, and
   // listed in missing, never guessed.
   function contextRow(input) {
+    const known = v => v !== undefined && v !== null;
     const c = input.context || {};
     const shape = input.shape || {};
     const parts = [];
     const missing = [];
     if (SCORING_NAME[c.scoring]) parts.push(SCORING_NAME[c.scoring]); else missing.push("scoring");
-    if (finite(Number(c.teams)) && Number(c.teams) > 0) parts.push(`${Number(c.teams)} teams`); else missing.push("teams");
-    const sf = c.superflex !== undefined ? Boolean(c.superflex) : input.shape ? Number(shape.SUPERFLEX) > 0 : null;
+    const teams = known(c.teams) && finite(Number(c.teams)) && Number(c.teams) > 0 ? Number(c.teams) : null;
+    const week = known(c.week) && finite(Number(c.week)) && Number(c.week) > 0 ? Number(c.week) : null;
+    if (teams !== null) parts.push(`${teams} teams`); else missing.push("teams");
+    const sf = known(c.superflex) ? Boolean(c.superflex) : input.shape ? Number(shape.SUPERFLEX) > 0 : null;
     if (sf === null) missing.push("superflex"); else parts.push(sf ? "Superflex" : "1QB");
     const mode = c.basis && c.basis.mode;
     if (mode === "default") parts.push("DDF Value basis"); else if (mode === "single" || mode === "blend") parts.push("Your basis, not ours");
     else missing.push("basis");
     if (c.benchLevel === "league") parts.push("Bench from your league's rosters"); else if (c.benchLevel === "modeled") parts.push("Standard bench");
     else missing.push("bench level");
-    if (finite(Number(c.week)) && Number(c.week) > 0) parts.push(`Week ${Number(c.week)}`); else missing.push("week");
-    return {status: "available", reason: null, scoring: c.scoring || null, teams: finite(Number(c.teams)) ? Number(c.teams) : null,
-      superflex: sf, basis: mode || null, benchLevel: c.benchLevel || null, week: finite(Number(c.week)) ? Number(c.week) : null,
+    if (week !== null) parts.push(`Week ${week}`); else missing.push("week");
+    return {status: "available", reason: null, scoring: c.scoring || null, teams,
+      superflex: sf, basis: mode || null, benchLevel: c.benchLevel || null, week,
       missing, text: parts.join(" · ")};
   }
 
@@ -504,23 +510,21 @@
     row("accept", "Will they accept", a.status, a.status === "available"
       ? [{text: a.text, data: {basis: a.basis}}].concat(a.basis === "profile" ? a.why : [heldLine(a.heldCharts)]) : [a.reason]);
     const g = rows.sellGap;
-    const names = new Map(readout.give.concat(readout.receive).map(key => [key, key]));
-    const nameOf = p => p.name || names.get(p.key) || p.key;
     const gapLine = p => {
       const who = p.side === "give" ? "you send" : "you get";
-      if (p.status !== "priced") return {text: `${nameOf(p)} (${who}): ${p.reason}`, data: {player: p.key, status: p.status}};
+      if (p.status !== "priced") return {text: `${p.name} (${who}): ${p.reason}`, data: {player: p.key, status: p.status}};
       const size = Math.abs(p.gap).toFixed(1);
       const pair = g.basis === "league" ? `market level ${p.theirs.toFixed(1)}, DDF level ${p.ours.toFixed(1)}`
         : `${MARKET_LABEL} ${p.market.toFixed(1)}, DDF Value ${p.ddf.toFixed(1)}`;
       const lean = p.direction === "market-higher" ? `the market prices them ${size} higher` : p.direction === "ddf-higher" ? `DDF Value prices them ${size} higher`
         : g.floor !== null ? `within ${g.floor.toFixed(1)} points, not a gap` : "even";
-      return {text: `${nameOf(p)} (${who}): ${pair}; ${lean}.`, data: {player: p.key, direction: p.direction}};
+      return {text: `${p.name} (${who}): ${pair}; ${lean}.`, data: {player: p.key, direction: p.direction}};
     };
     row("sell-gap", "Sell gap", g.status, g.status === "available"
       ? [{text: g.label, data: {basis: g.basis}}].concat(g.players.map(gapLine), [heldLine(g.heldCharts)])
         .concat(g.leagueReasons.length ? [`League depth not used: ${g.leagueReasons.join("; ")}.`] : []) : [g.reason]);
     const d = rows.dataLabels;
-    const labelLine = who => item => ({text: `${who}, ${item.key}: ${item.tag ? `${item.tag}: ` : ""}${item.text}`, data: {player: item.key, kind: item.kind}});
+    const labelLine = who => item => ({text: `${who}, ${item.name}: ${item.tag ? `${item.tag}: ` : ""}${item.text}`, data: {player: item.key, kind: item.kind}});
     row("data-labels", "Data labels", d.status, d.mine.map(labelLine("Your team")).concat(d.theirs.map(labelLine("Their team")))
       .concat(d.mine.length || d.theirs.length ? [] : ["Every player here has a full value."]));
     const c = rows.context;
