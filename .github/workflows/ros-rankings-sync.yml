@@ -73,13 +73,18 @@ jobs:
           [ "$MODE" = "write" ] || flag="--dry-run"
           rc=0
           {
-            python3 pipelines/pull_ros_rankings.py --out-dir /tmp/ros &&
+            python3 pipelines/pull_ros_rankings.py --out-dir /tmp/ros --print-lists &&
             python3 pipelines/save_ros_rankings.py --snapshot /tmp/ros/snapshot.json $flag
           } > /tmp/ros.log 2>&1 || rc=$?
-          cat /tmp/ros.log
+          grep -v '^ROSLIST|' /tmp/ros.log
+          grep '^ROSLIST|' /tmp/ros.log > /tmp/ros/lists.txt || true
           level=notice; [ "$rc" = 0 ] || level=error
           tail -8 /tmp/ros.log | cut -c1-900 | sed "s/^/::$level title=ros-rankings rc=$rc::/"
           exit $rc
+
+      - name: Print the ranking lists
+        if: always()
+        run: cat /tmp/ros/lists.txt 2>/dev/null || true
 
       - name: Keep the snapshot
         if: always()

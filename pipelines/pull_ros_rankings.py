@@ -83,7 +83,7 @@ YAHOO_TITLE_RE = re.compile(
 YAHOO_POS = {"quarterback": "QB", "qb": "QB", "running back": "RB", "rb": "RB",
              "wide receiver": "WR", "wr": "WR", "tight end": "TE", "te": "TE"}
 YAHOO_FLOORS = {"QB": 25, "RB": 50, "WR": 60, "TE": 25}
-DOLLAR_RE = re.compile(r"^\$(\d+(?:\.\d+)?)\s+(.+?)\s*\**$")
+DOLLAR_RE = re.compile(r"^\$(\d+(?:\.\d+)?)\s+\**\s*(.+?)\s*\**$")  # unexplained "*" marks dropped
 
 UNAVAILABLE = [
     {"source": "espn_ros_article", "reason": "ESPN's ROS article answers a runner with HTTP 202 and an empty body; not read any other way"},
@@ -291,6 +291,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out-dir", type=Path, required=True)
     ap.add_argument("--sources", default=",".join(PULLERS), help="comma-separated, default all")
     ap.add_argument("--allow-partial", action="store_true", help="save the sources that read when one fails")
+    ap.add_argument("--print-lists", action="store_true", help="print each ranking as one compact line")
     args = ap.parse_args(argv)
     sources = [s.strip() for s in args.sources.split(",") if s.strip()]
     unknown = [s for s in sources if s not in PULLERS]
@@ -312,6 +313,14 @@ def main(argv=None) -> int:
         for r in [x for x in snap["rows"] if x["source"] == src][:3]:
             print(f"  sample {src}: {r['pos']}{r['pos_rank']} {r['player_name']} value={r['source_value']} tier={r['tier']}")
         print(f"ros {src}: {meta['row_count']} rows")
+    if args.print_lists:  # one compact line per source/scoring/position, for review in the run log
+        groups: dict[tuple, list[str]] = {}
+        for r in snap["rows"]:
+            groups.setdefault((r["source"], r["scoring"], r["pos"], r["source_vintage"]), []).append(
+                f"{r['pos_rank']}:{r['player_name']}:{'' if r['source_value'] is None else r['source_value']:}"
+                f":{'' if r['tier'] is None else r['tier']}")
+        for k, items in groups.items():
+            print("ROSLIST|" + "|".join(k) + "|" + ";".join(items))
     print(f"ros rankings: {snap['row_count']} rows, {len(snap['review_rows'])} review, "
           f"{len(snap['unavailable'])} sources unavailable")
     return 0

@@ -44,7 +44,8 @@ def yahoo_page(pos_word="WR", n=65, published="2026-10-21T21:01:24Z"):
             if k >= n:
                 break
             k += 1
-            body.append(f'<li><a href="/x">${50 - k // 2} Player Number{k}</a>{"*" if k == 3 else ""}</li>')
+            body.append(f'<li><a href="/x">${50 - k // 2} Player Number{k}</a>{"*" if k == 3 else ""}</li>'
+                        if k != 4 else f'<li>${50 - k // 2} * Player Number{k}</li>')
         body.append("</ul>")
     return (f"<html><head><title>Fantasy Football rest-of-season rankings: {pos_word} Tiers - Yahoo Sports"
             f'</title><script>{{"datePublished":"{published}"}}</script></head><body>'
@@ -80,7 +81,8 @@ class YahooParser(unittest.TestCase):
         self.assertEqual(got["vintage"], "2026-10-21")
         self.assertEqual(got["tiers"], 3)
         self.assertEqual([r["pos_rank"] for r in got["rows"][:3]], [1, 2, 3])
-        self.assertEqual(got["rows"][2]["player_name"], "Player Number3")  # asterisk dropped
+        self.assertEqual(got["rows"][2]["player_name"], "Player Number3")  # trailing asterisk dropped
+        self.assertEqual(got["rows"][3]["player_name"], "Player Number4")  # leading asterisk dropped
         self.assertEqual(got["rows"][0]["source_value"], 50.0)
         self.assertEqual(got["rows"][0]["scoring"], "unstated")
 
