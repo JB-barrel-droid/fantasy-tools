@@ -48,12 +48,21 @@ jobs:
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
-      - name: JEG-1230 shard 2 probe (scratch branch only)
+      - name: JEG-1260 readout render modules (scratch branch only)
+        if: matrix.base == 'pr'
         run: |
           set +e
-          git log --oneline -1
-          python3 tests/run_suite.py test-render-sweep-2 > "$RUNNER_TEMP/probe.log" 2>&1
+          python3 -m unittest -v tests.test_jeg1230_trade_readout_render tests.test_jeg1216_lineup_render > "$RUNNER_TEMP/mod.log" 2>&1
           rc=$?
-          body=$( (git log --oneline -1; grep '^run_suite: failed: ' "$RUNNER_TEMP/probe.log"; grep -B2 -A12 '^FAIL:\|^ERROR:' "$RUNNER_TEMP/probe.log" | head -c 3000) | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
-          echo "::warning title=jeg1230 probe ${{ matrix.base }}::${body}"
+          body=$( (git log --oneline -1; echo "rc=$rc"; tail -c 3500 "$RUNNER_TEMP/mod.log") | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=jeg1260 modules::${body}"
+          exit $rc
+      - name: JEG-1260 shard 1 (scratch branch only)
+        if: always()
+        run: |
+          set +e
+          python3 tests/run_suite.py test-render-sweep-1 > "$RUNNER_TEMP/probe.log" 2>&1
+          rc=$?
+          body=$( (git log --oneline -1; echo "rc=$rc"; grep '^run_suite: failed: ' "$RUNNER_TEMP/probe.log"; grep -B2 -A12 '^FAIL:\|^ERROR:' "$RUNNER_TEMP/probe.log" | head -c 2500) | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=jeg1260 shard1 ${{ matrix.base }}::${body}"
           exit $rc
