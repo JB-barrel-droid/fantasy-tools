@@ -17,6 +17,7 @@ import {
   scoreAndRankOffers,
   selectPackage,
 } from "./viability.ts";
+import { askedWeek, type WeekFields, weekProp, withWeek } from "./week.ts";
 
 export interface PlayerValue {
   player_key: number;
@@ -26,7 +27,9 @@ export interface PlayerValue {
   tier: string;
 }
 
-export interface ValuesResponse {
+// JEG-1179: every answer carries the week it was priced on (WeekFields: week, default_week, weeks,
+// missing_sources); sources_included lists the sources priced on that week.
+export interface ValuesResponse extends WeekFields {
   attribution: string;
   as_of: string | null;
   setting: { scoring: string; teams: number; superflex: number };
@@ -40,6 +43,7 @@ export type FetchValues = (
   teams: number,
   superflex: number,
   league?: Record<string, unknown>,
+  week?: number | null,
 ) => Promise<ValuesResponse>;
 
 /** Extended player record with per-chart values (from get-values?include=charts). */
@@ -61,6 +65,7 @@ export type FetchValuesWithCharts = (
   teams: number,
   superflex: number,
   league?: Record<string, unknown>,
+  week?: number | null,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -99,6 +104,7 @@ const settingsProps = {
     description:
       "Optional: a DDF state pasted from the site (a ```ddf-state block, JSON, or a site link). Supplies the league settings; explicit settings above win.",
   },
+  ...weekProp,
 };
 
 // JEG-1124: a one-letter name fits too many players to be useful; ask for a fuller name.
@@ -224,7 +230,10 @@ export const TOOLS = [
       "Read a DDF state pasted from the Data Driven Football site (a ```ddf-state block, JSON, or a site link): the league, rosters and trade the person was working on. Resolves names to players, prices them, and reports anything it could not match. Use this first when the user pastes site work.",
     inputSchema: {
       type: "object",
-      properties: { state: { type: "string", description: "The pasted block, JSON or site link" } },
+      properties: {
+        state: { type: "string", description: "The pasted block, JSON or site link (a link's wk= picks the week)" },
+        ...weekProp,
+      },
       required: ["state"],
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
@@ -564,7 +573,34 @@ function ok(text: string, structured: Record<string, unknown>): ToolResult {
   return { content: [{ type: "text", text }], structuredContent: structured };
 }
 
+// JEG-1179: every tool prices the week get-values picks (the site's default) or the week asked for
+// (`week`, or `wk=` in a pasted site link). The fetchers carry it; the result gets the week fields.
 export async function runTool(
+  name: string,
+  args: Record<string, unknown>,
+  fetchValues: FetchValues,
+  deps?: Deps,
+  finderDeps?: FinderDeps,
+): Promise<ToolResult> {
+  const week = askedWeek(args);
+  if (Number.isNaN(week)) {
+    throw new ToolInputError(`invalid week: ${args.week}. Give a whole number from 1 to 22, or leave it out for the default week.`);
+  }
+  let priced: ValuesResponse | null = null;
+  const weekValues: FetchValues = async (scoring, teams, superflex, league) =>
+    (priced = await fetchValues(scoring, teams, superflex, league, week));
+  const charts = finderDeps?.fetchCharts;
+  const weekDeps: FinderDeps | undefined = finderDeps && {
+    ...finderDeps,
+    fetchCharts: charts
+      ? async (scoring, teams, superflex, league) => (priced = await charts(scoring, teams, superflex, league, week))
+      : null,
+  };
+  const result = await runPricedTool(name, args, weekValues, deps, weekDeps);
+  return withWeek(result, priced, week);
+}
+
+async function runPricedTool(
   name: string,
   args: Record<string, unknown>,
   fetchValues: FetchValues,
