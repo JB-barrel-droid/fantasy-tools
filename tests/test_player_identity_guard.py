@@ -137,11 +137,25 @@ def scan_pipelines_for_violations(pipelines_dir: Path):
 
 RESOLVER_NAMES = ("resolve", "resolve_with_reason")
 _CANONICAL = "canonical_players"
+# The import paths that name the real module (pipelines put pipelines/ and
+# pipelines/lib on sys.path). Any other module that exports a canonical_players
+# or resolve name is not it.
+_CANONICAL_PATHS = {"canonical_players", "lib.canonical_players", "pipelines.lib.canonical_players"}
 _NEW_SCOPES = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda, ast.ClassDef,
                ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
 
+# JEG-1238: the only functions allowed to take the resolver as a parameter, and
+# the only pipeline files allowed to call them. Paths are relative to the
+# scanned pipelines dir. A new injection point or a new caller must be added
+# here on purpose; anything unlisted fails. Each pinned call must also inject a
+# resolver that provably returns canonical_players' answer (_injected_ok).
+INJECTED_RESOLVER_CONTRACTS = {
+    ("lib/projection_capture.py", "cbs_capture_rows", "resolve"): {"save_cbsros_references.py"},
+}
+
 
 def _iter_pipeline_trees(pipelines_dir: Path):
+    """(repo-relative path, path relative to pipelines_dir, module stem, tree)."""
     for root, dirs, files in os.walk(pipelines_dir):
         dirs[:] = [d for d in dirs if d not in ('__pycache__', '.git', 'tests')]
         for fname in files:
@@ -152,7 +166,8 @@ def _iter_pipeline_trees(pipelines_dir: Path):
                 tree = ast.parse(fpath.read_text(encoding="utf-8"), filename=str(fpath))
             except SyntaxError:
                 continue
-            yield str(fpath.relative_to(REPO)), fpath.stem, tree
+            yield (str(fpath.relative_to(REPO)), fpath.relative_to(pipelines_dir).as_posix(),
+                   fpath.stem, tree)
 
 
 def _own_scope(node):
@@ -174,95 +189,197 @@ def _params(fn) -> set:
 
 
 def _is_canonical_module(name) -> bool:
-    return bool(name) and name.split(".")[-1] == _CANONICAL
+    return name in _CANONICAL_PATHS
 
 
 def _bindings(scope):
-    """{name: kind} bound in scope's own body. kind is 'canonical' for
-    `from canonical_players import resolve[_with_reason]`, 'def' for a def,
-    'global'/'nonlocal' for those declarations, else 'other'."""
+    """{name: kind} bound in scope's own body. kind: 'canonical' (the name is
+    `from canonical_players import resolve[_with_reason]`), 'canonical_module'
+    (the name is the canonical_players module), 'def', 'global', 'nonlocal' or
+    'other'. A name bound two different ways is 'other': a later rebinding
+    (e.g. `canonical_players = fake`) never keeps the canonical kind."""
     out = {}
+
+    def bind(name, kind):
+        if out.get(name) in ("global", "nonlocal"):
+            return
+        out[name] = kind if out.get(name) in (None, kind) else "other"
+
     if isinstance(scope, (ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)):
         for gen in scope.generators:
             for n in ast.walk(gen.target):
                 if isinstance(n, ast.Name):
-                    out[n.id] = "other"
+                    bind(n.id, "other")
         return out
-    body_nodes = _own_scope(scope) if not isinstance(scope, ast.Lambda) else ()
-    for n in body_nodes:
-        if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
-            out.setdefault(n.id, "other")
-        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            out.setdefault(n.name, "def")
-        elif isinstance(n, ast.ClassDef):
-            out.setdefault(n.name, "other")
-        elif isinstance(n, ast.ImportFrom):
-            for al in n.names:
-                name = al.asname or al.name
-                kind = "canonical" if _is_canonical_module(n.module) and al.name in RESOLVER_NAMES else "other"
-                out[name] = kind if out.get(name) in (None, kind) else "other"
-        elif isinstance(n, ast.Import):
-            for al in n.names:
-                out.setdefault(al.asname or al.name.split(".")[0], "other")
-        elif isinstance(n, ast.ExceptHandler) and n.name:
-            out.setdefault(n.name, "other")
-        elif isinstance(n, (ast.Global, ast.Nonlocal)):
+    for n in (_own_scope(scope) if not isinstance(scope, ast.Lambda) else ()):
+        if isinstance(n, (ast.Global, ast.Nonlocal)):
             for name in n.names:
                 out[name] = "global" if isinstance(n, ast.Global) else "nonlocal"
+        elif isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            bind(n.id, "other")
+        elif isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            bind(n.name, "def")
+        elif isinstance(n, ast.ClassDef):
+            bind(n.name, "other")
+        elif isinstance(n, ast.ImportFrom):
+            for al in n.names:
+                if n.level == 0 and _is_canonical_module(n.module) and al.name in RESOLVER_NAMES:
+                    kind = "canonical"
+                elif n.level == 0 and _is_canonical_module(f"{n.module}.{al.name}"):
+                    kind = "canonical_module"
+                else:
+                    kind = "other"
+                bind(al.asname or al.name, kind)
+        elif isinstance(n, ast.Import):
+            for al in n.names:
+                if al.asname:
+                    bind(al.asname, "canonical_module" if _is_canonical_module(al.name) else "other")
+                else:
+                    bind(al.name.split(".")[0],
+                         "canonical_module" if al.name == _CANONICAL else "other")
+        elif isinstance(n, ast.ExceptHandler) and n.name:
+            bind(n.name, "other")
         elif isinstance(n, ast.NamedExpr):
-            out.setdefault(n.target.id, "other")
+            bind(n.target.id, "other")
+        elif isinstance(n, (ast.MatchAs, ast.MatchStar)) and n.name:
+            bind(n.name, "other")
+        elif isinstance(n, ast.MatchMapping) and n.rest:
+            bind(n.rest, "other")
     return out
 
 
-def _resolver_calls(tree):
-    """(call, scope_chain) for every bare resolve()/resolve_with_reason() call.
-    scope_chain runs from the module to the innermost enclosing scope."""
-    found = []
+def _scope_chains(tree):
+    """{id(node): scope chain} for every node; the chain runs from the module
+    to the innermost scope the node is evaluated in."""
+    chains = {}
 
     def walk(node, chain):
         for child in ast.iter_child_nodes(node):
-            if (isinstance(child, ast.Call) and isinstance(child.func, ast.Name)
-                    and child.func.id in RESOLVER_NAMES):
-                found.append((child, chain))
+            chains[id(child)] = chain
             walk(child, chain + [child] if isinstance(child, _NEW_SCOPES) else chain)
 
+    chains[id(tree)] = [tree]
     walk(tree, [tree])
-    return found
+    return chains
 
 
-def _classify(name, chain, binding_cache):
-    """Where a bare `name` binds lexically: ('canonical'|'module_def'|'unbound'|
-    'param'|'local', scope). A parameter that is also rebound in its own
-    function is 'local' (shadowed), never an injected resolver."""
-    module = chain[0]
-    inner = chain[1:]
+def _lookup(name, chain, cache):
+    """Where a bare `name` binds lexically: (kind, scope). kind is a _bindings
+    kind, 'param', or 'unbound'. A parameter also rebound in its own function
+    is 'other' (shadowed), never 'param'."""
+    module, inner = chain[0], chain[1:]
     for i in range(len(inner) - 1, -1, -1):
         scope = inner[i]
         # A class body does not enclose the functions inside it.
         if isinstance(scope, ast.ClassDef) and i != len(inner) - 1:
             continue
-        b = binding_cache.setdefault(id(scope), _bindings(scope))
-        kind = b.get(name)
+        kind = cache.setdefault(id(scope), _bindings(scope)).get(name)
         if kind == "global":
             break
         if kind == "nonlocal":
             continue
-        is_param = isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) and name in _params(scope)
-        if is_param:
-            return ("param", scope) if kind is None else ("local", scope)
-        if kind == "canonical":
-            return "canonical", scope
+        if isinstance(scope, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)) and name in _params(scope):
+            return ("param", scope) if kind is None else ("other", scope)
         if kind is not None:
-            return "local", scope
-    kind = binding_cache.setdefault(id(module), _bindings(module)).get(name)
-    if kind == "canonical":
-        return "canonical", module
-    if kind == "def":
-        # A module-level `def resolve(...)` of its own is not player identity
-        # (JEG-916, 2026-10-22: derive_lineup_parameters.resolve picks the
-        # expected-starts parameters for a reader's settings, JEG-536).
-        return "module_def", module
-    return ("unbound", module) if kind is None else ("local", module)
+            return kind, scope
+    kind = cache.setdefault(id(module), _bindings(module)).get(name)
+    return (kind or "unbound"), module
+
+
+def _resolver_calls(tree):
+    """Every bare resolve()/resolve_with_reason() call."""
+    return [n for n in ast.walk(tree) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
+            and n.func.id in RESOLVER_NAMES]
+
+
+def _canonical_ref(expr, chain, cache) -> bool:
+    """expr names canonical_players' resolver through an unshadowed binding:
+    `canonical_players.resolve*` with canonical_players bound to the module
+    import, or a name bound by `from canonical_players import resolve*`."""
+    if isinstance(expr, ast.Attribute) and expr.attr in RESOLVER_NAMES and isinstance(expr.value, ast.Name):
+        return _lookup(expr.value.id, chain, cache)[0] == "canonical_module"
+    if isinstance(expr, ast.Name):
+        return _lookup(expr.id, chain, cache)[0] == "canonical"
+    return False
+
+
+def _canonical_call(expr, chain, cache) -> bool:
+    return isinstance(expr, ast.Call) and _canonical_ref(expr.func, chain, cache)
+
+
+def _returns_canonical(fn, chains, cache) -> bool:
+    """Return provenance for a wrapper def: every `return` in its own body hands
+    back None, a canonical call (optionally indexed), a tuple or conditional of
+    those, or a local whose every binding is `x[, y] = <canonical call>`.
+    Discarding the canonical answer, a fallback (`or 5`), a literal, a rebound
+    local or a yield fails. Nested helpers are not this function's returns."""
+    own = list(_own_scope(fn))
+    if any(isinstance(n, (ast.Yield, ast.YieldFrom)) for n in own):
+        return False
+    chain = chains[id(fn)] + [fn]
+    approved, stores = set(), {}
+    for n in own:
+        if isinstance(n, ast.Assign) and _canonical_call(n.value, chain, cache):
+            for t in n.targets:
+                for x in ([t] if isinstance(t, ast.Name) else
+                          t.elts if isinstance(t, (ast.Tuple, ast.List)) else []):
+                    if isinstance(x, ast.Name):
+                        approved.add(id(x))
+        if isinstance(n, ast.Name) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            stores.setdefault(n.id, []).append(id(n))
+    binds = cache.setdefault(id(fn), _bindings(fn))
+    sourced = {name for name, ids in stores.items()
+               if binds.get(name) == "other" and name not in _params(fn)
+               and all(i in approved for i in ids)}
+
+    def ok(e):
+        if isinstance(e, ast.Constant) and e.value is None:
+            return True
+        if isinstance(e, ast.Subscript) and isinstance(e.slice, ast.Constant) and isinstance(e.slice.value, int):
+            return _canonical_call(e.value, chain, cache)
+        if isinstance(e, ast.Tuple):
+            return all(ok(x) for x in e.elts)
+        if isinstance(e, ast.IfExp):
+            return ok(e.body) and ok(e.orelse)
+        if isinstance(e, ast.Name):
+            return e.id in sourced
+        return _canonical_call(e, chain, cache)
+
+    returns = [n for n in own if isinstance(n, ast.Return)]
+    return bool(returns) and all(r.value is not None and ok(r.value) for r in returns)
+
+
+def _wrapper_ok(name, chain, tree, chains, cache) -> bool:
+    """`name` binds, unshadowed, to one module-level def with return provenance."""
+    kind, scope = _lookup(name, chain, cache)
+    if kind != "def" or scope is not tree:
+        return False
+    defs = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name]
+    return len(defs) == 1 and _returns_canonical(defs[0], chains, cache)
+
+
+def _injected_ok(arg, chain, tree, chains, cache) -> bool:
+    """The resolver a pinned caller injects: canonical_players' resolver itself,
+    a wrapper def with return provenance, or a lambda whose whole body is a call
+    to one of those (optionally indexed, e.g. `resolve_name(...)[0]`). Names are
+    resolved where they are used, so a parameter or local that shadows
+    canonical_players or the wrapper fails."""
+    if _canonical_ref(arg, chain, cache):
+        return True
+    if isinstance(arg, ast.Name):
+        return _wrapper_ok(arg.id, chain, tree, chains, cache)
+    if isinstance(arg, ast.Lambda):
+        inner = chain + [arg]
+        body = arg.body
+        if isinstance(body, ast.Subscript) and isinstance(body.slice, ast.Constant) \
+                and isinstance(body.slice.value, int):
+            body = body.value
+        if not isinstance(body, ast.Call):
+            return False
+        if _canonical_ref(body.func, inner, cache):
+            return True
+        return isinstance(body.func, ast.Name) and _wrapper_ok(body.func.id, inner, tree, chains, cache)
+    return False
 
 
 def _module_aliases(tree, stem):
@@ -285,128 +402,101 @@ def _module_aliases(tree, stem):
     return mods, names
 
 
-def _canonical_call(node, canon_mods, canon_names, wired_defs) -> bool:
-    """node is a Call into canonical_players' resolver, directly or through a
-    module-level def of the caller that itself calls it."""
-    if not isinstance(node, ast.Call):
-        return False
-    f = node.func
-    if isinstance(f, ast.Attribute) and f.attr in RESOLVER_NAMES:
-        return ast.unparse(f.value) in canon_mods
-    if isinstance(f, ast.Name):
-        return f.id in canon_names or f.id in wired_defs
-    return False
-
-
-def _canonical_context(tree):
-    canon_mods, canon_names = set(), set()
-    for n in tree.body:
-        if isinstance(n, ast.Import):
-            for al in n.names:
-                if _is_canonical_module(al.name):
-                    canon_mods.add(al.asname or al.name)
-        elif isinstance(n, ast.ImportFrom):
-            if _is_canonical_module(n.module):
-                canon_names |= {al.asname or al.name for al in n.names if al.name in RESOLVER_NAMES}
-            else:
-                canon_mods |= {al.asname or al.name for al in n.names if al.name == _CANONICAL}
-    wired_defs = {n.name for n in tree.body
-                  if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
-                  and any(_canonical_call(c, canon_mods, canon_names, set()) for c in ast.walk(n))}
-    return canon_mods, canon_names, wired_defs
-
-
-def _wired_resolver_arg(arg, ctx) -> bool:
-    """The resolver a caller injects must be canonical_players itself, a
-    module-level def that calls it, or a lambda whose whole body is such a call
-    (optionally indexed, e.g. `resolve_name(...)[0]`). Fallbacks, guesses and
-    anything the AST cannot trace fail closed."""
-    canon_mods, canon_names, wired_defs = ctx
-    if isinstance(arg, ast.Attribute):
-        return arg.attr in RESOLVER_NAMES and ast.unparse(arg.value) in canon_mods
-    if isinstance(arg, ast.Name):
-        return arg.id in canon_names or arg.id in wired_defs
-    if isinstance(arg, ast.Lambda):
-        body = arg.body.value if isinstance(arg.body, ast.Subscript) else arg.body
-        return _canonical_call(body, *ctx)
-    return False
-
-
-def injected_resolver_wiring(pipelines_dir: Path):
+def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
     """JEG-1238: functions that take the resolver as a parameter (e.g.
     projection_capture.cbs_capture_rows) and how each pipeline caller wires it.
-    -> (entries, issues). entries: [{"file", "function", "param", "callers":
-    [(caller_file, line, ok)]}]."""
-    trees = list(_iter_pipeline_trees(pipelines_dir))
+    contracts defaults to INJECTED_RESOLVER_CONTRACTS. -> (entries, issues).
+    entries: [{"file", "function", "param", "callers": [(caller_file, line, ok)]}]."""
+    contracts = INJECTED_RESOLVER_CONTRACTS if contracts is None else contracts
+    trees = [(rel, local, stem, tree, _scope_chains(tree), {})
+             for rel, local, stem, tree in _iter_pipeline_trees(pipelines_dir)]
     entries, issues = [], []
-    for rel, stem, tree in trees:
-        cache = {}
+    for rel, local, stem, tree, chains, cache in trees:
         params = {}
-        for call, chain in _resolver_calls(tree):
-            kind, scope = _classify(call.func.id, chain, cache)
+        for call in _resolver_calls(tree):
+            kind, scope = _lookup(call.func.id, chains[id(call)], cache)
             if kind != "param":
                 continue
-            if scope not in tree.body or isinstance(scope, ast.Lambda):
+            if isinstance(scope, ast.Lambda) or not any(scope is n for n in tree.body):
                 issues.append({"file": rel, "issue": f"resolver parameter {call.func.id!r} of a nested "
                                f"function or lambda (line {scope.lineno}) cannot be traced to its callers"})
                 continue
             params[(scope.name, call.func.id)] = scope
         for (fn_name, param), fn in params.items():
+            pinned = contracts.get((local, fn_name, param))
+            if pinned is None:
+                issues.append({"file": rel, "issue": f"{fn_name}() takes resolver {param!r} but is not a "
+                               "registered injection point (INJECTED_RESOLVER_CONTRACTS)"})
+                continue
             positional = [x.arg for x in fn.args.posonlyargs + fn.args.args]
             index = positional.index(param) if param in positional else None
             entry = {"file": rel, "function": fn_name, "param": param, "callers": []}
-            for crel, cstem, ctree in trees:
+            seen = set()
+            for crel, clocal, _cstem, ctree, cchains, ccache in trees:
                 mods, names = _module_aliases(ctree, stem)
-                local = names | ({fn_name: fn_name} if crel == rel else {})
-                ctx = _canonical_context(ctree)
+                bare = names | ({fn_name: fn_name} if crel == rel else {})
                 for c in ast.walk(ctree):
                     if not isinstance(c, ast.Call):
                         continue
                     f = c.func
                     hit = ((isinstance(f, ast.Attribute) and f.attr == fn_name and ast.unparse(f.value) in mods)
-                           or (isinstance(f, ast.Name) and local.get(f.id) == fn_name))
+                           or (isinstance(f, ast.Name) and bare.get(f.id) == fn_name))
                     if not hit:
+                        continue
+                    seen.add(clocal)
+                    if clocal not in pinned:
+                        entry["callers"].append((crel, c.lineno, False))
+                        issues.append({"file": crel, "issue": f"line {c.lineno}: calls {fn_name}() but is not "
+                                       "a pinned caller in INJECTED_RESOLVER_CONTRACTS"})
                         continue
                     arg = next((k.value for k in c.keywords if k.arg == param), None)
                     if arg is None and index is not None and not any(isinstance(a, ast.Starred) for a in c.args[:index + 1]):
                         arg = c.args[index] if index < len(c.args) else None
-                    ok = arg is not None and _wired_resolver_arg(arg, ctx)
+                    ok = arg is not None and _injected_ok(arg, cchains[id(c)], ctree, cchains, ccache)
                     entry["callers"].append((crel, c.lineno, ok))
                     if not ok:
                         issues.append({"file": crel, "issue": f"line {c.lineno}: {fn_name}() is not given a "
                                        f"canonical_players resolver for {param!r}"})
-            if not entry["callers"]:
-                issues.append({"file": rel, "issue": f"{fn_name}() takes resolver {param!r} but no pipeline "
-                               "caller wires a canonical_players resolver into it"})
+            for m in sorted(set(pinned) - seen):
+                issues.append({"file": rel, "issue": f"pinned caller {m} no longer wires a canonical_players "
+                               f"resolver into {fn_name}()"})
             entries.append(entry)
     return entries, issues
 
 
-def check_canonical_resolution_usage(pipelines_dir: Path):
+def check_canonical_resolution_usage(pipelines_dir: Path, contracts=None):
     """Every bare resolve()/resolve_with_reason() call in pipelines must bind to
     canonical_players.
 
     Allowed bindings: `from canonical_players import resolve[_with_reason]`; a
-    module-level def of the module's own (JEG-916, not player identity); and,
-    since JEG-1238, a function parameter (an injected resolver), but only when
-    every pipeline caller of that function passes a canonical_players resolver
+    module-level def of the module's own (JEG-916: derive_lineup_parameters.resolve
+    picks lineup parameters, JEG-536, not player identity); and, since JEG-1238,
+    a function parameter, only at a registered injection point whose pinned
+    callers each inject a resolver with proven canonical provenance
     (injected_resolver_wiring). An unbound global, a local or shadowing
-    rebinding, a comprehension variable, or an untraceable injection fails.
+    rebinding, a comprehension variable, an unregistered or untraceable
+    injection, or an unpinned caller fails.
     """
     issues = []
-    for rel, _stem, tree in _iter_pipeline_trees(pipelines_dir):
-        cache = {}
-        flagged = set()
-        for call, chain in _resolver_calls(tree):
-            kind, _scope = _classify(call.func.id, chain, cache)
-            if kind == "unbound" and "unbound" not in flagged:
-                flagged.add("unbound")
-                issues.append({"file": rel, "issue": "uses resolve() but doesn't import from canonical_players"})
-            elif kind == "local":
-                issues.append({"file": rel, "issue": f"line {call.lineno}: {call.func.id}() is bound locally "
-                               "(rebinding or shadowing), not to canonical_players"})
-    issues.extend(injected_resolver_wiring(pipelines_dir)[1])
+    for rel, _local, _stem, tree in _iter_pipeline_trees(pipelines_dir):
+        chains, cache, unbound = _scope_chains(tree), {}, False
+        for call in _resolver_calls(tree):
+            kind, scope = _lookup(call.func.id, chains[id(call)], cache)
+            if kind in ("canonical", "param") or (kind == "def" and scope is tree):
+                continue
+            if kind == "unbound":
+                if not unbound:
+                    unbound = True
+                    issues.append({"file": rel, "issue": "uses resolve() but doesn't import from canonical_players"})
+                continue
+            issues.append({"file": rel, "issue": f"line {call.lineno}: {call.func.id}() is bound locally "
+                           "(rebinding or shadowing), not to canonical_players"})
+    issues.extend(injected_resolver_wiring(pipelines_dir, contracts)[1])
     return issues
+
+
+RN_TWICE = ("def rn(n):\n    return canonical_players.resolve(n)\n\n"
+            "def rn(n):\n    return 5\n")
 
 
 class TestPlayerIdentityGuard(unittest.TestCase):
@@ -455,79 +545,164 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         self.assertNotIn("local.py", flagged, "a module's own def resolve() is not player identity")
         self.assertNotIn("imported.py", flagged)
 
-    def _scan(self, files: dict) -> list:
-        """Run the guard on a throwaway pipelines tree; -> sorted issue lines."""
+    TEST_CONTRACT = {("lib/cap.py", "build", "resolve"): {"caller.py"}}
+    CAP = "def build(rows, resolve):\n    return [resolve(r) for r in rows]\n"
+    # rn mirrors save_cbsros_references.resolve_name: canonical answer, one
+    # canonical retry, (key, None) or (None, reason).
+    RN = ("def rn(n):\n"
+          "    key, reason = canonical_players.resolve_with_reason(n)\n"
+          "    if key is None and reason == 'unmatched':\n"
+          "        key, reason = canonical_players.resolve_with_reason(n.strip())\n"
+          "    return (key, None) if key is not None else (None, reason)\n")
+    WIRED = "import canonical_players\nimport cap as c\n\n{rn}\n\ndef go(rows):\n    return c.build(rows, {arg})\n"
+
+    def _scan(self, files: dict, contracts=None) -> list:
+        """Run the guard on a throwaway pipelines tree; -> sorted 'file: issue' lines
+        with paths relative to that tree."""
         import tempfile
+        contracts = self.TEST_CONTRACT if contracts is None else contracts
         with tempfile.TemporaryDirectory(dir=REPO, prefix=".jeg1238-identity-") as tmp:
             d = Path(tmp)
             for rel, text in files.items():
                 (d / rel).parent.mkdir(parents=True, exist_ok=True)
                 (d / rel).write_text(text, encoding="utf-8")
-            return sorted(f"{i['file'].split(tmp.rsplit('/', 1)[-1] + '/', 1)[-1]}: {i['issue']}"
-                          for i in check_canonical_resolution_usage(d))
+            prefix = str(d.relative_to(REPO)) + "/"
+            return sorted(f"{i['file'].replace(prefix, '', 1)}: {i['issue']}"
+                          for i in check_canonical_resolution_usage(d, contracts))
 
-    CAP = "def build(rows, resolve):\n    return [resolve(r) for r in rows]\n"
-    WIRED = ("import canonical_players\nimport cap as c\n\n"
-             "def rn(n):\n    return canonical_players.resolve_with_reason(n)\n\n"
-             "def go(rows):\n    return c.build(rows, {arg})\n")
+    def _caller(self, arg, rn=None):
+        return self.WIRED.format(rn=self.RN if rn is None else rn, arg=arg)
 
     def test_production_injected_resolver_is_canonical(self):
         """JEG-1238: projection_capture.cbs_capture_rows takes `resolve` as a
-        parameter. Its only pipeline caller, save_cbsros_references.save_captures,
-        must inject a resolver over canonical_players.resolve_with_reason."""
+        parameter. Its one pinned caller, save_cbsros_references.save_captures,
+        injects resolve_name, whose every return is canonical_players' answer."""
         entries, issues = injected_resolver_wiring(PIPELINES_DIR)
         self.assertEqual(issues, [])
-        cbs = [e for e in entries if e["file"] == "pipelines/lib/projection_capture.py"
-               and e["function"] == "cbs_capture_rows"]
-        self.assertEqual(len(cbs), 1, entries)
-        self.assertEqual(cbs[0]["param"], "resolve")
-        self.assertIn("pipelines/save_cbsros_references.py", {f for f, _line, _ok in cbs[0]["callers"]})
-        self.assertTrue(all(ok for _f, _line, ok in cbs[0]["callers"]), cbs[0])
+        self.assertEqual([(e["file"], e["function"], e["param"]) for e in entries],
+                         [("pipelines/lib/projection_capture.py", "cbs_capture_rows", "resolve")])
+        self.assertEqual([(f, ok) for f, _line, ok in entries[0]["callers"]],
+                         [("pipelines/save_cbsros_references.py", True)])
 
-    def test_injected_resolver_needs_canonical_wiring_at_every_caller(self):
-        ok = {"lib/cap.py": self.CAP}
-        for arg in ("lambda n: rn(n)[0]", "rn", "canonical_players.resolve_with_reason",
-                    "resolve=lambda n: rn(n)[0]"):
+    def test_registered_injection_positive_controls(self):
+        for arg in ("canonical_players.resolve_with_reason", "rn", "lambda n: rn(n)[0]",
+                    "resolve=lambda n: rn(n)[0]", "lambda n: canonical_players.resolve(n)"):
             with self.subTest(arg=arg):
-                self.assertEqual(self._scan({**ok, "caller.py": self.WIRED.format(arg=arg)}), [])
-        # A bare-name import of the function is traced too.
-        self.assertEqual(self._scan({**ok, "caller.py":
-                                     "from canonical_players import resolve\nfrom cap import build as b\n\n"
-                                     "def go(rows):\n    return b(rows, resolve)\n"}), [])
-        bad = {
-            "ad-hoc normalizer": "lambda n: str(n).lower()",
-            "permit-all": "lambda n: 5",
-            "guess on miss": "lambda n: rn(n)[0] or 5",
-            "untraceable variable": "make_resolver()",
-            "argument missing": "",
-        }
-        for why, arg in bad.items():
-            with self.subTest(why=why):
-                got = self._scan({**ok, "caller.py": self.WIRED.format(arg=arg).replace("rows, )", "rows)")})
-                self.assertEqual(len(got), 1, got)
-                self.assertTrue(got[0].startswith("caller.py: line "), got)
-        # Two callers: one canonical, one not -> the bad one is still reported.
-        got = self._scan({**ok, "a.py": self.WIRED.format(arg="rn"),
-                          "b.py": self.WIRED.format(arg="lambda n: n")})
-        self.assertEqual([g.split(":")[0] for g in got], ["b.py"])
+                self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)}), [])
+        bare = ("from canonical_players import resolve\nfrom cap import build as b\n\n"
+                "def go(rows):\n    return b(rows, resolve)\n")
+        self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": bare}), [])
 
-    def test_injected_resolver_without_any_caller_fails_closed(self):
+    def test_review_bypasses_fail(self):
+        """The four injections Codex's review (JEG-1238, 12:23 UTC) found accepted on 49e825dd."""
+        cases = {
+            "wrapper discards the canonical answer, returns 5": self._caller(
+                "rn", rn="def rn(n):\n    canonical_players.resolve_with_reason(n)\n    return 5\n"),
+            "unused nested canonical helper, returns 5": self._caller(
+                "rn", rn="def rn(n):\n    def helper():\n        return canonical_players.resolve(n)\n"
+                         "    return 5\n"),
+            "caller parameter shadows canonical_players": (
+                "import canonical_players\nimport cap as c\n\n"
+                "def go(rows, canonical_players):\n    return c.build(rows, canonical_players.resolve)\n"),
+            "fake bound before the import (two bindings fail closed)": (
+                "import cap as c\nimport fake\ncanonical_players = fake\nimport canonical_players\n\n"
+                "def go(rows):\n    return c.build(rows, canonical_players.resolve)\n"),
+            "imported canonical_players rebound to a fake": (
+                "import canonical_players\nimport cap as c\nimport fake\ncanonical_players = fake\n\n"
+                "def go(rows):\n    return c.build(rows, canonical_players.resolve)\n"),
+        }
+        for why, caller in cases.items():
+            with self.subTest(why=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": caller})
+                self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+
+    def test_wrapper_and_lambda_fallbacks_fail(self):
+        wrappers = {
+            "fallback in return": "def rn(n):\n    key, r = canonical_players.resolve_with_reason(n)\n"
+                                  "    return key or 5\n",
+            "rebound before return": "def rn(n):\n    key, r = canonical_players.resolve_with_reason(n)\n"
+                                     "    key = 5\n    return key\n",
+            "augmented rebinding": "def rn(n):\n    key, r = canonical_players.resolve_with_reason(n)\n"
+                                   "    key += 1\n    return key\n",
+            "literal on one branch": "def rn(n):\n    if not n:\n        return 5\n"
+                                     "    return canonical_players.resolve(n)\n",
+            "loop variable return": "def rn(n):\n    canonical_players.resolve(n)\n"
+                                    "    for key in (1, 2):\n        pass\n    return key\n",
+            "returns its own input": "def rn(n):\n    canonical_players.resolve(n)\n    return n\n",
+            "generator": "def rn(n):\n    yield canonical_players.resolve(n)\n",
+            "no return at all": "def rn(n):\n    canonical_players.resolve(n)\n",
+            "wrapper redefined": RN_TWICE,
+        }
+        for why, rn in wrappers.items():
+            with self.subTest(wrapper=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller("rn", rn=rn)})
+                self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+        args = {
+            "lambda fallback": "lambda n: rn(n)[0] or 5",
+            "ad-hoc lambda": "lambda n: str(n).lower()",
+            "permit-all lambda": "lambda n: 5",
+            "lambda parameter shadows the wrapper": "lambda n, rn=str: rn(n)",
+            "untraceable variable": "make_resolver()",
+        }
+        for why, arg in args.items():
+            with self.subTest(arg=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)})
+                self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+        impostors = {
+            "canonical_players taken from another module":
+                self._caller("canonical_players.resolve").replace(
+                    "import canonical_players\n", "from fake import canonical_players\n", 1),
+            "another module aliased as canonical_players":
+                self._caller("canonical_players.resolve").replace(
+                    "import canonical_players\n", "import fake as canonical_players\n", 1),
+            "resolve imported from another module":
+                "from fake.canonical_players_shim import resolve\nimport cap as c\n\n"
+                "def go(rows):\n    return c.build(rows, resolve)\n",
+            "aliased module name": self._caller("cp.resolve").replace(
+                "import canonical_players\n", "import canonical_players\ncp = canonical_players\n", 1),
+        }
+        for why, caller in impostors.items():
+            with self.subTest(impostor=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": caller})
+                self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+        legit = self._caller("cp.resolve").replace(
+            "import canonical_players\n", "import lib.canonical_players as cp\n", 1)
+        self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": legit}), [])
+        shadowed = self._caller("rn").replace("def go(rows):\n", "def go(rows):\n    rn = lambda n: 5\n")
+        got = self._scan({"lib/cap.py": self.CAP, "caller.py": shadowed})
+        self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+        missing = self._caller("rn").replace("c.build(rows, rn)", "c.build(rows)")
+        got = self._scan({"lib/cap.py": self.CAP, "caller.py": missing})
+        self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+
+    def test_injection_contract_is_pinned(self):
+        ok = {"lib/cap.py": self.CAP, "caller.py": self._caller("rn")}
+        got = self._scan(ok, contracts={})
+        self.assertEqual(len(got), 1, got)
+        self.assertIn("not a registered injection point", got[0])
+        got = self._scan({**ok, "other.py": self._caller("rn")})
+        self.assertEqual(len(got), 1, got)
+        self.assertTrue(got[0].startswith("other.py: ") and "not a pinned caller" in got[0], got)
         got = self._scan({"lib/cap.py": self.CAP})
         self.assertEqual(len(got), 1, got)
-        self.assertIn("no pipeline caller wires a canonical_players resolver", got[0])
+        self.assertIn("pinned caller caller.py no longer wires", got[0])
+        two = {("lib/cap.py", "build", "resolve"): {"a.py", "b.py"}}
+        got = self._scan({"lib/cap.py": self.CAP, "a.py": self._caller("rn"),
+                          "b.py": self._caller("lambda n: n")}, contracts=two)
+        self.assertEqual([g.split(":")[0] for g in got], ["b.py"])
 
     def test_shadowing_nested_and_local_bindings(self):
-        canonical_caller = self.WIRED.format(arg="rn")
+        canonical_caller = self._caller("rn")
         legit = {
             "closure over the parameter":
                 "def build(rows, resolve):\n    def one(r):\n        return resolve(r)\n"
                 "    return [one(r) for r in rows]\n",
-            "function-level canonical import":
-                "def build(rows):\n    from canonical_players import resolve\n    return resolve(rows)\n",
         }
         for why, cap in legit.items():
             with self.subTest(why=why):
                 self.assertEqual(self._scan({"lib/cap.py": cap, "caller.py": canonical_caller}), [])
+        self.assertEqual(self._scan({"lib/cap.py": "def build(rows):\n    from canonical_players import resolve\n"
+                                                   "    return resolve(rows)\n"}, contracts={}), [])
         flagged = {
             "parameter rebound in its own function":
                 "def build(rows, resolve):\n    resolve = lambda n: n.lower()\n    return resolve(rows)\n",
@@ -542,9 +717,12 @@ class TestPlayerIdentityGuard(unittest.TestCase):
                 "class C:\n    def build(self, rows, resolve):\n        return resolve(rows)\n",
             "module-level import from elsewhere":
                 "from fuzzy import resolve\n\ndef build(rows):\n    return resolve(rows)\n",
+            "canonical import then rebound":
+                "from canonical_players import resolve\nresolve = str.lower\n\ndef build(rows):\n"
+                "    return resolve(rows)\n",
             "module-level assignment":
                 "resolve = str.lower\n\ndef build(rows):\n    return resolve(rows)\n",
-            "global declaration escapes the parameter-free scope":
+            "global declaration escapes to an unbound module name":
                 "def build(rows):\n    global resolve\n    return resolve(rows)\n",
         }
         for why, cap in flagged.items():
@@ -553,27 +731,37 @@ class TestPlayerIdentityGuard(unittest.TestCase):
                 self.assertTrue(any(g.startswith("lib/cap.py: ") for g in got), got)
 
     def test_real_capture_wiring_mutations_fail(self):
-        """Mutation evidence on the real files: the current pair is clean;
-        bypassing canonical_players in the caller, or dropping the caller, fails."""
+        """Mutation evidence on the real files: the current pair is clean; bypassing
+        canonical_players anywhere on the caller's path, or moving the call, fails."""
         cap = (PIPELINES_DIR / "lib" / "projection_capture.py").read_text(encoding="utf-8")
         saver = (PIPELINES_DIR / "save_cbsros_references.py").read_text(encoding="utf-8")
         lam = 'lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0]'
-        self.assertIn(lam, saver, "the production caller changed; re-check its provenance")
+        ret = "    return (key, None) if key is not None else (None, reason)\n"
+        imp = "import canonical_players  # noqa: E402"
+        for needle in (lam, ret, imp, "\nfrom nfl_week import"):
+            self.assertEqual(saver.count(needle), 1, f"the production caller changed; re-check: {needle}")
         real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
-        self.assertEqual(self._scan(real), [])
+        self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
         mutations = {
             "caller injects an ad-hoc resolver": saver.replace(lam, 'lambda n, p, norm: str(n or "").lower()'),
             "caller falls back to a guess": saver.replace(lam, lam + " or 0"),
             "resolve_name stops calling canonical_players":
                 saver.replace("canonical_players.resolve_with_reason(", "fuzzy_match("),
+            "resolve_name returns a literal": saver.replace(ret, "    return (5, None)\n"),
+            "resolve_name guesses on a miss": saver.replace(ret, "    return (key or 5, None)\n"),
+            "canonical_players rebound after import":
+                saver.replace("\nfrom nfl_week import", "\ncanonical_players = object()\nfrom nfl_week import", 1),
         }
         for why, text in mutations.items():
             with self.subTest(why=why):
-                got = self._scan({**real, "save_cbsros_references.py": text})
+                got = self._scan({**real, "save_cbsros_references.py": text}, contracts=INJECTED_RESOLVER_CONTRACTS)
                 self.assertTrue(any("cbs_capture_rows() is not given a canonical_players resolver" in g
                                     for g in got), got)
-        got = self._scan({"lib/projection_capture.py": cap})
-        self.assertTrue(any("no pipeline caller" in g for g in got), got)
+        got = self._scan({"lib/projection_capture.py": cap}, contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertTrue(any("no longer wires" in g for g in got), got)
+        got = self._scan({"lib/projection_capture.py": cap, "save_other.py": saver},
+                         contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertTrue(any(g.startswith("save_other.py: ") and "not a pinned caller" in g for g in got), got)
 
     def test_unified_py_uses_resolve(self):
         """Verify unified.py correctly uses canonical_players.resolve()."""
