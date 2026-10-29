@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JEG-1198 option C, round 5: look closer at what round 4 found.
+"""JEG-1198 option C, round 6: expert consensus cuts and each expert's own ROS list; RotoBaller.
 
 Research only, run on a GitHub runner. Jeremy, 2026-10-29: "try fantasylife,
 footballguys, rotoballer, roto street journal, and multiple cuts of the fantasypros
@@ -77,72 +77,60 @@ def ecr_summary(page):
 
 
 def fp():
-    print("\n##### expert consensus: expert list and cuts")
-    code, page = fetch(FP_START)
-    print("start status", code, len(page))
-    tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
-    links = []
-    if len(tables) > 1:
-        for row in re.findall(r"<tr\b.*?</tr>", tables[1], re.S | re.I)[:12]:
-            hrefs = re.findall(r'href="([^"]+)"', row)
-            print("  expert row:", text(row)[:110], "| hrefs:", hrefs[:3])
-            links += [urljoin(FP_START, h) for h in hrefs if "rankings" in h or "experts" in h]
-    code, half = fetch(FP_HALF)
-    eg = json_var(half, "expertGroupsData")
-    print("expertGroupsData type:", type(eg).__name__,
-          (list(eg)[:20] if isinstance(eg, dict) else (eg[:3] if isinstance(eg, list) else eg)))
-    sd = json_var(half, "seasonData")
-    print("seasonData:", str(sd)[:300])
-    for s in sorted(set(re.findall(r"ros-[a-z0-9-]+\.php", half)))[:40]:
-        print("  ros page named in the page:", s)
-    for s in sorted(set(re.findall(r'(?:scoring|filter|type)=[A-Za-z_-]+', half)))[:30]:
-        print("  query option named:", s)
-    seen = set()
-    for u in links:
-        pu = urlparse(u)
-        if pu.netloc != "www.fantasypros.com" or u in seen:
-            continue
-        seen.add(u)
-        if len(seen) > 6:
-            break
+    print("\n##### expert consensus: scoring and position cuts")
+    for slug in ("ros-ppr-overall", "ros-overall", "ros-half-point-ppr-overall", "ros-qb", "ros-half-point-ppr-rb",
+                 "ros-ppr-rb", "ros-rb", "ros-half-point-ppr-wr", "ros-half-point-ppr-te"):
+        u = f"https://www.fantasypros.com/nfl/rankings/{slug}.php"
         c, pg = fetch(u)
-        t = re.search(r"<title[^>]*>(.*?)</title>", pg, re.S | re.I)
-        tabs = re.findall(r"<table\b.*?</table>", pg, re.S | re.I)
-        rows = [text(r)[:80] for t2 in tabs[:1] for r in re.findall(r"<tr\b.*?</tr>", t2, re.S | re.I)[:4]]
-        gate = sorted({m.group(0).lower() for m in re.finditer(r"(?i)premium|sign ?in|upgrade|locked|subscribe", pg)})[:6]
-        print(f"\n--- expert link {u} status={c} bytes={len(pg)}\n  title: {text(t.group(1))[:120] if t else None}"
-              f"\n  ecrData: {ecr_summary(pg)}\n  tables={len(tabs)} rows={rows}\n  gate: {gate}")
+        print(f"--- {slug} status={c} bytes={len(pg)} ecr={ecr_summary(pg) if c == 200 else None}")
+    print("\n##### expert consensus: each expert's own ROS list")
+    code, page = fetch(FP_START)
+    tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
+    experts = []
+    if len(tables) > 1:
+        for row in re.findall(r"<tr\b.*?</tr>", tables[1], re.S | re.I):
+            hrefs = [h.replace("&amp;", "&") for h in re.findall(r'href="([^"]+)"', row)]
+            rk = [h for h in hrefs if h.startswith("/nfl/rankings/") and "type=ros" in h]
+            if rk:
+                experts.append((text(row)[:70], rk[0]))
+    print(f"experts with a ROS list link: {len(experts)}")
+    for label, h in experts[:12]:
+        for scoring in ("HALF", "PPR"):
+            u = urljoin(FP_START, h.replace("scoring=HALF", f"scoring={scoring}"))
+            c, pg = fetch(u)
+            tabs = re.findall(r"<table\b.*?</table>", pg, re.S | re.I)
+            rows = re.findall(r"<tr\b.*?</tr>", tabs[0], re.S | re.I) if tabs else []
+            body = [text(r) for r in rows[1:]]
+            pos = {}
+            for r in body:
+                m = re.search(r"\b(QB|RB|WR|TE|K|DST)\d+\b", r)
+                if m:
+                    pos[m.group(1)] = pos.get(m.group(1), 0) + 1
+            locked = sum(1 for r in rows if re.search(r"(?i)lock|blur|premium|upgrade", r))
+            upd = re.search(r"(?i)updated[^<]{0,40}", pg)
+            print(f"--- {label} [{scoring}] status={c} rows={len(body)} by_pos={pos} locked_rows={locked} "
+                  f"updated={text(upd.group(0)) if upd else None} last={body[-1][:60] if body else None}")
 
 
 def rotoballer():
     print("\n##### RotoBaller ROS page")
     code, page = fetch(RB_ROS)
-    print("status", code, len(page))
-    for needle in ("get_nfl_ranking", "spreadsheet", "Rufe", "Updated", "rest-of-season"):
-        for a in around(page, needle, 250, 450, 2):
-            print(f"  [{needle}] ...{a}...")
-    calls = sorted(set(re.findall(r"/api/rbapps/nfl/get_nfl_ranking\.php\?pos=[^\"'&\s]*(?:&[^\"'\s]*)?", page)))
-    print("endpoint forms named:", calls[:10])
-    params = sorted(set(re.findall(r"get_nfl_ranking\.php\?pos=['\"]?\s*\+?\s*([A-Za-z_]+)", page)))
-    print("pos param expressions:", params[:10])
-    for pos in ("Overall", "QB", "RB"):
-        u = f"https://www.rotoballer.com/api/rbapps/nfl/get_nfl_ranking.php?pos={pos}"
-        c, body = fetch(u, "application/json")
-        print(f"\n--- {u} status={c} bytes={len(body)}\n  head: {re.sub(r'\s+', ' ', body[:500])}")
-
-
-def fantasylife():
-    print("\n##### Fantasy Life ROS page")
-    code, page = fetch(FL_ROS)
-    chunk = "".join(re.findall(r'self\.__next_f\.push\(\[1,"(.*?)"\]\)', page, re.S)).replace('\\"', '"')
-    print("status", code, "flight bytes", len(chunk))
-    for needle in ("consensus", "Consensus", "ranking", "api.", "https://", "rest-of-season", "ros"):
-        for a in around(chunk, needle, 120, 260, 2):
-            print(f"  [{needle}] ...{a}...")
+    sel = re.search(r'<select[^>]+id="select_ranking".*?</select>', page, re.S)
+    print("select_ranking:", re.findall(r'<option[^>]*value="([^"]*)"[^>]*>(.*?)</option>', sel.group(0)) if sel else None)
+    main = re.search(r'<div[^>]+class="[^"]*(?:entry|post-content|article)[^"]*".*', page, re.S)
+    body = main.group(0) if main else page
+    for needle in ("spreadsheet=", "ROS", "Rest of Season", "rankings-table", "tablepress", "data-src", "google.com/spreadsheets"):
+        for a2 in around(body, needle, 150, 300, 2):
+            print(f"  [{needle}] ...{text(a2)[:380]}...")
+    types = re.findall(r'<option[^>]*value="([^"]*)"', sel.group(0)) if sel else []
+    for t in types[:6]:
+        u = f"https://www.rotoballer.com/api/rbapps/nfl/get_nfl_ranking.php?pos=RB&type={t}"
+        c, b2 = fetch(u, "application/json")
+        print(f"--- type={t!r} status={c} bytes={len(b2)} head={re.sub(r'\\s+', ' ', b2[:200])}")
 
 
 if __name__ == "__main__":
-    for f in (fp, rotoballer, fantasylife):
+    for f in (fp, rotoballer):
         try:
             f()
         except Exception as e:  # keep going past one bad source
