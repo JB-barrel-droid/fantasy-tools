@@ -36,3 +36,12 @@ the runner block, and the weekly projections the ticket lists, kept separate.
 
 Nothing reads the weekly snapshot; there is no weekly table or saver. No values,
 blends or published output change.
+
+### Update 2026-10-29 21:10 UTC: relay deployed, also blocked
+- Verified: `fantasysharks-fetch` deployed (Supabase MCP, verify_jwt true, version 1) on
+  Jeremy's yes: "try the relay, and if it doesn't work, run it on mac".
+- Verified: dry dispatch of `fantasysharks-supabase-sync.yml` on this branch (run
+  40946464921, mode dry, nothing written) failed both pulls with
+  `HTTP 403 ... relay HTTP 403`. Supabase egress is walled like GitHub runners.
+  No rows, no week labels seen.
+- Next: the pull runs from the Mac mini; prompt posted on JEG-621.
