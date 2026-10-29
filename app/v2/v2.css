@@ -2209,6 +2209,13 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-levels-switch { display: inline-flex; align-items: center; min-height: 44px; gap: 6px; cursor: pointer; }
 .v2-lg-levels-switch input { width: 22px; height: 44px; margin: 0; cursor: inherit; }
 .v2-lg-levels-switch.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
+/* JEG-1273: the league checks list; each "Open" link is a 44px tap target. */
+.v2-lg-problems { margin: 8px 0; }
+.v2-lg-problems[data-state="problems"] { border-left: 3px solid var(--v2-negative); padding-left: 10px; }
+.v2-lg-problems-head { font-size: 15px; margin: 0 0 4px; }
+.v2-lg-problems-list { margin: 0; padding-left: 18px; }
+.v2-lg-problems-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; }
+.v2-lg-problem-open { min-height: 44px; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }

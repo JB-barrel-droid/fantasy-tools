@@ -566,6 +566,7 @@
     const marked = ws.teams.find(t => t.id === ws.myTeamId);
     if (editorSummary) editorSummary.textContent = `${plural(ws.teams.length, "team")}${marked ? ` · Your team: ${marked.name}` : ws.teams.length ? " · Expand to mark your team" : " · Paste your league's rosters or add teams"}`;
     renderCountMismatch();
+    renderProblems();
   }
 
   function renderUndo() {
@@ -872,6 +873,102 @@
     unresolved_unknown: "a team's unmatched players were not recorded (older saves or shared links)",
     not_source_observed: "a team's roster was not read from a site page (added by hand or from a link)",
     bench_omitted: "a pasted page left a team's bench out", coverage_unproven: "no pasted page shows a team's whole roster, bench and reserve seats included"};
+  // ---------- JEG-1273: one list of the league's problems ----------
+  // Jeremy, 2026-10-29: "one league-wide problems list (unmatched lines, short or over teams, players on two teams, missing
+  // kickers or defenses), each linking to its team." Checks for the reader: only the reasons leagueCheck already gives keep
+  // the standard bench; short or over teams and missing kickers or defenses are shown, never gates. Every reason
+  // leagueCheck gives appears here (per team where it names one), so the list and the "Use league rosters" switch agree.
+  // Items: {kind, text, teams: [{id, name}], reasons: [leagueCheck reasons it covers]}, teams in page order, then kind.
+  const PROBLEM_KINDS = ["team_count", "unmatched", "spots", "two_teams", "kicker_defense", "bench_omitted", "unrecorded",
+    "not_read", "stale", "other"];
+  const STARTER_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const isDefense = e => e.pos === "DEF" || e.pos === "DST";
+  function leagueProblems(ws) {
+    const C = engine();
+    if (!C || !C.getState || !ws.teams.length) return null;
+    const V = root.ValueModel;
+    const shape = C.getRosterShape ? C.getRosterShape() : {};
+    const spots = STARTER_KEYS.concat(["BENCH", "K", "DST"]).reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const starting = STARTER_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const reserveSlot = e => Boolean(V && V.isReserveSlot && V.isReserveSlot(e.slot));
+    const ref = t => ({id: t.id, name: t.name});
+    const out = [];
+    const expected = Number(C.getState().teams) || 0;
+    if (ws.teams.length !== expected) {
+      out.push({kind: "team_count", teams: [], reasons: ["team_count"],
+        text: `League settings have ${plural(expected, "team")}; ${ws.teams.length} ${ws.teams.length === 1 ? "is" : "are"} loaded.`});
+    }
+    const now = Date.now();
+    const maxAge = V && V.ROSTER_MAX_AGE_MS ? V.ROSTER_MAX_AGE_MS : 7 * 24 * 3600 * 1000;
+    ws.teams.forEach(t => {
+      const p = t.provenance || {};
+      const active = t.entries.filter(e => !reserveSlot(e));
+      const valued = active.filter(e => !F.isNotEvaluated(e)).length;
+      const add = (kind, text, reasons) => out.push({kind, text: `${t.name}: ${text}`, teams: [ref(t)], reasons: reasons || []});
+      if (p.unresolved > 0) add("unmatched", `${plural(p.unresolved, "pasted player")} not matched yet. Open the team to add ${p.unresolved === 1 ? "him" : "them"}.`, ["unresolved"]);
+      if (!t.entries.length) add("spots", "no players.", ["empty_team"].concat(valued < starting ? ["short_roster"] : []));
+      else if (spots && active.length !== spots) {
+        add("spots", active.length < spots ? `${active.length} of ${spots} roster spots filled.` : `${active.length - spots} over its ${spots} roster spots.`,
+          valued < starting ? ["short_roster"] : []);
+      } else if (valued < starting) add("spots", `fewer players than starting spots.`, ["short_roster"]);
+      const k = Number(shape.K) || 0, d = Number(shape.DST) || 0;
+      const missing = [];
+      if (k > 0 && t.entries.length && !t.entries.some(e => e.pos === "K")) missing.push("kicker");
+      if (d > 0 && t.entries.length && !t.entries.some(isDefense)) missing.push("defense");
+      if (missing.length) add("kicker_defense", `no ${missing.join(" or ")}.`);
+      if (p.coverage === "bench_omitted") add("bench_omitted", "the pasted page left the bench out. Paste the team page with the bench shown.", ["bench_omitted"]);
+      if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown"]);
+      if (!p.observedAt) add("not_read", "not read from a site page (added by hand or from a link). Paste the team page.", ["not_source_observed", "no_timestamp"]);
+      else if (now - p.observedAt > maxAge) add("stale", "roster is more than 7 days old. Paste it again.", ["stale"]);
+    });
+    const owners = new Map();
+    ws.teams.forEach(t => t.entries.forEach(e => { if (!owners.has(e.key)) owners.set(e.key, {name: e.name, teams: []}); owners.get(e.key).teams.push(t); }));
+    owners.forEach(o => {
+      if (o.teams.length > 1) out.push({kind: "two_teams", teams: o.teams.map(ref), reasons: ["duplicate_owner"],
+        text: `${o.name} is on ${o.teams.map(t => t.name).join(" and ")}.`});
+    });
+    const order = new Map(ws.teams.map((t, i) => [t.id, i]));
+    const at = item => (item.teams.length ? order.get(item.teams[0].id) : -1);
+    out.sort((a, b) => at(a) - at(b) || PROBLEM_KINDS.indexOf(a.kind) - PROBLEM_KINDS.indexOf(b.kind));
+    // Anything leagueCheck blocks on that no item names yet.
+    let check = null;
+    try { check = leagueCheck(C, ws); } catch (error) { check = null; }
+    const covered = new Set(out.flatMap(item => item.reasons));
+    ((check && check.reasons) || []).forEach(r => {
+      if (!covered.has(r)) out.push({kind: "other", teams: [], reasons: [r], text: `${(LEVEL_REASONS[r] || r).replace(/^./, c => c.toUpperCase())}.`});
+    });
+    return out;
+  }
+  // Open a team's box from the list and put the reader on it.
+  function openTeam(id) {
+    const card = $("v2LgCard");
+    if (card) card.open = true;
+    const comp = UI.comps.get(id);
+    if (!comp) return;
+    comp.collapsed = false;
+    comp.update();
+    comp.li.scrollIntoView({block: "nearest"});
+    const name = comp.li.querySelector(".v2-lg-name");
+    if (name) name.focus({preventScroll: true});
+  }
+  function renderProblems() {
+    const box = $("v2LgProblems");
+    if (!box) return;
+    const ws = store.get();
+    const items = leagueProblems(ws);
+    box.hidden = !items;
+    if (!items) { box.replaceChildren(); return; }
+    if (!items.length) {
+      box.dataset.state = "ready";
+      box.replaceChildren(el("p", {class: "v2-meta", id: "v2LgProblemsReady", text: "League checks: every team is loaded and checks out."}));
+      return;
+    }
+    box.dataset.state = "problems";
+    box.replaceChildren(el("h3", {class: "v2-lg-problems-head", text: `League checks: ${plural(items.length, "problem")}`}),
+      el("ul", {class: "v2-lg-problems-list", id: "v2LgProblemsList"}, ...items.map(item => el("li", {"data-kind": item.kind},
+        el("span", {text: item.text}),
+        ...item.teams.map(t => button(`Open ${t.name}`, {class: "v2-link v2-lg-problem-open", "data-team-id": t.id}, () => openTeam(t.id)))))));
+  }
   const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
   // JEG-1249: the "Use league rosters" switch. Grayed out, with what is missing, until the league qualifies; on by default
   // once it does; the reader's choice is saved with the league.
@@ -1598,6 +1695,7 @@
       el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
+      el("section", {class: "v2-lg-problems", id: "v2LgProblems", role: "status", "aria-live": "polite", "aria-label": "League checks", hidden: true}),
       el("ul", {class: "v2-lg-teams", id: "v2LgTeams"}),
       el("p", {class: "v2-meta v2-footnote", id: "v2LgFootnote", hidden: true, text: "K and DEF are on rosters (and counted) but not evaluated."}),
       el("div", {class: "v2-sr", id: "v2LgLive", role: "status", "aria-live": "polite"}));
