@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -45,23 +45,12 @@ jobs:
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
       - run: make sync
-      - name: Render sweep shard (one module at a time)
+      - name: JEG-1193 phone render module (scratch branch only)
         run: |
-          set -o pipefail
-          rc=0
-          make test-render-sweep-${{ matrix.shard }} 2>&1 | tee "$RUNNER_TEMP/shard.log" || rc=$?
-          {
-            echo "### Render sweep shard ${{ matrix.shard }} of 3"
-            ran=$(grep -c '^python3 -m unittest ' "$RUNNER_TEMP/shard.log" || true)
-            failed=$(grep -c '^run_suite: failed: ' "$RUNNER_TEMP/shard.log" || true)
-            echo
-            echo "Modules run: ${ran}. Modules failed: ${failed}."
-            if [ "${failed}" != "0" ]; then
-              echo
-              grep '^run_suite: failed: ' "$RUNNER_TEMP/shard.log" | sed 's/^run_suite: failed: python3 -m unittest /- /'
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
-          if [ "$rc" != "0" ]; then
-            echo "::warning title=Render sweep shard ${{ matrix.shard }} failed::At least one render module failed. Nothing was held; see the job summary for the module names."
-            exit 1
-          fi
+          set +e
+          python3 -m unittest -v tests.test_v2_mobile_phase1_render > "$RUNNER_TEMP/mod.log" 2>&1
+          rc=$?
+          cat "$RUNNER_TEMP/mod.log"
+          body=$( (git log --oneline -1; echo "rc=$rc"; tail -c 3500 "$RUNNER_TEMP/mod.log") | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')
+          echo "::warning title=jeg1193 phone module::${body}"
+          exit $rc
