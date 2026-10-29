@@ -30,12 +30,13 @@ until the queue is done):
   unresolved.
 
 Ownership override requested by Jeremy on 2026-10-28 (America/Chicago):
-- JEG-1217 manager-aware recommendations: Claude owns answer-first product
-  prototype and architecture work, including evaluating a parallel site versus
-  existing tabs. This supersedes the earlier Codex/backlog-only boundary for
-  this ticket, not the general role split. Jeremy still approves public launch,
-  new calculation/ranking logic and design decisions. Codex remains release
-  coordinator; the release queue above is unchanged.
+- JEG-1217 manager-aware recommendations: Claude builds the features into the
+  existing dashboard first. A simpler experience is deferred until those
+  features are working; there is no separate-site or prototype-only gate.
+  This scoped implementation supersedes the earlier Codex/backlog-only boundary
+  and prototype/site-choice scope, not the general role split. Jeremy still
+  approves new numerical ranking, defaults and methodology decisions. Codex
+  remains release coordinator; the release queue above is unchanged.
 
 ## Resume here
 
