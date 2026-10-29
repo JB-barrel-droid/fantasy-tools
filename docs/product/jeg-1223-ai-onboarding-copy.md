@@ -49,7 +49,6 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 | `ai.link.line` | Opens this view. A chat with the DDF tool reads it too. | Existing line under Copy link (Jeremy's 2026-10-27 pick A). Unchanged. |
 | `ai.link.more` | Copy link puts this view's address on your clipboard: your league settings and the trade, rosters or target you're working on. Paste it into a chat that has the DDF tool connected and it picks up from there. Pasting a link does not connect the tool. | Connect page and any ⓘ, if the design wants a longer form |
 | `ai.link.local` | Your saved work stays in this browser. A link carries only what is in its address. | Same |
-| `ai.link.custom` | The chat uses standard DDF Value. Your value basis and player overrides stay on the site, so the chat's numbers can differ from yours here. | See decision 1 |
 
 ### Fallback and error text
 
@@ -67,7 +66,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 |---|---|---|---|
 | Connect vs share | Connecting is a one-time setup in the chat app (custom connector URL). | Sharing is pasting a site link into a chat that is already connected. | `ai.cta`, `ai.link.more` ("Pasting a link does not connect the tool.") |
 | Browser-local vs link-carried | Workspaces and overrides are saved in this browser's localStorage (`workspace.js` line 11, `overrides.js`). | A link carries league settings, work lists, and on Compare a trade `basis=`/`ov=` (`v2.js` `tradeHash`). | `ai.link.local` |
-| Site vs connector | Site: lineup-aware Compare, per-chart columns, value basis and overrides, league-wide finder UI. | Connector: values by name, trade sum, 1-for-1 targets, finder between rosters or across a league, read and make links, explain. | `ai.link.custom`; no homepage string claims site features in chat |
+| Site vs connector | Site: lineup-aware Compare, per-chart columns, value basis and overrides, league-wide finder UI. | Connector: values by name, trade sum, 1-for-1 targets, finder between rosters or across a league, read and make links, explain. | No homepage string claims site features in chat |
 
 ## Claim → evidence → limitation
 
@@ -80,7 +79,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 | 5 | Ask about a trade in plain words | `compare_trade` live: Bijan vs Chase, standard 10-team, 75.2 vs 40.1 | L | Sum of DDF Values only: not lineup-aware, no per-chart breakdown (the tool's own description says so). Copy must not say "full trade analysis". |
 | 6 | Fair 1-for-1 targets | `trade_targets` live: Puka Nacua, half PPR 12-team, six targets within 15% | L | DDF Value only. |
 | 7 | A site link carries league and work into a connected chat | `read_state` live on a Compare link resolved both players (player keys 217, 2730) | L | JEG-1157 (empty player list) is Done and no longer reproduces. |
-| 8 | A link does not carry your custom values into the chat | `read_state` live on the same link plus `basis=fantasycalc&ov=217:+20` returned identical values (Bijan 67.6) with an empty `notes` list, and the returned `site_url` dropped `basis` and `ov` | L, S | **Known gap.** Silent: no warning to the chat. A link handed back by the chat also loses the reader's basis and overrides. Hence `ai.link.custom`. Detailed reproduction belongs to the shared-link child spec. |
+| 8 | A link does not carry your custom values into the chat | `read_state` live on the same link plus `basis=fantasycalc&ov=217:+20` returned identical values (Bijan 67.6) with an empty `notes` list, and the returned `site_url` dropped `basis` and `ov` | L, S | **Known gap.** Silent: no warning to the chat. A link handed back by the chat also loses the reader's basis and overrides. Jeremy, 2026-10-28 CT: "we should fix the tech, and leave it out." The fix is JEG-1225; the copy carries no caveat. Detailed reproduction belongs to the shared-link child spec. |
 | 9 | Saved work stays in this browser | `workspace.js` "Saved in this browser only (localStorage key ddf.v2.workspaces)" | S | Private browsing or cleared site data loses it. |
 | 10 | Unmatched names are listed, not guessed | `get_player_value` live: "Zzyzx Player: NOT FOUND"; "Allen: AMBIGUOUS" with five suggestions | L | Partial names auto-match when only one player fits ("Bijan" matched Bijan Robinson). |
 | 11 | Free and shared, may be busy | 60 requests a minute per IP in `mcp/index.ts`, returns "rate limited" | S | Not load-tested. Copy avoids the number. |
@@ -91,7 +90,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 1. **Connect guide menu paths are stale.** `docs/use-ddf-in-claude-chatgpt.md` says Claude "Settings, Connectors" and ChatGPT "apps / developer mode". Claude's docs now say **Customize > Connectors > Add custom connector**; OpenAI's Apps SDK page says **chatgpt.com/plugins > + > Add custom MCP server**. Suggest the guide link the vendor pages instead of restating menus, with a checked-on date. Owner: whoever next edits the guide (Codex for shared-file integration).
 2. **Tool count.** The guide lists 7 tools; the live server and `llms.txt` have 9 (`find_trades`, `find_trades_league` missing from the guide).
 3. **DDF Value definition.** The connector, `llms.txt` and `get_values` say "the average of the four adjusted trade charts". Jeremy's Oct 28 wording is the average of the weight-adjusted indexed values, not the trade chart average. The live result also lists seven sources included. Flag for JEG-1212; this copy pack defines nothing.
-4. **No lineup-aware or per-chart claim for chat** (claim 5), and **no claim that chat honors custom values** (claim 8).
+4. **No lineup-aware or per-chart claim for chat** (claim 5), and **no claim that chat honors custom values** (claim 8) until JEG-1225 lands.
 5. **No account import.** No string names Sleeper, ESPN or Yahoo as an integration. Rosters reach the tool as names the user pastes (JEG-1137: "Platform names explain copying, never claim integrations").
 6. **The Claude skill is optional.** The guide asks Claude users to upload `ddf-skill.zip`. The homepage should not present it as a required step; the server's own instructions carry the same guidance (S: `llms.txt`, guide).
 7. **No equal-numbers promise.** Leagues with settings the tool doesn't apply get a note in the answer; never say the chat matches the site exactly.
@@ -102,14 +101,14 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 2. `ai.cta` and `ai.err.notconnected` link exactly `https://jb-barrel-droid.github.io/fantasy-tools/connect/`, the same href as the footer's `Connect the tool` (the existing `test_v2_assist_render` footer check).
 3. No homepage or Copy link string contains "tested", "import", "sync", "automatic", "same numbers", "lineup", "Sleeper", "ESPN" or "Yahoo". A grep over the built page's AI block passes.
 4. The connected-user step never reads as a detected state: no checkmark, "you're connected" or similar.
-5. If decision 1 is B, `ai.link.custom` shows after Copy link only when the copied URL contains `basis=` or `ov=` (the same test as `v2.js` `carries`), and never otherwise.
+5. No string says or implies that the chat uses the reader's value basis or player overrides. Revisit when JEG-1225 ships and the live `read_state` check in claim 8 returns the custom values.
 6. Before launch, re-run both example prompts through the live connector and confirm each still returns a value and a `site_url`; swap names if not.
 7. A real Claude and ChatGPT client test of connect, ask and link round trip is recorded before any string says more than "add as a custom connector".
 
 ## Decisions for Jeremy
 
-1. **The custom-values caveat (`ai.link.custom`).** A: always shown under Copy link. **B: shown only when the copied link carries your basis or overrides (my pick: it is the only case where it is true, and the site already detects it).** C: leave it out until the connector reads basis and overrides.
-2. **Headline.** **A: "Use DDF in Claude or ChatGPT" (my pick: names both apps and the action).** B: "Ask Claude or ChatGPT, with DDF numbers."
+1. **The custom-values caveat: decided.** Jeremy, 2026-10-28 CT: "we should fix the tech, and leave it out. File a ticket to fix the tech." No caveat string; the connector fix is JEG-1225.
+2. **Headline (open).** **A: "Use DDF in Claude or ChatGPT" (my pick: names both apps and the action).** B: "Ask Claude or ChatGPT, with DDF numbers."
 
 ## Sources
 
