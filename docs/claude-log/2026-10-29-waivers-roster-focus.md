@@ -18,3 +18,11 @@ input. After roster Undo, focus lands on the roster control that is on screen (E
   so this runs in CI's preview render job (RENDER_TESTS_REQUIRED=1) or on the Mac:
   `python3 -m unittest tests.test_waivers_clear_isolation_render -v`.
 - `make test-core` here stops at `tests.test_week_history` needing Playwright (environment, not this change).
+
+### Correction (JEG-1345)
+- d6dfa38c also carried 20 regenerated build files (`dist/`, `app/trade-value-chart/assets/*.json`,
+  `app/trade-value-chart/index.html`): `git add -A` ran after a local `make test-core` rebuilt them. Backed out by
+  restoring each to the branch base and deleting the three it added, then merging `origin/main` in. Verified:
+  `git diff --name-only origin/main...HEAD` and `git diff --name-only origin/main HEAD` both list only waivers.js,
+  the render test and this log.
+- Same push: the Undo focus check now requires `v2WaiversEdit` whenever `#v2WaiversMineInput` is hidden (review nit).

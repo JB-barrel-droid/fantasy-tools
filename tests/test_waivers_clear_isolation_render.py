@@ -90,6 +90,7 @@ SNAP = """() => {
     mineMsg: msg('v2WaiversMine'), candsMsg: msg('v2WaiversCands'),
     mineBack: (() => { const n = document.getElementById('v2WaiversMineBack'); return {text: n ? n.innerText.replace(/\\s+/g, ' ').trim() : '', visible: vis(n && n.firstElementChild)}; })(),
     focusVisible: vis(document.activeElement),
+    mineFolded: Boolean(document.getElementById('v2WaiversMineInput') && document.getElementById('v2WaiversMineInput').hidden),
     focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName.toLowerCase()) : null,
     mutant: window.__waiversMutant || null, scrollX: document.documentElement.scrollWidth - innerWidth};
 }"""
@@ -209,8 +210,9 @@ def check(page, tag, seed, external, notes) -> list[str]:
     if [p for p in b2["minePos"] if p in ("K", "DEF")] != [p for p in b0["minePos"] if p in ("K", "DEF")]:
         errors.append(tag + f"mine-undo: kicker or defense not restored {b2['minePos']}")
     unchanged(errors, tag, "mine-undo", b0, b2, roster=False)
-    if b2["focus"] not in ("v2WaiversEdit", "v2WaiversMineSearch") or not b2["focusVisible"]:
-        errors.append(tag + f"mine-undo: focus was {b2['focus']!r} (visible {b2['focusVisible']}), not a roster control on screen")
+    want = "v2WaiversEdit" if b2["mineFolded"] else "v2WaiversMineSearch"
+    if b2["focus"] != want or not b2["focusVisible"]:
+        errors.append(tag + f"mine-undo: focus was {b2['focus']!r} (visible {b2['focusVisible']}), not {want} (input folded: {b2['mineFolded']})")
     if not b2["mineBack"]["visible"] or b2["mineBack"]["text"] != "Your roster is back.":
         errors.append(tag + f"mine-undo: 'is back' message not visible {b2['mineBack']}")
     notes.append(f"{tag}after roster Undo focus was {b2['focus']!r}")
