@@ -15,7 +15,9 @@ independent of Muse:
     stops reporting);
   * compares the CI-built shadow artifacts against the served copies and
     prints a parity table for the cutover decision;
-  * exits 1 when any served artifact is older than MAX_AGE_MINUTES (red).
+  * exits 1 when any served artifact is older than MAX_AGE_MINUTES (red), and
+    2 or 3 when this run's publication did not arrive or cannot be verified
+    (JEG-1239, below).
 
 --await-published DIR (2026-10-08): when this run has just pushed new
 artifacts and dispatched the Pages deploy, the served copies are still the
@@ -27,6 +29,29 @@ least the timestamp of the copy in DIR (what this run published), up to
 --await-timeout-minutes, then judges the served copy as usual. A deploy that
 never lands still ends red, because the served copy is then really stale.
 
+Publication arrival (JEG-1239, 2026-10-29): "the served copy is then really
+stale" only held while the limit was 60 minutes. At 720 minutes a deploy that
+never lands left a valid previous copy (observed 386 and 109 minutes old)
+judged fresh, and the run went green as if this run's artifacts had arrived.
+Arrival is now its own outcome per artifact, separate from content freshness
+and from source coverage:
+
+  * arrived      -- the served copy carries at least the published timestamp;
+  * not_arrived  -- the served copy is readable but older than what this run
+                    published (a publication mismatch, never a source-feed
+                    outage);
+  * unverified   -- the evidence is inaccessible (fetch denied, e.g. HTTP 403,
+                    or failed) or a timestamp is missing or malformed, so
+                    arrival is unknown: not declared failed or recovered;
+  * not_awaited  -- no --await-published, nothing was expected.
+
+The wait window is unchanged (--await-timeout-minutes, default 25). The
+judging fetch after the window also counts, so a copy that lands late still
+arrives. The outcome is printed as one `publication_arrival: {json}` line and,
+with --result-json PATH, written to a file. Exit codes: 0 fresh and arrived,
+1 a served artifact is stale (unchanged, takes precedence), 2 this run's
+publication did not arrive, 3 its arrival could not be verified.
+
 Fail-closed: an unreachable artifact, unparseable JSON or a missing
 timestamp is stale, never fresh.
 """
@@ -36,6 +61,7 @@ import argparse
 import json
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 import sys as _sys  # noqa: E402
@@ -50,6 +76,16 @@ ROOT = Path(__file__).resolve().parents[1]
 BASE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/modules/"
 MAX_AGE_MINUTES = 720  # twice the 6-hour heartbeat (BH-8); pg_cron health-artifacts-live, 2026-10-08
 OWNER = "health-artifacts.yml"
+
+EXIT_OK = 0
+EXIT_STALE = 1
+EXIT_NOT_ARRIVED = 2
+EXIT_ARRIVAL_UNVERIFIED = 3
+
+ARRIVED = "arrived"
+NOT_ARRIVED = "not_arrived"
+UNVERIFIED = "unverified"
+NOT_AWAITED = "not_awaited"
 
 ARTIFACTS = {
     # check_id: (served file, timestamp fields in priority order)
@@ -108,39 +144,99 @@ def fetch_json(url, timeout=30):
             status = resp.status
             body = resp.read().decode("utf-8")
         payload = json.loads(body)
+    except urllib.error.HTTPError as exc:  # keep the status: a 403 is denial, not absence
+        return None, exc.code, int((time.monotonic() - started) * 1000)
     except Exception:  # noqa: BLE001 - fail-closed, reported as stale
         return None, None, int((time.monotonic() - started) * 1000)
     return payload, status, int((time.monotonic() - started) * 1000)
 
 
-def await_published(base_url, published_dir, timeout_s, interval_s=60,
-                    fetch=None, sleep=time.sleep, clock=time.monotonic, log=print):
-    """Poll until every served artifact is at least as new as the copy this run
-    published into published_dir. Returns the names still behind (empty when
-    the deploy landed). Never raises: the caller judges the served copy next."""
-    fetch = fetch or fetch_json
-    pending = {}
+def _iso(ts):
+    return None if ts is None else ts.isoformat()
+
+
+def published_expectations(published_dir):
+    """{file name: expected timestamp or None} for the copies this run published."""
+    expected = {}
     for name, fields in ARTIFACTS.values():
         try:
             ts = artifact_ts(json.loads((Path(published_dir) / name).read_text(encoding="utf-8")), fields)
         except (OSError, ValueError):
             ts = None
-        if ts is not None:
-            pending[name] = (fields, ts)
+        expected[name] = ts
+    return expected
+
+
+def judge_arrival(expected, fetched, fields):
+    """Did the served copy reach this run's published artifact?
+
+    expected: the published timestamp (None when the published copy has none).
+    fetched: fetch_json's (payload, http_status, latency_ms).
+    Only arrival is judged here; content freshness is evaluate()'s job, so a
+    valid but older copy is not_arrived however fresh its content still is.
+    """
+    payload, status, _ = fetched
+    result = {"outcome": UNVERIFIED, "reason": None, "expected_at": _iso(expected),
+              "served_at": None, "http_status": status}
+    if expected is None:
+        result["reason"] = "published_timestamp_missing"
+        return result
+    if payload is None:
+        result["reason"] = "fetch_denied" if status in (401, 403) else "fetch_failed"
+        return result
+    served = artifact_ts(payload, fields)
+    result["served_at"] = _iso(served)
+    if served is None:
+        result["reason"] = "served_timestamp_missing"
+    elif served >= expected:
+        result["outcome"] = ARRIVED
+    else:
+        result.update(outcome=NOT_ARRIVED, reason="served_copy_older_than_published")
+    return result
+
+
+def await_arrival(base_url, published_dir, timeout_s, interval_s=60,
+                  fetch=None, sleep=time.sleep, clock=time.monotonic, log=print):
+    """Poll until every served artifact is at least as new as the copy this run
+    published into published_dir, up to timeout_s. Returns {file name: result}
+    (judge_arrival's dict) from the last poll. Never raises."""
+    fetch = fetch or fetch_json
+    fields_by_name = dict(ARTIFACTS.values())
+    results = {}
+    pending = {}
+    for name, want in published_expectations(published_dir).items():
+        if want is None:
+            results[name] = judge_arrival(None, (None, None, 0), fields_by_name[name])
+            log(f"::warning title=publication arrival::{name} published by this run has no timestamp; "
+                f"its arrival cannot be verified")
+        else:
+            pending[name] = want
     deadline = clock() + timeout_s
     while pending:
-        for name, (fields, want) in list(pending.items()):
-            served = artifact_ts(fetch(base_url + name)[0], fields)
-            if served is not None and served >= want:
+        for name, want in list(pending.items()):
+            result = judge_arrival(want, fetch(base_url + name), fields_by_name[name])
+            results[name] = result
+            if result["outcome"] == ARRIVED:
                 log(f"served {name} now carries this run's artifact ({want.isoformat()})")
                 del pending[name]
         if not pending or clock() >= deadline:
             break
         sleep(interval_s)
     for name in pending:
+        r = results[name]
         log(f"::warning title=health watch::served {name} did not reach this run's artifact "
-            f"within {timeout_s / 60:.0f} min (Pages deploy slow or failed); judging the served copy as is")
-    return sorted(pending)
+            f"within {timeout_s / 60:.0f} min ({r['outcome']}: {r['reason']}); it is not counted as "
+            f"arrived. Content freshness is judged separately")
+    return results
+
+
+def await_published(base_url, published_dir, timeout_s, interval_s=60,
+                    fetch=None, sleep=time.sleep, clock=time.monotonic, log=print):
+    """Names of the artifacts that did not arrive within the window (empty when
+    the deploy landed). Kept for callers of the pre-JEG-1239 interface."""
+    results = await_arrival(base_url, published_dir, timeout_s, interval_s,
+                            fetch=fetch, sleep=sleep, clock=clock, log=log)
+    return sorted(n for n, r in results.items() if r["outcome"] != ARRIVED)
 
 
 def record(check_id, ok, content_ok, http_status, latency_ms, error_code, dry_run):
@@ -173,6 +269,22 @@ def parity_rows(shadow_dir):
     return rows
 
 
+def _utcnow():
+    return datetime.now(timezone.utc)
+
+
+def exit_code(stale, arrival):
+    """Stale first (unchanged contract), then a missed publication, then unknown arrival."""
+    if stale:
+        return EXIT_STALE
+    outcomes = {r["outcome"] for r in arrival.values()}
+    if NOT_ARRIVED in outcomes:
+        return EXIT_NOT_ARRIVED
+    if UNVERIFIED in outcomes:
+        return EXIT_ARRIVAL_UNVERIFIED
+    return EXIT_OK
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--base-url", default=BASE_URL)
@@ -185,21 +297,27 @@ def main(argv=None) -> int:
                     help="first wait for the served copies to reach the artifacts this run published in DIR")
     ap.add_argument("--await-timeout-minutes", type=float, default=25.0)
     ap.add_argument("--await-interval-seconds", type=float, default=60.0)
+    ap.add_argument("--result-json", type=Path, default=None, metavar="PATH",
+                    help="also write the freshness and publication-arrival outcome as JSON")
     args = ap.parse_args(argv)
 
+    awaited = {}
     if args.await_published is not None:
-        await_published(args.base_url, args.await_published, args.await_timeout_minutes * 60,
-                        args.await_interval_seconds)
+        awaited = await_arrival(args.base_url, args.await_published, args.await_timeout_minutes * 60,
+                                args.await_interval_seconds)
 
-    now = datetime.now(timezone.utc)  # after the wait: age is judged when measured
+    now = _utcnow()  # after the wait: age is judged when measured
     stale = []
+    freshness = {}
+    arrival = {}
     if args.producer_ok is not None:
         ok = args.producer_ok == "true"
         record("health_artifacts_producer", ok, ok, None, None,
                None if ok else "producer_build_failed", args.dry_run)
         print(f"health_artifacts_producer: {'ok' if ok else 'FAILED'}")
     for check_id, (name, fields) in ARTIFACTS.items():
-        payload, status, latency = fetch_json(args.base_url + name)
+        fetched = fetch_json(args.base_url + name)
+        payload, status, latency = fetched
         ok, age, err = evaluate(payload, fields, now, args.max_age_minutes)
         record(check_id, ok, ok, status, latency, err, args.dry_run)
         age_txt = "n/a" if age is None else f"{age:.0f} min"
@@ -207,15 +325,44 @@ def main(argv=None) -> int:
               f"{', ' + err if err else ''})")
         if not ok:
             stale.append(check_id)
+        freshness[check_id] = {"file": name, "ok": ok, "age_minutes": age, "error_code": err,
+                               "http_status": status}
+        if args.await_published is None:
+            arrival[check_id] = {"file": name, "outcome": NOT_AWAITED}
+            continue
+        result = awaited.get(name) or judge_arrival(None, (None, None, 0), fields)
+        if result["outcome"] != ARRIVED and result["expected_at"] is not None:
+            # The judging fetch is later evidence: a late deploy still arrives,
+            # and a denied fetch now makes the outcome unknown, not not_arrived.
+            result = judge_arrival(parse_ts(result["expected_at"]), fetched, fields)
+        arrival[check_id] = {"file": name, **result}
+
+    print("publication_arrival: " + json.dumps(
+        {"awaited": args.await_published is not None, "artifacts": arrival}, sort_keys=True))
+    missed = [c for c, r in arrival.items() if r["outcome"] == NOT_ARRIVED]
+    unknown = [c for c, r in arrival.items() if r["outcome"] == UNVERIFIED]
 
     rows = parity_rows(args.shadow_dir)
     print(f"\nCI-shadow vs served checkpoint parity: {len(rows)} status differences")
     for src, key, served, ci in rows:
         print(f"  {src}/{key}: served={served} ci={ci}")
+    rc = exit_code(stale, arrival)
+    if args.result_json is not None:
+        args.result_json.write_text(json.dumps(
+            {"exit_code": rc, "freshness": freshness, "publication_arrival": arrival,
+             "awaited": args.await_published is not None}, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8")
     if stale:
         print(f"\nRED: stale served health artifacts: {', '.join(stale)}", file=sys.stderr)
-        return 1
-    return 0
+    if missed:
+        print(f"\nRED: this run's published health artifacts did not arrive on the served site: "
+              f"{', '.join(missed)} (served copy older than published: a publication mismatch, "
+              f"not a source-feed outage)", file=sys.stderr)
+    if unknown:
+        print(f"\nUNVERIFIED: arrival of this run's health artifacts is unknown: {', '.join(unknown)} "
+              f"(evidence inaccessible or timestamp missing; not declared failed or recovered)",
+              file=sys.stderr)
+    return rc
 
 
 if __name__ == "__main__":
