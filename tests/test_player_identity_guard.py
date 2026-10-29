@@ -263,10 +263,42 @@ def _scope_chains(tree):
     return chains
 
 
+_TRUSTED_KINDS = ("canonical", "canonical_module", "def")
+
+
+def _tainted(tree) -> set:
+    """Names whose binding some code in the module can change behind a lexical
+    lookup: any `global`/`nonlocal` declaration of the name (in any scope,
+    called or not), an attribute write or delete on it (`x.resolve = fake`), or
+    setattr/delattr on it. Conservative: such a name is never trusted."""
+    out = set()
+    for n in ast.walk(tree):
+        if isinstance(n, (ast.Global, ast.Nonlocal)):
+            out.update(n.names)
+        elif isinstance(n, ast.Attribute) and isinstance(n.ctx, (ast.Store, ast.Del)):
+            base = n.value
+            while isinstance(base, ast.Attribute):
+                base = base.value
+            if isinstance(base, ast.Name):
+                out.add(base.id)
+        elif (isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id in ("setattr", "delattr")
+              and n.args and isinstance(n.args[0], ast.Name)):
+            out.add(n.args[0].id)
+    return out
+
+
 def _lookup(name, chain, cache):
     """Where a bare `name` binds lexically: (kind, scope). kind is a _bindings
     kind, 'param', or 'unbound'. A parameter also rebound in its own function
-    is 'other' (shadowed), never 'param'."""
+    is 'other' (shadowed), never 'param'; a canonical or def binding of a name
+    the module can rewrite (_tainted) is 'other'."""
+    kind, scope = _lookup_raw(name, chain, cache)
+    if kind in _TRUSTED_KINDS and name in cache.setdefault("tainted", _tainted(chain[0])):
+        return "other", scope
+    return kind, scope
+
+
+def _lookup_raw(name, chain, cache):
     module, inner = chain[0], chain[1:]
     for i in range(len(inner) - 1, -1, -1):
         scope = inner[i]
@@ -350,12 +382,16 @@ def _returns_canonical(fn, chains, cache) -> bool:
 
 
 def _wrapper_ok(name, chain, tree, chains, cache) -> bool:
-    """`name` binds, unshadowed, to one module-level def with return provenance."""
+    """`name` binds, unshadowed, to one plain (undecorated, sync) module-level
+    def with return provenance."""
     kind, scope = _lookup(name, chain, cache)
     if kind != "def" or scope is not tree:
         return False
     defs = [n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == name]
-    return len(defs) == 1 and _returns_canonical(defs[0], chains, cache)
+    # A decorator can replace the function, and an async def returns a
+    # coroutine, not a player_key: neither is proven by its body.
+    return (len(defs) == 1 and isinstance(defs[0], ast.FunctionDef) and not defs[0].decorator_list
+            and _returns_canonical(defs[0], chains, cache))
 
 
 def _injected_ok(arg, chain, tree, chains, cache) -> bool:
@@ -616,6 +652,45 @@ class TestPlayerIdentityGuard(unittest.TestCase):
                 got = self._scan({"lib/cap.py": self.CAP, "caller.py": caller})
                 self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
 
+    def test_second_review_holes_fail(self):
+        """Codex's re-review of 05ce4aa4 (JEG-1238, 14:13 UTC): writes through
+        global/nonlocal, decorated wrappers and async wrappers were accepted."""
+        cases = {
+            "global write replaces the imported module": (
+                "import canonical_players\nimport cap as c\nimport fake\n\n"
+                "def go(rows):\n    global canonical_players\n    canonical_players = fake\n"
+                "    return c.build(rows, canonical_players.resolve)\n"),
+            "nonlocal write by an invoked nested writer": (
+                "import cap as c\nimport fake\n\n"
+                "def go(rows):\n    import canonical_players as cp\n"
+                "    def poison():\n        nonlocal cp\n        cp = fake\n"
+                "    poison()\n    return c.build(rows, cp.resolve)\n"),
+            "global write in a function that is never called": (
+                "import canonical_players\nimport cap as c\nimport fake\n\n"
+                "def later():\n    global canonical_players\n    canonical_players = fake\n\n"
+                "def go(rows):\n    return c.build(rows, canonical_players.resolve)\n"),
+            "global write replaces the wrapper": self._caller("rn").replace(
+                "def go(rows):\n", "def swap():\n    global rn\n    rn = lambda n: 5\n\ndef go(rows):\n"),
+            "attribute write on the module": self._caller("canonical_players.resolve").replace(
+                "def go(rows):\n", "def go(rows):\n    canonical_players.resolve = lambda n: 5\n"),
+            "setattr on the module": self._caller("canonical_players.resolve").replace(
+                "def go(rows):\n", "def go(rows):\n    setattr(canonical_players, 'resolve', len)\n"),
+            "decorated wrapper": self._caller("rn", rn="def fake(fn):\n    return lambda n: 5\n\n@fake\n"
+                                                       "def rn(n):\n    return canonical_players.resolve(n)\n"),
+            "decorated wrapper through a lambda": self._caller(
+                "lambda n: rn(n)[0]", rn="@staticmethod\ndef rn(n):\n    return canonical_players.resolve(n)\n"),
+            "async wrapper": self._caller("rn", rn="async def rn(n):\n    return canonical_players.resolve(n)\n"),
+            "async wrapper through a lambda": self._caller(
+                "lambda n: rn(n)[0]", rn="async def rn(n):\n    return canonical_players.resolve(n)\n"),
+        }
+        for why, caller in cases.items():
+            with self.subTest(why=why):
+                got = self._scan({"lib/cap.py": self.CAP, "caller.py": caller})
+                self.assertTrue(any("not given a canonical_players resolver" in g for g in got), got)
+        # The positive path is unchanged: the plain wrapper and the direct resolver pass.
+        for arg in ("rn", "canonical_players.resolve"):
+            self.assertEqual(self._scan({"lib/cap.py": self.CAP, "caller.py": self._caller(arg)}), [])
+
     def test_wrapper_and_lambda_fallbacks_fail(self):
         wrappers = {
             "fallback in return": "def rn(n):\n    key, r = canonical_players.resolve_with_reason(n)\n"
@@ -738,7 +813,7 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         lam = 'lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0]'
         ret = "    return (key, None) if key is not None else (None, reason)\n"
         imp = "import canonical_players  # noqa: E402"
-        for needle in (lam, ret, imp, "\nfrom nfl_week import"):
+        for needle in (lam, ret, imp, "\nfrom nfl_week import", "\ndef resolve_name(", "\ndef save_captures("):
             self.assertEqual(saver.count(needle), 1, f"the production caller changed; re-check: {needle}")
         real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
         self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
@@ -749,6 +824,11 @@ class TestPlayerIdentityGuard(unittest.TestCase):
                 saver.replace("canonical_players.resolve_with_reason(", "fuzzy_match("),
             "resolve_name returns a literal": saver.replace(ret, "    return (5, None)\n"),
             "resolve_name guesses on a miss": saver.replace(ret, "    return (key or 5, None)\n"),
+            "resolve_name decorated": saver.replace("\ndef resolve_name(", "\n@functools.cache\ndef resolve_name(", 1),
+            "resolve_name made async": saver.replace("\ndef resolve_name(", "\nasync def resolve_name(", 1),
+            "canonical_players written through global": saver.replace(
+                "\ndef save_captures(", "\ndef _poison():\n    global canonical_players\n    canonical_players = None\n"
+                "\n\ndef save_captures(", 1),
             "canonical_players rebound after import":
                 saver.replace("\nfrom nfl_week import", "\ncanonical_players = object()\nfrom nfl_week import", 1),
         }
