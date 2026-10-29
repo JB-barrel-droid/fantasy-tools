@@ -625,6 +625,33 @@ assert.ok(shownLeague100 > TEXT_ROWS, `limit 100 shows more than 5: ${shownLeagu
 assert.match(r.result.content[0].text, new RegExp(`^${shownLeague100 - TEXT_ROWS} more in the structured result`, "m"));
 sizes.league100 = nbytes(r);
 assert.ok(sizes.league100 < 11500, `find_trades_league limit 100 ${sizes.league100} bytes`);
+// After main brought in JEG-1115, get-values sends bench_share and every trade carries the fit label
+// and its one-line reason (in the text for the top 5, and on every structured row). The fixture above
+// sends no readout, so its sizes are fit-off; these are the same calls with the readout, the live shape.
+// Measured at the merge of main into this branch: 8478, 22971, 9938, 14627. Caps about 10% above.
+const sizeChartsFit = async () => ({
+  ...(await sizeCharts()),
+  sources_included: ["usatoday", "fantasycalc", "fantasypros", "cbs"],
+  bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 },
+});
+const fitSizes = {};
+for (const [key, name, args, cap] of [
+  ["findDefault", "find_trades", { mine: mineList, theirs: theirList }, 9300],
+  ["find50", "find_trades", { mine: mineList, theirs: theirList, limit: 50 }, 25300],
+  ["league", "find_trades_league", { mine: mineList, opponents: sizeOpps }, 10900],
+  ["league100", "find_trades_league", { mine: mineList, opponents: sizeOpps, limit: 100 }, 16100],
+]) {
+  r = await sizeCall(name, args, sizeChartsFit);
+  assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
+  const rows = r.result.structuredContent.trades;
+  assert.ok(rows.length > 0 && rows.every((t) => t.fit && t.fitReason), `${key}: every trade carries its fit label`);
+  const text = r.result.content[0].text;
+  const lines = text.split("\n").filter((l) => /^\d+\. /.test(l)).length;
+  assert.ok(lines <= (name === "find_trades" ? TEXT_ROWS : 2 * TEXT_ROWS), `${key}: text still lists the top rows only (${lines})`);
+  fitSizes[key] = nbytes(r);
+  assert.ok(fitSizes[key] < cap, `${name} ${JSON.stringify(args.limit ?? "default")} with fit labels ${fitSizes[key]} bytes`);
+}
+console.log("sizes with fit labels", fitSizes);
 const board = Array.from({ length: 200 }, (_, i) => ({
   player_key: i + 1, name: `Player Number ${i + 1}`, pos: "WR",
   value: Math.round((200 - i) * 0.4 * 10) / 10, tier: i < 80 ? "starter" : "bench",
