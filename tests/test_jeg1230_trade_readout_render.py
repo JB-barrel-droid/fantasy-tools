@@ -23,7 +23,9 @@ BUILD = """([fx]) => {
   host.setAttribute('aria-label', 'Readout harness');
   [['mine', 'Your team'], ['theirs', 'Their team']].forEach(([who, label]) => R.VIEWS.forEach(v =>
     host.appendChild(R.renderSide(out, who, v.id, `${label}: best starting lineup in ${v.label}`))));
-  document.body.prepend(host);
+  // Inside the visible league page (the body's other children are the hidden legacy engine).
+  const card = document.getElementById('v2LgCard');
+  card.parentElement.insertBefore(host, card);
   return {ready: out.ready, same: out.sides.mine.ddf.starterDelta === direct.starterDelta && out.sides.mine.ddf.benchDelta === direct.benchDelta,
     statuses: Object.fromEntries(Object.entries(out.views).map(([id, v]) => [id, v.status])),
     notEvaluated: out.sides.mine.ddf.notEvaluated.length + out.sides.theirs.ddf.notEvaluated.length};
@@ -43,6 +45,7 @@ class TradeReadoutRenderTest(unittest.TestCase):
                     self.assertTrue(result["same"], "readout must equal finder.rosterImpact on the same rows")
                     self.assertEqual(result["statuses"]["ddf"], "available")
                     host = page.locator("#jeg1230Harness")
+                    self.assertTrue(host.is_visible(), "the harness must sit in the visible page")
                     for status, view in ((result["statuses"][v], v) for v in ("ddf", "market", "projections")):
                         node = host.locator(f'.v2-readout-view[data-view="{view}"]').first
                         if status == "available":

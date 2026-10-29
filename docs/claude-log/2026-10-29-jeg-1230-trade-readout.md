@@ -45,10 +45,14 @@ Base: main `bf0cfee`. Branch `claude/JEG-1230-trade-readout`. Parent JEG-1220 (s
   wired nowhere before this change (`test_interactive_trades_release_render`, `test_v2_compare_rosters_render`,
   `test_v2_finder_guardrails_render`); the new render file is wired.
 
+- Render harness `tests/test_jeg1230_trade_readout_render.py`: the first render sweep on the PR head (run 40812115052,
+  shard 1) failed it because the harness was prepended to `body`, where the page hides everything but the app, so the
+  bench toggle could not take focus. The harness now sits beside `#v2LgCard` and asserts it is visible. Rerun alone in
+  Actions with `RENDER_TESTS_REQUIRED=1` on scratch branch `scratch/jeg1230-render-probe` (run 40814162019): OK at 1366
+  and 390 wide (real engine rows equal `rosterImpact`, tables for available views, bench toggle by Enter and Space,
+  captions, no page overflow, no page errors).
+
 ### Claimed, not confirmed
 
-- `tests/test_jeg1230_trade_readout_render.py` (real engine rows on the built page, 1366 and 390 wide, bench toggle by
-  Enter and Space, captions, unavailable views show a reason not a table, no page overflow) was not run here: this
-  environment blocks Playwright's browser download. It runs in the render sweep shards in CI.
 - Route wiring (Compare, then league after #1072, then pair finder after JEG-1219) is follow-up work after owner
   coordination; parity of the live pages is only proven once those hunks land.
