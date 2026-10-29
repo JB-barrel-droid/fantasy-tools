@@ -127,6 +127,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
+	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
+	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
 	python3 -m unittest tests.test_endpoint_parity
