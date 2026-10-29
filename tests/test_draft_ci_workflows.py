@@ -1,13 +1,18 @@
 """Draft CI must defer heavy work without making required checks green."""
 
+import io
 import json
 import os
 import re
 import subprocess
 import tempfile
 import unittest
+from email.message import Message
 from pathlib import Path
+from unittest import mock
+from urllib.error import HTTPError, URLError
 
+from pipelines import ci_pr_gate
 from pipelines.ci_pr_gate import decide, run
 from tests.test_preview_workflow_matches_pages import job
 
@@ -71,7 +76,8 @@ class PrGateTest(unittest.TestCase):
                 raise OSError("API unavailable")
 
             for phase in ("gate", "verify"):
-                with self.subTest(phase=phase), self.assertRaises(OSError):
+                with self.subTest(phase=phase), self.assertRaises(OSError), \
+                        mock.patch("time.sleep"):
                     run(phase, env, failed_fetch)
             self.assertFalse((root / "output").exists())
 
@@ -86,9 +92,114 @@ class PrGateTest(unittest.TestCase):
             self.assertEqual(0, run("gate", env, lambda *_: live(False)))
             self.assertIn("run_expensive=true", (root / "output").read_text())
             for changed in (live(True), live(False, sha="b" * 40)):
-                with self.subTest(changed=changed), self.assertRaises(ValueError):
+                with self.subTest(changed=changed), self.assertRaises(ValueError), \
+                        mock.patch("time.sleep"):
                     run("verify", env, lambda *_: changed)
             self.assertEqual(0, run("verify", env, lambda *_: live(False)))
+
+
+def http_error(code, body=b"", **headers):
+    message = Message()
+    for name, value in headers.items():
+        message[name.replace("_", "-")] = value
+    return HTTPError("https://api.github.com/x", code, "error", message, io.BytesIO(body))
+
+
+class Reads:
+    """A fetch that replays failures and PR states in order, counting calls."""
+
+    def __init__(self, *results):
+        self.results, self.calls = list(results), 0
+
+    def __call__(self, *_args):
+        self.calls += 1
+        result = self.results.pop(0) if len(self.results) > 1 else self.results[0]
+        if isinstance(result, BaseException):
+            raise result
+        return result
+
+
+class PrStateRetryTest(unittest.TestCase):
+    """JEG-1292: one API blip must not leave an idle ready PR red."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+        self.env = {"GITHUB_EVENT_PATH": str(self.root / "event.json"),
+                    "GITHUB_EVENT_NAME": "pull_request", "GITHUB_REPOSITORY": "owner/repo",
+                    "GH_TOKEN": "fake", "GITHUB_OUTPUT": str(self.root / "output"),
+                    "GITHUB_STEP_SUMMARY": str(self.root / "summary")}
+        self.write_event(event("ready_for_review", draft=False))
+        sleep = mock.patch("time.sleep")
+        self.sleep = sleep.start()
+        self.addCleanup(sleep.stop)
+        self.addCleanup(self.temp.cleanup)
+
+    def write_event(self, payload):
+        (self.root / "event.json").write_text(json.dumps(payload))
+
+    def output(self):
+        path = self.root / "output"
+        return path.read_text() if path.exists() else ""
+
+    def test_one_failed_read_then_ready_pr_opens_gate(self):
+        fetch = Reads(URLError("connection reset"), live(False))
+        self.assertEqual(0, run("gate", self.env, fetch))
+        self.assertIn("run_expensive=true", self.output())
+        self.assertEqual(2, fetch.calls)
+
+    def test_transient_http_errors_are_retried_for_gate_and_verify(self):
+        errors = (lambda: http_error(502), lambda: http_error(503), lambda: http_error(429),
+                  lambda: http_error(403, X_RateLimit_Remaining="0"),
+                  lambda: http_error(403, b'{"message": "You have exceeded a secondary rate limit."}'),
+                  lambda: TimeoutError("timed out"), lambda: ConnectionResetError("reset"))
+        for make in errors:
+            for phase in ("gate", "verify"):
+                error = make()
+                with self.subTest(error=repr(error), phase=phase):
+                    fetch = Reads(error, live(False))
+                    self.assertEqual(0, run(phase, self.env, fetch))
+                    self.assertEqual(2, fetch.calls)
+
+    def test_persistent_failure_is_bounded_and_fails_closed(self):
+        fetch = Reads(URLError("down"))
+        for phase in ("gate", "verify"):
+            with self.subTest(phase=phase):
+                fetch.calls = 0
+                self.assertEqual(1, ci_pr_gate.main([phase], self.env, fetch))
+                self.assertEqual(3, fetch.calls)
+        self.assertNotIn("run_expensive=true", self.output())
+        self.assertLessEqual(sum(call.args[0] for call in self.sleep.call_args_list), 2 * 30)
+
+    def test_not_found_and_permission_errors_are_not_retried(self):
+        for error in (http_error(404), http_error(403, b'{"message": "Resource not accessible"}'),
+                      http_error(401)):
+            with self.subTest(code=error.code):
+                fetch = Reads(error, live(False))
+                self.assertEqual(1, ci_pr_gate.main(["gate"], self.env, fetch))
+                self.assertEqual(1, fetch.calls)
+        self.assertNotIn("run_expensive=true", self.output())
+
+    def test_lagging_draft_flag_is_read_again_before_calling_it_stale(self):
+        fetch = Reads(live(True), live(False))
+        self.assertEqual(0, run("gate", self.env, fetch))
+        self.assertIn("run_expensive=true", self.output())
+        self.assertEqual(2, fetch.calls)
+
+    def test_draft_flag_that_never_settles_still_fails_closed(self):
+        fetch = Reads(live(True))
+        self.assertEqual(0, run("gate", self.env, fetch))
+        self.assertIn("run_expensive=false", self.output())
+        self.assertNotIn("run_expensive=true", self.output())
+        self.assertEqual(3, fetch.calls)
+        with self.assertRaises(ValueError):
+            run("verify", self.env, Reads(live(True)))
+
+    def test_moved_head_is_not_waited_on(self):
+        fetch = Reads(live(False, sha="b" * 40))
+        self.assertEqual(0, run("gate", self.env, fetch))
+        self.assertIn("run_expensive=false", self.output())
+        self.assertEqual(1, fetch.calls)
 
 
 class WorkflowTest(unittest.TestCase):

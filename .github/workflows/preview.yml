@@ -244,6 +244,9 @@ jobs:
   # JEG-1170: the required check. Named `preview` so the check name is unchanged; it passes
   # only when the live PR is ready at the same head and all heavy jobs succeeded.
   # A draft gets a visibly red required check, never a skipped-success check.
+  # JEG-1292: the PR state read is retried (3 reads over ~30 s). If a ready PR still shows
+  # this check red with "PR state verification failed", use Re-run failed jobs, or push,
+  # or toggle draft and back to ready.
   preview:
     # A manual run on a draft branch must not mint the required PR check.
     name: ${{ github.event_name == 'workflow_dispatch' && 'preview-manual' || 'preview' }}

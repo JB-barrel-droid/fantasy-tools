@@ -108,6 +108,8 @@ jobs:
 
   # Keep the existing required check name. Drafts and stale events fail this
   # lightweight finalizer even though the expensive job is skipped.
+  # JEG-1292: if a ready PR shows this check red with "PR state verification failed",
+  # use Re-run failed jobs, or push, or toggle draft and back to ready.
   v2-render:
     # Manual dispatches keep full verification but cannot satisfy a draft PR's required check.
     name: ${{ github.event_name == 'workflow_dispatch' && 'v2-render-manual' || 'v2-render' }}
