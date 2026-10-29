@@ -131,6 +131,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
+	python3 -m unittest tests.test_mcp_week
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
