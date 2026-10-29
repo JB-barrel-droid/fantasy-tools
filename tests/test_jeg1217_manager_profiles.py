@@ -26,6 +26,8 @@ REQUIRED = [
     "test_legacy_and_partial_state", "test_profiles_do_not_touch_workspace", "test_export_import_round_trip",
     "test_import_matches_by_unique_name_only", "test_import_rejects_bad_files", "test_legacy_note_round_trip",
     "test_store_save_failure_reported_and_recovers", "test_legacy_note_starting_with_tag_label",
+    "test_store_pending_edit_survives_other_tab", "test_store_pending_edit_merges_same_manager",
+    "test_store_reload_without_pending_edit_takes_other_tab",
 ]
 
 
@@ -89,6 +91,19 @@ MUTATIONS = [
     ("failed delayed save not announced", "statusListeners.forEach(fn =>", "[].forEach(fn =>", "test_store_save_failure_reported_and_recovers"),
     ("failed save not retried", "storage.setItem(STORAGE_KEY, serialize(book));\n        dirty = false;", "dirty = false;\n        storage.setItem(STORAGE_KEY, serialize(book));",
      "test_store_save_failure_reported_and_recovers"),
+    # JEG-1318: another tab saves inside this tab's write delay.
+    ("pending edit dropped by another tab's save", "const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;", "const next = parsed.book;",
+     "test_store_pending_edit_survives_other_tab"),
+    ("pending edit overwrites another tab's save", "const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;", "const next = dirty ? book : parsed.book;",
+     "test_store_pending_edit_survives_other_tab"),
+    ("merge base not moved on save", "        shared = book;\n        setState(\"saved\");", "        setState(\"saved\");",
+     "test_store_pending_edit_survives_other_tab"),
+    ("ticked boxes not combined", "return [...new Set(mine.concat(theirs))]", "return mine; void [...new Set(mine.concat(theirs))]",
+     "test_store_pending_edit_merges_same_manager"),
+    ("a field both tabs set goes to the other tab", "    return mine;\n  }\n\n  // ---------- the store", "    return theirs;\n  }\n\n  // ---------- the store",
+     "test_store_pending_edit_merges_same_manager"),
+    ("save still owed once storage holds the edit", "if (dirty && serialize(next) === serialize(shared)) {", "if (false) {",
+     "test_store_reload_without_pending_edit_takes_other_tab"),
 ]
 
 

@@ -209,10 +209,34 @@
     return {book: next, matched, unmatched};
   }
 
+  // Another tab saved while this tab had an unsaved edit (JEG-1318). Three-way merge from the book both last agreed on:
+  // a value only one side changed takes that side's; a value both changed takes this tab's (its edit is the later one);
+  // ticked boxes combine box by box. Returns a book for normalizeBook, so blank profiles drop out.
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  function merge3(base, mine, theirs) {
+    if (same(mine, base)) return theirs;
+    if (same(theirs, base) || same(mine, theirs)) return mine;
+    if (Array.isArray(mine) && Array.isArray(theirs)) {
+      const was = Array.isArray(base) ? base : [];
+      return [...new Set(mine.concat(theirs))].filter(x => (mine.includes(x) !== was.includes(x) ? mine.includes(x) : theirs.includes(x)));
+    }
+    if (isObject(mine) && isObject(theirs)) {
+      const was = isObject(base) ? base : {};
+      const out = {};
+      new Set([...Object.keys(was), ...Object.keys(mine), ...Object.keys(theirs)]).forEach(k => {
+        const v = merge3(was[k], mine[k], theirs[k]);
+        if (v !== undefined) out[k] = v;
+      });
+      return out;
+    }
+    return mine;
+  }
+
   // ---------- the store ----------
   // opts: {storage, delay, setTimer, clearTimer}. status(): "idle" | "saving" | "saved" | "unavailable" | "full".
   // onStatus(fn) hears every change of status, including a delayed save that fails, so the page never claims "saved"
   // when it is not. A failed save stays dirty and is retried on the next change or flush.
+  // reloadFromStorage() takes another tab's save; an edit still waiting to be written here is merged in, not dropped.
   function createStore(opts) {
     const o = opts || {};
     const delay = o.delay === undefined ? SAVE_DELAY_MS : o.delay;
@@ -220,6 +244,7 @@
     const clearTimer = o.clearTimer || (id => root.clearTimeout(id));
     let storage = o.storage === undefined ? safeStorage() : o.storage;
     let book = emptyBook();
+    let shared = book;   // the book this tab last read from or wrote to storage: the base for a merge (JEG-1318)
     let loadStatus = "empty";
     let timer = null;
     let dirty = false;
@@ -238,6 +263,7 @@
       try {
         storage.setItem(STORAGE_KEY, serialize(book));
         dirty = false;
+        shared = book;
         setState("saved");
         return true;
       } catch (error) {
@@ -266,6 +292,7 @@
             const parsed = parseStored(text);
             loadStatus = parsed.status;
             book = parsed.book;
+            shared = book;
           }
         }
         setState(loadStatus === "unavailable" ? "unavailable" : loadStatus === "ok" ? "saved" : "idle");
@@ -292,9 +319,17 @@
         let text = null;
         try { text = storage.getItem(STORAGE_KEY); } catch (error) { return; }
         const parsed = parseStored(text);
-        if (parsed.status !== "ok" || serialize(parsed.book) === serialize(book)) return;
-        book = parsed.book;
-        dirty = false;
+        if (parsed.status !== "ok") return;
+        // An unsaved edit here is merged onto the other tab's book and stays owed, never dropped (JEG-1318).
+        const next = dirty ? normalizeBook(merge3(shared, book, parsed.book)) || parsed.book : parsed.book;
+        shared = parsed.book;
+        if (dirty && serialize(next) === serialize(shared)) {   // storage already holds this edit: nothing is owed
+          dirty = false;
+          if (timer !== null) { clearTimer(timer); timer = null; }
+          setState("saved");
+        }
+        if (serialize(next) === serialize(book)) return;
+        book = next;
         notify("other-tab");
       }
     };
