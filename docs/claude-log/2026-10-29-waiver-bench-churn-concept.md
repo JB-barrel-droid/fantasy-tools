@@ -30,3 +30,10 @@ Contract: Jeremy said "dont' even research it, we aren't ready to approach it" a
 ### Verified (check named)
 - JEG-1317 is Canceled and no longer blocks JEG-1197 (Linear `save_issue` response).
 - No FAAB, bid or JEG-1317 mention is left in the concept or mock except the out-of-scope lines (`rg -i "faab|1317|bid"`); the mock parses (Python `html.parser`).
+
+## 2026-10-29 - Correction: JEG-1317 on hold, not canceled
+
+Contract: the entry above says JEG-1317 is Canceled. On the coordinator's follow-up it is in Backlog instead, on hold ("On hold per Jeremy Oct 29: not ready to approach FAAB; no research"), without the claude label, and still not blocking JEG-1197.
+
+### Verified (check named)
+- JEG-1317 reads Backlog with labels review-high-risk and Feature only (Linear `save_issue` response).
