@@ -218,6 +218,27 @@ class ServedWeekTest(Case):
         self.assertEqual({}, resolutions)
         self.assertEqual(1, len(problems))
 
+    def test_exclude_is_keyed_by_the_content_week_like_value_reference(self):
+        # JEG-1337: during the flip (served 7, content 8) the report hides the
+        # same sources DDF Value does: value_reference keys exclude by content week.
+        import value_reference as vr
+        self.write_index(content_week=8, served_week=7, fp_fingerprint=self.FP_W7)
+        for w in (5, 6):
+            self.write_week(w)
+        self.resolutions.write_text(json.dumps({"resolutions": [
+            {"source": "fantasypros", "week": 7, "resolution": "exclude", "issue": "JEG-1", "note": "served week"},
+            {"source": "cbs", "week": 8, "resolution": "exclude", "issue": "JEG-2", "note": "content week"},
+        ]}))
+        report = self.run_check(fixture(high="fantasypros"))
+        expected = vr.load_divergence_exclusions(self.resolutions, week=8)
+        self.assertEqual({"cbs"}, expected)
+        self.assertEqual(expected, set(report["summary"]["excluded"]))
+        self.assertEqual(7, report["sources"]["cbs"]["week"])
+        self.assertIn(report["sources"]["fantasypros"]["status"], ("warn", "investigate"))
+        self.assertTrue(any(p.startswith("fantasypros/week 7: exclude applies by the content week")
+                            for p in report["summary"]["resolution_problems"]),
+                        report["summary"]["resolution_problems"])
+
     def test_the_week_8_record_is_scoped_to_the_week_7_article(self):
         # JEG-1172: the flagged inputs are frozen week 7's FantasyPros entry.
         resolutions, _ = sd.load_resolutions(sd.RESOLUTIONS)

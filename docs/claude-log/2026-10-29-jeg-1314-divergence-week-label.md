@@ -32,3 +32,21 @@ and find and fix why the committed report was stale.
 - After merge, divergence-issues.yml will read the refreshed report and open
   a sub-issue for FantasyCalc week 8 (investigate on current data); CBS rest
   of season week 8 should dedupe against JEG-1171. Not run.
+
+## 2026-10-29 - JEG-1337 correction: exclude keyed by the content week
+
+Contract: the independent review of #1166 at 2befa9a found the report looked
+up `exclude` by the served week while `value_reference.load_divergence_exclusions`
+uses the content week. The report now keys `exclude` by the content week, shows
+it as excluded whatever the computed status (as DDF Value hides it), and lists
+an `exclude` recorded only for a served week that is not the content week as a
+resolution problem. value_reference is unchanged.
+
+### Verified (check named)
+- `tests.test_source_divergence.ServedWeekTest.test_exclude_is_keyed_by_the_content_week_like_value_reference`
+  fails with the 2befa9a pipeline (report excluded {fantasypros}, value_reference {cbs})
+  and passes on this head.
+- `python3 -m unittest tests.test_source_divergence tests.test_value_check`: 41 tests OK (3 skipped).
+
+### Claimed, not confirmed
+- `make validate` green in preview CI on this head (pending at push).

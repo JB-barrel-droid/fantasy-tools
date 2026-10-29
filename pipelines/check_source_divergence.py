@@ -41,6 +41,11 @@ Each source-week is labelled by the week the source is served as (JEG-1314:
 alone: on the Tuesday flip content_week moves before the charts publish.
 Resolutions and the baseline use that week; a saved week whose inputs have
 the served fingerprint is the same chart and never counts as a prior week.
+The one exception is 'exclude' (JEG-1337): value_reference applies it by the
+content week (`load_divergence_exclusions(week=content_week)`), so the report
+does too, whatever the computed status. An 'exclude' recorded only for a
+served week that is not the content week is a resolution problem, not an
+exclusion, because DDF Value would still blend that source.
 
 The trailing baseline (up to BASELINE_WEEKS weeks before the served week) is computed for the
 trade charts from data/history/week-N.json natives times the current fixture's
@@ -399,10 +404,23 @@ def run(fixture_path: Path = FIXTURE, players_path: Path = PLAYERS, history_dir:
             # does not carry over to other inputs served under the same week.
             if resolution and resolution.get("inputs_fingerprint") and resolution["inputs_fingerprint"] != s_fp:
                 resolution = None
+            # JEG-1337: 'exclude' is keyed by the content week, the week
+            # value_reference.load_divergence_exclusions uses, so the report and
+            # DDF Value agree on which sources are hidden during the flip.
+            if resolution and resolution.get("resolution") == "exclude" and s_week != week:
+                resolution_problems.append(
+                    f"{s}/week {s_week}: exclude applies by the content week (week {week}); "
+                    "DDF Value still blends this source")
+                resolution = None
+            excluded = resolutions.get((s, week))
+            if excluded and excluded.get("resolution") == "exclude":
+                resolution = excluded
             # JEG-610 item 2: 'exclude' resolution -> status 'excluded' (hidden from blends
             # and comparisons, held semantics per JEG-569). Other resolutions -> 'reviewed'.
-            if resolution and status != "ok":
-                shown = "excluded" if resolution.get("resolution") == "exclude" else "reviewed"
+            if resolution and resolution.get("resolution") == "exclude":
+                shown = "excluded"
+            elif resolution and status != "ok":
+                shown = "reviewed"
             else:
                 shown = status
             report_sources[s] = {
