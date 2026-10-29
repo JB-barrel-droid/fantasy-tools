@@ -169,7 +169,7 @@ Then they can answer from that text: (1) which value decided whether T is listed
 
 Recommended: **B**. It's copy only, true under any outcome of the held Natural fit and even-band decisions, and it doesn't put a disputed label on a new page.
 
-Status 2026-10-29: Jeremy answered this question with the definition "Natural means both sides, not just 1 side" (recorded under F1). That settles the term; he hasn't picked A, B or C, so the Compare link stays open.
+Status 2026-10-29: Jeremy answered this question with the definition "Natural means both sides, not just 1 side" (recorded under F1). That settles the term. Logged pick (coordinator, picks log 2026-10-28 9:01 PM CT, reversible): **C**, no note or carry-over now. Caveat: Compare's deal read keeps its own even band (CT-08, JEG-1125 held), so a finder label and Compare's read can still differ; revisit D1 when JEG-1125 is settled.
 
 **D2. Which name does the contract use for the projections view on the trade pages?** The contract (GL-26, CT-08) says "DDF Projections", the code says "DDF Value (projections)", and JEG-1130's final decisions say "DDF Projected Value".
 - A. Use "DDF Projected Value" and update GL-26 and CT-08 when JEG-1130's runtime slice ships.
