@@ -9,7 +9,11 @@ import json
 import statistics
 import sys
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipelines"))
+from lib.timestamps import parse_iso_timestamp  # noqa: E402
 
 OPT_LABEL = {
     "A": "A today (step at the cutoff)",
@@ -125,7 +129,7 @@ def options_table(r):
 
 
 def _day(when):
-    return datetime.fromisoformat(when).astimezone(timezone(timedelta(hours=-5))).date()
+    return parse_iso_timestamp(when).astimezone(timezone(timedelta(hours=-5))).date()
 
 
 def history_table(r):
