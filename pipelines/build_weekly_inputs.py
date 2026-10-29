@@ -14,7 +14,14 @@ defined by JEG-1227 (`pipelines/lib/weekly_inputs_contract.py`,
 
 Offline only: every input is a local path given on the command line, the
 output path is explicit, and nothing reads the network, Supabase or the wall
-clock (`--as-of` is the clock). Same inputs give the same bytes.
+clock (`--as-of` is the clock). Same inputs give the same bytes. Identity
+aliases come from a local file (`--aliases`, default the committed
+data/inputs/player_aliases.json), pinned by the producer itself, so Supabase
+credentials in the environment never reach player_aliases' table read (JEG-1245).
+
+Fails closed: the JEG-1227 contract validator must import and run. If it
+cannot, the run is refused before any input is read and nothing is written;
+there is no structural stand-in (JEG-1245).
 
 Rules it keeps (docs/pipeline-rules.md §4-5, Jeremy 2026-10-29):
   - Weekly only. A rest-of-season input is refused and nothing is written
@@ -33,16 +40,18 @@ Usage:
       --as-of 2026-10-29T02:00:00Z --out /tmp/inputs-wk8.json \\
       --players data/inputs/players_identity_snapshot.json \\
       [--espn-weekly FILE.csv] [--status FILE.json] [--byes FILE.json] \\
-      [--sleeper-base FILE.json]
+      [--sleeper-base FILE.json] [--aliases FILE.json]
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import hashlib
+import importlib
 import json
 import os
 import sys
+from contextlib import contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
 
@@ -53,6 +62,8 @@ from nfl_week import NEW_YORK, SEASON as CALENDAR_SEASON, content_week_or_none  
 from timestamps import parse_iso_timestamp  # noqa: E402
 
 SCHEMA = "weekly-inputs"
+CONTRACT_MODULE = "weekly_inputs_contract"  # JEG-1227, pipelines/lib/
+ALIAS_FILE = ROOT / "data" / "inputs" / "player_aliases.json"
 SCHEMA_VERSION = "1.0.0"
 PRODUCER = "pipelines/build_weekly_inputs.py"
 # CSV column -> contract scoring key (pipelines/lib/scoring.py keys).
@@ -73,6 +84,10 @@ NOT_IN_INPUT = "player not in this input"
 
 class InputError(Exception):
     """An input this producer refuses outright; nothing is written."""
+
+
+class ContractUnavailable(Exception):
+    """The JEG-1227 validator cannot be imported or run; nothing is written."""
 
 
 # ---------------------------------------------------------------- helpers
@@ -161,10 +176,30 @@ def _null_values(keys):
     return {k: None for k in keys}
 
 
+@contextmanager
+def _local_aliases(path: Path):
+    """player_aliases.load() answers from `path` only while the registry is built.
+
+    canonical_players.Registry reads the alias list through player_aliases.load(),
+    which goes to Supabase whenever SUPABASE_URL and a key are set (and only logs
+    a failed request). The producer pins the default load to the local file
+    itself, so no request is ever attempted, whatever the environment holds.
+    """
+    import player_aliases  # noqa: PLC0415
+    pinned = player_aliases.load(str(path))  # a path read never touches Supabase
+    real = player_aliases.load
+    player_aliases.load = lambda p=None: pinned if p is None else real(p)
+    try:
+        yield
+    finally:
+        player_aliases.load = real
+
+
 class Identity:
     """Canonical keys through the existing helpers (pipelines/lib/player_key_index.py)."""
 
-    def __init__(self, players_path: Path, sleeper_base_path: Path | None):
+    def __init__(self, players_path: Path, sleeper_base_path: Path | None,
+                 aliases_path: Path = ALIAS_FILE):
         rows = json.loads(players_path.read_text())
         if isinstance(rows, dict):
             rows = rows.get("players") or rows.get("rows") or []
@@ -177,8 +212,10 @@ class Identity:
             norm.append({**r, "metadata": md, "active": r.get("active", True)})
         base = json.loads(sleeper_base_path.read_text()) if sleeper_base_path else {}
         from player_key_index import PlayerIndex  # noqa: PLC0415
-        self.index = PlayerIndex(norm, base)
+        with _local_aliases(aliases_path):
+            self.index = PlayerIndex(norm, base)
         self.known = self.index.by_key
+        self.aliases = _file_meta(aliases_path)
 
     def check_key(self, key: int):
         """-> (key, None) or (None, reason)."""
@@ -388,7 +425,8 @@ def build(args) -> dict:
               "older_snapshot", "duplicate", "conflict", "bad_row")
     report = {leg: {k: 0 for k in counts} for leg in ("experts.espn_weekly", "status")}
     report.update(unresolved_rows=0, position_out_of_scope=0)
-    ident = Identity(args.players, args.sleeper_base)
+    ident = Identity(args.players, args.sleeper_base, args.aliases)
+    report["identity"] = {"aliases": ident.aliases, "alias_source": "local_file"}
     legs = {
         "experts.espn_weekly": _leg_meta("expert", "espn", "fantasy_points", SCORINGS,
                                          "input not supplied"),
@@ -499,34 +537,32 @@ def _bye_cell(byes, team):
 
 # ---------------------------------------------------------------- validate / write
 
-def validate(doc: dict) -> list[str]:
-    """Errors from the JEG-1227 contract validator; a minimal structural
-    check stands in until that module is on this branch's base."""
+def _load_contract():
+    """The JEG-1227 contract module, or ContractUnavailable. No stand-in."""
     try:
-        import weekly_inputs_contract  # noqa: PLC0415
-    except ImportError:
-        return _basic_check(doc)
-    return [str(i) for i in weekly_inputs_contract.errors(weekly_inputs_contract.validate(doc))]
+        mod = importlib.import_module(CONTRACT_MODULE)
+    except Exception as e:  # noqa: BLE001 -- missing or broken: refuse either way
+        raise ContractUnavailable(
+            f"contract validator {CONTRACT_MODULE} cannot be imported "
+            f"({type(e).__name__}: {e}); refusing to write an unvalidated artifact") from e
+    missing = [a for a in ("validate", "errors") if not callable(getattr(mod, a, None))]
+    if missing:
+        raise ContractUnavailable(
+            f"contract validator {CONTRACT_MODULE} has no {', '.join(missing)}(); "
+            "refusing to write an unvalidated artifact")
+    return mod
 
 
-def _basic_check(doc: dict) -> list[str]:
-    errs = []
-    if doc.get("schema") != SCHEMA or doc.get("horizon") != "week":
-        errs.append("schema/horizon")
-    for leg, m in doc["legs"].items():
-        if (m["availability"] == "unavailable") != (m["freshness"] is None):
-            errs.append(f"{leg}: freshness is null exactly when unavailable")
-    for r in doc["players"]:
-        if r["player_key"] is None and not r.get("unresolved_reason"):
-            errs.append(f"{r['name']}: unresolved without a reason")
-        for leg, c in r["legs"].items():
-            for k, v in c["values"].items():
-                reason = (c.get("missing_reason") or {}).get(k)
-                if v is not None and reason:
-                    errs.append(f"{r['name']}/{leg}.{k}: value with a missing_reason")
-                if v is None and not reason and doc["legs"][leg]["availability"] != "unavailable":
-                    errs.append(f"{r['name']}/{leg}.{k}: null without a reason")
-    return errs
+def validate(doc: dict) -> list[str]:
+    """Errors from the JEG-1227 contract validator. Raises ContractUnavailable
+    when it cannot be imported or crashes; never returns [] without it."""
+    contract = _load_contract()
+    try:
+        return [str(i) for i in contract.errors(contract.validate(doc))]
+    except Exception as e:  # noqa: BLE001 -- a crashing validator validates nothing
+        raise ContractUnavailable(
+            f"contract validator {CONTRACT_MODULE} failed ({type(e).__name__}: {e}); "
+            "refusing to write an unvalidated artifact") from e
 
 
 def render(doc: dict) -> str:
@@ -545,6 +581,8 @@ def main(argv=None) -> int:
     p.add_argument("--status", type=Path)
     p.add_argument("--byes", type=Path)
     p.add_argument("--sleeper-base", type=Path)
+    p.add_argument("--aliases", type=Path, default=ALIAS_FILE,
+                   help="local verified alias list (player-aliases-v1); never read from Supabase")
     args = p.parse_args(argv)
     if args.season != CALENDAR_SEASON:
         # pipelines/nfl_week.py defines one season's calendar; another
@@ -555,11 +593,20 @@ def main(argv=None) -> int:
         print(f"week {args.week} is outside the regular season", file=sys.stderr)
         return 2
     try:
+        _load_contract()  # before any input is read: no validator, no run
+    except ContractUnavailable as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 3
+    try:
         doc = build(args)
     except (InputError, ValueError) as e:
         print(f"refused: {e}", file=sys.stderr)
         return 2
-    errors = validate(doc)
+    try:
+        errors = validate(doc)
+    except ContractUnavailable as e:
+        print(f"refused: {e}", file=sys.stderr)
+        return 3
     if errors:
         for e in errors[:20]:
             print(f"invalid: {e}", file=sys.stderr)

@@ -52,3 +52,34 @@ Slice S2 of JEG-1195. Branch `claude/JEG-1228-weekly-input-producer`, draft PR f
   OK, 0 errors, 0 warnings; the real week-8 run (478 players) also validates;
   `python3 -m unittest tests.test_build_weekly_inputs` 35 OK.
 - Without it (this branch as pushed): 35 run, 1 skipped (the contract test).
+
+## JEG-1245 corrections (third push, Codex review 2026-10-29 03:25)
+- Fails closed: `_basic_check` is gone. `_load_contract()` imports JEG-1227's
+  `weekly_inputs_contract` before any input is read; a missing module, one that
+  raises on import, one without `validate`/`errors`, or a validator that
+  crashes refuses the run (exit 3) and writes nothing. Old head returned `[]`
+  for a golden with `schema_version` 999.0.0 and no contract.
+- Offline identity: `canonical_players.Registry` reads aliases through
+  `player_aliases.load()`, which asks Supabase whenever `SUPABASE_URL` and a
+  key are set and only logs a failed request. The producer now pins that load
+  to a local file (`--aliases`, default `data/inputs/player_aliases.json`)
+  while the registry is built and restores it after. No shared lib edited.
+- Provenance: `input_report.identity` records the alias file name and sha256
+  with `alias_source: local_file`. That block is the only golden change.
+- Tests: until JEG-1227 is on this branch, producer-logic tests use a
+  test-only stub validator; the subprocess CLI test asserts the real refusal.
+  New classes `ContractFailsClosed` and `OfflineIdentity` (network spy on
+  `urlopen`, `create_connection`, `socket.connect`/`connect_ex`, records
+  without raising; a control test proves it sees the old Registry attempt).
+
+## Verified (third push)
+- `python3 -m unittest tests.test_build_weekly_inputs`: 47 OK, 2 skipped
+  (both need JEG-1227 on the path). With S1 `e2a2a07` copied in locally (not
+  committed): 47 OK, 0 skipped; same with dummy Supabase credentials set.
+- S1 `validate` on the regenerated 11-player golden: 0 errors, 0 warnings;
+  999.0.0 gives `version.unsupported_major`.
+- Probe at 2da0242 vs this head, contract missing, dummy credentials:
+  validate(999.0.0) `[]` -> ContractUnavailable; network attempts during
+  Identity 1 (`.../rest/v1/player_name_aliases`) -> 0.
+- Real week-8 run (478 players) with dummy credentials: S1 0 errors,
+  byte-identical on repeat, no Supabase log line.

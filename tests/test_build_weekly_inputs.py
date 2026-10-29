@@ -2,17 +2,29 @@
 
 Fails before the change: the producer did not exist. Every input here is a
 committed fixture or a temp file; no network, Supabase or wall clock.
+
+JEG-1245: ContractFailsClosed and OfflineIdentity fail on 2da0242 (the
+validator fell back to a structural check that accepted schema_version 999.0.0,
+and Identity attempted a Supabase alias read when credentials were set).
+
+Until JEG-1227's contract module is on this branch, producer-logic tests run
+against _StubContract below (test-only; the producer has no stand-in and
+refuses to run without the real module). With the module importable they use
+the real validator.
 """
 from __future__ import annotations
 
 import io
 import json
 import os
+import shutil
 import socket
 import subprocess
 import sys
 import tempfile
+import types
 import unittest
+import urllib.request
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from unittest import mock
@@ -28,6 +40,32 @@ try:
 except ImportError:
     CONTRACT = None
 
+
+def _stub_validate(doc):
+    """Test-only structural check, used only while CONTRACT is None."""
+    errs = []
+    if doc.get("schema") != bwi.SCHEMA or doc.get("schema_version") != bwi.SCHEMA_VERSION:
+        errs.append("schema/schema_version")
+    if doc.get("horizon") != "week":
+        errs.append("horizon")
+    for leg, m in doc["legs"].items():
+        if (m["availability"] == "unavailable") != (m["freshness"] is None):
+            errs.append(f"{leg}: freshness is null exactly when unavailable")
+    for r in doc["players"]:
+        if r["player_key"] is None and not r.get("unresolved_reason"):
+            errs.append(f"{r['name']}: unresolved without a reason")
+        for leg, c in r["legs"].items():
+            for k, v in c["values"].items():
+                reason = (c.get("missing_reason") or {}).get(k)
+                if v is not None and reason:
+                    errs.append(f"{r['name']}/{leg}.{k}: value with a missing_reason")
+                if v is None and not reason and doc["legs"][leg]["availability"] != "unavailable":
+                    errs.append(f"{r['name']}/{leg}.{k}: null without a reason")
+    return errs
+
+
+_StubContract = types.SimpleNamespace(validate=_stub_validate, errors=lambda issues: issues)
+
 FX = ROOT / "tests" / "fixtures" / "weekly_inputs_producer"
 AS_OF = "2026-10-29T02:00:00Z"
 HEADER = "season,week,player_key,pos,team,std,half_ppr,ppr,snapshot_at,pre_kickoff,basis\n"
@@ -37,11 +75,11 @@ def _args(out, **over):
     base = {"season": 2026, "week": 8, "as_of": AS_OF, "out": out,
             "espn_weekly": FX / "espn_weekly.csv", "status": FX / "status.json",
             "byes": FX / "byes.json", "players": FX / "players.json",
-            "sleeper_base": FX / "sleeper_base.json"}
+            "sleeper_base": FX / "sleeper_base.json", "aliases": None}
     base.update(over)
     argv = ["--season", str(base["season"]), "--week", str(base["week"]),
             "--as-of", base["as_of"], "--out", str(base["out"])]
-    for flag in ("espn_weekly", "status", "byes", "players", "sleeper_base"):
+    for flag in ("espn_weekly", "status", "byes", "players", "sleeper_base", "aliases"):
         if base[flag] is not None:
             argv += ["--" + flag.replace("_", "-"), str(base[flag])]
     return argv
@@ -55,7 +93,13 @@ def _run(argv):
 
 
 class ProducerCase(unittest.TestCase):
+    stub_contract = True
+
     def setUp(self):
+        if CONTRACT is None and self.stub_contract:
+            patcher = mock.patch.object(bwi, "_load_contract", return_value=_StubContract)
+            patcher.start()
+            self.addCleanup(patcher.stop)
         self.tmp = tempfile.TemporaryDirectory()
         self.dir = Path(self.tmp.name)
         self.out = self.dir / "inputs-wk8.json"
@@ -325,12 +369,178 @@ class Validation(ProducerCase):
     def test_cli_entry_point(self):
         proc = subprocess.run([sys.executable, str(ROOT / "pipelines" / "build_weekly_inputs.py"),
                                *_args(self.out)], capture_output=True, text=True, check=False)
+        if CONTRACT is None:  # a real process has no stub: it must refuse, not write
+            self.assertEqual(proc.returncode, 3, proc.stderr)
+            self.assertIn("cannot be imported", proc.stderr)
+            self.assertFalse(self.out.exists())
+            return
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertEqual(self.out.read_text(), (FX / "expected_wk8.json").read_text())
 
     def test_out_is_required(self):
         with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
             bwi.main(["--season", "2026", "--week", "8", "--as-of", AS_OF])
+
+
+class ContractFailsClosed(ProducerCase):
+    """JEG-1245 finding 1: no validator, no artifact."""
+    stub_contract = False
+
+    def golden_with_version(self, version):
+        doc = json.loads((FX / "expected_wk8.json").read_text())
+        doc["schema_version"] = version
+        return doc
+
+    def assert_refused(self, err_fragment):
+        code, err = _run(_args(self.out))
+        self.assertEqual(code, 3, err)
+        self.assertIn(err_fragment, err)
+        self.assertFalse(self.out.exists())
+        self.assertEqual(sorted(p.name for p in self.dir.iterdir()), [])
+
+    def test_missing_contract_refuses_and_writes_nothing(self):
+        with mock.patch.dict(sys.modules, {bwi.CONTRACT_MODULE: None}):
+            self.assert_refused("cannot be imported")
+
+    def test_contract_that_raises_on_import_refuses(self):
+        pkg = self.dir.parent / (self.dir.name + "-broken")
+        pkg.mkdir()
+        self.addCleanup(shutil.rmtree, pkg, True)
+        (pkg / f"{bwi.CONTRACT_MODULE}.py").write_text("raise RuntimeError('half-written module')\n")
+        saved = sys.modules.pop(bwi.CONTRACT_MODULE, None)
+        self.addCleanup(lambda: sys.modules.__setitem__(bwi.CONTRACT_MODULE, saved) if saved
+                        else sys.modules.pop(bwi.CONTRACT_MODULE, None))
+        with mock.patch.object(sys, "path", [str(pkg), *sys.path]):
+            self.assert_refused("RuntimeError: half-written module")
+
+    def test_contract_without_validate_refuses(self):
+        with mock.patch.dict(sys.modules, {bwi.CONTRACT_MODULE: types.ModuleType("empty")}):
+            self.assert_refused("has no validate, errors()")
+
+    def test_crashing_validator_refuses(self):
+        def boom(doc):
+            raise KeyError("scoring")
+        crashing = types.SimpleNamespace(validate=boom, errors=lambda i: i)
+        with mock.patch.dict(sys.modules, {bwi.CONTRACT_MODULE: crashing}):
+            self.assert_refused("failed (KeyError")
+
+    def test_unsupported_schema_version_is_never_accepted_without_the_contract(self):
+        # 2da0242: validate() returned [] for this (the structural fallback).
+        doc = self.golden_with_version("999.0.0")
+        with mock.patch.dict(sys.modules, {bwi.CONTRACT_MODULE: None}), \
+                self.assertRaises(bwi.ContractUnavailable):
+            bwi.validate(doc)
+
+    @unittest.skipUnless(CONTRACT is not None, "JEG-1227 contract module not on this branch yet")
+    def test_real_contract_rejects_unsupported_schema_version(self):
+        self.assertNotEqual(bwi.validate(self.golden_with_version("999.0.0")), [])
+        self.assertEqual(bwi.validate(self.golden_with_version(bwi.SCHEMA_VERSION)), [])
+
+
+class _NetworkSpy:
+    """Records every attempted connection without raising, so a caller that
+    swallows request errors cannot hide an attempt."""
+
+    def __init__(self):
+        self.calls = []
+
+    def urlopen(self, req, *a, **k):
+        self.calls.append(("urlopen", getattr(req, "full_url", req)))
+        raise OSError("network spy: blocked")
+
+    def create_connection(self, address, *a, **k):
+        self.calls.append(("create_connection", address))
+        raise OSError("network spy: blocked")
+
+    def connect(self, sock, address):
+        self.calls.append(("socket.connect", address))
+        raise OSError("network spy: blocked")
+
+    def __enter__(self):
+        spy = self
+        self._patches = [
+            mock.patch.object(urllib.request, "urlopen", self.urlopen),
+            mock.patch.object(socket, "create_connection", self.create_connection),
+            mock.patch.object(socket.socket, "connect", lambda s, a: spy.connect(s, a)),
+            mock.patch.object(socket.socket, "connect_ex", lambda s, a: spy.connect(s, a)),
+        ]
+        for p in self._patches:
+            p.start()
+        return self
+
+    def __exit__(self, *exc):
+        for p in reversed(self._patches):
+            p.stop()
+
+
+DUMMY_SUPABASE = {"SUPABASE_URL": "https://dummy-project.supabase.co",
+                  "SUPABASE_SERVICE_KEY": "dummy-service-key",
+                  "SUPABASE_ANON_KEY": "dummy-anon-key"}
+
+
+class OfflineIdentity(ProducerCase):
+    """JEG-1245 finding 2: zero attempted network calls with credentials set."""
+
+    def setUp(self):
+        super().setUp()
+        import player_aliases
+        self.pa = player_aliases
+        saved = (player_aliases._cache, player_aliases._loaded_from)
+        player_aliases._cache = player_aliases._loaded_from = None  # no warm cache hiding a read
+
+        def restore():
+            player_aliases._cache, player_aliases._loaded_from = saved
+        self.addCleanup(restore)
+        env = {k: v for k, v in os.environ.items() if k != "PLAYER_ALIASES_SOURCE"}
+        env.update(DUMMY_SUPABASE)
+        patcher = mock.patch.dict(os.environ, env, clear=True)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_spy_sees_the_dependency_attempt_the_producer_must_prevent(self):
+        # Control: the shared registry, built directly, does try Supabase here.
+        import canonical_players
+        with _NetworkSpy() as spy, redirect_stderr(io.StringIO()):
+            canonical_players.Registry([])
+        self.assertGreaterEqual(len(spy.calls), 1, "spy would not catch the leak")
+        self.assertIn("dummy-project.supabase.co", str(spy.calls[0]))
+
+    def test_identity_makes_zero_network_attempts(self):
+        with _NetworkSpy() as spy:
+            bwi.Identity(FX / "players.json", FX / "sleeper_base.json")
+        self.assertEqual(spy.calls, [])
+
+    def test_full_run_makes_zero_network_attempts_and_matches_golden(self):
+        with _NetworkSpy() as spy:
+            code, err = _run(_args(self.out))
+        self.assertEqual(spy.calls, [])
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("Supabase", err)
+        self.assertEqual(self.out.read_text(), (FX / "expected_wk8.json").read_text())
+
+    def test_alias_pin_is_restored_after_build(self):
+        real = self.pa.load
+        bwi.Identity(FX / "players.json", FX / "sleeper_base.json")
+        self.assertIs(self.pa.load, real)
+
+    def test_aliases_file_is_in_provenance_and_changes_follow_it(self):
+        doc = self.build()
+        ident = doc["input_report"]["identity"]
+        self.assertEqual(ident["alias_source"], "local_file")
+        self.assertEqual(ident["aliases"]["name"], "player_aliases.json")
+        alt = self.write("aliases.json", json.dumps({"schema": "player-aliases-v1", "aliases": []}))
+        doc2 = self.build(aliases=alt)
+        self.assertNotEqual(doc2["input_report"]["identity"]["aliases"]["sha256"],
+                            ident["aliases"]["sha256"])
+
+    def test_alias_file_is_what_resolves_names(self):
+        # A local alias entry is honoured: resolution follows the file, not Supabase.
+        alt = self.write("aliases.json", json.dumps({"schema": "player-aliases-v1", "aliases": [
+            {"alias": "Zzz Nobody", "player_key": 999999, "full_name": "Real Name"}]}))
+        with _NetworkSpy() as spy:
+            ident = bwi.Identity(FX / "players.json", FX / "sleeper_base.json", alt)
+        self.assertEqual(spy.calls, [])
+        self.assertEqual(ident.index.registry.alias_overrides.get("zzz nobody"), "real name")
 
 
 if __name__ == "__main__":
