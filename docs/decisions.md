@@ -1038,3 +1038,7 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1218: Claude reviews and merges; Codex is out
+
+Jeremy, 2026-10-29 19:12 UTC (in chat): "I want to get off of Codex I think, having you use a seperate reviewer makes sense. Codex is slowing us down." Claude sessions now own review and merging; every PR gets one independent review from a Claude session that did not write it. At 20:10 UTC he picked A: a Codex pass on a PR's exact current head counts as that PR's one review. He approves merges by PR number, and at 21:08 UTC gave a standing OK: "merge anything you recommend once it is green". Value changes, Supabase changes and edge deploys still need his yes each time. The rules are in `AGENTS.md` "Review and merge protocol"; they replace the Codex-coordinator protocol of closed PR #1073.
