@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Use Data Driven Football in Claude and ChatGPT</title>
+<style>body{font:16px/1.55 system-ui,sans-serif;max-width:46rem;margin:0 auto;padding:24px 16px 48px;background:#F3F7F7;color:#142B25}a{color:#066B4C}code{background:rgba(128,144,139,.18);padding:1px 4px;border-radius:4px;overflow-wrap:anywhere}li{margin:.35em 0}@media(prefers-color-scheme:dark){body{background:#101A17;color:#E6EFEC}a{color:#7FD4B0}}</style>
+</head>
+<body>
+<nav><a href="../v2/">Data Driven Football</a></nav>
+<h1>Use Data Driven Football in Claude and ChatGPT</h1>
+<p>How to connect the trade values to a chat assistant (JEG-1012, JEG-1024). Last updated 2026-10-24. Everything below is published by <code>make sync</code> from <code>app/llm/</code>; the MCP function itself is <code>supabase/functions/mcp/</code> (see <code>values-endpoint.md</code>).</p>
+<h2>What you get</h2>
+<p>Ask in plain words ("who is worth more, Chase or Bijan, in a 10-team half-PPR superflex league?") and the assistant calls the tool with your league settings. Tools: <code>get_values</code>, <code>get_player_value</code>, <code>trade_targets</code>, <code>compare_trade</code>, <code>read_state</code>, <code>make_state</code>, <code>explain</code>. Every answer ends with a link to the same view on the site, and work moves both ways through the site link: press <strong>Copy link</strong> in the league row and paste the link into the chat; with the tool connected the assistant reads the league, rosters, trade and target from it (<code>read_state</code>) and continues. Ask it to save its work and it gives back a link (<code>make_state</code>); open it and the site shows what was applied and what was ignored. Without the tool connected, an assistant can still read the league settings in the link but not the players, which travel as site player numbers. Format: <code>design/llm-site-state.md</code>.</p>
+<h2>Connect</h2>
+<ul>
+<li><strong>Claude.ai / Claude Desktop:</strong> Settings, Connectors, add a custom connector, URL <code>https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code>. No sign-in. Then add the skill: upload <code>ddf-skill.zip</code> from the site (<code>/ddf-skill.zip</code>) under Settings, Capabilities, Skills.</li>
+<li><strong>Claude Code:</strong> <code>claude mcp add --transport http ddf https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp</code>, and copy <code>ddf-skill/SKILL.md</code> into <code>.claude/skills/data-driven-football/</code>.</li>
+<li><strong>ChatGPT (apps / developer mode):</strong> add an MCP server with the same URL, no authentication. ChatGPT has no skills; the same guidance is in the server's own instructions, which the model reads on connect.</li>
+<li><strong>Custom GPT (Actions):</strong> paste <code>/get-values.openapi.yaml</code>, authentication None. This route has the values only (no state tools), so the MCP route gives tighter answers.</li>
+<li><strong>Pointing an assistant at the site:</strong> the page head links <code>llms.txt</code> (<code>&lt;link rel="alternate" ... title="For AI assistants"&gt;</code>), which names the MCP URL, the skill and how to answer. A card is also at <code>/mcp-server-card.json</code> and <code>/.well-known/mcp/server-card.json</code>; the card format is a draft convention, so treat it as best effort. The <code>.well-known</code> copy sits under the project path, not the domain root, until the custom domain is live.</li>
+</ul>
+<p>Plan and menu names change; check the vendor's connector docs if a step has moved.</p>
+<h2>Limits</h2>
+<ul>
+<li>Public and rate limited (60 requests a minute per IP for <code>mcp</code>, 30 for <code>get-values</code>). The first call after idle can take several seconds.</li>
+<li>The values endpoint prices the whole league: scoring, team count, roster shape, position shares, season weeks and advanced settings (JEG-1031). A custom league is computed per request, so its first answer takes about a second.</li>
+<li>A link carries the league (scoring, <code>teams</code>, roster shape) and your work: Find a trade rosters (<code>mine</code>, <code>theirs</code>), a Trade targets player (<code>target</code>) and the trade (<code>give</code>, <code>get</code>). Names an assistant gives that the site cannot match are listed on the page, never guessed.</li>
+<li>No prior-week "risers and fallers" yet (JEG-1029).</li>
+</ul>
+</body>
+</html>
