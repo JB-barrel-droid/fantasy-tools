@@ -1056,6 +1056,17 @@ async function auditValuesHandler(args: Record<string, unknown>, deps?: Deps, an
   const limit = parseBounded(args.limit, "limit", 15, 1, 50);
   const m = analysis!.modules!.auditSource.build(inspection, source, pos === "all" ? "ALL" : pos);
   const val = (v: number | null) => v === null ? "—" : v.toFixed(1);
+  // A stage with no points has no total: null, never 0 (the page draws nothing for it).
+  const total = (stage: string) => m.stages[stage].exists ? round1(m.totals[stage]) : null;
+  const totals = { published: total("published"), indexed: total("indexed"), adjusted: total("adjusted") };
+  if (!m.hasData) {
+    // The page's line for a source with no values (audit-source.js render), and nothing else.
+    text.push(`${m.label} has no values at these league settings${m.status ? ` (${m.status})` : ""}.`);
+    return finish(ok(text.join("\n"), {
+      as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: false, status: m.status || null,
+      shown: 0, estimated: 0, totals, rows: [],
+    }), { prepared, deps, settings: s, view: "audit" });
+  }
   // deno-lint-ignore no-explicit-any
   const rows = m.rows.slice(0, limit).map((r: any) => ({
     rank: r.rank, player_key: Number(r.key), name: r.name, pos: r.pos, role: r.role, estimated: r.estimated,
@@ -1064,14 +1075,14 @@ async function auditValuesHandler(args: Record<string, unknown>, deps?: Deps, an
   }));
   text.push(`${m.label} build-up (${m.family}${m.position === "ALL" ? "" : `, ${m.position}`}): ${m.shown} players, ${m.estimatedCount} filled in.` +
     (m.status ? ` Status: ${m.status}.` : ""));
-  text.push(`Totals: published ${val(m.totals.published)} (${m.stages.published.unit}), indexed ${m.stages.indexed.exists ? val(m.totals.indexed) : "— (" + m.stages.indexed.reason + ")"}, adjusted ${val(m.totals.adjusted)}.`);
+  text.push(`Totals: published ${val(totals.published)} (${m.stages.published.unit}), indexed ${m.stages.indexed.exists ? val(totals.indexed) : "— (" + (m.stages.indexed.reason || "no indexed values") + ")"}, adjusted ${val(totals.adjusted)}.`);
   text.push("Rank | Player | Pos | Role | Published | Indexed | Adjusted");
   // deno-lint-ignore no-explicit-any
   text.push(...rows.map((r: any) => `${r.rank} | ${r.name}${r.estimated ? " (filled in)" : ""} | ${r.pos} | ${r.role} | ${val(r.published)} | ${val(r.indexed)} | ${val(r.adjusted)}`));
   return finish(ok(text.join("\n"), {
     as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: m.hasData, status: m.status || null,
     shown: m.shown, estimated: m.estimatedCount,
-    totals: { published: round1(m.totals.published), indexed: m.stages.indexed.exists ? round1(m.totals.indexed) : null, adjusted: round1(m.totals.adjusted) },
+    totals,
     rows,
   }), { prepared, deps, settings: s, view: "audit" });
 }

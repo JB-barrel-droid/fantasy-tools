@@ -37,9 +37,11 @@ const base = (scoring, teams, superflex) => ({ attribution: "Data Driven Footbal
   setting: { scoring, teams, superflex }, players, sources_included: [], sources_excluded: [], week: edge.week.week,
   default_week: edge.week.default_week, weeks: edge.week.weeks, missing_sources: edge.week.missing_sources });
 const fetchValues = async (...a) => base(...a);
+// auditBlock: the audit block the endpoint answers (swapped for the empty-source case below).
+let auditBlock = edge.audit;
 const fetchAnalysis = async (s, t, sf, league, week, includes) => ({
   ...base(s, t, sf), ...(includes.includes("series") ? { series: edge.series } : {}),
-  ...(includes.includes("prior") ? { prior: edge.prior } : {}), ...(includes.includes("audit") ? { audit: edge.audit } : {}),
+  ...(includes.includes("prior") ? { prior: edge.prior } : {}), ...(includes.includes("audit") ? { audit: auditBlock } : {}),
 });
 const deps = { codec: require("../../app/v2/ddf-state.js"), siteOrigin: "https://site.test" };
 const finderDeps = { finder: require("../../app/v2/finder.js"), fetchCharts: fetchValues, analysis: { fetchAnalysis, modules } };
@@ -119,4 +121,27 @@ for (const source of modules.auditSource.SOURCES.map((s) => s.key)) {
   out.page.source[source] = { totals: { published: r1(m.totals.published), indexed: m.stages.indexed.exists ? r1(m.totals.indexed) : null, adjusted: r1(m.totals.adjusted) },
     shown: m.shown, rows: m.rows.slice(0, 15).map((r) => ({ player_key: Number(r.key), published: n(r.published), indexed: n(r.indexed), adjusted: n(r.adjusted) })) };
 }
+// A source with no values at this setting (JEG-1309): the page says so and draws no totals
+// (audit-source.js render: "{label} has no values at these league settings ({status})."), so the tool
+// answers that line and null totals, never 0. Each source in turn, emptied and held with a reason.
+out.tools.empty = {};
+out.page.empty = {};
+for (const source of modules.auditSource.SOURCES.map((s) => s.key)) {
+  const status = "held at review";
+  auditBlock = { ...edge.audit, players: { ...edge.audit.players, [source]: {} },
+    excluded: [...(edge.audit.excluded ?? []).filter((e) => e.key !== source), { key: source, reason: status }] };
+  const r = await handleRpc({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "audit_values",
+    arguments: { scoring, teams, superflex: Boolean(superflex), view: "source", source } } }, fetchValues, deps, finderDeps);
+  if (r.error || r.result.isError) throw new Error(`audit_values empty ${source}: ${JSON.stringify(r.error ?? r.result.content)}`);
+  const t = r.result.structuredContent;
+  const text = r.result.content.map((c) => c.text).join("\n");
+  out.tools.empty[source] = { available: t.available, status: t.status, totals: t.totals, rows: t.rows.length,
+    zero_totals: /Totals:/.test(text), says_none: text.split("\n").filter((l) => /has no values/.test(l)) };
+  const m = modules.auditSource.build({ ...inspection, players: auditBlock.players, excluded: auditBlock.excluded }, source, "ALL");
+  const none = (stage) => (m.stages[stage].exists ? r1(m.totals[stage]) : null);
+  out.page.empty[source] = { available: m.hasData, status: m.status || null,
+    totals: { published: none("published"), indexed: none("indexed"), adjusted: none("adjusted") }, rows: m.rows.length,
+    zero_totals: false, says_none: [`${m.label} has no values at these league settings${m.status ? ` (${m.status})` : ""}.`] };
+}
+auditBlock = edge.audit;
 console.log(JSON.stringify(out));

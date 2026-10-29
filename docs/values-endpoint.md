@@ -32,7 +32,9 @@ judges the other team on the mean of `chart_indexed`, the market: the mean of
 `chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
 since JEG-1073 (JEG-1129).
 
-`include` takes a comma list (JEG-1029); an unknown value is a 400. Besides
+`include` takes a comma list (JEG-1029); an unknown value is a 400 (before
+JEG-1029 anything but `charts` was ignored; the change is intended, so a typo
+fails loudly instead of returning the plain answer). Besides
 `charts`, three analysis blocks (`supabase/functions/get-values/analysis.ts`,
 no value math of their own) feed the MCP analyses:
 - `series`: `{player_key: {series: value}}`, each player's Player values row in
@@ -159,6 +161,8 @@ that needs a URL instead of a local process.
   without it the reply is unchanged. `audit_values` (`view` health or source,
   `source`, `position`, `limit`): the Health check's verdict rows, or one
   source's Published / Indexed / Adjusted build-up; links to `#values-auditing`.
+  A source with no values at the setting answers the page's "has no values"
+  line with null totals, never 0 (JEG-1309); a stage with no points has a null total.
   Parity: `tests/test_connector_analyses.py` (offline, against
   `value_reference.py`, with broken variants) and
   `tests/test_connector_analyses_page.py` (the live page, needs a browser).

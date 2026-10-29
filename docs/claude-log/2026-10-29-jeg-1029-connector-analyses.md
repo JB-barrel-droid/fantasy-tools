@@ -48,3 +48,16 @@ What changed:
   summary, SKILL.md / llms.txt prose for the new tools (copy, Jeremy's), and per-source prior pairs for
   a source serving a different week from the view during a transition (reported unavailable with the
   reason instead of the page's per-source pair).
+
+### JEG-1309 correction (independent review of 72d3f49)
+- Finding (P2), acknowledged: `audit_values` view source answered totals of 0 for a source with no
+  values, where the page says it has none. Fixed in `mcp/tools.ts`: with no data it answers the page's
+  line ("{label} has no values at these league settings ({status}).") and null totals; any stage with no
+  points has a null total. P3 note 1: `docs/values-endpoint.md` now says the 400 on an unknown `include`
+  is intended. P3 note 2 (module load on every request) left as is, as the review allowed.
+- Verified: `tests.test_connector_analyses` gains an empty-source case per source (all 7, each emptied
+  and held with a reason) in `test_tools_match_page_modules`. Before the fix it failed at all 3 settings
+  (`{'published': 0, 'indexed': None, 'adjusted': 0}` for fantasycalc); after it, that test file,
+  `test_connector_roundtrip`, `test_connector_inventory`, `test_mcp_remote` and `test_llm_surfaces`
+  ran 20 tests OK (1 expected failure, the JEG-1030 F2/F3 routes).
+- Claimed, not confirmed: the page test still needs Chromium (Mac); nothing deployed.

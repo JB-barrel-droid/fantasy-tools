@@ -160,7 +160,7 @@ def block_errors(edge: dict, reference: dict) -> list[str]:
 def tool_errors(out: dict) -> list[str]:
     """Half 2: each tool's answer against the page module run on the reference (or the same inspection)."""
     errors = []
-    for part in ("risers", "compare", "health", "source", "disagreements"):
+    for part in ("risers", "compare", "health", "source", "disagreements", "empty"):
         if out["tools"].get(part) != out["page"].get(part):
             if isinstance(out["tools"].get(part), dict):
                 for k in sorted(set(out["tools"][part]) | set(out["page"][part])):
@@ -201,6 +201,10 @@ class ConnectorAnalysesParity(unittest.TestCase):
                 self.assertGreaterEqual(len(out["tools"]["compare"]), 3)
                 self.assertTrue(all(r["net"] is not None for r in out["tools"]["compare"][0]["rows"]))
                 self.assertTrue(out["tools"]["health"])
+                # JEG-1309: a source with no values has null totals and the page's line, never totals of 0.
+                for src, e in out["tools"]["empty"].items():
+                    self.assertEqual(e["totals"], {"published": None, "indexed": None, "adjusted": None}, src)
+                    self.assertFalse(e["available"], src)
                 errors = tool_errors(out)
                 self.assertEqual(errors, [], f"{len(errors)} mismatches: {errors[:5]}")
 
