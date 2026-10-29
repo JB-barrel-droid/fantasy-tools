@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<!--
+  Private component preview: saved column order for the league trade opportunities table (JEG-1232).
+  Not the live site and not published (pipelines/build_v2_page.py copies a named list of app/v2 files; this folder is
+  not in it). Serve the repo root and open /app/v2-concept/column-order.html.
+  The component is app/v2/column-order.js + .css; the table uses the site's own v2.css classes, column list
+  (opportunities.js), sort (table-sort.js) and saved-league store (workspace.js). By default the --v2-* tokens are mapped
+  onto the Fieldnotes concept palette (app/v2-concept/concept.css, docs/design/2026-10-direction.md); ?theme=live shows the
+  live site's tokens. The rows are illustrative: names and numbers say nothing about any player's value.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Column order: component preview</title>
+<link rel="stylesheet" href="../v2/v2.css">
+<link rel="stylesheet" href="../v2/column-order.css">
+<style>
+  @font-face { font-family: "Fraunces"; src: url("fonts/fraunces-latin.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+  /* Fieldnotes palette (concept.css) laid over the live --v2-* tokens, so the component keeps one set of class names. */
+  html.is-fieldnotes { --v2-canvas: #F6F3EC; --v2-surface: #FFFCF8; --v2-ink: #1A2824; --v2-muted: #52635C; --v2-border: #E3DCD0;
+    --v2-field-border: #8C8476; --v2-action: #0C7A56; --v2-action-strong: #085C40; --v2-action-text: #0C7A56; --v2-focus: #0C7A56; --v2-positive: #E4F5ED; }
+  html.is-fieldnotes .v2-card-head h2, html.is-fieldnotes h1 { font-family: "Fraunces", Georgia, serif; font-weight: 600; }
+  body.v2 { padding: 16px; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  .preview-note { color: var(--v2-muted); margin: 0 0 16px; max-width: 80ch; }
+</style>
+<script>
+  (function () { if (new URLSearchParams(location.search).get("theme") !== "live") document.documentElement.classList.add("is-fieldnotes"); })();
+</script>
+</head>
+<body class="v2">
+<div class="v2-app">
+  <main id="v2Main">
+    <h1>Column order</h1>
+    <p class="preview-note" id="previewNote">Private preview for JEG-1232, not published. The rows are illustrative, not DDF values: they only show how a saved
+      column order draws. Column ids, labels, sorting and the saved-league store are the site's own.</p>
+    <section class="v2-card" id="v2LgOpps" aria-labelledby="v2LgOppsTitle">
+      <div class="v2-card-head"><h2 id="v2LgOppsTitle">Trade opportunities</h2></div>
+      <div id="v2LgOppsBody"></div>
+    </section>
+    <p class="v2-sr" id="previewAnnounce" role="status" aria-live="polite"></p>
+  </main>
+</div>
+<script src="../v2/table-sort.js"></script>
+<script src="../v2/finder.js"></script>
+<script src="../v2/team-summary.js"></script>
+<script src="../v2/opportunities.js"></script>
+<script src="../v2/workspace.js"></script>
+<script src="../v2/column-order.js"></script>
+<script src="column-order-preview.js"></script>
+</body>
+</html>
