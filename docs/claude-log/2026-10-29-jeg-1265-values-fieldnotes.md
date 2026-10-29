@@ -47,6 +47,27 @@ The existing chart card is unchanged and stays where it is (pick logged in the p
   here. It runs in the new workflow with `RENDER_TESTS_REQUIRED=1`; its result and screenshots are on the PR and the ticket.
 - `make validate` and the contract render test were not run; no loaded file changed.
 
+## Correction JEG-1299 (review of bea8ab96): phone Details focus
+
+Finding (P2): the table row and the phone card each have a Details button, and both carried `data-focus="open:<key>"`.
+`update()` took the first match, the table's, which is `display: none` at 719px and below, so on a phone focus was lost
+after any redraw.
+
+Fix: each presentation has its own focus id (`open:table:<key>`, `open:card:<key>`). `update()` focuses the visible
+match, falls back to the same player's button in the other presentation when a resize hid it, and goes to the title
+when nothing visible matches or focus did not land. No values, data contracts, sorting or runtime integration changed.
+
+### Verified (check named)
+- `tests.test_jeg1265_values_fieldnotes`: 3 OK here (17/17 harness checks, 18/18 mutants).
+- Failing before: the new render regressions ran in CI on tests-only commits against the unchanged component
+  (run 40947876817 on 3373fd5): redraw and drawer return at 390 and 320 failed with focus on BODY (4 failures);
+  1280 and the title fallback passed.
+- Passing after: the same job on the fix commit (run id on JEG-1299).
+
+### Claimed, not confirmed
+- The render tests were not run in this session (no browser here); CI's `values-fieldnotes` job runs them with
+  `RENDER_TESTS_REQUIRED=1`.
+
 ## Integration plan for the JEG-1137 owner (not applied here)
 
 1. `shell.html`: add `<link rel="stylesheet" href="v2/values-fieldnotes.css">` after `v2.css`, and

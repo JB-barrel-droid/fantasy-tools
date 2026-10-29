@@ -329,7 +329,7 @@ class ValuesFieldnotesRenderTest(unittest.TestCase):
                 self.shot(page, f"disclosure-{width}")
                 page.keyboard.press("Space")
                 self.assertFalse(page.locator(".vf-cards > li").first.locator("details").evaluate("d => d.open"))
-                details = page.locator('.vf-cards button[data-focus="open:syn-01"]')
+                details = page.locator('.vf-cards button[data-focus="open:card:syn-01"]')
                 self.assertEqual(details.get_attribute("aria-label"), f"Details for {FIXTURE['rows'][0]['name']}")
                 details.focus()
                 page.keyboard.press("Enter")

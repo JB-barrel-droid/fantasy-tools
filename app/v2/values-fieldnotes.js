@@ -208,13 +208,15 @@
       if (h.kind === "rank") return el("td", {class: "vf-rank"}, cell.text, r.posRank ? el("span", {class: "vf-sub", text: r.posRank}) : null);
       if (!cell.numeric) return el("td", {class: "vf-meta", text: cell.text});
       return el("td", {class: ["vf-numcol", cell.isRank ? "is-rank" : ""].filter(Boolean).join(" "), "data-col": cell.col}, valueNode(cell), noteList(cell.notes));
-    }), el("td", {class: "vf-actions"}, detailsButton(r, on)))));
+    }), el("td", {class: "vf-actions"}, detailsButton(r, on, "table")))));
     t.append(el("thead", {}, gr, hr), body);
     return el("div", {class: "vf-tablewrap"}, t);
   }
 
-  function detailsButton(r, on) {
-    const b = el("button", {type: "button", class: "vf-btn vf-quiet", "data-focus": `open:${r.key}`, "aria-label": `Details for ${r.name}`, text: "Details"});
+  // where: "table" or "card". Each presentation has its own focus id, so a redraw returns focus to the button the reader
+  // was on and not to its hidden twin (JEG-1299: the table is display: none on phones).
+  function detailsButton(r, on, where) {
+    const b = el("button", {type: "button", class: "vf-btn vf-quiet", "data-focus": `open:${where}:${r.key}`, "aria-label": `Details for ${r.name}`, text: "Details"});
     b.addEventListener("click", () => on.open && on.open(r.key));
     return b;
   }
@@ -237,7 +239,7 @@
           rk ? el("p", {class: "vf-card-value"}, el("span", {class: "vf-sr", text: `${vm.rankLabel}: `}), valueNode(rk)) : null),
         noteList(rk ? rk.notes : []),
         groups.length ? el("details", {class: "vf-disclosure"}, el("summary", {}, "All values", el("span", {class: "vf-sr", text: ` for ${r.name}`})), ...groups) : null,
-        detailsButton(r, on));
+        detailsButton(r, on, "card"));
     }));
   }
 
@@ -318,6 +320,14 @@
     return container;
   }
 
+  // The visible control with this focus id. A Details button whose presentation is now hidden (the window was resized
+  // across 720px) falls back to the same player's button in the other one. Null when nothing visible matches.
+  function visibleFocus(container, key) {
+    const shown = k => [...container.querySelectorAll(`[data-focus="${CSS.escape(k)}"]`)].find(n => n.getClientRects().length > 0) || null;
+    const m = /^open:(table|card):(.*)$/.exec(key);
+    return shown(key) || (m ? shown(`open:${m[1] === "table" ? "card" : "table"}:${m[2]}`) : null);
+  }
+
   // opts: {getContext() -> context, on: {sort(next), filter(change), rankBy(key), showMore(), open(playerKey), clear()}}.
   // Returns {update(), vm()}. update() redraws from getContext() and returns focus to the control that had it.
   function mount(container, opts) {
@@ -330,9 +340,9 @@
       const caret = active && active.id === "vfSearch" ? active.selectionStart : null;
       current = viewModel(o.getContext());
       render(container, current, o.on || {});
-      const back = key ? container.querySelector(`[data-focus="${CSS.escape(key)}"]`) : null;
-      if (back) {
-        back.focus();
+      const back = key ? visibleFocus(container, key) : null;
+      if (back) back.focus();
+      if (back && document.activeElement === back) {
         if (caret !== null && back.setSelectionRange) back.setSelectionRange(caret, caret);
       } else if (focusTitle || active) container.querySelector("#vfTitle").focus();   // the focused node was redrawn or is gone (Show more, all shown)
       return current;
