@@ -527,6 +527,21 @@ def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
                                     "or its module")
                     for n in _alias_escapes(ctree, hmods, parents):
                         flag(n, f"lets the {hstem} module alias {ast.unparse(n)!r} escape a plain attribute access")
+                # JEG-1346: allow-list, not another escape. The only attribute
+                # access to the function is `<imported alias of its module>.fn`,
+                # exactly the form names_fn checks as a call; any other
+                # `<expr>.fn` (getattr/__dict__ on the package, a class-body
+                # import, a star import from the package, a holder chain) fails.
+                for n in ast.walk(ctree):
+                    if isinstance(n, ast.Attribute) and n.attr == fn_name and ast.unparse(n.value) not in mods:
+                        flag(n, f"reaches {fn_name}() as {ast.unparse(n)!r}, not through an imported "
+                                f"alias of {stem}")
+                # Outside the defining module, the function's or the module's
+                # name as a string can only feed getattr-style lookups.
+                if crel != rel:
+                    for n in ast.walk(ctree):
+                        if isinstance(n, ast.Constant) and n.value in (fn_name, stem):
+                            flag(n, f"names {n.value!r} in a string, a lookup the guard cannot follow")
                 # A package attribute (`lib.projection_capture`) that is not an
                 # imported alias reaches the module without the guard seeing it.
                 for ystem in [stem] + [h[1] for h in holders]:
@@ -597,7 +612,10 @@ def check_canonical_resolution_usage(pipelines_dir: Path, contracts=None):
     argument), a package attribute that is not an imported alias
     (`lib.projection_capture`), and re-exporting the function or its module from
     a module that holds it (`from holder import pc`, `holder.pc`, star imports)
-    all fail. Dynamic `globals()`, `sys.modules`, `importlib` and cross-module
+    all fail. JEG-1346 adds an allow-list on top: the only attribute access to
+    the function is `<imported alias of its module>.<function>`, and no string
+    naming the function or its module may appear outside the defining module.
+    Computed names, `globals()`, `sys.modules`, `importlib` and cross-module
     monkeypatching remain outside this static check.
     """
     issues = []
@@ -954,6 +972,42 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         self.assertEqual(len(got), 1, got)
         self.assertIn("not a pinned caller", got[0])
         self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
+
+    def test_real_capture_allowlist_escapes_fail(self):
+        """JEG-1346: four more escapes the delta review of 35e17a95 found, plus a
+        nested getattr. The guard now allows `<imported alias>.cbs_capture_rows`
+        only, and no string naming the function or its module outside it."""
+        cap = (PIPELINES_DIR / "lib" / "projection_capture.py").read_text(encoding="utf-8")
+        saver = (PIPELINES_DIR / "save_cbsros_references.py").read_text(encoding="utf-8")
+        real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
+        call = ("(rows, weekly, lambda n, p, norm: n, season=1, source_week=1, capture_at=None, "
+                "phase=None, batch_id=None, vintage=None)")
+        run = "def run(rows, weekly):\n    return {}" + call + "\n"
+        probes = {
+            "A getattr on the package": "import lib.projection_capture\nm = getattr(lib, 'projection_capture')\n\n"
+                                        + run.format("m.cbs_capture_rows"),
+            "B package __dict__": "import lib.projection_capture\n\n"
+                                  + run.format("lib.__dict__['projection_capture'].cbs_capture_rows"),
+            "B vars() on the package": "import lib.projection_capture\n\n"
+                                       + run.format("vars(lib)['projection_capture'].cbs_capture_rows"),
+            "C class-body import": "class X:\n    import lib.projection_capture as pc\n\n"
+                                   + run.format("X.pc.cbs_capture_rows"),
+            "D star import from the package": "import lib.projection_capture\nfrom lib import *\n\n"
+                                              + run.format("projection_capture.cbs_capture_rows"),
+            "nested getattr": "import lib.projection_capture\n\n"
+                              + run.format("getattr(getattr(lib, 'projection_capture'), 'cbs_capture_rows')"),
+        }
+        for why, probe in probes.items():
+            with self.subTest(probe=why):
+                got = self._scan({**real, "zz.py": probe}, contracts=INJECTED_RESOLVER_CONTRACTS)
+                self.assertTrue(any(g.startswith("zz.py: ") for g in got), got)
+        # Positive controls: the real pair is clean, and an imported alias
+        # calling directly is recognised as a call (an unpinned one here).
+        self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
+        direct = "import lib.projection_capture as pc\n\n" + run.format("pc.cbs_capture_rows")
+        got = self._scan({**real, "zz.py": direct}, contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertEqual(len(got), 1, got)
+        self.assertIn("not a pinned caller", got[0])
 
     def test_wrapper_and_lambda_fallbacks_fail(self):
         wrappers = {

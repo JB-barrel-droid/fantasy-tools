@@ -34,6 +34,9 @@ no pipeline code changed.
   reviewer's probes 1 to 7 against the real `projection_capture.py` and
   `save_cbsros_references.py`, plus the direct-call control and the clean pair).
 
+### JEG-1346 (delta review of #1103 at 35e17a95)
+- Allow-list instead of another escape: any `<expr>.cbs_capture_rows` whose `<expr>` is not an imported alias of `projection_capture` fails in every module, and a string equal to `cbs_capture_rows` or `projection_capture` fails outside the defining module. `test_real_capture_allowlist_escapes_fail` covers getattr and `__dict__`/`vars()` on the package, a class-body import, a star import from the package and a nested getattr (6 failures before on 35e17a95, OK after; removing rule 1 fails 2, rule 2 fails 1; real `pipelines/` scan 0 issues).
+
 ### Verified (check named)
 - Failing before: the two new tests on 29367e71's guard give 24 failures
   (every probe and case, and the first-hop check).
