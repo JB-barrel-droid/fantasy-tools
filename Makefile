@@ -171,6 +171,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_tokens
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
@@ -594,6 +595,7 @@ test-core:
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -607,6 +609,7 @@ test-core:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
@@ -727,10 +730,12 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_v2_finder_guardrails
+	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
