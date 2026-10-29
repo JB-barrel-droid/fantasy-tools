@@ -16,7 +16,14 @@ this PR does not touch those lines.
 
 ### Claimed, not confirmed
 - `tests/test_jeg1231_league_inclusion_render.py` (offers gone, remaining rows identical, focus kept, star and rosters
-  untouched, saved with the league, Clear all message, Select all restores the first result, 390 width) has not run here:
+  untouched, saved with the league, Clear message, Select all restores the first result, 390 width) has not run here:
   no Chromium in this container. It runs in the v2 render workflow.
 - The card's description still says "Your team against every other team."; the control's count line says how many are
   searched. A copy change there is Jeremy's call.
+
+### Fieldnotes wording and current main
+Merged the component branch after its Fieldnotes alignment (docs/design/jeg-1209-fieldnotes at 2c89312), plus current
+main with #1072. No conflicts. The league control now reads "Opponents to include" with Select all and Clear, and each row
+counts the team's matched players (the same `rowsOfTeam` count that decides whether a team has a roster). The control
+keeps today's `--ddf-*` palette on the public page. Verified here: `tests.test_jeg1231_opponent_inclusion` and the league
+unit modules named below pass; the built-page render test runs in CI.

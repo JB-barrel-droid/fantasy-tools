@@ -1041,8 +1041,8 @@
     const M = root.TradeValueManagerProfiles;
     const book = M && M.store && typeof M.get === "function" ? M.store.get() : null;
     const ctx = mathCtx || mathContext();
-    return {profileExcluded: id => Boolean(book && M.get(book, ws, id).excluded),
-      hasRoster: t => (ctx ? rowsOfTeam(t, ctx).length > 0 : t.entries.length > 0)};
+    const count = t => (ctx ? rowsOfTeam(t, ctx).length : t.entries.length);
+    return {profileExcluded: id => Boolean(book && M.get(book, ws, id).excluded), playerCount: count, hasRoster: t => count(t) > 0};
   }
   const searchedOpponents = (ws, ctx) => (OI ? OI.searchOpponents(ws, OI.read(ws), inclusionOpts(ws, ctx)) : ws.teams.filter(t => t.id !== ws.myTeamId));
   function renderInclusion(ws, ctx) {
@@ -1050,7 +1050,7 @@
     if (!OI || !box) return;
     if (!UI.inclusion) {
       const change = fn => update(w => W.ops.setUi(w, OI.patch(fn(OI.read(w), w))), "ui:inclusion");
-      UI.inclusion = OI.createControl({document, idPrefix: "v2LgOi", legend: "Opponents to search",
+      UI.inclusion = OI.createControl({document, idPrefix: "v2LgOi", legend: "Opponents to include",
         onToggle: (id, include) => change((s, w) => OI.setIncluded(s, w, id, include)),
         onIncludeAll: () => change((s, w) => OI.includeAll(s, w)),
         onExcludeAll: () => change((s, w) => OI.excludeAll(s, w))});
@@ -1096,7 +1096,7 @@
     if (!mine) return status("Press the star on one team to mark it as yours. Trade opportunities are found for your team against every other team.");
     if (!rowsOfTeam(mine, ctx).length) return status(`Add players to ${mine.name} to find trade opportunities.`);
     if (!others.length) return status("Add at least one other team to find trade opportunities.");
-    if (!searchedOpponents(ws, ctx).some(t => rowsOfTeam(t, ctx).length)) return status("No opponent with a roster is included, so no trades can be found. Tick a team under Opponents to search.");
+    if (!searchedOpponents(ws, ctx).some(t => rowsOfTeam(t, ctx).length)) return status("No opponent with a roster is included, so no trades can be found. Tick a team under Opponents to include.");
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");

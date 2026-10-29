@@ -1,7 +1,7 @@
 """JEG-1231: opponent inclusion checkboxes on the built league page.
 
 Leaving a team out removes its offers and nothing else: the remaining rows keep their values, fits and order, the star,
-rosters and names do not change, the choice is saved with the league, and Clear all says why nothing is found.
+rosters and names do not change, the choice is saved with the league, and Clear says why nothing is found.
 """
 from __future__ import annotations
 
@@ -26,6 +26,8 @@ class LeagueInclusionRenderTest(unittest.TestCase):
                     self.assertTrue(page.locator("#v2LgOppsInclusion").is_visible())
                     boxes = page.locator("#v2LgOppsInclusion input[type=checkbox]")
                     self.assertEqual(boxes.count(), 3, "every other team, never my own")
+                    self.assertEqual(page.inner_text("#v2LgOppsInclusion legend"), "Opponents to include")
+                    self.assertEqual(page.inner_text("#v2LgOiNone"), "Clear")
                     self.assertEqual(page.locator("#v2LgOppsInclusion input:checked").count(), 3, "today's baseline: every opponent searched")
                     full = page.evaluate(ROWS)
                     before = page.evaluate(WORKSPACE)
