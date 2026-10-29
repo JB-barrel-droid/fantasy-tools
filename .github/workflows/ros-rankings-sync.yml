@@ -1,0 +1,91 @@
+name: ROS rankings scrape to Supabase
+
+# JEG-1198 option C (Jeremy 2026-10-29): public rest-of-season rankings, piped
+# through Supabase for research and review. Rankings never feed DDF Value or
+# DDF Projections (docs/pipeline-rules.md section 8).
+#
+#   pipelines/pull_ros_rankings.py -> /tmp/ros/snapshot.json, fail closed with
+#     named codes (SOURCE_BLOCKED, SOURCE_LAYOUT, SOURCE_TRUNCATED); vintage =
+#     each source's own stamp, not the run date
+#   pipelines/save_ros_rankings.py -> public.ros_rankings
+#     (grain source + scoring + pos + player_key + source_vintage)
+#
+# public.ros_rankings does not exist until Jeremy approves and applies
+# sql/migrations/015_ros_rankings.sql. Until then only dry runs work.
+# No `schedule:` here: once approved, pg_cron owns it
+# (sql/migrations/016_ros_rankings_sync_schedule.sql, a draft).
+#
+#   push to ros-rankings/dry-*            -> dry run
+#   push to claude/JEG-1198-ros-rankings-feed -> dry run (review branch; drop after merge)
+#   workflow_dispatch                      -> dry unless mode=write
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry or write"
+        required: false
+        default: "dry"
+  push:
+    branches: ["ros-rankings/dry-*", "claude/JEG-1198-ros-rankings-feed"]
+    paths: ["pipelines/pull_ros_rankings.py", "pipelines/save_ros_rankings.py", ".github/workflows/ros-rankings-sync.yml"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ros-rankings-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install standalone Supabase client
+        run: |
+          mkdir -p /tmp/gh_shim
+          cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+
+      - name: Resolve mode
+        id: cfg
+        env:
+          INPUT_MODE: ${{ github.event.inputs.mode }}
+        run: |
+          mode=dry
+          [ "$INPUT_MODE" = "write" ] && mode=write
+          echo "mode=$mode" >> $GITHUB_OUTPUT
+          echo "::notice title=ros-rankings::mode=$mode"
+
+      - name: Scrape and save
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: ${{ steps.cfg.outputs.mode }}
+        run: |
+          flag=""
+          [ "$MODE" = "write" ] || flag="--dry-run"
+          rc=0
+          {
+            python3 pipelines/pull_ros_rankings.py --out-dir /tmp/ros &&
+            python3 pipelines/save_ros_rankings.py --snapshot /tmp/ros/snapshot.json $flag
+          } > /tmp/ros.log 2>&1 || rc=$?
+          cat /tmp/ros.log
+          level=notice; [ "$rc" = 0 ] || level=error
+          tail -8 /tmp/ros.log | cut -c1-900 | sed "s/^/::$level title=ros-rankings rc=$rc::/"
+          exit $rc
+
+      - name: Keep the snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ros-rankings-snapshot
+          path: /tmp/ros/snapshot.json
+          if-no-files-found: ignore
+          retention-days: 14
