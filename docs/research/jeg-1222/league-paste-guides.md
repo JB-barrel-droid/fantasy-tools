@@ -2,14 +2,16 @@
 
 Fact-checked desktop copy for loading a league into Data Driven Football by
 copy and paste, with the evidence behind each step. Prepared 2026-10-29 UTC
-against `main` at `021c5bf`. Copy and research only: no parser, runtime copy
-(JEG-1130) or design (JEG-1137) change.
+against `main` at `021c5bf`; repair-step and live-copy claims rechecked on
+`main` at `b863069` the same day (only line numbers moved). Copy and
+research only: no parser, runtime copy (JEG-1130) or design (JEG-1137)
+change.
 
 ## Answer first
 
 | Platform | Whole league in one paste | One team per paste | Guide status |
 | -- | -- | -- | -- |
-| ESPN | Path verified (League, then Rosters). Copied-text layout **not** verified: the fixture's layout is inferred. | Verified on a real capture | Ship the one-team guide; ship the whole-league guide marked "check the count" until a real capture lands |
+| ESPN | Path verified (League, then Rosters). Whole-league import is **expected, experimental**: no real signed-in copied text exists and the fixture's layout is inferred. | Verified on a real capture | Ship the one-team guide; ship the whole-league guide only marked experimental, with "check the count", until a real capture lands |
 | Yahoo | A "Starting Rosters" page with every team exists. Copied-text layout **not** verified; the fixture's layout is inferred and differs from what that page shows | Verified on a real capture (My Team, then Roster) | Ship the one-team guide only |
 | Sleeper | Not verified. No all-rosters page confirmed on the web | Not verified on a real capture | Ship the one-team guide with a clear "may need fixing" note, or hold |
 
@@ -44,27 +46,43 @@ Wording below is quoted from `app/v2/league.js` on `021c5bf`.
 
 - Whole league: "Read N teams from your paste." Then each team's name and
   player count, "your team" beside the starred team, and "N to check" where a
-  name match is unsure.
+  name match was unsure. Unsure matches are **left out** of the team and only
+  counted: no "is this...?" question is kept and the pasted names are not
+  saved (`leagueEntries` skips confidence < 1; the league paste saves
+  `sourceText: ""`, `sourceTeam: null`).
 - Unmatched lines are listed under each team: "N lines not matched to a
   player:" and the closing line "Add those players by searching inside the
   team." When all match: "Every player line was matched."
 - Kickers and defenses are kept as listed but not valued.
 - One-team paste: "Matched X of Y players." Unsure matches ask "Pasted
-  '...': is this [player]?" with yes and no; they are not added until
-  answered. Unmatched names: "Not matched (N): add them by search."
+  '...': is this [player]?" with yes and no ("Check N matches: not added
+  until you say so."); they are not added until answered. Unmatched names:
+  "Not matched (N): add them by search."
 - Pasting the same league again updates teams with the same name instead of
   adding duplicates.
 
-**Repair steps (same everywhere):** open the team with a "to check" or "not
-matched" note, answer each "is this...?" question, then type any missing
-player's name in that team's box and pick them from the list. Press the star
-beside your own team.
+**Repair steps after a one-team paste:** answer each "is this...?" question
+with yes or no, then type any "Not matched" player's name in that team's box
+and pick them from the list.
+
+**Repair steps after a whole-league paste:** there are no yes/no questions
+here. For each team marked "to check" or "not matched":
+
+1. Compare the team's players in DDF with the same team on the source page.
+   "N to check" means N players were dropped and are not named; the "not
+   matched" lines are listed.
+2. Add each missing player by typing their name in that team's box and
+   picking them from the list, or
+3. Re-paste that one team's own page into its box (one-team paste above),
+   which brings back the "is this...?" questions for that team.
+
+Then press the star beside your own team.
 
 ---
 
 ## ESPN (desktop browser)
 
-### A. Whole league (verified path, unverified text layout)
+### A. Whole league (experimental: verified path, unverified copied text)
 
 1. Sign in at ESPN Fantasy Football on a computer and open your league.
 2. In the **League** menu at the top, choose **Rosters**. The page is headed
@@ -76,17 +94,20 @@ beside your own team.
 5. Check the count: "Read N teams from your paste" should equal your league
    size, and each team should show a full roster. If it does not, use path B
    for the teams that came out short.
-6. Press the star beside your team. Fix any "to check" or "not matched" lines
-   (repair steps above).
+6. Press the star beside your team. Fix any "to check" or "not matched" team
+   with the whole-league repair steps above.
 
-Imports: every team on the page, one paste.
+Imports: expected to bring in every team on the page in one paste, but this
+is **experimental, not verified**: no real signed-in ESPN copied text has been
+tested, only an inferred fixture. Treat the count check in step 5 as required.
 
 ### B. One team at a time (verified on a real capture)
 
 1. Open **My Team** (or a rival's team page) on ESPN.
 2. **Ctrl+A**, **Ctrl+C** (Mac: **Cmd+A**, **Cmd+C**).
 3. In DDF press **Add team**, name it if needed, and paste into its box.
-4. Expect "Matched X of Y players." Repeat for each team.
+4. Expect "Matched X of Y players." Answer any "is this...?" question.
+   Repeat for each team.
 
 Imports: one team per paste. A matchup page holds two teams and DDF asks
 "Which team is this?".
@@ -163,6 +184,7 @@ Sleeper users to paste one team at a time, which matches the evidence.
 | Sleeper team page | Hand-written string in `tests/test_v2_finder_paste_render.py` only | n/a | One team | No real capture; screen not seen | **Blocked** |
 | Sleeper whole league | Sleeper help 4238825; community request; inferred fixture `sleeper-league-rosters.txt` | Help 2026-09-24; read 2026-10-29 | Whole league | No all-rosters page confirmed | **Blocked** |
 | Pasted links not fetched | `parseLeague` reads a Sleeper/ESPN league ID but makes no request; `tests/test_v2_paste_only_render.py` | Main `021c5bf` | All | none | **Pass** |
+| Repair after paste | `app/v2/league.js`: one-team `unsureBlock` (yes/no, lines 186-194); whole-league `leagueEntries` drops confidence < 1 (line 582) and saves `sourceText: ""` (line 634) | Main `b863069`, 2026-10-29 | One team vs whole league | Source read, not a browser test | **Pass** (guide split to match) |
 | Device-only storage | League saved in this browser; help copy "Pasted text stays on this device" | Main `021c5bf` | All | none | **Pass** |
 
 Sign-ins: none made. ESPN, Yahoo and Sleeper were not signed in to for this
@@ -200,7 +222,8 @@ Jeremy's own leagues could supply these in a couple of minutes each.
 
 ## Live copy issues (for JEG-1130 / Codex; not changed here)
 
-Quoted from `app/v2/league.js` on `021c5bf`:
+Quoted from `app/v2/league.js` on `021c5bf`; still present on `b863069`,
+where lines 1408 and 1417 are now 1409 and 1418:
 
 - Line 1417, "Yahoo: your league's rosters page." Tells Yahoo users to paste a
   whole league, which is unverified. Suggest one team per paste for Yahoo
