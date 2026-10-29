@@ -333,6 +333,46 @@ test("a renamed team keeps its ID; a deleted ID is an explicit missing selection
   assert.ok(stale.warnings.some(w => /opponent filter tZ/.test(w)));
 });
 
+// ---------- the pair finder's shown rosters win over their origin IDs (JEG-1219 handshake on #1086) ----------
+test("a shown working copy stays authoritative over its saved origin ID", () => {
+  // The exact reproduction: saved team "a" holds [1]; the finder's edited working copy came from "a" and shows [2].
+  let ws = W.newWorkspace({id: "w", name: "W", now: 1});
+  ws = W.ops.addTeam(ws, "A", {id: "a", entries: [entry("1", "Saved player", "QB")], now: 1});
+  const shown = [entry("2", "Working-copy player", "WR")];
+  const edited = T.fromPair({common: T.normalizeCommon({}), provenance: "local"}, ws, {mineId: "a", mine: shown, mineProvenance: "local"}, {});
+  assert.deepEqual(edited.teams.mine.roster.map(e => e.key), ["2"]);
+  assert.deepEqual({id: edited.teams.mine.id, provenance: edited.teams.mine.provenance, missing: edited.teams.mine.missing, matchesSaved: edited.teams.mine.matchesSaved},
+    {id: "a", provenance: "local", missing: false, matchesSaved: false});
+  assert.equal(edited.teams.mine.name, null, "a saved name is not shown on a roster that no longer matches it");
+  assert.equal(T.maySave(edited, "mine"), false);
+  // Deleted origin: the shown roster stays, the source ID is marked missing.
+  const deleted = T.fromPair({common: T.normalizeCommon({})}, W.ops.removeTeam(ws, "a"), {mineId: "a", mine: shown, mineProvenance: "local"}, {});
+  assert.deepEqual(deleted.teams.mine.roster.map(e => e.key), ["2"]);
+  assert.equal(deleted.teams.mine.missing, true);
+  assert.equal(deleted.teams.mine.id, "a");
+  assert.equal(T.cacheKey(deleted, "readout"), T.cacheKey(edited, "readout"), "losing the origin ID does not change what is priced");
+  // An emptied working copy is an empty roster, not a reload of the saved one.
+  const emptied = T.fromPair({common: T.normalizeCommon({})}, ws, {mineId: "a", mine: [], mineProvenance: "local"}, {});
+  assert.deepEqual(emptied.teams.mine.roster, []);
+  // The saved team changed after the copy was loaded: the shown copy wins.
+  const changedSaved = W.ops.setEntries(ws, "a", [entry("3", "Later", "RB")]);
+  assert.deepEqual(T.fromPair({common: T.normalizeCommon({})}, changedSaved, {mineId: "a", mine: shown, mineProvenance: "local"}, {}).teams.mine.roster.map(e => e.key), ["2"]);
+  // A foreign workspace: an origin ID from the sender that also exists, with other players, on this reader.
+  let reader = W.newWorkspace({id: "r", name: "R", now: 1});
+  reader = W.ops.addTeam(reader, "Reader's A", {id: "a", entries: [entry("9", "Reader player", "TE")], now: 1});
+  const foreign = T.fromPair({common: T.normalizeCommon({})}, reader, {mineId: "a", mine: shown, mineProvenance: "link"}, {});
+  assert.deepEqual(foreign.teams.mine.roster.map(e => e.key), ["2"]);
+  assert.equal(foreign.teams.mine.name, null);
+  assert.equal(foreign.teams.mine.provenance, "link");
+  assert.equal(T.maySave(foreign, "mine"), false);
+  // An unedited copy still matches its saved team and keeps saved provenance and name.
+  const unedited = T.fromPair({common: T.normalizeCommon({}), provenance: "saved"}, ws, {mineId: "a", mine: [entry("1", "Saved player", "QB")]}, {});
+  assert.deepEqual({provenance: unedited.teams.mine.provenance, matchesSaved: unedited.teams.mine.matchesSaved, name: unedited.teams.mine.name},
+    {provenance: "saved", matchesSaved: true, name: "A"});
+  // An ID with no shown roster reads the saved team.
+  assert.deepEqual(T.fromPair({common: T.normalizeCommon({})}, ws, {mineId: "a"}, {}).teams.mine.roster.map(e => e.key), ["1"]);
+});
+
 // ---------- a link opened on another device ----------
 test("a link opened on a device with different saved teams uses the link's rosters", () => {
   const sender = workspace();

@@ -193,16 +193,32 @@
   const rosterKeys = roster => roster.map(e => e.key).sort();
   // A saved team by its stable ID. A rename keeps the ID (and shows the new name); a deleted ID stays an explicit missing
   // selection rather than falling back to another team or a name match.
+  const findTeam = (ws, id) => (isObject(ws) && Array.isArray(ws.teams) ? ws.teams.find(t => t && t.id === String(id)) || null : null);
+  const sameKeys = (a, b) => rosterKeys(a).join(",") === rosterKeys(b).join(",");
   function savedTeam(ws, id) {
     if (id === null || id === undefined || id === "") return null;
-    const team = isObject(ws) && Array.isArray(ws.teams) ? ws.teams.find(t => t && t.id === String(id)) : null;
-    if (!team) return {id: String(id), name: null, provenance: "saved", missing: true, roster: []};
-    return {id: team.id, name: team.name, provenance: "saved", missing: false, roster: cleanEntries(team.entries)};
+    const team = findTeam(ws, id);
+    if (!team) return {id: String(id), name: null, provenance: "saved", missing: true, matchesSaved: false, roster: []};
+    return {id: team.id, name: team.name, provenance: "saved", missing: false, matchesSaved: true, roster: cleanEntries(team.entries)};
   }
   // A roster that is not a saved team: pasted or edited on this page (local) or carried by a link. No saved ID: a link
   // from another device must not depend on the sender's private team IDs.
   function rosterTeam(entries, provenance, name) {
-    return {id: null, name: name || null, provenance: PROVENANCE.includes(provenance) ? provenance : "local", missing: false, roster: cleanEntries(entries)};
+    return {id: null, name: name || null, provenance: PROVENANCE.includes(provenance) ? provenance : "local", missing: false, matchesSaved: null,
+      roster: cleanEntries(entries)};
+  }
+  // The roster a page is showing (finder.js getMine()/getTheirs()), loaded from saved team `id` and perhaps edited since.
+  // The shown snapshot is authoritative: the ID is origin metadata only and never reloads the saved roster over it, even
+  // when the saved team changed, was emptied or was deleted. missing says the origin ID is gone; matchesSaved says
+  // whether the snapshot still equals the saved roster. The saved team's name is used only while they match.
+  function workingTeam(ws, id, entries, provenance, name) {
+    const roster = cleanEntries(entries);
+    if (id === null || id === undefined || id === "") return rosterTeam(roster, provenance, name);
+    const team = findTeam(ws, id);
+    const matches = Boolean(team) && sameKeys(roster, cleanEntries(team.entries));
+    return {id: String(id), name: name || (matches ? team.name : null),
+      provenance: PROVENANCE.includes(provenance) ? provenance : matches ? "saved" : "local",
+      missing: !team, matchesSaved: matches, roster};
   }
   const freezeTeam = team => (team ? {...team, rosterKey: rosterKeys(team.roster).join(",")} : null);
 
@@ -317,7 +333,7 @@
   function cacheParts(context, purpose) {
     const kind = purpose === "readout" ? "readout" : "discovery";
     if (kind === "discovery" && !context.capabilities.discovery) return null;
-    const team = t => (t ? {missing: t.missing, roster: t.rosterKey} : null);
+    const team = t => (t ? {roster: t.rosterKey} : null);
     const readout = kind === "readout";
     const basis = context.common.valuation.basis;
     const canonicalBasis = basis && basis.mode === "blend" ? {...basis, sources: basis.sources.slice().sort()} : basis;
@@ -338,13 +354,16 @@
   // ---------- route adapters ----------
   // Each page's current state shape in, one TradeContext out. env: {common, commonProvenance?, provenance?}.
 
-  // Pair finder (finder.js): view.mineId / view.theirId are saved team IDs (JEG-1219); without one, the side is the roster
-  // on the page (pasted, edited or from a link). settings: ws.ui.finderSettings or the page's S.
+  // Pair finder (finder.js): view.mine / view.theirs are the rosters the page shows (getMine()/getTheirs()) and are
+  // authoritative; view.mineId / view.theirId are their origin saved-team IDs (JEG-1219). An ID with no shown roster reads
+  // the saved team. settings: ws.ui.finderSettings or the page's S.
   function fromPair(env, ws, view, settings) {
     const v = isObject(view) ? view : {};
-    const side = (id, entries, provenance) => (id ? savedTeam(ws, id) : entries ? rosterTeam(entries, provenance) : null);
+    // A shown roster (an array, even empty) wins over its origin ID; an ID alone reads the saved team.
+    const side = (id, entries, provenance, name) => (Array.isArray(entries) ? workingTeam(ws, id, entries, provenance, name)
+      : id ? savedTeam(ws, id) : null);
     return createContext({route: "pair", common: env.common, commonProvenance: env.commonProvenance, provenance: env.provenance,
-      mine: side(v.mineId, v.mine, v.mineProvenance || env.provenance), theirs: side(v.theirId, v.theirs, v.theirsProvenance || env.provenance),
+      mine: side(v.mineId, v.mine, v.mineProvenance, v.mineName), theirs: side(v.theirId, v.theirs, v.theirsProvenance, v.theirName),
       deal: v.deal, controls: {finder: settings}});
   }
   // League finder (league.js): the starred team against every other saved team; controls from ws.ui.
@@ -373,6 +392,6 @@
   }
 
   return {VERSION, ROUTES, CAPABILITIES, ROUTE_DISCREPANCIES, normalizeCommon, commonFromPage, leagueFromQuery, resolveCommon,
-    savedTeam, rosterTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
+    savedTeam, rosterTeam, workingTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
     cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable};
 });

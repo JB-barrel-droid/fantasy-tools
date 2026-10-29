@@ -19,6 +19,10 @@ Jeremy's 5A (JEG-1220): common preferences shared across the three trade pages, 
   the reader's own page.
 - **Teams:** `savedTeam(ws, id)` by stable ID (rename keeps the ID; a deleted ID is `missing: true`, never a name
   fallback). `rosterTeam(entries, "local" | "link")` for pasted or linked rosters, with no saved ID.
+  `workingTeam(ws, id, entries, provenance?, name?)` for the pair finder's shown roster (`getMine()` / `getTheirs()`):
+  the shown snapshot is authoritative and the ID is origin metadata only (`missing`, `matchesSaved`); it never reloads
+  the saved roster over an edited, emptied, deleted-origin or foreign-workspace copy (JEG-1219 handshake on #1086).
+  Provenance defaults to `saved` only while the copy still matches its saved team, else `local`.
 - **Context:** `createContext` / `fromPair` / `fromLeague` / `fromCompare` return deep-frozen contexts. `selectTeam` and
   `withChanges` return new contexts and never touch the workspace or its star. `beginVisit(...).cancel()` returns the
   previous context. `maySave` is false for link and local parts.
@@ -43,14 +47,14 @@ Finding, not fixed here: a saved league opponent filter naming a deleted team ke
 ## Commands and results
 
 ```
-node tests/node/trade_context_check.cjs                 # 17 passed, 0 failed
+node tests/node/trade_context_check.cjs                 # 18 passed, 0 failed
 python3 -m unittest tests.test_jeg1229_trade_context     # OK (wired in test-unit-modules)
 ```
 
 Failing before: with the module removed, the check exits with `Cannot find module .../app/v2/trade-context.js` and the
-unittest fails. Mutation check (nine single-line breaks of the module: no freeze, team name in the key, complete link
+unittest fails. Mutation check (eleven single-line breaks of the module: no freeze, team name in the key, complete link
 ignoring the default, deleted ID falling back to another team, controls left out of the discovery key, link-supplied
-availability, league keep flags read from ui, roster order in the key, a key on both deal sides): each one fails at
+availability, league keep flags read from ui, roster order in the key, a key on both deal sides, an origin ID beating the shown roster, a saved name on an edited copy): each one fails at
 least one case.
 
 Related suites on this branch: `tests.test_validate_shards`, `tests.test_render_sweep_shards`,
