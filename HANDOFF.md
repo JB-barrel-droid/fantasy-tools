@@ -15,6 +15,11 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### JEG-1238 identity guard integration (Codex, 2026-10-29 UTC)
+
+- New branch `codex/JEG-1238-release-prep-20261029` preserves Claude's [#1103](https://github.com/JB-barrel-droid/fantasy-tools/pull/1103) source `da354145934faea4631ee3905dd9121909a27932`. Main `430791c41ca9578d878c14c3a37d37a0f3fe0670` merged normally and cleanly as `45f452371942e6e5f44a01c937ba1ba48dc414cc`; guard and production caller/capture source remain byte-identical to the reviewed head, with all current-main incident files retained.
+- Focused offline integration **7 PASS/no skips**. Reuses prior independent source review for unchanged code; fresh final-head required CI, coordinator candidate selection, applicable delta review/approvals and serialized publication/live gates remain. No merge, cleanup, production refresh or Supabase action. Original #1103 cleanup approval does not transfer. Evidence: [integration log](docs/claude-log/2026-10-29-jeg-1238-main-integration.md). Linear claim posting was rejected by automatic review and was not retried.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
