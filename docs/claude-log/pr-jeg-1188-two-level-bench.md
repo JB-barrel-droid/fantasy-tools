@@ -108,10 +108,11 @@ In /mnt/project-files/ddf/picks-log.md under "JEG-1188 two-level bench".
    branch) is wired into workspace.js and league.js. Teams keep a
    `provenance` record; pastes, appends, "Yes, add", Search to add, removals,
    clears and share links each go through its transitions. The league check
-   adds `inferenceBlockers`, and every reason blocks (fail closed), so
-   `coverage_unproven` keeps the standard bench until a source attests a
-   whole roster. No paste does that today. Which rule attests it is the open
-   decision on JEG-1249.
+   adds `inferenceBlockers`; every reason blocks except `coverage_unproven`.
+   Jeremy, 2026-10-29: "This hasn't been an issue on prior pastes. The
+   rosters have all filled up and the page is set up for manual checks and
+   errors." A paste is read as the team's whole roster, and the levels note
+   says so; a page that left the bench out still blocks.
 4. **Compare handoff.** While the league's rosters set the bench, the league
    page holds its "Open in Compare a trade" link and says why. With the
    standard bench on both pages the link opens the same trade at the same

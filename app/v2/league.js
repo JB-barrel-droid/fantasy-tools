@@ -80,9 +80,12 @@
   // Only this page reads the levels. Compare and the pair finder keep the modeled bench, and the note says so.
   // The league must pass ValueModel.leagueCompleteness (every team loaded, matched, no player on two teams, no partial roster,
   // rosters read from a source within a week) and DDFRosterProvenance.inferenceBlockers (JEG-1249: every team's roster was
-  // observed from a source, its unmatched count is known and zero, and that source showed the whole roster, bench and
-  // reserve seats included). Any reason keeps the modeled bench, and the note gives the reasons. Players missing from a
-  // roster are read as free agents only when no reason remains.
+  // observed from a source, its unmatched count is known and zero, and no page left its bench out). Any reason keeps the
+  // modeled bench, and the note gives the reasons. Players missing from a roster are read as free agents only when no
+  // reason remains. A paste is read as the team's whole roster (Jeremy, 2026-10-29: "This hasn't been an issue on prior
+  // pastes. The rosters have all filled up and the page is set up for manual checks and errors."), so coverage_unproven
+  // doesn't block; the levels note says the pastes are read as whole rosters.
+  const NON_BLOCKING = ["coverage_unproven"];
   const STARTING_SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
   function leagueCheck(C, ws) {
     const V = root.ValueModel;
@@ -92,7 +95,8 @@
       startingSlotsPerTeam: STARTING_SLOT_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0),
       teams: ws.teams.map(t => ({id: t.id, unresolved: t.provenance.unresolved, loadedAt: PV.freshnessTime(t.provenance),
         players: t.entries.filter(e => !F.isNotEvaluated(e)).map(e => ({key: e.key, slot: e.slot}))}))});
-    const reasons = PV.inferenceBlockers({teams: ws.teams.map(t => ({id: t.id, provenance: t.provenance})), existingReasons: check.reasons});
+    const reasons = PV.inferenceBlockers({teams: ws.teams.map(t => ({id: t.id, provenance: t.provenance})), existingReasons: check.reasons})
+      .filter(r => !NON_BLOCKING.includes(r));
     return {...check, ok: !reasons.length, reasons};
   }
   let levelMemo = null;
@@ -873,7 +877,7 @@
     const shape = ctx.shape || {};
     const teams = ws.teams.length;
     const seats = Number(shape.BENCH) || 0;
-    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Compare a trade and the pair finder keep the standard bench."});
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
     const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
       el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
       el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),

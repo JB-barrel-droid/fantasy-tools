@@ -2,17 +2,17 @@
 
 The USO rosters from tests/fixtures/league_levels/uso.json (12 teams, Yahoo, pulled 2026-10-29) on the built page.
 
-  test_levels_need_a_whole_roster_observation: the league's own rosters set the bench only when every team's roster
-    was read from a source that showed the whole roster (DDFRosterProvenance coverage whole_roster), with a known zero
-    unmatched count. One team with its bench left out, one team whose unmatched count was never recorded, or rosters
-    from pastes that don't attest every seat (every paste today) keep the standard bench and say why.
+  test_levels_need_a_clean_source_observation: the league's own rosters set the bench when every team's roster was
+    read from a source with a known zero unmatched count. A paste is read as the team's whole roster (Jeremy,
+    2026-10-29), so pasted rosters set the bench and the note says so. One team whose page left its bench out, one whose
+    unmatched count was never recorded, or one never read from a page keeps the standard bench and says why.
   test_paste_transitions_on_the_page: the team box itself, not the helper. A duplicate paste changes nothing; an append
     keeps an unknown count unknown and the observation time where it was; a team page paste is a new observation; a
     "Yes, add" for a player another team holds keeps the count; a removal moves only the edit time.
-  test_league_to_compare_journey: with the standard bench (what a pasted league gets today), JSN's trades are on the
+  test_league_to_compare_journey: with the standard bench (one team's bench left out), JSN's trades are on the
     table, an equal and an unequal trade open in Compare a trade with the same players and the same DDF Value for every
     player, and the saved league is byte-identical after the round trip. A team with an unpriced player and a kicker
-    renders without errors. With the league's rosters setting the bench, the handoff is held and says so.
+    renders without errors. With pasted rosters setting the bench, the handoff is held and says so.
 
 Needs Chromium (Playwright). Skips locally without it; CI sets RENDER_TESTS_REQUIRED.
 """
@@ -133,15 +133,18 @@ class LeagueSiteTest(unittest.TestCase):
             for (k, a), (_, b) in zip(trade[side], cmp[side]):
                 self.assertAlmostEqual(a, b, places=9, msg=f"{side} {k}: league {a}, Compare {b}")
 
-    def test_levels_need_a_whole_roster_observation(self):
+    def test_levels_need_a_clean_source_observation(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base, errors=self.problems, tag="[levels] ")
             settle(page)
             whole = self.seed(page, WHOLE)
             self.assertTrue(whole["note"].startswith("Priced with your league's rosters"), whole["note"])
+            # Jeremy, 2026-10-29: a paste is read as the team's whole roster (coverage unproven doesn't block), and the note says so.
+            pasted = self.seed(page, PASTED)
+            self.assertTrue(pasted["note"].startswith("Priced with your league's rosters"), pasted["note"])
+            self.assertIn("Each team's pasted roster is read as its whole roster", pasted["note"])
             cases = {
                 "bench left out": ({**WHOLE}, {"3": {**WHOLE, "coverage": "bench_omitted"}}, "a pasted page left a team's bench out"),
-                "pasted rosters": (PASTED, None, "no pasted page shows a team's whole roster, bench and reserve seats included"),
                 "unknown count": ({**WHOLE}, {"5": {**WHOLE, "unresolved": None}}, "unmatched players were not recorded"),
                 "never observed": ({**WHOLE}, {"2": {"unresolved": 0, "observedAt": None, "editedAt": "now", "coverage": "whole_roster"}},
                                    "was not read from a site page"),
@@ -218,7 +221,8 @@ class LeagueSiteTest(unittest.TestCase):
             on_mine = any(p.get("key") == jsn for p in self.teams[mine_i]["players"])
             # Missing and unpriced data: a player the engine has no row for and a kicker, on another team.
             extra = {4: [{"key": "999999", "name": "Unpriced Player", "pos": "WR"}, {"key": "x:K:Kicker", "name": "Some Kicker", "pos": "K"}]}
-            got = self.seed(page, PASTED, extra=extra)
+            # The standard bench: one team's page left its bench out (a real blocker).
+            got = self.seed(page, PASTED, per={0: {**PASTED, "coverage": "bench_omitted"}}, extra=extra)
             self.assertTrue(got["note"].startswith("Priced with the standard bench"), got["note"])
             chip = page.evaluate("() => [...document.querySelectorAll('.v2-find-noteval')].map(n => n.textContent)")
             self.assertIn("Not in this week's values", chip)
@@ -253,7 +257,7 @@ class LeagueSiteTest(unittest.TestCase):
             # With the league's rosters setting the bench, the handoff is held, and says why.
             page.goto(base + "#find-league", wait_until="networkidle")
             settle(page)
-            got = self.seed(page, WHOLE)
+            got = self.seed(page, PASTED)
             self.assertTrue(got["note"].startswith("Priced with your league's rosters"), got["note"])
             lv = page.evaluate(ROWS, jsn)
             print(f"[journey] league rosters: {lv['count']} trades, {lv['jsn']} send JSN")

@@ -244,10 +244,13 @@ rules, except that only charts are filled in (VP-2.4).
      JEG-1249: on top of that, `DDFRosterProvenance.inferenceBlockers`
      (JEG-1241) must return nothing: every team's roster was read from a
      source (a local edit, a share link or an append is not a read), its
-     unmatched count is known, and the source showed the whole roster,
-     bench and reserve seats included (`coverage: whole_roster`). The load
-     time is the source read (`observedAt`), never the last edit. No paste
-     attests a whole roster today, so the page keeps d until one does.
+     unmatched count is known, and no page left its bench out
+     (`bench_omitted`). A paste is read as the team's whole roster (Jeremy,
+     2026-10-29: "This hasn't been an issue on prior pastes. The rosters have
+     all filled up and the page is set up for manual checks and errors."), so
+     `coverage_unproven` doesn't block and the note says the pastes are read
+     as whole rosters. The load time is the source read (`observedAt`),
+     never the last edit.
      While the levels are on, the league page does not open its trades in
      Compare a trade (which prices with d) and says why.
      Contract: DDF Value and the bench-share weights come from the ddf level;
