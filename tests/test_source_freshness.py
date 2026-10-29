@@ -192,6 +192,16 @@ class ContentWeekBoundTest(unittest.TestCase):
         self.assertEqual(out["results"], {
             "20": "ok", "21": "RangeError: Content week must be a week from 1 to 20"})
 
+    def test_widget_has_no_fallback_bound(self):
+        """JEG-1253: with no CONTENT_WEEK_MAX from product-data.js the widget
+        refuses a content week instead of using a number of its own (a
+        fallback would be a second definition; picks log, JEG-1155)."""
+        unexported = [("    contentWeekForDay,\n    CONTENT_WEEK_MAX,\n", "    contentWeekForDay,\n")]
+        out = content_week_bound([1, REGULAR_SEASON_WEEKS], unexported)
+        self.assertIsNone(out["calendar_max"])
+        error = "Error: product-data.js must load before curve-widget.js (no CONTENT_WEEK_MAX)"
+        self.assertEqual(out["results"], {"1": error, str(REGULAR_SEASON_WEEKS): error})
+
 
 class FreshnessFlagTest(unittest.TestCase):
     def test_all_older_flagged_but_first_load_kept(self):
