@@ -3,7 +3,7 @@
 // A card between Team summary and Trade opportunities. For every team except yours: a "Won't trade" switch and, under
 // Describe, how much the manager leans on each anchor (manager-profiles.js), how sure you are, and a short note. Saved
 // on this device as you change it, with Download / Load of a profiles file. Nothing here changes a value, a fit or the
-// opportunities ranking; recommendations that use these profiles come later (JEG-1217 stage 3).
+// opportunities ranking; Trade ideas (manager-recs-ui.js) reads them.
 //
 // Mounts itself once the Your league card exists (league.js) and follows the shared league store (workspace.js), so
 // league.js is not edited. Profiles of removed teams are dropped on the next load, not at once, so Undo of a removal
@@ -161,7 +161,7 @@
     return el("section", {class: "v2-card v2-mg", id: "v2LgManagers", "aria-labelledby": "v2MgTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2MgTitle", text: "Managers"}),
-        el("p", {class: "v2-meta", text: "How you think each manager values players, and who won't trade. These are your own read on them, not facts about the manager. Saved on this device. They don't change values, fits or Trade opportunities yet."}))),
+        el("p", {class: "v2-meta", text: "How you think each manager values players, and who won't trade. These are your own read on them, not facts about the manager. Saved on this device. They shape Trade ideas below; they don't change values, fits or Trade opportunities."}))),
       el("div", {class: "v2-ctoolbar v2-mg-toolbar"}, el("b", {id: "v2MgCount"}), down, up, file,
         el("span", {class: "v2-meta", id: "v2MgStatus", role: "status", "aria-live": "polite"})),
       el("p", {class: "v2-meta", id: "v2MgMine"}),

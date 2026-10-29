@@ -283,6 +283,8 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/manager-profiles.js" defer></script>'
                   '\n  <script src="v2/manager-profiles-ui.js" defer></script>'
+                  '\n  <script src="v2/manager-recs.js" defer></script>'
+                  '\n  <script src="v2/manager-recs-ui.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
                   '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
@@ -345,7 +347,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "manager-profiles.js", "manager-profiles-ui.js", "manager-profiles.css", "modules.js",
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "manager-profiles.js", "manager-profiles-ui.js", "manager-recs.js", "manager-recs-ui.js", "manager-profiles.css", "modules.js",
                  "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "ddf-assist.js", "waivers.js", "waivers.css", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     return out_dir / "index.html"

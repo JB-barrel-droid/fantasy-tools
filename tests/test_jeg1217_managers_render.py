@@ -1,4 +1,5 @@
-"""JEG-1217: the Managers card on Find a trade captures profiles and exclusions, saves them, and changes no trade numbers.
+"""JEG-1217: the Managers card on Find a trade captures profiles and exclusions, saves them, and changes no trade numbers;
+the Trade ideas card under it lists only your gains from Trade opportunities, best first, and drops won't-trade managers.
 
 Runs on the built page (tests/_league_render.py). Desktop and phone width.
 """
@@ -9,6 +10,8 @@ import unittest
 
 from tests._league_render import browser_on_build, open_page, seed, wait_opps
 
+IDEAS = """() => [...document.querySelectorAll('#v2MiList li.v2-mi-item')].map(li => ({id: li.dataset.tradeId, band: li.dataset.band, opp: li.querySelector('.v2-mi-opp').textContent}))"""
+IDEAS_MODEL = """() => { const out = window.TradeValueTradeIdeas.compute(); return out && {recs: out.recommendations.map(r => ({id: r.id, gain: r.ourGain, band: r.band, opponentId: String(r.opponentId)})), stretch: out.stretch.map(r => r.band)}; }"""
 OPP_ROWS = """() => (window.TradeValueLeague.ui.result ? window.TradeValueLeague.ui.result.rows : []).map(r => r.id + ':' + r.give.map(p => p.player_key).join(',') + '>' + r.receive.map(p => p.player_key).join(','))"""
 
 
@@ -56,6 +59,29 @@ class ManagersCardRenderTest(unittest.TestCase):
                     # No trade numbers moved (stage 1 changes nothing in Trade opportunities).
                     page.wait_for_timeout(500)
                     self.assertEqual(page.evaluate(OPP_ROWS), before)
+                    # Trade ideas: between Managers and Trade opportunities; only rows of Trade opportunities, your gains, best first.
+                    page.wait_for_timeout(300)
+                    order = page.evaluate("() => [...document.querySelectorAll('#v2LgManagers, #v2LgIdeas, #v2LgOpps')].map(n => n.id)")
+                    self.assertEqual(order, ["v2LgManagers", "v2LgIdeas", "v2LgOpps"])
+                    model = page.evaluate(IDEAS_MODEL)
+                    self.assertIsNotNone(model)
+                    opp_ids = {row.split(":")[0] for row in before}
+                    recs = model["recs"]
+                    self.assertTrue(all(r["id"] in opp_ids for r in recs), "every idea is a Trade opportunities row")
+                    self.assertTrue(all(r["gain"] > 0 for r in recs), "every idea is a gain for you")
+                    self.assertEqual([r["gain"] for r in recs], sorted((r["gain"] for r in recs), reverse=True), "best gain first")
+                    self.assertTrue(all(r["band"] in ("likely", "possible") for r in recs))
+                    self.assertTrue(all(b == "longShot" for b in model["stretch"]))
+                    self.assertNotIn(second_id, {r["opponentId"] for r in recs}, "won't-trade managers get no ideas")
+                    shown = page.evaluate(IDEAS)
+                    self.assertEqual([x["id"] for x in shown], [r["id"] for r in recs][:10])
+                    if not recs:
+                        self.assertTrue(page.locator("#v2MiEmpty").is_visible())
+                    else:
+                        why = page.locator("#v2MiList li.v2-mi-item").first.locator("details.v2-mi-why")
+                        why.locator("summary").click()
+                        self.assertIn("DDF Value", why.text_content())
+                    self.assertEqual(page.evaluate(OPP_ROWS), before, "Trade ideas change nothing in Trade opportunities")
                     # Saved and reloaded; the league itself is unchanged.
                     page.evaluate("() => { window.TradeValueManagerProfiles.store.flush(); window.TradeValueWorkspace.store.flush(); }")
                     page.reload(wait_until="networkidle")
@@ -77,6 +103,7 @@ class ManagersCardRenderTest(unittest.TestCase):
                         self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 400)
                         target = page.evaluate("() => { const r = document.querySelector('#v2LgManagers .v2-mg-excl-label').getBoundingClientRect(); return r.height; }")
                         self.assertGreaterEqual(target, 44)
+                        self.assertLessEqual(page.evaluate("() => document.getElementById('v2LgIdeas').scrollWidth - document.getElementById('v2LgIdeas').clientWidth"), 0)
                     self.assertEqual(errors, [])
                     context.close()
 
