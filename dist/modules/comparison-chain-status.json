@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-28T23:27:36.858896+00:00",
+  "run_at": "2026-10-29T00:56:23.628613+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed | fantasycalc-half-12-qb1-section half_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -14,25 +14,20 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed",
+      "fantasycalc-half-12-qb1-section half_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed"
+    ]
+  },
   "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Dallen Bentley, Grant Calcaterra, Joe Royer, Kylen Granson); parse notes: RB: 2 players listed with another posit",
-      "hold_severity": "amber",
-      "week": 8
-    },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -62,10 +57,17 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed | fantasycalc-half-12-qb1-section half_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed",
+        "fantasycalc-half-12-qb1-section half_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 33 -> 33: dropped tyler huntley; added fernando mendoza",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 75: dropped dezhaun stribling, ted hurst iii; added kalif raymond, malachi fields, rashid shaheed"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -180,7 +182,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28T17:05:27+00:00",
+      "published_at": "2026-10-29T00:05:24+00:00",
       "basis": "section_label"
     },
     "fantasypros": {
@@ -203,7 +205,6 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
   }
 }
