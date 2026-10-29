@@ -24,7 +24,7 @@ This review does not choose among these. They are recorded so each recommended s
 | Average of the four rescaled charts | Trade chart average; "Market" in finder chips; "market" in delta lines; "the trade chart average" in fit text | The market | The Market (labels capitalized, prose lowercase) | keeps "Trade chart average", now said to include FantasyCalc as an estimate | GL-26: Trade chart average |
 | The rescaled publisher series | Trade charts (rescaled) | unchanged | not stated | Published charts (USA Today, FantasyPros, CBS) and Observed-trade estimates (FantasyCalc) | GL-21: Trade charts (rescaled) |
 
-In the strings below, `{Market}` means today's "Trade chart average" and becomes the JEG-1130 name when its runtime slice ships. `{Projections}` means today's "DDF Value (projections)" likewise. Implement them as one shared constant per name, not literals per page.
+In the strings below, `{Market}` means today's "Trade chart average" and becomes the JEG-1130 name when its runtime slice ships. `{Projections}` is "DDF Value (projections)", which Jeremy kept (D2, 2026-10-29); it does not change with JEG-1130. Implement them as one shared constant per name, not literals per page.
 
 Two pending conflicts the owners should settle before strings move:
 
@@ -81,7 +81,7 @@ Severity: **High** = a reader can draw the wrong conclusion about the same trade
 
 **F11 (Low, UI only). Duplicate team names can't be told apart.** Names aren't unique (workspace.js:125 `renameTeam`, :116 `addTeam`). Compare's pickers show `${name} (${count})` (v2.js:5049); the League-wide opponent filter shows the bare name (league.js:1048); a league re-paste matches teams by name (league.js:630, `byName`), so two same-named pasted teams resolve to one saved id. The paste merge is a behaviour bug for JEG-1219 (saved-team picker), not copy; the label fix is S15. Not browser-verified.
 
-**F12 (Low, contract wording). The contract's projection name differs from the code.** GL-26 and CT-08 say "DDF Projections"; the code says "DDF Value (projections)"; JEG-1130 says "DDF Projected Value". The contract says to ask Jeremy before changing a line, so this is D2.
+**F12 (Low, contract wording; decided D2 = C). The contract's projection name differs from the code.** GL-26 and CT-08 say "DDF Projections"; the code says "DDF Value (projections)"; JEG-1130 says "DDF Projected Value". The contract says to ask Jeremy before changing a line, so this is D2.
 
 Checked and not a finding: package size labels match across the finders ("Up to N-for-N"; only the Your-team finder offers "1-for-1 only"), and Compare carries no discovery filter. The Your-team finder already says "Larger package than searched" when an edited trade outgrows the search (finder.js:2015). The finders' default package and keep-starters flags differ; JEG-1220 already lists them as default decisions.
 
@@ -177,6 +177,8 @@ Status 2026-10-29: Jeremy answered this question with the definition "Natural me
 - C. Keep "DDF Value (projections)" and update the contract to match the code.
 
 Recommended: **A**, since JEG-1130 records it as final; the contract line changes with your yes, in the same PR.
+
+Decision (Jeremy, 2026-10-29 02:03 UTC): **C**. The projections view stays "DDF Value (projections)" on every trade page. Follow-ups for their owners: the contract's GL-26 and CT-08 say "DDF Projections" and need updating in the Google Doc (the repo file is a mirror, regenerated with `scripts/sync_feature_contract.py`); JEG-1130's "DDF Projected Value" and #1037's "Projections, the alternate lens" tooltip no longer match it. F10's one `{Projections}` constant should hold this name.
 
 ## 7. Evidence gaps
 
