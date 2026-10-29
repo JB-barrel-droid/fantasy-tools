@@ -7,9 +7,17 @@ later merges up to `b161eb7`, week-8 build (CBS ROS 2026-10-29, ESPN
 data is compared with them (Jeremy, 2026-10-28: "do not blend weekly data
 with ROS data, ever.").
 
-## Answer
+## Decision
 
-**Recommendation: Option A, then record the rest as CBS's opinion.** Rescore
+Jeremy, 2026-10-29, answering the three options below: "Leave as is". So
+there is no rescore and no weight change for CBS rest of season, and no value
+changes. Jalen Coker's low CBS number is CBS's own projection (also JEG-1287).
+No entry was added to `data/source-divergence-resolutions.json`, so the
+divergence warn can come back in later weeks.
+
+## Answer (as researched)
+
+**Recommendation at the time: Option A, then record the rest as CBS's opinion.** Rescore
 CBS from its own published stat line on the shared basis, and log what
 disagreement is left in `data/source-divergence-resolutions.json` as genuine
 CBS opinion. Don't down-weight or drop CBS.
