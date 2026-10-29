@@ -1042,3 +1042,7 @@ Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writin
 ## JEG-1205: live sources supply chart fill-ins
 
 Jeremy, 2026-10-28: "Use fantasycalc and projections sources, those should be refreshing at least daily, so they are good." For VP-2.4, a weekly chart's missing rosterable players are estimated from included FantasyCalc and projection natives only. FantasyCalc itself uses included projections. Other weekly charts never supply estimates. The ratio fit, cap, curve fallback, chart sigma, and DDF weights retain their existing rules. Report a before/after player impact only when it exceeds both 5% and 2 trade-value points. Implemented in JEG-1205 / PR #1052.
+
+## JEG-1218: Claude reviews and merges; Codex is out
+
+Jeremy, 2026-10-29 19:12 UTC (in chat): "I want to get off of Codex I think, having you use a seperate reviewer makes sense. Codex is slowing us down." Claude sessions now own review and merging; every PR gets one independent review from a Claude session that did not write it. At 20:10 UTC he picked A: a Codex pass on a PR's exact current head counts as that PR's one review. He approves merges by PR number, and at 21:08 UTC gave a standing OK: "merge anything you recommend once it is green". Value changes, Supabase changes and edge deploys still need his yes each time. The rules are in `AGENTS.md` "Review and merge protocol"; they replace the Codex-coordinator protocol of closed PR #1073.
