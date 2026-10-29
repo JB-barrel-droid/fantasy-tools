@@ -471,6 +471,58 @@
   // JEG-1043: "Show viable offers only" keeps the groups whose best package has a viability label, in the same order.
   const viableGroups = (groups, labelOf) => groups.filter(g => Boolean(labelOf(g)));
 
+  // ---------- JEG-890: team value summary for both pasted rosters ----------
+  // A team's value by row (Starters, Bench, Total, then QB/RB/WR/TE) in each series, for the Find a trade page. The
+  // starters are the ones pickStarters picks once from DDF Value, so Starters and Bench mean the same people in every
+  // column. A player a series does not price is missing, never 0: that cell is a partial sum marked incomplete and the
+  // missing names are returned (a real 0.0 counts). Held charts are absent from chartKeys; the caller names them.
+  // JEG-1246: a player DDF Value does not price cannot be placed as a starter or on the bench (pickStarters never
+  // guesses a slot for him), so he sits in his own "unplaced" partition: Starters + Bench + No DDF Value = Total in
+  // every series. That row is listed only when someone is in it, and while it is, Starters and Bench carry his names
+  // as `unplaced` (their split is not known, never a silent 0 or an invented starter).
+  const SUMMARY_ROWS = ["starters", "bench", "unplaced", "total", "QB", "RB", "WR", "TE"];
+  // players priced by valueOf: their sum, how many, and who has no value (never counted as 0). An empty row is a real
+  // 0.0; a row nobody prices has no number at all (value null).
+  function summaryCell(players, valueOf) {
+    let sum = 0;
+    let priced = 0;
+    const missing = [];
+    players.forEach(row => {
+      const v = valueOf(row);
+      if (finite(v)) { sum += v; priced += 1; } else missing.push(row.name);
+    });
+    return {value: priced || !players.length ? sum : null, priced, count: players.length, missing: missing.filter(Boolean), complete: missing.length === 0};
+  }
+  // rows: one team's engine rows; shape: the league's slots; chartKeys: the available, non-held charts (the list run()
+  // compares); ourKey: DDF Value. series: [{key, id, cells}] with id "ddf", then "market" (the mean of chartKeys, absent
+  // as a column when fewer than MIN_CHARTS of them), then one per chart. cells[row] per SUMMARY_ROWS.
+  // Kickers and defenses (isNotEvaluated) are left out of every row, as the roster assessment leaves them out.
+  function teamSummary(teamRows, shape, chartKeys, ourKey) {
+    const rows = (teamRows || []).filter(r => !isNotEvaluated(r));
+    const key = ourKey || OUR_KEY;
+    const charts = chartKeys || [];
+    const picked = pickStarters(rows, shape, key);
+    const market = charts.length >= MIN_CHARTS;
+    const avg = market ? new Map(withChartAverage(rows, charts).map(r => [String(r.player_key), r.values[MARKET_KEY]])) : null;
+    const byPos = pos => rows.filter(r => r.pos === pos);
+    const sets = {starters: picked.starters, bench: picked.bench, unplaced: picked.unvalued, total: rows.slice(), QB: byPos("QB"), RB: byPos("RB"), WR: byPos("WR"), TE: byPos("TE")};
+    const unplaced = picked.unvalued.map(r => r.name).filter(Boolean);
+    const valueOf = seriesKey => (seriesKey === MARKET_KEY
+      ? row => (avg ? avg.get(String(row.player_key)) : null)
+      : row => (row.values ? row.values[seriesKey] : null));
+    const view = seriesKey => {
+      const pick = valueOf(seriesKey);
+      const cells = {};
+      SUMMARY_ROWS.forEach(name => { cells[name] = summaryCell(sets[name], pick); });
+      if (unplaced.length) ["starters", "bench"].forEach(name => { cells[name].unplaced = unplaced.slice(); });
+      return {key: seriesKey, cells};
+    };
+    const series = [{...view(key), id: "ddf"}];
+    series.push(market ? {...view(MARKET_KEY), id: "market"} : {key: MARKET_KEY, id: "market", available: false});
+    charts.forEach(k => series.push({...view(k), id: k}));
+    return {rows: SUMMARY_ROWS.filter(name => name !== "unplaced" || unplaced.length), series, picked, market, unplaced, size: rows.length, shape};
+  }
+
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
   // positions a lineup cannot do without. A side is "thin" at a position when the trade leaves it with fewer players
@@ -957,7 +1009,7 @@
         minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,
@@ -1595,6 +1647,81 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     if (kept.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not evaluated, left out of every count and sum: ${[["Your team", a.kept], ["Their team", b.kept]].filter(([, l]) => l.length).map(([who, l]) => `${who} ${listJoin(l.map(p => p.pos))}`).join("; ")}.`}));
     box.append(notes);
   }
+  // ---------- JEG-890: the team value card (display only; reads the rows, no math of its own) ----------
+  const TS_LABEL = {starters: "Starters", bench: "Bench", unplaced: "No DDF Value", total: "Total", QB: "QB", RB: "RB", WR: "WR", TE: "TE"};
+  const tsSeriesName = (key, id) => (id === "ddf" ? "DDF Value" : id === "market" ? "Trade chart average" : (CHART_NAMES[key] || key));
+  // A cell: the number, or "—" when the row has players and none is priced (never 0), plus "incomplete" when a series
+  // does not price every player in the row. The word is on the Total row; other rows carry a "*" with the names as a tip.
+  // JEG-1246: a series with no cells (the Trade chart average with fewer than MIN_CHARTS charts) is "n/a" before any
+  // cell is read. Starters and Bench carry a "*" while a player with no DDF Value cannot be placed in either.
+  function tsCell(series, name) {
+    if (series.available === false || !series.cells) return el("span", {class: "v2-find-ts-num is-unavailable", title: "Not enough charts this week", text: "n/a"});
+    const cell = series.cells[name];
+    const total = name === "total";
+    const tip = `No value for ${cell.missing.join(", ")}`;
+    if (cell.value === null) return el("span", {class: "v2-find-ts-incomplete", title: tip}, el("span", {class: "v2-find-ts-num is-missing", text: "—"}), el("span", {class: "v2-find-ts-inc", text: " incomplete"}));
+    const num = el("span", {class: "v2-find-ts-num", text: cell.value.toFixed(1)});
+    if (cell.complete && cell.unplaced && cell.unplaced.length) {
+      const why = `Not placed, no DDF Value: ${cell.unplaced.join(", ")}`;
+      return el("span", {class: "v2-find-ts-incomplete", "data-unplaced": "", title: why}, num, el("abbr", {class: "v2-find-ts-inc", title: why, text: "*"}));
+    }
+    if (cell.complete) return num;
+    return el("span", {class: "v2-find-ts-incomplete", title: tip}, num,
+      total ? el("span", {class: "v2-find-ts-inc", text: " incomplete"}) : el("abbr", {class: "v2-find-ts-inc", title: tip, text: "*"}));
+  }
+  function tsTable(sum, ids) {
+    const head = el("tr", {}, el("th", {scope: "col", class: "v2-find-ts-row", text: "Row"}),
+      ...ids.map(id => { const s = sum.series.find(x => x.id === id); return el("th", {scope: "col", class: "num", "data-series": id, text: tsSeriesName(s.key, id)}); }));
+    const body = sum.rows.map(name => el("tr", {"data-row": name}, el("th", {scope: "row", class: "v2-find-ts-row", text: TS_LABEL[name]}),
+      ...ids.map(id => { const s = sum.series.find(x => x.id === id); return el("td", {class: "num v2-find-ts-cell", "data-series": id}, tsCell(s, name)); })));
+    return el("table", {class: "v2-find-ts-table"}, el("thead", {}, head), el("tbody", {}, ...body));
+  }
+  const tsBlock = (sum, label, ids, side) => el("div", {class: "v2-find-ts-team", "data-team": side},
+    el("h4", {text: label}), tsTable(sum, ids));
+  // The card: both rosters, once both are in. The two columns are DDF Value and the Trade chart average; the per-chart
+  // columns sit behind "Show each chart". A held chart is named ("FantasyCalc not compared"), never silently dropped.
+  function renderTeamSummary() {
+    const box = $("v2FindTeamSummary");
+    if (!box) return;
+    const C = engine();
+    if (!C || !C.getRosterShape || !S.mine.length || !S.theirs.length) { box.hidden = true; box.replaceChildren(); return; }
+    const shape = C.getRosterShape();
+    const info = C.getSourceInfo ? C.getSourceInfo() : [];
+    const available = new Set(info.filter(i => i.available).map(i => i.key));
+    const charts = CHART_KEYS.filter(k => available.has(k));
+    const held = CHART_KEYS.filter(k => !available.has(k)).map(k => CHART_NAMES[k] || k);
+    const byKey = rowMap();
+    const rowsOf = list => list.map(p => byKey.get(p.key)).filter(Boolean);
+    const mine = teamSummary(rowsOf(S.mine), shape, charts, OUR_KEY);
+    const theirs = teamSummary(rowsOf(S.theirs), shape, charts, OUR_KEY);
+    const kids = [el("h3", {text: "Team value summary"}),
+      el("div", {class: "v2-find-ts-grid"}, tsBlock(mine, "Your team", ["ddf", "market"], "mine"), tsBlock(theirs, "Their team", ["ddf", "market"], "theirs"))];
+    if (charts.length) {
+      kids.push(el("details", {class: "v2-find-ts-charts"}, el("summary", {text: "Show each chart"}),
+        el("div", {class: "v2-find-table-wrap"}, el("div", {class: "v2-find-ts-grid"},
+          tsBlock(mine, "Your team", charts, "mine"), tsBlock(theirs, "Their team", charts, "theirs")))));
+    } else {
+      kids.push(el("p", {class: "v2-meta", text: "No trade chart is compared this week."}));
+    }
+    const notes = el("ul", {class: "v2-find-ts-notes"});
+    if (held.length) notes.append(el("li", {"data-note": "held", text: `${held.map(name => `${name} not compared`).join(", ")}.`}));
+    if (!mine.market) notes.append(el("li", {"data-note": "market", text: `Trade chart average: not enough charts this week (${charts.length} of ${MIN_CHARTS} needed).`}));
+    [[mine, "Your"], [theirs, "Their"]].forEach(([sum, who]) => {
+      if (sum.unplaced.length) notes.append(el("li", {"data-note": "unplaced", text: `${who} team: no DDF Value for ${listJoin(sum.unplaced)}, so Starters and Bench leave them out; their chart values are in the No DDF Value row and the Total.`}));
+    });
+    [[mine, "Your"], [theirs, "Their"]].forEach(([sum, who]) => {
+      sum.series.filter(s => s.cells).forEach(s => {
+        const total = s.cells.total;
+        if (total.complete || !total.missing.length) return;
+        notes.append(el("li", {"data-note": "incomplete", text: `${who} team, ${tsSeriesName(s.key, s.id)}: ${total.value === null ? "no listed player has a value" : "incomplete, a partial total"} (no value for ${listJoin(total.missing)}).`}));
+      });
+    });
+    const notEval = [["Your", S.mine], ["Their", S.theirs]].map(([who, list]) => [who, list.filter(isNotEvaluated)]).filter(([, l]) => l.length);
+    if (notEval.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not valued, left out of the totals: ${notEval.map(([who, l]) => `${who} ${listJoin(l.map(p => p.pos))}`).join("; ")}.`}));
+    box.hidden = false;
+    box.replaceChildren(...kids, notes);
+  }
+
   // JEG-988: the engine's bench weights (the share of starts the bench takes, per position) and the fit context.
   function benchWeights() {
     const C = engine();
@@ -1789,6 +1916,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       const byKey = rowMap();
       const charts = marketKeys();
       renderAssessment();
+      renderTeamSummary();
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); S.removed.add(p.key); render(); updateArrange(); clearOutput(); });
@@ -2510,6 +2638,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
+      el("section", {class: "v2-find-teamsum", id: "v2FindTeamSummary", "aria-label": "Team value summary", hidden: ""}),
       el("p", {class: "v2-meta", id: "v2FindSettingsNote"}),
       el("div", {id: "v2FindOut", "aria-live": "polite", hidden: ""}));
     card.addEventListener("keydown", event => {
