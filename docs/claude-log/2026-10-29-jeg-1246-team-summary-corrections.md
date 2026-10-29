@@ -38,3 +38,21 @@ a "*" with the names as a tip; a note names each team's players. No starter slot
 Render tests need Chromium, which this cloud session cannot download (Playwright download host blocked); they run in
 the `v2-render` CI with `RENDER_TESTS_REQUIRED=1`. Neither team-summary module was in any PR check before (only the
 nightly full suite), so both are now a step in `.github/workflows/v2-render-test.yml`.
+
+## Iteration 2: phone clipping of the partial-Total warning (Codex Mac review 8e0720c5)
+
+In "Show each chart" at 390 / 375 px a partial Total ("182.0 incomplete") overflowed its column by about 41–44 px:
+`td.num` and `.v2-find-ts-inc` are `nowrap` in a fixed-layout table. Display only, in `app/v2/v2.css`:
+
+- a partial cell's wrapper (`.v2-find-ts-incomplete` inside `td.num`) is an inline flex row that wraps, so the warning
+  drops under the number; the warning word itself may break mid-word only in a column too narrow for it (four charts
+  on a 375 px phone). Nothing is hidden or truncated;
+- under 480 px, cell padding 3px 4px and the row label column 30% (was 38%) to give the numbers room.
+
+No markup, math or missing-value change. Main `430791c4` merged in normally first (no conflicts).
+
+Regression (`tests/test_v2_finder_teams_render.py`, Chromium at 390 and 375): one of their players loses his
+FantasyPros value, Show each chart is opened, and every summary cell must have no inner overflow, every incomplete
+warning must sit inside its cell, no per-chart table or the page may scroll sideways, and their FantasyPros Total must
+read as a partial number marked incomplete. Repeated with all four charts as columns. A guard serves the `1e1bbb5`
+stylesheet block (both rules removed, the phone media query restored) and requires the check to fail at 390.

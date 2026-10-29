@@ -22,6 +22,10 @@ JEG-1246 (correction of the review at 7d84cdb9), the same card at 1366x768 and 3
     Value" row appears for that team, DDF shows "—" there (never 0), Starters and Bench carry a "*", a note names him,
     and in the Trade chart average and every chart column Starters + Bench + No DDF Value = Total.
 
+JEG-1246 phone layout (Codex's Mac review 8e0720c5): with "Show each chart" open and a partial Total (a player one chart
+does not price), every cell's content stays inside its cell at 390 and 375 wide, with the word "incomplete" shown (no
+clipping, no truncation, no sideways scroll), with the compared charts and again with all four charts as columns.
+
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with the two teams' numbers swapped, the held chart
 left unnamed, and the card not rebuilt on a league change, and requires each to fail.
 """
@@ -198,6 +202,18 @@ def check(page, tag, width) -> list[str]:
     return errors
 
 
+CSS = FINDER_JS.parent / "v2.css"
+# The JEG-1246 wrap rules; removing them restores the 1e1bbb5 behaviour Codex saw clip.
+PHONE_FIX = """.v2-find-ts-table td.num .v2-find-ts-incomplete { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: 0.25em; max-width: 100%; }
+.v2-find-ts-table td.num .v2-find-ts-incomplete > .v2-find-ts-inc { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+"""
+
+PHONE_MEDIA = """@media (max-width: 479px) {
+  .v2-find-ts-team { flex: 1 1 100%; }
+  .v2-find-ts-table th, .v2-find-ts-table td { padding: 3px 4px; }
+  .v2-find-ts-table th.v2-find-ts-row { width: 30%; }
+}"""
+
 CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
 
@@ -234,6 +250,33 @@ GRID = """(team) => {
   return {cells: out, notes: [...box.querySelectorAll('.v2-find-ts-notes li')].map(li => ({kind: li.dataset.note, text: li.textContent})),
     chartColumns: [...new Set([...box.querySelectorAll('.v2-find-ts-charts thead th[data-series]')].map(th => th.dataset.series))],
     text: box.textContent};
+}"""
+
+
+# One listed player of theirs without a value in one compared chart (DDF and the other charts kept).
+DROP_CHART = """([name, key]) => {
+  const C = window.TradeValueCurveControls;
+  const orig = C.getAllRows;
+  C.getAllRows = (...args) => orig(...args).map(r => (r.name === name ? {...r, values: {...r.values, [key]: null}} : r));
+  document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'settings', notes: []}}));
+}"""
+
+# Every summary cell whose content spills past its own box, and every incomplete warning not shown inside its cell.
+OVERFLOW = """() => {
+  const box = document.getElementById('v2FindTeamSummary');
+  const out = {spill: [], outside: [], wraps: []};
+  box.querySelectorAll('td.v2-find-ts-cell').forEach(td => {
+    const tr = td.closest('tr'); const team = td.closest('[data-team]');
+    const where = `${team && team.dataset.team}/${tr.dataset.row}/${td.dataset.series}`;
+    if (td.scrollWidth - td.clientWidth > 1) out.spill.push(`${where} by ${td.scrollWidth - td.clientWidth}px`);
+    const cell = td.getBoundingClientRect();
+    td.querySelectorAll('.v2-find-ts-incomplete, .v2-find-ts-inc').forEach(n => {
+      const r = n.getBoundingClientRect();
+      if (r.width < 1 || r.right > cell.right + 1 || r.left < cell.left - 1) out.outside.push(`${where} (${Math.round(r.left)}-${Math.round(r.right)} vs ${Math.round(cell.left)}-${Math.round(cell.right)})`);
+    });
+  });
+  box.querySelectorAll('.v2-find-table-wrap').forEach(w => { if (w.scrollWidth - w.clientWidth > 1) out.wraps.push(w.scrollWidth - w.clientWidth); });
+  return out;
 }"""
 
 
@@ -328,6 +371,39 @@ def check_unplaced(page, tag, width) -> list[str]:
     return errors
 
 
+def check_phone_partial_total(page, tag, width, four=False) -> list[str]:
+    """A partial Total in Show each chart stays inside its cell on a phone, the warning word shown."""
+    tag = tag + ("[partial total, four charts] " if four else "[partial total] ")
+    errors = []
+    open_finder(page)
+    if four:
+        page.evaluate("""() => { const C = window.TradeValueCurveControls; const orig = C.getSourceInfo;
+          C.getSourceInfo = (...args) => orig(...args).map(i => (%s.includes(i.key) ? {...i, available: true} : i)); }""" % CHART_KEYS)
+    pick = add_rosters(page)
+    page.evaluate(DROP_CHART, [pick["theirs"][0], "fantasypros"])
+    page.wait_for_timeout(700)
+    page.click("#v2FindTeamSummary .v2-find-ts-charts summary")
+    page.wait_for_timeout(200)
+    grid = page.evaluate(GRID, "theirs")
+    if not grid:
+        return [tag + "the team value summary is not shown"]
+    fp = grid["cells"].get("fantasypros", {}).get("total", {}).get("text") or ""
+    if "incomplete" not in fp or number(fp) is None:
+        errors.append(tag + f"their FantasyPros Total {fp!r}, want a partial number marked incomplete (the check needs that state)")
+    if four and len(grid["chartColumns"]) != 4:
+        errors.append(tag + f"chart columns {grid['chartColumns']}, want all four for the stress case")
+    out = page.evaluate(OVERFLOW)
+    if out["spill"]:
+        errors.append(tag + f"cell content spills past its cell: {out['spill'][:4]}")
+    if out["outside"]:
+        errors.append(tag + f"an incomplete warning is not inside its cell: {out['outside'][:4]}")
+    if out["wraps"]:
+        errors.append(tag + f"a per-chart table scrolls sideways by {out['wraps']}px")
+    if page.evaluate("() => document.documentElement.scrollWidth - innerWidth") > 0:
+        errors.append(tag + "the page scrolls sideways")
+    return errors
+
+
 def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667)), checker=None) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
@@ -349,7 +425,8 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667)), 
                 page.on("pageerror", lambda e: page_errors.append(str(e)))
                 page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
                 for name, body in (overrides or {}).items():
-                    page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
+                    ctype = "text/css" if name.endswith(".css") else "text/javascript"
+                    page.route(f"**/v2/{name}*", functools.partial(_serve, body, ctype))
                 page.goto(base + "#find-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
                 errors += (checker or check)(page, f"[{width}px] ", width)
@@ -379,6 +456,19 @@ class FinderTeamsRenderTest(unittest.TestCase):
 
     def test_player_without_ddf_value(self):
         self.assertEqual(run_checks(viewports=PHONE_AND_DESKTOP, checker=check_unplaced), [])
+
+    def test_phone_partial_total_fits(self):
+        phones = ((390, 844), (375, 667))
+        self.assertEqual(run_checks(viewports=phones, checker=check_phone_partial_total), [])
+        self.assertEqual(run_checks(viewports=phones, checker=lambda page, tag, width: check_phone_partial_total(page, tag, width, four=True)), [])
+
+    def test_phone_guard_fails_on_the_old_css(self):
+        """JEG-1246: the 1e1bbb5 stylesheet (no wrap for the warning) clips the partial Total at 390 and is caught."""
+        css = CSS.read_text(encoding="utf-8")
+        old = css.replace(PHONE_FIX, "", 1).replace(PHONE_MEDIA, "@media (max-width: 479px) { .v2-find-ts-team { flex: 1 1 100%; } }", 1)
+        self.assertEqual(len(css) - len(old), len(PHONE_FIX) + len(PHONE_MEDIA) - 66, "the phone fix anchors in v2.css are stale")
+        errors = run_checks({"v2.css": old}, viewports=((390, 844),), checker=check_phone_partial_total)
+        self.assertNotEqual(errors, [], "the clipped partial Total is not caught")
 
     def test_correction_guards_fail_on_broken_builds(self):
         """JEG-1246: the 7d84cdb9 crash and a dropped No DDF Value partition are each caught."""
