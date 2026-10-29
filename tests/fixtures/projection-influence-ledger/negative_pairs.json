@@ -1,0 +1,97 @@
+{
+ "note": "JEG-1280 negative fixture: pairs that claim to be projection-only experiments but change what the charts observe (or blend weekly with rest-of-season data). The ledger must refuse each with the reason in `expect`; the control (expect null) must be accepted. Applied to tiny_inputs.json at ppr, 2 teams.",
+ "scoring": "ppr",
+ "teams": 2,
+ "cases": [
+  {
+   "name": "projection-only edit (control)",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    }
+   },
+   "expect": null
+  },
+  {
+   "name": "a chart native changed alongside the projection edit",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    },
+    "c1": {
+     "201": 50.0
+    }
+   },
+   "expect": "chart input changed: c1"
+  },
+  {
+   "name": "a chart lists a new player",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    },
+    "c2": {
+     "206": 5.0
+    }
+   },
+   "expect": "chart input changed: c2"
+  },
+  {
+   "name": "a chart drops a player",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    },
+    "c3": {
+     "203": null
+    }
+   },
+   "expect": "chart input changed: c3"
+  },
+  {
+   "name": "a chart leaves I",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    }
+   },
+   "perturbed_condition": {
+    "excluded": [
+     "c2"
+    ]
+   },
+   "expect": "the included set I differs"
+  },
+  {
+   "name": "a chart is held",
+   "edits": {
+    "p1": {
+     "205": 11.0
+    }
+   },
+   "perturbed_condition": {
+    "hidden": [
+     "c3"
+    ]
+   },
+   "expect": "the hidden (held) set differs"
+  },
+  {
+   "name": "weekly projections passed off as rest of season",
+   "edits": {
+    "p2": {
+     "205": 11.0
+    }
+   },
+   "perturbed_horizon": {
+    "p2": "Week 8"
+   },
+   "expect": "weekly and ROS data would be blended"
+  },
+  {
+   "name": "nothing changed",
+   "edits": {},
+   "expect": "no projection input changed"
+  }
+ ]
+}

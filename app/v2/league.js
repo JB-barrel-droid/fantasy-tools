@@ -388,7 +388,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -846,7 +846,7 @@
     const wrap = el("span", {class: "v2-lg-gaps", "data-gap": kind});
     wrap.append(items.slice(0, 3).map(fmtGap).join(", "));
     if (items.length > 3) {
-      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more ${kind} players`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
+      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more players to ${kind}`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
     }
     void id;
     return wrap;
@@ -957,7 +957,7 @@
         el("td", {class: "num", "data-cell": "altRank"}, same ? "=" : altText),
         el("td", {class: "num", "data-cell": "projRank"}, rankText(t.rank.proj, ranked)),
         el("td", {"data-cell": "disagree"}, none ? "—" : disagreeList(t)),
-        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "undervalued", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "overvalued", t.id)));
+        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "buy", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "sell", t.id)));
       const detail = el("tr", {class: "v2-lg-detail", "data-team-id": t.id},
         el("td", {colspan: String(ids.length)}, none ? "" : detailText(t, summary, basis)));
       return el("tbody", {}, main, detail);
@@ -972,8 +972,8 @@
         t.rank.proj ? el("p", {}, `DDF Value (projections) rank: ${t.rank.proj}`) : null,
         el("p", {}, "Projections vs charts: ", disagreeList(t)),
         el("p", {}, detailText(t, summary, basis)),
-        el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
-    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
+        el("p", {}, "Buy: ", gapList(t.under, "buy")), el("p", {}, "Sell: ", gapList(t.over, "sell"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
+    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Buy and Sell: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus DDF Value on the default basis, labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
     body.replaceChildren(...[head, sellBlock(ws, ctx), tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note].filter(Boolean));
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
@@ -1584,7 +1584,7 @@
     const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: "Load a whole league: paste its rosters page"}),
       el("div", {class: "v2-find-import-body"},
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
-        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays on this device."}),
+        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Nothing to connect, no sign-up. You copy, we read the text, and it stays on this device."}),
         el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
     const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
       el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
@@ -1607,7 +1607,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
