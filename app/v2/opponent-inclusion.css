@@ -1,0 +1,155 @@
+/* JEG-1231: opponent inclusion checkboxes. Colors and type come from the design tokens on the page (the Oct 26 direction
+   in app/v2-concept/concept.css, JEG-1209); the fallbacks are those same values, so the control reads the same on a page
+   without them. No new palette. Hit targets are at least 44px, the list is one column on a phone. */
+
+.oi {
+  --oi-surface: var(--surface, #FFFCF8);
+  --oi-canvas: var(--canvas, #F6F3EC);
+  --oi-ink: var(--ink, #1A2824);
+  --oi-muted: var(--muted, #52635C);
+  --oi-line: var(--line, #E3DCD0);
+  --oi-action: var(--action, #0C7A56);
+  --oi-warn-bg: var(--warn-bg, #F8EFE1);
+  --oi-warn-ink: var(--warn-ink, #7A4510);
+  --oi-dur: var(--dur, 200ms);
+  --oi-ease: var(--ease, cubic-bezier(0.2, 0.7, 0.2, 1));
+  margin: 0;
+  padding: 16px;
+  min-width: 0;
+  border: 1px solid var(--oi-line);
+  border-radius: 12px;
+  background: var(--oi-surface);
+  color: var(--oi-ink);
+  font-family: var(--sans, Inter, "Source Sans 3", system-ui, sans-serif);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.oi-legend {
+  padding: 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.oi-count {
+  margin: 0 0 8px;
+  color: var(--oi-muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.oi[data-status="allExcluded"] .oi-count {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--oi-warn-bg);
+  color: var(--oi-warn-ink);
+  font-weight: 600;
+}
+
+.oi-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+}
+
+.oi-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--oi-line);
+  border-radius: 999px;
+  background: var(--oi-canvas);
+  color: var(--oi-ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform var(--oi-dur) var(--oi-ease);
+}
+
+.oi-btn:active { transform: scale(0.98); }
+
+.oi-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.oi-item {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  min-height: 44px;
+  border-bottom: 1px solid var(--oi-line);
+}
+
+.oi-box {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--oi-action);
+  cursor: pointer;
+}
+
+.oi-box[aria-disabled="true"] { cursor: not-allowed; opacity: 0.55; }
+
+.oi-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  min-height: 44px;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.oi-item[data-state="excluded"] .oi-name,
+.oi-item[data-state="profile"] .oi-name { color: var(--oi-muted); }
+
+.oi-tag {
+  padding: 0 8px;
+  border: 1px solid var(--oi-line);
+  border-radius: 999px;
+  color: var(--oi-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.oi-note {
+  grid-column: 2;
+  margin: -6px 0 8px;
+  color: var(--oi-muted);
+  font-size: 12px;
+}
+
+.oi-item[data-state="profile"] .oi-note { color: var(--oi-warn-ink); }
+
+.oi-empty {
+  margin: 0;
+  color: var(--oi-muted);
+}
+
+.oi :focus { outline: none; }
+
+.oi :focus-visible {
+  outline: 2px solid var(--link, var(--oi-action));
+  outline-offset: 3px;
+}
+
+@media (hover: hover) {
+  .oi-btn:hover { border-color: var(--oi-ink); }
+  .oi-item:hover .oi-name { text-decoration: underline; text-underline-offset: 3px; }
+}
+
+@media (max-width: 767px) {
+  .oi { padding: 12px; }
+  .oi-list { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .oi { --oi-dur: 0ms; }
+}

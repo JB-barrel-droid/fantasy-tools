@@ -422,6 +422,8 @@ test-unit-modules:
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
+	# JEG-1231: opponent inclusion state, the league search adapter and their mutation proofs.
+	python3 -m unittest tests.test_jeg1231_opponent_inclusion
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
 	python3 -m pytest -q -p no:cacheprovider tests/test_player_status_history_ids.py
 	python3 -m pytest -q -p no:cacheprovider tests/test_pull_dynasty_daddy.py
@@ -850,6 +852,8 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
 	python3 -m unittest tests.test_v2_override_adjustments_render
+	# JEG-1231: opponent inclusion control (private preview): keyboard, names, counts, phone width.
+	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
 
 test-render-extra:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
