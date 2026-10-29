@@ -44,7 +44,7 @@
     error: "Settings could not load.",
     fixture: label => `Sample data: ${label}. Not your league.`,
     savedTitle: "Keep a copy of your league.",
-    savedLead: "Saved in this browser on this device. It doesn't sync to your other devices.",
+    savedLead: "Saved on this device. It doesn't sync to your other devices.",
     storage: {
       unavailable: "Private browsing: your teams won't be saved on this device between visits. Export a file to keep a copy.",
       full: "This device's storage is full. Export your league to keep a copy, then clear old data."
@@ -148,7 +148,7 @@
       means: [T.overrideMeans, T.basisMeans],
       actions: [
         {id: "openOverrides", text: T.openOverrides, enabled: true},
-        {id: "exportOverrides", text: T.exportOverrides, enabled: Boolean(ov && ov.count)},
+        {id: "exportOverrides", text: T.exportOverrides, enabled: Boolean(ov && (ov.count || ov.basis === "custom"))},
         {id: "importOverrides", text: T.importOverrides, enabled: Boolean(ov)}
       ]};
     return vm;
@@ -240,7 +240,8 @@
     host.append(body, status);
     container.replaceChildren(host);
     const available = id => typeof actions[id] === "function";
-    let busy = false;
+    // One pending action (an open file picker) blocks only its own button, never the others (JEG-1306).
+    const pending = new Set();
 
     function update() {
       const active = document.activeElement;
@@ -253,6 +254,7 @@
       let ctx;
       try { ctx = o.getContext ? o.getContext() : {status: "error"}; } catch (error) { ctx = {status: "error"}; }
       render(body, viewModel(ctx), available);
+      pending.forEach(id => { const b = body.querySelector(`[data-action="${id}"]`); if (b) b.setAttribute("aria-busy", "true"); });
       open.forEach(id => { const d = body.querySelector(`details[data-disclosure="${id}"]`); if (d) d.open = true; });
       if (keep) {
         const next = body.querySelector(keep);
@@ -260,18 +262,24 @@
         else { const h = active && active.closest && active.closest("section"); const t = h && body.querySelector(`#${h.id} h2`); if (t) t.focus(); }
       }
     }
+    let said = 0;
+    function say(r) {
+      status.dataset.tone = r.ok === false ? "error" : "ok";
+      // Cleared now and written on the next task, so a second identical result is announced again.
+      status.textContent = "";
+      const n = ++said;
+      setTimeout(() => { if (n === said) status.textContent = r.message || ""; }, 0);
+    }
     async function run(id, button) {
-      if (busy) return;
-      busy = true;
+      if (pending.has(id)) return;
+      pending.add(id);
       button.setAttribute("aria-busy", "true");
       let result;
       try { result = await actions[id](); } catch (error) { result = {ok: false, message: T.actionUnavailable}; }
-      busy = false;
-      const r = result && typeof result === "object" ? result : {ok: true, message: ""};
-      status.dataset.tone = r.ok === false ? "error" : "ok";
-      // Re-set even when the text repeats, so a second identical result is announced again.
-      status.textContent = "";
-      status.textContent = r.message || "";
+      pending.delete(id);
+      say(result && typeof result === "object" ? result : {ok: true, message: ""});
+      const current = body.querySelector(`[data-action="${id}"]`);
+      if (current) current.removeAttribute("aria-busy");
       if (button.isConnected) button.removeAttribute("aria-busy");
       update();
     }
@@ -310,13 +318,17 @@
     const $ = id => doc.getElementById(id);
     const unavailable = {ok: false, message: T.actionUnavailable};
     // Resolves when check() returns a value, or with fallback() after ms. Watches the page's own status text.
-    function waitFor(check, ms, fallback) {
+    // wake(recheck), when given, hands the caller a way to re-run check() on an event that changes no DOM (a cancelled picker).
+    function waitFor(check, ms, fallback, wake) {
       return new Promise(resolve => {
         const first = check();
         if (first) { resolve(first); return; }
-        const obs = new w.MutationObserver(() => { const v = check(); if (v) { obs.disconnect(); w.clearTimeout(timer); resolve(v); } });
+        let timer = null;
+        const obs = new w.MutationObserver(() => recheck());
+        const recheck = () => { const v = check(); if (v) { obs.disconnect(); w.clearTimeout(timer); resolve(v); } };
         obs.observe(doc.body, {subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["hidden"]});
-        const timer = w.setTimeout(() => { obs.disconnect(); resolve(fallback()); }, ms);
+        timer = w.setTimeout(() => { obs.disconnect(); resolve(fallback()); }, ms);
+        if (wake) wake(recheck);
       });
     }
     const notice = () => ($("v2LgNotice") ? $("v2LgNotice").textContent.trim() : "");
@@ -331,8 +343,20 @@
       return waitFor(() => { const now = notice(); return now ? {ok: !/could not/i.test(now), message: now} : null; }, ms,
         () => ({ok: true, message: notice()}));
     }
-    // A file picker closed without a file ends the wait at once (the input's own cancel event).
-    function onCancel(input, done) { if (input) input.addEventListener("cancel", () => done({ok: true, message: ""}), {once: true}); }
+    // A file picker closed without a file ends the wait: the input's own cancel event, or, where a browser has none
+    // (Safari before 16.4), the window getting focus back with no file chosen.
+    function onCancel(input, done) {
+      if (!input) return;
+      let over = false;
+      const end = () => { if (!over) { over = true; done({ok: true, message: ""}); } };
+      input.addEventListener("cancel", end, {once: true});
+      input.addEventListener("change", () => { over = true; }, {once: true});
+      const prior = input.files && input.files[0];   // a reused input can still hold the last file it was given
+      w.addEventListener("focus", () => w.setTimeout(() => { const f = input.files && input.files[0]; if (!f || f === prior) end(); }, 1000), {once: true});
+    }
+    // The Overrides tab adds a new #v2OvImportFile on every press and drops it only on a file, so after a cancelled
+    // picker there are several: the new one is the one not there before the press.
+    const fileInputs = id => Array.from(doc.querySelectorAll(`input[type="file"][id="${id}"]`));
     const overridesReady = () => Boolean(w.DDFOverrides && w.DDFOverrides.state && w.DDFOverrides.state.engine);
     function getContext() {
       const W = w.TradeValueWorkspace;
@@ -355,20 +379,26 @@
         if (!$("v2LgLoad")) return unavailable;
         clearNotice();
         let cancelled = null;
-        onCancel($("v2LgFile"), r => { cancelled = r; });
+        let recheck = () => {};
+        onCancel($("v2LgFile"), r => { cancelled = r; recheck(); });
+        // A replace prompt already showing before this press is not this import's answer. league.js rebuilds the
+        // prompt's children for each file, so a new first child is a new prompt even for the same file twice.
+        const old = $("v2LgLoadConfirm");
+        const shown = old && !old.hidden ? old.firstChild : undefined;
         press("v2LgLoad");
         return waitFor(() => {
           if (cancelled) return cancelled;
           const confirm = $("v2LgLoadConfirm");
-          if (confirm && !confirm.hidden) {
+          if (confirm && !confirm.hidden && confirm.firstChild !== shown) {
             w.location.hash = "#find-league";
             const yes = $("v2LgLoadYes");
             if (yes) w.setTimeout(() => yes.focus(), 0);
             return {ok: true, message: confirm.textContent.trim()};
           }
           const now = notice();
-          return now ? {ok: !/\bnot\b/i.test(now), message: now} : null;
-        }, 120000, () => ({ok: true, message: ""}));
+          // A load ends "N teams loaded."; anything else is the importer's own error text.
+          return now ? {ok: /\bloaded\.$/.test(now), message: now} : null;
+        }, 120000, () => ({ok: true, message: ""}), r => { recheck = r; });
       },
       openLeague: () => { w.location.hash = "#find-league"; return {ok: true, message: ""}; },
       openOverrides: () => { w.location.hash = "#value-overrides"; return {ok: true, message: ""}; },
@@ -382,14 +412,16 @@
         w.DDFOverrides.render();
         // The Overrides tab redraws its note on every import, so a new note element is the new result.
         const before = $("v2OvImportNote");
+        const inputsBefore = fileInputs("v2OvImportFile");
         if (!press("v2OvImport")) return unavailable;
         let cancelled = null;
-        onCancel($("v2OvImportFile"), r => { cancelled = r; });
+        let recheck = () => {};
+        onCancel(fileInputs("v2OvImportFile").find(i => !inputsBefore.includes(i)), r => { cancelled = r; recheck(); });
         return waitFor(() => {
           if (cancelled) return cancelled;
           const n = $("v2OvImportNote");
           return n && n !== before && n.textContent.trim() ? {ok: !/nothing was changed/.test(n.textContent), message: n.textContent.trim()} : null;
-        }, 120000, () => ({ok: true, message: ""}));
+        }, 120000, () => ({ok: true, message: ""}), r => { recheck = r; });
       }
     };
     return {getContext, actions};

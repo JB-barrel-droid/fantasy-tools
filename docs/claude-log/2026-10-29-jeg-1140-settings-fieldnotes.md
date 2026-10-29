@@ -50,3 +50,22 @@ New files:
 - Red, fixed (preview-shard 1, head 670b9fe): `tests.test_v2_copy_names` (JEG-1081) bars the retired name "DDF Projections"
   from every user-visible string in app/v2. The projections view is "DDF Value (projections)" (Jeremy's pick C, Oct 28,
   and the finder's own label), so Settings now uses it. `tests.test_v2_copy_names` and the JEG-1140 node checks pass locally.
+
+### JEG-1306 corrections (independent Claude review of 670b9fe3)
+
+Verified (local, node and Python; checked by running the new tests against the pre-fix file, then the fix):
+- Finding 1: `tests.test_launch_copy_guard` failed 1 of 4 on "in this browser" before; passes after ("Saved on this device.").
+- Finding 2: the Overrides import wait now follows the input this press created (the tab leaves cancelled inputs behind),
+  each action has its own pending flag, and a window-focus fallback ends a wait where the browser sends no cancel event.
+  Found while writing the test: a cancel set a flag but nothing re-ran the wait's check (a cancel changes no DOM), so
+  every cancelled import waited out its 120 s. waitFor now takes a wake hook and the cancel re-runs the check.
+  Fake-page node tests fail before (both waits hang; no focus fallback) and pass after.
+- P3 folded in: a replace prompt showing before the press is ignored (new first child = new prompt); a load is a success
+  when the notice ends "loaded." (a league named "Not Bad" no longer reads as an error); Export overrides is on with a
+  custom basis and no overrides; status text is written on the next task; workflow path filter widened.
+- `tests.test_jeg1140_settings_fieldnotes` (19), `tests.test_launch_copy_guard`, `tests.test_v2_copy_names` pass.
+
+Claimed, not confirmed:
+- New browser tests (pending picker blocks only its own button; two cancelled overrides imports on the built page) run in
+  CI only; their fail-before is shown by the node tests above, not in a browser.
+- Left for integration (noted on JEG-1140): a public ready() for overrides, a store onChange hook, unique ids on a second mount.

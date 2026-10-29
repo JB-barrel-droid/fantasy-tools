@@ -59,4 +59,64 @@ out.query = {
   rules: [S.rulesText({scoring: "ppr", teams: 12, qb: 1}), S.rulesText({scoring: "standard", teams: 10, qb: "superflex"}),
     S.rulesText({scoring: "half_ppr", teams: 8, qb: null}), S.rulesText(null)]
 };
-process.stdout.write(JSON.stringify(out));
+// liveAdapter on a minimal fake page (JEG-1306): only what the adapter touches. Elements keep document order, so
+// getElementById returns the first of several inputs with one id, as a browser does.
+function fakePage() {
+  const nodes = [];
+  const winListeners = {};
+  class FakeNode {
+    constructor(id, type) { Object.assign(this, {id, type, files: [], hidden: false, textContent: "", l: {}}); }
+    addEventListener(t, f, o) { (this.l[t] = this.l[t] || []).push({f, once: Boolean(o && o.once)}); }
+    dispatch(t) { const ls = this.l[t] || []; this.l[t] = ls.filter(x => !x.once); ls.forEach(x => x.f({type: t})); }
+    click() { if (this.onclick) this.onclick(); }
+  }
+  const later = (f, ms) => { const t = setTimeout(f, ms); if (t.unref) t.unref(); return t; };
+  const w = {
+    document: {getElementById: id => nodes.find(n => n.id === id) || null,
+      querySelectorAll: sel => { const id = /\[id="([^"]+)"\]/.exec(sel)[1]; return nodes.filter(n => n.type === "file" && n.id === id); },
+      body: {append: n => nodes.push(n)}},
+    MutationObserver: class { observe() {} disconnect() {} },
+    setTimeout: later, clearTimeout,
+    addEventListener: (t, f, o) => (winListeners[t] = winListeners[t] || []).push(f),
+    focus: () => { const ls = winListeners.focus || []; winListeners.focus = []; ls.forEach(f => f({type: "focus"})); },
+    location: {hash: ""},
+    DDFOverrides: {state: {engine: {}}, render() {}, count: () => 0, basis: () => ({mode: "default"})}
+  };
+  // The Overrides tab's Import: a new hidden input on every press, removed only when a file is chosen.
+  const ovImport = new FakeNode("v2OvImport", "button");
+  ovImport.onclick = () => nodes.push(new FakeNode("v2OvImportFile", "file"));
+  const lgNotice = new FakeNode("v2LgNotice", "p");
+  const lgFile = new FakeNode("v2LgFile", "file");
+  const lgLoad = new FakeNode("v2LgLoad", "button");
+  const lgConfirm = new FakeNode("v2LgLoadConfirm", "div");
+  lgConfirm.hidden = true;
+  nodes.push(ovImport, lgNotice, lgFile, lgLoad, lgConfirm);
+  return {w, nodes, lgNotice, lgLoad, lgConfirm, newest: () => nodes.filter(n => n.id === "v2OvImportFile").pop()};
+}
+const settle = (p, ms) => Promise.race([Promise.resolve(p).then(r => ({done: true, ok: r.ok})), new Promise(r => setTimeout(() => r({done: false}), ms))]);
+(async () => {
+  out.adapter = {};
+  {
+    // Import overrides, cancel; Import overrides again, cancel: both waits end.
+    const f = fakePage();
+    const A = S.liveAdapter(f.w).actions;
+    const first = A.importOverrides(); f.newest().dispatch("cancel");
+    const second = A.importOverrides(); f.newest().dispatch("cancel");
+    out.adapter.cancelTwice = [(await settle(first, 50)).done, (await settle(second, 50)).done];
+    // No cancel event (older Safari): the window getting focus back with no file ends the wait.
+    const third = A.importOverrides(); f.w.focus();
+    out.adapter.focusFallback = (await settle(third, 1300)).done;
+  }
+  {
+    // A league named "Not Bad" that loads is a success, not an error.
+    const f = fakePage();
+    f.lgLoad.onclick = () => { f.lgNotice.textContent = "Not Bad: 2 teams loaded."; };
+    out.adapter.loadedTone = (await settle(S.liveAdapter(f.w).actions.importLeague(), 50)).ok;
+    // A replace prompt already showing before the press is not this import's answer.
+    const g = fakePage();
+    g.lgConfirm.hidden = false;
+    g.lgConfirm.textContent = "Replace your saved league (2 teams) with an older file?";
+    out.adapter.staleConfirm = (await settle(S.liveAdapter(g.w).actions.importLeague(), 50)).done;
+  }
+  process.stdout.write(JSON.stringify(out));
+})();

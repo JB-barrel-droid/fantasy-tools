@@ -58,6 +58,7 @@ PAGE = """<!doctype html>
     importOverrides: "Imported 2 player overrides.", openLeague: "", openOverrides: ""};
   const actions = Object.fromEntries(Object.entries(reply).map(([id, message]) => [id, () => {
     window.__sfCalls.push(id);
+    if (window.__sfHang === id) return new Promise(() => {});   // a picker left open: never settles
     return id === "copyLink" ? new Promise(r => setTimeout(() => r({ok: true, message}), 30)) : {ok: true, message};
   }]));
   window.__sfHandle = TradeValueSettingsFieldnotes.mount(document.getElementById("sfRoot"), {getContext: () => window.__SF_CTX, actions});
@@ -242,6 +243,18 @@ class SettingsHarnessRenderTest(unittest.TestCase):
         self.assertIn("Observed-trade estimates", page.inner_text("[data-disclosure=sources]"))
         self.shots.take(page, "settings-ready-390-after-keyboard")
 
+    def test_a_pending_picker_blocks_only_its_own_button(self):
+        # JEG-1306: an Import whose picker never settles must not swallow every other Settings action.
+        page = self.open(CONTEXTS["ready"], 390)
+        page.evaluate("window.__sfHang = 'importOverrides'")
+        page.click("[data-action=importOverrides]")
+        self.assertEqual(page.get_attribute("[data-action=importOverrides]", "aria-busy"), "true")
+        page.click("[data-action=importOverrides]")   # a second press while it waits does not start a second run
+        page.click("[data-action=exportLeague]")
+        page.wait_for_function("document.getElementById('ddfSetStatus').textContent.includes('Downloaded')", timeout=5000)
+        self.assertEqual(page.evaluate("window.__sfCalls"), ["importOverrides", "exportLeague"])
+        self.assertEqual(page.get_attribute("[data-action=importOverrides]", "aria-busy"), "true", "still waiting after a redraw")
+
     def test_section_links_move_focus_on_desktop(self):
         page = self.open(CONTEXTS["ready"], 1280)
         page.focus("[data-scroll=overrides]")
@@ -377,6 +390,24 @@ class SettingsLivePageRenderTest(unittest.TestCase):
             self.assertEqual([k for k in got["teams"][name]], [k for k in keys if k in got["teams"][name]])
             self.assertGreaterEqual(len(got["teams"][name]), len(keys) - 1)
         self.assertEqual(self.overrides_state(opened)["all"], ov["all"])
+
+    def test_two_cancelled_overrides_imports_leave_settings_usable(self):
+        # JEG-1306: the Overrides tab adds a new #v2OvImportFile on each press and keeps a cancelled one, so the wait must
+        # follow the input this press made. A cancel is what the browser sends when its picker closes without a file.
+        page = self.page()
+        page.wait_for_function("window.DDFOverrides && DDFOverrides.state && DDFOverrides.state.engine", timeout=60000)
+        page.evaluate("window.__sfLive.update()")
+        busy = "document.querySelector('#sfLive [data-action=importOverrides]').getAttribute('aria-busy')"
+        for attempt in (1, 2):
+            with page.expect_file_chooser():
+                page.click("#sfLive [data-action=importOverrides]")
+            page.evaluate("""() => { const all = document.querySelectorAll('input[type=file][id=v2OvImportFile]');
+              all[all.length - 1].dispatchEvent(new Event('cancel')); }""")
+            page.wait_for_function(f"!{busy}", timeout=5000)
+        self.assertGreaterEqual(page.evaluate("document.querySelectorAll('input[type=file][id=v2OvImportFile]').length"), 2,
+                                "the scenario needs the cancelled inputs the Overrides tab leaves behind")
+        self.press(page, "openOverrides")
+        self.assertEqual(page.evaluate("location.hash"), "#value-overrides")
 
     def test_open_actions_use_the_existing_routes(self):
         page = self.page("#player-values")

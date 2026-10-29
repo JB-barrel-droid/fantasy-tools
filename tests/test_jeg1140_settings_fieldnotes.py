@@ -119,6 +119,27 @@ class ViewModel(unittest.TestCase):
         self.assertEqual(r["selected-team"]["value"], "Supercalifragilistic Fixture Falcons With A Very Long Name")
 
 
+class LiveAdapter(unittest.TestCase):
+    """JEG-1306: liveAdapter on a fake page that behaves like the Overrides tab and league card on main."""
+
+    def test_a_second_cancelled_overrides_import_ends_its_wait(self):
+        self.assertEqual(results()["adapter"]["cancelTwice"], [True, True])
+
+    def test_a_picker_closed_without_a_cancel_event_ends_on_window_focus(self):
+        self.assertTrue(results()["adapter"]["focusFallback"])
+
+    def test_a_league_named_not_bad_loads_as_a_success(self):
+        self.assertTrue(results()["adapter"]["loadedTone"])
+
+    def test_a_replace_prompt_shown_before_the_press_is_not_the_answer(self):
+        self.assertFalse(results()["adapter"]["staleConfirm"])
+
+    def test_export_overrides_is_on_with_a_custom_basis_and_no_overrides(self):
+        vm = results()["vm"]["custom_basis_zero"]["overrides"]
+        self.assertEqual(actions(vm), {"openOverrides": True, "exportOverrides": True, "importOverrides": True})
+        self.assertEqual(vm["count"], "No player overrides. Every player uses DDF Value as calculated.")
+
+
 class Terminology(unittest.TestCase):
     def test_jeg1212_terms(self):
         vm = results()["vm"]["ready"]["values"]
