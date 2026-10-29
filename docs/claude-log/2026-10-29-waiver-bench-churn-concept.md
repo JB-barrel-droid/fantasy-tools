@@ -22,3 +22,11 @@ Contract: record Jeremy's three answers, lead the concept with the one objective
 
 ### Claimed, not confirmed
 - The FAAB options on JEG-1317 are proposals only; none is measured or approved.
+
+## 2026-10-29 - Correction: FAAB out of scope (JEG-1196, JEG-1197)
+
+Contract: Jeremy said "dont' even research it, we aren't ready to approach it" about FAAB. The entry above is superseded where it files JEG-1317; that ticket is canceled and the concept's v1 cost is only the dropped bench player's DDF Value.
+
+### Verified (check named)
+- JEG-1317 is Canceled and no longer blocks JEG-1197 (Linear `save_issue` response).
+- No FAAB, bid or JEG-1317 mention is left in the concept or mock except the out-of-scope lines (`rg -i "faab|1317|bid"`); the mock parses (Python `html.parser`).

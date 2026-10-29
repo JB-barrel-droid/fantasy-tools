@@ -13,8 +13,9 @@ the weekly-input contract (JEG-1227, PR #1087) and producer (JEG-1228).
 Both views answer one question: **is this move worth making this week?**
 
 Net gain = the free agent's DDF Value − what you give up.
-What you give up = the bench player you drop (his DDF Value) + the FAAB you
-bid, converted to DDF Value.
+What you give up = the bench player you drop, priced at his DDF Value.
+FAAB is out of scope for v1 (Jeremy, 2026-10-29: "dont' even research it,
+we aren't ready to approach it"), so a bid is never part of the sum.
 
 Make the move when the net gain is above zero. Bench Churn is the same sum
 run over this week's claim windows, with the chance each claim lands and hits.
@@ -24,8 +25,7 @@ Every input exists to fill in that one sum, or to say when it can be made:
 | Input | Its job in the sum |
 | -- | -- |
 | Free agent's DDF Value (published chart) | the gain side |
-| Dropped player's DDF Value | the cost side |
-| FAAB bid converted to DDF Value (JEG-1317) | the cost side |
+| Dropped player's DDF Value | the cost side (the only cost in v1) |
 | Rostered % | is he likely on your wire at all |
 | Kickoff times | which windows exist and when each call locks |
 | Status and bye | is the move allowed (out, IR, locked) |
@@ -83,8 +83,7 @@ lanes are never added, averaged or sorted together. Sorting is by Value only.
    bye), and a one-line grounded case ("Took 71% of snaps after the trade").
 5. **Your swaps.** Paste a roster. Rows read "Drop X, add Y · +3.1 value",
    gain 2 or more, each player used once, thin positions protected (as before).
-   The gain is net of the bid once JEG-1317 sets the FAAB conversion; until
-   then the bid shows in dollars beside it.
+   No bid is shown or charged (FAAB is out of scope for v1).
 
 ### Phone
 
@@ -106,8 +105,8 @@ on the second; the case on the third. Controls sit behind one "Adjust" pill.
   who is on the wire.
 - **This week**: points from the named weekly expert leg, status and bye.
   Shown for context, never ranked.
-- **Swap gain**: Value of the add minus Value of the drop minus the bid in
-  DDF Value (JEG-1317). This is the objective sum above.
+- **Swap gain**: Value of the add minus Value of the drop. This is the
+  objective sum above.
 
 ## Bench Churn (JEG-1197)
 
@@ -125,8 +124,8 @@ on the second; the case on the third. Controls sit behind one "Adjust" pill.
    - Right: **Best rotation** as a chain of steps, one target per window:
      *After his game* (Thu, if he plays early) then *Before the weekend*
      (Sat claims), then continuation if a claim misses. Each step shows the
-     target, landing chance, hit chance, FAAB (charged only if it lands) and
-     the step's expected value.
+     target, landing chance, hit chance and the step's expected value. The
+     ticket's "charge FAAB only when claims land" waits until FAAB is in scope.
    - Footer: **Net chain** value and the verdict, **CHURN** or **KEEP**.
      CHURN only when the net chain beats Keep.
 4. **Three lists** under the cards: *Grab* (targets worth a claim this week),
@@ -152,7 +151,7 @@ slate strip scrolls sideways.
 - **Survival**: the chance the chain is still running at that step (earlier
   steps missed).
 - **Step value**: survival × landing × hit × the target's future usable DDF
-  Value, minus FAAB cost if it lands. Future value only, so this week's
+  Value. Future value only, so this week's
   lineup points are not counted twice.
 - **Net chain**: the sum of step values, in DDF Value. CHURN iff Net chain >
   Keep. The ticket's `evaluateChain` / `bestChainFromItems` remain the
@@ -170,38 +169,31 @@ slate strip scrolls sideways.
 | Your swaps | none | pasted roster, `players.json` | none |
 | Slate strip, windows | `game_week` on slate fields | kickoff times per team | **not in the contract yet**; new contract field (decided) |
 | Bench readout | none | lineup resolve `objective_window`, `bye_share`; JEG-1276 breakout rates | readout build ticket not filed yet |
-| Chain steps | `status` (eligibility: out, IR, locked), `bye` | landing chances, FAAB budget and league claim rules | **FAAB budget and claim rules have no home**; FAAB conversion is JEG-1317 |
+| Chain steps | `status` (eligibility: out, IR, locked), `bye` | landing chances and league claim rules | claim rules have no home; FAAB is out of scope for v1 |
 
 ## Decided (Jeremy, 2026-10-29)
 
-Asked in PR #1160 and on JEG-1196/1197; his reply on the timeline:
-"There is no artifact that turns FAAB cost into ddf, we'll have to create one.
-But the logic should be fairly similar to how we approach trade charts since
-there are values assigned to every drafted player. 2) yes, 3) yes"
-
-- **FAAB cost:** no existing conversion; a new one is built, with logic like
-  the trade charts. Options and a recommendation are on JEG-1317. No math
-  ships until he picks.
+- **FAAB is out of scope for v1.** After first saying a FAAB conversion would
+  have to be created, he said: "dont' even research it, we aren't ready to
+  approach it". The cost of a move is only the bench player dropped, priced
+  in DDF Value. No FAAB ticket, research or field.
 - **This week's expert points:** shown in the grey column as context, never in
-  a verdict or a sort.
+  a verdict or a sort ("2) yes").
 - **Rostered % and kickoff times:** new fields on the weekly-input contract
-  (a minor version bump, one ingestion), proposed on JEG-1227.
+  (a minor version bump, one ingestion), proposed on JEG-1227 ("3) yes").
 
 ## Still open
 
-1. **FAAB to DDF Value method** (JEG-1317): A, one league-wide rate like a
-   trade chart's pie *(recommended)*; B, a per-team rate from your own budget
-   left; C, a curve fitted to real winning bids.
-2. **Hit chance** (the chance a claimed player turns out worth holding): A, the
+1. **Hit chance** (the chance a claimed player turns out worth holding): A, the
    JEG-1276 historical breakout rates by depth, looked up by the contract's
    weekly depth-chart order *(recommended; a lookup by category, so nothing is
    blended)*; B, leave it at 1 until research lands, labelled on the card.
-3. **Chain helpers.** JEG-1197 names `evaluateChain` and `bestChainFromItems`
+2. **Chain helpers.** JEG-1197 names `evaluateChain` and `bestChainFromItems`
    from the retired artifact; neither is in the repo or the archive. If they no
    longer exist, the build writes them fresh against this concept.
 
 ## Not in scope
 
-No engine, spec, reference, `config/` or Supabase change. No new threshold,
+No FAAB in any form. No engine, spec, reference, `config/` or Supabase change. No new threshold,
 weight or default. No page in `app/` or `dist/`. The build tickets stay blocked
 on JEG-1227/1228 and on the answers above.

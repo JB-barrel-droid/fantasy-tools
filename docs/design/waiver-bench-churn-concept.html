@@ -68,7 +68,6 @@ th.wkhead { text-align:center; background:var(--week-t); color:var(--week); bord
 .explain { font-size:12px; color:var(--muted); margin:4px 0 0; }
 .swap { display:flex; justify-content:space-between; gap:8px; padding:8px 0; border-bottom:1px solid var(--line); }
 .swap:last-child { border-bottom:0; }
-.faab { color:var(--muted); font-size:12px; }
 textarea { width:100%; min-height:72px; border:1px solid var(--line); border-radius:12px; padding:8px; font:inherit; background:var(--canvas); color:var(--ink); }
 .btn { background:var(--action); color:var(--action-ink); border:0; border-radius:999px; padding:10px 20px; min-height:44px; font:inherit; font-weight:600; }
 /* Bench Churn */
@@ -122,7 +121,7 @@ details summary { cursor:pointer; color:var(--action); font-size:12px; margin-to
 <main class="desk">
   <p class="concept-note">Design concept for JEG-1196 and JEG-1197. Every name and number is invented. Grey cells are this week's data: shown for context, never part of a value or a verdict.</p>
 
-  <p><b>Is this move worth making this week?</b> Net gain = the free agent's DDF Value − (the player you drop + your FAAB bid in DDF Value). Make the move when it is above zero.</p>
+  <p><b>Is this move worth making this week?</b> Net gain = the free agent's DDF Value − the player you drop. Make the move when it is above zero. FAAB is out of scope for now.</p>
   <div class="tabs" role="tablist">
     <button class="tab" role="tab" aria-selected="true" data-view="board">Waiver board</button>
     <button class="tab" role="tab" aria-selected="false" data-view="churn">Bench Churn</button>
@@ -212,9 +211,9 @@ details summary { cursor:pointer; color:var(--action); font-size:12px; margin-to
 Jory Penn
 …</textarea>
       <p><button class="btn" type="button">Check my roster</button></p>
-      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Dee Marlow</b></span><span><b class="num up">+6.2 value</b> <span class="faab num">· bid $9–14</span></span></div>
-      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Tate Okafor</b></span><span><b class="num up">+3.1 value</b> <span class="faab num">· bid $2–4</span></span></div>
-      <p class="explain">Gain is Value of the add minus Value of the drop, 2 or more. Once the FAAB conversion is set (JEG-1317) the bid comes off the gain too; until then it shows in dollars beside it. Each player is used once; thin positions stay protected.</p>
+      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Dee Marlow</b></span><span><b class="num up">+6.2 value</b></span></div>
+      <div class="swap"><span>Drop <b>Jory Penn</b>, add <b>Tate Okafor</b></span><span><b class="num up">+3.1 value</b></span></div>
+      <p class="explain">Gain is Value of the add minus Value of the drop, 2 or more. No bid is shown or charged. Each player is used once; thin positions stay protected.</p>
     </div>
     <p class="meta">Value is DDF Value at this league setting, rest of season. 0 is the waiver line (the 7-player average around the replacement spot).</p>
   </section>
@@ -247,16 +246,16 @@ Jory Penn
           <div class="label">Best rotation</div>
           <div class="chain">
             <div class="step"><h4>After his game · Fri</h4><div class="who">Tate Okafor TE</div>
-              <dl><dt>Lands</dt><dd class="num">60%</dd><dt>Hits</dt><dd class="num">35%</dd><dt>Future value</dt><dd class="num">3.1</dd><dt>FAAB if lands</dt><dd class="num">$3</dd></dl></div>
+              <dl><dt>Lands</dt><dd class="num">60%</dd><dt>Hits</dt><dd class="num">35%</dd><dt>Future value</dt><dd class="num">3.1</dd></dl></div>
             <span class="arrow">→ if it misses</span>
             <div class="step"><h4>Before the weekend · Sat</h4><div class="who">Pax Doyle WR</div>
-              <dl><dt>Still running</dt><dd class="num">40%</dd><dt>Lands</dt><dd class="num">80%</dd><dt>Hits</dt><dd class="num">30%</dd><dt>Future value</dt><dd class="num">2.4</dd><dt>FAAB if lands</dt><dd class="num">$1</dd></dl></div>
+              <dl><dt>Still running</dt><dd class="num">40%</dd><dt>Lands</dt><dd class="num">80%</dd><dt>Hits</dt><dd class="num">30%</dd><dt>Future value</dt><dd class="num">2.4</dd></dl></div>
           </div>
         </div>
       </div>
       <div class="net"><span><span class="label">Net chain</span> <b class="num">0.9</b> <span class="label">vs Keep 1.4</span></span><span class="verdict v-keep">KEEP</span></div>
       <details><summary>Show the math</summary>
-        <p class="math">Step 1: 1.00 still running × 60% lands × 35% hits × 3.1 = 0.65, FAAB is not yet in DDF Value, so it is left out until open question 2 is answered. Step 2: 40% × 80% × 30% × 2.4 = 0.23. Net chain 0.88, rounds to 0.9. Keep 1.4 is higher, so KEEP. Only future value counts, so this week's points are not counted twice.</p>
+        <p class="math">Step 1: 1.00 still running × 60% lands × 35% hits × 3.1 = 0.65. Step 2: 40% × 80% × 30% × 2.4 = 0.23. Net chain 0.88, rounds to 0.9. Keep 1.4 is higher, so KEEP. Only future value counts, so this week's points are not counted twice.</p>
       </details>
     </div>
 
@@ -271,7 +270,7 @@ Jory Penn
           <div class="label">Best rotation</div>
           <div class="chain">
             <div class="step"><h4>Before the weekend · Sat</h4><div class="who">Dee Marlow WR</div>
-              <dl><dt>Lands</dt><dd class="num">45%</dd><dt>Hits</dt><dd class="num">50%</dd><dt>Future value</dt><dd class="num">6.2</dd><dt>FAAB if lands</dt><dd class="num">$12</dd></dl></div>
+              <dl><dt>Lands</dt><dd class="num">45%</dd><dt>Hits</dt><dd class="num">50%</dd><dt>Future value</dt><dd class="num">6.2</dd></dl></div>
           </div>
         </div>
       </div>
