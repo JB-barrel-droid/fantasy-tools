@@ -233,4 +233,147 @@ const build = over => R.build({...adapterInput(base), ...over});
     imp(F.rosterImpact(base.mine, base.mine.filter(r => r.player_key === "mRB2"), base.theirs.filter(r => r.player_key === "tWR1"), base.shape, "fantasycalc")));
   checks += 2;
 }
+
+// ---------- JEG-1260: roster size, bench occupancy, depth, missing players ----------
+// The Mac's realistic-shape case (JEG-1188 thread): 15 players with no TE; a 2-for-1 for a TE is roster −1, bench −2
+// (7 → 5) as TE is filled. The other side gives its starting TE, its backup TE starts, and its bench goes 7 → 8 against
+// 7 configured spots: over capacity, reported, nobody dropped.
+const SHAPE_BN = {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, K: 1, DST: 1, BENCH: 7};
+const named = (list, scoring = "half") => list.map(([k, pos, v, o]) => (pos === "K" || pos === "DEF"
+  ? {player_key: k, name: k, pos, values: {}} : player(k, pos, v, scoring, o || {})));
+const EMPTY_TE_MINE = [["eQB1", "QB", 21], ["eQB2", "QB", 8], ["eRB1", "RB", 20], ["eRB2", "RB", 15], ["eRB3", "RB", 9], ["eRB4", "RB", 6],
+  ["eRB5", "RB", 3], ["eWR1", "WR", 19], ["eWR2", "WR", 16], ["eWR3", "WR", 12], ["eWR4", "WR", 7], ["eWR5", "WR", 4], ["eWR6", "WR", 2],
+  ["eK", "K"], ["eDEF", "DEF"]];
+const EMPTY_TE_THEIRS = [["oQB1", "QB", 20], ["oQB2", "QB", 7], ["oRB1", "RB", 22], ["oRB2", "RB", 13], ["oRB3", "RB", 8], ["oRB4", "RB", 5],
+  ["oRB5", "RB", 2], ["oWR1", "WR", 18], ["oWR2", "WR", 14], ["oWR3", "WR", 9], ["oWR4", "WR", 6], ["oWR5", "WR", 3], ["oTE1", "TE", 12],
+  ["oTE2", "TE", 4], ["oK", "K"], ["oDEF", "DEF"]];
+const rosterInput = (mine, theirs, give, receive, shape = SHAPE_BN, extra = {}) => ({shape, ourKey: F.OUR_KEY, chartKeys: CHARTS.slice(),
+  mine: {rows: mine}, theirs: {rows: theirs}, give, receive, ...extra});
+{
+  const mine = named(EMPTY_TE_MINE), theirs = named(EMPTY_TE_THEIRS);
+  const out = R.build(rosterInput(mine, theirs, ["eRB4", "eWR5"], ["oTE1"]));
+  const m = out.roster.mine, t = out.roster.theirs;
+  assert.deepEqual([m.before.size, m.after.size, m.rosterSizeDelta], [15, 14, -1], "mine roster size −1");
+  assert.deepEqual([m.before.bench, m.after.bench, m.benchDelta], [7, 5, -2], "mine bench occupancy −2");
+  assert.deepEqual([m.before.emptyStarting, m.after.emptyStarting], [1, 0], "the empty TE is filled");
+  assert.equal(m.configuredBench, 7);
+  assert.deepEqual(m.overCapacity, {before: 0, after: 0});
+  assert.deepEqual([t.before.size, t.after.size, t.rosterSizeDelta], [16, 17, 1]);
+  assert.deepEqual([t.before.bench, t.after.bench, t.benchDelta], [7, 8, 1], "their bench 7 → 8");
+  assert.deepEqual(t.overCapacity, {before: 0, after: 1}, "over the 7 configured spots by one, nobody cut");
+  assert.equal(t.after.active, 17, "no player removed from the after roster");
+  // The DDF lineup's own counts stay what rosterImpact says (aligned display rows are a third, separate count).
+  assert.equal(out.sides.mine.ddf.spotsOpened, 1);
+  assert.equal(out.sides.mine.ddf.impact.after.bench.length + out.sides.mine.ddf.impact.after.unvalued.length, 7,
+    "the DDF view's bench list (valued plus unvalued, K/DEF included) is not the physical bench count");
+  // Same roster readout from every view and from summary.
+  assert.deepEqual(R.summary(out).roster, out.roster);
+  checks += 13;
+}
+// Missing is counted once per player: an outgoing unpriced player is on the roster and in the deal.
+{
+  const mine = roster(MINE, "standard", {mRB2: {ddf: null}, mWR4: {ddf: null}});
+  const theirs = roster(THEIRS, "standard", {tWR1: {ddf: null}});
+  const one = R.build(adapterInput({shape: SHAPE_1QB, mine, theirs, give: ["mRB2"], receive: ["tWR2"], charts: CHARTS}));
+  const ddf = one.sides.mine.ddf;
+  assert.ok(ddf.tradedUnpriced.includes("mRB2") && ddf.rosterUnpriced.includes("mRB2"), "the outgoing player is in both lists");
+  assert.deepEqual(ddf.missing.slice().sort(), ["mRB2", "mWR4"], "union, no duplicate identity");
+  const three = R.build(adapterInput({shape: SHAPE_1QB, mine, theirs, give: ["mRB2"], receive: ["tWR1"], charts: CHARTS}));
+  assert.deepEqual(three.sides.mine.ddf.missing.slice().sort(), ["mRB2", "mWR4", "tWR1"], "distinct missing players all counted");
+  assert.equal(three.sides.mine.ddf.complete, false);
+  // A real 0 is a value (on the lineup, not missing) but is no bench depth (USABLE_MIN), like rosterBalance.
+  const zero = R.build(adapterInput({shape: SHAPE_1QB, mine: roster(MINE, "half", {mWR4: {ddf: 0}}), theirs: roster(THEIRS, "half"),
+    give: ["mRB2"], receive: ["tWR2"], charts: CHARTS}));
+  assert.deepEqual(zero.sides.mine.ddf.missing, []);
+  assert.ok(zero.sides.mine.ddf.impact.before.bench.some(r => r.player_key === "mWR4"));
+  assert.equal(zero.sides.mine.ddf.depth.before.WR, zero.sides.mine.ddf.impact.before.bench.filter(r => r.pos === "WR" && r.values.ddf_value >= F.USABLE_MIN).length);
+  checks += 7;
+}
+// DDF replacement depth and market held depth read each view's own bench; a player the market view cannot price is
+// no market depth.
+{
+  const mine = roster(MINE, "ppr", {mWR3: {noChart: ["cbs"]}});
+  const out = R.build(adapterInput({shape: SHAPE_1QB, mine, theirs: roster(THEIRS, "ppr"), give: ["mRB2"], receive: ["tWR1"], charts: CHARTS}));
+  const ddf = out.sides.mine.ddf, market = out.sides.mine.market;
+  const count = (lineup, key, pos) => lineup.bench.filter(r => r.pos === pos && r.values[key] >= F.USABLE_MIN).length;
+  F.DEPTH_POS.forEach(pos => {
+    assert.equal(ddf.depth.after[pos], count(ddf.impact.after, F.OUR_KEY, pos), `ddf depth ${pos}`);
+    assert.equal(market.depth.after[pos], count(market.impact.after, F.MARKET_KEY, pos), `market depth ${pos}`);
+  });
+  assert.ok(market.missing.includes("mWR3") && !ddf.missing.includes("mWR3"), "missing is per view");
+  checks += 9;
+}
+// Unequal packages (3-for-1) and an incoming QB who starts at SUPERFLEX.
+{
+  const shape = {...SHAPE_SF, K: 0, DST: 0, BENCH: 5};
+  const mine = roster(MINE, "half"), theirs = roster(THEIRS, "half");
+  const out = R.build(adapterInput({shape, mine, theirs, give: ["mRB2", "mWR3", "mWR4"], receive: ["tQB2"], charts: CHARTS}));
+  const m = out.roster.mine;
+  assert.deepEqual([m.before.size, m.after.size, m.rosterSizeDelta], [10, 8, -2]);
+  assert.equal(m.before.startingSlots, 9);
+  assert.deepEqual([m.before.filledStarting, m.after.filledStarting], [9, 7], "the 3-for-1 leaves WR and FLEX open");
+  assert.deepEqual([m.after.emptyStarting, m.before.bench, m.after.bench, m.benchDelta], [2, 1, 1, 0], "roster −2, bench unchanged (QB3 sits)");
+  assert.ok(out.sides.mine.ddf.impact.after.slots.SUPERFLEX.some(r => r.player_key === "tQB2") || out.sides.mine.ddf.impact.after.slots.QB.some(r => r.player_key === "tQB2"),
+    "the incoming QB starts");
+  const t = out.roster.theirs;
+  assert.deepEqual([t.rosterSizeDelta, t.benchDelta], [2, t.after.bench - t.before.bench]);
+  checks += 6;
+}
+// A partly empty roster: no negative bench, open starting slots counted; no configured bench says so.
+{
+  const mine = roster(MINE.slice(0, 4), "half");
+  const out = R.build(adapterInput({shape: SHAPE_1QB, mine, theirs: roster(THEIRS, "half"), give: ["mRB1"], receive: ["tTE1"], charts: CHARTS}));
+  const m = out.roster.mine;
+  assert.deepEqual([m.before.bench, m.after.bench], [1, 1], "the second QB sits; nothing goes negative");
+  assert.deepEqual([m.before.emptyStarting, m.after.emptyStarting], [4, 4]);
+  assert.equal(m.configuredBench, null);
+  assert.deepEqual(m.overCapacity, {before: 0, after: 0});
+  checks += 4;
+}
+// IR and taxi players are held, not bench; without the engine's slot rule the readout says so.
+{
+  const mine = named(EMPTY_TE_MINE), theirs = named(EMPTY_TE_THEIRS);
+  const entries = mine.map(r => ({key: r.player_key, name: r.name, pos: r.pos, ...(r.player_key === "eRB5" ? {slot: "IR"} : {slot: "Bench"})}));
+  const input = rosterInput(mine, theirs, ["eRB4", "eWR5"], ["oTE1"]);
+  input.mine = {rows: mine, entries};
+  const rule = slot => ["IR", "TAXI"].includes(String(slot || "").toUpperCase());
+  const known = R.build(input, {isReserveSlot: rule}).roster.mine;
+  assert.equal(known.reserveKnown, true);
+  assert.deepEqual([known.before.reserve, known.before.bench, known.after.bench], [1, 6, 4]);
+  assert.equal(known.rosterSizeDelta, -1);
+  const unknown = R.build(input).roster.mine;
+  assert.equal(unknown.reserveKnown, false);
+  assert.deepEqual([unknown.before.reserve, unknown.before.bench], [0, 7]);
+  // An unresolved roster entry still holds a roster spot (and is flagged), it is not dropped from the count.
+  const ghost = rosterInput(mine, theirs, ["eRB4", "eWR5"], ["oTE1"]);
+  ghost.mine = {rows: mine, entries: entries.concat([{key: "ghostWR", name: "Ghost", pos: "WR"}])};
+  const g = R.build(ghost);
+  assert.equal(g.roster.mine.before.size, 16);
+  assert.deepEqual(g.sides.mine.ddf.unresolved, ["ghostWR"]);
+  checks += 8;
+}
+// JEG-1229's TradeContext (shape as in #1086): a Compare context and a league-finder context for the same rosters and
+// deal give the same readout, and its readout cache key is carried through.
+{
+  const mine = named(EMPTY_TE_MINE), theirs = named(EMPTY_TE_THEIRS);
+  const rowsByKey = new Map(mine.concat(theirs).map(r => [String(r.player_key), r]));
+  const team = (id, rows) => ({id, name: id, provenance: "saved", missing: false, roster: rows.map(r => ({key: String(r.player_key), name: r.name, pos: r.pos}))});
+  const deal = {give: ["eRB4", "eWR5"], get: ["oTE1"]};
+  const sources = Object.fromEntries(CHARTS.map(k => [k, {status: "available", reason: null}])
+    .concat(F.PROJECTION_KEYS.map(k => [k, {status: "held", reason: "fidelity check"}])));
+  const common = {league: null, valuation: {basis: null, overrides: null}, sources};
+  const compareCtx = deepFreeze({route: "compare", common, teams: {mine: team("me", mine), theirs: team("them", theirs), opponents: []}, deal});
+  const leagueCtx = deepFreeze({route: "league", common, teams: {mine: team("me", mine), theirs: null, opponents: [team("x", []), team("them", theirs)]}, deal});
+  const TC = {dealPartner: c => c.teams.theirs || c.teams.opponents.find(o => c.deal.get.every(k => o.roster.some(e => e.key === k))) || null,
+    cacheKey: c => `readout:${c.deal.give.join(",")}|${c.deal.get.join(",")}`};
+  const env = {rowsByKey, shape: SHAPE_BN, ourKey: F.OUR_KEY, chartKeys: CHARTS.slice()};
+  const fromCompare = R.build(R.inputFromContext(compareCtx, env, {context: TC}));
+  const fromLeague = R.build(R.inputFromContext(leagueCtx, env, {context: TC}));
+  assert.deepEqual(R.summary(fromCompare), R.summary(fromLeague), "same context and deal, same readout on both routes");
+  assert.deepEqual(R.summary(fromCompare).mine.ddf, R.summary(R.build(rosterInput(mine, theirs, deal.give, deal.get))).mine.ddf);
+  assert.equal(fromCompare.contextKey, "readout:eRB4,eWR5|oTE1");
+  assert.deepEqual(fromCompare.views.projections.held, F.PROJECTION_KEYS, "held sources come from the context");
+  assert.equal(R.inputFromContext(compareCtx, env).theirs.rows.length, theirs.length, "without the module, Their team is used");
+  checks += 5;
+}
 console.log(`JEG-1230 readout: ${checks} checks passed`);

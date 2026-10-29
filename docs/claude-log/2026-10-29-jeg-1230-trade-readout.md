@@ -52,6 +52,41 @@ Base: main `bf0cfee`. Branch `claude/JEG-1230-trade-readout`. Parent JEG-1220 (s
   and 390 wide (real engine rows equal `rosterImpact`, tables for available views, bench toggle by Enter and Space,
   captions, no page overflow, no page errors).
 
+### JEG-1260 correction (same branch)
+
+Base: main `b863069`, merged in normally (no rebase). Paths: `app/v2/trade-readout.js`, an optional `benchLabel` on
+`lineup-comparison.js` `renderTable` (default label unchanged, so no live page changes), the JEG-1230 tests.
+
+- Missing players: the 02:56 review fix had not landed on `b0551f5`. Each side now carries `missing`, the union of
+  roster and deal players with no value in that view (an outgoing unpriced player counts once); `complete` and the note
+  read it. Zero stays a value; null stays missing.
+- `out.roster.{mine,theirs}`, independent of any value view: configured bench (league BN, or null), and before/after
+  `{size, active, reserve, startingSlots, filledStarting, emptyStarting, bench}`, `rosterSizeDelta`, `benchDelta`,
+  `overCapacity`. Starting slots fill by eligibility through `pickStarters` (every player at one value) plus K/DEF slots;
+  bench = active players not starting. IR/taxi come from `ValueModel.isReserveSlot` (JEG-1188) when present; without
+  it the readout says every non-starter counts. Over capacity is a number and a sentence; nobody is cut.
+- Per view `depth.{before,after}`: bench players with a usable value (rosterBalance's `USABLE_MIN` rule). The DDF view
+  is shown as DDF replacement depth, the Trade chart average view as market held depth, read from the rows the caller
+  passes (the league's own level rows once #1105 lands); no second engine.
+- The bench toggle says "Show N bench rows": the aligned before/after row count, not the After bench count.
+- `inputFromContext(context, env)`: build's input from JEG-1229's TradeContext (Compare and league-finder shapes), using
+  its `dealPartner` and `cacheKey("readout")` when the module is on the page; held sources from `common.sources`.
+
+Verified (JEG-1260):
+- `node tests/node/jeg1230_trade_readout_check.cjs`: 315 checks passed (the 263 parity/golden checks unchanged, plus
+  52 new). Empty-TE 2-for-1: mine roster 15 → 14 (−1), bench 7 → 5 (−2), TE filled; theirs 16 → 17, bench 7 → 8 of 7,
+  over by 1, nobody removed. Outgoing unpriced player counted once; three distinct missing players all counted. 3-for-1
+  with an incoming QB under SUPERFLEX. Partly empty roster (no negative bench, null configured bench). IR player held
+  off the bench with the slot rule; stated when unknown; unresolved entry keeps its roster spot. DDF and market depth
+  per view. A Compare context and a league context for the same deal give the same summary.
+- Scratch mutations, each killed: no union (double count), bench counting reserve players, after roster ignoring
+  leaving players, DEF slots ignored.
+- Fake-DOM run of `renderSide` (scratch only) printed the notes and toggle words that the new rendered test asserts.
+- `tests.test_jeg1230_trade_readout`, `tests.test_build_v2_page`, `tests.test_jeg1216_lineup`,
+  `tests.test_render_sweep_shards`: OK.
+- New rendered test `test_roster_bench_and_missing_counts_are_the_visible_words` (1366 and 390 wide, one and two
+  missing players): skipped here (no Chromium); see the PR for the Actions run.
+
 ### Claimed, not confirmed
 
 - Route wiring (Compare, then league after #1072, then pair finder after JEG-1219) is follow-up work after owner
