@@ -77,7 +77,7 @@ class OpponentInclusionRenderTest(unittest.TestCase):
             for width in (1280, 390):
                 with self.subTest(width=width):
                     page, errors = _open(browser, base, width)
-                    self.assertEqual(page.locator("#pvOi legend").inner_text(), "Opponents to search")
+                    self.assertEqual(page.locator("#pvOi legend").inner_text(), "Opponents to include")
                     self.assertEqual(page.get_attribute("#pvOi", "aria-describedby"), "pvOiCount")
                     self.assertEqual(page.get_attribute("#pvOiCount", "role"), "status")
                     boxes = page.locator("#pvOi input[type=checkbox]")
@@ -86,10 +86,15 @@ class OpponentInclusionRenderTest(unittest.TestCase):
                     self.assertTrue(all(names) and len(set(names)) == len(names), names)
                     labels = page.evaluate("() => [...document.querySelectorAll('#pvOi input')].every(b => document.querySelector(`label[for='${b.id}']`))")
                     self.assertTrue(labels, "each box has a visible label")
+                    self.assertEqual(page.locator("#pvOiNone").inner_text(), "Clear")
+                    metas = page.evaluate("() => [...document.querySelectorAll('#pvOi .oi-meta')].map(n => n.textContent)")
+                    self.assertEqual(len(metas), 11)
+                    self.assertTrue(all(m.endswith((" player", " players")) for m in metas), metas)
+                    self.assertIn("0 players", metas, "a team with no roster says so")
                     self.assertIn("Searching 8 of 11 opponents. 2 left out here.", page.evaluate(COUNT))
                     self.assertIn("1 included has no roster yet.", page.evaluate(COUNT))
                     before = page.evaluate(SEARCH)
-                    # Keyboard: Tab from the last preview control reaches Select all, Clear all, then the first box.
+                    # Keyboard: Tab from the last preview control reaches Select all, Clear, then the first box.
                     page.focus("#pvTheme")
                     page.keyboard.press("Tab")
                     self.assertEqual(page.evaluate("() => document.activeElement.id"), "pvOiAll")
@@ -115,7 +120,7 @@ class OpponentInclusionRenderTest(unittest.TestCase):
                     self.assertEqual(page.locator(f"#pvOi input[data-team-id='{fourth}']").count(), 0)
                     newest = page.evaluate("() => window.__pv.ws.teams.at(-1).id")
                     self.assertTrue(page.is_checked(f"#pvOi input[data-team-id='{newest}']"))
-                    # Clear all from the keyboard: the all-excluded state, nothing searched.
+                    # Clear (Fieldnotes: Clear means none) from the keyboard: the all-excluded state, nothing searched.
                     page.focus("#pvOiNone")
                     page.keyboard.press("Enter")
                     self.assertEqual(page.get_attribute("#pvOi", "data-status"), "allExcluded")

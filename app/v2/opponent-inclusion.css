@@ -1,40 +1,47 @@
-/* JEG-1231: opponent inclusion checkboxes. Colors and type come from the design tokens on the page: the --ddf-* tokens
-   in v2.css first, then the Oct 26 direction preview's (app/v2-concept/concept.css, JEG-1209); the last fallbacks are
-   the same values, so the control reads the same on a page without either. No new palette. Hit targets are at least 44px, the list is one column on a phone. */
+/* JEG-1231: opponent inclusion checkboxes, following the JEG-1209 Fieldnotes revision 2 handoff
+   (docs/design/jeg-1209-fieldnotes, pinned at 2c8931231ccd2bbeb4946ac031aee5ac655182f4: the finder's Filters panel,
+   "Opponents to include" with Select all and Clear, and its light/dark roles). Colors come from the page's tokens: the
+   --ddf-* tokens in v2.css first, so the public league page keeps today's palette until the shell rollout (JEG-1137);
+   then the Fieldnotes role names (--canvas, --ink, --control, --focus ...); the last fallbacks are the Fieldnotes light
+   values. No new palette. Targets are at least 44px, rows 48px, the list is one column on a phone. */
 
 .oi {
-  --oi-surface: var(--ddf-surface, var(--surface, #FFFCF8));
-  --oi-canvas: var(--ddf-canvas, var(--canvas, #F6F3EC));
-  --oi-ink: var(--ddf-ink, var(--ink, #1A2824));
+  --oi-surface: var(--ddf-surface, var(--surface, #FFFDF8));
+  --oi-canvas: var(--ddf-canvas, var(--canvas, #F5F2EA));
+  --oi-subtle: var(--ddf-neutral-tint, var(--subtle, #EAE8DF));
+  --oi-ink: var(--ddf-ink, var(--ink, #182D27));
   --oi-muted: var(--ddf-muted, var(--muted, #52635C));
-  --oi-line: var(--ddf-line, var(--line, #E3DCD0));
-  --oi-action: var(--ddf-action, var(--action, #0C7A56));
-  --oi-warn-bg: var(--ddf-warn-tint, var(--warn-bg, #F8EFE1));
-  --oi-warn-ink: var(--ddf-warn-ink, var(--warn-ink, #7A4510));
-  --oi-dur: var(--dur, 200ms);
+  --oi-line: var(--ddf-line, var(--line, #D4D8CD));
+  --oi-control: var(--control, var(--ddf-muted, #79897F));
+  --oi-action: var(--ddf-action, var(--action, #126044));
+  --oi-warn-bg: var(--ddf-warn-tint, var(--subtle, #EAE8DF));
+  --oi-warn-ink: var(--ddf-warn-ink, var(--warning, #80500F));
+  --oi-focus: var(--focus, #175BC1);
+  --oi-radius: var(--ddf-radius-card, var(--radius, 16px));
+  --oi-dur: var(--duration, var(--dur, 160ms));
   --oi-ease: var(--ease, cubic-bezier(0.2, 0.7, 0.2, 1));
   margin: 0;
-  padding: 16px;
+  padding: 24px;
   min-width: 0;
   border: 1px solid var(--oi-line);
-  border-radius: 12px;
+  border-radius: var(--oi-radius);
   background: var(--oi-surface);
   color: var(--oi-ink);
-  font-family: var(--ddf-font-ui, var(--sans, Inter, "Source Sans 3", system-ui, sans-serif));
-  font-size: 14px;
+  font-family: var(--ddf-font-ui, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+  font-size: 16px;
   line-height: 1.5;
 }
 
 .oi-legend {
   padding: 0 4px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 650;
 }
 
 .oi-count {
-  margin: 0 0 8px;
+  margin: 0 0 12px;
   color: var(--oi-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -49,24 +56,22 @@
 .oi-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px;
   margin: 0 0 8px;
 }
 
 .oi-btn {
   min-height: 44px;
   padding: 0 16px;
-  border: 1px solid var(--oi-line);
-  border-radius: 999px;
-  background: var(--oi-canvas);
+  border: 1px solid var(--oi-control);
+  border-radius: 9px;
+  background: var(--oi-surface);
   color: var(--oi-ink);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
-  transition: transform var(--oi-dur) var(--oi-ease);
+  transition: background var(--oi-dur) var(--oi-ease), border-color var(--oi-dur) var(--oi-ease);
 }
-
-.oi-btn:active { transform: scale(0.98); }
 
 .oi-list {
   display: grid;
@@ -79,10 +84,10 @@
 
 .oi-item {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
+  grid-template-columns: 20px minmax(0, 1fr);
   align-items: center;
-  column-gap: 8px;
-  min-height: 44px;
+  column-gap: 10px;
+  min-height: 48px;
   border-bottom: 1px solid var(--oi-line);
 }
 
@@ -101,14 +106,20 @@
   flex-wrap: wrap;
   align-items: baseline;
   gap: 4px 8px;
-  min-height: 44px;
-  padding: 10px 0;
+  min-height: 48px;
+  padding: 12px 0;
   overflow-wrap: anywhere;
   cursor: pointer;
 }
 
 .oi-item[data-state="excluded"] .oi-name,
 .oi-item[data-state="profile"] .oi-name { color: var(--oi-muted); }
+
+.oi-meta {
+  color: var(--oi-muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
 
 .oi-tag {
   padding: 0 8px;
@@ -136,17 +147,17 @@
 .oi :focus { outline: none; }
 
 .oi :focus-visible {
-  outline: 2px solid var(--link, var(--oi-action));
+  outline: 3px solid var(--oi-focus);
   outline-offset: 3px;
 }
 
 @media (hover: hover) {
-  .oi-btn:hover { border-color: var(--oi-ink); }
+  .oi-btn:hover { background: var(--oi-subtle); }
   .oi-item:hover .oi-name { text-decoration: underline; text-underline-offset: 3px; }
 }
 
 @media (max-width: 767px) {
-  .oi { padding: 12px; }
+  .oi { padding: 16px; }
   .oi-list { grid-template-columns: 1fr; }
 }
 

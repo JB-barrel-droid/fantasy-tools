@@ -36,6 +36,7 @@ MUTATIONS = [
     ("const opponents = ws => teamsOf(ws).filter(t => idOf(t) !== String(ws && ws.myTeamId));", "const opponents = ws => teamsOf(ws);",
      "test_baseline_every_opponent_included"),
     ("return state.excluded.length ? emptyState() : state;", "return emptyState();", "test_no_opponents_and_all_excluded"),
+    ("      const players = countOf(t);\n", "      const players = 0;\n", "test_baseline_every_opponent_included"),
 ]
 
 

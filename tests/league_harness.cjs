@@ -449,6 +449,86 @@ function opportunityRows(name, opts) {
   return oppCache[key];
 }
 
+// Regression: a valid sell-side player must not disappear before league ranking/filtering.
+// Synthetic values are coherent four-chart means, not a replay of the user's league.
+t("test_opportunities_preserve_qualified_candidates", async () => {
+  const row = (key, charts, projection) => ({player_key: key, name: key, pos: "WR", values: {
+    ddf_value: charts.reduce((a, b) => a + b, 0) / charts.length, ddf_value_projections: projection,
+    ...Object.fromEntries(CH.map((k, i) => [k, charts[i]]))}});
+  const jsn = row("JSN", [20, 20, 20, 20], 9.1);
+  const mineRows = [jsn, ...Array.from({length: 3}, (_, i) => row(`other WR ${i}`, [19, 19, 19, 19], 15))];
+  const theirRows = Array.from({length: 4}, (_, i) => row(`target ${i}`, [19, 19, 19, 28], 14));
+  const team = (id, rows) => ({id, name: id, entries: rows.map(r => ({key: r.player_key}))});
+  const mine = team("mine", mineRows), opp = team("opp", theirRows);
+  const ctx = {charts: CH, maxSize: 2, rowsByKey: new Map([...mineRows, ...theirRows].map(r => [r.player_key, r]))};
+  const direct = F.findTrades(mineRows, theirRows, {chartKeys: CH, maxSize: 2, limit: Infinity});
+  const jsnCount = rows => rows.filter(t => t.give.some(r => r.player_key === "JSN")).length;
+  assert.strictEqual(direct.total, 52);
+  assert.strictEqual(jsnCount(direct.trades), 22);
+  assert.strictEqual(jsnCount(direct.trades.slice(0, F.LIMIT)), 0, "fixture exposes premature truncation");
+  const pair = O.computePairing(mine, opp, ctx);
+  assert.strictEqual(pair.rows.length, direct.total, "every qualified candidate reaches league fit/ranking");
+  assert.strictEqual(jsnCount(pair.rows), 22, "default-size search preserves qualified JSN trades");
+  const result = await O.runAll(mine, [opp], ctx, {yieldFn: () => Promise.resolve()});
+  assert.strictEqual(result.rows.length, direct.total);
+  const filtered = O.filterRows(result.rows, {opponent: "opp", minCharts: 3, minCapture: 1});
+  assert.strictEqual(jsnCount(filtered), 22, "final filters can still see lower-score candidates");
+  assert.deepStrictEqual(new Set(filtered.map(r => r.id)), new Set(pair.rows.map(r => r.id)));
+  const capped = O.capPerCore(result.rows, r => r.core.player_key, O.CAP_PER_CORE);
+  assert.strictEqual(capped.list.length + [...capped.folds.values()].reduce((n, rows) => n + rows.length, 0), direct.total,
+    "presentation folds preserve all candidates for expansion");
+});
+
+t("test_opportunities_fit_after_full_search", async () => {
+  const d = load("4team"), mine = d.teams[0], opp = d.teams[1];
+  const ctx = ctxFor(d.rows);
+  const pair = O.computePairing(mine, opp, ctx);
+  assert.ok(pair.rows.length > F.LIMIT, "judged fixture exceeds the former cap");
+  for (const row of pair.rows) {
+    const full = O.fullFit(row);
+    const wide = rows => F.withChartAverage(rows, CH);
+    const mineRows = mine.entries.map(e => d.rows.get(e.key)).filter(Boolean);
+    const oppRows = opp.entries.map(e => d.rows.get(e.key)).filter(Boolean);
+    const expected = F.tradeFit({mine: {roster: wide(mineRows), leaving: wide(row.give), arriving: wide(row.receive)},
+      theirs: {roster: wide(oppRows), leaving: wide(row.receive), arriving: wide(row.give)}},
+      {shape: SHAPE, expected: EXPECTED, weights: WEIGHTS, ourKey: F.OUR_KEY, marketKey: F.MARKET_KEY, chartKeys: CH, z: F.FIT_Z});
+    assert.deepStrictEqual(full, expected, "lazy details exactly match direct fit math");
+    assert.strictEqual(full.label, row.overall);
+    assert.strictEqual(full.variant, row.fit.variant);
+    assert.strictEqual(row.fit.us.starterDelta, full.us.starterDelta, "compact summary preserves current-main starter-gain copy");
+    assert.deepStrictEqual(O.ourFitOf(full), row.ours);
+    assert.deepStrictEqual(O.theirFitOf(full), row.theirs);
+  }
+  const natural = pair.rows.find((r, i) => i >= F.LIMIT && r.overall === "natural");
+  assert.ok(natural, "natural fit beyond old pre-fit cap exists");
+  const ranked = O.rankRows(pair.rows);
+  const filtered = O.filterRows(ranked, {fit: "natural"});
+  assert.ok(filtered.some(r => r.id === natural.id), "natural filter preserves beyond-cap fit");
+  assert.deepStrictEqual(O.fullFit(ranked.find(r => r.id === natural.id)), O.fullFit(natural), "rank copy retains detail context");
+});
+t("test_opportunities_cancel_during_pairing", async () => {
+  const d = load("4team"), ctx = ctxFor(d.rows), cache = O.createCache();
+  let yields = 0;
+  const result = await O.runAll(d.teams[0], d.teams.slice(1), ctx, {
+    cache, budgetMs: -1, yieldFn: async () => { yields += 1; }, isCancelled: () => yields > 0});
+  assert.strictEqual(result.cancelled, true);
+  assert.strictEqual(result.computed, 0, "cancel before the first pairing finishes");
+  assert.strictEqual(cache.size, 0, "partial pairing must not contaminate cache");
+  assert.strictEqual(result.rows.length, 0, "interrupted candidates never publish");
+  const resumed = await O.runAll(d.teams[0], [d.teams[1]], ctx, {cache, yieldFn: async () => {}});
+  assert.deepStrictEqual(resumed.rows.map(r => r.id), O.rankRows(O.computePairing(d.teams[0], d.teams[1], ctx).rows).map(r => r.id));
+});
+
+t("test_opportunities_cache_row_budget", async () => {
+  const d = load("4team"), ctx = ctxFor(d.rows), cache = O.createCache();
+  const many = Array(Math.floor(O.CACHE_MAX_ROWS / 2) + 1).fill(null);
+  cache.set("oldest", {rows: many}); cache.set("newer", {rows: many});
+  const result = await O.runAll(d.teams[0], [d.teams[1]], ctx, {cache, yieldFn: async () => {}});
+  assert.ok(!cache.has("oldest"), "evict old cached rows, not qualified active candidates");
+  assert.ok([...cache.values()].reduce((n, entry) => n + entry.rows.length, 0) <= O.CACHE_MAX_ROWS);
+  assert.strictEqual(result.rows.length, O.computePairing(d.teams[0], d.teams[1], ctx).total);
+});
+
 // JEG-1108: three overall labels; Value fit is retired, so "value" is not a label any more.
 const LABELS = ["natural", "market", "force"];
 function assertRowShape(r) {
@@ -529,12 +609,13 @@ t("test_opportunities_cap_per_core", () => {
 t("test_opportunities_cap_on_a_fixture", async () => {
   const d = await opportunityRows("2team");
   const key = r => r.core.player_key;
-  assert.ok(new Set(d.rows.map(key)).size === 1, "the 2-team fixture receives one core player in every row");
-  assert.ok(d.rows.length >= 4, `the core player has 4 or more rows (${d.rows.length})`);
-  const out = O.capPerCore(d.rows, key, O.CAP_PER_CORE);
+  // All candidates now survive pairing; isolate one core rather than assuming the old top ten were the entire result.
+  const rows = d.rows.filter(r => key(r) === key(d.rows[0]));
+  assert.ok(rows.length >= 4, `the core player has 4 or more rows (${rows.length})`);
+  const out = O.capPerCore(rows, key, O.CAP_PER_CORE);
   assert.strictEqual(out.list.length, 2, "two rows stay visible");
-  assert.strictEqual(out.folds.get(String(d.rows[0].core.player_key)).length, d.rows.length - 2, "the rest fold under that player");
-  assert.deepStrictEqual(out.list.map(r => r.id), d.rows.slice(0, 2).map(r => r.id), "the two best stay, in rank order");
+  assert.strictEqual(out.folds.get(String(rows[0].core.player_key)).length, rows.length - 2, "the rest fold under that player");
+  assert.deepStrictEqual(out.list.map(r => r.id), rows.slice(0, 2).map(r => r.id), "the two best stay, in rank order");
 });
 t("test_opportunities_1_opponent", async () => {
   const d = await opportunityRows("2team");
@@ -550,7 +631,7 @@ t("test_opportunities_1_opponent", async () => {
   assert.deepStrictEqual(alone.rows.map(r => r.overall).sort(), within.map(r => r.overall).sort());
   // And it is the two-team finder's list: same trades, same edges.
   const direct = F.findTrades([...four.mine.entries].map(e => four.d.rows.get(e.key)).filter(Boolean), opp.entries.map(e => four.d.rows.get(e.key)).filter(Boolean),
-    {chartKeys: CH, maxSize: 2, limit: F.LIMIT, sanity: {shape: SHAPE, mine: four.mine.entries.map(e => four.d.rows.get(e.key)).filter(Boolean), theirs: opp.entries.map(e => four.d.rows.get(e.key)).filter(Boolean), keepMine: true, keepTheirs: true}});
+    {chartKeys: CH, maxSize: 2, limit: Infinity, sanity: {shape: SHAPE, mine: four.mine.entries.map(e => four.d.rows.get(e.key)).filter(Boolean), theirs: opp.entries.map(e => four.d.rows.get(e.key)).filter(Boolean), keepMine: true, keepTheirs: true}});
   assert.deepStrictEqual(within.map(r => Math.round(r.edge * 1000)).sort((a, b) => a - b), direct.trades.map(x => Math.round(x.edge * 1000)).sort((a, b) => a - b), "edges come straight from findTrades");
 });
 t("test_opportunities_partial", async () => {
