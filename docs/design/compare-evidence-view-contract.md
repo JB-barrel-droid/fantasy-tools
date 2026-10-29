@@ -80,8 +80,10 @@ python3 -m unittest tests.test_compare_evidence_view_render     # needs Playwrig
 The contract test recomputes every fixture's verdict, rows and `againstKeys` with the current `trade.js` and
 fails if they drift, so the fixtures stay real current branches. It also checks each label by position against
 its own copy key and reruns every case with all caller-supplied words altered, requiring every rendered word to
-follow (JEG-1294), so a hard-coded literal or a word from the wrong key fails. Both tests run in `test-core`
-(shard 4), so the preview CI runs them on every PR.
+follow (JEG-1294), so a hard-coded literal or a word from the wrong key fails. The contract test runs in
+`test-core` (shard 4), so the preview CI runs it on every PR. The render test runs in `test-render-extra`
+(`test-render-sweep-3`), the non-blocking Render sweep, because the view is not loaded by the page and a layout
+regression in it must not block a deploy (JEG-1319).
 
 Preview: serve the repo root (`python3 -m http.server`) and open
 `/tests/fixtures/compare_evidence_view/preview.html`, optionally `?case=<id>`.
