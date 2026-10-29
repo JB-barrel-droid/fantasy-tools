@@ -77,9 +77,8 @@ def summarize(tag, url):
         m = re.search(r'"' + key + r'"\s*:\s*"([^"]+)"', page)
         if m:
             print(f"{key}: {m.group(1)}")
-    for pat in (r"(?i)insider account|subscribe to (read|continue)|premium|fantasylife\+|sign up|log ?in to"):
-        hits = sorted({text(h if isinstance(h, str) else h[0]) for h in re.findall(pat, page)})[:6]
-        print("gate markers:", hits)
+    gate = r"(?i)insider account|subscribe to read|subscribe to continue|premium|fantasylife\+|sign up|log ?in to"
+    print("gate markers:", sorted({m.group(0).lower() for m in re.finditer(gate, page)})[:8])
     tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
     print(f"tables={len(tables)} rows={[len(re.findall(r'<tr', x, re.I)) for x in tables][:12]}")
     for x in tables[:3]:
@@ -127,7 +126,11 @@ def summarize(tag, url):
 def main():
     fp_seen = set()
     for tag, url in START:
-        page = summarize(tag, url)
+        try:
+            page = summarize(tag, url)
+        except Exception as e:  # a probe keeps going past one bad page
+            print(f"!!! {tag}: {type(e).__name__}: {e}")
+            page = ""
         if tag.startswith("fp_") and page:
             for h in re.findall(r'(?:href|value)="([^"]+)"', page):
                 u = urljoin(url, h)
