@@ -26,14 +26,27 @@ runs in every week view the page offers (getWeekState().weeks, setWeek):
 each source is compared with the sources sharing its week. A chart whose week
 has no view is named on stderr, never failed and never silently dropped.
 
-Three layers:
+Same-run invariant (JEG-1253): budgets are compared only inside one run.
+Two runs (another week view, another setting, or a loaded league's other
+bench level, JEG-1188 "ddf" vs "market") may have different pies and weights;
+nothing here asserts that one run's budgets equal another's.
+
+Layers:
   * CheckerTest: the rule on synthetic runs (no node, no browser).
   * EngineTest: value-model.js under node on the worked example (three
     variants), and the same engine with the mutation below, which must fail.
+  * TransitionReferenceTest (JEG-1253): deterministic lagging-week coverage
+    without a browser. The committed-data week transition replay
+    (test_week_history.transition_overrides: CBS and USA Today a week behind)
+    priced by the Python reference (value_reference.py, which value_check
+    holds to the page) in each week view; the lagging charts are checked in
+    their own week's view, and a 1% bench shift in one of them fails there.
   * ServedPageTest: the built engine page on the served data, at four
     settings in every week view, plus the mutation served in place of
-    value-model.js, which must fail. Needs Chromium: a skip locally, an error
-    under RENDER_TESTS_REQUIRED=1 (CI).
+    value-model.js, which must fail. ServedTransitionTest: the same page on
+    the transition replay, both week views, plus the mutation of a lagging
+    chart. Both need Chromium: a skip locally, an error under
+    RENDER_TESTS_REQUIRED=1 (CI).
 
 The mutation: one source moves 1% of each position's bench budget to that
 position's starter budget (its total stays on the pie).
@@ -48,6 +61,7 @@ fail. So loosening or removing the guard cannot let a bench-budget bug through.
 """
 from __future__ import annotations
 
+import contextlib
 import json
 import sys
 import tempfile
@@ -156,6 +170,40 @@ def from_driver(out: dict) -> dict:
         for key, s in out["sources"].items()}}
 
 
+def from_reference(res: dict) -> dict:
+    """value_reference.Setting.result() -> check_run's run shape. A source
+    left out of the run (an older week than the view) has no players and no
+    weights there, so check_run does not price it."""
+    return {"pie": res["pie"], "ddfWeights": res["ddf_weights"], "sources": {
+        key: {"rates": d.get("rates") or {}, "weights": d.get("weights") if d.get("players") else None,
+              "unfundedMoved": d.get("unfunded_moved") or [], "unfundedGroups": d.get("unfunded_groups") or [],
+              "players": [[p["pos"], p.get("bench_slice") or 0.0] for p in (d.get("players") or {}).values()]}
+        for key, d in res["sources"].items()}}
+
+
+@contextlib.contextmanager
+def transition_reference():
+    """(Inputs, History, lagging keys, newest week) for the committed-data
+    week transition replay (test_week_history.transition_overrides), read by
+    the Python reference from a temporary copy of the served history."""
+    import shutil
+    _render_env.ensure_built()
+    sys.path.insert(0, str(ROOT / "pipelines"))
+    from tests import test_week_history as W
+    import value_reference as R
+    if not (W.DIST / "assets" / "history" / "index.json").exists():
+        raise AssertionError("dist/ has no week history after the build: the transition replay cannot run")
+    lagging = ("cbs", "usatoday")
+    overrides = W.transition_overrides(lagging=lagging)
+    with tempfile.TemporaryDirectory() as tmp:
+        hist = Path(tmp) / "history"
+        shutil.copytree(W.DIST / "assets" / "history", hist)
+        (hist / "index.json").write_text(overrides["assets/history/index.json"], encoding="utf-8")
+        fixture = Path(tmp) / "fixture.json"
+        fixture.write_text(overrides[W.FIXTURE_ASSET], encoding="utf-8")
+        yield R, R.Inputs.load(fixture), R.History(hist), lagging, W.newest_week(lagging), overrides
+
+
 # --- the served page ---------------------------------------------------------
 
 # (scoring, teams, bench-share override or None). The override takes the
@@ -188,8 +236,9 @@ READ = """(week) => {
 }"""
 
 
-def page_runs(overrides=None):
-    """[(label, run)] for every setting x week view, plus lagging notes."""
+def page_runs(overrides=None, settings=None):
+    """[(label, run)] for every setting x week view, plus lagging notes.
+    settings: (scoring, teams, override) triples, default SETTINGS."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError as exc:
@@ -215,7 +264,7 @@ def page_runs(overrides=None):
             if not page.evaluate("() => !!(window.TradeValueCurveControls && window.TradeValueCurveControls.isReady())"):
                 status = page.evaluate("() => document.querySelector('#curve-status')?.textContent || ''")
                 raise AssertionError(f"engine page not ready: {status[:300]}; errors: {errors[:3]}")
-            for scoring, teams, override in SETTINGS:
+            for scoring, teams, override in settings or SETTINGS:
                 setting = f"{scoring}/{teams}" + (f"/bench{override:.0%}" if override is not None else "")
                 state = page.evaluate(SET, [scoring, teams, override])
                 weeks = (state or {}).get("weeks") or [None]
@@ -339,6 +388,33 @@ class CheckerTest(unittest.TestCase):
         problems, _, _ = check_run(run, "syn")
         self.assertTrue(any("nothing to compare" in p for p in problems), problems)
 
+    def test_runs_are_compared_only_within_themselves(self):
+        # Same-run invariant (JEG-1253): a second run with its own pie and
+        # weights (another week view, or a loaded league's market bench level
+        # beside its DDF level) passes on its own budgets. Its totals differ
+        # from the first run's and that is not a problem.
+        ddf, market = _synthetic(), _synthetic()
+        market["pie"] = 120.0
+        for pos in POSITIONS:
+            market["ddfWeights"][f"{pos}|bench"] = 0.15
+        market["ddfWeights"] = dict(market["ddfWeights"])
+        for src in market["sources"].values():
+            src["rates"] = {g: r * 120.0 * 0.15 / 12.5 for g, r in src["rates"].items()}
+        problems, compared, _ = check_runs([("ddf level", ddf), ("market level", market)])
+        self.assertEqual(problems, [])
+        self.assertEqual(set(compared), {"ddf level", "market level"})
+        self.assertNotAlmostEqual(bench_totals(ddf["sources"]["a"])["QB"], bench_totals(market["sources"]["a"])["QB"])
+
+    def test_a_source_from_another_run_fails_on_this_runs_budget(self):
+        # Why a lagging chart is read in its own week's view: priced against
+        # another run's budget it is off that budget.
+        run, other = _synthetic(), _synthetic()
+        for src in other["sources"].values():
+            src["rates"] = {g: r * 1.2 for g, r in src["rates"].items()}
+        run["sources"]["lag"] = other["sources"]["a"]
+        problems, _, _ = check_run(run, "syn")
+        self.assertTrue(any(" lag QB " in p for p in problems), problems)
+
 
 class EngineTest(unittest.TestCase):
     VARIANTS = (None, "variant_expected_starts", "variant_bench_share_0_10")
@@ -369,6 +445,113 @@ class EngineTest(unittest.TestCase):
                     # fixedPieIndexed guard cannot see it; only this check does.
                     total = sum(p["adjusted"] for p in out["sources"]["c2"]["players"].values())
                     self.assertAlmostEqual(total, out["pie"], delta=REL_TOL * out["pie"])
+
+
+class TransitionReferenceTest(unittest.TestCase):
+    """Deterministic lagging-week coverage (JEG-1253; JEG-1189 left it as
+    "claimed, not confirmed" because the served data had no transition).
+    Runs in test-core with no browser: the Python reference prices the replay
+    in each week view, as the page does (no carry-forward, JEG-1177)."""
+
+    SETTINGS = [("ppr", 12, None), ("ppr", 12, 0.10)]  # the replay rewrites the 12-team combos
+
+    @classmethod
+    def setUpClass(cls):
+        cls.runs, cls.views, cls.priced = [], {}, {}
+        with transition_reference() as (R, inp, hist, lagging, newest, _):
+            cls.lagging, cls.newest = lagging, newest
+            for scoring, teams, override in cls.SETTINGS:
+                setting = f"{scoring}/{teams}" + (f"/bench{override:.0%}" if override is not None else "")
+                view = R.Setting(inp, scoring, teams, hist=hist, bench_share_override=override).week_view()
+                cls.views[setting] = view
+                for week in (view or {}).get("weeks") or []:
+                    res = R.Setting(inp, scoring, teams, hist=hist, bench_share_override=override,
+                                    week=week).result()
+                    label = f"{setting} week {week}"
+                    run = from_reference(res)
+                    cls.runs.append((label, run))
+                    cls.priced[label] = sorted(k for k, s in run["sources"].items() if s["weights"])
+
+    def test_the_replay_is_a_transition(self):
+        # Guards the sentinel: two views, the lagging charts serve the older
+        # one and are left out of the newer one.
+        for setting, view in self.views.items():
+            self.assertEqual(view["weeks"], [self.newest, self.newest - 1], setting)
+            self.assertEqual({k: view["served_weeks"].get(k) for k in self.lagging},
+                             {k: self.newest - 1 for k in self.lagging}, setting)
+            newer, older = f"{setting} week {self.newest}", f"{setting} week {self.newest - 1}"
+            self.assertEqual(set(self.lagging) & set(self.priced[newer]), set(), self.priced[newer])
+            self.assertTrue(set(self.lagging) <= set(self.priced[older]), self.priced[older])
+
+    def test_budget_cut_bench_identical_in_each_week_view(self):
+        problems, compared, notes = check_runs(self.runs)
+        if notes:
+            print("\n".join(["", *notes]), file=sys.stderr)
+        self.assertEqual(len(compared), 2 * len(self.SETTINGS))
+        for label, keys in compared.items():
+            self.assertGreaterEqual(len(keys), 5, (label, keys))
+        self.assertEqual(problems, [], "\n".join(problems[:25]))
+
+    def test_a_lagging_chart_bench_shift_fails_in_its_own_view(self):
+        # Mutation: the lagging chart's QB bench rate cut 1% (the bench check
+        # reads only the bench side). Only its own week's view prices it, so
+        # only that view may fail, naming it.
+        source = self.lagging[0]
+        broken = []
+        for label, run in self.runs:
+            run = json.loads(json.dumps(run))
+            src = run["sources"][source]
+            if src["weights"]:
+                src["rates"]["QB|bench"] = (src["rates"].get("QB|bench") or 0.0) * (1 - SHIFT)
+            broken.append((label, run))
+        problems, _, _ = check_runs(broken)
+        self.assertTrue(problems, f"a {SHIFT:.0%} QB bench shift in lagging {source} was NOT caught")
+        self.assertTrue(all(f" {source} " in p or "differs across sources" in p for p in problems), problems)
+        self.assertEqual({p.split(" week ", 1)[1].split(":", 1)[0] for p in problems}, {str(self.newest - 1)},
+                         problems)
+
+
+class ServedTransitionTest(unittest.TestCase):
+    """The served page on the same transition replay: both week views, and a
+    lagging chart's mutation (guard off) caught in its own week's view."""
+
+    SETTINGS = [("ppr", 12, None)]
+
+    @classmethod
+    def setUpClass(cls):
+        _render_env.ensure_built()
+        with transition_reference() as (_R, _inp, _hist, lagging, newest, overrides):
+            cls.lagging, cls.newest = lagging, newest
+            cls.overrides = {k: v.encode("utf-8") for k, v in overrides.items()}
+        try:
+            cls.runs, cls.notes = page_runs(cls.overrides, cls.SETTINGS)
+        except unittest.SkipTest:
+            raise
+        except Exception as exc:
+            annotate("JEG-1253 bench budget cut transition", [f"served page could not be read: {exc!r}"[:600]])
+            raise
+
+    @annotated
+    def test_both_week_views_pass_and_lagging_charts_are_compared(self):
+        problems, compared, notes = check_runs(self.runs)
+        annotate("JEG-1253 bench budget cut transition", self.notes + notes + [
+            f"{k}: {', '.join(v)}" for k, v in compared.items()], level="notice")
+        self.assertEqual(sorted(compared), sorted(f"ppr/12 week {w}" for w in (self.newest, self.newest - 1)),
+                         compared)
+        self.assertEqual(set(self.lagging) & set(compared[f"ppr/12 week {self.newest}"]), set(), compared)
+        self.assertTrue(set(self.lagging) <= set(compared[f"ppr/12 week {self.newest - 1}"]), compared)
+        self.assertEqual(problems, [], "\n".join(problems[:25]))
+
+    @annotated
+    def test_a_lagging_chart_mutation_fails_in_its_own_view(self):
+        source = self.lagging[0]
+        runs, _ = page_runs({**self.overrides,
+                             "assets/value-model.js": perturbed_model(source).encode("utf-8"),
+                             "assets/curve-widget.js": guard_off_widget().encode("utf-8")}, self.SETTINGS)
+        broken, _, _ = check_runs(runs)
+        mine = [p for p in broken if f" {source} " in p]
+        self.assertTrue(mine, f"a {SHIFT:.0%} bench-to-starter shift in lagging {source} was NOT caught: {broken[:5]}")
+        self.assertTrue(all(f"week {self.newest - 1}:" in p for p in mine), mine)
 
 
 class ServedPageTest(unittest.TestCase):
