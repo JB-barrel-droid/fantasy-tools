@@ -420,6 +420,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	node tests/node/fit_diagnostic.cjs --assert
+	# JEG-1188: league-wide opportunity stages on frozen engine contexts from five revisions.
+	python3 -m unittest tests.test_jeg1188_opportunity_count
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
