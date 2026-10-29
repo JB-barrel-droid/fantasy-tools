@@ -288,7 +288,17 @@
     return {update, destroy: () => root.removeEventListener("hashchange", onHash)};
   }
 
-  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, gaps, viewModel, countsLine, liveContext, render, mount};
+  // The one call the dashboard makes (v2.js refresh() on this route): mount once on the live adapter, then re-read on each
+  // refresh without moving focus (the hashchange listener in mount() handles focus when the route changes).
+  let mounted = null;
+  function activate(container) {
+    if (!container) return null;
+    if (!mounted) mounted = mount(container, {getContext: () => liveContext(root)});
+    else mounted.update(false);
+    return mounted;
+  }
+
+  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, gaps, viewModel, countsLine, liveContext, render, mount, activate};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueSimplifiedSite = api;
 })(typeof window !== "undefined" ? window : globalThis);

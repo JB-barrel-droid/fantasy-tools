@@ -119,7 +119,7 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
     def tearDownClass(cls):
         cls._stack.close()
 
-    def open(self, ctx, width, hash_="#simplified-site", errors=None):
+    def open(self, ctx, width, hash_="#simplified-site", errors=None, wait=True):
         context = self.chromium.new_context(viewport={"width": width, "height": 900})
         context.add_init_script(STORAGE_SPY)
         context.add_init_script(f"window.__SS_CTX = {json.dumps(ctx)};")
@@ -127,7 +127,8 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         page.on("pageerror", lambda e: errors.append(str(e)) if errors is not None else None)
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         page.goto(self.base + hash_, wait_until="load")
-        page.wait_for_selector("#v2Simplified[data-state]")
+        if wait:
+            page.wait_for_selector("#v2Simplified[data-state]")
         return page
 
     def shot(self, page, name):
@@ -222,6 +223,35 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         page = self.open(state("incomplete"), 390, hash_="#simplified-site/trade/" + quote(first["id"], safe=""))
         self.assertEqual(page.get_attribute("#v2Simplified", "data-state"), "incomplete")
         self.assertEqual(page.locator(".ss-detail, .ss-offer").count(), 0, "a deep link cannot open a withheld answer")
+        page.context.close()
+
+    def test_activate_reads_live_context_once_mounted(self):
+        """The dashboard's one call: activate() mounts once on the live adapter, withholds while a gate is closed, and
+        re-reads on later calls without writing the workspace."""
+        page = self.open(state("answer"), 390, hash_="#find-league", wait=False)
+        result = page.evaluate("""([ideas]) => {
+          const box = document.createElement('main'); document.body.append(box);
+          const writes = [];
+          const ws = {name: 'Synthetic League', myTeamId: 'a', teams: [{id: 'a', name: 'Synthetic Team A', entries: []}]};
+          window.TradeValueWorkspace = {store: {get: () => ws, replace: () => writes.push('replace')}};
+          window.TradeValueTradeIdeas = {compute: () => ideas};
+          const S = window.TradeValueSimplifiedSite;
+          location.hash = '#simplified-site';
+          return new Promise(resolve => setTimeout(() => {
+            const a = S.activate(box);
+            const closed = box.dataset.state;
+            window.TradeValueSimplifiedGates = {context: true, readout: true, lineup: true};
+            const b = S.activate(box);
+            resolve({same: a === b, closed, open: box.dataset.state, h1: box.querySelectorAll('h1').length, writes,
+              fixture: box.querySelectorAll('.ss-fixture').length});
+          }, 0));
+        }""", [FIXTURE["ideas"]])
+        self.assertTrue(result["same"], "mounted once")
+        self.assertEqual(result["closed"], "incomplete", "gates closed: withheld")
+        self.assertEqual(result["open"], "answer", "gates open: the answer")
+        self.assertEqual(result["h1"], 1)
+        self.assertEqual(result["fixture"], 0, "a live context is not labelled as a fixture")
+        self.assertEqual(result["writes"], [])
         page.context.close()
 
 
