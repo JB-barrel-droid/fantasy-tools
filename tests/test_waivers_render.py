@@ -18,11 +18,14 @@ three WRs, a QB, a TE, a defense, and a player who is already on the roster) are
   * the page title names the tab, the tab sits seventh and Values auditing last, no page errors.
 
 Discrimination: test_guard_fails_on_broken_builds serves waivers.js / waivers.css with: no headline text, no card layout, no
-aria-sort, dashes sorted first, the settings listener removed, the grid role dropped, the verdict text dropped, and requires each to fail.
+aria-sort, dashes sorted first, the settings listener removed, the grid role dropped, the remove buttons 20 px tall, the verdict
+text dropped, and requires each to fail its own check (CAUGHT_BY). A run that raises (a missing browser, a timeout, a check that
+crashes) is an error in the guard, never a catch (JEG-1282).
 """
 from __future__ import annotations
 
 import functools
+import re
 import unittest
 from pathlib import Path
 
@@ -156,7 +159,7 @@ def check(page, tag, width, base) -> list[str]:
     if any(not v for v in verdicts) or not all(v in ("Pick up", "Pick up (force)", "Consider", "Hold", "Skip", "Not evaluated") for v in verdicts):
         errors.append(tag + f"verdict cells {verdicts}")
     order = ["Pick up", "Pick up (force)", "Consider", "Hold", "Skip", "Not evaluated"]
-    ranks = [order.index(v) for v in verdicts]
+    ranks = [order.index(v) for v in verdicts if v in order]   # an unknown verdict is reported above; ranking it would raise
     if ranks != sorted(ranks):
         errors.append(tag + f"verdicts not in tier order: {verdicts}")
     defense = next((r for r in s["rows"] if r["name"] == pick["defense"]), None)
@@ -324,11 +327,37 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (360, 740), (
     return errors
 
 
+# The check each broken build must fail: the start of the diagnostic it writes (the same designations as JEG-1279's fixture).
+# Another check's line is not a catch, so a mutant that breaks the page some other way does not pass for one (JEG-1282).
+CAUGHT_BY = {
+    "no headline text": "headline reads ",
+    "no card layout": "phone layout: ",
+    "no aria-sort": "aria-sort after one click: ",
+    "dashes sorted first": "DDF Value descending, dashes last: ",
+    "settings listener removed": "the league-settings event did not redraw the tab",
+    "no grid role": "table role ",
+    "remove buttons 20 px tall": "controls under 44 px on the Waivers tab ",
+    "no verdict text": "verdict cells ",
+}
+
+
+def caught_by(errors, check) -> bool:
+    """True when one of run_checks' lines ("[<width>px] <diagnostic>") is the named check's diagnostic."""
+    return any(re.match(r"\[\d+px\] " + re.escape(check), line) for line in errors)
+
+
 class WaiversRenderTests(unittest.TestCase):
     maxDiff = None
 
     def test_tab(self):
         self.assertEqual(run_checks(), [])
+
+    def test_only_the_named_check_counts_as_caught(self):
+        check = CAUGHT_BY["no aria-sort"]
+        self.assertTrue(caught_by(["[390px] sideways scroll 4px", "[1366px] aria-sort after one click: []"], check))
+        self.assertFalse(caught_by(["[1366px] table role None labelled by v2WaiversHeadline"], check), "another check's line")
+        self.assertFalse(caught_by(["Page.click: Timeout 30000ms exceeded. aria-sort after one click: "], check), "an exception's text")
+        self.assertFalse(caught_by([], check))
 
     def test_guard_fails_on_broken_builds(self):
         js = WAIVERS_JS.read_text(encoding="utf-8")
@@ -336,21 +365,20 @@ class WaiversRenderTests(unittest.TestCase):
         broken = {
             "no headline text": ("waivers.js", js.replace("setText(headline.querySelector(\"b\"), text);", "", 1), "text/javascript"),
             "no card layout": ("waivers.css", css.replace("#v2Waivers .v2-wv-tablewrap { display: none; }", "", 1), "text/css"),
-            "no aria-sort": ("waivers.js", js.replace('th.setAttribute("aria-sort", S.sort.dir === "asc" ? "ascending" : "descending");', "", 1), "text/javascript"),
+            "no aria-sort": ("waivers.js", js.replace('if (S.sort.key === col.id) th.setAttribute("aria-sort", S.sort.dir === "asc" ? "ascending" : "descending");', "", 1), "text/javascript"),
             "dashes sorted first": ("waivers.js", js.replace("return nx ? 1 : -1;   // dashes last, whichever way", "return nx ? -1 : 1;", 1), "text/javascript"),
             "settings listener removed": ("waivers.js", js.replace('document.addEventListener("ddf:league-settings-changed", onLeagueSettingsChanged);', "", 1), "text/javascript"),
             "no grid role": ("waivers.js", js.replace('role: "grid", ', "", 1), "text/javascript"),
             "remove buttons 20 px tall": ("waivers.css", css.replace("#v2Waivers .v2-wv-remove { min-height: 44px; min-width: 44px; padding: 0 8px; }", "#v2Waivers .v2-wv-remove { min-height: 20px; min-width: 20px; padding: 0 2px; }", 1), "text/css"),
             "no verdict text": ("waivers.js", js.replace('"data-verdict": VERDICT_CLASS[r.verdict], text: r.verdict});', '"data-verdict": VERDICT_CLASS[r.verdict]});', 1), "text/javascript"),
         }
+        self.assertEqual(set(broken), set(CAUGHT_BY))
         for name, (file, body, kind) in broken.items():
             with self.subTest(mutation=name):
                 self.assertNotEqual(body, js if file.endswith(".js") else css, f"mutation anchor for {name!r} is stale")
-                try:
-                    errors = run_checks({file: (body, kind)}, viewports=((1366, 768), (390, 844)))
-                except Exception as exc:   # so broken that a step cannot run
-                    errors = [str(exc)[:80]]
-                self.assertNotEqual(errors, [], f"not caught: {name}")
+                # No try: an exception (no browser, a timeout, check() raising) fails the guard instead of counting as caught.
+                errors = run_checks({file: (body, kind)}, viewports=((1366, 768), (390, 844)))
+                self.assertTrue(caught_by(errors, CAUGHT_BY[name]), f"{name!r} not caught by its own check {CAUGHT_BY[name]!r}: {errors}")
 
 
 if __name__ == "__main__":
