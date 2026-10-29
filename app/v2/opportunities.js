@@ -124,7 +124,7 @@
       const core = F.coreOf(t.receive, OUR_KEY);
       rows.push({id: `${opp.id}|${t.give.map(r => r.player_key)}|${t.receive.map(r => r.player_key)}`, opponentId: opp.id, opponent: opp.name, give: t.give, receive: t.receive, core,
         edge: t.edge, edgePct: myStart > 0 ? (t.edge / myStart) * 100 : null, score: t.score, charts: t.charts, pricedCharts: t.pricedCharts, rivalOkCount: t.rivalOkCount,
-        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit: fit ? {label: fit.label, variant: fit.variant} : null, fitDetails: details, partial, throwIns: t.throwIns || null,
+        chartCount: ctx.charts.length, chartEdge, projEdge, projAgrees: projAgreement(projEdge), ours, theirs, overall, tier: overall ? TIERS[overall] : UNJUDGED_TIER, fit: fit ? {label: fit.label, variant: fit.variant, us: {starterDelta: fit.us.starterDelta}} : null, fitDetails: details, partial, throwIns: t.throwIns || null,
         addedThrowIns: t.addedThrowIns || null, unbalanced: Boolean(t.unbalanced), size: t.give.length + t.receive.length});
       yield;
     }

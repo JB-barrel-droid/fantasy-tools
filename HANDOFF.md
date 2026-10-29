@@ -27,10 +27,17 @@ and after each milestone; commit and push it with the relevant code.
   cache retention prevent the naive uncapped full-fit memory regression.
   Optional size4 is still expensive; see the measured benchmark and limits in
   `docs/claude-log/2026-10-28-league-candidate-completeness.md`.
-- Local Chromium gates blocked by execution sandbox; draft publication only.
-  Parent owns authorized CI/render, merge and live QA. No Supabase changes.
+- Initial exact-head CI and isolated Mac browser tests passed. Release sequence
+  gate opened after #1069 and #1071 published/live passed. Current main is being
+  merged normally; fresh CI and independent delta review are required before merge.
+  Parent coordinates Mac live QA. No Supabase changes.
   Linear issue creation was rejected by auto-review; do not retry without approval.
 
+### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
+
+- Branch `fe/jeg-1216-lineup-stability` begins at PR #1062 candidate `50f76b95`. Keep it separate from active JEG-1213 release #1062 and do not merge to production until JEG-1213 lands.
+- New shared `app/v2/lineup-comparison.js` exports `buildRows(before, after, shape)` and `renderTable(impact, shape, valueKey, caption)` as `TradeValueLineupComparison`. The former returns `{starters, bench}` groups of `{slot, before, after, changed}`; the latter returns a DOM wrapper containing the four-column table and a keyboard-accessible bench expander. Load order is finder, lineup-comparison, league, v2. Interactive Compare (JEG-1214) can call this helper directly.
+- Draft [PR #1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066) targets the release candidate, not main. League hookup, CSS, build registration and focused unit/browser tests are on this branch. The original JEG-1213 acceptance render flows also passed locally. See `docs/claude-log/2026-10-28-jeg-1216-lineup-stability.md` for commands and the intentionally stopped duplicate full gate. Final-head CI and independent review remain required before merge.
 
 ### League finder release batch (Codex, 2026-10-28 UTC)
 

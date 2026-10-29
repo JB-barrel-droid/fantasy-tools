@@ -495,6 +495,7 @@ t("test_opportunities_fit_after_full_search", async () => {
     assert.deepStrictEqual(full, expected, "lazy details exactly match direct fit math");
     assert.strictEqual(full.label, row.overall);
     assert.strictEqual(full.variant, row.fit.variant);
+    assert.strictEqual(row.fit.us.starterDelta, full.us.starterDelta, "compact summary preserves current-main starter-gain copy");
     assert.deepStrictEqual(O.ourFitOf(full), row.ours);
     assert.deepStrictEqual(O.theirFitOf(full), row.theirs);
   }

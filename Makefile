@@ -418,6 +418,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_balance
 	python3 -m unittest tests.test_v2_league_units
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
+	python3 -m unittest tests.test_jeg1216_lineup
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
@@ -592,6 +593,7 @@ test-core:
 	python3 -m unittest tests.test_v2_compare
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -605,6 +607,7 @@ test-core:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_trade_story
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_waterfall
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
@@ -724,10 +727,12 @@ test-core-shard-3:
 	python3 -m unittest tests.test_published_surfaces
 	python3 -m unittest tests.test_v2_finder
 	python3 -m unittest tests.test_v2_finder_viable
+	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_waivers_math
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
+	node tests/node/source_views_check.mjs
 	python3 -m unittest tests.test_v2_phone_source_links_render
 	python3 -m unittest tests.test_v2_phone_zoom_render
 	python3 -m unittest tests.test_main_table_engine_parity
@@ -799,6 +804,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_mobile_phase1_render
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
@@ -894,6 +900,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
+	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
