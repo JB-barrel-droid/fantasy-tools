@@ -35,4 +35,4 @@ If the user pastes a block that starts with ```ddf-state, or a link to the Data 
 
 ## 5. Always point back to the site
 
-Every tool result ends with "Open this on the site: <link>". Include that link in your answer, and say what they will find there (for example the full trade breakdown by source, or more targets). When the user wants to keep going on the site, call `make_state` and give them the block to paste into the site's paste box, or the link.
+Every tool result ends with "Open this on the site: <link>". Include that link in your answer, and say what they will find there (for example the full trade breakdown by source, or more targets). When the user wants to keep going on the site, call `make_state` and give them the link to open (the site has no paste box; the link is the hand-off). When the user pastes a site link, call `read_state` with it first.

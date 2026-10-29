@@ -435,12 +435,28 @@ function formatResponse(
   // Sort by value descending.
   values.sort((a: { value: number }, b: { value: number }) => b.value - a.value);
 
+  // include=charts: the engine's ES-14 bench-share readout (each position's bench tier as a
+  // share of its DDF Value), the weights the finder's fit rule counts bench players at. The
+  // connector reads these instead of rebuilding them (JEG-1115, Jeremy's pick B 2026-10-26).
+  // input is the league's bench share, the page's fallback when the engine gives no overall.
+  // deno-lint-ignore no-explicit-any
+  let benchShare: any = undefined;
+  if (includeCharts) {
+    const share = (v: unknown) => typeof v === "number" && Number.isFinite(v) ? v : null;
+    const r = pipeline.benchShare || {};
+    benchShare = {
+      QB: share(r.QB), RB: share(r.RB), WR: share(r.WR), TE: share(r.TE),
+      overall: share(r.overall), input: share(pipeline.setting?.bench_share),
+    };
+  }
+
   return {
     attribution: `Data Driven Football — ${SITE_ORIGIN}/`,
     as_of: (meta as Record<string, string>).as_of || null,
     setting: { scoring, teams, superflex },
     league_custom: custom,
     players: values,
+    ...(benchShare ? { bench_share: benchShare } : {}),
     sources_included: Object.keys(pipeline.sources || {}).filter(
       (k: string) => pipeline.sources[k]?.included !== false,
     ),

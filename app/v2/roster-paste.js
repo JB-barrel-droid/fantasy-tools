@@ -160,6 +160,8 @@
   //   "Deebo Samuel Sr.OVideo ForecastNew Player Note"
   //   "ChiefsNo new player Notes"
   var YAHOO_GLUED_RE = /(?:Video Forecast|New Player Note|No new player Notes|Player Note|Notes?)\s*$/i;
+  // Yahoo's page-wide search header is navigation, even when its labels are glued together.
+  var YAHOO_SEARCH_NOISE_RE = /^(?:Yahoo\s*Sports\s*)+(?:Search\s*query\s*S?)?$|^Search\s*query\s*S?$/i;
   // Injury tags glued directly onto a name: "LoveQ", "EgbukaQ", "Samuel Sr.O"
   // Single uppercase letter Q/O/D right after a lowercase letter or period, or
   // multi-char tags like IR/SSPD/PUP/DTD after a lowercase letter.
@@ -1186,6 +1188,7 @@
       var line = rawLines[lineIdx];
       var trimmed = line.trim();
       if (!trimmed) continue;
+      if (YAHOO_SEARCH_NOISE_RE.test(trimmed)) continue;
 
       // Clean Yahoo-style glued text and ESPN doubled names
       var cleaned = cleanYahooName(trimmed);
@@ -1339,6 +1342,7 @@
   }
   function plausibleTeamName(line, index) {
     var t = cleanTeamName(line);
+    if (YAHOO_SEARCH_NOISE_RE.test(t)) return false;
     if (t.length < 2 || t.length > 60) return false;
     if (!/[A-Za-z]/.test(t) || /\t/.test(line)) return false;
     if (t.charAt(0) === "@") return false;

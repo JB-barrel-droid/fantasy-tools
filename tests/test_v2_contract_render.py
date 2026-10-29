@@ -374,7 +374,12 @@ COMMON = r"""
       lowconfText: (td.querySelector('[data-low-confidence]')?.textContent || '').trim(),
       delta: td.querySelector('.delta') ? {text: td.querySelector('.delta').textContent, title: td.querySelector('.delta').title} : null}))}));
   const addTrade = async () => {
-    const rows = C.getRows();
+    // Two players not already in the sample trade: a player on a side has a disabled search
+    // result, so adding him does nothing (JEG-1142: the sample is picked from the values, so
+    // which top rows it holds moves when values move).
+    const onTrade = new Set([...document.querySelectorAll('#v2GivePlayers li[data-player-key], #v2GetPlayers li[data-player-key]')]
+      .map(li => li.dataset.playerKey));
+    const rows = C.getRows().filter(r => !onTrade.has(String(r.player_key)));
     for (const [input, results, row] of [['v2GiveSearch', 'v2GiveResults', rows[0]], ['v2GetSearch', 'v2GetResults', rows[1]]]) {
       fire($(input), row.name); await sleep(400);
       const hit = [...document.querySelectorAll('#' + results + ' button[data-player-key]')].find(b => b.dataset.playerKey === String(row.player_key));
@@ -1791,8 +1796,9 @@ def tt05_partial(S):
 
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
-# JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
-GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published trade charts", "proj": "Projection-based values",
+# JEG-1212 (Jeremy, 2026-10-28): source categories supersede the old combined chart label.
+# The Doc mirror remains a historical pending contract; this partial guards the approved current UI.
+GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published charts", "observed": "Observed-trade estimates", "proj": "Projection-based values",
                   "vorp": "Raw value above waivers (advanced)"}
 
 
@@ -1841,9 +1847,9 @@ def gl21_partial(S):
             errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
         pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
         meta = (pub or {}).get("meta", "")
-        if not pub or pub["title"] != "Published trade charts":
-            errors.append(f"{tab}: the chart group is not named 'Published trade charts'")
-        elif not re.search(r"adjusted to your league's scale", meta):
+        if not pub or pub["title"] != "Published charts":
+            errors.append(f"{tab}: the chart group is not named 'Published charts'")
+        elif not re.search(r"rescaled to your league's scale", meta):
             errors.append(f"{tab}: the chart group's meaning line is {meta!r}")
     return errors
 
@@ -2323,8 +2329,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, the removed Compare headline lines back.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
-                        '{id: "pub", title: "Trade charts (as published)"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published charts", note:',
+                        '{id: "pub", title: "Trade charts (as published)", note:')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust v2-btn-sm" id="v2EditLeague"')
         # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).

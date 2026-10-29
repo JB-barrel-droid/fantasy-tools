@@ -1,0 +1,152 @@
+diff --git a/supabase/functions/mcp/tools.ts b/supabase/functions/mcp/tools.ts
+index a5c8b4b..7ba42e2 100644
+--- a/supabase/functions/mcp/tools.ts
++++ b/supabase/functions/mcp/tools.ts
+@@ -534,6 +534,26 @@ function resolveNames<T extends PlayerValue>(players: T[], names: string[]): Res
+   return { matched, unmatched, ambiguous, notes };
+ }
+ 
++/** "2 not found" plus, when any, "1 fits more than one player (left out)". */
++function missed<T extends PlayerValue>(res: ResolvedNames<T>): string {
++  const parts = [`${res.unmatched.length} not found`];
++  if (res.ambiguous.length) parts.push(`${res.ambiguous.length} fit${res.ambiguous.length === 1 ? "s" : ""} more than one player (left out; ask which)`);
++  return parts.join(", ");
++}
++
++/** Only set when a roster had an ambiguous name, so the usual reply stays the same size. */
++function ambiguousOf<T extends PlayerValue>(res: ResolvedNames<T>): { ambiguous?: Array<{ input: string; suggestions: string[] }> } {
++  return res.ambiguous.length ? { ambiguous: res.ambiguous } : {};
++}
++
++/** JEG-1124: a name that fits several players stops a compare so the model asks which one. */
++function stopOnAmbiguous(...sides: Array<{ ambiguous: Array<{ input: string; suggestions: string[] }> }>): void {
++  const hits = sides.flatMap((side) => side.ambiguous);
++  if (!hits.length) return;
++  const each = hits.map((h) => `"${h.input}" could be ${h.suggestions.join(", ")}`);
++  throw new ToolInputError(`More than one player fits: ${each.join("; ")}. Ask the user which player they meant, then call again with the full name.`);
++}
++
+ function emptyRoster<T extends PlayerValue>(side: string, res: ResolvedNames<T>): string {
+   if (res.notes.length) return `No players matched on ${side}. ${res.notes.join(" ")}`;
+   return `No players matched on ${side}. Check the spelling.`;
+@@ -672,6 +692,7 @@ export async function runTool(
+     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+     let a = resolveNames(data.players, namesA);
+     let b = resolveNames(data.players, namesB);
++    stopOnAmbiguous(a, b);
+     // The same player on both sides stays on team A, matching the site.
+     const giveKeys = new Set(a.matched.map((p) => p.player_key));
+     const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
+@@ -853,8 +874,8 @@ async function findTradesHandler(
+     ...header(data, s),
+     "",
+     foundLine(result.total, trades.length, limit, viableOnly),
+-    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
+-    `Their roster: ${theirMatched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
++    `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}; searched ${result.mine.searched} of ${result.mine.of} priced.`,
++    `Their roster: ${theirMatched.length} matched, ${missed(theirRes)}; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
+   ];
+   if (nameNotes.length) lines.push(...nameNotes);
+   lines.push("");
+@@ -871,8 +892,8 @@ async function findTradesHandler(
+     shown: trades.length,
+     limit,
+     viableCount: trades.filter((o) => o.viable).length,
+-    mine: { ...result.mine, unmatched: mineRes.unmatched },
+-    theirs: { ...result.theirs, unmatched: theirRes.unmatched },
++    mine: { ...result.mine, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
++    theirs: { ...result.theirs, unmatched: theirRes.unmatched, ...ambiguousOf(theirRes) },
+   };
+ 
+   const work = {
+@@ -929,7 +950,12 @@ async function findTradesLeagueHandler(
+   const limit = parseBounded(a.limit, "limit", 10, 1, 100);
+ 
+   const allOffers: TradeOfferInput[] = [];
+-  const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
++  const perOpponent: Array<{
++    name: string;
++    tradesFound: number;
++    unmatchedNames: string[];
++    ambiguous?: Array<{ input: string; suggestions: string[] }>;
++  }> = [];
+   const nameNotes = [...mineRes.notes];
+ 
+   // Run each opponent pair sequentially (edge function memory).
+@@ -943,7 +969,7 @@ async function findTradesLeagueHandler(
+     nameNotes.push(...oppRes.notes.map((note) => `${opp.name}: ${note}`));
+     const theirMatched = oppRes.matched.filter((p) => !mineKeys.has(p.player_key));
+     if (!theirMatched.length) {
+-      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: oppRes.unmatched });
++      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: oppRes.unmatched, ...ambiguousOf(oppRes) });
+       continue;
+     }
+ 
+@@ -973,6 +999,7 @@ async function findTradesLeagueHandler(
+       name: opp.name,
+       tradesFound: pairResult.trades.length,
+       unmatchedNames: oppRes.unmatched,
++      ...ambiguousOf(oppRes),
+     });
+   }
+ 
+@@ -991,7 +1018,7 @@ async function findTradesLeagueHandler(
+     ...header(data, s),
+     "",
+     `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}${shownTrades.length < limit && scored.length > shownTrades.length ? ` of limit ${limit}` : ""}.`,
+-    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found.`,
++    `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}.`,
+   ];
+   if (nameNotes.length) lines.push(...nameNotes);
+   lines.push("");
+@@ -1022,7 +1049,7 @@ async function findTradesLeagueHandler(
+     limit,
+     viableCount,
+     perOpponent,
+-    mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched },
++    mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
+   };
+ 
+   const entry = (input: string, p: PlayerValue | null) =>
+diff --git a/tests/node/mcp_remote_check.mjs b/tests/node/mcp_remote_check.mjs
+index 62ee156..b2c27ee 100644
+--- a/tests/node/mcp_remote_check.mjs
++++ b/tests/node/mcp_remote_check.mjs
+@@ -340,6 +340,18 @@ if (ft.trades.length > 0) {
+ r = await callF("find_trades", { mine: "Josh Allen, Ghost", theirs: "Bijan Robinson" });
+ assert.notEqual(r.result.isError, true);
+ assert.deepEqual(r.result.structuredContent.mine.unmatched, ["Ghost"]);
++assert.equal(r.result.structuredContent.mine.ambiguous, undefined, "no ambiguous field when every name is clear");
++
++// JEG-1124: a roster name that fits several players is left out, counted and listed with its candidates.
++r = await callF("find_trades", { mine: "Bijan Robinson, Josh", theirs: "Ja'Marr Chase" });
++assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
++assert.deepEqual(r.result.structuredContent.mine.ambiguous, [{ input: "Josh", suggestions: ["Josh Allen", "Josh Jacobs"] }]);
++assert.match(r.result.content[0].text, /Your roster: 1 matched, 0 not found, 1 fits more than one player \(left out; ask which\)/);
++assert.match(r.result.content[0].text, /Josh: AMBIGUOUS/);
++r = await callF("find_trades_league", { mine: "Bijan Robinson", opponents: [{ name: "Opp", roster: "Ja'Marr Chase, Josh" }] });
++assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
++assert.deepEqual(r.result.structuredContent.perOpponent[0].ambiguous, [{ input: "Josh", suggestions: ["Josh Allen", "Josh Jacobs"] }]);
++assert.match(r.result.content[0].text, /Opp: Josh: AMBIGUOUS/);
+ 
+ // JEG-1070: a pasted custom league reaches the chart fetch for both finder tools, so the
+ // finder prices the same league as get_values; a default league sends none.
+@@ -414,6 +426,18 @@ assert.match(r.result.content[0].text, /Josh Allen/);
+ r = await call("get_player_value", { names: "Jr" });
+ assert.equal(r.result.structuredContent.results[0].player, null);
+ assert.match(r.result.content[0].text, /Brian Thomas Jr/);
++// A miss too far for a typo match still offers the closest names instead of a bare "not found".
++r = await call("get_player_value", { names: "Bijon Robbinsun" });
++assert.equal(r.result.structuredContent.results[0].player, null);
++assert.equal(r.result.structuredContent.results[0].match, "none");
++assert.deepEqual(r.result.structuredContent.results[0].suggestions, ["Bijan Robinson"]);
++assert.match(r.result.content[0].text, /Bijon Robbinsun: NOT FOUND\. Closest: Bijan Robinson\./);
++// JEG-1124: compare_trade stops on a name that fits several players instead of totalling without it.
++r = await call("compare_trade", { side_a: "Allen, Bijan Robinson", side_b: "Ja'Marr Chase" });
++assert.equal(r.result.isError, true, JSON.stringify(r.result));
++assert.match(r.result.content[0].text, /"Allen" could be Josh Allen, Keenan Allen/);
++assert.match(r.result.content[0].text, /Ask the user which player they meant/);
++assert.doesNotMatch(r.result.content[0].text, /Verdict/);
+ 
+ // Bad input is rejected instead of coerced.
+ for (const [tool, args, needle] of [
