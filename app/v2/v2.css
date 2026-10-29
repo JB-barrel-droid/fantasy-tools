@@ -2400,6 +2400,15 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 #v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
 .v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }
 
+/* JEG-1281: league entry on the default site; under ?design=fieldnotes the JEG-1137 rules style these instead.
+   The league paste boxes take the 3:1 field edge the finder search box has (WCAG 1.4.11, JEG-902), and the league
+   card's summary keeps "Your league" on one line beside its ▸, the arrow on the heading's baseline. */
+:root:not([data-design="fieldnotes"]) .v2-find-import-body input[type="text"],
+:root:not([data-design="fieldnotes"]) .v2-find-import-body textarea,
+:root:not([data-design="fieldnotes"]) .v2-find-import-body select,
+:root:not([data-design="fieldnotes"]) .v2-find-paste textarea { border-color: var(--v2-field-border); }
+:root:not([data-design="fieldnotes"]) .v2-lg-card-summary { justify-content: flex-start; flex-wrap: nowrap; align-items: baseline; }
+
 /* JEG-1137: Fieldnotes foundation (opt-in). Approved source: docs/design/jeg-1209-fieldnotes/recommendation.md
    "Shared visual and interaction system" and prototype.html. Every rule below is scoped to
    <html data-design="fieldnotes">, which app/v2/design-flag.js sets only for ?design=fieldnotes; without it the

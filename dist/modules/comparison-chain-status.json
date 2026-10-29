@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-29T16:17:05.448212+00:00",
+  "run_at": "2026-10-29T21:11:52.735419+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -14,25 +14,11 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Kylen Granson); parse notes: RB: 2 players listed with another position in the cell (kept as RB",
-      "hold_severity": "amber",
-      "week": 8
-    },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -105,7 +91,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -134,7 +120,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-28",
+      "content_vintage": "2026-10-29",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -174,7 +160,7 @@
     "espn": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28",
+      "published_at": "2026-10-29",
       "basis": "section_label"
     },
     "fantasycalc": {
@@ -203,7 +189,6 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
   }
 }
