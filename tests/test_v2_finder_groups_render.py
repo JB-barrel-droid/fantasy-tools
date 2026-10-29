@@ -1,6 +1,6 @@
 """v2 Find a trade, grouped results (JEG-972 commit 2 / JEG-885 decisions of Jeremy 2026-10-23), rendered.
 
-Two rosters are typed in (top players by DDF Value, alternating), size set to 2-for-2, Find trades runs. Checked at
+Two rosters from the frozen 20-team league fixture are typed in (JEG-1235), size set to 2-for-2, Find trades runs. Checked at
 1366x768, 390 and 320 wide against the engine's own rows (getAllRows):
 
   * results are group cards (one per received core player, at most 10), each naming its target;
@@ -19,6 +19,7 @@ import functools
 import unittest
 
 from tests import _render_env
+from tests._league_render import fixture
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_finder_render import FINDER_JS, _built_dist, add
 from tests.test_v2_modules_render import _serve
@@ -28,18 +29,25 @@ def setUpModule():
     _render_env.ensure_built()
 
 
-# Position-balanced rosters (QB, RB, WR, TE by position, unique names) so the search has a trade to find whatever
-# the week's top-30 mix is. The shared PICK deals the top 30 by DDF Value alternately, which in a week with only
-# RB/WR on top leaves no QB/TE on either side (JEG-1185).
-PICK = """() => {
-  const C = window.TradeValueCurveControls;
-  const rows = C.getAllRows().filter(r => r.values && Number.isFinite(r.values.ddf_value) && r.name && ['QB','RB','WR','TE'].includes(r.pos))
-    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+# JEG-1235: the two rosters are frozen teams from the 20-team league fixture (the league render tests' rosters, every
+# key an engine row), not the week's top players dealt alternately. The dealt rosters (JEG-1185) depended on the week:
+# on main dbe06a7e they found 2 trades in 2 one-trade groups, so no group had a full give side with a spare player and
+# the larger-package check proved nothing. These two teams, at 2-for-2, list several groups whose best package gives 2
+# with more of your players to tick (checked on the 2026-10-29 data: 5 groups, 4 of them with a spare). Values still come
+# from the engine; nothing about the search changes. A fixture name that is not exactly one engine row is an error, so
+# the typed-in search can only add the fixture's own player.
+FINDER_TEAMS = (1, 0)   # (yours, theirs): indexes into fixture-20team.json
+PICK = """([fx, mine, theirs]) => {
+  const rows = window.TradeValueCurveControls.getAllRows();
+  const byKey = new Map(rows.map(r => [String(r.player_key), r]));
   const count = new Map(); rows.forEach(r => count.set(r.name, (count.get(r.name) || 0) + 1));
-  const unique = rows.filter(r => count.get(r.name) === 1);
-  const take = (pos, from, n) => unique.filter(r => r.pos === pos).slice(from, from + n).map(r => r.name);
-  return {mine: [].concat(take('QB', 0, 2), take('RB', 0, 4), take('WR', 0, 4), take('TE', 0, 2)),
-          theirs: [].concat(take('QB', 2, 2), take('RB', 4, 4), take('WR', 4, 4), take('TE', 2, 2))};
+  const bad = [];
+  const side = team => team.players.filter(p => !String(p.key).startsWith('x:')).map(p => {
+    const r = byKey.get(String(p.key));
+    if (!r || count.get(r.name) !== 1) bad.push(p.name);
+    return r ? r.name : p.name;
+  });
+  return {mine: side(fx.teams[mine]), theirs: side(fx.teams[theirs]), bad};
 }"""
 
 
@@ -54,7 +62,8 @@ CARD = """(i) => {
   const q = new URLSearchParams(href.split('?')[1]);
   const idsOf = names => names.map(n => String(byName.get(n).player_key)).sort().join(',');
   const boxes = [...li.querySelectorAll('input[type=checkbox]')].map(b => ({checked: b.checked, disabled: b.disabled,
-    label: b.getAttribute('aria-label'), h: b.closest('label').getBoundingClientRect().height}));
+    label: b.getAttribute('aria-label'), h: b.closest('label').getBoundingClientRect().height,
+    give: (b.closest('fieldset').querySelector('legend') || {}).textContent === 'You give'}));
   return {give, get, edge: sum(get) - sum(give), shownEdge: Number(li.dataset.findEdge), text: li.querySelector('.v2-find-edge').textContent,
     notes: li.querySelector('.v2-find-notes').textContent, cap: !li.querySelector('.v2-find-cap').hidden, capText: li.querySelector('.v2-find-cap').textContent,
     linkOk: [q.get('give').split(',').sort().join(',') === idsOf(give), q.get('get').split(',').sort().join(',') === idsOf(get)],
@@ -66,7 +75,9 @@ def check(page, tag, width) -> list[str]:
     errors = []
     page.evaluate("() => { location.hash = '#find-trade'; }")
     page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2FindEdit') && !document.getElementById('v2FindTrade').hidden", timeout=60000)
-    pick = page.evaluate(PICK)
+    pick = page.evaluate(PICK, [fixture("20team"), *FINDER_TEAMS])
+    if pick["bad"]:
+        return [tag + f"fixture players that are not exactly one engine row: {pick['bad']}"]
     for name in pick["mine"]:
         add(page, "Mine", name)
     for name in pick["theirs"]:
@@ -120,16 +131,21 @@ def check(page, tag, width) -> list[str]:
                 errors.append(tag + f"{before['target']}: toggling back did not restore the package")
     if not toggled:
         errors.append(tag + "no side player could be toggled in the first groups: the toggle checks proved nothing")
-    # Beyond the searched size: a full give side (2 ticked at 2-for-2) still lets a third be ticked; the package is labelled
-    # as larger than searched and the numbers still follow the engine rows.
+    # Beyond the searched size: a full give side (2 ticked at 2-for-2) still lets a third player to give be ticked; the
+    # package is labelled as larger than searched and the numbers still follow the engine rows. JEG-1235: the third box is
+    # one of your players (the give side), never a receive-side extra, and a disabled one is a failure, not a skip.
     bigger = False
     for i in range(count):
         c = page.evaluate(CARD, i)
-        if sum(1 for b in c["boxes"] if b["checked"]) < 2 or not any(not b["checked"] and not b["disabled"] for b in c["boxes"]) or len(c["give"]) < 2:
+        if sum(1 for b in c["boxes"] if b["give"] and b["checked"]) < 2 or not any(b["give"] and not b["checked"] for b in c["boxes"]) or len(c["give"]) < 2:
             continue
         if c["cap"]:
             errors.append(tag + f"{c['target']}: the larger-package label shows before anything was ticked beyond the size")
-        j = next(k for k, b in enumerate(c["boxes"]) if not b["checked"] and not b["disabled"])
+        j = next(k for k, b in enumerate(c["boxes"]) if b["give"] and not b["checked"])
+        if c["boxes"][j]["disabled"]:
+            errors.append(tag + f"{c['target']}: a third player to give cannot be ticked at the searched size ({c['boxes'][j]['label']})")
+            bigger = True
+            break
         box = page.locator(f"#v2FindList > li >> nth={i} >> input[type=checkbox] >> nth={j}")
         box.focus()
         page.keyboard.press("Space")
@@ -147,7 +163,7 @@ def check(page, tag, width) -> list[str]:
             errors.append(tag + f"{c['target']}: the label stays after going back to the searched size")
         break
     if not bigger:
-        errors.append(tag + "no group had a full give side with a spare player: the larger-package check proved nothing")
+        errors.append(tag + "no group had a full give side with a spare player to give: the larger-package check proved nothing")
     for c in cards:
         for b in c["boxes"]:
             if b["h"] < 43.5:
