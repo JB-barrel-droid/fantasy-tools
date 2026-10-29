@@ -101,6 +101,13 @@ class FinderGuardrailsRenderTest(unittest.TestCase):
                 self.assertFalse(page.locator("#v2FindKeepMine").is_checked())
                 page.locator(".v2-find-advanced summary").click()
                 self.assertEqual(page.locator("#v2FindMinMine").input_value(), "0")
+                # JEG-1237: Find folds the linked settings and the summary reads them back.
+                page.locator("#v2FindGo").click()
+                self.assertTrue(page.locator("#v2FindGuardrails").is_hidden())
+                self.assertEqual(page.locator("#v2FindGuardrailSummary").inner_text(),
+                                 "Trade settings: protecting WR; minimum bench backups TE 2")
+                page.locator("#v2FindEdit").click()
+                self.assertTrue(page.locator("#v2FindBackupsTE").is_visible())
                 self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 390)
                 self.assertEqual(errors, [])
             finally:

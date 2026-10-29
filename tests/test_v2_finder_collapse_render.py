@@ -110,20 +110,16 @@ def check(page, tag, width) -> list[str]:
         errors.append(tag + f"Escape did not fold the input and return focus to Edit rosters: input {s['input']}, focus {s['focus']!r}")
     page.click("#v2FindEdit")
     # The opened settings work from the keyboard, and the folded line reads back what was set.
-    page.focus("#v2FindBackupsTEUp")
-    page.keyboard.press("Enter")
-    page.keyboard.press("Enter")
     page.focus("#v2FindProtectRB")
     page.keyboard.press("Space")
-    backups = page.inner_text("#v2FindBackupsTE")
-    if not page.is_checked("#v2FindProtectRB") or backups != "2":
-        errors.append(tag + f"the opened trade settings do not respond to the keyboard: RB protected {page.is_checked('#v2FindProtectRB')}, TE backups {backups!r}")
+    if not page.is_checked("#v2FindProtectRB"):
+        errors.append(tag + "the opened trade settings do not respond to the keyboard")
     page.click("#v2FindGo")
     page.wait_for_timeout(300)
     s = page.evaluate(STATE)
     if s["input"] or s["rails"]:
         errors.append(tag + "a second Find trades press did not fold the input again")
-    if s["railsText"] != "Trade settings: protecting RB; minimum bench backups TE 2":
+    if s["railsText"] != "Trade settings: protecting RB":
         errors.append(tag + f"the folded summary does not read back the settings just made: {s['railsText']!r}")
     return errors
 
