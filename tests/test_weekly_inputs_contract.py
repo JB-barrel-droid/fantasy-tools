@@ -219,12 +219,12 @@ class RulesPinnedToRepoTest(unittest.TestCase):
         for word in wic.FRESHNESS:
             self.assertIn(f'"{word}"', src)
 
-    def test_stdlib_only(self):
+    def test_stdlib_and_repo_timestamps_only(self):
         tree = ast.parse(MODULE.read_text())
         mods = {a.name.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.Import) for a in n.names}
         mods |= {n.module.split(".")[0] for n in ast.walk(tree) if isinstance(n, ast.ImportFrom) and n.module}
         allowed = {"__future__", "argparse", "json", "math", "re", "sys", "dataclasses", "datetime",
-                   "pathlib", "typing"}
+                   "pathlib", "typing", "lib", "timestamps"}
         self.assertEqual(mods - allowed, set())
 
 

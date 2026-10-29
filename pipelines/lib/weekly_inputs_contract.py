@@ -3,8 +3,8 @@
 
 One producer (JEG-1228, S2 onward) writes `data/weekly/inputs-wk{N}.json`;
 Versus Vegas and later weekly consumers only read it. This module is the one
-definition of that file's shape and the one validator for it. Stdlib only, no
-network, no credentials. Contract doc: docs/weekly-inputs-contract.md.
+definition of that file's shape and the one validator for it. Stdlib plus
+pipelines/lib/timestamps.py only, no network, no credentials. Contract doc: docs/weekly-inputs-contract.md.
 
 Rules it enforces (sources: PR #1083 packet section 5 and the JEG-1195
 decisions):
@@ -44,9 +44,14 @@ import math
 import re
 import sys
 from dataclasses import asdict, dataclass
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 from typing import Any
+
+try:
+    from .timestamps import parse_iso_timestamp  # any package path: lib.x or pipelines.lib.x
+except ImportError:  # pipelines/lib itself on sys.path (flat import, or run as a script)
+    from timestamps import parse_iso_timestamp
 
 SCHEMA_NAME = "weekly-inputs"
 SCHEMA_VERSION = "1.0.0"
@@ -238,7 +243,7 @@ class _Validator:
                     date.fromisoformat(v)
                     ok = len(v) == 10
                 else:
-                    ok = datetime.fromisoformat(v.replace("Z", "+00:00")).tzinfo is not None
+                    ok = parse_iso_timestamp(v).tzinfo is not None
             except ValueError:
                 ok = False
         if not ok:

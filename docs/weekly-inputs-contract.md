@@ -18,7 +18,7 @@ python3 pipelines/lib/weekly_inputs_contract.py --json FILE [FILE ...]
 python3 -m unittest tests.test_weekly_inputs_contract
 ```
 
-Stdlib only, offline, no credentials. Exit 1 when any file has an error;
+Stdlib plus `pipelines/lib/timestamps.py`, offline, no credentials. Exit 1 when any file has an error;
 warnings alone exit 0. From Python:
 
 ```python
