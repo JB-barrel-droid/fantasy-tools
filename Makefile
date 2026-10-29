@@ -420,6 +420,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	python3 -m unittest tests.test_jeg1230_trade_readout
+	python3 -m unittest tests.test_jeg1323_trade_readout_rows
 	node tests/node/fit_diagnostic.cjs --assert
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
