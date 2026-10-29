@@ -21,3 +21,20 @@ evidence detail slot, its contract doc, synthetic fixtures, a preview and tests,
   real browser: `tests/test_target_answer_card_render.py` is written but was not run here (no Chromium in this cloud
   session; the browser download host is blocked). It needs a run on a machine with Playwright.
 - Neither test module is in a Makefile run list (CI wiring is Codex's).
+
+## 2026-10-29 - JEG-1274 correction: detail slot emptied on close
+
+Contract: the Mac's Playwright 1.49.1 run on 47690bb failed `test_touch_disclosure` (render test line 199,
+`.mock-detail` count 1 after closing). Cause: the code. Closing ran the slot's cleanup but left the drawn detail in the
+slot, and the slot survives close and reopen, so a reopen drew a second copy. The assertion was right and is unchanged.
+Fix: `unmountDetail` empties the card's own slot after the cleanup runs.
+
+### Verified (check named)
+- jsdom 24 scratch check with the preview's mock shape (not committed): on 47690bb open 1, close 1, reopen 2 (fails);
+  on the fix open 1, close 0, reopen 1, and a throwing renderer still shows "Details could not be shown." after reopen.
+- `python3 -m unittest tests.test_target_answer_card_contract`: 3 tests OK after the change.
+
+### Claimed, not confirmed
+- `tests.test_target_answer_card_render` (with the new reopen assertion in `test_touch_disclosure`) was not run here:
+  no Chromium in this cloud session, and the module is not in any CI run list. It needs one Mac Playwright run on the
+  new head.

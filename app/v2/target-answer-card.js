@@ -155,6 +155,9 @@
       const fn = cleanup;
       cleanup = null;
       if (typeof fn === "function") { try { fn(); } catch (e) { /* a failing cleanup never breaks the card */ } }
+      // The slot outlives a close, so empty it after cleanup: a reopen draws into a clean slot, never a second copy.
+      const slot = Array.from(el.querySelectorAll(".tac-detail-slot")).find(own);
+      if (slot) slot.textContent = "";
     }
     function mountDetail() {
       const slot = el.querySelector(".tac-detail-slot");

@@ -75,7 +75,7 @@ handle.destroy();
 - Focus on a toggle survives a re-render. Focus inside the detail slot is the slot's own concern: the slot is
   re-mounted on re-render.
 - `renderDetail` runs when the detail opens (and again after a re-render while open); its cleanup runs before every
-  re-render, on close and on destroy. A throwing renderer leaves the card up with "Details could not be shown."
+  re-render, on close and on destroy, and the card then empties the slot, so a reopen never shows a second copy. A throwing renderer leaves the card up with "Details could not be shown."
 
 Pure helpers for tests and server-side checks: `viewModel(input, labels)` and `markup(vm, {uid, open, headingLevel})`.
 

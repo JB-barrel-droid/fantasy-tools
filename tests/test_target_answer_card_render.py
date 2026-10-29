@@ -197,6 +197,10 @@ class TargetAnswerCardRenderTest(unittest.TestCase):
         toggle.tap()
         self.assertEqual(toggle.get_attribute("aria-expanded"), "false")
         self.assertEqual(page.locator("#card-sell .mock-detail").count(), 0, "closing removes the mocked detail")
+        # Reopening without a re-render draws one fresh detail, not a second copy beside the old one.
+        toggle.tap()
+        self.assertEqual(toggle.get_attribute("aria-expanded"), "true")
+        self.assertEqual(page.locator("#card-sell .mock-detail").count(), 1, "reopening shows the detail once")
 
     def test_focus_kept_on_repeated_toggle_and_rerender(self):
         page = self.open(1280, "buy")
