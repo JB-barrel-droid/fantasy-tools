@@ -1,6 +1,9 @@
 # JEG-1047: the waiver line rests on one player
 
-Investigation only (2026-10-29). No value math, default or ranking changed.
+Investigation 2026-10-29. **Outcome:** Jeremy picked option A with the 1.0
+point tolerance the same day; it is implemented in PR #1077 (see
+`docs/decisions.md`, JEG-1047). The figures below are the research run, made
+before the change; in the script, "One player" is the rule before JEG-1047.
 Script: `tools/research/jeg1047_waiver_anchor.py`. Figures:
 [data/jeg1047_waiver_anchor.md](data/jeg1047_waiver_anchor.md). Inputs: the
 committed week 8 fixture (built 2026-10-28 23:27 UTC) and the saved weekly

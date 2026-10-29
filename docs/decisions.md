@@ -1038,3 +1038,7 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1047: projection waiver line is a 7-player band
+
+Jeremy, 2026-10-29 (multiple choice on the JEG-1047 research, answer "A"): each projection source's waiver line at a position is the average of the 7 players around the first non-rostered seat (indexes `N_p - 3` to `N_p + 3`, clipped to the list), not that one player. Trade charts keep the one-player line. Short-list fallback (`insufficient_coverage`, last value) is unchanged. Tolerance that went with the pick: a 1 PPG change to the waiver-line player moves no other player at the position by more than 1.0 point in that source's Adjusted value, on the 12-combo grid (one player failed it in 19% of cases, worst 3.2; the band's worst is 0.82). Research: `docs/research/jeg1047-waiver-line.md`. Code: `waiver_band_line` in `pipelines/lib/roster_convention.py` (JS twin `waiverBandLine`), used by `value_reference.py`, the spec reference and `value-model.js` `vpWaiverBand`. Guard: `tests/test_waiver_band_line.py`. Not chosen: median band (identical to one player), fitted curve, time smoothing (can be decided later on its own).

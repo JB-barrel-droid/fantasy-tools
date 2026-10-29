@@ -1,6 +1,6 @@
 # JEG-1047 waiver-line sensitivity (2026-10-29)
 
-Inputs: `data/fixtures/current` built 2026-10-28T23:27:25.844743+00:00, content week 8; prior-week lines from `data/history/week-7.json`. Engine: Python reference (`pipelines/value_reference.py`) at d4d995f. Candidate rules are hypothetical and applied to the three projection sources only.
+Inputs: `data/fixtures/current` built 2026-10-28T23:27:25.844743+00:00, content week 8; prior-week lines from `data/history/week-7.json`. Engine: Python reference (`pipelines/value_reference.py`) at 4d8a936. Candidate rules are hypothetical and applied to the three projection sources only.
 
 Source state at this build: ESPN included, CBS ROS held: fidelity: publisher_vs_stored, Razzball held: fidelity: publisher_vs_stored.
 
@@ -10,7 +10,7 @@ Each case moves only the waiver-line player's projection by 1 PPG and measures e
 
 | Rule | Cases | Median others moved | 90th pct biggest move | Worst move | Worst move % | Worst DDF Projections move | Median rank changes | Worst DDF Value move |
 |---|---|---|---|---|---|---|---|---|
-| Current (one player) | 288 | 18.0 | 1.41 | 3.2 | 73.9% | 0.79 | 2.0 | 0.758 |
+| One player (rule before JEG-1047) | 288 | 18.0 | 1.41 | 3.2 | 73.9% | 0.79 | 2.0 | 0.758 |
 | Average band (7 players) | 288 | 18.0 | 0.54 | 0.82 | 37.5% | 0.3 | 2.0 | 0.591 |
 | Median band (7 players) | 288 | 18.0 | 1.41 | 3.2 | 73.9% | 0.79 | 2.0 | 0.758 |
 | Fitted curve (11 players) | 288 | 18.0 | 0.66 | 0.99 | 40.8% | 0.32 | 2.0 | 0.591 |
@@ -23,7 +23,7 @@ A case passes when no other player at the position moves more than the tolerance
 
 | Rule | <= 0.25 pts | <= 0.5 pts | <= 0.5 pts and <= 10% | <= 1.0 pts | No special leverage |
 |---|---|---|---|---|---|
-| Current (one player) | 33% | 59% | 50% | 81% | 54% |
+| One player (rule before JEG-1047) | 33% | 59% | 50% | 81% | 54% |
 | Average band (7 players) | 45% | 85% | 60% | 100% | 80% |
 | Median band (7 players) | 33% | 59% | 50% | 81% | 54% |
 | Fitted curve (11 players) | 37% | 78% | 57% | 100% | 71% |
@@ -97,7 +97,7 @@ Mean absolute week-over-week change in the line (PPG), at the current settings' 
 
 | Rule | All cells | QB | RB | WR | TE |
 |---|---|---|---|---|---|
-| Current (one player) | 0.437 | 0.64 | 0.386 | 0.256 | 0.464 |
+| One player (rule before JEG-1047) | 0.437 | 0.64 | 0.386 | 0.256 | 0.464 |
 | Average band (7 players) | 0.401 | 0.597 | 0.347 | 0.234 | 0.425 |
 | Median band (7 players) | 0.437 | 0.64 | 0.386 | 0.256 | 0.464 |
 | Fitted curve (11 players) | 0.415 | 0.608 | 0.365 | 0.243 | 0.443 |

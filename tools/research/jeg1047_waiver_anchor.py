@@ -1,15 +1,16 @@
 """JEG-1047 research: how much one fringe player's projection moves a position.
 
-Investigation only. Nothing here changes production value math: candidate
-waiver-line rules are swapped into an in-memory copy of the Python
-reference's `_source_lines` for the duration of a run.
+Candidate waiver-line rules are swapped in through the reference's single
+hook, `value_reference._waiver_value`, for the duration of a run; nothing is
+written back. Rule "current" is the one-player rule used before JEG-1047, so
+the comparison reads the same before and after the fix landed.
 
-Mechanism under test: the projection legs (ESPN, CBS ROS, Razzball) read each
-position's waiver line from a single player, the first one past the league's
-rostered count (`pipelines/value_reference.py` `_source_lines`:
-`w = work[n_rost][1]`; the engine twin is `value-model.js` `waiver =
-work[N].native`). Every player's value above waivers is `x - w`, so a change
-to that one player's projection moves every value at the position.
+Mechanism under test: before JEG-1047 the projection legs (ESPN, CBS ROS,
+Razzball) read each position's waiver line from a single player, the first one
+past the league's rostered count. Every player's value above waivers is
+`x - w`, so a change to that one player's projection moved every value at the
+position. Jeremy chose the 7-player average band (2026-10-29), which is now
+the engine's rule.
 
 For each scoring x team count (the 12-combo grid), projection source and
 position the script:
@@ -112,7 +113,7 @@ RULES = {
     "curve_5": rule_local_quadratic(5),
 }
 RULE_LABEL = {
-    "current": "Current (one player)",
+    "current": "One player (rule before JEG-1047)",
     "avg_band_3": "Average band (7 players)",
     "median_band_3": "Median band (7 players)",
     "curve_5": "Fitted curve (11 players)",
@@ -122,29 +123,20 @@ RULE_LABEL = {
 
 
 # ---------------------------------------------------------------------------
-# Swap the line rule into an in-memory copy of _source_lines.
+# Swap the line rule in through the reference's single waiver hook.
 # ---------------------------------------------------------------------------
-_ORIG_SOURCE_LINES = vr._source_lines
-_TARGET = "            w = work[n_rost][1]\n"
+_ORIG_WAIVER_VALUE = vr._waiver_value
 
 
 def _install_patch():
-    src = inspect.getsource(_ORIG_SOURCE_LINES)
-    if src.count(_TARGET) != 1:
-        raise SystemExit("value_reference._source_lines changed shape; update the research patch")
-    src = src.replace(_TARGET, "            w = _JEG1047_LINE(src, p, [r[1] for r in work], n_rost)\n")
-    ns = dict(vr.__dict__)
-    exec(compile(src, "<jeg1047 patched _source_lines>", "exec"), ns)
-    vr._source_lines = ns["_source_lines"]
-    ns["_JEG1047_LINE"] = _line_hook
-    return ns
+    vr._waiver_value = _line_hook
 
 
 _STATE = {"rule": "current", "prior": None}
 
 
 def _line_hook(src, pos, vals, n):
-    if src.family != "projection" or _STATE["rule"] == "current":
+    if src.family != "projection":
         return vals[n]
     rule = _STATE["rule"]
     base = "avg_band_3" if rule == "avg_band_3_time" else ("current" if rule == "time_2wk" else rule)

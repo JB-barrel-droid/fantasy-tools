@@ -162,6 +162,23 @@
   }
 
   /**
+   * JEG-1047 (Jeremy, 2026-10-29: "A"): a projection source's waiver line is
+   * the average of the 7 players around the first non-rostered seat.
+   * Twin of roster_convention.waiver_band_line.
+   */
+  var WAIVER_BAND_HALF_WIDTH = 3;
+
+  function waiverBandLine(values, rostered, halfWidth) {
+    var h = halfWidth == null ? WAIVER_BAND_HALF_WIDTH : halfWidth;
+    if (rostered <= 0 || values.length === 0) return null;
+    if (values.length <= rostered) return values[values.length - 1];
+    var lo = Math.max(0, rostered - h), hi = Math.min(values.length, rostered + h + 1);
+    var sum = 0;
+    for (var i = lo; i < hi; i++) sum += values[i];
+    return sum / (hi - lo);
+  }
+
+  /**
    * Full league allocation: dedicated + superflex + flex + bench.
    * Returns {pos: {dedicated, superflex, flex, bench, starters, rostered}}.
    */
@@ -262,6 +279,8 @@
     flexAllocateGreedy: flexAllocateGreedy,
     starterLine: starterLine,
     waiverLine: waiverLine,
+    WAIVER_BAND_HALF_WIDTH: WAIVER_BAND_HALF_WIDTH,
+    waiverBandLine: waiverBandLine,
     allocateLeague: allocateLeague,
     computeLines: computeLines
   };
