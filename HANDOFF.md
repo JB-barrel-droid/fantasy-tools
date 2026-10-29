@@ -15,16 +15,16 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-### Saved-team picker lane (JEG-1219, Codex, 2026-10-29 UTC)
-
-- Isolated branch `codex/JEG-1219-saved-team-picker`, base `bf117c5f`. Both pair-finder sides select saved League teams as tab-local working copies; a fresh matchup defaults your side to the starred team, with no guessed opponent or unstarred default. Manual/session/link context wins. No finder writes to League rosters/star; no v2.js, math, source-framework or candidate algorithm edits.
-- Independent source/delta review PASS for draft publication. Browser/full gate and exact-head CI evidence, PR and limitations: `docs/claude-log/2026-10-29-jeg-1219-saved-team-picker.md`. Release coordinator owns merge/publication/live QA; broad parity remains JEG-1220.
-
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
 
 - Branch `fe/jeg-1216-lineup-stability` begins at PR #1062 candidate `50f76b95`. Keep it separate from active JEG-1213 release #1062 and do not merge to production until JEG-1213 lands.
 - New shared `app/v2/lineup-comparison.js` exports `buildRows(before, after, shape)` and `renderTable(impact, shape, valueKey, caption)` as `TradeValueLineupComparison`. The former returns `{starters, bench}` groups of `{slot, before, after, changed}`; the latter returns a DOM wrapper containing the four-column table and a keyboard-accessible bench expander. Load order is finder, lineup-comparison, league, v2. Interactive Compare (JEG-1214) can call this helper directly.
 - Draft [PR #1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066) targets the release candidate, not main. League hookup, CSS, build registration and focused unit/browser tests are on this branch. The original JEG-1213 acceptance render flows also passed locally. See `docs/claude-log/2026-10-28-jeg-1216-lineup-stability.md` for commands and the intentionally stopped duplicate full gate. Final-head CI and independent review remain required before merge.
+
+### Saved-team picker lane (JEG-1219, Codex, 2026-10-29 UTC)
+
+- Draft [PR #1094](https://github.com/JB-barrel-droid/fantasy-tools/pull/1094), branch `codex/JEG-1219-saved-team-picker`, base `bf117c5f`. Both pair-finder sides select saved League teams as tab-local working copies; a fresh untouched matchup defaults your side to the star, with no guessed opponent/unstarred fallback. Explicit manual/session/link context wins. No finder roster/star writes, v2.js, math, source-framework or candidate algorithm edits.
+- Independent final source review PASS; final focused/live-contract 11 PASS; all 99 core commands and validate-base completed (browser discovery setup/resumed tail documented). Exact-head CI pending. Evidence: `docs/claude-log/2026-10-29-jeg-1219-saved-team-picker.md`. JEG-1229 adapter handshake is on both tickets; this lane retains finder.js ownership. Coordinator owns main integration/merge/live QA; broad parity stays JEG-1220.
 
 ### League finder release batch (Codex, 2026-10-28 UTC)
 
