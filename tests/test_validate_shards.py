@@ -1,7 +1,7 @@
 """JEG-1170: the test-core shards must together run exactly test-core.
 
 preview.yml runs `make validate` as `make validate-base` in one job plus test-core-shard-N in
-parallel matrix jobs (the single job took ~26 minutes). pages.yml still runs `make validate`.
+parallel matrix jobs (the single job took ~26 minutes). pages.yml uses the same split.
 A test-core line in two shards runs twice; a line in none is silently dropped from the PR gate.
 Both fail here, as does validate drifting from validate-base + test-core, or the preview matrix
 not listing exactly the shards the Makefile defines.
@@ -12,6 +12,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 PREVIEW = ".github/workflows/preview.yml"
+PAGES = ".github/workflows/pages.yml"
 
 
 def recipe_lines(makefile_text, target):
@@ -70,16 +71,16 @@ def validate_problems(makefile_text):
     return []
 
 
-def matrix_problems(makefile_text, preview_text):
+def matrix_problems(makefile_text, preview_text, workflow="preview.yml"):
     m = re.search(r"^\s+shard:\s*\[([^\]]*)\]", preview_text, re.M)
     if not m:
-        return ["preview.yml has no shard matrix"]
+        return [f"{workflow} has no shard matrix"]
     listed = sorted(int(n) for n in re.findall(r"\d+", m.group(1)))
     defined = sorted(int(t.rsplit("-", 1)[1]) for t in shard_targets(makefile_text))
     if listed != defined:
-        return [f"preview.yml matrix shards {listed} != Makefile shards {defined}"]
+        return [f"{workflow} matrix shards {listed} != Makefile shards {defined}"]
     if "make test-core-shard-${{ matrix.shard }}" not in preview_text:
-        return ["preview.yml must run make test-core-shard-${{ matrix.shard }}"]
+        return [workflow + " must run make test-core-shard-${{ matrix.shard }}"]
     return []
 
 
@@ -87,6 +88,7 @@ class ValidateShardsTest(unittest.TestCase):
     def setUp(self):
         self.makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
         self.preview = (ROOT / PREVIEW).read_text(encoding="utf-8")
+        self.pages = (ROOT / PAGES).read_text(encoding="utf-8")
 
     def test_shards_union_equals_test_core_without_overlap(self):
         self.assertEqual([], shard_problems(self.makefile))
@@ -96,6 +98,19 @@ class ValidateShardsTest(unittest.TestCase):
 
     def test_preview_matrix_lists_exactly_the_shards(self):
         self.assertEqual([], matrix_problems(self.makefile, self.preview))
+
+    def test_pages_matrix_lists_exactly_the_shards(self):
+        self.assertEqual([], matrix_problems(self.makefile, self.pages, "pages.yml"))
+
+    def test_pages_matrix_missing_extra_duplicate_and_wrong_target_are_caught(self):
+        for old, new in (("shard: [1, 2, 3, 4]", "shard: [1, 2, 3]"),
+                         ("shard: [1, 2, 3, 4]", "shard: [1, 2, 3, 4, 99]"),
+                         ("shard: [1, 2, 3, 4]", "shard: [1, 2, 3, 4, 4]"),
+                         ("make test-core-shard-${{ matrix.shard }}", "make test-core-shard-1")):
+            with self.subTest(new=new):
+                broken = self.pages.replace(old, new, 1)
+                self.assertNotEqual(self.pages, broken)
+                self.assertTrue(matrix_problems(self.makefile, broken, "pages.yml"))
 
     def test_there_are_several_non_empty_shards(self):
         shards = shard_targets(self.makefile)

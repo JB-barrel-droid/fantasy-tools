@@ -19,7 +19,7 @@
       "bench_raw": 43.425000000000026,
       "bench_share_used": 0.15,
       "n_bench": 24,
-      "n_pool": 161,
+      "n_pool": 160,
       "n_starters": 25,
       "pb": 0.687912507243204,
       "pie": 289.5000000000001,
@@ -47,7 +47,7 @@
       "bench_raw": 38.370000000000005,
       "bench_share_used": 0.15,
       "n_bench": 29,
-      "n_pool": 240,
+      "n_pool": 239,
       "n_starters": 25,
       "pb": 0.4999803399846727,
       "pie": 255.79999999999995,
@@ -58,7 +58,7 @@
       "tau": 1.1375000000000002
     }
   },
-  "generated_at": "2026-10-28T13:19:42Z",
+  "generated_at": "2026-10-29T15:28:02Z",
   "identity": {
     "alias_note": "Shared verified alias map with the ESPN DDF leg (data/inputs/player_aliases.json); suffix, punctuation and nickname spellings match through norm_player_name (FixtureIdentity). Unresolvable identities are excluded, never guessed.",
     "aliases_used": [
@@ -100,9 +100,9 @@
     "pies_note": "Positional pies measured from the current Razzball data (tier surplus). No pies file: a static file goes stale when the player pool changes.",
     "razzball_snapshot": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/razzball/2026-10-27/snapshot.json",
     "razzball_snapshot_date": "2026-10-27",
-    "razzball_snapshot_id": "sha256:784d068a6237bc65fefb77ad0f8497a48200cf57e94e0fa93ec07398431e0068",
+    "razzball_snapshot_id": "sha256:906eebae07ca0b3902ee8b4c2b45a91739e0d2f44122604aef63f9f7a175e5e1",
     "razzball_snapshot_rows": 676,
-    "razzball_snapshot_sha256": "032d89eb954c9abe92e1fc719d92be72267d48dc6082688eb2eb2fd7733ba2c7",
+    "razzball_snapshot_sha256": "c5e1972e63bf6da85960c8f122ae6b9994ed49df3316c111e6c5658e633105c4",
     "scoring": "ppr",
     "source_tag": "razzball",
     "teams": 10
@@ -129,6 +129,13 @@
     }
   },
   "review_rows": [
+    {
+      "detail": "razzball standard 0.1 ppg is 3% of the ESPN/CBS mean 3.4 (< 60%): likely an expected-missed-games discount",
+      "player": "Jaydon Blue",
+      "player_key": 2040,
+      "pos": "RB",
+      "reason": "rz_held"
+    },
     {
       "detail": "razzball standard 1.2 ppg is 22% of the ESPN/CBS mean 5.6 (< 60%): likely an expected-missed-games discount",
       "player": "Jordyn Tyson",
@@ -158,7 +165,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 1.2 ppg is 37% of the ESPN/CBS mean 3.3 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 1.2 ppg is 31% of the ESPN/CBS mean 3.9 (< 60%): likely an expected-missed-games discount",
       "player": "Xavier Hutchinson",
       "player_key": 1234,
       "pos": "WR",
@@ -183,6 +190,13 @@
       "player": "Davis Allen",
       "player_key": 1369,
       "pos": "TE",
+      "reason": "rz_held"
+    },
+    {
+      "detail": "razzball standard 0.3 ppg is 10% of the ESPN/CBS mean 3.0 (< 60%): likely an expected-missed-games discount",
+      "player": "Tank Dell",
+      "player_key": 4181,
+      "pos": "WR",
       "reason": "rz_held"
     },
     {
@@ -214,7 +228,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball standard 0.1 ppg is 3% of the ESPN/CBS mean 3.6 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball standard 0.1 ppg is 2% of the ESPN/CBS mean 4.9 (< 60%): likely an expected-missed-games discount",
       "player": "Devin Singletary",
       "player_key": 2614,
       "pos": "RB",
@@ -256,7 +270,7 @@
       "reason": "rz_held"
     },
     {
-      "detail": "razzball ppr 1.1 ppg is 31% of the ESPN/CBS mean 3.5 (< 60%): likely an expected-missed-games discount",
+      "detail": "razzball ppr 1.1 ppg is 32% of the ESPN/CBS mean 3.5 (< 60%): likely an expected-missed-games discount",
       "player": "Bryce Lance",
       "player_key": 3162,
       "pos": "WR",
@@ -368,10 +382,10 @@
       "TE: bench share 0.15 infeasible, using 0.094"
     ],
     "n_bench": 70,
-    "n_review": 33,
+    "n_review": 35,
     "n_starters": 70,
-    "n_values": 643,
-    "n_waiver": 503
+    "n_values": 641,
+    "n_waiver": 501
   },
   "values": [
     {
@@ -4236,17 +4250,6 @@
       "value": 0.0
     },
     {
-      "player": "Jaydon Blue",
-      "player_key": 2040,
-      "player_norm": "jaydon blue",
-      "pos": "RB",
-      "ppg": 0.1,
-      "raw_value": 0.0,
-      "team": "PHI",
-      "tier": "waiver",
-      "value": 0.0
-    },
-    {
       "player": "Keleki Latu",
       "player_key": 2048,
       "player_norm": "keleki latu",
@@ -6894,17 +6897,6 @@
       "ppg": 0.2,
       "raw_value": 0.0,
       "team": "IND",
-      "tier": "waiver",
-      "value": 0.0
-    },
-    {
-      "player": "Tank Dell",
-      "player_key": 4181,
-      "player_norm": "tank dell",
-      "pos": "WR",
-      "ppg": 0.4,
-      "raw_value": 0.0,
-      "team": "HOU",
       "tier": "waiver",
       "value": 0.0
     },

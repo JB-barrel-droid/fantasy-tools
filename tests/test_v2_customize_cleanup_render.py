@@ -105,6 +105,7 @@ def _open(browser, base, width, height=900, js=None, css=None, assets=None, scri
 
 
 def _customize(page):
+    _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
     page.click("#v2EditSources")
     page.wait_for_selector("#v2Popover .v2-panel-body")
 

@@ -9,10 +9,9 @@ Every rule is negative-tested against a mutated copy of the real preview.yml, so
 the guard is shown to catch the defect it names. Parsing is plain text on purpose:
 PyYAML is not installed on the CI runner's unit-test step.
 
-JEG-1170: preview.yml runs pages' `make validate` split in two: `make validate-base` in the
-preview-build job (compared step for step with pages.yml) and test-core as the parallel
-preview-shard matrix. The `preview` job is the required check and passes only when both
-succeeded. tests/test_validate_shards.py pins the Makefile side.
+JEG-1170: both workflows split `make validate` into `make validate-base` in their
+build job (compared step for step) and test-core as the parallel shard matrix.
+The `preview` job is the required check and passes only when both succeeded. tests/test_validate_shards.py pins the Makefile side.
 """
 import re
 import unittest
@@ -27,8 +26,10 @@ FORBIDDEN_IN_PREVIEW = ("deploy-pages", "upload-pages-artifact", "configure-page
                         "pages: write", "id-token: write")
 
 
-# preview-build runs this where pages.yml runs `make validate`; the shards run the rest.
-SPLIT_VALIDATE = {"make validate-base": "make validate"}
+# Both build jobs run validate-base; their exhaustive matrices run test-core.
+WORKFLOW_GUARDS = ("python3 -m unittest tests.test_validate_shards "
+                   "tests.test_preview_workflow_matches_pages "
+                   "tests.test_deploy_gate_unconditional tests.test_ci_speedup_workflows")
 SHARD_COMMANDS = ["make reference", "make sync", "make test-core-shard-${{ matrix.shard }}"]
 
 
@@ -82,8 +83,11 @@ def check_preview(preview_text, pages_text):
     build = job(preview_text, "preview-build")
     if build is None:
         return ["preview.yml must have a preview-build job"]
-    p_steps = build_steps(pages_text)
-    v_steps = [(SPLIT_VALIDATE.get(c, c), off) for c, off in build_steps(build)]
+    pages_build = job(pages_text, "build")
+    if pages_build is None:
+        return ["pages.yml must have a build job"]
+    p_steps = build_steps(pages_build)
+    v_steps = build_steps(build)
     if any(c == "make validate" for c, _ in build_steps(build)):
         problems.append("preview-build must run make validate-base: the full make validate "
                         "would run test-core again on top of the shards")
@@ -91,7 +95,7 @@ def check_preview(preview_text, pages_text):
         problems.append(f"build commands differ: pages={[c for c, _ in p_steps]} "
                         f"preview={[c for c, _ in v_steps]}")
     p_flags, v_flags = dict(p_steps), dict(v_steps)
-    if v_flags.get("make validate"):
+    if v_flags.get("make validate-base"):
         problems.append("make validate-base must be blocking in the preview "
                         "(no continue-on-error)")
     for command, blocking_off in p_flags.items():
@@ -106,7 +110,19 @@ def check_preview(preview_text, pages_text):
         ref = setting(body, "ref")
         if not ref or "pull_request.head.sha" not in ref:
             problems.append(f"{name}: checkout must use the PR head SHA, not the merge ref")
-    problems += shard_problems(preview_text) + aggregate_problems(preview_text)
+    problems += shard_problems(preview_text) + shard_problems(pages_text, "validate-shard")
+    problems += aggregate_problems(preview_text)
+    preview_shard, pages_shard = job(preview_text, "preview-shard"), job(pages_text, "validate-shard")
+    if preview_shard and pages_shard:
+        if setting(preview_shard, "shard") != setting(pages_shard, "shard"):
+            problems.append("preview and pages shard matrices differ")
+        # Pin all setup and commands, including the required browser/cache, while
+        # allowing only the intentional difference in checkout's commit expression.
+        normalized = lambda text: [normalize_step(b).replace(
+            "${{ github.event.pull_request.head.sha || github.sha }}", "${{ github.sha }}")
+            for b in steps(text)]
+        if normalized(preview_shard) != normalized(pages_shard):
+            problems.append("preview and pages shard steps differ")
     if not re.search(r"^  pull_request:\s*$", preview_text, re.M):
         problems.append("preview must trigger on pull_request")
     gate = [b for b in steps(build) if "tests/rendered_gate/gate.mjs" in b]
@@ -116,6 +132,9 @@ def check_preview(preview_text, pages_text):
         problems.append("the rendered gate must be blocking (no continue-on-error)")
     elif run_command(gate[0]):
         problems.append("the rendered gate must be a multi-line run block (JEG-47 scope)")
+    pages_gate = [b for b in steps(pages_build) if "tests/rendered_gate/gate.mjs" in b]
+    if len(gate) == len(pages_gate) == 1 and normalize_step(gate[0]) != normalize_step(pages_gate[0]):
+        problems.append("preview and pages rendered gate steps differ")
     for word in FORBIDDEN_IN_PREVIEW:
         if word in preview_text:
             problems.append(f"preview must not deploy or hold Pages permissions: {word!r}")
@@ -130,25 +149,30 @@ def check_preview(preview_text, pages_text):
     return problems
 
 
-def shard_problems(preview_text):
-    """The preview-shard matrix runs test-core, blocking, with the browser required."""
-    shard = job(preview_text, "preview-shard")
+def normalize_step(block):
+    return "\n".join(line.rstrip() for line in block.splitlines()
+                     if line.strip() and not line.lstrip().startswith("#"))
+
+
+def shard_problems(preview_text, name="preview-shard"):
+    """Each matrix runs test-core, blocking, with the browser required."""
+    shard = job(preview_text, name)
     if shard is None:
-        return ["preview.yml must have a preview-shard job (test-core runs there)"]
+        return [f"must have a {name} job (test-core runs there)"]
     problems = []
     if "continue-on-error" in shard:
-        problems.append("preview-shard must be blocking (no continue-on-error)")
+        problems.append(f"{name} must be blocking (no continue-on-error)")
     if re.search(r"^    if:", shard, re.M):
-        problems.append("preview-shard must run unconditionally (no job-level if:)")
+        problems.append(f"{name} must run unconditionally (no job-level if:)")
     if not re.search(r"^      fail-fast: false$", shard, re.M):
-        problems.append("preview-shard must set fail-fast: false")
+        problems.append(f"{name} must set fail-fast: false")
     if not re.search(r"^        shard: \[\d", shard, re.M):
-        problems.append("preview-shard must have a shard matrix")
+        problems.append(f"{name} must have a shard matrix")
     if [c for c, _ in build_steps(shard)] != SHARD_COMMANDS:
-        problems.append(f"preview-shard commands must be {SHARD_COMMANDS}, "
+        problems.append(f"{name} commands must be {SHARD_COMMANDS}, "
                         f"got {[c for c, _ in build_steps(shard)]}")
     if 'echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"' not in shard:
-        problems.append("preview-shard must set RENDER_TESTS_REQUIRED=1 (render tests may not skip)")
+        problems.append(f"{name} must set RENDER_TESTS_REQUIRED=1 (render tests may not skip)")
     return problems
 
 
@@ -202,19 +226,19 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_real_preview_matches_production(self):
         self.assertEqual([], check_preview(PREVIEW, PAGES))
 
-    def test_production_build_steps_are_the_expected_four(self):
+    def test_production_build_steps_are_the_expected_five(self):
         # If pages.yml changes its build steps this fails loudly, so the guard's
         # pinned list is updated deliberately instead of drifting unnoticed.
         # JEG-133: make validate is blocking on every run (no continue-on-error,
         # no path-conditional skip); the rendered gate is the next build step
         # but uses a multi-line run block and is excluded by run_command.
         self.assertEqual(
-            [("make sync", False), ("make validate", False),
+            [(WORKFLOW_GUARDS, False), ("make sync", False), ("make validate-base", False),
              # GAP-E2E-FIDELITY / GAP-031 (2026-10-08): monitor signals
              # produced on every deploy, never blocking it.
              ("python3 pipelines/build_e2e_fidelity.py", True),
              ("python3 pipelines/check_data_accuracy.py", True)],
-            build_steps(PAGES))
+            build_steps(job(PAGES, "build")))
 
     def test_pages_runs_the_rendered_gate(self):
         # JEG-133: the rendered gate runs in pages.yml (production deploy),
@@ -240,9 +264,9 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_pages_validate_is_blocking(self):
         # JEG-133: make validate must be blocking in pages.yml. The previous
         # shape used continue-on-error + a path-conditional re-fail step.
-        flags = dict(build_steps(PAGES))
-        self.assertIn("make validate", flags)
-        self.assertFalse(flags["make validate"],
+        flags = dict(build_steps(job(PAGES, "build")))
+        self.assertIn("make validate-base", flags)
+        self.assertFalse(flags["make validate-base"],
                          "make validate must block the deploy in pages.yml")
 
     def test_dropping_a_build_step_is_caught(self):
@@ -293,6 +317,18 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         mutated = PREVIEW.replace("      - run: make validate-base\n", "      - run: make validate\n")
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "must run make validate-base")
+
+    def test_pages_shard_matrix_and_commands_must_match_preview(self):
+        for old, new in (("shard: [1, 2, 3, 4]", "shard: [1, 2, 3]"),
+                         ("make test-core-shard-${{ matrix.shard }}", "make test-core-shard-1")):
+            pages = PAGES.replace(old, new, 1)
+            self.assertNotEqual(PAGES, pages)
+            self.assertTrue(any("shard" in p for p in check_preview(PREVIEW, pages)))
+
+    def test_pages_rendered_gate_must_match_preview(self):
+        pages = PAGES.replace("node tests/rendered_gate/gate_flexibility.mjs dist", "true", 1)
+        self.assertNotEqual(PAGES, pages)
+        self.assertTrue(any("rendered gate steps differ" in p for p in check_preview(PREVIEW, pages)))
 
     def test_removing_the_shard_job_is_caught(self):
         mutated = PREVIEW.replace(job(PREVIEW, "preview-shard"), "")
@@ -462,11 +498,11 @@ class PreviewMatchesPagesTest(unittest.TestCase):
     def test_reintroducing_non_blocking_validate_in_pages_is_caught(self):
         # Add continue-on-error back to make validate in pages.yml.
         mutated = PAGES.replace(
-            "      - run: make validate\n",
-            "      - run: make validate\n        continue-on-error: true\n", 1)
+            "      - run: make validate-base\n",
+            "      - run: make validate-base\n        continue-on-error: true\n", 1)
         self.assertNotEqual(PAGES, mutated)
-        flags = dict(build_steps(mutated))
-        self.assertTrue(flags.get("make validate"),
+        flags = dict(build_steps(job(mutated, "build")))
+        self.assertTrue(flags.get("make validate-base"),
                         "a non-blocking validate in pages.yml must fail the test")
 
 

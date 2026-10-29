@@ -111,6 +111,64 @@ Format: Date and time (CT) | Lane | Ticket or PR | Question | Options | Pick | W
 - 10-28 9:30 AM | JEG-1134 phone settings bar | JEG-1134 | What stays on the closed line | summary only / summary and the freshness chip | summary and freshness chip | the week and any source warning stay in view, and the phone header test pins the chip on that line | PR #1043 (app/v2/v2.css) | no
 - 10-28 9:30 AM | JEG-1134 phone settings bar | JEG-1134 | Open state on the next visit | closed every visit / remember open | closed every visit | the point is the space; one tap opens it | PR #1043 (app/v2/v2.js) | no
 - 10-28 9:30 AM | JEG-1134 phone settings bar | JEG-1134 | Summary when no outside source is shown | "0 sources" / "DDF Value only" | "DDF Value only" | "0 sources" reads as nothing on the chart | PR #1043 (app/v2/v2.js) | no
+- 10-28 9:15 AM | JEG-1134 phone settings bar | JEG-1134 | Overrides indicator (#v2OvBar) sits in the context row: hide it while the phone row is closed? | show it / hide it | show it | it is the only sign that overrides change the numbers, and its reset stays one tap away | PR #1043 (app/v2/v2.css) | no
+- 10-28 10:12 AM | Codex UI lane | JEG-1134 / PR #1043 | Overrides and Reset/Undo made the closed phone row unreadable or 93px tall | A separate phone notification strip / B hide the warning/actions / C shorten the summary labels | A | preserves the complete one-line summary, visible override warning and one-tap Reset/Undo; desktop placement stays unchanged | PR #1043 (overrides.js, overrides.css); test_v2_phone_context_row_render | no
+- 10-28 10:12 AM | Codex UI lane | JEG-1134 / PR #1043 | Phone ⋯ menu clips Copy link on tabs without Customize | anchor the menu to the context row / keep it aligned to ⋯ | context row | keeps #970's Copy link and Position weights inside the phone viewport without changing desktop | PR #1043 (v2.css); test_v2_assist_render | no
+
+- 10-28 UTC | Codex JEG-1213 | League-wide summary controls | Our team vs Their team fields | both teams, current summary before trade | Both | exposes all summary information with AND filters; matches shown precision and keeps missing values explicit | fe/jeg-1213-league-finder | no
+- 10-28 UTC | Codex JEG-1213 | Team count mismatch outside 8/10/12/14 | extend engine methodology / explain supported counts | explain counts, exact fix only supported sizes | engine expansion changes value math outside this ticket; warning appears at 8 teams | fe/jeg-1213-league-finder | no
+- 10-28 UTC | Codex JEG-1213 | Expanded core trade rows | keep inline grouping / retain selected sort globally | global sort | ticket requires opportunity best to worst even after expansion; core controls still reveal the same candidates | fe/jeg-1213-league-finder | no
+- 10-28 10:37 AM | Codex UI lane | JEG-1134 / PR #1043 | CI's DejaVu Sans clips the full summary by 2px at 375px | reduce phone gaps/padding / reduce text size | reduce gaps/padding | keeps the full labels at 14px and the controls 44px tall; regression now exercises the fallback font | PR #1043 (v2.css); test_v2_phone_context_row_render | no
 
 - 10-28 10:36 AM | Codex JEG-1142 validation | JEG-1142 / PR #1044 | Scope of the switch-off regression | aggregate bench share / complete spec result | complete result plus all 30 fixture players | catches per-player leakage without changing math | tests/test_value_pipeline_engine.py; reverse by restoring the prior bench_share_readout-only assertion | no
 - 10-28 10:36 AM | Codex JEG-1142 validation | JEG-1142 / PR #1044 | Tier-order guard across exact DDF ties | impose display tie order / compare distinct value groups and retain exact VP-7.3 per-player checks | distinct value groups, exact equality only | the display uses name ties while allocation uses mean PPG then key; no methodology or tier change | tests/test_ddf_composite_value.py; reverse this test patch if the display and allocation tie rules are deliberately unified | no
+- 10-28 10:55 AM CT | Pages validation | JEG-1170 | How to parallelize Pages without changing coverage | reuse preview's validate-base and four exhaustive test-core shards / create a new split | reuse the existing split | all 96 core commands and coverage guards already match; runners isolate each shard's files | be/jeg-1170-pages-validation-parallel | no
+- 10-28 10:55 AM CT | Pages validation | JEG-1170 | Which dist reaches publication | build job uploads its gated dist / upload a shard copy / rebuild in deploy | build job's gated dist | keeps all three rendered harnesses on the exact published bytes and excludes shard outputs | be/jeg-1170-pages-validation-parallel | no
+- 10-28 10:55 AM CT | Pages validation | JEG-1170 | Artifact identity on partial reruns | recompute name in deploy / consume successful build's output | consume build output | retains the producer's SHA and attempt even when only failed jobs rerun | be/jeg-1170-pages-validation-parallel | no
+- 10-28 10:55 AM CT | Pages validation | JEG-1170 | Where coverage and workflow guards block | leave in informational nightly suite / run explicitly in both build jobs | explicit blocking guard steps | shard omission, gate bypass and artifact drift must fail PR and Pages builds | be/jeg-1170-pages-validation-parallel | no
+
+### 2026-10-28 - League finder release batch (JEG-1213/1134/894)
+
+Jeremy approved small integrated release batches. Combine #1058 `acd4b0c2` with
+its already-ancestral #1043 `d886fc9f` and #969 `391308ed` in one draft release PR,
+starting from current main including #1056. No duplicate cherry-picks. Only HANDOFF
+conflicted; retain both lane notes. Supported counts remain 8/10/12/14; unsupported
+counts explain that limit and link settings. No release switch #1059, source health,
+connector/Supabase or backlog additions. Parent owns final review and CI acceptance,
+#1056 live QA, production merge and live checks; keep all source tickets/PRs open.
+Evidence: `docs/claude-log/2026-10-28-league-finder-release.md`.
+
+### 2026-10-28 - Release share-context repair (JEG-1213/JEG-894)
+
+Independent review blocked #1062 at `05859570`: finder/league Copy link omitted
+value basis and player overrides. Both now share the same bounded value-context
+encoder, replay defaults/custom values for the visit, and preserve local saved
+preferences. Explicit marker distinguishes complete new links from legacy partial
+links. Preserve raw workspace encoding, existing overflow Export warning, and
+existing position-share behavior (separate pre-existing issue, parent excluded).
+Parent owns one delta review and fresh required CI; no production merge. Evidence:
+`docs/claude-log/2026-10-28-league-share-context-repair.md`.
+
+### 2026-10-28 - Release league import Undo context (JEG-1213)
+
+Delta review of #1062 at `4e2458ad` found that Undo after accepting a league
+link restored rosters/settings but retained the shared value basis and override.
+Snapshot the prior value context only when an import is accepted; Undo restores
+that visit-only context with rosters/settings, without rewriting saved preferences.
+Cancel does not apply the shared context. Evidence:
+`docs/claude-log/2026-10-28-league-import-undo-context.md`.
+
+### 2026-10-28 - Release current-main integration (JEG-1213)
+
+Final independent review passed `8e3bf8b8`. Main advanced only by a generated
+fidelity pulse (`8cd3c26e`); merge it normally into release #1062, preserving
+reviewed application code. New-head required CI and main-green verification
+remain before release merge. Evidence:
+`docs/claude-log/2026-10-28-league-main-integration.md`.
+
+### 2026-10-28 - Current main health artifacts in release #1062
+
+Main advanced to `d9f617e0` with only two generated health JSON files. Merge
+it normally into the release branch; application/tests diff remains zero from
+reviewed `a6949b50`. Fresh CI and latest-main green gate still required.
+Evidence: `docs/claude-log/2026-10-28-league-health-main-integration.md`.

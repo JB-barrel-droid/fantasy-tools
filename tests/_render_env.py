@@ -97,3 +97,14 @@ def pin_data_week_script() -> str:
     import json
     from tests.test_week_history import _fixture_today
     return f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};"
+
+
+# JEG-1134: below 768 px the context row is one summary line; the roster, Edit league, Customize, the ⋯ menu and the
+# "On the chart" line open under it. A test that uses those controls at phone width opens the row first. It does
+# nothing on a wider screen, where the summary is not rendered, or when the row is already open.
+OPEN_PHONE_CONTEXT_JS = """() => { const b = document.getElementById('v2ContextSummary');
+  if (b && b.offsetParent && b.getAttribute('aria-expanded') !== 'true') b.click(); }"""
+
+
+def open_phone_context(page) -> None:
+    page.evaluate(OPEN_PHONE_CONTEXT_JS)
