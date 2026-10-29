@@ -1,0 +1,60 @@
+name: JEG-1140 Settings render
+
+# JEG-1140: the isolated Settings components in the Fieldnotes design. Runs the node checks and the browser
+# tests (fixture harness at 1280/390/320 and dark, keyboard and focus, and the built page round-trip by file and
+# link through the existing controls) on PRs that touch them, and keeps the screenshots as the review evidence.
+# Read-only; not part of any deploy gate. The same modules are also in the Makefile's test-unit-modules.
+on:
+  pull_request:
+    paths:
+      - "app/v2/settings-fieldnotes.*"
+      - "app/v2/workspace.js"
+      - "app/v2/league.js"
+      - "app/v2/overrides.js"
+      - "app/v2/v2.css"
+      - "tests/settings_fieldnotes_logic.cjs"
+      - "tests/test_jeg1140_settings_fieldnotes*.py"
+      - "tests/fixtures/settings-fieldnotes/**"
+      - ".github/workflows/jeg1140-settings-render.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jeg1140-settings-render-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  settings-render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      - name: Browser for the render tests
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - run: make sync
+      - run: python3 -m unittest -v tests.test_jeg1140_settings_fieldnotes
+      - run: python3 -m unittest -v tests.test_jeg1140_settings_fieldnotes_render
+        env:
+          SETTINGS_FIELDNOTES_SHOTS: ${{ runner.temp }}/settings-shots
+      - name: Screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jeg1140-settings-screenshots
+          path: ${{ runner.temp }}/settings-shots
+          if-no-files-found: ignore

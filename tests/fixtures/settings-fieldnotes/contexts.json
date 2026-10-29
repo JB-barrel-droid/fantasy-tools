@@ -1,0 +1,181 @@
+{
+ "loading": {
+  "status": "loading"
+ },
+ "error": {
+  "status": "error",
+  "error": "The league store did not start."
+ },
+ "ready": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "saved"
+  },
+  "league": {
+   "name": "Synthetic test league",
+   "teams": 2,
+   "players": 13,
+   "myTeam": "Paper Lions",
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 2,
+   "basis": "default"
+  }
+ },
+ "custom_basis": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "saved"
+  },
+  "league": {
+   "name": "Synthetic test league",
+   "teams": 2,
+   "players": 13,
+   "myTeam": "Paper Lions",
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 1,
+   "basis": "custom"
+  }
+ },
+ "no_team": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "saved"
+  },
+  "league": {
+   "name": "Synthetic test league",
+   "teams": 2,
+   "players": 13,
+   "myTeam": null,
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 2,
+   "basis": "default"
+  }
+ },
+ "empty": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "idle"
+  },
+  "league": {
+   "name": "My league",
+   "teams": 0,
+   "players": 0,
+   "myTeam": null,
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 0,
+   "basis": "default"
+  }
+ },
+ "missing": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "idle"
+  },
+  "league": {
+   "name": "Synthetic test league",
+   "teams": 2,
+   "players": null,
+   "myTeam": "Paper Lions",
+   "settings": null
+  },
+  "overrides": null
+ },
+ "unavailable": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "unavailable"
+  },
+  "league": null,
+  "overrides": null
+ },
+ "storage_full": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "full"
+  },
+  "league": {
+   "name": "Synthetic test league",
+   "teams": 2,
+   "players": 13,
+   "myTeam": "Paper Lions",
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 2,
+   "basis": "default"
+  }
+ },
+ "long_names": {
+  "status": "ready",
+  "fixture": {
+   "label": "a synthetic two-team league"
+  },
+  "storage": {
+   "saving": "saved"
+  },
+  "league": {
+   "name": "The Extremely Long-Named Synthetic Dynasty League Of Champions",
+   "teams": 2,
+   "players": 13,
+   "myTeam": "Supercalifragilistic Fixture Falcons With A Very Long Name",
+   "settings": {
+    "scoring": "ppr",
+    "teams": 12,
+    "qb": 1
+   }
+  },
+  "overrides": {
+   "count": 2,
+   "basis": "default"
+  }
+ }
+}

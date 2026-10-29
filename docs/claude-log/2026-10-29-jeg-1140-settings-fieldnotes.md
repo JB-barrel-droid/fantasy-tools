@@ -1,0 +1,40 @@
+## 2026-10-29 - JEG-1140 Settings and local data in the Fieldnotes design (isolated components)
+
+Contract: build Settings and the local-data presentation as isolated components in the JEG-1209 Fieldnotes design, on the
+JEG-1137 foundation layer already on main (tokens and `.ddf-fn-*` controls). Keep the Export, Import, Copy link, override
+and selected-league entry contracts unchanged; no new storage, valuation engine, math, default or ranking change. Final
+runtime integration (route, nav, shell) is held until the JEG-1137 shell lands with its owner. No existing runtime file is
+edited.
+
+New files:
+- `app/v2/settings-fieldnotes.js`: `TradeValueSettingsFieldnotes = {viewModel, render, mount, liveAdapter, settingsFromQuery, rulesText, STRINGS}`.
+  Pure view model, a renderer, a mount with one stable `role=status` region, and `liveAdapter(window)`, which reads
+  `TradeValueWorkspace.store`, `TradeValueV2.leagueQuery()` and `DDFOverrides` and only presses the existing controls
+  (`#v2LgDownload`, `#v2LgLoad`, `#v2LgCopyLink`, `#v2OvExport`, `#v2OvImport`) or sets the existing routes
+  (`#find-league`, `#value-overrides`). Every string is in one table (`STRINGS`) so the JEG-1130 copy lane can change it in one place.
+- `app/v2/settings-fieldnotes.css`: layout only, every rule under `:root[data-design="fieldnotes"]`.
+- `tests/settings_fieldnotes_logic.cjs`, `tests/test_jeg1140_settings_fieldnotes.py`: node checks (no browser).
+- `tests/test_jeg1140_settings_fieldnotes_render.py`: harness and built-page browser tests.
+- `tests/fixtures/settings-fieldnotes/`: synthetic league, overrides and context states.
+- `.github/workflows/jeg1140-settings-render.yml`: runs both modules on PRs that touch them and uploads the screenshots.
+- `Makefile`: the two modules added to `test-unit-modules` (tests/test_render_sweep_coverage.py needs every render module wired).
+
+### Verified (check named)
+
+- `python3 -m unittest tests.test_jeg1140_settings_fieldnotes`: 14 passed locally. Covers every fixture state (loading,
+  error, ready, custom basis, no team, empty, missing, unavailable, storage full, long names); unknown counts and
+  settings read "Unavailable", never 0; JEG-1212 terms; no publisher names or account/sync claims; the league file
+  round-trips through `exportJson`/`importJson` unchanged and twice; the league link reopens the same teams, keys and the
+  kicker's exact identity read the way league.js reads it; over the link budget only "my team" travels.
+- Mutation check: making the rules row read "0 teams" and always showing the player count made
+  `test_missing_counts_and_settings_are_unavailable_never_zero` fail; restored.
+- No existing runtime file changed (`git diff origin/main --stat` lists only new files plus the Makefile lines).
+
+### Claimed, not confirmed
+
+- The browser tests (`tests.test_jeg1140_settings_fieldnotes_render`) skip locally: this container cannot download
+  Chromium. They run in CI (new workflow, and test-unit-modules in the full suite) with `RENDER_TESTS_REQUIRED=1`. Their
+  first CI result is the evidence for 320/390/1280 and dark, keyboard and focus, and the built-page round-trip by file and
+  link through the existing controls.
+- Held for after JEG-1137 lands (its owner on Jeremy's Mac): the Settings route and nav entry in `shell.html`/`v2.js`, the
+  appearance toggle and "View settings" button, and any shared-control hunk.
