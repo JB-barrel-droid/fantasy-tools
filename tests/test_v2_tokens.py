@@ -102,6 +102,7 @@ class TokenTests(unittest.TestCase):
 # (unflagged) values of every token it overrides are exactly today's.
 FN_MARK = "/* JEG-1137: Fieldnotes foundation (opt-in)."
 FLAG = '[data-design="fieldnotes"]'
+DEFAULT_ONLY = f":root:not({FLAG}) "
 DARK_MEDIA = "@media (prefers-color-scheme: dark)"
 FONT_DIR = CSS.parent / "fonts"
 FIELDNOTES = {
@@ -223,8 +224,17 @@ def check_fieldnotes(css: str) -> list[str]:
         unscoped = [part.strip() for part in selector.split(",") if FLAG not in part]
         if unscoped:
             errors.append(f"Fieldnotes rule not scoped to {FLAG}: {unscoped}")
-    if FLAG in default_css:
-        errors.append("a data-design rule sits outside the Fieldnotes block")
+    # Outside the block the flag may only be excluded (JEG-1281): a default-site rule whose every selector starts with
+    # :root:not(<flag>) and a descendant, and that sets no custom property, never styles the flagged page and leaves the
+    # pinned default tokens alone. Any other rule naming the flag belongs in the block.
+    for ctx, body in rules(default_css):
+        if not any(FLAG in c for c in ctx):
+            continue
+        parts = [part.strip() for part in ctx[-1].split(",")]
+        excluded = FLAG not in " ".join(ctx[:-1]) and all(
+            part.startswith(DEFAULT_ONLY) and FLAG not in part[len(DEFAULT_ONLY):] for part in parts)
+        if not excluded or re.search(r"--[\w-]+\s*:", body):
+            errors.append(f"a data-design rule sits outside the Fieldnotes block: {ctx[-1]}")
     for ctx, body in rules(default_css):
         if "Fraunces" in body or "--ddf-font-display" in body:
             errors.append(f"an unflagged rule uses the display face: {ctx[-1]}")
@@ -313,6 +323,9 @@ class FieldnotesTokenTests(unittest.TestCase):
             "low contrast": css.replace("--v2-muted: #52635C;", "--v2-muted: #9AA5A1;", 1),
             "default edited": css.replace("--v2-canvas: #F3F7F7;", "--v2-canvas: #F5F2EA;", 1),
             "flag rule in default block": css.replace("body.v2 { margin: 0;", ':root[data-design="fieldnotes"] body.v2 { margin: 0;', 1),
+            "flag excluded on the root": css.replace("body.v2 { margin: 0;", ':root:not([data-design="fieldnotes"]) { --v2-border: #000000; }\nbody.v2 { margin: 0;', 1),
+            "token set in a flag-excluded rule": css.replace("body.v2 { margin: 0;", ':root:not([data-design="fieldnotes"]) .v2-app { --v2-border: #000000; }\nbody.v2 { margin: 0;', 1),
+            "flag excluded then named": css.replace("body.v2 { margin: 0;", ':root:not([data-design="fieldnotes"]) [data-design="fieldnotes"] body.v2 { margin: 0;', 1),
             "hero not 37 on phone": css.replace("--ddf-type-hero: 37px;", "--ddf-type-hero: 52px;", 1),
             "important in layer": css.replace("--ddf-space-7: 64px;", "--ddf-space-7: 64px !important;", 1),
         }

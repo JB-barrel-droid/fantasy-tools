@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Package composition preview (test harness, synthetic data)</title>
+<link rel="stylesheet" href="v2.css"><link rel="stylesheet" href="package-composition-preview.css">
+<script src="package-composition-preview.js"></script>
+</head><body class="v2"><div class="v2-app">
+<h1>Package composition preview (test harness, synthetic data)</h1>
+<main id="pcpBox" aria-label="Selected package"></main></div>
+<script>
+// JEG-1275 harness. window.__PCP = {fixture, league, case} is injected by tests/test_package_composition_preview_render.py.
+// The JEG-1262 roster check and the lineup adapter are mocks that replay the case's recorded answers and log each call;
+// nothing here computes a roster, a lineup or a value.
+(function () {
+  "use strict";
+  const data = window.__PCP;
+  const c = data.case;
+  const a = c.adapter || {};
+  const calls = window.__pcpCalls = [];
+  const freeze = x => { if (x && typeof x === "object") { Object.values(x).forEach(freeze); Object.freeze(x); } return x; };
+  const league = freeze(JSON.parse(JSON.stringify(data.league)));
+  const trades = freeze(JSON.parse(JSON.stringify(c.trades)));
+  const pkg = a.package === false ? null : {
+    validatePackage(l, t) {
+      calls.push(["validatePackage", l === league, t === trades]);
+      if (a.throws) throw new Error(a.throws);
+      return JSON.parse(JSON.stringify(a.validation));
+    },
+    applyPackage(l, t) { calls.push(["applyPackage", l === league, t === trades]); return JSON.parse(JSON.stringify(a.applied)); }
+  };
+  const lineup = a.lineup ? {lineups(l, applied) { calls.push(["lineups", l === league, Boolean(applied && applied.teams)]); return JSON.parse(JSON.stringify(a.lineup)); }} : null;
+  const ctx = freeze({fixture: data.fixture, league, trades, package: pkg, lineup});
+  window.__pcpBefore = JSON.stringify({league, trades});
+  window.__pcpCheckInputs = () => JSON.stringify({league, trades}) === window.__pcpBefore;
+  window.__pcpHandle = TradeValuePackagePreview.mount(document.getElementById("pcpBox"), {getContext: () => ctx});
+})();
+</script>
+</body></html>
