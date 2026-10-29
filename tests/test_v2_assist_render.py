@@ -179,6 +179,8 @@ def run_checks(assist_js=None, v2_js=None) -> list[str]:
                 # wrapped or stacked rather than clipped, and the page no wider than the phone. Since JEG-1119 (Jeremy's
                 # scope, 2026-10-26) it sits in the strip's ⋯ menu, so the menu is opened to measure it.
                 strip = narrow.evaluate("""() => { const w = document.documentElement.clientWidth;
+                  const sum = document.getElementById('v2ContextSummary');   // JEG-1134: on a phone the row opens first
+                  if (sum && sum.offsetParent && sum.getAttribute('aria-expanded') !== 'true') sum.click();
                   const more = document.getElementById('v2ContextMore'); if (more.offsetParent) more.click();
                   const box = id => { const e = document.getElementById(id); const r = e.getBoundingClientRect();
                     return {inStrip: Boolean(e.closest('#v2Context')), ok: r.width > 0 && r.left >= 0 && r.right <= w + 0.5 && e.scrollWidth <= e.clientWidth + 1}; };
