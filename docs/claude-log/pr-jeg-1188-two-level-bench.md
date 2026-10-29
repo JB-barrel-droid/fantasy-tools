@@ -128,3 +128,25 @@ In /mnt/project-files/ddf/picks-log.md under "JEG-1188 two-level bench".
 Finding, not a change here: on the real USO rosters (this fixture, his team
 marked) the league table shows 101 trades and none sends JSN, on main
 b8630697 and on this branch alike.
+
+## JEG-1249 review fixes (independent Claude review of 3418629f, fb70682d), 2026-10-29
+
+Contract: fixes 1 and 2 of the review. Back out the generated churn from 9de97320, then merge main normally. Fix 3 (carry the band onto #1077's merged head) waits until #1077 merges.
+
+### Verified (check named)
+- eda34793: the 21 generated paths 9de97320 touched match origin/main (`git diff --cached origin/main -- <paths>` empty, at bfc30cca and again after merging 434bfd76).
+  - The paths: three app/trade-value-chart JSON assets, the app index.html and every dist/ path.
+  - Four of them are not on main and are removed: dist/ddf-skill.zip, dist/connect/index.html, dist/get-values.openapi.yaml, dist/value-logic/index.html.
+  - A sync run regenerates exactly these four as untracked files (seen in `git status` after the test run).
+  - No other branch commit touches the 21 paths (`git log origin/main..branch --no-merges -- <path>`).
+- a91b480d merges main 434bfd76.
+  - league.js: kept #1138's Buy/Sell copy and #1105's sellBlock. Against base 430791c4, main changed only those two copy lines and #1105 only the replaceChildren line. The other #1138 league.js hunks are present (grep). `node --check` passes.
+  - HANDOFF.md: kept #1105's JEG-1249 block and updated it.
+- 135 passed, 133 subtests, at a91b480d, with Google Chrome via CHROMIUM_PATH and RENDER_TESTS_REQUIRED=1.
+  - Unit modules: test_jeg1249_bench_corrections, test_league_bench_levels, test_jeg1130_copy_glossary, test_v2_copy_names, test_rank_guard, test_roster_provenance_transitions, test_spec_reference, test_spec_reference_value_pipeline, test_value_reference_worked_example.
+  - Render modules: test_v2_league_levels_render, test_jeg1249_league_site_render, test_v2_league_tables_render, test_v2_contract_render.
+  - The test build rewrote generated files in the working tree; they were discarded and none were committed.
+
+### Claimed, not confirmed
+- Value math is unchanged by fixes 1 and 2: only generated files, the merge and docs moved. The before/after DDF Value table is regenerated after fix 3, on the final head.
+- The full suite and make validate were not run locally; preview CI runs them.
