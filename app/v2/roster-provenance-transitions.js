@@ -11,7 +11,10 @@
 // Every transition returns a frozen record and never mutates its input; a no-op returns the input record itself.
 // This module decides no freshness window, completeness threshold, reserve rule or value: staleness, team count,
 // starter minimum and duplicate owners stay with the existing ValueModel.leagueCompleteness, and inferenceBlockers()
-// only adds provenance reasons on top of the reasons that check returns.
+// only adds provenance reasons on top of the reasons that check returns. Which reasons gate is the caller's call: the
+// reason strings in REASONS are stable, so a caller can map them to labels or leave one as a warning.
+// An append never makes an observation, even into an empty team: a caller that treats a paste into an empty team as the
+// whole roster calls replaceFromSource instead.
 //
 //   DDFRosterProvenance.normalize(raw) -> provenance
 //   DDFRosterProvenance.coverageFrom({benchIncluded?, wholeRoster?}) -> COVERAGE value
@@ -30,7 +33,7 @@
   // every roster seat, empty and reserve ones included; no parser path attests that today (JEG-1131: no platform fetch).
   var COVERAGE = {UNKNOWN: "unknown", BENCH_OMITTED: "bench_omitted", BENCH_SHOWN: "bench_shown", WHOLE_ROSTER: "whole_roster"};
   var COVERAGE_VALUES = [COVERAGE.UNKNOWN, COVERAGE.BENCH_OMITTED, COVERAGE.BENCH_SHOWN, COVERAGE.WHOLE_ROSTER];
-  var REASONS = ["unresolved_unknown", "unresolved", "not_source_observed", "coverage_unproven"];
+  var REASONS = ["unresolved_unknown", "unresolved", "not_source_observed", "bench_omitted", "coverage_unproven"];
 
   function count(n) { return typeof n === "number" && Number.isInteger(n) && n >= 0 ? n : null; }
   function time(t) { return typeof t === "number" && isFinite(t) && t > 0 ? t : null; }
@@ -115,7 +118,9 @@
       if (cur.unresolved === null) found.unresolved_unknown = true;
       else if (cur.unresolved > 0) found.unresolved = true;
       if (cur.observedAt === null) found.not_source_observed = true;
-      if (cur.coverage !== COVERAGE.WHOLE_ROSTER) found.coverage_unproven = true;
+      // bench_omitted: the source said its bench was left out. coverage_unproven: nothing says every seat was shown.
+      if (cur.coverage === COVERAGE.BENCH_OMITTED) found.bench_omitted = true;
+      else if (cur.coverage !== COVERAGE.WHOLE_ROSTER) found.coverage_unproven = true;
     });
     var out = [];
     (i.existingReasons || []).forEach(function (r) { if (out.indexOf(String(r)) === -1) out.push(String(r)); });

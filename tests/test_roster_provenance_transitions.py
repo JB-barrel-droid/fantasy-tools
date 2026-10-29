@@ -14,7 +14,7 @@ TABLE = ROOT / "tests/fixtures/roster_provenance/transitions.json"
 OPS = {"replaceFromSource", "appendFromSource", "reconcile", "localEdit", "clear"}
 FIELDS = ["unresolved", "observedAt", "editedAt", "coverage", "settled"]
 COVERAGE = {"unknown", "bench_omitted", "bench_shown", "whole_roster"}
-REASONS = {"unresolved_unknown", "unresolved", "not_source_observed", "coverage_unproven"}
+REASONS = {"unresolved_unknown", "unresolved", "not_source_observed", "bench_omitted", "coverage_unproven"}
 
 
 class RosterProvenanceTransitionsTests(unittest.TestCase):
@@ -57,7 +57,8 @@ class RosterProvenanceTransitionsTests(unittest.TestCase):
             "T03": "no-op paste keeps times", "T06": "replace is an observation", "T07": "replace without count stays unknown",
             "T09": "rejected reconciliation", "T10": "successful reconciliation once", "T14": "edit time is not observation time",
             "T15": "stored rosterAt is edit time", "B01": "whole roster with an empty bench",
-            "B02": "starters-only input passing count checks", "B07": "duplicate owner", "B08": "stale by existing contract",
+            "B02": "starters-only input passing count checks", "B11": "bench shown is not whole roster",
+            "T20": "append into an empty team is not an observation", "B07": "duplicate owner", "B08": "stale by existing contract",
         }
         self.assertEqual(sorted(set(required) - ids), [])
 

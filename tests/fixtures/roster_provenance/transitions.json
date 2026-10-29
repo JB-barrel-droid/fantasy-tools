@@ -1,157 +1,989 @@
 {
-  "about": "JEG-1241 deterministic transition table for app/v2/roster-provenance-transitions.js. Synthetic edge fixtures, not league observations. Times are fixed epoch ms: 1761696000000 is the source observation, later values are local edits. Each case starts from `start` (a stored record, or null), runs `steps` in order, and must end at `expect`. `same: true` means the last step must return its input record unchanged (a no-op). Run by tests/node/roster_provenance_transitions.cjs.",
-  "transitions": [
-    {"id": "T01", "why": "legacy unknown count stays unknown after an append that adds players (league.js append made null into 0)",
-     "start": {"unresolved": null},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 2, "missed": 0, "rejected": 0}}],
-     "expect": {"unresolved": null, "observedAt": null, "editedAt": 1761699600000, "coverage": "unknown", "settled": []}},
-    {"id": "T02", "why": "legacy unknown count stays unknown after a duplicate paste that adds nothing; no edit time either",
-     "start": {"unresolved": null, "editedAt": 1761696000000},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 0, "missed": 0, "rejected": 0}}],
-     "same": true,
-     "expect": {"unresolved": null, "observedAt": null, "editedAt": 1761696000000, "coverage": "unknown", "settled": []}},
-    {"id": "T03", "why": "a no-op paste on a known, observed team changes nothing: neither its count nor its times (workspace.js refreshed rosterAt here)",
-     "start": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 0, "missed": 0, "rejected": 0}}],
-     "same": true,
-     "expect": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster", "settled": []}},
-    {"id": "T04", "why": "a known count grows by the players the append left out and the players already on another team; the observation time stays",
-     "start": {"unresolved": 2, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown"},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 3, "missed": 1, "rejected": 1}}],
-     "expect": {"unresolved": 4, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "bench_shown", "settled": []}},
-    {"id": "T05", "why": "an append that adds nothing but leaves players out still counts them, as an edit, not an observation",
-     "start": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 0, "missed": 2, "rejected": 0}}],
-     "expect": {"unresolved": 2, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "whole_roster", "settled": []}},
-    {"id": "T06", "why": "a replacing paste is a source observation: both times move and the count is the paste's own",
-     "start": {"unresolved": null, "editedAt": 1761600000000},
-     "steps": [{"op": "replaceFromSource", "args": {"now": 1761696000000, "unresolved": 3, "coverage": "bench_omitted"}}],
-     "expect": {"unresolved": 3, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_omitted", "settled": []}},
-    {"id": "T07", "why": "a replacing paste whose unmatched count is not given keeps the count unknown rather than zero",
-     "start": {"unresolved": 0, "observedAt": 1761600000000, "editedAt": 1761600000000, "coverage": "whole_roster"},
-     "steps": [{"op": "replaceFromSource", "args": {"now": 1761696000000}}],
-     "expect": {"unresolved": null, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "unknown", "settled": []}},
-    {"id": "T08", "why": "a replacing paste that matched everything makes a legacy unknown count known zero",
-     "start": {"unresolved": null},
-     "steps": [{"op": "replaceFromSource", "args": {"now": 1761696000000, "unresolved": 0, "coverage": "whole_roster"}}],
-     "expect": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster", "settled": []}},
-    {"id": "T09", "why": "a rejected reconciliation (the player is already on another team) leaves the count alone (\"Yes, add\" decremented before the ownership check)",
-     "start": {"unresolved": 2, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown"},
-     "steps": [{"op": "reconcile", "args": {"now": 1761699600000, "key": "line:J. Smith-Njigba", "accepted": false}}],
-     "same": true,
-     "expect": {"unresolved": 2, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown", "settled": []}},
-    {"id": "T10", "why": "a successful reconciliation decrements once, even when the same item is confirmed twice",
-     "start": {"unresolved": 2, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown"},
-     "steps": [{"op": "reconcile", "args": {"now": 1761699600000, "key": "line:J. Smith-Njigba", "accepted": true}},
-               {"op": "reconcile", "args": {"now": 1761703200000, "key": "line:J. Smith-Njigba", "accepted": true}}],
-     "same": true,
-     "expect": {"unresolved": 1, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "bench_shown", "settled": ["line:J. Smith-Njigba"]}},
-    {"id": "T11", "why": "two different settled items decrement twice, never below zero",
-     "start": {"unresolved": 1, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown"},
-     "steps": [{"op": "reconcile", "args": {"now": 1761699600000, "key": "line:A", "accepted": true}},
-               {"op": "reconcile", "args": {"now": 1761703200000, "key": "line:B", "accepted": true}}],
-     "expect": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761703200000, "coverage": "bench_shown", "settled": ["line:A", "line:B"]}},
-    {"id": "T12", "why": "reconciling on an unknown count records the item but cannot make the count known",
-     "start": {"unresolved": null},
-     "steps": [{"op": "reconcile", "args": {"now": 1761699600000, "key": "line:A", "accepted": true}}],
-     "expect": {"unresolved": null, "observedAt": null, "editedAt": 1761699600000, "coverage": "unknown", "settled": ["line:A"]}},
-    {"id": "T13", "why": "a reconciliation with no key settles nothing",
-     "start": {"unresolved": 1, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown"},
-     "steps": [{"op": "reconcile", "args": {"now": 1761699600000, "accepted": true}}],
-     "same": true,
-     "expect": {"unresolved": 1, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_shown", "settled": []}},
-    {"id": "T14", "why": "a local edit moves edit time only; freshness still reads the old observation",
-     "start": {"unresolved": 0, "observedAt": 1761096000000, "editedAt": 1761096000000, "coverage": "whole_roster"},
-     "steps": [{"op": "localEdit", "args": {"now": 1761699600000}}],
-     "freshness": 1761096000000,
-     "expect": {"unresolved": 0, "observedAt": 1761096000000, "editedAt": 1761699600000, "coverage": "whole_roster", "settled": []}},
-    {"id": "T15", "why": "a rosterAt saved by a JEG-1188 build was an edit time, so it is never read as an observation",
-     "start": {"unresolved": 0, "rosterAt": 1761699600000},
-     "steps": [],
-     "freshness": null,
-     "expect": {"unresolved": 0, "observedAt": null, "editedAt": 1761699600000, "coverage": "unknown", "settled": []}},
-    {"id": "T16", "why": "clearing a team leaves nothing pending and no observation describing it",
-     "start": {"unresolved": 3, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster", "settled": ["line:A"]},
-     "steps": [{"op": "clear", "args": {"now": 1761699600000}}],
-     "freshness": null,
-     "expect": {"unresolved": 0, "observedAt": null, "editedAt": 1761699600000, "coverage": "unknown", "settled": []}},
-    {"id": "T17", "why": "a new observation starts a new settled list, so an old key can settle a new item",
-     "start": {"unresolved": 0, "observedAt": 1761600000000, "editedAt": 1761600000000, "coverage": "bench_shown", "settled": ["line:A"]},
-     "steps": [{"op": "replaceFromSource", "args": {"now": 1761696000000, "unresolved": 1, "coverage": "bench_shown"}},
-               {"op": "reconcile", "args": {"now": 1761699600000, "key": "line:A", "accepted": true}}],
-     "expect": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "bench_shown", "settled": ["line:A"]}},
-    {"id": "T18", "why": "an append after a whole-roster observation keeps that observation's time and coverage",
-     "start": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"},
-     "steps": [{"op": "appendFromSource", "args": {"now": 1761699600000, "added": 1, "missed": 0, "rejected": 0}}],
-     "freshness": 1761696000000,
-     "expect": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "whole_roster", "settled": []}},
-    {"id": "T19", "why": "unknown labels and bad numbers in storage read as unknown, never as known zero or a real time",
-     "start": {"unresolved": -1, "observedAt": "1761696000000", "editedAt": 0, "coverage": "full", "settled": ["a", "a", ""]},
-     "steps": [],
-     "freshness": null,
-     "expect": {"unresolved": null, "observedAt": null, "editedAt": null, "coverage": "unknown", "settled": ["a"]}}
-  ],
-  "coverage": [
-    {"id": "C01", "evidence": {"benchIncluded": false}, "expect": "bench_omitted"},
-    {"id": "C02", "evidence": {"benchIncluded": false, "wholeRoster": true}, "expect": "bench_omitted"},
-    {"id": "C03", "evidence": {"benchIncluded": true}, "expect": "bench_shown"},
-    {"id": "C04", "evidence": {"wholeRoster": true}, "expect": "whole_roster"},
-    {"id": "C05", "evidence": {"benchIncluded": true, "wholeRoster": true}, "expect": "whole_roster"},
-    {"id": "C06", "evidence": {}, "expect": "unknown"},
-    {"id": "C07", "evidence": {"wholeRoster": "yes", "benchIncluded": "true"}, "expect": "unknown"},
-    {"id": "C08", "evidence": null, "expect": "unknown"}
-  ],
-  "blockers": [
-    {"id": "B01", "why": "whole roster observed, every player matched, bench legitimately empty: nothing blocks the free-agent reading",
-     "existingReasons": [],
-     "teams": [
-       {"id": "a", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"},
-        "players": [{"key": "1", "slot": "QB"}, {"key": "2", "slot": "RB"}, {"key": "3", "slot": "RB"}, {"key": "4", "slot": "WR"}, {"key": "5", "slot": "WR"}, {"key": "6", "slot": "TE"}, {"key": "7", "slot": "FLEX"}]},
-       {"id": "b", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761699600000, "coverage": "whole_roster"},
-        "players": [{"key": "11", "slot": "QB"}, {"key": "12", "slot": "RB"}, {"key": "13", "slot": "RB"}, {"key": "14", "slot": "WR"}, {"key": "15", "slot": "WR"}, {"key": "16", "slot": "TE"}, {"key": "17", "slot": "FLEX"}, {"key": "18", "slot": "BN"}]}],
-     "expect": []},
-    {"id": "B02", "why": "the same starters-only rosters from a source that omitted its bench: team count and starter minimum pass, but that is not whole-roster evidence",
-     "existingReasons": [],
-     "teams": [
-       {"id": "a", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "bench_omitted"},
-        "players": [{"key": "1", "slot": "QB"}, {"key": "2", "slot": "RB"}, {"key": "3", "slot": "RB"}, {"key": "4", "slot": "WR"}, {"key": "5", "slot": "WR"}, {"key": "6", "slot": "TE"}, {"key": "7", "slot": "FLEX"}]},
-       {"id": "b", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"},
-        "players": [{"key": "11", "slot": "QB"}, {"key": "12", "slot": "RB"}, {"key": "13", "slot": "RB"}, {"key": "14", "slot": "WR"}, {"key": "15", "slot": "WR"}, {"key": "16", "slot": "TE"}, {"key": "17", "slot": "FLEX"}]}],
-     "expect": ["coverage_unproven"]},
-    {"id": "B03", "why": "a name-list or search-built roster has no coverage evidence at all",
-     "existingReasons": [],
-     "teams": [{"id": "a", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "unknown"}}],
-     "expect": ["coverage_unproven"]},
-    {"id": "B04", "why": "an unknown unmatched count (older save) blocks",
-     "existingReasons": [],
-     "teams": [{"id": "a", "provenance": {"unresolved": null, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"}}],
-     "expect": ["unresolved_unknown"]},
-    {"id": "B05", "why": "an unmatched pasted player blocks",
-     "existingReasons": [],
-     "teams": [{"id": "a", "provenance": {"unresolved": 1, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"}}],
-     "expect": ["unresolved"]},
-    {"id": "B06", "why": "a roster only ever edited locally was never observed from a source, however recent the edit",
-     "existingReasons": [],
-     "teams": [{"id": "a", "provenance": {"unresolved": 0, "editedAt": 1761699600000, "rosterAt": 1761699600000, "coverage": "whole_roster"}}],
-     "expect": ["not_source_observed"]},
-    {"id": "B07", "why": "a player on two teams (existing check) blocks even with perfect provenance",
-     "existingReasons": ["duplicate_owner"],
-     "teams": [{"id": "a", "provenance": {"unresolved": 0, "observedAt": 1761696000000, "editedAt": 1761696000000, "coverage": "whole_roster"}}],
-     "expect": ["duplicate_owner"]},
-    {"id": "B08", "why": "a roster stale under the existing contract blocks; this helper adds no window of its own",
-     "existingReasons": ["stale"],
-     "teams": [{"id": "a", "provenance": {"unresolved": 0, "observedAt": 1761096000000, "editedAt": 1761699600000, "coverage": "whole_roster"}}],
-     "expect": ["stale"]},
-    {"id": "B09", "why": "no teams at all is never a whole league",
-     "existingReasons": [],
-     "teams": [],
-     "expect": ["not_source_observed"]},
-    {"id": "B10", "why": "existing reasons come first, then every provenance reason once, in a fixed order",
-     "existingReasons": ["team_count", "stale", "team_count"],
-     "teams": [
-       {"id": "a", "provenance": {"unresolved": null, "coverage": "bench_omitted"}},
-       {"id": "b", "provenance": {"unresolved": 2, "observedAt": 1761696000000, "coverage": "whole_roster"}},
-       {"id": "c", "provenance": null}],
-     "expect": ["team_count", "stale", "unresolved_unknown", "unresolved", "not_source_observed", "coverage_unproven"]}
-  ]
+ "about": "JEG-1241 deterministic transition table for app/v2/roster-provenance-transitions.js. Synthetic edge fixtures, not league observations. Times are fixed epoch ms: 1761696000000 is the source observation, later values are local edits. Each case starts from `start` (a stored record, or null), runs `steps` in order, and must end at `expect`. `same: true` means the last step must return its input record unchanged (a no-op). Run by tests/node/roster_provenance_transitions.cjs.",
+ "transitions": [
+  {
+   "id": "T01",
+   "why": "legacy unknown count stays unknown after an append that adds players (league.js append made null into 0)",
+   "start": {
+    "unresolved": null
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 2,
+      "missed": 0,
+      "rejected": 0
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": null,
+    "observedAt": null,
+    "editedAt": 1761699600000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T02",
+   "why": "legacy unknown count stays unknown after a duplicate paste that adds nothing; no edit time either",
+   "start": {
+    "unresolved": null,
+    "editedAt": 1761696000000
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 0,
+      "missed": 0,
+      "rejected": 0
+     }
+    }
+   ],
+   "same": true,
+   "expect": {
+    "unresolved": null,
+    "observedAt": null,
+    "editedAt": 1761696000000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T03",
+   "why": "a no-op paste on a known, observed team changes nothing: neither its count nor its times (workspace.js refreshed rosterAt here)",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster"
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 0,
+      "missed": 0,
+      "rejected": 0
+     }
+    }
+   ],
+   "same": true,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster",
+    "settled": []
+   }
+  },
+  {
+   "id": "T04",
+   "why": "a known count grows by the players the append left out and the players already on another team; the observation time stays",
+   "start": {
+    "unresolved": 2,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown"
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 3,
+      "missed": 1,
+      "rejected": 1
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 4,
+    "observedAt": 1761696000000,
+    "editedAt": 1761699600000,
+    "coverage": "bench_shown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T05",
+   "why": "an append that adds nothing but leaves players out still counts them, as an edit, not an observation",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster"
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 0,
+      "missed": 2,
+      "rejected": 0
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 2,
+    "observedAt": 1761696000000,
+    "editedAt": 1761699600000,
+    "coverage": "whole_roster",
+    "settled": []
+   }
+  },
+  {
+   "id": "T06",
+   "why": "a replacing paste is a source observation: both times move and the count is the paste's own",
+   "start": {
+    "unresolved": null,
+    "editedAt": 1761600000000
+   },
+   "steps": [
+    {
+     "op": "replaceFromSource",
+     "args": {
+      "now": 1761696000000,
+      "unresolved": 3,
+      "coverage": "bench_omitted"
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 3,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_omitted",
+    "settled": []
+   }
+  },
+  {
+   "id": "T07",
+   "why": "a replacing paste whose unmatched count is not given keeps the count unknown rather than zero",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761600000000,
+    "editedAt": 1761600000000,
+    "coverage": "whole_roster"
+   },
+   "steps": [
+    {
+     "op": "replaceFromSource",
+     "args": {
+      "now": 1761696000000
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": null,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T08",
+   "why": "a replacing paste that matched everything makes a legacy unknown count known zero",
+   "start": {
+    "unresolved": null
+   },
+   "steps": [
+    {
+     "op": "replaceFromSource",
+     "args": {
+      "now": 1761696000000,
+      "unresolved": 0,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster",
+    "settled": []
+   }
+  },
+  {
+   "id": "T09",
+   "why": "a rejected reconciliation (the player is already on another team) leaves the count alone (\"Yes, add\" decremented before the ownership check)",
+   "start": {
+    "unresolved": 2,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown"
+   },
+   "steps": [
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "key": "line:J. Smith-Njigba",
+      "accepted": false
+     }
+    }
+   ],
+   "same": true,
+   "expect": {
+    "unresolved": 2,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T10",
+   "why": "a successful reconciliation decrements once, even when the same item is confirmed twice",
+   "start": {
+    "unresolved": 2,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown"
+   },
+   "steps": [
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "key": "line:J. Smith-Njigba",
+      "accepted": true
+     }
+    },
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761703200000,
+      "key": "line:J. Smith-Njigba",
+      "accepted": true
+     }
+    }
+   ],
+   "same": true,
+   "expect": {
+    "unresolved": 1,
+    "observedAt": 1761696000000,
+    "editedAt": 1761699600000,
+    "coverage": "bench_shown",
+    "settled": [
+     "line:J. Smith-Njigba"
+    ]
+   }
+  },
+  {
+   "id": "T11",
+   "why": "two different settled items decrement twice, never below zero",
+   "start": {
+    "unresolved": 1,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown"
+   },
+   "steps": [
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "key": "line:A",
+      "accepted": true
+     }
+    },
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761703200000,
+      "key": "line:B",
+      "accepted": true
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761703200000,
+    "coverage": "bench_shown",
+    "settled": [
+     "line:A",
+     "line:B"
+    ]
+   }
+  },
+  {
+   "id": "T12",
+   "why": "reconciling on an unknown count records the item but cannot make the count known",
+   "start": {
+    "unresolved": null
+   },
+   "steps": [
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "key": "line:A",
+      "accepted": true
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": null,
+    "observedAt": null,
+    "editedAt": 1761699600000,
+    "coverage": "unknown",
+    "settled": [
+     "line:A"
+    ]
+   }
+  },
+  {
+   "id": "T13",
+   "why": "a reconciliation with no key settles nothing",
+   "start": {
+    "unresolved": 1,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown"
+   },
+   "steps": [
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "accepted": true
+     }
+    }
+   ],
+   "same": true,
+   "expect": {
+    "unresolved": 1,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "bench_shown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T14",
+   "why": "a local edit moves edit time only; freshness still reads the old observation",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761096000000,
+    "editedAt": 1761096000000,
+    "coverage": "whole_roster"
+   },
+   "steps": [
+    {
+     "op": "localEdit",
+     "args": {
+      "now": 1761699600000
+     }
+    }
+   ],
+   "freshness": 1761096000000,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761096000000,
+    "editedAt": 1761699600000,
+    "coverage": "whole_roster",
+    "settled": []
+   }
+  },
+  {
+   "id": "T15",
+   "why": "a rosterAt saved by a JEG-1188 build was an edit time, so it is never read as an observation",
+   "start": {
+    "unresolved": 0,
+    "rosterAt": 1761699600000
+   },
+   "steps": [],
+   "freshness": null,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": null,
+    "editedAt": 1761699600000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T16",
+   "why": "clearing a team leaves nothing pending and no observation describing it",
+   "start": {
+    "unresolved": 3,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster",
+    "settled": [
+     "line:A"
+    ]
+   },
+   "steps": [
+    {
+     "op": "clear",
+     "args": {
+      "now": 1761699600000
+     }
+    }
+   ],
+   "freshness": null,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": null,
+    "editedAt": 1761699600000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  },
+  {
+   "id": "T17",
+   "why": "a new observation starts a new settled list, so an old key can settle a new item",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761600000000,
+    "editedAt": 1761600000000,
+    "coverage": "bench_shown",
+    "settled": [
+     "line:A"
+    ]
+   },
+   "steps": [
+    {
+     "op": "replaceFromSource",
+     "args": {
+      "now": 1761696000000,
+      "unresolved": 1,
+      "coverage": "bench_shown"
+     }
+    },
+    {
+     "op": "reconcile",
+     "args": {
+      "now": 1761699600000,
+      "key": "line:A",
+      "accepted": true
+     }
+    }
+   ],
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761699600000,
+    "coverage": "bench_shown",
+    "settled": [
+     "line:A"
+    ]
+   }
+  },
+  {
+   "id": "T18",
+   "why": "an append after a whole-roster observation keeps that observation's time and coverage",
+   "start": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761696000000,
+    "coverage": "whole_roster"
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761699600000,
+      "added": 1,
+      "missed": 0,
+      "rejected": 0
+     }
+    }
+   ],
+   "freshness": 1761696000000,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": 1761696000000,
+    "editedAt": 1761699600000,
+    "coverage": "whole_roster",
+    "settled": []
+   }
+  },
+  {
+   "id": "T19",
+   "why": "unknown labels and bad numbers in storage read as unknown, never as known zero or a real time",
+   "start": {
+    "unresolved": -1,
+    "observedAt": "1761696000000",
+    "editedAt": 0,
+    "coverage": "full",
+    "settled": [
+     "a",
+     "a",
+     ""
+    ]
+   },
+   "steps": [],
+   "freshness": null,
+   "expect": {
+    "unresolved": null,
+    "observedAt": null,
+    "editedAt": null,
+    "coverage": "unknown",
+    "settled": [
+     "a"
+    ]
+   }
+  },
+  {
+   "id": "T20",
+   "why": "an append into an empty, never-observed team is still not an observation (a caller that means the whole roster calls replaceFromSource)",
+   "start": {
+    "unresolved": 0,
+    "editedAt": 1761600000000
+   },
+   "steps": [
+    {
+     "op": "appendFromSource",
+     "args": {
+      "now": 1761696000000,
+      "added": 15,
+      "missed": 0,
+      "rejected": 0
+     }
+    }
+   ],
+   "freshness": null,
+   "expect": {
+    "unresolved": 0,
+    "observedAt": null,
+    "editedAt": 1761696000000,
+    "coverage": "unknown",
+    "settled": []
+   }
+  }
+ ],
+ "coverage": [
+  {
+   "id": "C01",
+   "evidence": {
+    "benchIncluded": false
+   },
+   "expect": "bench_omitted"
+  },
+  {
+   "id": "C02",
+   "evidence": {
+    "benchIncluded": false,
+    "wholeRoster": true
+   },
+   "expect": "bench_omitted"
+  },
+  {
+   "id": "C03",
+   "evidence": {
+    "benchIncluded": true
+   },
+   "expect": "bench_shown"
+  },
+  {
+   "id": "C04",
+   "evidence": {
+    "wholeRoster": true
+   },
+   "expect": "whole_roster"
+  },
+  {
+   "id": "C05",
+   "evidence": {
+    "benchIncluded": true,
+    "wholeRoster": true
+   },
+   "expect": "whole_roster"
+  },
+  {
+   "id": "C06",
+   "evidence": {},
+   "expect": "unknown"
+  },
+  {
+   "id": "C07",
+   "evidence": {
+    "wholeRoster": "yes",
+    "benchIncluded": "true"
+   },
+   "expect": "unknown"
+  },
+  {
+   "id": "C08",
+   "evidence": null,
+   "expect": "unknown"
+  }
+ ],
+ "blockers": [
+  {
+   "id": "B01",
+   "why": "whole roster observed, every player matched, bench legitimately empty: nothing blocks the free-agent reading",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "whole_roster"
+     },
+     "players": [
+      {
+       "key": "1",
+       "slot": "QB"
+      },
+      {
+       "key": "2",
+       "slot": "RB"
+      },
+      {
+       "key": "3",
+       "slot": "RB"
+      },
+      {
+       "key": "4",
+       "slot": "WR"
+      },
+      {
+       "key": "5",
+       "slot": "WR"
+      },
+      {
+       "key": "6",
+       "slot": "TE"
+      },
+      {
+       "key": "7",
+       "slot": "FLEX"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761699600000,
+      "coverage": "whole_roster"
+     },
+     "players": [
+      {
+       "key": "11",
+       "slot": "QB"
+      },
+      {
+       "key": "12",
+       "slot": "RB"
+      },
+      {
+       "key": "13",
+       "slot": "RB"
+      },
+      {
+       "key": "14",
+       "slot": "WR"
+      },
+      {
+       "key": "15",
+       "slot": "WR"
+      },
+      {
+       "key": "16",
+       "slot": "TE"
+      },
+      {
+       "key": "17",
+       "slot": "FLEX"
+      },
+      {
+       "key": "18",
+       "slot": "BN"
+      }
+     ]
+    }
+   ],
+   "expect": []
+  },
+  {
+   "id": "B02",
+   "why": "the same starters-only rosters from a source that omitted its bench: team count and starter minimum pass, but that is not whole-roster evidence",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "bench_omitted"
+     },
+     "players": [
+      {
+       "key": "1",
+       "slot": "QB"
+      },
+      {
+       "key": "2",
+       "slot": "RB"
+      },
+      {
+       "key": "3",
+       "slot": "RB"
+      },
+      {
+       "key": "4",
+       "slot": "WR"
+      },
+      {
+       "key": "5",
+       "slot": "WR"
+      },
+      {
+       "key": "6",
+       "slot": "TE"
+      },
+      {
+       "key": "7",
+       "slot": "FLEX"
+      }
+     ]
+    },
+    {
+     "id": "b",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "whole_roster"
+     },
+     "players": [
+      {
+       "key": "11",
+       "slot": "QB"
+      },
+      {
+       "key": "12",
+       "slot": "RB"
+      },
+      {
+       "key": "13",
+       "slot": "RB"
+      },
+      {
+       "key": "14",
+       "slot": "WR"
+      },
+      {
+       "key": "15",
+       "slot": "WR"
+      },
+      {
+       "key": "16",
+       "slot": "TE"
+      },
+      {
+       "key": "17",
+       "slot": "FLEX"
+      }
+     ]
+    }
+   ],
+   "expect": [
+    "bench_omitted"
+   ]
+  },
+  {
+   "id": "B03",
+   "why": "a name-list or search-built roster has no coverage evidence at all",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "unknown"
+     }
+    }
+   ],
+   "expect": [
+    "coverage_unproven"
+   ]
+  },
+  {
+   "id": "B11",
+   "why": "a source that showed its bench (what real pastes give) is still not proof of every seat; reported apart from bench_omitted so the caller can choose which gates",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "bench_shown"
+     }
+    }
+   ],
+   "expect": [
+    "coverage_unproven"
+   ]
+  },
+  {
+   "id": "B04",
+   "why": "an unknown unmatched count (older save) blocks",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": null,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": [
+    "unresolved_unknown"
+   ]
+  },
+  {
+   "id": "B05",
+   "why": "an unmatched pasted player blocks",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 1,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": [
+    "unresolved"
+   ]
+  },
+  {
+   "id": "B06",
+   "why": "a roster only ever edited locally was never observed from a source, however recent the edit",
+   "existingReasons": [],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "editedAt": 1761699600000,
+      "rosterAt": 1761699600000,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": [
+    "not_source_observed"
+   ]
+  },
+  {
+   "id": "B07",
+   "why": "a player on two teams (existing check) blocks even with perfect provenance",
+   "existingReasons": [
+    "duplicate_owner"
+   ],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761696000000,
+      "editedAt": 1761696000000,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": [
+    "duplicate_owner"
+   ]
+  },
+  {
+   "id": "B08",
+   "why": "a roster stale under the existing contract blocks; this helper adds no window of its own",
+   "existingReasons": [
+    "stale"
+   ],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": 0,
+      "observedAt": 1761096000000,
+      "editedAt": 1761699600000,
+      "coverage": "whole_roster"
+     }
+    }
+   ],
+   "expect": [
+    "stale"
+   ]
+  },
+  {
+   "id": "B09",
+   "why": "no teams at all is never a whole league",
+   "existingReasons": [],
+   "teams": [],
+   "expect": [
+    "not_source_observed"
+   ]
+  },
+  {
+   "id": "B10",
+   "why": "existing reasons come first, then every provenance reason once, in a fixed order",
+   "existingReasons": [
+    "team_count",
+    "stale",
+    "team_count"
+   ],
+   "teams": [
+    {
+     "id": "a",
+     "provenance": {
+      "unresolved": null,
+      "coverage": "bench_omitted"
+     }
+    },
+    {
+     "id": "b",
+     "provenance": {
+      "unresolved": 2,
+      "observedAt": 1761696000000,
+      "coverage": "whole_roster"
+     }
+    },
+    {
+     "id": "c",
+     "provenance": null
+    }
+   ],
+   "expect": [
+    "team_count",
+    "stale",
+    "unresolved_unknown",
+    "unresolved",
+    "not_source_observed",
+    "bench_omitted",
+    "coverage_unproven"
+   ]
+  }
+ ]
 }

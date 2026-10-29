@@ -42,3 +42,23 @@ Files: `app/v2/roster-provenance-transitions.js` (global `DDFRosterProvenance`),
   `inferenceBlockers({teams, existingReasons: check.reasons})`; read omitted players as free agents only when it is empty.
 - Tests to add on the #1105 side: an integration case per bullet above against the league page store, with exact
   before/after counts and both timestamps (the table rows T01-T03, T09-T10, T14 give the expected values).
+
+## 2026-10-29 - JEG-1241 update after the #1105 owner's reply
+
+Contract: the JEG-1188 / #1105 owner agreed the API (cross-session message, 2026-10-29 15:19 UTC) with notes; this
+applies them. It supersedes the counts and the B02 reason above.
+
+### Verified (check named)
+- An omitted bench is now its own reason, `bench_omitted`, apart from `coverage_unproven` (unknown or bench shown), so
+  the caller can gate on one and only warn on the other. B02 now expects `bench_omitted`; new B11 (bench shown) expects
+  `coverage_unproven`. The helper still decides no gate.
+- `REASONS` is pinned as a stable list in the runner, since league.js will map each string to a label.
+- New T20: an append into an empty, never-observed team stays unobserved. The caller routes a paste it treats as the
+  whole roster through `replaceFromSource`, as the owner proposed.
+- `node tests/node/roster_provenance_transitions.cjs`: 39 rows pass, 22 mutants killed (new: omitted bench not reported).
+  `python3 -m unittest tests.test_roster_provenance_transitions`: 4 pass.
+
+### Claimed, not confirmed
+- Sequencing per the owner: #1105 is with Codex for review and gets no wiring; the workspace.js / league.js wiring is a
+  follow-up PR by the #1105 owner after #1105 and this PR merge, unless Codex wants another order. Which coverage
+  reasons gate is Codex's call; the owner proposes gating only `bench_omitted`.

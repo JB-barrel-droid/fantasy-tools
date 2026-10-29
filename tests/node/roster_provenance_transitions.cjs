@@ -72,6 +72,8 @@ const real = load(SOURCE);
 const realFailures = failures(real);
 assert.deepEqual(realFailures, [], realFailures.join("\n"));
 assert.deepEqual(plain(Object.keys(real.COVERAGE).map(k => real.COVERAGE[k]).sort()), ["bench_omitted", "bench_shown", "unknown", "whole_roster"]);
+// Reason strings are a contract: league.js maps them to labels (JEG-1188 owner, 2026-10-29).
+assert.deepEqual(plain(real.REASONS), ["unresolved_unknown", "unresolved", "not_source_observed", "bench_omitted", "coverage_unproven"]);
 
 // Negative: each mutant reintroduces one defect and must fail a row. `find` must occur exactly once in the source,
 // so a refactor that removes a mutation point fails here instead of leaving a mutant that tests nothing.
@@ -90,7 +92,8 @@ const MUTANTS = [
   ["clearing keeps the old observation", "make(0, null,", "make(0, cur.observedAt,"],
   ["freshness reads edit time", "return normalize(p).observedAt;", "return normalize(p).editedAt;"],
   ["an omitted bench can still read as a whole roster", "if (e.benchIncluded === false) return COVERAGE.BENCH_OMITTED;", ""],
-  ["coverage is not checked (counts alone pass)", "if (cur.coverage !== COVERAGE.WHOLE_ROSTER) found.coverage_unproven = true;", ""],
+  ["coverage is not checked (counts alone pass)", "else if (cur.coverage !== COVERAGE.WHOLE_ROSTER) found.coverage_unproven = true;", ""],
+  ["an omitted bench is not reported", "if (cur.coverage === COVERAGE.BENCH_OMITTED) found.bench_omitted = true;\n      else ", ""],
   ["an unknown count does not block", "if (cur.unresolved === null) found.unresolved_unknown = true;\n      else ", ""],
   ["a source never observed does not block", "if (cur.observedAt === null) found.not_source_observed = true;", ""],
   ["the existing check's reasons are dropped", "(i.existingReasons || []).forEach", "[].forEach"],
