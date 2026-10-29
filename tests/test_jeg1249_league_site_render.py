@@ -13,6 +13,8 @@ The USO rosters from tests/fixtures/league_levels/uso.json (12 teams, Yahoo, pul
     table, an equal and an unequal trade open in Compare a trade with the same players and the same DDF Value for every
     player, and the saved league is byte-identical after the round trip. A team with an unpriced player and a kicker
     renders without errors. With pasted rosters setting the bench, the handoff is held and says so.
+  test_league_rosters_switch: "Use league rosters" is grayed out with one team, on by default once the league
+    qualifies, switches to the standard bench (and Compare links) when turned off, and keeps that choice after a reload.
 
 Needs Chromium (Playwright). Skips locally without it; CI sets RENDER_TESTS_REQUIRED.
 """
@@ -52,7 +54,9 @@ SEED = """([teams, mine, prov, per, extra]) => {
 }"""
 
 STATE = """() => { const n = document.getElementById('v2LgLevelsNote'); const res = window.TradeValueLeague.ui.result;
-  return {note: n ? n.textContent : null, rows: res ? res.rows.length : 0}; }"""
+  const sw = document.getElementById('v2LgUseLeague');
+  return {note: n ? n.textContent : null, rows: res ? res.rows.length : 0,
+    switch: sw ? {checked: sw.checked, disabled: sw.disabled} : null}; }"""
 
 PROV = "([i]) => JSON.parse(JSON.stringify(window.TradeValueWorkspace.store.get().teams[i]))"
 SAVED = "() => window.TradeValueWorkspace.serialize(window.TradeValueWorkspace.store.get())"
@@ -140,9 +144,11 @@ class LeagueSiteTest(unittest.TestCase):
             whole = self.seed(page, WHOLE)
             self.assertTrue(whole["note"].startswith("Priced with your league's rosters"), whole["note"])
             # Jeremy, 2026-10-29: a paste is read as the team's whole roster (coverage unproven doesn't block), and the note says so.
+            self.assertEqual(whole["switch"], {"checked": True, "disabled": False})
             pasted = self.seed(page, PASTED)
             self.assertTrue(pasted["note"].startswith("Priced with your league's rosters"), pasted["note"])
             self.assertIn("Each team's pasted roster is read as its whole roster", pasted["note"])
+            self.assertEqual(pasted["switch"], {"checked": True, "disabled": False})
             cases = {
                 "bench left out": ({**WHOLE}, {"3": {**WHOLE, "coverage": "bench_omitted"}}, "a pasted page left a team's bench out"),
                 "unknown count": ({**WHOLE}, {"5": {**WHOLE, "unresolved": None}}, "unmatched players were not recorded"),
@@ -154,7 +160,48 @@ class LeagueSiteTest(unittest.TestCase):
                     got = self.seed(page, prov, per)
                     self.assertTrue(got["note"].startswith("Priced with the standard bench"), got["note"])
                     self.assertIn(reason, got["note"])
+                    self.assertEqual(got["switch"], {"checked": False, "disabled": True}, "the switch is grayed out until the league qualifies")
         self.assertEqual(self.problems, [])
+
+    def test_league_rosters_switch(self):
+        # Jeremy, 2026-10-29: "default to not using league specifics unless the rosters are filled in, and give the user
+        # visibility to that a toggle with a grayed out use of league specifics until criteria are met".
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, errors=self.problems, tag="[switch] ")
+            settle(page)
+            one = self.seed_teams(page, self.teams[:1])
+            self.assertEqual(one["switch"], {"checked": False, "disabled": True})
+            self.assertIn("once every team in your league is loaded", one["note"])
+            on = self.seed(page, PASTED)
+            self.assertEqual(on["switch"], {"checked": True, "disabled": False})
+            page.click("#v2LgUseLeague")
+            settle(page)
+            off = page.evaluate(STATE)
+            self.assertEqual(off["switch"], {"checked": False, "disabled": False})
+            self.assertEqual(off["note"], "Priced with the standard bench: league rosters are switched off.")
+            self.assertIs(page.evaluate("() => window.TradeValueWorkspace.store.get().ui.leagueRosters"), False)
+            # Off: the league page prices like Compare a trade, so its trades open there again.
+            first = page.evaluate("() => window.TradeValueLeague.ui.result.rows[0].id")
+            hand = self.handoff(page, first)
+            self.assertIsNone(hand.get("held"))
+            self.assertTrue(hand.get("href"))
+            # The choice is saved with the league.
+            page.wait_for_timeout(1500)
+            page.reload(wait_until="networkidle")
+            page.wait_for_function("() => window.TradeValueLeague && window.TradeValueLeague.ui.ready", timeout=60000)
+            settle(page)
+            self.assertEqual(page.evaluate(STATE)["switch"], {"checked": False, "disabled": False})
+            page.click("#v2LgUseLeague")
+            settle(page)
+            back = page.evaluate(STATE)
+            self.assertEqual(back["switch"], {"checked": True, "disabled": False})
+            self.assertTrue(back["note"].startswith("Priced with your league's rosters"), back["note"])
+        self.assertEqual(self.problems, [])
+
+    def seed_teams(self, page, teams):
+        page.evaluate(SEED, [teams, self.fx["mine"], PASTED, {}, {}])
+        settle(page)
+        return page.evaluate(STATE)
 
     def test_paste_transitions_on_the_page(self):
         with browser_on_build() as (browser, base):

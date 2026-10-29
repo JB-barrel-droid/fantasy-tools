@@ -250,7 +250,12 @@ rules, except that only charts are filled in (VP-2.4).
      all filled up and the page is set up for manual checks and errors."), so
      `coverage_unproven` doesn't block and the note says the pastes are read
      as whole rosters. The load time is the source read (`observedAt`),
-     never the last edit.
+     never the last edit. A "Use league rosters" switch shows this (Jeremy,
+     2026-10-29: "default to not using league specifics unless the rosters
+     are filled in, and give the user visibility to that a toggle with a
+     grayed out use of league specifics until criteria are met"): grayed
+     out, with what is missing, until the league qualifies; on once it
+     does; switching it off (saved with the league) prices the page with d.
      While the levels are on, the league page does not open its trades in
      Compare a trade (which prices with d) and says why.
      Contract: DDF Value and the bench-share weights come from the ddf level;

@@ -91,7 +91,8 @@
     const o = opts || {};
     const now = o.now || Date.now();
     return {id: o.id || newId("league"), name: cleanName(o.name, "My league"), settings: null, teams: [], myTeamId: null, createdAt: now, updatedAt: now,
-      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2,
+      // leagueRosters (JEG-1249): use the league's own rosters for the bench once they qualify; false = the reader switched it off.
+      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, leagueRosters: true, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2,
         finderSettings: normalizeFinderSettings(null)}};
   }
   // Fills anything missing so a workspace saved by an older build still loads.

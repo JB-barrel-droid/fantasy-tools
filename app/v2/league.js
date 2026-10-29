@@ -101,12 +101,17 @@
   }
   let levelMemo = null;
   if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
-  // null: no league to check (fewer than two teams). {check, levels: null}: the league failed the check. {check, levels}.
+  // null: no league to check (fewer than two teams). {check, levels: null}: the league failed the check, or (off: true) the
+  // reader switched league rosters off (Jeremy, 2026-10-29: "default to not using league specifics unless the rosters are
+  // filled in, and give the user visibility to that a toggle with a grayed out use of league specifics until criteria are
+  // met"). {check, levels}.
   function leagueLevels(C) {
     if (!C.getLeagueLevel) return null;
-    const check = leagueCheck(C, store.get());
+    const ws = store.get();
+    const check = leagueCheck(C, ws);
     if (!check) return null;
     if (!check.ok) return {check, levels: null};
+    if (ws.ui.leagueRosters === false) return {check, levels: null, off: true};
     const sig = `${check.rostered.join(",")}|${check.reserve.join(",")}`;
     if (levelMemo && levelMemo.sig === sig) return {check, levels: levelMemo.levels};
     const args = {rostered: check.rostered, reserve: check.reserve};
@@ -158,7 +163,8 @@
     const overall = readout && finite(readout.overall) ? readout.overall : (C.getBenchShare ? C.getBenchShare() : null);
     const weights = {overall: finite(overall) ? overall : 0};
     F.DEPTH_POS.forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
-    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels, leagueCheck: league ? league.check : null};
+    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels, leagueCheck: league ? league.check : null,
+      leagueOff: Boolean(league && league.off)};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
   // JEG-1249: Compare a trade prices with the standard bench (C.getAllRows). With the league's own rosters setting the bench
@@ -167,7 +173,7 @@
   // values.
   const compareLink = (r, ctx) => (ctx && ctx.levels
     ? el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
-      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there."})
+      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."})
     : el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
   const isK = entry => F.isNotEvaluated(entry);
 
@@ -867,12 +873,31 @@
     not_source_observed: "a team's roster was not read from a site page (added by hand or from a link)",
     bench_omitted: "a pasted page left a team's bench out", coverage_unproven: "no pasted page shows a team's whole roster, bench and reserve seats included"};
   const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
+  // JEG-1249: the "Use league rosters" switch. Grayed out, with what is missing, until the league qualifies; on by default
+  // once it does; the reader's choice is saved with the league.
+  function levelSwitch(ctx) {
+    const ready = Boolean(ctx.leagueCheck && ctx.leagueCheck.ok);
+    const input = el("input", {type: "checkbox", id: "v2LgUseLeague", role: "switch"});
+    input.checked = ready && !ctx.leagueOff;
+    input.disabled = !ready;
+    input.addEventListener("change", () => {
+      update(w => W.ops.setUi(w, {leagueRosters: input.checked}), "league-rosters");
+      announce(input.checked ? "Using your league's rosters." : "Using the standard bench.");
+    });
+    return el("label", {class: `v2-field v2-lg-levels-switch${ready ? "" : " is-disabled"}`, "data-ready": String(ready)}, input,
+      el("span", {text: " Use league rosters"}));
+  }
   function sellBlock(ws, ctx) {
-    if (!ctx || !ctx.leagueCheck) return null;
+    if (!ctx) return null;
+    if (!ctx.leagueCheck) {
+      return el("div", {id: "v2LgSell"}, levelSwitch(ctx), el("p", {class: "v2-meta", id: "v2LgLevelsNote",
+        text: "Priced with the standard bench. League rosters can be used once every team in your league is loaded."}));
+    }
     if (!ctx.levels) {
       const why = ctx.leagueCheck.reasons.map(r => LEVEL_REASONS[r] || r).join("; ");
-      return el("div", {id: "v2LgSell"}, el("p", {class: "v2-meta", id: "v2LgLevelsNote",
-        text: `Priced with the standard bench. Your league's own rosters set the bench once every team is loaded, matched and up to date${why ? `: ${why}` : ""}.`}));
+      return el("div", {id: "v2LgSell"}, levelSwitch(ctx), el("p", {class: "v2-meta", id: "v2LgLevelsNote",
+        text: ctx.leagueOff ? "Priced with the standard bench: league rosters are switched off."
+          : `Priced with the standard bench. League rosters can be used once every team is loaded, matched and up to date${why ? `: ${why}` : ""}.`}));
     }
     const shape = ctx.shape || {};
     const teams = ws.teams.length;
@@ -884,8 +909,8 @@
       el("li", {id: "v2LgCountAbove", text: `Players beyond the starters who beat the best free agent: ${posCounts(ctx.levels.ddfCounts)}.`}));
     const mine = teamById(ws, ws.myTeamId);
     const sells = sellCandidates(mine, ctx);
-    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, basisNote, counts);
-    return el("div", {id: "v2LgSell"}, basisNote, counts,
+    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, levelSwitch(ctx), basisNote, counts);
+    return el("div", {id: "v2LgSell"}, levelSwitch(ctx), basisNote, counts,
       el("p", {class: "v2-find-headline", id: "v2LgSellHead", text: `Sell candidates on ${mine.name}: worth more to your league than to you.`}),
       el("ul", {class: "v2-lg-sell", id: "v2LgSellList"}, ...sells.map(c => el("li", {"data-key": c.key},
         el("b", {text: `${c.name} (${c.pos})`}), ` ${money(c.ours)} to you, ${money(c.theirs)} at your league's depth`))));

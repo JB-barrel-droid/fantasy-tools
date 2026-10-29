@@ -2205,6 +2205,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
 .v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
 .v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+/* JEG-1249: "Use league rosters", grayed out until the league qualifies; a 44px tap target. */
+.v2-lg-levels-switch { display: inline-flex; align-items: center; min-height: 44px; gap: 6px; cursor: pointer; }
+.v2-lg-levels-switch input { width: 22px; height: 44px; margin: 0; cursor: inherit; }
+.v2-lg-levels-switch.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
