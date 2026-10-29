@@ -128,6 +128,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1334: fractional flex and bench seats helper (option B, JEG-1286).
+	python3 -m unittest tests.test_fractional_seats
 	python3 -m unittest tests.test_league_mapping
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
