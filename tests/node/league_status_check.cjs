@@ -54,8 +54,14 @@ function league(names, opts) {
 }
 const allText = node => node.textContent;
 const BANNED = /\b(sync(ed|s|ing)?|connect(ed)?|account|live|every device|all your devices|cloud|complete import|imported everything)\b/i;
+// Each check runs on its own and the file reports every failure, so a run against an older module shows exactly which
+// rules it breaks (JEG-1261 failing-before evidence). Exit 1 when any check fails.
 let checks = 0;
-const check = (name, fn) => { fn(); checks += 1; };
+const failed = [];
+const check = (name, fn) => {
+  checks += 1;
+  try { fn(); } catch (error) { failed.push(name); console.log(`FAIL ${name}: ${String(error && error.message).split("\n")[0]}`); }
+};
 
 // ---------- describe(): the view model ----------
 check("no league", () => {
@@ -91,7 +97,7 @@ check("a league with fewer teams than a full league is not padded or called inco
 check("partial parse: league.js's own unmatched, unsure and left-out counts, nothing inferred", () => {
   const parsed = {teams: [{name: "Alpha", count: 3, unmatched: ["Jon Smth", "???"], unsure: 1}, {name: "Bravo", count: 3, unmatched: [], unsure: 0},
     {name: "Zulu", count: 0, unmatched: [], unsure: 0, leftOut: true}], skipped: 1, source: "Read"};
-  const m = S.describe({workspace: league(["Alpha", "Bravo"]), saveStatus: "saved", origin: "pasted", parsed});
+  const m = S.describe({workspace: league(["Alpha", "Bravo"]), saveStatus: "saved", origin: "paste", parsed});
   assert.equal(m.state, "partial");
   assert.deepEqual(m.issues.map(i => i.id), ["paste-missed", "paste-unsure", "paste-left-out"]);
   assert.equal(m.issues[0].text, "2 lines from your last paste could not be matched to a player.");
@@ -147,17 +153,45 @@ check("values loading", () => {
 });
 
 check("no claim of sync, connection, accounts or completeness in any state", () => {
-  const inputs = [{}, {workspace: league(["Alpha", "Bravo"]), saveStatus: "saved", origin: "stored"}, {workspace: league(["Alpha"]), origin: "loaded", saveStatus: "unavailable"},
-    {workspace: league(["Alpha"]), origin: "pasted", parsed: {teams: [{name: "A", unmatched: ["x"], unsure: 2}], skipped: 0}}, {loadStatus: "corrupt"}, {workspace: league(["Alpha"]), valuesReady: false}];
+  const inputs = [{}, {workspace: league(["Alpha", "Bravo"]), saveStatus: "saved", origin: "stored"}, {workspace: league(["Alpha"]), origin: "file", saveStatus: "unavailable"},
+    {workspace: league(["Alpha"]), origin: "link", saveStatus: "full"}, {loadStatus: "unavailable", saveStatus: "unavailable"}, {saveStatus: "full"},
+    {workspace: league(["Alpha"]), origin: "paste", parsed: {teams: [{name: "A", unmatched: ["x"], unsure: 2}], skipped: 0}}, {loadStatus: "corrupt"}, {workspace: league(["Alpha"]), valuesReady: false}];
   inputs.forEach(i => assert.ok(!BANNED.test(JSON.stringify(S.describe(i))), JSON.stringify(S.describe(i))));
 });
 
-check("originFor: hand edits keep where the league came from", () => {
-  assert.equal(S.originFor(null, "load"), "stored");
-  assert.equal(S.originFor("stored", "rename"), "stored");
-  assert.equal(S.originFor("stored", "replace"), "loaded");
-  assert.equal(S.originFor("loaded", "paste"), "pasted");
-  assert.equal(S.originFor(null, "add"), null);
+check("JEG-1261 storedOrigin: only a load that read a league with teams", () => {
+  assert.equal(typeof S.storedOrigin, "function");
+  assert.equal(S.storedOrigin("ok", league(["Alpha"])), "stored");
+  assert.equal(S.storedOrigin("ok", W.newWorkspace()), null);
+  ["empty", "corrupt", "version", "unavailable", undefined].forEach(st => assert.equal(S.storedOrigin(st, league(["Alpha"])), null, String(st)));
+});
+
+check("JEG-1261 describe: an unknown origin word is not shown", () => {
+  ["loaded", "pasted", "replace", "sync"].forEach(word => assert.equal(S.describe({workspace: league(["Alpha"]), saveStatus: "saved", origin: word}).origin, null, word));
+});
+
+check("JEG-1261 empty league, storage unavailable: warned, and no saves-on-this-device promise", () => {
+  const m = S.describe({workspace: W.newWorkspace(), loadStatus: "unavailable", saveStatus: "unavailable"});
+  assert.equal(m.state, "empty");
+  assert.ok(m.storage && m.storage.tone === "warn", "storage warning in the model");
+  assert.match(m.summary, /Not saved: this browser isn't keeping data between visits/);
+  assert.equal(m.facts.find(f => f.id === "storage").value, m.storage.text);
+  assert.ok(!/saves on this device/i.test(JSON.stringify(m)), "no saved promise");
+});
+
+check("JEG-1261 empty league, storage full: warned, and no saves-on-this-device promise", () => {
+  const m = S.describe({workspace: W.newWorkspace(), loadStatus: "empty", saveStatus: "full"});
+  assert.match(m.summary, /storage is full/);
+  assert.ok(!/saves on this device/i.test(JSON.stringify(m)));
+});
+
+check("JEG-1261 empty league, storage working: no warning, the promise stays", () => {
+  ["idle", "saved", "saving"].forEach(st => {
+    const m = S.describe({workspace: W.newWorkspace(), loadStatus: "empty", saveStatus: st});
+    assert.equal(m.storage, null, st);
+    assert.equal(m.summary, "No league loaded yet", st);
+    assert.match(m.notes[0], /It saves on this device\.$/, st);
+  });
 });
 
 // ---------- mount(): the disclosure, wired to the real store ----------
@@ -170,7 +204,10 @@ function setup(initial, opts) {
   controls.setAttribute("id", "editControls");
   const inner = doc.createElement("button");
   controls.append(inner);
-  const status = S.mount(host, {store, document: doc, id: "lgs", controls, ...(opts || {})});
+  // stored: true mounts the way league.js will: origin only from what store.load() proved.
+  const o = {...(opts || {})};
+  if (o.stored) { delete o.stored; o.origin = S.storedOrigin(store.loadStatus(), store.get()); }
+  const status = S.mount(host, {store, document: doc, id: "lgs", controls, ...o});
   return {storage, store, doc, host, controls, inner, status, node: id => host.byId(id)};
 }
 const saved = ws => ({[W.STORAGE_KEY]: W.serialize(ws)});
@@ -191,19 +228,20 @@ check("mount: empty league, expanded by default, disclosure semantics", () => {
 check("mount: reload shows what was saved, and mounting writes nothing", () => {
   let ws = league(["Alpha", "Bravo", "Charlie"]);
   ws = W.ops.setMyTeam(ws, ws.teams[2].id);
-  const t = setup(saved(ws));
+  const t = setup(saved(ws), {stored: true});
   const before = t.storage.data.get(W.STORAGE_KEY);
   t.status.update("status");
   assert.equal(t.node("lgsSummary").textContent, "3 teams · 9 players · Your team: Charlie · Saved on this device");
   assert.equal(t.status.model().facts.find(f => f.id === "origin").value, "Read from this device");
   assert.equal(t.storage.data.get(W.STORAGE_KEY), before, "the status never writes to storage");
   // A second visit: a fresh store on the same storage reads the same league and star.
-  const again = setup(Object.fromEntries(t.storage.data));
+  const again = setup(Object.fromEntries(t.storage.data), {stored: true});
   assert.equal(again.node("lgsSummary").textContent, t.node("lgsSummary").textContent);
+  assert.equal(again.status.origin(), "stored");
 });
 
 check("mount: rename, add and remove update the status; the live region speaks only on a real change", () => {
-  const t = setup(saved(league(["Alpha", "Bravo"])));
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
   const live = t.node("lgsLive");
   t.status.update("status");
   assert.equal(live.textContent, "", "a save tick is quiet");
@@ -221,8 +259,9 @@ check("mount: rename, add and remove update the status; the live region speaks o
 check("mount: removing the starred team names it once; Undo clears the note; the status never re-stars", () => {
   let ws = league(["Alpha", "Bravo"]);
   ws = W.ops.setMyTeam(ws, ws.teams[0].id);
-  const t = setup(saved(ws));
+  const t = setup(saved(ws), {stored: true});
   const prev = t.store.get();
+  const prevOrigin = t.status.origin();
   t.store.update(w => W.ops.removeTeam(w, prev.teams[0].id), "remove");
   assert.equal(t.store.get().myTeamId, null);
   assert.equal(t.status.model().mine.text, "Your team (Alpha) was removed. Star a team to mark yours.");
@@ -230,7 +269,110 @@ check("mount: removing the starred team names it once; Undo clears the note; the
   assert.equal(t.store.get().myTeamId, null, "no team was starred for the reader");
   t.store.replace(prev, "replace");
   assert.equal(t.status.model().mine.text, "Your team: Alpha");
-  assert.equal(t.status.model().facts.find(f => f.id === "origin").value, "Loaded from a file or link this visit");
+});
+
+// ---------- JEG-1261: origin only from explicit evidence ----------
+const originFact = t => { const f = t.status.model().facts.find(x => x.id === "origin"); return f ? f.value : null; };
+
+check("JEG-1261 Undo is not an import: it keeps the origin from before when the caller restores it", () => {
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
+  const prev = t.store.get();
+  const snap = t.status.origin();
+  t.store.update(w => W.ops.removeTeam(w, prev.teams[0].id), "remove");
+  t.store.replace(prev, "replace");          // league.js Undo
+  assert.notEqual(originFact(t), "Loaded from a file this visit");
+  assert.notEqual(originFact(t), "Loaded from a shared link this visit");
+  assert.ok(!/file|link/i.test(String(originFact(t))), "Undo alone never reads as a file or link import");
+  t.status.setOrigin(snap);
+  assert.equal(originFact(t), "Read from this device");
+});
+
+check("JEG-1261 Undo of a file load goes back to the earlier origin, not the file", () => {
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
+  const prev = t.store.get();
+  const snap = t.status.origin();
+  t.store.replace(league(["One", "Two", "Three"], {name: "From file"}), "replace");
+  t.status.setOrigin("file");
+  assert.equal(originFact(t), "Loaded from a file this visit");
+  t.store.replace(prev, "replace");
+  assert.equal(originFact(t), null, "the file origin does not follow Undo to the earlier league");
+  t.status.setOrigin(snap);
+  assert.equal(originFact(t), "Read from this device");
+});
+
+check("JEG-1261 a generic replace with another league is not labeled an import", () => {
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
+  t.store.replace(league(["One", "Two", "Three", "Four"], {name: "Office league"}), "replace");
+  assert.equal(originFact(t), null);
+  assert.equal(t.status.origin(), null);
+});
+
+check("JEG-1261 a replace of the same league (new settings) keeps its origin", () => {
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
+  t.store.replace(W.ops.setSettings(t.store.get(), {query: "teams=12"}), "settings");
+  assert.equal(originFact(t), "Read from this device");
+});
+
+check("JEG-1261 actual file and link imports are labeled when the caller says so", () => {
+  const t = setup(saved(league(["Alpha"])), {stored: true});
+  t.store.replace(league(["One", "Two"], {name: "From file"}), "replace");
+  t.status.setOrigin("file");
+  assert.equal(originFact(t), "Loaded from a file this visit");
+  t.store.replace(league(["Shared A", "Shared B"], {name: "Shared league"}), "replace");
+  assert.equal(originFact(t), null);
+  t.status.setOrigin("link");
+  assert.equal(originFact(t), "Loaded from a shared link this visit");
+  t.store.update(w => W.ops.renameTeam(w, w.teams[0].id, "Renamed"), "rename");
+  assert.equal(originFact(t), "Loaded from a shared link this visit", "hand edits keep the origin");
+});
+
+check("JEG-1261 an in-memory store mounted without a load is not 'read from this device'", () => {
+  const doc = makeDoc();
+  const host = doc.createElement("div");
+  const store = W.createStore({storage: memoryStorage(), delay: 0}); // never loaded
+  store.update(w => W.ops.addTeam(w, "Hand made", {entries: [{key: "1", name: "A", pos: "WR"}]}), "add");
+  const st = S.mount(host, {store, document: doc, id: "mem"});
+  assert.equal(st.model().origin, null);
+  assert.equal(st.model().facts.find(f => f.id === "origin"), undefined);
+  // The default mount (no origin option) never assumes a stored load, even on a loaded store.
+  const t = setup(saved(league(["Alpha"])));
+  assert.equal(originFact(t), null);
+});
+
+check("JEG-1261 reload: a stored origin only when the saved copy had teams", () => {
+  const empty = setup(saved(W.newWorkspace()), {stored: true});
+  assert.equal(empty.status.origin(), null);
+  const bad = setup({[W.STORAGE_KEY]: "{not json"}, {stored: true});
+  assert.equal(bad.status.origin(), null);
+  const ok = setup(saved(league(["Alpha"])), {stored: true});
+  assert.equal(originFact(ok), "Read from this device");
+});
+
+check("JEG-1261 mount: empty league with unavailable storage shows the warning, not the promise", () => {
+  const doc = makeDoc();
+  const host = doc.createElement("div");
+  const store = W.createStore({storage: null, delay: 0});
+  store.load();
+  const st = S.mount(host, {store, document: doc, id: "na"});
+  assert.equal(st.model().state, "empty");
+  assert.match(host.byId("naSummary").textContent, /Not saved: this browser isn't keeping data/);
+  assert.ok(!/saves on this device/i.test(host.textContent));
+  assert.ok(host.byId("naFacts").visible(), "the storage fact shows in the empty state");
+});
+
+check("JEG-1261 mount: empty league with full storage shows the warning, not the promise", () => {
+  const storage = memoryStorage();
+  storage.setItem = () => { const e = new Error("full"); e.name = "QuotaExceededError"; throw e; };
+  const store = newStore(storage);
+  const doc = makeDoc();
+  const host = doc.createElement("div");
+  const st = S.mount(host, {store, document: doc, id: "fu"});
+  store.update(w => W.ops.addTeam(w, "Alpha"), "add");
+  store.update(w => W.ops.clearLeague(w), "remove");
+  assert.equal(store.status(), "full");
+  assert.equal(st.model().state, "empty");
+  assert.match(host.byId("fuSummary").textContent, /storage is full/);
+  assert.ok(!/saves on this device/i.test(host.textContent));
 });
 
 check("mount: unstarring is not a removal", () => {
@@ -241,15 +383,15 @@ check("mount: unstarring is not a removal", () => {
   assert.equal(t.status.model().mine.text, "No team marked as yours yet");
 });
 
-check("mount: changed workspace from another file replaces counts and origin", () => {
-  const t = setup(saved(league(["Alpha", "Bravo"])));
+check("mount: changed workspace replaces counts and name", () => {
+  const t = setup(saved(league(["Alpha", "Bravo"])), {stored: true});
   t.store.replace(league(["One", "Two", "Three", "Four"], {name: "Office league"}), "replace");
   assert.equal(t.node("lgsToggle").textContent, "Office league");
   assert.match(t.node("lgsSummary").textContent, /^4 teams · 12 players · No team marked/);
 });
 
 check("mount: clearing the league then adding by hand has no origin", () => {
-  const t = setup(saved(league(["Alpha"])));
+  const t = setup(saved(league(["Alpha"])), {stored: true});
   t.store.update(w => W.ops.clearLeague(w), "remove");
   assert.equal(t.status.model().state, "empty");
   t.store.update(w => W.ops.addTeam(w, "Fresh", {entries: [{key: "1", name: "A", pos: "WR"}]}), "add");
@@ -260,7 +402,7 @@ check("mount: paste reported by league.js", () => {
   const parsed = {teams: [{name: "Alpha", count: 3, unmatched: ["x"], unsure: 0}], skipped: 0};
   const t = setup(undefined, {parsed: () => parsed});
   t.store.update(w => W.ops.addTeam(w, "Alpha", {entries: [{key: "1", name: "A", pos: "WR"}]}), "add");
-  t.status.update("paste");
+  t.status.setOrigin("paste");
   assert.equal(t.status.model().state, "partial");
   assert.equal(t.status.model().facts.find(f => f.id === "origin").value, "Read from your paste this visit");
 });
@@ -328,4 +470,5 @@ check("mount: destroy unsubscribes and removes", () => {
   t.store.update(w => W.ops.addTeam(w, "Bravo"), "add");
 });
 
+if (failed.length) { console.log(`league_status_check: ${failed.length} of ${checks} checks failed`); process.exit(1); }
 console.log(`league_status_check: ${checks} checks passed`);

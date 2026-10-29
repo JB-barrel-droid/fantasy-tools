@@ -8,12 +8,17 @@
 //     workspace    store.get() (TradeValueWorkspace shape)
 //     loadStatus   store.loadStatus(): "ok" | "empty" | "corrupt" | "version" | "unavailable"
 //     saveStatus   store.status(): "idle" | "saving" | "saved" | "unavailable" | "full"
-//     origin       how this visit's league arrived: "stored" | "loaded" | "pasted" | null (see originFor)
+//     origin       where this visit's league came from, ONLY as the caller knows it: "stored" | "file" | "link" |
+//                  "paste" | null. Never inferred from a store change reason (JEG-1261): a generic replace, an Undo or
+//                  an in-memory store is not evidence of an import or of a saved copy. See storedOrigin().
 //     parsed       league.js UI.parsed: {error} or {teams: [{name, count, unmatched, unsure, leftOut}], skipped}
 //     valuesReady  false while player values are still loading
 //     removedMine  {id, name} of a starred team removed this visit (the controller tracks it), else null
 //     isNotEvaluated(entry) -> true for K and DEF (default: pos K or DEF)
-//   TradeValueLeagueStatus.mount(host, opts) -> {update(), setExpanded(open), isExpanded(), destroy()}
+//   TradeValueLeagueStatus.mount(host, opts) -> {update(), setOrigin(kind), origin(), setExpanded(open), isExpanded(), destroy()}
+//     opts.origin is the starting origin (default null). The page calls setOrigin("file") after Load from a file,
+//     setOrigin("link") after a share link, setOrigin("paste") after a whole-league paste, setOrigin(storedOrigin(...))
+//     after store.load(), and restores origin() it snapshotted when Undo puts an earlier league back.
 //     A heading button that folds and opens the details (aria-expanded/aria-controls), the one-line summary that shows
 //     in both states, and a body holding the facts, any issues and opts.controls (the existing edit controls, moved
 //     in, never rebuilt). Expanded by default, as the league card is today; only the reader folds it. Escape inside
@@ -35,19 +40,14 @@
   };
   const ORIGIN = {
     stored: "Read from this device",
-    loaded: "Loaded from a file or link this visit",
-    pasted: "Read from your paste this visit"
+    file: "Loaded from a file this visit",
+    link: "Loaded from a shared link this visit",
+    paste: "Read from your paste this visit"
   };
+  const canSave = (loadStatus, saveStatus) => loadStatus !== "unavailable" && saveStatus !== "unavailable" && saveStatus !== "full";
 
-  // The store's change reason -> origin. "load" is the saved copy; "replace" is a file or a share link; "paste" is
-  // league.js telling the status a whole-league paste was read (it calls update("paste") after showParsed). Any other
-  // edit keeps the origin it had: hand edits do not erase where the league came from.
-  function originFor(previous, reason) {
-    if (reason === "load") return "stored";
-    if (reason === "replace") return "loaded";
-    if (reason === "paste") return "pasted";
-    return previous || null;
-  }
+  // The one origin the store itself can prove: store.load() read a saved league with teams in it.
+  const storedOrigin = (loadStatus, workspace) => (loadStatus === "ok" && workspace && Array.isArray(workspace.teams) && workspace.teams.length ? "stored" : null);
 
   function describe(input) {
     const o = input || {};
@@ -106,9 +106,11 @@
     else if (partial || emptyTeams.length) state = "partial";
     else state = "loaded";
 
-    const storage = teams.length || o.saveStatus === "unavailable" || o.saveStatus === "full"
-      ? (STORAGE[o.saveStatus] || STORAGE.idle) : null;
-    const origin = teams.length && o.origin ? ORIGIN[o.origin] || null : null;
+    // Storage that is not saving is said in every state, the empty one included (JEG-1261).
+    const saving = canSave(o.loadStatus, o.saveStatus);
+    const storageState = !saving && o.loadStatus === "unavailable" && o.saveStatus !== "full" ? "unavailable" : o.saveStatus;
+    const storage = teams.length || !saving ? (STORAGE[storageState] || STORAGE.idle) : null;
+    const origin = teams.length && o.origin && Object.prototype.hasOwnProperty.call(ORIGIN, o.origin) ? ORIGIN[o.origin] : null;
 
     const counts = {teams: teams.length, players, notEvaluated, emptyTeams: emptyTeams.length};
     const countText = teams.length ? `${plural(teams.length, "team")} · ${plural(players, "player")}` : "";
@@ -120,7 +122,7 @@
     // The collapsed line: counts, the star and the saved state. Nothing here is a value or a rank.
     const summary = teams.length
       ? [countText, mine.state === "marked" ? mine.text : mine.state === "removed" ? "Your team was removed" : "No team marked", storage ? storage.text : null].filter(Boolean).join(" · ")
-      : headline;
+      : [headline, storage ? storage.text : null].filter(Boolean).join(" · ");
 
     const facts = teams.length ? [
       {id: "teams", label: "Teams", value: String(teams.length)},
@@ -128,11 +130,13 @@
       {id: "mine", label: "Your team", value: marked ? marked.name : "Not marked"},
       origin ? {id: "origin", label: "Came from", value: origin} : null,
       storage ? {id: "storage", label: "Saved", value: storage.text} : null
-    ].filter(Boolean) : [];
+    ].filter(Boolean) : storage ? [{id: "storage", label: "Saved", value: storage.text}] : [];
 
     const notes = [];
     if (state === "loading") notes.push("Player values are still loading. Counts above are from your saved rosters.");
-    if (state === "empty") notes.push("Paste your league's rosters page, or add a team and fill it. It saves on this device.");
+    // The "saves on this device" promise only while the store can save (JEG-1261).
+    if (state === "empty") notes.push(saving ? "Paste your league's rosters page, or add a team and fill it. It saves on this device."
+      : "Paste your league's rosters page, or add a team and fill it. This browser won't keep it after you leave, so use Download to keep a copy.");
 
     return {state, title: teams.length ? (ws.name || "Your league") : "Your league", headline, summary, counts, myTeam: marked ? {id: marked.id, name: marked.name} : null,
       mine, storage, origin, facts, issues, notes};
@@ -160,7 +164,10 @@
     mounts += 1;
     const base = o.id || `v2LgStatus${mounts}`;
     let expanded = o.expanded !== false;
+    // The origin belongs to the league it was set for (by workspace id): a replace with another league drops it, a
+    // replace of the same league (new settings) keeps it, and Undo restores the one it snapshotted with setOrigin.
     let origin = null;
+    let originFor = null;
     let lastMine = null;
     let removedMine = null;
     let lastSummary = null;
@@ -203,13 +210,14 @@
     function input(reason) {
       const ws = store ? store.get() : null;
       const parsed = typeof o.parsed === "function" ? o.parsed() : null;
-      // An empty league has no origin: teams added by hand afterwards were not read from anywhere.
-      origin = ws && ws.teams.length ? originFor(origin, reason) : null;
+      // An empty league has no origin: teams added by hand afterwards were not read from anywhere. Otherwise the
+      // origin is only what the caller set; no change reason sets it.
+      if (!ws || !ws.teams.length || ws.id !== originFor) origin = null;
       const marked = ws && ws.teams.find(t => t.id === ws.myTeamId);
       // A starred team that leaves the league (Remove, Clear all) is named once. A new league from a file, a link or
       // the saved copy is not a removal. The store may report a save before the change itself, so this keys off the
       // team's id being gone, not the change reason.
-      if (reason === "load" || reason === "replace") { removedMine = null; lastMine = null; }
+      if (reason === "load" || reason === "replace" || reason === "mount") { removedMine = null; lastMine = null; }
       if (marked) { lastMine = {id: marked.id, name: marked.name}; removedMine = null; }
       else if (lastMine && ws && !ws.teams.some(t => t.id === lastMine.id)) { removedMine = lastMine; lastMine = null; }
       else lastMine = null;
@@ -219,6 +227,12 @@
     }
     let model = null;
     function update(reason) { model = describe(input(reason)); paint(model); return model; }
+    function setOrigin(kind) {
+      const ws = store ? store.get() : null;
+      origin = kind && Object.prototype.hasOwnProperty.call(ORIGIN, kind) ? kind : null;
+      originFor = origin && ws ? ws.id : null;
+      return update("origin");
+    }
     function setExpanded(open) {
       expanded = Boolean(open);
       if (model) paint(model);
@@ -238,12 +252,13 @@
     const offs = [];
     if (store && store.onChange) offs.push(store.onChange((ws, change) => update(change && change.reason)));
     if (store && store.onStatus) offs.push(store.onStatus(() => update("status")));
-    update("load");
-    return {update, setExpanded, isExpanded: () => expanded, model: () => model, node: card, toggle,
+    if (o.origin) setOrigin(o.origin);
+    else update("mount");
+    return {update, setOrigin, origin: () => origin, setExpanded, isExpanded: () => expanded, model: () => model, node: card, toggle,
       destroy() { offs.forEach(off => { if (typeof off === "function") off(); }); card.remove(); }};
   }
 
-  const api = {describe, originFor, mount, STORAGE, ORIGIN};
+  const api = {describe, storedOrigin, mount, STORAGE, ORIGIN};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueLeagueStatus = api;
 })(typeof window !== "undefined" ? window : globalThis);

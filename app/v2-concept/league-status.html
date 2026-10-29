@@ -130,7 +130,7 @@
   card("Partial paste", function () {
     var ws = league("Office league", TWELVE.slice(0, 10).concat([{name: "Late Adds", n: 0}]));
     var parsed = {teams: ws.teams.map(function (t, i) { return {name: t.name, count: t.entries.length, unmatched: i === 2 ? ["J. Smth WR", "Jon Doe (IR)"] : [], unsure: i === 5 ? 1 : 0}; }), skipped: 0, source: "Read"};
-    return {store: storeFrom(), parsed: function () { return parsed; }, after: function (st, m) { st.replace(ws, "add"); m.update("paste"); }};
+    return {store: storeFrom(), parsed: function () { return parsed; }, after: function (st, m) { st.replace(ws, "add"); m.setOrigin("paste"); }};
   }, {id: "lsPartial"});
 
   card("Two teams with the same name", function () {
