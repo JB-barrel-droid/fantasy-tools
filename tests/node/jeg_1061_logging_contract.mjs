@@ -2,7 +2,8 @@
 // limiter as a soft per-instance guard, and log fresh custom-league computes and rate-limited requests.
 // This harness runs the handler itself (supabase/functions/get-values/index.ts, read only) in node with
 // a stub Deno, a fetch that serves the built dist/ and refuses every other host, a frozen clock the
-// harness moves by hand, and a console that records every call. Each scenario imports a fresh module
+// harness moves by hand, and an output recorder (every console method and raw stdout/stderr write, from
+// just before the module import to the end of the scenario). Each scenario imports a fresh module
 // instance, so its limiter buckets and answer cache start empty.
 //
 // The contract (spec and hook proposal in tests/fixtures/jeg_1061_logging/README.md):
@@ -10,7 +11,9 @@
 //   default league;
 // - one `get_values.rate_limited` event per 429, `limit` "general" (30/min) or "compute" (10/min);
 // - events are one console call whose argument is a JSON object string (or the object), with only the
-//   whitelisted fields below; no IP, header, token, key or player data anywhere in the console output.
+//   whitelisted fields below. The recorded output must not contain any value of the request headers the
+//   harness sends (forwarded-for, authorization, apikey, cookie) or any player name from any answer the
+//   harness received in the run (numeric player keys are kept off events by the whitelist only).
 // The existing statuses (11th fresh compute in a minute from one key is a 429, 31st request is a 429,
 // cached answers and other keys still served) are checked too; a change there is a harness failure.
 //
@@ -100,7 +103,8 @@ export function checkScenario(name, calls, expected) {
     if (f && all.includes(f)) v("leak", `console output contains ${f === SENTINEL ? "a request header value" : "player data"}`);
   }
 
-  const events = calls.map((c) => parseEvent(c.args)).filter(Boolean);
+  const events = calls.filter((c) => c.level !== "stdout" && c.level !== "stderr")
+    .map((c) => parseEvent(c.args)).filter(Boolean);
   const byName = { "get_values.compute": [], "get_values.rate_limited": [] };
   events.forEach((e) => {
     if (!EVENT_NAMES.includes(e.event)) v("unknown-event", `event name ${JSON.stringify(e.event)}`);
@@ -142,7 +146,7 @@ function selfTest() {
   const exp = {
     compute: [{ scoring: "ppr", teams: 12, superflex: 0, custom: ["bso"], charts: false }, { custom: ["bso"] }],
     rate_limited: [{ limit: "compute", max: 10, window_s: 60, custom: ["bso"] }, { limit: "general", max: 30 }],
-    forbidden: ["Josh Allen"],
+    forbidden: ["Josh Allen", "Ja'Marr Chase"],
   };
   const good = [c(compute), { level: "info", args: ["unrelated text is fine"] }, c(cached), c(limited), c(general)];
   const failures = [];
@@ -162,6 +166,10 @@ function selfTest() {
     ["header value leaked in free text", [...good, { level: "log", args: ["key", "jeg1258-client-a"] }], "leak"],
     ["token leaked in an error", [...good, { level: "error", args: [new Error("Bearer jeg1258-token-sentinel")] }], "leak"],
     ["player name in the log", [c({ ...compute }), { level: "log", args: [{ top: "Josh Allen" }] }, good[2], good[3], good[4]], "leak"],
+    ["late-listed player name in the log", [...good, { level: "warn", args: ["slow league for Ja'Marr Chase"] }], "leak"],
+    ["player name via console.table", [...good, { level: "table", args: [[{ who: "Ja'Marr Chase" }]] }], "leak"],
+    ["header value in a raw stderr write", [...good, { level: "stderr", args: ["jeg1258-apikey-sentinel\n"] }], "leak"],
+    ["event only as a raw stdout write", [{ level: "stdout", args: [JSON.stringify(compute)] }, good[2], good[3], good[4]], "compute.count"],
     ["missing required field", [c({ ...compute, custom: undefined }), good[2], good[3], good[4]], "compute[0].fields"],
     ["wrong field type", [c({ ...compute, teams: "12" }), good[2], good[3], good[4]], "compute[0].fields"],
     ["charts misreported", [c({ ...compute, charts: true }), good[2], good[3], good[4]], "compute[0].charts"],
@@ -234,15 +242,31 @@ async function main() {
   };
   globalThis.Deno = { env: { get: () => undefined }, serve: (h) => { globalThis.__jeg1258Handler = h; } };
 
-  // Console capture: every call during a scenario is recorded and kept off stdout.
-  const levels = ["log", "info", "warn", "error", "debug"];
-  const real = Object.fromEntries(levels.map((l) => [l, console[l]]));
+  // Output capture, from just before each module import to the end of its scenario: every function on
+  // console (log, info, warn, error, debug, trace, dir, table, assert, ...) and every raw stdout/stderr
+  // write is recorded and kept off the real output. Console calls can be events; raw writes are only
+  // read by the leak scan.
+  const methods = Object.keys(console).filter((k) => typeof console[k] === "function");
+  const real = Object.fromEntries(methods.map((m) => [m, console[m]]));
+  const realWrite = { stdout: process.stdout.write, stderr: process.stderr.write };
   let calls = null;
   const capture = () => {
     calls = [];
-    for (const l of levels) console[l] = (...args) => { calls.push({ level: l, args }); };
+    for (const m of methods) console[m] = (...args) => { calls.push({ level: m, args }); };
+    for (const s of ["stdout", "stderr"]) {
+      process[s].write = (chunk, ...rest) => {
+        calls.push({ level: s, args: [String(chunk)] });
+        const cb = rest.find((r) => typeof r === "function");
+        if (cb) cb();
+        return true;
+      };
+    }
   };
-  const release = () => { for (const l of levels) console[l] = real[l]; const c = calls; calls = null; return c; };
+  const release = () => {
+    for (const m of methods) console[m] = real[m];
+    for (const s of ["stdout", "stderr"]) process[s].write = realWrite[s];
+    const c = calls; calls = null; return c;
+  };
 
   const indexUrl = pathToFileURL(join(fnDir, "index.ts")).href;
   async function freshHandler(name) {
@@ -257,9 +281,18 @@ async function main() {
   const post = (h, who, body) => h(new Request(fnUrl, {
     method: "POST", headers: { ...headers(who), "content-type": "application/json" }, body: JSON.stringify(body) }));
   const get = (h, who, query) => h(new Request(`${fnUrl}?${query}`, { headers: headers(who) }));
+  // Every player name in every answer; none may reach the output. player_key is a bare number, so a
+  // substring scan for it would trip on ordinary numbers (ms, limits); the field whitelist keeps it off
+  // events, but a numeric key in free text is not detected.
+  const forbidden = new Set();
   const expectStatus = async (label, res, status) => {
     must(res.status === status, `${label}: expected HTTP ${status}, got ${res.status}`);
-    return status === 204 ? null : res.json();
+    if (status === 204) return null;
+    const body = await res.json();
+    for (const p of Array.isArray(body.players) ? body.players : []) {
+      if (typeof p.name === "string" && p.name.length >= 4) forbidden.add(p.name);
+    }
+    return body;
   };
   const limitedBody = (label, body) => must(body.error === "rate limited" && body.retry_after_seconds === 60,
     `${label}: 429 body changed: ${JSON.stringify(body)}`);
@@ -269,15 +302,12 @@ async function main() {
     return { scoring: body.setting.scoring, teams: body.setting.teams, superflex: body.setting.superflex,
       custom: body.league_custom, charts };
   };
-  const forbidden = new Set(); // player names seen in answers; none may reach the console
-  const notePlayers = (body) => { for (const p of (body.players || []).slice(0, 5)) if (p.name) forbidden.add(p.name); };
 
   const scenarios = [
     ["fresh-custom", async (h) => {
       // Two fresh custom-league computes: one plain, one with include=charts and superflex.
       let b = await expectStatus("custom ppr", await post(h, "a", { scoring: "ppr", teams: 12, league: { bso: 0.2 } }), 200);
       must(sameList(b.league_custom, ["bso"]), `custom ppr: league_custom ${JSON.stringify(b.league_custom)}`);
-      notePlayers(b);
       const compute = [computeOf(b, false)];
       b = await expectStatus("custom charts", await post(h, "a",
         { scoring: "half_ppr", teams: 10, superflex: 1, include: "charts", league: { bso: 0.2, conf: 1.5 } }), 200);
@@ -300,7 +330,6 @@ async function main() {
       // The default league is never a custom compute, cached or not; bad input is a 400 with no event.
       let b = await expectStatus("default POST", await post(h, "c", { scoring: "ppr", teams: 12 }), 200);
       must(b.league_custom.length === 0, "default POST: league_custom not empty");
-      notePlayers(b);
       await expectStatus("default GET", await get(h, "c", "scoring=half_ppr&teams=10"), 200);
       b = await expectStatus("garbage league GET", await get(h, "c", "league=%7Bnot-json"), 200);
       must(b.league_custom.length === 0, "garbage league GET: league_custom not empty");
@@ -343,10 +372,9 @@ async function main() {
 
   const results = [];
   for (const [name, run] of scenarios) {
-    const h = await freshHandler(name);
     capture();
     let exp;
-    try { exp = await run(h); } finally { results.push({ name, calls: release(), exp }); }
+    try { exp = await run(await freshHandler(name)); } finally { results.push({ name, calls: release(), exp }); }
   }
   globalThis.Date = RealDate;
 
@@ -354,7 +382,7 @@ async function main() {
   for (const r of results) violations.push(...checkScenario(r.name, r.calls, { ...r.exp, forbidden: [...forbidden] }));
   for (const r of results) {
     const mine = violations.filter((x) => x.startsWith(`${r.name}/`));
-    console.log(`${mine.length ? "FAIL" : "PASS"} ${r.name} (${r.calls.length} console calls)`);
+    console.log(`${mine.length ? "FAIL" : "PASS"} ${r.name} (${r.calls.length} output calls)`);
   }
   for (const x of violations) console.log(`  ${x}`);
 

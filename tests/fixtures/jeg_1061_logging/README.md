@@ -9,7 +9,7 @@ Files:
 
 - `tests/node/jeg_1061_logging_contract.mjs`: the harness (runs `supabase/functions/get-values/index.ts`
   read only, in node, with a stub Deno, the built `dist/` served in place of the site, every other host
-  refused, a frozen clock moved by hand, and a recording console; one fresh module instance per
+  refused, a frozen clock moved by hand, and an output recorder; one fresh module instance per
   scenario).
 - `tests/test_jeg_1061_logging_contract.py`: the offline wrapper (self-test, plus the handler in strict
   expected-failure mode).
@@ -20,8 +20,13 @@ Files:
 
 ## The contract
 
-Each event is one console call (any level) whose single argument is a JSON object string, or the object
-itself, with `event` starting `get_values.`. Free text is allowed but carries no events.
+Each event is one console call (any console method) whose single argument is a JSON object string, or
+the object itself, with `event` starting `get_values.`. Free text is allowed but carries no events.
+
+What the harness records: every function on `console` (log, info, warn, error, debug, trace, dir,
+table, assert and the rest) and every raw `process.stdout`/`process.stderr` write, from just before each
+scenario's module import to the end of that scenario. Raw writes are scanned for leaks but never count
+as events.
 
 | Event | When | Fields (all required unless marked) |
 | --- | --- | --- |
@@ -30,9 +35,13 @@ itself, with `event` starting `get_values.`. Free text is allowed but carries no
 | `get_values.rate_limited`, `limit: "compute"` | the 10/min per-key fresh-compute 429 | `limit`, `max` (10), `window_s` (60), `scoring`, `teams`, `superflex`, `custom`, `charts`, `week` optional |
 
 No other fields. No compute event for a cached answer, the default league, a 400, a 429 or a preflight.
-No request header value (IP or forwarded-for entry, authorization, apikey, cookie) and no player name
-anywhere in the console output; the harness sends sentinel values in every one of those headers, and no
-fixture contains an IP, token, key or roster/person data.
+
+Leak guarantee, as tested: the recorded output contains no value of the request headers the harness
+sends (forwarded-for entries, authorization, apikey, cookie, all sentinel values) and no player name from
+any answer the harness received in the run (every name of 4+ characters in every answer, collected
+before the scan). Numeric `player_key` values are not scanned as text, since they would match ordinary
+numbers such as `ms`; the field whitelist keeps them off events, but a bare numeric key in free text is
+not detected. No fixture contains an IP, token, key or roster/person data.
 
 Statuses the harness also holds (a change is a harness failure, exit 2, not a contract result): 10 fresh
 computes from one key pass and the 11th in the minute is a 429 `{error: "rate limited",
@@ -95,4 +104,7 @@ above, so a partial or wrong hook fails it, and so does a hook landing without t
 Mutations checked by hand against scratch copies (all caught): compute limit raised to 11 and general
 limit raised to 31 (harness failure, exit 2); hook logging default-league computes, logging cache hits,
 adding the client key as an `ip` field, and labeling the compute 429 as `general` (exit 1, named
-violations). The self-test covers 17 log-level mutations without the handler.
+violations). Added in the review iteration: a hook that prints the last-listed player's name with
+`console.warn`, a player name with `console.table`, the client key with a raw `stderr` write, and an
+event logged at module import are each caught (exit 1). The self-test covers 21 log-level mutations
+without the handler.
