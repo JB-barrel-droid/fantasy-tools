@@ -334,7 +334,7 @@
       if (back) {
         back.focus();
         if (caret !== null && back.setSelectionRange) back.setSelectionRange(caret, caret);
-      } else if (focusTitle || key) container.querySelector("#vfTitle").focus();   // the control it had is gone (Show more, all shown)
+      } else if (focusTitle || active) container.querySelector("#vfTitle").focus();   // the focused node was redrawn or is gone (Show more, all shown)
       return current;
     }
     update(false);

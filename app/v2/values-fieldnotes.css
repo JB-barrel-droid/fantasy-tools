@@ -70,7 +70,8 @@
 .values-fieldnotes .vf-note { font-size: var(--ddf-type-meta, 12px); line-height: 1.3; border: 1px solid var(--ddf-line, var(--v2-border)); border-radius: var(--ddf-radius-pill, 999px); padding: 1px 6px; color: var(--ddf-muted, var(--v2-muted)); }
 
 /* Desktop table. */
-.values-fieldnotes .vf-tablewrap { overflow-x: auto; max-width: 100%; }
+/* position: relative keeps the absolutely placed screen-reader text inside the scrolling box, so it cannot widen the page. */
+.values-fieldnotes .vf-tablewrap { position: relative; overflow-x: auto; max-width: 100%; }
 .values-fieldnotes .vf-table { width: 100%; border-collapse: collapse; }
 .values-fieldnotes .vf-table th, .values-fieldnotes .vf-table td { padding: 8px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--ddf-line, var(--v2-border)); }
 .values-fieldnotes .vf-group-row th { font-size: var(--ddf-type-meta, 12px); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ddf-muted, var(--v2-muted)); border-bottom: 0; padding-bottom: 0; }

@@ -34,6 +34,12 @@ The existing chart card is unchanged and stays where it is (pick logged in the p
 - jsdom smoke (scratch, not committed): mount, sort keeps focus, search keeps focus, empty then Clear returns focus to the
   title, position filter, Rank by, Show more, Details callback, missing reason and 0.0, loading / unavailable / mixed.
 
+- CI run 40915263348 (head dddb3e9), render test: 7 failures, three causes, fixed in the next commit. (1) Desktop page
+  scrolled sideways (1357 > 1280): the table's absolutely placed screen-reader text escaped the scrolling wrapper; the
+  wrapper is now `position: relative`. (2) Focus fell to the page body when the title had focus and the component
+  redrew; it now returns to the title. (3) The test's expected number used Python rounding (70.25 -> 70.2); the page's
+  `toFixed` gives 70.3, which the component showed. The test now rounds as `toFixed` does (5,237 values compared, 0 differ).
+
 ### Claimed, not confirmed
 - The render test was not run in this session: the cloud container has no browser and browser downloads are disabled
   here. It runs in the new workflow with `RENDER_TESTS_REQUIRED=1`; its result and screenshots are on the PR and the ticket.

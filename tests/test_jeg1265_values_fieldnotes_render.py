@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import decimal
 import functools
 import http.server
 import json
@@ -101,7 +102,9 @@ def fmt(v):
     """v2.js fmt(), for the expected text (the harness proves the component's copy equals v2.js itself)."""
     if not isinstance(v, (int, float)) or v != v or v in (float("inf"), float("-inf")):
         return "—"
-    text = f"{v:.1f}"
+    # Number.prototype.toFixed rounds the exact binary value half away from zero (70.25 -> "70.3"); Python's format
+    # rounds half to even, so the expected text is rounded with Decimal instead.
+    text = str(decimal.Decimal(v).quantize(decimal.Decimal("0.1"), rounding=decimal.ROUND_HALF_UP))
     return "0.0" if text == "-0.0" else text.replace("-", "−")
 
 
@@ -295,6 +298,7 @@ class ValuesFieldnotesRenderTest(unittest.TestCase):
                 page.keyboard.press("Enter")
                 self.assertEqual(page.get_attribute("#vfRoot", "data-state"), "ready")
                 self.assertEqual(page.evaluate("document.activeElement.id"), "vfTitle", "after clearing, focus returns to the title")
+                page.focus("#vfPosition")
                 page.select_option("#vfPosition", "TE")
                 self.assertTrue(page.inner_text("#vfMeta").startswith("7 players"))
                 self.assertEqual(page.evaluate("document.activeElement.id"), "vfPosition")
