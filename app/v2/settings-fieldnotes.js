@@ -3,7 +3,7 @@
 // Jeremy, 2026-10-29 (JEG-1140): "JEG-1140 can prepare isolated Settings components, with final integration following the
 // shared foundation. Reuse the approved copy and design; don't request those approvals again." The design is the Fieldnotes
 // Settings screen (JEG-1209, docs/design/jeg-1209-fieldnotes/prototype.html settings()); the value explanations use the
-// JEG-1212 source framework (DDF Value and DDF Projections are outputs; Projections, Published charts and Observed-trade
+// JEG-1212 source framework (DDF Value and DDF Value (projections) are outputs; Projections, Published charts and Observed-trade
 // estimates are input categories, with no publisher names in a category or a definition).
 //
 // Presentation only. No value math, no storage, no engine calls. Export, Import, Copy link, overrides and the selected-league
@@ -71,7 +71,7 @@
     valuesLead: "Three explanations, with no universal winner.",
     views: [
       ["ddf-value", "DDF Value", "The main value for your chosen basis. The default combines league-adjusted published charts and an observed-trade estimate."],
-      ["ddf-projections", "DDF Projections", "Forecast production converted into league-specific trade-value points, averaged across available projection inputs. Not projected fantasy points."],
+      ["ddf-projections", "DDF Value (projections)", "Forecast production converted into league-specific trade-value points, averaged across available projection inputs. Not projected fantasy points."],
       ["combined", "Combined comparison", "The current combined comparison uses published charts and an observed-trade estimate on the comparison scale. It is not a prediction of acceptance."]
     ],
     points: "A value of 60 means 60 trade-value points under the shown recipe and your league settings. It is not 60 projected fantasy points, dollars or a 60% chance of acceptance. Zero is at or below the waiver line; a missing value is unavailable, never zero.",

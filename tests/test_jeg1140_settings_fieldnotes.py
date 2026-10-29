@@ -4,7 +4,7 @@ Runs tests/settings_fieldnotes_logic.cjs under node and checks:
 
 1. The view model for every fixture state: loading, error, ready, no team, empty league, missing counts and settings,
    storage unavailable or full, long names. A count or setting that is not known reads Unavailable, never 0.
-2. The explanations use the JEG-1212 terms (DDF Value, DDF Projections; Projections, Published charts, Observed-trade
+2. The explanations use the JEG-1212 terms (DDF Value, DDF Value (projections), the canonical JEG-1081 view name; Projections, Published charts, Observed-trade
    estimates) and name no publisher; nothing claims a platform account or connection.
 3. The local-data contracts Settings presents are unchanged and round-trip: the league file (TradeValueWorkspace
    exportJson -> importJson) and the league link (shareHash -> decodeShare, read the way league.js reads it), including
@@ -122,7 +122,7 @@ class ViewModel(unittest.TestCase):
 class Terminology(unittest.TestCase):
     def test_jeg1212_terms(self):
         vm = results()["vm"]["ready"]["values"]
-        self.assertEqual([v["title"] for v in vm["views"]], ["DDF Value", "DDF Projections", "Combined comparison"])
+        self.assertEqual([v["title"] for v in vm["views"]], ["DDF Value", "DDF Value (projections)", "Combined comparison"])
         self.assertEqual([c["name"] for c in vm["sources"]["categories"]], ["Projections", "Published charts", "Observed-trade estimates"])
         self.assertIn("never zero", vm["points"])
         self.assertIn("not a prediction of acceptance", vm["views"][2]["body"])

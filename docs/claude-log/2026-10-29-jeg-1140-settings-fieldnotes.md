@@ -47,3 +47,6 @@ New files:
   label now fails on the old name (checked) and passes.
 - Red, fixed (test scaffolding): the built-page tests mounted their host as a direct child of body, which v2.css hides
   (`body.v2 > :not(.v2-app)`), so no button was visible. The host now goes inside `.v2-app`. Not confirmed until CI reruns.
+- Red, fixed (preview-shard 1, head 670b9fe): `tests.test_v2_copy_names` (JEG-1081) bars the retired name "DDF Projections"
+  from every user-visible string in app/v2. The projections view is "DDF Value (projections)" (Jeremy's pick C, Oct 28,
+  and the finder's own label), so Settings now uses it. `tests.test_v2_copy_names` and the JEG-1140 node checks pass locally.
