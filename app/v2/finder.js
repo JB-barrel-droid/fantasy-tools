@@ -982,6 +982,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
   const mineListeners = [];
   // JEG-1219: the matchup is view context. League/Waivers keep the marked roster; neither finder side writes it.
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
+  // JEG-1114: which saved settings this tab last took, and whether an opened link's settings hold this tab. Another tab's
+  // unrelated write (a rename, the star) carries the same saved settings and must not re-apply them or clear the results;
+  // while a link holds the tab, no other-tab pull replaces its settings until the reader changes one here.
+  const settingsKey = settings => JSON.stringify(settings);
+  let seenSettings = null;
+  let linkHolds = false;
   const savedSettings = () => {
     const W = root.TradeValueWorkspace;
     return W && W.store ? W.normalizeFinderSettings(W.store.get().ui.finderSettings) : null;
@@ -1011,6 +1017,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const W = root.TradeValueWorkspace;
     if (!W || !W.store) return;
     const value = W.normalizeFinderSettings({...S.guardrails, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs});
+    linkHolds = false;
+    seenSettings = settingsKey(value);
     W.store.update(w => W.ops.setUi(w, {finderSettings: value}), "finder-settings");
   };
   let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
@@ -1193,6 +1201,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
     const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
     linkPending = hasRosters;
+    // Jeremy's option A: the opened link wins, including across tabs. Its trade settings become the saved ones, so other
+    // tabs follow them; its rosters stay this tab's working copy (JEG-1219: no finder side writes a League roster).
+    saveSettings();
+    linkHolds = true;
     return decoded;
   }
   // The "Copy link to this search" button: both rosters, the package size, the lineup ticks and the league settings.
@@ -2510,11 +2522,17 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       pullMine();
       updateSavedTeamPicker();
       if (!["load", "replace", "other-tab"].includes(change.reason)) return;
-      applySettings(root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings));
+      const incoming = root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings);
+      const key = settingsKey(incoming);
+      if (key === seenSettings) return;
+      seenSettings = key;
+      if (linkHolds && change.reason === "other-tab") return;
+      linkHolds = false;
+      applySettings(incoming);
       if ($("v2FindOut")) clearOutput();
     });
   }
-  const start = () => { restoreRosterCopy(); applySettings(savedSettings()); build(); pullMine(); if (rosterCopy) renderBoth(); updateSavedTeamPicker(); };
+  const start = () => { restoreRosterCopy(); const saved = savedSettings(); if (saved) seenSettings = settingsKey(saved); applySettings(saved); build(); pullMine(); if (rosterCopy) renderBoth(); updateSavedTeamPicker(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);
