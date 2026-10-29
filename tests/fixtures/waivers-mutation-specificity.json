@@ -1,0 +1,243 @@
+{
+  "ticket": "JEG-1279",
+  "about": "Each mutant of tests/test_waivers_render.py::test_guard_fails_on_broken_builds (mirrored; tests/test_waivers_mutation_specificity.py compares them with the suite's source), the diagnostic its own check must report (regex, whole line after the [Npx] tag, at every width listed), the consequences of the same breakage that may also appear (each with a reason), and the verdict expected at audited main 430791c4. A designated or consequence pattern never accounts for a page error.",
+  "viewports": [
+    [
+      1366,
+      768
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "mutants": {
+    "no headline text": {
+      "file": "waivers.js",
+      "find": "setText(headline.querySelector(\"b\"), text);",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "headline reads 'Values are still loading\\.(\\\\n.*)?'"
+        }
+      ],
+      "consequences": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "empty tab headline 'Values are still loading\\.'",
+          "why": "the empty-tab check reads the same <b>; with setText removed it keeps the shell's placeholder"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no card layout": {
+      "file": "waivers.css",
+      "find": "#v2Waivers .v2-wv-tablewrap { display: none; }",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "phone layout: table True cards True count \\d+"
+        }
+      ],
+      "consequences": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "sideways scroll \\d+px",
+          "why": "the ten-column table shown at 390 px is wider than the screen"
+        },
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[(?:\"button#\\. '[^'\"]+' \\d+x\\d+\"(?:, )?)+\\]",
+          "why": "the table's header sort buttons (no id, no class, 32 px tall) become visible at phone width; only those may be listed"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no aria-sort": {
+      "file": "waivers.js",
+      "find": "th.setAttribute(\"aria-sort\", S.sort.dir === \"asc\" ? \"ascending\" : \"descending\");",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "aria-sort after one click: \\[\\]"
+        }
+      ],
+      "expect": {
+        "kind": "harness",
+        "exception": "TimeoutError",
+        "message": "Page\\.click: Timeout \\d+ms exceeded\\.[\\s\\S]*th\\[data-col=\\\\?\\\"ddf\\\\?\\\"\\] button",
+        "defect": "JEG-1282",
+        "why": "The anchor removes only the statement after `if (S.sort.key === col.id)`, so that `if` now guards the `if (col.sort) {...}` block that creates the header buttons. Only the sorted column keeps its button, the DDF Value click waits 30 s and raises, and the suite counts the exception as a kill. The variant 'no aria-sort, whole statement' shows the designated check does catch missing aria-sort."
+      }
+    },
+    "dashes sorted first": {
+      "file": "waivers.js",
+      "find": "return nx ? 1 : -1;   // dashes last, whichever way",
+      "replace": "return nx ? -1 : 1;",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value descending, dashes last: \\[None, .*\\]"
+        },
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value ascending, dashes last: \\[\\['ddf', 'ascending'\\]\\] \\[None, .*\\]"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "settings listener removed": {
+      "file": "waivers.js",
+      "find": "document.addEventListener(\"ddf:league-settings-changed\", onLeagueSettingsChanged);",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "the league-settings event did not redraw the tab"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no grid role": {
+      "file": "waivers.js",
+      "find": "role: \"grid\", ",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "table role None labelled by v2WaiversHeadline"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "remove buttons 20 px tall": {
+      "file": "waivers.css",
+      "find": "#v2Waivers .v2-wv-remove { min-height: 44px; min-width: 44px; padding: 0 8px; }",
+      "replace": "#v2Waivers .v2-wv-remove { min-height: 20px; min-width: 20px; padding: 0 2px; }",
+      "designated": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[(?:\"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\"(?:, )?)+\\]"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no verdict text": {
+      "file": "waivers.js",
+      "find": "\"data-verdict\": VERDICT_CLASS[r.verdict], text: r.verdict});",
+      "replace": "\"data-verdict\": VERDICT_CLASS[r.verdict]});",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "verdict cells \\[.*''.*\\]"
+        }
+      ],
+      "expect": {
+        "kind": "harness",
+        "exception": "ValueError",
+        "message": "^'' is not in list$",
+        "defect": "JEG-1282",
+        "why": "check() appends the 'verdict cells' diagnostic and on the next line ranks the verdicts with order.index(v), which raises ValueError for an empty cell. run_checks never returns the list, and the suite counts the exception as a kill.",
+        "no_variant": "Any mutant that changes the verdict text to something outside the six verdict names hits the same order.index crash, so no production-source mutant can return the designated diagnostic until that line skips unknown verdicts."
+      }
+    }
+  },
+  "variants": {
+    "no aria-sort, whole statement": {
+      "stands_in_for": "no aria-sort",
+      "file": "waivers.js",
+      "find": "if (S.sort.key === col.id) th.setAttribute(\"aria-sort\", S.sort.dir === \"asc\" ? \"ascending\" : \"descending\");",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "aria-sort after one click: \\[\\]"
+        }
+      ],
+      "consequences": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value ascending, dashes last: \\[\\] \\[.*\\]",
+          "why": "the ascending check also compares aria-sort, which is still missing after the second click"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      },
+      "why": "The fix proposed in JEG-1282: remove the whole `if (...) th.setAttribute(...)` statement, so the header buttons are still built."
+    }
+  },
+  "injections": {
+    "browser unavailable": {
+      "mutant": "no headline text",
+      "how": "CHROMIUM_PATH points at a plain text file, so Chromium cannot launch; run once with RENDER_TESTS_REQUIRED=1 (RuntimeError) and once without (SkipTest)."
+    },
+    "navigation timeout": {
+      "mutant": "no grid role",
+      "how": "waivers.js polls the page every 100 ms, so page.goto never reaches networkidle and times out.",
+      "append": "setInterval(function () { fetch(location.pathname + \"?jeg1279-poll=\" + Date.now(), {cache: \"no-store\"}).catch(function () {}); }, 100);"
+    },
+    "unrelated page error": {
+      "mutant": "settings listener removed",
+      "marker": "JEG-1279 injected unrelated page error",
+      "how": "waivers.js throws from a timer after the module has run.",
+      "append": "setTimeout(function () { throw new Error(\"JEG-1279 injected unrelated page error\"); }, 0);"
+    },
+    "unrelated diagnostic": {
+      "mutants": [
+        "no headline text",
+        "no grid role"
+      ],
+      "judged_as": "no headline text",
+      "unrelated": "no grid role",
+      "how": "Two real mutants at once, judged as the first: the second one's diagnostic is unrelated to it."
+    }
+  }
+}
