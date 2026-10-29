@@ -48,7 +48,8 @@ jobs:
   v2-render:
     runs-on: ubuntu-latest
     # JEG-1169: 15 minutes was used up by an 11-minute browser install.
-    timeout-minutes: 25
+    # JEG-1178: 35 with the week selector render test added (the run was about 13 minutes before it).
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v4
         with:
@@ -79,3 +80,7 @@ jobs:
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+      # JEG-1178: the week selector at 0/43/57/100% coverage (390 and 1366x768), contributed-week labels,
+      # the Thursday 12:00 CT stale badge and the wk= link round trip, both clocks pinned; plus the no-browser
+      # stale-deadline boundary test (CDT and CST).
+      - run: python3 -m unittest tests.test_week_stale_deadline tests.test_week_selector_render
