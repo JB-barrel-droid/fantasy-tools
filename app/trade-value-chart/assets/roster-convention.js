@@ -164,13 +164,14 @@
   /**
    * JEG-1047 (Jeremy, 2026-10-29: "A"): a projection source's waiver line is
    * the average of the 7 players around the first non-rostered seat.
-   * Twin of roster_convention.waiver_band_line.
+   * Twin of roster_convention.waiver_band_line. A zero seat is the band
+   * clipped at the top of the list (VP-2.3; JEG-1244).
    */
   var WAIVER_BAND_HALF_WIDTH = 3;
 
   function waiverBandLine(values, rostered, halfWidth) {
     var h = halfWidth == null ? WAIVER_BAND_HALF_WIDTH : halfWidth;
-    if (rostered <= 0 || values.length === 0) return null;
+    if (rostered < 0 || values.length === 0) return null;
     if (values.length <= rostered) return values[values.length - 1];
     var lo = Math.max(0, rostered - h), hi = Math.min(values.length, rostered + h + 1);
     var sum = 0;

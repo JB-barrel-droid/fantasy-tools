@@ -365,6 +365,13 @@ const BS = VP.benchShareApplied ?? VP.benchShare;
 const ES = VP.benchShare?.method === "expected-starts";
 const SCORING = {ppr: "Full PPR", half_ppr: "Half PPR", standard: "Standard"};
 const ROLE_NAME = {s: "starter", b: "bench", w: "waiver"};
+// JEG-1244: a projection's waiver line is the 7-player band around the seat
+// (VP-2.3, JEG-1047), so name the band, not one rank.
+const waiverSeat = (src, pos, x) => {
+  const n = x.rostered ?? 0, listed = x.listed ?? 0;
+  if (isChart(src) || listed <= n) return `${pos}${n + 1}`;
+  return `average of ${pos}${Math.max(0, n - 3) + 1} to ${pos}${Math.min(listed, n + 4)}`;
+};
 const store = {get(k, d) { try { return localStorage.getItem("ddfvl2:" + k) ?? d; } catch (e) { return d; } },
                set(k, v) { try { localStorage.setItem("ddfvl2:" + k, v); } catch (e) {} }};
 const weekOf = {};
@@ -702,7 +709,7 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
         const [nat, est, rank, role, v, bsl, ssl, A, Vd, Ix] = a;
         const rb = s.rates?.[pos + "|bench"], rs = s.rates?.[pos + "|starter"];
         chain = step(`${isChart(src) ? "Published" : "ppg"}${est ? " (estimated)" : ""} · ${pos}${rank} ${ROLE_NAME[role]}`, fmtN(nat))
-          + op("−") + step(`Waiver line (${pos}${(x.rostered ?? 0) + 1})`, fmtN(x.waiver)) + op("=") + step("v", fmtN(v))
+          + op("−") + step(`Waiver line (${waiverSeat(src, pos, x)})`, fmtN(x.waiver)) + op("=") + step("v", fmtN(v))
           + op("→") + (ES ? step("Fill-in part", fmtN(bsl)) + step(`Start-worthy part (line ${fmtN(x.starterLine)})`, fmtN(ssl))
                : step(`Bench slice (to ${fmtN(x.starterLine)})`, fmtN(bsl)) + step("Starter slice", fmtN(ssl)))
           + op("→") + step(`${sig(rb, 4)}×bench + ${sig(rs, 4)}×starter`, fmt(A, 2)) + op("=") + step("Adjusted", fmt(A), true)

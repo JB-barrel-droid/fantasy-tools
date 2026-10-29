@@ -190,8 +190,14 @@ def waiver_band_line(values: list[float], rostered: int,
                      half_width: int = WAIVER_BAND_HALF_WIDTH) -> float | None:
     """JEG-1047: mean of values[rostered - h .. rostered + h], clipped to the
     list. `values` sorted descending. Same short-list fallback as
-    waiver_line: with no player past the rostered count, the last value."""
-    if rostered <= 0 or len(values) == 0:
+    waiver_line: with no player past the rostered count, the last value.
+
+    A zero seat (rostered == 0, a position no team starts or benches) is the
+    band clipped at the top of the list, values[0 .. h], as VP-2.3 reads
+    ("indexes N_p - 3 through N_p + 3, clipped to the work list") and as the
+    engine's vpWaiverBand computes (JEG-1244). Only an empty list or a
+    negative count has no line."""
+    if rostered < 0 or len(values) == 0:
         return None
     if len(values) <= rostered:
         return values[-1]

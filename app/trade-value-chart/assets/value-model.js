@@ -225,8 +225,10 @@
 
   // JEG-1047 (Jeremy, 2026-10-29: "A"): a projection source's waiver line is
   // the mean of the 7 players around the first non-rostered seat (work[N]),
-  // clipped to the list. Twin of RosterConvention.waiverBandLine and
-  // roster_convention.waiver_band_line.
+  // clipped to the list (N = 0: the top up to 4). Its own copy, not a call to
+  // RosterConvention.waiverBandLine: tests/test_waiver_band_line.py checks this
+  // function through runValuePipeline against roster_convention.waiver_band_line,
+  // the Python reference and the spec reference (JEG-1244).
   var VP_WAIVER_BAND_HALF_WIDTH = 3;
   function vpWaiverBand(work, N) {
     var lo = Math.max(0, N - VP_WAIVER_BAND_HALF_WIDTH);

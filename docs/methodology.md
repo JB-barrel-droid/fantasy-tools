@@ -217,8 +217,11 @@ rules, except that only charts are filled in (VP-2.4).
      indexes `N_p - 3` through `N_p + 3`, clipped to the work list (the 7
      players around the first non-rostered seat; JEG-1047, Jeremy 2026-10-29,
      option A, so one fringe player's projection does not reprice the whole
-     position). The method is `roster_determined` when the player at `N_p` is
-     listed and `estimated` when he is an estimated player.
+     position). A zero seat (`N_p = 0`, no team starts or benches `p`) is the
+     same band clipped at the top: the mean of indexes 0 through 3 (JEG-1244;
+     engine, Python reference and spec reference alike). The method is
+     `roster_determined` when the player at `N_p` is listed and `estimated`
+     when he is an estimated player.
    - Else, if the work list is non-empty: `w_p` = its last value. The method
      is `insufficient_coverage`.
    - Else: `no_players`. The source does not price `p`.
