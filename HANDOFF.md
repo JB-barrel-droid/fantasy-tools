@@ -11,6 +11,10 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
+Since 2026-10-29 19:12 UTC Codex is out and Claude sessions review and merge:
+see "Review and merge protocol" in `AGENTS.md` (JEG-1218). Codex lane notes
+below are history, including any "Codex reviews and merges" line.
+
 ---
 
 ## Resume here
@@ -205,21 +209,8 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
   3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
      edge function vs engine for 185 players) is still open.
-- **JEG-1142 validation continuation (2026-10-28, Codex):** PR #1044, target branch
-  `be/jeg-1142-promotion-off-v2`; local candidate `be/jeg-1142-validation-ready`.
-  Includes author head `274f3126` and main `79b9b435`. Promotion/demotion stays
-  off in all three engines; expected-start and bench math are unchanged.
-  Contract CI failed because the probe clicked a player already in the sample;
-  the author's helper fix is retained and reproduced green. Composite CI failed
-  because its display-order guard disallowed exact-value ties with different
-  tiers; the corrected guard retains every VP-7.3 check and rejects strict
-  inversions. Independent reviews passed. Final make validate-base and both
-  current reference comparisons pass; full core checks completed in resumed
-  runs (see log for the initial environment error and corrected assertion).
-  **Next:** check CI on the updated PR head; the parent alone coordinates merge
-  and Pages verification. Do not close JEG-1142 before live switch and USO checks.
-  No edge deploy or JEG-1205 work here. Generated output is retained uncommitted.
-  Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
+- **JEG-1142** shipped via #1044 (`2e7a2c7`) on 2026-10-28; the ticket is
+  Done. Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
 - **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:37 UTC):** PR #1043, branch
   `fe/jeg-1134-context-phone-summary`, draft pending CI and parent review. Main `79b9b435` integrated by merge,
   preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
@@ -691,8 +682,8 @@ Known bugs (repro steps and history on each ticket):
   (endpoint parity red test). In Progress.
 - JEG-1135: render sweep red on main (overrides basis render test, shards).
   PR #1021 draft.
-- JEG-1142: promotion model demotion penalty applies to almost every starter.
-  In Review (needs Jeremy).
+- JEG-1142: promotion model switched off, shipped via #1044 on 2026-10-28.
+  Done.
 
 ---
 
@@ -702,7 +693,7 @@ Known bugs (repro steps and history on each ticket):
    week selector, PR #1012); JEG-1180 (D, stale flag, PR #1022).
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
-3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
+3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1134,
    JEG-955, JEG-956, JEG-903, JEG-1176, JEG-982. (JEG-894 and JEG-1101 are
    decided; PRs #969 and #970 merge on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
