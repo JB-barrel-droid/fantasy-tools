@@ -305,6 +305,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
+	# ROS rankings feed (JEG-1198/1303): isolation and ECR-exclusion guards.
+	python3 -m unittest tests.test_ros_rankings
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
