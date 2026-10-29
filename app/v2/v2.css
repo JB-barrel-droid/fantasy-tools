@@ -1640,6 +1640,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-481: Find a trade (finder.js). */
 .v2-find-side { position: relative; }
+.v2-find-saved-team { margin: 8px 0 12px; min-width: 0; }
+.v2-find-saved-team .v2-field { display: grid; gap: 6px; }
+.v2-find-saved-team select { width: 100%; min-width: 0; max-width: 100%; }
+.v2-find-saved-team p { margin: 6px 0; }
 .v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
 .v2-find-side .v2-trade-results { left: 0; right: 0; }
 #v2Find .v2-trade-sides { margin-top: 12px; }
@@ -2406,3 +2410,116 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-tabs { overscroll-behavior-x: contain; }
 #v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
 .v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }
+
+/* JEG-1137: Fieldnotes foundation (opt-in). Approved source: docs/design/jeg-1209-fieldnotes/recommendation.md
+   "Shared visual and interaction system" and prototype.html. Every rule below is scoped to
+   <html data-design="fieldnotes">, which app/v2/design-flag.js sets only for ?design=fieldnotes; without it the
+   default site above is unchanged. Roles map onto the existing --v2-* and --ddf-* names, so components follow
+   without edits. New names: --ddf-subtle, --ddf-control, --ddf-focus, --ddf-action-hover, --ddf-font-display,
+   --ddf-type-hero, --ddf-type-support, --ddf-line-body, --ddf-space-mid, --ddf-space-7, --ddf-page-pad-desktop,
+   --ddf-content-max, --ddf-radius-control, --ddf-motion-feedback, --ddf-ease. */
+@font-face {
+  /* Fraunces (SIL OFL 1.1, app/v2/fonts/FONT-LICENSE.txt): the variable Latin subset from the prototype, pinned to 600.
+     Only the Fieldnotes rules name it, so the default site never downloads it. */
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+/* JEG-1137 Fieldnotes tokens: light */
+:root[data-design="fieldnotes"] {
+  --v2-canvas: #F5F2EA; --v2-surface: #FFFDF8; --v2-ink: #182D27; --v2-muted: #52635C; --v2-border: #D4D8CD;
+  --v2-field-border: #79897F; --v2-action: #126044; --v2-action-ink: #FFFFFF; --v2-action-text: #126044;
+  --v2-action-strong: #126044; --v2-negative: #922F3E; --v2-older: #80500F; --v2-focus: #175BC1;
+  --ddf-canvas: #F5F2EA; --ddf-surface: #FFFDF8; --ddf-subtle: #EAE8DF; --ddf-line: #D4D8CD; --ddf-control: #79897F;
+  --ddf-ink: #182D27; --ddf-muted: #52635C; --ddf-action: #126044; --ddf-action-ink: #FFFFFF; --ddf-action-hover: #0D4E37;
+  --ddf-good-ink: #245D46; --ddf-bad-ink: #922F3E; --ddf-warn-ink: #80500F; --ddf-focus: #175BC1;
+  --ddf-neutral-tint: #EAE8DF; --ddf-neutral-ink: #182D27;
+  /* Type: Fraunces 600 for headings and answers only; system sans for controls and body. Body 16/1.5, support 14, meta 12. */
+  --ddf-font-display: "Fraunces", Georgia, serif;
+  --ddf-font-headline: var(--ddf-font-display);
+  --ddf-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ddf-type-hero: 52px; --ddf-type-body: 16px; --ddf-type-support: 14px; --ddf-type-meta: 12px; --ddf-line-body: 1.5;
+  /* Spacing 4/8/12/16/24/32/48/64: the existing steps plus 12 (mid) and 64 (7). Gutter 16 phone, 32 desktop; content 1184. */
+  --ddf-space-mid: 12px; --ddf-space-7: 64px;
+  --ddf-page-pad-phone: 16px; --ddf-page-pad-desktop: 32px; --ddf-content-max: 1184px;
+  --ddf-radius-card: 16px; --ddf-radius-control: 9px; --ddf-hit: 44px;
+  /* Motion: 160 ms feedback, no count-up or celebration; reduced motion settles instantly (below). */
+  --ddf-motion-feedback: 160ms; --ddf-ease: cubic-bezier(.2, .7, .2, 1);
+}
+/* JEG-1137 Fieldnotes tokens: dark */
+@media (prefers-color-scheme: dark) {
+  :root[data-design="fieldnotes"]:not([data-theme="light"]) {
+    --v2-canvas: #101B17; --v2-surface: #192720; --v2-ink: #EEF3E8; --v2-muted: #B5C4B8; --v2-border: #3D4E43;
+    --v2-field-border: #7F9688; --v2-action: #A6DFBE; --v2-action-ink: #11271C; --v2-action-text: #A6DFBE;
+    --v2-action-strong: #A6DFBE; --v2-negative: #FFB4BE; --v2-older: #EBC486; --v2-focus: #A9C7FF;
+    --ddf-canvas: #101B17; --ddf-surface: #192720; --ddf-subtle: #26372D; --ddf-line: #3D4E43; --ddf-control: #7F9688;
+    --ddf-ink: #EEF3E8; --ddf-muted: #B5C4B8; --ddf-action: #A6DFBE; --ddf-action-ink: #11271C; --ddf-action-hover: #A6DFBE;
+    --ddf-good-ink: #A6DFBE; --ddf-bad-ink: #FFB4BE; --ddf-warn-ink: #EBC486; --ddf-focus: #A9C7FF;
+    --ddf-neutral-tint: #26372D; --ddf-neutral-ink: #EEF3E8;
+  }
+}
+:root[data-design="fieldnotes"][data-theme="dark"] {
+    --v2-canvas: #101B17; --v2-surface: #192720; --v2-ink: #EEF3E8; --v2-muted: #B5C4B8; --v2-border: #3D4E43;
+    --v2-field-border: #7F9688; --v2-action: #A6DFBE; --v2-action-ink: #11271C; --v2-action-text: #A6DFBE;
+    --v2-action-strong: #A6DFBE; --v2-negative: #FFB4BE; --v2-older: #EBC486; --v2-focus: #A9C7FF;
+    --ddf-canvas: #101B17; --ddf-surface: #192720; --ddf-subtle: #26372D; --ddf-line: #3D4E43; --ddf-control: #7F9688;
+    --ddf-ink: #EEF3E8; --ddf-muted: #B5C4B8; --ddf-action: #A6DFBE; --ddf-action-ink: #11271C; --ddf-action-hover: #A6DFBE;
+    --ddf-good-ink: #A6DFBE; --ddf-bad-ink: #FFB4BE; --ddf-warn-ink: #EBC486; --ddf-focus: #A9C7FF;
+    --ddf-neutral-tint: #26372D; --ddf-neutral-ink: #EEF3E8;
+}
+@media (max-width: 600px) { :root[data-design="fieldnotes"] { --ddf-type-hero: 37px; } }
+@media (prefers-reduced-motion: reduce) { :root[data-design="fieldnotes"] { --ddf-motion-feedback: 0ms; } }
+/* JEG-1137 Fieldnotes base: body type, headings, focus ring */
+:root[data-design="fieldnotes"] .v2-app { font: 400 var(--ddf-type-body)/var(--ddf-line-body) var(--ddf-font-ui); font-synthesis: none; }
+:root[data-design="fieldnotes"] .v2-app h1,
+:root[data-design="fieldnotes"] .ddf-fn-display {
+  font-family: var(--ddf-font-headline); font-weight: 600; line-height: 1.1; letter-spacing: -0.025em;
+}
+:root[data-design="fieldnotes"] .ddf-fn-hero { font-size: var(--ddf-type-hero); }
+:root[data-design="fieldnotes"] .v2-app :focus-visible { outline-width: 3px; outline-offset: 3px; }
+/* White on the dark negative would be 1.7:1; the page canvas on it is 7:1 (light) and 10.5:1 (dark). */
+:root[data-design="fieldnotes"] .v2-state[data-state="failed"] .v2-state-sym { color: var(--v2-canvas); }
+/* JEG-1137 Fieldnotes controls (ddf-fn-*): CSS only; markup keeps native elements and ARIA state. */
+:root[data-design="fieldnotes"] .ddf-fn-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--ddf-space-2);
+  min-height: var(--ddf-hit); padding: 10px 16px; border: 1px solid var(--ddf-control); border-radius: var(--ddf-radius-control);
+  background: var(--ddf-surface); color: var(--ddf-ink); font: 600 var(--ddf-type-body)/1.25 var(--ddf-font-ui);
+  cursor: pointer; touch-action: manipulation;
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease), border-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+:root[data-design="fieldnotes"] .ddf-fn-btn--primary { background: var(--ddf-action); border-color: var(--ddf-action); color: var(--ddf-action-ink); }
+:root[data-design="fieldnotes"] .ddf-fn-btn:disabled { cursor: default; opacity: .6; }
+:root[data-design="fieldnotes"] .ddf-fn-segmented {
+  display: inline-flex; flex-wrap: wrap; gap: var(--ddf-space-1); padding: var(--ddf-space-1);
+  border: 1px solid var(--ddf-control); border-radius: 10px; background: var(--ddf-surface);
+}
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button {
+  min-height: var(--ddf-hit); padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ddf-ink);
+  font: 600 var(--ddf-type-support)/1.25 var(--ddf-font-ui); cursor: pointer;
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button[aria-pressed="true"] { background: var(--ddf-ink); color: var(--ddf-surface); }
+:root[data-design="fieldnotes"] .ddf-fn-stepper { display: inline-flex; align-items: center; gap: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-stepper > button { min-width: var(--ddf-hit); padding: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-stepper > output { min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+:root[data-design="fieldnotes"] .ddf-fn-checks { border: 0; margin: 0; padding: 0; display: grid; gap: var(--ddf-space-1); }
+:root[data-design="fieldnotes"] .ddf-fn-checks > legend { padding: 0; margin-bottom: var(--ddf-space-2); font-size: var(--ddf-type-support); font-weight: 650; }
+:root[data-design="fieldnotes"] .ddf-fn-checks label { display: flex; align-items: center; gap: var(--ddf-space-mid); min-height: var(--ddf-hit); cursor: pointer; }
+:root[data-design="fieldnotes"] .ddf-fn-checks input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--ddf-action); }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure { border-top: 1px solid var(--ddf-line); padding-top: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary {
+  display: flex; align-items: center; gap: 10px; min-height: var(--ddf-hit); cursor: pointer; font-weight: 650; list-style: none;
+}
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure[open] > summary::after { content: "\2212"; }
+:root[data-design="fieldnotes"] .ddf-fn-focus:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-btn:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-checks input:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary:focus-visible { outline: 3px solid var(--ddf-focus); outline-offset: 3px; }
+@media (hover: hover) {
+  :root[data-design="fieldnotes"] .ddf-fn-btn:hover:not(:disabled) { border-color: var(--ddf-ink); background: var(--ddf-subtle); }
+  :root[data-design="fieldnotes"] .ddf-fn-btn--primary:hover:not(:disabled) { border-color: var(--ddf-action-hover); background: var(--ddf-action-hover); }
+  :root[data-design="fieldnotes"] .ddf-fn-segmented > button:hover:not([aria-pressed="true"]) { background: var(--ddf-subtle); }
+}
