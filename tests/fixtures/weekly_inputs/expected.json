@@ -1,0 +1,281 @@
+{
+  "invalid/bad_leg_id.json": {
+    "errors": [
+      "leg.id",
+      "row.undeclared_leg",
+      "row.undeclared_leg",
+      "row.undeclared_leg",
+      "row.undeclared_leg"
+    ],
+    "warnings": []
+  },
+  "invalid/complete_labelled_unavailable.json": {
+    "errors": [
+      "label.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/complete_leg_with_null.json": {
+    "errors": [
+      "availability.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/duplicate_key.json": {
+    "errors": [
+      "player.duplicate_key"
+    ],
+    "warnings": []
+  },
+  "invalid/future_season.json": {
+    "errors": [
+      "season.future"
+    ],
+    "warnings": []
+  },
+  "invalid/future_week.json": {
+    "errors": [
+      "week.future"
+    ],
+    "warnings": []
+  },
+  "invalid/key_as_string.json": {
+    "errors": [
+      "player.key_type"
+    ],
+    "warnings": []
+  },
+  "invalid/kind_mismatch.json": {
+    "errors": [
+      "leg.kind_mismatch"
+    ],
+    "warnings": []
+  },
+  "invalid/last_season_as_current.json": {
+    "errors": [
+      "label.inconsistent",
+      "freshness.inconsistent",
+      "label.inconsistent",
+      "freshness.inconsistent",
+      "label.inconsistent",
+      "freshness.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/missing_required.json": {
+    "errors": [
+      "field.missing"
+    ],
+    "warnings": []
+  },
+  "invalid/nan_points.json": {
+    "errors": [
+      "value.type"
+    ],
+    "warnings": []
+  },
+  "invalid/null_no_reason.json": {
+    "errors": [
+      "missing.no_reason"
+    ],
+    "warnings": []
+  },
+  "invalid/out_of_order.json": {
+    "errors": [
+      "order.players"
+    ],
+    "warnings": []
+  },
+  "invalid/partial_leg_all_complete.json": {
+    "errors": [
+      "availability.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/points_units_on_status.json": {
+    "errors": [
+      "units.incompatible"
+    ],
+    "warnings": []
+  },
+  "invalid/provenance_mismatch.json": {
+    "errors": [
+      "provenance.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/rank_as_points.json": {
+    "errors": [
+      "value.type"
+    ],
+    "warnings": []
+  },
+  "invalid/ros_field.json": {
+    "errors": [
+      "field.unknown",
+      "ros.field"
+    ],
+    "warnings": []
+  },
+  "invalid/ros_horizon.json": {
+    "errors": [
+      "ros.horizon"
+    ],
+    "warnings": []
+  },
+  "invalid/ros_leg_horizon.json": {
+    "errors": [
+      "ros.horizon"
+    ],
+    "warnings": []
+  },
+  "invalid/ros_leg_id.json": {
+    "errors": [
+      "ros.leg"
+    ],
+    "warnings": []
+  },
+  "invalid/row_leg_missing.json": {
+    "errors": [
+      "row.leg_missing"
+    ],
+    "warnings": []
+  },
+  "invalid/schema_name.json": {
+    "errors": [
+      "schema.name"
+    ],
+    "warnings": []
+  },
+  "invalid/scoring_key_missing.json": {
+    "errors": [
+      "scoring.mismatch"
+    ],
+    "warnings": []
+  },
+  "invalid/stale_labelled_published.json": {
+    "errors": [
+      "label.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/td_filled_on_expert.json": {
+    "errors": [
+      "provenance.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/unavailable_has_values.json": {
+    "errors": [
+      "leg.unavailable_has_values"
+    ],
+    "warnings": []
+  },
+  "invalid/unavailable_no_reason.json": {
+    "errors": [
+      "leg.no_reason"
+    ],
+    "warnings": []
+  },
+  "invalid/unavailable_with_freshness.json": {
+    "errors": [
+      "freshness.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/undeclared_leg.json": {
+    "errors": [
+      "row.undeclared_leg"
+    ],
+    "warnings": []
+  },
+  "invalid/unknown_field_known_minor.json": {
+    "errors": [
+      "field.unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/unknown_scoring.json": {
+    "errors": [
+      "scoring.unknown"
+    ],
+    "warnings": []
+  },
+  "invalid/unresolved_no_reason.json": {
+    "errors": [
+      "player.unresolved_no_reason"
+    ],
+    "warnings": []
+  },
+  "invalid/version_major.json": {
+    "errors": [
+      "version.unsupported_major"
+    ],
+    "warnings": []
+  },
+  "invalid/version_malformed.json": {
+    "errors": [
+      "version.malformed"
+    ],
+    "warnings": []
+  },
+  "invalid/wrong_week_current.json": {
+    "errors": [
+      "freshness.inconsistent"
+    ],
+    "warnings": []
+  },
+  "invalid/zero_filled.json": {
+    "errors": [
+      "missing.zero_filled"
+    ],
+    "warnings": []
+  },
+  "valid/additive_minor.json": {
+    "errors": [],
+    "warnings": [
+      "field.unknown",
+      "field.unknown"
+    ]
+  },
+  "valid/complete.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/one_week_behind.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/partial.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/previous_season.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/rank_leg.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/stale.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/unavailable.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/unknown.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/unresolved_player.json": {
+    "errors": [],
+    "warnings": []
+  },
+  "valid/zero_value.json": {
+    "errors": [],
+    "warnings": []
+  }
+}

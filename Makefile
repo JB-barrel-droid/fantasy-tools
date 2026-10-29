@@ -133,6 +133,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
+	# Weekly-input contract validator and fixtures (JEG-1227, S1 of JEG-1195). Offline.
+	python3 -m unittest tests.test_weekly_inputs_contract
 	python3 -m unittest tests.test_gh_sbclient_bytes
 	python3 -m unittest tests.test_usatoday_relay_source
 	python3 -m unittest tests.test_bake_espn_zero_universe
