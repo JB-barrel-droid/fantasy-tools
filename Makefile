@@ -594,6 +594,8 @@ test-core:
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
@@ -690,6 +692,8 @@ test-core-shard-1:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
 	python3 -m unittest tests.test_verify_live
