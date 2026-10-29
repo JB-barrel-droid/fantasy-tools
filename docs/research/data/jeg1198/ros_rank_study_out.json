@@ -1,0 +1,7749 @@
+{
+ "provenance": {
+  "join": "public.players player_key via pipelines/lib/canonical_players.resolve_with_reason",
+  "registry_snapshot": {
+   "path": "data/inputs/players_identity_snapshot.json",
+   "sha256": "e1ff38fc9aa662451bd8f1d70dba0d02f8402283d56716c4c6910aa191a1f362",
+   "rows": 4702,
+   "active_flag": "absent; all rows treated active"
+  },
+  "alias_list": {
+   "path": "data/inputs/player_aliases.json",
+   "file_sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994",
+   "loaded_from": "json",
+   "entries_loaded": 13,
+   "entries_sha256": "c89dfc2b8da5aa6c1c7fe1edfec2d6a1a0949f294f44b604b2b768e75e6e2950"
+  },
+  "players_json": {
+   "path": "data/fixtures/current/players.json",
+   "sha256": "eef4f2a2c3d0bf4e4f5a9d75e313fe2f017df67a7ec8b096d5597ba5162e4647"
+  },
+  "prior_players_json": {
+   "path": "data/fixtures/snapshots/players_2026-09-23.json",
+   "sha256": "6add0a7673dd1e9e1fbf1f9212a93a5dff2c8b72b96da9ecfb370e149abaf98e"
+  }
+ },
+ "scorings": {
+  "ppr": {
+   "curve_shape": {
+    "QB": {
+     "top": 32.0,
+     "rank_6": 13.9,
+     "rank_12": 4.6,
+     "gap_1_2": 11.0,
+     "median_gap_top_depth": 1.55,
+     "max_gap": 11.0,
+     "n_priced_gt0": 17
+    },
+    "RB": {
+     "top": 74.6,
+     "rank_15": 30.5,
+     "rank_30": 8.3,
+     "gap_1_2": 7.0,
+     "median_gap_top_depth": 1.8,
+     "max_gap": 13.0,
+     "n_priced_gt0": 54
+    },
+    "WR": {
+     "top": 67.5,
+     "rank_18": 22.6,
+     "rank_36": 6.2,
+     "gap_1_2": 4.1,
+     "median_gap_top_depth": 1.4500000000000002,
+     "max_gap": 7.0,
+     "n_priced_gt0": 66
+    },
+    "TE": {
+     "top": 33.5,
+     "rank_6": 13.1,
+     "rank_12": 4.1,
+     "gap_1_2": 3.8,
+     "median_gap_top_depth": 1.4,
+     "max_gap": 9.4,
+     "n_priced_gt0": 23
+    }
+   },
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.6,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.19,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.34,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "sttm_stale": {
+       "rho_vs_published": 0.36,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.74,
+      "espn~razzball": 0.52,
+      "espn~sttm_stale": 0.63,
+      "cbsros~razzball": 0.36,
+      "cbsros~sttm_stale": 0.65,
+      "razzball~sttm_stale": 0.22
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.91,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.9,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.81,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "sttm_stale": {
+       "rho_vs_published": 0.91,
+       "n": 24,
+       "missing_published_top": 6
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.94,
+      "espn~razzball": 0.82,
+      "espn~sttm_stale": 0.89,
+      "cbsros~razzball": 0.82,
+      "cbsros~sttm_stale": 0.9,
+      "razzball~sttm_stale": 0.72
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.88,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.91,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.84,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "sttm_stale": {
+       "rho_vs_published": 0.87,
+       "n": 29,
+       "missing_published_top": 7
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.84,
+      "espn~razzball": 0.88,
+      "espn~sttm_stale": 0.79,
+      "cbsros~razzball": 0.78,
+      "cbsros~sttm_stale": 0.88,
+      "razzball~sttm_stale": 0.69
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.87,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.51,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.88,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "sttm_stale": {
+       "rho_vs_published": 0.76,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.53,
+      "espn~razzball": 0.72,
+      "espn~sttm_stale": 0.71,
+      "cbsros~razzball": 0.45,
+      "cbsros~sttm_stale": 0.75,
+      "razzball~sttm_stale": 0.82
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 32.0,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1,
+      "sttm_stale": 1
+     },
+     "implied_by_ranker": {
+      "espn": 32.0,
+      "cbsros": 32.0,
+      "razzball": 32.0,
+      "sttm_stale": 32.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 32.0,
+     "implied_at_mean_rank": 32.0,
+     "implied_at_median_rank": 32.0,
+     "implied_range": [
+      32.0,
+      32.0
+     ],
+     "rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 21.0,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 11,
+      "razzball": 12,
+      "sttm_stale": 7
+     },
+     "implied_by_ranker": {
+      "espn": 14.9,
+      "cbsros": 5.4,
+      "razzball": 4.6,
+      "sttm_stale": 11.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.3,
+     "implied_at_mean_rank": 8.1,
+     "implied_at_median_rank": 5.4,
+     "implied_range": [
+      4.6,
+      14.9
+     ],
+     "rank_sd": 3.1
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 17.6,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 9,
+      "razzball": 4,
+      "sttm_stale": 11
+     },
+     "implied_by_ranker": {
+      "espn": 11.3,
+      "cbsros": 9.0,
+      "razzball": 15.1,
+      "sttm_stale": 5.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.8,
+     "implied_at_mean_rank": 12.2,
+     "implied_at_median_rank": 11.3,
+     "implied_range": [
+      9.0,
+      15.1
+     ],
+     "rank_sd": 2.1
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 15.1,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 2,
+      "razzball": 3,
+      "sttm_stale": 4
+     },
+     "implied_by_ranker": {
+      "espn": 17.6,
+      "cbsros": 21.0,
+      "razzball": 17.6,
+      "sttm_stale": 15.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.7,
+     "implied_at_mean_rank": 18.7,
+     "implied_at_median_rank": 17.6,
+     "implied_range": [
+      17.6,
+      21.0
+     ],
+     "rank_sd": 0.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 14.9,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 8,
+      "razzball": 13,
+      "sttm_stale": 3
+     },
+     "implied_by_ranker": {
+      "espn": 9.0,
+      "cbsros": 10.8,
+      "razzball": 3.3,
+      "sttm_stale": 17.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.7,
+     "implied_at_mean_rank": 6.4,
+     "implied_at_median_rank": 9.0,
+     "implied_range": [
+      3.3,
+      10.8
+     ],
+     "rank_sd": 2.2
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 13.9,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 14,
+      "sttm_stale": 9
+     },
+     "implied_by_ranker": {
+      "espn": 15.1,
+      "cbsros": 15.1,
+      "razzball": 2.5,
+      "sttm_stale": 9.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.9,
+     "implied_at_mean_rank": 11.1,
+     "implied_at_median_rank": 15.1,
+     "implied_range": [
+      2.5,
+      15.1
+     ],
+     "rank_sd": 4.7
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 11.3,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 13,
+      "razzball": 10,
+      "sttm_stale": 10
+     },
+     "implied_by_ranker": {
+      "espn": 5.4,
+      "cbsros": 3.3,
+      "razzball": 6.4,
+      "sttm_stale": 6.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.0,
+     "implied_at_mean_rank": 5.1,
+     "implied_at_median_rank": 5.4,
+     "implied_range": [
+      3.3,
+      6.4
+     ],
+     "rank_sd": 1.2
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 10.8,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 6,
+      "razzball": 5,
+      "sttm_stale": 2
+     },
+     "implied_by_ranker": {
+      "espn": 13.9,
+      "cbsros": 13.9,
+      "razzball": 14.9,
+      "sttm_stale": 21.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.2,
+     "implied_at_mean_rank": 14.2,
+     "implied_at_median_rank": 13.9,
+     "implied_range": [
+      13.9,
+      14.9
+     ],
+     "rank_sd": 0.5
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.0,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 3,
+      "razzball": 2,
+      "sttm_stale": 6
+     },
+     "implied_by_ranker": {
+      "espn": 21.0,
+      "cbsros": 17.6,
+      "razzball": 21.0,
+      "sttm_stale": 13.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.9,
+     "implied_at_mean_rank": 19.9,
+     "implied_at_median_rank": 21.0,
+     "implied_range": [
+      17.6,
+      21.0
+     ],
+     "rank_sd": 0.5
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.4,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 7,
+      "razzball": 11,
+      "sttm_stale": 13
+     },
+     "implied_by_ranker": {
+      "espn": 1.5,
+      "cbsros": 11.3,
+      "razzball": 5.4,
+      "sttm_stale": 3.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.1,
+     "implied_at_mean_rank": 5.1,
+     "implied_at_median_rank": 5.4,
+     "implied_range": [
+      1.5,
+      11.3
+     ],
+     "rank_sd": 3.7
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.4,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 14,
+      "razzball": 6,
+      "sttm_stale": 15
+     },
+     "implied_by_ranker": {
+      "espn": 2.4,
+      "cbsros": 2.5,
+      "razzball": 13.9,
+      "sttm_stale": 2.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.3,
+     "implied_at_mean_rank": 4.9,
+     "implied_at_median_rank": 2.5,
+     "implied_range": [
+      2.4,
+      13.9
+     ],
+     "rank_sd": 4.0
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.6,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 5,
+      "razzball": 15,
+      "sttm_stale": 5
+     },
+     "implied_by_ranker": {
+      "espn": 6.4,
+      "cbsros": 14.9,
+      "razzball": 2.4,
+      "sttm_stale": 14.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.9,
+     "implied_at_mean_rank": 6.4,
+     "implied_at_median_rank": 6.4,
+     "implied_range": [
+      2.4,
+      14.9
+     ],
+     "rank_sd": 4.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 74.6,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1,
+      "sttm_stale": 1
+     },
+     "implied_by_ranker": {
+      "espn": 74.6,
+      "cbsros": 74.6,
+      "razzball": 74.6,
+      "sttm_stale": 74.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 74.6,
+     "implied_at_mean_rank": 74.6,
+     "implied_at_median_rank": 74.6,
+     "implied_range": [
+      74.6,
+      74.6
+     ],
+     "rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 67.6,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 3,
+      "razzball": 3,
+      "sttm_stale": 3
+     },
+     "implied_by_ranker": {
+      "espn": 54.6,
+      "cbsros": 67.6,
+      "razzball": 67.6,
+      "sttm_stale": 67.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 63.3,
+     "implied_at_mean_rank": 63.3,
+     "implied_at_median_rank": 67.6,
+     "implied_range": [
+      54.6,
+      67.6
+     ],
+     "rank_sd": 0.5
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 67.6,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 2,
+      "razzball": 2,
+      "sttm_stale": 2
+     },
+     "implied_by_ranker": {
+      "espn": 67.6,
+      "cbsros": 67.6,
+      "razzball": 67.6,
+      "sttm_stale": 67.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 67.6,
+     "implied_at_mean_rank": 67.6,
+     "implied_at_median_rank": 67.6,
+     "implied_range": [
+      67.6,
+      67.6
+     ],
+     "rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 54.6,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 6,
+      "razzball": 7,
+      "sttm_stale": 7
+     },
+     "implied_by_ranker": {
+      "espn": 67.6,
+      "cbsros": 49.3,
+      "razzball": 46.5,
+      "sttm_stale": 46.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 54.5,
+     "implied_at_mean_rank": 50.5,
+     "implied_at_median_rank": 49.3,
+     "implied_range": [
+      46.5,
+      67.6
+     ],
+     "rank_sd": 1.7
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 51.1,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 11,
+      "razzball": 8,
+      "sttm_stale": 5
+     },
+     "implied_by_ranker": {
+      "espn": 51.1,
+      "cbsros": 36.1,
+      "razzball": 43.3,
+      "sttm_stale": 51.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 43.5,
+     "implied_at_mean_rank": 43.3,
+     "implied_at_median_rank": 43.3,
+     "implied_range": [
+      36.1,
+      51.1
+     ],
+     "rank_sd": 2.4
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 49.3,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 4,
+      "razzball": 10,
+      "sttm_stale": 4
+     },
+     "implied_by_ranker": {
+      "espn": 49.3,
+      "cbsros": 54.6,
+      "razzball": 38.8,
+      "sttm_stale": 54.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 47.6,
+     "implied_at_mean_rank": 47.4,
+     "implied_at_median_rank": 49.3,
+     "implied_range": [
+      38.8,
+      54.6
+     ],
+     "rank_sd": 2.5
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 46.5,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 7,
+      "razzball": 6,
+      "sttm_stale": 8
+     },
+     "implied_by_ranker": {
+      "espn": 34.7,
+      "cbsros": 46.5,
+      "razzball": 49.3,
+      "sttm_stale": 43.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 43.5,
+     "implied_at_mean_rank": 42.5,
+     "implied_at_median_rank": 46.5,
+     "implied_range": [
+      34.7,
+      49.3
+     ],
+     "rank_sd": 2.6
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 43.3,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 9,
+      "razzball": 11,
+      "sttm_stale": 6
+     },
+     "implied_by_ranker": {
+      "espn": 46.5,
+      "cbsros": 41.0,
+      "razzball": 36.1,
+      "sttm_stale": 49.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 41.2,
+     "implied_at_mean_rank": 41.0,
+     "implied_at_median_rank": 41.0,
+     "implied_range": [
+      36.1,
+      46.5
+     ],
+     "rank_sd": 1.6
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 41.0,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 10,
+      "razzball": 12,
+      "sttm_stale": 9
+     },
+     "implied_by_ranker": {
+      "espn": 38.8,
+      "cbsros": 38.8,
+      "razzball": 34.7,
+      "sttm_stale": 41.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 37.4,
+     "implied_at_mean_rank": 37.0,
+     "implied_at_median_rank": 38.8,
+     "implied_range": [
+      34.7,
+      38.8
+     ],
+     "rank_sd": 0.9
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 38.8,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 8,
+      "razzball": 17,
+      "sttm_stale": 10
+     },
+     "implied_by_ranker": {
+      "espn": 43.3,
+      "cbsros": 43.3,
+      "razzball": 25.7,
+      "sttm_stale": 38.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 37.4,
+     "implied_at_mean_rank": 36.1,
+     "implied_at_median_rank": 43.3,
+     "implied_range": [
+      25.7,
+      43.3
+     ],
+     "rank_sd": 4.2
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 36.1,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 17,
+      "cbsros": 16,
+      "razzball": 22,
+      "sttm_stale": 12
+     },
+     "implied_by_ranker": {
+      "espn": 25.7,
+      "cbsros": 28.7,
+      "razzball": 18.1,
+      "sttm_stale": 34.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.2,
+     "implied_at_mean_rank": 23.2,
+     "implied_at_median_rank": 25.7,
+     "implied_range": [
+      18.1,
+      28.7
+     ],
+     "rank_sd": 2.6
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 34.7,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 17,
+      "razzball": 13,
+      "sttm_stale": 13
+     },
+     "implied_by_ranker": {
+      "espn": 30.5,
+      "cbsros": 25.7,
+      "razzball": 32.5,
+      "sttm_stale": 32.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 29.6,
+     "implied_at_mean_rank": 30.5,
+     "implied_at_median_rank": 30.5,
+     "implied_range": [
+      25.7,
+      32.5
+     ],
+     "rank_sd": 1.6
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 32.5,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 15,
+      "razzball": 4,
+      "sttm_stale": 19
+     },
+     "implied_by_ranker": {
+      "espn": 41.0,
+      "cbsros": 30.5,
+      "razzball": 54.6,
+      "sttm_stale": 22.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 42.0,
+     "implied_at_mean_rank": 40.3,
+     "implied_at_median_rank": 41.0,
+     "implied_range": [
+      30.5,
+      54.6
+     ],
+     "rank_sd": 4.5
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 30.8,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 13,
+      "razzball": 9,
+      "sttm_stale": 14
+     },
+     "implied_by_ranker": {
+      "espn": 30.8,
+      "cbsros": 32.5,
+      "razzball": 41.0,
+      "sttm_stale": 30.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 34.8,
+     "implied_at_mean_rank": 34.7,
+     "implied_at_median_rank": 32.5,
+     "implied_range": [
+      30.8,
+      41.0
+     ],
+     "rank_sd": 2.2
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 30.5,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 14,
+      "razzball": 27
+     },
+     "implied_by_ranker": {
+      "espn": 23.8,
+      "cbsros": 30.8,
+      "razzball": 9.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.4,
+     "implied_at_mean_rank": 20.8,
+     "implied_at_median_rank": 23.8,
+     "implied_range": [
+      9.6,
+      30.8
+     ],
+     "rank_sd": 5.4
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 28.7,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 12,
+      "razzball": 19,
+      "sttm_stale": 16
+     },
+     "implied_by_ranker": {
+      "espn": 28.7,
+      "cbsros": 34.7,
+      "razzball": 22.1,
+      "sttm_stale": 28.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 28.5,
+     "implied_at_mean_rank": 29.3,
+     "implied_at_median_rank": 28.7,
+     "implied_range": [
+      22.1,
+      34.7
+     ],
+     "rank_sd": 2.9
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 25.7,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 22,
+      "razzball": 25,
+      "sttm_stale": 20
+     },
+     "implied_by_ranker": {
+      "espn": 17.7,
+      "cbsros": 18.1,
+      "razzball": 10.9,
+      "sttm_stale": 20.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.6,
+     "implied_at_mean_rank": 17.1,
+     "implied_at_median_rank": 17.7,
+     "implied_range": [
+      10.9,
+      18.1
+     ],
+     "rank_sd": 1.2
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 23.8,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 5,
+      "razzball": 5,
+      "sttm_stale": 11
+     },
+     "implied_by_ranker": {
+      "espn": 36.1,
+      "cbsros": 51.1,
+      "razzball": 51.1,
+      "sttm_stale": 36.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 46.1,
+     "implied_at_mean_rank": 46.5,
+     "implied_at_median_rank": 51.1,
+     "implied_range": [
+      36.1,
+      51.1
+     ],
+     "rank_sd": 2.8
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 22.1,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 21,
+      "razzball": 23,
+      "sttm_stale": 22
+     },
+     "implied_by_ranker": {
+      "espn": 18.7,
+      "cbsros": 18.7,
+      "razzball": 17.7,
+      "sttm_stale": 18.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.4,
+     "implied_at_mean_rank": 18.3,
+     "implied_at_median_rank": 18.7,
+     "implied_range": [
+      17.7,
+      18.7
+     ],
+     "rank_sd": 0.9
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 20.2,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 28,
+      "cbsros": 26,
+      "razzball": 18,
+      "sttm_stale": 21
+     },
+     "implied_by_ranker": {
+      "espn": 8.9,
+      "cbsros": 10.8,
+      "razzball": 23.8,
+      "sttm_stale": 18.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.5,
+     "implied_at_mean_rank": 15.8,
+     "implied_at_median_rank": 10.8,
+     "implied_range": [
+      8.9,
+      23.8
+     ],
+     "rank_sd": 4.3
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 18.7,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 27,
+      "cbsros": 24,
+      "razzball": 14,
+      "sttm_stale": 23
+     },
+     "implied_by_ranker": {
+      "espn": 9.6,
+      "cbsros": 15.8,
+      "razzball": 30.8,
+      "sttm_stale": 17.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.7,
+     "implied_at_mean_rank": 18.3,
+     "implied_at_median_rank": 15.8,
+     "implied_range": [
+      9.6,
+      30.8
+     ],
+     "rank_sd": 5.6
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 18.1,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 20,
+      "razzball": 16,
+      "sttm_stale": 24
+     },
+     "implied_by_ranker": {
+      "espn": 18.1,
+      "cbsros": 20.2,
+      "razzball": 28.7,
+      "sttm_stale": 15.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 22.3,
+     "implied_at_mean_rank": 21.5,
+     "implied_at_median_rank": 20.2,
+     "implied_range": [
+      18.1,
+      28.7
+     ],
+     "rank_sd": 2.5
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 17.7,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 18,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 32.5,
+      "cbsros": 23.8,
+      "razzball": 8.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.7,
+     "implied_at_mean_rank": 20.8,
+     "implied_at_median_rank": 23.8,
+     "implied_range": [
+      8.9,
+      32.5
+     ],
+     "rank_sd": 6.2
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 15.8,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 26,
+      "cbsros": 23,
+      "razzball": 15,
+      "sttm_stale": 18
+     },
+     "implied_by_ranker": {
+      "espn": 10.8,
+      "cbsros": 17.7,
+      "razzball": 30.5,
+      "sttm_stale": 23.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.7,
+     "implied_at_mean_rank": 18.5,
+     "implied_at_median_rank": 17.7,
+     "implied_range": [
+      10.8,
+      30.5
+     ],
+     "rank_sd": 4.6
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 10.9,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 19,
+      "cbsros": 19,
+      "razzball": 20
+     },
+     "implied_by_ranker": {
+      "espn": 22.1,
+      "cbsros": 22.1,
+      "razzball": 20.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.5,
+     "implied_at_mean_rank": 21.5,
+     "implied_at_median_rank": 22.1,
+     "implied_range": [
+      20.2,
+      22.1
+     ],
+     "rank_sd": 0.5
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 10.8,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 29,
+      "razzball": 26
+     },
+     "implied_by_ranker": {
+      "espn": 15.8,
+      "cbsros": 8.7,
+      "razzball": 10.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.8,
+     "implied_at_mean_rank": 10.4,
+     "implied_at_median_rank": 10.8,
+     "implied_range": [
+      8.7,
+      15.8
+     ],
+     "rank_sd": 2.1
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 9.6,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 32,
+      "razzball": 29
+     },
+     "implied_by_ranker": {
+      "espn": 5.9,
+      "cbsros": 7.5,
+      "razzball": 8.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.4,
+     "implied_at_mean_rank": 7.7,
+     "implied_at_median_rank": 7.5,
+     "implied_range": [
+      5.9,
+      8.7
+     ],
+     "rank_sd": 1.7
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 8.9,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 31,
+      "cbsros": 59,
+      "razzball": 41
+     },
+     "implied_by_ranker": {
+      "espn": 7.8,
+      "razzball": 2.1
+     },
+     "n_current_rankers": 2,
+     "implied_mean_of_values": 5.0,
+     "implied_at_mean_rank": 1.7,
+     "implied_at_median_rank": 2.1,
+     "implied_range": [
+      2.1,
+      7.8
+     ],
+     "rank_sd": 11.6
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 8.7,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 32,
+      "cbsros": 38,
+      "razzball": 35,
+      "sttm_stale": 28
+     },
+     "implied_by_ranker": {
+      "espn": 7.5,
+      "cbsros": 3.8,
+      "razzball": 4.8,
+      "sttm_stale": 8.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.4,
+     "implied_at_mean_rank": 4.8,
+     "implied_at_median_rank": 4.8,
+     "implied_range": [
+      3.8,
+      7.5
+     ],
+     "rank_sd": 2.4
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 8.3,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 34,
+      "cbsros": 28,
+      "razzball": 30,
+      "sttm_stale": 17
+     },
+     "implied_by_ranker": {
+      "espn": 5.8,
+      "cbsros": 8.9,
+      "razzball": 8.3,
+      "sttm_stale": 25.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.7,
+     "implied_at_mean_rank": 8.0,
+     "implied_at_median_rank": 8.3,
+     "implied_range": [
+      5.8,
+      8.9
+     ],
+     "rank_sd": 2.5
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 67.5,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 1,
+      "razzball": 2,
+      "sttm_stale": 2
+     },
+     "implied_by_ranker": {
+      "espn": 54.1,
+      "cbsros": 67.5,
+      "razzball": 63.4,
+      "sttm_stale": 63.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 61.7,
+     "implied_at_mean_rank": 61.1,
+     "implied_at_median_rank": 63.4,
+     "implied_range": [
+      54.1,
+      67.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 63.4,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 4,
+      "razzball": 1,
+      "sttm_stale": 3
+     },
+     "implied_by_ranker": {
+      "espn": 63.4,
+      "cbsros": 54.1,
+      "razzball": 67.5,
+      "sttm_stale": 56.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 61.7,
+     "implied_at_mean_rank": 61.1,
+     "implied_at_median_rank": 63.4,
+     "implied_range": [
+      54.1,
+      67.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 56.4,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 5,
+      "razzball": 3,
+      "sttm_stale": 4
+     },
+     "implied_by_ranker": {
+      "espn": 67.5,
+      "cbsros": 52.0,
+      "razzball": 56.4,
+      "sttm_stale": 54.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 58.6,
+     "implied_at_mean_rank": 56.4,
+     "implied_at_median_rank": 56.4,
+     "implied_range": [
+      52.0,
+      67.5
+     ],
+     "rank_sd": 1.6
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 54.1,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 2,
+      "razzball": 4,
+      "sttm_stale": 1
+     },
+     "implied_by_ranker": {
+      "espn": 56.4,
+      "cbsros": 63.4,
+      "razzball": 54.1,
+      "sttm_stale": 67.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 58.0,
+     "implied_at_mean_rank": 56.4,
+     "implied_at_median_rank": 56.4,
+     "implied_range": [
+      54.1,
+      63.4
+     ],
+     "rank_sd": 0.8
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 52.0,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 3,
+      "razzball": 5,
+      "sttm_stale": 5
+     },
+     "implied_by_ranker": {
+      "espn": 52.0,
+      "cbsros": 56.4,
+      "razzball": 52.0,
+      "sttm_stale": 52.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 53.5,
+     "implied_at_mean_rank": 53.4,
+     "implied_at_median_rank": 52.0,
+     "implied_range": [
+      52.0,
+      56.4
+     ],
+     "rank_sd": 0.9
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 45.4,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 20,
+      "razzball": 12,
+      "sttm_stale": 14
+     },
+     "implied_by_ranker": {
+      "espn": 34.3,
+      "cbsros": 18.8,
+      "razzball": 31.1,
+      "sttm_stale": 26.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 28.1,
+     "implied_at_mean_rank": 26.1,
+     "implied_at_median_rank": 31.1,
+     "implied_range": [
+      18.8,
+      34.3
+     ],
+     "rank_sd": 4.3
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 42.6,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 10,
+      "razzball": 6,
+      "sttm_stale": 6
+     },
+     "implied_by_ranker": {
+      "espn": 42.6,
+      "cbsros": 34.3,
+      "razzball": 45.4,
+      "sttm_stale": 45.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 40.8,
+     "implied_at_mean_rank": 39.3,
+     "implied_at_median_rank": 42.6,
+     "implied_range": [
+      34.3,
+      45.4
+     ],
+     "rank_sd": 1.7
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 37.6,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 11,
+      "razzball": 11,
+      "sttm_stale": 17
+     },
+     "implied_by_ranker": {
+      "espn": 37.6,
+      "cbsros": 32.3,
+      "razzball": 32.3,
+      "sttm_stale": 23.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 34.1,
+     "implied_at_mean_rank": 34.3,
+     "implied_at_median_rank": 32.3,
+     "implied_range": [
+      32.3,
+      37.6
+     ],
+     "rank_sd": 1.4
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 35.6,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 8,
+      "razzball": 26,
+      "sttm_stale": 7
+     },
+     "implied_by_ranker": {
+      "espn": 22.6,
+      "cbsros": 37.6,
+      "razzball": 14.1,
+      "sttm_stale": 42.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.8,
+     "implied_at_mean_rank": 22.9,
+     "implied_at_median_rank": 22.6,
+     "implied_range": [
+      14.1,
+      37.6
+     ],
+     "rank_sd": 7.4
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 34.3,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 7,
+      "razzball": 8,
+      "sttm_stale": 8
+     },
+     "implied_by_ranker": {
+      "espn": 45.4,
+      "cbsros": 42.6,
+      "razzball": 37.6,
+      "sttm_stale": 37.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 41.9,
+     "implied_at_mean_rank": 42.6,
+     "implied_at_median_rank": 42.6,
+     "implied_range": [
+      37.6,
+      45.4
+     ],
+     "rank_sd": 0.8
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 32.3,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 17,
+      "cbsros": 12,
+      "razzball": 13,
+      "sttm_stale": 10
+     },
+     "implied_by_ranker": {
+      "espn": 23.0,
+      "cbsros": 31.1,
+      "razzball": 28.2,
+      "sttm_stale": 34.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.4,
+     "implied_at_mean_rank": 26.1,
+     "implied_at_median_rank": 28.2,
+     "implied_range": [
+      23.0,
+      31.1
+     ],
+     "rank_sd": 2.2
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 31.1,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 9,
+      "razzball": 16,
+      "sttm_stale": 15
+     },
+     "implied_by_ranker": {
+      "espn": 35.6,
+      "cbsros": 35.6,
+      "razzball": 25.7,
+      "sttm_stale": 25.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 32.3,
+     "implied_at_mean_rank": 31.9,
+     "implied_at_median_rank": 35.6,
+     "implied_range": [
+      25.7,
+      35.6
+     ],
+     "rank_sd": 3.3
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 28.2,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 6,
+      "razzball": 9,
+      "sttm_stale": 13
+     },
+     "implied_by_ranker": {
+      "espn": 31.1,
+      "cbsros": 45.4,
+      "razzball": 35.6,
+      "sttm_stale": 28.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 37.4,
+     "implied_at_mean_rank": 35.6,
+     "implied_at_median_rank": 35.6,
+     "implied_range": [
+      31.1,
+      45.4
+     ],
+     "rank_sd": 2.4
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 26.1,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 25,
+      "cbsros": 13,
+      "razzball": 15,
+      "sttm_stale": 16
+     },
+     "implied_by_ranker": {
+      "espn": 14.7,
+      "cbsros": 28.2,
+      "razzball": 25.8,
+      "sttm_stale": 25.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 22.9,
+     "implied_at_mean_rank": 22.7,
+     "implied_at_median_rank": 25.8,
+     "implied_range": [
+      14.7,
+      28.2
+     ],
+     "rank_sd": 5.2
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 25.8,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 19,
+      "razzball": 14,
+      "sttm_stale": 21
+     },
+     "implied_by_ranker": {
+      "espn": 26.1,
+      "cbsros": 21.5,
+      "razzball": 26.1,
+      "sttm_stale": 17.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.6,
+     "implied_at_mean_rank": 25.7,
+     "implied_at_median_rank": 26.1,
+     "implied_range": [
+      21.5,
+      26.1
+     ],
+     "rank_sd": 2.4
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 25.7,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 14,
+      "razzball": 17,
+      "sttm_stale": 9
+     },
+     "implied_by_ranker": {
+      "espn": 15.0,
+      "cbsros": 26.1,
+      "razzball": 23.0,
+      "sttm_stale": 35.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.4,
+     "implied_at_mean_rank": 22.6,
+     "implied_at_median_rank": 23.0,
+     "implied_range": [
+      15.0,
+      26.1
+     ],
+     "rank_sd": 3.7
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 23.0,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 16,
+      "razzball": 10,
+      "sttm_stale": 11
+     },
+     "implied_by_ranker": {
+      "espn": 32.3,
+      "cbsros": 25.7,
+      "razzball": 34.3,
+      "sttm_stale": 32.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 30.8,
+     "implied_at_mean_rank": 30.1,
+     "implied_at_median_rank": 32.3,
+     "implied_range": [
+      25.7,
+      34.3
+     ],
+     "rank_sd": 2.6
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 22.6,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 20,
+      "cbsros": 21,
+      "razzball": 24,
+      "sttm_stale": 25
+     },
+     "implied_by_ranker": {
+      "espn": 18.8,
+      "cbsros": 17.2,
+      "razzball": 14.7,
+      "sttm_stale": 14.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 16.9,
+     "implied_at_mean_rank": 16.1,
+     "implied_at_median_rank": 17.2,
+     "implied_range": [
+      14.7,
+      18.8
+     ],
+     "rank_sd": 1.7
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 21.5,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 27,
+      "cbsros": 23,
+      "razzball": 19,
+      "sttm_stale": 18
+     },
+     "implied_by_ranker": {
+      "espn": 13.5,
+      "cbsros": 15.0,
+      "razzball": 21.5,
+      "sttm_stale": 22.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 16.7,
+     "implied_at_mean_rank": 15.0,
+     "implied_at_median_rank": 15.0,
+     "implied_range": [
+      13.5,
+      21.5
+     ],
+     "rank_sd": 3.3
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 18.8,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 27,
+      "razzball": 21
+     },
+     "implied_by_ranker": {
+      "espn": 25.7,
+      "cbsros": 13.5,
+      "razzball": 17.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.8,
+     "implied_at_mean_rank": 16.6,
+     "implied_at_median_rank": 17.2,
+     "implied_range": [
+      13.5,
+      25.7
+     ],
+     "rank_sd": 4.5
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 17.2,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 25,
+      "razzball": 22,
+      "sttm_stale": 22
+     },
+     "implied_by_ranker": {
+      "espn": 17.2,
+      "cbsros": 14.7,
+      "razzball": 15.5,
+      "sttm_stale": 15.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.8,
+     "implied_at_mean_rank": 15.2,
+     "implied_at_median_rank": 15.5,
+     "implied_range": [
+      14.7,
+      17.2
+     ],
+     "rank_sd": 1.7
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 15.5,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 26,
+      "cbsros": 15,
+      "razzball": 34,
+      "sttm_stale": 19
+     },
+     "implied_by_ranker": {
+      "espn": 14.1,
+      "cbsros": 25.8,
+      "razzball": 6.7,
+      "sttm_stale": 21.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.5,
+     "implied_at_mean_rank": 14.7,
+     "implied_at_median_rank": 14.1,
+     "implied_range": [
+      6.7,
+      25.8
+     ],
+     "rank_sd": 7.8
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 15.0,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 29,
+      "cbsros": 26,
+      "razzball": 23,
+      "sttm_stale": 24
+     },
+     "implied_by_ranker": {
+      "espn": 12.6,
+      "cbsros": 14.1,
+      "razzball": 15.0,
+      "sttm_stale": 14.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.9,
+     "implied_at_mean_rank": 14.1,
+     "implied_at_median_rank": 14.1,
+     "implied_range": [
+      12.6,
+      15.0
+     ],
+     "rank_sd": 2.4
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 14.7,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 19,
+      "cbsros": 24,
+      "razzball": 30,
+      "sttm_stale": 12
+     },
+     "implied_by_ranker": {
+      "espn": 21.5,
+      "cbsros": 14.7,
+      "razzball": 12.5,
+      "sttm_stale": 31.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 16.2,
+     "implied_at_mean_rank": 14.7,
+     "implied_at_median_rank": 14.7,
+     "implied_range": [
+      12.5,
+      21.5
+     ],
+     "rank_sd": 4.5
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 14.7,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 30,
+      "razzball": 7,
+      "sttm_stale": 23
+     },
+     "implied_by_ranker": {
+      "espn": 28.2,
+      "cbsros": 12.5,
+      "razzball": 42.6,
+      "sttm_stale": 15.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.8,
+     "implied_at_mean_rank": 23.9,
+     "implied_at_median_rank": 28.2,
+     "implied_range": [
+      12.5,
+      42.6
+     ],
+     "rank_sd": 9.7
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 14.1,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 29,
+      "razzball": 37
+     },
+     "implied_by_ranker": {
+      "espn": 15.5,
+      "cbsros": 12.6,
+      "razzball": 6.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.4,
+     "implied_at_mean_rank": 12.6,
+     "implied_at_median_rank": 12.6,
+     "implied_range": [
+      6.2,
+      15.5
+     ],
+     "rank_sd": 6.1
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 13.5,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 31,
+      "cbsros": 28,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 10.6,
+      "cbsros": 13.3,
+      "razzball": 13.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.4,
+     "implied_at_mean_rank": 12.6,
+     "implied_at_median_rank": 13.3,
+     "implied_range": [
+      10.6,
+      13.3
+     ],
+     "rank_sd": 1.4
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 13.3,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 18,
+      "razzball": 25,
+      "sttm_stale": 20
+     },
+     "implied_by_ranker": {
+      "espn": 25.8,
+      "cbsros": 22.6,
+      "razzball": 14.7,
+      "sttm_stale": 18.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.0,
+     "implied_at_mean_rank": 20.6,
+     "implied_at_median_rank": 22.6,
+     "implied_range": [
+      14.7,
+      25.8
+     ],
+     "rank_sd": 4.2
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 12.6,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 28,
+      "cbsros": 45,
+      "razzball": 20,
+      "sttm_stale": 30
+     },
+     "implied_by_ranker": {
+      "espn": 13.3,
+      "cbsros": 2.2,
+      "razzball": 18.8,
+      "sttm_stale": 12.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.4,
+     "implied_at_mean_rank": 10.6,
+     "implied_at_median_rank": 13.3,
+     "implied_range": [
+      2.2,
+      18.8
+     ],
+     "rank_sd": 10.4
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 12.5,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 22,
+      "razzball": 18,
+      "sttm_stale": 26
+     },
+     "implied_by_ranker": {
+      "espn": 14.7,
+      "cbsros": 15.5,
+      "razzball": 22.6,
+      "sttm_stale": 14.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 17.6,
+     "implied_at_mean_rank": 16.6,
+     "implied_at_median_rank": 15.5,
+     "implied_range": [
+      14.7,
+      22.6
+     ],
+     "rank_sd": 2.5
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 10.6,
+     "published_pos_rank": 31,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 32,
+      "razzball": 29,
+      "sttm_stale": 27
+     },
+     "implied_by_ranker": {
+      "espn": 6.9,
+      "cbsros": 8.6,
+      "razzball": 12.6,
+      "sttm_stale": 13.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.4,
+     "implied_at_mean_rank": 9.9,
+     "implied_at_median_rank": 8.6,
+     "implied_range": [
+      6.9,
+      12.6
+     ],
+     "rank_sd": 1.7
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 8.6,
+     "published_pos_rank": 32,
+     "ranks": {
+      "espn": 34,
+      "cbsros": 33,
+      "razzball": 50
+     },
+     "implied_by_ranker": {
+      "espn": 6.7,
+      "cbsros": 6.9,
+      "razzball": 1.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.9,
+     "implied_at_mean_rank": 5.6,
+     "implied_at_median_rank": 6.7,
+     "implied_range": [
+      1.1,
+      6.9
+     ],
+     "rank_sd": 7.8
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 6.9,
+     "published_pos_rank": 33,
+     "ranks": {
+      "espn": 48,
+      "cbsros": 42,
+      "razzball": 54
+     },
+     "implied_by_ranker": {
+      "espn": 1.6,
+      "cbsros": 2.8,
+      "razzball": 0.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 1.7,
+     "implied_at_mean_rank": 1.6,
+     "implied_at_median_rank": 1.6,
+     "implied_range": [
+      0.7,
+      2.8
+     ],
+     "rank_sd": 4.9
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 6.7,
+     "published_pos_rank": 34,
+     "ranks": {
+      "espn": 41,
+      "cbsros": 31,
+      "razzball": 46,
+      "sttm_stale": 28
+     },
+     "implied_by_ranker": {
+      "espn": 3.2,
+      "cbsros": 10.6,
+      "razzball": 1.7,
+      "sttm_stale": 13.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.2,
+     "implied_at_mean_rank": 5.0,
+     "implied_at_median_rank": 3.2,
+     "implied_range": [
+      1.7,
+      10.6
+     ],
+     "rank_sd": 6.2
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 6.6,
+     "published_pos_rank": 35,
+     "ranks": {
+      "espn": 38,
+      "cbsros": 60,
+      "razzball": 31
+     },
+     "implied_by_ranker": {
+      "espn": 5.7,
+      "cbsros": 0.2,
+      "razzball": 10.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.5,
+     "implied_at_mean_rank": 2.8,
+     "implied_at_median_rank": 5.7,
+     "implied_range": [
+      0.2,
+      10.6
+     ],
+     "rank_sd": 12.4
+    },
+    "Rome Odunze": {
+     "pos": "WR",
+     "published": 6.2,
+     "published_pos_rank": 36,
+     "ranks": {
+      "espn": 42,
+      "cbsros": 49,
+      "razzball": 38
+     },
+     "implied_by_ranker": {
+      "espn": 2.8,
+      "cbsros": 1.5,
+      "razzball": 5.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.3,
+     "implied_at_mean_rank": 2.8,
+     "implied_at_median_rank": 2.8,
+     "implied_range": [
+      1.5,
+      5.7
+     ],
+     "rank_sd": 4.5
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 33.5,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 4,
+      "razzball": 1,
+      "sttm_stale": 2
+     },
+     "implied_by_ranker": {
+      "espn": 29.7,
+      "cbsros": 14.4,
+      "razzball": 33.5,
+      "sttm_stale": 29.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 25.9,
+     "implied_at_mean_rank": 26.6,
+     "implied_at_median_rank": 29.7,
+     "implied_range": [
+      14.4,
+      33.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 29.7,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 2,
+      "sttm_stale": 1
+     },
+     "implied_by_ranker": {
+      "espn": 33.5,
+      "cbsros": 33.5,
+      "razzball": 29.7,
+      "sttm_stale": 33.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 32.2,
+     "implied_at_mean_rank": 32.2,
+     "implied_at_median_rank": 33.5,
+     "implied_range": [
+      29.7,
+      33.5
+     ],
+     "rank_sd": 0.5
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 20.3,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 8,
+      "razzball": 6,
+      "sttm_stale": 4
+     },
+     "implied_by_ranker": {
+      "espn": 20.3,
+      "cbsros": 10.1,
+      "razzball": 13.1,
+      "sttm_stale": 14.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.5,
+     "implied_at_mean_rank": 13.3,
+     "implied_at_median_rank": 13.1,
+     "implied_range": [
+      10.1,
+      20.3
+     ],
+     "rank_sd": 2.1
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 14.4,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 5,
+      "razzball": 3,
+      "sttm_stale": 5
+     },
+     "implied_by_ranker": {
+      "espn": 13.7,
+      "cbsros": 13.7,
+      "razzball": 20.3,
+      "sttm_stale": 13.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.9,
+     "implied_at_mean_rank": 14.2,
+     "implied_at_median_rank": 13.7,
+     "implied_range": [
+      13.7,
+      20.3
+     ],
+     "rank_sd": 0.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 13.7,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 6,
+      "razzball": 4,
+      "sttm_stale": 3
+     },
+     "implied_by_ranker": {
+      "espn": 14.4,
+      "cbsros": 13.1,
+      "razzball": 14.4,
+      "sttm_stale": 20.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.0,
+     "implied_at_mean_rank": 13.9,
+     "implied_at_median_rank": 14.4,
+     "implied_range": [
+      13.1,
+      14.4
+     ],
+     "rank_sd": 0.9
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 13.1,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 11,
+      "razzball": 12,
+      "sttm_stale": 21
+     },
+     "implied_by_ranker": {
+      "espn": 13.1,
+      "cbsros": 6.1,
+      "razzball": 4.1,
+      "sttm_stale": 0.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.8,
+     "implied_at_mean_rank": 6.8,
+     "implied_at_median_rank": 6.1,
+     "implied_range": [
+      4.1,
+      13.1
+     ],
+     "rank_sd": 2.6
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 10.1,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 10,
+      "razzball": 7,
+      "sttm_stale": 8
+     },
+     "implied_by_ranker": {
+      "espn": 7.3,
+      "cbsros": 6.5,
+      "razzball": 10.1,
+      "sttm_stale": 10.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.0,
+     "implied_at_mean_rank": 8.2,
+     "implied_at_median_rank": 7.3,
+     "implied_range": [
+      6.5,
+      10.1
+     ],
+     "rank_sd": 1.2
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 10.1,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 3,
+      "razzball": 11,
+      "sttm_stale": 7
+     },
+     "implied_by_ranker": {
+      "espn": 10.1,
+      "cbsros": 20.3,
+      "razzball": 6.1,
+      "sttm_stale": 10.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.2,
+     "implied_at_mean_rank": 10.1,
+     "implied_at_median_rank": 10.1,
+     "implied_range": [
+      6.1,
+      20.3
+     ],
+     "rank_sd": 3.3
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 7.3,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 17,
+      "razzball": 13,
+      "sttm_stale": 17
+     },
+     "implied_by_ranker": {
+      "espn": 4.1,
+      "cbsros": 2.2,
+      "razzball": 4.0,
+      "sttm_stale": 2.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.4,
+     "implied_at_mean_rank": 4.0,
+     "implied_at_median_rank": 4.0,
+     "implied_range": [
+      2.2,
+      4.1
+     ],
+     "rank_sd": 2.2
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 6.5,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 2,
+      "razzball": 14,
+      "sttm_stale": 6
+     },
+     "implied_by_ranker": {
+      "espn": 6.5,
+      "cbsros": 29.7,
+      "razzball": 4.0,
+      "sttm_stale": 13.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.4,
+     "implied_at_mean_rank": 8.2,
+     "implied_at_median_rank": 6.5,
+     "implied_range": [
+      4.0,
+      29.7
+     ],
+     "rank_sd": 5.0
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 6.1,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 15,
+      "razzball": 9,
+      "sttm_stale": 11
+     },
+     "implied_by_ranker": {
+      "espn": 3.8,
+      "cbsros": 3.8,
+      "razzball": 7.3,
+      "sttm_stale": 6.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.0,
+     "implied_at_mean_rank": 4.0,
+     "implied_at_median_rank": 3.8,
+     "implied_range": [
+      3.8,
+      7.3
+     ],
+     "rank_sd": 2.8
+    },
+    "T.J. Hockenson": {
+     "pos": "TE",
+     "published": 4.1,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 14,
+      "razzball": 15,
+      "sttm_stale": 18
+     },
+     "implied_by_ranker": {
+      "espn": 10.1,
+      "cbsros": 4.0,
+      "razzball": 3.8,
+      "sttm_stale": 1.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.0,
+     "implied_at_mean_rank": 4.1,
+     "implied_at_median_rank": 4.0,
+     "implied_range": [
+      3.8,
+      10.1
+     ],
+     "rank_sd": 3.6
+    }
+   },
+   "overall_vs_positional": {
+    "QB": [
+     {
+      "player": "Josh Allen",
+      "published": 32.0,
+      "positional_implied": 32.0,
+      "overall_rank": 2,
+      "overall_implied": 67.6
+     },
+     {
+      "player": "Drake Maye",
+      "published": 21.0,
+      "positional_implied": 14.9,
+      "overall_rank": 6,
+      "overall_implied": 56.4
+     },
+     {
+      "player": "Lamar Jackson",
+      "published": 17.6,
+      "positional_implied": 11.3,
+      "overall_rank": 12,
+      "overall_implied": 46.5
+     },
+     {
+      "player": "Joe Burrow",
+      "published": 15.1,
+      "positional_implied": 17.6,
+      "overall_rank": 4,
+      "overall_implied": 67.5
+     },
+     {
+      "player": "Brock Purdy",
+      "published": 14.9,
+      "positional_implied": 9.0,
+      "overall_rank": 16,
+      "overall_implied": 41.0
+     }
+    ],
+    "RB": [
+     {
+      "player": "Jahmyr Gibbs",
+      "published": 74.6,
+      "positional_implied": 74.6,
+      "overall_rank": 1,
+      "overall_implied": 74.6
+     },
+     {
+      "player": "Bijan Robinson",
+      "published": 67.6,
+      "positional_implied": 54.6,
+      "overall_rank": 17,
+      "overall_implied": 38.8
+     },
+     {
+      "player": "Kenneth Walker III",
+      "published": 67.6,
+      "positional_implied": 67.6,
+      "overall_rank": 7,
+      "overall_implied": 54.6
+     },
+     {
+      "player": "James Cook",
+      "published": 54.6,
+      "positional_implied": 67.6,
+      "overall_rank": 15,
+      "overall_implied": 42.6
+     },
+     {
+      "player": "Christian McCaffrey",
+      "published": 51.1,
+      "positional_implied": 51.1,
+      "overall_rank": 20,
+      "overall_implied": 35.6
+     }
+    ],
+    "WR": [
+     {
+      "player": "Jaxon Smith-Njigba",
+      "published": 67.5,
+      "positional_implied": 54.1,
+      "overall_rank": 13,
+      "overall_implied": 45.4
+     },
+     {
+      "player": "Puka Nacua",
+      "published": 63.4,
+      "positional_implied": 63.4,
+      "overall_rank": 9,
+      "overall_implied": 52.0
+     },
+     {
+      "player": "Ja'Marr Chase",
+      "published": 56.4,
+      "positional_implied": 67.5,
+      "overall_rank": 8,
+      "overall_implied": 54.1
+     },
+     {
+      "player": "Amon-Ra St. Brown",
+      "published": 54.1,
+      "positional_implied": 56.4,
+      "overall_rank": 10,
+      "overall_implied": 51.1
+     },
+     {
+      "player": "CeeDee Lamb",
+      "published": 52.0,
+      "positional_implied": 52.0,
+      "overall_rank": 24,
+      "overall_implied": 32.5
+     }
+    ],
+    "TE": [
+     {
+      "player": "Brock Bowers",
+      "published": 33.5,
+      "positional_implied": 29.7,
+      "overall_rank": 62,
+      "overall_implied": 13.5
+     },
+     {
+      "player": "Trey McBride",
+      "published": 29.7,
+      "positional_implied": 33.5,
+      "overall_rank": 49,
+      "overall_implied": 17.6
+     },
+     {
+      "player": "George Kittle",
+      "published": 20.3,
+      "positional_implied": 20.3,
+      "overall_rank": 67,
+      "overall_implied": 11.3
+     },
+     {
+      "player": "Isaiah Likely",
+      "published": 14.4,
+      "positional_implied": 13.7,
+      "overall_rank": 88,
+      "overall_implied": 6.2
+     },
+     {
+      "player": "Sam LaPorta",
+      "published": 13.7,
+      "positional_implied": 14.4,
+      "overall_rank": 84,
+      "overall_implied": 6.7
+     }
+    ]
+   },
+   "thin_anchor_players": [],
+   "ranked_but_unpriced": {
+    "espn": [
+     "Malik Willis (QB12)"
+    ],
+    "cbsros": [
+     "Malik Willis (QB10)",
+     "Greg Dulcich (TE9)",
+     "Mike Gesicki (TE12)"
+    ],
+    "razzball": [
+     "Justin Herbert (QB8)"
+    ],
+    "sttm_stale": [
+     "Mike Gesicki (TE12)"
+    ]
+   }
+  },
+  "half_ppr": {
+   "curve_shape": {
+    "QB": {
+     "top": 33.5,
+     "rank_6": 14.5,
+     "rank_12": 4.8,
+     "gap_1_2": 11.5,
+     "median_gap_top_depth": 1.55,
+     "max_gap": 11.5,
+     "n_priced_gt0": 18
+    },
+    "RB": {
+     "top": 78.8,
+     "rank_15": 32.5,
+     "rank_30": 9.6,
+     "gap_1_2": 7.0,
+     "median_gap_top_depth": 1.65,
+     "max_gap": 13.2,
+     "n_priced_gt0": 58
+    },
+    "WR": {
+     "top": 63.5,
+     "rank_18": 20.5,
+     "rank_36": 5.4,
+     "gap_1_2": 4.0,
+     "median_gap_top_depth": 1.2,
+     "max_gap": 6.6,
+     "n_priced_gt0": 64
+    },
+    "TE": {
+     "top": 31.5,
+     "rank_6": 12.2,
+     "rank_12": 4.4,
+     "gap_1_2": 4.0,
+     "median_gap_top_depth": 1.4,
+     "max_gap": 8.5,
+     "n_priced_gt0": 23
+    }
+   },
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.6,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.19,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.34,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.74,
+      "espn~razzball": 0.52,
+      "cbsros~razzball": 0.36
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.9,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.91,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.82,
+       "n": 30,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.94,
+      "espn~razzball": 0.84,
+      "cbsros~razzball": 0.84
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.88,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.9,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.85,
+       "n": 36,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.8,
+      "espn~razzball": 0.88,
+      "cbsros~razzball": 0.77
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.95,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.58,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.92,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.68,
+      "espn~razzball": 0.82,
+      "cbsros~razzball": 0.43
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 33.5,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 33.5,
+      "cbsros": 33.5,
+      "razzball": 33.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 33.5,
+     "implied_at_mean_rank": 33.5,
+     "implied_at_median_rank": 33.5,
+     "implied_range": [
+      33.5,
+      33.5
+     ],
+     "rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 22.0,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 11,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 15.6,
+      "cbsros": 5.7,
+      "razzball": 4.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.7,
+     "implied_at_mean_rank": 8.5,
+     "implied_at_median_rank": 5.7,
+     "implied_range": [
+      4.8,
+      15.6
+     ],
+     "rank_sd": 3.1
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 18.4,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 9,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 11.8,
+      "cbsros": 9.4,
+      "razzball": 15.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.3,
+     "implied_at_mean_rank": 12.7,
+     "implied_at_median_rank": 11.8,
+     "implied_range": [
+      9.4,
+      15.8
+     ],
+     "rank_sd": 2.1
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 15.8,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 2,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 18.4,
+      "cbsros": 22.0,
+      "razzball": 18.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.6,
+     "implied_at_mean_rank": 19.6,
+     "implied_at_median_rank": 18.4,
+     "implied_range": [
+      18.4,
+      22.0
+     ],
+     "rank_sd": 0.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 15.6,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 8,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 9.4,
+      "cbsros": 11.2,
+      "razzball": 3.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.0,
+     "implied_at_mean_rank": 6.7,
+     "implied_at_median_rank": 9.4,
+     "implied_range": [
+      3.5,
+      11.2
+     ],
+     "rank_sd": 2.2
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 14.5,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 15.8,
+      "cbsros": 15.8,
+      "razzball": 2.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.4,
+     "implied_at_mean_rank": 11.6,
+     "implied_at_median_rank": 15.8,
+     "implied_range": [
+      2.7,
+      15.8
+     ],
+     "rank_sd": 4.7
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 11.8,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 13,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 5.7,
+      "cbsros": 3.5,
+      "razzball": 6.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.3,
+     "implied_at_mean_rank": 5.4,
+     "implied_at_median_rank": 5.7,
+     "implied_range": [
+      3.5,
+      6.7
+     ],
+     "rank_sd": 1.2
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 11.2,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 6,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 14.5,
+      "cbsros": 14.5,
+      "razzball": 15.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.9,
+     "implied_at_mean_rank": 14.9,
+     "implied_at_median_rank": 14.5,
+     "implied_range": [
+      14.5,
+      15.6
+     ],
+     "rank_sd": 0.5
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.4,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 3,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 22.0,
+      "cbsros": 18.4,
+      "razzball": 22.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.8,
+     "implied_at_mean_rank": 20.8,
+     "implied_at_median_rank": 22.0,
+     "implied_range": [
+      18.4,
+      22.0
+     ],
+     "rank_sd": 0.5
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.7,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 7,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 1.6,
+      "cbsros": 11.8,
+      "razzball": 5.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.4,
+     "implied_at_mean_rank": 5.4,
+     "implied_at_median_rank": 5.7,
+     "implied_range": [
+      1.6,
+      11.8
+     ],
+     "rank_sd": 3.7
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.7,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 14,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 2.6,
+      "cbsros": 2.7,
+      "razzball": 14.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.6,
+     "implied_at_mean_rank": 5.1,
+     "implied_at_median_rank": 2.7,
+     "implied_range": [
+      2.6,
+      14.5
+     ],
+     "rank_sd": 4.0
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.8,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 5,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 6.7,
+      "cbsros": 15.6,
+      "razzball": 2.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.3,
+     "implied_at_mean_rank": 6.7,
+     "implied_at_median_rank": 6.7,
+     "implied_range": [
+      2.6,
+      15.6
+     ],
+     "rank_sd": 4.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 78.8,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 78.8,
+      "cbsros": 78.8,
+      "razzball": 78.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 78.8,
+     "implied_at_mean_rank": 78.8,
+     "implied_at_median_rank": 78.8,
+     "implied_range": [
+      78.8,
+      78.8
+     ],
+     "rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 71.8,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 58.5,
+      "cbsros": 58.5,
+      "razzball": 71.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 62.9,
+     "implied_at_mean_rank": 62.9,
+     "implied_at_median_rank": 58.5,
+     "implied_range": [
+      58.5,
+      71.7
+     ],
+     "rank_sd": 0.5
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 71.7,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 2,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 71.8,
+      "cbsros": 71.8,
+      "razzball": 71.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 71.8,
+     "implied_at_mean_rank": 71.8,
+     "implied_at_median_rank": 71.8,
+     "implied_range": [
+      71.8,
+      71.8
+     ],
+     "rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 58.5,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 5,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 71.7,
+      "cbsros": 53.8,
+      "razzball": 53.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 59.8,
+     "implied_at_mean_rank": 56.9,
+     "implied_at_median_rank": 53.8,
+     "implied_range": [
+      53.8,
+      71.7
+     ],
+     "rank_sd": 0.9
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 53.8,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 12,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 53.8,
+      "cbsros": 36.4,
+      "razzball": 41.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 43.9,
+     "implied_at_mean_rank": 44.0,
+     "implied_at_median_rank": 41.6,
+     "implied_range": [
+      36.4,
+      53.8
+     ],
+     "rank_sd": 2.9
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 52.7,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 3,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 52.7,
+      "cbsros": 71.7,
+      "razzball": 44.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 56.1,
+     "implied_at_mean_rank": 52.7,
+     "implied_at_median_rank": 52.7,
+     "implied_range": [
+      44.0,
+      71.7
+     ],
+     "rank_sd": 2.4
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 49.5,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 8,
+      "razzball": 7
+     },
+     "implied_by_ranker": {
+      "espn": 36.4,
+      "cbsros": 47.1,
+      "razzball": 49.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 44.3,
+     "implied_at_mean_rank": 44.0,
+     "implied_at_median_rank": 47.1,
+     "implied_range": [
+      36.4,
+      49.5
+     ],
+     "rank_sd": 2.2
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 47.1,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 6,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 49.5,
+      "cbsros": 52.7,
+      "razzball": 52.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 51.6,
+     "implied_at_mean_rank": 51.6,
+     "implied_at_median_rank": 52.7,
+     "implied_range": [
+      49.5,
+      52.7
+     ],
+     "rank_sd": 0.5
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 44.0,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 10,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 41.6,
+      "cbsros": 41.6,
+      "razzball": 36.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 39.9,
+     "implied_at_mean_rank": 39.7,
+     "implied_at_median_rank": 41.6,
+     "implied_range": [
+      36.4,
+      41.6
+     ],
+     "rank_sd": 0.9
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 41.6,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 7,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 47.1,
+      "cbsros": 49.5,
+      "razzball": 35.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 43.9,
+     "implied_at_mean_rank": 43.2,
+     "implied_at_median_rank": 47.1,
+     "implied_range": [
+      35.0,
+      49.5
+     ],
+     "rank_sd": 2.6
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 38.7,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 16,
+      "razzball": 22
+     },
+     "implied_by_ranker": {
+      "espn": 31.2,
+      "cbsros": 31.2,
+      "razzball": 20.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.5,
+     "implied_at_mean_rank": 25.5,
+     "implied_at_median_rank": 31.2,
+     "implied_range": [
+      20.1,
+      31.2
+     ],
+     "rank_sd": 2.8
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 36.4,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 18,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 25.5,
+      "cbsros": 25.5,
+      "razzball": 33.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 28.0,
+     "implied_at_mean_rank": 28.8,
+     "implied_at_median_rank": 25.5,
+     "implied_range": [
+      25.5,
+      33.1
+     ],
+     "rank_sd": 1.9
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 35.0,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 15,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 44.0,
+      "cbsros": 32.5,
+      "razzball": 58.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 45.0,
+     "implied_at_mean_rank": 43.2,
+     "implied_at_median_rank": 44.0,
+     "implied_range": [
+      32.5,
+      58.5
+     ],
+     "rank_sd": 4.5
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 33.1,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 20,
+      "cbsros": 14,
+      "razzball": 30
+     },
+     "implied_by_ranker": {
+      "espn": 21.9,
+      "cbsros": 33.1,
+      "razzball": 9.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.5,
+     "implied_at_mean_rank": 20.5,
+     "implied_at_median_rank": 21.9,
+     "implied_range": [
+      9.6,
+      33.1
+     ],
+     "rank_sd": 6.6
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 32.5,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 13,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 33.1,
+      "cbsros": 35.0,
+      "razzball": 38.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 35.6,
+     "implied_at_mean_rank": 35.5,
+     "implied_at_median_rank": 35.0,
+     "implied_range": [
+      33.1,
+      38.7
+     ],
+     "rank_sd": 1.2
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 31.2,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 11,
+      "razzball": 17
+     },
+     "implied_by_ranker": {
+      "espn": 32.5,
+      "cbsros": 38.7,
+      "razzball": 27.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 32.9,
+     "implied_at_mean_rank": 32.9,
+     "implied_at_median_rank": 32.5,
+     "implied_range": [
+      27.6,
+      38.7
+     ],
+     "rank_sd": 2.5
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 27.6,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 23,
+      "razzball": 25
+     },
+     "implied_by_ranker": {
+      "espn": 20.0,
+      "cbsros": 20.0,
+      "razzball": 12.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 17.5,
+     "implied_at_mean_rank": 18.2,
+     "implied_at_median_rank": 20.0,
+     "implied_range": [
+      12.6,
+      20.0
+     ],
+     "rank_sd": 0.9
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 25.5,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 9,
+      "razzball": 8
+     },
+     "implied_by_ranker": {
+      "espn": 35.0,
+      "cbsros": 44.0,
+      "razzball": 47.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 42.0,
+     "implied_at_mean_rank": 41.6,
+     "implied_at_median_rank": 44.0,
+     "implied_range": [
+      35.0,
+      47.1
+     ],
+     "rank_sd": 2.2
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 24.3,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 20,
+      "razzball": 23
+     },
+     "implied_by_ranker": {
+      "espn": 20.7,
+      "cbsros": 21.9,
+      "razzball": 20.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.9,
+     "implied_at_mean_rank": 20.5,
+     "implied_at_median_rank": 20.7,
+     "implied_range": [
+      20.0,
+      21.9
+     ],
+     "rank_sd": 1.2
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 21.9,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 29,
+      "cbsros": 26,
+      "razzball": 20
+     },
+     "implied_by_ranker": {
+      "espn": 10.3,
+      "cbsros": 12.1,
+      "razzball": 21.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.8,
+     "implied_at_mean_rank": 12.6,
+     "implied_at_median_rank": 12.1,
+     "implied_range": [
+      10.3,
+      21.9
+     ],
+     "rank_sd": 3.7
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 20.7,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 27,
+      "cbsros": 24,
+      "razzball": 16
+     },
+     "implied_by_ranker": {
+      "espn": 11.6,
+      "cbsros": 17.3,
+      "razzball": 31.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.0,
+     "implied_at_mean_rank": 20.1,
+     "implied_at_median_rank": 17.3,
+     "implied_range": [
+      11.6,
+      31.2
+     ],
+     "rank_sd": 4.6
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 20.1,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 17,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 38.7,
+      "cbsros": 27.6,
+      "razzball": 10.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 25.6,
+     "implied_at_mean_rank": 24.7,
+     "implied_at_median_rank": 27.6,
+     "implied_range": [
+      10.4,
+      38.7
+     ],
+     "rank_sd": 7.0
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 20.0,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 21,
+      "razzball": 19
+     },
+     "implied_by_ranker": {
+      "espn": 20.1,
+      "cbsros": 20.7,
+      "razzball": 24.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.7,
+     "implied_at_mean_rank": 21.1,
+     "implied_at_median_rank": 20.7,
+     "implied_range": [
+      20.1,
+      24.3
+     ],
+     "rank_sd": 1.2
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 17.3,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 22,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 17.3,
+      "cbsros": 20.1,
+      "razzball": 32.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 23.3,
+     "implied_at_mean_rank": 21.5,
+     "implied_at_median_rank": 20.1,
+     "implied_range": [
+      17.3,
+      32.5
+     ],
+     "rank_sd": 3.9
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 12.6,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 17,
+      "cbsros": 19,
+      "razzball": 18
+     },
+     "implied_by_ranker": {
+      "espn": 27.6,
+      "cbsros": 24.3,
+      "razzball": 25.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 25.8,
+     "implied_at_mean_rank": 25.5,
+     "implied_at_median_rank": 25.5,
+     "implied_range": [
+      24.3,
+      27.6
+     ],
+     "rank_sd": 0.8
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 12.1,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 25,
+      "cbsros": 34,
+      "razzball": 26
+     },
+     "implied_by_ranker": {
+      "espn": 12.6,
+      "cbsros": 6.7,
+      "razzball": 12.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.5,
+     "implied_at_mean_rank": 10.4,
+     "implied_at_median_rank": 12.1,
+     "implied_range": [
+      6.7,
+      12.6
+     ],
+     "rank_sd": 4.0
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 11.6,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 32,
+      "cbsros": 27,
+      "razzball": 27
+     },
+     "implied_by_ranker": {
+      "espn": 8.5,
+      "cbsros": 11.6,
+      "razzball": 11.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.6,
+     "implied_at_mean_rank": 10.3,
+     "implied_at_median_rank": 11.6,
+     "implied_range": [
+      8.5,
+      11.6
+     ],
+     "rank_sd": 2.4
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 10.4,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 31,
+      "cbsros": 57,
+      "razzball": 41
+     },
+     "implied_by_ranker": {
+      "espn": 8.9,
+      "cbsros": 0.1,
+      "razzball": 3.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.0,
+     "implied_at_mean_rank": 2.4,
+     "implied_at_median_rank": 3.1,
+     "implied_range": [
+      0.1,
+      8.9
+     ],
+     "rank_sd": 10.7
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 10.3,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 36,
+      "razzball": 35
+     },
+     "implied_by_ranker": {
+      "espn": 7.1,
+      "cbsros": 5.4,
+      "razzball": 6.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.3,
+     "implied_at_mean_rank": 6.4,
+     "implied_at_median_rank": 6.3,
+     "implied_range": [
+      5.4,
+      7.1
+     ],
+     "rank_sd": 1.2
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 9.6,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 34,
+      "cbsros": 29,
+      "razzball": 29
+     },
+     "implied_by_ranker": {
+      "espn": 6.7,
+      "cbsros": 10.3,
+      "razzball": 10.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.1,
+     "implied_at_mean_rank": 9.1,
+     "implied_at_median_rank": 10.3,
+     "implied_range": [
+      6.7,
+      10.3
+     ],
+     "rank_sd": 2.4
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 63.5,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 1,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 50.8,
+      "cbsros": 63.5,
+      "razzball": 59.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 57.9,
+     "implied_at_mean_rank": 57.3,
+     "implied_at_median_rank": 59.5,
+     "implied_range": [
+      50.8,
+      63.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 59.5,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 5,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 59.5,
+      "cbsros": 48.6,
+      "razzball": 63.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 57.2,
+     "implied_at_mean_rank": 55.1,
+     "implied_at_median_rank": 59.5,
+     "implied_range": [
+      48.6,
+      63.5
+     ],
+     "rank_sd": 1.7
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 52.9,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 4,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 63.5,
+      "cbsros": 50.8,
+      "razzball": 52.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 55.7,
+     "implied_at_mean_rank": 55.1,
+     "implied_at_median_rank": 52.9,
+     "implied_range": [
+      50.8,
+      63.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 50.8,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 2,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 52.9,
+      "cbsros": 59.5,
+      "razzball": 50.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 54.4,
+     "implied_at_mean_rank": 52.9,
+     "implied_at_median_rank": 52.9,
+     "implied_range": [
+      50.8,
+      59.5
+     ],
+     "rank_sd": 0.8
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 48.6,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 3,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 48.6,
+      "cbsros": 52.9,
+      "razzball": 48.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 50.0,
+     "implied_at_mean_rank": 50.1,
+     "implied_at_median_rank": 48.6,
+     "implied_range": [
+      48.6,
+      52.9
+     ],
+     "rank_sd": 0.9
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 42.2,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 22,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 31.7,
+      "cbsros": 14.5,
+      "razzball": 26.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.1,
+     "implied_at_mean_rank": 23.8,
+     "implied_at_median_rank": 26.1,
+     "implied_range": [
+      14.5,
+      31.7
+     ],
+     "rank_sd": 5.1
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 39.8,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 11,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 39.8,
+      "cbsros": 29.9,
+      "razzball": 42.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 37.3,
+     "implied_at_mean_rank": 34.6,
+     "implied_at_median_rank": 39.8,
+     "implied_range": [
+      29.9,
+      42.2
+     ],
+     "rank_sd": 2.2
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 34.6,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 12,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 42.2,
+      "cbsros": 28.7,
+      "razzball": 29.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 33.6,
+     "implied_at_mean_rank": 32.1,
+     "implied_at_median_rank": 29.9,
+     "implied_range": [
+      28.7,
+      42.2
+     ],
+     "rank_sd": 2.6
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 32.8,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 9,
+      "razzball": 25
+     },
+     "implied_by_ranker": {
+      "espn": 15.5,
+      "cbsros": 32.8,
+      "razzball": 12.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.4,
+     "implied_at_mean_rank": 20.1,
+     "implied_at_median_rank": 15.5,
+     "implied_range": [
+      12.9,
+      32.8
+     ],
+     "rank_sd": 6.8
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 31.7,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 7,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 32.8,
+      "cbsros": 39.8,
+      "razzball": 32.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 35.1,
+     "implied_at_mean_rank": 34.0,
+     "implied_at_median_rank": 32.8,
+     "implied_range": [
+      32.8,
+      39.8
+     ],
+     "rank_sd": 0.9
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 29.9,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 10,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 23.5,
+      "cbsros": 31.7,
+      "razzball": 28.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 28.0,
+     "implied_at_mean_rank": 27.0,
+     "implied_at_median_rank": 28.7,
+     "implied_range": [
+      23.5,
+      31.7
+     ],
+     "rank_sd": 2.5
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 28.7,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 8,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 34.6,
+      "cbsros": 34.6,
+      "razzball": 23.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 31.0,
+     "implied_at_mean_rank": 31.1,
+     "implied_at_median_rank": 34.6,
+     "implied_range": [
+      23.8,
+      34.6
+     ],
+     "rank_sd": 3.3
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 26.1,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 6,
+      "razzball": 8
+     },
+     "implied_by_ranker": {
+      "espn": 28.7,
+      "cbsros": 42.2,
+      "razzball": 34.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 35.2,
+     "implied_at_mean_rank": 33.4,
+     "implied_at_median_rank": 34.6,
+     "implied_range": [
+      28.7,
+      42.2
+     ],
+     "rank_sd": 2.5
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 24.2,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 26,
+      "cbsros": 13,
+      "razzball": 16
+     },
+     "implied_by_ranker": {
+      "espn": 12.6,
+      "cbsros": 26.1,
+      "razzball": 23.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.7,
+     "implied_at_mean_rank": 20.1,
+     "implied_at_median_rank": 23.5,
+     "implied_range": [
+      12.6,
+      26.1
+     ],
+     "rank_sd": 5.6
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 23.8,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 15,
+      "razzball": 17
+     },
+     "implied_by_ranker": {
+      "espn": 14.5,
+      "cbsros": 23.8,
+      "razzball": 20.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.7,
+     "implied_at_mean_rank": 20.5,
+     "implied_at_median_rank": 20.9,
+     "implied_range": [
+      14.5,
+      23.8
+     ],
+     "rank_sd": 2.9
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 23.5,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 18,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 24.2,
+      "cbsros": 20.5,
+      "razzball": 24.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 23.0,
+     "implied_at_mean_rank": 23.7,
+     "implied_at_median_rank": 24.2,
+     "implied_range": [
+      20.5,
+      24.2
+     ],
+     "rank_sd": 1.9
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 20.9,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 17,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 29.9,
+      "cbsros": 20.9,
+      "razzball": 31.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.5,
+     "implied_at_mean_rank": 27.0,
+     "implied_at_median_rank": 29.9,
+     "implied_range": [
+      20.9,
+      31.7
+     ],
+     "rank_sd": 3.1
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 20.5,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 20,
+      "cbsros": 20,
+      "razzball": 23
+     },
+     "implied_by_ranker": {
+      "espn": 17.2,
+      "cbsros": 17.2,
+      "razzball": 13.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.9,
+     "implied_at_mean_rank": 15.5,
+     "implied_at_median_rank": 17.2,
+     "implied_range": [
+      13.3,
+      17.2
+     ],
+     "rank_sd": 1.4
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 19.4,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 30,
+      "cbsros": 23,
+      "razzball": 19
+     },
+     "implied_by_ranker": {
+      "espn": 10.8,
+      "cbsros": 13.3,
+      "razzball": 19.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.5,
+     "implied_at_mean_rank": 13.0,
+     "implied_at_median_rank": 13.3,
+     "implied_range": [
+      10.8,
+      19.4
+     ],
+     "rank_sd": 4.5
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 17.2,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 27,
+      "razzball": 22
+     },
+     "implied_by_ranker": {
+      "espn": 23.8,
+      "cbsros": 11.7,
+      "razzball": 14.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 16.7,
+     "implied_at_mean_rank": 15.2,
+     "implied_at_median_rank": 14.5,
+     "implied_range": [
+      11.7,
+      23.8
+     ],
+     "rank_sd": 4.9
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 15.5,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 17,
+      "cbsros": 25,
+      "razzball": 20
+     },
+     "implied_by_ranker": {
+      "espn": 20.9,
+      "cbsros": 12.9,
+      "razzball": 17.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 17.0,
+     "implied_at_mean_rank": 16.1,
+     "implied_at_median_rank": 17.2,
+     "implied_range": [
+      12.9,
+      20.9
+     ],
+     "rank_sd": 3.3
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 14.5,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 14,
+      "razzball": 31
+     },
+     "implied_by_ranker": {
+      "espn": 13.0,
+      "cbsros": 24.2,
+      "razzball": 9.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.4,
+     "implied_at_mean_rank": 13.3,
+     "implied_at_median_rank": 13.0,
+     "implied_range": [
+      9.1,
+      24.2
+     ],
+     "rank_sd": 7.0
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 13.3,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 24,
+      "razzball": 30
+     },
+     "implied_by_ranker": {
+      "espn": 13.3,
+      "cbsros": 13.0,
+      "razzball": 10.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.4,
+     "implied_at_mean_rank": 12.7,
+     "implied_at_median_rank": 13.0,
+     "implied_range": [
+      10.8,
+      13.3
+     ],
+     "rank_sd": 3.1
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 13.0,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 27,
+      "cbsros": 26,
+      "razzball": 26
+     },
+     "implied_by_ranker": {
+      "espn": 11.7,
+      "cbsros": 12.6,
+      "razzball": 12.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.3,
+     "implied_at_mean_rank": 12.3,
+     "implied_at_median_rank": 12.6,
+     "implied_range": [
+      11.7,
+      12.6
+     ],
+     "rank_sd": 0.5
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 12.9,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 34,
+      "razzball": 7
+     },
+     "implied_by_ranker": {
+      "espn": 26.1,
+      "cbsros": 5.7,
+      "razzball": 39.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 23.9,
+     "implied_at_mean_rank": 20.5,
+     "implied_at_median_rank": 26.1,
+     "implied_range": [
+      5.7,
+      39.8
+     ],
+     "rank_sd": 11.6
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 12.6,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 19,
+      "cbsros": 28,
+      "razzball": 36
+     },
+     "implied_by_ranker": {
+      "espn": 19.4,
+      "cbsros": 11.5,
+      "razzball": 5.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.1,
+     "implied_at_mean_rank": 11.6,
+     "implied_at_median_rank": 11.5,
+     "implied_range": [
+      5.4,
+      19.4
+     ],
+     "rank_sd": 6.9
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 11.7,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 19,
+      "razzball": 24
+     },
+     "implied_by_ranker": {
+      "espn": 20.5,
+      "cbsros": 19.4,
+      "razzball": 13.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 17.6,
+     "implied_at_mean_rank": 16.6,
+     "implied_at_median_rank": 19.4,
+     "implied_range": [
+      13.0,
+      20.5
+     ],
+     "rank_sd": 2.6
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 11.5,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 34,
+      "cbsros": 29,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 5.7,
+      "cbsros": 11.5,
+      "razzball": 11.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.6,
+     "implied_at_mean_rank": 10.2,
+     "implied_at_median_rank": 11.5,
+     "implied_range": [
+      5.7,
+      11.5
+     ],
+     "rank_sd": 2.6
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 11.5,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 28,
+      "cbsros": 44,
+      "razzball": 21
+     },
+     "implied_by_ranker": {
+      "espn": 11.5,
+      "cbsros": 1.9,
+      "razzball": 15.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.6,
+     "implied_at_mean_rank": 9.1,
+     "implied_at_median_rank": 11.5,
+     "implied_range": [
+      1.9,
+      15.5
+     ],
+     "rank_sd": 9.6
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 10.8,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 25,
+      "cbsros": 21,
+      "razzball": 18
+     },
+     "implied_by_ranker": {
+      "espn": 12.9,
+      "cbsros": 15.5,
+      "razzball": 20.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 16.3,
+     "implied_at_mean_rank": 15.2,
+     "implied_at_median_rank": 15.5,
+     "implied_range": [
+      12.9,
+      20.5
+     ],
+     "rank_sd": 2.9
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 9.1,
+     "published_pos_rank": 31,
+     "ranks": {
+      "espn": 32,
+      "cbsros": 37,
+      "razzball": 29
+     },
+     "implied_by_ranker": {
+      "espn": 7.3,
+      "cbsros": 5.4,
+      "razzball": 11.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.1,
+     "implied_at_mean_rank": 6.4,
+     "implied_at_median_rank": 7.3,
+     "implied_range": [
+      5.4,
+      11.5
+     ],
+     "rank_sd": 3.3
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 7.3,
+     "published_pos_rank": 32,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 33,
+      "razzball": 49
+     },
+     "implied_by_ranker": {
+      "espn": 5.9,
+      "cbsros": 5.9,
+      "razzball": 1.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.3,
+     "implied_at_mean_rank": 4.9,
+     "implied_at_median_rank": 5.9,
+     "implied_range": [
+      1.1,
+      5.9
+     ],
+     "rank_sd": 7.5
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 5.9,
+     "published_pos_rank": 33,
+     "ranks": {
+      "espn": 47,
+      "cbsros": 39,
+      "razzball": 52
+     },
+     "implied_by_ranker": {
+      "espn": 1.3,
+      "cbsros": 4.6,
+      "razzball": 0.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 2.2,
+     "implied_at_mean_rank": 1.4,
+     "implied_at_median_rank": 1.3,
+     "implied_range": [
+      0.7,
+      4.6
+     ],
+     "rank_sd": 5.4
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 5.7,
+     "published_pos_rank": 34,
+     "ranks": {
+      "espn": 43,
+      "cbsros": 30,
+      "razzball": 46
+     },
+     "implied_by_ranker": {
+      "espn": 2.3,
+      "cbsros": 10.8,
+      "razzball": 1.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.8,
+     "implied_at_mean_rank": 3.7,
+     "implied_at_median_rank": 2.3,
+     "implied_range": [
+      1.4,
+      10.8
+     ],
+     "rank_sd": 6.9
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 5.5,
+     "published_pos_rank": 35,
+     "ranks": {
+      "espn": 39,
+      "cbsros": 61,
+      "razzball": 34
+     },
+     "implied_by_ranker": {
+      "espn": 4.6,
+      "cbsros": 0.1,
+      "razzball": 5.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.5,
+     "implied_at_mean_rank": 1.8,
+     "implied_at_median_rank": 4.6,
+     "implied_range": [
+      0.1,
+      5.7
+     ],
+     "rank_sd": 11.7
+    },
+    "Rome Odunze": {
+     "pos": "WR",
+     "published": 5.4,
+     "published_pos_rank": 36,
+     "ranks": {
+      "espn": 41,
+      "cbsros": 48,
+      "razzball": 38
+     },
+     "implied_by_ranker": {
+      "espn": 2.8,
+      "cbsros": 1.2,
+      "razzball": 5.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.0,
+     "implied_at_mean_rank": 2.4,
+     "implied_at_median_rank": 2.8,
+     "implied_range": [
+      1.2,
+      5.1
+     ],
+     "rank_sd": 4.2
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 31.5,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 4,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 27.5,
+      "cbsros": 13.1,
+      "razzball": 31.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.0,
+     "implied_at_mean_rank": 24.7,
+     "implied_at_median_rank": 27.5,
+     "implied_range": [
+      13.1,
+      31.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 27.5,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 31.5,
+      "cbsros": 31.5,
+      "razzball": 27.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 30.2,
+     "implied_at_mean_rank": 30.2,
+     "implied_at_median_rank": 31.5,
+     "implied_range": [
+      27.5,
+      31.5
+     ],
+     "rank_sd": 0.5
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 19.0,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 7,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 19.0,
+      "cbsros": 9.5,
+      "razzball": 12.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.7,
+     "implied_at_mean_rank": 12.7,
+     "implied_at_median_rank": 12.7,
+     "implied_range": [
+      9.5,
+      19.0
+     ],
+     "rank_sd": 1.6
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 13.1,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 5,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 12.7,
+      "cbsros": 12.7,
+      "razzball": 19.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.8,
+     "implied_at_mean_rank": 13.0,
+     "implied_at_median_rank": 12.7,
+     "implied_range": [
+      12.7,
+      19.0
+     ],
+     "rank_sd": 0.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 12.7,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 6,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 13.1,
+      "cbsros": 12.2,
+      "razzball": 13.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.8,
+     "implied_at_mean_rank": 12.8,
+     "implied_at_median_rank": 13.1,
+     "implied_range": [
+      12.2,
+      13.1
+     ],
+     "rank_sd": 0.9
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 12.2,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 11,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 12.2,
+      "cbsros": 6.7,
+      "razzball": 6.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.5,
+     "implied_at_mean_rank": 6.8,
+     "implied_at_median_rank": 6.7,
+     "implied_range": [
+      6.7,
+      12.2
+     ],
+     "rank_sd": 2.4
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 9.5,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 2,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 9.4,
+      "cbsros": 27.5,
+      "razzball": 4.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.8,
+     "implied_at_mean_rank": 9.5,
+     "implied_at_median_rank": 9.4,
+     "implied_range": [
+      4.4,
+      27.5
+     ],
+     "rank_sd": 4.1
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 9.4,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 10,
+      "razzball": 7
+     },
+     "implied_by_ranker": {
+      "espn": 6.8,
+      "cbsros": 6.8,
+      "razzball": 9.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.7,
+     "implied_at_mean_rank": 6.8,
+     "implied_at_median_rank": 6.8,
+     "implied_range": [
+      6.8,
+      9.5
+     ],
+     "rank_sd": 1.4
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 6.8,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 14,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 3.6,
+      "cbsros": 3.6,
+      "razzball": 6.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.7,
+     "implied_at_mean_rank": 4.3,
+     "implied_at_median_rank": 3.6,
+     "implied_range": [
+      3.6,
+      6.8
+     ],
+     "rank_sd": 2.4
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 6.8,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 3,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 6.8,
+      "cbsros": 19.0,
+      "razzball": 3.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.8,
+     "implied_at_mean_rank": 7.7,
+     "implied_at_median_rank": 6.8,
+     "implied_range": [
+      3.6,
+      19.0
+     ],
+     "rank_sd": 4.5
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 6.7,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 16,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 4.4,
+      "cbsros": 2.4,
+      "razzball": 4.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.6,
+     "implied_at_mean_rank": 3.8,
+     "implied_at_median_rank": 4.1,
+     "implied_range": [
+      2.4,
+      4.4
+     ],
+     "rank_sd": 1.7
+    },
+    "Harold Fannin Jr.": {
+     "pos": "TE",
+     "published": 4.4,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 13,
+      "razzball": 22
+     },
+     "implied_by_ranker": {
+      "espn": 3.6,
+      "cbsros": 4.1,
+      "razzball": 0.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 2.6,
+     "implied_at_mean_rank": 1.7,
+     "implied_at_median_rank": 3.6,
+     "implied_range": [
+      0.1,
+      4.1
+     ],
+     "rank_sd": 3.9
+    }
+   },
+   "overall_vs_positional": {
+    "QB": [
+     {
+      "player": "Josh Allen",
+      "published": 33.5,
+      "positional_implied": 33.5,
+      "overall_rank": 1,
+      "overall_implied": 78.8
+     },
+     {
+      "player": "Drake Maye",
+      "published": 22.0,
+      "positional_implied": 15.6,
+      "overall_rank": 6,
+      "overall_implied": 58.5
+     },
+     {
+      "player": "Lamar Jackson",
+      "published": 18.4,
+      "positional_implied": 11.8,
+      "overall_rank": 9,
+      "overall_implied": 52.7
+     },
+     {
+      "player": "Joe Burrow",
+      "published": 15.8,
+      "positional_implied": 18.4,
+      "overall_rank": 4,
+      "overall_implied": 63.5
+     },
+     {
+      "player": "Brock Purdy",
+      "published": 15.6,
+      "positional_implied": 9.4,
+      "overall_rank": 11,
+      "overall_implied": 49.5
+     }
+    ],
+    "RB": [
+     {
+      "player": "Jahmyr Gibbs",
+      "published": 78.8,
+      "positional_implied": 78.8,
+      "overall_rank": 2,
+      "overall_implied": 71.8
+     },
+     {
+      "player": "Bijan Robinson",
+      "published": 71.8,
+      "positional_implied": 58.5,
+      "overall_rank": 22,
+      "overall_implied": 33.5
+     },
+     {
+      "player": "Kenneth Walker III",
+      "published": 71.7,
+      "positional_implied": 71.8,
+      "overall_rank": 7,
+      "overall_implied": 53.8
+     },
+     {
+      "player": "James Cook",
+      "published": 58.5,
+      "positional_implied": 71.7,
+      "overall_rank": 12,
+      "overall_implied": 48.6
+     },
+     {
+      "player": "Christian McCaffrey",
+      "published": 53.8,
+      "positional_implied": 53.8,
+      "overall_rank": 29,
+      "overall_implied": 29.9
+     }
+    ],
+    "WR": [
+     {
+      "player": "Jaxon Smith-Njigba",
+      "published": 63.5,
+      "positional_implied": 50.8,
+      "overall_rank": 28,
+      "overall_implied": 31.2
+     },
+     {
+      "player": "Puka Nacua",
+      "published": 59.5,
+      "positional_implied": 59.5,
+      "overall_rank": 21,
+      "overall_implied": 34.6
+     },
+     {
+      "player": "Ja'Marr Chase",
+      "published": 52.9,
+      "positional_implied": 63.5,
+      "overall_rank": 18,
+      "overall_implied": 38.7
+     },
+     {
+      "player": "Amon-Ra St. Brown",
+      "published": 50.8,
+      "positional_implied": 52.9,
+      "overall_rank": 26,
+      "overall_implied": 31.7
+     },
+     {
+      "player": "CeeDee Lamb",
+      "published": 48.6,
+      "positional_implied": 48.6,
+      "overall_rank": 43,
+      "overall_implied": 20.5
+     }
+    ],
+    "TE": [
+     {
+      "player": "Brock Bowers",
+      "published": 31.5,
+      "positional_implied": 27.5,
+      "overall_rank": 72,
+      "overall_implied": 10.4
+     },
+     {
+      "player": "Trey McBride",
+      "published": 27.5,
+      "positional_implied": 31.5,
+      "overall_rank": 66,
+      "overall_implied": 11.7
+     },
+     {
+      "player": "George Kittle",
+      "published": 19.0,
+      "positional_implied": 19.0,
+      "overall_rank": 74,
+      "overall_implied": 9.6
+     },
+     {
+      "player": "Isaiah Likely",
+      "published": 13.1,
+      "positional_implied": 12.7,
+      "overall_rank": 95,
+      "overall_implied": 5.4
+     },
+     {
+      "player": "Sam LaPorta",
+      "published": 12.7,
+      "positional_implied": 13.1,
+      "overall_rank": 93,
+      "overall_implied": 5.4
+     }
+    ]
+   },
+   "thin_anchor_players": [],
+   "ranked_but_unpriced": {
+    "espn": [
+     "Malik Willis (QB12)"
+    ],
+    "cbsros": [
+     "Malik Willis (QB10)",
+     "Alec Pierce (WR32)",
+     "Greg Dulcich (TE9)",
+     "Mike Gesicki (TE12)"
+    ],
+    "razzball": [
+     "Justin Herbert (QB8)"
+    ]
+   }
+  },
+  "standard": {
+   "curve_shape": {
+    "QB": {
+     "top": 34.2,
+     "rank_6": 14.8,
+     "rank_12": 4.9,
+     "gap_1_2": 11.8,
+     "median_gap_top_depth": 1.6,
+     "max_gap": 11.8,
+     "n_priced_gt0": 18
+    },
+    "RB": {
+     "top": 87.7,
+     "rank_15": 37.0,
+     "rank_30": 13.7,
+     "gap_1_2": 7.6,
+     "median_gap_top_depth": 1.55,
+     "max_gap": 13.8,
+     "n_priced_gt0": 70
+    },
+    "WR": {
+     "top": 55.7,
+     "rank_18": 15.1,
+     "rank_36": 2.7,
+     "gap_1_2": 3.9,
+     "median_gap_top_depth": 1.1,
+     "max_gap": 6.0,
+     "n_priced_gt0": 54
+    },
+    "TE": {
+     "top": 27.2,
+     "rank_6": 10.2,
+     "rank_12": 3.4,
+     "gap_1_2": 3.8,
+     "median_gap_top_depth": 1.1500000000000001,
+     "max_gap": 7.2,
+     "n_priced_gt0": 22
+    }
+   },
+   "agreement": {
+    "QB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.6,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.19,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.34,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.74,
+      "espn~razzball": 0.52,
+      "cbsros~razzball": 0.36
+     }
+    },
+    "RB": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.87,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.89,
+       "n": 30,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.81,
+       "n": 30,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.93,
+      "espn~razzball": 0.83,
+      "cbsros~razzball": 0.84
+     }
+    },
+    "WR": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.84,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.89,
+       "n": 36,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.85,
+       "n": 36,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.76,
+      "espn~razzball": 0.87,
+      "cbsros~razzball": 0.79
+     }
+    },
+    "TE": {
+     "vs_published": {
+      "espn": {
+       "rho_vs_published": 0.88,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "cbsros": {
+       "rho_vs_published": 0.48,
+       "n": 12,
+       "missing_published_top": 0
+      },
+      "razzball": {
+       "rho_vs_published": 0.91,
+       "n": 12,
+       "missing_published_top": 0
+      }
+     },
+     "pairwise": {
+      "espn~cbsros": 0.47,
+      "espn~razzball": 0.76,
+      "cbsros~razzball": 0.46
+     }
+    }
+   },
+   "players": {
+    "Josh Allen": {
+     "pos": "QB",
+     "published": 34.2,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 34.2,
+      "cbsros": 34.2,
+      "razzball": 34.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 34.2,
+     "implied_at_mean_rank": 34.2,
+     "implied_at_median_rank": 34.2,
+     "implied_range": [
+      34.2,
+      34.2
+     ],
+     "rank_sd": 0.0
+    },
+    "Drake Maye": {
+     "pos": "QB",
+     "published": 22.4,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 11,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 15.9,
+      "cbsros": 5.8,
+      "razzball": 4.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.9,
+     "implied_at_mean_rank": 8.7,
+     "implied_at_median_rank": 5.8,
+     "implied_range": [
+      4.9,
+      15.9
+     ],
+     "rank_sd": 3.1
+    },
+    "Lamar Jackson": {
+     "pos": "QB",
+     "published": 18.7,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 9,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 12.1,
+      "cbsros": 9.6,
+      "razzball": 16.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.6,
+     "implied_at_mean_rank": 13.0,
+     "implied_at_median_rank": 12.1,
+     "implied_range": [
+      9.6,
+      16.1
+     ],
+     "rank_sd": 2.1
+    },
+    "Joe Burrow": {
+     "pos": "QB",
+     "published": 16.1,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 2,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 18.7,
+      "cbsros": 22.4,
+      "razzball": 18.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.9,
+     "implied_at_mean_rank": 19.9,
+     "implied_at_median_rank": 18.7,
+     "implied_range": [
+      18.7,
+      22.4
+     ],
+     "rank_sd": 0.5
+    },
+    "Brock Purdy": {
+     "pos": "QB",
+     "published": 15.9,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 8,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 9.6,
+      "cbsros": 11.5,
+      "razzball": 3.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.2,
+     "implied_at_mean_rank": 6.8,
+     "implied_at_median_rank": 9.6,
+     "implied_range": [
+      3.6,
+      11.5
+     ],
+     "rank_sd": 2.2
+    },
+    "Trevor Lawrence": {
+     "pos": "QB",
+     "published": 14.8,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 16.1,
+      "cbsros": 16.1,
+      "razzball": 2.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.6,
+     "implied_at_mean_rank": 11.9,
+     "implied_at_median_rank": 16.1,
+     "implied_range": [
+      2.7,
+      16.1
+     ],
+     "rank_sd": 4.7
+    },
+    "Caleb Williams": {
+     "pos": "QB",
+     "published": 12.1,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 13,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 5.8,
+      "cbsros": 3.6,
+      "razzball": 6.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.4,
+     "implied_at_mean_rank": 5.5,
+     "implied_at_median_rank": 5.8,
+     "implied_range": [
+      3.6,
+      6.8
+     ],
+     "rank_sd": 1.2
+    },
+    "Jared Goff": {
+     "pos": "QB",
+     "published": 11.5,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 6,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 14.8,
+      "cbsros": 14.8,
+      "razzball": 15.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.2,
+     "implied_at_mean_rank": 15.2,
+     "implied_at_median_rank": 14.8,
+     "implied_range": [
+      14.8,
+      15.9
+     ],
+     "rank_sd": 0.5
+    },
+    "Jayden Daniels": {
+     "pos": "QB",
+     "published": 9.6,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 3,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 22.4,
+      "cbsros": 18.7,
+      "razzball": 22.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.2,
+     "implied_at_mean_rank": 21.2,
+     "implied_at_median_rank": 22.4,
+     "implied_range": [
+      18.7,
+      22.4
+     ],
+     "rank_sd": 0.5
+    },
+    "Dak Prescott": {
+     "pos": "QB",
+     "published": 6.8,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 7,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 1.6,
+      "cbsros": 12.1,
+      "razzball": 5.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.5,
+     "implied_at_mean_rank": 5.5,
+     "implied_at_median_rank": 5.8,
+     "implied_range": [
+      1.6,
+      12.1
+     ],
+     "rank_sd": 3.7
+    },
+    "Jordan Love": {
+     "pos": "QB",
+     "published": 5.8,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 14,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 2.6,
+      "cbsros": 2.7,
+      "razzball": 14.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.7,
+     "implied_at_mean_rank": 5.2,
+     "implied_at_median_rank": 2.7,
+     "implied_range": [
+      2.6,
+      14.8
+     ],
+     "rank_sd": 4.0
+    },
+    "Patrick Mahomes": {
+     "pos": "QB",
+     "published": 4.9,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 5,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 6.8,
+      "cbsros": 15.9,
+      "razzball": 2.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.4,
+     "implied_at_mean_rank": 6.8,
+     "implied_at_median_rank": 6.8,
+     "implied_range": [
+      2.6,
+      15.9
+     ],
+     "rank_sd": 4.1
+    },
+    "Jahmyr Gibbs": {
+     "pos": "RB",
+     "published": 87.7,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 1,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 87.7,
+      "cbsros": 87.7,
+      "razzball": 87.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 87.7,
+     "implied_at_mean_rank": 87.7,
+     "implied_at_median_rank": 87.7,
+     "implied_range": [
+      87.7,
+      87.7
+     ],
+     "rank_sd": 0.0
+    },
+    "Bijan Robinson": {
+     "pos": "RB",
+     "published": 80.1,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 66.3,
+      "cbsros": 66.3,
+      "razzball": 80.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 70.9,
+     "implied_at_mean_rank": 70.9,
+     "implied_at_median_rank": 66.3,
+     "implied_range": [
+      66.3,
+      80.1
+     ],
+     "rank_sd": 0.5
+    },
+    "Kenneth Walker III": {
+     "pos": "RB",
+     "published": 80.1,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 2,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 80.1,
+      "cbsros": 80.1,
+      "razzball": 80.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 80.1,
+     "implied_at_mean_rank": 80.1,
+     "implied_at_median_rank": 80.1,
+     "implied_range": [
+      80.1,
+      80.1
+     ],
+     "rank_sd": 0.0
+    },
+    "James Cook": {
+     "pos": "RB",
+     "published": 66.3,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 5,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 80.1,
+      "cbsros": 60.0,
+      "razzball": 66.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 68.8,
+     "implied_at_mean_rank": 66.3,
+     "implied_at_median_rank": 66.3,
+     "implied_range": [
+      60.0,
+      80.1
+     ],
+     "rank_sd": 0.8
+    },
+    "Christian McCaffrey": {
+     "pos": "RB",
+     "published": 60.0,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 14,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 55.9,
+      "cbsros": 38.0,
+      "razzball": 50.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 48.1,
+     "implied_at_mean_rank": 47.6,
+     "implied_at_median_rank": 50.4,
+     "implied_range": [
+      38.0,
+      55.9
+     ],
+     "rank_sd": 2.9
+    },
+    "Jonathan Taylor": {
+     "pos": "RB",
+     "published": 59.6,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 3,
+      "razzball": 7
+     },
+     "implied_by_ranker": {
+      "espn": 59.6,
+      "cbsros": 80.1,
+      "razzball": 55.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 65.2,
+     "implied_at_mean_rank": 59.9,
+     "implied_at_median_rank": 59.6,
+     "implied_range": [
+      55.9,
+      80.1
+     ],
+     "rank_sd": 1.7
+    },
+    "Kyren Williams": {
+     "pos": "RB",
+     "published": 55.9,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 8,
+      "razzball": 8
+     },
+     "implied_by_ranker": {
+      "espn": 41.1,
+      "cbsros": 53.9,
+      "razzball": 53.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 49.6,
+     "implied_at_mean_rank": 49.5,
+     "implied_at_median_rank": 53.9,
+     "implied_range": [
+      41.1,
+      53.9
+     ],
+     "rank_sd": 1.9
+    },
+    "Derrick Henry": {
+     "pos": "RB",
+     "published": 53.9,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 6,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 60.0,
+      "cbsros": 59.6,
+      "razzball": 59.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 59.7,
+     "implied_at_mean_rank": 59.7,
+     "implied_at_median_rank": 59.6,
+     "implied_range": [
+      59.6,
+      60.0
+     ],
+     "rank_sd": 0.5
+    },
+    "Javonte Williams": {
+     "pos": "RB",
+     "published": 50.4,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 9,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 53.9,
+      "cbsros": 50.4,
+      "razzball": 44.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 49.5,
+     "implied_at_mean_rank": 49.5,
+     "implied_at_median_rank": 50.4,
+     "implied_range": [
+      44.2,
+      53.9
+     ],
+     "rank_sd": 1.2
+    },
+    "Chuba Hubbard": {
+     "pos": "RB",
+     "published": 47.6,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 7,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 47.6,
+      "cbsros": 55.9,
+      "razzball": 40.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 47.9,
+     "implied_at_mean_rank": 47.6,
+     "implied_at_median_rank": 47.6,
+     "implied_range": [
+      40.2,
+      55.9
+     ],
+     "rank_sd": 2.4
+    },
+    "D'Andre Swift": {
+     "pos": "RB",
+     "published": 44.2,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 17,
+      "razzball": 23
+     },
+     "implied_by_ranker": {
+      "espn": 36.0,
+      "cbsros": 32.3,
+      "razzball": 24.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 30.8,
+     "implied_at_mean_rank": 29.4,
+     "implied_at_median_rank": 32.3,
+     "implied_range": [
+      24.2,
+      36.0
+     ],
+     "rank_sd": 3.1
+    },
+    "Ashton Jeanty": {
+     "pos": "RB",
+     "published": 41.1,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 18,
+      "razzball": 19
+     },
+     "implied_by_ranker": {
+      "espn": 24.2,
+      "cbsros": 30.0,
+      "razzball": 29.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.8,
+     "implied_at_mean_rank": 26.1,
+     "implied_at_median_rank": 29.1,
+     "implied_range": [
+      24.2,
+      30.0
+     ],
+     "rank_sd": 2.2
+    },
+    "Bucky Irving": {
+     "pos": "RB",
+     "published": 40.2,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 12,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 50.4,
+      "cbsros": 41.1,
+      "razzball": 60.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 50.5,
+     "implied_at_mean_rank": 51.6,
+     "implied_at_median_rank": 50.4,
+     "implied_range": [
+      41.1,
+      60.0
+     ],
+     "rank_sd": 2.9
+    },
+    "Josh Jacobs": {
+     "pos": "RB",
+     "published": 38.0,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 19,
+      "cbsros": 15,
+      "razzball": 30
+     },
+     "implied_by_ranker": {
+      "espn": 29.1,
+      "cbsros": 37.0,
+      "razzball": 13.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 26.6,
+     "implied_at_mean_rank": 25.3,
+     "implied_at_median_rank": 29.1,
+     "implied_range": [
+      13.7,
+      37.0
+     ],
+     "rank_sd": 6.3
+    },
+    "Jaylen Warren": {
+     "pos": "RB",
+     "published": 37.0,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 13,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 37.0,
+      "cbsros": 40.2,
+      "razzball": 47.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 41.6,
+     "implied_at_mean_rank": 40.5,
+     "implied_at_median_rank": 40.2,
+     "implied_range": [
+      37.0,
+      47.6
+     ],
+     "rank_sd": 2.1
+    },
+    "Bhayshul Tuten": {
+     "pos": "RB",
+     "published": 36.0,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 10,
+      "razzball": 17
+     },
+     "implied_by_ranker": {
+      "espn": 40.2,
+      "cbsros": 47.6,
+      "razzball": 32.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 40.0,
+     "implied_at_mean_rank": 39.5,
+     "implied_at_median_rank": 40.2,
+     "implied_range": [
+      32.3,
+      47.6
+     ],
+     "rank_sd": 2.9
+    },
+    "Breece Hall": {
+     "pos": "RB",
+     "published": 32.3,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 24,
+      "razzball": 25
+     },
+     "implied_by_ranker": {
+      "espn": 21.8,
+      "cbsros": 21.8,
+      "razzball": 17.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.3,
+     "implied_at_mean_rank": 20.3,
+     "implied_at_median_rank": 21.8,
+     "implied_range": [
+      17.3,
+      21.8
+     ],
+     "rank_sd": 0.5
+    },
+    "Chase Brown": {
+     "pos": "RB",
+     "published": 30.0,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 11,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 30.0,
+      "cbsros": 44.2,
+      "razzball": 41.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 38.4,
+     "implied_at_mean_rank": 38.7,
+     "implied_at_median_rank": 41.1,
+     "implied_range": [
+      30.0,
+      44.2
+     ],
+     "rank_sd": 3.1
+    },
+    "Saquon Barkley": {
+     "pos": "RB",
+     "published": 29.1,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 20,
+      "cbsros": 20,
+      "razzball": 24
+     },
+     "implied_by_ranker": {
+      "espn": 26.1,
+      "cbsros": 26.1,
+      "razzball": 21.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 24.7,
+     "implied_at_mean_rank": 25.3,
+     "implied_at_median_rank": 26.1,
+     "implied_range": [
+      21.8,
+      26.1
+     ],
+     "rank_sd": 1.9
+    },
+    "Jeremiyah Love": {
+     "pos": "RB",
+     "published": 26.1,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 28,
+      "cbsros": 29,
+      "razzball": 18
+     },
+     "implied_by_ranker": {
+      "espn": 15.0,
+      "cbsros": 14.8,
+      "razzball": 30.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 19.9,
+     "implied_at_mean_rank": 17.3,
+     "implied_at_median_rank": 15.0,
+     "implied_range": [
+      14.8,
+      30.0
+     ],
+     "rank_sd": 5.0
+    },
+    "Rhamondre Stevenson": {
+     "pos": "RB",
+     "published": 25.3,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 29,
+      "cbsros": 25,
+      "razzball": 16
+     },
+     "implied_by_ranker": {
+      "espn": 14.8,
+      "cbsros": 17.3,
+      "razzball": 36.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 22.7,
+     "implied_at_mean_rank": 23.4,
+     "implied_at_median_rank": 17.3,
+     "implied_range": [
+      14.8,
+      36.0
+     ],
+     "rank_sd": 5.4
+    },
+    "Ollie Gordon II": {
+     "pos": "RB",
+     "published": 25.3,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 16,
+      "razzball": 29
+     },
+     "implied_by_ranker": {
+      "espn": 44.2,
+      "cbsros": 36.0,
+      "razzball": 14.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 31.7,
+     "implied_at_mean_rank": 29.4,
+     "implied_at_median_rank": 36.0,
+     "implied_range": [
+      14.8,
+      44.2
+     ],
+     "rank_sd": 7.6
+    },
+    "Quinshon Judkins": {
+     "pos": "RB",
+     "published": 24.2,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 23,
+      "razzball": 20
+     },
+     "implied_by_ranker": {
+      "espn": 25.3,
+      "cbsros": 24.2,
+      "razzball": 26.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 25.2,
+     "implied_at_mean_rank": 25.3,
+     "implied_at_median_rank": 25.3,
+     "implied_range": [
+      24.2,
+      26.1
+     ],
+     "rank_sd": 1.2
+    },
+    "Cam Skattebo": {
+     "pos": "RB",
+     "published": 21.8,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 21,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 25.3,
+      "cbsros": 25.3,
+      "razzball": 37.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 29.2,
+     "implied_at_mean_rank": 29.1,
+     "implied_at_median_rank": 25.3,
+     "implied_range": [
+      25.3,
+      37.0
+     ],
+     "rank_sd": 2.8
+    },
+    "Tony Pollard": {
+     "pos": "RB",
+     "published": 17.3,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 19,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 38.0,
+      "cbsros": 29.1,
+      "razzball": 38.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 35.0,
+     "implied_at_mean_rank": 36.3,
+     "implied_at_median_rank": 38.0,
+     "implied_range": [
+      29.1,
+      38.0
+     ],
+     "rank_sd": 2.4
+    },
+    "Jordan Mason": {
+     "pos": "RB",
+     "published": 16.3,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 31,
+      "cbsros": 22,
+      "razzball": 26
+     },
+     "implied_by_ranker": {
+      "espn": 13.4,
+      "cbsros": 25.3,
+      "razzball": 16.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.3,
+     "implied_at_mean_rank": 16.2,
+     "implied_at_median_rank": 16.3,
+     "implied_range": [
+      13.4,
+      25.3
+     ],
+     "rank_sd": 3.7
+    },
+    "Travis Etienne": {
+     "pos": "RB",
+     "published": 16.0,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 25,
+      "cbsros": 38,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 17.3,
+      "cbsros": 7.9,
+      "razzball": 15.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.4,
+     "implied_at_mean_rank": 13.6,
+     "implied_at_median_rank": 15.0,
+     "implied_range": [
+      7.9,
+      17.3
+     ],
+     "rank_sd": 5.6
+    },
+    "Blake Corum": {
+     "pos": "RB",
+     "published": 15.0,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 30,
+      "cbsros": 52,
+      "razzball": 40
+     },
+     "implied_by_ranker": {
+      "espn": 13.7,
+      "cbsros": 1.4,
+      "razzball": 6.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.3,
+     "implied_at_mean_rank": 6.5,
+     "implied_at_median_rank": 6.9,
+     "implied_range": [
+      1.4,
+      13.7
+     ],
+     "rank_sd": 9.0
+    },
+    "Kyle Monangai": {
+     "pos": "RB",
+     "published": 14.8,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 32,
+      "cbsros": 36,
+      "razzball": 35
+     },
+     "implied_by_ranker": {
+      "espn": 12.3,
+      "cbsros": 9.8,
+      "razzball": 10.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.8,
+     "implied_at_mean_rank": 10.7,
+     "implied_at_median_rank": 10.4,
+     "implied_range": [
+      9.8,
+      12.3
+     ],
+     "rank_sd": 1.7
+    },
+    "Omarion Hampton": {
+     "pos": "RB",
+     "published": 13.7,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 31,
+      "razzball": 27
+     },
+     "implied_by_ranker": {
+      "espn": 11.2,
+      "cbsros": 13.4,
+      "razzball": 16.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.5,
+     "implied_at_mean_rank": 13.6,
+     "implied_at_median_rank": 13.4,
+     "implied_range": [
+      11.2,
+      16.0
+     ],
+     "rank_sd": 2.5
+    },
+    "Jaxon Smith-Njigba": {
+     "pos": "WR",
+     "published": 55.7,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 1,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 45.8,
+      "cbsros": 55.7,
+      "razzball": 55.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 52.4,
+     "implied_at_mean_rank": 53.1,
+     "implied_at_median_rank": 55.7,
+     "implied_range": [
+      45.8,
+      55.7
+     ],
+     "rank_sd": 0.9
+    },
+    "Puka Nacua": {
+     "pos": "WR",
+     "published": 51.8,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 5,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 51.8,
+      "cbsros": 41.2,
+      "razzball": 51.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 48.3,
+     "implied_at_mean_rank": 45.8,
+     "implied_at_median_rank": 51.8,
+     "implied_range": [
+      41.2,
+      51.8
+     ],
+     "rank_sd": 1.4
+    },
+    "Ja'Marr Chase": {
+     "pos": "WR",
+     "published": 45.8,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 3,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 55.7,
+      "cbsros": 45.8,
+      "razzball": 45.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 49.1,
+     "implied_at_mean_rank": 49.8,
+     "implied_at_median_rank": 45.8,
+     "implied_range": [
+      45.8,
+      55.7
+     ],
+     "rank_sd": 0.9
+    },
+    "Amon-Ra St. Brown": {
+     "pos": "WR",
+     "published": 43.8,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 4,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 43.8,
+      "cbsros": 43.8,
+      "razzball": 43.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 43.8,
+     "implied_at_mean_rank": 43.8,
+     "implied_at_median_rank": 43.8,
+     "implied_range": [
+      43.8,
+      43.8
+     ],
+     "rank_sd": 0.0
+    },
+    "CeeDee Lamb": {
+     "pos": "WR",
+     "published": 41.2,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 2,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 35.6,
+      "cbsros": 51.8,
+      "razzball": 35.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 41.0,
+     "implied_at_mean_rank": 42.1,
+     "implied_at_median_rank": 35.6,
+     "implied_range": [
+      35.6,
+      51.8
+     ],
+     "rank_sd": 1.9
+    },
+    "Malik Nabers": {
+     "pos": "WR",
+     "published": 35.6,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 10,
+      "cbsros": 24,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 25.9,
+      "cbsros": 8.3,
+      "razzball": 20.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.3,
+     "implied_at_mean_rank": 18.1,
+     "implied_at_median_rank": 20.7,
+     "implied_range": [
+      8.3,
+      25.9
+     ],
+     "rank_sd": 6.0
+    },
+    "Zay Flowers": {
+     "pos": "WR",
+     "published": 33.7,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 11,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 28.1,
+      "cbsros": 24.3,
+      "razzball": 41.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 31.2,
+     "implied_at_mean_rank": 28.1,
+     "implied_at_median_rank": 28.1,
+     "implied_range": [
+      24.3,
+      41.2
+     ],
+     "rank_sd": 2.4
+    },
+    "Drake London": {
+     "pos": "WR",
+     "published": 28.1,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 12,
+      "razzball": 12
+     },
+     "implied_by_ranker": {
+      "espn": 33.7,
+      "cbsros": 23.0,
+      "razzball": 23.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 26.6,
+     "implied_at_mean_rank": 25.4,
+     "implied_at_median_rank": 23.0,
+     "implied_range": [
+      23.0,
+      33.7
+     ],
+     "rank_sd": 2.4
+    },
+    "Chris Olave": {
+     "pos": "WR",
+     "published": 26.9,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 26,
+      "cbsros": 10,
+      "razzball": 24
+     },
+     "implied_by_ranker": {
+      "espn": 8.2,
+      "cbsros": 25.9,
+      "razzball": 8.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.1,
+     "implied_at_mean_rank": 12.5,
+     "implied_at_median_rank": 8.3,
+     "implied_range": [
+      8.2,
+      25.9
+     ],
+     "rank_sd": 7.1
+    },
+    "Justin Jefferson": {
+     "pos": "WR",
+     "published": 25.9,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 8,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 26.9,
+      "cbsros": 28.1,
+      "razzball": 25.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 27.0,
+     "implied_at_mean_rank": 26.9,
+     "implied_at_median_rank": 26.9,
+     "implied_range": [
+      25.9,
+      28.1
+     ],
+     "rank_sd": 0.8
+    },
+    "Christian Watson": {
+     "pos": "WR",
+     "published": 24.3,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 9,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 17.8,
+      "cbsros": 26.9,
+      "razzball": 26.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 23.9,
+     "implied_at_mean_rank": 23.9,
+     "implied_at_median_rank": 26.9,
+     "implied_range": [
+      17.8,
+      26.9
+     ],
+     "rank_sd": 3.3
+    },
+    "Parker Washington": {
+     "pos": "WR",
+     "published": 23.0,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 7,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 41.2,
+      "cbsros": 33.7,
+      "razzball": 19.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 31.4,
+     "implied_at_mean_rank": 27.3,
+     "implied_at_median_rank": 33.7,
+     "implied_range": [
+      19.2,
+      41.2
+     ],
+     "rank_sd": 3.9
+    },
+    "Tee Higgins": {
+     "pos": "WR",
+     "published": 20.7,
+     "published_pos_rank": 13,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 6,
+      "razzball": 8
+     },
+     "implied_by_ranker": {
+      "espn": 23.0,
+      "cbsros": 35.6,
+      "razzball": 28.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 28.9,
+     "implied_at_mean_rank": 27.3,
+     "implied_at_median_rank": 28.1,
+     "implied_range": [
+      23.0,
+      35.6
+     ],
+     "rank_sd": 2.5
+    },
+    "George Pickens": {
+     "pos": "WR",
+     "published": 19.2,
+     "published_pos_rank": 14,
+     "ranks": {
+      "espn": 28,
+      "cbsros": 14,
+      "razzball": 15
+     },
+     "implied_by_ranker": {
+      "espn": 7.2,
+      "cbsros": 19.2,
+      "razzball": 18.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.0,
+     "implied_at_mean_rank": 14.4,
+     "implied_at_median_rank": 18.6,
+     "implied_range": [
+      7.2,
+      19.2
+     ],
+     "rank_sd": 6.4
+    },
+    "Nico Collins": {
+     "pos": "WR",
+     "published": 18.6,
+     "published_pos_rank": 15,
+     "ranks": {
+      "espn": 20,
+      "cbsros": 15,
+      "razzball": 17
+     },
+     "implied_by_ranker": {
+      "espn": 12.5,
+      "cbsros": 18.6,
+      "razzball": 15.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.6,
+     "implied_at_mean_rank": 15.4,
+     "implied_at_median_rank": 15.6,
+     "implied_range": [
+      12.5,
+      18.6
+     ],
+     "rank_sd": 2.1
+    },
+    "Matthew Golden": {
+     "pos": "WR",
+     "published": 17.8,
+     "published_pos_rank": 16,
+     "ranks": {
+      "espn": 13,
+      "cbsros": 17,
+      "razzball": 16
+     },
+     "implied_by_ranker": {
+      "espn": 20.7,
+      "cbsros": 15.6,
+      "razzball": 17.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.0,
+     "implied_at_mean_rank": 18.3,
+     "implied_at_median_rank": 17.8,
+     "implied_range": [
+      15.6,
+      20.7
+     ],
+     "rank_sd": 1.7
+    },
+    "Tetairoa McMillan": {
+     "pos": "WR",
+     "published": 15.6,
+     "published_pos_rank": 17,
+     "ranks": {
+      "espn": 11,
+      "cbsros": 19,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 24.3,
+      "cbsros": 14.4,
+      "razzball": 24.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 21.0,
+     "implied_at_mean_rank": 19.7,
+     "implied_at_median_rank": 24.3,
+     "implied_range": [
+      14.4,
+      24.3
+     ],
+     "rank_sd": 3.8
+    },
+    "Luther Burden III": {
+     "pos": "WR",
+     "published": 15.1,
+     "published_pos_rank": 18,
+     "ranks": {
+      "espn": 19,
+      "cbsros": 18,
+      "razzball": 20
+     },
+     "implied_by_ranker": {
+      "espn": 14.4,
+      "cbsros": 15.1,
+      "razzball": 12.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 14.0,
+     "implied_at_mean_rank": 14.4,
+     "implied_at_median_rank": 14.4,
+     "implied_range": [
+      12.5,
+      15.1
+     ],
+     "rank_sd": 0.8
+    },
+    "Garrett Wilson": {
+     "pos": "WR",
+     "published": 14.4,
+     "published_pos_rank": 19,
+     "ranks": {
+      "espn": 32,
+      "cbsros": 26,
+      "razzball": 21
+     },
+     "implied_by_ranker": {
+      "espn": 3.7,
+      "cbsros": 8.2,
+      "razzball": 10.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.6,
+     "implied_at_mean_rank": 7.9,
+     "implied_at_median_rank": 8.2,
+     "implied_range": [
+      3.7,
+      10.9
+     ],
+     "rank_sd": 4.5
+    },
+    "A.J. Brown": {
+     "pos": "WR",
+     "published": 12.5,
+     "published_pos_rank": 20,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 29,
+      "razzball": 22
+     },
+     "implied_by_ranker": {
+      "espn": 19.2,
+      "cbsros": 6.5,
+      "razzball": 10.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 11.9,
+     "implied_at_mean_rank": 10.4,
+     "implied_at_median_rank": 10.1,
+     "implied_range": [
+      6.5,
+      19.2
+     ],
+     "rank_sd": 6.1
+    },
+    "Mike Evans": {
+     "pos": "WR",
+     "published": 10.9,
+     "published_pos_rank": 21,
+     "ranks": {
+      "espn": 17,
+      "cbsros": 22,
+      "razzball": 18
+     },
+     "implied_by_ranker": {
+      "espn": 15.6,
+      "cbsros": 10.1,
+      "razzball": 15.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 13.6,
+     "implied_at_mean_rank": 14.4,
+     "implied_at_median_rank": 15.1,
+     "implied_range": [
+      10.1,
+      15.6
+     ],
+     "rank_sd": 2.2
+    },
+    "Jameson Williams": {
+     "pos": "WR",
+     "published": 10.1,
+     "published_pos_rank": 22,
+     "ranks": {
+      "espn": 21,
+      "cbsros": 13,
+      "razzball": 29
+     },
+     "implied_by_ranker": {
+      "espn": 10.9,
+      "cbsros": 20.7,
+      "razzball": 6.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.7,
+     "implied_at_mean_rank": 10.9,
+     "implied_at_median_rank": 10.9,
+     "implied_range": [
+      6.5,
+      20.7
+     ],
+     "rank_sd": 6.5
+    },
+    "DeVonta Smith": {
+     "pos": "WR",
+     "published": 8.9,
+     "published_pos_rank": 23,
+     "ranks": {
+      "espn": 27,
+      "cbsros": 27,
+      "razzball": 33
+     },
+     "implied_by_ranker": {
+      "espn": 7.4,
+      "cbsros": 7.4,
+      "razzball": 3.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 6.0,
+     "implied_at_mean_rank": 6.5,
+     "implied_at_median_rank": 7.4,
+     "implied_range": [
+      3.1,
+      7.4
+     ],
+     "rank_sd": 2.8
+    },
+    "DJ Moore": {
+     "pos": "WR",
+     "published": 8.3,
+     "published_pos_rank": 24,
+     "ranks": {
+      "espn": 18,
+      "cbsros": 28,
+      "razzball": 34
+     },
+     "implied_by_ranker": {
+      "espn": 15.1,
+      "cbsros": 7.2,
+      "razzball": 3.0
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.4,
+     "implied_at_mean_rank": 7.7,
+     "implied_at_median_rank": 7.2,
+     "implied_range": [
+      3.0,
+      15.1
+     ],
+     "rank_sd": 6.6
+    },
+    "Emeka Egbuka": {
+     "pos": "WR",
+     "published": 8.2,
+     "published_pos_rank": 25,
+     "ranks": {
+      "espn": 24,
+      "cbsros": 23,
+      "razzball": 27
+     },
+     "implied_by_ranker": {
+      "espn": 8.3,
+      "cbsros": 8.9,
+      "razzball": 7.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 8.2,
+     "implied_at_mean_rank": 8.2,
+     "implied_at_median_rank": 8.3,
+     "implied_range": [
+      7.4,
+      8.9
+     ],
+     "rank_sd": 1.7
+    },
+    "Jalen Coker": {
+     "pos": "WR",
+     "published": 8.2,
+     "published_pos_rank": 26,
+     "ranks": {
+      "espn": 15,
+      "cbsros": 37,
+      "razzball": 7
+     },
+     "implied_by_ranker": {
+      "espn": 18.6,
+      "cbsros": 2.7,
+      "razzball": 33.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 18.3,
+     "implied_at_mean_rank": 13.1,
+     "implied_at_median_rank": 18.6,
+     "implied_range": [
+      2.7,
+      33.7
+     ],
+     "rank_sd": 12.7
+    },
+    "DK Metcalf": {
+     "pos": "WR",
+     "published": 7.4,
+     "published_pos_rank": 27,
+     "ranks": {
+      "espn": 25,
+      "cbsros": 44,
+      "razzball": 25
+     },
+     "implied_by_ranker": {
+      "espn": 8.2,
+      "cbsros": 0.7,
+      "razzball": 8.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.7,
+     "implied_at_mean_rank": 4.6,
+     "implied_at_median_rank": 8.2,
+     "implied_range": [
+      0.7,
+      8.2
+     ],
+     "rank_sd": 9.0
+    },
+    "Rashee Rice": {
+     "pos": "WR",
+     "published": 7.2,
+     "published_pos_rank": 28,
+     "ranks": {
+      "espn": 22,
+      "cbsros": 20,
+      "razzball": 23
+     },
+     "implied_by_ranker": {
+      "espn": 10.1,
+      "cbsros": 12.5,
+      "razzball": 8.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.5,
+     "implied_at_mean_rank": 10.4,
+     "implied_at_median_rank": 10.1,
+     "implied_range": [
+      8.9,
+      12.5
+     ],
+     "rank_sd": 1.2
+    },
+    "Carnell Tate": {
+     "pos": "WR",
+     "published": 6.5,
+     "published_pos_rank": 29,
+     "ranks": {
+      "espn": 36,
+      "cbsros": 32,
+      "razzball": 30
+     },
+     "implied_by_ranker": {
+      "espn": 2.7,
+      "cbsros": 3.7,
+      "razzball": 6.3
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.2,
+     "implied_at_mean_rank": 3.3,
+     "implied_at_median_rank": 3.7,
+     "implied_range": [
+      2.7,
+      6.3
+     ],
+     "rank_sd": 2.5
+    },
+    "Stefon Diggs": {
+     "pos": "WR",
+     "published": 6.3,
+     "published_pos_rank": 30,
+     "ranks": {
+      "espn": 29,
+      "cbsros": 21,
+      "razzball": 19
+     },
+     "implied_by_ranker": {
+      "espn": 6.5,
+      "cbsros": 10.9,
+      "razzball": 14.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.6,
+     "implied_at_mean_rank": 8.9,
+     "implied_at_median_rank": 10.9,
+     "implied_range": [
+      6.5,
+      14.4
+     ],
+     "rank_sd": 4.3
+    },
+    "Michael Wilson": {
+     "pos": "WR",
+     "published": 5.0,
+     "published_pos_rank": 31,
+     "ranks": {
+      "espn": 33,
+      "cbsros": 40,
+      "razzball": 32
+     },
+     "implied_by_ranker": {
+      "espn": 3.1,
+      "cbsros": 1.4,
+      "razzball": 3.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 2.7,
+     "implied_at_mean_rank": 2.8,
+     "implied_at_median_rank": 3.1,
+     "implied_range": [
+      1.4,
+      3.7
+     ],
+     "rank_sd": 3.6
+    },
+    "Ladd McConkey": {
+     "pos": "WR",
+     "published": 3.7,
+     "published_pos_rank": 32,
+     "ranks": {
+      "espn": 34,
+      "cbsros": 34,
+      "razzball": 51
+     },
+     "implied_by_ranker": {
+      "espn": 3.0,
+      "cbsros": 3.0,
+      "razzball": 0.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 2.0,
+     "implied_at_mean_rank": 1.6,
+     "implied_at_median_rank": 3.0,
+     "implied_range": [
+      0.1,
+      3.0
+     ],
+     "rank_sd": 8.0
+    },
+    "Tre Tucker": {
+     "pos": "WR",
+     "published": 3.1,
+     "published_pos_rank": 33,
+     "ranks": {
+      "espn": 43,
+      "cbsros": 33,
+      "razzball": 42
+     },
+     "implied_by_ranker": {
+      "espn": 0.9,
+      "cbsros": 3.1,
+      "razzball": 0.9
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 1.6,
+     "implied_at_mean_rank": 1.9,
+     "implied_at_median_rank": 0.9,
+     "implied_range": [
+      0.9,
+      3.1
+     ],
+     "rank_sd": 4.5
+    },
+    "KC Concepcion": {
+     "pos": "WR",
+     "published": 3.0,
+     "published_pos_rank": 34,
+     "ranks": {
+      "espn": 45,
+      "cbsros": 70,
+      "razzball": 35
+     },
+     "implied_by_ranker": {
+      "espn": 0.6,
+      "razzball": 2.8
+     },
+     "n_current_rankers": 2,
+     "implied_mean_of_values": 1.7,
+     "implied_at_mean_rank": 0.2,
+     "implied_at_median_rank": 0.6,
+     "implied_range": [
+      0.6,
+      2.8
+     ],
+     "rank_sd": 14.7
+    },
+    "Omar Cooper Jr.": {
+     "pos": "WR",
+     "published": 2.8,
+     "published_pos_rank": 35,
+     "ranks": {
+      "espn": 47,
+      "cbsros": 38,
+      "razzball": 50
+     },
+     "implied_by_ranker": {
+      "espn": 0.3,
+      "cbsros": 2.3,
+      "razzball": 0.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 0.9,
+     "implied_at_mean_rank": 0.6,
+     "implied_at_median_rank": 0.3,
+     "implied_range": [
+      0.2,
+      2.3
+     ],
+     "rank_sd": 5.1
+    },
+    "Denzel Boston": {
+     "pos": "WR",
+     "published": 2.7,
+     "published_pos_rank": 36,
+     "ranks": {
+      "espn": 23,
+      "cbsros": 50,
+      "razzball": 28
+     },
+     "implied_by_ranker": {
+      "espn": 8.9,
+      "cbsros": 0.2,
+      "razzball": 7.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 5.4,
+     "implied_at_mean_rank": 3.0,
+     "implied_at_median_rank": 7.2,
+     "implied_range": [
+      0.2,
+      8.9
+     ],
+     "rank_sd": 11.7
+    },
+    "Brock Bowers": {
+     "pos": "TE",
+     "published": 27.2,
+     "published_pos_rank": 1,
+     "ranks": {
+      "espn": 2,
+      "cbsros": 4,
+      "razzball": 1
+     },
+     "implied_by_ranker": {
+      "espn": 23.4,
+      "cbsros": 10.6,
+      "razzball": 27.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 20.4,
+     "implied_at_mean_rank": 21.0,
+     "implied_at_median_rank": 23.4,
+     "implied_range": [
+      10.6,
+      27.2
+     ],
+     "rank_sd": 1.2
+    },
+    "Trey McBride": {
+     "pos": "TE",
+     "published": 23.4,
+     "published_pos_rank": 2,
+     "ranks": {
+      "espn": 3,
+      "cbsros": 1,
+      "razzball": 2
+     },
+     "implied_by_ranker": {
+      "espn": 16.2,
+      "cbsros": 27.2,
+      "razzball": 23.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 22.3,
+     "implied_at_mean_rank": 23.4,
+     "implied_at_median_rank": 23.4,
+     "implied_range": [
+      16.2,
+      27.2
+     ],
+     "rank_sd": 0.8
+    },
+    "George Kittle": {
+     "pos": "TE",
+     "published": 16.2,
+     "published_pos_rank": 3,
+     "ranks": {
+      "espn": 1,
+      "cbsros": 7,
+      "razzball": 5
+     },
+     "implied_by_ranker": {
+      "espn": 27.2,
+      "cbsros": 7.9,
+      "razzball": 10.4
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 15.2,
+     "implied_at_mean_rank": 10.5,
+     "implied_at_median_rank": 10.4,
+     "implied_range": [
+      7.9,
+      27.2
+     ],
+     "rank_sd": 2.5
+    },
+    "Isaiah Likely": {
+     "pos": "TE",
+     "published": 10.6,
+     "published_pos_rank": 4,
+     "ranks": {
+      "espn": 5,
+      "cbsros": 5,
+      "razzball": 3
+     },
+     "implied_by_ranker": {
+      "espn": 10.4,
+      "cbsros": 10.4,
+      "razzball": 16.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 12.3,
+     "implied_at_mean_rank": 10.5,
+     "implied_at_median_rank": 10.4,
+     "implied_range": [
+      10.4,
+      16.2
+     ],
+     "rank_sd": 0.9
+    },
+    "Sam LaPorta": {
+     "pos": "TE",
+     "published": 10.4,
+     "published_pos_rank": 5,
+     "ranks": {
+      "espn": 4,
+      "cbsros": 6,
+      "razzball": 4
+     },
+     "implied_by_ranker": {
+      "espn": 10.6,
+      "cbsros": 10.2,
+      "razzball": 10.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.5,
+     "implied_at_mean_rank": 10.5,
+     "implied_at_median_rank": 10.6,
+     "implied_range": [
+      10.2,
+      10.6
+     ],
+     "rank_sd": 0.9
+    },
+    "Colston Loveland": {
+     "pos": "TE",
+     "published": 10.2,
+     "published_pos_rank": 6,
+     "ranks": {
+      "espn": 6,
+      "cbsros": 11,
+      "razzball": 10
+     },
+     "implied_by_ranker": {
+      "espn": 10.2,
+      "cbsros": 5.5,
+      "razzball": 5.6
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.1,
+     "implied_at_mean_rank": 5.7,
+     "implied_at_median_rank": 5.6,
+     "implied_range": [
+      5.5,
+      10.2
+     ],
+     "rank_sd": 2.2
+    },
+    "Tucker Kraft": {
+     "pos": "TE",
+     "published": 7.9,
+     "published_pos_rank": 7,
+     "ranks": {
+      "espn": 9,
+      "cbsros": 10,
+      "razzball": 6
+     },
+     "implied_by_ranker": {
+      "espn": 5.7,
+      "cbsros": 5.6,
+      "razzball": 10.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 7.2,
+     "implied_at_mean_rank": 7.2,
+     "implied_at_median_rank": 5.7,
+     "implied_range": [
+      5.6,
+      10.2
+     ],
+     "rank_sd": 1.7
+    },
+    "Tyler Warren": {
+     "pos": "TE",
+     "published": 7.9,
+     "published_pos_rank": 8,
+     "ranks": {
+      "espn": 12,
+      "cbsros": 2,
+      "razzball": 11
+     },
+     "implied_by_ranker": {
+      "espn": 3.4,
+      "cbsros": 23.4,
+      "razzball": 5.5
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 10.8,
+     "implied_at_mean_rank": 7.2,
+     "implied_at_median_rank": 5.5,
+     "implied_range": [
+      3.4,
+      23.4
+     ],
+     "rank_sd": 4.5
+    },
+    "Kyle Pitts": {
+     "pos": "TE",
+     "published": 5.7,
+     "published_pos_rank": 9,
+     "ranks": {
+      "espn": 8,
+      "cbsros": 14,
+      "razzball": 14
+     },
+     "implied_by_ranker": {
+      "espn": 7.9,
+      "cbsros": 2.8,
+      "razzball": 2.8
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 4.5,
+     "implied_at_mean_rank": 3.4,
+     "implied_at_median_rank": 2.8,
+     "implied_range": [
+      2.8,
+      7.9
+     ],
+     "rank_sd": 2.8
+    },
+    "Dalton Kincaid": {
+     "pos": "TE",
+     "published": 5.6,
+     "published_pos_rank": 10,
+     "ranks": {
+      "espn": 14,
+      "cbsros": 15,
+      "razzball": 9
+     },
+     "implied_by_ranker": {
+      "espn": 2.8,
+      "cbsros": 2.7,
+      "razzball": 5.7
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 3.7,
+     "implied_at_mean_rank": 3.3,
+     "implied_at_median_rank": 2.8,
+     "implied_range": [
+      2.7,
+      5.7
+     ],
+     "rank_sd": 2.6
+    },
+    "Travis Kelce": {
+     "pos": "TE",
+     "published": 5.5,
+     "published_pos_rank": 11,
+     "ranks": {
+      "espn": 7,
+      "cbsros": 3,
+      "razzball": 13
+     },
+     "implied_by_ranker": {
+      "espn": 7.9,
+      "cbsros": 16.2,
+      "razzball": 3.2
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 9.1,
+     "implied_at_mean_rank": 7.9,
+     "implied_at_median_rank": 7.9,
+     "implied_range": [
+      3.2,
+      16.2
+     ],
+     "rank_sd": 4.1
+    },
+    "Harold Fannin Jr.": {
+     "pos": "TE",
+     "published": 3.4,
+     "published_pos_rank": 12,
+     "ranks": {
+      "espn": 16,
+      "cbsros": 13,
+      "razzball": 21
+     },
+     "implied_by_ranker": {
+      "espn": 1.8,
+      "cbsros": 3.2,
+      "razzball": 0.1
+     },
+     "n_current_rankers": 3,
+     "implied_mean_of_values": 1.7,
+     "implied_at_mean_rank": 1.3,
+     "implied_at_median_rank": 1.8,
+     "implied_range": [
+      0.1,
+      3.2
+     ],
+     "rank_sd": 3.3
+    }
+   },
+   "overall_vs_positional": {
+    "QB": [
+     {
+      "player": "Josh Allen",
+      "published": 34.2,
+      "positional_implied": 34.2,
+      "overall_rank": 1,
+      "overall_implied": 87.7
+     },
+     {
+      "player": "Drake Maye",
+      "published": 22.4,
+      "positional_implied": 15.9,
+      "overall_rank": 5,
+      "overall_implied": 60.0
+     },
+     {
+      "player": "Lamar Jackson",
+      "published": 18.7,
+      "positional_implied": 12.1,
+      "overall_rank": 8,
+      "overall_implied": 55.7
+     },
+     {
+      "player": "Joe Burrow",
+      "published": 16.1,
+      "positional_implied": 18.7,
+      "overall_rank": 3,
+      "overall_implied": 80.1
+     },
+     {
+      "player": "Brock Purdy",
+      "published": 15.9,
+      "positional_implied": 9.6,
+      "overall_rank": 11,
+      "overall_implied": 50.4
+     }
+    ],
+    "RB": [
+     {
+      "player": "Jahmyr Gibbs",
+      "published": 87.7,
+      "positional_implied": 87.7,
+      "overall_rank": 6,
+      "overall_implied": 59.6
+     },
+     {
+      "player": "Bijan Robinson",
+      "published": 80.1,
+      "positional_implied": 66.3,
+      "overall_rank": 29,
+      "overall_implied": 27.2
+     },
+     {
+      "player": "Kenneth Walker III",
+      "published": 80.1,
+      "positional_implied": 80.1,
+      "overall_rank": 10,
+      "overall_implied": 51.8
+     },
+     {
+      "player": "James Cook",
+      "published": 66.3,
+      "positional_implied": 80.1,
+      "overall_rank": 18,
+      "overall_implied": 40.2
+     },
+     {
+      "player": "Christian McCaffrey",
+      "published": 60.0,
+      "positional_implied": 55.9,
+      "overall_rank": 35,
+      "overall_implied": 24.3
+     }
+    ],
+    "WR": [
+     {
+      "player": "Jaxon Smith-Njigba",
+      "published": 55.7,
+      "positional_implied": 45.8,
+      "overall_rank": 43,
+      "overall_implied": 18.7
+     },
+     {
+      "player": "Puka Nacua",
+      "published": 51.8,
+      "positional_implied": 51.8,
+      "overall_rank": 40,
+      "overall_implied": 21.8
+     },
+     {
+      "player": "Ja'Marr Chase",
+      "published": 45.8,
+      "positional_implied": 55.7,
+      "overall_rank": 36,
+      "overall_implied": 24.2
+     },
+     {
+      "player": "Amon-Ra St. Brown",
+      "published": 43.8,
+      "positional_implied": 43.8,
+      "overall_rank": 44,
+      "overall_implied": 18.6
+     },
+     {
+      "player": "CeeDee Lamb",
+      "published": 41.2,
+      "positional_implied": 35.6,
+      "overall_rank": 53,
+      "overall_implied": 15.1
+     }
+    ],
+    "TE": [
+     {
+      "player": "Brock Bowers",
+      "published": 27.2,
+      "positional_implied": 23.4,
+      "overall_rank": 81,
+      "overall_implied": 7.9
+     },
+     {
+      "player": "Trey McBride",
+      "published": 23.4,
+      "positional_implied": 16.2,
+      "overall_rank": 84,
+      "overall_implied": 6.9
+     },
+     {
+      "player": "George Kittle",
+      "published": 16.2,
+      "positional_implied": 27.2,
+      "overall_rank": 78,
+      "overall_implied": 8.2
+     },
+     {
+      "player": "Isaiah Likely",
+      "published": 10.6,
+      "positional_implied": 10.4,
+      "overall_rank": 102,
+      "overall_implied": 3.6
+     },
+     {
+      "player": "Sam LaPorta",
+      "published": 10.4,
+      "positional_implied": 10.6,
+      "overall_rank": 100,
+      "overall_implied": 3.7
+     }
+    ]
+   },
+   "thin_anchor_players": [],
+   "ranked_but_unpriced": {
+    "espn": [
+     "Malik Willis (QB12)",
+     "Malik Washington (WR35)"
+    ],
+    "cbsros": [
+     "Malik Willis (QB10)",
+     "Alec Pierce (WR25)",
+     "Caleb Douglas (WR30)",
+     "Mike Gesicki (TE9)",
+     "Greg Dulcich (TE12)"
+    ],
+    "razzball": [
+     "Justin Herbert (QB8)"
+    ]
+   }
+  }
+ },
+ "stability_espn": {
+  "interval": {
+   "from_fixture_as_of": "2026-09-23",
+   "from_espn_snapshot": "2026-09-29",
+   "to_fixture_as_of": "2026-10-28",
+   "days": "29 to 35 (one pair of reads, not week to week)"
+  },
+  "scorings": {
+   "ppr": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 6.9
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.72,
+     "median_rank_move": 4.0,
+     "median_points_on_today_curve": 9.4
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.77,
+     "median_rank_move": 7.0,
+     "median_points_on_today_curve": 8.4
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.79,
+     "median_rank_move": 4.5,
+     "median_points_on_today_curve": 4.0
+    }
+   },
+   "half_ppr": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 7.1
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.69,
+     "median_rank_move": 5.0,
+     "median_points_on_today_curve": 9.6
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.73,
+     "median_rank_move": 6.0,
+     "median_points_on_today_curve": 7.9
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.83,
+     "median_rank_move": 4.0,
+     "median_points_on_today_curve": 3.8
+    }
+   },
+   "standard": {
+    "QB": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.46,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 7.3
+    },
+    "RB": {
+     "n_now_top": 30,
+     "n_joined": 30,
+     "missing_then": [],
+     "spearman": 0.67,
+     "median_rank_move": 5.5,
+     "median_points_on_today_curve": 11.7
+    },
+    "WR": {
+     "n_now_top": 36,
+     "n_joined": 36,
+     "missing_then": [],
+     "spearman": 0.71,
+     "median_rank_move": 7.0,
+     "median_points_on_today_curve": 8.2
+    },
+    "TE": {
+     "n_now_top": 12,
+     "n_joined": 12,
+     "missing_then": [],
+     "spearman": 0.72,
+     "median_rank_move": 3.0,
+     "median_points_on_today_curve": 4.5
+    }
+   }
+  }
+ },
+ "joins": {
+  "published_half_ppr": {
+   "counts": {
+    "ok": 165
+   },
+   "not_joined": []
+  },
+  "published_ppr": {
+   "counts": {
+    "ok": 163
+   },
+   "not_joined": []
+  },
+  "published_standard": {
+   "counts": {
+    "ok": 166
+   },
+   "not_joined": []
+  },
+  "sttm_ros_ppr_2026-10-20": {
+   "counts": {
+    "ok": 120
+   },
+   "not_joined": []
+  }
+ }
+}

@@ -1,0 +1,465 @@
+{
+ "_about": "Native (CBS per-game) -> two-tier raw -> x scale_70_over_max -> fixture value, for five sample players and two edge cases, from the 2026-10-26 CBS legs and the e2c191c fixture.",
+ "combos": {
+  "full_12": {
+   "bake_id": "ddf-20261026-cbsros-ppr-12t-0p15",
+   "calibration": {
+    "QB": {
+     "pb": 0.22448905303898653,
+     "ps": 3.1965150831734244,
+     "rs": 20.65,
+     "rw": 15.48,
+     "tau": 1.2924999999999995
+    },
+    "RB": {
+     "pb": 0.6930097237108439,
+     "ps": 1.409570997686144,
+     "rs": 10.275500000000001,
+     "rw": 5.76,
+     "tau": 1.1288750000000003
+    },
+    "TE": {
+     "pb": 0.9999996871184714,
+     "ps": 1.0000001590977405,
+     "rs": 10.1175,
+     "rw": 8.98,
+     "tau": 0.2843749999999998
+    },
+    "WR": {
+     "pb": 0.8252317302506572,
+     "ps": 1.1847050607008425,
+     "rs": 10.4225,
+     "rw": 7.336,
+     "tau": 0.7716249999999998
+    }
+   },
+   "leg_generated_at": "2026-10-26T11:51:59Z",
+   "players": {
+    "aaron rodgers": {
+     "fixture_native": 15.37,
+     "fixture_value": 0.0,
+     "others": {
+      "espn": 3.4,
+      "razzball": 3.7
+     },
+     "others_native": {
+      "espn": 17.86,
+      "razzball": 14.5
+     },
+     "pos": "QB",
+     "ppg": 15.37,
+     "raw_value": 0.0,
+     "tier": "waiver",
+     "value": 0.0
+    },
+    "bijan robinson": {
+     "fixture_native": 19.96,
+     "fixture_value": 50.4,
+     "others": {
+      "espn": 48.9,
+      "razzball": 52.4
+     },
+     "others_native": {
+      "espn": 20.55,
+      "razzball": 20.9
+     },
+     "pos": "RB",
+     "ppg": 19.96,
+     "raw_value": 16.76574619749297,
+     "tier": "starter",
+     "value": 50.43857971708498
+    },
+    "david montgomery": {
+     "fixture_native": 6.66,
+     "fixture_value": 1.9,
+     "others": {
+      "espn": 13.7,
+      "razzball": 21.4
+     },
+     "others_native": {
+      "espn": 10.75,
+      "razzball": 13.0
+     },
+     "pos": "RB",
+     "ppg": 6.66,
+     "raw_value": 0.6412588169233046,
+     "tier": "bench",
+     "value": 1.929182487654872
+    },
+    "efton chism iii": {
+     "fixture_native": null,
+     "fixture_value": null,
+     "others": {
+      "espn": 2.4,
+      "razzball": null
+     },
+     "others_native": {
+      "espn": 8.21,
+      "razzball": null
+     }
+    },
+    "jalen coker": {
+     "fixture_native": 10.455,
+     "fixture_value": 8.3,
+     "others": {
+      "espn": 27.6,
+      "razzball": 32.1
+     },
+     "others_native": {
+      "espn": 15.84,
+      "razzball": 16.1
+     },
+     "pos": "WR",
+     "ppg": 10.455,
+     "raw_value": 2.767030511259171,
+     "tier": "starter",
+     "value": 8.324418572113519
+    },
+    "joe burrow": {
+     "fixture_native": 25.055,
+     "fixture_value": 46.0,
+     "others": {
+      "espn": 29.3,
+      "razzball": 15.7
+     },
+     "others_native": {
+      "espn": 21.77,
+      "razzball": 16.5
+     },
+     "pos": "QB",
+     "ppg": 25.055,
+     "raw_value": 15.296638801894622,
+     "tier": "starter",
+     "value": 46.018872439342296
+    },
+    "tyler warren": {
+     "fixture_native": 15.22,
+     "fixture_value": 18.8,
+     "others": {
+      "espn": 7.6,
+      "razzball": 6.4
+     },
+     "others_native": {
+      "espn": 10.96,
+      "razzball": 10.3
+     },
+     "pos": "TE",
+     "ppg": 15.22,
+     "raw_value": 6.240000453457418,
+     "tier": "starter",
+     "value": 18.772606754205896
+    }
+   },
+   "scale_70_over_max": 3.0084303509632755,
+   "snapshot_date": "2026-10-26",
+   "snapshot_sha256": "9b9b29af38197db691fa21bd15c8ccaf793d3e1b89fd9a75bcbb9a9d19bdbd39"
+  },
+  "half_12": {
+   "bake_id": "ddf-20261026-cbsros-half_ppr-12t-0p15",
+   "calibration": {
+    "QB": {
+     "pb": 0.22448905303898653,
+     "ps": 3.1965150831734244,
+     "rs": 20.65,
+     "rw": 15.48,
+     "tau": 1.2924999999999995
+    },
+    "RB": {
+     "pb": 0.780328230618498,
+     "ps": 1.250920118935717,
+     "rs": 8.49,
+     "rw": 4.72,
+     "tau": 0.9425000000000001
+    },
+    "TE": {
+     "pb": 0.9999980031246002,
+     "ps": 1.0000012431894931,
+     "rs": 8.1475,
+     "rw": 7.064,
+     "tau": 0.2708750000000002
+    },
+    "WR": {
+     "pb": 0.7605431509680699,
+     "ps": 1.2496619645704528,
+     "rs": 8.690000000000001,
+     "rw": 6.14,
+     "tau": 0.6375000000000004
+    }
+   },
+   "leg_generated_at": "2026-10-26T11:51:58Z",
+   "players": {
+    "aaron rodgers": {
+     "fixture_native": 15.37,
+     "fixture_value": 0.0,
+     "others": {
+      "espn": 4.2,
+      "razzball": 4.1
+     },
+     "others_native": {
+      "espn": 17.86,
+      "razzball": 14.5
+     },
+     "pos": "QB",
+     "ppg": 15.37,
+     "raw_value": 0.0,
+     "tier": "waiver",
+     "value": 0.0
+    },
+    "bijan robinson": {
+     "fixture_native": 18.06,
+     "fixture_value": 49.1,
+     "others": {
+      "espn": 52.2,
+      "razzball": 53.9
+     },
+     "others_native": {
+      "espn": 18.86,
+      "razzball": 19.0
+     },
+     "pos": "RB",
+     "ppg": 18.06,
+     "raw_value": 14.905110142962206,
+     "tier": "starter",
+     "value": 49.11697853091052
+    },
+    "david montgomery": {
+     "fixture_native": 6.06,
+     "fixture_value": 3.5,
+     "others": {
+      "espn": 19.3,
+      "razzball": 25.7
+     },
+     "others_native": {
+      "espn": 10.06,
+      "razzball": 12.1
+     },
+     "pos": "RB",
+     "ppg": 6.06,
+     "raw_value": 1.0700402965772549,
+     "tier": "bench",
+     "value": 3.5261159273626856
+    },
+    "efton chism iii": {
+     "fixture_native": null,
+     "fixture_value": null,
+     "others": {
+      "espn": 2.1,
+      "razzball": null
+     },
+     "others_native": {
+      "espn": 6.84,
+      "razzball": null
+     }
+    },
+    "jalen coker": {
+     "fixture_native": 8.409,
+     "fixture_value": 6.2,
+     "others": {
+      "espn": 27.1,
+      "razzball": 29.1
+     },
+     "others_native": {
+      "espn": 13.0,
+      "razzball": 13.2
+     },
+     "pos": "WR",
+     "ppg": 8.409,
+     "raw_value": 1.8749365823259232,
+     "tier": "bench",
+     "value": 6.178499788168565
+    },
+    "joe burrow": {
+     "fixture_native": 25.055,
+     "fixture_value": 50.4,
+     "others": {
+      "espn": 36.1,
+      "razzball": 17.4
+     },
+     "others_native": {
+      "espn": 21.77,
+      "razzball": 16.5
+     },
+     "pos": "QB",
+     "ppg": 25.055,
+     "raw_value": 15.296638801894622,
+     "tier": "starter",
+     "value": 50.407187362013985
+    },
+    "tyler warren": {
+     "fixture_native": 12.52,
+     "fixture_value": 18.0,
+     "others": {
+      "espn": 7.2,
+      "razzball": 5.4
+     },
+     "others_native": {
+      "espn": 8.46,
+      "razzball": 8.1
+     },
+     "pos": "TE",
+     "ppg": 12.52,
+     "raw_value": 5.456003256302317,
+     "tier": "starter",
+     "value": 17.97922942091863
+    }
+   },
+   "scale_70_over_max": 3.29531134354631,
+   "snapshot_date": "2026-10-26",
+   "snapshot_sha256": "9b9b29af38197db691fa21bd15c8ccaf793d3e1b89fd9a75bcbb9a9d19bdbd39"
+  },
+  "standard_12": {
+   "bake_id": "ddf-20261026-cbsros-standard-12t-0p15",
+   "calibration": {
+    "QB": {
+     "pb": 0.22448905303898653,
+     "ps": 3.1965150831734244,
+     "rs": 20.65,
+     "rw": 15.48,
+     "tau": 1.2924999999999995
+    },
+    "RB": {
+     "pb": 0.8292346851069397,
+     "ps": 1.1933636269988261,
+     "rs": 7.335,
+     "rw": 3.86,
+     "tau": 0.86875
+    },
+    "TE": {
+     "pb": 0.9999989574181757,
+     "ps": 1.000001070804636,
+     "rs": 6.345,
+     "rw": 5.064,
+     "tau": 0.3202499999999999
+    },
+    "WR": {
+     "pb": 0.6564976929540307,
+     "ps": 1.4927712464356084,
+     "rs": 7.304,
+     "rw": 4.69,
+     "tau": 0.6535
+    }
+   },
+   "leg_generated_at": "2026-10-26T11:51:57Z",
+   "players": {
+    "aaron rodgers": {
+     "fixture_native": 15.37,
+     "fixture_value": 0.0,
+     "others": {
+      "espn": 3.5,
+      "razzball": 4.4
+     },
+     "others_native": {
+      "espn": 17.86,
+      "razzball": 14.5
+     },
+     "pos": "QB",
+     "ppg": 15.37,
+     "raw_value": 0.0,
+     "tier": "waiver",
+     "value": 0.0
+    },
+    "bijan robinson": {
+     "fixture_native": 16.16,
+     "fixture_value": 44.2,
+     "others": {
+      "espn": 52.7,
+      "razzball": 50.6
+     },
+     "others_native": {
+      "espn": 17.18,
+      "razzball": 17.1
+     },
+     "pos": "RB",
+     "ppg": 16.16,
+     "raw_value": 13.407295304058444,
+     "tier": "starter",
+     "value": 44.18121230173896
+    },
+    "david montgomery": {
+     "fixture_native": 5.46,
+     "fixture_value": 4.5,
+     "others": {
+      "espn": 19.0,
+      "razzball": 27.1
+     },
+     "others_native": {
+      "espn": 9.36,
+      "razzball": 11.2
+     },
+     "pos": "RB",
+     "ppg": 5.46,
+     "raw_value": 1.355617427099475,
+     "tier": "bench",
+     "value": 4.467181485029963
+    },
+    "efton chism iii": {
+     "fixture_native": null,
+     "fixture_value": null,
+     "others": {
+      "espn": 1.1,
+      "razzball": null
+     },
+     "others_native": {
+      "espn": 5.46,
+      "razzball": null
+     }
+    },
+    "jalen coker": {
+     "fixture_native": 6.364,
+     "fixture_value": 4.0,
+     "others": {
+      "espn": 17.0,
+      "razzball": 23.5
+     },
+     "others_native": {
+      "espn": 10.16,
+      "razzball": 10.2
+     },
+     "pos": "WR",
+     "ppg": 6.364,
+     "raw_value": 1.2054285011998105,
+     "tier": "bench",
+     "value": 3.9722622138377623
+    },
+    "joe burrow": {
+     "fixture_native": 25.055,
+     "fixture_value": 50.4,
+     "others": {
+      "espn": 30.3,
+      "razzball": 18.7
+     },
+     "others_native": {
+      "espn": 21.77,
+      "razzball": 16.5
+     },
+     "pos": "QB",
+     "ppg": 25.055,
+     "raw_value": 15.296638801894622,
+     "tier": "starter",
+     "value": 50.407187362013985
+    },
+    "tyler warren": {
+     "fixture_native": 9.82,
+     "fixture_value": 15.7,
+     "others": {
+      "espn": 2.9,
+      "razzball": 4.1
+     },
+     "others_native": {
+      "espn": 5.96,
+      "razzball": 5.9
+     },
+     "pos": "TE",
+     "ppg": 9.82,
+     "raw_value": 4.756002373227826,
+     "tier": "starter",
+     "value": 15.672508570430827
+    }
+   },
+   "scale_70_over_max": 3.29531134354631,
+   "snapshot_date": "2026-10-26",
+   "snapshot_sha256": "9b9b29af38197db691fa21bd15c8ccaf793d3e1b89fd9a75bcbb9a9d19bdbd39"
+  }
+ },
+ "commit": "e2c191c"
+}
