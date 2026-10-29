@@ -1,0 +1,15 @@
+{
+  "schema": "player-key-merges-v1",
+  "about": "Verified duplicate public.players rows (JEG-1351 path B). The duplicate row stays in the table; canonical_players and player_key_index resolve it to the original. Each entry needs the same person proven by ids: the duplicate's Sleeper id maps through gsis (data/inputs/sleeper_projection_idmap.csv, status matched) to the original's gsis_id. tests/test_jeg1351_sleeper_duplicates.py checks every entry against the idmap.",
+  "merges": [
+    {"duplicate_key": 4653, "original_key": 2785, "duplicate_name": "Nyheim Miller-Hines", "original_name": "Nyheim Hines",
+     "pos": "RB", "sleeper_id": "5347", "gsis_id": "00-0034367",
+     "verified": "2026-10-29 read-only SQL: 4653 has no gsis_id, metadata.sleeper_id 5347, inserted by sleeper-identity-refresh (JEG-502), no references; 2785 gsis 00-0034367"},
+    {"duplicate_key": 4655, "original_key": 437, "duplicate_name": "Jody Fortson", "original_name": "Joseph Fortson",
+     "pos": "TE", "sleeper_id": "6665", "gsis_id": "00-0035547",
+     "verified": "2026-10-29 read-only SQL: 4655 has no gsis_id, metadata.sleeper_id 6665, JEG-502 insert, no references; 437 gsis 00-0035547"},
+    {"duplicate_key": 4660, "original_key": 4363, "duplicate_name": "Mitch Tinsley", "original_name": "Mitchell Tinsley",
+     "pos": "WR", "sleeper_id": "11068", "gsis_id": "00-0038839",
+     "verified": "2026-10-29 read-only SQL: 4660 has no gsis_id, metadata.sleeper_id 11068, JEG-502 insert, 19 player_status_history rows; 4363 gsis 00-0038839 carries the values"}
+  ]
+}

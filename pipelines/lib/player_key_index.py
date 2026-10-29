@@ -33,6 +33,16 @@ class PlayerIndex:
                  "position": (r.get("position") or "").upper(),
                  "active": bool(r.get("active", True))}
             self.by_key[e["player_key"]] = e
+        # Verified duplicate rows (JEG-1351) answer as their original, so a
+        # Sleeper id or gsis carried only by the duplicate finds the original.
+        merges = canonical_players.load_key_merges()
+        for r in players:
+            if r.get("player_key") is None:
+                continue
+            key = int(r["player_key"])
+            orig = merges.get(key)
+            e = self.by_key[orig] if orig in self.by_key and (
+                self.by_key[orig]["position"] == self.by_key[key]["position"]) else self.by_key[key]
             md = r.get("metadata") or {}
             if md.get("gsis_id"):
                 self.by_gsis.setdefault(str(md["gsis_id"]), []).append(e)

@@ -38,7 +38,11 @@ from (values
     -- added 2026-10-08 (GAP-CBSROS-NICKNAME-MISSES); applied to production as a
     -- data-only insert of these two rows after validate.
     ('Christopher Brooks', 'christopher brooks', 'RB', 2515, '2026-10-08 CBS ROS saver no_match (run 37800639004); public.players one Brooks RB with a Chris/Christopher first name (2515, GB); Sleeper ''Chris Brooks'''),
-    ('Zonovan Knight', 'zonovan knight', 'RB', 868, '2026-10-08 CBS ROS saver no_match (run 37800639004); public.players one Knight RB (868 ''Bam Knight''); Sleeper ''Zonovan Knight'' RB, same 2022 class')
+    ('Zonovan Knight', 'zonovan knight', 'RB', 868, '2026-10-08 CBS ROS saver no_match (run 37800639004); public.players one Knight RB (868 ''Bam Knight''); Sleeper ''Zonovan Knight'' RB, same 2022 class'),
+    -- added 2026-10-29 (JEG-1351 path B); NOT APPLIED. The production insert
+    -- of this row is supabase/migrations/jeg1351_sleeper_alias_billy_johnson.sql
+    -- and waits for Jeremy's yes.
+    ('Tyron Billy-Johnson', 'tyron billyjohnson', 'WR', 423, '2026-10-29 JEG-1351: Sleeper 6063 -> gsis 00-0035457 = 423 Tyron Johnson')
 ) as v(alias, norm_name, pos, player_key, verified)
 on conflict (source, norm_name, position) do update set
     source_player_name = excluded.source_player_name,

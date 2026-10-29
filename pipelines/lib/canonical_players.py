@@ -19,6 +19,10 @@ Rules (fail-closed):
     via the shared NICKNAMES table.
   - The verified alias list (data/inputs/player_aliases.json, via
     lib/player_aliases.py) is applied as an override layer before lookup.
+  - Verified duplicate rows (data/inputs/player_key_merges.json, JEG-1351)
+    resolve to the row they duplicate: the duplicate's name finds the
+    original, never the duplicate. A merge applies only when both rows are
+    loaded at the same position; otherwise it is ignored (fail closed).
   - Active players beat inactive ones with the same normalized name.
   - An optional position filter disambiguates same-name players.
   - Anything still ambiguous -> None, never a guess. Unmatched -> None.
@@ -43,6 +47,7 @@ from nicknames import NICKNAMES  # noqa: E402  -- vendored, drift-tested
 _REPO = os.path.dirname(os.path.dirname(_LIB))
 IDENTITY_SNAPSHOT = os.path.join(_REPO, "data", "inputs",
                                  "player_identity_map.json")
+KEY_MERGES = os.path.join(_REPO, "data", "inputs", "player_key_merges.json")
 
 SKILL_BIN = os.environ.get(
     "SUPABASE_FOOTBALL_SIGNAL_BIN",
@@ -100,6 +105,28 @@ def norm_player_name(s):
     return s
 
 
+def load_key_merges(path=None):
+    """{duplicate player_key: original player_key} from the verified merge
+    list (JEG-1351). The duplicate rows stay in public.players; every
+    resolver here treats them as the original."""
+    path = path or KEY_MERGES
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as fh:
+        doc = json.load(fh)
+    if doc.get("schema") != "player-key-merges-v1":
+        raise ValueError(f"player_key_merges: unexpected schema {doc.get('schema')!r}")
+    out = {}
+    for m in doc["merges"]:
+        dup, orig = int(m["duplicate_key"]), int(m["original_key"])
+        if dup == orig or dup in out or orig in out:
+            raise ValueError(f"player_key_merges: bad or chained entry {m!r}")
+        out[dup] = orig
+    if set(out) & set(out.values()):
+        raise ValueError("player_key_merges: a key is both a duplicate and an original")
+    return out
+
+
 def _load_alias_overrides():
     """Verified aliases (data/inputs/player_aliases.json, the one shared list),
     as norm_player_name(alias) -> norm_player_name(public.players full_name).
@@ -148,6 +175,27 @@ class Registry:
                     self.dst_by_token[toks[-1]] = key          # seahawks
                     self.dst_by_token[" ".join(toks[:-1])] = key  # seattle
         self.alias_overrides = _load_alias_overrides()
+        self.merged_into = self._apply_key_merges(load_key_merges())
+
+    def _apply_key_merges(self, merges):
+        """Point each loaded duplicate's name at its original. Returns the
+        merges applied ({duplicate: original})."""
+        applied = {}
+        for dup, orig in merges.items():
+            d, o = self.by_key.get(dup), self.by_key.get(orig)
+            if d is None or o is None or d["position"] != o["position"]:
+                continue
+            norm = norm_player_name(d["full_name"])
+            cands = [c for c in self.by_norm.get(norm, []) if c["player_key"] != dup]
+            if o not in cands:
+                cands.append(o)
+            self.by_norm[norm] = cands
+            applied[dup] = orig
+        return applied
+
+    def canonical_key(self, key):
+        """The original row's key for a verified duplicate, else key."""
+        return self.merged_into.get(key, key)
 
     def lookup_dst(self, raw):
         """Team-defense forms: 'Seahawks DST', 'Seattle', 'SEA'..."""
