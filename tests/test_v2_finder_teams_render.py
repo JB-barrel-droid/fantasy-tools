@@ -11,6 +11,17 @@ in the page from getAllRows:
   * on a phone the card stacks (one team block, then the other) and nothing scrolls sideways;
   * changing the league scoring rebuilds the card from the new rows.
 
+JEG-1246 (correction of the review at 7d84cdb9), the same card at 1366x768 and 390 wide:
+
+  * with 0, 1 and 2 usable trade charts (the engine's other charts reported unavailable) the card renders with no page
+    error: the Trade chart average column reads "n/a" in every row, a note says there are not enough charts, the
+    per-chart columns are exactly the usable charts (none with 0, "No trade chart is compared this week."), each
+    dropped chart is named "not compared", and the DDF column still equals the listed players' sum (failing before:
+    tsTable read the absent average's cells and threw);
+  * a listed starter whose DDF Value is missing (the engine rows report none for him) keeps his identity: a "No DDF
+    Value" row appears for that team, DDF shows "—" there (never 0), Starters and Bench carry a "*", a note names him,
+    and in the Trade chart average and every chart column Starters + Bench + No DDF Value = Total.
+
 Discrimination: test_guard_fails_on_broken_builds serves finder.js with the two teams' numbers swapped, the held chart
 left unnamed, and the card not rebuilt on a league change, and requires each to fail.
 """
@@ -187,7 +198,137 @@ def check(page, tag, width) -> list[str]:
     return errors
 
 
-def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667))) -> list[str]:
+CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
+CHART_NAMES = {"usatoday": "USA Today", "fantasycalc": "FantasyCalc", "fantasypros": "FantasyPros", "cbs": "CBS Sports"}
+
+# Report only the first n usable charts as available (the rest as held), the way a thin week would.
+LIMIT_CHARTS = """(n) => {
+  const C = window.TradeValueCurveControls;
+  const orig = C.getSourceInfo;
+  const keys = %s;
+  C.getSourceInfo = (...args) => { let k = 0; return orig(...args).map(i => {
+    if (!i.available || !keys.includes(i.key)) return i;
+    if (k < n) { k += 1; return i; }
+    return {...i, available: false};
+  }); };
+  return C.getSourceInfo().filter(i => i.available && keys.includes(i.key)).map(i => i.key);
+}""" % CHART_KEYS
+
+# The engine rows with one player's DDF Value removed (every chart value kept).
+DROP_DDF = """(name) => {
+  const C = window.TradeValueCurveControls;
+  const orig = C.getAllRows;
+  C.getAllRows = (...args) => orig(...args).map(r => (r.name === name ? {...r, values: {...r.values, ddf_value: null}} : r));
+  document.dispatchEvent(new CustomEvent('ddf:league-settings-changed', {detail: {reason: 'settings', notes: []}}));
+}"""
+
+GRID = """(team) => {
+  const box = document.getElementById('v2FindTeamSummary');
+  if (!box || box.hidden) return null;
+  const out = {};
+  box.querySelectorAll(`.v2-find-ts-team[data-team=${team}]`).forEach(t => t.querySelectorAll('tr[data-row]').forEach(tr => {
+    tr.querySelectorAll('td[data-series]').forEach(td => {
+      (out[td.dataset.series] = out[td.dataset.series] || {})[tr.dataset.row] = {text: td.textContent.trim(), unplaced: Boolean(td.querySelector('[data-unplaced]'))};
+    });
+  }));
+  return {cells: out, notes: [...box.querySelectorAll('.v2-find-ts-notes li')].map(li => ({kind: li.dataset.note, text: li.textContent})),
+    chartColumns: [...new Set([...box.querySelectorAll('.v2-find-ts-charts thead th[data-series]')].map(th => th.dataset.series))],
+    text: box.textContent};
+}"""
+
+
+def open_finder(page):
+    page.evaluate("() => { location.hash = '#find-trade'; }")
+    page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view() && document.getElementById('v2FindEdit') && !document.getElementById('v2FindTrade').hidden", timeout=60000)
+
+
+def add_rosters(page):
+    pick = page.evaluate(PICK)
+    for name in pick["mine"]:
+        add(page, "Mine", name)
+    for name in pick["theirs"]:
+        add(page, "Theirs", name)
+    page.wait_for_timeout(300)
+    return pick
+
+
+def check_few_charts(page, tag, width, n) -> list[str]:
+    """0, 1 or 2 usable charts: no crash, an honest n/a average, the usable charts only, the rest named."""
+    tag = tag + f"[{n} usable charts] "
+    errors = []
+    open_finder(page)
+    kept = page.evaluate(LIMIT_CHARTS, n)
+    if len(kept) != n:
+        return [tag + f"the fixture has {len(kept)} usable charts after limiting to {n}: the check proves nothing"]
+    add_rosters(page)
+    grid = page.evaluate(GRID, "mine")
+    if not grid:
+        return [tag + "the team value summary is not shown with both rosters in"]
+    market = grid["cells"].get("market", {})
+    if not market or any(c["text"] != "n/a" for c in market.values()):
+        errors.append(tag + f"Trade chart average cells {market}, want 'n/a' in every row")
+    if not any(note["kind"] == "market" for note in grid["notes"]):
+        errors.append(tag + "no note says the Trade chart average has too few charts")
+    if sorted(grid["chartColumns"]) != sorted(kept):
+        errors.append(tag + f"per-chart columns {grid['chartColumns']}, want the usable charts {kept}")
+    if n == 0 and "No trade chart is compared this week." not in grid["text"]:
+        errors.append(tag + "no note says no trade chart is compared")
+    for key in CHART_KEYS:
+        if key not in kept and f"{CHART_NAMES[key]} not compared" not in grid["text"]:
+            errors.append(tag + f"{CHART_NAMES[key]} is not named 'not compared'")
+    indep = page.evaluate(INDEP, "Mine")
+    total = number(grid["cells"].get("ddf", {}).get("total", {}).get("text"))
+    if total is None or not close(total, indep["total"]):
+        errors.append(tag + f"DDF total {total}, the listed players sum to {indep['total']:.1f}")
+    for key in kept:
+        got = number(grid["cells"].get(key, {}).get("total", {}).get("text"))
+        if got is None or not close(got, indep["perChart"][key]):
+            errors.append(tag + f"{key} total {got}, want {indep['perChart'][key]:.1f}")
+    if page.evaluate("() => document.documentElement.scrollWidth - innerWidth") > 0:
+        errors.append(tag + "the page scrolls sideways")
+    return errors
+
+
+def check_unplaced(page, tag, width) -> list[str]:
+    """A listed starter with no DDF Value but chart values: kept in a No DDF Value row, the splits reconcile."""
+    tag = tag + "[no DDF Value] "
+    errors = []
+    open_finder(page)
+    pick = add_rosters(page)
+    name = pick["mine"][0]   # the best DDF player: a sure starter before his DDF Value goes
+    page.evaluate(DROP_DDF, name)
+    page.wait_for_timeout(700)
+    grid = page.evaluate(GRID, "mine")
+    if not grid:
+        return [tag + "the team value summary is not shown"]
+    ddf = grid["cells"].get("ddf", {})
+    if "unplaced" not in ddf:
+        return [tag + f"no No DDF Value row for {name} (rows {list(ddf)})"]
+    if number(ddf["unplaced"]["text"]) is not None or "incomplete" not in ddf["unplaced"]["text"]:
+        errors.append(tag + f"DDF No DDF Value cell {ddf['unplaced']['text']!r}, want a dash marked incomplete (never 0)")
+    if not (ddf["starters"]["unplaced"] and ddf["bench"]["unplaced"]):
+        errors.append(tag + "DDF Starters / Bench do not carry the '*' for the unplaced player")
+    if not any(note["kind"] == "unplaced" and name in note["text"] for note in grid["notes"]):
+        errors.append(tag + f"no note names {name} as having no DDF Value")
+    checked = 0
+    for sid, cells in grid["cells"].items():
+        if sid == "ddf" or cells.get("total", {}).get("text") in (None, "n/a"):
+            continue
+        parts = [number(cells[r]["text"]) for r in ("starters", "bench", "unplaced")]
+        total = number(cells["total"]["text"])
+        if None in parts or total is None:
+            continue   # a chart that misses someone in these rows is marked incomplete; the sum is checked on the rest
+        checked += 1
+        if not close(sum(parts), total):
+            errors.append(tag + f"{sid}: Starters + Bench + No DDF Value {sum(parts):.1f} != Total {total:.1f}")
+    if not checked:
+        errors.append(tag + "no market or chart column to reconcile: the check proves nothing")
+    if page.evaluate("() => document.documentElement.scrollWidth - innerWidth") > 0:
+        errors.append(tag + "the page scrolls sideways")
+    return errors
+
+
+def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667)), checker=None) -> list[str]:
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -211,7 +352,7 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667))) 
                     page.route(f"**/v2/{name}*", functools.partial(_serve, body, "text/javascript"))
                 page.goto(base + "#find-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.view()", timeout=60000)
-                errors += check(page, f"[{width}px] ", width)
+                errors += (checker or check)(page, f"[{width}px] ", width)
                 if page_errors:
                     errors.append(f"[{width}px] page errors {page_errors}")
                 context.close()
@@ -220,9 +361,45 @@ def run_checks(overrides=None, viewports=((1366, 768), (390, 844), (375, 667))) 
     return errors
 
 
+PHONE_AND_DESKTOP = ((1366, 768), (390, 844))
+
+
+def few_charts_checker(n):
+    return lambda page, tag, width: check_few_charts(page, tag, width, n)
+
+
 class FinderTeamsRenderTest(unittest.TestCase):
     def test_team_summary(self):
         self.assertEqual(run_checks(), [])
+
+    def test_few_usable_charts(self):
+        for n in (0, 1, 2):
+            with self.subTest(usable_charts=n):
+                self.assertEqual(run_checks(viewports=PHONE_AND_DESKTOP, checker=few_charts_checker(n)), [])
+
+    def test_player_without_ddf_value(self):
+        self.assertEqual(run_checks(viewports=PHONE_AND_DESKTOP, checker=check_unplaced), [])
+
+    def test_correction_guards_fail_on_broken_builds(self):
+        """JEG-1246: the 7d84cdb9 crash and a dropped No DDF Value partition are each caught."""
+        js = FINDER_JS.read_text(encoding="utf-8")
+        broken = {
+            "the average's cells read before the unavailable guard": (js.replace(
+                'if (series.available === false || !series.cells) return el("span", {class: "v2-find-ts-num is-unavailable"',
+                'if (series.cells[name] && series.available === false) return el("span", {class: "v2-find-ts-num is-unavailable"', 1),
+                few_charts_checker(2)),
+            "the unplaced player dropped from the split": (js.replace("unplaced: picked.unvalued, total:", "unplaced: [], total:", 1), check_unplaced),
+            "the No DDF Value row never listed": (js.replace(
+                'rows: SUMMARY_ROWS.filter(name => name !== "unplaced" || unplaced.length)', 'rows: SUMMARY_ROWS.filter(name => name !== "unplaced")', 1), check_unplaced),
+        }
+        for name, (body, checker) in broken.items():
+            with self.subTest(mutation=name):
+                self.assertNotEqual(body, js, f"mutation anchor for {name!r} is stale")
+                try:
+                    errors = run_checks({"finder.js": body}, viewports=((1366, 768),), checker=checker)
+                except Exception as exc:
+                    errors = [str(exc)[:80]]
+                self.assertNotEqual(errors, [], f"not caught: {name}")
 
     def test_guard_fails_on_broken_builds(self):
         js = FINDER_JS.read_text(encoding="utf-8")

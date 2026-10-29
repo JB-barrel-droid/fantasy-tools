@@ -11,9 +11,15 @@ teamSummary(rows, shape, chartKeys, ourKey) reads the engine rows (no math of it
   * the chartKeys passed in are the compared charts (a held chart is simply not in the list, so it is absent here);
   * the Trade chart average is the mean of the compared charts, only with MIN_CHARTS of them (absent otherwise).
 
+JEG-1246 (correction of the review at 7d84cdb9): a player DDF Value does not price but a chart does is never dropped
+from the Starters / Bench split. He sits in the "unplaced" row (No DDF Value), so Starters + Bench + No DDF Value =
+Total in every series; Starters and Bench carry his name as `unplaced`; the row is listed only when someone is in it.
+A complete-data roster is the positive control (no unplaced row, every split reconciles, every total complete).
+
 Discrimination: test_checks_fail_on_broken_builds runs the checks against mutated copies of finder.js (a missing value
 counted as 0, an empty-incomplete cell never flagged, the Total read from the starters, the chart average shown with
-too few charts, and the starters re-picked per column from the market) and requires each to fail.
+too few charts, the starters re-picked per column from the market, the unplaced player dropped from the split, the
+unplaced row never listed, and Starters / Bench never flagged) and requires each to fail.
 """
 from __future__ import annotations
 
@@ -172,6 +178,78 @@ def checks(finder_js) -> list[str]:
               {"rows": roster() + [p("K1", "K", None, None), p("D1", "DEF", None, None)], "shape": SHAPE, "charts": CHARTS})
     if kd["size"] != len(roster()) or not kd["complete"] or kd["missing"] or kd["count"] != len(roster()):
         errors.append(f"a kicker and a defense: {kd}, want them left out of the totals (not counted, not missing)")
+    errors += partition_checks(finder_js)
+    return errors
+
+
+PARTITION = """
+const s = F.teamSummary(D.rows, D.shape, D.charts, 'ddf_value');
+const fin = v => typeof v === 'number' && isFinite(v);
+const out = {rows: s.rows, unplaced: s.unplaced, series: {}};
+s.series.filter(x => x.cells).forEach(x => {
+  const c = x.cells;
+  out.series[x.id] = {starters: c.starters.value, bench: c.bench.value, unplaced: c.unplaced.value, total: c.total.value,
+    totalComplete: c.total.complete, unplacedMissing: c.unplaced.missing, unplacedComplete: c.unplaced.complete,
+    flagS: c.starters.unplaced || null, flagB: c.bench.unplaced || null};
+});
+return out;
+"""
+
+
+def _sum(*vals):
+    return sum(v for v in vals if v is not None)
+
+
+def partition_checks(finder_js) -> list[str]:
+    errors = []
+    # Codex's example: chart total 40 against starters 10 + bench 0. R9 is priced by every chart, not by DDF Value.
+    small = [p("Q1", "QB", 10, (10, 10, 10, 10)), p("R9", "RB", None, (30, 30, 30, 30))]
+    r = node(finder_js, PARTITION, {"rows": small, "shape": {"QB": 1, "RB": 1, "WR": 0, "TE": 0, "FLEX": 0, "SUPERFLEX": 0}, "charts": CHARTS})
+    if r["rows"] != ["starters", "bench", "unplaced", "total", "QB", "RB", "WR", "TE"]:
+        errors.append(f"rows {r['rows']}, want the No DDF Value row listed when a player has no DDF Value")
+    if r["unplaced"] != ["R9"]:
+        errors.append(f"unplaced {r['unplaced']}, want ['R9']")
+    u = r["series"].get("usatoday", {})
+    if (u.get("starters"), u.get("bench"), u.get("unplaced"), u.get("total")) != (10, 0, 30, 40):
+        errors.append(f"usatoday split {u}, want starters 10 + bench 0 + No DDF Value 30 = total 40")
+    m = r["series"].get("market", {})
+    if (m.get("starters"), m.get("unplaced"), m.get("total")) != (10, 30, 40):
+        errors.append(f"market split {m}, want 10 / 30 / 40")
+    d = r["series"].get("ddf", {})
+    if d.get("unplaced") is not None or d.get("unplacedMissing") != ["R9"] or d.get("unplacedComplete"):
+        errors.append(f"DDF No DDF Value cell {d}, want no number (never 0), incomplete, missing ['R9']")
+    if d.get("totalComplete") or d.get("total") != 10:
+        errors.append(f"DDF total {d}, want the partial 10 marked incomplete")
+    for sid, x in r["series"].items():
+        if x["flagS"] != ["R9"] or x["flagB"] != ["R9"]:
+            errors.append(f"{sid}: Starters/Bench not flagged with the unplaced player ({x['flagS']}/{x['flagB']})")
+        if sid != "ddf" and abs(_sum(x["starters"], x["bench"], x["unplaced"]) - x["total"]) > 1e-6:
+            errors.append(f"{sid}: starters + bench + No DDF Value != total ({x})")
+
+    # Mixed availability on the full roster: R5 (no DDF Value, every chart) and T2 (no fantasypros value).
+    r = node(finder_js, PARTITION, {"rows": roster(), "shape": SHAPE, "charts": CHARTS})
+    for sid in ["market", "usatoday", "fantasycalc", "fantasypros"]:
+        x = r["series"].get(sid)
+        if not x:
+            errors.append(f"mixed roster: series {sid} missing")
+            continue
+        if abs(_sum(x["starters"], x["bench"], x["unplaced"]) - x["total"]) > 1e-6:
+            errors.append(f"mixed roster {sid}: starters + bench + No DDF Value {_sum(x['starters'], x['bench'], x['unplaced'])} != total {x['total']}")
+        if x["unplaced"] != 1:
+            errors.append(f"mixed roster {sid}: No DDF Value {x['unplaced']}, want R5's 1")
+    if r["series"]["fantasypros"]["totalComplete"]:
+        errors.append("mixed roster: fantasypros total complete although T2 has no fantasypros value")
+
+    # Positive control: complete data. No unplaced row or flags; every split reconciles; every total complete.
+    full = [row for row in roster() if row["player_key"] not in ("R5", "T2")]
+    r = node(finder_js, PARTITION, {"rows": full, "shape": SHAPE, "charts": CHARTS})
+    if "unplaced" in r["rows"] or r["unplaced"]:
+        errors.append(f"complete roster lists a No DDF Value row: {r['rows']} / {r['unplaced']}")
+    for sid, x in r["series"].items():
+        if x["flagS"] or x["flagB"] or not x["totalComplete"] or x["unplaced"] != 0:
+            errors.append(f"complete roster {sid}: {x}, want no flags, a complete total and an empty No DDF Value")
+        if abs(x["starters"] + x["bench"] - x["total"]) > 1e-6:
+            errors.append(f"complete roster {sid}: starters + bench {x['starters'] + x['bench']} != total {x['total']}")
     return errors
 
 
@@ -184,9 +262,12 @@ class FinderTeamsTest(unittest.TestCase):
         broken = {
             "a missing value counted as 0": js.replace("return {value: priced || !players.length ? sum : null,", "return {value: sum,", 1),
             "an incomplete cell never flagged": js.replace("complete: missing.length === 0};", "complete: true};", 1),
-            "the Total read from the starters": js.replace("const sets = {starters: picked.starters, bench: picked.bench, total: rows.slice(),", "const sets = {starters: picked.starters, bench: picked.bench, total: picked.starters,", 1),
+            "the Total read from the starters": js.replace("unplaced: picked.unvalued, total: rows.slice(),", "unplaced: picked.unvalued, total: picked.starters,", 1),
             "the chart average shown with too few charts": js.replace("const market = charts.length >= MIN_CHARTS;", "const market = charts.length >= 0;", 1),
             "a kicker or defense counted in the totals": js.replace("const rows = (teamRows || []).filter(r => !isNotEvaluated(r));", "const rows = teamRows || [];", 1),
+            "the unplaced player dropped from the split": js.replace("unplaced: picked.unvalued, total:", "unplaced: [], total:", 1),
+            "the unplaced row never listed": js.replace('rows: SUMMARY_ROWS.filter(name => name !== "unplaced" || unplaced.length)', 'rows: SUMMARY_ROWS.filter(name => name !== "unplaced")', 1),
+            "Starters and Bench never flagged": js.replace('if (unplaced.length) ["starters", "bench"].forEach(', 'if (false) ["starters", "bench"].forEach(', 1),
             "the starters re-picked per column from the market": js.replace("starters: picked.starters, bench: picked.bench,", "starters: pickStarters(rows, shape, MARKET_KEY).starters, bench: pickStarters(rows, shape, MARKET_KEY).bench,", 1),
         }
         for name, body in broken.items():
