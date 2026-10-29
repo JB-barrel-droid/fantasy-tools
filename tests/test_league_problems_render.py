@@ -5,10 +5,10 @@ kickers or defenses), each linking to its team."
 
 A clean synthetic league fills the page's default settings exactly: 12 teams, each with 2 QB, 5 RB, 5 WR, 2 TE, a kicker
 and a defense (16 players for QB 1, RB 2, WR 2, TE 1, FLEX 1, BN 7, K 1, DEF 1), every roster read from a pasted page with
-nothing unmatched. It shows "every team is loaded and checks out". Then one problem at a time, each with its exact text,
-its team link (which opens and focuses that team) and, where it is a reason the "Use league rosters" switch gives, the
-switch grayed out. Short or over teams and missing kickers or defenses are checks only: the switch stays on.
-A copy of league.js without the kicker/defense check fails the kicker case. On a phone (390, 360, 320 px) the list causes
+nothing unmatched. It shows "every team is loaded and checks out". Then one problem at a time, asserting the whole list
+(so a stray extra line fails): each item's exact text, its team link (which opens and focuses that team) and, where it
+is a reason the "Use league rosters" switch gives, the switch grayed out. Short or over teams and missing kickers or
+defenses are checks only: the switch stays on. A copy of league.js without the kicker/defense check fails the kicker case. On a phone (390, 360, 320 px) the list causes
 no sideways scroll and every Open link is a 44 px target.
 
 Needs Chromium (Playwright). Skips locally without it; CI sets RENDER_TESTS_REQUIRED.
@@ -89,37 +89,47 @@ class LeagueProblemsTest(unittest.TestCase):
             self.assertEqual(clean["switch"], {"checked": True, "disabled": False})
 
             cases = [
-                # (name, tweak, per-team provenance, kind, team index or None, exact text, switch grayed?)
-                ("unmatched", "", {2: {**PASTED, "unresolved": 2}}, "unmatched", 2,
-                 "Team 3: 2 pasted players not matched yet. Open the team to add them.", True),
-                ("short", "teams[3].entries.pop();", None, "spots", 3, "Team 4: 15 of 16 roster spots filled.", False),
-                ("over", "teams[4].entries.push(free);", None, "spots", 4, "Team 5: 1 over its 16 roster spots.", False),
-                ("kicker", "teams[6].entries = teams[6].entries.filter(e => e.pos !== 'K');", None, "kicker_defense", 6,
-                 "Team 7: no kicker.", False),
+                # (name, tweak, per-team provenance, every item the list shows as (kind, team index or None, exact text),
+                # switch grayed?). The whole list is asserted, so a stray extra line fails the case.
+                ("unmatched", "", {2: {**PASTED, "unresolved": 2}},
+                 [("unmatched", 2, "Team 3: 2 pasted players not matched yet. Open the team to add them.")], True),
+                ("one unmatched", "", {2: {**PASTED, "unresolved": 1}},
+                 [("unmatched", 2, "Team 3: 1 pasted player not matched yet. Open the team to add it.")], True),
+                # The last entry is the defense, so the team is one short and has no defense.
+                ("short", "teams[3].entries.pop();", None,
+                 [("spots", 3, "Team 4: 15 of 16 roster spots filled."), ("kicker_defense", 3, "Team 4: no defense.")], False),
+                ("over", "teams[4].entries.push(free);", None, [("spots", 4, "Team 5: 1 over its 16 roster spots.")], False),
+                ("kicker", "teams[6].entries = teams[6].entries.filter(e => e.pos !== 'K');", None,
+                 [("spots", 6, "Team 7: 15 of 16 roster spots filled."), ("kicker_defense", 6, "Team 7: no kicker.")], False),
                 ("kicker and defense", "teams[6].entries = teams[6].entries.filter(e => e.pos !== 'K' && e.pos !== 'DEF');", None,
-                 "kicker_defense", 6, "Team 7: no kicker or defense.", False),
-                ("bench left out", "", {7: {**PASTED, "coverage": "bench_omitted"}}, "bench_omitted", 7,
-                 "Team 8: the pasted page left the bench out. Paste the team page with the bench shown.", True),
-                ("count not recorded", "", {8: {**PASTED, "unresolved": None}}, "unrecorded", 8,
-                 "Team 9: unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", True),
-                ("not read", "", {9: {"unresolved": 0, "observedAt": None, "coverage": "unknown"}}, "not_read", 9,
-                 "Team 10: not read from a site page (added by hand or from a link). Paste the team page.", True),
-                ("stale", "", {10: {**PASTED, "observedAt": 1}}, "stale", 10, "Team 11: roster is more than 7 days old. Paste it again.", True),
-                ("team missing", "teams.pop();", None, "team_count", None, "League settings have 12 teams; 11 are loaded.", True),
+                 [("spots", 6, "Team 7: 14 of 16 roster spots filled."), ("kicker_defense", 6, "Team 7: no kicker or defense.")], False),
+                # Only a kicker and a defense: no valued players, so the switch's empty_team reason sits on this team's item.
+                ("kickers and defenses only", "teams[3].entries = teams[3].entries.filter(e => e.pos === 'K' || e.pos === 'DEF');", None,
+                 [("spots", 3, "Team 4: 2 of 16 roster spots filled.")], True),
+                ("bench left out", "", {7: {**PASTED, "coverage": "bench_omitted"}},
+                 [("bench_omitted", 7, "Team 8: the pasted page left the bench out. Paste the team page with the bench shown.")], True),
+                # Not recorded also counts as unmatched for the switch; that reason sits on this team's item, not a second line.
+                ("count not recorded", "", {8: {**PASTED, "unresolved": None}},
+                 [("unrecorded", 8, "Team 9: unmatched players weren't recorded (an older save or a shared link). Paste the roster again.")], True),
+                ("not read", "", {9: {"unresolved": 0, "observedAt": None, "coverage": "unknown"}},
+                 [("not_read", 9, "Team 10: not read from a site page (added by hand or from a link). Paste the team page.")], True),
+                ("stale", "", {10: {**PASTED, "observedAt": 1}},
+                 [("stale", 10, "Team 11: roster is more than 7 days old. Paste it again.")], True),
+                ("team missing", "teams.pop();", None, [("team_count", None, "League settings have 12 teams; 11 are loaded.")], True),
             ]
-            for name, tweak, per, kind, team, text, grayed in cases:
+            for name, tweak, per, want, grayed in cases:
                 with self.subTest(case=name):
                     ids, got = self.seed(page, tweak, per)
                     self.assertEqual(got["state"], "problems")
-                    item = self.only(got, kind)
-                    self.assertEqual(item["text"], text)
-                    self.assertEqual(item["links"], [] if team is None else [ids[team]])
+                    self.assertEqual(got["items"], [{"kind": kind, "text": text, "links": [] if team is None else [ids[team]]}
+                                                    for kind, team, text in want])
                     self.assertEqual(got["switch"]["disabled"], grayed, f"{name}: the switch and the list disagree")
-                    if team is not None:
+                    for team in sorted({team for _, team, _ in want if team is not None}):
                         self.assertEqual(page.evaluate(OPEN, ids[team]), {"expanded": "true", "focused": True})
 
             # A player on two teams: one item, a link to each team, and the over count on the second team.
             ids, got = self.seed(page, "teams[5].entries.push(teams[0].entries[0]);")
+            self.assertEqual([i["kind"] for i in got["items"]], ["two_teams", "spots"], got["items"])
             two = self.only(got, "two_teams")
             self.assertRegex(two["text"], r"^.+ is on Team 1 and Team 6\.$")
             self.assertEqual(two["links"], [ids[0], ids[5]])
