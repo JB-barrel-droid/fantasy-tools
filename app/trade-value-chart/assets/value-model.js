@@ -285,7 +285,7 @@
         startPT[pos] = (alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0)) / teams;
       });
       // miss rates (from lineup_parameters.json, rounded for Python parity)
-      var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
+      var VORP_MISS = {QB: 0.15, RB: 0.14, WR: 0.11, TE: 0.15};
       var VORP_BYE = 1.0 / 17.0;
       // t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
       var vorpT1 = {};

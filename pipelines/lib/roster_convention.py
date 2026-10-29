@@ -38,7 +38,7 @@ SUPERFLEX_ELIGIBLE = ("QB", "RB", "WR", "TE")
 
 # JEG-1121: VORP bench allocation constants.
 # miss_rate per game (from lineup_parameters.json; rounded for JS parity).
-_BENCH_MISS_RATE = {"QB": 0.12, "RB": 0.14, "WR": 0.11, "TE": 0.15}
+_BENCH_MISS_RATE = {"QB": 0.15, "RB": 0.14, "WR": 0.11, "TE": 0.15}
 _BYE_RATE = 1.0 / 17.0  # one bye per 17-game season
 
 # Default roster: 1 QB / 2 RB / 2 WR / 1 TE / 1 FLEX / 1 K / 1 DEF, 7 bench.

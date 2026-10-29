@@ -21,11 +21,11 @@ from lib.roster_convention import vorp_bench_allocate  # noqa: E402
 
 JS = REPO / "app" / "trade-value-chart" / "assets" / "value-model.js"
 
-# JEG-1150 option A (Jeremy's pick pending, 2026-10-29): keep QB at 0.12.
-EXPECTED_QB_MISS = 0.12
+# JEG-1150 option C (Jeremy's pick pending, 2026-10-29): QB 0.12 -> 0.15.
+EXPECTED_QB_MISS = 0.15
 # 12 teams, 1 QB: QB backups come in blocks of t1 = round(2 x c x 12),
 # c = 1/17 + miss_rate. 0.12 gives t1 = 4; 0.15 gives 5.
-EXPECTED_QB_T1 = 4
+EXPECTED_QB_T1 = 5
 
 
 def js_miss_rates() -> dict[str, float]:
