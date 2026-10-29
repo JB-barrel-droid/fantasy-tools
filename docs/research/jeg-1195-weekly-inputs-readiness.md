@@ -283,6 +283,38 @@ Natural fit, JEG-1217, JEG-1220).
    per position and ranks beyond. Separately, for JEG-1196 only: whether to
    bring back an ESPN roster% pull.
 
+### Weekly FantasyPros drop for Muse (spec, 2026-10-29)
+
+Jeremy, 2026-10-29 02:28 UTC: "i could have muse run this daily". Plan: the
+weekly page compares on ranks first (public, no sign-in) and adds points
+once Muse's signed-in pull lands. Muse delivers raw page data only; the S3b
+producer owns identity (`player_key`), freshness labels and the Supabase save,
+so there is still one owner of each.
+
+- **Where:** a dedicated branch `data/fantasypros-weekly` in this repo (no PR,
+  never `main`). Path `fantasypros/weekly/2026/wk{NN}/`.
+- **What, once a day:** the weekly projections page and the weekly ECR rankings
+  page for QB, RB, WR and TE, signed in so every player shows (not the top 10).
+  Projections in all three scorings (Standard, Half PPR, PPR) as FantasyPros
+  shows them.
+- **Files per pull** (`{ts}` = UTC pull time `YYYYMMDDTHHMMZ`, never overwrite):
+  - `proj_{pos}_{std|half|ppr}_{ts}.csv`: the page's header row as shown, then
+    every player row exactly as shown (player, team, stat columns, FPTS).
+  - `ecr_{pos}_half_{ts}.csv`: rank, player, team, and the best, worst, average
+    and standard-deviation columns if shown.
+  - `manifest_{ts}.json`: for each file, the page URL, the week printed in the
+    page heading, the scoring shown on the page, the row count, and whether the
+    page showed the full list.
+- **Rules:** weekly pages only, never rest-of-season or draft pages. Take the
+  week from the page heading, not from the request. Copy numbers as shown;
+  leave a blank cell blank, never 0. Never edit or delete an earlier file.
+- **Not in this drop:** player keys, merged files, Supabase writes, and anything
+  from rest-of-season pages.
+
+Loading this drop into Supabase (the existing `projection_snapshots` table
+already holds `source='fantasypros'` rows by week and scoring) and any
+schedule for the loader still need Jeremy's yes naming them.
+
 ## 8. Minimum missing to recover the originals
 
 - The old Hatch workspace sources: Vegas page bake script, `driving_prop.py`,
