@@ -807,6 +807,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
+	python3 -m unittest tests.test_jeg1217_managers_render
 	python3 -m unittest tests.test_v2_find_split_render
 
 test-render-sweep-2:
@@ -903,6 +904,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
+	python3 -m unittest tests.test_jeg1217_managers_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
