@@ -11,7 +11,9 @@ with ROS data, ever.").
 
 Jeremy, 2026-10-29, answering the three options below: "Leave as is". So
 there is no rescore and no weight change for CBS rest of season, and no value
-changes. Jalen Coker's low CBS number is CBS's own projection (also JEG-1287).
+changes. He added: "CBS logic should follow what it has been." That stands:
+CBS handling stays as it is, and no further rescoring or reweighting
+proposals. Jalen Coker's low CBS number is CBS's own projection (also JEG-1287).
 No entry was added to `data/source-divergence-resolutions.json`, so the
 divergence warn can come back in later weeks.
 
