@@ -172,6 +172,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
+	python3 -m unittest tests.test_v2_tokens
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
