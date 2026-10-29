@@ -195,6 +195,17 @@ that needs a URL instead of a local process.
   week was asked for, `wk=N` on the site link. A week with no published sources
   comes back as a tool error with get-values' message. Tests:
   `tests/node/mcp_week_check.mjs` (`tests/test_mcp_week.py`).
+- Both finder tools default to at most 10 candidates. Text lists up to five;
+  structured candidates keep complete fit reasons. A reply may return a shorter
+  ranked prefix to fit its UTF-8 budget (pair: 6,700 bytes for limits up to 10,
+  17,000 above; league: 8,000 / 11,500). `shown` and the text report the actual
+  count. The selected league package, its total edge and projected lineup stay
+  intact. If even one candidate plus the complete envelope cannot fit, the tool
+  returns a concise error asking for fewer opponents or shorter names.
+- Opponent display names may repeat. League candidates, package offers and
+  `perOpponent` entries include `opponent_index`, the zero-based index in the
+  supplied `opponents` array. Identity follows this index through scoring and
+  package selection, so equal names never share a roster.
 - Tests: `tests/test_mcp_remote.py` (node, stub values, no network) in
   `make test-unit`.
 
