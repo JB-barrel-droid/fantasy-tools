@@ -43,7 +43,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 
 from lib import roster_convention as rc  # noqa: E402
-from tests.test_league_bench_levels import IGNORED, js_call  # noqa: E402
+from tests.test_league_bench_levels import IGNORED, js_call, line_at, row_of  # noqa: E402
 from tests.test_value_pipeline_engine import DRIVER, VALUE_MODEL, _node, diff  # noqa: E402
 
 FIX = ROOT / "tests" / "fixtures" / "league_levels"
@@ -113,7 +113,7 @@ def _vocabulary(res: dict, engine: str) -> dict:
                 v["sources"] = sorted(v["sources"])
     if engine == "js":
         for src in res.get("sources", {}).values():
-            for m in src.get("unfunded_moved") or []:
+            for m in (src.get("unfunded_moved") or []) + (src.get("unfunded_groups") or []):
                 if "amount" in m:
                     m["budget"] = m.pop("amount")
     return res
@@ -191,8 +191,9 @@ def check_invariants(case, doc: dict, res: dict, level: str, held, reserve):
                 case.assertEqual(pos["replacement"], a["replacement"])
                 rk = a["replacement_key"]
                 if level == "ddf" and rk is not None and rk in info["players"]:
-                    # JEG-1249: the waiver is the replacement player's own value in this source.
-                    case.assertEqual(pos["waiver_value"], info["players"][rk]["native"])
+                    # JEG-1249: the line sits at the replacement player's own row in this source; JEG-1047: a
+                    # projection's line is the 7-player band there, a chart's the one player.
+                    case.assertAlmostEqual(pos["waiver_value"], line_at(info, p, row_of(info, rk)), places=9)
 
 
 class TestAccounting(unittest.TestCase):
