@@ -539,7 +539,9 @@ jobs:
             #     projection inputs, config/, fidelity holds, the chain's own
             #     dist files), or any other file this run also wrote: this
             #     run's numbers are not the newest, so nothing is published and
-            #     a fresh run regenerates from current main (the handoff below);
+            #     a fresh run regenerates from current main (the handoff below).
+            #     A failed chain hands off only for a file it wrote itself: its
+            #     status-only commit publishes beside newer inputs (JEG-1308);
             #   - anything else (code, docs, other reports): kept as main has
             #     it, and this run's files publish on top.
             # The publication is ONE normal commit on current main, built in a
@@ -577,7 +579,9 @@ jobs:
                   dist/modules/source-import-health.json|dist/modules/github-actions.json|dist/modules/pipeline-checkpoints.json|dist/modules/monitoring-summary.json|dist/modules/ops-status.json)
                     if $ours; then keep_main+=(":(exclude)$path"); fi ;;
                   data/fixtures/*|data/history/*|data/ddf-two-tier/*|data/inputs/*|config/*|dist/modules/fidelity-pulse.json|dist/modules/comparison-sources-data.json|dist/modules/comparison-chain-status.json|dist/modules/input-lineage.json|dist/modules/value-check.json)
-                    regen="$path"; break ;;
+                    # A failed chain stages only status and health, so a newer
+                    # input says nothing about that red status (JEG-1308).
+                    if $ours || [ "$CHAIN_OUTCOME" = "success" ]; then regen="$path"; break; fi ;;
                   *)
                     if $ours; then regen="$path"; break; fi ;;
                 esac

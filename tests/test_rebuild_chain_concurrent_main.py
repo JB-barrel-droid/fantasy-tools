@@ -206,6 +206,23 @@ class ConcurrentMainTest(unittest.TestCase):
         self.assertEqual("MAIN-HEALTH", r["file"](HEALTH))
         self.assertEqual("PARTIAL", r["local_fixture"], "the checkout's partial fixture is left alone")
 
+    def test_failed_chain_status_publishes_when_a_rebuild_input_moves(self):
+        # JEG-1308: a red run stages only status and health, so a newer input
+        # on main says nothing about whether that status is current. It must
+        # reach the monitor, not hand off to a fresh run.
+        for path in ("dist/modules/fidelity-pulse.json", "data/inputs/espn_projections.csv",
+                     HISTORY_INDEX, "config/lineup_parameters.json"):
+            with self.subTest(path=path):
+                r = scenario(WORKFLOW, {path: "MAIN-INPUT", HEALTH: "MAIN-HEALTH"}, chain="failure")
+                self.assertEqual(0, r["rc"], r["log"])
+                self.assertIn("pushed=true", r["outputs"])
+                self.assertIsNone(r["dispatch"], "a red status is published, not regenerated")
+                self.assertTrue(r["moved_is_ancestor"])
+                self.assertEqual("RED", r["file"](MONITOR_STATUS))
+                self.assertEqual("MAIN-INPUT", r["file"](path), "main's newer input is kept")
+                self.assertEqual("MAIN-HEALTH", r["file"](HEALTH))
+                self.assertEqual("OLD", r["file"](FIXTURE))
+
     def test_commit_step_never_rewrites_or_merges_main(self):
         script = script_of(find_step(WORKFLOW, COMMIT))
         code = "\n".join(l for l in script.splitlines() if not l.strip().startswith("#"))
