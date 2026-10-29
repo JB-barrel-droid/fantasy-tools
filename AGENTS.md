@@ -23,13 +23,20 @@ apply. Current release boundaries are recorded in `HANDOFF.md`.
 
 - Codex and Claude both have access to GitHub, Supabase, the DDF connector and
   the Flaim Fantasy connector, and either can test the live connector.
-- **Codex is the single release coordinator.** Codex owns tickets with clear
-  acceptance criteria (including scoped connector tickets), front-end
-  implementation, refactors, test and CI fixes, backlog items, all merges to
-  main, and `HANDOFF.md`.
-- Claude owns explainer and UX copy, source and data research (FantasyCalc,
-  projection sources, source freshness), ambiguous bugs that need investigation
-  (including connector bugs), and writing and triaging Linear tickets.
+- **Codex is the single release coordinator.** Codex owns integration, all merges
+  to main, `HANDOFF.md`, and focused independent review of Claude's work.
+- Per Jeremy's subsequent capacity direction, shift more implementation and
+  testing to Claude on explicitly claimed tickets with bounded scope and clear
+  acceptance criteria. Claude may own front-end features, scoped connector
+  work, refactors, test and CI fixes, and backlog implementation, in addition to
+  explainer/UX copy, source and data research (FantasyCalc, projection sources,
+  source freshness), ambiguous bug investigation (including connector bugs),
+  and writing and triaging Linear tickets.
+- This broadens the earlier research/copy-oriented split for future assigned
+  work, not active branch ownership. Existing owners and branches remain
+  grandfathered; do not take over their work without the claiming/handoff
+  procedure. All approval, independent-review and release gates below remain
+  unchanged; Codex-authored work still needs a separate independent reviewer.
 
 ### Claiming and handoff
 
