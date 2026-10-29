@@ -194,3 +194,29 @@ main `7e01271` (#1086); HANDOFF.md conflict kept both entries.
 - `candidate-missing` is not explained by the reload: it is on the first search, before any reload. The Node contract
   finds 434 JSN candidates on modeled values; the browser found 1 on published values. The message now gives the total
   found. If the Mac shows one JSN candidate on the fixture's settings, the throw-in stages need a decision.
+
+## JEG-1332 correction: "Position" read as a lineup slot, 2026-10-29
+
+The Mac's rerun at 5d4ebf3 reached the later stages for the first time, and four of them reported
+`readout-changed ... at us before Position, us after Position, them before Position, them after Position`.
+
+Cause: `lineup()` and `starters()` took `table.querySelectorAll('tbody tr')`. A selector is matched against the whole
+document, and only the results are limited to the table. The league panel's lineup tables sit inside a row of the
+opportunities table's `<tbody>`, so their `<thead>` row ("Position | Before | After | Change") matched too. It was
+read as slot "Position" holding "Before" on the league page only. Compare and the pair finder draw their tables
+outside any table, so every destination differed from the origin. The fix: `:scope > tbody > tr`, the table's own
+rows. Also, `team-substituted` now says how many players two rosters share and no longer prints `undefined` when
+another device's ids are dropped.
+
+### Verified (check named)
+
+- `LineupReaderTest.test_a_table_inside_another_tables_row_reads_like_one_alone` (Node, no browser:
+  `tests/node/uso_journey_lineup_reader.cjs` draws a renderTable table alone and nested in another table's row) on
+  5d4ebf3's `COMMON`: FAIL, the nested table reads `'Position': ['Before']`. On this head: pass.
+- `tests.test_uso_site_journey_contract`: harness and mutation green, continuity 2 red (pair link, state link),
+  unchanged. All eight in-page scripts parse in Node.
+
+### Claimed, not confirmed
+
+- The browser journey has not run on this head. Expected: no `Position` in any readout line. The equal pick's readout
+  should then compare clean on the same device, unless the page really differs.

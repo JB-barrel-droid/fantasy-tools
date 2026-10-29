@@ -188,7 +188,9 @@ function diff(a, b, tol, opts) {
     const x = a[s] || {}, y = b[s] || {};
     if (!b[s]) add("team-missing", s, `${s} roster did not arrive`);
     else if (json(x.keys) !== json(y.keys) || (x.id && y.id && x.id !== y.id)) {
-      add("team-substituted", s, `${s} roster ${x.id} (${(x.keys || []).length} players) arrived as ${y.id} (${(y.keys || []).length} players)`);
+      // Another device's teams have other ids (the browser test drops them), so say how far the players differ too.
+      const shared = (x.keys || []).filter(k => (y.keys || []).includes(k)).length;
+      add("team-substituted", s, `${s} roster${x.id ? ` ${x.id}` : ""} (${(x.keys || []).length} players) arrived as ${y.id || "a different roster"} (${(y.keys || []).length} players, ${shared} in common)`);
     } else if (x.notEvaluated !== y.notEvaluated) add("not-evaluated-changed", s, `${s} not-evaluated count ${x.notEvaluated} became ${y.notEvaluated}`);
   });
   // A package is a set of players: the order a screen lists them in is not part of it.

@@ -57,6 +57,7 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[1]
 LEAGUE = ROOT / "tests" / "fixtures" / "uso_site_journey" / "league.json"
 CONTRACT = ROOT / "tests" / "node" / "uso_site_journey_contract.cjs"
+LINEUP_READER = ROOT / "tests" / "node" / "uso_journey_lineup_reader.cjs"
 TOL = "0.051"   # the page shows one decimal
 
 # Another device's own state (the Node contract's other device, less the source the browser cannot switch off).
@@ -161,6 +162,8 @@ SETTINGS = """([s, key]) => { const C = window.TradeValueCurveControls; C.setSco
 # The settings in force, to check that a reload kept them.
 SETTINGS_NOW = """() => { const C = window.TradeValueCurveControls, st = C.getState(); return {scoring: st.scoring, teams: st.teams, roster: C.getRosterShape()}; }"""
 
+# Rows are the table's own (:scope > tbody > tr). JEG-1332: "tbody tr" is matched against the whole document, and the
+# league panel's tables sit inside a row of the opportunities table's tbody, so it also took their "Position" header row.
 # Read from the page: the settings, value basis, sources and bench level in force; one team as the screen counts it
 # (priced players by key; K, DEF and players without a row counted, not valued); the starters and bench by position
 # from a drawn lineup table (lineup-comparison.js renderTable rows, or the pair finder's own lineup table).
@@ -177,11 +180,12 @@ COMMON = """
   const side = team => team ? {id: team.id || null, keys: team.entries.filter(e => !F.isNotEvaluated(e) && have.has(String(e.key))).map(e => String(e.key)).sort(),
     notEvaluated: team.entries.filter(e => F.isNotEvaluated(e) || !have.has(String(e.key))).length} : null;
   const num = t => { const n = parseFloat(String(t || '').replace('\\u2212', '-').replace(/,/g, '')); return Number.isFinite(n) ? n : null; };
-  const starters = table => { const tr = table && [...table.querySelectorAll('tbody tr')].find(x => x.dataset.total === 'starters' || x.firstChild.textContent === 'Starters');
+  const rowsOf = table => [...table.querySelectorAll(':scope > tbody > tr')];
+  const starters = table => { const tr = table && rowsOf(table).find(x => x.dataset.total === 'starters' || x.firstChild.textContent === 'Starters');
     return tr ? [...tr.children].map(c => c.textContent) : null; };
   const who = text => { const s = String(text || '').trim(); return !s || s === 'empty' ? null : s.replace(/ (no value|[\\u2212-]?[\\d,]+\\.\\d)$/, ''); };
   const lineup = (table, col) => { if (!table) return null; const slots = {}, bench = [];
-    table.querySelectorAll('tbody tr').forEach(tr => {
+    rowsOf(table).forEach(tr => {
       const slot = tr.dataset.slot || (tr.dataset.total ? null : tr.firstChild.textContent.replace(/\\d+$/, ''));
       if (!slot || (!tr.dataset.slot && (slot === 'Starters' || slot === 'Bench'))) return;
       const n = who(tr.children[col].textContent); if (!n) return;
@@ -570,6 +574,30 @@ class SettingsSurviveReloadTest(unittest.TestCase):
         self.assertEqual(settings_lost(want, {"scoring": want["scoring"], "teams": want["teams"], "roster": dict(want["roster"])}), [])
         defaults = {"scoring": "ppr", "teams": 12, "roster": {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0, "BENCH": 7, "K": 1, "DST": 1}}
         self.assertEqual(settings_lost(want, defaults), ["scoring ppr != half_ppr", "WR 2 != 3", "BENCH 7 != 5"])
+
+
+def read_lineups(common: str) -> dict:
+    """COMMON's lineup() and starters() on a renderTable table, alone (as Compare draws it) and inside another table's
+    row (as the league page draws it). Node, no browser."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "common.json"
+        path.write_text(json.dumps(common), encoding="utf-8")
+        out = subprocess.run(["node", str(LINEUP_READER), str(ROOT), str(path)], capture_output=True, text=True, timeout=60, cwd=ROOT)
+    if out.returncode or not out.stdout.strip():
+        raise HarnessError(f"lineup reader failed: {out.stderr[-2000:]}")
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+class LineupReaderTest(unittest.TestCase):
+    """JEG-1332: the starters-and-bench reader reads a table's own rows wherever the page puts the table."""
+
+    def test_a_table_inside_another_tables_row_reads_like_one_alone(self):
+        got = read_lineups(COMMON)
+        want = {"QB": ["Q One"], "RB": ["R Three", "R Two"], "WR": ["W Five", "W Four", "W Six"], "TE": ["T Seven"], "FLEX": ["F Eight"]}
+        self.assertEqual(got["alone"]["before"], {"slots": want, "bench": ["B Nine"]})
+        self.assertEqual(got["alone"]["after"]["bench"], ["B Nine", "B Ten"])
+        self.assertNotIn("Position", got["nested"]["before"]["slots"], "the header row was read as a slot")
+        self.assertEqual(got["nested"], got["alone"], "the league page's nesting changed what the reader sees")
 
 
 class LevelScopeTest(unittest.TestCase):
