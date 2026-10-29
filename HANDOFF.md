@@ -19,6 +19,13 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-29 UTC)
+
+- Branch `claude/JEG-1350-espn-dst`, stacked on #1163 (JEG-1313); merge it after #1163, then merge `origin/main` in
+  and rerun `python3 docs/research/JEG-1202/build_matrix.py` if the audit files conflict. Two regexes in
+  `pipelines/lib/canonical_players.py` accept `d/st`; audit known gaps 12 -> 4. Review label `review-high-risk`.
+- No bake input carries D/ST text (ESPN pull reads QB/RB/WR/TE), so no published value moves. No Supabase write.
+
 ### Roster provenance helper (JEG-1241, Claude, 2026-10-29 UTC)
 
 - Branch `claude/JEG-1241-roster-provenance`, draft PR only. New pure module `app/v2/roster-provenance-transitions.js`
