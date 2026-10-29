@@ -26,7 +26,6 @@ from __future__ import annotations
 import collections
 import datetime as dt
 import json
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -34,6 +33,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 from spec_reference import pipeline_live as pl, value_pipeline as vp  # noqa: E402
+sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
+import player_aliases  # noqa: E402
+from canonical_players import norm_player_name  # noqa: E402
 
 OUT = ROOT / "tests" / "fixtures" / "league_levels"
 SKILL = ("QB", "RB", "WR", "TE")
@@ -42,14 +44,9 @@ LEAGUES = {
     "uso": {"raw": "uso_rosters_2026-10-29.json", "scoring": "half_ppr", "mine": "2"},
     "charlotte": {"raw": "charlotte_rosters_2026-10-29.json", "scoring": "half_ppr", "mine": "11"},
 }
-# Yahoo spelling -> the value inputs' spelling, where they differ.
-ALIASES = {"Kenny Gainwell": "Kenneth Gainwell"}
-
-
+# Names match through the one shared rule and the verified alias list (Yahoo "Kenny Gainwell" -> "Kenneth Gainwell").
 def norm(name: str) -> str:
-    n = name.lower().replace(".", "").replace("'", "").replace("’", "")
-    n = re.sub(r"\b(jr|sr|ii|iii|iv)\b", "", n)
-    return re.sub(r"\s+", " ", n).strip()
+    return norm_player_name(player_aliases.canonical_spelling(name))
 
 
 def build(league: str, cfg: dict, data: dict, lineup: dict, commit: str) -> dict:
@@ -89,7 +86,7 @@ def build(league: str, cfg: dict, data: dict, lineup: dict, commit: str) -> dict
             pos, slot = pl_["pos"], pl_["slot"]
             entry = {"name": pl_["name"], "pos": pos, "slot": slot}
             if pos in SKILL:
-                hits = byname.get((norm(ALIASES.get(pl_["name"], pl_["name"])), pos), [])
+                hits = byname.get((norm(pl_["name"]), pos), [])
                 entry["key"] = hits[0] if len(hits) == 1 else None
             plist.append(entry)
             kind = ("k_def" if pos not in SKILL else "unresolved" if entry.get("key") is None else

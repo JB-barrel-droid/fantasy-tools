@@ -420,6 +420,7 @@ test-unit-modules:
 	# JEG-1188: the two league bench levels (rule, real USO/Charlotte leagues, completeness, sweep).
 	python3 -m unittest tests.test_league_bench_levels
 	python3 -m unittest tests.test_league_levels_real
+	python3 -m unittest tests.test_league_levels_trades
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	node tests/node/fit_diagnostic.cjs --assert

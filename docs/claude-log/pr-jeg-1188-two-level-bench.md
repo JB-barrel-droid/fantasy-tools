@@ -70,6 +70,14 @@ Quinshon Judkins 15.3 to him vs 20.0 at the league's depth, Omar Cooper Jr.
   (8/10/12/14 teams, 1QB/2QB/SF, 2WR/3WR, one or two FLEX) at both levels and
   a source missing half its players. Fixtures and repro:
   `tools/build_league_level_fixtures.py`.
+- `tests/test_league_levels_trades.py` (new, 5): uneven trades. The league
+  page's search (computePairing over findTrades) on both leagues, his team
+  against every other, at the ddf level, the market level and the page
+  contract. Every 2-for-1 and 1-for-2 search is evened by the right team's
+  least valuable bench player; every edge and chart net is the exact sum of
+  that level's rows, throw-ins included; counts pinned; on the page some
+  throw-ins are worth 0.0 in DDF Value but priced by the charts. A finder that
+  skips re-judging the evened trade fails it.
 - `tests/test_v2_league_levels_render.py` (new, Chromium, CI only): the page
   against value_reference on both leagues at both levels (every DDF Value and
   every count), the no-league gate, rows and weights unchanged for Compare
