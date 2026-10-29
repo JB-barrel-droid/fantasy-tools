@@ -16,7 +16,6 @@ name: ROS rankings scrape to Supabase
 # with mode=write (supabase/migrations/ros_rankings_sync_schedule_20261029.sql).
 #
 #   push to ros-rankings/dry-*            -> dry run
-#   push to claude/JEG-1198-ros-rankings-feed -> dry run (review branch; drop after merge)
 #   workflow_dispatch                      -> dry unless mode=write
 
 on:
@@ -27,7 +26,7 @@ on:
         required: false
         default: "dry"
   push:
-    branches: ["ros-rankings/dry-*", "claude/JEG-1198-ros-rankings-feed"]
+    branches: ["ros-rankings/dry-*"]
     paths: ["pipelines/pull_ros_rankings.py", "pipelines/save_ros_rankings.py", ".github/workflows/ros-rankings-sync.yml"]
 
 permissions:

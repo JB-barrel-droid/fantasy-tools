@@ -264,6 +264,27 @@ class Saver(unittest.TestCase):
         self.assertEqual(sorted(r["analyst"] for r in clean), ["A (x)", "A (x)", "B (y)", "B (y)"])
         self.assertIn("analyst", save.CONFLICT.split(","))
 
+    def test_two_names_for_one_player_key_both_go_to_review(self):
+        # JEG-1303: two printed names resolving to one player_key in one list is
+        # ambiguous. Neither row is written (no guessed winner); both go to review.
+        rows = pull.parse_ecr_page(ecr_page(), "u")["rows"]
+        qb = next(r for r in rows if r["player_name"] == "QB Player1")
+        rb = next(r for r in rows if r["player_name"] == "RB Player1")
+        alias = dict(qb, player_name="QB Player1 Jr.", pos_rank=qb["pos_rank"] + 3)
+        snap = {"schema": "ros-rankings-snapshot-v1", "rows": [qb, alias, rb], "review_rows": []}
+        clean, review = save.build_rows(snap)
+        self.assertEqual([r["player_key"] for r in clean], [2])
+        dup = [r for r in review if r["reason"] == "duplicate_player_key"]
+        self.assertEqual(sorted(r["player_name"] for r in dup), ["QB Player1", "QB Player1 Jr."])
+        self.assertTrue(all(r["player_key"] == 1 for r in dup))
+
+    def test_same_player_in_two_lists_is_not_a_duplicate(self):
+        rows = []
+        for who in ("A (x)", "B (y)"):
+            rows += pull.parse_expert_page(expert_page("HALF", name=who), "u", who, "2026-10-27", "HALF")["rows"]
+        _, review = save.build_rows({"schema": "ros-rankings-snapshot-v1", "rows": rows, "review_rows": []})
+        self.assertNotIn("duplicate_player_key", [r["reason"] for r in review])
+
     def test_row_without_analyst_fails_closed(self):
         row = dict(pull.parse_ecr_page(ecr_page(), "u")["rows"][0], analyst="")
         with self.assertRaises(SystemExit):

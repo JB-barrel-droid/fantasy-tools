@@ -4,9 +4,9 @@
 Reads the snapshot pipelines/pull_ros_rankings.py writes and upserts it into
 public.ros_rankings. Mirrors pipelines/save_razzball_references.py.
 
-Table DDL: sql/migrations/015_ros_rankings.sql, a DRAFT that needs Jeremy's explicit
-approval before it is applied; this saver never creates or alters the table. Until it is
-applied, run with --dry-run only.
+Table DDL: sql/migrations/015_ros_rankings.sql, applied 2026-10-29 on Jeremy's approval
+("Approve 015 and 016"); this saver never creates or alters the table. The daily write run
+is scheduled by pg_cron (016); manual runs dry-run unless asked to write.
 
 Rankings only: nothing here feeds DDF Value or DDF Projections, and the trade-value
 importer never reads this table (tests/test_ros_rankings.py).
@@ -19,7 +19,8 @@ source here is a rest-of-season list; no weekly ranking is ever saved into this 
 
 Identity (fail closed): numeric player_key only, through lib/canonical_players (the one
 name rule, curated nicknames, verified aliases, position check). Unmatched, ambiguous or
-position-conflicting names go to the review report, never guessed.
+position-conflicting names go to the review report, never guessed. Two names that resolve
+to one player_key in the same list both go to review; neither is written.
 """
 from __future__ import annotations
 
@@ -117,18 +118,24 @@ def build_rows(snap: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[st
             "pulled_at": pulled_at, "_written_at": pulled_at,
             "_run_id": f"ros-rankings-save-{pulled_at[:10]}", "_writer_identity": "save_ros_rankings.py",
         })
-    # Two printed names can resolve to one player_key: keep the better (lower) rank, flag it.
-    best: dict[tuple, dict[str, Any]] = {}
+    # Two printed names can resolve to one player_key in one list. That is ambiguous, so
+    # fail closed (JEG-1303): every row in the group goes to review and none is written.
+    groups: dict[tuple, list[dict[str, Any]]] = {}
     for r in clean:
         ck = (r["source"], r["analyst"], r["scoring"], r["pos"], r["player_key"], r["source_vintage"])
-        if ck in best:
-            review.append({"source": r["source"], "reason": "duplicate_player_key",
-                           "player_name": r["player_name"], "pos": r["pos"],
-                           "other": best[ck]["player_name"]})
-            if r["pos_rank"] >= best[ck]["pos_rank"]:
-                continue
-        best[ck] = r
-    return list(best.values()), review
+        groups.setdefault(ck, []).append(r)
+    kept: list[dict[str, Any]] = []
+    for group in groups.values():
+        if len(group) == 1:
+            kept.append(group[0])
+            continue
+        names = sorted({g["player_name"] for g in group})
+        for g in group:
+            review.append({"source": g["source"], "reason": "duplicate_player_key",
+                           "player_name": g["player_name"], "pos": g["pos"],
+                           "player_key": g["player_key"], "analyst": g["analyst"],
+                           "others": [n for n in names if n != g["player_name"]]})
+    return kept, review
 
 
 def main(argv=None) -> int:
