@@ -1,9 +1,9 @@
 // Trade Value v2 — Trade ideas card on Find a trade (JEG-1217 stage 3): Trade opportunities re-read through the Managers card.
 //
 // A card between Managers and Trade opportunities. Recommendations: the trades that are a gain for you, ranked by your gain,
-// each with how likely the other manager may take it (Likely or Possible, in words) and why. Stretch offers: long shots, in
-// their own section below. The math is manager-recs.js; this file only draws it. Nothing here changes a value, a fit or the
-// Trade opportunities table.
+// each with how likely the other manager may take it (Likely or Possible, in words), the row's roster check for both teams
+// when one is missing or failed, and why. Stretch offers: long shots, in their own section below. The math is
+// manager-recs.js; this file only draws it. Nothing here changes a value, a fit or the Trade opportunities table.
 //
 // Mounts itself once the Managers card exists (manager-profiles-ui.js) and redraws when Trade opportunities redraws, when a
 // profile changes and when the league changes, so league.js is not edited.
@@ -25,30 +25,37 @@
     return node;
   }
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || `${one}s`)}`;
-  const names = list => list.map(p => p.name).join(" + ") || "nobody";
-  const gain = n => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}`;
+  // Our own construction check for a "partial" row, recomputed once per row object (opportunities.js fullFit).
+  const fits = new WeakMap();
+  function fullFit(row) {
+    const O = root.TradeValueOpportunities;
+    if (!O || !O.fullFit) return null;
+    if (!fits.has(row)) fits.set(row, O.fullFit(row));
+    return fits.get(row);
+  }
 
   function compute() {
     const L = root.TradeValueLeague;
     const C = root.TradeValueCurveControls;
     const result = L && L.ui && L.ui.result;
     if (!result || !C || !C.getAllRows) return null;
-    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: C.getAllRows(), profiles: M});
+    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: C.getAllRows(), profiles: M, fullFit});
   }
 
-  function item(rec, i, stretch) {
+  // v is R.view(rec): every shown string comes from there, so the redraw check below sees all of it.
+  function item(v, i, stretch) {
     const key = `${stretch ? "s" : "r"}${i}`;
-    const sources = rec.sources.map(s => `${s.label} (${s.status})`).join("; ");
-    return el("li", {class: "v2-mi-item", "data-trade-id": rec.id, "data-band": rec.band},
+    return el("li", {class: "v2-mi-item", "data-trade-id": v.id, "data-band": v.band, "data-health": v.health ? "warn" : "ok"},
       el("div", {class: "v2-mi-head"},
-        el("b", {class: "v2-mi-opp", text: rec.opponent}),
-        el("span", {class: `v2-mi-band is-${rec.band}`, text: rec.likelihood}),
-        el("span", {class: "v2-mi-gain", text: `You gain ${gain(rec.ourGain)}`})),
-      el("p", {class: "v2-mi-deal"}, el("span", {text: `You give ${names(rec.give)}.`}), " ", el("span", {text: `You get ${names(rec.receive)}.`})),
+        el("b", {class: "v2-mi-opp", text: v.opponent}),
+        el("span", {class: `v2-mi-band is-${v.band}`, text: v.likelihood}),
+        el("span", {class: "v2-mi-gain", text: v.gain})),
+      v.health ? el("p", {class: "v2-meta v2-mi-health", text: v.health}) : null,
+      el("p", {class: "v2-mi-deal"}, el("span", {text: v.give}), " ", el("span", {text: v.receive})),
       el("details", {class: "v2-mi-why", id: `v2MiWhy-${key}`},
         el("summary", {text: "Why"}),
-        el("ul", {class: "v2-mi-lines"}, ...rec.why.map(line => el("li", {text: line}))),
-        el("p", {class: "v2-meta v2-mi-sources", text: `Your gain is in DDF Value. Their side judged on: ${sources || "nothing available"}.`})));
+        el("ul", {class: "v2-mi-lines"}, ...v.why.map(line => el("li", {text: line}))),
+        el("p", {class: "v2-meta v2-mi-sources", text: v.sources})));
   }
 
   function countsText(out) {
@@ -71,13 +78,15 @@
     card.hidden = !managers || managers.hidden || !opps || opps.hidden || !out;
     const list = $("v2MiList");
     const stretch = $("v2MiStretch");
-    if (card.hidden) { list.replaceChildren(); stretch.replaceChildren(); stretch.hidden = true; return; }
-    const sig = JSON.stringify([out.recommendations.map(r => [r.id, r.band, r.why]), out.stretch.map(r => [r.id, r.why]), out.counts, UI.shown]);
-    if (sig === UI.last) return;   // Trade opportunities redraws often (sorting, filters); the ideas only redraw when they change.
+    // Cleared while hidden, so the same results draw again when the card comes back.
+    if (card.hidden) { list.replaceChildren(); stretch.replaceChildren(); stretch.hidden = true; UI.last = null; return; }
+    const recs = out.recommendations.map(R.view);
+    const longShots = out.stretch.map(R.view);
+    const sig = JSON.stringify([recs, longShots, out.counts, UI.shown]);
+    if (sig === UI.last) return;   // Trade opportunities redraws often (sorting, filters); the ideas only redraw when what they show changes.
     UI.last = sig;
     $("v2MiCount").textContent = `${plural(out.recommendations.length, "idea")}${out.stretch.length ? `, ${plural(out.stretch.length, "stretch offer")}` : ""}`;
     $("v2MiFrom").textContent = countsText(out);
-    const recs = out.recommendations;
     if (!recs.length) list.replaceChildren(el("li", {class: "v2-meta v2-mi-empty", id: "v2MiEmpty",
       text: out.counts.considered ? "No trade ideas yet: none of the trade opportunities is a gain for you that these managers may take." : "No trade opportunities to read yet."}));
     else list.replaceChildren(...recs.slice(0, UI.shown).map((r, i) => item(r, i, false)));
@@ -88,7 +97,7 @@
     stretch.replaceChildren(...(out.stretch.length ? [
       el("summary", {text: `Stretch offers (${out.stretch.length})`}),
       el("p", {class: "v2-meta", text: "Long shots: by your read of the manager they come out 10% to 25% behind on what they send. Each one says which belief has to hold."}),
-      el("ol", {class: "v2-mi-list"}, ...out.stretch.map((r, i) => item(r, i, true)))] : []));
+      el("ol", {class: "v2-mi-list"}, ...longShots.map((v, i) => item(v, i, true)))] : []));
   }
   // Redraws are batched: Trade opportunities, the profiles and the league can all change in one tick.
   const schedule = () => { if (UI.timer === null) UI.timer = setTimeout(render, 30); };

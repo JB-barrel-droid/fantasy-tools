@@ -236,11 +236,105 @@ check("test_legacy_and_partial_state", () => {
   assert.strictEqual(p.excluded, false, "only a literal true excludes");
   assert.strictEqual(p.createdAt, 5);
   assert.deepStrictEqual(p.tags, ["rookies"], "only known tags, once each");
-  assert.ok(!("note" in M.get(parsed.book, ws, "t3")), "an older note is dropped");
   assert.deepStrictEqual(Object.keys(parsed.book.leagues), ["league-a"]);
-  assert.deepStrictEqual(Object.keys(parsed.book.leagues["league-a"]), ["t1"], "blank, junk and note-only profiles are not kept");
+  // JEG-1255: an earlier build's note and Other preferences level are kept, not dropped (was: dropped, a rule the review reversed).
+  assert.deepStrictEqual(Object.keys(parsed.book.leagues["league-a"]), ["t1", "t4"], "blank and junk profiles are not kept; a note-only one is");
+  const kept = M.get(parsed.book, ws, "t4");
+  assert.strictEqual(kept.note, "loves rookies");
+  assert.strictEqual(kept.anchors.subjective, "strong");
+  assert.strictEqual(M.describe(kept).kind, "unknown", "a kept level is not one of the anchors");
   // A league saved before profiles existed has every team unknown and eligible.
   assert.deepStrictEqual(M.eligibleOpponents(M.emptyBook(), ws).map(r => r.description.kind), ["unknown", "unknown", "unknown"]);
+});
+
+// A store over storage whose setItem can be made to fail, and recover.
+function flakyStorage(initial) {
+  const s = memoryStorage(initial);
+  s.fail = null;
+  const set = s.setItem;
+  s.setItem = (k, v) => {
+    if (s.fail === "full") { const e = new Error("quota"); e.name = "QuotaExceededError"; throw e; }
+    if (s.fail === "blocked") { const e = new Error("denied"); e.name = "SecurityError"; throw e; }
+    set(k, v);
+  };
+  return s;
+}
+
+check("test_legacy_note_round_trip", () => {
+  // A book saved by the earlier build of this same version (a1e62342): a free-text note and an Other preferences level.
+  const ws = league();
+  const note = "Loves rookies, hates paying for QBs";
+  const saved = JSON.stringify({v: 1, leagues: {"league-a": {
+    t1: {teamId: "t1", anchors: {draft: "some", market: "unknown", rankings: "unknown", names: "unknown", subjective: "strong"}, confidence: "low",
+      excluded: false, note, source: "user", createdAt: 3, updatedAt: 4},
+    t2: {teamId: "t2", anchors: {draft: "unknown", market: "unknown", rankings: "unknown", names: "unknown", subjective: "unknown"}, confidence: "unknown",
+      excluded: false, note: "slow but fair", source: "user", createdAt: 3, updatedAt: 4}}}});
+  const storage = flakyStorage({[M.STORAGE_KEY]: saved});
+  const store = M.createStore({storage, delay: 0});
+  assert.strictEqual(store.load(), "ok");
+  const p1 = M.get(store.get(), ws, "t1");
+  assert.strictEqual(p1.note, note, "note kept verbatim");
+  assert.strictEqual(p1.anchors.subjective, "strong", "Other preferences level kept");
+  assert.strictEqual(p1.anchors.draft, "some");
+  assert.strictEqual(M.get(store.get(), ws, "t2").note, "slow but fair", "a note-only profile is not blank");
+  assert.deepStrictEqual(M.legacyOf(p1), {note, subjective: "strong"});
+  // Ticking boxes, changing an anchor or excluding never touches what was kept.
+  store.update(b => M.ops.setTag(b, ws, "t1", "rookies", true, 5));
+  store.update(b => M.ops.setAnchor(b, ws, "t1", "market", "strong", 5));
+  store.update(b => M.ops.setExcluded(b, ws, "t2", true, 5));
+  store.update(b => M.ops.setExcluded(b, ws, "t2", false, 6));
+  const after = M.get(store.get(), ws, "t1");
+  assert.strictEqual(after.note, note);
+  assert.strictEqual(after.anchors.subjective, "strong");
+  assert.deepStrictEqual(after.tags, ["rookies"]);
+  assert.strictEqual(M.get(store.get(), ws, "t2").note, "slow but fair");
+  // Saved and loaded again: unchanged; and readable field-for-field by the earlier build (same names: note, anchors.subjective).
+  const raw = JSON.parse(storage.getItem(M.STORAGE_KEY));
+  assert.strictEqual(raw.v, 1);
+  assert.strictEqual(raw.leagues["league-a"].t1.note, note);
+  assert.strictEqual(raw.leagues["league-a"].t1.anchors.subjective, "strong");
+  const again = M.createStore({storage, delay: 0});
+  again.load();
+  assert.deepStrictEqual(again.get(), store.get());
+  // Export and import carry it too.
+  const out = M.importJson(M.emptyBook(), ws, M.exportJson(store.get(), ws));
+  assert.strictEqual(M.get(out.book, ws, "t1").note, note);
+  assert.strictEqual(M.get(out.book, ws, "t1").anchors.subjective, "strong");
+  // Nothing new can be written there: no note op, and setAnchor refuses the kept level.
+  assert.strictEqual(M.ops.setNote, undefined);
+  assert.strictEqual(M.ops.setAnchor(store.get(), ws, "t1", "subjective", "none", 7), store.get());
+  // Only an explicit Clear removes it.
+  store.update(b => M.ops.reset(b, ws, "t1"));
+  assert.ok(!("note" in M.get(store.get(), ws, "t1")));
+});
+
+check("test_store_save_failure_reported_and_recovers", () => {
+  const ws = league();
+  const storage = flakyStorage();
+  const timers = [];
+  const store = M.createStore({storage, delay: 1000, setTimer: fn => { timers.push(fn); return timers.length; }, clearTimer: () => {}});
+  const seen = [];
+  store.onStatus(state => seen.push(state));
+  store.load();
+  storage.fail = "full";
+  store.update(b => M.ops.setConfidence(b, ws, "t1", "low", 2));
+  timers.pop()();   // the delayed save runs later and fails
+  assert.strictEqual(store.status(), "full");
+  assert.deepStrictEqual(seen, ["saving", "full"], "a delayed failure is announced");
+  assert.strictEqual(storage.getItem(M.STORAGE_KEY), null);
+  assert.strictEqual(M.get(store.get(), ws, "t1").confidence, "low", "still usable for this visit");
+  storage.fail = "blocked";
+  assert.strictEqual(store.flush(), false);
+  assert.strictEqual(store.status(), "unavailable");
+  // Recovery: the next save writes everything that was pending.
+  storage.fail = null;
+  store.update(b => M.ops.setExcluded(b, ws, "t2", true, 3));
+  timers.pop()();
+  assert.strictEqual(store.status(), "saved");
+  assert.deepStrictEqual(seen, ["saving", "full", "unavailable", "saving", "saved"]);
+  const stored = M.parseStored(storage.getItem(M.STORAGE_KEY)).book;
+  assert.strictEqual(M.get(stored, ws, "t1").confidence, "low", "the earlier failed change is saved too");
+  assert.strictEqual(M.get(stored, ws, "t2").excluded, true);
 });
 
 check("test_profiles_do_not_touch_workspace", () => {

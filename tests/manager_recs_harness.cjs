@@ -196,4 +196,88 @@ check("test_sources_labelled", () => {
   assert.ok(R.SOURCES.rankings.status.startsWith("unavailable"));
 });
 
+// Roster checks from Trade opportunities travel with each idea, for both teams; they are shown, never a filter (9e681c74).
+const theirsOk = {label: "neutral", construction: {ok: true, issues: []}};
+check("test_health_warnings_both_sides", () => {
+  const give = () => [P(11, "RB", 20)];
+  const recv = () => [P(12, "RB", 22)];
+  const rows = [
+    opp("clean", "t1", give(), recv(), 2, 1, {theirs: theirsOk}),
+    opp("unjudged", "t1", give(), recv(), 2, 1, {ours: null, theirs: null, overall: null}),
+    opp("theirBad", "t2", give(), recv(), 2, 1, {ours: {label: "partial"}, theirs: {label: "neutral", construction: {ok: false, issues: ["empty starting slot: RB"]}}, overall: "force"}),
+    opp("ourBad", "t2", give(), recv(), 2, 1, {ours: {label: "partial"}, theirs: theirsOk, overall: "force"}),
+    opp("theirPartial", "t3", give(), recv(), 2, 1, {theirs: theirsOk, partial: true}),
+    opp("theirNotJudged", "t3", give(), recv(), 2, 1, {theirs: {label: "neutral", construction: null}})
+  ];
+  const out = run(rows);
+  const by = Object.fromEntries(out.recommendations.map(r => [r.id, r.health]));
+  assert.deepStrictEqual(Object.keys(by).sort(), rows.map(r => r.id).sort(), "no health filter: every row is still an idea");
+  assert.deepStrictEqual(by.clean, {ours: [], theirs: []});
+  assert.deepStrictEqual(by.unjudged, {ours: ["roster fit not judged"], theirs: ["roster fit not judged"]});
+  assert.deepStrictEqual(by.theirBad.theirs, ["roster construction: empty starting slot: RB"]);
+  assert.deepStrictEqual(by.theirBad.ours, ["roster construction not checked apart from theirs"], "without the full fit, ours is not called healthy");
+  assert.deepStrictEqual(by.ourBad, {ours: ["roster construction issue"], theirs: []});
+  assert.deepStrictEqual(by.theirPartial, {ours: [], theirs: ["partial roster"]});
+  assert.deepStrictEqual(by.theirNotJudged, {ours: [], theirs: ["roster construction not judged"]});
+  // With the full fit, our own construction result is read directly.
+  const fullFit = row => ({myConstruction: row.id === "theirBad" ? {ok: true, issues: []} : {ok: false, issues: ["bench promoted to starter: P11"]}});
+  const withFit = R.build({rows, book: M.emptyBook(), ws: league(), allRows: ALL, profiles: M, fullFit});
+  const h = Object.fromEntries(withFit.recommendations.map(r => [r.id, r.health]));
+  assert.deepStrictEqual(h.theirBad.ours, [], "our construction passed");
+  assert.deepStrictEqual(h.ourBad.ours, ["roster construction: bench promoted to starter: P11"]);
+  assert.deepStrictEqual(h.clean.ours, [], "full fit is only read for a construction failure");
+  // Shown next to the likelihood, naming the side.
+  const v = R.view(out.recommendations.find(r => r.id === "theirBad"));
+  assert.ok(v.health.startsWith("Roster check:"), v.health);
+  assert.ok(v.health.includes("B's side: roster construction: empty starting slot: RB."), v.health);
+  assert.ok(v.health.includes("Your side: roster construction not checked apart from theirs."), v.health);
+  assert.strictEqual(R.view(out.recommendations.find(r => r.id === "clean")).health, "");
+  // A stretch offer carries its warnings too.
+  const long = run([opp("long", "t1", give(), [P(14, "RB", 40)], 20, -6, {ours: null, overall: null})]);
+  assert.deepStrictEqual(long.stretch[0].health.ours, ["roster fit not judged"]);
+});
+
+check("test_view_shows_every_displayed_field", () => {
+  const ws = league();
+  const row = opp("x", "t1", [P(11, "RB", 20)], [P(12, "RB", 22)], 2, 1, {theirs: theirsOk});
+  const build = (w, r) => R.build({rows: [r], book: M.emptyBook(), ws: w, allRows: ALL, profiles: M}).recommendations[0];
+  const base = R.view(build(ws, row));
+  assert.strictEqual(base.opponent, "A");
+  assert.strictEqual(base.gain, "You gain +2.0");
+  assert.strictEqual(base.give, "You give P11.");
+  assert.strictEqual(base.receive, "You get P12.");
+  assert.ok(base.sources.includes("Trade chart average"));
+  // Rename: same ids, bands and why; the view changes.
+  const renamed = R.view(build(W.ops.renameTeam(ws, "t1", "Renamed"), row));
+  assert.strictEqual(renamed.opponent, "Renamed");
+  assert.deepStrictEqual([renamed.id, renamed.band, renamed.why], [base.id, base.band, base.why]);
+  assert.notStrictEqual(JSON.stringify(renamed), JSON.stringify(base));
+  // Value-only: same order, id and band; our gain moves.
+  const bumped = R.view(build(ws, {...row, edge: 2.3}));
+  assert.deepStrictEqual([bumped.id, bumped.band], [base.id, base.band]);
+  assert.strictEqual(bumped.gain, "You gain +2.3");
+  // A player renamed in the deal (same key) changes the view.
+  const player = R.view(build(ws, {...row, receive: [{...P(12, "RB", 22), name: "New name"}]}));
+  assert.strictEqual(player.receive, "You get New name.");
+});
+
+check("test_force_fit_candidates_kept", () => {
+  // Overall Force fit (their side), our side natural: still a gain for you, so it stays an idea.
+  const out = run([opp("f", "t1", [P(11, "RB", 20)], [P(12, "RB", 22)], 2, 1, {overall: "force"})]);
+  assert.deepStrictEqual(out.recommendations.map(r => r.id), ["f"]);
+});
+
+check("test_legacy_note_in_why", () => {
+  // A profile saved by the earlier build keeps its words (manager-profiles.js keeps note and anchors.subjective).
+  const ws = league();
+  const text = JSON.stringify({v: 1, leagues: {lg: {t1: {anchors: {subjective: "strong"}, note: "loves rookies"}}}});
+  const book = M.parseStored(text).book;
+  const row = opp("x", "t1", [P(11, "RB", 20)], [P(12, "RB", 22)], 2, 3);
+  const plain = run([row]).recommendations[0];
+  const rec = R.build({rows: [row], book, ws, allRows: ALL, profiles: M}).recommendations[0];
+  assert.ok(rec.why.includes("Your note: loves rookies"), rec.why.join(" | "));
+  assert.strictEqual(rec.theirGain, plain.theirGain, "a kept note never changes a number");
+  assert.strictEqual(rec.band, plain.band);
+});
+
 process.stdout.write(JSON.stringify({ran, failures}));

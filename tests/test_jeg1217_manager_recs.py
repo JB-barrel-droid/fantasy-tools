@@ -23,7 +23,8 @@ REQUIRED = [
     "test_doesnt_care_and_unknown_do_not_count", "test_names_and_other_change_words_only", "test_rankings_unavailable_falls_back",
     "test_missing_draft_rank_falls_back", "test_draft_gain_from_ranks", "test_band_boundaries", "test_rank_by_our_gain_not_appeal",
     "test_stretch_section", "test_excluded_and_my_team_left_out", "test_only_your_wins", "test_no_appeal_number_is_counted_not_shown",
-    "test_values_untouched", "test_sources_labelled",
+    "test_values_untouched", "test_sources_labelled", "test_health_warnings_both_sides", "test_view_shows_every_displayed_field",
+    "test_force_fit_candidates_kept", "test_legacy_note_in_why",
 ]
 
 
@@ -66,6 +67,18 @@ MUTATIONS = [
     ("no fallback to the market", "return finite(gains.market) ? {gain: gains.market,", "return false ? {gain: gains.market,", "test_unmarked_manager_uses_market"),
     ("ticked boxes not explained", "if (profile.tags.length) lines.push(", "if (false) lines.push(", "test_names_and_other_change_words_only"),
     ("sources not labelled", "sources: a.basis.map(x => ({anchor: x.anchor, ...SOURCES[x.anchor]}))", "sources: []", "test_sources_labelled"),
+    ("roster warnings dropped", "health: health(row, opts.fullFit),", "health: {ours: [], theirs: []},", "test_health_warnings_both_sides"),
+    ("partial roster not carried", "if (row.partial) theirs.push(\"partial roster\");", "", "test_health_warnings_both_sides"),
+    ("our side called healthy when it can't be told", "else ours.push(their && !their.ok ?", "else if (!their || their.ok) ours.push(their && !their.ok ?",
+     "test_health_warnings_both_sides"),
+    ("health filter added", "if (!isWin(row)) { out.counts.notWin += 1; return; }",
+     "if (!isWin(row) || !row.ours || row.ours.label === \"partial\" || row.partial) { out.counts.notWin += 1; return; }", "test_health_warnings_both_sides"),
+    ("force fits excluded", "if (!isWin(row)) { out.counts.notWin += 1; return; }", "if (!isWin(row) || row.overall === \"force\") { out.counts.notWin += 1; return; }",
+     "test_force_fit_candidates_kept"),
+    ("warnings not shown", "health: sides.length ? `Roster check: ${sides.join(\" \")}` : \"\",", "health: \"\",", "test_health_warnings_both_sides"),
+    ("opponent name not in the view", "opponent: rec.opponent, likelihood:", "opponent: rec.opponentId, likelihood:", "test_view_shows_every_displayed_field"),
+    ("gain not in the view", "gain: `You gain ${gainText(rec.ourGain)}`,", "gain: \"You gain\",", "test_view_shows_every_displayed_field"),
+    ("earlier note not explained", "lines.push(profile.note ? `Your note: ${profile.note}`", "lines.push(false ? `Your note: ${profile.note}`", "test_legacy_note_in_why"),
     ("rows edited in place", "(opts.rows || []).forEach(row => {", "(opts.rows || []).forEach(row => { row.edge = row.edge;  row.give.forEach(p => { p.values.ddf_value += 0; p.recommended = true; });", "test_values_untouched"),
 ]
 

@@ -13,6 +13,9 @@
 //   excluded: true when the reader says this manager will not trade. Excluded teams are left out of recommendations.
 //   tags: fixed checkboxes for other leanings (TAGS), in TAGS order. No free text (Jeremy, 2026-10-29: no text boxes for
 //   how league-mates trade, everyone starts at the default). Every manager starts with nothing marked.
+//   Kept from an earlier build of this same version: a free-text note and an "Other preferences" level (anchors.subjective).
+//   They can no longer be entered, but a saved one is kept verbatim and shown read-only until the reader clears the profile
+//   (JEG-1255: no silent deletion while VERSION stays 1). They never change a number.
 //
 // Saved in this browser only (localStorage key ddf.v2.managerProfiles, versioned), separately from the league so an
 // older build that rewrites ddf.v2.workspaces cannot drop profiles. A corrupt or unknown-version value is ignored,
@@ -23,6 +26,8 @@
   const STORAGE_KEY = "ddf.v2.managerProfiles";
   const VERSION = 1;
   const SAVE_DELAY_MS = 1000;
+  const MAX_NOTE = 280;   // the earlier build's limit, so a note it saved is kept whole
+  const LEGACY_ANCHOR = "subjective";
   const ANCHORS = ["draft", "market", "rankings", "names"];
   const ANCHOR_LABELS = {draft: "Draft capital", market: "Market and trade charts", rankings: "Player rankings", names: "Big names"};
   const TAGS = ["rookies", "picks", "winNow", "rebuilding", "slowReply", "rarelyTrades"];
@@ -35,6 +40,7 @@
   const clone = value => JSON.parse(JSON.stringify(value));
   const pick = (value, allowed) => (allowed.includes(value) ? value : allowed[0]);
   const cleanTags = list => (Array.isArray(list) ? TAGS.filter(tag => list.includes(tag)) : []);
+  const cleanNote = text => String(text == null ? "" : text).replace(/\s+/g, " ").trim().slice(0, MAX_NOTE);
   const time = (value, fallback) => (Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : fallback);
 
   // ---------- shapes ----------
@@ -45,18 +51,24 @@
       source: "user", createdAt: now, updatedAt: now};
   }
   // Fills anything missing so a profile saved by an older build still loads. Unknown fields and levels fall back to
-  // "unknown"; nothing is guessed. An older free-text note and "Other preferences" level are dropped, not converted.
+  // "unknown"; nothing is guessed. An earlier note and "Other preferences" level are kept as saved (see above).
   function normalizeProfile(raw, teamId, now) {
     if (!isObject(raw)) return null;
     const id = String(teamId == null ? raw.teamId : teamId);
     if (!id || id === "undefined" || id === "null") return null;
     const base = newProfile(id, {now: time(raw.createdAt, now || Date.now())});
     const anchors = isObject(raw.anchors) ? raw.anchors : {};
-    return {...base, anchors: Object.fromEntries(ANCHORS.map(a => [a, pick(anchors[a], LEVELS)])), confidence: pick(raw.confidence, CONFIDENCE),
-      excluded: raw.excluded === true, tags: cleanTags(raw.tags), updatedAt: time(raw.updatedAt, base.createdAt)};
+    const kept = pick(anchors[LEGACY_ANCHOR], LEVELS);
+    const note = cleanNote(raw.note);
+    return {...base, anchors: {...Object.fromEntries(ANCHORS.map(a => [a, pick(anchors[a], LEVELS)])), ...(kept !== "unknown" ? {[LEGACY_ANCHOR]: kept} : {})},
+      confidence: pick(raw.confidence, CONFIDENCE), excluded: raw.excluded === true, tags: cleanTags(raw.tags), ...(note ? {note} : {}),
+      updatedAt: time(raw.updatedAt, base.createdAt)};
   }
-  // A profile that says nothing: every anchor unknown, no confidence, not excluded and nothing ticked. Saved as nothing.
-  const isBlank = p => !p || (!p.excluded && !p.tags.length && p.confidence === "unknown" && ANCHORS.every(a => p.anchors[a] === "unknown"));
+  // What an earlier build saved that can no longer be entered: {note, subjective}, each null when absent.
+  const legacyOf = p => ({note: (p && p.note) || null, subjective: (p && p.anchors && p.anchors[LEGACY_ANCHOR]) || null});
+  // A profile that says nothing: every anchor unknown, no confidence, not excluded, nothing ticked and nothing kept. Saved as nothing.
+  const isBlank = p => !p || (!p.excluded && !p.tags.length && p.confidence === "unknown" && ANCHORS.every(a => p.anchors[a] === "unknown")
+    && !legacyOf(p).note && !legacyOf(p).subjective);
 
   // How the reader described this manager, for labels and later explanations. "unknown" when nothing is set,
   // "single" when exactly one anchor is above "none", "mixed" when two or more are, "none" when every set anchor is "none".
@@ -66,7 +78,7 @@
     const active = ANCHORS.filter(a => p.anchors[a] === "some" || p.anchors[a] === "strong");
     const kind = !known.length ? "unknown" : active.length === 0 ? "none" : active.length === 1 ? "single" : "mixed";
     return {kind, active, strong: active.filter(a => p.anchors[a] === "strong"), unknownAnchors: ANCHORS.filter(a => p.anchors[a] === "unknown"),
-      confidence: p.confidence, excluded: p.excluded, tags: p.tags.slice()};
+      confidence: p.confidence, excluded: p.excluded, tags: p.tags.slice(), legacy: legacyOf(p)};
   }
 
   // ---------- the profile book: {v, leagues: {workspaceId: {teamId: profile}}} ----------
@@ -199,6 +211,8 @@
 
   // ---------- the store ----------
   // opts: {storage, delay, setTimer, clearTimer}. status(): "idle" | "saving" | "saved" | "unavailable" | "full".
+  // onStatus(fn) hears every change of status, including a delayed save that fails, so the page never claims "saved"
+  // when it is not. A failed save stays dirty and is retried on the next change or flush.
   function createStore(opts) {
     const o = opts || {};
     const delay = o.delay === undefined ? SAVE_DELAY_MS : o.delay;
@@ -211,7 +225,12 @@
     let dirty = false;
     let state = "idle";
     const listeners = new Set();
-    const setState = next => { state = next; };
+    const statusListeners = new Set();
+    const setState = next => {
+      if (next === state) return;
+      state = next;
+      statusListeners.forEach(fn => { try { fn(state); } catch (error) { /* a listener must not stop the save */ } });
+    };
     function write() {
       timer = null;
       if (!dirty) return true;
@@ -267,6 +286,7 @@
       },
       flush() { if (timer !== null) { clearTimer(timer); timer = null; } return write(); },
       onChange(fn) { listeners.add(fn); return () => listeners.delete(fn); },
+      onStatus(fn) { statusListeners.add(fn); return () => statusListeners.delete(fn); },
       reloadFromStorage() {
         if (!storage) return;
         let text = null;
@@ -291,7 +311,7 @@
     } catch (error) { return null; }
   }
 
-  const api = {STORAGE_KEY, VERSION, ANCHORS, ANCHOR_LABELS, LEVELS, CONFIDENCE, TAGS, TAG_LABELS, newProfile, normalizeProfile, isBlank, describe, emptyBook,
+  const api = {STORAGE_KEY, VERSION, ANCHORS, ANCHOR_LABELS, LEVELS, CONFIDENCE, TAGS, TAG_LABELS, MAX_NOTE, LEGACY_ANCHOR, newProfile, normalizeProfile, legacyOf, isBlank, describe, emptyBook,
     normalizeBook, get, ops, roster, eligibleOpponents, parseStored, serialize, exportJson, importJson, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueManagerProfiles = api;

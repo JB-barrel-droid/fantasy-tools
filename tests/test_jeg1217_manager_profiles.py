@@ -24,7 +24,8 @@ REQUIRED = [
     "test_profiles_are_per_league", "test_unchanged_write_returns_same_book", "test_tags_fixed_list_no_free_text", "test_store_reload",
     "test_store_debounce", "test_store_corrupt_and_version_not_overwritten", "test_store_unavailable", "test_store_other_tab",
     "test_legacy_and_partial_state", "test_profiles_do_not_touch_workspace", "test_export_import_round_trip",
-    "test_import_matches_by_unique_name_only", "test_import_rejects_bad_files",
+    "test_import_matches_by_unique_name_only", "test_import_rejects_bad_files", "test_legacy_note_round_trip",
+    "test_store_save_failure_reported_and_recovers",
 ]
 
 
@@ -76,6 +77,12 @@ MUTATIONS = [
      "const cleanTags = list => (Array.isArray(list) ? [...new Set(list)] : []);", "test_tags_fixed_list_no_free_text"),
     ("tags start ticked", "excluded: false, tags: [],", "excluded: false, tags: [\"rookies\"],", "test_unknown_profile_is_default"),
     ("ticked tags not saved", "!p.excluded && !p.tags.length &&", "!p.excluded &&", "test_tags_fixed_list_no_free_text"),
+    ("earlier note dropped on load", "...(note ? {note} : {}),", "", "test_legacy_note_round_trip"),
+    ("earlier Other preferences dropped on load", "...(kept !== \"unknown\" ? {[LEGACY_ANCHOR]: kept} : {})", "", "test_legacy_note_round_trip"),
+    ("note-only profile saved as nothing", "&& !legacyOf(p).note && !legacyOf(p).subjective);", ");", "test_legacy_note_round_trip"),
+    ("failed delayed save not announced", "statusListeners.forEach(fn =>", "[].forEach(fn =>", "test_store_save_failure_reported_and_recovers"),
+    ("failed save not retried", "storage.setItem(STORAGE_KEY, serialize(book));\n        dirty = false;", "dirty = false;\n        storage.setItem(STORAGE_KEY, serialize(book));",
+     "test_store_save_failure_reported_and_recovers"),
 ]
 
 

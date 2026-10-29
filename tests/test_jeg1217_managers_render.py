@@ -115,5 +115,129 @@ class ManagersCardRenderTest(unittest.TestCase):
                     context.close()
 
 
+# JEG-1255: make the profiles store's writes fail (full) while window.__failProfiles is true; everything else saves.
+FAIL_PROFILE_WRITES = """(() => {
+  const set = Storage.prototype.setItem;
+  Storage.prototype.setItem = function (key, value) {
+    if (window.__failProfiles && key === 'ddf.v2.managerProfiles') throw new DOMException('full', 'QuotaExceededError');
+    return set.call(this, key, value);
+  };
+})();"""
+SHOWN = """() => [...document.querySelectorAll('#v2MiList li.v2-mi-item')].map(li => ({id: li.dataset.tradeId, opp: li.querySelector('.v2-mi-opp').textContent,
+  gain: li.querySelector('.v2-mi-gain').textContent, health: (li.querySelector('.v2-mi-health') || {}).textContent || ''}))"""
+VIEWS = """() => window.TradeValueTradeIdeas.compute().recommendations.slice(0, 10).map(r => window.TradeValueManagerRecs.view(r))"""
+
+
+class TradeIdeasRedrawTest(unittest.TestCase):
+    """JEG-1255: roster warnings shown, hide/show, rename and value-only redraws, a kept earlier note, and a failed save."""
+
+    def test_warnings_redraws_legacy_note_and_save_failure(self):
+        with browser_on_build() as (browser, base):
+            for width in (1366, 390):
+                with self.subTest(width=width):
+                    errors = []
+                    context = browser.new_context(viewport={"width": width, "height": 844}, accept_downloads=True)
+                    page = open_page(browser, base, width=width, height=844, errors=errors, context=context, init_script=FAIL_PROFILE_WRITES)
+                    seed(page, "4team")
+                    wait_opps(page, timeout=90000)
+                    page.wait_for_selector("#v2LgIdeas:not([hidden]) #v2MiList li.v2-mi-item", timeout=30000)
+                    page.wait_for_timeout(200)
+
+                    # 59c00401: "None of the usual anchors" only when every anchor is marked doesn't care; one "none" is named.
+                    summaries = page.evaluate("""() => { const M = window.TradeValueManagerProfiles, C = window.TradeValueManagersCard;
+                      const say = anchors => C.summaryText({description: M.describe({...M.newProfile('x'), anchors: {...M.newProfile('x').anchors, ...anchors}})});
+                      return [say({draft: 'none'}), say({draft: 'none', names: 'none'}), say(Object.fromEntries(M.ANCHORS.map(a => [a, 'none'])))]; }""")
+                    self.assertEqual(summaries, ["Doesn't care about draft capital; the rest not set.",
+                                                 "Doesn't care about draft capital and big names; the rest not set.", "None of the usual anchors."])
+
+                    # Every shown idea carries its row's roster warnings, exactly as the model words them.
+                    shown = page.evaluate(SHOWN)
+                    views = page.evaluate(VIEWS)
+                    self.assertEqual([(x["id"], x["health"]) for x in shown], [(v["id"], v["health"]) for v in views])
+                    first = shown[0]["id"]
+                    top = shown[0]
+                    # Rename the manager of the top idea: Trade ideas shows the new name, like the Managers card.
+                    opp_id = page.evaluate("(id) => String(window.TradeValueLeague.ui.result.rows.find(r => r.id === id).opponentId)", first)
+                    page.evaluate("(id) => window.TradeValueWorkspace.store.update(w => window.TradeValueWorkspace.ops.renameTeam(w, id, 'Renamed Rival'))", opp_id)
+                    page.wait_for_function("""(id) => [...document.querySelectorAll('#v2MiList li.v2-mi-item')].some(li => li.querySelector('.v2-mi-opp').textContent === 'Renamed Rival')
+                      && document.querySelector(`#v2LgManagers li[data-team-id="${id}"] .v2-mg-name`).textContent === 'Renamed Rival'""", arg=opp_id, timeout=30000)
+                    wait_opps(page, timeout=90000)
+                    page.wait_for_timeout(200)
+                    stale = page.evaluate("""(id) => [...document.querySelectorAll('#v2MiList li.v2-mi-item')].map(li => ({opp: li.querySelector('.v2-mi-opp').textContent,
+                      oid: String((window.TradeValueLeague.ui.result.rows.find(r => r.id === li.dataset.tradeId) || {}).opponentId)})).filter(x => x.oid === id && x.opp !== 'Renamed Rival')""", opp_id)
+                    self.assertEqual(stale, [], "no idea keeps the old name")
+
+                    # Value-only change: same id and order, the gain on screen follows.
+                    top = next(x for x in page.evaluate(SHOWN) if x["id"] == first)
+                    before_gain = top["gain"]
+                    page.evaluate("""(id) => { const row = window.TradeValueLeague.ui.result.rows.find(r => r.id === id);
+                      row.edge += 0.3; window.TradeValueTradeIdeas.render(); }""", first)
+                    top = next(x for x in page.evaluate(SHOWN) if x["id"] == first)
+                    self.assertNotEqual(top["gain"], before_gain)
+                    self.assertEqual(top["gain"], next(v for v in page.evaluate(VIEWS) if v["id"] == first)["gain"])
+
+                    # Hide and show with unchanged results: the ideas come back.
+                    listed = [x["id"] for x in page.evaluate(SHOWN)]
+                    page.evaluate("() => { document.getElementById('v2LgOpps').hidden = true; }")
+                    page.wait_for_function("() => document.getElementById('v2LgIdeas').hidden")
+                    self.assertEqual(page.evaluate(SHOWN), [])
+                    page.evaluate("() => { document.getElementById('v2LgOpps').hidden = false; }")
+                    page.wait_for_function("() => document.querySelectorAll('#v2MiList li.v2-mi-item').length > 0", timeout=5000)
+                    self.assertEqual([x["id"] for x in page.evaluate(SHOWN)], listed)
+
+                    # An unjudged row (no fit for either team) still shows, with both sides named.
+                    page.evaluate("""(id) => { const row = window.TradeValueLeague.ui.result.rows.find(r => r.id === id);
+                      row.ours = null; row.theirs = null; window.TradeValueTradeIdeas.render(); }""", first)
+                    top = next(x for x in page.evaluate(SHOWN) if x["id"] == first)
+                    self.assertIn("Your side: roster fit not judged.", top["health"])
+                    self.assertIn("'s side: roster fit not judged.", top["health"])
+
+                    # A note and Other preferences level saved by the earlier build are kept and shown read-only.
+                    ws_id = page.evaluate("() => window.TradeValueWorkspace.store.get().id")
+                    note = "Pays up for rookies; ignores QBs"
+                    legacy = {"v": 1, "leagues": {ws_id: {opp_id: {"teamId": opp_id, "anchors": {"draft": "some", "market": "unknown", "rankings": "unknown",
+                              "names": "unknown", "subjective": "strong"}, "confidence": "low", "excluded": False, "note": note, "source": "user",
+                              "createdAt": 1, "updatedAt": 2}}}}
+                    page.evaluate("(text) => { window.TradeValueWorkspace.store.flush(); localStorage.setItem('ddf.v2.managerProfiles', text); }", json.dumps(legacy))
+                    page.reload(wait_until="networkidle")
+                    page.wait_for_selector("#v2LgManagers:not([hidden])", timeout=60000)
+                    row = page.locator(f"#v2LgManagers li[data-team-id='{opp_id}']")
+                    self.assertIn("Earlier note kept", row.locator(".v2-mg-summary").text_content())
+                    row.locator("details.v2-mg-describe > summary").click()
+                    kept = row.locator(".v2-mg-kept")
+                    self.assertTrue(kept.is_visible())
+                    self.assertIn("Kept from an earlier note", kept.text_content())
+                    self.assertIn(note, kept.text_content())
+                    self.assertIn("Other preferences: A lot", kept.text_content())
+                    self.assertEqual(page.locator("#v2LgManagers textarea, #v2LgManagers input[type=text]").count(), 0, "still no free text")
+                    row.locator("input[id^='v2MgT-rookies-']").check()
+                    page.evaluate("() => window.TradeValueManagerProfiles.store.flush()")
+                    stored = json.loads(page.evaluate("() => localStorage.getItem('ddf.v2.managerProfiles')"))["leagues"][ws_id][opp_id]
+                    self.assertEqual(stored["note"], note)
+                    self.assertEqual(stored["anchors"]["subjective"], "strong")
+                    self.assertEqual(stored["tags"], ["rookies"])
+                    self.assertEqual(page.locator("#v2MgSave").text_content(), "Saved on this device.")
+
+                    # The browser refuses to save: the card says so and points at Download; the next good save clears it.
+                    page.evaluate("() => { window.__failProfiles = true; }")
+                    row.locator("input[id^='v2MgT-winNow-']").check()
+                    page.wait_for_function("() => document.getElementById('v2MgSave').textContent.startsWith('Not saved')", timeout=5000)
+                    message = page.locator("#v2MgSave").text_content()
+                    self.assertIn("storage is full", message)
+                    self.assertIn("Download profiles", message)
+                    self.assertTrue(page.locator("#v2MgDownload").is_visible())
+                    self.assertNotIn("Saved on this device", page.locator("#v2LgManagers").text_content())
+                    page.evaluate("() => { window.__failProfiles = false; }")
+                    row.locator("input[id^='v2MgT-picks-']").check()
+                    page.wait_for_function("() => document.getElementById('v2MgSave').textContent === 'Saved on this device.'", timeout=5000)
+                    stored = json.loads(page.evaluate("() => localStorage.getItem('ddf.v2.managerProfiles')"))["leagues"][ws_id][opp_id]
+                    self.assertEqual(stored["tags"], ["rookies", "picks", "winNow"], "the change made while failing is saved on recovery")
+                    self.assertEqual(stored["note"], note)
+                    if width == 390:
+                        self.assertLessEqual(page.evaluate("document.documentElement.scrollWidth"), 400)
+                    self.assertEqual(errors, [])
+                    context.close()
+
+
 if __name__ == "__main__":
     unittest.main()

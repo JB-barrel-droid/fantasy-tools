@@ -1,8 +1,10 @@
 // Trade Value v2 — manager-aware trade recommendations (JEG-1217 stage 3). Pure; no DOM.
 //
-// Takes the Trade opportunities rows (opportunities.js: already searched, priced and roster-checked for both teams) and the
-// manager profiles (manager-profiles.js), and returns two lists: recommendations and stretch offers. Nothing here changes a
-// value, a fit or the Trade opportunities table.
+// Takes the Trade opportunities rows (opportunities.js: already searched and priced, roster-checked where a fit could be
+// judged) and the manager profiles (manager-profiles.js), and returns two lists: recommendations and stretch offers. Nothing
+// here changes a value, a fit or the Trade opportunities table. Each idea carries its row's roster warnings for both teams
+// (not judged, partial roster, construction issues) next to the likelihood; they are words, not a filter, and force fits
+// stay in (Codex review 9e681c74, JEG-1255).
 //
 // Decisions (Jeremy, 2026-10-29, JEG-1217; picks log):
 //   * Appeal (pick A): the other manager's gain is a blend of the anchors the reader marked for them, "a lot" counting double
@@ -104,6 +106,8 @@
     if (!a.basis.some(x => x.anchor === "market") && finite(gains.market)) lines.push(`The trade charts say ${signed(gains.market)} for them.`);
     if (profile.anchors.names === "some" || profile.anchors.names === "strong") lines.push("You said they like big names; weigh the names in this deal yourself.");
     if (profile.tags.length) lines.push(`You ticked that they ${tagWords(profile.tags)}; weigh that yourself.`);
+    // Kept from an earlier build (manager-profiles.js): the same words it showed, never a number.
+    if (profile.anchors.subjective === "some" || profile.anchors.subjective === "strong") lines.push(profile.note ? `Your note: ${profile.note}` : "You marked other leanings; weigh those yourself.");
     if (b === "longShot") {
       const best = a.basis.slice().sort((x, y) => y.gain - x.gain)[0];
       lines.push(best && best.gain < 0 ? "They lose on every view you marked, so this needs them to value these players more than any of those views do."
@@ -113,11 +117,36 @@
     return lines;
   }
 
+  // The row's roster warnings, per team: {ours: [words], theirs: [words]}; both empty when every check ran and passed.
+  // ours.label "partial" means construction failed for one or both teams; the row keeps only their side's result, so ours
+  // comes from fullFit(row) (opportunities.js) when it is given. Without it, ours says it could not be told apart.
+  const issuesText = c => (c.issues || []).join("; ") || "issue";
+  function health(row, fullFit) {
+    const ours = [];
+    const theirs = [];
+    if (!row.ours) {
+      ours.push("roster fit not judged");
+      theirs.push("roster fit not judged");
+    } else {
+      const their = row.theirs && row.theirs.construction;
+      if (!their) theirs.push("roster construction not judged");
+      else if (!their.ok) theirs.push(`roster construction: ${issuesText(their)}`);
+      if (row.ours.label === "partial") {
+        let mine = null;
+        try { mine = fullFit ? (fullFit(row) || {}).myConstruction || null : null; } catch (error) { mine = null; }
+        if (mine) { if (!mine.ok) ours.push(`roster construction: ${issuesText(mine)}`); }
+        else ours.push(their && !their.ok ? "roster construction not checked apart from theirs" : "roster construction issue");
+      }
+    }
+    if (row.partial) theirs.push("partial roster");
+    return {ours, theirs};
+  }
+
   // Win for the reader: DDF gain shows above 0.0 and our own fit is not force.
   const isWin = row => finite(row.edge) && shown(row.edge) > 0 && !(row.ours && row.ours.label === "force");
   const order = (x, y) => y.ourGain - x.ourGain || (y.share - x.share) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
 
-  // opts: {rows (opportunities rows), book, ws, allRows, profiles (manager-profiles.js API)}.
+  // opts: {rows (opportunities rows), book, ws, allRows, profiles (manager-profiles.js API), fullFit (optional, opportunities.js)}.
   // Returns {recommendations, stretch, counts: {considered, excluded, notWin, noAppeal, hidden}}.
   function build(opts) {
     const P = opts.profiles;
@@ -137,7 +166,7 @@
       if (judged.band === "hidden") { out.counts.hidden += 1; return; }
       const rec = {id: row.id, opponentId: row.opponentId, opponent: who.name, give: row.give, receive: row.receive, ourGain: row.edge,
         theirGain: a.gain, share: judged.share, band: judged.band, likelihood: LABEL[judged.band], basis: a.basis, fallback: a.fallback,
-        gains, fit: row.overall || null, why: explain(who.profile, a, gains, judged.band),
+        gains, fit: row.overall || null, health: health(row, opts.fullFit), why: explain(who.profile, a, gains, judged.band),
         sources: a.basis.map(x => ({anchor: x.anchor, ...SOURCES[x.anchor]}))};
       (judged.band === "longShot" ? out.stretch : out.recommendations).push(rec);
     });
@@ -146,7 +175,21 @@
     return out;
   }
 
-  const api = {OUR_KEY, WEIGHT, BANDS, LABEL, SOURCES, draftCurve, draftValue, anchorGains, appeal, band, explain, isWin, build};
+  // Everything the Trade ideas card shows for one idea, as text. manager-recs-ui.js draws exactly this and redraws when it
+  // changes, so a rename, a value-only update or a new warning can never leave a stale row on screen.
+  const names = list => list.map(p => p.name).join(" + ") || "nobody";
+  const gainText = n => `${n >= 0 ? "+" : "−"}${Math.abs(n).toFixed(1)}`;
+  function view(rec) {
+    const sides = [];
+    if (rec.health.ours.length) sides.push(`Your side: ${rec.health.ours.join("; ")}.`);
+    if (rec.health.theirs.length) sides.push(`${rec.opponent}'s side: ${rec.health.theirs.join("; ")}.`);
+    const sources = rec.sources.map(s => `${s.label} (${s.status})`).join("; ");
+    return {id: rec.id, band: rec.band, opponent: rec.opponent, likelihood: rec.likelihood, gain: `You gain ${gainText(rec.ourGain)}`,
+      give: `You give ${names(rec.give)}.`, receive: `You get ${names(rec.receive)}.`, health: sides.length ? `Roster check: ${sides.join(" ")}` : "",
+      why: rec.why.slice(), sources: `Your gain is in DDF Value. Their side judged on: ${sources || "nothing available"}.`};
+  }
+
+  const api = {OUR_KEY, WEIGHT, BANDS, LABEL, SOURCES, draftCurve, draftValue, anchorGains, appeal, band, explain, health, isWin, build, view};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueManagerRecs = api;
 })(typeof window !== "undefined" ? window : globalThis);

@@ -3,8 +3,10 @@
 // A card between Team summary and Trade opportunities. For every team except yours: a "Won't trade" switch and, under
 // Describe, how much the manager leans on each anchor (manager-profiles.js), how sure you are, and a few fixed boxes to
 // tick (Likes rookies, Win-now, Rarely trades...). No free text, and every manager starts with nothing set. Saved
-// on this device as you change it, with Download / Load of a profiles file. Nothing here changes a value, a fit or the
-// opportunities ranking; Trade ideas (manager-recs-ui.js) reads them.
+// on this device as you change it, with Download / Load of a profiles file; the toolbar says when the browser won't save
+// (blocked or full) so nothing is lost silently. A note or "Other preferences" level saved by an earlier build is shown
+// read-only as kept, never dropped. Nothing here changes a value, a fit or the opportunities ranking; Trade ideas
+// (manager-recs-ui.js) reads them.
 //
 // Mounts itself once the Your league card exists (league.js) and follows the shared league store (workspace.js), so
 // league.js is not edited. Profiles of removed teams are dropped on the next load, not at once, so Undo of a removal
@@ -24,6 +26,9 @@
   const ANCHOR_HELP = {draft: "Values players by where they were drafted", market: "Goes by trade value charts and market prices",
     rankings: "Goes by player rankings", names: "Wants well-known players"};
   const UI = {open: new Set(), status: "", mounted: false};
+  const SAVE_TEXT = {idle: "", saving: "Saving…", saved: "Saved on this device.",
+    unavailable: "Not saved: this browser isn't letting the page save. Download profiles to keep them.",
+    full: "Not saved: this browser's storage is full. Download profiles to keep them."};
 
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
@@ -40,15 +45,19 @@
     if (d.excluded) return "Won't trade: left out of trade ideas.";
     const name = a => lower(M.ANCHOR_LABELS[a]);
     const ticked = d.tags.map(tag => M.TAG_LABELS[tag]);
+    const kept = d.legacy.note || d.legacy.subjective ? " Earlier note kept." : "";
     let text;
-    if (d.kind === "unknown" && ticked.length) return `${listJoin(ticked)}.`;
+    if (d.kind === "unknown" && ticked.length) return `${listJoin(ticked)}.${kept}`;
+    if (d.kind === "unknown" && kept) return kept.trim();
     if (d.kind === "unknown") text = "Not described yet.";
-    else if (d.kind === "none") text = "None of the usual anchors.";
+    // "None" only when all are marked doesn't care; otherwise name the ones that are, the rest are still not set.
+    else if (d.kind === "none" && !d.unknownAnchors.length) text = "None of the usual anchors.";
+    else if (d.kind === "none") text = `Doesn't care about ${listJoin(M.ANCHORS.filter(a => !d.unknownAnchors.includes(a)).map(name))}; the rest not set.`;
     else if (d.kind === "single") text = `Leans on ${name(d.active[0])}${d.strong.length ? " a lot" : ""}.`;
     else text = `Mixed: ${listJoin(d.active.map(a => name(a) + (d.strong.includes(a) ? " (a lot)" : "")))}.`;
     if (d.kind !== "unknown" && d.confidence !== "unknown") text += ` ${CONFIDENCE_TEXT[d.confidence]}.`;
     if (ticked.length) text += ` ${listJoin(ticked)}.`;
-    return text;
+    return text + kept;
   }
 
   const ws = () => league.get();
@@ -92,6 +101,12 @@
         box.addEventListener("change", () => edit(row.teamId, (b, w, teamId) => M.ops.setTag(b, w, teamId, tag, box.checked)));
         return el("label", {class: "v2-mg-tag-label", for: id}, box, el("span", {text: M.TAG_LABELS[tag]}));
       }));
+    // Kept from an earlier build: read-only, cleared only with the whole profile.
+    const legacy = M.legacyOf(p);
+    const kept = legacy.note || legacy.subjective ? el("div", {class: "v2-mg-kept"},
+      el("p", {class: "v2-meta", text: "Kept from an earlier note:"}),
+      legacy.subjective ? el("p", {class: "v2-mg-kept-line", text: `Other preferences: ${LEVEL_TEXT[legacy.subjective]}`}) : null,
+      legacy.note ? el("p", {class: "v2-mg-kept-line", text: legacy.note}) : null) : null;
     const reset = el("button", {type: "button", class: "v2-btn v2-mg-reset", text: "Clear this profile"});
     reset.addEventListener("click", () => {
       profiles.update(book => M.ops.reset(book, ws(), row.teamId), "reset");
@@ -101,7 +116,7 @@
     });
     const describe = el("details", {class: "v2-mg-describe", id: `v2MgDescribe-${key}`, open: UI.open.has(row.teamId)},
       el("summary", {text: "Describe"}),
-      el("div", {class: "v2-mg-body"}, anchors, confidence, tags, reset));
+      el("div", {class: "v2-mg-body"}, anchors, confidence, tags, kept, reset));
     describe.addEventListener("toggle", () => { if (describe.open) UI.open.add(row.teamId); else UI.open.delete(row.teamId); });
     return el("li", {class: "v2-mg-team", "data-team-id": row.teamId},
       el("div", {class: "v2-mg-head"},
@@ -116,12 +131,19 @@
     if (!node) return;
     const rows = M.roster(profiles.get(), ws()).filter(r => !r.mine);
     const out = rows.filter(r => r.profile.excluded).length;
-    const described = rows.filter(r => r.description.kind !== "unknown" || r.description.tags.length).length;
+    const described = rows.filter(r => r.description.kind !== "unknown" || r.description.tags.length || r.description.legacy.note || r.description.legacy.subjective).length;
     node.textContent = rows.length ? `${described} of ${rows.length} described${out ? `, ${out} won't trade` : ""}` : "";
   }
   function renderStatus() {
     const node = $("v2MgStatus");
     if (node) node.textContent = UI.status;
+  }
+  function renderSave() {
+    const node = $("v2MgSave");
+    if (!node) return;
+    const state = profiles.status();
+    node.textContent = SAVE_TEXT[state] || "";
+    node.classList.toggle("is-unsaved", state === "unavailable" || state === "full");
   }
   function render() {
     const card = $("v2LgManagers");
@@ -169,8 +191,9 @@
     return el("section", {class: "v2-card v2-mg", id: "v2LgManagers", "aria-labelledby": "v2MgTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {},
         el("h2", {id: "v2MgTitle", text: "Managers"}),
-        el("p", {class: "v2-meta", text: "How you think each manager values players, and who won't trade. These are your own read on them, not facts about the manager. Saved on this device. They shape Trade ideas below; they don't change values, fits or Trade opportunities."}))),
+        el("p", {class: "v2-meta", text: "How you think each manager values players, and who won't trade. These are your own read on them, not facts about the manager. They shape Trade ideas below; they don't change values, fits or Trade opportunities."}))),
       el("div", {class: "v2-ctoolbar v2-mg-toolbar"}, el("b", {id: "v2MgCount"}), down, up, file,
+        el("span", {class: "v2-meta v2-mg-save", id: "v2MgSave", role: "status", "aria-live": "polite"}),
         el("span", {class: "v2-meta", id: "v2MgStatus", role: "status", "aria-live": "polite"})),
       el("p", {class: "v2-meta", id: "v2MgMine"}),
       el("ul", {class: "v2-mg-teams", id: "v2MgTeams"}));
@@ -189,7 +212,9 @@
     if (out.dropped.length) profiles.update(() => out.book, "reconcile");
     league.onChange(() => render());
     profiles.onChange((_, change) => { if (change.reason === "other-tab") render(); });
+    profiles.onStatus(renderSave);
     render();
+    renderSave();
     return true;
   }
   function start() {
