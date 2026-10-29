@@ -16,6 +16,8 @@
       <button type="button" data-state="empty" aria-pressed="false">No league</button>
       <button type="button" data-state="missing" aria-pressed="false">Projections missing</button>
     </div>
+    <button type="button" id="resetPreview" class="small">Reset preview</button>
+    <p class="meta">Saved in this browser under preview-only keys, never your real league. Reset preview brings back the sample league.</p>
   </div>
 
   <nav class="finder-journey" aria-label="Find a trade steps">
@@ -43,7 +45,7 @@
           <div class="backups" id="backups"></div>
           <p class="meta">Backups are the players left on your bench once your lineup is set. 0 keeps today's behavior.</p></fieldset>
         <details class="shared"><summary>Shared with Compare and Find a trade (your team)</summary>
-          <p>League settings, value basis, player overrides and which sources are available follow you between the trade pages. The controls above belong to this page only, so changing them here never changes Compare.</p>
+          <p><b>Planned, not yet built:</b> league settings, value basis, player overrides and which sources are available would follow you between the trade pages (JEG-1229). The controls above would belong to this page only, so changing them here would never change Compare. This preview does not run or share them.</p>
           <p class="meta">Common and page-only fields as JEG-1229 lists them. Where the pages differ today (package size is stored twice; minimum backups exist only on the one-team finder) the difference is recorded there, not unified here.</p></details>
         <p class="stale" id="staleNote" role="status" aria-live="polite" hidden></p>
       </section>
@@ -61,7 +63,7 @@
     <aside class="finder-rail" aria-label="Filters and columns">
       <section class="card sidecard" aria-labelledby="filtersTitle"><h2 id="filtersTitle">Filters</h2><div id="opponentHost"></div></section>
       <section class="card sidecard" aria-labelledby="columnsTitle"><h2 id="columnsTitle">Columns</h2>
-        <p class="meta">Presentation only. Moving a column never changes a value or the ranking.</p><div id="columnHost"></div></section>
+        <p class="meta">One fixed order, value first. Presentation only: showing a column never changes a value or the ranking.</p><div id="columnHost"></div></section>
     </aside>
   </div>
 </section>
@@ -80,7 +82,7 @@
       <li><b>Explore rosters</b><p>From revision 2: both teams side by side, every team discoverable.</p></li>
       <li><b>Trade preferences</b><p>Package size and minimum backups, with shared preferences named. A change marks results out of date instead of pretending they reran.</p></li>
       <li><b>Managers, then Trade ideas</b><p>Your read of each manager, then ideas ranked by your gain with Likely or Possible, and long shots in their own Stretch offers section (JEG-1217).</p></li>
-      <li><b>Trade opportunities</b><p>Outcomes first: your starters, then theirs, then package capture. Columns move with buttons (JEG-1232); Filters choose opponents by stable team id with Select all and Clear (JEG-1231).</p></li>
+      <li><b>Trade opportunities</b><p>Outcomes first: your starters, then theirs, then package capture, in one fixed order with no picker (JEG-1232); Filters choose opponents by stable team id with Select all and Clear (JEG-1231).</p></li>
       <li><b>Inline details</b><p>Open under the row or inside the phone card; heading takes focus; Escape returns to the row.</p></li></ol></article>
   </div>
   <div class="card space"><h2>Why this order</h2>
@@ -91,10 +93,11 @@
 <section id="route-handoffs" data-route="handoffs" hidden aria-labelledby="handoffsTitle">
   <div class="pagehead"><div><p class="kicker">JEG-1209 · review note</p><h1 id="handoffsTitle">Component handoffs</h1>
     <p class="muted">Which piece this preview runs, where it comes from, and the rollout ticket that ships it after Jeremy approves the design.</p></div></div>
-  <div class="tablewrap"><table class="handoff-table" id="handoffTable"><caption class="meta">Pinned copies in preview/jeg-1209-fieldnotes/vendor. Each is unchanged from its PR.</caption>
+  <div class="tablewrap"><table class="handoff-table" id="handoffTable"><caption class="meta">Pinned copies in preview/jeg-1209-fieldnotes/vendor, unchanged from their PRs except the listed preview patches (preview-only storage keys; the Managers note as checkboxes).</caption>
     <thead><tr><th scope="col">Piece</th><th scope="col">Owner and PR</th><th scope="col">Runs here as</th><th scope="col">Ships with</th></tr></thead><tbody></tbody></table></div>
 </section>
 
 </main>
 <nav class="bottomnav" aria-label="Primary"><a data-base="home" href="#">Home</a><a data-base="values" href="#">Values</a><a data-base="targets" href="#">Buy &amp; sell</a><a data-base="compare" href="#">Check a trade</a><a href="#finder" aria-current="page">Find</a></nav>
 <div id="toast" class="toast" role="status" aria-live="polite"></div>
+<p id="previewLive" class="sr" role="status" aria-live="polite"></p>

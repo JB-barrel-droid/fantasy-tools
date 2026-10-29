@@ -1,5 +1,5 @@
 {
- "note": "Unchanged copies of sibling components at pinned commits, for the private preview only. Do not edit; refresh with build.py --vendor once the PRs move. Replace with app/v2/ once they merge.",
+ "note": "Copies of sibling components at pinned commits, for the private preview only. The files are byte-for-byte their PR heads; build.py applies a listed set of exact replacements when it builds the page (PREVIEW_STORAGE, NO_FREE_TEXT). Refresh with build.py --vendor once the PRs move. Replace with app/v2/ once they merge.",
  "files": [
   {
    "file": "workspace.js",
@@ -37,33 +37,17 @@
    "file": "opponent-inclusion.js",
    "from": "#1090 JEG-1231",
    "branch": "claude/JEG-1231-opponent-inclusion",
-   "commit": "c2f962562f0ab8ac34c57d1a842af3f335334901",
+   "commit": "a54714290a32d43528f607b242baadd34d715640",
    "path": "app/v2/opponent-inclusion.js",
-   "blob": "46601fbd240f425f4a953ea428a7c79a8d830de3"
+   "blob": "cd155194c90c99b0a2885260948dbe789eabc520"
   },
   {
    "file": "opponent-inclusion.css",
    "from": "#1090 JEG-1231",
    "branch": "claude/JEG-1231-opponent-inclusion",
-   "commit": "c2f962562f0ab8ac34c57d1a842af3f335334901",
+   "commit": "a54714290a32d43528f607b242baadd34d715640",
    "path": "app/v2/opponent-inclusion.css",
    "blob": "a8b34cb1c4e6b767d8a853df6b5a5e46c9fd2aa4"
-  },
-  {
-   "file": "column-order.js",
-   "from": "#1093 JEG-1232",
-   "branch": "claude/JEG-1232-column-order",
-   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
-   "path": "app/v2/column-order.js",
-   "blob": "1941cb4702ee7bc83ab3c891426e539fb1a7c9ca"
-  },
-  {
-   "file": "column-order.css",
-   "from": "#1093 JEG-1232",
-   "branch": "claude/JEG-1232-column-order",
-   "commit": "0953404c080d2365c0382f84a8561d35f9e24c64",
-   "path": "app/v2/column-order.css",
-   "blob": "fc9b449e6f09b48f371be51a969aeeab4a28c2d1"
   },
   {
    "file": "manager-profiles.js",
@@ -104,6 +88,33 @@
    "commit": "a1e62342eb2863fc56e581fb4f7bb97f340c7b98",
    "path": "app/v2/manager-profiles.css",
    "blob": "e3a9613b98b6c5963eb2375378d529ae23cf6cd1"
+  }
+ ],
+ "superseded": [
+  {
+   "pr": 1093,
+   "ticket": "JEG-1232",
+   "reason": "Jeremy, 2026-10-29: \"Go with the fixed order value first.\" Reviewed #1093 head b7e076f80b597140b298a8ecd2bfa04c8f506ea2 has no column-order picker or saved order, so column-order.js/.css are no longer vendored; the preview draws its columns in one fixed order."
+  }
+ ],
+ "open_findings": [
+  {
+   "pr": 1091,
+   "ticket": "JEG-1233",
+   "pinned": "571876f058",
+   "finding": "Open review 00895375: empty league with unavailable/full storage still promises saving; every 'replace' (including Undo) reads as a file/link import. Owner correction pending; repin after it is reviewed."
+  },
+  {
+   "pr": 1093,
+   "ticket": "JEG-1232",
+   "pinned": null,
+   "finding": "Hidden-column Reset finding superseded: the picker and saved order are gone from #1093 (review f411c027)."
+  },
+  {
+   "pr": 1084,
+   "ticket": "JEG-1217",
+   "pinned": "a1e62342eb",
+   "finding": "Open review 9e681c74: Trade ideas drop partial/unjudged roster warnings, blank card after hide/show, stale names/gains after a rename; capture findings in 59c00401. Newer head b29aac31 (fixed tags instead of the note) is not reviewed yet and drops an existing note on load, so the preview stays on a1e62342 and keeps its own lossless note patch."
   }
  ]
 }

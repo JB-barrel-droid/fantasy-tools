@@ -4,14 +4,15 @@
 // unchanged (vendor/, pinned in vendor/MANIFEST.json):
 //   League status header        JEG-1233 TradeValueLeagueStatus.mount on the real workspace store
 //   Opponents to include        JEG-1231 TradeValueOpponentInclusion (stable team ids, Select all / Clear)
-//   Column order                JEG-1232 TradeValueColumnOrder (reconcile / move / renderControl / focusMove)
 //   Managers and Trade ideas    JEG-1217 cards, mounting themselves as they do on the live page
+// Columns are drawn in one fixed order, value first, with no order picker (Jeremy, 2026-10-29, JEG-1232: "Go with the
+// fixed order value first."). The stores save under preview-only keys (build.py PREVIEW_STORAGE), never the live ones.
 // The opportunity rows, values and labels are the historical Week 7 fixture from revision 2, unchanged. Nothing here
 // computes a value, a fit or a ranking; "Review states" only swap in the inputs each state would have.
 (function () {
   "use strict";
   const W = window.TradeValueWorkspace, S = window.TradeValueLeagueStatus, OI = window.TradeValueOpponentInclusion;
-  const CO = window.TradeValueColumnOrder, M = window.TradeValueManagerProfiles;
+  const M = window.TradeValueManagerProfiles;
   const BASE = "revision2.html";   // the revision-2 routes, built next to this page so the links work wherever it is opened
   const POS = ["QB", "RB", "WR", "TE"];
   const PAGE = 8;
@@ -34,9 +35,9 @@
   // ours/theirs are labelled by today's opportunities.js (ourFitOf/theirFitOf) from the fixture's own fit fields, as league.js does.
   const O = window.TradeValueOpportunities;
   const ROWS = F.rows.map(r => ({...r, give: priced(r.give), receive: priced(r.receive), ours: O.ourFitOf(r.fit), theirs: O.theirFitOf(r.fit)}));
-  const fixtureWorkspace = () => W.normalizeWorkspace({id: "sample-league", name: "Sample league (illustrative)", teams: FIXTURE.rosters, myTeamId: F.mine});
+  const fixtureWorkspace = ui => W.normalizeWorkspace({id: "sample-league", name: "Sample league (illustrative)", teams: FIXTURE.rosters, myTeamId: F.mine, ui});
 
-  // Revision 2's outcome-first columns, ids and wording kept. The first six show by default; the last two are optional.
+  // Revision 2's outcome-first columns, ids, wording and order kept. The first six show by default; the last two are optional.
   const UNITS = [
     {id: "us", label: "Our starter Δ", hint: "DDF Value", required: true},
     {id: "usProj", label: "Our projected starter Δ", hint: "DDF Projections · value points", required: true, projection: true},
@@ -47,23 +48,28 @@
     {id: "package", label: "Package capture", hint: "DDF receive − send", required: false},
     {id: "fit", label: "Current fit label", hint: "Existing rules, unchanged", required: false}
   ];
-  const KNOWN = UNITS.map(u => u.id);
   const FIT_WORD = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
-  const TABLE = "fieldnotesOpps";
 
   // ---------- page state (everything else lives in the stores) ----------
   const UI = {mode: "normal", size: 2, backups: {QB: 0, RB: 0, WR: 0, TE: 0}, ran: null, open: null, trigger: null, shown: PAGE,
     optional: new Set()};
   UI.ran = JSON.stringify([UI.size, UI.backups]);
   const store = W.store;
-  store.replace(fixtureWorkspace(), "replace");   // the preview always opens on the fixture league
+  const ws = () => store.get();
+  // The sample league is written only when the preview has no league of its own yet, or on Reset preview, so filters
+  // and manager profiles survive a reload. A league saved in the No league state gets the sample teams back, keeping
+  // its saved filters.
+  if (store.loadStatus() !== "ok") store.replace(fixtureWorkspace(), "seed");
+  else if (!ws().teams.length) store.replace(fixtureWorkspace(ws().ui), "seed");
+  let stash = null;   // the loaded league while No league is shown, so going back restores it
 
   const profileExcluded = id => {
     const p = M.get(M.store.get(), store.get(), id);
     return Boolean(p && p.excluded);
   };
   const oiOpts = () => ({profileExcluded});
-  const ws = () => store.get();
+  // One announcement region for the page, outside everything that rerenders; written after the render it describes.
+  const announce = text => { $("previewLive").textContent = text; };
   const valuesReady = () => UI.mode !== "loading";
   const stale = () => JSON.stringify([UI.size, UI.backups]) !== UI.ran;
 
@@ -88,28 +94,10 @@
     onExcludeAll: () => setInclusion((s, w) => OI.excludeAll(s, w))});
   $("opponentHost").append(oi.element);
 
-  // ---------- Column order (JEG-1232) and optional columns ----------
-  const shownUnits = () => UNITS.filter(u => u.required || UI.optional.has(u.id));
-  function order() {
-    const units = shownUnits();
-    const rec = CO.reconcile(CO.savedOf(ws().ui, TABLE), units, KNOWN);
-    return {units, rec, drawn: CO.applyOrder(units, rec.order)};
-  }
-  let live = null;
-  function renderColumns(focus) {
-    const {units, rec, drawn} = order();
+  // ---------- Columns: one fixed order, value first (JEG-1232), and the optional columns ----------
+  const order = () => ({drawn: UNITS.filter(u => u.required || UI.optional.has(u.id))});
+  function renderColumns() {
     const host = $("columnHost");
-    const wasOpen = host.querySelector("details") ? host.querySelector("details").open : !shot;
-    const control = CO.renderControl(document, {id: "colOrder", units: drawn, baseline: units.map(u => u.id), open: wasOpen || Boolean(focus),
-      title: "Column order",
-      onMove: (id, delta) => {
-        const now = order();
-        const res = CO.move(now.rec.full || now.rec.order, now.rec.order, id, delta);
-        if (res.moved) store.update(w => W.ops.setUi(w, CO.savePatch(w.ui, TABLE, res.full)), "columns");
-        live.textContent = CO.moveMessage(now.units, res, id, delta);
-        renderColumns({id, dir: delta < 0 ? "up" : "down"});
-      },
-      onReset: () => { store.update(w => W.ops.setUi(w, CO.savePatch(w.ui, TABLE, null)), "columns"); live.textContent = "Column order reset."; renderColumns({id: null}); }});
     const extras = document.createElement("fieldset");
     extras.className = "optcols";
     extras.innerHTML = `<legend>Also show</legend>${UNITS.filter(u => !u.required).map(u => `<label class="column-choice"><input type="checkbox" data-optional="${u.id}" ${UI.optional.has(u.id) ? "checked" : ""}> ${esc(u.label)}<small>${esc(u.hint)}</small></label>`).join("")}`;
@@ -119,12 +107,9 @@
       if (e.target.checked) UI.optional.add(id); else UI.optional.delete(id);
       renderColumns(); renderOpps();
       host.querySelector(`[data-optional="${id}"]`).focus();
+      announce(`${UNITS.find(u => u.id === id).label} column ${e.target.checked ? "shown" : "hidden"}.`);
     });
-    live = document.createElement("p");
-    live.className = "sr"; live.setAttribute("role", "status"); live.setAttribute("aria-live", "polite");
-    host.replaceChildren(control, extras, live);
-    if (focus) CO.focusMove(host, "colOrder", focus.id, focus.dir);
-    if (rec.issues.length) control.append(Object.assign(document.createElement("p"), {className: "meta", textContent: "A saved column order could not be read in full; unknown columns were dropped."}));
+    host.replaceChildren(extras);
   }
 
   // ---------- Trade preferences (page-only controls; results go out of date, never pretend to rerun) ----------
@@ -275,21 +260,38 @@
     UI.mode = b.dataset.state;
     document.querySelectorAll("#stateSwitch button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
     UI.open = null;
-    if (UI.mode === "empty") store.replace(W.normalizeWorkspace({id: "sample-league", name: "", teams: [], myTeamId: null}), "replace");
-    else if (!ws().teams.length) store.replace(fixtureWorkspace(), "replace");
-    else status.update("status");
+    // The saved filters (ws.ui) carry through No league and back.
+    if (UI.mode === "empty") {
+      if (ws().teams.length) stash = ws();
+      store.replace(W.normalizeWorkspace({id: "sample-league", name: "", teams: [], myTeamId: null, ui: ws().ui}), "replace");
+    } else if (!ws().teams.length) {
+      store.replace(stash ? {...stash, ui: ws().ui} : fixtureWorkspace(ws().ui), "replace");
+      stash = null;
+    } else status.update("status");
     renderAll();
     b.focus();
+    announce(`Review state: ${b.textContent}.`);
+  });
+  $("resetPreview").addEventListener("click", () => {
+    stash = null;
+    Object.assign(UI, {mode: "normal", size: 2, backups: {QB: 0, RB: 0, WR: 0, TE: 0}, open: null, shown: PAGE, optional: new Set()});
+    UI.ran = JSON.stringify([UI.size, UI.backups]);
+    document.querySelectorAll("#stateSwitch button").forEach(x => x.setAttribute("aria-pressed", String(x.dataset.state === "normal")));
+    M.store.update(() => M.emptyBook(), "reset");
+    store.replace(fixtureWorkspace(), "reset");
+    renderAll();
+    $("resetPreview").focus();
+    announce("Preview reset: the sample league, every opponent included, every manager at the default.");
   });
 
   // ---------- handoffs table ----------
   const HANDOFFS = [
     ["League status header and folded summary", "JEG-1233 · #1091", "league-status.js mounted on the real workspace store", "JEG-1137 shell and league entry"],
     ["Opponents to include (stable ids, Select all, Clear)", "JEG-1231 · #1090, hookup #1092", "opponent-inclusion.js createControl and filterRows", "JEG-1139 trade targets / league finder"],
-    ["Column order with Move up / Move down", "JEG-1232 · #1093", "column-order.js over the revision-2 outcome columns", "JEG-1139"],
-    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js (note as checkboxes) and manager-recs-ui.js", "JEG-1139"],
-    ["Shared and page-only trade preferences", "JEG-1229 · #1086", "Named in Trade preferences; TradeContext not run here", "JEG-1137 common controls, JEG-1140 Settings"],
-    ["Row details readout", "JEG-1230 · #1088", "Revision-2 detail panel from fixture impacts; production draws the JEG-1230 readout", "JEG-1138 Compare, reused by JEG-1139"],
+    ["Columns in one fixed order, value first", "JEG-1232 · #1093", "Fixed revision-2 outcome order, no picker (Jeremy, Oct 29); column-order.js no longer vendored", "JEG-1139"],
+    ["Managers card and Trade ideas with Stretch offers", "JEG-1217 · #1084", "manager-profiles-ui.js (note as checkboxes, earlier note text kept) and manager-recs-ui.js", "JEG-1139"],
+    ["Shared and page-only trade preferences", "JEG-1229 · #1086", "Planned: named in Trade preferences only; TradeContext is not run or integrated here", "JEG-1137 common controls, JEG-1140 Settings"],
+    ["Row details readout", "JEG-1230 · #1088", "Revision-2 detail panel from fixture impacts. Planned: the rollout swaps in the JEG-1230 readout (#1088 wires no routes yet)", "JEG-1138 Compare, reused by JEG-1139"],
     ["Both saved-team selectors", "JEG-1219", "Not on the whole-league page; Your team follows the star", "JEG-1138 / JEG-1139"],
     ["Candidate search and Natural fit", "#1072 and the stricter Natural fit rule (Codex)", "Not run: historical labels, marked as such", "Owners' own releases"]
   ];

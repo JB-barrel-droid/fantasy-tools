@@ -11,8 +11,9 @@ The page is assembled from three inputs, none of which this script changes:
 
 No free text for how leaguemates trade (Jeremy, 2026-10-29: "I just didn't want text boxes for how my leaguemates trade,
 and set everyone to default initially"). The Managers card's note box becomes checkboxes and every manager starts at the
-default profile. The baseline and the vendor copies stay byte-for-byte pinned; NO_FREE_TEXT below lists every change the
-build makes to them, each an exact replacement that must match once. Every other input is as revision 3 had it.
+default profile; ticking a box keeps any other text already in the note. The baseline and the vendor copies stay
+byte-for-byte pinned; PREVIEW_STORAGE (preview-only storage keys) and NO_FREE_TEXT below list every change the build
+makes to them, each an exact replacement that must match once. Every other input is as revision 3 had it.
 revision2.html is the revision-2 page, so the preview's links work wherever it is opened.
 
   python3 preview/jeg-1209-fieldnotes/build.py           writes index.html
@@ -35,10 +36,20 @@ OUT = HERE / "index.html"
 OUT_R2 = HERE / "revision2.html"
 VENDOR = HERE / "vendor"
 # Load order matters: the stores first, then the components, then the Managers and Trade ideas cards that mount on them.
-VENDOR_JS = ["workspace.js", "opportunities.js", "league-status.js", "opponent-inclusion.js", "column-order.js",
+VENDOR_JS = ["workspace.js", "opportunities.js", "league-status.js", "opponent-inclusion.js",
              "manager-profiles.js", "manager-recs.js", "manager-profiles-ui.js", "manager-recs-ui.js"]
-VENDOR_CSS = ["league-status.css", "opponent-inclusion.css", "column-order.css", "manager-profiles.css"]
+VENDOR_CSS = ["league-status.css", "opponent-inclusion.css", "manager-profiles.css"]
 
+
+# Preview-only storage (JEG-1250): the two stores save under their own keys, so opening the preview never reads, replaces
+# or deletes a saved league or manager profiles on the same origin. The live keys are ddf.v2.workspaces and
+# ddf.v2.managerProfiles; the probe each store writes and removes at start moves too.
+PREVIEW_STORAGE = [
+    ("workspace.js", "League store key", 'const STORAGE_KEY = "ddf.v2.workspaces";', 'const STORAGE_KEY = "ddf.preview.jeg1209.workspaces";'),
+    ("workspace.js", "League store probe", 'const probe = "ddf.v2.probe";', 'const probe = "ddf.preview.jeg1209.probe";'),
+    ("manager-profiles.js", "Manager profiles key", 'const STORAGE_KEY = "ddf.v2.managerProfiles";', 'const STORAGE_KEY = "ddf.preview.jeg1209.managerProfiles";'),
+    ("manager-profiles.js", "Manager profiles probe", 'const probe = "ddf.v2.probe";', 'const probe = "ddf.preview.jeg1209.probe";'),
+]
 
 # (file, what it replaces it with, old, new). "baseline" is the revision-2 prototype; other names are vendor files.
 NO_FREE_TEXT = [
@@ -47,17 +58,32 @@ NO_FREE_TEXT = [
      '    note.value = p.note;\n'
      '    note.addEventListener("change", () => edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, note.value)));',
      'const NOTE_TAGS = ["Likes rookies", "Wants draft picks", "Win-now", "Rebuilding", "Slow to reply", "Rarely trades"];\n'
-     '    const picked = new Set(String(p.note || "").split(";").map(t => t.trim()).filter(t => NOTE_TAGS.includes(t)));\n'
+     '    // Ticked boxes lead the note; any other text already in it stays after them word for word, never dropped (JEG-1250).\n'
+     '    const parts = String(p.note || "").split("; ");\n'
+     '    let lead = 0;\n'
+     '    while (lead < parts.length && NOTE_TAGS.includes(parts[lead]) && parts.indexOf(parts[lead]) === lead) lead += 1;\n'
+     '    const picked = new Set(parts.slice(0, lead));\n'
+     '    const kept = parts.slice(lead).join("; ");\n'
+     '    const compose = () => NOTE_TAGS.filter(x => picked.has(x)).concat(kept ? [kept] : []).join("; ");\n'
+     '    const full = el("p", {id: `v2MgTagMsg-${key}`, class: "v2-mg-kept", role: "status", "aria-live": "polite"});\n'
      '    const note = el("fieldset", {id: `v2MgNote-${key}`, class: "v2-mg-tags"}, el("legend", {text: "Also true of them"}),\n'
      '      ...NOTE_TAGS.map((t, i) => {\n'
      '        const box = el("input", {type: "checkbox", id: `v2MgTag-${key}-${i}`});\n'
      '        box.checked = picked.has(t);\n'
      '        box.addEventListener("change", () => {\n'
      '          if (box.checked) picked.add(t); else picked.delete(t);\n'
-     '          edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, NOTE_TAGS.filter(x => picked.has(x)).join("; ")));\n'
+     '          const next = compose();\n'
+     '          if (next.length > M.MAX_NOTE) {   // saving would cut the earlier note short, so this box is not saved\n'
+     '            picked.delete(t); box.checked = false;\n'
+     '            full.textContent = "The earlier note is too long to add this. Nothing was changed.";\n'
+     '            return;\n'
+     '          }\n'
+     '          full.textContent = "";\n'
+     '          edit(row.teamId, (b, w, id) => M.ops.setNote(b, w, id, next));\n'
      '        });\n'
      '        return el("label", {class: "v2-mg-tag", for: box.id}, box, el("span", {text: t}));\n'
-     '      }));'),
+     '      }),\n'
+     '      kept ? el("p", {class: "v2-mg-kept", "data-kept-note": "", text: `Kept from an earlier note: ${kept}`}) : null, full);'),
     ("manager-profiles-ui.js", "",
      'el("label", {class: "v2-mg-field v2-mg-note-field", for: `v2MgNote-${key}`}, el("span", {class: "v2-mg-field-name", text: "Note"}), note)', 'note'),
     ("manager-profiles-ui.js", "", "Other leanings (say which in the note)", "Other leanings (tick which below)"),
@@ -67,12 +93,12 @@ NO_FREE_TEXT = [
 ]
 
 
-def no_free_text(name, text):
-    for target, _, old, new in NO_FREE_TEXT:
+def patched(name, text):
+    for target, _, old, new in PREVIEW_STORAGE + NO_FREE_TEXT:
         if target != name:
             continue
         if text.count(old) != 1:
-            raise SystemExit(f"no-free-text patch for {name} matched {text.count(old)} times: {old[:70]!r}")
+            raise SystemExit(f"preview patch for {name} matched {text.count(old)} times: {old[:70]!r}")
         text = text.replace(old, new)
     return text
 
@@ -119,7 +145,7 @@ def baseline_parts():
 def build():
     css, fixture = baseline_parts()
     vendor_css = "\n".join(f"/* vendor/{n} */\n" + (VENDOR / n).read_text(encoding="utf-8") for n in VENDOR_CSS)
-    vendor_js = "\n".join(f"</script><script>/* vendor/{n} */\n" + no_free_text(n, (VENDOR / n).read_text(encoding="utf-8")) for n in VENDOR_JS)
+    vendor_js = "\n".join(f"</script><script>/* vendor/{n} */\n" + patched(n, (VENDOR / n).read_text(encoding="utf-8")) for n in VENDOR_JS)
     src = {n: (HERE / "src" / n).read_text(encoding="utf-8") for n in ("body.html", "continuation.css", "continuation.js")}
     pins = {m["file"]: f"{m['branch']}@{m['commit'][:8]}" for m in manifest()["files"]}
     head = ('<!doctype html><html lang="en" data-theme="light"><head><meta charset="utf-8">'
@@ -132,7 +158,7 @@ def build():
 
 
 def build_revision2():
-    text = no_free_text("baseline", BASELINE.read_text(encoding="utf-8"))
+    text = patched("baseline", BASELINE.read_text(encoding="utf-8"))
     note = ("<!-- Built by preview/jeg-1209-fieldnotes/build.py from the revision-2 prototype (#1089 "
             f"{BASELINE_COMMIT[:8]}); only change: its Find a trade route opens index.html. Private design review. Do not edit by hand. -->")
     return text.replace("<head>", "<head>" + note, 1)

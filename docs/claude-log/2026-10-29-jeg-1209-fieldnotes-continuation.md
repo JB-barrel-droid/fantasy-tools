@@ -15,3 +15,12 @@ Changes: new `preview/jeg-1209-fieldnotes/` (build script, browser checks, `src/
 Jeremy, 2026-10-29, approving Fieldnotes with changes: "Make it, and no free text inputs". `build.py` now applies `NO_FREE_TEXT` (exact replacements, each must match once) to the pinned revision-2 page and to `manager-profiles-ui.js`, and writes `revision2.html`; the pinned sources are unchanged. Replacements and checks are listed in `continuation/brief.md` and `continuation/verification.md`. The production note field in #1084 (JEG-1217) still has a text box until that PR follows the rule.
 
 Narrowed the same day. Jeremy: "I just didn't want text boxes for how my leaguemates trade, and set everyone to default initially." `NO_FREE_TEXT` now changes only the Managers note (checkboxes) in the pinned #1084 copy; the revision-2 inputs are back as revision 3 had them, and `revision2.html` differs from the prototype only in its Find a trade route. `checks.py` checks the Managers card for text boxes and that every manager starts at the default profile.
+
+## JEG-1250 corrections (2026-10-29, Claude)
+
+Review e1e9a3b2 / a284ed4d, CHANGES REQUIRED at `840cd4e1`. Fixed on this branch:
+- Storage: both stores on preview-only keys (`build.py` `PREVIEW_STORAGE`); sample league seeded only when absent or on Reset preview; filters and profiles persist through reload and No league.
+- Announcements: one `#previewLive` region outside rerendered controls; focus kept on the pressed control.
+- Legacy note: ticked boxes lead, earlier text kept verbatim, over-length ticks refused.
+- Pins: #1090 to `a5471429`; column-order dropped (Jeremy's fixed order, #1093 `b7e076f8`); open findings for #1091 and #1084 in `MANIFEST.json` and the brief; JEG-1230 readout and JEG-1229 preferences relabelled as planned.
+Checks: `checks.py` 140/140 locally; the same checks fail 19 at `840cd4e1`.
