@@ -376,4 +376,25 @@ const rosterInput = (mine, theirs, give, receive, shape = SHAPE_BN, extra = {}) 
   assert.equal(R.inputFromContext(compareCtx, env).theirs.rows.length, theirs.length, "without the module, Their team is used");
   checks += 5;
 }
+// The real TradeContext module (JEG-1229, now on main): Compare and league contexts built by it read the same.
+{
+  const TC = require(path.join(ROOT, "app/v2/trade-context.js"));
+  const mine = named(EMPTY_TE_MINE), theirs = named(EMPTY_TE_THEIRS);
+  const rowsByKey = new Map(mine.concat(theirs).map(r => [String(r.player_key), r]));
+  const entries = rows => rows.map(r => ({key: String(r.player_key), name: r.name, pos: r.pos}));
+  const common = TC.normalizeCommon({sources: Object.fromEntries(CHARTS.map(k => [k, {available: true}]))});
+  const deal = {give: ["eRB4", "eWR5"], get: ["oTE1"]};
+  const compare = TC.createContext({route: "compare", common, mine: TC.rosterTeam(entries(mine), "local"),
+    theirs: TC.rosterTeam(entries(theirs), "local"), deal});
+  const league = TC.createContext({route: "league", common, mine: TC.rosterTeam(entries(mine), "local"),
+    opponents: [TC.rosterTeam(entries(theirs.slice(0, 3)), "local"), TC.rosterTeam(entries(theirs), "local")], deal});
+  const env = {rowsByKey, shape: SHAPE_BN, ourKey: F.OUR_KEY, chartKeys: CHARTS.slice()};
+  const a = R.build(R.inputFromContext(compare, env, {context: TC}));
+  const b = R.build(R.inputFromContext(league, env, {context: TC}));
+  assert.equal(a.ready, true, a.reason);
+  assert.deepEqual(R.summary(a), R.summary(b), "real TradeContext: Compare and league give the same readout");
+  assert.equal(a.contextKey, TC.cacheKey(compare, "readout"));
+  assert.deepEqual([a.roster.mine.rosterSizeDelta, a.roster.mine.benchDelta], [-1, -2]);
+  checks += 4;
+}
 console.log(`JEG-1230 readout: ${checks} checks passed`);
