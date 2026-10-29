@@ -14,6 +14,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-q4-context.md](jeg613-q4-context.md) | JEG-613 open question 4: whether bias-adjusted charts belong in DDF Value, written for Jeremy's decision (2026-10-22). |
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
+| [jeg1286-flex-flips.md](jeg1286-flex-flips.md) | JEG-1286 flex and bench slot flips: how often one fringe player at the flex or bench cutoff reprices a position (real bakes and a one-player sweep), and options A to D for Jeremy's pick (2026-10-29). Script `tools/research/jeg1286_flex_flips.py`, figures in [data/jeg1286_flex_flips.md](data/jeg1286_flex_flips.md). |
 
 ## Post drafts
 
