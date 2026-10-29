@@ -24,10 +24,10 @@ IDs are for the implementer. Every string is a draft for Jeremy. Destinations ar
 
 | ID | String | Destination |
 |---|---|---|
-| `ai.h` | Use DDF in Claude or ChatGPT | none |
-| `ai.body` | Connect the DDF tool once. Then ask about trades in plain words and get Data Driven Football values for your scoring, team count and superflex setting, with a link back to the same view here. | none |
+| `ai.h` | Find your best trade in Claude or ChatGPT | none (see decision 2 for alternatives) |
+| `ai.body` | Give the chat your roster and the other team's, or your whole league's. It looks for trades that add value for you and still look fair to them on the trade charts, checks each one against both lineups and depth, and labels how natural a fit each one is. Every answer links back here so you can keep working. | none |
 | `ai.cta` | Connect the tool | `https://jb-barrel-droid.github.io/fantasy-tools/connect/` |
-| `ai.cta.note` | Free, no account, no sign-in. You add one web address as a custom connector. | none |
+| `ai.cta.note` | Connect the tool once: free, no account, no sign-in. You add one web address as a custom connector. | none |
 
 ### Connected-user next step
 
@@ -36,11 +36,12 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 | ID | String |
 |---|---|
 | `ai.next.h` | Already connected? Try asking: |
-| `ai.next.ex1` | "Using Data Driven Football, is Bijan Robinson for Ja'Marr Chase fair in my 12-team half-PPR league? Give me the link to open it on the site." |
-| `ai.next.ex2` | "Using Data Driven Football, who are fair 1-for-1 trade targets for Puka Nacua in a 12-team half-PPR league?" |
+| `ai.next.ex1` | "Using Data Driven Football, find me a trade with this team in my 12-team half-PPR league. My roster: … Their roster: … Give me the link to open it on the site." |
+| `ai.next.ex2` | "Using Data Driven Football, find the best trades across my 12-team half-PPR league. My roster: … Then each team's roster: …" |
+| `ai.next.ex3` | "Using Data Driven Football, is Bijan Robinson for Ja'Marr Chase fair in my 12-team half-PPR league?" |
 | `ai.next.note` | Each answer says the date of the values and ends with a link to the same view here. |
 
-`ex1` runs `compare_trade` (a value sum) and returns `site_url`; `ex2` runs `trade_targets`. Both were run live (L). Player names are examples only: swap them if a name drops out of the data before launch.
+`ex1` runs `find_trades`, `ex2` runs `find_trades_league`, `ex3` runs `compare_trade` (a value sum). All three were run live (L). The user types or pastes the rosters as names: nothing is imported from a league host. Player names are examples only: swap them if a name drops out of the data before launch.
 
 ### Copy link (sharing, later and separate from connecting)
 
@@ -84,13 +85,15 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 | 10 | Unmatched names are listed, not guessed | `get_player_value` live: "Zzyzx Player: NOT FOUND"; "Allen: AMBIGUOUS" with five suggestions | L | Partial names auto-match when only one player fits ("Bijan" matched Bijan Robinson). |
 | 11 | Free and shared, may be busy | 60 requests a minute per IP in `mcp/index.ts`, returns "rate limited" | S | Not load-tested. Copy avoids the number. |
 | 12 | The connect guide is at `connect/` | Built by `pipelines/build_llm_surfaces.py`; returned 200 on 2026-10-26 | S, R | Not re-verified today (site unreachable from here). |
+| 13 | Finds trades with one team that add value for you and look fair to them, checked against lineups and depth, with a fit label | `find_trades` live: two 9-player rosters, half PPR 12-team, 8 candidates, 1 viable (Medium, Natural fit), each with failed checks and a fit reason; `site_url` opens Find a trade with both rosters | L | Rosters are typed or pasted names, no league import. Non-viable trades are listed too, labelled. Default lineup shape unless the user gives one. Scored, not guaranteed: never "they'll accept". |
+| 14 | Finds the best trades across a whole league | `find_trades_league` live: my roster plus two opponents, ranked candidates and a best package (no player sent twice, one offer per opponent) with my lineup after | L | Up to 15 opponents. The returned `site_url` carries only my roster, not the opponents, so the link does not reopen the league-wide result. |
 
 ## Claims to remove or fix (flagged, not changed here)
 
 1. **Connect guide menu paths are stale.** `docs/use-ddf-in-claude-chatgpt.md` says Claude "Settings, Connectors" and ChatGPT "apps / developer mode". Claude's docs now say **Customize > Connectors > Add custom connector**; OpenAI's Apps SDK page says **chatgpt.com/plugins > + > Add custom MCP server**. Suggest the guide link the vendor pages instead of restating menus, with a checked-on date. Owner: whoever next edits the guide (Codex for shared-file integration).
 2. **Tool count.** The guide lists 7 tools; the live server and `llms.txt` have 9 (`find_trades`, `find_trades_league` missing from the guide).
 3. **DDF Value definition.** The connector, `llms.txt` and `get_values` say "the average of the four adjusted trade charts". Jeremy's Oct 28 wording is the average of the weight-adjusted indexed values, not the trade chart average. The live result also lists seven sources included. Flag for JEG-1212; this copy pack defines nothing.
-4. **No lineup-aware or per-chart claim for chat** (claim 5), and **no claim that chat honors custom values** (claim 8) until JEG-1225 lands.
+4. **No lineup-aware or per-chart claim for a single trade check in chat** (claim 5: `compare_trade` is a sum; the finders in claims 13 and 14 are lineup-aware), and **no claim that chat honors custom values** (claim 8) until JEG-1225 lands.
 5. **No account import.** No string names Sleeper, ESPN or Yahoo as an integration. Rosters reach the tool as names the user pastes (JEG-1137: "Platform names explain copying, never claim integrations").
 6. **The Claude skill is optional.** The guide asks Claude users to upload `ddf-skill.zip`. The homepage should not present it as a required step; the server's own instructions carry the same guidance (S: `llms.txt`, guide).
 7. **No equal-numbers promise.** Leagues with settings the tool doesn't apply get a note in the answer; never say the chat matches the site exactly.
@@ -99,7 +102,7 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 
 1. Every string in the copy pack appears verbatim, or with Jeremy's edits, and no other AI claim is added.
 2. `ai.cta` and `ai.err.notconnected` link exactly `https://jb-barrel-droid.github.io/fantasy-tools/connect/`, the same href as the footer's `Connect the tool` (the existing `test_v2_assist_render` footer check).
-3. No homepage or Copy link string contains "tested", "import", "sync", "automatic", "same numbers", "lineup", "Sleeper", "ESPN" or "Yahoo". A grep over the built page's AI block passes.
+3. No homepage or Copy link string contains "tested", "import", "sync", "automatic", "same numbers", "guarantee", "will accept", "perfect" (unless Jeremy picks headline C), "Sleeper", "ESPN" or "Yahoo". A grep over the built page's AI block passes.
 4. The connected-user step never reads as a detected state: no checkmark, "you're connected" or similar.
 5. No string says or implies that the chat uses the reader's value basis or player overrides. Revisit when JEG-1225 ships and the live `read_state` check in claim 8 returns the custom values.
 6. Before launch, re-run both example prompts through the live connector and confirm each still returns a value and a `site_url`; swap names if not.
@@ -108,7 +111,10 @@ The site cannot tell whether a reader's chat is connected, so this line is condi
 ## Decisions for Jeremy
 
 1. **The custom-values caveat: decided.** Jeremy, 2026-10-28 CT: "we should fix the tech, and leave it out. File a ticket to fix the tech." No caveat string; the connector fix is JEG-1225.
-2. **Headline (open).** **A: "Use DDF in Claude or ChatGPT" (my pick: names both apps and the action).** B: "Ask Claude or ChatGPT, with DDF numbers."
+2. **Headline (open).** Jeremy, 2026-10-28 CT: "it's not about using ddf, right now it is about finding the perfect trade." The lead copy now sells the trade finder.
+   - **A: "Find your best trade in Claude or ChatGPT" (my pick: the tool ranks trades and picks a best package, so "best" is something it does).**
+   - B: "Find trades the other team can say yes to, in Claude or ChatGPT."
+   - C: "Find the perfect trade in Claude or ChatGPT." His word, but the tool scores trades rather than guaranteeing one, so "perfect" promises more than it shows.
 
 ## Sources
 
