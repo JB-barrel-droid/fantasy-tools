@@ -22,9 +22,9 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
 
 START = [
-    # round 2 (2026-10-29): every ROS link on the page the round-1 probe found
-    ("fp_ros_links", "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-overall.php", r"/nfl/rankings/ros-"),
-    ("yahoo_winks_author", "https://sports.yahoo.com/author/hayden-winks/", r"/fantasy/article/"),
+    # round 3 (2026-10-29): every href or option value mentioning ros on the FP pages; USAT table headers
+    ("fp_ros_start", "https://www.fantasypros.com/nfl/rankings/?type=ros", None),
+    ("fp_ros_overall", "https://www.fantasypros.com/nfl/rankings/ros-half-point-ppr-overall.php", None),
     ("yahoo_usat", "https://sports.yahoo.com/articles/fantasy-football-week-8-trade-193343846.html", None),
 ]
 ESPN_API = ("https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/"
@@ -77,7 +77,7 @@ def summarize(tag: str, url: str, link_pat: str | None, depth: int = 0) -> list[
     tables = re.findall(r"<table\b.*?</table>", page, re.S | re.I)
     print(f"tables={len(tables)} rows={[len(re.findall(r'<tr', t, re.I)) for t in tables][:20]}")
     for t in tables[:6]:
-        rows = re.findall(r"<tr\\b.*?</tr>", t, re.S | re.I)
+        rows = re.findall(r"<tr\b.*?</tr>", t, re.S | re.I)
         for r in rows[:3] + rows[-2:]:
             print("  tr:", text(r)[:160])
         print("  --")
@@ -100,6 +100,16 @@ def summarize(tag: str, url: str, link_pat: str | None, depth: int = 0) -> list[
                 print("  ", json.dumps(pl)[:600])
             if players:
                 print("   positions:", sorted({str(p.get('player_position_id')) for p in players}))
+    attrs = sorted({m for m in re.findall(r'(?:href|value|data-url|data-href)="([^"]*ros[^"]*)"', page, re.I)
+                    if len(m) < 160})
+    print(f"attrs mentioning ros: {len(attrs)}")
+    for a in attrs[:60]:
+        print("   ", a)
+    if "usat" in tag:
+        for m in re.finditer(r"<h[23][^>]*>(.*?)</h[23]>", page, re.S | re.I):
+            h = text(m.group(1))
+            if h:
+                print("  heading:", h[:120])
     links = []
     if link_pat:
         host = urlparse(url).netloc
@@ -140,7 +150,6 @@ def espn_api() -> None:
 def main() -> int:
     for tag, url, pat in START:
         summarize(tag, url, pat)
-    espn_api()
     return 0
 
 
