@@ -205,17 +205,34 @@ rules, except that only charts are filled in (VP-2.4).
      `weight / (seats + 1)`, with ties going to position order.
    - d2. **A loaded league (JEG-1188, Jeremy 2026-10-29: "we focus on vorp,
      let other managers make stupid decisions and capitalize").** When the
-     setting carries the league's rostered players (`league_rostered`), its
-     rosters set `b_p` instead of d, at one of two levels (`bench_level`):
-     **ddf** (his value): `b_p` = the index in the projected-points order of
-     the first player no team rosters (the best available free agent) minus
-     `S_p`, so a bench seat only goes to a player better than the league's
-     real waiver option; **market** (the other side's acceptance): `b_p` =
-     the league's rostered players at `p` in that order minus `S_p`. Both are
-     floored at 0. The league page uses them only with every team loaded:
-     DDF Value from the ddf level, the trade charts that judge acceptance
-     from the market level. `roster_convention.league_bench` and the
-     engine's `vpLeagueBench` are the one rule.
+     setting carries the league's rostered players (`league_rostered`, and
+     `league_reserve` for the ones in IR or taxi slots), its rosters set the
+     bench and the waiver line instead of d, at one of two levels
+     (`bench_level`). Three counts are kept apart and labelled apart:
+     - *bench seats*: `T x B` from the settings (never derived from rosters);
+     - *rostered depth* (`bench_basis: rostered_depth`, the **market** level,
+       the other side's acceptance): `held_p` = active rostered players at
+       `p` (reserve left out), `b_p = max(0, held_p - S_p)`, replacement
+       index `R_p = S_p + b_p`;
+     - *above replacement* (`bench_basis: above_replacement`, the **ddf**
+       level, his value): `R_p` = the index in the projected-points order of
+       the first player who is neither rostered nor in reserve (the best
+       available free agent), `b_p = max(0, R_p - S_p)`.
+     The waiver line reads the player at `R_p`, which can sit inside the
+     starters when a free agent out-projects a starter; `S_p` itself never
+     moves. Each position's allocation carries `replacement`, `held`,
+     `reserve` and `bench_basis`. With no league none of this applies and the
+     output is unchanged.
+     The league page uses the levels only when the league is complete
+     (`league_completeness`, fails closed to d): the team count equals the
+     settings', no team is empty or below its starting spots, no player is
+     on two teams, no pasted player is unmatched (unknown counts as
+     unmatched), and every roster has a load time no older than 7 days.
+     Contract: DDF Value and the bench-share weights come from the ddf level;
+     the four trade charts and the expected depth that judges acceptance
+     come from the market level. Compare a trade and the pair finder keep d.
+     `roster_convention.league_depth` and the engine's `vpLeagueDepth` (and
+     `league_completeness` / `vpLeagueCompleteness`) are the one rule.
    - e. Starters `S_p = d_p + sf_p + fx_p`. Rostered `N_p = S_p + b_p`. If the
      candidates run out, the untaken slots stay empty.
    - f. **No projection in `I`** (degenerate week). **Lead's reading:** there

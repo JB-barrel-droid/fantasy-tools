@@ -37,7 +37,7 @@ from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
     vorp_bench_allocate as _vorp_bench,
-    league_bench as _league_bench,
+    league_depth as _league_depth,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -70,11 +70,13 @@ class Setting:
     flex_eligible: tuple = ("RB", "WR", "TE")
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14 override (off = None)
-    # JEG-1188: a loaded league's rostered keys and which bench level to
-    # price at ("ddf" = his value, "market" = the other side's). None = no
-    # league: the modeled bench rule runs.
+    # JEG-1188: a loaded league's rostered keys (IR and taxi included), the
+    # keys in IR or taxi slots, and which bench level to price at ("ddf" =
+    # his value, "market" = the other side's). None = no league: the modeled
+    # bench rule runs.
     league_rostered: tuple | None = None
     bench_level: str = "ddf"
+    league_reserve: tuple = ()
 
     @classmethod
     def from_fixture(cls, s: dict) -> "Setting":
@@ -87,7 +89,8 @@ class Setting:
                    bench_share_override=s.get("bench_share_override"),
                    league_rostered=(tuple(s["league_rostered"])
                                     if s.get("league_rostered") is not None else None),
-                   bench_level=s.get("bench_level") or "ddf")
+                   bench_level=s.get("bench_level") or "ddf",
+                   league_reserve=tuple(s.get("league_reserve") or ()))
 
     def starting_slots_per_team(self) -> int:
         return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + self.flex + self.superflex
@@ -171,6 +174,10 @@ def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
+# JEG-1188: the league counts each allocation carries when a league is loaded.
+LEAGUE_DEPTH_FIELDS = ("replacement", "held", "reserve", "bench_basis")
+
+
 def allocate(setting: Setting, order: dict, scores: dict, *,
              flex_bench_seats: bool = True) -> dict:
     """League allocation (VP-2.2 a-e) on a per-position order with scores.
@@ -194,10 +201,13 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
     fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                 for k in order[p][ded[p] + sf[p]:]]
     fx = take(fx_cands, T * setting.flex)
+    depth = None
     if setting.league_rostered is not None:
-        # JEG-1188: a loaded league sets the bench from its own rosters.
-        bench = _league_bench({p: ded[p] + sf[p] + fx[p] for p in POSITIONS}, order,
-                              setting.league_rostered, setting.bench_level)
+        # JEG-1188: a loaded league sets the bench and the replacement line
+        # from its own rosters.
+        depth = _league_depth({p: ded[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                              setting.league_rostered, setting.bench_level, setting.league_reserve)
+        bench = {p: depth[p]["bench"] for p in POSITIONS}
     elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
@@ -222,6 +232,8 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
         starters = ded[p] + sf[p] + fx[p]
         out[p] = {"dedicated": ded[p], "superflex": sf[p], "flex": fx[p], "bench": bench[p],
                   "starters": starters, "rostered": starters + bench[p]}
+        if depth is not None:
+            out[p].update({k: depth[p][k] for k in LEAGUE_DEPTH_FIELDS})
     return out
 
 
@@ -527,12 +539,15 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
         work_val.update({i: e["value"] for i, e in estimates.items()})
         work = sorted(work_val, key=lambda k: (-work_val[k], k in estimates, k))
         N, S = a["rostered"], a["starters"]
+        # JEG-1188: the waiver line sits at the replacement index, which a
+        # loaded league can put inside the starter line.
+        W = a.get("replacement", N)
         info = dict(a)
         info.update(listed=len(listed), extended=bool(estimates),
                     imputation_ratios=estimates or None)
-        if len(work) > N:
-            w = work_val[work[N]]
-            method = "estimated" if work[N] in estimates else "roster_determined"
+        if len(work) > W:
+            w = work_val[work[W]]
+            method = "estimated" if work[W] in estimates else "roster_determined"
         elif work:
             w = work_val[work[-1]]
             method = "insufficient_coverage"

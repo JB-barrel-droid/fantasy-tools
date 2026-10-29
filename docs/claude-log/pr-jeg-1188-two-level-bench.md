@@ -6,65 +6,79 @@ decisions and capitalize." Then: "So we are keeping a market level of bench
 and a ddf level?" ... "Yes, build it".
 
 ### What changed
-- `roster_convention.league_bench(starters, order, league_rostered, level)`
-  and the engine's `vpLeagueBench` (value-model.js): bench seats per position
-  from the league's own rosters.
-  - `ddf`: index of the best available free agent in the projected-points
-    order minus starters (he is the replacement).
-  - `market`: rostered players at the position minus starters.
-- `setting.league_rostered` / `setting.bench_level` in the JS engine, the
-  spec reference (`Setting`) and the Python reference (`League`,
-  `Setting(..., league_rostered=, bench_level=)`). Absent = today's rule.
-- curve-widget.js: `getLeagueRows({rostered, level})` and
-  `getLeagueAllocation(...)` run the current week once more with those
-  fields (same sources, included set, pie, overrides; no prior week), cached
-  until the page's values rebuild.
-- league.js: with every team loaded (team count equals the settings' team
-  count, every team has players), DDF Value comes from the ddf level and the
-  four trade charts from the market level. A note under the team summary
-  headline says so, and lists his sell candidates (market-level DDF Value
-  beats the ddf level by 2.0 or more).
-- The Natural fit rule and the values it reads are unchanged.
-
-### Verified
-- `tests/test_league_bench_levels.py` (new, 10 tests): the rule alone; JS vs
-  spec reference at both levels on the worked example, every leaf; bench
-  counts per level (fails on main: the engine ignores `league_rostered`);
-  the Python reference's League. Pass.
-- `tests.test_value_pipeline_engine`, `test_spec_reference_value_pipeline`,
-  `test_value_reference_worked_example`, `test_roster_convention`,
-  `test_roster_convention_parity`, `test_v2_league_units`,
-  `test_build_v2_page`: pass. Worked example 0 mismatches.
-- No league: spec reference pipeline output over all 13 settings is
-  byte-identical to main (paths and timestamps aside).
-- `pipelines/check_rank_guard.py`: pass, 0 inversions.
-- Not run here (Playwright browsers can't be downloaded in this sandbox):
-  `pipelines/value_check.py compare` and the rendered tests
-  (`test_python_reference_flag_on_equals_baseline`,
-  `test_public_copy_no_vorp` rendered cases). CI runs them.
+- `roster_convention.league_depth(starters, order, league_rostered, level,
+  league_reserve)` and the engine's `vpLeagueDepth` (value-model.js), one
+  rule, per position: `bench`, `replacement`, `held`, `reserve`,
+  `best_free_index`, `bench_basis`. `league_bench` / `vpLeagueBench` stay as
+  bench-only wrappers.
+  - `ddf` (`above_replacement`): replacement is the best available free
+    agent in the projected-points order (not rostered, not in reserve); bench
+    = his index minus starters, floored at 0.
+  - `market` (`rostered_depth`): held = active rostered players (IR and taxi
+    left out); bench = held minus starters, floored at 0.
+- The waiver line reads the replacement player when a league is loaded (it
+  can sit inside the starters when a free agent out-projects a starter); the
+  starter counts never move. Allocation rows carry the four depth fields only
+  with a league, so the no-league output is unchanged.
+- `league_completeness` / `vpLeagueCompleteness`: the levels apply only when
+  the team count matches the settings, no team is empty or below its starting
+  spots, no player is on two teams, no pasted player is unmatched (unknown =
+  unmatched), and every roster has a load time no older than 7 days.
+  Otherwise the page keeps the modeled bench and says why.
+- workspace.js: each team records when its roster was loaded (`rosterAt`) and
+  how many pasted players are unmatched (`unresolved`), in the same store
+  update as the roster (one undo step). A shared link has no load time, so it
+  fails closed.
+- curve-widget.js: `getLeagueLevel({rostered, reserve, level})` returns the
+  level's rows, allocation, per-position counts and bench-share readout,
+  cached until the page's values rebuild. `getAllRows` and
+  `getAdjustmentWeights` are untouched.
+- league.js: DDF Value and the bench-share weights from the ddf level; the
+  four trade charts and the expected depth that judges acceptance from the
+  market level. Under the team summary: which bench the numbers use, then
+  three separate counts (bench seats in the settings; active players beyond
+  the starters; players beyond the starters who beat the best free agent),
+  then his sell candidates. A null sell block no longer renders "null".
+- Compare a trade and the pair finder keep the modeled bench.
+- The Natural fit rule is unchanged; its inputs on the league page are the
+  level values above.
 
 ### Real leagues (each league's own settings, half PPR, 12 teams)
-Bench seats QB/RB/WR/TE, league-wide:
+Bench QB/RB/WR/TE, league-wide. Bench seats are settings, not rosters.
 
-| League | No league (today) | DDF level | Market level |
+| League | Bench seats | Rostered depth (market) | Above replacement (ddf) |
 |---|---|---|---|
-| USO (QB1 RB2 WR3 TE1 FLEX1 BN5) | 4/27/24/5 | 1/5/5/6 | 6/17/29/8 |
-| Charlotte (QB1 RB2 WR2 TE1 FLEX1 BN6, IR counted) | 8/29/30/5 | 4/6/8/4 | 9/30/29/8 |
+| USO (BN5, no IR) | 60 | 6/17/29/8 = 60 | 1/5/5/6 = 17 |
+| Charlotte (BN6, IR1) | 72 | 8/27/23/7 = 65 | 4/6/8/4 = 22 |
 
-Best free agents (projected points per game): USO QB Patrick Mahomes 17.9,
-RB Alvin Kamara 7.2, WR Alec Pierce 7.8, TE Mike Gesicki 6.7; Charlotte QB
-Malik Willis 16.9, RB Jadarian Price 7.7, WR Caleb Douglas 8.1, TE Pat
-Freiermuth 6.9.
+Charlotte's 72 seats hold 65 valued players, 3 K/DEF and 4 empty spots; its
+11 IR players were counted as depth before (65 + 11 = 76) and now are held,
+not depth. USO's 60 seats hold 61 valued players while one QB start slot is
+empty. Accounting, completeness and the pins: `tests/test_league_levels_real.py`.
 
-League-wide Find a trade on the built page (jsdom, fixture date 2026-10-26):
-USO 70 -> 60 (natural 32 -> 26), Charlotte 74 -> 178 (natural 44 -> 108).
-The 20-team reference fixture is unchanged (the engine prices 12 teams, so
-the levels don't apply).
+Charlotte on the built page today (Daaaa Bears chosen): sell candidates
+Quinshon Judkins 15.3 to him vs 20.0 at the league's depth, Omar Cooper Jr.
+2.5 vs 5.6, Kaelon Black 0.0 vs 2.8.
 
-Sell candidates on the built page: USO (Tiny Hands) Rome Odunze 5.0 to him,
-9.3 at the league's depth; Aaron Jones 11.2 vs 14.8; Keenan Allen 0.0 vs
-3.4. Charlotte (Daaaa Bears) Quinshon Judkins 11.8 vs 17.0; Emanuel Wilson
-0.0 vs 3.2.
+### Verified
+- `tests/test_league_bench_levels.py` (18): the rule, JS vs spec at both
+  levels on the worked example, the replacement-inside-starters probe (fails
+  on the old engine: a freed QB was worth 23.4 over a waiver line of 12).
+- `tests/test_league_levels_real.py` (12): accounting, completeness (JS =
+  Python on every case), no-league baseline against the stored pre-JEG-1188
+  engine, JS = spec at none/ddf/market on both leagues, a 48-shape sweep
+  (8/10/12/14 teams, 1QB/2QB/SF, 2WR/3WR, one or two FLEX) at both levels and
+  a source missing half its players. Fixtures and repro:
+  `tools/build_league_level_fixtures.py`.
+- `tests/test_v2_league_levels_render.py` (new, Chromium, CI only): the page
+  against value_reference on both leagues at both levels (every DDF Value and
+  every count), the no-league gate, rows and weights unchanged for Compare
+  and the pair finder, and the rendered states (no league, complete, no team
+  chosen, one team missing). Dry run here in a headless page: 0 mismatches.
+- Engine, spec reference, worked example, roster convention, league units,
+  v2 page build, finder and import tests: pass. `check_rank_guard`: pass, 0
+  inversions. Not run here (no Chromium download): value_check compare and the
+  render tests. CI runs them.
 
 ### Picks
 In /mnt/project-files/ddf/picks-log.md under "JEG-1188 two-level bench".

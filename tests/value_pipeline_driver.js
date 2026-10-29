@@ -110,6 +110,10 @@ Object.entries(result.sources).forEach(([src, o]) => {
       starter_line: p.starterLine, method: p.method, avail: p.avail, bands: p.bands,
       lineup: p.lineup ? {n_per_team: p.lineup.nPerTeam, sigma_rel: p.lineup.sigmaRel,
         sigma_floor: p.lineup.sigmaFloor, m: p.lineup.m} : null};
+    // JEG-1188: a loaded league's counts and replacement line.
+    if (p.replacement !== undefined) {
+      ["replacement", "held", "reserve", "bench_basis"].forEach(f => { positions[pos][f] = p[f]; });
+    }
   });
   const playersOut = {};
   Object.entries(o.players).forEach(([k, r]) => {

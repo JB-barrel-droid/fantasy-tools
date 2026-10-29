@@ -71,35 +71,50 @@
   }
 
   // ---------- the engine, read once per render ----------
-  // JEG-1188 (Jeremy, 2026-10-29: "we focus on vorp, let other managers make stupid decisions and capitalize"): with every team
-  // of the league loaded, the league's own rosters set the bench at two levels. DDF Value is the DDF level (replacement is the
-  // league's best available player at each position); the trade chart values that judge the other side's acceptance are the
-  // market level (the league's rostered depth). A partial league keeps the modeled bench: a player on a team not loaded would
-  // look available and set replacement too high.
+  // JEG-1188 (Jeremy, 2026-10-29: "we focus on vorp, let other managers make stupid decisions and capitalize"): with the whole
+  // league loaded, the league's own rosters set the bench at two levels. Contract, per input of the math:
+  //   DDF Value and the bench-share weights: the DDF level, one run (replacement is the league's best available player).
+  //   Trade chart values (the other side's acceptance) and expected roster depth: the market level, one run (the league's
+  //     active rostered depth; IR and taxi players are held but are not depth).
+  // Only this page reads the levels. Compare and the pair finder keep the modeled bench, and the note says so.
+  // The league must pass ValueModel.leagueCompleteness (every team loaded, matched, no player on two teams, no partial roster,
+  // rosters changed within a week); otherwise the modeled bench stays and the note gives the reason.
+  const STARTING_SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  function leagueCheck(C, ws) {
+    const V = root.ValueModel;
+    if (!V || !V.leagueCompleteness || !C.getState || !ws || ws.teams.length < 2) return null;
+    const shape = C.getRosterShape ? C.getRosterShape() : {};
+    return V.leagueCompleteness({teamsExpected: C.getState().teams, now: Date.now(),
+      startingSlotsPerTeam: STARTING_SLOT_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0),
+      teams: ws.teams.map(t => ({id: t.id, unresolved: t.unresolved, loadedAt: t.rosterAt,
+        players: t.entries.filter(e => !F.isNotEvaluated(e)).map(e => ({key: e.key, slot: e.slot}))}))});
+  }
   let levelMemo = null;
   if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
+  // null: no league to check (fewer than two teams). {check, levels: null}: the league failed the check. {check, levels}.
   function leagueLevels(C) {
-    if (!C.getLeagueRows || !C.getState) return null;
-    const ws = store.get();
-    if (!ws || ws.teams.length < 2 || ws.teams.length !== C.getState().teams || ws.teams.some(t => !t.entries.length)) return null;
-    const rostered = [...new Set(ws.teams.flatMap(t => t.entries.map(e => String(e.key))))].sort();
-    const sig = rostered.join(",");
-    if (levelMemo && levelMemo.sig === sig) return levelMemo.levels;
-    const ddfRows = C.getLeagueRows({rostered, level: "ddf"});
-    const marketRows = C.getLeagueRows({rostered, level: "market"});
-    if (!ddfRows.length || !marketRows.length) return null;
-    const market = new Map(marketRows.map(r => [String(r.player_key), r]));
-    const ddf = new Map(ddfRows.map(r => [String(r.player_key), r]));
-    const rows = ddfRows.map(r => {
-      const m = market.get(String(r.player_key));
+    if (!C.getLeagueLevel) return null;
+    const check = leagueCheck(C, store.get());
+    if (!check) return null;
+    if (!check.ok) return {check, levels: null};
+    const sig = `${check.rostered.join(",")}|${check.reserve.join(",")}`;
+    if (levelMemo && levelMemo.sig === sig) return {check, levels: levelMemo.levels};
+    const args = {rostered: check.rostered, reserve: check.reserve};
+    const ddf = C.getLeagueLevel({...args, level: "ddf"});
+    const market = C.getLeagueLevel({...args, level: "market"});
+    if (!ddf || !market || !ddf.rows.length || !market.rows.length) return {check, levels: null};
+    const marketByKey = new Map(market.rows.map(r => [String(r.player_key), r]));
+    const rows = ddf.rows.map(r => {
+      const m = marketByKey.get(String(r.player_key));
       if (!m) return r;
       const values = {...r.values};
       F.CHART_KEYS.forEach(key => { values[key] = m.values[key]; });
       return {...r, values};
     });
-    const levels = {rows, ddf, market, rostered: rostered.length};
+    const levels = {rows, ddf: new Map(ddf.rows.map(r => [String(r.player_key), r])), market: marketByKey,
+      marketAllocation: market.allocation, ddfCounts: ddf.counts, marketCounts: market.counts, ddfReadout: ddf.readout};
     levelMemo = {sig, levels};
-    return levels;
+    return {check, levels};
   }
   // His players worth more to the market than to him (JEG-1188): DDF Value at the DDF level against DDF Value at the market
   // level, gap first. Empty without a full league.
@@ -116,23 +131,24 @@
   function mathContext() {
     const C = engine();
     if (!C || !C.getAllRows) return null;
-    let levels = null;
-    try { levels = leagueLevels(C); } catch (error) { levels = null; }
+    let league = null;
+    try { league = leagueLevels(C); } catch (error) { league = null; }
+    const levels = league && league.levels;
     const all = levels ? levels.rows : C.getAllRows();
     if (!all.length) return null;
     const rowsByKey = new Map(all.map(r => [String(r.player_key), r]));
     const shape = C.getRosterShape ? C.getRosterShape() : null;
     let expected = null;
-    try { expected = F.expectedDepth(C.getAdjustmentWeights().allocation, C.getState().teams); } catch (error) { expected = null; }
+    try { expected = F.expectedDepth(levels ? levels.marketAllocation : C.getAdjustmentWeights().allocation, C.getState().teams); } catch (error) { expected = null; }
     const info = C.getSourceInfo ? C.getSourceInfo() : [];
     const available = new Set(info.filter(item => item.available).map(item => item.key));
     const charts = F.CHART_KEYS.filter(key => available.has(key));
     const market = charts.length >= F.MIN_CHARTS ? charts : null;
-    const readout = C.getBenchShareReadout ? C.getBenchShareReadout() : null;
+    const readout = levels ? levels.ddfReadout : (C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     const overall = readout && finite(readout.overall) ? readout.overall : (C.getBenchShare ? C.getBenchShare() : null);
     const weights = {overall: finite(overall) ? overall : 0};
     F.DEPTH_POS.forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
-    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels};
+    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels, leagueCheck: league ? league.check : null};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
   const isK = entry => F.isNotEvaluated(entry);
@@ -186,8 +202,10 @@
     const say = (...kids) => panel.replaceChildren(...kids.filter(Boolean));
     const para = (text, cls) => el("p", {class: cls || "v2-meta", text});
 
-    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}.
-    function place(rows, replace, extra) {
+    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}. missed (JEG-1188): pasted valued players
+    // left out before this step; with it, the team's unresolved count becomes missed plus the players held by another team
+    // (replace) or grows by that much, in the same update.
+    function place(rows, replace, extra, missed) {
       const ws = store.get();
       const t = teamById(ws, teamId);
       const keep = replace ? [] : t.entries;
@@ -202,9 +220,13 @@
         have.add(key);
         added.push(entryOf(row, slot));
       });
-      update(w => W.ops.setEntries(w, teamId, keep.concat(added), extra), "entries");
+      const more = missed === undefined ? {} : {unresolved: (replace ? 0 : (t.unresolved || 0)) + missed + onOther.length};
+      update(w => W.ops.setEntries(w, teamId, keep.concat(added), {...(extra || {}), ...more}), "entries");
       return {added, onOther};
     }
+    // JEG-1188: pasted valued players this team still lacks (not matched, unconfirmed, or held by another team).
+    // JEG-1188: adding a pasted player by hand (a confirmed match, a search) resolves one the paste left out.
+    const resolvedOne = t => (t && t.unresolved > 0 ? {unresolved: t.unresolved - 1} : {});
     function keepKD(unmatched) {
       const kept = [];
       const ws = store.get();
@@ -231,7 +253,7 @@
       el("ul", {class: "v2-find-unsure-list"}, ...unsure.map(p => {
         const li = el("li", {class: "v2-find-unsure"});
         const yes = button("Yes, add", {class: "v2-btn v2-find-confirm", "aria-label": `Yes, add ${p.row.name}`}, () => {
-          const r = place([{row: p.row, slot: p.slot}], false);
+          const r = place([{row: p.row, slot: p.slot}], false, resolvedOne(team()));
           li.replaceChildren(el("span", {text: r.added.length ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`}));
         });
         const no = button("No, search", {class: "v2-btn v2-find-search-add", "aria-label": `No, search for ${F.page.cleanLine(p.sourceLine)}`}, () => { li.remove(); searchFor(p.sourceLine); });
@@ -240,7 +262,9 @@
       }))] : []);
 
     // players: parser players ({id, confidence, slot, sourceLine}); replace: a whole team page is the whole team.
-    function placePlayers(res, players, replace, teamIndex) {
+    // unmatched: this team's unmatched lines (a matchup page has one list per side); the page's list by default.
+    function placePlayers(res, players, replace, teamIndex, unmatched) {
+      const unmatchedOf = unmatched || res.unmatched;
       const ctx = mathContext();
       const sure = [];
       const unsure = [];
@@ -249,8 +273,9 @@
         if (!row) return;
         if (p.confidence >= 1) sure.push({row, slot: p.slot}); else unsure.push({...p, row});
       });
-      const {added, onOther} = place(sure, replace, replace ? {sourceText: res.sourceText, sourceTeam: teamIndex === undefined ? null : teamIndex, removed: []} : undefined);
-      const kept = keepKD(res.unmatched);
+      const {added, onOther} = place(sure, replace, replace ? {sourceText: res.sourceText, sourceTeam: teamIndex === undefined ? null : teamIndex, removed: []} : undefined,
+        evaluatedOnly(unmatchedOf).length + unsure.length);
+      const kept = keepKD(unmatchedOf);
       return {added, onOther, unsure, kept};
     }
     function report(res, placed, extra) {
@@ -263,10 +288,10 @@
       const label = (r, i) => res.teams[i].teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
       const cards = res.teams.map((tm, i) => {
         const use = button(`${label(res, i)} is this team`, {class: "v2-btn v2-find-pick-team"}, () => {
-          const placed = placePlayers(res, tm.players, true, i);
+          const placed = placePlayers(res, tm.players, true, i, tm.unmatched || []);
           const other = 1 - i;
           const addOther = button(`Add ${label(res, other)} as a new team`, {class: "v2-btn"}, () => {
-            addTeamFromPlayers(label(res, other), res, res.teams[other].players, other);
+            addTeamFromPlayers(label(res, other), res, res.teams[other].players, other, res.teams[other].unmatched || []);
             addOther.disabled = true;
           });
           report(res, placed, [addOther]);
@@ -284,7 +309,7 @@
       const lines = F.parsePasted(text);
       const nameMatch = F.matchNames(lines, rows);
       if (nameMatch.matched.length >= 2 && nameMatch.matched.length >= F.page.NAME_LIST_SHARE * lines.length) {
-        const placed = place(nameMatch.matched.map(row => ({row})), false);
+        const placed = place(nameMatch.matched.map(row => ({row})), false, undefined, evaluatedOnly(nameMatch.unmatched).length);
         const kept = keepKD(nameMatch.unmatched);
         const rest = evaluatedOnly(nameMatch.unmatched);
         say(para(`Added ${plural(placed.added.length, "player")} from the list.${kept.length ? ` Kept, not evaluated: ${kept.join(", ")}.` : ""}${placed.onOther.length ? ` Left out because they are on another team: ${placed.onOther.join(", ")}.` : ""}`),
@@ -338,7 +363,8 @@
         if (holder) b.disabled = true;
         b.addEventListener("click", () => {
           const t = team();
-          update(w => W.ops.setEntries(w, teamId, t.entries.concat([row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : entryOf(row)])), "entries");
+          update(w => W.ops.setEntries(w, teamId, t.entries.concat([row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : entryOf(row)]),
+            row.notEvaluated ? {} : resolvedOne(t)), "entries");
           input.value = "";
           results.replaceChildren();
           results.hidden = true;
@@ -350,14 +376,19 @@
     return {node, renderList, input, say};
   }
 
-  function addTeamFromPlayers(name, res, players, teamIndex) {
+  function addTeamFromPlayers(name, res, players, teamIndex, unmatched) {
     const ctx = mathContext();
     const ws = store.get();
     const rows = [];
-    players.forEach(p => { const row = ctx.rowsByKey.get(String(p.id)); if (row && p.confidence >= 1 && !holderOf(ws, String(row.player_key), null)) rows.push(entryOf(row, p.slot)); });
+    let missed = (unmatched || []).filter(u => !F.isNotEvaluated(u)).length;
+    players.forEach(p => {
+      const row = ctx.rowsByKey.get(String(p.id));
+      if (!row) return;
+      if (p.confidence >= 1 && !holderOf(ws, String(row.player_key), null)) rows.push(entryOf(row, p.slot)); else missed += 1;
+    });
     update(w => W.ops.addTeam(w, name, {entries: rows}), "add");
     const added = store.get().teams[store.get().teams.length - 1];
-    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex}), "entries");
+    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex, unresolved: missed}), "entries");
     UI.justAdded = added.id;
     announce(`Team added: ${added.name}.`);
   }
@@ -620,12 +651,13 @@
   function leagueEntries(t, ctx, taken) {
     const list = [];
     let unsure = 0;
+    let conflicts = 0;   // JEG-1188: a player another team already has
     t.players.forEach(p => {
       const row = ctx.rowsByKey.get(String(p.id));
       if (!row) return;
       if (p.confidence < 1) { unsure += 1; return; }
       const key = String(row.player_key);
-      if (taken.has(key)) return;
+      if (taken.has(key)) { conflicts += 1; return; }
       taken.add(key);
       list.push(entryOf(row, p.slot));
     });
@@ -637,7 +669,7 @@
       list.push({key, name, pos: u.pos, team: u.team || undefined});
     });
     const missed = (t.unmatched || []).filter(u => !F.isNotEvaluated(u)).map(u => F.page.cleanLine(u.line || u.name)).filter(Boolean);
-    return {list, unsure, missed};
+    return {list, unsure, missed, unresolved: missed.length + unsure + conflicts};
   }
   function pasteWholeLeague(text) {
     const status = $("v2LgLeagueStatus");
@@ -675,8 +707,8 @@
     update(w => {
       let next = w;
       plan.forEach(item => {
-        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: []}); updated += 1; }
-        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list}); added += 1; }
+        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: [], unresolved: item.unresolved}); updated += 1; }
+        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list, unresolved: item.unresolved}); added += 1; }
         else { skipped += 1; parsed.push({name: item.t.teamName, count: 0, unmatched: [], unsure: 0, leftOut: true}); return; }
         parsed.push({name: item.t.teamName, count: item.list.length, unmatched: item.missed, unsure: item.unsure});
         const notes = [];
@@ -792,14 +824,31 @@
     return wrap;
   }
   const rankText = (r, ranked) => (r === null || r === undefined ? "—" : ranked < 2 ? "—" : String(r));
-  // JEG-1188: with the whole league loaded, say which bench the numbers use and list his sell candidates.
+  // JEG-1188: which bench the numbers use, three separate counts, and his sell candidates. null without a league to check.
+  const LEVEL_REASONS = {team_count: "not every team is loaded", empty_team: "a team has no players",
+    short_roster: "a team has fewer players than starting spots", duplicate_owner: "a player is on two teams",
+    unresolved: "some pasted players are not matched to a team yet", no_timestamp: "a team's roster date is unknown (shared or older saves)",
+    stale: "a team's roster is more than 7 days old"};
+  const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
   function sellBlock(ws, ctx) {
-    if (!ctx || !ctx.levels) return null;
+    if (!ctx || !ctx.leagueCheck) return null;
+    if (!ctx.levels) {
+      const why = ctx.leagueCheck.reasons.map(r => LEVEL_REASONS[r] || r).join("; ");
+      return el("div", {id: "v2LgSell"}, el("p", {class: "v2-meta", id: "v2LgLevelsNote",
+        text: `Priced with the standard bench. Your league's own rosters set the bench once every team is loaded, matched and up to date${why ? `: ${why}` : ""}.`}));
+    }
+    const shape = ctx.shape || {};
+    const teams = ws.teams.length;
+    const seats = Number(shape.BENCH) || 0;
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Compare a trade and the pair finder keep the standard bench."});
+    const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
+      el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
+      el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),
+      el("li", {id: "v2LgCountAbove", text: `Players beyond the starters who beat the best free agent: ${posCounts(ctx.levels.ddfCounts)}.`}));
     const mine = teamById(ws, ws.myTeamId);
     const sells = sellCandidates(mine, ctx);
-    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a bench player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept count the bench depth your league actually rosters."});
-    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, basisNote);
-    return el("div", {id: "v2LgSell"}, basisNote,
+    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, basisNote, counts);
+    return el("div", {id: "v2LgSell"}, basisNote, counts,
       el("p", {class: "v2-find-headline", id: "v2LgSellHead", text: `Sell candidates on ${mine.name}: worth more to your league than to you.`}),
       el("ul", {class: "v2-lg-sell", id: "v2LgSellList"}, ...sells.map(c => el("li", {"data-key": c.key},
         el("b", {text: `${c.name} (${c.pos})`}), ` ${money(c.ours)} to you, ${money(c.theirs)} at your league's depth`))));
@@ -863,7 +912,7 @@
         el("p", {}, detailText(t, summary, basis)),
         el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
     const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
-    body.replaceChildren(head, sellBlock(ws, ctx), tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
+    body.replaceChildren(...[head, sellBlock(ws, ctx), tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note].filter(Boolean));
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
   }
@@ -1383,7 +1432,8 @@
     try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
     if (!teams.length) { $("v2LgCard").open = true; notice("That league link is empty or invalid. Your saved league has been kept."); return; }
     let w = W.newWorkspace({name: "Shared league"});
-    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); });
+    // JEG-1188: a link does not say when its rosters were read, and its unknown players are not on the team.
+    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown), rosterAt: null, unresolved: t.entries.filter(e => e.unknown && !F.isNotEvaluated(e)).length}); });
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
     const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
     if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);

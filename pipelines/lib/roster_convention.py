@@ -247,38 +247,133 @@ def vorp_bench_allocate(
 BENCH_LEVELS = ("ddf", "market")
 
 
-def league_bench(starters: dict, order: dict, league_rostered, level: str = "ddf") -> dict:
-    """Bench seats per position from a loaded league's rosters (JEG-1188).
+def league_depth(starters: dict, order: dict, league_rostered, level: str = "ddf",
+                 league_reserve=()) -> dict:
+    """Per-position league counts and the replacement line (JEG-1188).
 
     Two levels (Jeremy, 2026-10-29: "we focus on vorp, let other managers
     make stupid decisions and capitalize"):
 
     ddf     Pure value over replacement. Replacement is the league's best
             available player at each position: the first player in `order`
-            that no team rosters. Every player ranked above him is rostered,
-            so bench_p = index of that player - starters_p. A bench seat only
-            goes to a player who beats the league's real waiver option.
-    market  What the league actually holds: bench_p = rostered players at
-            the position in `order` - starters_p. Feeds the other side's
-            acceptance, never the reader's own value.
+            that no team holds (IR and taxi players are held). His index is
+            the replacement line, and it can sit inside the starter line (a
+            free agent good enough to start): every player at or below him
+            is then worth nothing over replacement. bench_p counts the
+            players above replacement beyond the starters,
+            max(0, replacement_p - starters_p). It is not a count of
+            physical bench seats.
+    market  What the league actually holds on active roster spots: held_p =
+            players at the position in `order` on a team and not in an IR or
+            taxi slot. bench_p = max(0, held_p - starters_p) and the line
+            sits at starters_p + bench_p. Feeds the other side's acceptance,
+            never the reader's own value.
 
     starters: {pos: league-wide starters}. order: {pos: [key, ...]} best
-    first (the allocation's order). league_rostered: keys rostered on any
-    team; compared as strings, so int and str keys both work. A position
-    whose best free agent ranks inside the starter line gets 0 bench seats.
+    first (the allocation's order). league_rostered: every key on a team,
+    reserve slots included. league_reserve: the keys in IR or taxi slots.
+    Keys compare as strings, so int and str keys both work.
+
+    Returns {pos: {"bench", "replacement", "held", "reserve",
+    "best_free_index", "bench_basis"}}; bench_basis is "above_replacement"
+    (ddf) or "rostered_depth" (market).
     """
     if level not in BENCH_LEVELS:
         raise ValueError(f"bench level must be one of {BENCH_LEVELS}, got {level!r}")
     held = {str(k) for k in league_rostered}
+    reserve = {str(k) for k in league_reserve}
     out = {}
     for pos in POSITIONS:
         keys = [str(k) for k in order.get(pos, [])]
+        s = int(starters.get(pos, 0))
+        free = next((i for i, k in enumerate(keys) if k not in held and k not in reserve), len(keys))
+        n_res = sum(1 for k in keys if k in reserve)
+        n_held = sum(1 for k in keys if k in held and k not in reserve)
         if level == "ddf":
-            depth = next((i for i, k in enumerate(keys) if k not in held), len(keys))
+            bench, line, basis = max(0, free - s), free, "above_replacement"
         else:
-            depth = sum(1 for k in keys if k in held)
-        out[pos] = max(0, depth - int(starters.get(pos, 0)))
+            bench = max(0, n_held - s)
+            line, basis = s + bench, "rostered_depth"
+        out[pos] = {"bench": bench, "replacement": line, "held": n_held, "reserve": n_res,
+                    "best_free_index": free, "bench_basis": basis}
     return out
+
+
+def league_bench(starters: dict, order: dict, league_rostered, level: str = "ddf",
+                 league_reserve=()) -> dict:
+    """{pos: bench} from league_depth (JEG-1188)."""
+    return {p: d["bench"] for p, d in
+            league_depth(starters, order, league_rostered, level, league_reserve).items()}
+
+
+# JEG-1188: a loaded league's rosters may set replacement only when they are
+# complete, matched and fresh. Fail closed: any reason keeps the modeled line.
+RESERVE_SLOTS = ("IR", "IR+", "IR-R", "IL", "RES", "RESERVE", "TAXI", "NA")
+ROSTER_MAX_AGE_MS = 7 * 24 * 3600 * 1000
+
+
+def is_reserve_slot(slot) -> bool:
+    return slot is not None and str(slot).strip().upper() in RESERVE_SLOTS
+
+
+def league_completeness(teams_expected: int, starting_slots_per_team: int, teams: list,
+                        now_ms: float, max_age_ms: float = ROSTER_MAX_AGE_MS) -> dict:
+    """Whether a loaded league may set replacement (JEG-1188).
+
+    teams: [{"id", "players": [{"key", "slot"?}], "unresolved": int,
+    "loaded_at": ms}], valued players only (no K or DEF). Reasons, in this
+    order, each listed once:
+      team_count      teams loaded != the league's team count
+      empty_team      a team with no valued players
+      short_roster    a team with fewer active valued players than starting
+                      slots (a partial paste)
+      duplicate_owner a player on two teams
+      unresolved      a team has pasted players that were never matched, or
+                      no record of it
+      no_timestamp    a team with no load time
+      stale           a team loaded more than max_age_ms before now
+    Returns {"ok", "reasons", "rostered": sorted keys, "reserve": sorted keys}.
+    Mirrors value-model.js vpLeagueCompleteness.
+    """
+    reasons = []
+
+    def add(r):
+        if r not in reasons:
+            reasons.append(r)
+
+    if len(teams) != int(teams_expected):
+        add("team_count")
+    owner = {}
+    rostered, reserve = set(), set()
+    for t in teams:
+        players = t.get("players") or []
+        if not players:
+            add("empty_team")
+        active = [p for p in players if not is_reserve_slot(p.get("slot"))]
+        if len(active) < int(starting_slots_per_team):
+            add("short_roster")
+        for p in players:
+            k = str(p["key"])
+            if k in owner and owner[k] != str(t.get("id")):
+                add("duplicate_owner")
+            owner[k] = str(t.get("id"))
+            rostered.add(k)
+            if is_reserve_slot(p.get("slot")):
+                reserve.add(k)
+        # None = not recorded (a league saved before JEG-1188): unknown, so not matched.
+        if t.get("unresolved") is None or not int(t["unresolved"]) <= 0:
+            add("unresolved")
+    for t in teams:
+        at = t.get("loaded_at")
+        if not isinstance(at, (int, float)) or at <= 0:
+            add("no_timestamp")
+        elif now_ms - at > max_age_ms:
+            add("stale")
+    order = ["team_count", "empty_team", "short_roster", "duplicate_owner", "unresolved",
+             "no_timestamp", "stale"]
+    reasons.sort(key=order.index)
+    return {"ok": not reasons, "reasons": reasons, "rostered": sorted(rostered),
+            "reserve": sorted(reserve)}
 
 
 def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,

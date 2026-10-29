@@ -73,10 +73,15 @@
     });
     return out;
   }
+  const cleanCount = n => (Number.isInteger(n) && n >= 0 ? n : null);
   function newTeam(name, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
-    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now};
+    // JEG-1188: rosterAt = when the roster last changed; unresolved = pasted valued players not matched or not added yet
+    // (null = not recorded, as in a league saved by an older build). The league page prices with the league's own rosters
+    // only when every team is current and fully matched.
+    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now,
+      rosterAt: o.rosterAt === null ? null : now, unresolved: cleanCount(o.unresolved === undefined ? 0 : o.unresolved)};
   }
   function newWorkspace(opts) {
     const o = opts || {};
@@ -98,7 +103,8 @@
       ids.add(id);
       teams.push({id, name: cleanName(t.name, `Team ${teams.length + 1}`), sourceText: typeof t.sourceText === "string" ? t.sourceText : "", sourceTeam: Number.isInteger(t.sourceTeam) ? t.sourceTeam : null,
         removed: Array.isArray(t.removed) ? t.removed.map(String) : [], entries: cleanEntries(t.entries),
-        createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt});
+        createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt,
+        rosterAt: Number(t.rosterAt) > 0 ? Number(t.rosterAt) : null, unresolved: cleanCount(t.unresolved)});
     });
     const ui = isObject(raw.ui) ? raw.ui : {};
     return {...base, id: String(raw.id || base.id), settings: isObject(raw.settings) ? raw.settings : null, teams,
@@ -108,6 +114,7 @@
 
   // ---------- pure operations: each returns a new workspace ----------
   const touch = (ws, now) => ({...ws, updatedAt: now || Date.now()});
+  const rosterChange = (t, now) => ({...t, rosterAt: now || Date.now()});
   const mapTeam = (ws, id, fn, now) => {
     if (!ws.teams.some(t => t.id === id)) return ws;
     return touch({...ws, teams: ws.teams.map(t => (t.id === id ? {...fn(t), updatedAt: now || Date.now()} : t))}, now);
@@ -123,8 +130,11 @@
       return touch({...ws, teams: ws.teams.filter(t => t.id !== id), myTeamId: ws.myTeamId === id ? null : ws.myTeamId});
     },
     renameTeam: (ws, id, name) => mapTeam(ws, id, t => ({...t, name: cleanName(name, t.name)})),
-    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => ({...t, entries: cleanEntries(entries), ...(extra || {})})),
-    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: []})),
+    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => rosterChange({...t, entries: cleanEntries(entries), ...(extra || {}),
+      ...(extra && extra.unresolved !== undefined ? {unresolved: cleanCount(extra.unresolved)} : {})})),
+    clearTeam: (ws, id) => mapTeam(ws, id, t => rosterChange({...t, entries: [], sourceText: "", sourceTeam: null, removed: [], unresolved: 0})),
+    // JEG-1188: n pasted players still to match on this team (0 or more).
+    setUnresolved: (ws, id, n) => mapTeam(ws, id, t => ({...t, unresolved: cleanCount(n)})),
     // JEG-1190: every team goes; the league's settings, name and view choices stay.
     clearLeague: ws => (ws.teams.length ? touch({...ws, teams: [], myTeamId: null}) : ws),
     setSourceText: (ws, id, text) => mapTeam(ws, id, t => ({...t, sourceText: String(text || "")})),

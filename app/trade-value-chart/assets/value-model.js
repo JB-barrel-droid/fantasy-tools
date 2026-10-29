@@ -223,39 +223,92 @@
 
   function vpNumKey(a, b) { return Number(a) - Number(b); }
 
-  // JEG-1188: bench seats per position from a loaded league's rosters, at
-  // one of two levels (Jeremy, 2026-10-29: "we focus on vorp, let other
-  // managers make stupid decisions and capitalize").
+  // JEG-1188: per-position league counts and the replacement line from a
+  // loaded league's rosters, at one of two levels (Jeremy, 2026-10-29: "we
+  // focus on vorp, let other managers make stupid decisions and capitalize").
   //   "ddf" (default): pure value over replacement. Replacement is the
   //     league's best available player at the position, the first player in
-  //     the order no team rosters; every player above him is rostered, so
-  //     bench = his index - starters. His own value prices here.
-  //   "market": what the league actually holds, bench = rostered players at
-  //     the position in the order - starters. Feeds the other side only.
-  // `rostered` is the league's rostered player keys (compared as strings).
-  // A position whose best free agent ranks inside the starter line gets 0.
-  // Mirrors roster_convention.league_bench.
+  //     the order no team holds (IR and taxi players are held). His index is
+  //     the replacement line and can sit inside the starter line; bench counts
+  //     the players above replacement beyond the starters, not bench seats.
+  //   "market": the league's active depth. held = players in the order on a
+  //     team and not in an IR or taxi slot; bench = held - starters (floor 0),
+  //     line at starters + bench. Feeds the other side only.
+  // `rostered`: every key on a team; `reserve`: keys in IR or taxi slots.
+  // Keys compare as strings. Mirrors roster_convention.league_depth.
   var VP_BENCH_LEVELS = ["ddf", "market"];
-  function vpLeagueBench(starters, orders, rostered, level) {
+  var VP_LEAGUE_DEPTH_FIELDS = ["replacement", "held", "reserve", "bench_basis"];
+  function vpLeagueDepth(starters, orders, rostered, level, reserve) {
     var lvl = level == null ? "ddf" : level;
     if (VP_BENCH_LEVELS.indexOf(lvl) === -1) throw new Error("bench level must be ddf or market, got " + lvl);
-    var held = {};
+    var held = {}, res = {};
     rostered.forEach(function (k) { held[String(k)] = true; });
+    (reserve || []).forEach(function (k) { res[String(k)] = true; });
     var out = {};
     POSITION_ORDER.forEach(function (pos) {
       var order = orders[pos] || [];
-      var depth = 0;
-      if (lvl === "ddf") {
-        depth = order.length;
-        for (var i = 0; i < order.length; i += 1) {
-          if (!held[String(order[i].key)]) { depth = i; break; }
-        }
-      } else {
-        order.forEach(function (r) { if (held[String(r.key)]) depth += 1; });
+      var s = starters[pos] || 0;
+      var free = order.length, nHeld = 0, nRes = 0;
+      for (var i = 0; i < order.length; i += 1) {
+        var k = String(order[i].key);
+        if (res[k]) nRes += 1;
+        else if (held[k]) nHeld += 1;
+        else if (free === order.length) free = i;
       }
-      out[pos] = Math.max(0, depth - (starters[pos] || 0));
+      var bench, line, basis;
+      if (lvl === "ddf") { bench = Math.max(0, free - s); line = free; basis = "above_replacement"; }
+      else { bench = Math.max(0, nHeld - s); line = s + bench; basis = "rostered_depth"; }
+      out[pos] = { bench: bench, replacement: line, held: nHeld, reserve: nRes, best_free_index: free,
+        bench_basis: basis };
     });
     return out;
+  }
+  function vpLeagueBench(starters, orders, rostered, level, reserve) {
+    var d = vpLeagueDepth(starters, orders, rostered, level, reserve);
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) { out[pos] = d[pos].bench; });
+    return out;
+  }
+
+  // JEG-1188: a loaded league may set replacement only when its rosters are
+  // complete, matched and fresh; any reason keeps the modeled line. input:
+  // {teamsExpected, startingSlotsPerTeam, now, maxAgeMs?, teams: [{id,
+  // players: [{key, slot?}] (valued players only), unresolved, loadedAt}]}.
+  // Returns {ok, reasons, rostered, reserve}. Mirrors
+  // roster_convention.league_completeness.
+  var VP_RESERVE_SLOTS = ["IR", "IR+", "IR-R", "IL", "RES", "RESERVE", "TAXI", "NA"];
+  var VP_ROSTER_MAX_AGE_MS = 7 * 24 * 3600 * 1000;
+  var VP_COMPLETENESS_REASONS = ["team_count", "empty_team", "short_roster", "duplicate_owner", "unresolved",
+    "no_timestamp", "stale"];
+  function vpIsReserveSlot(slot) {
+    return slot != null && VP_RESERVE_SLOTS.indexOf(String(slot).trim().toUpperCase()) !== -1;
+  }
+  function vpLeagueCompleteness(input) {
+    var teams = input.teams || [];
+    var maxAge = vpFinite(input.maxAgeMs) ? input.maxAgeMs : VP_ROSTER_MAX_AGE_MS;
+    var found = {};
+    if (teams.length !== Number(input.teamsExpected)) found.team_count = true;
+    var owner = {}, rostered = {}, reserve = {};
+    teams.forEach(function (t) {
+      var players = t.players || [];
+      if (!players.length) found.empty_team = true;
+      var active = players.filter(function (p) { return !vpIsReserveSlot(p.slot); }).length;
+      if (active < Number(input.startingSlotsPerTeam)) found.short_roster = true;
+      players.forEach(function (p) {
+        var k = String(p.key);
+        if (Object.prototype.hasOwnProperty.call(owner, k) && owner[k] !== String(t.id)) found.duplicate_owner = true;
+        owner[k] = String(t.id);
+        rostered[k] = true;
+        if (vpIsReserveSlot(p.slot)) reserve[k] = true;
+      });
+      // null = not recorded (a league saved before JEG-1188): unknown, so not matched.
+      if (t.unresolved == null || !(Number(t.unresolved) <= 0)) found.unresolved = true;
+      if (!vpFinite(t.loadedAt) || t.loadedAt <= 0) found.no_timestamp = true;
+      else if (input.now - t.loadedAt > maxAge) found.stale = true;
+    });
+    var reasons = VP_COMPLETENESS_REASONS.filter(function (r) { return found[r]; });
+    return { ok: !reasons.length, reasons: reasons, rostered: Object.keys(rostered).sort(),
+      reserve: Object.keys(reserve).sort() };
   }
 
   // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
@@ -303,8 +356,12 @@
       POSITION_ORDER.forEach(function (pos) {
         lgStarters[pos] = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
       });
-      var lgBench = vpLeagueBench(lgStarters, orders, setting.league_rostered, setting.bench_level);
-      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = lgBench[pos]; });
+      var lgDepth = vpLeagueDepth(lgStarters, orders, setting.league_rostered, setting.bench_level,
+        setting.league_reserve);
+      POSITION_ORDER.forEach(function (pos) {
+        alloc[pos].bench = lgDepth[pos].bench;
+        VP_LEAGUE_DEPTH_FIELDS.forEach(function (f) { alloc[pos][f] = lgDepth[pos][f]; });
+      });
     } else if (setting.flex_bench_seats === false) {
       // D'Hondt path (backward compat; flex_bench_seats=false used by fixture tests).
       var isTwoQb = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
@@ -1140,10 +1197,13 @@
           });
         }
         var N = a.rostered, S = a.starters;
+        // JEG-1188: the waiver line sits at the replacement index, which a
+        // loaded league can put inside the starter line.
+        var W = a.replacement !== undefined ? a.replacement : N;
         var method, waiver = null, starterLine = null;
-        if (work.length > N) {
-          waiver = work[N].native;
-          method = work[N].estimated ? "estimated" : "roster_determined";
+        if (work.length > W) {
+          waiver = work[W].native;
+          method = work[W].estimated ? "estimated" : "roster_determined";
         } else if (work.length) {
           waiver = work[work.length - 1].native;
           method = "insufficient_coverage";
@@ -1217,6 +1277,9 @@
           avail: es ? es.avail : null, bands: es ? es.bands : null,
           lineup: es ? { m: es.m, unavailable: es.unavailable, nPerTeam: es.nPerTeam,
             sigmaRel: es.sigmaRel, sigmaFloor: es.sigmaFloor } : null };
+        if (a.replacement !== undefined) {
+          VP_LEAGUE_DEPTH_FIELDS.forEach(function (f) { positions[pos][f] = a[f]; });
+        }
       });
       var total = 0;
       POSITION_ORDER.forEach(function (pos) {
@@ -1693,6 +1756,9 @@
         positions[pos] = { method: p.method, waiver: p.waiver, starterLine: p.starterLine,
           starters: p.starters, rostered: p.rostered, listed: p.listed, nEstimated: p.nEstimated,
           avail: p.avail, bands: p.bands, lineup: p.lineup, estimates: estimates };
+        if (p.replacement !== undefined) {
+          VP_LEAGUE_DEPTH_FIELDS.forEach(function (f) { positions[pos][f] = p[f]; });
+        }
       });
       sources[src] = { family: o.family, included: o.included, totalVorp: o.totalVorp,
         surplusTotal: o.surplusTotal, groups: o.groups,
@@ -1798,7 +1864,12 @@
     flexEligible: flexEligible,
     SUPERFLEX_ELIGIBLE: SUPERFLEX_ELIGIBLE,
     superflexCount: superflexCount,
-    stableTiebreak: stableTiebreak
+    stableTiebreak: stableTiebreak,
+    BENCH_LEVELS: VP_BENCH_LEVELS,
+    leagueDepth: vpLeagueDepth,
+    leagueCompleteness: vpLeagueCompleteness,
+    isReserveSlot: vpIsReserveSlot,
+    ROSTER_MAX_AGE_MS: VP_ROSTER_MAX_AGE_MS
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 
