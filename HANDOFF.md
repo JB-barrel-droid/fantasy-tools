@@ -15,25 +15,6 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
-### Managed agent teardown (JEG-1173, Claude, 2026-10-29 UTC)
-
-- Claude took JEG-1173 on Jeremy's instruction (2026-10-29 10:13 AM CT).
-  Branch `claude/JEG-1173`; PR only, Codex merges.
-- PRs #1001 and #1002 (lock file, deployment scripts) both merged on
-  2026-10-27; nothing to close. #1003 (`cma/JEG-1049`, edge drift check) is
-  the managed agent's last open PR; left open for Codex to adopt or close.
-  `cma/JEG-925` is a leftover branch with no open PR; not deleted.
-- `managed-agents/` docs now say retired, and `scripts/lib.sh` makes every
-  script there exit unless `CMA_ALLOW_RETIRED=1`. Agent prompt files and
-  `claude-lock.json` are unchanged (record of what was deployed; no
-  `ant apply`).
-- **Still open:** `ddf-queue` and `ddf-weekly-usage` are not paused yet. Agent
-  sandboxes have no key for that Anthropic workspace; Jeremy pauses them on his
-  Mac with `ant beta:deployments pause --deployment-id <id>` (ids in
-  `managed-agents/README.md`). Pause only; deleting anything waits for his
-  yes. Proof of stop: no new update on the running comment on JEG-1173 after
-  the next top of the hour.
-
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
@@ -373,12 +354,14 @@ here, coordinate first (bottom of this section).
 
 **Other agents (from `AGENTS.md`; activity inferred from open PRs, not checked
 on their machines):**
-- **Claude Managed Agent** (`session:cma`, `managed-agents/`): **retired**
-  (Jeremy, 2026-10-27; teardown JEG-1173). It owns and takes over nothing. Its
-  deployments `ddf-queue` (hourly) and `ddf-weekly-usage` (Mondays 7 AM CT)
-  were still firing on 2026-10-29 and stop without work after reading
-  JEG-1173; see "Managed agent teardown" under Resume here for whether the
-  pause has happened. Its last open PR is #1003 (`cma/JEG-1049`).
+- **Claude Managed Agent** (`session:cma`, `managed-agents/`): deployment
+  `ddf-queue` runs hourly (America/Chicago), claims up to 3 Linear tickets
+  labeled `session:cma`, and merges on green gates; `ddf-weekly-usage` runs
+  Mondays 7 AM CT. Branches `cma/<ticket>` (open: #1003, #1011). Pause:
+  `ant beta:deployments pause --deployment-id <id>` (ids in
+  `managed-agents/README.md`; needs Jeremy's Anthropic account). It has a
+  standing takeover of any ticket with no activity for 4 hours, so keep your
+  heartbeat comments current.
 - **Muse** (GitHub user `jkb-bur-bot`): only Linear tickets labeled `muse`;
   branches `muse/jeg-<id>-<slug>` (open: #981, #982, #1024). Never merges.
   Stop: remove the `muse` label or ask Jeremy.
@@ -595,8 +578,7 @@ source data -> reference compute -> dashboard build -> frontend/site
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
   in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
   server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
-- **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
-  (JEG-1173); kept as a record, its scripts refuse to run.
+- **Managed agent:** `managed-agents/` (`session:cma`, queue run every 2 hours).
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
 - **Business rules (summary; full text in methodology/decisions):** Indexed is
   one order-preserving factor per chart and league setting (JEG-482); missing

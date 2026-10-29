@@ -126,6 +126,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_render_sweep_shards
 	python3 -m unittest tests.test_validate_runner
 	python3 -m unittest tests.test_doc_staleness
+	python3 -m unittest tests.test_managed_agents_retired
 	python3 -m unittest tests.test_mcp_remote
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
