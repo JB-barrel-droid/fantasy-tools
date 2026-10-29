@@ -67,6 +67,47 @@ at this setting that have not published this week). Tests:
 synthetic transitions), `tests/test_endpoint_parity.py test_week_parity` (page
 parity per week).
 
+### Value basis and player overrides from a share link (JEG-1225)
+
+Jeremy, 2026-10-28 (JEG-1224 D1: "B"): a chat given a link with the sender's own
+basis or overrides prices its answer under them. get-values takes them in the
+text the link carries, optional, GET query or POST body:
+
+- **`basis`**: `fantasycalc` (one source) or `blend:espn.60_razzball.40` (whole
+  percents), as `basis=` in a share link. Absent: our methodology.
+- **`ov`**: `2227:58` (an absolute DDF Value), `2227:+5` (an adjustment), comma
+  separated, or the packed `z:`/`z2:` form, as `ov=` in a share link.
+
+The text is read by the site's own `app/v2/ddf-value-link.js` (the one reader of
+the link format, loaded from `<site>/v2/` at cold start like `value-model.js`).
+`get-values/value-context.ts` sends the basis to `runValuePipeline` as
+`basisConfig` in the form the page's engine does (`curve-widget.js`
+`canonicalBasis`) and applies each override with `ValueModel.applyDdfOverride`,
+as the page does. No new value math. An override replaces DDF Value only: the
+tier, the charts' values and the projections version are the pipeline's, as on
+the page.
+
+- The response adds `value_context`: `basis` (null = our methodology),
+  `basis_applied`, `basis_members`, `basis_fell_back_to_default` (none of the
+  basis' sources is usable this week), `overrides`, `overrides_applied`, and
+  `overrides_not_priced` (keys with no pipeline row: named, not added). An
+  overridden player also carries `override` and `pipeline_value`.
+- A part that is sent but cannot be read: 400 with
+  `code: "value_context_unreadable"` and `unread` (`basis`, `ov`). Never a silent
+  fall back to our methodology.
+- A site that does not publish `v2/ddf-value-link.js` yet: requests without a
+  basis or overrides answer as before; with one, 503
+  `code: "value_context_unavailable"`.
+- The answer cache key and the compute rate limit include the context.
+- Tests: `tests/node/get_values_value_context_check.mjs` (the handler on the
+  built `dist/` against the parity runner, errors, cache, the site's share link
+  read back, the basis form against `curve-widget.js`),
+  `tests/test_endpoint_parity.py test_value_context_parity` (page parity in
+  Standard, Half PPR and PPR).
+- Not yet: the MCP tools passing a pasted link's context through (JEG-1225
+  slice 4c), and `docs/get-values.openapi.yaml`, which ships with Pages and so
+  should list `basis` and `ov` only once this function is deployed.
+
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
 Jeremy, 2026-10-24: "Compute on demand, store nothing." `league.ts` maps the

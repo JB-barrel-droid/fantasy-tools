@@ -9,6 +9,10 @@
 // history) or the `week` the caller asks for; the input building is in pipeline.ts, shared with the
 // parity runner (tests/_edge_pipeline_runner.cjs).
 //
+// JEG-1225: an optional value basis and player overrides (`basis`, `ov`), in the text a share link carries. They
+// are read by the site's own app/v2/ddf-value-link.js (loaded from the published site like value-model.js) and
+// applied as the site applies them (value-context.ts), so a chat prices a pasted link the way the site does.
+//
 // No accounts, no keys, no schema change. Reads only the published bundle.
 // Rate-limited by Supabase's built-in edge function limits.
 //
@@ -24,6 +28,7 @@ const PAGE_URL = `${SITE_ORIGIN}/`;
 const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
 const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
 const HISTORY_INDEX_URL = `${SITE_ORIGIN}/assets/history/index.json`;
+const VALUE_LINK_URL = `${SITE_ORIGIN}/v2/ddf-value-link.js`;
 
 import { type League, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
 import {
@@ -35,12 +40,16 @@ import {
   todayIso,
   type WeekInfo,
 } from "./pipeline.ts";
+import { applyOverrides, basisConfigOf, contextKey, readValueContext, type ValueContext } from "./value-context.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
 interface CachedBundle extends Bundle {
   meta: Record<string, unknown>;
   history: HistoryData | null;
+  /** The site's share-link value reader (DDFValueLink), or null when the site does not publish it yet. */
+  // deno-lint-ignore no-explicit-any
+  valueLink: any | null;
   loadedAt: number;
 }
 
@@ -96,12 +105,13 @@ async function loadBundle(): Promise<CachedBundle> {
     throw new Error("ValueModel.runValuePipeline not found after loading value-model.js");
   }
 
-  // Fetch bundle, page, lineup parameters and the week history index in parallel.
-  const [bundleResponse, pageResponse, lpResponse, history] = await Promise.all([
+  // Fetch bundle, page, lineup parameters, the week history index and the link reader in parallel.
+  const [bundleResponse, pageResponse, lpResponse, history, valueLink] = await Promise.all([
     fetch(BUNDLE_URL),
     fetch(PAGE_URL),
     fetch(LINEUP_PARAMS_URL).catch(() => null),
     loadHistoryIndex(),
+    loadValueLink(evalFn),
   ]);
   if (!bundleResponse.ok) throw new Error(`bundle fetch failed: ${bundleResponse.status}`);
   if (!pageResponse.ok) throw new Error(`page fetch failed: ${pageResponse.status}`);
@@ -127,9 +137,26 @@ async function loadBundle(): Promise<CachedBundle> {
     ValueModel,
     lineupConfig,
     history,
+    valueLink,
     loadedAt: Date.now(),
   };
   return cached;
+}
+
+// JEG-1225: the site's share-link value reader (app/v2/ddf-value-link.js, published at /v2/). Optional: a site
+// that does not publish it yet still answers every request without a basis or overrides.
+// deno-lint-ignore no-explicit-any
+async function loadValueLink(evalFn: (src: string) => unknown): Promise<any | null> {
+  try {
+    const res = await fetch(VALUE_LINK_URL);
+    if (!res.ok) return null;
+    evalFn(await res.text());
+    // deno-lint-ignore no-explicit-any
+    const link = (globalThis as any).DDFValueLink;
+    return link && typeof link.readValueContext === "function" ? link : null;
+  } catch {
+    return null;
+  }
 }
 
 // The chart source keys the finder compares (must match finder.js CHART_KEYS).
@@ -149,8 +176,13 @@ function formatResponse(
   includeCharts = false,
   custom: string[] = [],
   week: WeekInfo | null = null,
+  // deno-lint-ignore no-explicit-any
+  ValueModel: any = null,
+  context: ValueContext = { basis: null, overrides: {}, custom: false },
 ) {
   const rows = pipeline.rows || {};
+  // JEG-1225: DDF Value after the caller's overrides (the pipeline's own value when there are none).
+  const own = applyOverrides(ValueModel, pipeline, context);
   // deno-lint-ignore no-explicit-any
   const values: any[] = [];
 
@@ -160,9 +192,10 @@ function formatResponse(
     const player = playerMap[Number(pk)];
     if (!player) continue;
 
-    // DDF blended value (the headline number).
+    // DDF blended value (the headline number), after the caller's override if any.
     const ddfVersions = r.ddfByVersion;
-    const blended = ddfVersions?.blended?.value;
+    const rowValue = own.values[pk];
+    const blended = rowValue?.value;
     if (typeof blended !== "number" || !Number.isFinite(blended)) continue;
 
     // deno-lint-ignore no-explicit-any
@@ -173,6 +206,11 @@ function formatResponse(
       value: Math.round(blended * 10) / 10,
       tier: r.tier ?? 0,
     };
+    if (rowValue.override !== undefined) {
+      const pv = rowValue.pipeline_value;
+      entry.override = rowValue.override;
+      entry.pipeline_value = typeof pv === "number" && Number.isFinite(pv) ? Math.round(pv * 10) / 10 : null;
+    }
 
     // include=charts: add per-chart values and DDF sub-versions so the finder
     // can check whether trade charts say the rival breaks even.
@@ -229,6 +267,16 @@ function formatResponse(
     default_week: week?.default_week ?? null,
     weeks: week?.weeks ?? [],
     missing_sources: week?.missing_sources ?? [],
+    // JEG-1225: the basis DDF Value follows (null = our methodology) and the overrides applied.
+    value_context: {
+      basis: context.basis,
+      basis_applied: context.basis ? Boolean(pipeline.basis?.applied) : true,
+      basis_members: context.basis ? [...(pipeline.basis?.members ?? [])] : [],
+      basis_fell_back_to_default: Boolean(context.basis && pipeline.basis?.fellBackToDefault),
+      overrides: context.overrides,
+      overrides_applied: own.applied.length,
+      overrides_not_priced: own.not_priced.map(Number),
+    },
     players: values,
     ...(benchShare ? { bench_share: benchShare } : {}),
     sources_included: Object.keys(pipeline.sources || {}).filter(
@@ -314,6 +362,8 @@ Deno.serve(async (req: Request) => {
     let league: League = {};
     let rawLeague: unknown = null;
     let rawWeek: unknown = null;
+    let rawBasis: unknown = null;
+    let rawOv: unknown = null;
 
     if (req.method === "POST") {
       const body = await req.json();
@@ -323,6 +373,8 @@ Deno.serve(async (req: Request) => {
       includeCharts = body.include === "charts";
       rawLeague = body.league ?? null;
       rawWeek = body.week ?? null;
+      rawBasis = body.basis ?? null;
+      rawOv = body.ov ?? null;
     } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
@@ -331,6 +383,8 @@ Deno.serve(async (req: Request) => {
       includeCharts = url.searchParams.get("include") === "charts";
       rawLeague = url.searchParams.get("league");
       rawWeek = url.searchParams.get("week");
+      rawBasis = url.searchParams.get("basis");
+      rawOv = url.searchParams.get("ov");
     }
     if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
       try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
@@ -368,6 +422,24 @@ Deno.serve(async (req: Request) => {
 
     // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
+    // JEG-1225: the caller's basis and overrides, as a share link writes them. Unreadable is an error, never ours.
+    let context: ValueContext = { basis: null, overrides: {}, custom: false };
+    if ((rawBasis !== null && rawBasis !== "") || (rawOv !== null && rawOv !== "")) {
+      if (!bundle.valueLink) {
+        return Response.json(
+          { error: "basis and ov are not available yet: the site does not publish its link reader", code: "value_context_unavailable" },
+          { status: 503, headers: cors },
+        );
+      }
+      const read = readValueContext(bundle.valueLink, rawBasis, rawOv);
+      if (!read.ok) {
+        return Response.json(
+          { error: read.error, code: "value_context_unreadable", unread: read.unread },
+          { status: 400, headers: cors },
+        );
+      }
+      context = read.context;
+    }
     const mapped = mapLeague(
       merged,
       bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
@@ -381,17 +453,17 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
-    const key = `${leagueKey(mapped)}${includeCharts ? "|charts" : ""}|wk=${plan.week}`;
+    const key = `${leagueKey(mapped)}${includeCharts ? "|charts" : ""}|wk=${plan.week}${contextKey(context)}`;
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
-      if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+      if ((mapped.custom.length || context.custom) && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
         return Response.json(
           { error: "rate limited", retry_after_seconds: 60 },
           { status: 429, headers: cors },
         );
       }
       if (plan.docWeek !== null) await loadHistoryDoc(bundle, plan.docWeek);
-      const input = buildPipelineInput(bundle, mapped, plan);
+      const input = { ...buildPipelineInput(bundle, mapped, plan), basisConfig: basisConfigOf(context) };
       if (requestedWeek !== null && !input.week.sources.length) {
         return Response.json(
           {
@@ -409,7 +481,7 @@ Deno.serve(async (req: Request) => {
         at: Date.now(),
         body: formatResponse(
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
-          mapped.custom, input.week,
+          mapped.custom, input.week, bundle.ValueModel, context,
         ),
       };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);

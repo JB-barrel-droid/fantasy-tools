@@ -133,6 +133,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_league_mapping
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
+	# JEG-1225: get-values prices under a link's basis and overrides.
+	python3 -m unittest tests.test_get_values_value_context
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces

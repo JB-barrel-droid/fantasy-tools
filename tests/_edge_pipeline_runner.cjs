@@ -11,6 +11,10 @@
 //     --scoring ppr --teams 12 --superflex 0 --dist dist/
 //     [--bench 6] [--league '<normalized DDF league JSON>'] [--week 8]
 //     [--history-index <index.json in place of dist's>] [--with-week 1]
+//     [--basis <basis= text>] [--ov <ov= text>]
+//   JEG-1225: --basis and --ov are a share link's value context, read by app/v2/ddf-value-link.js and applied by
+//   supabase/functions/get-values/value-context.ts, the modules the deployed function uses. The values are then DDF
+//   Value after the overrides, and --with-week 1 adds `value_context` (the basis and the overrides applied).
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -28,6 +32,15 @@ for (let i = 2; i < process.argv.length; i += 2) {
 const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
 const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+// JEG-1225: the caller's basis and overrides, through the function's own value-context.ts and the site's link reader.
+const { applyOverrides, basisConfigOf, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
+const ValueLink = require("../app/v2/ddf-value-link.js");
+const read = readValueContext(ValueLink, args.basis ?? null, args.ov ?? null);
+if (!read.ok) {
+  process.stderr.write(read.error + "\n");
+  process.exit(1);
+}
+const context = read.context;
 const leagueArg = args.league ? JSON.parse(args.league) : null;
 const legacyLeague = { scoring: args.scoring || "ppr", teams: Number(args.teams) || 12,
   ...(Number(args.superflex) ? { roster: { SUPERFLEX: 1 } } : {}) };
@@ -110,18 +123,22 @@ const built = buildPipelineInput(bundle, mapped, plan);
 // --bench overrides bench_per_team (the negative test's deliberately wrong value).
 const setting = { ...built.setting };
 if (benchOverride !== null) setting.bench_per_team = benchOverride;
-const input = { ...built, setting };
+const input = { ...built, setting, basisConfig: basisConfigOf(context) };
 
 // --- Run pipeline -----------------------------------------------------------
 const pipeline = ValueModel.runValuePipeline(input);
 
-// --- Output DDF blended values ----------------------------------------------
+// --- Output DDF blended values (after the caller's overrides) -----------------
+const own = applyOverrides(ValueModel, pipeline, context);
 const output = {};
-for (const [pk, row] of Object.entries(pipeline.rows || {})) {
-  const blended = row.ddfByVersion && row.ddfByVersion.blended && row.ddfByVersion.blended.value;
-  if (typeof blended === "number" && Number.isFinite(blended)) {
-    output[pk] = blended;
+for (const [pk, { value }] of Object.entries(own.values)) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    output[pk] = value;
   }
 }
 
-process.stdout.write(JSON.stringify(args["with-week"] ? { values: output, week: built.week } : output));
+const valueContext = {
+  basis: context.basis, basis_applied: context.basis ? Boolean(pipeline.basis && pipeline.basis.applied) : true,
+  overrides_applied: own.applied.length, overrides_not_priced: own.not_priced.map(Number),
+};
+process.stdout.write(JSON.stringify(args["with-week"] ? { values: output, week: built.week, value_context: valueContext } : output));

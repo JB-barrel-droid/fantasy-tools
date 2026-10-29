@@ -18,6 +18,12 @@ sources and missing_sources, and every DDF Value match the page's (getWeekState,
 default week and each week asked for. The edge side reads the history through
 supabase/functions/get-values/pipeline.ts, the module the deployed function uses.
 
+JEG-1225: the same comparison under a share link's value basis and player overrides. The page gets them through
+its own engine setters (setBasis, setValueOverrides, as the Overrides tab applies a link); the edge side reads the
+link's basis= and ov= text through app/v2/ddf-value-link.js and supabase/functions/get-values/value-context.ts,
+the modules the deployed function uses. Standard, Half PPR and PPR, each with a single-source basis, a blend with an
+absolute override and two adjustments, and overrides on our methodology.
+
 Requires: a built dist/ and build/engine/ (make sync), Playwright chromium, node 22.6+.
 Run by `make test-unit-modules`; CI sets RENDER_TESTS_REQUIRED=1 so a missing browser fails.
 """
@@ -164,6 +170,35 @@ def transition_index(lagging_count):
     return out, newest, lagging
 
 
+# JEG-1225: the page's DDF Value per pipeline row after setBasis and setValueOverrides (what the Overrides tab calls
+# when a link is applied). The rows carry the override; the pipeline rows say which players the engine prices.
+PAGE_VALUE_CONTEXT = """([scoring, basis, overrides]) => {
+    const c = window.TradeValueCurveControls;
+    c.setScoring(scoring, false); c.setTeams(12, false);
+    c.setBasis(basis, false);
+    c.setValueOverrides(overrides);
+    const priced = window.TradeValueCurveHarness.pipeline().rows;
+    const values = {};
+    c.getAllRows().forEach(row => {
+        const v = row.values && row.values.ddf_value;
+        if (String(row.player_key) in priced && typeof v === 'number' && Number.isFinite(v)) values[row.player_key] = v;
+    });
+    return values;
+}"""
+
+
+def value_context_cases(top):
+    """(basis= text, ov= text, the page's basis record, the page's overrides) for the parity cases."""
+    a, b, c = top
+    blend = {"mode": "blend", "sources": ["espn", "razzball"], "weights": {"espn": 60, "razzball": 40}}
+    return [
+        ("fantasycalc", None, {"mode": "single", "source": "fantasycalc"}, {}),
+        ("blend:espn.60_razzball.40", f"{a}:58,{b}:+5,{c}:-3", blend,
+         {a: 58, b: {"type": "adjustment", "delta": 5}, c: {"type": "adjustment", "delta": -3}}),
+        (None, f"{a}:58,{b}:+5", None, {a: 58, b: {"type": "adjustment", "delta": 5}}),
+    ]
+
+
 def mismatches(engine, edge):
     """(pk, page, edge) where the page's value is more than 0.01 from the edge's (absent = 0)."""
     return [(pk, ev, edge.get(str(pk))) for pk, ev in engine.items()
@@ -263,6 +298,28 @@ class EndpointParityTests(unittest.TestCase):
                         self.assertGreater(len(page["values"]), 50)
                         bad = mismatches(page["values"], edge["values"])
                         self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_value_context_parity(self):
+        """JEG-1225: under a link's basis and overrides the endpoint prices every player as the page does, in all
+        three scorings, and the context moves DDF Value (so a context the endpoint ignored would fail)."""
+        base = run_edge_pipeline(("ppr", 12, 0))
+        top = [int(pk) for pk, _ in sorted(base.items(), key=lambda kv: -kv[1])[:3]]
+        for scoring in ("standard", "half_ppr", "ppr"):
+            ours = run_edge_pipeline((scoring, 12, 0))
+            for basis, ov, record, overrides in value_context_cases(top):
+                with self.subTest(scoring=scoring, basis=basis, ov=ov):
+                    page = self.page_values(PAGE_VALUE_CONTEXT, [scoring, record, overrides])
+                    extra = ["--scoring", scoring, "--teams", "12", "--superflex", "0"]
+                    extra += (["--basis", basis] if basis else []) + (["--ov", ov] if ov else [])
+                    edge = run_edge(extra)
+                    self.assertGreater(len(page), 50)
+                    bad = mismatches(page, edge)
+                    self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+                    self.assertTrue(any(abs(v - ours.get(pk, 0.0)) > 0.1 for pk, v in edge.items()),
+                                    "the value context did not change any values")
+                    if ov:
+                        self.assertAlmostEqual(edge[str(top[0])], 58, places=6)
+                        self.assertAlmostEqual(page[str(top[0])], 58, places=6)
 
     def test_negative_wrong_bench(self):
         """A wrong bench_per_team must produce different values, proving the test catches bugs."""
