@@ -1038,3 +1038,19 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1286: fractional flex and bench seats (option B)
+
+Jeremy, 2026-10-29 21:08 UTC, replying "Go with B" to the coordinator's
+plain-language summary of options A to D (`docs/research/jeg1286-flex-flips.md`):
+flex and bench seats become fractional. Each candidate near a cutoff holds a
+seat share Φ((mean PPG − cutoff) / σ), with σ = 0.75 PPG. The fractional
+counts are written as a weighted mix of whole allocations, the pipeline runs
+once per allocation, and every value is weight-averaged. Bench seats get the
+same treatment on the bench rule's discounted points. As σ goes to 0 this is
+today's rule. Not taken: A (keep the hard cutoff), C (fixed flex split from
+real-league usage), D (bench discount decoupled from the flex split).
+
+Build: JEG-1333. The seat-share helper is JEG-1334. The engine and reference
+wiring is JEG-1335, after #1077 (JEG-1244) and #1105 (JEG-1188). Reverse:
+σ = 0 in the helper reproduces today's allocation exactly.
