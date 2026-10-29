@@ -15,6 +15,11 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Saved-team picker lane (JEG-1219, Codex, 2026-10-29 UTC)
+
+- Isolated branch `codex/JEG-1219-saved-team-picker`, base `bf117c5f`. Both pair-finder sides select saved League teams as tab-local working copies; a fresh matchup defaults your side to the starred team, with no guessed opponent or unstarred default. Manual/session/link context wins. No finder writes to League rosters/star; no v2.js, math, source-framework or candidate algorithm edits.
+- Independent source/delta review PASS for draft publication. Browser/full gate and exact-head CI evidence, PR and limitations: `docs/claude-log/2026-10-29-jeg-1219-saved-team-picker.md`. Release coordinator owns merge/publication/live QA; broad parity remains JEG-1220.
+
 ### JEG-1216 lineup presentation feature (Codex, 2026-10-28 UTC)
 
 - Branch `fe/jeg-1216-lineup-stability` begins at PR #1062 candidate `50f76b95`. Keep it separate from active JEG-1213 release #1062 and do not merge to production until JEG-1213 lands.
