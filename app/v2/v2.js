@@ -5032,7 +5032,7 @@
   const TR = {give: [], receive: [], shown: null, open: new Set(), example: null, undo: null};
   // Compare's team choice is view state. The saved league remains the source of truth;
   // trying a trade never moves players between its stored rosters.
-  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null};
+  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null, carriedSwapped: false};
   function endCompareEdit() {
     compareTeams.snapshot = null;
     compareTeams.editing = false;
@@ -5089,8 +5089,10 @@
       // The carried rosters are authoritative; a saved team they exactly match keeps its option in the pickers.
       const shown = (team, side) => ({id: team.id || `carried-${side}`, name: team.name || (side === "mine" ? "Your team (from the link)" : "Their team (from the link)"),
         entries: team.roster.map(e => ({...e})), carried: true});
-      const mine = shown(compareCarried.context.teams.mine, "mine");
-      const theirs = shown(compareCarried.context.teams.theirs, "theirs");
+      const sides = [compareCarried.context.teams.mine, compareCarried.context.teams.theirs];
+      if (compareTeams.carriedSwapped) sides.reverse();   // Swap exchanges the carried rosters too
+      const mine = shown(sides[0], "mine");
+      const theirs = shown(sides[1], "theirs");
       compareTeams.mineId = mine.id;
       compareTeams.theirId = theirs.id;
       const list = teams.map(t => (t.id === mine.id ? mine : t.id === theirs.id ? theirs : t));
@@ -5151,6 +5153,7 @@
           compareTeams.theirChosen = Boolean(compareTeams.theirId);
           carriedTrade = null;
           compareCarried = null;
+          compareTeams.carriedSwapped = false;
         }
         if (side === "give") { compareTeams.mineId = select.value || null; compareTeams.mineChosen = true; }
         else { compareTeams.theirId = select.value || null; compareTeams.theirChosen = true; }
@@ -5187,7 +5190,7 @@
       edit.addEventListener("click", () => {
         if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
           undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen};
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped};
         else compareTeams.snapshot = null;
         compareTeams.editing = !compareTeams.editing;
         renderCompare();
@@ -5203,7 +5206,7 @@
         cancel.addEventListener("click", () => {
           ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
           ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen} = compareTeams.snapshot);
+            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped} = compareTeams.snapshot);
           endCompareEdit();
           renderCompare();
           $("v2CEditRosters")?.focus();
@@ -6272,7 +6275,9 @@
     const TC = window.TradeValueTradeContext;
     if (!TC || !compareCarried || compareCarried.status !== "ok") return carriedTrade.text;
     const deal = {give: TR.give.map(p => p.key).filter(Boolean), get: TR.receive.map(p => p.key).filter(Boolean)};
-    try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, {deal}))); }
+    const teams = compareCarried.context.teams;
+    const patch = compareTeams.carriedSwapped ? {deal, mine: teams.theirs, theirs: teams.mine} : {deal};
+    try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, patch))); }
     catch (error) { return carriedTrade.text; }
   }
   // Apply a link's scoring and roster when they differ from the reader's; say so.
@@ -6378,6 +6383,7 @@
       const text = params.get("tc");
       carriedTrade = text ? {text, transfer: window.TradeValueTradeContext ? window.TradeValueTradeContext.decodeTransfer(text) : null} : null;
       compareCarried = null;
+      compareTeams.carriedSwapped = false;
     }
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
@@ -6523,6 +6529,7 @@
     $("v2CSwap").addEventListener("click", () => {
       [TR.give, TR.receive] = [TR.receive, TR.give];
       [compareTeams.mineId, compareTeams.theirId] = [compareTeams.theirId, compareTeams.mineId];
+      if (carriedTrade) compareTeams.carriedSwapped = !compareTeams.carriedSwapped;
       TR.undo = null;
       renderCompare();
     });

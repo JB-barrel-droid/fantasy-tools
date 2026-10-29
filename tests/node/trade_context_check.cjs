@@ -625,6 +625,23 @@ test("another workspace with the same league under other IDs shows the reader's 
   assert.deepEqual([plus.context.teams.theirs.id, plus.context.teams.theirs.provenance], [null, "link"]);
   assert.deepEqual(plus.context.teams.theirs.roster, partnerRoster);
 });
+test("Compare's re-encoded address (edited deal, swapped sides) receives again on reload and on another device", () => {
+  const {ctx} = origin(deal);
+  const got = arrive(T.toTransfer(ctx));
+  const teams = got.context.teams;
+  // What v2.js carriedTradeText writes after Swap with the 1-for-1 reversed.
+  const swapped = T.withChanges(got.context, {deal: {give: ["204"], get: ["102"]}, mine: teams.theirs, theirs: teams.mine});
+  const again = arrive(T.decodeTransfer(T.encodeTransfer(T.toTransfer(swapped))));
+  assert.equal(again.status, "ok", JSON.stringify(again.reasons));
+  assert.deepEqual(again.context.teams.mine.roster, T.dealPartner(ctx).roster);
+  assert.deepEqual(again.context.teams.theirs.roster, ctx.teams.mine.roster);
+  assert.deepEqual(again.context.deal, {give: ["204"], get: ["102"]});
+  let foreign = W.newWorkspace({id: "elsewhere", name: "Other", now: 9});
+  foreign = W.ops.addTeam(foreign, "Mine there", {id: "x1", entries: C, now: 9, mine: true});
+  const there = arrive(T.toTransfer(swapped), {ws: foreign});
+  assert.equal(there.status, "ok");
+  assert.deepEqual([there.context.teams.mine.provenance, there.context.teams.theirs.provenance], ["link", "link"]);
+});
 test("page adapters read the engine's source list and modeled bench exactly", () => {
   const info = [{key: "fantasycalc", week: 9, stale: false, available: true, unavailable: false, paused: false},
     {key: "espn", week: "8", stale: true, available: true, unavailable: false},
