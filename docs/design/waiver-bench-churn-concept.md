@@ -32,7 +32,9 @@ Every input exists to fill in that one sum, or to say when it can be made:
 | This week's expert points | context in a grey column, never in the sum |
 
 All values are DDF Value (rest of season), so weekly data never enters the
-sum. That keeps Jeremy's rule: "do not blend weekly data with ROS data, ever."
+sum, as long as neither option B under Still open (hit chance or landing
+chance) is picked. That keeps Jeremy's rule: "do not blend weekly data with
+ROS data, ever."
 One computed artifact, the **waiver board** (`data/weekly/waiver-board-wk{N}.json`,
 owned by JEG-1196), feeds both the Waiver board view and Bench Churn.
 
