@@ -399,7 +399,83 @@
       production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
   }
 
+  // ---------- JEG-1191 rotating examples ----------
+  // "Try a sample trade" becomes a short list of real trades, each judged by today's Deal read (dealRead): this
+  // only chooses which trades to load, it adds no evaluation rule. The pool is the top EXAMPLE_POOL players by
+  // DDF Value that DDF Value, DDF Value (projections) and every compared chart price; trades run 1-for-1 up to
+  // 2-for-2. Candidates are ranked fewest players first, then by the slot's score, then by player keys, so the
+  // same data always gives the same list. No player appears in two examples.
+  const EXAMPLE_POOL = 36;
+  const EXAMPLE_COUNT = 3;
+  const SHAPES_BY_SIZE = [[2, [[1, 1]]], [3, [[1, 2], [2, 1]]], [4, [[2, 2]]]];
+  function subsets(n, size) {
+    const out = [];
+    for (let a = 0; a < n; a++) {
+      if (size === 1) out.push([a]);
+      else for (let b = a + 1; b < n; b++) out.push([a, b]);
+    }
+    return out;
+  }
+  // slots: [{test(deal) -> score | null}]. select(lists) -> picks or null, where lists[i] is slot i's candidates,
+  // ranked. Tiers are added smallest first and the walk stops at the first tier where select fills.
+  function rankExamples(rows, chartKeys, slots, select, pool = EXAMPLE_POOL) {
+    const need = [DEAL_KEYS.value, DEAL_KEYS.projections].concat(chartKeys || []);
+    if (!chartKeys || chartKeys.length < MIN_DEAL_CHARTS) return [];
+    const top = rows.filter(row => row.values && need.every(k => finite(row.values[k])))
+      .sort((a, b) => b.values[DEAL_KEYS.value] - a.values[DEAL_KEYS.value] || String(a.player_key).localeCompare(String(b.player_key)))
+      .slice(0, pool);
+    const ddf = top.map(row => row.values[DEAL_KEYS.value]);
+    const lists = slots.map(() => []);
+    const tie = c => c.give.concat(c.receive).map(row => String(row.player_key)).join(",");
+    for (const [size, shapes] of SHAPES_BY_SIZE) {
+      for (const [g, r] of shapes) {
+        const gives = subsets(top.length, g);
+        const gets = subsets(top.length, r);
+        for (const gi of gives) for (const ri of gets) {
+          if (ri.some(i => gi.includes(i))) continue;
+          // DDF Value must move by at least a point for any read to be a win or a loss (sideOf's floor).
+          const vNet = ri.reduce((s, i) => s + ddf[i], 0) - gi.reduce((s, i) => s + ddf[i], 0);
+          if (Math.abs(vNet) < 1) continue;
+          const give = gi.map(i => top[i]);
+          const receive = ri.map(i => top[i]);
+          const deal = dealRead(give, receive, chartKeys);
+          if (deal.kind !== "read") continue;
+          slots.forEach((slot, i) => {
+            const score = slot.test(deal);
+            if (score !== null && score !== undefined) lists[i].push({give, receive, deal, size, score, slot: i});
+          });
+        }
+      }
+      lists.forEach(list => list.sort((a, b) => a.size - b.size || b.score - a.score || tie(a).localeCompare(tie(b))));
+      const picks = select(lists);
+      if (picks) return picks;
+    }
+    return select(lists, true) || [];
+  }
+  const keysOf = c => c.give.concat(c.receive).map(row => row.player_key);
+  const disjoint = (c, used) => keysOf(c).every(k => !used.has(k));
+  // JEG-1191 path A (Jeremy's pick pending): trades the market misses. Only the Deal read's arbitrage cell,
+  // "DDF Value likes it. The market doesn't." (win|lose, the charts not split, so "Will they accept?" is
+  // Likely), ranked by the DDF Value gain. Returns up to EXAMPLE_COUNT {give, receive, deal}; fewer than
+  // EXAMPLE_COUNT means the page falls back to pickExample.
+  function pickMarketMisses(rows, chartKeys, count = EXAMPLE_COUNT, pool = EXAMPLE_POOL) {
+    const slots = [{test: deal => (deal.cell === "win|lose" && !deal.market.split ? deal.value.net : null)}];
+    const select = (lists, last) => {
+      const used = new Set();
+      const picks = [];
+      for (const c of lists[0]) {
+        if (picks.length >= count) break;
+        if (!disjoint(c, used)) continue;
+        keysOf(c).forEach(k => used.add(k));
+        picks.push({give: c.give, receive: c.receive, deal: c.deal});
+      }
+      return picks.length >= count || last ? picks : null;
+    };
+    return rankExamples(rows, chartKeys, slots, select, pool);
+  }
+
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
+    pickMarketMisses, EXAMPLE_COUNT, EXAMPLE_POOL,
     dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
     marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
