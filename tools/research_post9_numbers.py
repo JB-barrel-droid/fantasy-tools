@@ -3,8 +3,8 @@
 
 Runs the Python reference (pipelines/value_reference.py) on the current fixture
 and writes one JSON with the weights, budgets, per-source mixes, the league
-size / scoring / superflex / bench / two-TE sweeps, leave-one-out and the
-5-point RB/WR shift.
+size / scoring / superflex / bench / two-TE sweeps, leave-one-out (a real
+drop-out and the averaging step alone) and the 5-point RB/WR shift.
 
 It refuses (exit 2) when any of the seven sources is excluded at PPR/12, e.g.
 the week-8 transition on 2026-10-27, when the four charts were "not yet
@@ -95,18 +95,34 @@ def main(argv: list[str] | None = None) -> int:
     out["superflex"], out["superflex_pie"] = totals(sf), sf["pie"]
     _, te2 = run(roster={"TE": 2}, scoring="ppr", teams=12)
     out["two_te"], out["two_te_pie"] = totals(te2), te2["pie"]
-    # Leave one source out of the weight average (VP-4 / ES-15.1). The
-    # reader's DDF selection does not touch the weights, so recompute them
-    # from the sources' own 8-group weights with one source dropped.
-    def loo(k: str) -> dict:
-        keep = [x for x in r["included"] if x != k]
-        return totals({"ddf_weights": vr.ddf_weights(s.league, r["sources"], keep,
-                                                     computed_share=True)["weights"]})
-    full = vr.ddf_weights(s.league, r["sources"], r["included"], computed_share=True)["weights"]
-    if max(abs(full[g] - w[g]) for g in w) > 1e-9:
-        print("refusing: the recomputed weight average does not match the pipeline's", file=sys.stderr)
-        return 2
-    out["leave_one_out"] = {k: loo(k) for k in r["included"]}
+    # Leave one source out (JEG-1349). "leave_one_out" is a real drop-out:
+    # the source leaves `included` and the whole pipeline reruns, so the
+    # shared allocation (mean projected points over the included
+    # projections), the chart fill-ins and every other source's group totals
+    # move with it, as when a source fails to publish. "leave_one_out_
+    # averaging_only" keeps those fixed and re-averages the remaining
+    # sources' existing 8-group weights (VP-4 / ES-15.1), which isolates the
+    # averaging step alone.
+    def drop_out(keep: list) -> dict:
+        st = s.state()
+        return vr.run_pipeline(s.league, s._sources(st["current"]), s.pos_of, keep,
+                               s.selection, lineup=s.lineup, hidden=st.get("hidden"),
+                               promotion_model=s.promotion_model,
+                               flex_bench_seats=s.flex_bench_seats, basis=s.basis)
+
+    def averaging_only(keep: list) -> dict:
+        return {"ddf_weights": vr.ddf_weights(s.league, r["sources"], keep,
+                                              computed_share=True)["weights"]}
+
+    for name, fn in (("drop-out", drop_out), ("averaging-only", averaging_only)):
+        full = fn(list(r["included"]))["ddf_weights"]
+        if max(abs(full[g] - w[g]) for g in w) > 1e-9:
+            print(f"refusing: the {name} rerun with every source kept does not "
+                  "reproduce the pipeline's weights", file=sys.stderr)
+            return 2
+    others = {k: [x for x in r["included"] if x != k] for k in r["included"]}
+    out["leave_one_out"] = {k: totals(drop_out(keep)) for k, keep in others.items()}
+    out["leave_one_out_averaging_only"] = {k: totals(averaging_only(keep)) for k, keep in others.items()}
 
     # Sensitivity: move 5 points of the pie from WR to RB; ratio of each
     # player's blended DDF Value after / before, by position.

@@ -49,3 +49,33 @@ Done:
 - The public-post checklist in `docs/research/README.md` (internal references
   such as ticket IDs and file paths) is not applied; the post stays a draft
   with its evidence notes, as posts 1 to 10 are.
+
+## 2026-10-29 - JEG-1349 correction: leave-one-out as a real drop-out
+
+Contract: the independent review of #1182 (head 1e7fbb69) found the
+leave-one-out only re-ran the averaging step, so it missed that a source
+dropping out also moves the shared allocation and the chart fill-ins.
+
+Done:
+- `tools/research_post9_numbers.py`: `leave_one_out` now reruns `run_pipeline`
+  with the source removed from `included` (the Setting's own arguments);
+  `leave_one_out_averaging_only` keeps the old measure, labelled. Both must
+  reproduce the pipeline's weights with nothing dropped, or the script refuses.
+- Post 9 Sensitivity: the stability paragraph is replaced by a leave-one-out
+  table with both measures. The conclusion changed: CBS rest of season is the
+  biggest mover (RB +2.5, WR -2.1), then ESPN (RB -1.4); FantasyPros and USA
+  Today were wrongly named. Traceability says how both are computed.
+- Nits: fixture time 21:11 UTC; the bench tier described as about two weeks of
+  the league's expected missing starters (11 RB seats at PPR/12).
+
+### Verified (check named)
+- Failing before, passing after: a check that the script's cbsros leave-one-out
+  RB differs from the averaging-only RB by more than 0.5. On the 1e7fbb69
+  script output: 42.9 vs 42.9, exit 1. After: 45.5 vs 42.9, exit 0.
+- The full drop-out table matches the reviewer's reproduction on JEG-1349 row
+  for row (RB/WR).
+- Headline weights unchanged (QB 7.2, RB 43.0, WR 41.7, TE 8.1, bench 6.7).
+
+### Claimed, not confirmed
+- How much of the projections' larger effect comes from the allocation versus
+  the chart fill-ins (not separated; the post says so).

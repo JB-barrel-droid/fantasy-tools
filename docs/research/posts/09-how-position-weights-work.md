@@ -4,7 +4,7 @@ Research post 9 (JEG-925). Jeremy, 2026-10-26: refresh to today's rules and
 publish without his review.
 
 All numbers recomputed 2026-10-29 on main 7f212319, on the week 8 fixture
-built 2026-10-29 21:10 UTC, with all seven sources included. They describe
+built 2026-10-29 21:11 UTC, with all seven sources included. They describe
 the weights as the tool computes them today; nothing in this post changes a
 weight, a default or a value.
 Copy rules: for trades others will accept; no title abbreviations.
@@ -88,8 +88,9 @@ The weights come from three things:
    backup at that position is needed: starters per team (flex starters
    included) times the bye rate (one bye in 17 games) plus the position's
    missed-game rate (QB 12%, RB 14%, WR 11%, TE 15%). It shrinks a step each
-   time a position's backups pass a tier of about two needed backups per
-   team. So a position whose starters rarely miss gets few backups, and the
+   time a position's backups pass a tier sized at about two weeks of the
+   league's expected missing starters at that position (11 seats for running
+   backs at PPR/12, under one per team). So a position whose starters rarely miss gets few backups, and the
    backup count moves with the data rather than a fixed ratio. At PPR/12 that
    gives 8 quarterback, 33 running back, 33 wide receiver and 10 tight end
    bench seats. This is VP-2.2 and `pipelines/lib/roster_convention.py`
@@ -404,12 +405,38 @@ So a small position is far more sensitive to the weights than a large one.
 For you, this means quarterback and tight end values are the ones most
 exposed to a change in method (for example, one source joining or leaving).
 
-The multi-source average gives stability. Each of the seven sources counts for
-one seventh of the weights. Leaving out any single source at PPR/12 moves the
-quarterback share between 7.0% and 7.5% (from 7.2%), running backs between
-42.2% and 43.8% (from 43.0%) and wide receivers between 41.1% and 42.5% (from
-41.7%). The largest single moves are FantasyPros, whose removal takes running
-backs down 0.8 points, and USA Today, whose removal takes them up 0.8.
+Each of the seven sources counts for one seventh of the weight average, but a
+source that drops out (as the four charts did on 2026-10-27) moves more than
+its seventh. Dropping it also changes the shared allocation and the chart
+fill-ins, and with them every other source's group totals. Rerunning the
+whole pipeline with one source left out at PPR/12:
+
+| Source left out | QB | RB | WR | TE | RB, averaging step only |
+|---|---|---|---|---|---|
+| None (all seven) | 7.2% | 43.0% | 41.7% | 8.1% | 43.0% |
+| USA Today | 6.8% | 44.3% | 40.7% | 8.2% | 43.8% |
+| FantasyCalc | 6.7% | 43.5% | 41.6% | 8.1% | 43.4% |
+| FantasyPros | 7.5% | 42.0% | 42.4% | 8.1% | 42.2% |
+| CBS | 7.3% | 43.6% | 41.1% | 8.0% | 43.4% |
+| ESPN | 7.4% | 41.6% | 42.8% | 8.2% | 42.7% |
+| CBS rest of season | 7.0% | 45.5% | 39.6% | 7.9% | 42.9% |
+| Razzball | 7.5% | 41.8% | 42.5% | 8.2% | 42.6% |
+
+The quarterback share stays between 6.7% and 7.5%, but running backs range
+from 41.6% to 45.5% and wide receivers from 39.6% to 42.8%. The biggest
+mover is CBS rest of season: without it running backs gain 2.5 points and
+wide receivers lose 2.1. Without ESPN, running backs lose 1.4. The last
+column shows the same drop with the allocation held fixed (re-averaging the
+other six sources' existing weights): there CBS rest of season moves
+running backs by only 0.1. So most of its effect comes from what the drop changes
+upstream of the average. The projections are the only sources that feed the
+shared allocation (who starts, and who takes the flex and bench seats, by
+the projections' mean points per game), so a missing projection reshuffles
+every source's starters and backups. I did not separate the allocation's
+share of that effect from the fill-ins'. For
+you, this means the running back and wide receiver split is most exposed
+to a projection source going missing for a week, not to any one trade
+chart.
 
 ## Known limits and open questions
 
@@ -498,7 +525,7 @@ implementation is a follow-up ticket.
 
 Every number in this post was produced on 2026-10-29 by
 `python3 tools/research_post9_numbers.py` at main 7f212319, on the week 8
-fixture (`data/fixtures/current/`, built 2026-10-29 21:10 UTC; comparison
+fixture (`data/fixtures/current/`, built 2026-10-29 21:11 UTC; comparison
 chain run 2026-10-29 21:11 UTC, success, nothing failed). The script runs the
 Python reference (`pipelines/value_reference.py`) and refuses (exit 2) when
 any of the seven sources is missing at PPR/12, so it cannot quote an outage
@@ -512,15 +539,18 @@ as the method. The core call is:
 The per-source mixes, group totals and allocation counts come from
 `res['sources'][src]` and `res['slot_fill']` in the same run. The league
 size, scoring, superflex, bench and two-TE tables come from the same pipeline
-at those settings. Leave-one-out recomputes the weight average
-(`ddf_weights(..., computed_share=True)`) with one source dropped.
+at those settings. Leave-one-out reruns the whole pipeline
+(`run_pipeline`, with the Setting's own arguments) with one source removed
+from `included`; the averaging-only column recomputes just the weight
+average (`ddf_weights(..., computed_share=True)`) over the other sources'
+existing weights.
 
 **Verified (2026-10-29):** all seven sources included; eight-group sum equals
 1.000000; budgets equal pie times weights; the same checks hold, with all
 seven sources included, at all 24 combinations of 3 scorings (standard, half
-PPR, PPR), 4 league sizes (8, 10, 12, 14) and no or one superflex slot; the
-leave-one-out average with every source kept reproduces the pipeline's
-weights exactly. The sensitivity figures (11.6% and 12.0%) come from a re-run
+PPR, PPR), 4 league sizes (8, 10, 12, 14) and no or one superflex slot; both
+leave-one-out measures with every source kept reproduce the pipeline's
+weights exactly (the script refuses otherwise). The sensitivity figures (11.6% and 12.0%) come from a re-run
 with position shares set (`position_shares`), checked on the blended DDF
 Value of every running back and wide receiver above 1; the per-point column
 is the formula 1 divided by the share. **Not verified:** the browser engine
