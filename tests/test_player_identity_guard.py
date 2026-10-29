@@ -536,6 +536,19 @@ def injected_resolver_wiring(pipelines_dir: Path, contracts=None):
                     if isinstance(n, ast.Attribute) and n.attr == fn_name and ast.unparse(n.value) not in mods:
                         flag(n, f"reaches {fn_name}() as {ast.unparse(n)!r}, not through an imported "
                                 f"alias of {stem}")
+                # JEG-1347: an import in a class body binds a class attribute,
+                # never an alias the guard tracks, so it fails everywhere,
+                # pinned callers included. Imports in methods are local names.
+                for n in ast.walk(ctree):
+                    if not isinstance(n, (ast.Import, ast.ImportFrom)) or not isinstance(cchains[id(n)][-1], ast.ClassDef):
+                        continue
+                    if isinstance(n, ast.Import):
+                        hit = any(a.name.split(".")[-1] == stem for a in n.names)
+                    else:
+                        hit = ((n.module and n.module.split(".")[-1] == stem)
+                               or any(a.name in (stem, fn_name) for a in n.names))
+                    if hit:
+                        flag(n, f"imports {stem} or {fn_name}() inside a class body")
                 # Outside the defining module, the function's or the module's
                 # name as a string can only feed getattr-style lookups.
                 if crel != rel:
@@ -615,6 +628,8 @@ def check_canonical_resolution_usage(pipelines_dir: Path, contracts=None):
     all fail. JEG-1346 adds an allow-list on top: the only attribute access to
     the function is `<imported alias of its module>.<function>`, and no string
     naming the function or its module may appear outside the defining module.
+    JEG-1347: an import of the module or the function inside a class body fails
+    everywhere, pinned callers included.
     Computed names, `globals()`, `sys.modules`, `importlib` and cross-module
     monkeypatching remain outside this static check.
     """
@@ -1008,6 +1023,46 @@ class TestPlayerIdentityGuard(unittest.TestCase):
         got = self._scan({**real, "zz.py": direct}, contracts=INJECTED_RESOLVER_CONTRACTS)
         self.assertEqual(len(got), 1, got)
         self.assertIn("not a pinned caller", got[0])
+
+    def test_real_capture_class_body_imports_fail(self):
+        """JEG-1347: an import inside a class body bound the module or the
+        function as a class attribute the guard never saw, even inside the
+        pinned caller. Probes E, G, H and I from the delta review of 12f68cc,
+        against the real projection_capture and save_cbsros_references."""
+        cap = (PIPELINES_DIR / "lib" / "projection_capture.py").read_text(encoding="utf-8")
+        saver = (PIPELINES_DIR / "save_cbsros_references.py").read_text(encoding="utf-8")
+        real = {"lib/projection_capture.py": cap, "save_cbsros_references.py": saver}
+        args = ("(rows, weekly, lambda n, p, norm: n, season=1, source_week=1, capture_at=None, "
+                "phase=None, batch_id=None, vintage=None)")
+        match_e = ("class X:\n    import {mod} as pc\n\n"
+                   "def run_zz(rows, weekly):\n    match X.pc:\n        case object(cbs_capture_rows=f):\n"
+                   "            return f" + args + "\n")
+        class_g = ("\n\nclass _X:\n    from projection_capture import cbs_capture_rows as f\n\n\n"
+                   "def run_zz(rows, weekly):\n    return _X.f" + args + "\n")
+        probes = {
+            "E match on a class-body module import": ({"zz.py": match_e.format(mod="lib.projection_capture")}, "zz.py"),
+            "G class-body by-name import in the pinned caller": (
+                {"save_cbsros_references.py": saver + class_g}, "save_cbsros_references.py"),
+            "H the pinned caller's class from outside": (
+                {"save_cbsros_references.py": saver + class_g,
+                 "zz.py": "import save_cbsros_references as s\n\ndef run(rows, weekly):\n    return s._X.f" + args + "\n"},
+                "save_cbsros_references.py"),
+            "I E inside the pinned caller": (
+                {"save_cbsros_references.py": saver + "\n\n" + match_e.format(mod="projection_capture")},
+                "save_cbsros_references.py"),
+        }
+        for why, (files, where) in probes.items():
+            with self.subTest(probe=why):
+                got = self._scan({**real, **files}, contracts=INJECTED_RESOLVER_CONTRACTS)
+                self.assertTrue(any(g.startswith(where + ": ") for g in got), got)
+        # Positive controls: an import inside a method is a local alias and
+        # stays checked as a call; the real pair is clean.
+        method = ("class Runner:\n    def run(self, rows, weekly):\n        import lib.projection_capture as pc\n"
+                  "        return pc.cbs_capture_rows" + args + "\n")
+        got = self._scan({**real, "zz.py": method}, contracts=INJECTED_RESOLVER_CONTRACTS)
+        self.assertEqual(len(got), 1, got)
+        self.assertIn("not a pinned caller", got[0])
+        self.assertEqual(self._scan(real, contracts=INJECTED_RESOLVER_CONTRACTS), [])
 
     def test_wrapper_and_lambda_fallbacks_fail(self):
         wrappers = {

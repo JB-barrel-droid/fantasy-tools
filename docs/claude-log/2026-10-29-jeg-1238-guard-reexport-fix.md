@@ -37,6 +37,9 @@ no pipeline code changed.
 ### JEG-1346 (delta review of #1103 at 35e17a95)
 - Allow-list instead of another escape: any `<expr>.cbs_capture_rows` whose `<expr>` is not an imported alias of `projection_capture` fails in every module, and a string equal to `cbs_capture_rows` or `projection_capture` fails outside the defining module. `test_real_capture_allowlist_escapes_fail` covers getattr and `__dict__`/`vars()` on the package, a class-body import, a star import from the package and a nested getattr (6 failures before on 35e17a95, OK after; removing rule 1 fails 2, rule 2 fails 1; real `pipelines/` scan 0 issues).
 
+### JEG-1347 (delta review of #1103 at 12f68cc)
+- An import of `projection_capture` or `cbs_capture_rows` whose nearest enclosing scope is a class body fails in every module, pinned callers included (methods' imports stay local aliases). `test_real_capture_class_body_imports_fail` covers a match pattern on a class-body import (E), a class-body by-name import in the pinned caller (G), that class reached from outside (H) and E inside the pinned caller (I): 4 failures before on 12f68cc, OK after; removing the rule fails all 4; method-local import positive control and real `pipelines/` scan clean. The optional `case`-pattern backstop was left out: no probe reaches it once the class-body rule is in, so no test could pin it.
+
 ### Verified (check named)
 - Failing before: the two new tests on 29367e71's guard give 24 failures
   (every probe and case, and the first-hop check).
