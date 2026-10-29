@@ -693,7 +693,7 @@ Known bugs (repro steps and history on each ticket):
    week selector, PR #1012); JEG-1180 (D, stale flag, PR #1022).
 2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
    JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
-3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1134,
+3. Waiting on Jeremy (`needs-jeremy`): JEG-1156, JEG-1157, JEG-1134,
    JEG-955, JEG-956, JEG-903, JEG-1176, JEG-982. (JEG-894 and JEG-1101 are
    decided; PRs #969 and #970 merge on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its

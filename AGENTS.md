@@ -44,10 +44,15 @@ over older review or merge text in this file and in `HANDOFF.md`.
   returns a corrected head with a test that fails before and passes after. A
   ticket is not done while a correction child is open. A small fix just moves
   the original ticket back to In Progress.
-- **Branch rule.** Claim on the ticket before touching a branch. Touch another
-  owner's branch only after 30 minutes with no push from them, or with their
-  explicit OK, and then only to merge `origin/main` in normally: no rebase, no
-  force push, no other edits. The owner pulls before their next push.
+- **Branch rule.** Never push straight to `main` and never force-push. Push
+  with an explicit branch refspec (`git push origin <branch>`) so an inherited
+  upstream can't send a bare push to `main`. Claim on the ticket before
+  touching a branch. While another owner still holds a branch, touch it only
+  after 30 minutes with no push from them, or with their explicit OK, and then
+  only to merge `origin/main` in normally: no rebase, no force push, no other
+  edits. The owner pulls before their next push. Taking a ticket over is
+  different (Takeover below). Never delete a branch, data, a file or work in
+  progress without Jeremy's yes.
 - **At most 8 PRs ready for review at once.** Keep the rest as drafts.
 - **Merging.** A Claude merge session batches merges: at most 7 PRs of the same
   risk on pinned current main, with USO valuation work in its own batch. Each
@@ -56,10 +61,13 @@ over older review or merge text in this file and in `HANDOFF.md`.
   Jeremy approves merges by PR number, and on 2026-10-29 at 21:08 UTC gave a
   standing OK: "merge anything you recommend once it is green". That covers a
   PR whose independent review passed, once its checks are green.
-- **Still needs Jeremy's yes each time**, standing OK or not: any change to a
-  published value (the before and after values go to him first), every
-  Supabase deploy, migration, production-data change or deletion (named each
-  time), and every edge-function deploy.
+- **Still needs Jeremy's yes each time**, standing OK or not: any PR that
+  changes value math (how values are computed) or a published value, whether
+  or not it claims the published numbers move, with the before and after
+  values shown to him first; every Supabase deploy, migration, production-data
+  change or deletion (named each time); and every backend or edge-function
+  deploy. The one exception is a routine data refresh on green gates, which
+  changes inputs, not the math (Routing below).
 - **Data rules that never bend:** "do not blend weekly data with ROS data,
   ever." (Jeremy, 2026-10-28). "Natural means both sides, not just 1 side"
   (Jeremy, 2026-10-28): a natural-fit trade has to fit both teams.
@@ -77,6 +85,9 @@ current model in the lane.
 | **T1 deep** | Opus / Fable, high effort (`deep-worker`) | top GPT / Codex, high reasoning | not allowed | Engine and value math, methodology, any bug with unknown root cause, design, final review of T2/T3 output, every merge and deploy |
 | **T2 build** | Sonnet (`worker`) | Codex, medium | a strong open model (checked per task) | Implementation against a written spec: pullers, pipeline stages, migrations, FE built to a contract line, tests. Escalate to T1 after 2 failed gate runs |
 | **T3 light** | Haiku | small GPT | cheap OpenRouter models (e.g. DeepSeek); **MiniMax M3 only** (Jeremy 2026-10-09: 2.5 is out) | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
+
+The ChatGPT/Codex column is inactive since Codex stopped on 2026-10-29
+(review and merge protocol above).
 
 Rules:
 
@@ -101,18 +112,17 @@ Rules:
 | --- | --- |
 | PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
 | Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
-| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
+| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
 
 - **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
   ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
   2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
   2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
-- **Muse (Roman)** owns only Linear tickets labeled `muse` (Jeremy,
-  2026-10-26; one owner per ticket, see `HANDOFF.md` "Working with Muse").
-  On those it works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Otherwise Muse
-  works here only as a last resort when Jeremy asks. Muse output is untrusted
-  input until it passes the repo pipeline. Muse never
+- **Muse (Roman)** works here only as a last resort when Jeremy asks (the
+  `muse` label was retired on 2026-10-27; see `HANDOFF.md` "Working with
+  Muse"). It works on `muse/jeg-<id>-<slug>` branches, merges main in (never
+  rebases or force-pushes) and opens PRs for Claude review. Muse output is
+  untrusted input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
 - **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
@@ -177,8 +187,8 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
 - **Owner.** Claimed work carries the `claude` label; the Linear assignee stays
   Jeremy. The `Session` labels (`session:be`, `session:fe-pc`,
   `session:fe-mac`, `session:fe-cloud`, `session:cma`) were retired on
-  2026-10-28. The hosted managed agent (`session:cma`, JEG-1173) has no queue
-  and no standing takeover. `muse` and `owner:*` are retired too.
+  2026-10-28. The hosted managed agent (`session:cma`) was retired by Jeremy
+  on 2026-10-27 (JEG-1173): it has no queue and no standing takeover. `muse` and `owner:*` are retired too.
 - **Queue (JEG-567).** The queue is the Todo tickets in Jegabee, by Linear
   priority, then oldest first. Backlog is not the queue: a ticket enters it when
   Jeremy moves it to Todo. The one exception is `ready-for-claude`, which marks
@@ -196,10 +206,12 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
   what's done, what's next, and the branch (`claude/<ticket>-<slug>`), pushed
   to GitHub at each heartbeat so work never lives on one machine only.
 - **Takeover.** A session may take over a ticket that shows no comment, commit
-  or PR update for 4 hours, or when Jeremy says so. It comments `taking over
-  from <session> · last heartbeat <time> · continuing from <branch>` and follows
-  the branch rule above. The previous owner, on returning, reads the comment
-  and doesn't resume.
+  or PR update for 4 hours, when its owner gives an explicit OK, or when Jeremy
+  says so. It comments `taking over from <session> · last heartbeat <time> ·
+  continuing from <branch>`. Ownership moves with the takeover, so the taker
+  then works the branch as its own: it keeps working on it, merges
+  `origin/main` in normally, and never rebases or force-pushes. The previous
+  owner, on returning, reads the comment and doesn't resume.
 - **Handoff.** A session that is stopping comments on each of its In Progress
   tickets with its state and branch, then moves them back to Todo.
 

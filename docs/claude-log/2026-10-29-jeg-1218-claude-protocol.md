@@ -27,3 +27,21 @@ JEG-1142 block in `HANDOFF.md` that closed PR #1061 was meant to fix.
 - Whether #1044 was checked on the live site: no live-check record found on
   JEG-1142 or in its logs, so HANDOFF says shipped and Done only.
 - Independent Claude review of this PR is still to come.
+
+### Review corrections (independent review of `8b97fecc`, 21:20 UTC)
+
+Verified (re-read of the AGENTS.md hunks; `tests.test_doc_staleness` and
+`tests.test_import_health_schema_doc` OK; `git diff --check` clean):
+- 1: the yes-each-time rule covers any PR that changes value math or a
+  published value, whether or not numbers are claimed to move; routine data
+  refreshes on green gates stay excepted as input changes, worded the same in
+  the Routing row; backend deploys added next to edge deploys.
+- 2: the Branch rule bans pushing straight to `main` and force-pushing, and
+  asks for an explicit branch refspec (from #1073).
+- 3: the main-merge-only limit applies while another owner still holds a
+  branch; a takeover (4 hours idle, owner OK or Jeremy) moves ownership, and
+  the taker keeps working the branch with normal main merges only.
+- 4: the Muse bullet no longer says it owns `muse`-labeled tickets.
+- Nits taken: no-delete rule from #1073, JEG-1173 citation for `session:cma`,
+  HANDOFF priorities item 3 now says `needs-jeremy`, ChatGPT/Codex tier
+  column marked inactive.
