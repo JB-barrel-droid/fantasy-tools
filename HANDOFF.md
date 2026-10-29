@@ -15,6 +15,17 @@ and after each milestone; commit and push it with the relevant code.
 
 ## Resume here
 
+### Roster provenance helper (JEG-1241, Claude, 2026-10-29 UTC)
+
+- Branch `claude/JEG-1241-roster-provenance`, draft PR only. New pure module `app/v2/roster-provenance-transitions.js`
+  (`DDFRosterProvenance`) with a transition table fixture, node runner (22 source mutants) and Python wrapper. Not
+  loaded by the page; not in any Makefile list yet.
+- The #1105 owner (JEG-1188 session) agreed the API. Wiring in workspace.js / league.js is its follow-up PR after #1105
+  and this PR merge. Contract: `docs/claude-log/2026-10-29-jeg-1241-roster-provenance.md`. Reasons `bench_omitted` and
+  `coverage_unproven` are separate; which one gates is Codex's call (the owner proposes `bench_omitted` only, since no
+  parser path attests a whole roster today).
+- No merge, deploy or Supabase. Codex reviews and merges.
+
 ### League candidate completeness fix (Codex, 2026-10-28 UTC)
 
 - Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
