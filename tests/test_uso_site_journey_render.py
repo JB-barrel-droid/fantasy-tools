@@ -12,7 +12,8 @@ source availability (TradeValueCurveControls.getSourceInfo, in the JEG-1259 {sta
 level (#v2LgLevelCounts on the league page, else a data-bench-level marker inside the view the stage reads: #v2FindLeague,
 #v2Compare or #v2FindTrade; no marker inside that view reads modeled), both rosters, the package,
 each player's DDF Value, both sides' starter gains, and the starters and bench by position from the lineup tables the
-page draws. Stages, for an equal and a throw-in candidate the league page itself found sending JSN:
+page draws. Stages, for two candidates the league page itself found: an equal one sending JSN, and a throw-in one
+(sending JSN where the page has one, else any throw-in candidate, as the Node contract picks; JEG-1304):
 
   league panel         ?trade= opened and reloaded on the league page
   league -> Compare    the panel's own "Open in Compare a trade" link
@@ -196,15 +197,23 @@ COMMON = """
     return {us: a ? {ddf: num(a[3]), ddfBefore: num(a[1])} : null, them: b ? {ddf: num(b[3])} : null}; };
 """
 
+# The equal pick sends JSN with no throw-in. The throw-in pick follows the Node contract's order
+# (uso_site_journey_contract.cjs pickOnce): a JSN trade whose throw-in is not JSN, else any JSN trade with a throw-in,
+# else any trade with a throw-in (on published values this league can offer JSN trades with no throw-in at all, JEG-1304).
+# Throw-ins are "give:<key>" or "receive:<key>", read from finder.js addedThrowIns ({side, row}).
 CANDIDATES = """(focus) => { const res = window.TradeValueLeague.ui.result; if (!res) return null;
   const rows = res.rows;
-  const jsn = rows.filter(r => r.give.some(p => String(p.player_key) === focus));
-  const pack = r => r && {id: r.id, opponent: r.opponent, opponentId: r.opponentId,
+  const sends = (r, key) => r.give.some(p => String(p.player_key) === key);
+  const jsn = rows.filter(r => sends(r, focus));
+  const thrownOf = r => (r.addedThrowIns || []).map(t => `${t.side}:${String(t.row.player_key)}`);
+  const pack = r => (r ? {id: r.id, opponent: r.opponent, opponentId: r.opponentId,
     give: r.give.map(p => String(p.player_key)), get: r.receive.map(p => String(p.player_key)),
-    throwIns: r.addedThrowIns || [], unbalanced: Boolean(r.unbalanced)};
-  const equal = jsn.find(r => !(r.addedThrowIns || []).length && !r.unbalanced);
-  const thrown = jsn.find(r => (r.addedThrowIns || []).length && !(r.addedThrowIns || []).includes('give:' + focus));
+    throwIns: thrownOf(r), sendsFocus: sends(r, focus), unbalanced: Boolean(r.unbalanced)} : null);
+  const equal = jsn.find(r => !thrownOf(r).length && !r.unbalanced);
+  const thrown = jsn.find(r => thrownOf(r).length && !thrownOf(r).includes('give:' + focus)) || jsn.find(r => thrownOf(r).length)
+    || rows.find(r => thrownOf(r).length);
   return {count: rows.length, jsn: jsn.length, opponents: new Set(jsn.map(r => r.opponentId)).size, equal: pack(equal), thrown: pack(thrown),
+    jsnThrown: jsn.filter(r => thrownOf(r).length).length, throwIns: rows.filter(r => thrownOf(r).length).length,
     myTeamId: window.TradeValueWorkspace.store.get().myTeamId}; }"""
 
 ORIGIN = "([id]) => {" + COMMON + """
@@ -436,7 +445,9 @@ def journey(browser, base, overrides=None) -> Run:
     for label in ("equal", "thrown"):
         pick = found[label]
         if not pick:
-            run.blocked(f"{label}: pick", "candidate-missing", f"no {label} candidate sends JSN among {found['jsn']} (of {found['count']} found)")
+            why = (f"no equal candidate sends JSN among {found['jsn']}" if label == "equal"
+                   else f"no candidate has a throw-in ({found['jsnThrown']} of {found['jsn']} JSN candidates)")
+            run.blocked(f"{label}: pick", "candidate-missing", f"{why} (of {found['count']} found)")
             continue
         tag = f"{label} {pick['id']}"
         if sorted(pick["give"]) != sorted(pick["id"].split("|")[1].split(",")) or sorted(pick["get"]) != sorted(pick["id"].split("|")[2].split(",")):
@@ -513,7 +524,8 @@ def arrival(J, run, stage, url, origin, pair=False, pick=None):
 
 
 def unequal_deal(browser, base) -> list[str]:
-    """Compare: take the throw-in out of a page-found JSN trade; the 2-for-1 keeps its package and lineup math."""
+    """Compare: take the throw-in out of the page-found throw-in pick (a JSN trade where the page has one, CANDIDATES);
+    the 2-for-1 keeps its package and lineup math."""
     J = _Journey(browser, base)
     problems: list[str] = []
     page = J.page()
@@ -521,7 +533,7 @@ def unequal_deal(browser, base) -> list[str]:
     pick = found and found["thrown"]
     if not pick:
         page.close()
-        return ["no throw-in candidate sends JSN, so no explicit unequal deal can be derived"]
+        return [f"no candidate has a throw-in (of {found and found['count']} found), so no explicit unequal deal can be derived"]
     side, key = pick["throwIns"][0].split(":", 1)
     give = [k for k in pick["give"] if not (side == "give" and k == key)]
     get = [k for k in pick["get"] if not (side == "receive" and k == key)]
@@ -598,6 +610,62 @@ class LineupReaderTest(unittest.TestCase):
         self.assertEqual(got["alone"]["after"]["bench"], ["B Nine", "B Ten"])
         self.assertNotIn("Position", got["nested"]["before"]["slots"], "the header row was read as a slot")
         self.assertEqual(got["nested"], got["alone"], "the league page's nesting changed what the reader sees")
+
+
+def pick_candidates(rows: list) -> dict:
+    """CANDIDATES on a stub page whose league search returned rows (finder.js row shape). Node, no browser."""
+    script = ("const [src, rows, focus] = JSON.parse(require('fs').readFileSync(0, 'utf8'));"
+              "globalThis.window = {TradeValueLeague: {ui: {result: {rows}}}, TradeValueWorkspace: {store: {get: () => ({myTeamId: 'mine'})}}};"
+              "console.log(JSON.stringify(eval(src)(focus)));")
+    out = subprocess.run(["node", "-e", script], input=json.dumps([CANDIDATES, rows, league()["focus"]["key"]]),
+                         capture_output=True, text=True, timeout=60, cwd=ROOT)
+    if out.returncode or not out.stdout.strip():
+        raise HarnessError(f"candidate picker failed: {out.stderr[-2000:]}")
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+def _row(opp, give, get, thrown=()):
+    """A league-search row: give / get are player keys, thrown is [(side, key)] as finder.js addedThrowIns."""
+    row = {"id": f"{opp}|{','.join(give)}|{','.join(get)}", "opponent": opp, "opponentId": opp,
+           "give": [{"player_key": k} for k in give], "receive": [{"player_key": k} for k in get]}
+    if thrown:
+        row["addedThrowIns"] = [{"side": side, "row": {"player_key": key}} for side, key in thrown]
+    return row
+
+
+class CandidatePickTest(unittest.TestCase):
+    """JEG-1304: the throw-in pick follows the Node contract's order, so published values with no JSN throw-in still
+    give the journey a throw-in package (the Mac's 21:04 run: 12 found, 1 sends JSN, none with a throw-in). Runs
+    without a browser."""
+
+    JSN = league()["focus"]["key"]
+
+    def test_no_jsn_throw_in_falls_back_to_any_throw_in(self):
+        got = pick_candidates([_row("t2", [self.JSN, "751"], ["1095", "2756"]),
+                               _row("t5", ["885"], ["300", "400"], [("give", "60")])])
+        self.assertEqual(got["equal"]["give"], [self.JSN, "751"])
+        self.assertIsNotNone(got["thrown"], "no throw-in pick although the search found a throw-in candidate")
+        self.assertEqual(got["thrown"]["id"], "t5|885|300,400")
+        self.assertFalse(got["thrown"]["sendsFocus"])
+        self.assertEqual((got["jsn"], got["jsnThrown"], got["throwIns"]), (1, 0, 1))
+
+    def test_a_jsn_throw_in_comes_first_and_one_that_throws_in_jsn_last(self):
+        rows = [_row("t5", ["885"], ["300", "400"], [("give", "60")]),
+                _row("t3", ["900"], [self.JSN, "500"], [("give", self.JSN)]),
+                _row("t4", [self.JSN, "61"], ["700"], [("receive", "62")])]
+        rows[1]["give"], rows[1]["receive"] = rows[1]["receive"], rows[1]["give"]
+        self.assertEqual(pick_candidates(rows)["thrown"]["id"], "t4|" + self.JSN + ",61|700")
+        self.assertEqual(pick_candidates(rows[:2])["thrown"]["id"], rows[1]["id"], "a JSN trade with a throw-in beats a non-JSN one")
+
+    def test_throw_ins_read_as_side_and_key(self):
+        got = pick_candidates([_row("t5", ["885"], ["300", "400"], [("give", "60")])])
+        side, key = got["thrown"]["throwIns"][0].split(":", 1)
+        self.assertEqual((side, key), ("give", "60"), "unequal_deal splits each throw-in into its side and key")
+
+    def test_no_throw_in_anywhere_leaves_the_pick_empty(self):
+        got = pick_candidates([_row("t2", [self.JSN], ["1095"])])
+        self.assertIsNone(got["thrown"])
+        self.assertEqual(got["throwIns"], 0)
 
 
 class LevelScopeTest(unittest.TestCase):

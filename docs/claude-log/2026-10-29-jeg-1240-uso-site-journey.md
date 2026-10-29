@@ -220,3 +220,33 @@ another device's ids are dropped.
 
 - The browser journey has not run on this head. Expected: no `Position` in any readout line. The equal pick's readout
   should then compare clean on the same device, unless the page really differs.
+
+## JEG-1304 follow-up: the throw-in pick on published values, 2026-10-29
+
+The Mac's 21:04 run found 12 trade opportunities on published values. One sent JSN, and none of the JSN ones had a
+throw-in, so the throw-in stage, `test_unequal_deal_keeps_its_package` and the `get=` guard all stopped at
+`candidate-missing`. Diagnosis on JEG-1304: the page and the Node contract run the same `runAll`/`findTrades`; the gap
+is the values. Modeled values draw DDF Value and the charts separately, while on published values DDF Value is the
+average of the adjusted charts, so few trades pass "you gain DDF and 3 of 4 charts are fair". Pick A (the coordinator's
+pick, logged): the browser picks the throw-in candidate the way the contract's `pickOnce` already does, on real values.
+
+- `CANDIDATES` throw-in pick: a JSN trade whose throw-in is not JSN, else any JSN trade with a throw-in, else any trade
+  with a throw-in. It reports `jsnThrown` and `throwIns` counts, and `sendsFocus` on the pick.
+- Throw-ins are now `"give:<key>"` / `"receive:<key>"` strings. Before, the pick kept finder.js's `{side, row}`
+  objects. So the "throw-in is not JSN" check compared a string with objects and never excluded anything, and
+  `unequal_deal`'s `split(":")` would have failed on the first throw-in pick it ever got.
+- `pack` returns `null` for no pick, not `undefined`, so a missing pick reads the same in Node and in the browser.
+- The `candidate-missing` messages name the counts. No page, value, Makefile or workflow change.
+
+### Verified (check named)
+
+- `CandidatePickTest` (4 tests, Node, no browser: `CANDIDATES` on a stub page whose search returned finder.js-shaped
+  rows) on c8e936f's `CANDIDATES`: 3 errors and 1 failure. No throw-in pick when no JSN trade has one, and with JSN
+  throw-in rows it picked the trade whose throw-in is JSN itself (`t3` over `t4`). On this head: 4 pass.
+- `python3 -m unittest tests.test_uso_site_journey_render`: 13 run, 9 pass, 4 browser tests skipped (no Chromium).
+
+### Claimed, not confirmed
+
+- The browser journey hasn't run on this head. Expected on published values: the throw-in pick is a non-JSN trade
+  with a throw-in, if the page's 12 include one (the reference values give 11 of 79), and the `get=` guard gets both
+  picks.
