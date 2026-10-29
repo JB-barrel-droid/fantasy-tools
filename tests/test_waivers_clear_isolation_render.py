@@ -293,6 +293,7 @@ class WaiversClearIsolationRenderTests(unittest.TestCase):
                 errors, _, markers = run_checks(body, viewports=[tuple(FIXTURE["mutant_viewport"])])
                 self.assertEqual(markers, [name], f"mutant {name!r} was not the file the page ran")
                 self.assertTrue(any(expected in e for e in errors), f"{name!r} did not fail {expected!r}: {errors}")
+                print(f"killed: {name!r} by {[e for e in errors if expected in e]}", file=sys.stderr)
 
 
 if __name__ == "__main__":

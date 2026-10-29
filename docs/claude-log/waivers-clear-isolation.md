@@ -20,16 +20,26 @@ Mutants (real source edits of `app/v2/waivers.js`, served in place of the file, 
 
 ### Verified (check named)
 - Each mutant anchor matches `app/v2/waivers.js` at main 430791c exactly once and the mutated file still parses (`mutate()` in
-  the test, plus a `node` parse of each body).
+  the test, plus `node --check` of each body; the diff of each is the one-line edit plus the marker line).
 - The test module imports, and its four page scripts parse (`node` `new Function`).
 - `python3 -m unittest tests.test_waivers_clear_isolation_render` skips cleanly without Playwright (2 tests, 4 skipped subtests).
+- In a real browser (Mac session, 2026-10-29, Google Chrome 156.0.8078.48 headless via `CHROMIUM_PATH`, Playwright 1.63,
+  `RENDER_TESTS_REQUIRED=1`, branch head d03affc1 on main 430791c): `python -m unittest -v tests.test_waivers_clear_isolation_render`
+  ran 2 tests, OK, no skips. The baseline passes at 320, 390 and 1366 and reports no mutant marker. Each mutant reported its
+  marker (so it was the file served) and failed its named assertion at 390:
+  - candidate clear calls roster clear: `cands-clear: roster changed [16 keys, ending x:K:alex kessman, x:DEF:ARI] -> []`
+  - Undo restores the other list: `cands-undo: candidates not restored [8 keys, ending x:DEF:BUF] -> []`
+  - the roster's Undo writes into the candidates: `mine-undo: roster not restored exactly [the same 16 keys] -> []`
+- Network: at page load the only request off 127.0.0.1 is `fonts.googleapis.com/css2`, which the hermetic resolver blocks (as in
+  every render test). The test's network check starts after the seed check, so it covers Clear and Undo, which made none.
 
-### Claimed, not confirmed
-- Baseline pass and mutant failures in a real browser: this container has no Chromium (Playwright's download host is disabled),
-  so the render run has to happen in CI or on a machine with a browser once the module is wired.
-- `tests.test_render_sweep_coverage` lists this module as unwired until it is added to a Makefile run list (proposed line:
-  `python3 -m unittest tests.test_waivers_clear_isolation_render` next to `tests.test_waivers_render`). That test is already red
-  on main for four other unwired modules.
-- From reading the code (not observed): after roster Clear the Clear button hides and the input it focuses is still folded, and
-  after roster Undo the roster folds again, so keyboard focus may land on the page body both times. The test records focus at
-  both points as notes instead of asserting, since that would be new UX; it is for the JEG-1190 owner to confirm.
+### Observed, for the JEG-1190 owner (recorded as notes, not asserted, since asserting would be new UX)
+- At all three widths, after roster Clear, focus is on `body`; Tab reaches Undo within three presses.
+- At all three widths, after roster Undo, focus is on `body` and the "Your roster is back." message is not visible (the
+  roster folds again). Candidate Clear and Undo keep focus in the list and Tab reaches Undo, which the test asserts.
+
+### Not covered here
+- `tests.test_render_sweep_coverage` lists this module as unwired until it is added to a Makefile run list (proposed line,
+  for the CI coordinator: `python3 -m unittest tests.test_waivers_clear_isolation_render` next to `tests.test_waivers_render`).
+  That test is already red on main for four other unwired modules.
+- A local built page with a seeded league; this does not establish live-site behavior.
