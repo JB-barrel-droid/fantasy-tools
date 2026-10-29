@@ -15,7 +15,8 @@
   const T = root.TradeValueTeamSummary;
   const O = root.TradeValueOpportunities;
   const S = root.TradeValueTableSort;
-  if (!W || !F || !T || !O || !S || !F.page) return;
+  const L = root.TradeValueLineupComparison;
+  if (!W || !F || !T || !O || !S || !L || !F.page) return;
   const store = W.store;
   const engine = () => root.TradeValueCurveControls;
   const $ = id => document.getElementById(id);
@@ -55,7 +56,7 @@
     box.hidden = count < 8 || count === priced;
     if (box.hidden) { box.replaceChildren(); return; }
     const supported = [8, 10, 12, 14].includes(count);
-    box.replaceChildren(el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
+    box.replaceChildren(...[el("span", {text: `Your league has ${count} teams, but league settings use ${priced}. `}),
       supported ? button(`Use ${count} teams in league settings`, {class: "v2-btn", id: "v2LgMatchTeams"}, () => {
         const V = root.TradeValueV2;
         if (V && V.applyLinkLeague) {
@@ -66,7 +67,7 @@
           announce(`League settings now use ${store.get().teams.length} teams.`);
         }
       }) : el("span", {text: "Values currently support 8, 10, 12 or 14 teams. "}),
-      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null);
+      !supported ? button("Edit league settings", {class: "v2-btn"}, () => { const edit = $("v2EditLeague"); if (edit) edit.click(); }) : null].filter(Boolean));
   }
 
   // ---------- the engine, read once per render ----------
@@ -829,6 +830,13 @@
   };
   // JEG-885: the received core player of a row (opportunities.js sets `core` to the highest DDF Value player you receive).
   const coreKey = r => (r.core ? String(r.core.player_key) : "");
+  function ourFitDetail(r) {
+    if (!r.ours) return "";
+    const delta = r.fit && r.fit.us && r.fit.us.starterDelta;
+    if (!finite(delta) || delta <= 0.05 || !r.give.concat(r.receive).every(p => p.values && finite(p.values[OUR_KEY]))) return r.ours.detail;
+    const gain = `starters gain ${signed(delta)}`;
+    return r.ours.detail.includes("starters hold") ? r.ours.detail.replace("starters hold", gain) : `${r.ours.detail}; ${gain}`;
+  }
   // JEG-1081: does DDF Value (projections) back the trade? A tick when it gains you, a cross when it loses you, a dash when level or unpriced.
   function projText(r) {
     if (r.projAgrees === true) return {mark: "\u2713", word: "Projections agree", cls: "is-agree"};
@@ -860,7 +868,13 @@
     const box = el("div", {class: "v2-lg-detail-body"});
     box.append(el("p", {}, el("b", {text: "You give: "}), ...ourLine(r.give), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
       el("p", {}, el("b", {text: "You receive: "}), ...ourLine(r.receive), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
-    if (r.fit) box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
+    if (r.fit) {
+      box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
+      if (r.fit.us && r.give.concat(r.receive).every(p => p.values && finite(p.values[OUR_KEY]))
+          && finite(r.fit.us.starterDelta) && r.fit.us.starterDelta > 0.05) {
+        box.append(el("p", {class: "v2-find-fit", text: `Your best starting lineup gains ${money(r.fit.us.starterDelta)} on DDF Value.`}));
+      }
+    }
     const ws = store.get();
     const mine = teamById(ws, ws.myTeamId);
     const opp = teamById(ws, r.opponentId);
@@ -882,7 +896,6 @@
   }
   // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
   // The pick lives in the address as ?trade=<opponent>~<give keys>~<receive keys> so the link reopens the same trade.
-  const SLOT_ORDER = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
   const tradeParam = r => [r.opponent, r.give.map(p => p.player_key).join(","), r.receive.map(p => p.player_key).join(",")].map(encodeURIComponent).join("~");
   // Focus goes back to the button that opened the panel (the visible one: the table and the phone cards both carry one).
   function focusPick(id) {
@@ -911,15 +924,6 @@
     const hit = rows.find(r => tradeParam(r) === m[1]);
     if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; }
   }
-  function lineupRows(imp, shape, key) {
-    const out = [];
-    SLOT_ORDER.forEach(slot => {
-      for (let i = 0; i < ((shape && shape[slot]) || 0); i += 1) out.push({slot, before: imp.before.slots[slot][i] || null, after: imp.after.slots[slot][i] || null});
-    });
-    const cell = row => (row ? `${row.name} ${money(row.values[key])}` : "empty");
-    const val = row => (row ? row.values[key] : 0);
-    return out.map(o => el("tr", {"data-slot": o.slot}, el("th", {scope: "row", text: o.slot}), el("td", {text: cell(o.before)}), el("td", {text: cell(o.after)}), el("td", {class: "num", text: signed(val(o.after) - val(o.before))})));
-  }
   function sidePanel(heading, team, leaving, arriving, ctx) {
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
     const names = list => list.map(p => p.name).join(" + ") || "nobody";
@@ -930,12 +934,9 @@
     const views = [["DDF Value", OUR_KEY, rows => rows]].concat(ctx.market ? [["Trade chart average", MARKET_KEY, withAvg]] : []);
     views.forEach(([label, key, convert]) => {
       const imp = F.rosterImpact(convert(rowsOfTeam(team, ctx)), convert(leaving), convert(arriving), ctx.shape, key);
-      const body = lineupRows(imp, ctx.shape, key);
-      body.push(el("tr", {}, el("th", {scope: "row", text: "Starters"}), el("td", {text: money(imp.before.starterValue)}), el("td", {text: money(imp.after.starterValue)}), el("td", {class: "num", text: signed(imp.starterDelta)})));
-      body.push(el("tr", {}, el("th", {scope: "row", text: "Bench"}), el("td", {text: money(imp.before.benchValue)}), el("td", {text: money(imp.after.benchValue)}), el("td", {class: "num", text: signed(imp.benchDelta)})));
-      node.append(el("div", {class: "v2-find-table-wrap"}, el("table", {class: "v2-find-lineup", "data-view": label},
-        el("caption", {text: `Best starting lineup in ${label}`}),
-        el("thead", {}, el("tr", {}, ...["Position", "Before", "After", "Change"].map(h => el("th", {scope: "col", text: h})))), el("tbody", {}, ...body))));
+      const view = L.renderTable(imp, ctx.shape, key, `Best starting lineup in ${label}`);
+      view.querySelector("table").setAttribute("data-view", label);
+      node.append(view);
       if (label === "DDF Value") node.append(el("p", {class: "v2-meta", "data-line": "need", text: `${F.needLine(imp)}.`}));
     });
     return node;
@@ -956,8 +957,8 @@
     const opp = teamById(ws, r.opponentId);
     const close = button("Close", {class: "v2-btn", id: "v2LgOppPanelClose"}, () => { const id = UI.selectedOpp; selectOpp(null); renderOpps(); focusPick(id); });
     const copyLinkBtn = button("Copy link to this trade", {class: "v2-btn", id: "v2LgOppPanelLink"}, () => copy(root.location.href, "Copied a link to this trade."));
-    return el("section", {class: "v2-card v2-lg-oppanel", id: "v2LgOppPanel", "aria-labelledby": "v2LgOppPanelTitle", "data-opp-id": r.id},
-      el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", text: `This trade with ${r.opponent}`}),
+    return el("section", {class: "v2-lg-oppanel", id: "v2LgOppPanel", "aria-labelledby": "v2LgOppPanelTitle", "data-opp-id": r.id},
+      el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", tabindex: "-1", text: `Trade details: vs ${r.opponent}`}),
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
       r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
@@ -1085,10 +1086,25 @@
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
     // one received core player, the rest fold under "N more for <player>"; "Show 10 more" and "Show all" show the plain ranked list. Selection only:
     // the order, every value, edge and fit label are exactly what the ranking produced.
-    const capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
     pickFromHash(res.rows);
-    const togglePick = r => { selectOpp(UI.selectedOpp === r.id ? null : r); renderOpps(); if (UI.selectedOpp) { const p = $("v2LgOppPanel"); if (p) p.scrollIntoView({block: "nearest"}); } };
-    const chosen = UI.selectedOpp ? sorted.find(r => r.id === UI.selectedOpp) : null;
+    let capped = UI.oppsShown === PAGE && sorted.length > PAGE ? O.capPerCore(sorted, coreKey, O.CAP_PER_CORE) : {list: sorted, folds: new Map()};
+    // A linked or restored pick must appear with its row, even when the opening core is folded.
+    if (UI.selectedOpp && sorted.some(r => r.id === UI.selectedOpp) &&
+        !capped.list.slice(0, UI.oppsShown).some(r => r.id === UI.selectedOpp)) {
+      UI.oppsShown = sorted.length;
+      capped = {list: sorted, folds: new Map()};
+    }
+    const togglePick = r => {
+      const closing = UI.selectedOpp === r.id;
+      selectOpp(closing ? null : r);
+      renderOpps();
+      if (closing) focusPick(r.id);
+      else {
+        const title = $("v2LgOppPanelTitle");
+        if (title) { title.scrollIntoView({block: "nearest"}); title.focus({preventScroll: true}); }
+      }
+    };
+    const phoneLayout = root.matchMedia("(max-width: 767px)").matches;
     const shownRows = capped.list.slice(0, UI.oppsShown);
     // Which cores show a fold control: the last visible row that carries the core, so the control sits with the player's rows.
     const foldAt = new Map();
@@ -1136,14 +1152,16 @@
         el("th", {scope: "row", class: "v2-lg-trade"}, ...tradeNodes(r, ctx), el("br"), details, " ", pickBtn),
         el("td", {class: "num", "data-cell": "capture"}, `${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
         projCell(r),
-        el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${r.ours.detail}`}) : null),
+        el("td", {"data-cell": "ours"}, r.ours ? `${r.ours.label[0].toUpperCase()}${r.ours.label.slice(1)}` : "—", r.ours ? el("span", {class: "v2-meta", text: ` ${ourFitDetail(r)}`}) : null),
         el("td", {class: "num", "data-cell": "market"}, r.chartEdge === null ? "—" : signed(r.chartEdge)),
         el("td", {class: "num", "data-cell": "fair"}, `${r.rivalOkCount}/${r.chartCount} fair`),
         el("td", {"data-cell": "theirs"}, r.theirs ? r.theirs.detail[0].toUpperCase() + r.theirs.detail.slice(1) : "—"),
         el("td", {"data-cell": "overall"}, el("span", {class: `v2-lg-fit is-${r.overall || "none"}`, text: fitWord}), r.overall ? fitInfo(r.overall) : null),
         el("td", {class: "num", "data-cell": "rank"}, `#${r.rank}`),
         ...optional.map(c => el("td", {class: c.type === "number" ? "num" : "", "data-cell": c.id}, T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field))));
-      return el("tbody", {}, tr, ...(open ? [detailRow(r, ctx, colspan)] : []));
+      return el("tbody", {}, tr,
+        ...(picked && !phoneLayout ? [el("tr", {class: "v2-lg-panel-row"}, el("td", {colspan: String(colspan)}, oppPanel(r, ctx)))] : []),
+        ...(open ? [detailRow(r, ctx, colspan)] : []));
     };
     // The fold control: "N more for <player>", opening the rest of that player's rows right under it (keyboard: focus comes back).
     const foldLabel = key => `${capped.folds.get(key).length} more for ${capped.folds.get(key)[0].core.name}`;
@@ -1167,12 +1185,13 @@
       el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
       el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
-      el("p", {}, `Our fit: ${r.ours ? r.ours.label : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
+        el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
-      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
+      " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
       ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
-      tail || null);
+      tail || null,
+      UI.selectedOpp === r.id && phoneLayout ? oppPanel(r, ctx) : null);
     const cardNodes = [];
     displayRows.forEach((r, i) => {
       const key = coreKey(r);
@@ -1192,7 +1211,6 @@
     body.replaceChildren(...[headline, oppHead, warn.length ? el("p", {class: "v2-meta", text: warn.join(" ")}) : null, oppControls(ws, res), summaryControls(ws, basis), el("div", {class: "v2-ctoolbar"}, reset),
       el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgOpps", cols, state, onSort)), empty,
       count, sorted.length ? el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table) : null, sorted.length ? cards : null, more,
-      chosen ? oppPanel(chosen, ctx) : null,
       notEval ? el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated."}) : null].filter(Boolean));
   }
 
@@ -1426,7 +1444,16 @@
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
       if (!tr || event.target.closest("button, a, select, input, summary, details")) return;
       const row = UI.result && UI.result.rows.find(r => r.id === tr.dataset.oppId);
-      if (row) { selectOpp(UI.selectedOpp === row.id ? null : row); renderOpps(); }
+      if (row) {
+        const closing = UI.selectedOpp === row.id;
+        selectOpp(closing ? null : row);
+        renderOpps();
+        if (closing) focusPick(row.id);
+        else {
+          const title = $("v2LgOppPanelTitle");
+          if (title) { title.scrollIntoView({block: "nearest"}); title.focus({preventScroll: true}); }
+        }
+      }
     });
     opps.addEventListener("keydown", event => {
       if (event.key !== "Escape" || !UI.selectedOpp) return;
@@ -1458,6 +1485,8 @@
     $("v2LgTeams").addEventListener("input", () => {});
     document.addEventListener("ddf:league-settings-changed", onSettingsChanged);
     root.addEventListener("hashchange", readShareHash);
+    const phoneLayout = root.matchMedia("(max-width: 767px)");
+    if (phoneLayout.addEventListener) phoneLayout.addEventListener("change", () => { if (UI.selectedOpp) renderOpps(); });
     const ready = () => {
       const ctx = mathContext();
       if (!ctx) return false;
