@@ -606,7 +606,11 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_trifit
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	python3 -m unittest tests.test_v2_finder_triview_display
+	# JEG-1341: lineup presentation properties (#1133, JEG-1270); ran in no target.
+	python3 -m unittest tests.test_lineup_presentation_properties
 	node tests/test_v2_roster_paste.js
+	# JEG-1341: mutation proof for roster-paste.js (#1134, JEG-1272); ran in no target.
+	python3 -m unittest tests.test_roster_paste_mutation_proof
 	node tests/test_v2_league_paste.js
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_headlines
@@ -682,6 +686,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_verify_live
 	python3 -m unittest tests.test_v2_copy_names
 	node tests/test_v2_roster_paste.js
+	python3 -m unittest tests.test_roster_paste_mutation_proof
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_phone_context_row_render
@@ -766,6 +771,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_v2_targets
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_finder_triview_display
+	python3 -m unittest tests.test_lineup_presentation_properties
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_v2_phone_landscape_render
