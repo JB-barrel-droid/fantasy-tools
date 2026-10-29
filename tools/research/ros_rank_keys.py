@@ -28,9 +28,10 @@ os.environ.setdefault("PLAYER_ALIASES_SOURCE", "json")  # stored fixture, not th
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "pipelines" / "lib"))
 from canonical_players import Registry, resolve_with_reason  # noqa: E402  the one resolver
+import player_aliases  # noqa: E402  owns the alias list's path (tests/test_player_aliases.py)
 
 REGISTRY_PATH = REPO / "data/inputs/players_identity_snapshot.json"
-ALIASES_PATH = REPO / "data/inputs/player_aliases.json"
+ALIASES_PATH = Path(player_aliases.ALIAS_FILE)
 
 
 def sha256(path):
