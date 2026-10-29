@@ -1,16 +1,16 @@
-/* JEG-1231: opponent inclusion checkboxes. Colors and type come from the design tokens on the page (the Oct 26 direction
-   in app/v2-concept/concept.css, JEG-1209); the fallbacks are those same values, so the control reads the same on a page
-   without them. No new palette. Hit targets are at least 44px, the list is one column on a phone. */
+/* JEG-1231: opponent inclusion checkboxes. Colors and type come from the design tokens on the page: the --ddf-* tokens
+   in v2.css first, then the Oct 26 direction preview's (app/v2-concept/concept.css, JEG-1209); the last fallbacks are
+   the same values, so the control reads the same on a page without either. No new palette. Hit targets are at least 44px, the list is one column on a phone. */
 
 .oi {
-  --oi-surface: var(--surface, #FFFCF8);
-  --oi-canvas: var(--canvas, #F6F3EC);
-  --oi-ink: var(--ink, #1A2824);
-  --oi-muted: var(--muted, #52635C);
-  --oi-line: var(--line, #E3DCD0);
-  --oi-action: var(--action, #0C7A56);
-  --oi-warn-bg: var(--warn-bg, #F8EFE1);
-  --oi-warn-ink: var(--warn-ink, #7A4510);
+  --oi-surface: var(--ddf-surface, var(--surface, #FFFCF8));
+  --oi-canvas: var(--ddf-canvas, var(--canvas, #F6F3EC));
+  --oi-ink: var(--ddf-ink, var(--ink, #1A2824));
+  --oi-muted: var(--ddf-muted, var(--muted, #52635C));
+  --oi-line: var(--ddf-line, var(--line, #E3DCD0));
+  --oi-action: var(--ddf-action, var(--action, #0C7A56));
+  --oi-warn-bg: var(--ddf-warn-tint, var(--warn-bg, #F8EFE1));
+  --oi-warn-ink: var(--ddf-warn-ink, var(--warn-ink, #7A4510));
   --oi-dur: var(--dur, 200ms);
   --oi-ease: var(--ease, cubic-bezier(0.2, 0.7, 0.2, 1));
   margin: 0;
@@ -20,7 +20,7 @@
   border-radius: 12px;
   background: var(--oi-surface);
   color: var(--oi-ink);
-  font-family: var(--sans, Inter, "Source Sans 3", system-ui, sans-serif);
+  font-family: var(--ddf-font-ui, var(--sans, Inter, "Source Sans 3", system-ui, sans-serif));
   font-size: 14px;
   line-height: 1.5;
 }
