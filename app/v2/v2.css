@@ -2561,9 +2561,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 }
 /* Value view: tabular figures, muted 12 px column heads, rows on the decorative line. */
 :root[data-design="fieldnotes"] #v2Compare .v2-ctable th,
-:root[data-design="fieldnotes"] #v2Targets :is(.v2-ttable, .v2-wtable) th { font-size: var(--ddf-type-meta); color: var(--ddf-muted); border-bottom-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable th, :root[data-design="fieldnotes"] #v2Targets .v2-wtable th { font-size: var(--ddf-type-meta); color: var(--ddf-muted); border-bottom-color: var(--ddf-line); }
 :root[data-design="fieldnotes"] #v2Compare .v2-ctable td,
-:root[data-design="fieldnotes"] #v2Targets :is(.v2-ttable, .v2-wtable) td { border-bottom-color: var(--ddf-line); font-variant-numeric: tabular-nums; }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td, :root[data-design="fieldnotes"] #v2Targets .v2-wtable td { border-bottom-color: var(--ddf-line); font-variant-numeric: tabular-nums; }
 /* Expandable detail: the Fieldnotes disclosure (rule above, ink label, 44 px summary, plus and minus at the end). */
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-more,
 :root[data-design="fieldnotes"] #v2Targets .v2-weight-how {
