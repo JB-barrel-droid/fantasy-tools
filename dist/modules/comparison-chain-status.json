@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-30T19:28:37.703292+00:00",
+  "run_at": "2026-10-30T19:31:50.796311+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -10,11 +10,9 @@
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
-  ],
-  "success": false,
-  "outcome": "failed",
+  "failed": [],
+  "success": true,
+  "outcome": "green",
   "held": [],
   "hold_severity": "none",
   "list_changes": {
@@ -227,16 +225,5 @@
   },
   "stale_sources": [],
   "lagging_sources": [],
-  "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [],
-    "assertions": [],
-    "make_targets": [
-      "Makefile:95: reference"
-    ],
-    "detail": "make validate failed at Makefile:95: reference",
-    "recorded_at": "2026-10-30T19:29:54.478232+00:00"
-  }
+  "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure"
 }
