@@ -13,8 +13,7 @@ Ticket JEG-616. Hosting decision: Supabase edge function (Jeremy, 2026-10-19).
   (30/min, in memory per instance); CORS allow-list in the function.
 - Parity with the page is pinned by `tests/test_endpoint_parity.py` (including
   each week of a week transition, JEG-1179).
-- MCP server, local: `mcp-server/` (stdio), set `DDF_API_URL` to the function URL.
-- MCP server, remote (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses). See "Remote MCP" below.
+- MCP server (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses), the hosted connector. See "Remote MCP" below. The old locally run server was retired on 2026-10-30 (JEG-1372); it described a 0-70 scale and an 85% starter weight that no longer match the site.
 
 ## Request
 
@@ -175,8 +174,7 @@ mapping and clamps. Deploy `get-values` before `mcp`; an `mcp` that sends
 | Name | Where | Default |
 |---|---|---|
 | `DDF_SITE_ORIGIN` | function secret (optional) | `https://jb-barrel-droid.github.io/fantasy-tools` |
-| `DDF_API_URL` | MCP server env (required) | none |
-| `DDF_SITE_URL` | MCP server env (optional) | the Pages URL |
+| `DDF_API_URL` | `mcp` function secret (optional) | `$SUPABASE_URL/functions/v1/get-values` |
 
 `datadrivenfootball.com` did not resolve on 2026-10-19, so the Pages URL is the
 default origin. Once the domain is live, set `DDF_SITE_ORIGIN` (no redeploy of
