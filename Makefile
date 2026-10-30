@@ -629,6 +629,7 @@ test-core:
 	python3 -m unittest tests.test_static_export
 	python3 -m unittest tests.test_seeded_hold_build
 	python3 -m unittest tests.test_isolate_post_validate
+	python3 -m unittest tests.test_post_validate_workflow_wiring
 	python3 -m unittest tests.test_rank_guard
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_ppg_tie_parity
