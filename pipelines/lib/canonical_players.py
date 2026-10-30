@@ -150,9 +150,9 @@ class Registry:
         self.alias_overrides = _load_alias_overrides()
 
     def lookup_dst(self, raw):
-        """Team-defense forms: 'Seahawks DST', 'Seattle', 'SEA'..."""
+        """Team-defense forms: 'Seahawks DST', 'Seahawks D/ST', 'Seattle', 'SEA'..."""
         s = norm_player_name(raw)
-        s = re.sub(r"\s+(dst|defense|def)$", "", s).strip()
+        s = re.sub(r"\s+(d/st|dst|defense|def)$", "", s).strip()
         # Stale/alternate team abbreviations (ESPN uses LAR/WSH; canonical is
         # LA/WAS). Normalize before token lookup.
         _DST_ABBR_FIX = {"lar": "la", "wsh": "was", "jac": "jax",
@@ -229,8 +229,9 @@ def resolve_with_reason(name, position=None, registry=None, allow_inactive=True)
     reg = registry or load_registry()
     pos = (position or "").upper() or None
 
-    # Team defenses take the DST token path.
-    if pos == "DST" or re.search(r"\b(dst|defense|def)\b", str(name).lower()):
+    # Team defenses take the DST token path. ESPN spells them "Broncos D/ST"
+    # (JEG-1350); norm_player_name keeps the "/", so "d/st" is matched as is.
+    if pos == "DST" or re.search(r"\b(d/st|dst|defense|def)\b", str(name).lower()):
         key = reg.lookup_dst(name)
         return (key, "dst") if key else (None, "unmatched")
 
