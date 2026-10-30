@@ -24,7 +24,8 @@ below are history, including any "Codex reviews and merges" line.
 - Branch `claude/JEG-1061-shared-limit`, draft PR. Off by default: nothing changes live until Jeremy says
   yes to (1) apply `supabase/migrations/jeg1061_shared_rate_limit_20261030.sql`, (2) deploy `get-values`,
   (3) set the secret `DDF_SHARED_RATE_LIMIT=1`. Jeremy's Oct 25 call was to keep the per-instance soft
-  guard, log (JEG-1344, merged) and revisit at launch, so this waits on his word before going ready.
+  guard, log (JEG-1344, merged) and revisit at launch. On 2026-10-30 20:19 UTC he picked A: mark ready and
+  merge on green, still switched off. Migration, deploy and the switch each still need his own yes.
 - Code: `supabase/functions/get-values/rate-limit.ts` (shared count via `public.edge_rate_hit`, hashed key,
   400 ms timeout, fallback to the in-memory count); `index.ts` changes only the compute check and one import.
 - Tests: `tests/test_jeg1061_shared_rate_limit.py` (in `test-unit-modules`). The node check fails on main
