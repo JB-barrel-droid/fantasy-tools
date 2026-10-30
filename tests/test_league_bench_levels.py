@@ -56,6 +56,20 @@ def ranking_problems(spec: dict, js: dict) -> list:
     return [] if a == b else [f"default_ranking: spec {a} js {b}"]
 
 
+def line_at(info: dict, pos: str, row: int) -> float:
+    """The waiver line one source's output should carry at work row `row`
+    (JEG-1047 / JEG-1249, Jeremy 2026-10-29 "A, 7-player average"): a
+    projection's line is the 7-player band around the row, clipped; a chart's
+    is the one player there. The work order is the output's own rank order."""
+    from lib.roster_convention import waiver_band_line
+    values = [r["native"] for r in sorted((r for r in info["players"].values() if r["pos"] == pos), key=lambda r: r["rank"])]
+    return waiver_band_line(values, row) if info["family"] == "projection" else values[row]
+
+
+def row_of(info: dict, key: str) -> int:
+    return info["players"][key]["rank"] - 1
+
+
 def run_js(level: str | None, rostered=LEAGUE) -> dict:
     extra = {} if level is None else {"league_rostered": [str(k) for k in rostered], "bench_level": level}
     cmd = [_node(), str(DRIVER), str(VALUE_MODEL), str(FIXTURE), "--variant", "variant_expected_starts",
@@ -63,7 +77,13 @@ def run_js(level: str | None, rostered=LEAGUE) -> dict:
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
     if proc.returncode != 0:
         raise AssertionError(f"driver failed: {proc.stderr[-2000:]}")
-    return json.loads(proc.stdout)
+    out = json.loads(proc.stdout)
+    # Vocabulary only (as test_league_levels_real): JS names an unfunded group's budget `amount`, moved or not.
+    for src in out.get("sources", {}).values():
+        for m in (src.get("unfunded_moved") or []) + (src.get("unfunded_groups") or []):
+            if "amount" in m:
+                m["budget"] = m.pop("amount")
+    return out
 
 
 def run_spec(level: str | None, rostered=LEAGUE) -> dict:
@@ -131,18 +151,20 @@ class TestEngineLevels(unittest.TestCase):
         # the common order. JEG-1249: in each source his value over
         # replacement is his value minus 207's own value in that source, so
         # he is worth nothing where that source has 207 above him. The
-        # market level still prices him.
+        # market level still prices him. JEG-1047 (Jeremy, 2026-10-29: "A"):
+        # a projection's line is the 7-player band around 207's row.
         for name, res in (("js", self.js["ddf"]), ("spec", self.spec["ddf"])):
             for src, info in res["sources"].items():
                 with self.subTest(engine=name, source=src):
                     pl = info["players"]
                     if "207" in pl:
-                        waiver = pl["207"]["native"]
+                        row = row_of(info, "207")
                     else:
                         # The source has no row for him: its own best free RB.
                         held = {str(k) for k in LEAGUE}
-                        waiver = max(r["native"] for k, r in pl.items() if r["pos"] == "RB" and k not in held)
-                    self.assertEqual(info["positions"]["RB"]["waiver_value"], waiver)
+                        row = min(row_of(info, k) for k, r in pl.items() if r["pos"] == "RB" and k not in held)
+                    waiver = line_at(info, "RB", row)
+                    self.assertAlmostEqual(info["positions"]["RB"]["waiver_value"], waiver, places=9)
                     if "205" in pl:
                         self.assertAlmostEqual(pl["205"]["vorp"], max(0.0, pl["205"]["native"] - waiver))
         self.assertGreater(self.js["market"]["rows"]["205"]["ddf_blended"]["value"], 0)
@@ -249,7 +271,9 @@ class TestReplacementInsideStarters(unittest.TestCase):
                 with self.subTest(engine=name, source=src):
                     pos = info["positions"]["QB"]
                     self.assertEqual(pos["replacement"], 0)
-                    self.assertEqual(pos["waiver_value"], self.top_qb[src])
+                    # A chart: the free top QB himself. A projection: the band at R = 0 (rows 0..3, JEG-1047).
+                    want = self.top_qb[src] if info["family"] != "projection" else line_at(info, "QB", 0)
+                    self.assertAlmostEqual(pos["waiver_value"], want, places=9)
 
     def test_every_qb_is_worth_nothing_to_him(self):
         for name, res in (("js", self.js["ddf"]), ("spec", self.spec["ddf"])):
@@ -282,8 +306,13 @@ class TestReplacementInsideStarters(unittest.TestCase):
         alloc = ref.allocate(lg, {"QB": keys, "RB": [], "WR": [], "TE": []}, dict(nat))
         self.assertEqual((alloc["QB"]["starters"], alloc["QB"]["bench"], alloc["QB"]["replacement"]), (8, 0, 0))
         out = ref._source_lines(ref.SourceInput("p1", "projection", nat), {k: "QB" for k in keys}, alloc, {})
-        self.assertEqual(out["positions"]["QB"]["waiver_value"], 29)
-        self.assertEqual({k: out["players"][k]["vorp"] for k in ("q1", "q2", "q9")}, {"q1": 0, "q2": 0, "q9": 0})
+        # JEG-1047: a projection's line at R = 0 is the band clipped at the top, rows 0..3: (29+28+27+26)/4.
+        self.assertEqual(out["positions"]["QB"]["waiver_value"], 27.5)
+        self.assertEqual({k: out["players"][k]["vorp"] for k in ("q1", "q2", "q9")}, {"q1": 1.5, "q2": 0.5, "q9": 0})
+        # A chart keeps the one free player: Q1 himself, so every QB is worth nothing over him.
+        chart = ref._source_lines(ref.SourceInput("c1", "chart", nat), {k: "QB" for k in keys}, alloc, {})
+        self.assertEqual(chart["positions"]["QB"]["waiver_value"], 29)
+        self.assertEqual({k: chart["players"][k]["vorp"] for k in ("q1", "q2", "q9")}, {"q1": 0, "q2": 0, "q9": 0})
         # The modeled line (no league) keeps the waiver below the starters.
         base = ref.allocate(ref.League(teams=8, slots={"QB": 1, "RB": 0, "WR": 0, "TE": 0}, flex=0, bench=2),
                             {"QB": keys, "RB": [], "WR": [], "TE": []}, dict(nat))

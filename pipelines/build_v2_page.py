@@ -31,6 +31,7 @@ RESEARCH_DIR = APP_V2 / "research"
 # Sleeper /players/nfl, refreshed twice a week by .github/workflows/sleeper-identity-refresh.yml.
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
 NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
+PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 # The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
 # defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
@@ -282,8 +283,11 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/lineup-comparison.js" defer></script>'
+                  '\n  <script src="v2/trade-readout.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
+                  '\n  <script src="v2/player-flags.js" defer></script>'
+                  '\n  <script src="v2/player-status.js" defer></script>'
                   '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
                   '\n  <script src="v2/audit-core.js" defer></script>'
@@ -293,6 +297,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/inputs-status.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
                   '\n  <script src="v2/ddf-state.js" defer></script>'
+                  '\n  <script src="v2/trade-context.js" defer></script>'
                   '\n  <script src="v2/ddf-assist.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
@@ -334,6 +339,21 @@ def nfl_byes_js(path: Path = NFL_BYES) -> str:
     return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
 
 
+def player_status_js(path: Path = PLAYERS) -> str:
+    """window.TradeValueStatus: when the injury status on players.json rows was pulled from Sleeper (JEG-1312).
+
+    The rows' injury_status comes from the Sleeper identity base the bake read, and the bake records that base's
+    pulled_at in meta.universe.nfl_active.identity_base_pulled_at, so this is the date of the status the page actually
+    ships (not today's Supabase snapshot). A missing file or date gives as_of null: the Waivers tab then shows no
+    status, never an undated one."""
+    as_of = None
+    if path.exists():
+        meta = json.loads(path.read_text(encoding="utf-8")).get("meta") or {}
+        as_of = ((meta.get("universe") or {}).get("nfl_active") or {}).get("identity_base_pulled_at")
+    data = {"source": "Sleeper", "as_of": as_of if isinstance(as_of, str) and as_of else None}
+    return "window.TradeValueStatus = " + json.dumps(data, separators=(",", ":")) + ";\n"
+
+
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
     index_html = engine_page.read_text(encoding="utf-8")
@@ -345,8 +365,9 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "ddf-assist.js", "waivers.js", "waivers.css", "design-flag.js", "v2.js"):
+    (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "trade-readout.js", "league.js", "modules.js",
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.
     (out_dir / "fonts").mkdir(exist_ok=True)

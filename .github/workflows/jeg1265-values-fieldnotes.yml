@@ -1,0 +1,56 @@
+name: JEG-1265 Values Fieldnotes view
+
+# Isolated component checks (JEG-1265): the parity harness and the real-browser render test at 1280, 390 and 320, with
+# the screenshots kept as a run artifact for review. Nothing is built into dist/ or published; the page does not load the
+# component until the JEG-1137 integration.
+on:
+  pull_request:
+    paths:
+      - "app/v2/values-fieldnotes.*"
+      - "app/v2/source-views.js"
+      - "tests/values_fieldnotes_harness.cjs"
+      - "tests/test_jeg1265_values_fieldnotes*.py"
+      - "tests/fixtures/values-fieldnotes/**"
+      - ".github/workflows/jeg1265-values-fieldnotes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jeg1265-values-fieldnotes-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  values-fieldnotes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Parity harness and mutation proofs
+        run: python3 -m unittest -v tests.test_jeg1265_values_fieldnotes
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      - name: Browser
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1
+          python3 -m playwright install --with-deps chromium
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Render test and screenshots
+        env:
+          VALUES_FIELDNOTES_SHOTS: shots
+        run: python3 -m unittest -v tests.test_jeg1265_values_fieldnotes_render
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jeg1265-values-fieldnotes-shots
+          path: shots/
+          retention-days: 30

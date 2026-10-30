@@ -62,6 +62,9 @@ Dashboard-active trade-value sources in scope:
 ESPN projections, USA Today trade values, FantasyCalc trade values,
 FantasyPros **trade values** (NOT ECR — ECR is excluded even though it is
 also a FantasyPros product), CBS trade values.
+Rankings are separate (JEG-1198, 2026-10-29): `public.ros_rankings` holds
+expert-consensus and analyst ROS rankings for research only; the importer never
+reads it, so the exclusions below still hold for every value input.
 Hard exclusions respected: no ECR/expert-consensus tables
 (`fp_season_projections`, `fp_season_latest_norm`, `fp_season_kdst_projections`,
 `rankers`/`ranker_rankings` — verified ECR-only: `ranker_rankings` holds

@@ -43,9 +43,12 @@ VARIANTS = {"ddf": ("ddf", "ddf"), "market": ("market", "market"), "page": ("ddf
 # value in each source and market starters come from held players only, so
 # the evened-trade counts moved from (92, 16, 11) / (787, 190, 49) for USO and
 # (21, 1, 5) / (76, 9, 12) / (505, 121, 32) for Charlotte.
+# JEG-1047 / JEG-1249 integration (Jeremy, 2026-10-29: "A, 7-player average"): a projection's waiver line
+# is the 7-player band around the line row, which moved the counts from (99, 9, 16) / (112, 9, 8) /
+# (317, 44, 25) for USO and (136, 15, 24) / (97, 12, 21) / (720, 65, 104) for Charlotte.
 PINNED = {
-    ("uso", "ddf"): (99, 9, 16), ("uso", "market"): (112, 9, 8), ("uso", "page"): (317, 44, 25),
-    ("charlotte", "ddf"): (136, 15, 24), ("charlotte", "market"): (97, 12, 21), ("charlotte", "page"): (720, 65, 104),
+    ("uso", "ddf"): (100, 8, 20), ("uso", "market"): (109, 9, 6), ("uso", "page"): (308, 42, 21),
+    ("charlotte", "ddf"): (135, 15, 24), ("charlotte", "market"): (107, 13, 23), ("charlotte", "page"): (711, 65, 102),
 }
 
 

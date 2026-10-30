@@ -36,6 +36,7 @@ if str(_REPO / "pipelines" / "lib") not in sys.path:
 from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
+    waiver_band_line as _convention_waiver_band_line,
     vorp_bench_allocate as _vorp_bench,
     league_depth as _league_depth,
     market_order as _market_order,
@@ -568,7 +569,11 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
         info.update(listed=len(listed), extended=bool(estimates),
                     imputation_ratios=estimates or None)
         if len(work) > W:
-            w = work_val[work[W]]
+            # JEG-1047 / JEG-1249 (Jeremy, 2026-10-29: "A, 7-player average"): a
+            # projection's line is the 7-player band around the line row W; a
+            # chart reads the one player at W.
+            w = (_convention_waiver_band_line([work_val[k] for k in work], W)
+                 if family == PROJECTION else work_val[work[W]])
             method = "estimated" if work[W] in estimates else "roster_determined"
         elif work:
             w = work_val[work[-1]]

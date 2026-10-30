@@ -1,8 +1,10 @@
 /* Values auditing > Single-source build-up view (JEG-849, parent JEG-847).
  *
- * One source at a time, three stages: Published (the source's own numbers,
- * before indexation), Indexed, Adjusted. A curve chart and a table, laid out
- * like Player values. Reads the engine's own pipeline output
+ * Trade charts: Published, Indexed, Adjusted. Projections: what the publisher
+ * supplies (where the player records carry it), points per game, then the
+ * league model to the displayed published (Adjusted) value.
+ * A curve chart, worked projection player and table, laid out like Player values.
+ * Reads the engine's own pipeline output
  * (TradeValueCurveControls.getInspection(), the runValuePipeline result);
  * it does no value math. Missing values stay missing (null), never zero.
  *
@@ -31,6 +33,9 @@
   const POSITIONS = ["ALL", "QB", "RB", "WR", "TE"];
   const STAGES = ["published", "indexed", "adjusted"];
   const STAGE_LABEL = {published: "Published", indexed: "Indexed", adjusted: "Adjusted"};
+  const stageLabel = (model, stage) => model.family === "projection"
+    ? ({published: "Projected points/game", indexed: "Indexed", adjusted: "Published value"})[stage]
+    : STAGE_LABEL[stage];
   const ROLE_LABEL = {starter: "Starter", bench: "Bench", waiver: "Waiver"};
   const PAGE = 50;
 
@@ -45,6 +50,8 @@
     const pos = POSITIONS.includes(position) ? position : "ALL";
     const excluded = ((inspection && inspection.excluded) || []).find(e => e.key === meta.key) || null;
 
+    const pipeline = (inspection && inspection.valuePipeline) || {};
+    const source = (pipeline.sources && pipeline.sources[meta.key]) || {};
     const all = Object.keys(players).map(key => {
       const p = players[key];
       const row = rows[key] || {};
@@ -56,7 +63,17 @@
         key, name: row.name || `Player ${key}`, pos: p.pos || row.pos || "", role: p.role || "",
         positionRank: finite(p.rank), estimated: Boolean(p.estimated),
         reason: (row.estimated && row.estimated[meta.key]) || (row.reasons && row.reasons[meta.key]) || "",
-        published, indexed, adjusted
+        published, indexed, adjusted,
+        // Read the exact pipeline intermediates; never derive a player value here.
+        trace: isChart ? null : {
+          waiver: finite(source.positions && source.positions[p.pos] && source.positions[p.pos].waiver),
+          starterLine: finite(source.positions && source.positions[p.pos] && source.positions[p.pos].starterLine),
+          availability: finite(source.positions && source.positions[p.pos] && source.positions[p.pos].avail),
+          aboveWaivers: finite(p.vorp), startWorthy: finite(p.startWorthy), lineupShare: finite(p.lineupShare),
+          starterPart: finite(p.starterSlice), fillInPart: finite(p.benchSlice),
+          starterRate: finite(source.rates && source.rates[`${p.pos}|starter`]),
+          fillInRate: finite(source.rates && source.rates[`${p.pos}|bench`])
+        }
       };
     });
     // The source's own order: published high to low, ties by player key.
@@ -78,6 +95,8 @@
     };
     const sum = stage => series[stage].reduce((t, pt) => t + pt.value, 0);
     return {
+      method: pipeline.method || null, pie: finite(pipeline.pie),
+      scoringField: (inspection && inspection.setting && inspection.setting.scoringField) || null,
       source: meta.key, label: meta.label, family: meta.family, position: pos,
       engineLabel: (inspection && inspection.labels && inspection.labels[meta.key]) || meta.label,
       status: excluded ? excluded.reason : "",
@@ -143,7 +162,7 @@
       "aria-label": `${label}: open the source's page in a new tab`});
   }
 
-  const state = {source: null, position: "ALL", limit: PAGE, lastModel: null, host: null, hoverRank: null};
+  const state = {source: null, position: "ALL", limit: PAGE, lastModel: null, host: null, hoverRank: null, playerKey: null};
   try { state.source = localStorage.getItem("ddf.v2.audit.source"); } catch (e) { /* storage may be blocked */ }
   if (!SOURCES.some(x => x.key === state.source)) state.source = SOURCES[0].key;
 
@@ -209,7 +228,7 @@
   function drawChart(model, readout) {
     W = Math.max(300, Math.round((state.host && state.host.clientWidth) || 720) - 40);
     const svg = s("svg", {viewBox: `0 0 ${W} ${H}`, class: "as-svg", role: "img",
-      "aria-label": `${model.label}: Published, Indexed and Adjusted values by rank`, width: W, height: H});
+      "aria-label": `${model.label}: ${STAGES.filter(st => model.stages[st].exists).map(st => stageLabel(model, st)).join(", ")} by rank`, width: W, height: H});
     if (!model.shown) return svg;
     const sc = chartScales(model);
     const plotW = W - PAD.l - PAD.r, plotH = H - PAD.t - PAD.b;
@@ -264,7 +283,7 @@
 
   function readoutText(model, r) {
     if (!r) return defaultReadout(model);
-    const bits = STAGES.filter(st => model.stages[st].exists).map(st => `${STAGE_LABEL[st]} ${fmtValue(r[st], st, model.family)}`);
+    const bits = STAGES.filter(st => model.stages[st].exists).map(st => `${stageLabel(model, st)} ${fmtValue(r[st], st, model.family)}`);
     return `#${r.rank} ${r.name} (${r.pos})${r.estimated ? ", estimated" : ""}: ${bits.join(", ")}`;
   }
   const defaultReadout = model => (model.shown ? "Point at the chart to read a player." : "");
@@ -279,7 +298,7 @@
     host.classList.add("as-root");
     host.append(h("header", {class: "as-head"},
       h("h2", {class: "as-title", text: "How a source's values are built"}),
-      h("p", {class: "as-lede", text: "One source at a time, in three steps: Published (the source's own numbers), then Indexed (lined up with DDF Value), then Adjusted (rescaled so the source's total is the league's value pie)."})));
+      h("p", {class: "as-lede", text: "Trade charts start with published chart numbers, then Indexed and Adjusted values. Projections start with points per game and become a published value through the league model. Choose a source to trace its path."})));
 
     if (!insp) {
       host.append(h("p", {class: "as-note", role: "status", text: "Values are still loading."}));
@@ -320,13 +339,15 @@
       let text;
       if (stage === "published") {
         text = model.family === "projection"
-          ? "Published: the projection's own points per game. It is drawn as a percentage of the source's largest value (right-hand axis); the raw numbers are in the table."
+          ? "Projected points/game: the source input at your scoring. The right-hand axis shows a percentage of its largest input; the table shows points per game."
           : "Published: the chart's own numbers at your scoring, before any rescaling. It is drawn as a percentage of the source's largest value (right-hand axis); the raw numbers are in the table.";
       } else if (stage === "indexed") {
         text = st.exists ? "Indexed: the published numbers times one factor, so the chart lines up with DDF Value (left-hand axis). Player values calls this Rescaled."
           : `Indexed: not available. ${st.reason || "This source has no indexed values."}`;
       } else {
-        text = "Adjusted: the value after the starter and bench split, rescaled so the source's total is the league's value pie (left-hand axis).";
+        text = model.family === "projection"
+          ? "Published value: the engine's Adjusted output, shown for this projection in Player values (left-hand axis). The worked player below traces how it is built."
+          : "Adjusted: the value after the starter and bench split, rescaled so the source's total is the league's value pie (left-hand axis).";
       }
       notes.append(h("li", {class: `as-stage as-stage-${stage}`, "data-stage": stage, "data-exists": String(st.exists)},
         h("span", {class: `as-swatch as-swatch-${stage}`, "aria-hidden": "true"}), text));
@@ -342,20 +363,90 @@
     const readout = h("p", {class: "as-readout", "aria-live": "polite", text: defaultReadout(model)});
     const legend = h("div", {class: "as-legend"},
       STAGES.filter(st => model.stages[st].exists).map(st =>
-        h("span", {class: "as-legend-item"}, h("span", {class: `as-swatch as-swatch-${st}`, "aria-hidden": "true"}), STAGE_LABEL[st])),
+        h("span", {class: "as-legend-item"}, h("span", {class: `as-swatch as-swatch-${st}`, "aria-hidden": "true"}), stageLabel(model, st))),
       model.estimatedCount ? h("span", {class: "as-legend-item"}, h("span", {class: "as-swatch as-swatch-est", "aria-hidden": "true"}), `Hollow marker: estimated from other charts (${model.estimatedCount})`) : null);
     host.append(h("section", {class: "as-card", "aria-label": "Curve chart"},
       h("div", {class: "as-card-head"}, h("h3", {class: "as-card-title", text: `${model.label} by rank`}),
         h("span", {class: "as-count", text: `${model.shown} players${model.position === "ALL" ? "" : ` at ${model.position}`}`})),
       notes, legend, h("div", {class: "as-plot"}, drawChart(model, readout)), readout));
 
+    if (model.family === "projection") host.append(projectionCard(model));
     host.append(tableCard(model));
   }
 
+  // The publisher's own projection before the bake turns it into points per
+  // game, read from the player records the engine loads (product-data.js).
+  // Only ESPN's rest-of-season total is carried there; CBS ROS totals and
+  // games are not, and Razzball publishes per-game points. Nothing is derived.
+  let playerRecords = null;
+  function playerRecord(key) {
+    if (!playerRecords) {
+      const P = root.TradeValueProductData;
+      let list = [];
+      try { list = (P && typeof P.getPlayers === "function" && P.getPlayers()) || []; } catch (e) { return null; }
+      if (!list.length) return null;
+      playerRecords = new Map(list.map(r => [String(r.player_key), r]));
+    }
+    return playerRecords.get(String(key)) || null;
+  }
+  const scoringValue = (field, model) => (field && model.scoringField ? finite(field[model.scoringField]) : null);
+  function rawStep(model, player, metric, step) {
+    const rec = playerRecord(player.key) || {};
+    if (model.source === "espn") {
+      return step("What ESPN publishes", "ESPN projects total points for the rest of the season at your scoring. The bake divides that total by the team's games left in ESPN's window (bye weeks excluded; the whole window for a player ESPN lists without a team) to get points per game. That games count is not carried in the page data, so it is not shown here.",
+        [metric("rawTotal", "ESPN rest-of-season points", scoringValue(rec.espn_ros, model), " pts")]);
+    }
+    if (model.source === "cbsros") {
+      return step("What CBS publishes", "CBS publishes rest-of-season points at non-PPR scoring and a games column. The bake adds 0.5 (half PPR) or 1 (PPR) per projected reception, then divides by CBS's games to get points per game. CBS's totals and games are not carried in the page data, so the trace starts at points per game.", []);
+    }
+    return step("What Razzball publishes", "Razzball publishes points per game at each scoring, so the engine reads them as published. Razzball's own Games column (which counts each game twice) and its season totals are not used.",
+      [metric("rawPerGame", "Razzball points/game as published", scoringValue(rec.rz_ppg, model), " PPG")]);
+  }
+
+  function projectionCard(model) {
+    const card = h("section", {class: "as-card as-projection", "aria-label": "Projection path to published value"},
+      h("h3", {class: "as-card-title", text: "From projection to published value"}),
+      h("p", {class: "as-foot", text: "Published here means the modeled value displayed in Player values, not a trade value supplied by the projection publisher. The trace starts with what the publisher supplies, then the points per game the engine reads, then the league model."}));
+    const player = model.rows.find(r => r.key === state.playerKey) || model.rows[0];
+    if (!player) {
+      card.append(h("p", {class: "as-foot", text: "No player at this position has an engine readout."}));
+      return card;
+    }
+    const select = h("select", {id: "as-worked-player", class: "as-select"}, model.rows.map(r =>
+      h("option", {value: r.key, text: `${r.name} (${r.pos})`})));
+    select.value = player.key;
+    select.addEventListener("change", () => { state.playerKey = select.value; render(); });
+    card.append(h("div", {class: "as-meta"}, h("label", {for: "as-worked-player", text: "Worked player "}), select));
+    const t = player.trace;
+    const metric = (key, label, value, unit = "") => h("li", {},
+      h("span", {text: `${label}: `}), h("strong", {"data-readout": key, "data-value": fullPrecision(value),
+        title: value === null ? "Not exposed by the engine" : String(value),
+        text: value === null ? "— (unavailable)" : `${minus(value.toFixed(4))}${unit}`}));
+    const step = (title, text, metrics) => h("li", {class: "as-path-step"},
+      h("h4", {text: title}), h("p", {class: "as-foot", text}), metrics.length ? h("ul", {class: "as-metrics"}, metrics) : null);
+    card.append(h("ol", {class: "as-path", "data-player-key": player.key},
+      rawStep(model, player, metric, step),
+      step("Points per game the engine reads", "The source's points per game at the current scoring, before the league model.",
+        [metric("input", "Projected points/game", player.published, " PPG")]),
+      step("League lines and value above waivers", "The league's roster determines the waiver line and starter line at this position. Value above waivers is the positive surplus over the waiver line, with a floor of zero.",
+        [metric("waiver", `${player.pos} waiver line`, t.waiver, " PPG"), metric("starterLine", `${player.pos} starter line`, t.starterLine, " PPG"), metric("aboveWaivers", "Value above waivers", t.aboveWaivers, " PPG")]),
+      step("Starter and fill-in parts", model.method === "expected-starts"
+        ? "The expected-starts model uses projection uncertainty to estimate the chance of playing above the starter line. Value above waivers × availability × that chance gives the starter part. The fill-in part uses chances across bench depth bands, weighted by openings in the lineup. Expected lineup share combines starter and fill-in chances with availability. The parts need not add up to value above waivers."
+        : model.method === "slices" ? "The starter line splits value above waivers into starter and fill-in parts."
+        : "The engine's weighting method is unavailable; only exposed parts are shown.",
+        [metric("availability", "Availability (fraction)", t.availability), metric("startWorthy", "Chance above starter line (fraction)", t.startWorthy), metric("lineupShare", "Expected lineup share (fraction)", t.lineupShare), metric("starterPart", "Starter part", t.starterPart), metric("fillInPart", "Fill-in part", t.fillInPart)]),
+      step("Scale to the league's value pie", "The engine funds position and starter/fill-in budgets from the league pie. Each rate is the funded group budget divided by that source's group total. Starter part × starter rate + fill-in part × fill-in rate gives the published value below.",
+        [metric("pie", "League value pie", model.pie), metric("starterRate", "Starter rate", t.starterRate), metric("fillInRate", "Fill-in rate", t.fillInRate), metric("output", "Published value (Adjusted)", player.adjusted)])));
+    card.append(h("p", {class: "as-foot", text: model.status
+      ? `Engine status: ${model.status}. This trace shows the engine's retained readouts; it does not establish that a held source is currently displayed or included.`
+      : "No Indexed step applies to a projection. Missing readouts stay unavailable; zero is shown only when the engine supplies zero."}));
+    return card;
+  }
+
   function tableCard(model) {
-    const cols = [["rank", "#"], ["player", "Player"], ["pos", "Pos"], ["role", "Role"], ["published", "Published"]];
+    const cols = [["rank", "#"], ["player", "Player"], ["pos", "Pos"], ["role", "Role"], ["published", stageLabel(model, "published")]];
     if (model.stages.indexed.exists) cols.push(["indexed", "Indexed"]);
-    cols.push(["adjusted", "Adjusted"]);
+    cols.push(["adjusted", stageLabel(model, "adjusted")]);
     if (model.stages.indexed.exists) cols.push(["change", "Change"]);
     const table = h("table", {class: "as-table", "data-source": model.source},
       h("thead", {}, h("tr", {}, cols.map(([key, label]) => h("th", {scope: "col", "data-col": key, class: ["published", "indexed", "adjusted", "change", "rank"].includes(key) ? "as-num" : null, text: label})))));

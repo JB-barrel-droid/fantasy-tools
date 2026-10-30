@@ -32,6 +32,7 @@ REQUIRED = [
     "test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture",
     "test_multi_trade_cache", "test_opportunities_filters", "test_opportunities_cap_and_headline",
     "test_summary_ranks_proj", "test_summary_disagree_list", "test_summary_allocation_wording", "test_summary_proj_partial", "test_summary_disagree_charts_key", "test_opportunities_proj_agreement",
+    "test_opportunities_our_fit_both_sides",
 ]
 
 
@@ -93,6 +94,8 @@ MUTATIONS = {
         "const c = compareValues(x, y, tie.type || \"number\") * (tie.dir === \"desc\" ? -1 : 1) * sign;", {"test_sort_tiebreak", "test_sort_core"}),
     "fit tier ignored in the ranking": ("opportunities.js", "return a.tier - b.tier || shown(b.edge)", "return shown(b.edge)", {"test_opportunities_rank", "test_opportunities_tier_before_edge"}),
     "overall fit ignores the finder's label": ("opportunities.js", "if (fit && fit.label) return fit.label;", 'if (fit && fit.label) return "natural";', {"test_opportunities_fit_label", "test_opportunities_fit_label_rows"}),
+    "our fit says natural for one side (JEG-1324)": ("opportunities.js", 'if (side && side.ok) return {label: "works",', 'if (side && side.ok) return {label: "natural",', {"test_opportunities_our_fit_both_sides", "test_opportunities_columns"}),
+    "our fit ignores the shared predicate (JEG-1324)": ("opportunities.js", "if (side && side.ok) return", "if (side && side.value) return", {"test_opportunities_our_fit_both_sides"}),
     "cache ignores the values": ("opportunities.js", 'const rowSig = r => `${r.player_key}:${[OUR_KEY, "ddf_value_projections"].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;',
         'const rowSig = r => `${r.player_key}:${r.pos}`;', {"test_multi_trade_cache"}),
     "capture is not the finder edge": ("opportunities.js", "edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", {"test_opportunities_1_opponent"}),

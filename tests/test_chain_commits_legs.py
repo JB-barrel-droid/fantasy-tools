@@ -36,6 +36,7 @@ def commit_branches() -> tuple[str, str]:
     text = WORKFLOW.read_text(encoding="utf-8")
     step = text[text.index("- name: Commit and push if changed"):]
     step = step[:step.index("git diff --cached --quiet")]
+    step = step[step.index('if [ "$CHAIN_OUTCOME" = "success" ]; then'):]
     ok = step[step.index('if [ "$CHAIN_OUTCOME" = "success" ]; then'):step.index("          else")]
     bad = step[step.index("          else"):]
     return ok, bad

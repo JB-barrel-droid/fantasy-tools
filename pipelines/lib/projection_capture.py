@@ -128,13 +128,24 @@ def write_capture(sb, rows: list[dict], *, chunk: int = 500) -> int:
     return len(rows)
 
 
-def required_cells(now: datetime, *, first_week: int = FIRST_REQUIRED_WEEK) -> list[tuple[int, str]]:
+# When a content week's Sunday copy is due, counted from its opening Tuesday 00:00 UTC.
+# SUNDAY_DUE: the following Monday 12:00 UTC (the daily 12:40 UTC run flags it).
+# SUNDAY_DUE_PRE_KICKOFF (JEG-1377): that Sunday 16:00 UTC, after the 15:30 UTC capture
+# and before the 18:00 UTC (noon CST) main slate, so the 16:20 UTC Sunday run of
+# espn-weekly-store.yml goes red while there is still time to act. pg_cron runs in GMT,
+# so both times hold on either side of the US DST change.
+SUNDAY_DUE = timedelta(days=6, hours=12)
+SUNDAY_DUE_PRE_KICKOFF = timedelta(days=5, hours=16)
+
+
+def required_cells(now: datetime, *, first_week: int = FIRST_REQUIRED_WEEK,
+                   sunday_due: timedelta = SUNDAY_DUE) -> list[tuple[int, str]]:
     """(week, phase) captures that must exist at `now`.
 
     midweek: every content week from first_week; the current week only once it is
       past Wednesday 12:00 UTC of its opening Tuesday (the week's first run is due).
-    sunday: every content week from FIRST_SUNDAY_WEEK once past Monday 12:00 UTC after
-      that week's Sunday (late enough for the daily 12:40 UTC run to have flagged it).
+    sunday: every content week from FIRST_SUNDAY_WEEK once `sunday_due` past its
+      opening Tuesday (SUNDAY_DUE, or SUNDAY_DUE_PRE_KICKOFF for the pre-kickoff check).
     Past weeks never get grace."""
     cur = content_week(now.date())
     cells = []
@@ -142,7 +153,7 @@ def required_cells(now: datetime, *, first_week: int = FIRST_REQUIRED_WEEK) -> l
         opens = datetime.combine(content_week_start(wk), time(0), tzinfo=timezone.utc)
         if now >= opens + timedelta(days=1, hours=12):
             cells.append((wk, "midweek"))
-        if wk >= FIRST_SUNDAY_WEEK and now >= opens + timedelta(days=6, hours=12):
+        if wk >= FIRST_SUNDAY_WEEK and now >= opens + sunday_due:
             cells.append((wk, "sunday"))
     return cells
 

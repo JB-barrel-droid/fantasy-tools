@@ -1,6 +1,7 @@
 """Codex's two release-blocking probes on #1105, as output tests (JEG-1249).
 
-1. Replacement identity across disagreeing sources. 8 teams, QB1. Q1..Q10
+1. Replacement identity across disagreeing sources. (JEG-1047, Jeremy 2026-10-29 "A, 7-player average": a
+   projection's line is the 7-player band around that row; the probe's two charts keep the one player.) 8 teams, QB1. Q1..Q10
    are held; Q11 is the best free QB in the common projected-points order
    (mean of the two projections). The sources disagree on him: espn 40, p2
    18. The ddf level prices each source's waiver at Q11's own value in that
@@ -91,16 +92,29 @@ def q11_doc(drop_q11_from_p2: bool = False) -> dict:
     p2.update({"10": 30, "11": 18, "12": 28, "13": 15, "14": 10})
     if drop_q11_from_p2:
         del p2["11"]
+    # The two projections set the common order. Two charts carry the same values, so the probe also checks the
+    # one-player line a chart keeps (JEG-1047 bands projections only).
     return {"setting": {"teams": 8, "slots": {"QB": 1, "RB": 0, "WR": 0, "TE": 0}, "flex": 0,
                         "flex_eligible": ["RB", "WR", "TE"], "superflex": 0, "bench_per_team": 2,
                         "bench_share": 0.15},
             "players": {str(i): {"name": f"Q{i}", "pos": "QB"} for i in range(1, 15)},
             "inputs": {"espn": {"family": "projection", "status": "included", "values": espn},
-                       "p2": {"family": "projection", "status": "included", "values": p2}}}
+                       "p2": {"family": "projection", "status": "included", "values": p2},
+                       "c_espn": {"family": "chart", "status": "included", "values": dict(espn)},
+                       "c_p2": {"family": "chart", "status": "included", "values": dict(p2)}}}
 
 
 Q11_HELD = [str(i) for i in range(1, 11)]
 DDF = {"league_rostered": Q11_HELD, "bench_level": "ddf"}
+CHARTS = {"c_espn": "espn", "c_p2": "p2"}
+
+
+def band_at(values: dict, key: str) -> float:
+    """JEG-1047 (Jeremy, 2026-10-29: "A, 7-player average"): a projection's line is the mean of the 7 players
+    around the line row, clipped. The row here is `key`'s own row in that source's order."""
+    from lib.roster_convention import waiver_band_line
+    order = sorted(values, key=lambda k: (-values[k], int(k)))
+    return waiver_band_line([values[k] for k in order], order.index(key))
 
 
 class TestReplacementIdentity(unittest.TestCase):
@@ -109,30 +123,35 @@ class TestReplacementIdentity(unittest.TestCase):
         _node()
         cls.doc = q11_doc()
         cls.js, cls.spec = run_js(cls.doc, DDF), run_spec(cls.doc, DDF)
+        cls.vals = {s: v["values"] for s, v in cls.doc["inputs"].items()}
 
     def test_fixture_is_codexs_probe(self):
         order, _ = mean_order(self.doc)
         self.assertEqual(order["QB"][10], "11", "Q11 is the best free QB in the common order")
 
     def test_waiver_is_q11_in_every_source(self):
+        # Charts: Q11 himself, 40 and 18 (Codex's probe). Projections: the band around Q11's own row there.
+        want = {"c_espn": 40, "c_p2": 18, "espn": band_at(self.vals["espn"], "11"), "p2": band_at(self.vals["p2"], "11")}
         for name, res in (("js", self.js), ("spec", self.spec)):
             self.assertEqual(res["allocation"]["QB"]["replacement_key"], "11", name)
-            got = {s: res["sources"][s]["positions"]["QB"]["waiver_value"] for s in ("espn", "p2")}
-            self.assertEqual(got, {"espn": 40, "p2": 18}, name)
+            for s, w in want.items():
+                self.assertAlmostEqual(res["sources"][s]["positions"]["QB"]["waiver_value"], w, places=9, msg=(name, s))
 
     def test_q11_is_worth_nothing_over_replacement(self):
         for name, res in (("js", self.js), ("spec", self.spec)):
-            # Codex's 24.139: the projection blend (no chart in this probe).
-            self.assertEqual(res["rows"]["11"]["ddf_projections"]["value"], 0, name)
-            self.assertEqual(res["rows"]["11"]["adjusted"], {"espn": 0, "p2": 0}, name)
-            for s in ("espn", "p2"):
+            for s in CHARTS:
                 self.assertEqual(res["sources"][s]["players"]["11"]["vorp"], 0, (name, s))
+                self.assertEqual(res["rows"]["11"]["adjusted"][s], 0, (name, s))
+            self.assertEqual(res["rows"]["11"]["ddf_charts"]["value"], 0, name)
+            for s in ("espn", "p2"):
+                want = max(0.0, self.vals[s]["11"] - band_at(self.vals[s], "11"))
+                self.assertAlmostEqual(res["sources"][s]["players"]["11"]["vorp"], want, places=9, msg=(name, s))
 
     def test_held_player_below_q11_in_a_source_is_zero_there(self):
-        # Q10: 30 in espn (below Q11's 40) is worth 0 there; 30 in p2 (above 18) is worth 12.
+        # Charts: Q10 at 30 is below Q11's 40 in c_espn (worth 0) and above his 18 in c_p2 (worth 12).
         for name, res in (("js", self.js), ("spec", self.spec)):
-            self.assertEqual(res["sources"]["espn"]["players"]["10"]["vorp"], 0, name)
-            self.assertEqual(res["sources"]["p2"]["players"]["10"]["vorp"], 12, name)
+            self.assertEqual(res["sources"]["c_espn"]["players"]["10"]["vorp"], 0, name)
+            self.assertEqual(res["sources"]["c_p2"]["players"]["10"]["vorp"], 12, name)
 
     def test_python_reference_source_lines(self):
         import value_reference as ref
@@ -140,33 +159,83 @@ class TestReplacementIdentity(unittest.TestCase):
         alloc = ref.allocate(ref_league(self.doc, DDF), order, score)
         self.assertEqual(alloc["QB"]["replacement_key"], "11")
         pos_of = {k: "QB" for k in self.doc["players"]}
-        for s, want in (("espn", 40), ("p2", 18)):
-            src = ref.SourceInput(s, "projection", dict(self.doc["inputs"][s]["values"]))
+        for s, family in (("espn", "projection"), ("p2", "projection"), ("c_espn", "chart"), ("c_p2", "chart")):
+            src = ref.SourceInput(s, family, dict(self.vals[s]))
             out = ref._source_lines(src, pos_of, alloc, {}, league_rostered=tuple(Q11_HELD))
-            self.assertEqual(out["positions"]["QB"]["waiver_value"], want, s)
-            self.assertEqual(out["players"]["11"]["vorp"], 0, s)
+            want = band_at(self.vals[s], "11") if family == "projection" else self.vals[s]["11"]
+            self.assertAlmostEqual(out["positions"]["QB"]["waiver_value"], want, places=9, msg=s)
+            if family == "chart":
+                self.assertEqual(out["players"]["11"]["vorp"], 0, s)
 
     def test_source_without_q11_uses_its_own_best_free_player(self):
-        # p2 has no row for Q11: its waiver is its best free QB, Q12 (28).
+        # p2 lists no Q11 and a projection is never filled in: its line row is its own best free QB, Q12 (28).
+        # c_p2 is a chart, so the engine fills Q11 in with an estimate (VP-2.4) and the line is that estimate:
+        # "listed or estimated", still Q11's own row.
         doc = q11_doc(drop_q11_from_p2=True)
+        vals = {s: v["values"] for s, v in doc["inputs"].items()}
         js, spec = run_js(doc, DDF), run_spec(doc, DDF)
         for name, res in (("js", js), ("spec", spec)):
-            got = {s: res["sources"][s]["positions"]["QB"]["waiver_value"] for s in ("espn", "p2")}
-            self.assertEqual(got, {"espn": 40, "p2": 28}, name)
+            q11 = res["sources"]["c_p2"]["players"]["11"]
+            self.assertTrue(q11.get("imputed") or q11.get("estimated"), name)
+            self.assertAlmostEqual(res["sources"]["c_p2"]["positions"]["QB"]["waiver_value"], q11["native"], places=9, msg=name)
+            self.assertEqual(res["sources"]["c_p2"]["positions"]["QB"]["method"], "estimated", name)
+            self.assertAlmostEqual(res["sources"]["p2"]["positions"]["QB"]["waiver_value"], band_at(vals["p2"], "12"),
+                                   places=9, msg=name)
         import value_reference as ref
         order, score = mean_order(doc)
         alloc = ref.allocate(ref_league(doc, DDF), order, score)
-        src = ref.SourceInput("p2", "projection", dict(doc["inputs"]["p2"]["values"]))
+        src = ref.SourceInput("p2", "projection", dict(vals["p2"]))
         out = ref._source_lines(src, {k: "QB" for k in doc["players"]}, alloc, {}, league_rostered=tuple(Q11_HELD))
-        self.assertEqual(out["positions"]["QB"]["waiver_value"], 28)
+        self.assertAlmostEqual(out["positions"]["QB"]["waiver_value"], band_at(vals["p2"], "12"), places=9)
 
     def test_every_row_held_is_insufficient_coverage(self):
         held = [str(i) for i in range(1, 15)]
         extra = {"league_rostered": held, "bench_level": "ddf"}
         for name, res in (("js", run_js(self.doc, extra)), ("spec", run_spec(self.doc, extra))):
             self.assertIsNone(res["allocation"]["QB"]["replacement_key"], name)
-            for s in ("espn", "p2"):
+            for s in self.doc["inputs"]:
                 self.assertEqual(res["sources"][s]["positions"]["QB"]["method"], "insufficient_coverage", (name, s))
+
+
+class TestLoadedLeagueBandParity(unittest.TestCase):
+    """JEG-1249 / JEG-1047 integration: a loaded league with the replacement at R = 0 (the top QB is free), through
+    the engine, the spec reference and value_reference. A projection's line is the band clipped at the top (rows
+    0..3); a chart's is the one player at R. At the market level the band sits at the held index."""
+
+    def doc(self):
+        d = q11_doc()
+        return d
+
+    def test_r_zero_and_market(self):
+        _node()
+        import value_reference as ref
+        doc = self.doc()
+        vals = {s: v["values"] for s, v in doc["inputs"].items()}
+        held = [str(i) for i in range(2, 12)]   # Q1 (the top QB in every source) is free: R = 0
+        order, score = mean_order(doc)
+        pos_of = {k: "QB" for k in doc["players"]}
+        for level in ("ddf", "market"):
+            extra = {"league_rostered": held, "bench_level": level}
+            js, spec = run_js(doc, extra), run_spec(doc, extra)
+            alloc = ref.allocate(ref_league(doc, extra), order, score)
+            R = alloc["QB"]["replacement"]
+            if level == "ddf":
+                self.assertEqual((R, alloc["QB"]["replacement_key"]), (0, "1"))
+            for s, info in doc["inputs"].items():
+                from lib.roster_convention import waiver_band_line
+                ordered = sorted(vals[s], key=lambda k: (-vals[s][k], int(k)))
+                row = ordered.index("1") if level == "ddf" else R
+                values = [vals[s][k] for k in ordered]
+                want = waiver_band_line(values, row) if info["family"] == "projection" else values[row]
+                out = ref._source_lines(ref.SourceInput(s, info["family"], dict(vals[s])), pos_of, alloc, {},
+                                        league_rostered=tuple(held))
+                with self.subTest(level=level, source=s):
+                    self.assertAlmostEqual(js["sources"][s]["positions"]["QB"]["waiver_value"], want, places=9)
+                    self.assertAlmostEqual(spec["sources"][s]["positions"]["QB"]["waiver_value"], want, places=9)
+                    self.assertAlmostEqual(out["positions"]["QB"]["waiver_value"], want, places=9)
+                    if level == "ddf" and info["family"] == "projection":
+                        self.assertEqual(row, 0)
+                        self.assertAlmostEqual(want, sum(values[:4]) / 4, places=9)
 
 
 # ---------------------------------------------------------------- probe 2
