@@ -1,0 +1,73 @@
+{
+  "_about": "JEG-1270 corpus for tests/test_lineup_presentation_properties.py. Seeds and shapes drive a deterministic generator; the hand cases pin duplicate display names and SUPERFLEX. A null value means unpriced. No totals are stored here: every expectation is derived from the inputs.",
+  "seeds": [1270, 20261029, 7, 424242],
+  "cases_per_seed": 60,
+  "permutations_per_case": 4,
+  "value_key": "ddf_value",
+  "roster_size": [12, 20],
+  "max_leaving": 3,
+  "max_arriving": 3,
+  "unpriced_rate": 0.12,
+  "arrival_reuses_leaving_name_rate": 0.5,
+  "positions": ["QB", "QB", "RB", "RB", "RB", "RB", "WR", "WR", "WR", "WR", "WR", "TE", "TE"],
+  "name_pool": ["Mike Williams", "Josh Allen", "Kenneth Walker", "Michael Thomas", "David Johnson", "Zach Miller", "Chris Thompson", "Ty Johnson", "Steve Smith", "Josh Johnson", "Mike Davis", "Justin Jackson"],
+  "shapes": [
+    {"label": "standard", "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 0},
+    {"label": "superflex", "QB": 1, "RB": 2, "WR": 2, "TE": 1, "FLEX": 1, "SUPERFLEX": 1},
+    {"label": "superflex-wide", "QB": 1, "RB": 2, "WR": 3, "TE": 1, "FLEX": 2, "SUPERFLEX": 2},
+    {"label": "thin", "QB": 1, "RB": 1, "WR": 1, "TE": 0, "FLEX": 0, "SUPERFLEX": 1}
+  ],
+  "hand_cases": [
+    {
+      "label": "same-name WR swap: leaving and arriving players share a display name",
+      "shape": "standard",
+      "roster": [
+        {"player_key": "h1-qb", "name": "Josh Allen", "pos": "QB", "value": 30},
+        {"player_key": "h1-rb1", "name": "Kenneth Walker", "pos": "RB", "value": 20},
+        {"player_key": "h1-rb2", "name": "David Johnson", "pos": "RB", "value": 14},
+        {"player_key": "h1-wr1", "name": "Mike Williams", "pos": "WR", "value": 18},
+        {"player_key": "h1-wr2", "name": "Steve Smith", "pos": "WR", "value": 16},
+        {"player_key": "h1-wr3", "name": "Chris Thompson", "pos": "WR", "value": 9},
+        {"player_key": "h1-te", "name": "Zach Miller", "pos": "TE", "value": 11}
+      ],
+      "leaving": ["h1-wr1"],
+      "arriving": [{"player_key": "h1-wr-new", "name": "Mike Williams", "pos": "WR", "value": 17}]
+    },
+    {
+      "label": "two arrivals share one display name in the same slot",
+      "shape": "standard",
+      "roster": [
+        {"player_key": "h2-qb", "name": "Josh Allen", "pos": "QB", "value": 30},
+        {"player_key": "h2-rb1", "name": "Kenneth Walker", "pos": "RB", "value": 20},
+        {"player_key": "h2-rb2", "name": "David Johnson", "pos": "RB", "value": 14},
+        {"player_key": "h2-wr1", "name": "Steve Smith", "pos": "WR", "value": 18},
+        {"player_key": "h2-wr2", "name": "Chris Thompson", "pos": "WR", "value": 16},
+        {"player_key": "h2-te", "name": "Zach Miller", "pos": "TE", "value": 11}
+      ],
+      "leaving": ["h2-wr1", "h2-wr2"],
+      "arriving": [
+        {"player_key": "h2-mw-a", "name": "Mike Williams", "pos": "WR", "value": 19},
+        {"player_key": "h2-mw-b", "name": "Mike Williams", "pos": "WR", "value": 15}
+      ]
+    },
+    {
+      "label": "SUPERFLEX QB2 stays in its row; same-name QB arrives unpriced",
+      "shape": "superflex",
+      "roster": [
+        {"player_key": "h3-qb1", "name": "Josh Allen", "pos": "QB", "value": 40},
+        {"player_key": "h3-qb2", "name": "Josh Johnson", "pos": "QB", "value": 25},
+        {"player_key": "h3-rb1", "name": "Kenneth Walker", "pos": "RB", "value": 20},
+        {"player_key": "h3-rb2", "name": "Ty Johnson", "pos": "RB", "value": 13},
+        {"player_key": "h3-rb3", "name": "David Johnson", "pos": "RB", "value": 8},
+        {"player_key": "h3-wr1", "name": "Mike Williams", "pos": "WR", "value": 18},
+        {"player_key": "h3-wr2", "name": "Steve Smith", "pos": "WR", "value": 16},
+        {"player_key": "h3-te", "name": "Zach Miller", "pos": "TE", "value": 11}
+      ],
+      "leaving": ["h3-rb2"],
+      "arriving": [
+        {"player_key": "h3-rb-new", "name": "Justin Jackson", "pos": "RB", "value": 22},
+        {"player_key": "h3-qb-new", "name": "Josh Allen", "pos": "QB", "value": null}
+      ]
+    }
+  ]
+}

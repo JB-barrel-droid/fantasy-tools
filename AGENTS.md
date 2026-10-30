@@ -21,11 +21,63 @@ Parallel work is uncapped (Jeremy, 2026-10-09), limited only by: no two agents
 on one code path, value changes paired with the Python reference on one branch,
 merges ordered so main stays green.
 
+## Review and merge protocol (Jeremy, 2026-10-29)
+
+Codex stopped at 19:12 UTC on 2026-10-29 (Jeremy: "I want to get off of Codex
+I think, having you use a seperate reviewer makes sense. Codex is slowing us
+down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
+label and Codex release notes in `HANDOFF.md` are history. This section wins
+over older review or merge text in this file and in `HANDOFF.md`.
+
+- **One independent review per PR.** It comes from a Claude session that did
+  not write the PR. The author's own check doesn't count, and nobody reviews
+  the same head twice (Jeremy, 2026-10-28). The review receipt names the exact
+  head it passed. If the head changes after that, the new commits get a delta
+  review only. A Codex pass on a PR's exact current head, made before the
+  handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
+  Label the risk: `review-light` (docs, copy), `review-standard` (features,
+  UX, tests) or `review-high-risk` (value math, identity, persistence, shared
+  context). Changes to this file, `CLAUDE.md` or permissions are never
+  `review-exempt`.
+- **Corrections.** A substantial review finding becomes one child ticket with
+  the same owner, branch and PR. The owner acknowledges each finding and
+  returns a corrected head with a test that fails before and passes after. A
+  ticket is not done while a correction child is open. A small fix just moves
+  the original ticket back to In Progress.
+- **Branch rule.** Never push straight to `main` and never force-push. Push
+  with an explicit branch refspec (`git push origin <branch>`) so an inherited
+  upstream can't send a bare push to `main`. Claim on the ticket before
+  touching a branch. While another owner still holds a branch, touch it only
+  after 30 minutes with no push from them, or with their explicit OK, and then
+  only to merge `origin/main` in normally: no rebase, no force push, no other
+  edits. The owner pulls before their next push. Taking a ticket over is
+  different (Takeover below). Never delete a branch, data, a file or work in
+  progress without Jeremy's yes.
+- **At most 8 PRs ready for review at once.** Keep the rest as drafts.
+- **Merging.** A Claude merge session batches merges: at most 7 PRs of the same
+  risk on pinned current main, with USO valuation work in its own batch. Each
+  PR merges on its reviewed head, with green CI on that exact head and a clean
+  merge onto current main. Engine PRs still go one at a time (Hot files below).
+  Jeremy approves merges by PR number, and on 2026-10-29 at 21:08 UTC gave a
+  standing OK: "merge anything you recommend once it is green". That covers a
+  PR whose independent review passed, once its checks are green.
+- **Still needs Jeremy's yes each time**, standing OK or not: any PR that
+  changes value math (how values are computed) or a published value, whether
+  or not it claims the published numbers move, with the before and after
+  values shown to him first; every Supabase deploy, migration, production-data
+  change or deletion (named each time); and every backend or edge-function
+  deploy. The one exception is a routine data refresh on green gates, which
+  changes inputs, not the math (Routing below).
+- **Data rules that never bend:** "do not blend weekly data with ROS data,
+  ever." (Jeremy, 2026-10-28). "Natural means both sides, not just 1 side"
+  (Jeremy, 2026-10-28): a natural-fit trade has to fit both teams.
+
 ## Who does what
 
-### Model tiers (the `Model tier` label)
+### Model tiers
 
-The label is the **minimum** model. Names rot, tiers don't. Pick the best
+The tier is the **minimum** model. Name it in the ticket or brief: the
+`Model tier` label group was retired on 2026-10-28 (JEG-1211). Names rot, tiers don't. Pick the best
 current model in the lane.
 
 | Tier | Claude subscription | ChatGPT subscription | OpenRouter / MiniMax | Use for |
@@ -33,6 +85,9 @@ current model in the lane.
 | **T1 deep** | Opus / Fable, high effort (`deep-worker`) | top GPT / Codex, high reasoning | not allowed | Engine and value math, methodology, any bug with unknown root cause, design, final review of T2/T3 output, every merge and deploy |
 | **T2 build** | Sonnet (`worker`) | Codex, medium | a strong open model (checked per task) | Implementation against a written spec: pullers, pipeline stages, migrations, FE built to a contract line, tests. Escalate to T1 after 2 failed gate runs |
 | **T3 light** | Haiku | small GPT | cheap OpenRouter models (e.g. DeepSeek); **MiniMax M3 only** (Jeremy 2026-10-09: 2.5 is out) | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
+
+The ChatGPT/Codex column is inactive since Codex stopped on 2026-10-29
+(review and merge protocol above).
 
 Rules:
 
@@ -47,7 +102,7 @@ Rules:
 3. **T3 output is untrusted** until the gate passes. T3 never resolves player
    identity, edits fixtures, or touches `config/` values.
 4. A ticket that says T2 but needs a judgement call on the numbers is really
-   T1: relabel it.
+   T1: say so in its brief.
 5. Reviews of T2/T3 work are T1, and are a different model from the author
    where possible.
 
@@ -56,19 +111,18 @@ Rules:
 | Work type | Route |
 | --- | --- |
 | PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
-| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude lead session, T1 (Jeremy 2026-10-06, `docs/decisions.md` ops-ownership-001) |
-| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates) |
+| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
+| Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
 
 - **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
   ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
   2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
   2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
-- **Muse (Roman)** owns only Linear tickets labeled `muse` (Jeremy,
-  2026-10-26; one owner per ticket, see `HANDOFF.md` "Working with Muse").
-  On those it works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Otherwise Muse
-  works here only as a last resort when Jeremy asks. Muse output is untrusted
-  input until it passes the repo pipeline. Muse never
+- **Muse (Roman)** works here only as a last resort when Jeremy asks (the
+  `muse` label was retired on 2026-10-27; see `HANDOFF.md` "Working with
+  Muse"). It works on `muse/jeg-<id>-<slug>` branches, merges main in (never
+  rebases or force-pushes) and opens PRs for Claude review. Muse output is
+  untrusted input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
 - **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
@@ -109,7 +163,7 @@ directly. It closes when its last child closes.
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
 | Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | exactly one `Session` (owner), exactly one `Model tier`, and for back end one `BE priority`. |
+| Labels | one type (`Bug`, `Feature` or `Improvement`); `claude` once claimed; a review risk label once a PR is up. `needs-jeremy`, `blocked-dependency` and `ready-for-claude` when they apply. The `Session`, `Model tier`, `BE priority` and `needs-review` labels were retired on 2026-10-28. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -119,63 +173,45 @@ directly. It closes when its last child closes.
 * **High**: on the critical path of the current milestone.
 * **Medium**: next milestone.
 * **Low**: parked. Nobody picks it up unless the queue is empty.
-* **BE priority** (Now / Next / Then / Later) orders the back end within a
-  Linear priority. Now means start today.
 
 Backlog = not scheduled. Todo = in a session's queue. In Progress = an agent is
-working it now and heartbeats. **In Review = waiting on Jeremy** (with
-`needs-review` and the question plus a recommendation in a comment). Done =
-merged and live.
+working it now and heartbeats. **In Review = waiting on an independent review
+or on Jeremy**; a wait on Jeremy carries `needs-jeremy` and the question plus a
+recommendation in a comment. Done = merged and live.
 
-### Session ownership and takeover (Jeremy, 2026-10-10)
+### Ownership and claims (updated 2026-10-29)
 
-Several sessions work this repo at once: the back end, and the front end on the
-Windows PC, on the Mac and in the cloud, plus the hosted Claude Managed Agent.
-Linear decides who owns what.
+Several Claude sessions work this repo at once: cloud threads started from
+Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
 
-- **Owner label.** Every ticket a session works carries exactly one label from
-  the `Session` group: `session:be`, `session:fe-pc`, `session:fe-mac`,
-  `session:fe-cloud` (Jeremy, 2026-10-24) or `session:cma` (the hosted Managed
-  Agent: queue run every 2 hours, up to 3 non-overlapping tickets in parallel,
-  merges on green gates; config and rules in `managed-agents/`, Jeremy
-  2026-10-27, JEG-1173). The label is the owner; the Linear
-  assignee stays Jeremy. The `owner:*` labels are retired.
-- **Queue (JEG-567).** A session's queue is the Todo tickets in Jegabee that
-  carry its own Session label. Backlog is not the queue: a ticket enters it when
-  Jeremy moves it to Todo. At session start, and each time a ticket closes, the
-  session reads its queue and claims the top ticket:
-  - back end: by `BE priority`, then Linear priority;
-  - front end: by Linear priority, then oldest first.
-- **Unrouted tickets.** A Todo ticket with no Session label has no owner yet. A
-  session whose queue is empty routes the ones that are clearly its domain
-  (engine, pipelines, data and research math go to `session:be`; pages and copy
-  to a front-end session): it adds its label, comments `routed to <session>`,
-  and works its queue. If the domain is unclear, it adds `needs-review` and asks
-  Jeremy in a comment instead of guessing.
-- **Claim.** Before starting, a session sets the ticket In Progress, checks the
-  `Session` label is its own and that the ticket has one `Model tier` label,
-  and comments `taken by <session> · <UTC time> · branch <name>`. It doesn't
-  start a ticket that carries another session's label without a takeover.
+- **Owner.** Claimed work carries the `claude` label; the Linear assignee stays
+  Jeremy. The `Session` labels (`session:be`, `session:fe-pc`,
+  `session:fe-mac`, `session:fe-cloud`, `session:cma`) were retired on
+  2026-10-28. The hosted managed agent (`session:cma`) was retired by Jeremy
+  on 2026-10-27 (JEG-1173): it has no queue and no standing takeover. `muse` and `owner:*` are retired too.
+- **Queue (JEG-567).** The queue is the Todo tickets in Jegabee, by Linear
+  priority, then oldest first. Backlog is not the queue: a ticket enters it when
+  Jeremy moves it to Todo. The one exception is `ready-for-claude`, which marks
+  audited, bounded Backlog work a session may move to Todo and claim once the
+  Todo queue is worked. A Todo ticket whose domain is unclear gets
+  `needs-jeremy` and a question in a comment instead of a guess.
+- **Claim.** Before starting, a session checks the ticket's comments and open
+  PRs for another owner, sets it In Progress, adds `claude`, and comments
+  `taken by <session> · <UTC time> · branch <name>`, saying that Jeremy
+  instructed it (Jeremy, 2026-10-29: "be sure to mark what you are picking
+  up"). It removes `ready-for-claude` on claim. It doesn't start a ticket
+  another session is moving without the branch rule above.
 - **Heartbeat.** While a ticket is In Progress, the owner comments at least
   every 4 hours of active work, at every push, and when it parks the ticket:
-  what's done, what's next, and the backup branch (`fe/<ticket>` or
-  `be/<ticket>`), pushed to GitHub at each heartbeat so work never lives on one
-  machine only.
-- **Lag and takeover.** Another session may take over a ticket when it is In
-  Progress with no heartbeat or commit for 4 hours; or its owner is offline or
-  idle and the taker's own queue is empty; or Jeremy says so. Comment `taking
-  over from <session> · last heartbeat <time> · continuing from <branch>`, swap
-  the Session label, continue from the backup branch. The previous owner, on
-  returning, reads the comment and doesn't resume.
-  The `session:cma` managed agent has a standing takeover (Jeremy, 2026-10-27,
-  JEG-1173: "You can take back any tickets assigned to other harnesses unless
-  you can tell they have sessions actively moving forward"): it may take any
-  Trade Value Chart ticket from another Session label, `muse` or `owner:*` that
-  shows no comment, commit or PR update in the last 4 hours. A session that
-  wants to keep a ticket keeps its heartbeat current.
-- **Idle hands.** A session with an empty queue may pick up another session's
-  **Todo** tickets (not In Progress ones), oldest priority first. It swaps the
-  label and comments `picked up by <session>`.
+  what's done, what's next, and the branch (`claude/<ticket>-<slug>`), pushed
+  to GitHub at each heartbeat so work never lives on one machine only.
+- **Takeover.** A session may take over a ticket that shows no comment, commit
+  or PR update for 4 hours, when its owner gives an explicit OK, or when Jeremy
+  says so. It comments `taking over from <session> · last heartbeat <time> ·
+  continuing from <branch>`. Ownership moves with the takeover, so the taker
+  then works the branch as its own: it keeps working on it, merges
+  `origin/main` in normally, and never rebases or force-pushes. The previous
+  owner, on returning, reads the comment and doesn't resume.
 - **Handoff.** A session that is stopping comments on each of its In Progress
   tickets with its state and branch, then moves them back to Todo.
 
@@ -183,10 +219,10 @@ Linear decides who owns what.
 
 Product, copy and method choices that are his are posted on the ticket as
 options with context and a recommendation; agents do not pick defaults
-(Jeremy, 2026-10-22, JEG-850). Add `needs-review`, move the ticket to In
+(Jeremy, 2026-10-22, JEG-850). Add `needs-jeremy`, move the ticket to In
 Review, and claim the next ticket rather than waiting. Batch questions and
 never repeat one he has answered; check the ticket first. When he answers, the
-owner quotes the decision with the date, removes `needs-review`, and moves the
+owner quotes the decision with the date, removes `needs-jeremy`, and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes
 a rule also lands in `docs/decisions.md`. Pre-launch, block only on wrong
 numbers and finish end to end.
@@ -201,7 +237,8 @@ Ticket descriptions are working notes, not the record. A finished fact goes in
 reference), `config/roster.json`, `config/lineup_parameters.json`,
 `pipelines/bake_players.py`.
 
-**Merge protocol** (lead only):
+**Merge protocol** (the Claude merge session, on Jeremy's approval as in the
+review and merge protocol above):
 
 1. Merge one engine PR at a time. Re-run `make test-core` after each. Two PRs
    on `curve-widget.js` merged minutes apart broke deploys twice.

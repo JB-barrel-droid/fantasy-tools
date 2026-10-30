@@ -433,7 +433,7 @@
   }
   function summaryText() {
     const info = basisInfo();
-    if (S.mode === "default") return "DDF Value = our methodology: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league, equal weight.";
+    if (S.mode === "default") return "DDF Value = the default: rooted in the trade charts, then adjusted for position weight and your league's rosters, equal weight.";
     if (S.mode === "single") return `DDF Value = ${labelOf(S.single)} only: that source's value for your league, on the same point scale as every source.`;
     const pct = percents();
     const label = BASIS_KEYS.filter(key => pct[key] !== undefined).map(key => `${pct[key]}% ${labelOf(key)}`).join(" + ");

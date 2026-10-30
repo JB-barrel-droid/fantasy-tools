@@ -9,6 +9,11 @@ smallest change the page shows (JEG-1187; not the noise floor). Independent of t
 
 Force fit = everything else. Value fit is RETIRED.
 
+JEG-1324 (Natural fit 1a, Jeremy 2026-10-29): Natural also needs both teams' DDF Value (projections) not to decline. A
+fall under 0.05 (shown as 0.0) holds (Jeremy, 2026-10-29, D2 "A"). A trade with a moving player that has no DDF Value
+(projections) is not judged on projections and is not Natural (Jeremy, 2026-10-29, "A"). The natural cases below price the moving
+players' projections level, so they test the rule they were written for; checks 16 to 19 test the projections rule.
+
 Discrimination: test_checks_fail_on_broken_builds runs the same checks on mutated copies of finder.js.
 """
 from __future__ import annotations
@@ -23,9 +28,11 @@ from tests.test_v2_finder_balance import ALLOC, SHAPE
 CH = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 
 
-def p(key, pos, ddf, market=None, noise=0.0):
+def p(key, pos, ddf, market=None, noise=0.0, proj="ddf"):
     market = ddf if market is None else market
-    values = {"ddf_value": ddf, "chart_avg": market, "ddf_value_charts": ddf - noise, "ddf_value_projections": ddf + noise}
+    values = {"ddf_value": ddf, "chart_avg": market, "ddf_value_charts": ddf - noise, "ddf_value_projections": ddf + noise if proj == "ddf" else proj}
+    if proj is None:
+        values.pop("ddf_value_projections")
     for i, k in enumerate(CH):
         values[k] = market + (noise if i % 2 else -noise)
     return {"player_key": key, "pos": pos, "name": key, "values": values}
@@ -77,8 +84,8 @@ def check(finder_js: Path) -> list[str]:
     # My net: lose 6, gain 12 = gain. Their net on chart_avg: lose 12, gain 6 = lose (force for me).
     # Actually for natural, their side must be within noise or positive.
     # Let's use a trade where both sides gain in their views.
-    x = p("myGive", "WR", 10, market=25)   # I value low, market values high
-    y = p("theirGive", "RB", 25, market=10)  # I value high, market values low
+    x = p("myGive", "WR", 10, market=25, proj=18)   # I value low, market values high; projections level (JEG-1324)
+    y = p("theirGive", "RB", 25, market=10, proj=18)  # I value high, market values low
     mine_n = team("mn", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5]) + [x]
     theirs_n = team("tn", [22, 11], [35, 28, 14, 12, 9], [26, 20, 9, 8, 7], [11, 6]) + [y]
     f = fit(finder_js, mine_n, theirs_n, [x], [y])
@@ -200,6 +207,9 @@ def check(finder_js: Path) -> list[str]:
     f = fit(finder_js, mine9, theirs9, g9, r9)
     if f["label"] == "natural":
         say(f"starter drop should not be natural: starterDelta={f['us']['starterDelta']}")
+    # JEG-1324: their projections also fall here, so pin the guard itself, not only the label.
+    if f.get("yourValueOk") is not False:
+        say(f"a starter drop should fail your value test: yourValueOk={f.get('yourValueOk')}")
     if f.get("constructionOk") is not True:
         say(f"test 9 construction should be OK: {f.get('myConstruction')}, {f.get('theirConstruction')}")
     if f["us"]["net"] <= 0.05:
@@ -219,6 +229,8 @@ def check(finder_js: Path) -> list[str]:
     # Their charts: give 22, receive 2 = -20. Well outside noise. Not natural.
     if f["label"] == "natural":
         say(f"their loss outside noise should not be natural: label={f['label']} them net={f['them']['net']}")
+    if ((f.get("natural") or {}).get("them") or {}).get("value") is not False:
+        say(f"their loss outside noise should fail their value test: {f.get('natural')}")
     if f.get("constructionOk") is not True:
         say(f"test 10 construction should be OK: my={f.get('myConstruction')}, their={f.get('theirConstruction')}")
 
@@ -226,15 +238,15 @@ def check(finder_js: Path) -> list[str]:
     # Players have high chart noise (±10) but zero DDF noise, so my tau stays small.
     # Their market loss of -4 is within noise-scaled tau (~8) but outside NET_FLOOR (0.05).
     # Without noise scaling: not natural (theirOk fails). With noise: natural.
-    def noisy_p(key, pos, ddf, market, chart_noise):
-        values = {"ddf_value": ddf, "chart_avg": market, "ddf_value_charts": ddf, "ddf_value_projections": ddf}
+    def noisy_p(key, pos, ddf, market, chart_noise, proj=None):
+        values = {"ddf_value": ddf, "chart_avg": market, "ddf_value_charts": ddf, "ddf_value_projections": ddf if proj is None else proj}
         for i, k in enumerate(CH):
             values[k] = market + (chart_noise if i % 2 else -chart_noise)
         return {"player_key": key, "pos": pos, "name": key, "values": values}
     mine11 = team("m11", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
     theirs11 = team("t11", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
-    g11 = [noisy_p("m11g", "WR", 5, 18, chart_noise=10)]
-    r11 = [noisy_p("t11g", "WR", 25, 22, chart_noise=10)]
+    g11 = [noisy_p("m11g", "WR", 5, 18, chart_noise=10, proj=12)]
+    r11 = [noisy_p("t11g", "WR", 25, 22, chart_noise=10, proj=12)]
     f = fit(finder_js, mine11 + g11, theirs11 + r11, g11, r11)
     # My DDF: bench swap, give 5 receive 25, net=+3.0 (bench weight 0.15). totalUp=true.
     # Their market: give 22, receive 18 = -4. Noise tau ~8.16. Within noise => theirOk=true.
@@ -246,8 +258,8 @@ def check(finder_js: Path) -> list[str]:
     # your tau is about 14 while your rise is only +0.45. Their side is level on the charts (inside their noise floor).
     mine12 = team("m12", [20, 12], [30, 25, 10, 8, 5], [30, 28, 15, 9, 7], [10, 5])
     theirs12 = team("t12", [22, 11], [35, 28, 25, 20, 15], [40, 35, 30, 25, 20], [11, 6])
-    g12 = [p("m12g", "WR", 5, market=7, noise=10)]
-    r12 = [p("t12g", "WR", 8, market=7, noise=10)]
+    g12 = [p("m12g", "WR", 5, market=7, noise=10, proj=12)]
+    r12 = [p("t12g", "WR", 8, market=7, noise=10, proj=12)]
     f = fit(finder_js, mine12 + g12, theirs12 + r12, g12, r12)
     if not (f["us"]["net"] > 0.05 and f["us"]["net"] < f["us"]["tau"]):
         say(f"test 12 setup: your rise should sit between 0.05 and your noise floor: net={f['us']['net']} tau={f['us']['tau']}")
@@ -284,6 +296,60 @@ def check(finder_js: Path) -> list[str]:
     if f["label"] != "force" or f.get("marketSupported"):
         say(f"a gain of {f['them']['net']:.2f} is not market supported: label={f['label']}")
 
+    # 16. JEG-1324 boundaries. The predicate's own test: a fall under 0.05 holds; 0.05 or more fails; any gain holds;
+    # no number is not judged (never 0).
+    for net, want in ((0.049, True), (0.05, True), (0.051, True), (0.0, True), (-0.049, True), (-0.05, False), (-0.051, False)):
+        got = call(finder_js, "projectionsHold", net)
+        if got is not want:
+            say(f"projectionsHold({net}) = {got}, want {want}")
+    if call(finder_js, "projectionsHold", None) is not None:
+        say("projectionsHold(None) should be not judged (null)")
+
+    # 17. The same boundaries through tradeFit, both sides. The bench swap of check 1 with every bench weight 1 and both
+    # moving players' projections on the bench (3 and 3 + d): their DDF Value (projections) changes by d and yours by -d,
+    # so d > 0 tests your side and d < 0 tests theirs. Natural only while neither falls 0.05 or more.
+    w1 = {"QB": 1, "RB": 1, "WR": 1, "TE": 1, "overall": 1}
+    for d, want in ((0.049, "natural"), (-0.049, "natural"), (0.05, "market"), (-0.05, "market"), (0.051, "market"), (-0.051, "market")):
+        xb = p("myGiveB", "WR", 10, market=25, proj=3 + d)
+        yb = p("theirGiveB", "RB", 25, market=10, proj=3)
+        f = fit(finder_js, mine_n + [xb], theirs_n + [yb], [xb], [yb], weights=w1)
+        nat = f.get("natural") or {}
+        them_net = (nat.get("them") or {}).get("projNet")
+        us_net = (nat.get("us") or {}).get("projNet")
+        if them_net is None or us_net is None or abs(them_net - d) > 1e-9 or abs(us_net + d) > 1e-9:
+            say(f"check 17 setup d={d}: projections nets you {us_net}, they {them_net}")
+            continue
+        if f["label"] != want:
+            say(f"projections change {d:+.3f} for them, {-d:+.3f} for you: label {f['label']}, want {want}")
+        if want == "market":
+            loser = "Their" if d < 0 else "Your"
+            text = call(finder_js, "fitText", f)
+            if f"{loser} DDF Value (projections) falls" not in text:
+                say(f"check 17 d={d}: the text should name the side whose projections fall: {text!r}")
+
+    # 18. A held projection: a moving player has no DDF Value (projections). Not judged, so not Natural, and the text
+    # says it was not checked (never a 0).
+    xh = p("myGiveH", "WR", 10, market=25, proj=None)
+    yh = p("theirGiveH", "RB", 25, market=10, proj=18)
+    f = fit(finder_js, mine_n + [xh], theirs_n + [yh], [xh], [yh])
+    nat = f.get("natural") or {}
+    if f["label"] == "natural":
+        say("a trade with a held projection should not be natural")
+    if (nat.get("us") or {}).get("projections", "x") is not None or (nat.get("them") or {}).get("projections", "x") is not None:
+        say(f"a held projection should leave both sides not judged: {nat}")
+    text = call(finder_js, "fitText", f)
+    if "DDF Value (projections) not checked" not in text:
+        say(f"held projection text: {text!r}")
+
+    # 19. The 14:24 UTC shape: every other Natural test passes and only their projections fall (2.2): not Natural.
+    xs = p("myGiveS", "WR", 10, market=25, proj=3)
+    ys = p("theirGiveS", "RB", 25, market=10, proj=3 + 2.2 / 0.15)
+    f = fit(finder_js, mine_n + [xs], theirs_n + [ys], [xs], [ys])
+    if f["label"] == "natural" or not f.get("constructionOk") or not f.get("yourValueOk"):
+        say(f"their projections falling 2.2 should only fail the projections test: label={f['label']}")
+    elif abs(f["natural"]["them"]["projNet"] + 2.2) > 1e-6 or f["natural"]["us"]["projections"] is not True:
+        say(f"check 19 setup: {f['natural']}")
+
     return errors
 
 
@@ -297,6 +363,15 @@ MUTANTS = {
     "market needs the noise floor": ("const marketSupported = theirNet > NET_FLOOR;", "const marketSupported = theirNet > theirTau;"),
     "market needs no gain": ("const marketSupported = theirNet > NET_FLOOR;", "const marketSupported = theirNet > -1000;"),
     "market always": ('const label = isNatural ? "natural" : marketSupported ? "market" : "force";', 'const label = "market";'),
+    # JEG-1324: the 1a projections test.
+    "projections ignored": ("ok: Boolean(value) && Boolean(construction && construction.ok) && projections === true};",
+                            "ok: Boolean(value) && Boolean(construction && construction.ok)};"),
+    "their projections never fall": ("themProjNet: projected ? viewNet(sides.theirs, ctx, projKey) : null", "themProjNet: projected ? 0 : null"),
+    "your projections never fall": ("usProjNet: projected ? usProj.net : null", "usProjNet: projected ? 0 : null"),
+    "no tolerance": ("net >= 0 || Math.abs(net) < PROJ_FLOOR", "net >= 0"),
+    "tolerance inclusive": ("net >= 0 || Math.abs(net) < PROJ_FLOOR", "net >= 0 || Math.abs(net) <= PROJ_FLOOR + 1e-9"),
+    "missing projection read as level": ("ok: Boolean(value) && Boolean(construction && construction.ok) && projections === true};",
+                                         "ok: Boolean(value) && Boolean(construction && construction.ok) && projections !== false};"),
     "tiers reversed": ("a.t - b.t || a.i - b.i", "b.t - a.t || a.i - b.i"),
     "tiers unstable": ("a.t - b.t || a.i - b.i", "a.t - b.t || b.i - a.i"),
 }
