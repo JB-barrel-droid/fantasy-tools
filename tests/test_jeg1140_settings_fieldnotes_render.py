@@ -389,6 +389,10 @@ class SettingsLivePageRenderTest(unittest.TestCase):
             # The page keeps the players it prices; the kicker travels by its exact identity.
             self.assertEqual([k for k in got["teams"][name]], [k for k in keys if k in got["teams"][name]])
             self.assertGreaterEqual(len(got["teams"][name]), len(keys) - 1)
+        print("DIAG link_len", len(link), "has_ov", "ov=" in link, "tail", link[-300:], flush=True)
+        print("DIAG opened", opened.evaluate("() => ({hash: location.hash, sig: DDFOverrides.state.linkSig, session: DDFOverrides.state.session, values: DDFOverrides.state.values, note: DDFOverrides.state.linkNote, q: (TradeValueWorkspace.store.get().settings||{}).query})"), flush=True)
+        opened.wait_for_timeout(3000)
+        print("DIAG opened+3s", opened.evaluate("() => ({sig: DDFOverrides.state.linkSig, values: DDFOverrides.state.values, all: DDFOverrides.all()})"), flush=True)
         self.assertEqual(self.overrides_state(opened)["all"], ov["all"])
 
     def test_two_cancelled_overrides_imports_leave_settings_usable(self):
