@@ -56,12 +56,12 @@
   //   agree     every complete row points the same way;
   //   split     complete rows point different ways (different publishers);
   //   incomplete no row is complete.
-  // A net that shows as 0.0 points neither way. meta(key) -> {publisher, method, week}.
+  // A net inside the even band (evenBand, JEG-1125) points neither way. meta(key) -> {publisher, method, week}.
   function tradeStory(rows, meta) {
     const complete = rows.filter(row => row.net !== null);
     if (!rows.length) return {kind: null};
     if (!complete.length) return {kind: "incomplete"};
-    const sign = row => (Math.abs(row.net) < 0.05 ? 0 : row.net > 0 ? 1 : -1);
+    const sign = row => rowSign(row);
     const byPublisher = new Map();
     complete.forEach(row => {
       const m = meta(row.key);
@@ -89,7 +89,23 @@
     return {kind: "split", ...counts};
   }
 
-  const signOf = net => (Math.abs(net) < 0.05 ? 0 : net > 0 ? 1 : -1);   // 0.0 as shown points neither way
+  // JEG-1125: the trade bands, defined once here. Find a trade (finder.js) reads them from this file, and
+  // tests/test_trade_bands.py fails if any copy drifts. Two rules, two questions:
+  //   evenBand     option A (Jeremy, 2026-10-29): the one "even" band for every win / even / lose call on a trade,
+  //                max(EVEN_FLOOR = 1 point, EVEN_SHARE = 3% of the average side). A net inside it is even.
+  //                Compare's verdict and per-source sides, the trade story, "Will they accept?" (the other manager
+  //                wins or breaks even), the Deal read (sideOf) and Find a trade (DDF Value edge and "rival breaks
+  //                even or wins") all use it, each on its own series' give and receive.
+  //   THIN_MARGIN  not an even band: the headline's confidence drops when the margin is under 5% of the value traded.
+  // SHOWN_EVEN (0.05) is only how a number prints: a net under it shows as 0.0. Find a trade's fit floor NET_FLOOR
+  // reads it; it no longer decides whether a trade is even.
+  const SHOWN_EVEN = 0.05;
+  const EVEN_FLOOR = 1;
+  const EVEN_SHARE = 0.03;
+  const evenBand = (give, receive) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + receive) / 2));
+  const bandSign = (net, give, receive) => (Math.abs(net) < evenBand(give, receive) ? 0 : net > 0 ? 1 : -1);
+  const rowSign = row => bandSign(row.net, row.give, row.receive);   // a compareTrade row with a net
+  const signOf = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net > 0 ? 1 : -1);   // display only: 0.0 as shown
 
   // JEG-468 waterfall for one series: the same sums as compareTrade, shown as steps.
   // 0 → one step down per player given (largest first) → one step up per player
@@ -140,10 +156,10 @@
     const others = rows.filter(row => row.key !== key);
     const complete = others.filter(row => row.net !== null);
     const incompleteKeys = others.filter(row => row.net === null).map(row => row.key);
-    const keysWhere = want => complete.filter(row => signOf(row.net) === want).map(row => row.key);
+    const keysWhere = want => complete.filter(row => rowSign(row) === want).map(row => row.key);
     const base = {key, upKeys: keysWhere(1), downKeys: keysWhere(-1), evenKeys: keysWhere(0), incompleteKeys, others: complete.length};
     if (head.net === null) return {kind: "incomplete", net: null, missing: head.missing, againstKeys: [], agreeKeys: [], ...base};
-    const s = signOf(head.net);
+    const s = rowSign(head);
     const kind = s > 0 ? "win" : s < 0 ? "lose" : "even";
     const againstKeys = s > 0 ? base.downKeys : s < 0 ? base.upKeys : [];
     const agreeKeys = s > 0 ? base.upKeys : s < 0 ? base.downKeys : base.evenKeys;
@@ -158,7 +174,7 @@
   //            Unclear when they split or the margin is under 5%.
   //            The chart agreement count stays in the reasons for honesty ("0 of N agree").
   //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
-  //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
+  //            charts on which the other manager wins or breaks even (our net inside the even band or below, JEG-1125).
   //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
   // The level is High / Medium / Low here; the page names it for what it measures (JEG-895, v2.js
   // LEVEL_LABELS: "Our value: strong / moderate / weak", "Charts agree: strongly / mostly / weakly"):
@@ -236,7 +252,7 @@
     if (!charts.length) {
       accept = {answer: null, confidence: null, reasons: []};
     } else {
-      const yes = charts.filter(row => signOf(row.net) <= 0).length;
+      const yes = charts.filter(row => rowSign(row) <= 0).length;
       const share = yes / charts.length;
       const answer = share >= 2 / 3 ? "Likely" : share <= 1 / 3 ? "Unlikely" : "Toss-up";
       const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
@@ -313,11 +329,11 @@
       text: "DDF Value and the trade charts both say you lose."}
   };
   const sideOf = (net, give, receive) => {
-    const threshold = Math.max(1, 0.03 * ((give + receive) / 2));
+    const threshold = evenBand(give, receive);
     return {side: net >= threshold ? "win" : net <= -threshold ? "lose" : "even", threshold};
   };
   // JEG-886: the Deal read must not contradict "Will they accept?" (tradeHeadlines), which counts the
-  // charts on which the other manager wins or breaks even (net <= 0 as shown). Each market column's copy
+  // charts on which the other manager wins or breaks even (net inside the even band or below, JEG-1125). Each market column's copy
   // assumes one answer to that question: charts win for you -> Unlikely; charts even or lose -> Likely.
   // An average can hide the per-chart disagreement (+0.5, -7.2, +9.1 average to +0.8 "even" while only
   // 1 of 3 charts has the other manager winning). When the count the headline uses does not match the
@@ -379,7 +395,7 @@
         chartCount: completeCharts.length};
       // JEG-886: the same per-chart count "Will they accept?" uses, and the range the average hides.
       const nets = completeCharts.map(row => row.net);
-      const yes = completeCharts.filter(row => signOf(row.net) <= 0).length;
+      const yes = completeCharts.filter(row => rowSign(row) <= 0).length;
       market.charts = {yes, of: completeCharts.length, accept: acceptAnswer(yes, completeCharts.length),
         min: Math.min(...nets), max: Math.max(...nets)};
       market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];
@@ -477,6 +493,7 @@
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
+    SHOWN_EVEN, signOf, sideOf, EVEN_FLOOR, EVEN_SHARE, evenBand, bandSign, rowSign,
     pickMarketMisses, isMarketMiss, EXAMPLE_COUNT, EXAMPLE_POOL,
     dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
     marketGapWord, marketGapText};
