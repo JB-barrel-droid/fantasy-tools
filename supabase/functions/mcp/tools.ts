@@ -7,7 +7,7 @@
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
 import { type NameMatch, matchName, splitNames } from "./names.ts";
-import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
+import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, type FitSides, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
 import {
   type RosterShape,
   type ViabilityConfig,
@@ -505,6 +505,7 @@ function slimOffer(o: {
   checks: Array<{ name: string; passed: boolean }>;
   fit?: string | null;
   fitReason?: string | null;
+  fitSides?: FitSides | null;
 }, withTeam: boolean) {
   const side = (rows: Array<{ name: string; pos: string; ddfValue: number | null }>): SlimPlayer[] =>
     rows.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue }));
@@ -521,6 +522,14 @@ function slimOffer(o: {
     ...(o.temporaryGap ? { temporaryGap: true } : {}),
     // JEG-1115: the fit label the finder shows (Natural / Market supported / Force) and its reason.
     ...(o.fit ? { fit: o.fit, fitReason: o.fitReason ?? null } : {}),
+    // JEG-1329: the other team's side of the same tradeFit call (their Trade chart average net and
+    // starters change) and roster construction for both teams. Your side's numbers are ddfEdge,
+    // lineup and the fit reason; the construction issues are in the fit reason too.
+    ...(o.fit && o.fitSides ? {
+      theirs: { marketNet: round1(o.fitSides.theirs.net), starters: round1(o.fitSides.theirs.starters),
+        constructionOk: o.fitSides.theirs.construction.ok },
+      yours: { constructionOk: o.fitSides.yours.construction.ok },
+    } : {}),
   };
 }
 
@@ -530,7 +539,9 @@ function tradeLine(index: number, o: ReturnType<typeof slimOffer>, team?: string
   const vs = team ? ` vs ${team}` : "";
   const edge = o.ddfEdge >= 0 ? `+${o.ddfEdge.toFixed(1)}` : o.ddfEdge.toFixed(1);
   const lineup = o.lineup >= 0 ? `+${o.lineup.toFixed(1)}` : o.lineup.toFixed(1);
-  const line = `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
+  // JEG-1329: their starters change on the Trade chart average (their net is in the fit reason).
+  const theirs = o.theirs ? ` | their starters ${o.theirs.starters >= 0 ? "+" : ""}${o.theirs.starters.toFixed(1)}` : "";
+  const line = `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup}${theirs} | ${tag}`;
   // JEG-1115: the finder's fit label and one-line reason (fitText opens with the label).
   return o.fit ? `${line}${o.fitReason ? `\n   ${o.fitReason}` : ` | ${o.fit}`}` : line;
 }
@@ -549,6 +560,15 @@ function tradeLines<T extends ReturnType<typeof slimOffer>>(rows: T[], team?: (o
 // JEG-1115: fit reasons must fit inside the existing JEG-1123 reply budgets. Limits are
 // upper bounds (Jeremy, Oct 26); keep a ranked prefix and the entire selected package.
 const bytes = (result: ToolResult) => new TextEncoder().encode(JSON.stringify(result)).length;
+// JEG-1329 (pick B, 2026-10-29): the site link does not count against the reply budget. It opens the
+// full list on the site, and a league link grows with every team it carries, so counting it would cost
+// trade rows. Measured as the reply with the link left out of the text and site_url.
+const budgetBytes = (result: ToolResult) => {
+  const url = result.structuredContent?.site_url;
+  if (typeof url !== "string" || !url) return bytes(result);
+  return bytes({ ...result, content: result.content.map((c) => ({ ...c, text: c.text.split(url).join("") })),
+    structuredContent: { ...result.structuredContent, site_url: "" } });
+};
 const tradeBudget = (name: string, limit: number) => name === "find_trades"
   ? (limit <= 10 ? 6700 : 17000) : (limit <= 10 ? 8000 : 11500);
 const SIZE_ERROR = "This trade reply is too large to show with complete fit reasons. Try fewer opponents or shorter roster/team names.";
@@ -560,7 +580,7 @@ function boundedTrades<T>(rows: T[], name: string, limit: number,
   const budget = tradeBudget(name, limit) - 512;
   for (let count = rows.length; count >= Math.min(1, rows.length); count--) {
     const result = render(rows.slice(0, count), count < rows.length);
-    if (bytes(result) < budget) return result;
+    if (budgetBytes(result) < budget) return result;
   }
   throw new ToolInputError(SIZE_ERROR);
 }
@@ -568,7 +588,7 @@ function boundedTrades<T>(rows: T[], name: string, limit: number,
 /** Final wire guard, after state links and optional week metadata have been attached. */
 export function checkTradeReplySize(name: string, result: ToolResult): void {
   if ((name === "find_trades" || name === "find_trades_league") && !result.isError &&
-    bytes(result) >= tradeBudget(name, Number(result.structuredContent?.limit) || 10)) {
+    budgetBytes(result) >= tradeBudget(name, Number(result.structuredContent?.limit) || 10)) {
     throw new ToolInputError(SIZE_ERROR);
   }
 }
@@ -1261,16 +1281,16 @@ function withFit<T extends ScoredOffer>(
   mineRows: FinderRow[],
   theirRows: FinderRow[],
   rowByKey: Map<number, FinderRow>,
-): T & { fit: string | null; fitReason: string | null } {
-  if (!ctx) return { ...o, fit: null, fitReason: null };
+): T & { fit: string | null; fitReason: string | null; fitSides: FitSides | null } {
+  if (!ctx) return { ...o, fit: null, fitReason: null, fitSides: null };
   const rows = (side: Array<{ player_key: number }>) =>
     side.map((p) => rowByKey.get(p.player_key)).filter((r): r is FinderRow => !!r) as unknown as FitRow[];
   const give = rows(o.userGives);
   const receive = rows(o.userGets);
-  if (give.length !== o.userGives.length || receive.length !== o.userGets.length) return { ...o, fit: null, fitReason: null };
+  if (give.length !== o.userGives.length || receive.length !== o.userGets.length) return { ...o, fit: null, fitReason: null, fitSides: null };
   const fit = fitForTrade(finder as unknown as FitFinder, mineRows as unknown as FitRow[], theirRows as unknown as FitRow[],
     give, receive, ctx);
-  return { ...o, fit: fit.fit, fitReason: fit.fit_reason };
+  return { ...o, fit: fit.fit, fitReason: fit.fit_reason, fitSides: fit.sides ?? null };
 }
 
 /** Minimal ViabilityRow from a trade candidate player summary. */
@@ -1321,16 +1341,20 @@ async function findTradesLeagueHandler(
   const allRowsByKey = new Map<number, FinderRow>();
   const perOpponent: Array<{ name: string; opponent_index: number; tradesFound: number; unmatchedNames: string[] }> = [];
   const nameNotes = [...mineRes.notes];
+  // JEG-1329: every opponent's matched roster, in input order, for the site link (even teams with no trade).
+  const leagueTeams: Array<{ name: string; keys: string[] }> = [];
 
   // Run each opponent pair sequentially (edge function memory).
   for (const [index, opp] of opponents.entries()) {
     const opponentId = String(index);
     const oppNames = splitNames(opp.roster);
     if (!oppNames.length) {
+      leagueTeams.push({ name: opp.name, keys: [] });
       perOpponent.push({ name: opp.name, opponent_index: index, tradesFound: 0, unmatchedNames: [] });
       continue;
     }
     const oppRes = resolveNames(chartPlayers, oppNames);
+    leagueTeams.push({ name: opp.name, keys: oppRes.matched.filter((p) => !mineKeys.has(p.player_key)).map((p) => String(p.player_key)) });
     nameNotes.push(...oppRes.notes.map((note) => `${opp.name}: ${note}`));
     const theirMatched = oppRes.matched.filter((p) => !mineKeys.has(p.player_key));
     if (!theirMatched.length) {
@@ -1434,9 +1458,12 @@ async function findTradesLeagueHandler(
     const work = {
       mine: mineNames.map((n: string) => entry(n, findPlayer(data.players, n))),
     };
+    // JEG-1329: the site link opens the league finder with every team, yours first, not only yours.
+    const teams = [{ name: "My team", keys: mineRes.matched.map((p) => String(p.player_key)) }]
+      .concat(leagueTeams);
 
     return finish(ok(lines.join("\n"), structured), {
-      prepared, deps, settings: s, view: "finder", work,
+      prepared, deps, settings: s, view: "finder", work, teams,
     });
   });
 }

@@ -56,7 +56,18 @@ class Decide(unittest.TestCase):
         self.assertEqual(alert.decide("failure", None, NOW), "open")
 
     def test_a_published_run_closes(self):
-        self.assertEqual(alert.decide("success", BUILT, NOW), "close")
+        self.assertEqual(alert.decide("success", BUILT, NOW, published=True), "close")
+
+    def test_success_without_publication_preserves_the_alert(self):
+        for published in (False,):
+            action = alert.decide("success", BUILT, NOW, published=published)
+            gh = FakeGitHub([{"number": 5, "title": alert.TITLE}])
+            alert.run(action, "", "o/r", "t", NOW, gh)
+            self.assertEqual(action, "none")
+            self.assertEqual(gh.calls, [])
+
+    def test_status_only_push_cannot_close_alert(self):
+        self.assertEqual(alert.decide("failure", BUILT, NOW, published=True), "open")
 
     def test_a_skipped_or_cancelled_run_does_nothing(self):
         for outcome in ("skipped", "cancelled", ""):
@@ -110,6 +121,13 @@ class Run(unittest.TestCase):
 
 
 class Robust(unittest.TestCase):
+    def test_cli_requires_confirmed_push_to_close(self):
+        from unittest.mock import patch
+        for pushed, expected in (("false", "none"), ("", "none"), ("true", "close")):
+            with self.subTest(pushed=pushed), patch.object(alert, "_read", return_value=HISTORY), patch.object(alert, "run", return_value="checked") as run:
+                self.assertEqual(alert.main(["--chain-outcome", "success", "--published", pushed]), 0)
+                self.assertEqual(run.call_args.args[0], expected)
+
     def test_an_unlabelled_issue_is_found_by_title(self):
         gh = FakeGitHub([{"number": 6, "title": alert.TITLE, "labels": [], "updated_at": BUILT}])
         self.assertEqual(alert.run("close", "", "o/r", "t", NOW, gh), "closed #6")
@@ -133,6 +151,7 @@ class Robust(unittest.TestCase):
 class Workflow(unittest.TestCase):
     def test_the_chain_workflow_runs_the_alert_with_issue_rights(self):
         wf = (ROOT / ".github" / "workflows" / "rebuild-chain.yml").read_text(encoding="utf-8")
+        self.assertIn('--published "${{ steps.push.outputs.pushed }}"', wf)
         self.assertIn("issues: write", wf)
         self.assertIn("pipelines/chain_stuck_alert.py --chain-outcome", wf)
         step = wf.split("pipelines/chain_stuck_alert.py")[0].rsplit("- name:", 1)[1]

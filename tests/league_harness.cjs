@@ -480,7 +480,8 @@ t("test_opportunities_preserve_qualified_candidates", async () => {
 });
 
 t("test_opportunities_fit_after_full_search", async () => {
-  const d = load("4team"), mine = d.teams[0], opp = d.teams[1];
+  // JEG-1324: Natural fit 1a reads both sides' DDF Value (projections), so the rows carry it, as engine rows do.
+  const base = load("4team"), d = {...base, rows: withProjections(base.rows, spread)}, mine = d.teams[0], opp = d.teams[1];
   const ctx = ctxFor(d.rows);
   const pair = O.computePairing(mine, opp, ctx);
   assert.ok(pair.rows.length > F.LIMIT, "judged fixture exceeds the former cap");
@@ -505,6 +506,22 @@ t("test_opportunities_fit_after_full_search", async () => {
   const filtered = O.filterRows(ranked, {fit: "natural"});
   assert.ok(filtered.some(r => r.id === natural.id), "natural filter preserves beyond-cap fit");
   assert.deepStrictEqual(O.fullFit(ranked.find(r => r.id === natural.id)), O.fullFit(natural), "rank copy retains detail context");
+});
+// JEG-1324: "Our fit" is your side of the shared Natural fit predicate and never says "natural" (Natural means both
+// sides). The overall Natural fit is exactly both sides passing it.
+t("test_opportunities_our_fit_both_sides", () => {
+  const base = load("4team"), rows = withProjections(base.rows, spread);
+  const pair = O.computePairing(base.teams[0], base.teams[1], ctxFor(rows));
+  assert.ok(pair.rows.length > 0, "the fixture pairing produces trades");
+  const seen = new Set();
+  pair.rows.forEach(row => {
+    const full = O.fullFit(row);
+    assert.notStrictEqual(row.ours.label, "natural", "a one-side check never says natural");
+    assert.strictEqual(row.ours.label === "works", full.natural.us.ok, `works iff your side passes: ${row.id}`);
+    assert.strictEqual(row.overall === "natural", full.natural.us.ok && full.natural.them.ok, `natural iff both sides pass: ${row.id}`);
+    seen.add(row.ours.label);
+  });
+  assert.ok(seen.has("works") && seen.size > 1, `the fixture separates our-fit labels: ${[...seen]}`);
 });
 t("test_opportunities_cancel_during_pairing", async () => {
   const d = load("4team"), ctx = ctxFor(d.rows), cache = O.createCache();
@@ -537,7 +554,8 @@ function assertRowShape(r) {
   assert.ok(r.core && r.receive.includes(r.core), "core player is in the receive set");
   assert.ok(Number.isFinite(r.edge) && r.edge > 0, "fundamentals capture");
   assert.ok(r.edgePct === null || Number.isFinite(r.edgePct), "capture percent");
-  assert.ok(["natural", "partial", "force"].includes(r.ours.label), "our team fit");
+  // JEG-1324: our side never carries "natural" (Natural means both sides, Jeremy 2026-10-28); JEG-1221 S5 labels.
+  assert.ok(["works", "gains, roster issue", "gains, projections fall", "gains, projections not checked", "doesn't work"].includes(r.ours.label), "our team fit");
   assert.ok(Number.isFinite(r.chartEdge), "market perception edge");
   assert.ok(Number.isInteger(r.rivalOkCount) && r.chartCount >= r.rivalOkCount, "charts fair");
   assert.ok(["favorable", "neutral", "hurts"].includes(r.theirs.label), "their team fit");

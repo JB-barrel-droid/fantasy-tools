@@ -280,6 +280,18 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 // --- Rate limiting (simple per-IP in-memory) --------------------------------
+// JEG-1061: this limiter is a SOFT GUARD ONLY, not a real per-client limit.
+// The buckets live in a Map in this function instance's memory: the counts
+// reset whenever the instance recycles and are never shared across instances,
+// so under load each instance keeps its own count and the "limit" is really
+// per instance. The key is the first entry of the x-forwarded-for header
+// (falling back to cf-connecting-ip), which the client can set to anything,
+// so a caller can mint a fresh bucket by changing one header. All this does
+// is blunt a naive burst against one warm instance. That is accepted on
+// purpose: the function stores no data, so abuse costs CPU only (about
+// 0.3 s per fresh custom league; the answer cache below is per-instance too).
+// A shared or unforgeable-key limiter would be a separate, deliberate
+// change — do not read the numbers below as a guarantee.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute

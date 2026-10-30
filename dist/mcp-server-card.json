@@ -2,11 +2,11 @@
   "name": "data-driven-football",
   "title": "Data Driven Football trade values",
   "description": "Fantasy football trade values (value above waivers) for a league's scoring, team count and superflex setting. Read only, no sign-in.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "website": "https://jb-barrel-droid.github.io/fantasy-tools/",
   "transport": {"type": "streamable-http", "url": "https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp"},
   "authentication": {"required": false},
-  "tools": ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "explain"],
+  "tools": ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "risers_fallers", "audit_values", "explain"],
   "instructions": "https://jb-barrel-droid.github.io/fantasy-tools/llms.txt",
   "skill": "https://jb-barrel-droid.github.io/fantasy-tools/ddf-skill.zip",
   "note": "MCP server cards are a draft convention; fields may change. llms.txt is the human and model readable description."

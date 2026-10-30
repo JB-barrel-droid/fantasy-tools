@@ -94,7 +94,7 @@ const TOOLS = [
     work: { mine: [{ key: "3" }, { key: "4" }], theirs: [{ key: "1" }] } },
   { name: "find_trades", args: { mine: "Josh Allen, Josh Jacobs", theirs: "Bijan Robinson, Ja'Marr Chase" }, route: "#find-trade" },
   { name: "find_trades_league", args: { mine: "Josh Allen, Josh Jacobs",
-    opponents: [{ name: "Opp", roster: "Bijan Robinson, Ja'Marr Chase" }] }, route: "#find-trade" },
+    opponents: [{ name: "Opp", roster: "Bijan Robinson, Ja'Marr Chase" }] }, route: "#find-league" },
   // JEG-1029: the analyses read get-values' analysis blocks (fetchAnalysis) for the same league.
   { name: "risers_fallers", args: { series: "fantasycalc" }, route: "#risers-fallers" },
   { name: "audit_values", args: { view: "source", source: "cbs" }, route: "#values-auditing" },
@@ -123,8 +123,8 @@ const OVERRIDES = [
 ];
 
 // id -> the ticket and the only engine fields the gap may get wrong.
-// F1 (an explicit superflex argument priced one league and linked another) is fixed by JEG-1179's
-// state.ts finish(); its two entries are removed, so both cases now pass as ordinary checks.
+// None open. F1 (an explicit superflex argument priced one league and linked another) was fixed in
+// state.ts finish() by #1119 (JEG-1179/1115), so both override cases now pass [B] outright.
 const KNOWN_GAPS = {};
 
 // ---------- stub get-values (prices nothing; records what it was asked for) ----------

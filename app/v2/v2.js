@@ -50,7 +50,7 @@
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."},
+      note: "DDF Value for each player: rooted in the trade charts, then adjusted for position weight and your league's rosters."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Published charts", one: "published chart", many: "published charts",
@@ -452,6 +452,21 @@
       if (series && typeof series.is_older_week === "boolean") item.stale = series.is_older_week;
       if (series && !item.week && Number.isFinite(series.vintage_week)) item.week = series.vintage_week;
     });
+    // JEG-1178 (Jeremy, 2026-10-27): inside a week view a source is labelled with the week it contributes to that view.
+    // One that already moved on to the next week still carries the newer week in its data; the view prices it on its
+    // saved copy of the viewed week, so that is the week it shows. A source left out of the view keeps its own label.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.servedWeeks && Number.isInteger(weekState.week)) {
+      info.forEach(item => {
+        if (isDdfKey(item.key)) return;
+        const served = weekState.servedWeeks[sourceMeta(item.key).publisher];
+        // Only a source that moved past the viewed week; one on the viewed week keeps its own label.
+        if (Number.isInteger(served) && served > weekState.week) {
+          item.servedWeek = served;
+          item.week = weekState.week;
+        }
+      });
+    }
     return info;
   }
   // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").
@@ -565,6 +580,7 @@
   }
   PHONE_NAMES.addEventListener("change", () => {
     document.querySelectorAll(".v2-nm").forEach(span => { span.textContent = phoneName(span.dataset.full, span.dataset.pos); });
+    if (view) renderHeader();   // JEG-1193: the context strip's Reviewed chip is a link on desktop only
   });
   (() => {
     let pop = null;
@@ -590,6 +606,13 @@
     window.addEventListener("scroll", hide, {passive: true, capture: true});
   })();
 
+  // JEG-892: the bye week on a player row's sub-line (player-flags.js), nothing for a free agent, then `tail`
+  // (the tier), so the tier stays the sub-line's last part.
+  function appendFlags(sub, row, tail) {
+    const flags = window.DDFPlayerFlags ? window.DDFPlayerFlags.node(row) : null;
+    if (flags) sub.appendChild(flags);
+    if (tail) sub.appendChild(document.createTextNode(tail));
+  }
   function appendEspnZero(parent, row) {
     const badge = espnZeroBadge(row);
     if (badge) parent.appendChild(badge);
@@ -902,6 +925,91 @@
     $("v2Show").value = state.windowPreset;
   }
 
+  // ---------- week selector (JEG-1178, part of JEG-1176) ----------
+  // While sources move from one week to the next, each serves its own week. The engine resolves one week view
+  // (getWeekState: default = the newer week once more than half of the league's sources have it; setWeek picks).
+  // No carry-forward: a source that has not published the view's week is left out and named here.
+  const WEEK_MEMORY_KEY = "ddf.valuesWeek";
+  const nameList = keys => keys.map(key => PLAIN_NAMES[key] || key).join(", ");
+  function weekPickModel() {
+    const ws = C && C.getWeekState ? C.getWeekState() : null;
+    if (!ws || !Number.isInteger(ws.week) || !ws.views || !ws.views[ws.newest]) return null;
+    const pd = window.TradeValueProductData;
+    let fresh = null;
+    try { fresh = pd && pd.getSourceFreshness ? pd.getSourceFreshness() : null; } catch (error) { fresh = null; }
+    const total = ws.total;
+    const countOn = week => (ws.views[week] ? ws.views[week].sources.length : 0);
+    const options = ws.weeks.map(week => ({week, sources: countOn(week), total,
+      label: `Week ${week} (${countOn(week)} of ${total} sources)`}));
+    const newest = ws.newest;
+    const calendar = fresh && Number.isInteger(fresh.current_content_week) ? fresh.current_content_week : null;
+    // The week sources should be on by now. Past the newest served week, none has published it yet.
+    const expected = Math.max(newest, calendar || 0);
+    const onNewest = ws.views[newest];
+    const lagging = expected > newest ? onNewest.sources.concat(onNewest.missing_sources).sort() : onNewest.missing_sources.slice();
+    const stale = Boolean(lagging.length && pd && pd.pastThursdayNoon && pd.pastThursdayNoon(expected));
+    const viewMissing = ws.views[ws.week].missing_sources;
+    let text = "";
+    if (expected > newest) {
+      text = `Week ${expected} is not published by any of the ${total} sources yet. Showing Week ${ws.week}.`;
+    } else if (ws.week === newest && viewMissing.length) {
+      text = `${nameList(viewMissing)} ${stale ? `still on Week ${ws.week - 1} after Thursday 12:00 CT` : `not yet published for Week ${ws.week}`}. `
+        + `Left out of these values, not carried over from Week ${ws.week - 1}.`;
+    } else if (ws.week !== newest) {
+      text = `Showing Week ${ws.week}. ${countOn(newest)} of ${total} sources have posted Week ${newest}; their saved Week ${ws.week} is used.`
+        + (viewMissing.length ? ` ${nameList(viewMissing)} left out.` : "");
+    }
+    // Where the sentence above already says it (the newer week's view), the badge stands alone.
+    const staleInline = stale && expected === newest && ws.week === newest && viewMissing.length > 0;
+    const staleText = stale && !staleInline ? `${nameList(lagging)} still on Week ${expected - 1} after Thursday 12:00 CT.` : "";
+    return {week: ws.week, newest, expected, transition: Boolean(ws.transition && ws.weeks.length > 1), selected: Boolean(ws.selected),
+      default_week: ws.default_week, total, options, missing: viewMissing.slice(), lagging, stale, text, staleText,
+      label: (options.find(o => o.week === ws.week) || {}).label || `Week ${ws.week}`};
+  }
+  function renderWeekPick() {
+    const model = weekPickModel();
+    const pick = $("v2WeekPick");
+    const bar = $("v2WeekNoteBar");
+    if (!pick || !bar) return;
+    pick.hidden = !(model && model.transition);
+    if (model && model.transition) {
+      const select = $("v2WeekSelect");
+      select.replaceChildren(...model.options.map(option => {
+        const node = document.createElement("option");
+        node.value = String(option.week);
+        node.textContent = option.label;
+        return node;
+      }));
+      select.value = String(model.week);
+      select.title = model.selected ? "You picked this week. The default is Week " + model.default_week + "." : "";
+    }
+    const note = $("v2WeekNote");
+    const shown = Boolean(model && (model.text || model.staleText));
+    bar.hidden = !shown;
+    note.replaceChildren();
+    if (!shown) return;
+    if (model.stale) {
+      const badge = document.createElement("span");
+      badge.className = "v2-weeknote-stale";
+      badge.textContent = "Stale";
+      note.append(badge, model.staleText ? `${model.staleText} ` : "");
+    }
+    note.append(model.text);
+  }
+  function rememberWeek() {
+    try {
+      const ws = C.getWeekState();
+      if (ws && ws.selected) sessionStorage.setItem(WEEK_MEMORY_KEY, String(ws.week));
+      else sessionStorage.removeItem(WEEK_MEMORY_KEY);
+    } catch (error) { /* no session storage: the pick still holds for this page */ }
+  }
+  function restoreWeek() {
+    try {
+      const week = Number(sessionStorage.getItem(WEEK_MEMORY_KEY));
+      if (Number.isInteger(week) && week > 0 && C.setWeek) C.setWeek(week, false);
+    } catch (error) { /* nothing remembered */ }
+  }
+
   // ---------- header, league, methods ----------
   // JEG-861: one "NFL Week 7 · as of Oct 22" line under every value page title, from the same data
   // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
@@ -915,6 +1023,7 @@
   }
   function renderHeader() {
     renderPageStamps();
+    renderWeekPick();
     const s = view.state;
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
@@ -985,7 +1094,9 @@
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       const badge = item?.stale ? weekBadge(key) : null;
       if (badge) li.appendChild(badge);
-      appendDivergence(li, key);
+      // JEG-1193: on phones the one-line strip (JEG-1119) clips its legend, so a link there would be cut off and
+      // untappable. The chip still shows; its link stays in Customize (and in this legend on desktop).
+      appendDivergence(li, key, {noLink: PHONE_NAMES.matches});
       legend.appendChild(li);
     });
 
@@ -1078,7 +1189,7 @@
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
     const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
-    const words = isNarrow() ? {dda: "Solid = DDA", indexed: `Dashed = rescaled${RESCALED_TO}`} : {dda: "Solid = our value", indexed: `Dashed = rescaled chart${RESCALED_TO}`};
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: `Dashed = rescaled${RESCALED_TO}`} : {dda: "Solid = DDF Value", indexed: "Dashed = one chart of the Market" + (RESCALED_TO ? ` (rescaled${RESCALED_TO})` : "")};
     const key = document.createElement("span");
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
@@ -2563,11 +2674,11 @@
     {id: "pub", title: "Published charts", note: "Published trade-value opinions, rescaled to your league's scale."},
     {id: "observed", title: "Observed-trade estimates", note: "Estimates derived from completed trades."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
-    {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
+    {id: "vorp", title: "Value above waivers (advanced)", note: "Points above the waiver line, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_charts: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_projections: "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
+    ddf_value: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    ddf_value_charts: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    ddf_value_projections: "The alternate: the projection sources, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -3886,11 +3997,11 @@
   // chart average is the existing four rescaled chart inputs, including FantasyCalc, averaged. The projections
   // version is the alternate, named for the deal read's production check.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."],
+    ["DDF Value", "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters."],
     ["Trade chart average", "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."]];
   // The deal read's nets (DEAL_NETS) by the name they define themselves with. Since JEG-1073 the projections net is
   // the alternate version, not DDF Value; the net itself is trade.js's.
-  const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."];
+  const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: the projection sources, equal weight, averaged for your league."];
   const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: PROJECTIONS_DEF};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
@@ -4484,7 +4595,8 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"}`;
+      appendFlags(sub, p.row, ` · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`);   // JEG-892: bye week before the tier
       name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
@@ -4569,7 +4681,8 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"}`;
+      appendFlags(sub, p.row, ` · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`);   // JEG-892: bye week before the tier
       who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -4655,7 +4768,7 @@
     // chart, are not in `used`), so it never says "four" in a three-chart week.
     const introCount = targetsView.used.length;
     const introCharts = !introCount ? "the trade charts" : sc ? `${tradeChartCount(1)} (${scName})` : tradeChartCount(introCount);
-    $("v2TIntro").textContent = `We check ${introCharts} against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.`;
+    $("v2TIntro").textContent = `We check ${introCharts} against our values for your league, two ways: potential mispricing, player by player, and the positions the market overpays for, position by position. Sell what they overpay for; buy what they undervalue.`;
     let renderError = null;
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
@@ -4773,7 +4886,7 @@
     }
     // JEG-1073: DDF Value is the Adjusted trade charts averaged; the projections version is the alternate.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league"}`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "rooted in projected points, averaged for your league"}`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -4994,8 +5107,8 @@
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
     $("v2NamesInfoSlot").replaceWith(namesInfoButton("On the chart"));
-    $("v2RNamesInfoSlot").replaceWith(namesInfoButton("Movement"));
-    $("v2RDisagreeInfoSlot").replaceWith(namesInfoButton("Where the market and the projections disagree"));
+    $("v2RNamesInfoSlot").replaceWith(namesInfoButton("Change"));
+    $("v2RDisagreeInfoSlot").replaceWith(namesInfoButton("Mixed signals"));
     $("v2TOurs").addEventListener("change", event => {
       T.ours = event.target.value;
       saveTargetsOurs(T.ours);
@@ -5032,10 +5145,35 @@
   const TR = {give: [], receive: [], shown: null, open: new Set(), example: null, undo: null};
   // Compare's team choice is view state. The saved league remains the source of truth;
   // trying a trade never moves players between its stored rosters.
-  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null};
+  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null, carriedSwapped: false};
   function endCompareEdit() {
     compareTeams.snapshot = null;
     compareTeams.editing = false;
+  }
+  // JEG-1259: a trade that arrived with its own context (tc=, TradeValueTradeContext): its rosters, deal, settings, value
+  // basis, sources and bench level. While it is pending Compare prices exactly those rosters, or holds and says why;
+  // it never substitutes this reader's saved teams and never writes them. Choosing a team ends it.
+  let carriedTrade = null;    // {text, transfer} from the address
+  let compareCarried = null;  // receive()'s result for this render
+  function receiveCarried() {
+    if (!carriedTrade) return null;
+    const TC = window.TradeValueTradeContext;
+    const held = detail => ({status: "hold", reasons: [{code: "context-unreadable", where: "transfer", detail}]});
+    if (!TC) return held("this page cannot read a carried trade");
+    if (!carriedTrade.transfer) return held("the trade context in this link could not be read");
+    const t = carriedTrade.transfer;
+    const keys = TC.pricingKeys({mine: t.mine && t.mine.roster, theirs: t.theirs && t.theirs.roster, deal: t.deal});
+    const common = TC.commonFromPage({leagueQuery: leagueLinkParts().join("&"),
+      valueContext: window.DDFOverrides && window.DDFOverrides.snapshotContext ? window.DDFOverrides.snapshotContext() : null,
+      sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    try {
+      // Compare prices the modeled bench on this build; a trade priced at another level is held, never repriced here.
+      return TC.receive(t, {route: "compare", common, pricing: TC.modeledPricing(C, keys), ws: window.TradeValueWorkspace?.store?.get() || null});
+    } catch (error) { return held("the trade context in this link could not be read"); }
+  }
+  function carriedHoldText(result) {
+    const why = result.reasons.map(r => r.detail).filter(Boolean).slice(0, 3).join("; ");
+    return `This trade arrived with its own rosters and values, but this page would price it differently (${why}). Lineup changes are held; choose teams above to price it with this page's settings.`;
   }
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
@@ -5049,7 +5187,9 @@
     if (!compareTierRows) compareTierRows = C.getAllRows();
     return {rows: compareTierRows, pos: "ALL", engineOrder: false};
   }
-  let exampleCache = null;   // {signature, pick}: the sample trade "Try a sample trade" loads
+  // {signature, picks, next, fallback}: the examples the start button and "Show another" load in turn (JEG-1191 path A:
+  // trades the market misses; fewer than TradeValueTrade.EXAMPLE_COUNT falls back to the single JEG-1190 sample).
+  let exampleCache = null;
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -5059,6 +5199,25 @@
     const ws = store?.get();
     if (!ws) return {teams: [], mine: null, theirs: null, ready: false};
     const teams = ws.teams || [];
+    if (compareCarried && compareCarried.status === "hold") {
+      // Held: no team is shown as chosen, so nothing reads as priced on this reader's saved rosters.
+      Object.assign(compareTeams, {mineId: null, theirId: null, mineChosen: false, theirChosen: false});
+      return {teams, mine: null, theirs: null, ready: false, held: compareCarried};
+    }
+    if (compareCarried && compareCarried.status === "ok") {
+      // The carried rosters are authoritative; a saved team they exactly match keeps its option in the pickers.
+      const shown = (team, side) => ({id: team.id || `carried-${side}`, name: team.name || (side === "mine" ? "Your team (from the link)" : "Their team (from the link)"),
+        entries: team.roster.map(e => ({...e})), carried: true});
+      const sides = [compareCarried.context.teams.mine, compareCarried.context.teams.theirs];
+      if (compareTeams.carriedSwapped) sides.reverse();   // Swap exchanges the carried rosters too
+      const mine = shown(sides[0], "mine");
+      const theirs = shown(sides[1], "theirs");
+      compareTeams.mineId = mine.id;
+      compareTeams.theirId = theirs.id;
+      const list = teams.map(t => (t.id === mine.id ? mine : t.id === theirs.id ? theirs : t));
+      [mine, theirs].forEach(t => { if (!list.includes(t)) list.push(t); });
+      return {teams: list, mine, theirs, ready: Boolean(mine.entries.length && theirs.entries.length), carried: compareCarried.context};
+    }
     if (!compareTeams.mineChosen && !compareTeams.mineId) compareTeams.mineId = ws.myTeamId || null;
     if (!compareTeams.theirChosen && !compareTeams.theirId)
       compareTeams.theirId = teams.find(t => t.id !== compareTeams.mineId && t.entries.length)?.id || null;
@@ -5104,6 +5263,17 @@
       });
       select.value = selected || "";
       select.addEventListener("change", () => {
+        if (carriedTrade) {
+          // Choosing a team ends the carried trade; the other side keeps the roster it showed only if it is a saved team.
+          const keep = id => (id && ctx.teams.some(t => t.id === id && !String(id).startsWith("carried-")) ? id : null);
+          compareTeams.mineId = keep(compareTeams.mineId);
+          compareTeams.theirId = keep(compareTeams.theirId);
+          compareTeams.mineChosen = Boolean(compareTeams.mineId);
+          compareTeams.theirChosen = Boolean(compareTeams.theirId);
+          carriedTrade = null;
+          compareCarried = null;
+          compareTeams.carriedSwapped = false;
+        }
         if (side === "give") { compareTeams.mineId = select.value || null; compareTeams.mineChosen = true; }
         else { compareTeams.theirId = select.value || null; compareTeams.theirChosen = true; }
         TR.example = null;
@@ -5139,7 +5309,8 @@
       edit.addEventListener("click", () => {
         if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
           undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen};
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped,
+          carriedTrade};   // JEG-1285: Cancel brings back a carried trade that a team choice ended
         else compareTeams.snapshot = null;
         compareTeams.editing = !compareTeams.editing;
         renderCompare();
@@ -5155,7 +5326,9 @@
         cancel.addEventListener("click", () => {
           ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
           ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen} = compareTeams.snapshot);
+            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped} = compareTeams.snapshot);
+          carriedTrade = compareTeams.snapshot.carriedTrade || null;
+          compareCarried = null;
           endCompareEdit();
           renderCompare();
           $("v2CEditRosters")?.focus();
@@ -5167,7 +5340,8 @@
     status.className = "v2-meta";
     status.id = "v2CRosterStatus";
     status.setAttribute("role", "status");
-    status.textContent = !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
+    status.textContent = ctx.held ? carriedHoldText(ctx.held)
+      : !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
       : !compareRosterMembership(ctx) ? "This trade includes players outside the selected rosters. Choose players from those rosters to see lineup changes."
       : "Select players from either roster below. Values and lineups update after each change.";
     const lists = document.createElement("div");
@@ -5216,11 +5390,12 @@
       lists.appendChild(section);
     });
     host.replaceChildren(intro, controls, actions, status, lists);
-    card.hidden = !ctx.teams.length;
+    card.hidden = !ctx.teams.length && !ctx.held;
   }
 
   function compareConstructionInput() {
     const ctx = compareRosterContext();
+    if (ctx.held) return {reason: carriedHoldText(ctx.held), held: true};
     if (!ctx.ready) return {reason: "Add both rosters in Your league to see starters, bench and open spots."};
     if (!compareRosterMembership(ctx)) return {reason: "Choose trade players from the selected rosters to see lineup changes."};
     if (!compareView.ready) return {reason: "Add a player to both sides to see how each roster changes."};
@@ -5242,6 +5417,9 @@
     const host = $("v2CConstructionBody");
     const input = compareConstructionInput();
     host.replaceChildren();
+    // JEG-1259 / JEG-1240: the bench level that priced these lineups (Compare prices the modeled bench on this build).
+    card.dataset.benchLevel = compareCarried && compareCarried.status === "ok" ? compareCarried.context.pricing.mode : "modeled";
+    card.dataset.carried = compareCarried ? compareCarried.status : "none";
     if (input.reason) {
       const note = document.createElement("p");
       note.className = "v2-meta";
@@ -5290,6 +5468,7 @@
 
   function collectCompare() {
     compareTierRows = null;
+    compareCarried = receiveCarried();
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
@@ -5317,7 +5496,9 @@
     const example = isUntouchedExample();
     const giveRows = resolve(TR.give);
     const receiveRows = resolve(TR.receive);
-    const ready = giveRows.length > 0 && receiveRows.length > 0;
+    // JEG-1285: a held carried trade shows its players but no number or claim priced on this page.
+    const held = compareCarried && compareCarried.status === "hold" ? compareCarried : null;
+    const ready = !held && giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
@@ -5328,12 +5509,12 @@
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
-    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
+    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, chartKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
-      totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
-      vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+      totals: TR.shown && !held ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
+      held, vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
 
   // True while the sides are exactly the sample "Try a sample trade" loaded; any change drops the Example mark for good.
@@ -5345,16 +5526,27 @@
     return false;
   }
 
-  // The example trade, recomputed only when the series or the values change.
-  function exampleTrade(pointKeys) {
+  // The examples, recomputed only when the series or the values change. Each call returns the next one in turn.
+  function exampleList(pointKeys, chartKeys) {
+    const T = window.TradeValueTrade;
     const key = verdictKey();
     const rows = C.getAllRows();
-    const keys = pointKeys.concat(key);
+    const keys = pointKeys.concat(key, chartKeys, T.DEAL_KEYS.value, T.DEAL_KEYS.projections);
     const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
     if (!exampleCache || exampleCache.signature !== signature) {
-      exampleCache = {signature, pick: window.TradeValueTrade.pickExample(rows, pointKeys, key)};
+      const misses = T.pickMarketMisses(rows, chartKeys);
+      const fallback = misses.length < T.EXAMPLE_COUNT;
+      const single = fallback ? T.pickExample(rows, pointKeys, key) : null;
+      exampleCache = {signature, picks: fallback ? (single ? [single] : []) : misses, next: 0, fallback};
     }
-    return exampleCache.pick;
+    return exampleCache;
+  }
+  function nextExample(pointKeys, chartKeys) {
+    const list = exampleList(pointKeys, chartKeys);
+    if (!list.picks.length) return null;
+    const pick = list.picks[list.next % list.picks.length];
+    list.next = (list.next + 1) % list.picks.length;
+    return pick;
   }
 
   function sourceCell(td, key) {
@@ -5372,7 +5564,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
-    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; the legend keeps the link
+    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; Customize keeps the link (JEG-1193)
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
@@ -5688,14 +5880,20 @@
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = row.unpriced ? "No value in any source for this league"
-        : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
+      if (row.unpriced) sub.textContent = "No value in any source for this league";
+      else {
+        sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
+        appendFlags(sub, row, compareView.held ? "" : ` · ${tierText(row, verdictKey(), compareTierScope())}`);   // JEG-892: bye week before the tier
+      }
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) {
+      if (compareView.held) {
+        value.textContent = "held";
+        value.dataset.held = "true";
+      } else if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
         // JEG-1059: the badge next to the value the reader set.
@@ -6010,6 +6208,7 @@
     if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
     // JEG-1190: the empty start, in the approved copy (PMM doc 3.3, "Check a trade (empty)").
     if (!TR.give.length && !TR.receive.length) return {kind: "none", title: "Who's on the table?", text: "Add players to each side and we'll call it."};
+    if (compareView.held) return {kind: "none", title: "No verdict while this trade is held", text: carriedHoldText(compareView.held)};
     if (!compareView.ready || !v.kind) {
       return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
     }
@@ -6114,13 +6313,21 @@
     const ready = compareView.ready;
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
+    // JEG-1191 path A: the Example line says what kind of trade it is, and offers the next one while there is one.
+    // The claim follows the current Deal read, so a change of charts, league or overrides that ends it drops it.
+    const examples = compareView.example && exampleCache ? exampleCache : null;
+    $("v2CExampleText").textContent = examples && window.TradeValueTrade.isMarketMiss(compareView.deal)
+      ? "DDF Value says you win; the charts favor the other side. Edit it, or add your own player."
+      : "A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.";
+    $("v2CNextExample").hidden = !(examples && examples.picks.length > 1);
     const empty = !TR.give.length && !TR.receive.length;
     $("v2CStart").hidden = !empty;
     $("v2CTryExample").disabled = !verdictKey();
     $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
     $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
-    $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
+    $("v2CEmpty").textContent = compareView.held ? "No result while this trade is held; the verdict says why."
+      : !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
@@ -6141,6 +6348,7 @@
     $("v2CMeta").textContent = ready
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
+      : compareView.held ? "Held: no values are shown until this trade can be priced the same way here."
       : "Receive − give, one row per source, once both sides have a player.";
     // JEG-1190: the sample trade is a real trade, so Clear, Swap and Share work on it too. Each side has its own Clear,
     // and Undo puts back what the last Clear took.
@@ -6182,6 +6390,9 @@
       if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
       if (w.content !== w.build) parts.push(`week=${w.content}`);
     }
+    // JEG-1178: a week the reader picked travels with the link (wk=); the default week stays out of it.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.selected && Number.isInteger(weekState.week)) parts.push(`wk=${weekState.week}`);
     // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
     const adv = advancedState(false);
     const advDefaults = adv && advancedState(true);
@@ -6209,9 +6420,20 @@
         else parts.push(`ov=${ov.ov}`);
       }
     }
+    // JEG-1259: a pending carried trade stays in the address (reload and share keep it), with this visit's deal.
+    if (carriedTrade) parts.push(`tc=${carriedTradeText()}`);
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
   let shareDroppedOverrides = false;
+  function carriedTradeText() {
+    const TC = window.TradeValueTradeContext;
+    if (!TC || !compareCarried || compareCarried.status !== "ok") return carriedTrade.text;
+    const deal = {give: TR.give.map(p => p.key).filter(Boolean), get: TR.receive.map(p => p.key).filter(Boolean)};
+    const teams = compareCarried.context.teams;
+    const patch = compareTeams.carriedSwapped ? {deal, mine: teams.theirs, theirs: teams.mine} : {deal};
+    try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, patch))); }
+    catch (error) { return carriedTrade.text; }
+  }
   // Apply a link's scoring and roster when they differ from the reader's; say so.
   function applyLinkLeague(params) {
     const scoring = params.get("scoring");
@@ -6265,7 +6487,11 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    // JEG-1178: the week the sender picked. A week outside this league's transition falls back to the default.
+    const linkWeek = params.has("wk") && Number.isInteger(Number(params.get("wk"))) ? Number(params.get("wk")) : null;
+    const weekNow = C.getWeekState ? C.getWeekState() : null;
+    const wkChange = linkWeek !== null && Boolean(C.setWeek) && (!weekNow || linkWeek !== weekNow.week || !weekNow.selected);
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange && !wkChange) return;
     leagueInputs.source = "link";
     leagueInputs.notes = [];
     if (weeksChange) {
@@ -6279,6 +6505,8 @@
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
+    // The link's week is read after the league: the setting decides which weeks exist.
+    if (wkChange) { C.setWeek(linkWeek, false); rememberWeek(); refresh(); }
     // The link's advanced settings are the sender's choice, set after the league.
     if (advChange) {
       const error = applyAdvanced(advChange);
@@ -6287,7 +6515,9 @@
     }
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
-    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
+    // JEG-1020: Find a trade reads the link's settings too. JEG-1380: a week-only link moves its results to that week.
+    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");
+    else if (wkChange) announceLeagueChange("week");
     announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
@@ -6310,7 +6540,13 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
-    if (base === "#compare-trade") endCompareEdit();
+    if (base === "#compare-trade") {
+      endCompareEdit();
+      const text = params.get("tc");
+      carriedTrade = text ? {text, transfer: window.TradeValueTradeContext ? window.TradeValueTradeContext.decodeTransfer(text) : null} : null;
+      compareCarried = null;
+      compareTeams.carriedSwapped = false;
+    }
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
     // Apply value context before the shared reader resolves rows and starts the finder.
@@ -6371,7 +6607,7 @@
     }
     // JEG-1044: say what else the link carries, and when the player overrides did not fit.
     const carries = /[?&]basis=/.test(url) || /[?&]ov=/.test(url)
-      ? " Your value basis and player overrides are in the link too; the reader can switch back to our methodology in one click." : "";
+      ? " Your value basis and player overrides are in the link too; the reader can switch back to the default DDF Value in one click." : "";
     const dropped = shareDroppedOverrides && window.DDFOverrides ? ` ${window.DDFOverrides.dropOverridesNote()}` : "";
     try {
       await navigator.clipboard.writeText(url);
@@ -6396,8 +6632,8 @@
     compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
     compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
     compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
-    $("v2CTryExample").addEventListener("click", () => {
-      const sample = compareView && verdictKey() ? exampleTrade(compareView.pointKeys) : null;
+    const loadExample = focusId => {
+      const sample = compareView && verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;
       if (!sample) return;
       const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
       TR.give = pick(sample.give);
@@ -6405,8 +6641,11 @@
       TR.example = {give: TR.give.map(p => p.key), receive: TR.receive.map(p => p.key)};
       TR.undo = null;
       renderCompare();
-      $("v2GiveSearch").focus();
-    });
+      $(focusId).focus();
+    };
+    $("v2CTryExample").addEventListener("click", () => loadExample("v2GiveSearch"));
+    // JEG-1191 path A: "Show another" swaps in the next example; the trade stays marked Example.
+    $("v2CNextExample").addEventListener("click", () => loadExample("v2CNextExample"));
     $("v2CVerdictBar").addEventListener("click", () => {
       const card = $("v2CVerdict");
       card.scrollIntoView({block: "center"});
@@ -6455,6 +6694,7 @@
     $("v2CSwap").addEventListener("click", () => {
       [TR.give, TR.receive] = [TR.receive, TR.give];
       [compareTeams.mineId, compareTeams.theirId] = [compareTeams.theirId, compareTeams.mineId];
+      if (carriedTrade) compareTeams.carriedSwapped = !compareTeams.carriedSwapped;
       TR.undo = null;
       renderCompare();
     });
@@ -6671,6 +6911,12 @@
     renderDisagreements(M, needle ? window.TradeValueNameSearch.filter(C.getRows(), needle) : C.getRows());
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value change: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
+    }
+    // JEG-1178: during a week transition a source that has not published this week is not in the blend, so it has no
+    // change to show; each source in it is compared with its own previous week.
+    const weekModel = group === "ddf" ? weekPickModel() : null;
+    if (weekModel && weekModel.transition && weekModel.missing.length) {
+      notes.push(`Skipped: ${nameList(weekModel.missing)} (not yet on Week ${weekModel.week}). Each source is compared with its own previous week.`);
     }
     const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
     const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
@@ -6981,13 +7227,13 @@
   // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
   // one it always was; with another basis a "Rescaled" value says which basis it is rescaled to, and DDF Value says
   // it is not ours, so a reader is never misled about what a number means.
-  const OURS_DEFAULT = "the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged";
+  const OURS_DEFAULT = "rooted in the trade charts, then adjusted for position weight and your league's rosters";
   function currentBasis() { return C && C.getBasis ? C.getBasis() : null; }
   function basisPhrase() {
     const b = currentBasis();
     if (!b || b.isDefault) return OURS_DEFAULT;
-    return b.mode === "single" ? `${b.label} alone (your basis, not our methodology)`
-      : `${b.label} (your basis, not our methodology), averaged for your league`;
+    return b.mode === "single" ? `${b.label} alone (your basis, not the default DDF Value)`
+      : `${b.label} (your basis, not the default DDF Value), averaged for your league`;
   }
   function syncBasisLabels() {
     const b = currentBasis();
@@ -7006,12 +7252,12 @@
     observed.title = custom ? `Observed-trade estimates (rescaled${to})` : "Observed-trade estimates";
     observed.note = custom ? `Algorithmic estimates from completed trades. Rescaled series use ${b.label}'s point scale for your league (your basis); adjusted series follow their own label.`
       : "Algorithmic estimates from completed trades. Rescaled series use our point scale for your league; adjusted series follow their own label.";
-    SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `Our value for each player, following your basis: ${basisPhrase()}.`
-      : "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.";
-    DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `Our value: ${OURS_DEFAULT}.`;
-    INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not our methodology). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
+    SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `DDF Value for each player, following your basis: ${basisPhrase()}.`
+      : "DDF Value for each player: rooted in the trade charts, then adjusted for position weight and your league's rosters.";
+    DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `DDF Value: ${OURS_DEFAULT}.`;
+    INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not the default DDF Value). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
     NAME_DEFS[0][1] = custom ? `Your estimate of what a player is worth, following your basis: ${basisPhrase()}.`
-      : `Our estimate of what a player is worth: ${OURS_DEFAULT}.`;
+      : `What a player is worth in your league: ${OURS_DEFAULT}.`;
     INFO_SPECS.names.lines = NAME_DEFS.map(([name, text]) => [name, text]).concat([["", EDGE_DEF]]);
     document.querySelectorAll("[data-basis-ours]").forEach(node => { node.textContent = basisPhrase(); });
     const cap = $("v2TChartCaption");
@@ -7039,7 +7285,7 @@
     const basis = currentBasis();
     if (basisNote) {
       basisNote.hidden = !basis || basis.isDefault;
-      basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from our methodology, and the thresholds on these pages were set on our methodology.`;
+      basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from the default DDF Value, and the thresholds on these pages were set on the default DDF Value.`;
     }
     const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["health-check", "single-source"];
     const asked = decodeURIComponent(hashBase().slice("#values-auditing/".length));
@@ -7343,6 +7589,12 @@
       window.matchMedia("(max-width: 767px)").addEventListener("change", event => { if (!event.matches) setSummary(false); });
     }
     $("v2Weights").addEventListener("click", openWeights);
+    $("v2WeekSelect").addEventListener("change", event => {   // JEG-1178
+      C.setWeek(Number(event.target.value));
+      rememberWeek();
+      refresh();
+      announceLeagueChange("week");   // JEG-1380: Find a trade re-runs its results on the new week's values
+    });
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
     // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
@@ -7664,6 +7916,7 @@
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     try { leagueDefaultSnapshot = JSON.stringify(leagueSnapshot()); } catch (error) { leagueDefaultSnapshot = ""; }
     restoreLeagueSettings();
+    restoreWeek();   // JEG-1178: the week picked earlier in this session; a link's wk= overrides it below
     applyStartSelection();
     loadPipeline();
     loadSourcePages();
@@ -7681,6 +7934,7 @@
       leagueInputs: () => ({...leagueInputs, notes: leagueInputs.notes.slice(), label: $("v2LeagueName").textContent}),
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
+      weekPick: weekPickModel,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // JEG-872: the one source name map (symbol + label) the audit tabs read, so every tab says the same names.
       publishers: () => PUBLISHERS,

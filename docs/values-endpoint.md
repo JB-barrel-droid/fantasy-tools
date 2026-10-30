@@ -130,7 +130,17 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
 
 - The function evals the site's own `value-model.js` at cold start (loaded
   from the published origin, so the endpoint always matches the page).
-- Rate limit is per instance, not global.
+- Rate limit is per instance, not global — a soft guard, not a real cap
+  (JEG-1061). Both buckets (30/min general, 10/min fresh custom-league
+  computes) live in an in-memory `Map` on the function instance and are keyed
+  by the first `x-forwarded-for` entry, which the client can set. Measured
+  live on 2026-10-24: 14 distinct custom leagues in a row from one client all
+  returned 200 in 0.17–0.65 s and the 10/min compute limit never returned
+  429, because the requests did not stay on one instance. A single instance
+  does return 429 on the 11th compute in a minute from one key; that is
+  pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
+  the function stores nothing, so abuse costs CPU only (about 0.3 s per
+  fresh league).
 - Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
   document (about 70 KB) is fetched only when the week priced needs a saved
   copy. First call is slow, results cached 5 minutes per league and week.
