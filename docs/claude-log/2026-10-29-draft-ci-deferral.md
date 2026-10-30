@@ -40,3 +40,21 @@ full verification passes at the current PR head.
 
 Reversal: revert this branch's workflow, script and test changes in a reviewable
 PR; the original Preview and v2-render jobs then run on every matching PR event.
+
+## 2026-10-30 02:10 UTC: main merged in (cloud thread takeover)
+
+Merge commit `49fa924` brings `origin/main` into `be/draft-ci-deferral` with a
+normal merge. The one conflict was `.github/workflows/v2-render-test.yml`: main
+added the JEG-1311 `tests.test_v2_compare_rosters_render` step, and this branch
+had split the job into `render-tests` plus the `v2-render` finalizer. Main's
+step now sits in `render-tests` after the waterfall render test; the finalizer
+is unchanged.
+
+Verified (ran locally): the six workflow suites (`test_draft_ci_workflows`,
+`test_preview_workflow_matches_pages`, `test_ci_speedup_workflows`,
+`test_v2_render_runs_on_data_push`, `test_validate_shards`,
+`test_deploy_gate_unconditional`), 110 tests OK; the workflow parses with jobs
+`pr-state`, `render-tests`, `v2-render`.
+
+Claimed, not confirmed: CI on the new head (render tests need Playwright, which
+only CI runs here).
