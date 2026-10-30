@@ -9,6 +9,9 @@ The committed data has every source on its newest week (derived below). Each sce
 sources back on week 6 (the engine drops a source whose served week is before the view's week; the BE sentinel,
 tests/test_week_history.py WeekTransitionSentinelTest, pins the value math of a real transition). Coverage is
 sources on week 7 of the 7 that feed DDF Value at Full PPR / 12: 0, 3 (43%), 4 (57%) and 7 (100%).
+The page is served with every source's validation and promotion hold taken off (hold_free_sources), so a
+fidelity hold in the day's committed data cannot shrink the 7 and turn this week-selector test red: holds have
+their own tests. On 2026-10-30 a red Razzball hold did exactly that (6 of 6 sources, JEG-1178).
 
 Both clocks are pinned (window.TRADE_VALUE_TODAY and window.TRADE_VALUE_NOW), never the real one. Phone (390) and
 desktop (1366x768) are both checked; on desktop Compare's trade boxes and verdict must stay on the first screen
@@ -66,9 +69,27 @@ def setUpModule():
     _render_env.ensure_built()
 
 
+# The hold fields the engine reads on a source (curve-widget.js HOLD_FIELDS).
+HOLD_FIELDS = ("validationHold", "promotionHold")
+
+
+@functools.lru_cache(maxsize=1)
+def hold_free_sources() -> str:
+    """The built comparison-sources-data.json with every source's holds removed (see the module docstring)."""
+    detail = json.loads((DIST / "assets" / "comparison-sources-data.json").read_text(encoding="utf-8"))
+    for source in detail.get("sources", {}).values():
+        if isinstance(source, dict):
+            for field in HOLD_FIELDS:
+                source.pop(field, None)
+    return json.dumps(detail)
+
+
 @contextlib.contextmanager
 def served_dist(overrides: dict):
-    """The built dist (with v2) on a local server; `overrides` maps a path to replacement text."""
+    """The built dist (with v2) on a local server; `overrides` maps a path to replacement text.
+
+    The source data is always served hold-free unless a caller overrides it."""
+    overrides = {"assets/comparison-sources-data.json": hold_free_sources(), **overrides}
     if not (DIST / "index.html").exists():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:

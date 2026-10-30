@@ -30,3 +30,20 @@ Contract: finish PR #1012 (site week selector) to the ticket's Next and Done-whe
   stale badge, Compare fit, wk= round trip) was not run here: this cloud box has no Playwright Chromium.
   The previous owner reported it passing on their PC on bdf44906 (Linear comment, 2026-10-29 01:48 UTC);
   no CI job ran it before this change. The first v2-render run on this head is the check.
+
+## 2026-10-30 - JEG-1178 selector render test made independent of the day's source holds
+
+Contract: v2-render on ebaef4ba (after a main merge) failed two week-selector checks. Cause: main's data
+now carries a red Razzball validation hold (fidelity stored_vs_chart, since 2026-10-29 22:22 UTC), so DDF
+Value at Full PPR / 12 has 6 sources, not the 7 the test's scenarios assume ("not published by any of the
+6 sources"; the stale note named CBS Sports and ESPN but not Razzball). The selector behaved correctly for
+that data. The test now serves comparison-sources-data.json with every validation and promotion hold
+removed, so its 0/43/57/100% scenarios stay 7 sources whatever the day's holds are. No assertion changed.
+
+### Verified (check named)
+- `hold_free_sources()` returns all 7 sections with no hold field (local check on the built dist).
+- v2-render on ebaef4ba: 2 failures named above (CI log); test_week_stale_deadline passed there.
+
+### Claimed, not confirmed
+- The selector render test passes with holds removed: the next v2-render run on this head is the check.
+- Whether Razzball's red hold is right is the fidelity pulse's question, not this PR's.
