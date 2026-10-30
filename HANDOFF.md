@@ -23,8 +23,9 @@ below are history, including any "Codex reviews and merges" line.
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
   main merge `2027b305`. Merge #1124 first, then #1210.
-- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Live
-  only after a `get-values` deploy on Jeremy's named yes; then check the Supabase function logs.
+- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
+  picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
+  the Supabase function logs for both lines and that a sample request's values are unchanged.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
