@@ -23,10 +23,33 @@ below are history, including any "Codex reviews and merges" line.
 
 - Draft PR #1225 on `claude/JEG-1137-ai-panel` (worktree `~/code/ft-jeg1137-ai-panel`). Mounts the JEG-1266 panel
   in `#v2Home`, flag-only. Review fixes applied: `fieldnotes()` gate on `mountAiPanel()`, claude-log
-  Verified/Claimed sections, `test_default_page_never_shows_panel` checks child count 0, and
-  `test_guard_fails_without_panel_module` (fail-before/pass-after confirmed).
+  Verified/Claimed sections, `test_default_page_never_shows_panel` checks child count 0 (this guards the fieldnotes gate), and
+  `test_guard_fails_without_panel_module` (checks the page still loads when the panel script is missing or crashes).
   Log: `docs/claude-log/2026-10-30-jeg-1137-ai-panel.md`. Ticket stays open: Home's value-curve peek (JEG-1265)
   and the JEG-1130 copy gate remain.
+
+### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
+
+- Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
+  unmatched name as 0: compare_trade refuses with closest names, read_state gives that list no total.
+  This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
+  under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
+  "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Independent review: approve; its findings fixed in a second commit (closest names reuse the first match
+  and stop after 5 misspelled names, key-only misses get none, ambiguous names list every fit).
+  A pasted state of 160 junk names already takes about 5.4 s of matching on main (5.9 s here); not
+  addressed in this PR.
+- Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
+  (runTool, not readState); no overlap expected.
+
+### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline
+  classes of `tests/test_waivers_mutation_specificity.py` (Classifier, Anchor, Fixture; JEG-1279, #1144) on every PR,
+  with the Playwright package but no browser. Non-blocking: its own check, not a `needs` of `preview`, not in test-core
+  (unchanged). It goes red on a broken mutation check; nothing swallows the failure. Guard:
+  `tests/test_waivers_mutation_offline_workflow.py` (also in test-unit-modules). The Chromium class still runs nightly.
+- Next: independent review and green CI, then the merge gate merges. No settings change: it stays non-required.
 
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
@@ -93,6 +116,17 @@ below are history, including any "Codex reviews and merges" line.
 - Sleeper identity refresh is green again after #1209 (run 41098267164,
   base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
 - JEG-1205 (#1052) stays on hold for Jeremy.
+
+### JEG-1389 bench switch and lost league settings (correction to #1105; Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1389`, draft PR. Fixes the "Use league rosters" switch not redrawing player lines (`app/v2/league.js`;
+  test `tests/test_jeg1389_switch_redraw_render.py`).
+- The live standard-bench gap was league settings lost on reload: settings from a league import or share link were
+  applied but not saved, so a reload priced at PPR / 2 WR / 7 bench. No value math is wrong. Jeremy picked A
+  (2026-10-30): an import or share link now saves them as the settings form does (`app/v2/v2.js` applyLinkLeague
+  `{save: true}`, called from `league.js`; test `tests/test_jeg1389_link_settings_reload_render.py`). Evidence and the
+  six-player before/after: `docs/claude-log/2026-10-30-jeg1389-bench-switch.md`.
+- Local render tests pin a CBS hold (`_built_dist`, JEG-881): local DDF numbers are not live numbers.
 
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 

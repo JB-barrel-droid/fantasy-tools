@@ -6434,8 +6434,11 @@
     try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, patch))); }
     catch (error) { return carriedTrade.text; }
   }
-  // Apply a link's scoring and roster when they differ from the reader's; say so.
-  function applyLinkLeague(params) {
+  // Apply a link's scoring and roster when they differ from the reader's; say so. JEG-1389 (Jeremy's pick A, 2026-10-30):
+  // {save: true} (a league import or share link on the league page) saves them as the settings form does, so a reload
+  // keeps them; a trade link's settings stay for this visit only.
+  function applyLinkLeague(params, options) {
+    const save = Boolean(options && options.save);
     const scoring = params.get("scoring");
     const roster = {};
     String(params.get("roster") || "").split(".").forEach(part => {
@@ -6491,7 +6494,10 @@
     const linkWeek = params.has("wk") && Number.isInteger(Number(params.get("wk"))) ? Number(params.get("wk")) : null;
     const weekNow = C.getWeekState ? C.getWeekState() : null;
     const wkChange = linkWeek !== null && Boolean(C.setWeek) && (!weekNow || linkWeek !== weekNow.week || !weekNow.selected);
-    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange && !wkChange) return;
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange && !wkChange) {
+      if (save) saveLeagueSettings();   // already in force (say from a trade link this visit): kept for the next load too
+      return;
+    }
     leagueInputs.source = "link";
     leagueInputs.notes = [];
     if (weeksChange) {
@@ -6518,7 +6524,8 @@
     // JEG-1020: Find a trade reads the link's settings too. JEG-1380: a week-only link moves its results to that week.
     if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");
     else if (wkChange) announceLeagueChange("week");
-    announceInputs();
+    if (save) saveLeagueSettings();   // announces the inputs itself
+    else announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     setStatus(`Opened with the link's league settings: ${$("v2LeagueName").textContent}, ${$("v2RosterLine").textContent}, `
