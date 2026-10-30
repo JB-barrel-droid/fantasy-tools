@@ -49,6 +49,7 @@ grounded text for the key), `link_conflict` (id layers disagree), `missing`
 | Platform | Source | Date |
 | -- | -- | -- |
 | canonical | `data/inputs/players_identity_snapshot.json` (SELECT of public.players: player_key, full_name, position, gsis_id; 4,702 rows) | no date in the file; last commit 730ceb0, 2026-10-23 |
+| canonical active | `data/inputs/players_active_snapshot.json` (SELECT player_key, active; JEG-1313) | `pulled_at` 2026-10-29T20:19:29Z |
 | Sleeper | `data/inputs/sleeper_identity_base.json` (Sleeper `/players/nfl`, 4,234 QB/RB/WR/TE/K players) | `meta.pulled_at` 2026-10-09T18:46:05Z |
 | Sleeper ids | `data/inputs/sleeper_projection_idmap.csv` (sleeper_id -> gsis -> player_key, exact ids only, JEG-949) | commit 730ceb0, 2026-10-23 |
 | ESPN | `tests/fixtures/roster_paste/espn-team.txt`, `espn-matchup.txt` (scrubbed real page pastes) | commit c754026, 2026-10-22 |
@@ -105,15 +106,25 @@ observation (4 rows) so a reviewer can check each one against its raw line.
 6. `Tyron Billy-Johnson` (Sleeper) needs a verified alias or stays unmatched.
 7. `Aaron Jones Sr.` and `Kyle Pitts Sr.` need a ground (an id-bearing ESPN or
    Yahoo source) before they count.
-8. The snapshot has no `active` column, so offline every row is inactive and
-   cross-position namesakes without a position read `ambiguous` (18 cases).
-   The live registry reads `active`; a later phase should snapshot it.
+8. ~~The snapshot has no `active` column, so offline every row is inactive and
+   cross-position namesakes without a position read `ambiguous` (18 cases).~~
+   Done in JEG-1313: `data/inputs/players_active_snapshot.json` saves
+   public.players `active` (read-only SELECT, 2026-10-29T20:19:29Z, 2,126 of
+   4,702 active) with a digest of the identity snapshot's rows; the build
+   refuses it if the identity snapshot changes. With it, 8 of the 18 resolve
+   to their one active row (Ben VanSumeren 4661, DeVonta Smith 764, Joshua
+   Williams 1070, Leroy Watson IV 4658, Marvin Jones Jr. 4648, Michael Carter
+   II 777, Spencer Brown 4032, Tyler Davis 4127); 10 stay `ambiguous`. Pass
+   and known-gap counts are unchanged (683 pass, 12 known gaps).
 9. Separate name matchers outside the shared resolver, read but untouched:
    `app/v2/roster-paste.js` (own `NICK_MAP`, own D/ST stripping) and
    `supabase/functions/mcp/names.ts` (own key/suffix rules). The feature's
    "route parsers/MCP through the shared resolver" step is still open.
-10. The new test is not in a Makefile target (Makefile is outside this
-    phase's paths); wiring it into `test-core` is a one-line follow-up.
+10. ~~The new test is not in a Makefile target.~~ JEG-1313 runs it in
+    `test-unit-modules` (the full suite in preview CI), not `test-core`: it is
+    an audit, and AGENTS.md keeps the deploy gate to the data math. The drift
+    check skips with a rebuild note when the workflow-refreshed Sleeper base
+    moves past the matrix.
 
 ## Refresh ownership (as committed today)
 
@@ -121,6 +132,7 @@ observation (4 rows) so a reviewer can check each one against its raw line.
 | -- | -- | -- |
 | `sleeper_identity_base.json` | `.github/workflows/sleeper-identity-refresh.yml`, pg_cron `sleeper-identity-refresh-live` Tue/Thu 09:17 UTC | automated, commits to main |
 | `players_identity_snapshot.json` | by hand (`sleeper_projection_idmap.py` docstring: "SELECT of public.players") | none named |
+| `players_active_snapshot.json` | by hand, re-pulled with the identity snapshot (the build refuses a mismatched pair) | none named |
 | `sleeper_projection_idmap.csv` | `python3 pipelines/sleeper_projection_idmap.py --fetch`, by hand | none named (JEG-949) |
 | `player_aliases.json` / public.player_name_aliases curated rows | curated by hand; nightly `player-identity-reconcile` only proposes | Jeremy's yes for production writes |
 | ESPN / Yahoo paste fixtures | by hand, scrubbed | none named |

@@ -144,6 +144,119 @@ class BaselineAndResolutionTest(Case):
         self.assertEqual([], problems)
 
 
+class ServedWeekTest(Case):
+    """JEG-1314: a source-week is labelled by the week the source is served as.
+
+    Mirrors the JEG-1172 run (e2c191c): content_week had flipped to 8 while
+    every chart was still served as week 7, and FantasyPros' week 7 article
+    was filed as "week 8" and escalated against week 7 (its own inputs)."""
+
+    FP_W7 = "sha256:" + "7" * 64
+
+    def write_index(self, content_week: int, served_week: int, fp_fingerprint: str | None = None):
+        served = {s: {"week": served_week, "label_week": served_week,
+                      "fingerprint": fp_fingerprint if s == "fantasypros" else f"sha256:{s}"} for s in CHARTS}
+        (self.history / "index.json").write_text(json.dumps(
+            {"content_week": content_week, "fixture_built_at": fixture()["built_at"], "served": served}))
+
+    def write_week(self, week: int, high: str | None = None, fp_fingerprint: str | None = None):
+        doc = history_week(week, high=high)
+        if fp_fingerprint:
+            doc["sources"]["fantasypros"]["fingerprint"] = fp_fingerprint
+        (self.history / f"week-{week}.json").write_text(json.dumps(doc))
+
+    def test_a_still_served_week_keeps_its_own_label_after_the_flip(self):
+        self.write_index(content_week=8, served_week=7, fp_fingerprint=self.FP_W7)
+        for w in (5, 6):
+            self.write_week(w)
+        self.write_week(7, high="fantasypros", fp_fingerprint=self.FP_W7)
+        self.resolutions.write_text(json.dumps({"resolutions": [
+            {"source": "fantasypros", "week": 7, "resolution": "accepted", "issue": "JEG-796", "note": "opinion"}]}))
+        report = self.run_check(fixture(high="fantasypros"))
+        fp = report["sources"]["fantasypros"]
+        self.assertEqual(8, report["week"])
+        self.assertEqual(7, fp["week"])
+        self.assertEqual("history_index", fp["week_basis"])
+        # Week 7 is the served week itself, never its own prior week.
+        self.assertEqual([6, 5], [p["week"] for p in fp["combos"]["full_12"]["prior_weeks"]])
+        self.assertFalse(any("also warned in week 7" in r for r in fp["reasons"]), fp["reasons"])
+        self.assertEqual("reviewed", fp["status"])
+        self.assertEqual("JEG-796", fp["resolution"]["issue"])
+
+    def test_a_saved_week_with_the_served_inputs_never_escalates(self):
+        # A mislabelled save: week 7 holds the very inputs served as week 8.
+        self.write_index(content_week=8, served_week=8, fp_fingerprint=self.FP_W7)
+        self.write_week(6)
+        self.write_week(7, high="fantasypros", fp_fingerprint=self.FP_W7)
+        fp = self.run_check(fixture(high="fantasypros"))["sources"]["fantasypros"]
+        self.assertEqual(8, fp["week"])
+        self.assertIn(fp["status"], ("warn", "investigate"))  # still flagged on its own numbers
+        self.assertFalse(any("also warned" in r for r in fp["reasons"]), fp["reasons"])
+        self.assertEqual([6], [p["week"] for p in fp["combos"]["full_12"]["prior_weeks"]])
+
+    def test_without_served_weeks_the_content_week_labels_every_source(self):
+        report = self.run_check(fixture(high="fantasypros"))
+        self.assertEqual({5}, {v["week"] for v in report["sources"].values()})
+        self.assertEqual({"content_week"}, {v["week_basis"] for v in report["sources"].values()})
+
+    def test_a_fingerprinted_resolution_applies_only_to_those_inputs(self):
+        entry = {"source": "fantasypros", "week": 8, "resolution": "accepted", "issue": "JEG-1172",
+                 "inputs_fingerprint": self.FP_W7, "note": "week label mix-up"}
+        self.resolutions.write_text(json.dumps({"resolutions": [entry]}))
+        self.write_index(content_week=8, served_week=8, fp_fingerprint="sha256:" + "8" * 64)
+        fp = self.run_check(fixture(high="fantasypros"))["sources"]["fantasypros"]
+        self.assertIn(fp["status"], ("warn", "investigate"))
+        self.assertIsNone(fp["resolution"])
+        self.write_index(content_week=8, served_week=8, fp_fingerprint=self.FP_W7)
+        fp = self.run_check(fixture(high="fantasypros"))["sources"]["fantasypros"]
+        self.assertEqual("reviewed", fp["status"])
+
+    def test_exclude_cannot_be_scoped_to_inputs(self):
+        self.resolutions.write_text(json.dumps({"resolutions": [
+            {"source": "cbs", "week": 8, "resolution": "exclude", "inputs_fingerprint": self.FP_W7, "note": "x"}]}))
+        resolutions, problems = sd.load_resolutions(self.resolutions)
+        self.assertEqual({}, resolutions)
+        self.assertEqual(1, len(problems))
+
+    def test_exclude_is_keyed_by_the_content_week_like_value_reference(self):
+        # JEG-1337: during the flip (served 7, content 8) the report hides the
+        # same sources DDF Value does: value_reference keys exclude by content week.
+        import value_reference as vr
+        self.write_index(content_week=8, served_week=7, fp_fingerprint=self.FP_W7)
+        for w in (5, 6):
+            self.write_week(w)
+        self.resolutions.write_text(json.dumps({"resolutions": [
+            {"source": "fantasypros", "week": 7, "resolution": "exclude", "issue": "JEG-1", "note": "served week"},
+            {"source": "cbs", "week": 8, "resolution": "exclude", "issue": "JEG-2", "note": "content week"},
+        ]}))
+        report = self.run_check(fixture(high="fantasypros"))
+        expected = vr.load_divergence_exclusions(self.resolutions, week=8)
+        self.assertEqual({"cbs"}, expected)
+        self.assertEqual(expected, set(report["summary"]["excluded"]))
+        self.assertEqual(7, report["sources"]["cbs"]["week"])
+        self.assertIn(report["sources"]["fantasypros"]["status"], ("warn", "investigate"))
+        self.assertTrue(any(p.startswith("fantasypros/week 7: exclude applies by the content week")
+                            for p in report["summary"]["resolution_problems"]),
+                        report["summary"]["resolution_problems"])
+
+    def test_the_week_8_record_is_scoped_to_the_week_7_article(self):
+        # JEG-1172: the flagged inputs are frozen week 7's FantasyPros entry.
+        resolutions, _ = sd.load_resolutions(sd.RESOLUTIONS)
+        entry = resolutions[("fantasypros", 8)]
+        self.assertEqual("JEG-1172", entry["issue"])
+        week7 = json.loads((REPO / "data" / "history" / "week-7.json").read_text(encoding="utf-8"))
+        self.assertEqual(week7["sources"]["fantasypros"]["fingerprint"], entry["inputs_fingerprint"])
+
+    def test_the_chain_publishes_the_report_it_rebuilt(self):
+        # The committed copy only moved on a hand-run sync before JEG-1314;
+        # divergence-issues.yml reads it.
+        chain = (REPO / ".github" / "workflows" / "rebuild-chain.yml").read_text(encoding="utf-8")
+        success = chain.split('if [ "$CHAIN_OUTCOME" = "success" ]; then', 1)[1].split("          else", 1)[0]
+        self.assertIn("git add dist/modules/source-divergence.json", success)
+        issues = (REPO / ".github" / "workflows" / "divergence-issues.yml").read_text(encoding="utf-8")
+        self.assertIn("dist/modules/source-divergence.json", issues)
+
+
 class SoftCheckTest(Case):
     def test_an_error_is_reported_never_raised(self):
         out = self.tmp / "out.json"

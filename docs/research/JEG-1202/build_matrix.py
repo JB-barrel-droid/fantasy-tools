@@ -29,6 +29,7 @@ Grounds that disagree make the observation `conflict`; no ground makes it `ungro
 from __future__ import annotations
 
 import csv
+import hashlib
 import io
 import json
 import os
@@ -47,6 +48,7 @@ import canonical_players  # noqa: E402 -- the shared resolver, used read-only
 import player_aliases  # noqa: E402
 
 SNAPSHOT = "data/inputs/players_identity_snapshot.json"
+ACTIVE = "data/inputs/players_active_snapshot.json"
 SLEEPER_BASE = "data/inputs/sleeper_identity_base.json"
 SLEEPER_IDMAP = "data/inputs/sleeper_projection_idmap.csv"
 ALIASES = "data/inputs/player_aliases.json"
@@ -79,15 +81,38 @@ def _read(rel):
     return (ROOT / rel).read_text(encoding="utf-8")
 
 
+def identity_md5(rows):
+    """The digest players_active_snapshot.json records: player_key|full_name|position per row."""
+    lines = (f"{r['player_key']}|{r.get('full_name') or ''}|{r.get('position') or ''}"
+             for r in sorted(rows, key=lambda r: int(r["player_key"])))
+    return hashlib.md5("\n".join(lines).encode("utf-8")).hexdigest()
+
+
+def load_active(rows):
+    """{player_key: bool} from the active snapshot (JEG-1313), for exactly these rows.
+
+    Refuses a snapshot taken against other rows (digest or row count differs), so
+    active flags are never paired with an identity snapshot they were not read with.
+    """
+    doc = json.loads(_read(ACTIVE))
+    if doc["row_count"] != len(rows) or doc["identity_md5"] != identity_md5(rows):
+        raise SystemExit(f"{ACTIVE} was saved against other rows than {SNAPSHOT}: re-pull it")
+    on = set(doc["active_player_keys"])
+    keys = {int(r["player_key"]) for r in rows}
+    if not on <= keys or len(on) != doc["active_count"]:
+        raise SystemExit(f"{ACTIVE}: active keys do not match {SNAPSHOT}")
+    return {k: k in on for k in keys}
+
+
 def load_canonical():
     rows = json.loads(_read(SNAPSHOT))
-    return {int(r["player_key"]): r for r in rows}
+    active = load_active(rows)
+    return {int(r["player_key"]): {**r, "active": active[int(r["player_key"])]} for r in rows}
 
 
 def registry(canon):
-    # The snapshot has no `active` column; Registry treats every row as
-    # inactive, so resolve_with_reason falls back to all candidates. The live
-    # registry reads `active` from public.players (evidence gap in README.md).
+    # Every row states `active` (from players_active_snapshot.json, JEG-1313), so
+    # the offline registry prefers active rows the way the live one does.
     return canonical_players.load_registry(rows=list(canon.values()))
 
 
@@ -256,6 +281,18 @@ def tags_for(spelling, canonical_name, canon_forms):
 
 
 # ---------------------------------------------------------------- build
+
+def _collision_expect(keys, canon):
+    """Grounded expectation for rows that share a normalized name, from the
+    snapshots alone: one row wins; otherwise the one active row wins (the
+    documented rule, "active players beat inactive ones"); otherwise refuse."""
+    if len(keys) == 1:
+        return {"expect_key": keys[0], "expect_reason": "ok"}
+    act = [k for k in keys if canon[k]["active"]]
+    if len(act) == 1:
+        return {"expect_key": act[0], "expect_reason": "ok"}
+    return {"expect_key": None, "expect_reason": "ambiguous"}
+
 
 def build():
     canon = load_canonical()
@@ -464,9 +501,10 @@ def resolver_cases(rows, obs, links, canon, canon_forms, reg):
         if len(keys) < 2 or not any(canon[k]["position"] in MATRIX_POSITIONS for k in keys):
             continue
         ks = sorted(keys)
-        ev = f"{SNAPSHOT} player_keys {ks}"
+        act = [k for k in ks if canon[k]["active"]]
+        ev = f"{SNAPSHOT} player_keys {ks}; {ACTIVE} active {act}"
         add({"platform": "canonical", "spelling": canon[ks[0]]["full_name"], "pos": None,
-             "expect_key": None, "expect_reason": "ambiguous", "ground": ["snapshot_collision"],
+             **_collision_expect(ks, canon), "ground": ["snapshot_collision"],
              "evidence": ev, "tags": ["collision"]})
         bypos = defaultdict(list)
         for k in ks:
@@ -474,8 +512,7 @@ def resolver_cases(rows, obs, links, canon, canon_forms, reg):
         for pos, pk in sorted(bypos.items()):
             if pos in MATRIX_POSITIONS:
                 add({"platform": "canonical", "spelling": canon[pk[0]]["full_name"], "pos": pos,
-                     "expect_key": pk[0] if len(pk) == 1 else None,
-                     "expect_reason": "ok" if len(pk) == 1 else "ambiguous",
+                     **_collision_expect(pk, canon),
                      "ground": ["snapshot_collision_position"], "evidence": ev, "tags": ["collision"]})
 
     # Unknowns: Sleeper players whose gsis is not in public.players (idmap
