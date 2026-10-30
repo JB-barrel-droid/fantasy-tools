@@ -18,6 +18,7 @@
 //     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
 //     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
 //     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
+//     [--dump-natives fantasycalc]     (test only: print that source's natives in the input, JEG-1365)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -34,7 +35,7 @@ for (let i = 2; i < process.argv.length; i += 2) {
 // (supabase/functions/get-values/league.ts), so the parity test exercises the shipped mapping.
 const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
-const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+const { buildPipelineInput, excludedSources, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
 // JEG-1225: the caller's basis and overrides, through the function's own value-context.ts and the site's link reader.
 const { applyOverrides, basisConfigOf, overrideSeries, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
 const ValueLink = require("../app/v2/ddf-value-link.js");
@@ -132,6 +133,13 @@ if (!plan.ok) {
 }
 const built = buildPipelineInput(bundle, mapped, plan);
 
+// JEG-1365: --dump-natives KEY prints the natives the function's own input carries for one source
+// (a chart's 1-QB list, overlaid with its superflex / 2-QB list where the setting uses it) and stops.
+if (args["dump-natives"]) {
+  process.stdout.write(JSON.stringify(built.sources[args["dump-natives"]]?.values ?? null));
+  process.exit(0);
+}
+
 // --bench overrides bench_per_team (the negative test's deliberately wrong value).
 const setting = { ...built.setting };
 if (benchOverride !== null) setting.bench_per_team = benchOverride;
@@ -173,7 +181,7 @@ if (includes.has("prior")) {
   }
 }
 if (includes.has("audit")) {
-  const excluded = (pipeline.excluded || []).map((e) => ({ key: e.key, reason: e.reason }));
+  const excluded = excludedSources(pipeline, input);
   analysis.audit = auditBlock(bundle, pipeline, excluded);
 }
 const withWeek = args["with-week"] || includes.size;

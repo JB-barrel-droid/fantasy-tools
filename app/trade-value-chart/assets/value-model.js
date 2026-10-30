@@ -51,6 +51,13 @@
     return n > 0 ? n : 0;
   }
 
+  // JEG-1365 (Jeremy 2026-10-29, audit decision 9 A): a published chart's own
+  // superflex / 2-QB values (native_superflex) price a league with a
+  // superflex slot or 2+ dedicated QB slots. Seat counts are unchanged.
+  function usesSuperflexValues(shape) {
+    return superflexCount(shape) > 0 || Math.floor(Number(shape && shape.QB) || 0) >= 2;
+  }
+
   function flexEligible(shape) {
     return DEFAULT_FLEX_ELIGIBLE.slice();
   }
@@ -1935,6 +1942,7 @@
     flexEligible: flexEligible,
     SUPERFLEX_ELIGIBLE: SUPERFLEX_ELIGIBLE,
     superflexCount: superflexCount,
+    usesSuperflexValues: usesSuperflexValues,
     stableTiebreak: stableTiebreak,
     BENCH_LEVELS: VP_BENCH_LEVELS,
     leagueDepth: vpLeagueDepth,
