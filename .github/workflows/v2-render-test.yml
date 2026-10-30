@@ -84,3 +84,5 @@ jobs:
       # the Thursday 12:00 CT stale badge and the wk= link round trip, both clocks pinned; plus the no-browser
       # stale-deadline boundary test (CDT and CST).
       - run: python3 -m unittest tests.test_week_stale_deadline tests.test_week_selector_render
+      # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
+      - run: python3 -m unittest -v tests.test_v2_compare_rosters_render

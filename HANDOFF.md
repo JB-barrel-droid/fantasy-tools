@@ -238,8 +238,8 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
   text change goes live only with an approved `mcp` deploy.
 
-- **Fit labels lane (JEG-1187, JEG-1115; done 2026-10-28 10:15 AM CT):**
-  Both shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
+- **Fit labels lane (JEG-1187, JEG-1115; follow-up 2026-10-28):**
+  Original labels shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
   supported fire on any gain the page shows (`theirNet > NET_FLOOR`); Deploy
   dashboard run 40703312106 (`0137a8a`, includes it) succeeded. JEG-1115: #1041
   merged (`1bd85f7`); Jeremy said yes and get-values v9 then mcp v13 were
@@ -253,6 +253,19 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   Jefferson stays with them) without saying whose roster; same text as the
   page's `fitText`. #966 (Ba-Nana's earlier draft) is superseded by #1041;
   leave closing it to Jeremy.
+  JEG-1115 remains open for two reproduced defects in #1041: the old size
+  fixture never produced fit labels, and duplicate opponent names reused the
+  wrong roster for fit/package selection. The parent assigned Codex exclusive
+  connector edits on `be/jeg-1115-fit-review-fixes` (draft PR #1057). The follow-up keeps full
+  fit reasons and complete packages, bounds reply bytes with a ranked prefix,
+  and uses input indices for opponent identity (`opponent_index` in replies).
+  Real-fit regression sizes are 6,128 / 16,155 / 7,070 / 10,853 bytes; the local
+  #1024 + #1032 integration is 6,291 / 16,318 / 7,233 / 11,016, all within caps.
+  See `docs/claude-log/2026-10-28-connector-fit-review-fixes.md` for checks.
+  Parent owns serial merges/releases. This session has not deployed anything;
+  the follow-up needs current-head CI/review and fresh explicit deploy approval.
+  Merge #1032 before this follow-up and retain one `tradeLines` helper plus the
+  follow-up's bounded render blocks and fit-producing tests when resolving overlap.
 
 
 ### In Review tickets lane (2026-10-28, 9:10 AM CT)

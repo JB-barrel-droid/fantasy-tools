@@ -131,10 +131,14 @@ test-unit-modules:
 	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
+	python3 -m unittest tests.test_mcp_week
 	python3 -m unittest tests.test_endpoint_parity
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
+	# Weekly-input contract validator and fixtures (JEG-1227, S1 of JEG-1195). Offline.
+	python3 -m unittest tests.test_weekly_inputs_contract
 	python3 -m unittest tests.test_gh_sbclient_bytes
 	python3 -m unittest tests.test_usatoday_relay_source
 	python3 -m unittest tests.test_bake_espn_zero_universe
@@ -182,6 +186,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_how_render
 	python3 -m unittest tests.test_v2_manifesto_render
 	python3 -m unittest tests.test_v2_contract_render
+	python3 -m unittest tests.test_v2_league_entry_default_render
 	python3 -m unittest tests.test_v2_finder_render
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
@@ -209,6 +214,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
+	python3 -m unittest tests.test_v2_compare_rosters_render
 	python3 -m unittest tests.test_v2_ddf_render
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
@@ -241,6 +247,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_article_discovery
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
+	python3 -m unittest tests.test_build_weekly_inputs
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -306,6 +313,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_espn_zeroed_staleness
 	python3 -m unittest tests.test_health_function_no_hardcoded_green
 	python3 -m unittest tests.test_razzball_supabase
+	# ROS rankings feed (JEG-1198/1303): isolation and ECR-exclusion guards.
+	python3 -m unittest tests.test_ros_rankings
 	python3 -m unittest tests.test_reference_freshness
 	python3 -m unittest tests.test_reindex_section
 	python3 -m unittest tests.test_review_candidate
@@ -589,6 +598,8 @@ test-core:
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
@@ -606,7 +617,10 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
+	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
 	python3 -m unittest tests.test_v2_finder_trifit
@@ -684,6 +698,8 @@ test-core-shard-1:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
 	python3 -m unittest tests.test_verify_live
@@ -743,7 +759,10 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder_viable
 	python3 -m unittest tests.test_v2_finder_guardrails
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
+	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
@@ -804,6 +823,8 @@ test-render-sweep:
 test-render-sweep-1:
 	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	# JEG-1199: each projection's path from the publisher's number to the published value.
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_zones_render
 	python3 -m unittest tests.test_v2_customize_cleanup_render
 	python3 -m unittest tests.test_v2_finder_import_render
@@ -874,6 +895,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
 	python3 -m unittest tests.test_v2_audit_source_render
+	python3 -m unittest tests.test_v2_audit_projection_render
 	python3 -m unittest tests.test_v2_chart_height_render
 	python3 -m unittest tests.test_v2_advanced_render
 	python3 -m unittest tests.test_v2_chart_zones_render

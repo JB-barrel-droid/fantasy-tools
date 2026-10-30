@@ -19,6 +19,16 @@ class RemoteMcpTests(unittest.TestCase):
         self.assertTrue(out.stdout.strip().endswith("ok"))
 
     @unittest.skipIf(shutil.which("node") is None, "node not installed")
+    def test_explicit_superflex_link(self):
+        out = subprocess.run(
+            ["node", "--experimental-strip-types", "--no-warnings",
+             str(ROOT / "tests/node/mcp_superflex_link_check.mjs")],
+            capture_output=True, text=True, timeout=30,
+        )
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertTrue(out.stdout.strip().endswith("ok"))
+
+    @unittest.skipIf(shutil.which("node") is None, "node not installed")
     def test_connector_fit_label(self):
         # JEG-1115: the connector's fit label matches the finder's own rule (parity on the
         # 20-team fixture), every returned trade carries fit + fit_reason, and the check
