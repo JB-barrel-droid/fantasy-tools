@@ -28,8 +28,15 @@ the linear board", Oct 30 2:57 PM CT).
   (`settings-fieldnotes.js`, merged #1129) use "Value basis", so this slice doesn't roll it back.
 - "Your value" for a reader's own override: that is the reader's number, not a retired name for DDF Value.
 - "The trade chart average" in Overrides: JEG-1212 term, pinned by JEG-1234.
-- `league.js` "Our team" / "Our fit" labels: they name the reader's own team, a voice change ("talk to
-  you") that isn't in the glossary; left for a wording call.
+
+### Follow-up: League "Your team" / "Your fit" (Jeremy, 2026-10-30 6:29 PM CT, answer A)
+- `app/v2/league.js`: the reader's side is "Your team" / "Your fit", matching "Their team" / "Their fit" and the
+  rest of the site: the team summary fieldset and filter option, the filter rule line, the summary column labels
+  ("Your <field>"), the "Your team fit" table head and the phone card's "Your fit:" line. Copy only.
+- Pins follow: `tests/test_v2_league_tables_render.py` (OPP_HEADERS) and `tests/test_v2_league_phone_render.py`
+  (the card line check and its mutant). `tests/test_jeg1130_settings_copy.py` now retires "Our team" / "Our fit"
+  and a bare "Our" in League (5 new mutants; main's league.js gives 6 findings).
+- Not run here: both League render suites (no Playwright in this container); CI `v2-render` runs them.
 
 ### Left for later (locked or hot files)
 - `v2.js` (locked): the phone legend "Solid = DDA" / "Dashed = rescaled", the "Our names" popover title, the
