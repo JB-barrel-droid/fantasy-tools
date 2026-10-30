@@ -150,3 +150,29 @@ Contract: fixes 1 and 2 of the review. Back out the generated churn from 9de9732
 ### Claimed, not confirmed
 - Value math is unchanged by fixes 1 and 2: only generated files, the merge and docs moved. The before/after DDF Value table is regenerated after fix 3, on the final head.
 - The full suite and make validate were not run locally; preview CI runs them.
+
+## JEG-1249 fix 3: main (#1077) merged, band carried to the line row W, 2026-10-30
+
+Contract: the 2026-10-30 02:49 UTC "To Mac:" comment on JEG-1249. Merge origin/main (which now holds #1077's squash 2458aeb7) into 3ff07d54 normally, carry the seven-player band resolution from `claude/JEG-1249-band-integration` d07f6527 (read, not merged), and regenerate the USO before/after table.
+
+### Verified (check named)
+- 1162a6f2 merges origin/main e18d640a (2458aeb7 plus #1186 and a JEG-205 hash commit). No rebase, no force push.
+- Conflicts, one line each:
+  - value-model.js: #1105's league-depth helpers then #1077's `vpWaiverBand`; the line is `family === "projection" ? vpWaiverBand(work, W) : work[W].native`. Byte-identical to d07f6527 (`git diff d07f6527 -- <file>` empty).
+  - spec_reference/value_pipeline.py: `_convention_waiver_band_line(..., W)` for projections, `work_val[work[W]]` for charts. Byte-identical to d07f6527.
+  - value_reference.py: `_waiver_value(src, p, ..., n_line)`. Byte-identical to d07f6527.
+  - v2.css: both rules kept (JEG-1236 text box height, JEG-1249 levels switch).
+  - build_v2_page.py: main's copy list (player-status.js, trade-context.js, player-flags.js) plus #1105's roster-provenance-transitions.js.
+  - HANDOFF.md: both blocks kept.
+- d07f6527's own test and fixture resolution was applied on top (`git diff <auto-merge tree> d07f6527 -- tests/`): test_jeg1249_bench_corrections, test_league_bench_levels, test_league_levels_real, test_league_levels_trades, test_waiver_band_line and the USO/Charlotte fixtures. Each is byte-identical to d07f6527.
+- Generated paths equal main: `git diff origin/main --stat -- app/trade-value-chart/assets/{comparison-sources-data,lineup-parameters,reference-freshness}.json app/trade-value-chart/index.html dist/` is empty at 1162a6f2.
+- Focused, 115 tests: test_jeg1249_bench_corrections, test_league_bench_levels, test_league_levels_real, test_league_levels_trades, test_waiver_band_line, test_spec_reference_value_pipeline, test_value_reference_worked_example (3189 numbers, 0 mismatches), test_roster_provenance_transitions OK; test_rank_guard 26 OK (with CHROMIUM_PATH).
+- Render with RENDER_TESTS_REQUIRED=1 and Google Chrome: test_v2_league_levels_render 2, test_jeg1249_league_site_render 4, test_v2_league_parsed_render 2, test_v2_league_tables_render 2, test_v2_contract_render 6, all OK.
+- Fails before, passes after: the band anchored at N (`vpWaiverBand(work, N)`) gives 226 failures in test_jeg1249_bench_corrections + test_league_bench_levels + test_league_levels_real (40 tests), and TestLoadedLeagueBandParity fails; restored to W, 40 OK and parity OK.
+- USO before/after DDF Value, JS engine on the frozen fixture (standard bench / DDF level / market level): JSN 69.4/71.4/72.9, K. Williams 55.9/58.8/51.9, Josh Allen 33.9/40.7/36.2, Aaron Jones 9.7/5.4/8.0, Goedert 2.6/5.3/4.0, Hockenson 2.3/4.6/3.5. At the DDF level 85 of 741 players move more than 1 point (104 at the market level). Identical to the d07f6527 preview, as expected: #1077 changed nothing in the three engine files after 217958ce.
+- `make validate` (system python3, CHROMIUM_PATH=Google Chrome): reference, sync, guard-harness, test-integration (8 modules) and value-check-compare pass. value-check: verdict agree, 1,205,082 values, 0 mismatches. `pipelines/check_rank_guard.py`: 12 chart x combo checks, 0 inversions.
+  - test-core stops at `tests.test_v2_finder_saved_team_render` test_keyboard_mobile_and_overlap_guard (`'' != 'beta'`). The same test fails the same way on a clean origin/main e18d640a worktree, so it is a local baseline red, not this merge (known local-only, green in CI). Every test-core line after it was run one by one: 70 commands, all exit 0.
+- Test runs rewrote generated app/dist files in the working tree; they were discarded and none were committed.
+
+### Claimed, not confirmed
+- CI on the pushed head (preview-build, shards, v2-render) had not reported when this entry was written.

@@ -29,8 +29,8 @@ below are history, including any "Codex reviews and merges" line.
   when switched off (which also brings back Open in Compare). Error-checking design is a separate decision for him.
 - 2026-10-29 review fixes (JEG-1249 fb70682d): the local sync build from 9de97320 (21 generated app/dist paths) is
   backed out to main; main merged normally (league.js keeps #1138's Buy/Sell copy plus #1105's sellBlock).
-  Still to do: once #1077 merges, carry the seven-player band (`claude/JEG-1249-band-integration` d07f6527) onto
-  #1077's merged head and regenerate the before/after DDF Value table on the final head.
+  2026-10-30: main (#1077 squash 2458aeb7) merged in; the band sits at the line row W in all three
+  implementations, byte-identical to d07f6527. Waiting on a delta review and Jeremy's yes on the value table.
 - Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
 
 ### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-30 UTC)
