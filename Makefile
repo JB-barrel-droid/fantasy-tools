@@ -143,6 +143,8 @@ test-unit-modules:
 	# JEG-1225: the shared value-context link format (basis=, ov=).
 	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1061: get-values logs each fresh custom compute and each 429 (soft limiter measurement).
+	python3 -m unittest tests.test_jeg_1061_logging_contract
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
 	# JEG-1225: get-values prices under a link's basis and overrides.

@@ -19,6 +19,13 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225) plus a main merge (`2027b305`) that clears
+  #1124's conflict with #1156. Merge #1124 first (or fast-forward its branch to `2027b305`), then this PR.
+- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Live
+  only after a `get-values` deploy on Jeremy's named yes; then check the Supabase function logs.
+
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
 - Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
