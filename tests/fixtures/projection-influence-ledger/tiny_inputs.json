@@ -1,0 +1,314 @@
+{
+ "league": {
+  "bench": 2,
+  "bench_share": 0.15,
+  "flex": 1,
+  "slots": {
+   "QB": 1,
+   "RB": 1,
+   "TE": 1,
+   "WR": 1
+  },
+  "superflex": 0
+ },
+ "lineup": {
+  "bye": 0.08,
+  "positions": {
+   "QB": {
+    "m": 0.11,
+    "sigma_floor": 0.7,
+    "sigma_rel": 0.18
+   },
+   "RB": {
+    "m": 0.15,
+    "sigma_floor": 0.85,
+    "sigma_rel": 0.28
+   },
+   "TE": {
+    "m": 0.15,
+    "sigma_floor": 0.65,
+    "sigma_rel": 0.35
+   },
+   "WR": {
+    "m": 0.12,
+    "sigma_floor": 1.0,
+    "sigma_rel": 0.3
+   }
+  },
+  "projection_confidence": 1.5
+ },
+ "note": "Hand-made two-team league for tests/test_projection_influence.py: two rest-of-season projections (p1, p2) and three weekly charts (c1, c2, c3) that list only the top players, so the fill-in runs. p2 lists Running back 7 at 0.0 (absent-versus-zero); Tight end 7 is listed by p2 only and by no chart. Not real players or real numbers.",
+ "players": {
+  "101": {
+   "name": "Quarterback 1",
+   "pos": "QB"
+  },
+  "102": {
+   "name": "Quarterback 2",
+   "pos": "QB"
+  },
+  "103": {
+   "name": "Quarterback 3",
+   "pos": "QB"
+  },
+  "104": {
+   "name": "Quarterback 4",
+   "pos": "QB"
+  },
+  "105": {
+   "name": "Quarterback 5",
+   "pos": "QB"
+  },
+  "106": {
+   "name": "Quarterback 6",
+   "pos": "QB"
+  },
+  "107": {
+   "name": "Quarterback 7",
+   "pos": "QB"
+  },
+  "201": {
+   "name": "Running back 1",
+   "pos": "RB"
+  },
+  "202": {
+   "name": "Running back 2",
+   "pos": "RB"
+  },
+  "203": {
+   "name": "Running back 3",
+   "pos": "RB"
+  },
+  "204": {
+   "name": "Running back 4",
+   "pos": "RB"
+  },
+  "205": {
+   "name": "Running back 5",
+   "pos": "RB"
+  },
+  "206": {
+   "name": "Running back 6",
+   "pos": "RB"
+  },
+  "207": {
+   "name": "Running back 7",
+   "pos": "RB"
+  },
+  "301": {
+   "name": "Receiver 1",
+   "pos": "WR"
+  },
+  "302": {
+   "name": "Receiver 2",
+   "pos": "WR"
+  },
+  "303": {
+   "name": "Receiver 3",
+   "pos": "WR"
+  },
+  "304": {
+   "name": "Receiver 4",
+   "pos": "WR"
+  },
+  "305": {
+   "name": "Receiver 5",
+   "pos": "WR"
+  },
+  "306": {
+   "name": "Receiver 6",
+   "pos": "WR"
+  },
+  "307": {
+   "name": "Receiver 7",
+   "pos": "WR"
+  },
+  "401": {
+   "name": "Tight end 1",
+   "pos": "TE"
+  },
+  "402": {
+   "name": "Tight end 2",
+   "pos": "TE"
+  },
+  "403": {
+   "name": "Tight end 3",
+   "pos": "TE"
+  },
+  "404": {
+   "name": "Tight end 4",
+   "pos": "TE"
+  },
+  "405": {
+   "name": "Tight end 5",
+   "pos": "TE"
+  },
+  "406": {
+   "name": "Tight end 6",
+   "pos": "TE"
+  },
+  "407": {
+   "name": "Tight end 7",
+   "pos": "TE"
+  }
+ },
+ "provenance": {
+  "engine_sha": "430791c41ca9578d878c14c3a37d37a0f3fe0670",
+  "sources": {
+   "c1": {
+    "family": "chart",
+    "horizon": "Week 8"
+   },
+   "c2": {
+    "family": "chart",
+    "horizon": "Week 8"
+   },
+   "c3": {
+    "family": "chart",
+    "horizon": "Week 8"
+   },
+   "p1": {
+    "family": "projection",
+    "horizon": "rest of season"
+   },
+   "p2": {
+    "family": "projection",
+    "horizon": "rest of season"
+   }
+  }
+ },
+ "schema": "projection-influence-frozen-inputs/1",
+ "scorings": {
+  "ppr": {
+   "excluded": {},
+   "hidden": [],
+   "included": [
+    "p1",
+    "p2",
+    "c1",
+    "c2",
+    "c3"
+   ],
+   "natives": {
+    "c1": {
+     "101": 30.0,
+     "102": 26.0,
+     "103": 21.0,
+     "104": 17.0,
+     "201": 45.0,
+     "202": 36.0,
+     "203": 28.0,
+     "204": 22.0,
+     "205": 16.0,
+     "301": 42.0,
+     "302": 33.0,
+     "303": 25.0,
+     "304": 19.0,
+     "401": 24.0,
+     "402": 15.0,
+     "403": 10.0
+    },
+    "c2": {
+     "101": 28.0,
+     "102": 27.0,
+     "103": 20.0,
+     "201": 47.0,
+     "202": 33.0,
+     "203": 29.0,
+     "204": 20.0,
+     "301": 40.0,
+     "302": 35.0,
+     "303": 24.0,
+     "304": 18.0,
+     "305": 12.0,
+     "401": 22.0,
+     "402": 16.0
+    },
+    "c3": {
+     "101": 31.0,
+     "102": 25.0,
+     "103": 22.0,
+     "104": 18.0,
+     "105": 14.0,
+     "201": 44.0,
+     "202": 37.0,
+     "203": 27.0,
+     "301": 43.0,
+     "302": 31.0,
+     "303": 26.0,
+     "401": 25.0,
+     "402": 14.0,
+     "403": 11.0,
+     "404": 7.0
+    },
+    "p1": {
+     "101": 24.0,
+     "102": 21.0,
+     "103": 19.0,
+     "104": 17.0,
+     "105": 15.0,
+     "106": 13.0,
+     "107": 11.0,
+     "201": 20.0,
+     "202": 17.0,
+     "203": 14.0,
+     "204": 12.0,
+     "205": 10.0,
+     "206": 8.0,
+     "207": 6.0,
+     "301": 19.0,
+     "302": 16.0,
+     "303": 13.5,
+     "304": 11.5,
+     "305": 9.5,
+     "306": 7.5,
+     "307": 5.5,
+     "401": 13.0,
+     "402": 10.0,
+     "403": 8.0,
+     "404": 6.5,
+     "405": 5.0,
+     "406": 4.0
+    },
+    "p2": {
+     "101": 23.0,
+     "102": 22.0,
+     "103": 18.0,
+     "104": 16.5,
+     "105": 15.5,
+     "106": 12.0,
+     "107": 10.0,
+     "201": 21.0,
+     "202": 16.0,
+     "203": 14.5,
+     "204": 11.0,
+     "205": 10.5,
+     "206": 7.0,
+     "207": 0.0,
+     "301": 18.0,
+     "302": 16.5,
+     "303": 13.0,
+     "304": 12.0,
+     "305": 9.0,
+     "306": 8.0,
+     "307": 6.0,
+     "401": 12.0,
+     "402": 10.5,
+     "403": 7.5,
+     "404": 7.0,
+     "405": 4.5,
+     "406": 4.5,
+     "407": 3.0
+    }
+   }
+  }
+ },
+ "source_order": [
+  "p1",
+  "p2",
+  "c1",
+  "c2",
+  "c3"
+ ],
+ "ticket": "JEG-1280"
+}

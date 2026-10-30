@@ -1,0 +1,1560 @@
+{
+ "as_of": "2026-10-29",
+ "baseline": {
+  "branch": "main",
+  "commit": "430791c41ca9578d878c14c3a37d37a0f3fe0670",
+  "commit_date": "2026-10-29"
+ },
+ "evidence_classes": {
+  "historical": "computed on 2015-2025 game logs",
+  "hypothetical (arithmetic)": "arithmetic on the numbers above; not a model output",
+  "measured": "computed on 2026 data",
+  "measured (engine at capture)": "the engine's own output when the artifact was captured"
+ },
+ "gaps": [
+  {
+   "effect": "No sample count or confidence interval for the option-value decay curve.",
+   "id": "G1",
+   "owner": "post 1 research script (JEG-544 lane)",
+   "what": "The breakout-by-week series stores rates without cohort sizes or breakout counts."
+  },
+  {
+   "effect": "The scoring of the option-value series differs from its label, and a blank score is read as 0.",
+   "id": "G2",
+   "owner": "post 1 research script (JEG-544 lane)",
+   "what": "tools/research/bench_value_by_week.py and breakout_rate.py score breakouts with half_ppr, falling back to std, then 0, though the actuals file has a ppr column and the by-week artifact is labelled ppr."
+  },
+  {
+   "effect": "A player who scores like a starter for the weeks left but not for the season is not counted, so part of the late fall comes from the target definition, not runway alone.",
+   "id": "G3",
+   "owner": "post 1 research script (JEG-544 lane)",
+   "what": "A breakout is defined by full-season points per game, which includes the weeks before the measure week."
+  },
+  {
+   "effect": "The weeks-left axis is approximate for half the seasons.",
+   "id": "G4",
+   "owner": "post 1 research script (JEG-544 lane)",
+   "what": "weeks_remaining in the breakout series is 17 minus the measure week for every season, though 2021-2025 have 18 weeks."
+  },
+  {
+   "effect": "The by-week rates (1-6%) are not on the same scale as the by-depth rates (2-27%).",
+   "id": "G5",
+   "owner": "post 1 research script (JEG-544 lane)",
+   "what": "The breakout cohort is every non-starter with a game log, not rostered bench players."
+  },
+  {
+   "effect": "No measured basis for a per-week discount (JEG-528 item 2); its Done-when is unmet.",
+   "id": "G6",
+   "owner": "JEG-943 / JEG-944 storage",
+   "what": "No week-ahead projections are stored by lead time; the JEG-943 backtest compares rest-of-season projections with single weeks over 5 weeks."
+  },
+  {
+   "effect": "No measured option-value decay on the engine itself.",
+   "id": "G7",
+   "owner": "JEG-530 series",
+   "what": "Option value (#604 optionValue) and starter-vs-bench risk exist only as one snapshot, not by content week."
+  },
+  {
+   "effect": "The two published numbers come from different engine states or definitions; which one holds today is unchecked.",
+   "id": "G8",
+   "owner": "post 1 (JEG-544)",
+   "what": "Post 1's sensitivity table gives 10.0% bench share at PPR/12; the by-week artifact gives 8.7% at week 1 for the same setting."
+  },
+  {
+   "effect": "The model series' content date is bounded by its capture date only, and m has no sample count here.",
+   "id": "G9",
+   "owner": "post 1 research script; derive_lineup_parameters.py",
+   "what": "The engine fixture date behind the by-week model series is not recorded; game counts behind m are not in the config."
+  },
+  {
+   "effect": "The existing timing series is not monotone at the last week; it is a separate series, not DDF Value.",
+   "id": "G10",
+   "owner": "JEG-528 (#604 series)",
+   "what": "At content week 17 the objective window is empty (week 18 to 17), and the #604 timing rule then leaves its factor at 1, so the timing series goes from 1/17 at week 16 back to full at week 17."
+  }
+ ],
+ "rows": [
+  {
+   "cohort": "cbsros rest-of-season per game vs weekly actuals",
+   "component": "projection accuracy over time",
+   "evidence": "measured",
+   "id": "A1.cbsros",
+   "metric": "MAE with 95% CI",
+   "n": 703,
+   "note": "no lead-time split: it cannot show how accuracy decays with weeks ahead",
+   "source": "jeg943_source_accuracy",
+   "values": {
+    "ci_hi": 5.364,
+    "ci_lo": 4.742,
+    "mae": 5.046
+   },
+   "window": "2026 content weeks 2-6"
+  },
+  {
+   "cohort": "equal_mean rest-of-season per game vs weekly actuals",
+   "component": "projection accuracy over time",
+   "evidence": "measured",
+   "id": "A1.equal_mean",
+   "metric": "MAE with 95% CI",
+   "n": 1122,
+   "note": "no lead-time split: it cannot show how accuracy decays with weeks ahead",
+   "source": "jeg943_source_accuracy",
+   "values": {
+    "ci_hi": 4.866,
+    "ci_lo": 4.371,
+    "mae": 4.609
+   },
+   "window": "2026 content weeks 2-6"
+  },
+  {
+   "cohort": "espn rest-of-season per game vs weekly actuals",
+   "component": "projection accuracy over time",
+   "evidence": "measured",
+   "id": "A1.espn",
+   "metric": "MAE with 95% CI",
+   "n": 1425,
+   "note": "no lead-time split: it cannot show how accuracy decays with weeks ahead",
+   "source": "jeg943_source_accuracy",
+   "values": {
+    "ci_hi": 4.913,
+    "ci_lo": 4.455,
+    "mae": 4.677
+   },
+   "window": "2026 content weeks 2-6"
+  },
+  {
+   "cohort": "espn_weekly rest-of-season per game vs weekly actuals",
+   "component": "projection accuracy over time",
+   "evidence": "measured",
+   "id": "A1.espn_weekly",
+   "metric": "MAE with 95% CI",
+   "n": 1600,
+   "note": "no lead-time split: it cannot show how accuracy decays with weeks ahead",
+   "source": "jeg943_source_accuracy",
+   "values": {
+    "ci_hi": 4.557,
+    "ci_lo": 4.171,
+    "mae": 4.363
+   },
+   "window": "2026 content weeks 2-6"
+  },
+  {
+   "cohort": "razzball rest-of-season per game vs weekly actuals",
+   "component": "projection accuracy over time",
+   "evidence": "measured",
+   "id": "A1.razzball",
+   "metric": "MAE with 95% CI",
+   "n": 1171,
+   "note": "no lead-time split: it cannot show how accuracy decays with weeks ahead",
+   "source": "jeg943_source_accuracy",
+   "values": {
+    "ci_hi": 4.746,
+    "ci_lo": 4.222,
+    "mae": 4.501
+   },
+   "window": "2026 content weeks 2-6"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w01",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0871,
+    "bench_share_QB": 0.0733,
+    "bench_share_RB": 0.0835,
+    "bench_share_TE": 0.0187,
+    "bench_share_WR": 0.0995,
+    "bye_share": 0.0625,
+    "remaining_weeks": 16
+   },
+   "window": "content week 1, 16 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w02",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0871,
+    "bench_share_QB": 0.0734,
+    "bench_share_RB": 0.0835,
+    "bench_share_TE": 0.0188,
+    "bench_share_WR": 0.0995,
+    "bye_share": 0.0667,
+    "remaining_weeks": 15
+   },
+   "window": "content week 2, 15 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w03",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0872,
+    "bench_share_QB": 0.0734,
+    "bench_share_RB": 0.0836,
+    "bench_share_TE": 0.0188,
+    "bench_share_WR": 0.0996,
+    "bye_share": 0.0714,
+    "remaining_weeks": 14
+   },
+   "window": "content week 3, 14 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w04",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0873,
+    "bench_share_QB": 0.0735,
+    "bench_share_RB": 0.0837,
+    "bench_share_TE": 0.0188,
+    "bench_share_WR": 0.0997,
+    "bye_share": 0.0769,
+    "remaining_weeks": 13
+   },
+   "window": "content week 4, 13 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w05",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.087,
+    "bench_share_QB": 0.0735,
+    "bench_share_RB": 0.0835,
+    "bench_share_TE": 0.0189,
+    "bench_share_WR": 0.0992,
+    "bye_share": 0.0781,
+    "remaining_weeks": 12
+   },
+   "window": "content week 5, 12 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w06",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0861,
+    "bench_share_QB": 0.0734,
+    "bench_share_RB": 0.083,
+    "bench_share_TE": 0.0189,
+    "bench_share_WR": 0.0979,
+    "bye_share": 0.0739,
+    "remaining_weeks": 11
+   },
+   "window": "content week 6, 11 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w07",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0852,
+    "bench_share_QB": 0.0734,
+    "bench_share_RB": 0.0824,
+    "bench_share_TE": 0.019,
+    "bench_share_WR": 0.0964,
+    "bye_share": 0.0688,
+    "remaining_weeks": 10
+   },
+   "window": "content week 7, 10 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w08",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.084,
+    "bench_share_QB": 0.0733,
+    "bench_share_RB": 0.0818,
+    "bench_share_TE": 0.019,
+    "bench_share_WR": 0.0947,
+    "bye_share": 0.0625,
+    "remaining_weeks": 9
+   },
+   "window": "content week 8, 9 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w09",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0836,
+    "bench_share_QB": 0.0732,
+    "bench_share_RB": 0.0815,
+    "bench_share_TE": 0.0191,
+    "bench_share_WR": 0.0939,
+    "bye_share": 0.0625,
+    "remaining_weeks": 8
+   },
+   "window": "content week 9, 8 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w10",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0821,
+    "bench_share_QB": 0.0731,
+    "bench_share_RB": 0.0806,
+    "bench_share_TE": 0.0192,
+    "bench_share_WR": 0.0917,
+    "bye_share": 0.0536,
+    "remaining_weeks": 7
+   },
+   "window": "content week 10, 7 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w11",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0791,
+    "bench_share_QB": 0.0728,
+    "bench_share_RB": 0.0788,
+    "bench_share_TE": 0.0192,
+    "bench_share_WR": 0.0872,
+    "bye_share": 0.0312,
+    "remaining_weeks": 6
+   },
+   "window": "content week 11, 6 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w12",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0793,
+    "bench_share_QB": 0.0729,
+    "bench_share_RB": 0.0789,
+    "bench_share_TE": 0.0194,
+    "bench_share_WR": 0.0874,
+    "bye_share": 0.0375,
+    "remaining_weeks": 5
+   },
+   "window": "content week 12, 5 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w13",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0762,
+    "bench_share_QB": 0.0726,
+    "bench_share_RB": 0.0771,
+    "bench_share_TE": 0.0195,
+    "bench_share_WR": 0.0828,
+    "bye_share": 0.0156,
+    "remaining_weeks": 4
+   },
+   "window": "content week 13, 4 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w14",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0738,
+    "bench_share_QB": 0.0724,
+    "bench_share_RB": 0.0757,
+    "bench_share_TE": 0.0197,
+    "bench_share_WR": 0.0791,
+    "bye_share": 0.0,
+    "remaining_weeks": 3
+   },
+   "window": "content week 14, 3 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w15",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0732,
+    "bench_share_QB": 0.0724,
+    "bench_share_RB": 0.0754,
+    "bench_share_TE": 0.0197,
+    "bench_share_WR": 0.0781,
+    "bye_share": 0.0,
+    "remaining_weeks": 2
+   },
+   "window": "content week 15, 2 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w16",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.0726,
+    "bench_share_QB": 0.0723,
+    "bench_share_RB": 0.0751,
+    "bench_share_TE": 0.0198,
+    "bench_share_WR": 0.077,
+    "bye_share": 0.0,
+    "remaining_weeks": 1
+   },
+   "window": "content week 16, 1 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "measured (engine at capture)",
+   "id": "F1.w17",
+   "metric": "per-week bench share of the value pie",
+   "n": "n/a",
+   "note": "",
+   "source": "post1_bench_by_week",
+   "values": {
+    "bench_share": 0.072,
+    "bench_share_QB": 0.0723,
+    "bench_share_RB": 0.0749,
+    "bench_share_TE": 0.0198,
+    "bench_share_WR": 0.076,
+    "bye_share": 0.0,
+    "remaining_weeks": 0
+   },
+   "window": "content week 17, 0 weeks left"
+  },
+  {
+   "cohort": "QB, per game",
+   "component": "fill-in insurance",
+   "evidence": "historical",
+   "id": "F2.QB",
+   "metric": "missed-game rate m (all seasons, recency-weighted) and m_late (playoff weeks)",
+   "n": "missing",
+   "note": "the config holds rates only; game counts are not in it",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "m_all": 0.1104,
+    "m_late_all": 0.1561,
+    "m_late_recent": 0.1765,
+    "m_recent": 0.1177
+   },
+   "window": "seasons 2015-2025"
+  },
+  {
+   "cohort": "RB, per game",
+   "component": "fill-in insurance",
+   "evidence": "historical",
+   "id": "F2.RB",
+   "metric": "missed-game rate m (all seasons, recency-weighted) and m_late (playoff weeks)",
+   "n": "missing",
+   "note": "the config holds rates only; game counts are not in it",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "m_all": 0.1529,
+    "m_late_all": 0.1974,
+    "m_late_recent": 0.1882,
+    "m_recent": 0.1443
+   },
+   "window": "seasons 2015-2025"
+  },
+  {
+   "cohort": "TE, per game",
+   "component": "fill-in insurance",
+   "evidence": "historical",
+   "id": "F2.TE",
+   "metric": "missed-game rate m (all seasons, recency-weighted) and m_late (playoff weeks)",
+   "n": "missing",
+   "note": "the config holds rates only; game counts are not in it",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "m_all": 0.1441,
+    "m_late_all": 0.1861,
+    "m_late_recent": 0.1863,
+    "m_recent": 0.151
+   },
+   "window": "seasons 2015-2025"
+  },
+  {
+   "cohort": "WR, per game",
+   "component": "fill-in insurance",
+   "evidence": "historical",
+   "id": "F2.WR",
+   "metric": "missed-game rate m (all seasons, recency-weighted) and m_late (playoff weeks)",
+   "n": "missing",
+   "note": "the config holds rates only; game counts are not in it",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "m_all": 0.105,
+    "m_late_all": 0.1399,
+    "m_late_recent": 0.1415,
+    "m_recent": 0.1068
+   },
+   "window": "seasons 2015-2025"
+  },
+  {
+   "cohort": "QB starter",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F3.QB",
+   "metric": "chance of at least one missed game in k weeks, 1-(1-m)^k",
+   "n": "n/a",
+   "note": "assumes weeks are independent, as JEG-528's 86%/39% figures do",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "p_miss_ge1_in_1": 0.1104,
+    "p_miss_ge1_in_12": 0.7543,
+    "p_miss_ge1_in_3": 0.296,
+    "p_miss_ge1_in_8": 0.6077
+   },
+   "window": "k weeks left"
+  },
+  {
+   "cohort": "RB starter",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F3.RB",
+   "metric": "chance of at least one missed game in k weeks, 1-(1-m)^k",
+   "n": "n/a",
+   "note": "assumes weeks are independent, as JEG-528's 86%/39% figures do",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "p_miss_ge1_in_1": 0.1529,
+    "p_miss_ge1_in_12": 0.8634,
+    "p_miss_ge1_in_3": 0.392,
+    "p_miss_ge1_in_8": 0.7347
+   },
+   "window": "k weeks left"
+  },
+  {
+   "cohort": "TE starter",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F3.TE",
+   "metric": "chance of at least one missed game in k weeks, 1-(1-m)^k",
+   "n": "n/a",
+   "note": "assumes weeks are independent, as JEG-528's 86%/39% figures do",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "p_miss_ge1_in_1": 0.1441,
+    "p_miss_ge1_in_12": 0.8455,
+    "p_miss_ge1_in_3": 0.3731,
+    "p_miss_ge1_in_8": 0.7121
+   },
+   "window": "k weeks left"
+  },
+  {
+   "cohort": "WR starter",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F3.WR",
+   "metric": "chance of at least one missed game in k weeks, 1-(1-m)^k",
+   "n": "n/a",
+   "note": "assumes weeks are independent, as JEG-528's 86%/39% figures do",
+   "source": "jeg528_lineup_m",
+   "values": {
+    "p_miss_ge1_in_1": 0.105,
+    "p_miss_ge1_in_12": 0.736,
+    "p_miss_ge1_in_3": 0.2832,
+    "p_miss_ge1_in_8": 0.5885
+   },
+   "window": "k weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w01",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 16,
+    "share_x_timing_factor_604": 0.082,
+    "share_x_weeks": 1.3936,
+    "timing_factor_604": 0.9412
+   },
+   "window": "content week 1, 16 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w02",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 15,
+    "share_x_timing_factor_604": 0.0769,
+    "share_x_weeks": 1.3065,
+    "timing_factor_604": 0.8824
+   },
+   "window": "content week 2, 15 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w03",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 14,
+    "share_x_timing_factor_604": 0.0718,
+    "share_x_weeks": 1.2208,
+    "timing_factor_604": 0.8235
+   },
+   "window": "content week 3, 14 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w04",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 13,
+    "share_x_timing_factor_604": 0.0668,
+    "share_x_weeks": 1.1349,
+    "timing_factor_604": 0.7647
+   },
+   "window": "content week 4, 13 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w05",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 12,
+    "share_x_timing_factor_604": 0.0614,
+    "share_x_weeks": 1.044,
+    "timing_factor_604": 0.7059
+   },
+   "window": "content week 5, 12 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w06",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 11,
+    "share_x_timing_factor_604": 0.0557,
+    "share_x_weeks": 0.9471,
+    "timing_factor_604": 0.6471
+   },
+   "window": "content week 6, 11 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w07",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 10,
+    "share_x_timing_factor_604": 0.0501,
+    "share_x_weeks": 0.852,
+    "timing_factor_604": 0.5882
+   },
+   "window": "content week 7, 10 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w08",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 9,
+    "share_x_timing_factor_604": 0.0445,
+    "share_x_weeks": 0.756,
+    "timing_factor_604": 0.5294
+   },
+   "window": "content week 8, 9 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w09",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 8,
+    "share_x_timing_factor_604": 0.0393,
+    "share_x_weeks": 0.6688,
+    "timing_factor_604": 0.4706
+   },
+   "window": "content week 9, 8 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w10",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 7,
+    "share_x_timing_factor_604": 0.0338,
+    "share_x_weeks": 0.5747,
+    "timing_factor_604": 0.4118
+   },
+   "window": "content week 10, 7 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w11",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 6,
+    "share_x_timing_factor_604": 0.0279,
+    "share_x_weeks": 0.4746,
+    "timing_factor_604": 0.3529
+   },
+   "window": "content week 11, 6 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w12",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 5,
+    "share_x_timing_factor_604": 0.0233,
+    "share_x_weeks": 0.3965,
+    "timing_factor_604": 0.2941
+   },
+   "window": "content week 12, 5 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w13",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 4,
+    "share_x_timing_factor_604": 0.0179,
+    "share_x_weeks": 0.3048,
+    "timing_factor_604": 0.2353
+   },
+   "window": "content week 13, 4 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w14",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 3,
+    "share_x_timing_factor_604": 0.013,
+    "share_x_weeks": 0.2214,
+    "timing_factor_604": 0.1765
+   },
+   "window": "content week 14, 3 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w15",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 2,
+    "share_x_timing_factor_604": 0.0086,
+    "share_x_weeks": 0.1464,
+    "timing_factor_604": 0.1176
+   },
+   "window": "content week 15, 2 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w16",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 1,
+    "share_x_timing_factor_604": 0.0043,
+    "share_x_weeks": 0.0726,
+    "timing_factor_604": 0.0588
+   },
+   "window": "content week 16, 1 weeks left"
+  },
+  {
+   "cohort": "12-team PPR engine fixture",
+   "component": "fill-in insurance",
+   "evidence": "hypothetical (arithmetic)",
+   "id": "F4.w17",
+   "metric": "rest-of-season bench share-weeks and the #604 timing series",
+   "n": "n/a",
+   "note": "share x weeks is the artifact's own stated implication; the engine does not compute it",
+   "source": "post1_bench_by_week + jeg528_timing_factor",
+   "values": {
+    "remaining_weeks": 0,
+    "share_x_timing_factor_604": 0.072,
+    "share_x_weeks": 0.0,
+    "timing_factor_604": 1.0
+   },
+   "window": "content week 17, 0 weeks left"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w04",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0629,
+    "RB": 0.0535,
+    "TE": 0.0396,
+    "WR": 0.0531
+   },
+   "window": "measured from week 4, 13 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w05",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0615,
+    "RB": 0.0492,
+    "TE": 0.0316,
+    "WR": 0.0484
+   },
+   "window": "measured from week 5, 12 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w06",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0545,
+    "RB": 0.0456,
+    "TE": 0.0316,
+    "WR": 0.047
+   },
+   "window": "measured from week 6, 11 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w07",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0476,
+    "RB": 0.0385,
+    "TE": 0.0316,
+    "WR": 0.0418
+   },
+   "window": "measured from week 7, 10 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w08",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0517,
+    "RB": 0.0356,
+    "TE": 0.0269,
+    "WR": 0.039
+   },
+   "window": "measured from week 8, 9 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w09",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.042,
+    "RB": 0.0349,
+    "TE": 0.0261,
+    "WR": 0.0329
+   },
+   "window": "measured from week 9, 8 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w10",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0364,
+    "RB": 0.0292,
+    "TE": 0.0245,
+    "WR": 0.031
+   },
+   "window": "measured from week 10, 7 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w11",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0378,
+    "RB": 0.0285,
+    "TE": 0.0229,
+    "WR": 0.0282
+   },
+   "window": "measured from week 11, 6 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w12",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0322,
+    "RB": 0.0257,
+    "TE": 0.0206,
+    "WR": 0.024
+   },
+   "window": "measured from week 12, 5 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w13",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.028,
+    "RB": 0.0214,
+    "TE": 0.0127,
+    "WR": 0.0188
+   },
+   "window": "measured from week 13, 4 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w14",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0266,
+    "RB": 0.0185,
+    "TE": 0.0095,
+    "WR": 0.0155
+   },
+   "window": "measured from week 14, 3 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w15",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.0238,
+    "RB": 0.0135,
+    "TE": 0.0047,
+    "WR": 0.0136
+   },
+   "window": "measured from week 15, 2 weeks left (approx)"
+  },
+  {
+   "cohort": "every non-starter with a game log, 12-team tiers",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O1.w16",
+   "metric": "share who finish in the starter tier",
+   "n": "missing",
+   "note": "the artifact stores rates only; cohort sizes and breakout counts are missing",
+   "source": "post1_bench_by_week",
+   "values": {
+    "QB": 0.014,
+    "RB": 0.0114,
+    "TE": 0.0071,
+    "WR": 0.0113
+   },
+   "window": "measured from week 16, 1 weeks left (approx)"
+  },
+  {
+   "cohort": "QB, every non-starter with a game log",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O2.QB",
+   "metric": "breakout rate, with the range across 11 seasons",
+   "n": 715,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 30,
+    "rate": 0.042,
+    "season_high": 0.087,
+    "season_low": 0.0145
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "RB, every non-starter with a game log",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O2.RB",
+   "metric": "breakout rate, with the range across 11 seasons",
+   "n": 1403,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 49,
+    "rate": 0.0349,
+    "season_high": 0.064,
+    "season_low": 0.0157
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "TE, every non-starter with a game log",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O2.TE",
+   "metric": "breakout rate, with the range across 11 seasons",
+   "n": 1264,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 33,
+    "rate": 0.0261,
+    "season_high": 0.0435,
+    "season_low": 0.0093
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "WR, every non-starter with a game log",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O2.WR",
+   "metric": "breakout rate, with the range across 11 seasons",
+   "n": 2128,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 70,
+    "rate": 0.0329,
+    "season_high": 0.046,
+    "season_low": 0.0208
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "QB backup #1 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.QB.d1",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 18,
+    "rate": 0.1364
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "QB backup #2 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.QB.d2",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 3,
+    "rate": 0.0227
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "QB backup #3 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.QB.d3",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 0,
+    "rate": 0.0
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "RB backup #1 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.RB.d1",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 30,
+    "rate": 0.2273
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "RB backup #2 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.RB.d2",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 6,
+    "rate": 0.0455
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "RB backup #3 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.RB.d3",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 5,
+    "rate": 0.0379
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "TE backup #1 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.TE.d1",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 24,
+    "rate": 0.1818
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "TE backup #2 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.TE.d2",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 6,
+    "rate": 0.0455
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "TE backup #3 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.TE.d3",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 2,
+    "rate": 0.0152
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "WR backup #1 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.WR.d1",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 36,
+    "rate": 0.2727
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "WR backup #2 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.WR.d2",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 16,
+    "rate": 0.1212
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "WR backup #3 (12 teams x 11 seasons)",
+   "component": "option value",
+   "evidence": "historical",
+   "id": "O3.WR.d3",
+   "metric": "breakout rate by depth",
+   "n": 132,
+   "note": "",
+   "source": "post1_breakout_rate",
+   "values": {
+    "breakouts": 8,
+    "rate": 0.0606
+   },
+   "window": "measured from week 9"
+  },
+  {
+   "cohort": "QB, engine starters and bench",
+   "component": "option value",
+   "evidence": "measured (engine at capture)",
+   "id": "O4.QB",
+   "metric": "bench upside vs starter downside, % of pie",
+   "n": 4,
+   "note": "n is the bench players priced; the overall row has no count",
+   "source": "post1_starter_bench_risk",
+   "values": {
+    "bench_upside_pct": 1.55,
+    "starter_downside_pct": 2.73
+   },
+   "window": "one snapshot at capture, no by-week series"
+  },
+  {
+   "cohort": "RB, engine starters and bench",
+   "component": "option value",
+   "evidence": "measured (engine at capture)",
+   "id": "O4.RB",
+   "metric": "bench upside vs starter downside, % of pie",
+   "n": 17,
+   "note": "n is the bench players priced; the overall row has no count",
+   "source": "post1_starter_bench_risk",
+   "values": {
+    "bench_upside_pct": 11.43,
+    "starter_downside_pct": 9.73
+   },
+   "window": "one snapshot at capture, no by-week series"
+  },
+  {
+   "cohort": "TE, engine starters and bench",
+   "component": "option value",
+   "evidence": "measured (engine at capture)",
+   "id": "O4.TE",
+   "metric": "bench upside vs starter downside, % of pie",
+   "n": 2,
+   "note": "n is the bench players priced; the overall row has no count",
+   "source": "post1_starter_bench_risk",
+   "values": {
+    "bench_upside_pct": 0.06,
+    "starter_downside_pct": 0.38
+   },
+   "window": "one snapshot at capture, no by-week series"
+  },
+  {
+   "cohort": "WR, engine starters and bench",
+   "component": "option value",
+   "evidence": "measured (engine at capture)",
+   "id": "O4.WR",
+   "metric": "bench upside vs starter downside, % of pie",
+   "n": 16,
+   "note": "n is the bench players priced; the overall row has no count",
+   "source": "post1_starter_bench_risk",
+   "values": {
+    "bench_upside_pct": 4.69,
+    "starter_downside_pct": 8.79
+   },
+   "window": "one snapshot at capture, no by-week series"
+  },
+  {
+   "cohort": "overall, engine starters and bench",
+   "component": "option value",
+   "evidence": "measured (engine at capture)",
+   "id": "O4.overall",
+   "metric": "bench upside vs starter downside, % of pie",
+   "n": "missing",
+   "note": "n is the bench players priced; the overall row has no count",
+   "source": "post1_starter_bench_risk",
+   "values": {
+    "bench_upside_pct": 17.74,
+    "starter_downside_pct": 21.64
+   },
+   "window": "one snapshot at capture, no by-week series"
+  }
+ ],
+ "rules": [
+  {
+   "all_present": true,
+   "id": "jeg528_timing_factor",
+   "lines": [
+    {
+     "path": "pipelines/value_reference.py",
+     "present": true
+    },
+    {
+     "path": "pipelines/value_reference.py",
+     "present": true
+    },
+    {
+     "path": "app/trade-value-chart/assets/value-model.js",
+     "present": true
+    }
+   ],
+   "statement": "timing factor = remaining objective-window weeks / 17, capped at 1; it scales the bench (fill-in) slice only, in a separate timingAdjusted series. DDF Value does not use it, and no page reads timingValue or optionValue."
+  }
+ ],
+ "schema": "bench-decay-evidence-matrix/1",
+ "setting": {
+  "scoring": "ppr",
+  "teams": 12
+ },
+ "sources": [
+  {
+   "capture_date": "2026-10-23",
+   "id": "post1_bench_by_week",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "path": "docs/research/data/bench_value_by_week.json",
+   "sha256": "1a933bd23acb81011ae872c2c087e9ef63b89cd54d8553046b17d0c0a528ae3d",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "post1_breakout_rate",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "path": "docs/research/data/breakout_rate.json",
+   "sha256": "b29f1aa8327c39ab58a6da6cbaad279a592063c019080ec9ee6cdaf1ac659264",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "post1_starter_bench_risk",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "path": "docs/research/data/starter_bench_risk.json",
+   "sha256": "8a67bccfc44f7471e064cb75da8735ceb8b29d33b4c64b776a81715717fbf6aa",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "post1_article",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "path": "docs/research/posts/01-bench-player-value.md",
+   "sha256": "03053ac416eec735035c3be87d885304956d5456171b4b8ffc67e5d1c62bd052",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "jeg943_source_accuracy",
+   "origin": "PR #847 (JEG-943)",
+   "path": "docs/research/data/source_accuracy_backtest.json",
+   "sha256": "99d6402cd3e918a197f7baac868fda20c0ceba2ddac4b6bce3341621af7c6c68",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "jeg943_plan",
+   "origin": "PR #847 (JEG-943)",
+   "path": "docs/research/ddf-predictive-plan.md",
+   "sha256": "d5e768c68aaed33f789b3035cf6f82db18ab3ab78cf0514cef57ac75f035ad29",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-23",
+   "id": "jeg943_post10",
+   "origin": "PR #847 (JEG-943), last edited in PR #870 (JEG-974)",
+   "path": "docs/research/posts/10-how-ddf-value-should-be-built.md",
+   "sha256": "e4ecc73c1a5079ea0d1edc65ee5c5e869849464dcb48175d676526d3a211853f",
+   "source_date": "2026-10-23"
+  },
+  {
+   "capture_date": "2026-10-28",
+   "id": "jeg528_lineup_m",
+   "origin": "Values copied from config/lineup_parameters.json (blob 485311187e, last rebuilt 2026-10-28); the per-game hazards JEG-528 cites",
+   "path": "docs/research/bench-decay-evidence/inputs/lineup_m_snapshot.json",
+   "sha256": "09697760c693fff9d8d74ac42078e9c824f3ea56514aea92951c021e853979a1",
+   "source_date": "2026-10-28"
+  }
+ ],
+ "ticket": "JEG-1276"
+}

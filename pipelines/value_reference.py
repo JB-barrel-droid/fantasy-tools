@@ -48,6 +48,7 @@ from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
     waiver_line as _convention_waiver_line,
+    waiver_band_line as _convention_waiver_band_line,
     market_bench_ratios as _convention_market_bench_ratios,
     vorp_bench_allocate as _vorp_bench_allocate,
     POSITIONS as _CONV_POSITIONS,
@@ -678,6 +679,16 @@ def _apply_promotion_model(parts: dict, xs: list, starters: int, teams: int,
 # VP-2 .. VP-5 for one source
 # ---------------------------------------------------------------------------
 
+def _waiver_value(src: SourceInput, pos: str, values: list, n_rost: int) -> float:
+    """VP-2.5 waiver line when the work list runs past the rostered count. A
+    chart: the first non-rostered player. A projection: the 7-player band
+    around that seat (JEG-1047, Jeremy 2026-10-29), so one fringe player's
+    projection does not reprice the position."""
+    if src.family == "projection":
+        return _convention_waiver_band_line(values, n_rost)
+    return values[n_rost]
+
+
 def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
                   es: dict | None = None, promotion: dict | None = None) -> dict:
     """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
@@ -695,7 +706,7 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
         info = {**a, "listed": len(listed), "extended": bool(est),
                 "imputation_ratios": dict(estimates.get(p) or {}) or None}
         if len(work) > n_rost:
-            w = work[n_rost][1]
+            w = _waiver_value(src, p, [r[1] for r in work], n_rost)
             method = "estimated" if work[n_rost][2] else "roster_determined"
         elif work:
             w = work[-1][1]
@@ -853,7 +864,9 @@ def _price(detail: dict, budgets: dict, pie: float, timing_factor: float = 1.0) 
                 if g[ok] > 0:
                     b2[ok] += budgets[gk]
                     b2[gk] = 0.0
-                    moved.append(gk)
+                    # Same record as the engine's unfundedMoved (JEG-1047: the
+                    # worked example now pins one).
+                    moved.append({"from": gk, "to": ok, "amount": budgets[gk]})
                 else:
                     unpaid.append(gk)
     rates = {k: (b2[k] / g[k] if g[k] > 0 else 0.0) for k in GROUPS}
