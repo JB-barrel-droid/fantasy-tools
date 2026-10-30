@@ -37,7 +37,8 @@ from tests._holds import pin_holds_in_dist  # noqa: E402
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 
 DEFS = [
-    ("DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."),
+    # JEG-1130 (PMM doc final naming, Jeremy 2026-10-26): one plain sentence, no publisher names in a definition.
+    ("DDF Value", "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters."),
     # JEG-1212 (merged f88a96e, Jeremy's source framework): the Trade chart average is the four existing rescaled chart
     # inputs, FantasyCalc included, with the three-input readout rule. The old "What the market will pay" line is gone.
     ("Trade chart average", "The mean of the selected, available rescaled chart inputs with complete values for a comparison. "
@@ -47,7 +48,7 @@ DEFS = [
 # JEG-1073: the deal read's third net is the projections alternate; it defines itself with its own wording (not one of
 # the two shared names the popovers list).
 NET_ONLY_DEFS = [
-    ("DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."),
+    ("DDF Value (projections)", "The alternate: the projection sources, equal weight, averaged for your league."),
 ]
 EDGE = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose."
 
@@ -210,7 +211,7 @@ def run_checks(js_patch=None, shell_patch=None) -> list[str]:
 
 JS_PATCHES = {
     # The page rewrites NAME_DEFS[0] from the basis on load (syncBasisLabels), so the mutation targets that line.
-    "definition changed": ("      : `Our estimate of what a player is worth: ${OURS_DEFAULT}.`;", "      : `A number.`;"),
+    "definition changed": ("      : `What a player is worth in your league: ${OURS_DEFAULT}.`;", "      : `A number.`;"),
     "customize info dropped": ('          if (g.id === "ddf") head.appendChild(namesInfoButton("Customize"));', ""),
     # JEG-1234: the Trade chart average definition put back to the pre-JEG-1212 wording, and with FantasyCalc dropped
     # from its inputs; each must fail, so the source-framework wording stays pinned in every popover and the deal read.

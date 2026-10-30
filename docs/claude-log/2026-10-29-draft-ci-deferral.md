@@ -58,3 +58,15 @@ Verified (ran locally): the six workflow suites (`test_draft_ci_workflows`,
 
 Claimed, not confirmed: CI on the new head (render tests need Playwright, which
 only CI runs here).
+
+## 2026-10-30 02:25 UTC: main merged in again
+
+A second normal merge of `origin/main`. Same file conflicted: main added the
+JEG-1266 AI connection panel steps (its unit and render tests plus the
+`ai-panel-previews` artifact upload). They now sit at the end of
+`render-tests`, after the JEG-1311 step; the `v2-render` finalizer is unchanged.
+
+Verified (ran locally): the same six workflow suites, 110 tests OK; the workflow
+parses with jobs `pr-state`, `render-tests`, `v2-render`.
+
+Claimed, not confirmed: CI on the new head.
