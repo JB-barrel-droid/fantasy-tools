@@ -1231,6 +1231,12 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
     success = len(failed) == 0
     severities = [results[s].get("hold_severity") for s in held]
     hold_severity = ("red" if "red" in severities else "amber") if held else "none"
+    from week_state import STALE_RULE, annotate_source_weeks, sources_in_state
+    source_weeks = chain_source_weeks(repo)
+    try:
+        source_weeks = annotate_source_weeks(source_weeks)
+    except Exception as exc:  # a warning-only report must never stop the status write
+        print(f"::warning::source week states not computed: {exc}")
     status_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
         "nfl_week": nfl_week,
@@ -1265,7 +1271,14 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
         "source_vintages": source_vintages(repo),
         # JEG-1177: each source's own served week and publish time (a source
         # on week N while others serve N+1 is lagging, not a failure).
-        "source_weeks": chain_source_weeks(repo),
+        # JEG-1180: plus each source's state against the calendar (current /
+        # lagging / stale / unknown). Stale (still on week N after Thursday
+        # 12:00 CT of week N+1) is a warning only: it never feeds `failed`,
+        # `success`, `outcome` or a hold.
+        "source_weeks": source_weeks,
+        "stale_sources": sources_in_state(source_weeks, "stale"),
+        "lagging_sources": sources_in_state(source_weeks, "lagging"),
+        "stale_rule": STALE_RULE,
     }
     for rel in ("output/comparison-chain-status.json",
                 "dist/modules/comparison-chain-status.json"):
@@ -1316,6 +1329,15 @@ def write_step_summary(status_data, path=None):
              "| source | result |", "| --- | --- |"]
     for source, text in (status_data.get("sources") or {}).items():
         lines.append(f"| {source} | {str(text).replace('|', '/')[:400]} |")
+    # JEG-1180: a stale source is a warning annotation, never an error.
+    weeks = status_data.get("source_weeks") or {}
+    for source in status_data.get("stale_sources") or []:
+        w = weeks.get(source) or {}
+        lines.append(f"| {source} | STALE: still serves Week {w.get('served_week')} "
+                     f"(calendar Week {w.get('expected_week')}) after {w.get('stale_after')} |")
+        print(f"::warning title=Source stale ({source})::{source} still serves Week "
+              f"{w.get('served_week')} after Thursday 12:00 CT (calendar Week {w.get('expected_week')}). "
+              f"Warning only; the chain publishes. See docs/week-transition-runbook.md.")
     for source in status_data.get("held") or []:
         d = status_data["held_detail"][source]
         level = "error" if d.get("hold_severity") == "red" else "warning"
