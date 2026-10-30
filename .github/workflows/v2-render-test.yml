@@ -83,3 +83,15 @@ jobs:
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
       # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
       - run: python3 -m unittest -v tests.test_v2_compare_rosters_render
+      # JEG-1266: the homepage AI connection panel, isolated on its own harness page (not loaded by the site yet).
+      # Its desktop and phone screenshots are kept as the run's ai-panel-previews artifact (PR evidence).
+      - run: python3 -m unittest tests.test_jeg1266_ai_connection_panel tests.test_jeg1266_ai_connection_panel_render
+        env:
+          AI_PANEL_SHOTS: ai-panel-previews
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-panel-previews
+          path: ai-panel-previews/
+          if-no-files-found: ignore
+          retention-days: 14
