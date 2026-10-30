@@ -59,8 +59,12 @@ FALLS = [([A, B], [C, D], "x"), ([A, B], [C, D], "y"), ([A], [C], "x")]
 SCALE_ROWS = [([A, B], [C, D], "x"), ([A], [D], "x")]
 
 
-def vrow(key, net):
-    return {"key": key, "net": net}
+def vrow(key, net, give=10.0):
+    # A compareTrade row: the side totals set the even band (JEG-1125: max(1, 3% of the average side)); at 10 a side
+    # the band is the 1-point floor.
+    if net is None:
+        return {"key": key, "give": None, "receive": None, "net": None}
+    return {"key": key, "give": give, "receive": give + net, "net": net}
 
 
 VERDICTS = [
@@ -69,6 +73,10 @@ VERDICTS = [
     ([vrow("x", None), vrow("a", 2.0)], "x"),                                                       # incomplete
     ([vrow("x", 4.0), vrow("a", 1.0), vrow("b", 2.0)], "x"),                                        # every source agrees
     ([vrow("x", 0.02), vrow("a", 1.0)], "x"),                                                       # 0.0 = even
+    # JEG-1125 option A: inside max(1, 3% of the average side) is even, for the verdict series and every other.
+    ([vrow("x", 0.9), vrow("a", 1.5)], "x"),                                                        # under 1 point: even
+    ([vrow("x", 6.2), vrow("a", -0.8), vrow("b", 2.0)], "x"),                                       # a inside the band: not against
+    ([vrow("x", 2.5, give=100.0), vrow("a", -3.5, give=100.0)], "x"),                               # 3% of ~101 is 3.04
 ]
 WANT_VERDICTS = [
     {"kind": "win", "againstKeys": ["a"], "agreeKeys": ["b"], "incompleteKeys": ["c"]},
@@ -76,10 +84,14 @@ WANT_VERDICTS = [
     {"kind": "incomplete", "againstKeys": [], "agreeKeys": [], "incompleteKeys": []},
     {"kind": "win", "againstKeys": [], "agreeKeys": ["a", "b"], "incompleteKeys": []},
     {"kind": "even", "againstKeys": [], "agreeKeys": [], "incompleteKeys": []},
+    {"kind": "even", "againstKeys": [], "agreeKeys": [], "incompleteKeys": []},
+    {"kind": "win", "againstKeys": [], "agreeKeys": ["b"], "incompleteKeys": []},
+    {"kind": "even", "againstKeys": [], "agreeKeys": [], "incompleteKeys": []},
 ]
-# Example pool: k decides; o disagrees with k on players 5 and 6.
+# Example pool: k decides; o disagrees with k on players 5 and 6. Player 8 (JEG-1125) gives a small k win that o
+# agrees with, so an example that ignores o is caught now that a 1-point net at these sides is even.
 POOL = [p(1, k=50, o=50), p(2, k=40, o=40), p(3, k=30, o=30), p(4, k=20, o=20),
-        p(5, k=19, o=5), p(6, k=18, o=4), p(7, k=None, o=99)]
+        p(5, k=19, o=5), p(6, k=18, o=4), p(7, k=None, o=99), p(8, k=21, o=21)]
 
 
 def run(trade_js: Path):
@@ -125,6 +137,8 @@ def check(trade_js: Path) -> list[str]:
         errors.append(f"1-for-1 net {single['net']} != 2.0")
     if not (close(got["scale"]["lo"], -35.0) and close(got["scale"]["hi"], 20.0)):
         errors.append(f"shared scale {got['scale']} != cumulative extent -35..20")
+    if len(got["verdicts"]) != len(WANT_VERDICTS):
+        errors.append(f"{len(got['verdicts'])} verdicts, want {len(WANT_VERDICTS)}")
     for i, (have, want) in enumerate(zip(got["verdicts"], WANT_VERDICTS)):
         if have != want:
             errors.append(f"verdict {i}: {have} != {want}")
@@ -162,6 +176,12 @@ class WaterfallVerdictTest(unittest.TestCase):
             "against and agree swapped": source.replace(
                 "const againstKeys = s > 0 ? base.downKeys : s < 0 ? base.upKeys : [];",
                 "const againstKeys = s > 0 ? base.upKeys : s < 0 ? base.downKeys : [];", 1),
+            # JEG-1125: the verdict and the other series read the one even band, not 0.0 as shown.
+            "verdict back on 0.0 as shown": source.replace(
+                "const s = rowSign(head);", "const s = signOf(head.net);", 1),
+            "other series back on 0.0 as shown": source.replace(
+                "const keysWhere = want => complete.filter(row => rowSign(row) === want)",
+                "const keysWhere = want => complete.filter(row => signOf(row.net) === want)", 1),
             "example ignores the other series": source.replace(
                 "const score = [v.againstKeys.length, -v.net];", "const score = [0, -v.net];", 1),
         }

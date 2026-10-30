@@ -145,11 +145,13 @@ export function findTradesForPair(
   if (minRivalEdge > 0) {
     trades = trades.filter((t) => {
       // The rival's edge on the chart average: the mean of the charts where
-      // the rival comes out ahead. A positive rivalOkCount means enough charts
-      // agree, so we approximate: sum the rival-favourable chart nets.
+      // the rival breaks even or comes out ahead. JEG-1125: rivalOk now also
+      // holds for a chart that has you up by less than the even band, where
+      // the rival gains nothing, so a chart counts only the rival's own gain
+      // (-net, never below 0), not the size of the gap.
       const rivalNets = t.charts
         .filter((c) => c.net !== null && c.rivalOk)
-        .map((c) => Math.abs(c.net!));
+        .map((c) => Math.max(0, -c.net!));
       const avgRivalEdge = rivalNets.length ? rivalNets.reduce((a, b) => a + b, 0) / rivalNets.length : 0;
       return avgRivalEdge >= minRivalEdge;
     });

@@ -190,8 +190,12 @@ def check(cases, results) -> list[str]:
 
 
 MUTATIONS = {
-    "floor dropped": ("const threshold = Math.max(1, 0.03 * ((give + receive) / 2));", "const threshold = 0.03 * ((give + receive) / 2);"),
-    "percentage changed": ("0.03 * ((give + receive) / 2)", "0.10 * ((give + receive) / 2)"),
+    # JEG-1125: sideOf reads the one even band, evenBand (max(EVEN_FLOOR, EVEN_SHARE x the average side)).
+    "floor dropped": ("const evenBand = (give, receive) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + receive) / 2));",
+                      "const evenBand = (give, receive) => EVEN_SHARE * ((give + receive) / 2);"),
+    "percentage changed": ("const EVEN_SHARE = 0.03;", "const EVEN_SHARE = 0.10;"),
+    "Deal read band of its own": ("const threshold = evenBand(give, receive);",
+                                  "const threshold = Math.max(1, 0.10 * ((give + receive) / 2));"),
     "value-likes-it and trap swapped": ('"win|lose": {title: "DDF Value likes it. The market doesn\'t."', '"win|lose": {title: "Trap"'),
     "hard-coded direction word": ('const marketGapWord = net => (net > 0 ? "ahead" : net < 0 ? "behind" : "even");',
                                   'const marketGapWord = net => (net >= 0 ? "ahead" : "behind");'),

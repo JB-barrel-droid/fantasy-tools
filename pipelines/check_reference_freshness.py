@@ -172,57 +172,103 @@ def _relative_to_root(path: Path) -> str:
 # GAP-034 / GAP-FRESH-SAVED-VS-PUBLISHED (2026-10-08): comparison.built_at is
 # the time ANY section was last promoted, so it says nothing about how old
 # each source's values are. Each source gets its own row: the content week the
-# page PUBLISHES (the fixture section, read as the page reads it) next to the
-# newest week SAVED in Supabase (import health), against the current content
-# week. One place, both views, named. Reported, never enforced: a lagging
-# source is a warning (build-lag-001), not a deploy block.
+# page PUBLISHES next to the newest week SAVED in Supabase (import health).
+# Reported, never enforced: a lagging source is a warning (build-lag-001), not
+# a deploy block.
+#
+# JEG-1180: each source is judged by its OWN served week (week_state.
+# source_weeks: the history index's fingerprint match, else the section's
+# label), with the shared stale rule (week_state.source_week_status): current,
+# lagging (behind, before Thursday 12:00 CT), stale (still behind after it),
+# unknown. One global "weeks behind the calendar" count no longer decides it.
 COMPARISON_SOURCES = ("usatoday", "fantasycalc", "fantasypros", "cbs", "espn", "cbsros", "razzball")
+WEEK_STATE_COLORS = {"current": "green", "lagging": "yellow", "stale": "red", "unknown": "unknown"}
 
 
 def make_source_week_item(source: str, section: dict[str, Any] | None,
-                          import_entry: dict[str, Any] | None, today: date) -> dict[str, Any]:
+                          import_entry: dict[str, Any] | None, today: date,
+                          now: datetime | None = None,
+                          served: dict[str, Any] | None = None) -> dict[str, Any]:
     import sys
     sys.path.insert(0, str(ROOT / "pipelines"))
-    from nfl_week import content_week, section_content_week, week_of_date, week_of_label
+    from nfl_week import section_content_week, week_of_date, week_of_label
+    from week_state import source_week_status
 
-    current = content_week(today)
-    published = section_content_week(section) if section else None
+    now = now or judging_instant(today)
+    label = section_content_week(section) if section else None
+    served = served if isinstance(served, dict) else {}
+    published = served.get("served_week") if isinstance(served.get("served_week"), int) else label
+    basis = served.get("basis") if published is not None and served.get("served_week") == published else (
+        "section_label" if published is not None else None)
     entry = import_entry or {}
     saved = entry.get("content_week") if isinstance(entry.get("content_week"), int) else None
     if saved is None:
         vintage = entry.get("content_vintage")
         saved = week_of_label(vintage) or week_of_date(vintage)
-    behind = None if published is None else max(current - published, 0)
-    if published is None:
-        status, color = "unknown", "unknown"
-    elif behind == 0:
-        status, color = "current", "green"
-    elif behind == 1:
-        status, color = "one_week_behind", "yellow"
-    else:
-        status, color = "stale", "red"
-    note = f"published Week {published}" if published else "published week unknown"
+    week = source_week_status(published, now)
+    state = week["state"]
+    note = f"serves Week {published}" if published else "served week unknown"
     note += f"; newest saved Week {saved}" if saved else "; saved week unknown"
     if published and saved and saved > published:
         note += " (saved but not yet published: the next bake promotes it)"
     elif published and saved and saved < published:
         note += " (the import-health report is older than the published fixture)"
+    if state == "lagging":
+        note += f"; lagging, stale after {week['stale_after']}"
+    elif state == "stale":
+        note += f"; STALE since {week['stale_after']} (warning only)"
     return {
         "key": f"comparison.source.{source}",
-        "label": f"{source} content week (published / saved)",
+        "label": f"{source} content week (served / saved)",
         "value": f"Week {published}" if published else None,
         "published_week": published,
+        "served_week": published,
+        "label_week": label,
+        "served_week_basis": basis,
         "saved_week": saved,
-        "current_content_week": current,
-        "weeks_behind": behind,
+        "current_content_week": week["expected_week"],
+        "weeks_behind": week["weeks_behind"],
         "pending_promotion": bool(published and saved and saved > published),
-        "status": status,
-        "color": color,
-        "freshness_ok": behind is not None and behind <= 1,
+        "status": state,
+        "week_state": state,
+        "stale": week["stale"],
+        "stale_after": week["stale_after"],
+        "color": WEEK_STATE_COLORS[state],
+        # The page reads freshness_ok === false as "Not updating" (v2.js
+        # rootFreshness), ahead of Held. One week behind is normal lag or a
+        # stale warning, never "Not updating": stale rides in its own field.
+        "freshness_ok": week["weeks_behind"] is not None and week["weeks_behind"] <= 1,
         "enforced": False,
         "changed_since_prior_report": True,
         "note": note,
     }
+
+
+def judging_instant(today: date) -> datetime:
+    """The instant a report for `today` is judged at: now (nfl_week's clock)
+    when `today` is today (the New York day, or the UTC day callers such as
+    make sync pass), else the end of `today` in New York (a replay of a past
+    or future day sees that whole day)."""
+    import sys
+    from datetime import time
+    sys.path.insert(0, str(ROOT / "pipelines"))
+    import nfl_week
+    now = nfl_week.now_utc()
+    if today in (nfl_week.today_ny(now), now.date()):
+        return now
+    return datetime.combine(today, time(23, 59, 59), tzinfo=nfl_week.NEW_YORK)
+
+
+def served_source_weeks(comparison: dict[str, Any], history_index: Path | None) -> dict[str, Any]:
+    """week_state.source_weeks for the fixture, with the history index when given."""
+    import sys
+    sys.path.insert(0, str(ROOT / "pipelines"))
+    from week_state import source_weeks
+    try:  # report only: a corrupt index must not fail make sync
+        index = load_json(history_index) if history_index else None
+    except (OSError, ValueError):
+        index = None
+    return source_weeks(comparison, index if isinstance(index, dict) else None)
 
 
 def build_report(
@@ -233,6 +279,8 @@ def build_report(
     enforced_keys: tuple[str, ...] = DEFAULT_ENFORCED_KEYS,
     import_health_path: Path | None = None,
     chart_input_keys: tuple[str, ...] = DEFAULT_CHART_INPUT_KEYS,
+    now: datetime | None = None,
+    history_index: Path | None = None,
 ) -> dict[str, Any]:
     players = load_json(fixtures / "players.json")
     comparison = load_json(fixtures / "comparison-sources-data.json")
@@ -275,7 +323,10 @@ def build_report(
 
     sections = comparison.get("sources") or {}
     import_sources = import_health.get("sources") or {} if import_health.get("schema") == "trade-value-import-health-v1" else {}
-    source_weeks = [make_source_week_item(source, sections.get(source), import_sources.get(source), today)
+    served = served_source_weeks(comparison, history_index)
+    now = now or judging_instant(today)
+    source_weeks = [make_source_week_item(source, sections.get(source), import_sources.get(source), today,
+                                          now=now, served=served.get(source))
                     for source in COMPARISON_SOURCES if source in sections]
 
     hashes = {
@@ -346,6 +397,12 @@ def build_report(
                 i["key"].rsplit(".", 1)[1] for i in source_weeks if (i["weeks_behind"] or 0) > 0),
             "comparison_sources_pending_promotion": sorted(
                 i["key"].rsplit(".", 1)[1] for i in source_weeks if i["pending_promotion"]),
+            # JEG-1180: per-source states under the shared stale rule. Stale
+            # is a warning: it is never enforced and never fails a gate.
+            "comparison_sources_lagging": sorted(
+                i["key"].rsplit(".", 1)[1] for i in source_weeks if i["week_state"] == "lagging"),
+            "comparison_sources_stale": sorted(
+                i["key"].rsplit(".", 1)[1] for i in source_weeks if i["week_state"] == "stale"),
         },
         "source_validation": comparison.get("source_validation", {}),
         "artifact_hashes": hashes,
@@ -361,15 +418,23 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixtures", type=Path, default=DEFAULT_FIXTURES)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
-    parser.add_argument("--today", default=date.today().isoformat())
+    parser.add_argument("--today", default=None,
+                        help="report day (default: today in New York, nfl_week.today_ny)")
+    parser.add_argument("--history-index", type=Path, default=ROOT / "data" / "history" / "index.json",
+                        help="week history index for each source's served week (JEG-1177)")
     parser.add_argument("--max-age-days", type=int, default=2)
     parser.add_argument("--enforce-key", action="append", dest="enforce_keys")
     parser.add_argument("--enforce", action="store_true")
     args = parser.parse_args()
 
-    today = date.fromisoformat(args.today)
+    if args.today:
+        today = date.fromisoformat(args.today)
+    else:
+        import nfl_week
+        today = nfl_week.today_ny()
     enforce_keys = tuple(args.enforce_keys or DEFAULT_ENFORCED_KEYS)
-    report = build_report(args.fixtures, args.output, today, args.max_age_days, enforce_keys)
+    report = build_report(args.fixtures, args.output, today, args.max_age_days, enforce_keys,
+                          history_index=args.history_index)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"Wrote {args.output}")
