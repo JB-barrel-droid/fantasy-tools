@@ -6,6 +6,7 @@ Run every Python command with the Python 3.12 virtualenv first on PATH (`export 
 
 | Runbook | Job |
 |---|---|
+| [main-write-pause.md](main-write-pause.md) | Pause only main publication, retain output, expire and restore (JEG-1215). |
 | [weekly-refresh.md](weekly-refresh.md) | Confirm the week's producers ran and the chain published. |
 | [source-held.md](source-held.md) | A source shows held (amber or red). Find why and how it releases. |
 | [run-the-chain.md](run-the-chain.md) | Dispatch or reproduce the rebuild chain. |
