@@ -290,6 +290,43 @@ class RealCommittedReceipts(unittest.TestCase):
         for v in self.result["sources"].values():
             self.assertEqual(v["value_impact"], "summary")
 
+    def test_frozen_receipts_carry_the_summaries_they_are_credited_with(self):
+        # Codex P2 on #1140: the receipts themselves, not the original blobs, hold the
+        # per-position statistics and the five largest deviations with their values.
+        for r in REAL["receipts"]:
+            for s, v in r["sources"].items():
+                for key, c in v["combos"].items():
+                    self.assertTrue(audit_mod.has_value_summary(c), (r["commit"][:8], s, key))
+                    self.assertEqual(len(c["examples"]), 5, (r["commit"][:8], s, key))
+
+
+class ValueImpact(unittest.TestCase):
+    def _impact(self, mutate):
+        doc = as_if_real(synthetic())
+        for r in doc["receipts"]:
+            mutate(r["sources"]["usatoday"]["combos"]["full_12"])
+        return audit_mod.audit(doc)["sources"]["usatoday"]["value_impact"]
+
+    def test_full_summaries_count(self):
+        self.assertEqual(self._impact(lambda c: None), "summary")
+
+    def test_flags_without_content_are_missing(self):
+        # The shape the first extractor wrote: a count and a boolean.
+        self.assertEqual(self._impact(lambda c: c.update(examples=5, by_position=True)), "missing")
+
+    def test_examples_without_values_are_missing(self):
+        self.assertEqual(self._impact(lambda c: c.update(examples=[{"player_key": 1}])), "missing")
+
+    def test_positions_without_statistics_are_missing(self):
+        self.assertEqual(self._impact(lambda c: c.update(by_position={"QB": {"n": 3}})), "missing")
+
+    def test_value_impact_never_gates_the_week_count(self):
+        doc = as_if_real(synthetic())
+        for r in doc["receipts"]:
+            r["sources"]["usatoday"]["combos"]["full_12"].update(examples=[], by_position={})
+        v = audit_mod.audit(doc)["sources"]["usatoday"]
+        self.assertEqual((v["counted"], v["value_impact"]), (4, "missing"))
+
 
 class CommittedOutputsMatch(unittest.TestCase):
     def test_matrix_and_summary_are_regenerated_not_hand_edited(self):
@@ -315,8 +352,18 @@ class ExtractorMatching(unittest.TestCase):
         r = extract_mod.receipt("c", "t", "blob", report, None, None, None)
         self.assertIsNone(r["served"])
         self.assertIsNone(r["source_meta"])
-        self.assertEqual(r["sources"]["cbs"]["combos"]["full_12"]["examples"], 1)
         self.assertIn("served_provenance_missing", audit_mod.capture(r, "cbs")["problems"])
+
+    def test_receipt_keeps_the_value_impact_content_not_just_flags(self):
+        combo = {"n": 10, "outliers": 1, "outlier_rate": 0.1, "bias": 0.4, "mad": 1.5, "status": "ok",
+                 "examples": [{"player_key": 7, "value": 30.1, "consensus": 18.2, "extra": "dropped"}],
+                 "by_position": {"QB": {"n": 4, "outliers": 1, "outlier_rate": 0.25, "bias": 2.0, "mad": 3.0}}}
+        report = {"sources": {"cbs": {"status": "ok", "combos": {"full_12": combo}}}}
+        row = extract_mod.receipt("c", "t", "blob", report, None, None, None)["sources"]["cbs"]["combos"]["full_12"]
+        self.assertEqual(row["examples"], [{"player_key": 7, "value": 30.1, "consensus": 18.2}])
+        self.assertEqual(row["by_position"], {"QB": {"n": 4, "outliers": 1, "outlier_rate": 0.25,
+                                                     "bias": 2.0, "mad": 3.0}})
+        self.assertTrue(audit_mod.has_value_summary(row))
 
 
 if __name__ == "__main__":

@@ -85,6 +85,28 @@ def overdue(cfg: dict[str, Any], week: int, today: date | None = None) -> bool:
     return is_overdue(week, cfg["week_fn"], grace, today)
 
 
+def _with_week_state(name: str, result: dict[str, Any]) -> dict[str, Any]:
+    """Add the source's own week state to a quiet "not published" result
+    (JEG-1180): the newest week it has published, judged by the shared rule.
+    Stale prints a warning; the result and exit code are unchanged."""
+    newest = result.get("newest_week")
+    if not isinstance(newest, int):
+        return result
+    try:
+        from _common import source_week_state
+        st = source_week_state(newest)
+    except Exception as e:  # report only: never fail the ingest over it
+        print(f"[{name}] week state not computed ({e}); continuing", flush=True)
+        return result
+    result["week_state"] = st["state"]
+    result["stale_after"] = st["stale_after"]
+    if st["stale"]:
+        print(f"::warning title={name} stale::{name} still serves week {newest} after "
+              f"Thursday 12:00 CT ({st['stale_after']}); warning only "
+              f"(docs/week-transition-runbook.md)", flush=True)
+    return result
+
+
 def assert_not_overdue(cfg: dict[str, Any], week: int, detail: str) -> None:
     if overdue(cfg, week):
         raise IngestError(
@@ -307,8 +329,8 @@ def run_ingest(cfg: dict[str, Any], *,
             assert_not_overdue(cfg, week, str(e))
             print(f"[{name}] week {week} article not published yet; skipping ({e})",
                   flush=True)
-            return {"status": "not_published", "week": week,
-                    "newest_week": getattr(e, "newest_week", None)}
+            return _with_week_state(name, {"status": "not_published", "week": week,
+                                           "newest_week": getattr(e, "newest_week", None)})
         raise
     print(f"[{name}] url: {url}", flush=True)
 
@@ -323,7 +345,8 @@ def run_ingest(cfg: dict[str, Any], *,
         assert_not_overdue(cfg, week, f"discovery returned the week {found_week} article {url}")
         print(f"[{name}] week {week} article not published yet; newest is "
               f"week {found_week}; skipping", flush=True)
-        return {"status": "not_published", "week": week, "newest_week": found_week}
+        return _with_week_state(name, {"status": "not_published", "week": week,
+                                       "newest_week": found_week})
     assert_found_week(url, found_week, week)
 
     # 3. Pull + persist pull JSON.

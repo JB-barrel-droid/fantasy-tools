@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Target answer card preview (synthetic data, JEG-1274)</title>
+<!-- Preview and test harness for app/v2/target-answer-card.js. Serve the repo root over http, then open
+     /tests/fixtures/target_answer_card/preview.html (all cases) or ?case=buy (one case):
+       python3 -m http.server 8000   # from the repo root
+     The evidence detail is a MOCK slot: the reusable evidence internals belong to the Compare evidence view (JEG-1271). -->
+<link rel="stylesheet" href="../../../app/v2/v2.css">
+<link rel="stylesheet" href="../../../app/v2/target-answer-card.css">
+<script src="../../../app/v2/target-answer-card.js"></script>
+<style>
+  body { margin: 0; background: var(--v2-canvas, #f3f7f7); font-family: system-ui, sans-serif; }
+  .preview { padding: 16px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr)); }
+  .preview h1 { grid-column: 1 / -1; font-size: 20px; margin: 0; }
+  .preview .case-name { font: 12px ui-monospace, monospace; color: #64736f; margin: 0 0 4px; }
+  .mock-detail { border: 1px dashed #80908b; border-radius: 8px; padding: 6px 10px; font-size: 14px; }
+</style>
+</head>
+<body>
+<main class="preview" id="preview">
+  <h1>Target answer card: every state (synthetic data)</h1>
+</main>
+<script>
+(function () {
+  "use strict";
+  const Card = window.TradeValueTargetAnswerCard;
+  window.__tacHandles = {};
+  window.__tacSlotLog = [];
+  // The mocked detail slot: draws the supplied detail lines and logs each mount and cleanup.
+  function mockDetail(slot, detail, ctx) {
+    window.__tacSlotLog.push(["mount", ctx.playerId, ctx.state]);
+    const box = document.createElement("div");
+    box.className = "mock-detail";
+    box.setAttribute("data-mock-detail", ctx.playerId || "");
+    const note = document.createElement("p");
+    note.textContent = "Mock detail slot (the real evidence view comes from JEG-1271).";
+    box.appendChild(note);
+    (detail && detail.lines || []).forEach(line => { const p = document.createElement("p"); p.textContent = line; box.appendChild(p); });
+    const link = document.createElement("button");
+    link.type = "button";
+    link.className = "mock-detail-action";
+    link.textContent = "Mock detail action";
+    box.appendChild(link);
+    slot.appendChild(box);
+    return () => window.__tacSlotLog.push(["cleanup", ctx.playerId]);
+  }
+  function show(data) {
+    const only = new URLSearchParams(location.search).get("case");
+    const names = Object.keys(data.cases).filter(name => !only || name === only);
+    const main = document.getElementById("preview");
+    names.forEach(name => {
+      const wrap = document.createElement("section");
+      wrap.setAttribute("aria-label", `Case ${name}`);
+      const label = document.createElement("p");
+      label.className = "case-name";
+      label.textContent = `case: ${name}`;
+      const host = document.createElement("div");
+      host.id = `card-${name}`;
+      wrap.append(label, host);
+      main.appendChild(wrap);
+      const handle = Card.mount(host, {renderDetail: mockDetail, headingLevel: 2});
+      handle.update(Object.assign({fixture: data.fixture}, data.cases[name]));
+      window.__tacHandles[name] = handle;
+    });
+    window.__tacCases = data;
+    document.body.setAttribute("data-ready", "true");
+  }
+  // A test injects the cases (window.__TAC_CASES); a person viewing the preview gets them from cases.json.
+  if (window.__TAC_CASES) show(window.__TAC_CASES);
+  else fetch("cases.json").then(r => r.json()).then(show);
+})();
+</script>
+</body>
+</html>

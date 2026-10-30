@@ -67,6 +67,21 @@ export interface FitLabel {
   fit: string | null;
   /** One plain-English sentence, the finder's own fitText wording; null with the label. */
   fit_reason: string | null;
+  /** JEG-1329: both teams' side of the same tradeFit call; null with the label. */
+  sides?: FitSides | null;
+}
+
+/** One team's side as tradeFit judged it: the bench-weighted net and starters change on that
+ *  team's view (you on DDF Value, them on the Trade chart average) and its roster construction. */
+export interface FitSide {
+  net: number;
+  starters: number;
+  construction: { ok: boolean; issues: string[] };
+}
+
+export interface FitSides {
+  yours: FitSide;
+  theirs: FitSide;
 }
 
 /** The engine's ES-14 bench-share readout as get-values publishes it (bench_share). */
@@ -180,6 +195,13 @@ export function fitForTrade(
     },
     ctx,
   );
-  if (!fit || !fit.label) return { fit: null, fit_reason: null };
-  return { fit: FIT_LABELS[fit.label] ?? null, fit_reason: finder.fitText(fit) };
+  if (!fit || !fit.label) return { fit: null, fit_reason: null, sides: null };
+  const construction = (c: { ok?: boolean; issues?: string[] } | undefined) =>
+    ({ ok: Boolean(c?.ok), issues: Array.isArray(c?.issues) ? c!.issues.slice() : [] });
+  const sides: FitSides = {
+    yours: { net: fit.us.net, starters: fit.us.starterDelta, construction: construction(fit.myConstruction) },
+    theirs: { net: fit.them.net, starters: fit.them.starterDelta,
+      construction: construction(fit.theirConstruction) },
+  };
+  return { fit: FIT_LABELS[fit.label] ?? null, fit_reason: finder.fitText(fit), sides };
 }

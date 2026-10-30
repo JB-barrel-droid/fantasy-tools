@@ -1,0 +1,864 @@
+{
+  "built_at": "2026-10-29T02:00:00Z",
+  "content_week": 8,
+  "horizon": "week",
+  "input_report": {
+    "experts.espn_weekly": {
+      "after_as_of": 1,
+      "bad_row": 0,
+      "conflict": 1,
+      "duplicate": 2,
+      "later_content_week": 0,
+      "older_snapshot": 0,
+      "read": 12,
+      "wrong_season": 1,
+      "wrong_week": 1
+    },
+    "identity": {
+      "alias_source": "local_file",
+      "aliases": {
+        "name": "player_aliases.json",
+        "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994"
+      }
+    },
+    "position_out_of_scope": 0,
+    "status": {
+      "after_as_of": 1,
+      "bad_row": 0,
+      "conflict": 1,
+      "duplicate": 1,
+      "later_content_week": 0,
+      "older_snapshot": 1,
+      "read": 10,
+      "wrong_season": 0,
+      "wrong_week": 0
+    },
+    "unresolved_rows": 3
+  },
+  "legs": {
+    "bye": {
+      "availability": "partial",
+      "captured_at": null,
+      "content_season": 2026,
+      "content_vintage": null,
+      "content_week": null,
+      "freshness": "unknown",
+      "horizon": "week",
+      "inputs": [
+        {
+          "name": "byes.json",
+          "sha256": "115a9a468d7c9b20dadacb3835f51b4a6fd5c974c5952c039cec853a75205cc0"
+        }
+      ],
+      "kind": "bye",
+      "label": "modeled",
+      "note": "season bye table; the source stamps no capture date or week",
+      "scoring": null,
+      "source": "nfl_byes",
+      "units": "bye_week"
+    },
+    "experts.ecr_weekly": {
+      "availability": "unavailable",
+      "captured_at": null,
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "freshness": null,
+      "horizon": "week",
+      "kind": "expert",
+      "label": "unavailable",
+      "missing_reason": "no weekly ECR producer yet (JEG-1195 slice S3b)",
+      "scoring": [
+        "standard",
+        "half_ppr",
+        "ppr"
+      ],
+      "source": "fantasypros_ecr",
+      "units": "fantasy_points"
+    },
+    "experts.espn_weekly": {
+      "availability": "partial",
+      "captured_at": "2026-10-28T12:40:00Z",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "freshness": "current",
+      "horizon": "week",
+      "inputs": [
+        {
+          "name": "espn_weekly.csv",
+          "sha256": "17bc23fe2a2301c890d69a5fbed00095fd3d2e6851ec02717f17878368e39799"
+        }
+      ],
+      "kind": "expert",
+      "label": "published",
+      "scoring": [
+        "standard",
+        "half_ppr",
+        "ppr"
+      ],
+      "source": "espn",
+      "units": "fantasy_points"
+    },
+    "status": {
+      "availability": "partial",
+      "captured_at": "2026-10-28T13:10:05Z",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "freshness": "current",
+      "horizon": "week",
+      "inputs": [
+        {
+          "name": "status.json",
+          "sha256": "493b44506f7389747acdce24666ddec504b69010ebd0e5b13fedd3491edd9d92"
+        }
+      ],
+      "kind": "status",
+      "label": "published",
+      "scoring": null,
+      "source": "sleeper",
+      "units": "status"
+    },
+    "vegas": {
+      "availability": "unavailable",
+      "captured_at": null,
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "freshness": null,
+      "horizon": "week",
+      "kind": "vegas",
+      "label": "unavailable",
+      "missing_reason": "no Vegas producer yet (JEG-1195 slice S3)",
+      "scoring": [
+        "standard",
+        "half_ppr",
+        "ppr"
+      ],
+      "source": "propline",
+      "units": "fantasy_points"
+    }
+  },
+  "players": [
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 10
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 12.0,
+            "ppr": 13.5,
+            "standard": 10.5
+          }
+        },
+        "status": {
+          "provenance": "complete",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "WR",
+            "injury_body_part": "Hamstring",
+            "injury_start_date": "2026-10-26",
+            "injury_status": "Questionable",
+            "practice_participation": "Limited",
+            "status": "Active"
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Ann Alpha",
+      "player_key": 101,
+      "position": "WR",
+      "resolved_by": "espn_weekly.player_key",
+      "source_ids": {
+        "espn_player_key": 101,
+        "sleeper_id": "S101"
+      },
+      "team": "AAA"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 8
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 0.0,
+            "ppr": 0.0,
+            "standard": 0.0
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "not set in the Sleeper record",
+            "injury_start_date": "not set in the Sleeper record",
+            "injury_status": "not set in the Sleeper record",
+            "practice_participation": "not set in the Sleeper record"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "RB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": "Active"
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Ben Bravo",
+      "player_key": 102,
+      "position": "RB",
+      "resolved_by": "espn_weekly.player_key",
+      "source_ids": {
+        "espn_player_key": 102,
+        "sleeper_id": "S102"
+      },
+      "team": "BBB"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 10
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "ppr": "blank in the ESPN weekly file"
+          },
+          "provenance": "partial",
+          "values": {
+            "half_ppr": 7.1,
+            "ppr": null,
+            "standard": 6.2
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "player not in this input",
+            "depth_chart_position": "player not in this input",
+            "injury_body_part": "player not in this input",
+            "injury_start_date": "player not in this input",
+            "injury_status": "player not in this input",
+            "practice_participation": "player not in this input",
+            "status": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Cy Charlie",
+      "player_key": 103,
+      "position": "TE",
+      "resolved_by": "espn_weekly.player_key",
+      "source_ids": {
+        "espn_player_key": 103
+      },
+      "team": "AAA"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 12
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "conflicting duplicate rows at the same snapshot",
+            "ppr": "conflicting duplicate rows at the same snapshot",
+            "standard": "conflicting duplicate rows at the same snapshot"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "player not in this input",
+            "depth_chart_position": "player not in this input",
+            "injury_body_part": "player not in this input",
+            "injury_start_date": "player not in this input",
+            "injury_status": "player not in this input",
+            "practice_participation": "player not in this input",
+            "status": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Di Delta",
+      "player_key": 104,
+      "position": "QB",
+      "resolved_by": "espn_weekly.player_key",
+      "source_ids": {
+        "espn_player_key": 104
+      },
+      "team": "CCC"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 12
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "blank in the ESPN weekly file",
+            "ppr": "blank in the ESPN weekly file",
+            "standard": "blank in the ESPN weekly file"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "player not in this input",
+            "depth_chart_position": "player not in this input",
+            "injury_body_part": "player not in this input",
+            "injury_start_date": "player not in this input",
+            "injury_status": "player not in this input",
+            "practice_participation": "player not in this input",
+            "status": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Ed Echo",
+      "player_key": 105,
+      "position": "RB",
+      "resolved_by": "espn_weekly.player_key",
+      "source_ids": {
+        "espn_player_key": 105
+      },
+      "team": "CCC"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 8
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "player not in this input",
+            "ppr": "player not in this input",
+            "standard": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "not set in the Sleeper record",
+            "injury_start_date": "not set in the Sleeper record",
+            "injury_status": "not set in the Sleeper record",
+            "practice_participation": "not set in the Sleeper record"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 3,
+            "depth_chart_position": "WR",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": "Active"
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Fay Foxtrot",
+      "player_key": 106,
+      "position": "WR",
+      "resolved_by": "player_index:sleeper_id",
+      "source_ids": {
+        "sleeper_id": "S106"
+      },
+      "team": "BBB"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 12
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "player not in this input",
+            "ppr": "player not in this input",
+            "standard": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "two sleeper ids for one player_key",
+            "depth_chart_position": "two sleeper ids for one player_key",
+            "injury_body_part": "two sleeper ids for one player_key",
+            "injury_start_date": "two sleeper ids for one player_key",
+            "injury_status": "two sleeper ids for one player_key",
+            "practice_participation": "two sleeper ids for one player_key",
+            "status": "two sleeper ids for one player_key"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Hal Hotel",
+      "player_key": 108,
+      "position": "TE",
+      "resolved_by": "status.player_key",
+      "source_ids": {
+        "sleeper_id": "S108,S108b"
+      },
+      "team": "CCC"
+    },
+    {
+      "legs": {
+        "bye": {
+          "missing_reason": {
+            "bye_week": "team ZZZ not in bye table"
+          },
+          "provenance": "missing",
+          "values": {
+            "bye_week": null
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "player not in this input",
+            "ppr": "player not in this input",
+            "standard": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "injury_body_part": "not set in the Sleeper record",
+            "injury_start_date": "not set in the Sleeper record",
+            "injury_status": "not set in the Sleeper record",
+            "practice_participation": "not set in the Sleeper record"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": 1,
+            "depth_chart_position": "QB",
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": "Active"
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Ivy India",
+      "player_key": 109,
+      "position": "QB",
+      "resolved_by": "status.player_key",
+      "source_ids": {
+        "sleeper_id": "S109"
+      },
+      "team": "ZZZ"
+    },
+    {
+      "legs": {
+        "bye": {
+          "missing_reason": {
+            "bye_week": "no team"
+          },
+          "provenance": "missing",
+          "values": {
+            "bye_week": null
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "missing_reason": {
+            "half_ppr": "player not in this input",
+            "ppr": "player not in this input",
+            "standard": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "not set in the Sleeper record",
+            "depth_chart_position": "not set in the Sleeper record",
+            "practice_participation": "not set in the Sleeper record"
+          },
+          "provenance": "partial",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": "Knee",
+            "injury_start_date": "2026-09-30",
+            "injury_status": "IR",
+            "practice_participation": null,
+            "status": "Inactive"
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Nobody Known",
+      "player_key": null,
+      "position": "RB",
+      "resolved_by": null,
+      "source_ids": {
+        "sleeper_id": "S107"
+      },
+      "team": null,
+      "unresolved_reason": "unresolved: name: unmatched"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 10
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 3.5,
+            "ppr": 4.0,
+            "standard": 3.0
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "player not in this input",
+            "depth_chart_position": "player not in this input",
+            "injury_body_part": "player not in this input",
+            "injury_start_date": "player not in this input",
+            "injury_status": "player not in this input",
+            "practice_participation": "player not in this input",
+            "status": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Unresolved espn_player_key 999",
+      "player_key": null,
+      "position": "WR",
+      "resolved_by": null,
+      "source_ids": {
+        "espn_player_key": 999
+      },
+      "team": "AAA",
+      "unresolved_reason": "player_key 999 not in players snapshot"
+    },
+    {
+      "legs": {
+        "bye": {
+          "provenance": "complete",
+          "values": {
+            "bye_week": 12
+          }
+        },
+        "experts.ecr_weekly": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        },
+        "experts.espn_weekly": {
+          "provenance": "complete",
+          "values": {
+            "half_ppr": 2.5,
+            "ppr": 3.0,
+            "standard": 2.0
+          }
+        },
+        "status": {
+          "missing_reason": {
+            "depth_chart_order": "player not in this input",
+            "depth_chart_position": "player not in this input",
+            "injury_body_part": "player not in this input",
+            "injury_start_date": "player not in this input",
+            "injury_status": "player not in this input",
+            "practice_participation": "player not in this input",
+            "status": "player not in this input"
+          },
+          "provenance": "missing",
+          "values": {
+            "depth_chart_order": null,
+            "depth_chart_position": null,
+            "injury_body_part": null,
+            "injury_start_date": null,
+            "injury_status": null,
+            "practice_participation": null,
+            "status": null
+          }
+        },
+        "vegas": {
+          "provenance": "missing",
+          "values": {
+            "half_ppr": null,
+            "ppr": null,
+            "standard": null
+          }
+        }
+      },
+      "name": "Unresolved espn_row 12",
+      "player_key": null,
+      "position": "WR",
+      "resolved_by": null,
+      "source_ids": {
+        "espn_row": 12
+      },
+      "team": "CCC",
+      "unresolved_reason": "espn row has no player_key"
+    }
+  ],
+  "producer": "pipelines/build_weekly_inputs.py",
+  "schema": "weekly-inputs",
+  "schema_version": "1.0.0",
+  "season": 2026
+}

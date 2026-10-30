@@ -152,8 +152,18 @@ function sourceFlags(detail: Any, key: string) {
   };
 }
 
+/**
+ * Whether published charts' own superflex / 2-QB values (native_superflex) price this setting:
+ * a superflex slot or 2+ dedicated QB slots (value-model.js usesSuperflexValues; JEG-1365, Jeremy
+ * 2026-10-29, audit decision 9 A). Hand-copied rather than read from the live ValueModel so a
+ * page published before JEG-1365 still gives the same answer here.
+ */
+export function usesSuperflexValues(setting: LeagueInputs["setting"]): boolean {
+  return Number(setting.superflex) > 0 || Math.floor(Number(setting.slots?.QB) || 0) >= 2;
+}
+
 /** A source's natives this week (curve-widget.js currentNatives): {player_key: value}. */
-function currentNatives(bundle: Bundle, key: string, scoring: string, superflex: number): Record<number, number> {
+function currentNatives(bundle: Bundle, key: string, scoring: string, superflexValues: boolean): Record<number, number> {
   const detail = bundle.detail as Any;
   const section = detail.sources?.[key];
   const values: Record<number, number> = {};
@@ -169,7 +179,7 @@ function currentNatives(bundle: Bundle, key: string, scoring: string, superflex:
       const playerKey = pkMap?.[sourceId];
       if (playerKey !== undefined && Number.isFinite(val)) values[playerKey] = val;
     }
-    if (superflex && combo.native_superflex) {
+    if (superflexValues && combo.native_superflex) {
       for (const [sourceId, val] of Object.entries(combo.native_superflex as Record<string, number>)) {
         const playerKey = pkMap?.[sourceId];
         if (playerKey !== undefined && Number.isFinite(val)) values[playerKey] = val;
@@ -268,13 +278,13 @@ function weekList(weeks: number[]): string {
  */
 export function planWeek(bundle: Bundle, m: LeagueInputs, requested: number | null, today: string): WeekPlan {
   const detail = bundle.detail as Any;
-  const superflex = m.setting.superflex;
+  const superflexValues = usesSuperflexValues(m.setting);
   // DDF Value sources at this setting, judged without any week rule (resolveWeekView's candidates).
   const candidates = PIPELINE_SOURCE_KEYS.filter((key) => {
     const f = sourceFlags(detail, key);
     if (!f.section) return false;
     if ((f.hold && f.hold.hidden) || f.validationHeld || f.divergenceExcluded) return false;
-    return Object.keys(currentNatives(bundle, key, m.scoring, superflex)).length > 0;
+    return Object.keys(currentNatives(bundle, key, m.scoring, superflexValues)).length > 0;
   });
   const fallback = calendarFreshness(detail, today);
   const served: Record<string, number | null> = {};
@@ -319,7 +329,7 @@ export function planWeek(bundle: Bundle, m: LeagueInputs, requested: number | nu
 
 // A saved week's natives for one source (curve-widget.js weekNatives / historyNatives / historyPpg).
 // The saved weeks carry 1-QB chart natives only, so a saved week at a superflex setting runs on them.
-function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
+export function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
   const doc = bundle.history?.docs?.[String(week)];
   const entry = doc?.sources?.[key];
   if (!doc) return { reason: `no Week ${week} content saved` };
@@ -346,7 +356,7 @@ function savedNatives(bundle: Bundle, key: string, week: number, scoring: string
 // Build the pipeline input for the given settings and week plan.
 export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extract<WeekPlan, { ok: true }>) {
   const { scoring } = m;
-  const superflex = m.setting.superflex;
+  const superflexValues = usesSuperflexValues(m.setting);
   const detail = bundle.detail as Any;
   const ValueModel = bundle.ValueModel as Any;
 
@@ -381,7 +391,7 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     // sourceMissingFromData: no source section at all.
     if (!f.section) continue;
 
-    let values = currentNatives(bundle, key, scoring, superflex);
+    let values = currentNatives(bundle, key, scoring, superflexValues);
     const served = view ? plan.served[key] : null;
     let olderWeek: boolean;
     if (view && Number.isInteger(served)) {

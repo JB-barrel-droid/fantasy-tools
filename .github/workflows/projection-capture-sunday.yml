@@ -42,6 +42,10 @@ jobs:
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
           echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
 
+      # JEG-1377: three tries, 2 then 4 minutes apart. Pulls are read-only and the writer
+      # keeps the first copy of each horizon, so a retry never doubles or replaces rows.
+      # A run that never starts is retried by the 16:20 UTC Sunday run of
+      # espn-weekly-store.yml, which also goes red before kickoff if a copy is still missing.
       - name: Pull CBS and Razzball, then capture
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -50,9 +54,17 @@ jobs:
           set -o pipefail
           flag="--dry-run"
           [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
-          python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
-          python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball
-          python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball $flag
+          attempt=1
+          until python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot &&
+                python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball &&
+                python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball $flag; do
+            if [ "$attempt" -ge 3 ]; then
+              echo "::error title=projection capture sunday::failed after $attempt tries"; exit 1
+            fi
+            echo "::warning title=projection capture sunday::try $attempt failed; retrying in $((attempt * 120))s"
+            sleep $((attempt * 120))
+            attempt=$((attempt + 1))
+          done
 
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'

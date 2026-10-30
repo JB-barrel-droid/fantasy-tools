@@ -242,6 +242,18 @@ def build_cbsros_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[d
     return clean, review, vintage
 
 
+def capture_rows(snap_rows: list, weekly: dict | None, registry: "canonical_players.Registry",
+                 **common: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """JEG-944 capture rows for CBS, resolved through resolve_name over `registry`.
+    The one place the resolver is injected into pc.cbs_capture_rows, so the save and
+    the Sunday dry run (capture_projections_only.py) resolve names the same way
+    (JEG-1386; the identity guard pins this file as the only caller)."""
+    return pc.cbs_capture_rows(
+        snap_rows, weekly,
+        lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0],
+        **common)
+
+
 def save_captures(snapshot_path: Path, vintage: str) -> None:
     """JEG-944: append CBS's ROS rows and per-week rows to source_projection_captures.
     Never raises and never changes cbs_ros_projections (see pc.save_capture_or_flag)."""
@@ -255,9 +267,8 @@ def save_captures(snapshot_path: Path, vintage: str) -> None:
         today = datetime.now(timezone.utc).date()
         source_week = current_nfl_week(today)
         phase = pc.capture_phase(datetime.now(timezone.utc))
-        rows, rep = pc.cbs_capture_rows(
-            snap.get("rows", []), weekly,
-            lambda n, p, norm: resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0],
+        rows, rep = capture_rows(
+            snap.get("rows", []), weekly, registry,
             season=season_for_vintage(today), source_week=source_week, capture_at=utc_now(),
             phase=phase, batch_id=pc.new_batch(), vintage=vintage)
         print(f"capture plan: {json.dumps(rep, default=str)}")

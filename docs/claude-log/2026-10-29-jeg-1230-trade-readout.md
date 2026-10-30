@@ -87,6 +87,11 @@ Verified (JEG-1260):
 - New rendered test `test_roster_bench_and_missing_counts_are_the_visible_words` (1366 and 390 wide, one and two
   missing players): skipped here (no Chromium); see the PR for the Actions run.
 
+- Main `9ca8ca1` merged in (conflict in `pipelines/build_v2_page.py` copy list: kept main's `player-status.js` and
+  `trade-context.js`, added `trade-readout.js` after `lineup-comparison.js`). With JEG-1229's `trade-context.js` now on
+  main, the node check also builds Compare and league contexts with the real module: same readout, `contextKey` equals
+  its `cacheKey("readout")`. 319 checks passed.
+
 ### Claimed, not confirmed
 
 - Route wiring (Compare, then league after #1072, then pair finder after JEG-1219) is follow-up work after owner
