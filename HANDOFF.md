@@ -21,7 +21,7 @@ below are history, including any "Codex reviews and merges" line.
 
 ### JEG-1130 slice 4, copy outside the locked files (Claude, 2026-10-30 UTC)
 
-- Branch `claude/JEG-1130-settings-copy` (from main a750ca07), PR #1226 (draft), "PMM copy slice 4 (part of JEG-1130)".
+- Branch `claude/JEG-1130-settings-copy` (from main a750ca07), PR #1226 (ready, reviewed), "PMM copy slice 4 (part of JEG-1130)".
   Copy only: Overrides drops "our methodology" / "our value" for "the default DDF Value"; generic player copy
   says "this player" / "they" (Jeremy's audit decision 10). Test `tests/test_jeg1130_settings_copy.py`.
 - Left for the next slice, once the locks release: v2.js and shell.html (JEG-1137, JEG-1263) and the hot
@@ -29,17 +29,20 @@ below are history, including any "Codex reviews and merges" line.
   `docs/claude-log/2026-10-30-jeg-1130-settings-copy.md`. #1037 (muse) is superseded by #1138; closing it
   needs its author or Jeremy.
 
-### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC)
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
-- Branch `claude/JEG-1385`: get-values now prices this week on the sources with Week N-1 saved, as the
-  page and `value_reference` do; unpaired sources are shown, never counted. `index.ts` reads Week N-1
-  before building the input. Output byte-identical to main when every source is paired.
-- Review corrections under JEG-1390 (same branch): pairing needs this build's history and a served week;
-  the unpaired source's reason reads "no prior week: ...". Delta review passed on 7f0e5b1a.
-- Not live today: all seven served sources have Week 7 saved. Value math, so Jeremy approves the
-  before/after first; he said yes 2026-10-30 19:33 UTC ("A", "Yes, send it": merge once green, then deploy
-  get-values and mcp from main, live check, roll back on failure). Earlier (18:25 UTC, "B") he chose to hold the JEG-1029 get-values and mcp
-  redeploy until this lands, then deploy both from main once (rollback get-values v10, mcp v16).
+- Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
+  ("A", "Yes, send it"). Deployed from that main at about 20:15 UTC: get-values v12 and mcp v18 (were v11
+  and v17). It shipped every edge change merged since v11/v17, not only JEG-1029: also JEG-1225 (#1124),
+  JEG-1365 2QB (#1216), JEG-1387/1388 (#1214), JEG-1344 (#1210), JEG-1125 (#1033) and smaller connector fixes
+  (list in `docs/claude-log/2026-10-30-jeg-1385-deploy.md`).
+- Live check passed: the connector's get_values at ppr/12, half_ppr/10 SF and standard/14 gives the same
+  values as before the deploy (every source is paired today), find_trades answers, the edge drift check
+  on main exited 0 (deployed tool list and get-values charts match main), and the function logs show only
+  200/202 responses. Not called directly: risers_fallers and audit_values (the cloud connector's tool
+  list predates the deploy).
+- mcp v18's `names.ts` holds the accent-stripping regex range as literal combining characters, not
+  `\u0300-\u036f` escapes: same behaviour, different bytes. The next mcp deploy from main fixes it.
 - Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
   GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
 
@@ -50,6 +53,8 @@ below are history, including any "Codex reviews and merges" line.
 - Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
   picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
   the Supabase function logs for both lines and that a sample request's values are unchanged.
+- Deployed 2026-10-30 with JEG-1385 (get-values v12, main 374dc8f7); a `get_values.compute` line shows in the
+  function logs and ppr/12 values were unchanged.
 
 ### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
 
@@ -73,8 +78,8 @@ below are history, including any "Codex reviews and merges" line.
   `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
   `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
   done (one connector min_rival_edge bug, fixed in `7694bb7`).
-  Next: green CI, squash merge, check the live site, then ask Jeremy for the
-  `mcp` deploy (find-trades.ts ships with the function).
+  Merged as #1033 (a750ca07). Its find-trades.ts went live in the JEG-1385 mcp deploy (v18, main
+  374dc8f7, 2026-10-30); Jeremy was told it shipped with that deploy.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
