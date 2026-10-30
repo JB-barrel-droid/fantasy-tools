@@ -1498,6 +1498,11 @@
     const staleLabel = activeSourceKeys().filter(sourceIsStale)
       .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
+    // JEG-1178: during a week transition the line says which week this is and how many sources are in it.
+    const weekState = publicWeekView();
+    const weekCount = weekState?.views?.[weekState.week]?.sources?.length;
+    const transitionLabel = weekState?.transition && Number.isInteger(weekCount)
+      ? ` · Week ${weekState.week} values (${weekCount} of ${weekState.total} sources)` : "";
     const benchShareText = `${(benchShare * 100).toFixed(benchShare * 100 % 1 ? 1 : 0)}% bench share`;
     context.replaceChildren(
       `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
@@ -1505,7 +1510,7 @@
         textContent: benchShareText,
         title: "The bench tier's share of the league pie, computed from your league settings (the Bench % override replaces it)."
       }),
-      ` · ${positionLabel} · ${axisLabel} · ${weekLabel}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel}${transitionLabel}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
       // league-settings-001 / methodology.md: values derived for a league
       // setting the source did not publish must be labelled derived.
       onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values",
