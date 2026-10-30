@@ -6,7 +6,41 @@ import unittest
 from tests import _render_env
 from tests.test_published_league_settings_render import _chromium_executable
 from tests.test_v2_finder_render import _built_dist
-from tests.test_v2_finder_render import PICK
+
+# JEG-1382: the shared PICK (top 30 by DDF Value, alternated) depends on rank order. A two-hundredths move in the
+# 137c5531 bake put the only TE in the 30 on "mine"; every 3-for-3 package that cleared the charts sent him away,
+# the keep-lineup check dropped them all and this test timed out on an empty list. The guardrail checks below need a
+# pair that lists trades under the live rules, so the fixture slides the window until the page itself lists one.
+PICK_AT = """offset => {
+  const C = window.TradeValueCurveControls;
+  const rows = C.getAllRows().filter(r => r.values && Number.isFinite(r.values.ddf_value) && r.name)
+    .sort((a, b) => b.values.ddf_value - a.values.ddf_value);
+  const names = new Map(); rows.forEach(r => names.set(r.name, (names.get(r.name) || 0) + 1));
+  const unique = rows.filter(r => names.get(r.name) === 1).slice(offset, offset + 30);
+  return {mine: unique.filter((_, i) => i % 2 === 0).slice(0, 12).map(r => r.name),
+          theirs: unique.filter((_, i) => i % 2 === 1).slice(0, 6).map(r => r.name)};
+}"""
+SET_SIDES = """names => {
+  const byName = new Map(window.TradeValueCurveControls.getAllRows().map(r => [r.name, r]));
+  const entries = list => list.map(name => ({key: String(byName.get(name).player_key), name, pos: byName.get(name).pos}));
+  window.TradeValueFinder.ui.setSides(entries(names.mine), entries(names.theirs));
+}"""
+RAN = "() => Boolean(document.querySelector('#v2FindList > li')) || (document.getElementById('v2FindOut').textContent || '').trim().length > 0"
+MAX_OFFSET = 10
+
+
+def pick_listing_pair(page):
+    """The first top-30 window (offset 0 first, the shared PICK) whose rosters list a 3-player trade, else None."""
+    for offset in range(MAX_OFFSET + 1):
+        picked = page.evaluate(PICK_AT, offset)
+        page.evaluate(SET_SIDES, picked)
+        page.locator("#v2FindSize").select_option("3")
+        page.locator("#v2FindGo").click()
+        page.wait_for_function(RAN, timeout=60000)
+        page.wait_for_timeout(300)
+        if page.locator("#v2FindList > li").count():
+            return picked
+    return None
 
 
 def setUpModule():
@@ -26,15 +60,9 @@ class FinderGuardrailsRenderTest(unittest.TestCase):
                 page.on("pageerror", lambda error: errors.append(str(error)))
                 page.goto(base + "#find-trade")
                 page.locator("#v2FindProtectRB").wait_for(timeout=60000)
-                picked = page.evaluate(PICK)
-                page.evaluate("""names => {
-                  const byName = new Map(window.TradeValueCurveControls.getAllRows().map(r => [r.name, r]));
-                  const entries = list => list.map(name => ({key: String(byName.get(name).player_key), name, pos: byName.get(name).pos}));
-                  window.TradeValueFinder.ui.setSides(entries(names.mine), entries(names.theirs));
-                }""", picked)
-                page.locator("#v2FindSize").select_option("3")
-                page.locator("#v2FindGo").click()
-                page.locator("#v2FindList > li").first.wait_for(timeout=60000)
+                picked = pick_listing_pair(page)
+                self.assertIsNotNone(picked, f"fixture: no top-30 window (offsets 0-{MAX_OFFSET}) lists a 3-player trade "
+                                             "under the live rules; Find a trade may be empty: " + page.locator("#v2FindOut").inner_text()[:300])
                 self.assertEqual(page.locator("#v2FindList .v2-find-notes.is-warn").count(), 0)
                 self.assertNotIn("It breaks your protected positions or Advanced minimums.",
                                  page.locator("#v2FindList").inner_text())
