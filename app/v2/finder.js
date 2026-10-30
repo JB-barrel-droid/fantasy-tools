@@ -26,13 +26,17 @@
   const EXTRA_PLAYER_WEIGHT = 0.1;   // each player beyond a 1-for-1 takes 10% off the ranking score
   const LIMIT = 10;
   const finite = value => typeof value === "number" && Number.isFinite(value);
-  // JEG-1125: "breaks even" is Compare's rule, SHOWN_EVEN in trade.js (a net that shows as 0.0 points neither way). The
-  // page loads trade.js first and Node can require it. The MCP edge function evaluates this file on its own, so the
-  // number after || is a standalone copy: tests/test_trade_bands.py fails if it differs from trade.js.
+  // JEG-1125 option A: "even" is Compare's one band, evenBand in trade.js: max(EVEN_FLOOR, EVEN_SHARE x the average
+  // side) on each series' own give and receive. SHOWN_EVEN is only how a net prints (0.0) and NET_FLOOR's fit floor.
+  // The page loads trade.js first and Node can require it. The MCP edge function evaluates this file on its own, so
+  // each number after || is a standalone copy: tests/test_trade_bands.py fails if one differs from trade.js.
   const TRADE = typeof module !== "undefined" && module.exports
     ? (() => { try { return require("./trade.js"); } catch (e) { return null; } })() : root.TradeValueTrade;
   const SHOWN_EVEN = (TRADE && finite(TRADE.SHOWN_EVEN) && TRADE.SHOWN_EVEN) || 0.05;
-  const pointsAsShown = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net);   // 0.0 as shown points neither way
+  const EVEN_FLOOR = (TRADE && finite(TRADE.EVEN_FLOOR) && TRADE.EVEN_FLOOR) || 1;
+  const EVEN_SHARE = (TRADE && finite(TRADE.EVEN_SHARE) && TRADE.EVEN_SHARE) || 0.03;
+  const evenBand = (give, get) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + get) / 2));
+  const pointsPastEven = (net, give, get) => (Math.abs(net) < evenBand(give, get) ? 0 : net);   // inside the band: even
 
   // Every subset of 1..maxSize items, as arrays of indices.
   function subsets(count, maxSize) {
@@ -66,7 +70,8 @@
       return total;
     });
   }
-  // give / get: sums arrays. The edge is get - give for you; the rival is happy on a chart when its net is <= 0 as shown.
+  // give / get: sums arrays. The edge is get - give for you and must clear the even band; the rival is happy on a chart
+  // when its net is even (inside that chart's band) or below.
   // A chart that does not price every player in the package is left out of the count (net null).
   function judgeSums(give, get, chartKeys, minCharts) {
     const edge = give[0] === null || get[0] === null ? null : get[0] - give[0];
@@ -78,13 +83,13 @@
       const r = get[c + 1];
       if (g === null || r === null) { charts.push({key: chartKeys[c], net: null, rivalOk: null}); continue; }
       const net = r - g;
-      const rivalOk = pointsAsShown(net) <= 0;
+      const rivalOk = pointsPastEven(net, g, r) <= 0;
       priced += 1;
       if (rivalOk) ok += 1;
       charts.push({key: chartKeys[c], net, rivalOk});
     }
     return {edge, charts, pricedCharts: priced, rivalOkCount: ok,
-      passes: {edge: edge !== null && pointsAsShown(edge) > 0, charts: priced >= minCharts && ok >= minCharts}};
+      passes: {edge: edge !== null && pointsPastEven(edge, give[0], get[0]) > 0, charts: priced >= minCharts && ok >= minCharts}};
   }
   // Roster sanity for a package: {mine, theirs} issue lists, and whether the keep-lineup boxes reject it.
   function judgeLineup(giveRows, getRows, sanity) {
@@ -158,7 +163,7 @@
 
   // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
   // Each trade: {give, receive, edge, charts: [{key, net, rivalOk}], pricedCharts, rivalOkCount, score, throwIns}.
-  // edge and net are receive - give for you; the rival is happy when a chart's net is <= 0 as shown.
+  // edge and net are receive - give for you; the rival is happy when a chart's net is even (inside its band, JEG-1125) or below.
   // Rows that differ only by a player worth 0.0 everywhere are one row (the simpler trade), see collapseThrowIns.
   function findTrades(mine, theirs, opts) {
     const o = opts || {};
@@ -189,7 +194,8 @@
       let lo = 0; let hi = theirSubs.length;
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (pointsAsShown(theirSubs[mid].sums[0] - give.sums[0]) > 0) hi = mid; else lo = mid + 1;
+        const mid0 = theirSubs[mid].sums[0];
+        if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0) hi = mid; else lo = mid + 1;
       }
       for (let t = lo; t < theirSubs.length; t++) {
         const get = theirSubs[t];

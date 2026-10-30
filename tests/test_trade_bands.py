@@ -1,29 +1,33 @@
-"""One "even" rule for Compare a trade and Find a trade (JEG-1125).
+"""One "even" band for Compare a trade and Find a trade (JEG-1125, option A).
 
-Found 2026-10-26 by the values review: the band that calls a trade even was written out separately in trade.js
-(Compare) and finder.js (Find a trade), so a copy could drift and the two screens could call the same chart net
-even on one and lopsided on the other.
+Found 2026-10-26 by the values review: "even" was defined three ways. Compare's Deal read used max(1, 3% of the
+average side) (sideOf), while Compare's verdict, its per-source sides, the trade story, "Will they accept?" and Find
+a trade used "shows as 0.0" (under 0.05). So the same trade could be "even on value" in the Deal read and a win in
+Find a trade, and a chart up 0.8 for you counted against acceptance in one place and as fair in the other.
 
-Rule (trade.js, JEG-1125 block): SHOWN_EVEN is defined once, in trade.js. A single series' net that shows as 0.0
-(under SHOWN_EVEN) points neither way. Compare uses it for its per-source rows, the trade story and "Will they
-accept?" (the other manager wins or breaks even: net <= 0 as shown); Find a trade reads the same constant from
-trade.js for its "rival breaks even or wins" chart check, its "DDF Value says you win" edge and its display floor
-NET_FLOOR. finder.js keeps one standalone copy (after the ||) because the MCP edge function evaluates finder.js on
-its own, without trade.js. The Deal read's band (sideOf: max(1, 3% of the average side)) and the headline's
-THIN_MARGIN are separate rules and are pinned by test_v2_deal_read*.py and test_v2_headlines.py.
+Rule (Jeremy, 2026-10-29 9:11 PM CT, option A; trade.js JEG-1125 block): one band, evenBand = max(EVEN_FLOOR,
+EVEN_SHARE x the average side), EVEN_FLOOR = 1 point and EVEN_SHARE = 3%, applied to each series' own give and
+receive. A net inside it is even. Compare's verdict and per-source sides (tradeVerdict), the trade story,
+"Will they accept?" (the other manager wins or breaks even), the Deal read (sideOf) and Find a trade (its DDF Value
+edge and its "rival breaks even or wins" chart check) all use it. THIN_MARGIN (5% of the value traded) is a
+separate confidence rule, pinned by test_v2_headlines.py. SHOWN_EVEN (0.05) is only how a net prints and Find a
+trade's fit floor NET_FLOOR. finder.js keeps standalone copies (after the ||) because the MCP edge function
+evaluates finder.js on its own, without trade.js.
 
 These checks pin:
-  * source: trade.js defines SHOWN_EVEN exactly once and builds signOf and the trade story's sign from it, with no
-    other "shows as 0.0" sign literal; finder.js builds pointsAsShown and NET_FLOOR from SHOWN_EVEN, has no literal
-    sign band of its own, and its standalone copy equals trade.js's value;
-  * behaviour, for finder.js loaded with Node (reads trade.js) and evaluated on its own the way the MCP edge
-    function does (its copy): on every probe net, Find a trade's per-chart "rival breaks even or wins" equals
-    Compare's signOf(net) <= 0, Find a trade's count equals Compare's "Will they accept?" count, and Find a trade's
-    DDF Value edge passes exactly when Compare's signOf says you win.
+  * source: trade.js defines EVEN_FLOOR, EVEN_SHARE and SHOWN_EVEN once each, builds evenBand from them, and sideOf,
+    the trade story, tradeVerdict, "Will they accept?" and the Deal read's chart count from evenBand (no literal band,
+    no win / even call on signOf); finder.js reads all three from trade.js with copies equal to trade.js's values,
+    builds its band from them, judges the edge, the rival check and the search bound with it, has no literal band
+    and keeps NET_FLOOR = SHOWN_EVEN;
+  * behaviour, for finder.js loaded with Node (reads trade.js) and evaluated on its own the way the MCP edge function
+    does (its copies): on probe nets either side of every band anyone has proposed, at two trade sizes (where the
+    1-point floor decides and where 3% decides), Find a trade's per-chart "rival breaks even or wins" equals Compare's,
+    its count equals "Will they accept?" and the Deal read's chart count, and its DDF Value edge passes exactly when
+    Compare's verdict and the Deal read both say you win, and exactly when the net clears the band.
 
-Discrimination: test_checks_fail_on_broken_builds copies both files, breaks one rule at a time (the standalone copy
-drifts, trade.js's band moves, a literal band comes back in either file, NET_FLOOR goes literal) and requires each
-to fail.
+Discrimination: test_checks_fail_on_broken_builds copies both files, breaks one rule at a time and requires each to
+fail. The checks also fail on the pre-A build (25efb1d: 0.05 band in Find a trade and the verdict).
 """
 from __future__ import annotations
 
@@ -39,10 +43,12 @@ ROOT = Path(__file__).resolve().parents[1]
 APP_V2 = ROOT / "app" / "v2"
 CHARTS = ["usatoday", "fantasycalc", "fantasypros", "cbs"]
 # Nets either side of every band anyone has proposed (0.0 as shown, 1 point, 3% of a side, 5% of the value traded).
-PROBES = [0, 0.01, 0.03, 0.049, 0.051, 0.06, 0.1, 0.2, 0.45, 0.55, 0.8, 0.99, 1.01, 1.5, 3, 10]
+PROBES = [0, 0.01, 0.049, 0.051, 0.2, 0.55, 0.8, 0.99, 1.01, 1.5, 2.9, 3.1, 4, 10]
+# Side sizes: at 30 the 1-point floor is the band; at 100 the band is 3% of the average side (about 3 points).
+BASES = [30, 100]
 
 HARNESS = r"""
-const [tradePath, finderPath, mode, chartsJson, probesJson] = process.argv.slice(1);
+const [tradePath, finderPath, mode, chartsJson, probesJson, basesJson] = process.argv.slice(1);
 const fs = require("fs");
 const vm = require("vm");
 const T = require(tradePath);
@@ -58,21 +64,24 @@ if (mode === "require") {
 }
 const charts = JSON.parse(chartsJson);
 const probes = JSON.parse(probesJson);
-const keys = ["ddf_value"].concat(charts);
+const keys = ["ddf_value", "ddf_value_projections"].concat(charts);
 const row = (key, base, net) => ({player_key: key, name: key, pos: "WR", values: Object.fromEntries(keys.map(k => [k, base + net]))});
 const out = [];
-const base = 30;
-for (const p of probes) for (const sign of [1, -1]) {
+for (const base of JSON.parse(basesJson)) for (const p of probes) for (const sign of [1, -1]) {
   const net = sign * p;
   const give = [row("g", base, 0)];
   const receive = [row("r", base, net)];
   const combo = F.evaluateCombo(give, receive, {ourKey: "ddf_value", chartKeys: charts, minCharts: 3, sanity: null});
   const rows = T.compareTrade(give, receive, keys).rows;
-  const head = T.tradeHeadlines(rows, "ddf_value", {chartKeys: charts});
-  out.push({net, finderRivalOk: combo.charts.map(c => c.rivalOk), finderCount: combo.rivalOkCount,
+  const deal = T.dealRead(give, receive, charts);
+  const head = T.tradeHeadlines(rows, "ddf_value", {chartKeys: charts, deal});
+  const verdict = T.tradeVerdict(rows, "ddf_value");
+  const chartRows = rows.filter(r => charts.includes(r.key));
+  out.push({base, net, finderRivalOk: combo.charts.map(c => c.rivalOk), finderCount: combo.rivalOkCount,
     finderEdgeWins: combo.passes.edge,
-    compareRivalOk: rows.filter(r => charts.includes(r.key)).map(r => T.signOf(r.net) <= 0),
-    compareCount: head.accept.yes, compareWins: T.signOf(rows[0].net) > 0});
+    compareRivalOk: chartRows.map(r => !verdict.upKeys.includes(r.key)),
+    compareCount: head.accept.yes, dealCount: deal.market.charts ? deal.market.charts.yes : null,
+    verdictWins: verdict.kind === "win", dealWins: deal.value.side === "win"});
 }
 process.stdout.write(JSON.stringify(out));
 """
@@ -80,41 +89,71 @@ process.stdout.write(JSON.stringify(out));
 
 def run(app_dir: Path, mode: str) -> list[dict]:
     proc = subprocess.run(["node", "-e", HARNESS, str(app_dir / "trade.js"), str(app_dir / "finder.js"), mode,
-                           json.dumps(CHARTS), json.dumps(PROBES)], capture_output=True, text=True, timeout=60)
+                           json.dumps(CHARTS), json.dumps(PROBES), json.dumps(BASES)],
+                          capture_output=True, text=True, timeout=60)
     if proc.returncode:
         raise RuntimeError(proc.stderr[-2000:])
     return json.loads(proc.stdout)
 
 
 NUMBER = r"([0-9]*\.?[0-9]+)"
-SHOWN_SIGN_LITERAL = re.compile(r"Math\.abs\([^)]*\)\s*<\s*[0-9]*\.?[0-9]+\s*\?\s*0\s*:")
+LITERAL_BAND = re.compile(r"Math\.max\(\s*[0-9.]+\s*,\s*[0-9.]+\s*\*")
 
 
 def source_errors(app_dir: Path) -> list[str]:
     errors = []
     trade = (app_dir / "trade.js").read_text(encoding="utf-8")
     finder = (app_dir / "finder.js").read_text(encoding="utf-8")
-    defs = re.findall(r"const SHOWN_EVEN = " + NUMBER + ";", trade)
-    if len(defs) != 1:
-        errors.append(f"trade.js must define SHOWN_EVEN exactly once, found {len(defs)}")
-    if not re.search(r"const signOf = net => \(Math\.abs\(net\) < SHOWN_EVEN \?", trade):
-        errors.append("trade.js signOf must be built from SHOWN_EVEN")
-    if "const sign = row => signOf(row.net);" not in trade:
-        errors.append("trade.js tradeStory must use signOf, not a band of its own")
-    if SHOWN_SIGN_LITERAL.search(trade):
-        errors.append(f"trade.js has a literal 'shows as 0.0' band: {SHOWN_SIGN_LITERAL.search(trade).group(0)!r}")
-    if not re.search(r"const pointsAsShown = net => \(Math\.abs\(net\) < SHOWN_EVEN \?", finder):
-        errors.append("finder.js pointsAsShown must be built from SHOWN_EVEN")
-    if not re.search(r"const NET_FLOOR = SHOWN_EVEN;", finder):
-        errors.append("finder.js NET_FLOOR must be SHOWN_EVEN")
-    if SHOWN_SIGN_LITERAL.search(finder):
-        errors.append(f"finder.js has a literal 'shows as 0.0' band: {SHOWN_SIGN_LITERAL.search(finder).group(0)!r}")
-    copy = re.search(r"const SHOWN_EVEN = \(TRADE && finite\(TRADE\.SHOWN_EVEN\) && TRADE\.SHOWN_EVEN\) \|\| " + NUMBER + ";",
-                     finder)
-    if not copy:
-        errors.append("finder.js must read SHOWN_EVEN from trade.js, with one standalone copy after ||")
-    elif defs and float(copy.group(1)) != float(defs[0]):
-        errors.append(f"finder.js standalone copy {copy.group(1)} differs from trade.js SHOWN_EVEN {defs[0]}")
+    values = {}
+    for name in ("EVEN_FLOOR", "EVEN_SHARE", "SHOWN_EVEN"):
+        defs = re.findall(r"const " + name + " = " + NUMBER + ";", trade)
+        if len(defs) != 1:
+            errors.append(f"trade.js must define {name} exactly once, found {len(defs)}")
+        else:
+            values[name] = float(defs[0])
+    trade_needs = {
+        "const evenBand = (give, receive) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + receive) / 2));":
+            "trade.js evenBand must be built from EVEN_FLOOR and EVEN_SHARE",
+        "const bandSign = (net, give, receive) => (Math.abs(net) < evenBand(give, receive) ? 0":
+            "trade.js bandSign must use evenBand",
+        "const rowSign = row => bandSign(row.net, row.give, row.receive);": "trade.js rowSign must use bandSign",
+        "const threshold = evenBand(give, receive);": "trade.js sideOf (Deal read) must use evenBand",
+        "const sign = row => rowSign(row);": "trade.js tradeStory must use rowSign",
+        "const s = rowSign(head);": "trade.js tradeVerdict's head must use rowSign",
+        "complete.filter(row => rowSign(row) === want)": "trade.js tradeVerdict's per-source sides must use rowSign",
+        "const yes = charts.filter(row => rowSign(row) <= 0).length;": "trade.js \"Will they accept?\" must use rowSign",
+        "const yes = completeCharts.filter(row => rowSign(row) <= 0).length;":
+            "trade.js Deal read chart count must use rowSign",
+    }
+    errors += [msg for text, msg in trade_needs.items() if text not in trade]
+    calls = len(re.findall(r"signOf\(", trade))
+    if calls:
+        errors.append(f"trade.js decides win / even on signOf (0.0 as shown) in {calls} place(s)")
+    if LITERAL_BAND.search(trade):
+        errors.append(f"trade.js has a literal band: {LITERAL_BAND.search(trade).group(0)!r}")
+    for name in ("EVEN_FLOOR", "EVEN_SHARE", "SHOWN_EVEN"):
+        copy = re.search(r"const " + name + r" = \(TRADE && finite\(TRADE\." + name + r"\) && TRADE\." + name
+                         + r"\) \|\| " + NUMBER + ";", finder)
+        if not copy:
+            errors.append(f"finder.js must read {name} from trade.js, with one standalone copy after ||")
+        elif name in values and float(copy.group(1)) != values[name]:
+            errors.append(f"finder.js standalone {name} {copy.group(1)} differs from trade.js {values[name]}")
+    finder_needs = {
+        "const evenBand = (give, get) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + get) / 2));":
+            "finder.js evenBand must be built from EVEN_FLOOR and EVEN_SHARE",
+        "const pointsPastEven = (net, give, get) => (Math.abs(net) < evenBand(give, get) ? 0 : net);":
+            "finder.js pointsPastEven must use evenBand",
+        "const rivalOk = pointsPastEven(net, g, r) <= 0;": "finder.js rival check must use the even band",
+        "pointsPastEven(edge, give[0], get[0]) > 0": "finder.js DDF Value edge must clear the even band",
+        "if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0)":
+            "finder.js search bound must use the even band",
+        "const NET_FLOOR = SHOWN_EVEN;": "finder.js NET_FLOOR must be SHOWN_EVEN",
+    }
+    errors += [msg for text, msg in finder_needs.items() if text not in finder]
+    if "pointsAsShown" in finder:
+        errors.append("finder.js still has pointsAsShown (the 0.0-as-shown even rule)")
+    if LITERAL_BAND.search(finder):
+        errors.append(f"finder.js has a literal band: {LITERAL_BAND.search(finder).group(0)!r}")
     return errors
 
 
@@ -122,13 +161,19 @@ def behaviour_errors(app_dir: Path) -> list[str]:
     errors = []
     for mode in ("require", "standalone"):
         for case in run(app_dir, mode):
-            tag = f"{mode} net {case['net']:+}: "
+            tag = f"{mode} base {case['base']} net {case['net']:+}: "
             if case["finderRivalOk"] != case["compareRivalOk"]:
                 errors.append(tag + f"Find a trade rival-even {case['finderRivalOk']} != Compare {case['compareRivalOk']}")
-            if case["finderCount"] != case["compareCount"]:
-                errors.append(tag + f"Find a trade count {case['finderCount']} != Will they accept? {case['compareCount']}")
-            if case["finderEdgeWins"] != case["compareWins"]:
-                errors.append(tag + f"Find a trade edge {case['finderEdgeWins']} != Compare win {case['compareWins']}")
+            if not (case["finderCount"] == case["compareCount"] == case["dealCount"]):
+                errors.append(tag + f"Find a trade count {case['finderCount']}, Will they accept? {case['compareCount']},"
+                                    f" Deal read {case['dealCount']} differ")
+            if not (case["finderEdgeWins"] == case["verdictWins"] == case["dealWins"]):
+                errors.append(tag + f"Find a trade edge {case['finderEdgeWins']}, verdict win {case['verdictWins']},"
+                                    f" Deal read win {case['dealWins']} differ")
+            band = max(1.0, 0.03 * (2 * case["base"] + case["net"]) / 2)
+            want_win = case["net"] >= band
+            if case["finderEdgeWins"] != want_win:
+                errors.append(tag + f"edge wins {case['finderEdgeWins']}, the band {band:.3f} says {want_win}")
     return errors
 
 
@@ -137,17 +182,24 @@ def check(app_dir: Path) -> list[str]:
 
 
 MUTATIONS = {
-    "standalone copy drifts": ("finder.js", "TRADE.SHOWN_EVEN) || 0.05;", "TRADE.SHOWN_EVEN) || 0.5;"),
-    "trade.js band moves (copy left behind)": ("trade.js", "const SHOWN_EVEN = 0.05;", "const SHOWN_EVEN = 1;"),
-    "finder literal band": ("finder.js", "const pointsAsShown = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net);",
-                            "const pointsAsShown = net => (Math.abs(net) < 0.05 ? 0 : net);"),
-    "finder ignores trade.js": ("finder.js", "const SHOWN_EVEN = (TRADE && finite(TRADE.SHOWN_EVEN) && TRADE.SHOWN_EVEN) || 0.05;",
-                                "const SHOWN_EVEN = 0.05;"),
+    "standalone floor drifts": ("finder.js", "TRADE.EVEN_FLOOR) || 1;", "TRADE.EVEN_FLOOR) || 2;"),
+    "standalone share drifts": ("finder.js", "TRADE.EVEN_SHARE) || 0.03;", "TRADE.EVEN_SHARE) || 0.05;"),
+    "trade.js share moves (copy left behind)": ("trade.js", "const EVEN_SHARE = 0.03;", "const EVEN_SHARE = 0.05;"),
+    "trade.js floor moves (copy left behind)": ("trade.js", "const EVEN_FLOOR = 1;", "const EVEN_FLOOR = 2;"),
+    "finder ignores trade.js": ("finder.js", "const EVEN_SHARE = (TRADE && finite(TRADE.EVEN_SHARE) && TRADE.EVEN_SHARE) || 0.03;",
+                                "const EVEN_SHARE = 0.03;"),
+    "finder literal band": ("finder.js", "Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + get) / 2))",
+                            "Math.max(1, 0.03 * ((give + get) / 2))"),
+    "finder rival back on 0.0 as shown": ("finder.js", "const rivalOk = pointsPastEven(net, g, r) <= 0;",
+                                          "const rivalOk = Math.abs(net) < SHOWN_EVEN || net < 0;"),
+    "finder edge back on 0.0 as shown": ("finder.js", "pointsPastEven(edge, give[0], get[0]) > 0", "edge >= SHOWN_EVEN"),
     "NET_FLOOR literal": ("finder.js", "const NET_FLOOR = SHOWN_EVEN;", "const NET_FLOOR = 0.05;"),
-    "Compare literal band": ("trade.js", "const signOf = net => (Math.abs(net) < SHOWN_EVEN ? 0",
-                             "const signOf = net => (Math.abs(net) < 0.05 ? 0"),
-    "trade story band of its own": ("trade.js", "const sign = row => signOf(row.net);",
-                                    "const sign = row => (Math.abs(row.net) < 0.05 ? 0 : row.net > 0 ? 1 : -1);"),
+    "verdict back on 0.0 as shown": ("trade.js", "const s = rowSign(head);", "const s = signOf(head.net);"),
+    "accept back on 0.0 as shown": ("trade.js", "const yes = charts.filter(row => rowSign(row) <= 0).length;",
+                                    "const yes = charts.filter(row => signOf(row.net) <= 0).length;"),
+    "Deal read band of its own": ("trade.js", "const threshold = evenBand(give, receive);",
+                                  "const threshold = Math.max(1, 0.05 * ((give + receive) / 2));"),
+    "trade story band of its own": ("trade.js", "const sign = row => rowSign(row);", "const sign = row => signOf(row.net);"),
 }
 
 
