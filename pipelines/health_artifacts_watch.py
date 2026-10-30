@@ -54,6 +54,8 @@ judgment is not_arrived or unverified. The wait's last observation is kept as
 with --result-json PATH, written to a file. Exit codes: 0 fresh and arrived,
 1 a served artifact is stale (unchanged, takes precedence), 2 this run's
 publication did not arrive, 3 its arrival could not be verified.
+health-artifacts.yml treats 3 as a warning and keeps the run green (Jeremy,
+2026-10-30, JEG-1239: "A"); 1 and 2 still fail it.
 
 Fail-closed: an unreachable artifact, unparseable JSON or a missing
 timestamp is stale, never fresh.
