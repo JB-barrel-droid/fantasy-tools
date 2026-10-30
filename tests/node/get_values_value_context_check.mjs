@@ -81,12 +81,26 @@ for (const scoring of ["standard", "half_ppr", "ppr"]) {
 }
 const [a, b, c] = ours.ppr.players.slice(0, 3).map((p) => p.player_key);
 const UNPRICED = 16777000; // a player key no source prices
+// The blend's sources: two that are available in every scoring in this build (a source that has not published this
+// week is refused, section 8a), projections first. Picked from the data so the check does not break week to week.
+const AVAILABLE = [];
+for (const key of ["espn", "razzball", "cbsros", "usatoday", "fantasypros", "cbs"]) {
+  let ok = true;
+  for (const scoring of ["standard", "half_ppr", "ppr"]) {
+    const res = await post({ scoring, teams: 12, basis: key });
+    await res.json();
+    ok = ok && res.status === 200;
+  }
+  if (ok) AVAILABLE.push(key);
+}
+assert.ok(AVAILABLE.length >= 2, `two basis sources are available in this build: ${AVAILABLE}`);
+const BLEND = `blend:${AVAILABLE[0]}.60_${AVAILABLE[1]}.40`;
 
 // 2. In each scoring, a custom basis with an absolute override and an adjustment prices as the runner does,
 // and the context moves DDF Value (a context that changed nothing would pass the comparison above).
 const CASES = [
   { basis: "fantasycalc", ov: null },
-  { basis: "blend:espn.60_razzball.40", ov: `${a}:58,${b}:+5,${c}:-3,${UNPRICED}:40` },
+  { basis: BLEND, ov: `${a}:58,${b}:+5,${c}:-3,${UNPRICED}:40` },
   { basis: null, ov: `${a}:58` },
 ];
 for (const scoring of ["standard", "half_ppr", "ppr"]) {
@@ -177,10 +191,10 @@ for (const [body, unread] of [
     getBasis() { return this.basis ? { isDefault: false, ...this.basis } : { isDefault: true, mode: "default" }; } };
   win.DDFOverrides.boot(engine);
   assert.equal(win.DDFOverrides.applyLink(new URLSearchParams(
-    `valuecontext=1&basis=${encodeURIComponent("blend:espn.60_razzball.40")}&ov=${encodeURIComponent(`${a}:58,${b}:+5`)}`)), true);
+    `valuecontext=1&basis=${encodeURIComponent(BLEND)}&ov=${encodeURIComponent(`${a}:58,${b}:+5`)}`)), true);
   const link = new URLSearchParams(win.DDFOverrides.shareLink("#find-trade?mine=1").hash.split("?")[1]);
   const body = await (await post({ scoring: "half_ppr", teams: 12, basis: link.get("basis"), ov: link.get("ov") })).json();
-  sameValues(body, runner("half_ppr", "blend:espn.60_razzball.40", `${a}:58,${b}:+5`).values, "site share link");
+  sameValues(body, runner("half_ppr", BLEND, `${a}:58,${b}:+5`).values, "site share link");
 }
 
 // 7. The engine form of a basis is the site engine's own (curve-widget.js canonicalBasis, lifted read-only):
