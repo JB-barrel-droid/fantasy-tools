@@ -15,7 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 CHECK = ROOT / "tests" / "node" / "share_link_context_check.cjs"
 V2 = ROOT / "app" / "v2"
-FILES = ["workspace.js", "finder.js", "trade-context.js", "ddf-state.js", "league.js"]
+FILES = ["workspace.js", "roster-provenance-transitions.js", "finder.js", "trade-context.js", "ddf-state.js", "league.js"]
 
 # (file, anchor, replacement, a check that must fail)
 MUTATIONS = {

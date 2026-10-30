@@ -197,3 +197,14 @@ Contract: the 12:52 UTC merge-gate comment on JEG-1249 (Jeremy's "A" on the USO 
 ### Claimed, not confirmed
 - The USO journey suites are not in the Makefile or any workflow, so CI does not run them.
 - Full CI on the pushed head had not reported when this entry was written.
+
+## JEG-1249: Node harness copy lists, 2026-10-30
+
+Contract: the 14:50 UTC "To Mac:" comment on JEG-1249 (render-tests red at e0b2319e).
+
+### Verified (check named)
+- `#1105`'s app/v2/workspace.js requires ./roster-provenance-transitions.js. Two of main's tests copy page modules into a temp folder without it, so their Node harness crashed with "Cannot find module './roster-provenance-transitions.js'". Harness fixes only, no assertion changed.
+  - tests/test_jeg1231_opponent_inclusion.py MODULES (the comment's fix): 7 failures before, 2/2 OK after.
+  - tests/test_jeg1328_share_links.py FILES (same cause, found by checking every test that loads workspace.js): 9 errors before (the harness printed no JSON), 2/2 OK after. It passes on clean origin/main f2d50519.
+- The other workspace.js harnesses: test_jeg1320_discovery_controls and test_v2_league_units OK. test_jeg1229_trade_context (1 failure) and test_uso_site_journey_contract (2 continuity failures) fail the same way on clean origin/main f2d50519, so they are baseline.
+- No engine, reference or fixture file changed; they stay byte-identical to d07f6527.
