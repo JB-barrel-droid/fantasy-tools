@@ -135,6 +135,8 @@ test-unit-modules:
 	# JEG-1049: the daily/on-demand edge drift workflow stays read-only and keeps the checker's exit code.
 	python3 -m unittest tests.test_edge_drift_workflow
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1334: fractional flex and bench seats helper (option B, JEG-1286).
+	python3 -m unittest tests.test_fractional_seats
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory
