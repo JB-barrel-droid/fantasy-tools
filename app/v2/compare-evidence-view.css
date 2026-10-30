@@ -29,7 +29,10 @@
 .cev-verdict-text, .cev-verdict-production, .cev-explain-line, .cev-group-note { font-size: var(--ddf-type-support, 14px); color: var(--cev-ink); }
 .cev-verdict-production { color: var(--cev-muted); }
 .cev-nets { display: grid; gap: var(--ddf-space-2, 8px); }
-.cev-net { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--cev-gap); align-items: baseline;
+/* The value column is capped at half the row: a split read's value ("+0.5 · Charts split (−8.0 to +8.0)") is long,
+   and an auto column took its full width at 320 px and squeezed the net name to 0 px (JEG-1319). Past the cap the
+   value wraps; the name keeps the rest. */
+.cev-net { display: grid; grid-template-columns: minmax(0, 1fr) fit-content(50%); gap: 2px var(--cev-gap); align-items: baseline;
   padding-top: var(--ddf-space-2, 8px); border-top: 1px solid var(--cev-line); }
 .cev-net-name { font-weight: 650; min-width: 0; }
 .cev-net-value { font-variant-numeric: tabular-nums; text-align: right; min-width: 0; }
