@@ -161,6 +161,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_sleeper_identity_layer
 	# JEG-1313: platform-spelling audit (JEG-1202), offline. In the full suite, not the deploy gate (an audit).
 	python3 -m unittest tests.test_jeg1202_platform_spellings
+	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
+	python3 -m unittest tests.test_platform_spellings
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
