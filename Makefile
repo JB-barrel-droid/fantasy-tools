@@ -184,6 +184,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_tokens
+	# JEG-1140: Settings in the Fieldnotes design, isolated components (node checks, then the browser).
+	python3 -m unittest tests.test_jeg1140_settings_fieldnotes
+	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
