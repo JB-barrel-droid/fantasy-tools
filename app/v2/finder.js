@@ -2552,6 +2552,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     S.sel = new Set([...S.sel].filter(k => S.mine.concat(S.theirs).some(p => p.key === k)));
     return say;
   }
+  // JEG-1380: the week the page now shows, named in the note after a week change.
+  function weekNote() {
+    const state = engine().getWeekState ? engine().getWeekState() : null;
+    return state && Number.isInteger(state.week) ? `Updated for Week ${state.week}.` : "Updated for the selected week.";
+  }
   function onLeagueSettingsChanged(event) {
     if (!$("v2Find") || !engine()) return;
     const hadResults = hasResults();
@@ -2580,7 +2585,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");
-    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : event && event.detail && event.detail.reason === "week" ? weekNote() : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
     if (note) note.textContent = text;
     if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
   }

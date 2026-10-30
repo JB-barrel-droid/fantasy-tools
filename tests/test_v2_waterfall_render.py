@@ -626,7 +626,7 @@ EXAMPLE_READ = """() => {
   return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
     give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
     boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
-      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown')},
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown'), toolbar: q('#v2Compare .v2-chead .v2-ctoolbar')},
     innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 # JEG-1190: the button on the empty page that opens first.
@@ -695,6 +695,13 @@ def check_example_state(result: dict) -> list[str]:
             errors.append(tag + "the 'Player values shown' picker is not reachable")
         if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
             limit = height - EXAMPLE_FOLD_MARGIN
+            # JEG-1383: a held source's long disabled option widened the closed picker and wrapped Compare's header toolbar
+            # to a second row at 1366 px (+56 px), so the compact header (JEG-1112) saved nothing and the fold guard could
+            # not tell it from the old header. The toolbar must stay one picker row tall.
+            bar, picker = b.get("toolbar"), b.get("picker")
+            if bar and picker and bar["height"] > 1.5 * picker["height"]:
+                errors.append(f"{tag}Compare's header toolbar wraps to {bar['height']:.0f} px (picker {picker['height']:.0f} px tall, "
+                              f"{picker['width']:.0f} px wide); the compact header no longer saves height")
             for name in ("give", "receive", "verdict", "giveTotal", "receiveTotal"):
                 box = b.get(name)
                 if not box:
@@ -749,7 +756,7 @@ class WaterfallRenderTest(unittest.TestCase):
                 b = snap["boxes"]
                 r = lambda k: b[k] and round(b[k]["bottom"], 1)  # noqa: E731
                 print(f"EXAMPLE FOLD [{label}] {width}x{height} give {r('give')} receive {r('receive')} verdict {r('verdict')} "
-                      f"totals {r('giveTotal')}/{r('receiveTotal')}", file=sys.stderr, flush=True)
+                      f"totals {r('giveTotal')}/{r('receiveTotal')} toolbar {b.get('toolbar')} picker {b.get('picker')}", file=sys.stderr, flush=True)
             errors += [f"{label} {e}" for e in check_example_state(result)]
         self.assertEqual(errors, [])
 

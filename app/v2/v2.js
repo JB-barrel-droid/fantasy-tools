@@ -6515,7 +6515,9 @@
     }
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
-    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
+    // JEG-1020: Find a trade reads the link's settings too. JEG-1380: a week-only link moves its results to that week.
+    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");
+    else if (wkChange) announceLeagueChange("week");
     announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
@@ -7591,6 +7593,7 @@
       C.setWeek(Number(event.target.value));
       rememberWeek();
       refresh();
+      announceLeagueChange("week");   // JEG-1380: Find a trade re-runs its results on the new week's values
     });
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);

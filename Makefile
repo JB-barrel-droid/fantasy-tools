@@ -219,6 +219,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
 	python3 -m unittest tests.test_week_selector_render
+	python3 -m unittest tests.test_jeg1380_finder_week_render
 	# JEG-1178: the week selector's Thursday 12:00 CT stale deadline, both clocks pinned (no browser).
 	python3 -m unittest tests.test_week_stale_deadline
 	python3 -m unittest tests.test_v2_share_links
@@ -350,6 +351,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_validate_shards
 	python3 -m unittest tests.test_sync_monitor_fixture
 	python3 -m unittest tests.test_rebuild_chain_workflow
+	python3 -m unittest tests.test_main_write_guard
 	python3 -m unittest tests.test_rebuild_chain_conflict_handoff
 	python3 -m unittest tests.test_workflow_dispatch_permissions
 	python3 -m unittest tests.test_live_page_synthetic_workflow
@@ -428,6 +430,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_fundamental_bench
 	python3 -m unittest tests.test_jeg606_unpriced_team_and_value
 	python3 -m unittest tests.test_projection_captures
+	python3 -m unittest tests.test_projection_capture_sunday_jeg1377
+	python3 -m unittest tests.test_divergence_evidence
 	python3 -m unittest tests.test_pull_cbs_ros_positions
 	python3 -m unittest tests.test_pull_keeptradecut
 	python3 -m unittest tests.test_razzball_chain_hold
