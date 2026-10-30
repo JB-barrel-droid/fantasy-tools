@@ -35,6 +35,23 @@ below are history, including any "Codex reviews and merges" line.
   waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
   `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
 
+### JEG-1125 one shared "even" band, option A (Claude, 2026-10-30 UTC)
+
+- Branch `fe/jeg-1125-even-threshold`, PR #1033. Jeremy picked A on
+  2026-10-29 9:11 PM CT and said yes to building it on 2026-10-30: one even
+  band, max(1 point, 3% of the average side), for Compare's verdict, Compare's
+  Deal read and Find a trade. THIN_MARGIN (5%) is a separate confidence rule and
+  stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
+  the Duet project files, summary on the ticket) and approves before any merge.
+  Do not merge or mark #1033 ready without his yes on that before/after.
+- State: Jeremy said ship A (2026-10-30 18:52Z, "A"). #1033 marked ready;
+  Standard, Half PPR and PPR before/after in
+  `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
+  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
+  done (one connector min_rival_edge bug, fixed in `7694bb7`).
+  Next: green CI, squash merge, check the live site, then ask Jeremy for the
+  `mcp` deploy (find-trades.ts ships with the function).
+
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
 - Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
