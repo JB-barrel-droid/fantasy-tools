@@ -187,6 +187,14 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-context .v2-freshness #v2FreshnessLabel { display: none; }
   .v2-context .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
 }
+/* Week selector (JEG-1178): only while sources move from one week to the next. Compact: one select in the row. */
+.v2-ctx-week { flex: 0 1 auto; min-width: 0; }
+.v2-ctx-week[hidden] { display: none; }
+.v2-ctx-week select { max-width: 100%; min-height: 36px; padding: 6px 28px 6px 10px; font-size: 13px; text-overflow: ellipsis; }
+.v2-weeknote { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
+.v2-weeknote[hidden] { display: none; }
+.v2-weeknote-text { margin-block: 0; padding-block: 4px; font-size: 12.5px; line-height: 1.35; color: var(--v2-muted); }
+.v2-weeknote-stale { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--v2-warn, #b45309); color: var(--v2-warn, #b45309); font-weight: 600; font-size: 11.5px; }
 .v2-ctx-menuwrap { position: relative; flex-shrink: 0; }
 .v2-ctx-more { padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
 .v2-ctx-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
@@ -220,7 +228,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-ctx-summary[aria-expanded="true"] .v2-ctx-summary-caret { transform: rotate(180deg); }
   /* Closed: only the summary and freshness. Overrides and Reset / Undo use the separate phone notification strip. */
   .v2-context:not(.is-open) .v2-context-inner::before { content: none; }
-  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness) { display: none; }
+  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness):not(.v2-ctx-week) { display: none; }
+  /* JEG-1178: during a week transition the week selector stays reachable while the row is closed, on its own line. */
+  .v2-context .v2-ctx-week:not([hidden]) { display: block; order: 20; flex: 1 1 100%; padding-bottom: 6px; }
+  .v2-context .v2-ctx-week select { width: 100%; }
   /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
   .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
   .v2-context.is-open .v2-ctx-league strong { display: none; }
