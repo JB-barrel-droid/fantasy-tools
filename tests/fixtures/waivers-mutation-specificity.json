@@ -1,0 +1,243 @@
+{
+  "ticket": "JEG-1279",
+  "about": "Each mutant of tests/test_waivers_render.py::test_guard_fails_on_broken_builds (mirrored; tests/test_waivers_mutation_specificity.py compares them with the suite's source), the diagnostic its own check must report (regex, whole line after the [Npx] tag, at every width listed), the consequences of the same breakage that may also appear (each with a reason), and the verdict expected once JEG-1282 (#1149) is on main: all eight killed. At 430791c4 two were harness failures; each entry's `note` says how. An entry with `values` also requires its `values` group to be in that order (a sort diagnostic's numbers). A designated or consequence pattern never accounts for a page error.",
+  "viewports": [
+    [
+      1366,
+      768
+    ],
+    [
+      390,
+      844
+    ]
+  ],
+  "mutants": {
+    "no headline text": {
+      "file": "waivers.js",
+      "find": "setText(headline.querySelector(\"b\"), text);",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "headline reads 'Values are still loading\\.(\\\\n.*)?'"
+        }
+      ],
+      "consequences": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "empty tab headline 'Values are still loading\\.'",
+          "why": "the empty-tab check reads the same <b>; with setText removed it keeps the shell's placeholder"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no card layout": {
+      "file": "waivers.css",
+      "find": "#v2Waivers .v2-wv-tablewrap { display: none; }",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "phone layout: table True cards True count \\d+"
+        }
+      ],
+      "consequences": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "sideways scroll \\d+px",
+          "why": "the ten-column table shown at 390 px is wider than the screen"
+        },
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[\"button#\\. '(?:Candidate|DDF Value|Value above waivers|Market value|Starter change|Bench change|Verdict)' \\d+x32\"(?:, \"button#\\. '(?:Candidate|DDF Value|Value above waivers|Market value|Starter change|Bench change|Verdict)' \\d+x32\")*\\]",
+          "why": "the table's sortable header buttons (no id or class, the 32 px min-height of `thead th button`) become visible at phone width; only those labels at that height may be listed, so a search-result button or another small control stays a harness failure"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no aria-sort": {
+      "file": "waivers.js",
+      "find": "if (S.sort.key === col.id) th.setAttribute(\"aria-sort\", S.sort.dir === \"asc\" ? \"ascending\" : \"descending\");",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "aria-sort after one click: \\[\\]"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      },
+      "consequences": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value ascending, dashes last: \\[\\] (?P<values>\\[.*\\])",
+          "why": "the ascending check also compares aria-sort, which is still missing after the second click; the values themselves must still be ascending with dashes last",
+          "values": "ascending, dashes last"
+        }
+      ],
+      "note": "At 430791c4 the suite removed only the setAttribute call, leaving `if (S.sort.key === col.id)` to guard the header-button block; the click timed out (TimeoutError) and the old guard counted it. JEG-1282 (#1149) removes the whole statement."
+    },
+    "dashes sorted first": {
+      "file": "waivers.js",
+      "find": "return nx ? 1 : -1;   // dashes last, whichever way",
+      "replace": "return nx ? -1 : 1;",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value descending, dashes last: (?P<values>\\[.*\\])",
+          "values": "descending, dashes first"
+        },
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "DDF Value ascending, dashes last: \\[\\['ddf', 'ascending'\\]\\] (?P<values>\\[.*\\])",
+          "values": "ascending, dashes first"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "settings listener removed": {
+      "file": "waivers.js",
+      "find": "document.addEventListener(\"ddf:league-settings-changed\", onLeagueSettingsChanged);",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "the league-settings event did not redraw the tab"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no grid role": {
+      "file": "waivers.js",
+      "find": "role: \"grid\", ",
+      "replace": "",
+      "designated": [
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "table role None labelled by v2WaiversHeadline"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "remove buttons 20 px tall": {
+      "file": "waivers.css",
+      "find": "#v2Waivers .v2-wv-remove { min-height: 44px; min-width: 44px; padding: 0 8px; }",
+      "replace": "#v2Waivers .v2-wv-remove { min-height: 20px; min-width: 20px; padding: 0 2px; }",
+      "designated": [
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "controls under 44 px on the Waivers tab \\(\\d+ checked\\): \\[\"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\"(?:, \"button#\\.v2-link v2-wv-remove 'Remove' \\d+x20\")*\\]"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      }
+    },
+    "no verdict text": {
+      "file": "waivers.js",
+      "find": "\"data-verdict\": VERDICT_CLASS[r.verdict], text: r.verdict});",
+      "replace": "\"data-verdict\": VERDICT_CLASS[r.verdict]});",
+      "designated": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "verdict cells \\[(?:'', )*''\\]"
+        }
+      ],
+      "expect": {
+        "kind": "killed"
+      },
+      "consequences": [
+        {
+          "widths": [
+            1366,
+            390
+          ],
+          "pattern": "the defense row: \\{'name': '[^']+', 'pos': 'DEF', 'ddf': '— ?no value', 'vaw': '— ?no value', 'market': '— ?no value', 'starter': '— ?no value', 'bench': '— ?no value', 'drop': '— ?no value', 'verdict': '', 'reason': '[^']+: kickers and defenses are not evaluated\\.'\\}",
+          "why": "the defense check also wants the 'Not evaluated' verdict text, which this mutant removes; every value cell must still be a dash and the reason must still say not evaluated, so only the verdict differs"
+        },
+        {
+          "widths": [
+            1366
+          ],
+          "pattern": "the Verdict header does not return to the ranked order",
+          "why": "after the Verdict header click the check reads the first row's verdict text, which is now empty"
+        },
+        {
+          "widths": [
+            390
+          ],
+          "pattern": "a card has no verdict banner",
+          "why": "the phone card's banner is the same verdictTag (waivers.js:709), now empty"
+        }
+      ],
+      "note": "At 430791c4 check() appended the verdict-cells diagnostic and then raised ValueError on order.index(''), so run_checks never returned and the old guard counted the exception. JEG-1282 (#1149) ranks only known verdicts."
+    }
+  },
+  "injections": {
+    "browser unavailable": {
+      "mutant": "no headline text",
+      "how": "CHROMIUM_PATH points at a plain text file, so Chromium cannot launch; run once with RENDER_TESTS_REQUIRED=1 (RuntimeError) and once without (SkipTest)."
+    },
+    "navigation timeout": {
+      "mutant": "no grid role",
+      "how": "waivers.js polls the page every 100 ms, so page.goto never reaches networkidle and times out.",
+      "append": "setInterval(function () { fetch(location.pathname + \"?jeg1279-poll=\" + Date.now(), {cache: \"no-store\"}).catch(function () {}); }, 100);"
+    },
+    "unrelated page error": {
+      "mutant": "settings listener removed",
+      "marker": "JEG-1279 injected unrelated page error",
+      "how": "waivers.js throws from a timer after the module has run.",
+      "append": "setTimeout(function () { throw new Error(\"JEG-1279 injected unrelated page error\"); }, 0);"
+    },
+    "unrelated diagnostic": {
+      "mutants": [
+        "no headline text",
+        "no grid role"
+      ],
+      "judged_as": "no headline text",
+      "unrelated": "no grid role",
+      "how": "Two real mutants at once, judged as the first: the second one's diagnostic is unrelated to it."
+    }
+  }
+}
