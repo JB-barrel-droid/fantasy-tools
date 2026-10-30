@@ -1,0 +1,95 @@
+{
+  "fixture": {"kind": "synthetic", "label": "Synthetic test data: invented players, teams and values, not a real answer."},
+  "cases": {
+    "buy": {
+      "status": "ready",
+      "player": {"id": "syn-wr-101", "name": "Synthetic Receiver Alpha", "pos": "WR", "team": "SYA"},
+      "answer": {"side": "buy", "reasons": ["Synthetic reason one: the charts rank this player below where the supplied value does.", "Synthetic reason two: three of four synthetic charts agree."]},
+      "values": [
+        {"key": "ours", "label": "DDF Value", "value": 14.2},
+        {"key": "market", "label": "Market", "value": 9.75},
+        {"key": "gap", "label": "Gap", "value": -4.45, "display": "-4.45"}
+      ],
+      "sources": [
+        {"key": "syn_chart_b", "name": "Synthetic Chart B", "status": "priced", "value": 10.4},
+        {"key": "syn_chart_a", "name": "Synthetic Chart A", "status": "priced", "value": 9.1},
+        {"key": "syn_chart_c", "name": "Synthetic Chart C", "status": "missing", "reason": "Not on Synthetic Chart C's chart"},
+        {"key": "syn_chart_d", "name": "Synthetic Chart D", "status": "unavailable", "reason": "held this week (data check)"}
+      ],
+      "detail": {"lines": ["Synthetic detail line for Receiver Alpha."]}
+    },
+    "sell": {
+      "status": "ready",
+      "player": {"id": "syn-rb-202", "name": "Synthetic Runner Bravo", "pos": "RB", "team": "SYB"},
+      "answer": {"side": "sell", "reasons": ["Synthetic reason: the charts pay more than the supplied value."]},
+      "values": [
+        {"key": "ours", "label": "DDF Value", "value": 8.3},
+        {"key": "market", "label": "Market", "value": 13.05},
+        {"key": "gap", "label": "Gap", "value": 4.75, "display": "+4.75"}
+      ],
+      "sources": [
+        {"key": "syn_chart_a", "name": "Synthetic Chart A", "status": "priced", "value": 12.6},
+        {"key": "syn_chart_b", "name": "Synthetic Chart B", "status": "priced", "value": 13.5}
+      ],
+      "detail": {"lines": ["Synthetic detail line for Runner Bravo."]}
+    },
+    "fair": {
+      "status": "ready",
+      "player": {"id": "syn-te-303", "name": "Synthetic End Charlie", "pos": "TE", "team": "SYC"},
+      "answer": {"side": "fair", "reasons": ["Synthetic reason: the supplied value and the market match."]},
+      "values": [
+        {"key": "ours", "label": "DDF Value", "value": 6.4},
+        {"key": "market", "label": "Market", "value": 6.4},
+        {"key": "gap", "label": "Gap", "value": 0}
+      ],
+      "sources": [
+        {"key": "syn_chart_a", "name": "Synthetic Chart A", "status": "priced", "value": 6.4},
+        {"key": "syn_chart_b", "name": "Synthetic Chart B", "status": "waiver", "value": 0, "reason": "At Synthetic Chart B's waiver line for your league"}
+      ],
+      "detail": null
+    },
+    "empty": {"status": "empty"},
+    "missing": {
+      "status": "ready",
+      "player": {"id": "syn-qb-404", "name": "Synthetic Passer Delta", "pos": "QB", "team": "SYD"},
+      "answer": null,
+      "missing": ["Synthetic missing reason: no supplied value for this player at this league setting."],
+      "values": [
+        {"key": "ours", "label": "DDF Value", "value": null, "reason": "No supplied value at this setting"},
+        {"key": "market", "label": "Market", "value": 7.2}
+      ],
+      "sources": [
+        {"key": "syn_chart_a", "name": "Synthetic Chart A", "status": "priced", "value": 7.2}
+      ]
+    },
+    "unavailable": {"status": "unavailable", "reason": "Synthetic reason: the target answers are waiting on fresh inputs."},
+    "zero": {
+      "status": "ready",
+      "player": {"id": "syn-wr-505", "name": "Synthetic Receiver Echo", "pos": "WR", "team": "SYE"},
+      "answer": {"side": "sell", "reasons": ["Synthetic reason: a real zero is a value, not a missing one."]},
+      "values": [
+        {"key": "ours", "label": "DDF Value", "value": 0},
+        {"key": "market", "label": "Market", "value": 5.5},
+        {"key": "gap", "label": "Gap", "value": -0}
+      ],
+      "sources": [
+        {"key": "syn_chart_a", "name": "Synthetic Chart A", "status": "waiver", "value": 0, "reason": "At Synthetic Chart A's waiver line for your league"},
+        {"key": "syn_chart_b", "name": "Synthetic Chart B", "status": "priced", "value": 5.5}
+      ],
+      "detail": {"lines": ["Synthetic detail line for Receiver Echo."]}
+    },
+    "long_name": {
+      "status": "ready",
+      "player": {"id": "syn-rb-606", "name": "Synthetic Extraordinarily-Long-Hyphenated-Surname-Runner Foxtrot-Wolfeschlegelsteinhausenbergerdorff Junior III", "pos": "RB", "team": "SYNTHETICLONGTEAM"},
+      "answer": {"side": "buy", "reasons": ["Synthetic reason with a very long unbroken token: Supercalifragilisticexpialidocious-Synthetic-Unbroken-Token-For-Overflow-Checks."]},
+      "values": [
+        {"key": "ours", "label": "DDF Value (projections) synthetic long label", "value": 123.456789},
+        {"key": "market", "label": "Market", "value": 100.5}
+      ],
+      "sources": [
+        {"key": "syn_chart_a", "name": "Synthetic Chart With An Exceptionally Long Publisher Name For Wrapping", "status": "priced", "value": 100.5}
+      ],
+      "detail": {"lines": ["Synthetic detail line with a long unbroken token: Detail-Token-Supercalifragilisticexpialidocious-Overflow."]}
+    }
+  }
+}

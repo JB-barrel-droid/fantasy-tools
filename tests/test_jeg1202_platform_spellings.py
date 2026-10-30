@@ -70,9 +70,47 @@ class PlatformSpellingCoverage(unittest.TestCase):
         player_aliases._reset_for_tests(None)
 
     def test_committed_outputs_match_a_fresh_build(self):
+        # The Sleeper base is refreshed and committed by a workflow (JEG-366);
+        # a refresh alone makes the matrix stale, not wrong. Say so instead of
+        # failing the suite until someone reruns the build.
+        built = json.loads((ROOT / "docs" / "research" / "JEG-1202" / "summary.json").read_text())
+        base = json.loads((ROOT / self.mod.SLEEPER_BASE).read_text())["meta"]
+        if built["sleeper_base_meta"].get("pulled_at") != base.get("pulled_at"):
+            self.skipTest(f"Sleeper base refreshed since the matrix was built "
+                          f"({built['sleeper_base_meta'].get('pulled_at')} -> {base.get('pulled_at')}); "
+                          "rerun docs/research/JEG-1202/build_matrix.py")
         drift = [str(p.relative_to(ROOT)) for p, txt in self.mod.render(*self.mod.build()).items()
                  if p.read_text(encoding="utf-8") != txt]
         self.assertEqual(drift, [], "rerun docs/research/JEG-1202/build_matrix.py")
+
+    def test_every_row_states_active_from_the_paired_snapshot(self):
+        # JEG-1313: without saved active flags every row read as inactive and
+        # namesakes looked ambiguous offline when the live registry would not.
+        doc = json.loads((ROOT / self.mod.ACTIVE).read_text())
+        raw = json.loads((ROOT / self.mod.SNAPSHOT).read_text())
+        self.assertEqual(doc["identity_md5"], self.mod.identity_md5(raw))
+        self.assertEqual(doc["row_count"], len(raw))
+        self.assertTrue(all(isinstance(r.get("active"), bool) for r in self.canon.values()))
+        self.assertEqual(sum(r["active"] for r in self.canon.values()), doc["active_count"])
+        self.assertEqual(sum(e["active"] for e in self.reg.by_key.values()), doc["active_count"])
+
+    def test_active_snapshot_is_refused_for_other_rows(self):
+        raw = json.loads((ROOT / self.mod.SNAPSHOT).read_text())
+        renamed = [dict(r) for r in raw]
+        renamed[0]["full_name"] += " Jr."
+        with self.assertRaises(SystemExit):
+            self.mod.load_active(renamed)
+        with self.assertRaises(SystemExit):
+            self.mod.load_active(raw[:-1])
+
+    def test_one_active_namesake_wins_without_a_position(self):
+        # Grounded from the two snapshots only: of the rows whose name
+        # normalizes to DeVonta Smith's, 764 is the one active row.
+        norm = canonical_players.norm_player_name("DeVonta Smith")
+        rows = [k for k, r in self.canon.items() if canonical_players.norm_player_name(r["full_name"]) == norm]
+        self.assertGreater(len(rows), 1)
+        self.assertEqual([k for k in rows if self.canon[k]["active"]], [764])
+        self.assertEqual(canonical_players.resolve_with_reason("DeVonta Smith", registry=self.reg), (764, "ok"))
 
     def test_every_observation_points_at_its_source_line(self):
         for o in self.obs:

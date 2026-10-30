@@ -42,6 +42,8 @@ REPORTER = "pipelines/check_source_divergence.py"
 OUT = REPO / "tests" / "fixtures" / "divergence-evidence-audit" / "committed-receipts.json"
 SCHEMA = "divergence-evidence-receipts/1"
 COMBO_FIELDS = ("n", "outliers", "outlier_rate", "bias", "mad", "status")
+EXAMPLE_FIELDS = ("player_key", "value", "consensus")
+POSITION_FIELDS = ("n", "outliers", "outlier_rate", "bias", "mad")
 
 
 def git(*args: str) -> str:
@@ -146,8 +148,11 @@ def receipt(commit: str, committed_at: str, report_blob: str, report: dict, repo
         combos = {}
         for key, c in sorted((v.get("combos") or {}).items()):
             row = {f: c.get(f) for f in COMBO_FIELDS}
-            row["examples"] = len(c.get("examples") or [])
-            row["by_position"] = bool(c.get("by_position"))
+            # The value-impact evidence the report carries, copied as is: the five largest
+            # deviations (player, value, consensus) and the per-position statistics.
+            row["examples"] = [{k: e.get(k) for k in EXAMPLE_FIELDS} for e in (c.get("examples") or [])]
+            row["by_position"] = {p: {k: b.get(k) for k in POSITION_FIELDS}
+                                  for p, b in sorted((c.get("by_position") or {}).items())}
             combos[key] = row
         sources[s] = {"status": v.get("status"), "computed_status": v.get("computed_status"),
                       "week": v.get("week"), "headline_combo": v.get("headline_combo"),
@@ -207,13 +212,22 @@ def extract(ref: str) -> dict:
             "scoring_bases": dict(sorted(bases.items())), "receipts": receipts}
 
 
+def dumps(doc: dict) -> str:
+    """Deterministic JSON with one compact line per receipt, so a regenerated file diffs
+    by receipt and stays small."""
+    head = {k: v for k, v in doc.items() if k != "receipts"}
+    lines = json.dumps(head, indent=1, sort_keys=True)[:-2].rstrip()
+    rows = [json.dumps(r, sort_keys=True, separators=(",", ":")) for r in doc["receipts"]]
+    return lines + ',\n "receipts": [\n  ' + ",\n  ".join(rows) + "\n ]\n}\n"
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--ref", default="origin/main")
     ap.add_argument("--out", type=Path, default=OUT)
     args = ap.parse_args(argv)
     doc = extract(args.ref)
-    text = json.dumps(doc, indent=1, sort_keys=True) + "\n"
+    text = dumps(doc)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(text, encoding="utf-8")
     print(f"{len(doc['receipts'])} receipts from {doc['extracted_from']['head'][:8]} -> {args.out} "
