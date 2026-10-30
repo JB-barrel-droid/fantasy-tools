@@ -19,6 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1125 one shared "even" band, option A (Claude, 2026-10-30 UTC)
+
+- Branch `fe/jeg-1125-even-threshold`, PR #1033 (draft). Jeremy picked A on
+  2026-10-29 9:11 PM CT and said yes to building it on 2026-10-30: one even
+  band, max(1 point, 3% of the average side), for Compare's verdict, Compare's
+  Deal read and Find a trade. THIN_MARGIN (5%) is a separate confidence rule and
+  stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
+  the Duet project files, summary on the ticket) and approves before any merge.
+  Do not merge or mark #1033 ready without his yes on that before/after.
+- State: in progress (merged origin/main at `7a1572b`; implementing A next).
+
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
 - Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
