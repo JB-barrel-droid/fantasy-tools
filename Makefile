@@ -142,9 +142,13 @@ test-unit-modules:
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory
+	# JEG-1225: the shared value-context link format (basis=, ov=).
+	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
+	# JEG-1225: get-values prices under a link's basis and overrides.
+	python3 -m unittest tests.test_get_values_value_context
 	python3 -m unittest tests.test_endpoint_parity
 	# JEG-1029: the connector's analyses against value_reference (offline) and the page (browser).
 	python3 -m unittest tests.test_connector_analyses
