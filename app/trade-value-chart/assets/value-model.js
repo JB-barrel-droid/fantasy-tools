@@ -223,6 +223,21 @@
 
   function vpNumKey(a, b) { return Number(a) - Number(b); }
 
+  // JEG-1047 (Jeremy, 2026-10-29: "A"): a projection source's waiver line is
+  // the mean of the 7 players around the first non-rostered seat (work[N]),
+  // clipped to the list (N = 0: the top up to 4). Its own copy, not a call to
+  // RosterConvention.waiverBandLine: tests/test_waiver_band_line.py checks this
+  // function through runValuePipeline against roster_convention.waiver_band_line,
+  // the Python reference and the spec reference (JEG-1244).
+  var VP_WAIVER_BAND_HALF_WIDTH = 3;
+  function vpWaiverBand(work, N) {
+    var lo = Math.max(0, N - VP_WAIVER_BAND_HALF_WIDTH);
+    var hi = Math.min(work.length, N + VP_WAIVER_BAND_HALF_WIDTH + 1);
+    var sum = 0;
+    for (var i = lo; i < hi; i++) sum += work[i].native;
+    return sum / (hi - lo);
+  }
+
   // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
   // sorted best first; `score` is m (or the source's own native in the
   // degenerate case, VP-2.2f). Returns {pos: {dedicated, superflex, flex,
@@ -1099,7 +1114,7 @@
         var N = a.rostered, S = a.starters;
         var method, waiver = null, starterLine = null;
         if (work.length > N) {
-          waiver = work[N].native;
+          waiver = family === "projection" ? vpWaiverBand(work, N) : work[N].native;
           method = work[N].estimated ? "estimated" : "roster_determined";
         } else if (work.length) {
           waiver = work[work.length - 1].native;

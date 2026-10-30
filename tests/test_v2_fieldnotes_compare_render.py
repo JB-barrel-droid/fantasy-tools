@@ -6,6 +6,8 @@ shared trade link:
   * the verdict is the Fieldnotes answer: Fraunces on its heading, and a left edge that keeps its meaning (win action,
     lose negative, incomplete warning, none and even ink);
   * no sideways scroll, every visible control in Compare at least 44px tall, and text at least 4.5:1 (3:1 when large);
+  * every element the page hides (the hidden attribute) stays hidden as it does without the flag, so "Copy link to
+    this trade" can't be copied or focused while the trade is empty or one-sided;
   * by keyboard: Tab reaches "Every pairing" with a 3px focus ring at least 3:1, Enter opens and closes it, Enter on a
     row's "Show players" opens that row's arithmetic and keeps focus on the toggle, and Enter on "Copy link to this
     trade" puts the trade's link on the clipboard; on a phone the verdict bar shows for a linked trade.
@@ -108,6 +110,11 @@ FOCUS = """() => { const el = document.activeElement; if (!el) return null;
   return {tag: el.tagName.toLowerCase(), id: el.id, cls: String(el.className), text: (el.textContent || '').trim().slice(0, 40),
     style: cs.outlineStyle, width: parseFloat(cs.outlineWidth), contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05)}; }"""
 
+# Elements v2.js hides with the hidden attribute that a Fieldnotes display rule would show again.
+SHOWN_HIDDEN = """() => [...document.querySelectorAll('#v2Compare [hidden]')]
+  .filter(el => getComputedStyle(el).display !== 'none' && !(el.parentElement && el.parentElement.closest('[hidden]')))
+  .map(el => `${el.tagName.toLowerCase()}#${el.id}.${String(el.className).trim()}`)"""
+
 STYLE_SNAPSHOT = """() => [...document.querySelectorAll('#v2Compare, #v2Compare *')].map(el => {
   const cs = getComputedStyle(el); return [el.tagName, el.id, String(el.className), [...cs].sort().map(p => p + ':' + cs.getPropertyValue(p)).join(';')]; })"""
 
@@ -204,6 +211,9 @@ class FieldnotesCompareTests(unittest.TestCase):
                             errors.append(f"{tag}: page scrolls sideways by {state['overflow']}px")
                         errors += [f"{tag}: control under 44px: {s}" for s in state["small"]]
                         errors += [f"{tag}: low text contrast: {s}" for s in state["text"]]
+                        plain_shown = set(plain.evaluate(SHOWN_HIDDEN))
+                        errors += [f"{tag}: hidden by the page but shown under the flag: {s}"
+                                   for s in page.evaluate(SHOWN_HIDDEN) if s not in plain_shown]
 
                     # Keyboard, on the win trade: the pairing disclosure, a row's arithmetic and sharing.
                     kind, give, get = branches(pick)[1]
