@@ -1059,6 +1059,22 @@ Jeremy, 2026-10-29 (JEG-1244, option A): the tolerance check holds the league's 
 
 Jeremy, 2026-10-29 19:12 UTC (in chat): "I want to get off of Codex I think, having you use a seperate reviewer makes sense. Codex is slowing us down." Claude sessions now own review and merging; every PR gets one independent review from a Claude session that did not write it. At 20:10 UTC he picked A: a Codex pass on a PR's exact current head counts as that PR's one review. He approves merges by PR number, and at 21:08 UTC gave a standing OK: "merge anything you recommend once it is green". Value changes, Supabase changes and edge deploys still need his yes each time. The rules are in `AGENTS.md` "Review and merge protocol"; they replace the Codex-coordinator protocol of closed PR #1073.
 
+## JEG-1286: fractional flex and bench seats (option B)
+
+Jeremy, 2026-10-29 21:08 UTC, replying "Go with B" to the coordinator's
+plain-language summary of options A to D (`docs/research/jeg1286-flex-flips.md`):
+flex and bench seats become fractional. Each candidate near a cutoff holds a
+seat share Φ((mean PPG − cutoff) / σ), with σ = 0.75 PPG. The fractional
+counts are written as a weighted mix of whole allocations, the pipeline runs
+once per allocation, and every value is weight-averaged. Bench seats get the
+same treatment on the bench rule's discounted points. As σ goes to 0 this is
+today's rule. Not taken: A (keep the hard cutoff), C (fixed flex split from
+real-league usage), D (bench discount decoupled from the flex split).
+
+Build: JEG-1333. The seat-share helper is JEG-1334. The engine and reference
+wiring is JEG-1335, after #1077 (JEG-1244) and #1105 (JEG-1188). Reverse:
+σ = 0 in the helper reproduces today's allocation exactly.
+
 ## JEG-1310: CBS rest of season stays as it has been
 
 Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.

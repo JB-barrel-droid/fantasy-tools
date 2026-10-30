@@ -978,7 +978,11 @@
   const FINDER_MAX_SIDE = 40;   // a crafted link cannot freeze the page
   const finderKeys = list => (list || []).map(p => (typeof p === "string" ? p : p && p.key))
     .filter(k => k !== undefined && k !== null && k !== "").map(k => encodeURIComponent(String(k))).join(",");
-  // state: {mine, theirs, maxSize, keepMine, keepTheirs}; leagueQuery: the page's leagueLinkParts().join("&") (may be "").
+  // JEG-1328: the link also names the saved teams the two rosters were loaded from (ws = the league's id, mt / tt = the
+  // teams' ids). They only matter to a reader with that same saved league; anywhere else the rosters stay a working copy.
+  const FINDER_TEAM_ID = /^[0-9A-Za-z_-]{1,64}$/;
+  // state: {mine, theirs, maxSize, keepMine, keepTheirs, guardrails, viableOnly, teams: {workspaceId, mineId, theirId}};
+  // leagueQuery: the page's leagueLinkParts().join("&") (may be "").
   function encodeFinderHash(state, leagueQuery) {
     const s = state || {};
     const parts = [];
@@ -999,6 +1003,10 @@
     if (g.minDdfEdge > 0) parts.push(`minEdge=${g.minDdfEdge}`);
     if (g.minUserLineupGain !== null && g.minUserLineupGain !== undefined) parts.push(`minMine=${g.minUserLineupGain}`);
     if (g.minTheirLineupGain !== null && g.minTheirLineupGain !== undefined) parts.push(`minTheirs=${g.minTheirLineupGain}`);
+    if (s.viableOnly) parts.push("viable=1");
+    const t = s.teams || {};
+    const ids = [["mt", t.mineId], ["tt", t.theirId]].filter(([, id]) => FINDER_TEAM_ID.test(String(id || "")));
+    if (FINDER_TEAM_ID.test(String(t.workspaceId || "")) && ids.length) parts.push(`ws=${t.workspaceId}`, ...ids.map(([k, id]) => `${k}=${id}`));
     const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
     if (tail) parts.push(tail);
     return `#find-trade?${parts.join("&")}`;
@@ -1045,13 +1053,28 @@
       const match = /^(QB|RB|WR|TE):(\d{1,2})$/.exec(entry);
       if (match && Number(match[2]) <= 20) backups[match[1]] = Number(match[2]);
     });
+    const teamId = name => (FINDER_TEAM_ID.test(params.get(name) || "") ? params.get(name) : null);
+    const teams = {workspaceId: teamId("ws"), mineId: teamId("mt"), theirId: teamId("tt")};
+    if (!teams.workspaceId || teams.mineId === teams.theirId) { teams.mineId = null; teams.theirId = null; }
+    if (!teams.mineId && !teams.theirId) teams.workspaceId = null;
     return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
-      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", dropped, unknown, both: both.length,
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", viableOnly: params.get("viable") === "1", teams, dropped, unknown, both: both.length,
       guardrails: {protectedPositions: GUARDRAIL_POSITIONS.filter(pos => (params.get("protect") || "").split(",").includes(pos)), minBackups: backups,
         minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // JEG-1328: which of a search link's saved teams (decoded teams plus the link's roster keys) label the rosters setSides
+  // was given. A team counts only when every player given came from the link and the reader has that saved league and team.
+  function linkTeamsFor(link, mine, theirs, workspace) {
+    const none = {mineId: null, theirId: null};
+    const fromLink = (list, keys) => list.every(p => keys.has(String(p.key)));
+    if (!link || !workspace || workspace.id !== link.workspaceId) return none;
+    if (!fromLink(mine, link.mineKeys) || !fromLink(theirs, link.theirKeys)) return none;
+    const has = id => Boolean(id) && workspace.teams.some(team => team.id === id);
+    return {mineId: has(link.mineId) ? link.mineId : null, theirId: has(link.theirId) ? link.theirId : null};
+  }
+
+  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,
@@ -1268,6 +1291,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     setSides: (mine, theirs) => {
       snapshot();
       rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true};
+      adoptLinkTeams(mine, theirs);
       const have = new Set(mine.map(p => p.key));
       S.mine = mine.map(p => ({...p}));
       S.theirs = theirs.filter(p => !have.has(p.key)).map(p => ({...p}));
@@ -1312,7 +1336,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
     if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
     const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
-    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails}, league);
+    const teams = rosterCopy ? {workspaceId: rosterCopy.workspaceId, mineId: rosterCopy.teamId, theirId: rosterCopy.theirTeamId} : null;
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails,
+      viableOnly: S.viableOnly, teams}, league);
     const ov = root.DDFOverrides;
     const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
     const url = location.href.split("#")[0] + shared.hash;
@@ -1327,7 +1353,24 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     try { await navigator.clipboard.writeText(url); }
     catch (error) { say(`Copy this link: ${url}`); }
   }
-  api.applyHash = applyHash;
+  // JEG-1328: a search link's viable-only tick and the saved teams its rosters came from. Each team is adopted when
+  // setSides puts that link's rosters in (every player it is given came from the link), and only when this reader has
+  // that saved league and the team in it; a later state with other rosters keeps the working copy unlabelled.
+  let linkTeams = null;
+  function adoptLinkTeams(mine, theirs) {
+    const t = linkTeams;
+    linkTeams = null;
+    const picked = linkTeamsFor(t, mine, theirs, t && sharedStore() ? sharedStore().get() : null);
+    if (picked.mineId) rosterCopy.teamId = picked.mineId;
+    if (picked.theirId) rosterCopy.theirTeamId = picked.theirId;
+  }
+  api.applyHash = params => {
+    const decoded = applyHash(params);
+    linkTeams = decoded && decoded.teams.workspaceId && (params.has("mine") || params.has("theirs"))
+      ? {...decoded.teams, mineKeys: new Set(decoded.mine), theirKeys: new Set(decoded.theirs)} : null;
+    if (decoded) S.viableOnly = decoded.viableOnly;
+    return decoded;
+  };
   api.copyLink = copyLink;
 
   // JEG-892: the bye week (player-flags.js) on a player row; null when there is none.
@@ -2552,6 +2595,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     S.sel = new Set([...S.sel].filter(k => S.mine.concat(S.theirs).some(p => p.key === k)));
     return say;
   }
+  // JEG-1380: the week the page now shows, named in the note after a week change.
+  function weekNote() {
+    const state = engine().getWeekState ? engine().getWeekState() : null;
+    return state && Number.isInteger(state.week) ? `Updated for Week ${state.week}.` : "Updated for the selected week.";
+  }
   function onLeagueSettingsChanged(event) {
     if (!$("v2Find") || !engine()) return;
     const hadResults = hasResults();
@@ -2580,7 +2628,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");
-    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : event && event.detail && event.detail.reason === "week" ? weekNote() : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
     if (note) note.textContent = text;
     if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
   }

@@ -1,8 +1,8 @@
 {
-  "run_at": "2026-10-30T02:44:06.315084+00:00",
+  "run_at": "2026-10-30T11:40:23.348067+00:00",
   "nfl_week": 8,
   "sources": {
-    "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 8); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
+    "usatoday": "promoted 3/3",
     "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
@@ -14,28 +14,27 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "razzball",
-    "usatoday"
+    "cbsros",
+    "razzball"
   ],
-  "hold_severity": "red",
+  "hold_severity": "amber",
   "list_changes": {},
   "held_detail": {
-    "usatoday": {
-      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
-      "reason": "review hold",
-      "stage": "review",
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 8",
-        "content_vintage": "2026-10-27",
-        "content_week": 8
-      },
-      "weeks_behind": 0,
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; WR: 1 players listed with another position in the cell (kept as WR",
       "hold_severity": "amber",
-      "rolled_back": 0
+      "week": 8
     },
     "razzball": {
-      "reason": "fidelity: stored_vs_chart",
+      "reason": "fidelity: publisher_vs_stored",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -43,8 +42,8 @@
       "sections": [
         "razzball"
       ],
-      "detail": "1923/1923 chart values equal stored snapshot 2026-10-27 (per game, 1 decimals); 33 stored players are left off the chart by its own rule (missed-games guard, JEG-555): AJ Dillon, Alec Pierce, Bryce Lance, Brycen Tremayne, Caleb Douglas, Chris Bell, Christian Kirk, Darnell Mooney, Davis Allen, De'Zha",
-      "hold_severity": "red",
+      "detail": "2028/2028 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
       "week": 8
     }
   },
@@ -52,25 +51,12 @@
   "detail": {
     "usatoday": {
       "source": "usatoday",
-      "status": "held",
-      "stage": "review",
-      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
-      "promoted": 0,
+      "status": "ok",
+      "stage": "complete",
+      "detail": "promoted 3/3",
+      "promoted": 3,
       "sections": 3,
-      "list_change_warnings": [],
-      "held": true,
-      "held_reason": "review hold",
-      "failed_stage": "review",
-      "rolled_back": 0,
-      "rolled_back_records": [],
-      "kept_section": {
-        "present": true,
-        "week_designated": "Week 8",
-        "content_vintage": "2026-10-27",
-        "content_week": 8
-      },
-      "weeks_behind": 0,
-      "hold_severity": "amber"
+      "list_change_warnings": []
     },
     "fantasycalc": {
       "source": "fantasycalc",
@@ -194,7 +180,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-29T21:12:51+00:00",
+      "published_at": "2026-10-30T10:05:23+00:00",
       "basis": "section_label"
     },
     "fantasypros": {
@@ -217,6 +203,7 @@
     }
   },
   "fidelity_holds": {
-    "razzball": "fidelity: stored_vs_chart"
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }

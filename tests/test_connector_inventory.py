@@ -45,7 +45,7 @@ TOOLS = {
     "read_state": {"route": "#compare-trade", "checks": [ROUND_TRIP, REMOTE]},
     "make_state": {"route": "#find-trade", "checks": [ROUND_TRIP, REMOTE]},
     "find_trades": {"route": "#find-trade", "checks": [VALUES, ROUND_TRIP, REMOTE, FIT]},
-    # JEG-1329 pick B (#1175): the league scan links to Find a trade, league, with every roster.
+    # JEG-1384: league-wide since JEG-1329 (#1175), which resolved JEG-1030 F2 for this route.
     "find_trades_league": {"route": "#find-league", "checks": [VALUES, ROUND_TRIP, REMOTE]},
     # explain prices nothing and links to the front page without a league.
     "explain": {"route": "/", "checks": [ROUND_TRIP, REMOTE]},

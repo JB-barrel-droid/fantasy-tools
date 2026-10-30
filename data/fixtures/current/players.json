@@ -6,7 +6,7 @@
   "rz_snapshot": "2026-10-27",
   "cbsros_snapshot": "2026-10-30",
   "espn_snapshot_id": "sha256:788004dd904e34481caaf1bc25d0263365fcb7fd4ca449e38c43298846eb8fe2",
-  "cbsros_snapshot_id": "sha256:e7bc092f1ce90727730cf22bc0f5bfac08a2b7297d93c1c90781212863be6825",
+  "cbsros_snapshot_id": "sha256:b3085e8dcd905263fdd521cdd8fb2efada6f58145831fcce92637b7a089d7801",
   "rz_snapshot_id": "sha256:906eebae07ca0b3902ee8b4c2b45a91739e0d2f44122604aef63f9f7a175e5e1",
   "n_players": 1163,
   "n_espn_complete": 349,
@@ -54,22 +54,22 @@
      "snapshot": "data/raw/sources/fantasycalc/week-8/snapshot.json",
      "by_combo": {
       "half_ppr-12": {
-       "QB": 33,
-       "RB": 64,
-       "WR": 71,
-       "TE": 27
-      },
-      "ppr-12": {
-       "QB": 33,
+       "QB": 32,
        "RB": 64,
        "WR": 72,
-       "TE": 27
+       "TE": 29
+      },
+      "ppr-12": {
+       "QB": 32,
+       "RB": 64,
+       "WR": 72,
+       "TE": 30
       },
       "standard-12": {
-       "QB": 33,
+       "QB": 32,
        "RB": 64,
-       "WR": 71,
-       "TE": 27
+       "WR": 72,
+       "TE": 29
       }
      }
     },
@@ -168,7 +168,7 @@
   "disagree_baseline_note": "JEG-ECR-EXIT (2026-10-05): the prior ESPN-vs-ECR shade baseline is gone (ESPN is the primary leg, so ESPN-vs-ESPN is zero by construction). The Razzball comparison shade is still measured against ESPN: rz_shade_ppg = mean(rz_filled_ppg - espn_ppg). Positive shade = comparison cooler than ESPN; negative = warmer. delta_rz_espn_ppg_demeaned subtract the positional baseline so rank gaps are genuine ordering differences, not shade.",
   "pricing_note": "pricing labels are uniform 'espn_only' across all positions (JEG-ECR-EXIT 2026-10-05): the primary value IS ESPN, with ESPN-purity (every ESPN-labeled field sourced ONLY from ESPN projections) for every charted position. The source-accounting audit rejects any other label.",
   "dataset_status": {
-   "built_at": "2026-10-30T02:43:07Z",
+   "built_at": "2026-10-30T11:39:07Z",
    "as_of": "2026-10-30",
    "summary": {
     "live": 3,
@@ -1526,9 +1526,9 @@
    "delta_rz_espn": -34.36,
    "delta_rz_espn_ppg": -3.44,
    "cbsros_ppg": {
-    "standard": 22.12,
-    "half_ppr": 22.12,
-    "ppr": 22.12
+    "standard": 22.02,
+    "half_ppr": 22.02,
+    "ppr": 22.02
    },
    "prior_espn_ros": {
     "standard": 302.52,
@@ -1625,8 +1625,8 @@
    "delta_rz_espn_ppg": -0.42,
    "cbsros_ppg": {
     "standard": 16.51,
-    "half_ppr": 20.06,
-    "ppr": 23.61
+    "half_ppr": 20.11,
+    "ppr": 23.71
    },
    "prior_espn_ros": {
     "standard": 197.91,
@@ -1722,9 +1722,9 @@
    "delta_rz_espn": -39.27,
    "delta_rz_espn_ppg": -3.57,
    "cbsros_ppg": {
-    "standard": 17.655,
-    "half_ppr": 17.655,
-    "ppr": 17.655
+    "standard": 17.22,
+    "half_ppr": 17.22,
+    "ppr": 17.22
    },
    "prior_espn_ros": {
     "standard": 261.09,
@@ -2507,9 +2507,9 @@
    "delta_rz_espn": -54.11,
    "delta_rz_espn_ppg": -4.92,
    "cbsros_ppg": {
-    "standard": 18.0,
-    "half_ppr": 18.0,
-    "ppr": 18.0
+    "standard": 17.964,
+    "half_ppr": 17.964,
+    "ppr": 17.964
    },
    "prior_espn_ros": {
     "standard": 272.74,
@@ -2798,9 +2798,9 @@
    "delta_rz_espn": -18.55,
    "delta_rz_espn_ppg": -1.86,
    "cbsros_ppg": {
-    "standard": 20.39,
-    "half_ppr": 20.39,
-    "ppr": 20.39
+    "standard": 20.033,
+    "half_ppr": 20.033,
+    "ppr": 20.033
    },
    "prior_espn_ros": {
     "standard": 255.84,
@@ -3878,9 +3878,9 @@
    "delta_rz_espn": -15.14,
    "delta_rz_espn_ppg": -1.51,
    "cbsros_ppg": {
-    "standard": 14.96,
-    "half_ppr": 15.56,
-    "ppr": 16.16
+    "standard": 14.86,
+    "half_ppr": 15.46,
+    "ppr": 16.06
    },
    "prior_espn_ros": {
     "standard": 246.62,
@@ -4075,9 +4075,9 @@
    "delta_rz_espn": -33.93,
    "delta_rz_espn_ppg": -3.39,
    "cbsros_ppg": {
-    "standard": 15.37,
-    "half_ppr": 15.37,
-    "ppr": 15.37
+    "standard": 15.57,
+    "half_ppr": 15.57,
+    "ppr": 15.57
    },
    "prior_espn_ros": {
     "standard": 220.52,
@@ -4173,9 +4173,9 @@
    "delta_rz_espn": -34.64,
    "delta_rz_espn_ppg": -3.15,
    "cbsros_ppg": {
-    "standard": 12.882,
-    "half_ppr": 14.109,
-    "ppr": 15.336
+    "standard": 12.86,
+    "half_ppr": 14.26,
+    "ppr": 15.66
    },
    "prior_espn_ros": {
     "standard": 167.38,
@@ -4369,9 +4369,9 @@
    "delta_rz_espn": -8.89,
    "delta_rz_espn_ppg": -0.81,
    "cbsros_ppg": {
-    "standard": 7.682,
-    "half_ppr": 10.182,
-    "ppr": 12.682
+    "standard": 7.78,
+    "half_ppr": 10.28,
+    "ppr": 12.78
    },
    "prior_espn_ros": {
     "standard": 129.83,
@@ -5548,9 +5548,9 @@
    "delta_rz_espn": 12.07,
    "delta_rz_espn_ppg": 1.1,
    "cbsros_ppg": {
-    "standard": 6.364,
-    "half_ppr": 8.409,
-    "ppr": 10.455
+    "standard": 6.78,
+    "half_ppr": 8.73,
+    "ppr": 10.68
    },
    "prior_espn_ros": {
     "standard": 111.94,
@@ -5843,8 +5843,8 @@
    "delta_rz_espn_ppg": 0.76,
    "cbsros_ppg": {
     "standard": 11.76,
-    "half_ppr": 13.21,
-    "ppr": 14.66
+    "half_ppr": 13.26,
+    "ppr": 14.76
    },
    "prior_espn_ros": {
     "standard": 153.38,
@@ -6137,9 +6137,9 @@
    "delta_rz_espn": -3.89,
    "delta_rz_espn_ppg": -0.39,
    "cbsros_ppg": {
-    "standard": 9.12,
-    "half_ppr": 11.62,
-    "ppr": 14.12
+    "standard": 9.422,
+    "half_ppr": 11.978,
+    "ppr": 14.533
    },
    "prior_espn_ros": {
     "standard": 125.78,
@@ -6630,9 +6630,9 @@
    "delta_rz_espn": 7.29,
    "delta_rz_espn_ppg": 0.73,
    "cbsros_ppg": {
-    "standard": 11.49,
-    "half_ppr": 13.84,
-    "ppr": 16.19
+    "standard": 10.644,
+    "half_ppr": 13.144,
+    "ppr": 15.644
    },
    "prior_espn_ros": {
     "standard": 144.93,
@@ -6729,9 +6729,9 @@
    "delta_rz_espn": -26.84,
    "delta_rz_espn_ppg": -2.68,
    "cbsros_ppg": {
-    "standard": 11.66,
-    "half_ppr": 13.31,
-    "ppr": 14.96
+    "standard": 11.778,
+    "half_ppr": 13.556,
+    "ppr": 15.333
    },
    "prior_espn_ros": {
     "standard": 107.3,
@@ -6828,9 +6828,9 @@
    "delta_rz_espn": -16.62,
    "delta_rz_espn_ppg": -1.66,
    "cbsros_ppg": {
-    "standard": 9.06,
-    "half_ppr": 10.01,
-    "ppr": 10.96
+    "standard": 9.76,
+    "half_ppr": 10.71,
+    "ppr": 11.66
    },
    "prior_espn_ros": {
     "standard": 200.44,
@@ -6926,8 +6926,8 @@
    "delta_rz_espn": -24.87,
    "delta_rz_espn_ppg": -2.49,
    "cbsros_ppg": {
-    "standard": 10.49,
-    "half_ppr": 13.69,
+    "standard": 10.39,
+    "half_ppr": 13.64,
     "ppr": 16.89
    },
    "prior_espn_ros": {
@@ -10659,9 +10659,9 @@
    "delta_rz_espn": 20.03,
    "delta_rz_espn_ppg": 1.82,
    "cbsros_ppg": {
-    "standard": 7.355,
-    "half_ppr": 8.4,
-    "ppr": 9.445
+    "standard": 7.255,
+    "half_ppr": 8.3,
+    "ppr": 9.345
    },
    "prior_espn_ros": {
     "standard": 130.65,
@@ -10855,9 +10855,9 @@
    "delta_rz_espn": -1.57,
    "delta_rz_espn_ppg": -0.16,
    "cbsros_ppg": {
-    "standard": 6.89,
-    "half_ppr": 9.19,
-    "ppr": 11.49
+    "standard": 7.1,
+    "half_ppr": 9.378,
+    "ppr": 11.656
    },
    "prior_espn_ros": {
     "standard": 74.64,
@@ -11739,9 +11739,9 @@
    "delta_rz_espn": 17.54,
    "delta_rz_espn_ppg": 1.59,
    "cbsros_ppg": {
-    "standard": 7.755,
-    "half_ppr": 8.209,
-    "ppr": 8.664
+    "standard": 7.655,
+    "half_ppr": 8.109,
+    "ppr": 8.564
    },
    "prior_espn_ros": {
     "standard": 117.93,
@@ -13381,9 +13381,9 @@
    "delta_rz_espn": 8.12,
    "delta_rz_espn_ppg": 0.81,
    "cbsros_ppg": {
-    "standard": 4.66,
-    "half_ppr": 5.26,
-    "ppr": 5.86
+    "standard": 4.56,
+    "half_ppr": 5.16,
+    "ppr": 5.76
    },
    "prior_espn_ros": {
     "standard": 124.32,
@@ -19651,8 +19651,8 @@
    "delta_rz_espn_ppg": 0.64,
    "cbsros_ppg": {
     "standard": 5.18,
-    "half_ppr": 6.38,
-    "ppr": 7.58
+    "half_ppr": 6.43,
+    "ppr": 7.68
    },
    "prior_espn_ros": {
     "standard": 75.33,
@@ -19748,9 +19748,9 @@
    "delta_rz_espn": 21.31,
    "delta_rz_espn_ppg": 1.94,
    "cbsros_ppg": {
-    "standard": 4.091,
-    "half_ppr": 5.227,
-    "ppr": 6.364
+    "standard": 3.99,
+    "half_ppr": 5.04,
+    "ppr": 6.09
    },
    "prior_espn_ros": {
     "standard": 52.34,
@@ -20102,9 +20102,9 @@
    "delta_rz_espn": 9.16,
    "delta_rz_espn_ppg": 0.92,
    "cbsros_ppg": {
-    "standard": 5.56,
-    "half_ppr": 5.71,
-    "ppr": 5.86
+    "standard": 5.46,
+    "half_ppr": 5.61,
+    "ppr": 5.76
    },
    "prior_espn_ros": {
     "standard": 76.26,
@@ -20324,11 +20324,11 @@
     "half_ppr": 4.401818,
     "ppr": 4.956364
    },
-   "rz_held": "razzball half_ppr 0.1 ppg is 3% of the ESPN/CBS mean 3.3 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball half_ppr 0.1 ppg is 3% of the ESPN/CBS mean 3.2 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
-    "standard": 1.72,
-    "half_ppr": 1.82,
-    "ppr": 1.92
+    "standard": 1.52,
+    "half_ppr": 1.62,
+    "ppr": 1.72
    },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
@@ -21425,9 +21425,9 @@
    "delta_rz_espn": 16.9,
    "delta_rz_espn_ppg": 1.69,
    "cbsros_ppg": {
-    "standard": 2.43,
-    "half_ppr": 2.78,
-    "ppr": 3.13
+    "standard": 2.3,
+    "half_ppr": 2.633,
+    "ppr": 2.967
    },
    "prior_espn_ros": {
     "standard": 24.44,
@@ -21595,9 +21595,9 @@
    "delta_rz_espn": 15.88,
    "delta_rz_espn_ppg": 1.44,
    "cbsros_ppg": {
-    "standard": 2.618,
-    "half_ppr": 3.709,
-    "ppr": 4.8
+    "standard": 2.68,
+    "half_ppr": 3.73,
+    "ppr": 4.78
    },
    "prior_espn_ros": {
     "standard": 39.9,
@@ -24188,9 +24188,9 @@
    "delta_rz_espn": 3.4,
    "delta_rz_espn_ppg": 0.31,
    "cbsros_ppg": {
-    "standard": 1.3,
-    "half_ppr": 1.8,
-    "ppr": 2.3
+    "standard": 1.29,
+    "half_ppr": 1.79,
+    "ppr": 2.29
    },
    "prior_espn_ros": {
     "standard": 18.37,
@@ -27497,11 +27497,11 @@
     "half_ppr": 1.24,
     "ppr": 1.53
    },
-   "rz_held": "razzball ppr 1.1 ppg is 32% of the ESPN/CBS mean 3.5 (< 60%): likely an expected-missed-games discount",
+   "rz_held": "razzball ppr 1.1 ppg is 31% of the ESPN/CBS mean 3.5 (< 60%): likely an expected-missed-games discount",
    "cbsros_ppg": {
     "standard": 3.29,
-    "half_ppr": 4.34,
-    "ppr": 5.39
+    "half_ppr": 4.39,
+    "ppr": 5.49
    },
    "prior_espn_ros": {
     "standard": 20.95,
@@ -27914,13 +27914,9 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": true,
-   "cbsros_comp_count": 3,
-   "cbsros_covered": [
-    "half_ppr",
-    "ppr",
-    "standard"
-   ],
+   "cbsros_complete": false,
+   "cbsros_comp_count": 0,
+   "cbsros_covered": [],
    "blend_ros": {
     "standard": 11.4,
     "half_ppr": 12.7,
@@ -27966,11 +27962,6 @@
    },
    "delta_rz_espn": 20.0,
    "delta_rz_espn_ppg": 2.0,
-   "cbsros_ppg": {
-    "standard": 0.44,
-    "half_ppr": 0.54,
-    "ppr": 0.64
-   },
    "prior_espn_ros": null,
    "prior_blend_ros": null,
    "delta_rz_espn_ppg_demeaned": 2.44,
@@ -41934,9 +41925,9 @@
     "ppr": 16.0
    },
    "cbsros_ppg": {
-    "standard": 0.32,
-    "half_ppr": 0.67,
-    "ppr": 1.02
+    "standard": 0.278,
+    "half_ppr": 0.611,
+    "ppr": 0.944
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -42014,9 +42005,9 @@
     "ppr": 85.0
    },
    "cbsros_ppg": {
-    "standard": 4.133,
-    "half_ppr": 4.3,
-    "ppr": 4.467
+    "standard": 4.033,
+    "half_ppr": 4.2,
+    "ppr": 4.367
    },
    "prior_espn_ros": {
     "standard": 42.59,
@@ -43506,9 +43497,13 @@
     "ppr",
     "standard"
    ],
-   "cbsros_complete": false,
-   "cbsros_comp_count": 0,
-   "cbsros_covered": [],
+   "cbsros_complete": true,
+   "cbsros_comp_count": 3,
+   "cbsros_covered": [
+    "half_ppr",
+    "ppr",
+    "standard"
+   ],
    "blend_ros": {
     "standard": 0.0,
     "half_ppr": 0.0,
@@ -43517,6 +43512,9 @@
    "pricing": "espn_only",
    "espn_zeroed": true,
    "espn_status": "ineligible",
+   "universe_sources": [
+    "cbsros"
+   ],
    "roster_status": "active_roster",
    "roster_status_label": "Active roster",
    "depth_chart_position": "RB",
@@ -43543,6 +43541,11 @@
     "standard": 0.0,
     "half_ppr": 0.0,
     "ppr": 0.0
+   },
+   "cbsros_ppg": {
+    "standard": 0.336,
+    "half_ppr": 0.518,
+    "ppr": 0.7
    },
    "prior_espn_ros": {
     "standard": 13.01,
@@ -58245,8 +58248,6 @@
    "espn_status": "absent",
    "espn_missing_reason": "not on ESPN's list",
    "universe_sources": [
-    "fantasycalc",
-    "fantasycalc:superflex",
     "usatoday"
    ],
    "roster_status": "free_agent",
@@ -61092,8 +61093,6 @@
    "espn_zeroed": true,
    "espn_status": "ineligible",
    "universe_sources": [
-    "fantasycalc",
-    "fantasycalc:superflex",
     "fantasypros",
     "razzball",
     "usatoday"
@@ -62325,9 +62324,9 @@
     "ppr": 70.4
    },
    "cbsros_ppg": {
-    "standard": 3.86,
-    "half_ppr": 4.36,
-    "ppr": 4.86
+    "standard": 3.76,
+    "half_ppr": 4.26,
+    "ppr": 4.76
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -64563,9 +64562,9 @@
     "ppr": 2.0
    },
    "cbsros_ppg": {
-    "standard": 0.8,
-    "half_ppr": 0.8,
-    "ppr": 0.8
+    "standard": 0.833,
+    "half_ppr": 0.833,
+    "ppr": 0.833
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
@@ -67452,9 +67451,9 @@
     "ppr": 2.2
    },
    "cbsros_ppg": {
-    "standard": 0.773,
-    "half_ppr": 0.773,
-    "ppr": 0.773
+    "standard": 0.78,
+    "half_ppr": 0.78,
+    "ppr": 0.78
    },
    "prior_espn_ros": null,
    "prior_blend_ros": {
