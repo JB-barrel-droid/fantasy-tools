@@ -244,7 +244,11 @@ class CompareEvidenceViewRenderTest(unittest.TestCase):
 
     def test_guard_fails_on_broken_builds(self):
         broken = {
-            "no wrapping": (None, (".cev-row-name { font-weight: 600; min-width: 0; }", ".cev-row-name { font-weight: 600; white-space: nowrap; }")),
+            # Long text that stops wrapping must be caught. The row names in the fixtures are short enough to fit at
+            # 320 px even unwrapped, so a nowrap mutant on them was only "caught" by an unrelated net-name overflow;
+            # the verdict text is a full sentence in every case (JEG-1319).
+            "no wrapping": (None, (".cev-verdict-text, .cev-verdict-production, .cev-explain-line, .cev-group-note { font-size: var(--ddf-type-support, 14px); color: var(--cev-ink); }",
+                                   ".cev-verdict-text, .cev-verdict-production, .cev-explain-line, .cev-group-note { font-size: var(--ddf-type-support, 14px); color: var(--cev-ink); white-space: nowrap; }")),
             "focus not restored": (("if (target) target.focus();", "if (target) target.blur();"), None),
             "slot rebuilt": (("fresh.querySelector('[data-cev-slot=\"readout\"]').replaceWith(slot);", ""), None),
             "panel not toggled": (("panel.hidden = !opening;", ""), None),
