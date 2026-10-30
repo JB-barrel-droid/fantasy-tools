@@ -10,6 +10,7 @@ them the same way the settings form does, so they survive a reload. Cause named 
   Waivers and DDF state links) nothing changes: those settings still last for the visit only.
 - `app/v2/league.js`: `applyImported` (file Load and the `#find-league?workspace=` share link) and Undo pass `{save: true}`,
   so Undo of a load also restores the saved settings.
+- `.github/workflows/v2-render-test.yml`: runs both JEG-1389 render tests (the switch test was not wired before).
 
 ### Verified (check named)
 - New test `tests/test_jeg1389_link_settings_reload_render.py` (RENDER_TESTS_REQUIRED=1, Google Chrome): opens the USO
