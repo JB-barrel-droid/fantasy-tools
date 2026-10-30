@@ -81,3 +81,5 @@ jobs:
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+      # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
+      - run: python3 -m unittest -v tests.test_v2_compare_rosters_render
