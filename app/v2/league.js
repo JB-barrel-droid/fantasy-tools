@@ -1481,6 +1481,22 @@
       focusPick(id);
     });
     const anchor = host.querySelector(".v2-footnote");
+    // JEG-1137 slice 2b: under ?design=fieldnotes a phone first reads "Set up your league on desktop" (CSS shows it at
+    // phone widths only). The paste box below stays, so a phone can still paste. Copy: the approved JEG-1209 prototype.
+    if (document.documentElement.dataset.design === "fieldnotes") {
+      const step = (title, text) => el("li", {}, el("b", {text: title}), el("p", {class: "v2-meta", text}));
+      host.insertBefore(el("section", {class: "v2-card v2-fn-phone-entry", id: "v2LgPhoneEntry", "aria-labelledby": "v2LgPhoneTitle"},
+        el("h2", {id: "v2LgPhoneTitle", text: "Set up your league on desktop."}),
+        el("p", {class: "v2-meta", text: "Copying a full league is easier on a computer."}),
+        el("h3", {text: "Start there. Continue here."}),
+        el("ol", {class: "v2-fn-steps"},
+          step("Open DDF on your computer.", "Use the desktop guide to open the correct roster page."),
+          step("Paste and review your teams.", "Check matches and choose your team."),
+          step("Copy the prepared state link.", "Send it to yourself, then open it on this phone. Local storage alone does not sync between devices.")),
+        el("p", {}, el("a", {class: "v2-btn v2-btn-primary", href: "v2/#player-values", text: "Explore Values now"})),
+        el("h3", {text: "Already have a prepared link?"}),
+        el("p", {class: "v2-meta", text: "Open the exact link from desktop to restore the supported league and work context. A plain homepage bookmark does not carry your roster."})), anchor);
+    }
     host.insertBefore(el("div", {class: "v2-lg-transfer-bar"}, transfer), anchor);
     host.insertBefore(el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}), anchor);
     host.insertBefore(el("div", {class: "v2-lg-mismatch", id: "v2LgMismatch", role: "status", hidden: true}), anchor);

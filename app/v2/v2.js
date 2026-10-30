@@ -380,7 +380,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research", "v2Home"].forEach(id => { if ($(id)) $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -7096,8 +7096,12 @@
     const base = hashBase();
     return base === "#writing/how-values" ? "how-values" : (base === "#writing/research" || base.startsWith("#writing/research/")) ? "research" : "manifesto";
   };
+  // JEG-1137 slice 2b: ?design=fieldnotes (design-flag.js) adds a Home view (#home), which is also its landing page.
+  // Without the flag #home is an unknown route, so the default site is unchanged.
+  const fieldnotes = () => document.documentElement.dataset.design === "fieldnotes";
   // The route table: the view a (canonical) hash base names, or null when no route claims it (JEG-913).
   const viewFor = base => (base === "#trade-targets" ? "targets"
+    : base === "#home" && fieldnotes() ? "home"
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
@@ -7107,11 +7111,11 @@
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
-  const currentView = () => viewFor(hashBase()) || "values";   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
+  const currentView = () => viewFor(hashBase()) || (fieldnotes() && !hashBase() ? "home" : "values");   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides", home: "Home"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -7142,11 +7146,12 @@
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
+    $("v2Home").hidden = v !== "home";   // JEG-1137 slice 2b (Fieldnotes only)
     applyStatic();
     // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
     // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
     // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
-    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides" || v === "home";
     $("v2EditSources").hidden = noShowing;
     document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
@@ -7161,6 +7166,11 @@
       else tab.removeAttribute("aria-current");
     });
     $("v2NavCurrent").textContent = navLabel;
+    // JEG-1137 slice 2b: the Fieldnotes primary bar marks its destination too (Values, Buy & sell and Check a trade
+    // are also in the full list; More marks nothing).
+    document.querySelectorAll("#v2FnPrimary [data-fn-key]").forEach(link => {
+      if (link.dataset.fnKey === v) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
+    });
     closePopover();
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
@@ -7272,7 +7282,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
-    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league" || currentView() === "home") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -7602,14 +7612,30 @@
     {
       const header = document.querySelector(".v2-nav");
       const toggle = $("v2NavToggle");
+      // JEG-1137 slice 2b: under ?design=fieldnotes the primary bar's More button replaces the menu button (CSS hides it).
+      const more = $("v2FnMore");
+      if (fieldnotes()) {
+        $("v2FnPrimary").hidden = false;
+        // On the /v2/ copy a "v2/#view" link loads /v2/ again without ?design=fieldnotes; keep it on this page, as the
+        // root page's link shim does (that shim runs first there and marks the click handled).
+        document.addEventListener("click", event => {
+          const link = event.target.closest && event.target.closest('a[href^="v2/#"]');
+          if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          location.hash = link.getAttribute("href").slice(3);
+        });
+      }
+      let opener = toggle;
       const setNav = (open, returnFocus) => {
         header.classList.toggle("is-open", open);
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
         toggle.setAttribute("aria-label", open ? "Close menu" : "Menu");
-        if (open) (document.querySelector(".v2-tab.is-active") || document.querySelector(".v2-tab")).focus();
-        else if (returnFocus) toggle.focus();
+        more.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) (document.querySelector("#v2Tabs .v2-tab.is-active") || document.querySelector("#v2Tabs .v2-tab")).focus();
+        else if (returnFocus) opener.focus();
       };
-      toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
+      toggle.addEventListener("click", () => { opener = toggle; setNav(!header.classList.contains("is-open"), true); });
+      more.addEventListener("click", () => { opener = more; setNav(!header.classList.contains("is-open"), true); });
       $("v2Tabs").addEventListener("click", event => {
         const item = event.target.closest(".v2-tab");
         if (item && header.classList.contains("is-open")) setNav(false, false);

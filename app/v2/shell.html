@@ -39,6 +39,15 @@
           <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-key="overrides"><span class="v2-tab-full">Overrides</span></a>
         </div>
       </nav>
+      <!-- JEG-1137 slice 2b: the Fieldnotes primary navigation, shown only with ?design=fieldnotes (v2.js unhides it).
+           In the top bar on a wide screen, a fixed bar at the foot of a phone. More opens the full page list above (#v2Tabs). -->
+      <nav class="v2-fn-primary" id="v2FnPrimary" aria-label="Primary" hidden>
+        <a class="v2-fn-go" href="v2/#home" data-fn-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/></svg><span>Home</span></a>
+        <a class="v2-fn-go" href="v2/#player-values" data-fn-key="values"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M3 3v18h18M5 7l4 2 4 6 7 3"/></svg><span>Values</span></a>
+        <a class="v2-fn-go" href="v2/#trade-targets" data-fn-key="targets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M4 18 10 6l5 7 5-9M4 21h17"/></svg><span>Buy &amp; sell</span></a>
+        <a class="v2-fn-go" href="v2/#compare-trade" data-fn-key="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M3 7h17l-4-4M21 17H4l4 4"/></svg><span>Check a trade</span></a>
+        <button type="button" class="v2-fn-go" id="v2FnMore" aria-expanded="false" aria-controls="v2Tabs"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span>More</span></button>
+      </nav>
     </div>
     <div class="v2-topnote" id="v2SeasonNote">
       <div class="v2-topnote-inner">
@@ -132,6 +141,42 @@
       <span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span>
     </section>
   </div>
+
+  <!-- JEG-1137 slice 2b: Fieldnotes Home (#home), routed only with ?design=fieldnotes. Copy: the approved JEG-1209 prototype.
+       The value-curve peek (JEG-1265) and the AI-assistant panel (JEG-1266) belong to their own lanes. -->
+  <main class="v2-wrap v2-main v2-fn-home" id="v2Home" hidden aria-labelledby="v2HomeTitle">
+    <section class="v2-fn-hero">
+      <p class="v2-meta">Free · No sign-up · Explore without a league</p>
+      <h1 class="ddf-fn-hero" id="v2HomeTitle">Understand the data.<br>Make your own call.</h1>
+      <p class="v2-fn-lead">See what forecasts, published charts and observed trades say about your players—and why they disagree.</p>
+      <div class="v2-fn-actions">
+        <a class="v2-btn v2-btn-primary" href="v2/#player-values">Explore Values →</a>
+        <a class="v2-btn" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Use DDF in your AI assistant →</a>
+      </div>
+      <p class="v2-meta">Trade-value points for your league. Clear explanations behind every view.</p>
+    </section>
+    <section class="v2-fn-routes" aria-label="Where to start">
+      <article>
+        <p class="v2-fn-kicker">01 / Understand a value</p>
+        <h2>Know what the number means.</h2>
+        <p class="v2-meta">Explore the curve, compare views, then inspect the input categories.</p>
+        <a class="v2-btn" href="v2/#player-values">Explore Values →</a>
+      </article>
+      <article>
+        <p class="v2-fn-kicker">02 / Consider a trade</p>
+        <h2>Keep both sides in sight.</h2>
+        <p class="v2-meta">Compare the same deal across different value views.</p>
+        <a class="v2-btn" href="v2/#compare-trade">Check a trade →</a>
+        <a class="v2-btn" href="v2/#find-league">Find a league trade →</a>
+      </article>
+      <article>
+        <p class="v2-fn-kicker">03 / Bring your league</p>
+        <h2>Set up on desktop.</h2>
+        <p class="v2-meta">Copy rosters on a computer. Open a prepared state link on your phone to continue.</p>
+        <a class="v2-btn" href="v2/#find-league">Paste my league →</a>
+      </article>
+    </section>
+  </main>
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
     <div class="v2-title v2-title-row">
