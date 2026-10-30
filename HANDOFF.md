@@ -19,6 +19,72 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
+
+- Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
+  ("A", "Yes, send it"). Deployed from that main at about 20:15 UTC: get-values v12 and mcp v18 (were v11
+  and v17). It shipped every edge change merged since v11/v17, not only JEG-1029: also JEG-1225 (#1124),
+  JEG-1365 2QB (#1216), JEG-1387/1388 (#1214), JEG-1344 (#1210), JEG-1125 (#1033) and smaller connector fixes
+  (list in `docs/claude-log/2026-10-30-jeg-1385-deploy.md`).
+- Live check passed: the connector's get_values at ppr/12, half_ppr/10 SF and standard/14 gives the same
+  values as before the deploy (every source is paired today), find_trades answers, the edge drift check
+  on main exited 0 (deployed tool list and get-values charts match main), and the function logs show only
+  200/202 responses. Not called directly: risers_fallers and audit_values (the cloud connector's tool
+  list predates the deploy).
+- mcp v18's `names.ts` holds the accent-stripping regex range as literal combining characters, not
+  `\u0300-\u036f` escapes: same behaviour, different bytes. The next mcp deploy from main fixes it.
+- Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
+  GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
+
+### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
+
+- PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
+  main merge `2027b305`. Merge #1124 first, then #1210.
+- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
+  picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
+  the Supabase function logs for both lines and that a sample request's values are unchanged.
+- Deployed 2026-10-30 with JEG-1385 (get-values v12, main 374dc8f7); a `get_values.compute` line shows in the
+  function logs and ppr/12 values were unchanged.
+
+### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
+
+- Fix commit is on `claude/project-thread-h3wq1f`, stacked on #1187's branch `claude/project-thread-ri695e` (the cloud
+  session could push only to its own branch). Its PR targets that branch; once merged there, #1187 needs a delta
+  review only. `main()` now has tests for dry run, `--write` and the 75% guard. No production write: the write still
+  waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
+  `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
+
+### JEG-1125 one shared "even" band, option A (Claude, 2026-10-30 UTC)
+
+- Branch `fe/jeg-1125-even-threshold`, PR #1033. Jeremy picked A on
+  2026-10-29 9:11 PM CT and said yes to building it on 2026-10-30: one even
+  band, max(1 point, 3% of the average side), for Compare's verdict, Compare's
+  Deal read and Find a trade. THIN_MARGIN (5%) is a separate confidence rule and
+  stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
+  the Duet project files, summary on the ticket) and approves before any merge.
+  Do not merge or mark #1033 ready without his yes on that before/after.
+- State: Jeremy said ship A (2026-10-30 18:52Z, "A"). #1033 marked ready;
+  Standard, Half PPR and PPR before/after in
+  `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
+  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
+  done (one connector min_rival_edge bug, fixed in `7694bb7`).
+  Merged as #1033 (a750ca07). Its find-trades.ts went live in the JEG-1385 mcp deploy (v18, main
+  374dc8f7, 2026-10-30); Jeremy was told it shipped with that deploy.
+
+### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
+  matrix) and the workflow half of #1070 onto main, without #1070's JEG-1206
+  and JEG-1215 parts (main has them). It supersedes #1050, #1051 and #1070;
+  closing those needs Jeremy's OK.
+- A red validate now isolates one attributed source, reruns the full gate
+  once and publishes only after confirm; anything else stays red as before.
+- #1064 (JEG-1180, JEG-1200) merges cleanly with main b3eb8d97 and passes
+  test-core except the Playwright-only week-history transition test.
+- Sleeper identity refresh is green again after #1209 (run 41098267164,
+  base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
+- JEG-1205 (#1052) stays on hold for Jeremy.
+
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
 - Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
@@ -33,6 +99,16 @@ below are history, including any "Codex reviews and merges" line.
   implementations, byte-identical to d07f6527. Jeremy said yes to the USO table (2026-10-30 13:02 UTC, "A");
   main merged again (phone card keeps compareLink). Waiting on full CI and the delta review of that merge.
 - Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
+
+### 2QB leagues use superflex values (JEG-1365, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1365-2qb-superflex`. Value math (`review-high-risk`): a league with 2+ QB slots and no
+  superflex slot now reads each chart's `native_superflex` overlay, same as SF 1. One rule `usesSuperflexValues`
+  in `value-model.js` (page, via `curve-widget.js`), `value_reference.py` and `get-values/pipeline.ts`; seats and the
+  waiver line are unchanged. Connector explain text says so. 1-QB and superflex settings move 0 values.
+- Needs before merge: Jeremy's yes on the before/after (on the ticket). Live connector needs a get-values redeploy
+  (and mcp for the explain text) after merge, each on his yes. Follow-up for the real 2-QB logic: JEG-1366.
+- Evidence: `docs/claude-log/2026-10-30-jeg1365-2qb-superflex.md`, `tests/test_jeg1365_two_qb_superflex_values.py`.
 
 ### USO site journey regressions lane (JEG-1240, correction JEG-1264, Claude, 2026-10-29 UTC)
 
@@ -372,6 +448,39 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 
 ---
 
+### Codex source-health release candidate (2026-10-28, JEG-1180 / JEG-1200)
+
+Branch `be/jeg-1180-1200-source-health-rc` combines the reviewed heads of
+#1022 (`0ebd8d0f`) and #1042 (`9ebbd360`) on main `3919f998`, in that order.
+The merge had no conflicts. The candidate adds one cross-path regression:
+when a chart's Week 8 label disagrees with served Week 7 history, the
+freshness report uses Week 7 and stays publishable, while the source alert
+reports a late Week 8 chart after Wednesday noon CT. At Thursday noon CT the
+freshness state becomes stale without failing publication. The combined
+source-health suite passed 207 tests; the focused integration/shard guard
+passed 72 tests. The new test is in test-core shard 3.
+
+Next: review the draft release candidate and its own preview/render CI. The
+parent owns any latest-main integration before release, merges, deploys and
+live verification. #1022 and #1042 remain draft and open; this branch changes
+no source isolation, rebuild workflow, main write guard, or Supabase code.
+Log: `docs/claude-log/2026-10-28-source-health-rc.md`.
+
+### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.
+Main `1bd85f76` is merged into the branch. The review found a first-sync bug:
+freshness read the old history index before sync rebuilt it, so kept Week 7
+inputs labelled Week 8 could be reported current. History now rebuilds first.
+The new first-sync regression failed before the fix (`8 != 7`) and passes;
+45 focused freshness/week/sync tests pass. Log:
+`docs/claude-log/2026-10-28-jeg1180-first-sync.md`.
+
+Next: independent review and CI on the pushed head, then the parent coordinates
+serial merge and live verification. The earlier PASS at `487ddaa` below is
+superseded by this repair. #1042 follows #1022. This lane does not merge PRs,
+deploy, change Supabase, or edit JEG-1178 UI / JEG-1204 matrix work.
+
 ### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
 
 Stopped at 97% usage. State, verified 14:10 UTC:
@@ -411,6 +520,23 @@ Stopped at 97% usage. State, verified 14:10 UTC:
 - Exact next step: merge #1022 on green, then #1042, each checked live; then
   build #1052 (value math, Jeremy approved) with the impact list in
   /mnt/project-files/ddf/ or the PR body.
+
+### Codex source-health repair: JEG-1200 / #1042 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1200-source-late`.
+Main `1bd85f76` is merged into the branch. The earlier PASS at `6c5f589` is
+superseded: review reproduced successful exit on failed GitHub alert delivery
+and false resolution when served-week metadata was missing. Both now fail the
+monitoring run; incomplete publication checks leave alerts unchanged. Ordinary
+source lateness remains warning-only. Wednesday noon CT is the week deadline.
+32 focused lateness tests pass, including missing/null/malformed/partial
+metadata and network/HTTP failures. Log:
+`docs/claude-log/2026-10-28-jeg1200-monitor-failures.md`.
+
+Next: independent review and CI on the pushed head, then parent-controlled
+merge after #1022 and verification of the first scheduled main run. No
+Supabase changes, PR merges or deploys were performed by this lane. JEG-1178
+owns freshness-panel copy; JEG-1204 matrix implementation remains separate.
 
 ## Active agents and automation (keep current)
 
@@ -664,8 +790,9 @@ source data -> reference compute -> dashboard build -> frontend/site
 - **Supabase:** project "JB-barrel-droid's Project" (ref `iskiybsimubiujwuchsl`,
   us-west-2). Edge functions in `supabase/functions/`: `get-values`, `mcp`
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
-  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
-  server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
+  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). The `mcp`
+  function is the only MCP server; the old local one was retired 2026-10-30
+  (JEG-1372). See `docs/values-endpoint.md`.
 - **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
   (JEG-1173); kept as a record, its scripts refuse to run.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
@@ -801,8 +928,22 @@ Known bugs (repro steps and history on each ticket):
    `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
    review, log the two picks (compare stops and asks; roster scans keep going
    and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
-   Backlog: JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player
-   name; production data writes need Jeremy's yes).
+   JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player name):
+   audit done (#1114, JEG-1313, JEG-1350); JEG-1351 (Mac) merges the three
+   duplicate Sleeper rows. JEG-1387 stores the 1,034 grounded spellings as
+   `public.player_name_aliases` rows (sources sleeper/espn/yahoo) through the
+   NOT APPLIED `supabase/migrations/jeg1202_platform_spellings.sql`, built by
+   `pipelines/build_platform_spellings.py` from the audit outputs (rerun it
+   after any audit rebuild; `--check` in `tests/test_platform_spellings.py`
+   catches drift). Applying it is a production write: Jeremy's yes (his pick
+   A, 2026-10-30: after #1214 merges and JEG-1351 lands). JEG-1388 (Jeremy's
+   pick A): `pipelines/build_name_aliases.py` writes one alias list (verified
+   aliases plus platform spellings that differ from the site's name) into a
+   generated block in both `app/v2/roster-paste.js` and
+   `supabase/functions/mcp/names.ts`; `tests/test_name_aliases.py` checks
+   drift. Rerun it after JEG-1351's rebake so "Mitch Tinsley" joins. The chat
+   side goes live only with an mcp redeploy: Jeremy's yes. Still open: an
+   ESPN / Yahoo puller that saves raw spellings with ids.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
@@ -837,6 +978,30 @@ Failed approaches and traps:
 - Nothing of this session is unpushed or uncommitted.
 
 ---
+
+## JEG-1204: held and lagging source test matrix (2026-10-28)
+
+- Branch `be/jeg-1201-hold-tolerance`, existing draft PR #1051. The former
+  notes-only draft now adds seven-source held/current, lagging, and
+  held/lagging cases to `tests.test_seeded_hold_build`, already in test-core
+  and preview shard 1. No source isolation or value-engine changes.
+- The suspected current-week `test_superflex.page_problems` bug did not
+  reproduce in Chromium: held sources retain their pipeline harness maps.
+  Original numeric checks remain strict. The older identity test now
+  actually passes its isolated fixture to the loader.
+- Fixtures come from consecutive complete saved weeks, including when the
+  real build already has mixed weeks. Projection replays replace the inline
+  player PPG input as well as reference players; saved history stays intact.
+- Main `1bd85f76` is integrated. The 59-test matrix passed; the rest of the
+  full gate passed after resuming an environment-only Chromium lookup
+  failure, with 0 engine/reference mismatches across 1,229,985 comparisons.
+  After integration, 29 focused Week 8 tests passed. The full local gate was
+  not repeated after integration; required remote CI must pass on final head.
+- Exact next step for the parent: read final-head CI and review on #1051,
+  recheck main, then handle serial PR merge/release and live verification.
+  Reconcile Linear's premature Done status afterward. JEG-1203 depends on
+  the reviewed passing guard. Details and retained local artifacts are in
+  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`.
 
 ## Keeping this file current
 

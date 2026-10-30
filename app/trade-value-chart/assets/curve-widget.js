@@ -530,7 +530,7 @@
   }
 
   // A published chart's saved 12-team native values at this scoring. With a
-  // superflex slot on the roster, the publisher's own superflex / 2-QB values
+  // superflex slot or 2+ QB slots on the roster (JEG-1365), the publisher's own superflex / 2-QB values
   // (saved as `native_superflex`, same units) replace its 1-QB values where it
   // publishes them (VP-0 "Superflex"). Where it publishes none, the 1-QB
   // values go through the league math unchanged (JEG332-SUPERFLEX-FLEX).
@@ -541,7 +541,7 @@
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
     take(savedPublishedRow(key, "native"));
-    if (native.size && ValueModel.superflexCount(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
+    if (native.size && ValueModel.usesSuperflexValues(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
     return native;
   }
 
@@ -4115,7 +4115,7 @@
       // whose values a superflex slot uses (the publisher's own, VP-0).
       publishedDerivation:Object.fromEntries([...AS_PUBLISHED_KEYS].map(key => [key, {
         mode: onSavedSetup() ? "saved" : "derived",
-        superflex: ValueModel.superflexCount(rosterShape)
+        superflex: ValueModel.usesSuperflexValues(rosterShape)
           ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values") : null}]))};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "defaultGroupedSources", "adjustableBenchShare", "tieredDdfValues"].includes(key) && value !== true);

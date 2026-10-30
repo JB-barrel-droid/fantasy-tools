@@ -8,7 +8,7 @@
 // league, included set and pie run on the week before's saved inputs, read per series as getPriorWeek
 // reads it. audit is the part of getInspection() the two Values auditing sub-tabs read.
 
-import { type Bundle, PIPELINE_SOURCE_KEYS, savedNatives } from "./pipeline.ts";
+import { type Bundle, historyMatchesBuild, PIPELINE_SOURCE_KEYS, savedNatives } from "./pipeline.ts";
 
 // deno-lint-ignore no-explicit-any
 type Any = any;
@@ -107,6 +107,8 @@ export function priorBlock(bundle: Bundle, input: Any, result: Any, week: number
     series: Object.fromEntries(keys.map((k) => [k, { available: false, reason }])),
   });
   if (week === null || !bundle.history?.index) return none("no week history for this build", null);
+  // JEG-1390: another build's history pairs nothing (curve-widget.js servedWeekOf).
+  if (!historyMatchesBuild(bundle)) return none("the history index belongs to a different build of the values");
   const prior = week - 1;
   const natives: Record<string, Record<number, number>> = {};
   const reasons: Record<string, string> = {};
@@ -144,7 +146,11 @@ export function priorBlock(bundle: Bundle, input: Any, result: Any, week: number
       series[key] = { available: true, reason: null, values: seriesValues(run, key), current_values: seriesValues(current, key) };
       continue;
     }
-    if (Number.isInteger(served[key]) && served[key] !== week) {
+    // JEG-1390: a source with no served week has no pair (curve-widget.js servedWeekOf).
+    const own = bundle.history?.index?.served?.[key];
+    if (!own || !Number.isInteger(own.week)) {
+      series[key] = { available: false, reason: own?.reason || `no saved week matches the ${key} values served now` };
+    } else if (Number.isInteger(served[key]) && served[key] !== week) {
       series[key] = { available: false, reason: `serves Week ${served[key]}, not Week ${week}` };
     } else if (!natives[key]) {
       series[key] = { available: false, reason: reasons[key] ?? `not priced in Week ${prior}` };

@@ -75,7 +75,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [SUPABASE_WRITER_AUDIT.md](SUPABASE_WRITER_AUDIT.md) | Record | - | - | Audit of Supabase writers' missing safeguards. |
 | [supabase-tables.md](supabase-tables.md) | Maintained | JEG-600 | 2026-10-12 | Every public table and view, who writes it, who reads it, and whether it is live or legacy (JEG-600). |
 | [projection-captures.md](projection-captures.md) | Maintained | JEG-944 | unknown | Forward-projection captures: what each source offers, the capture cadence, and the append-only table (JEG-944, parent JEG-943). |
-| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-1012 | 2026-10-24 | The `get-values` and remote `mcp` Supabase edge functions and the local MCP server that serve blended values (JEG-616, JEG-1012). |
+| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-1012 | 2026-10-24 | The `get-values` and remote `mcp` Supabase edge functions that serve blended values (JEG-616, JEG-1012). The old locally run server was retired (JEG-1372). |
 | [use-ddf-in-claude-chatgpt.md](use-ddf-in-claude-chatgpt.md) | Maintained | JEG-1028 | 2026-10-24 | How to connect the values to Claude and ChatGPT (connector URL, skill, llms.txt, server card, Custom GPT Actions) and the current limits. Sources are in `app/llm/`, built by `pipelines/build_llm_surfaces.py`. |
 | [get-values.openapi.yaml](get-values.openapi.yaml) | Maintained | JEG-1012 | 2026-10-24 | OpenAPI schema of `get-values` for a Custom GPT's Actions. |
 | [supabase-egress-notes.md](supabase-egress-notes.md) | Record | JEG-793 | - | Which reads cost the cloud project's egress; steps 1 to 3 of JEG-793, figures inferred from code, not measured (2026-10-21). |
@@ -92,6 +92,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |
 | [guard-harness.md](guard-harness.md) | Maintained | unknown | unknown | Node harness for the browser curve-widget guard math. |
 | [wiring-through-process.md](wiring-through-process.md) | Maintained | unknown | unknown | Standing rule: a fix is not done until wired to the live path. |
+| [week-transition-runbook.md](week-transition-runbook.md) | Maintained | JEG-1180 | 2026-10-28 | Week N to N+1 flip: what normal looks like Tuesday to Thursday, lagging vs stale (still on N after Thursday 12:00 CT; a warning, never a chain failure), where each check reports it, and when a person steps in. |
 | [week-coding-rules.md](week-coding-rules.md) | Maintained | unknown | unknown | Rules for codifying page elements (headline etc.) to the dataset. |
 | [engineering-notes.md](engineering-notes.md) | Maintained | unknown | unknown | Dated incident and design notes moved out of AGENTS.md. |
 | [delegation-workflow.md](delegation-workflow.md) | Maintained | unknown | unknown | Tiers and how work is delegated to agents. |

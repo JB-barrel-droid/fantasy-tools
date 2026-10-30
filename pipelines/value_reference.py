@@ -167,6 +167,13 @@ def roster(superflex: int = 0) -> dict:
     return {**DEFAULT_ROSTER, "SUPERFLEX": int(superflex)}
 
 
+def uses_superflex_values(shape: dict) -> bool:
+    """A chart's superflex / 2-QB values (native_superflex) price the league
+    when it has a superflex slot or starts 2+ dedicated QBs (JEG-1365, Jeremy
+    2026-10-29, audit decision 9 A: a 2QB league uses superflex values)."""
+    return int(shape.get("SUPERFLEX", 0) or 0) >= 1 or int(shape.get("QB", 1) or 0) >= 2
+
+
 CONTENT_WEEK_SETTINGS = [
     # JEG-527: content-week case — a non-default content week with the regular-season objective.
     {"scoring": "ppr", "teams": 12, "superflex": 0,
@@ -1681,8 +1688,8 @@ class Setting:
     def natives(self, src: str) -> dict:
         """Current-week natives at this setting's scoring. A chart: the saved
         12-team list, the saved native_superflex replacing it for the players
-        it covers when SF >= 1. A projection: per-game points; ESPN lists a
-        player it projects at zero (espn_status ineligible) at 0.0 (JEG-496;
+        it covers when SF >= 1 or the roster starts 2+ QBs (JEG-1365). A
+        projection: per-game points; ESPN lists a player it projects at zero (espn_status ineligible) at 0.0 (JEG-496;
         Reference reading of "every player on ESPN's list", VP-6.1, matching
         the ESPN week snapshot, which carries those players at 0)."""
         if self.inp.section(src) is None:
@@ -1690,7 +1697,7 @@ class Setting:
         if FAMILY[src] == "chart":
             cell = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native")
             out = dict(cell["values"]) if cell else {}
-            if out and self.shape["SUPERFLEX"] >= 1:
+            if out and uses_superflex_values(self.shape):
                 sf = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native_superflex")
                 if sf:
                     out.update(sf["values"])

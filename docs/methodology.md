@@ -105,7 +105,9 @@ implementation follows the rule as written.
   - *Trade charts* (`cbs`, `fantasycalc`, `fantasypros`, `usatoday`). Native
     = the publisher's trade value from the saved 12-team list at the scoring:
     the section's `combos["<scoring>_12"]` (`fantasycalc`: `_12_qb1`)
-    `.native`. **Superflex overlay.** With `SF >= 1`, the saved
+    `.native`. **Superflex overlay.** With `SF >= 1`, or with 2 or more
+    dedicated QB slots and no SF (JEG-1365, Jeremy 2026-10-29, audit
+    decision 9 A; the league's own seats are unchanged), the saved
     `native_superflex` sets the native of every player it lists, including
     players only the superflex list has (CBS's 1-QB list carries 13 QBs, its
     superflex list 35); players it does not list keep their 1-QB native.
@@ -596,6 +598,7 @@ chart DDF Value").
 | Teams `T` | The league allocation (VP-2.2), and with it the rosterable set, the waiver and starter lines; the pie. |
 | Dedicated slots, flex | The league allocation (flex by projected points); the pie. |
 | Superflex `SF` | The league allocation (by projected points); the chart natives' superflex overlay; the pie. |
+| QB slots `>= 2` | The league allocation; the chart natives' superflex overlay, as with `SF >= 1` (JEG-1365). |
 | Bench per team `B` | Bench seats, so `N_p`, the rosterable set and the waiver line. Not the pie (OC-1). |
 | Bench share `bs` | 15% by default (OC-2); the reader's slider replaces it (VP-3.4). |
 | Reader position shares | Only when the reader sets them (VP-4.4). |
@@ -1815,7 +1818,10 @@ column), USA Today (Superflex QB column), FantasyPros (2QB Value for QBs) --
 those are the publisher's own superflex numbers and the engine uses them: the
 saved 12-team combo's `native_superflex` (same units as `native`, only the
 players the publisher prices differently) replaces the 1-QB native for those
-players when the roster has a superflex slot (`savedPublishedNative`). Where a
+players when the roster has a superflex slot or 2+ QB slots
+(`savedPublishedNative`, `ValueModel.usesSuperflexValues`; the 2-QB case is
+JEG-1365, Jeremy 2026-10-29: "A for now, but back ticket to actually use the
+value replacement and starter bench logic here", that follow-up is JEG-1366). Where a
 publisher's superflex values are not saved, its 1-QB values go through the
 league math above unchanged ("derived from 1-QB values" in
 `publishedDerivation[src].superflex`).

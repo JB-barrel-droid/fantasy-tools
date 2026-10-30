@@ -7,14 +7,18 @@ charts have the other manager winning or even)". The average hid a 16-point disa
 
 Rule (trade.js dealRead, DEAL_SPLIT_ACCEPT): each chart-average column's copy assumes one answer to
 "Will they accept?" (charts win for you: Unlikely; charts even or lose: Likely). dealRead counts the
-charts the same way tradeHeadlines does (net <= 0 as shown); when that count's answer is not the one the
+charts the same way tradeHeadlines does (the chart's net is even or below, using the one even band:
+max(1, 3% of that chart's average side), JEG-1125 option A, Jeremy 2026-10-29; before that it was net <= 0
+as shown); when that count's answer is not the one the
 column assumes, market.split is set, the read names the split (range of the per-chart nets and the count)
 and the title, action and text replace the cell copy. The cell (grid outline, card side) stays the
 average's, and the headline logic is unchanged.
 
 These checks pin, against an independent recomputation on hand-built trades:
-  * the live fixture: cell win|even, market.split, the read names the 16.3-point range and "1 of 3",
-    and it does not say "fair" or "little reason to refuse";
+  * the live fixture: under JEG-1125 option A the +0.5 chart is even (inside its 1.4-point band), so 2 of 3
+    charts have the other manager winning or even, "Will they accept?" is Likely and agrees with the even
+    column: cell win|even, no split (before A: split, 1 of 3, Unlikely);
+  * a hand-built win|even trade whose charts lean your way past their bands still splits and names its range;
   * for every hand-built trade, "little reason to refuse" / "fair" appears only when the headline's accept
     is Likely, "will likely see a loss" only when it is Unlikely, and the split read exactly when the
     count disagrees with the column (win|Likely, even|Toss-up, lose|Unlikely split; win|Unlikely,
@@ -65,14 +69,15 @@ CASES = {
     "hall-higgins-for-nacua": ([player(1, 20, 20, 24, 27, 20), player(2, 17, 17, 24, 28, 19)],
                                [player(3, 48.1, 47.8, 48.5, 47.8, 48.1)]),
     "win|even accept Likely": trade(10, [0.5, -0.5, 0.0]),            # no split: fair copy allowed
-    "win|even accept Unlikely": trade(10, [0.9, 0.9, 0.9]),           # split: charts lean your way, not fair
-    "win|even accept Toss-up": trade(10, [0.9, 0.9, -0.9, -0.9]),     # split
+    "win|even accept Unlikely": trade(10, [2, 2, -3]),                # split: 2 charts past their 1.5 band your way
+    "win|even accept Toss-up": trade(10, [2, 2, -2, -2]),             # split
+    "win|even inside every band": trade(10, [0.9, 0.9, 0.9]),         # JEG-1125 A: all even, Likely, fair copy allowed
     "win|win accept Unlikely": trade(10, [6, 5, 4]),                  # no split: hard sell
     "win|win accept Likely": trade(10, [20, -2, -2]),                 # split: average win, 2 of 3 for them
     "win|lose accept Likely": trade(10, [-6, -5, -4]),                # no split: arbitrage
     "win|lose accept Unlikely": trade(10, [-20, 2, 2]),               # split
     "even|even accept Likely": trade(0, [0.0, 0.0, 0.0]),             # no split
-    "even|even accept Unlikely": trade(0, [0.9, 0.9, 0.9]),           # split
+    "even|even accept Unlikely": trade(0, [2, 2, -3]),                # split
     "lose|lose accept Likely": trade(-10, [-6, -5, -4]),              # no split
     "lose|lose accept Unlikely": trade(-10, [-12, 3, 3]),             # split
     "lose|win accept Unlikely": trade(-10, [6, 5, 4]),                # no split: trap
@@ -119,7 +124,8 @@ def expected(give, receive) -> dict:
     avg = lambda xs: sum(xs) / len(xs)  # noqa: E731
     market = side(avg(nets), avg(gives), avg(recs))
     value = side(net("ddf_value"), sum(p["values"]["ddf_value"] for p in give), sum(p["values"]["ddf_value"] for p in receive))
-    yes = sum(1 for n in nets if n < 0.05)
+    # JEG-1125 option A: the other manager wins or breaks even on a chart when its net is under that chart's band.
+    yes = sum(1 for n, g, r in zip(nets, gives, recs) if n < max(1.0, 0.03 * (g + r) / 2))
     share = yes / len(nets)
     accept = "Likely" if share >= 2 / 3 else "Unlikely" if share <= 1 / 3 else "Toss-up"
     return {"cell": f"{value}|{market}", "side": market, "accept": accept, "yes": yes, "of": len(nets),
@@ -162,10 +168,13 @@ def check(trade_js: Path) -> list[str]:
             errors.append(f"{tag}read {text!r} names a split the count does not support")
     # The live fixture, pinned by hand.
     live = got["hall-higgins-for-nacua"]
-    if live["cell"] != "win|even" or not live["split"] or live["propose"] != "Yes" or live["accept"] != "Unlikely":
+    if live["cell"] != "win|even" or live["split"] or live["propose"] != "Yes" or live["accept"] != "Likely":
         errors.append(f"live fixture: {live}")
-    if "by 16.3 points" not in live["text"] or "1 of 3" not in live["text"]:
-        errors.append(f"live fixture text {live['text']!r} must name the 16.3-point range and 1 of 3")
+    if not live["charts"] or live["charts"]["yes"] != 2 or live["charts"]["of"] != 3:
+        errors.append(f"live fixture charts {live['charts']} must be 2 of 3 under the one even band")
+    hand = got["win|even accept Unlikely"]
+    if not hand["split"] or "by 5.0 points" not in hand["text"] or "1 of 3" not in hand["text"]:
+        errors.append(f"hand-built split text {hand['text']!r} must name the 5.0-point range and 1 of 3")
     return errors
 
 
@@ -173,8 +182,10 @@ MUTATIONS = {
     "split ignored": ("market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];", "market.split = false;"),
     "even column expects Unlikely": ('const DEAL_SPLIT_ACCEPT = {win: "Unlikely", even: "Likely", lose: "Likely"};',
                                      'const DEAL_SPLIT_ACCEPT = {win: "Unlikely", even: "Unlikely", lose: "Likely"};'),
-    "count flipped": ("const yes = completeCharts.filter(row => signOf(row.net) <= 0).length;",
-                      "const yes = completeCharts.filter(row => signOf(row.net) >= 0).length;"),
+    "count flipped": ("const yes = completeCharts.filter(row => rowSign(row) <= 0).length;",
+                      "const yes = completeCharts.filter(row => rowSign(row) >= 0).length;"),
+    "count back on 0.0 as shown": ("const yes = completeCharts.filter(row => rowSign(row) <= 0).length;",
+                                   "const yes = completeCharts.filter(row => signOf(row.net) <= 0).length;"),
     "split read keeps the cell copy": ("const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[",
                                        "const cell = DEAL_READS["),
     "range dropped from the split read": ("? `disagree with each other by ${(charts.max - charts.min).toFixed(1)} points",
