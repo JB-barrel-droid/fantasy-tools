@@ -65,7 +65,13 @@ team-count notice. A and B touch `app/v2/v2.js` or `league.js` page state only; 
   RENDER_TESTS_REQUIRED=1, Google Chrome).
 - With the change: test_v2_league_units 2, test_jeg1231_opponent_inclusion 2, test_league_levels_trades 5,
   test_jeg1249_league_site_render 4, test_v2_league_levels_render 2, test_v2_league_tables_render 2,
-  test_v2_league_parsed_render 2 OK (render suites with RENDER_TESTS_REQUIRED=1 and Google Chrome).
+  test_v2_league_parsed_render 2 OK (render suites with RENDER_TESTS_REQUIRED=1 and Google Chrome). These ran on the
+  branch base b5f35fca.
+- After merging origin/main (e76bb3d3): test_jeg1389_switch_redraw_render OK; test_jeg1249_league_site_render
+  test_league_to_compare_journey fails ("no Details button for <row id>"). It fails the same way on a clean origin/main
+  374dc8f7 worktree, so it is a baseline red on main, not this branch. Candidate cause, not bisected: a750ca07 (#1033,
+  JEG-1125, one "even" band), the only main commit since b5f35fca that touches app/v2/finder.js or trade.js besides
+  b923c11d (2QB superflex values).
 
 ### Claimed, not confirmed
 - That Jeremy's live session reached USO's settings by a league import or share link (the only paths that apply them
