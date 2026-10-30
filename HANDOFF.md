@@ -19,6 +19,14 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
+
+- Fix commit is on `claude/project-thread-h3wq1f`, stacked on #1187's branch `claude/project-thread-ri695e` (the cloud
+  session could push only to its own branch). Its PR targets that branch; once merged there, #1187 needs a delta
+  review only. `main()` now has tests for dry run, `--write` and the 75% guard. No production write: the write still
+  waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
+  `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
+
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
 - Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
