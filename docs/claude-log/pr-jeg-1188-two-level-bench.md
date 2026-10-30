@@ -176,3 +176,24 @@ Contract: the 2026-10-30 02:49 UTC "To Mac:" comment on JEG-1249. Merge origin/m
 
 ### Claimed, not confirmed
 - CI on the pushed head (preview-build, shards, v2-render) had not reported when this entry was written.
+
+## JEG-1249 merge gate: main merged, phone card and copy list, 2026-10-30
+
+Contract: the 12:52 UTC merge-gate comment on JEG-1249 (Jeremy's "A" on the USO table, 13:02 UTC).
+
+### Verified (check named)
+- dc5d6c89 merges origin/main 301c8678 (contains 66c9329f) normally.
+  - league.js phone opponent card: main's six `data-line` rows (trade, capture, proj, ours, market, theirs), with main's raw `#compare-trade` anchor replaced by `compareLink(r, ctx)`. `node --check` passes.
+  - build_v2_page.py copy list: `trade-readout.js` and `roster-provenance-transitions.js` both present.
+  - HANDOFF.md: both blocks kept.
+- Byte-identical to d07f6527 (`git diff --stat d07f6527 -- <paths>` empty): value-model.js, roster-convention.js, roster_convention.py, both references, the league fixtures and the six league/band test modules. The approved USO table therefore holds.
+- Generated app/dist paths equal origin/main (`git diff origin/main --stat` empty).
+- Units, 140 tests: the nine focused league/band/reference modules, test_rank_guard, test_jeg1213_logic, test_jeg1213_summary_fields and test_uso_site_journey_contract. The only failures are test_uso_site_journey_contract's two continuity checks (`basis-changed` on another device). They fail identically on a clean origin/main 858bdc32 worktree and are red by design until context carries across devices (JEG-1240 notes).
+- Render with RENDER_TESTS_REQUIRED=1 and Google Chrome:
+  - OK: test_v2_league_levels_render 2, test_jeg1249_league_site_render 4, test_v2_league_parsed_render 2, test_v2_league_tables_render 2 (includes the JEG-1232 phone-card line checks), test_jeg1213_acceptance_render 11 and test_v2_contract_render 6.
+  - test_uso_site_journey_render: test_journey_keeps_the_trade_context and test_unequal_deal_keeps_its_package fail identically on clean origin/main (baseline red).
+  - test_guard_fails_on_a_link_without_get failed only on this branch ("mutation anchor is stale", 1 != 2). Its assertion counted two copies of the raw anchor; #1105's compareLink leaves one. 5833d24e changes the count to 1 (an assertion pinning code shape, not the rule); the guard then passes, catching the mutant as package-changed only.
+
+### Claimed, not confirmed
+- The USO journey suites are not in the Makefile or any workflow, so CI does not run them.
+- Full CI on the pushed head had not reported when this entry was written.
