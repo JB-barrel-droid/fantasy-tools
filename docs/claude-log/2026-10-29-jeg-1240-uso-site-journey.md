@@ -250,3 +250,30 @@ pick, logged): the browser picks the throw-in candidate the way the contract's `
 - The browser journey hasn't run on this head. Expected on published values: the throw-in pick is a non-JSN trade
   with a throw-in, if the page's 12 include one (the reference values give 11 of 79), and the `get=` guard gets both
   picks.
+
+## JEG-1304 follow-up: a pair-finder group whose give is fixed, 2026-10-30
+
+A review finding on #1110 at dd3a57d (Codex review bot, P2). `groupCard` in `app/v2/finder.js` draws no checkboxes
+for a group with one give candidate and nothing optional to receive (`selectable` is false). The journey's pair reader
+took a group's players only from `data-group` and its checkboxes. So for such a group it never saw the give player,
+and the exact package the page shows came back `package-not-listed`, both in the pair finder and on the pair link
+opened elsewhere. Traced from `groupCard`: real for any trade whose give side has a single candidate.
+
+- New `PAIR_GROUP` reader, used by `PAIR`. When a group has no "You give" boxes, its give player is read from its
+  Open in Compare link (`give=` in the href `groupCard` builds). A group matches only when that fixed give is part of
+  the package, so a group with another fixed give still doesn't match. A fixed give player prints no value, so it has
+  none to compare (`_pair_view` already compares only values the pair finder shows).
+- Test-only. No page, value, Makefile or workflow change.
+
+### Verified (check named)
+
+- `PairGroupTest` (2 tests, Node, no browser: `tests/node/uso_journey_pair_group.cjs` draws group cards the way
+  `groupCard` does). On dd3a57d's matcher the fixed-give group isn't found (`{"group": -1}`), and nor is a second
+  fixed-give group for another give player. On this head both are found with the right give and get, and the
+  selectable group reads as before.
+- Every in-page script (`COMMON`, `PAIR`, `ORIGIN`, `DEST`, `CANDIDATES`, `EXPECTED`) parses in Node.
+- `python3 -m unittest tests.test_uso_site_journey_render`: 15 run, 11 pass, 4 browser tests skipped (no Chromium).
+
+### Claimed, not confirmed
+
+- The browser journey hasn't run on this head. The test DOM models `groupCard`'s output; it isn't the page itself.

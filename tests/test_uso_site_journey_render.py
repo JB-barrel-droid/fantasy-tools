@@ -59,6 +59,7 @@ ROOT = Path(__file__).resolve().parents[1]
 LEAGUE = ROOT / "tests" / "fixtures" / "uso_site_journey" / "league.json"
 CONTRACT = ROOT / "tests" / "node" / "uso_site_journey_contract.cjs"
 LINEUP_READER = ROOT / "tests" / "node" / "uso_journey_lineup_reader.cjs"
+PAIR_GROUP_READER = ROOT / "tests" / "node" / "uso_journey_pair_group.cjs"
 TOL = "0.051"   # the page shows one decimal
 
 # Another device's own state (the Node contract's other device, less the source the browser cannot switch off).
@@ -249,26 +250,39 @@ DEST = "() => {" + COMMON + """
     gains: gainsOf(us, them), readout: readout(us, them),
     note: (document.getElementById('v2CRosterStatus') || {}).textContent || '', hash: location.hash}; }"""
 
+# How the pair finder's group cards (groupCard in app/v2/finder.js) name their players. data-group holds the received
+# core; ticked boxes add the rest. A group with one give candidate and nothing optional to receive draws no boxes at all
+# (its selectable is false), so its give player is fixed and named only by its Open in Compare link.
+PAIR_GROUP = """
+  const heavy = li => (li.dataset.group || '').split(',').filter(Boolean);
+  const boxesOf = li => [...li.querySelectorAll('input[data-key]')];
+  const legendOf = i => { const f = i.closest('fieldset'); return ((f && f.querySelector('legend')) || {}).textContent || ''; };
+  const fixedGive = li => { if (boxesOf(li).some(i => legendOf(i) === 'You give')) return [];
+    const a = li.querySelector('a[href*="compare-trade"]'); const m = /[?&]give=([^&#]*)/.exec(a ? a.getAttribute('href') || '' : '');
+    return m ? m[1].split(',').filter(Boolean).map(decodeURIComponent) : []; };
+  const keysIn = li => new Set(boxesOf(li).map(i => i.dataset.key).concat(heavy(li), fixedGive(li)));
+  const matches = (li, want) => { const k = keysIn(li);
+    return [...want].every(x => k.has(x)) && heavy(li).every(x => want.has(x)) && fixedGive(li).every(x => want.has(x)); };
+  const packageOf = li => { const on = boxesOf(li).filter(i => i.checked);
+    return {give: fixedGive(li).concat(on.filter(i => legendOf(i) === 'You give').map(i => i.dataset.key)),
+      get: heavy(li).concat(on.filter(i => legendOf(i) !== 'You give').map(i => i.dataset.key))}; };"""
+
 # The pair finder: find the group that lists every player of the package, tick exactly the package (check first, then
 # uncheck, so the last given player is never the one left), and read what it shows. A team shown from a saved pick keeps
-# its saved ID; rosters opened from a link have none.
-PAIR = "([give, get]) => {" + COMMON + """
+# its saved ID; rosters opened from a link have none. A fixed give player prints no value, so it has none to compare.
+PAIR = "([give, get]) => {" + COMMON + PAIR_GROUP + """
   const ui = F.ui;
   const pickerTeam = (entries, id) => ({id: (document.getElementById(id) || {}).value || null, entries});
   const base = {settings: settings(), basis: basis(), sources: sources(), level: level('""" + LEVEL_SCOPES["pair"] + """'),
     mine: side(pickerTeam(ui.getMine(), 'v2FindSavedTeam')), theirs: side(pickerTeam(ui.getTheirs(), 'v2FindTheirSavedTeam'))};
   const groups = [...document.querySelectorAll('#v2FindList li.v2-find-group')];
   const want = new Set(give.concat(get));
-  const heavy = li => (li.dataset.group || '').split(',').filter(Boolean);
-  const keysIn = li => new Set([...li.querySelectorAll('input[data-key]')].map(i => i.dataset.key).concat(heavy(li)));
-  const li = groups.find(g => { const k = keysIn(g); return [...want].every(x => k.has(x)) && heavy(g).every(x => want.has(x)); });
+  const li = groups.find(g => matches(g, want));
   if (!li) return {...base, listed: false, groups: groups.length, give: [], get: [], values: {}, gains: {}, readout: null};
-  const boxes = [...li.querySelectorAll('input[data-key]')];
+  const boxes = boxesOf(li);
   boxes.filter(i => want.has(i.dataset.key) && !i.checked && !i.disabled).forEach(i => i.click());
   boxes.filter(i => !want.has(i.dataset.key) && i.checked && !i.disabled).forEach(i => i.click());
-  const inSet = (title, i) => ((i.closest('fieldset') && i.closest('fieldset').querySelector('legend') || {}).textContent || '') === title;
-  const g = boxes.filter(i => i.checked && inSet('You give', i)).map(i => i.dataset.key);
-  const r = heavy(li).concat(boxes.filter(i => i.checked && !inSet('You give', i)).map(i => i.dataset.key));
+  const {give: g, get: r} = packageOf(li);
   const values = {};
   boxes.forEach(i => { const m = /\\(value ([^)]*)\\)$/.exec(i.getAttribute('aria-label') || ''); values[i.dataset.key] = {ddf: m ? num(m[1]) : null}; });
   const h = heavy(li);
@@ -610,6 +624,32 @@ class LineupReaderTest(unittest.TestCase):
         self.assertEqual(got["alone"]["after"]["bench"], ["B Nine", "B Ten"])
         self.assertNotIn("Position", got["nested"]["before"]["slots"], "the header row was read as a slot")
         self.assertEqual(got["nested"], got["alone"], "the league page's nesting changed what the reader sees")
+
+
+def read_pair_groups(src: str) -> dict:
+    """PAIR_GROUP on group cards drawn as groupCard draws them, fixed and selectable. Node, no browser."""
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "pair_group.json"
+        path.write_text(json.dumps(src), encoding="utf-8")
+        out = subprocess.run(["node", str(PAIR_GROUP_READER), str(path)], capture_output=True, text=True, timeout=60, cwd=ROOT)
+    if out.returncode or not out.stdout.strip():
+        raise HarnessError(f"pair group reader failed: {out.stderr[-2000:]}")
+    return json.loads(out.stdout.strip().splitlines()[-1])
+
+
+class PairGroupTest(unittest.TestCase):
+    """JEG-1304: a pair-finder group with one give candidate and nothing optional to receive draws no checkboxes, so its
+    give player is read from its Open in Compare link; the exact package it shows is listed, not package-not-listed."""
+
+    def test_a_fixed_give_group_lists_its_package(self):
+        got = read_pair_groups(PAIR_GROUP)
+        self.assertEqual(got["fixed"], {"group": 0, "give": ["jsn"], "get": ["ken-walker"]})
+        self.assertEqual(got["otherGive"], {"group": 2, "give": ["kyren"], "get": ["ken-walker"]},
+                         "a fixed give that differs from the package must not match")
+        self.assertEqual(got["unlisted"], {"group": -1})
+
+    def test_a_selectable_group_still_reads_its_ticks(self):
+        self.assertEqual(read_pair_groups(PAIR_GROUP)["selectable"], {"group": 1, "give": ["jsn"], "get": ["drake-london"]})
 
 
 def pick_candidates(rows: list) -> dict:
