@@ -11,10 +11,13 @@ was changed. This is evidence for the later mapping work, not that work.
   tied to keys by id), ESPN 80, Yahoo 24 (both only from a few scrubbed page
   pastes). Every other cell is `missing`, and missing is not coverage.
 - The shared resolver (`canonical_players.resolve_with_reason`) gets every
-  grounded spelling right except 12, all pinned in the tests as known gaps:
-  - 8 ESPN `"<Team> D/ST"` spellings resolve to nothing. `norm_player_name`
-    keeps the `/`, so the DST path's `dst|defense|def` suffix rule never strips
-    `d/st`. Fails closed (no wrong key). ESPN's short form (`Broncos`) resolves.
+  grounded spelling right except 4, all pinned in the tests as known gaps
+  (12 when the audit was built; the 8 ESPN `"<Team> D/ST"` spellings resolve
+  since JEG-1350, below):
+  - ~~8 ESPN `"<Team> D/ST"` spellings resolve to nothing.~~ Fixed in
+    JEG-1350: `norm_player_name` keeps the `/`, so the DST path now accepts
+    `d/st` beside `dst|defense|def` in both its detection and suffix rules.
+    The 8 resolve to their DST keys; an unknown team's `D/ST` stays unmatched.
   - 3 Sleeper spellings resolve to a different player_key:
     `Nyheim Miller-Hines` (id-linked to 2785 Nyheim Hines, resolver gives 4653),
     `Jody Fortson` (437 Joseph Fortson, resolver 4655), `Mitch Tinsley`
@@ -99,7 +102,8 @@ observation (4 rows) so a reviewer can check each one against its raw line.
    have a gsis_id, but the Sleeper base carries gsis for only 1,322 players
    and the idmap covers only players with Sleeper projections. DST has no
    Sleeper evidence (the base pulls QB/RB/WR/TE/K).
-4. ESPN `D/ST` suffix fails closed in the shared resolver (8 teams here).
+4. ~~ESPN `D/ST` suffix fails closed in the shared resolver (8 teams here).~~
+   Done in JEG-1350 (691 pass, 4 known gaps).
 5. Suspected duplicate public.players rows (gsis-less, Sleeper spelling):
    4653 vs 2785, 4655 vs 437, 4660 vs 4363, and 4661 vs 1155 (Ben VanSumeren,
    same text, different snapshot positions). Production write: Jeremy's yes.

@@ -51,6 +51,9 @@ from lib.roster_convention import (
     waiver_band_line as _convention_waiver_band_line,
     market_bench_ratios as _convention_market_bench_ratios,
     vorp_bench_allocate as _vorp_bench_allocate,
+    league_depth as _league_depth,
+    market_order as _market_order,
+    replacement_waiver_index as _replacement_waiver_index,
     POSITIONS as _CONV_POSITIONS,
 )
 from nfl_week import today_ny  # noqa: E402  (JEG-1177: one New York-time calendar)
@@ -242,6 +245,12 @@ class League:
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14: the reader's override, off by default
+    # JEG-1188: a loaded league's rostered keys and the bench level ("ddf" =
+    # his value, best free agent as replacement; "market" = the league's
+    # rostered depth, for the other side). None = no league.
+    league_rostered: tuple | None = None
+    bench_level: str = "ddf"
+    league_reserve: tuple = ()   # JEG-1188: keys in IR or taxi slots
 
     @property
     def starting_slots(self) -> int:
@@ -308,12 +317,31 @@ def allocate(league: League, order: dict, score: dict, *,
             got[p] += 1
         return got
 
-    sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(order.get(p, [])) if idx >= d[p]],
-              t * int(league.superflex))
-    fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
-               for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
-              t * int(league.flex))
-    if flex_bench_seats:
+    def fill(o, d):
+        sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(o.get(p, [])) if idx >= d[p]],
+                  t * int(league.superflex))
+        fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
+                   for idx, i in enumerate(o.get(p, [])) if idx >= d[p] + sf[p]],
+                  t * int(league.flex))
+        return sf, fx
+
+    sf, fx = fill(order, d)
+    depth = None
+    if league.league_rostered is not None:
+        # JEG-1188: a loaded league sets the bench and the replacement line
+        # from its own rosters.
+        modeled = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
+        if league.bench_level == "market":
+            # JEG-1249: market starters come from held players only.
+            held = _market_order(order, league.league_rostered, league.league_reserve)
+            d = {p: min(d[p], len(held.get(p, []))) for p in POSITIONS}
+            sf, fx = fill(held, d)
+        depth = _league_depth({p: d[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                              league.league_rostered, league.bench_level, league.league_reserve)
+        for p in POSITIONS:
+            depth[p]["modeled_starters"] = modeled[p]
+        b = {p: depth[p]["bench"] for p in POSITIONS}
+    elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
         _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
@@ -337,6 +365,9 @@ def allocate(league: League, order: dict, score: dict, *,
         s = d[p] + sf[p] + fx[p]
         out[p] = {"dedicated": d[p], "superflex": sf[p], "flex": fx[p], "bench": b[p],
                   "starters": s, "rostered": s + b[p]}
+        if depth is not None:
+            out[p].update({k: depth[p][k] for k in ("replacement", "replacement_key", "held", "reserve",
+                                                    "bench_basis", "modeled_starters")})
     return out
 
 
@@ -690,10 +721,12 @@ def _waiver_value(src: SourceInput, pos: str, values: list, n_rost: int) -> floa
 
 
 def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
-                  es: dict | None = None, promotion: dict | None = None) -> dict:
+                  es: dict | None = None, promotion: dict | None = None,
+                  league_rostered=None) -> dict:
     """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
     slices (or, with `es` = {teams, lineup, chart_sigma}, the ES-5 parts)
-    and the 8 group totals."""
+    and the 8 group totals. league_rostered: a loaded league's held keys
+    (JEG-1249), for the ddf level's waiver by player identity."""
     positions, players = {}, {}
     groups = {g: 0.0 for g in GROUPS}
     surplus = 0.0
@@ -703,11 +736,18 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
         est = [(i, e["value"], True) for i, e in (estimates.get(p) or {}).items()]
         work = sorted(listed + est, key=lambda r: (-r[1], r[2], r[0]))
         n_rost, n_start = a["rostered"], a["starters"]
+        n_line = a.get("replacement", n_rost)   # JEG-1188: may sit inside the starters
+        if a.get("bench_basis") == "above_replacement":
+            # JEG-1249: the replacement player's own row in this source.
+            n_line = _replacement_waiver_index([r[0] for r in work], a["replacement_key"], league_rostered)
+            if n_line is None:
+                n_line = len(work)
         info = {**a, "listed": len(listed), "extended": bool(est),
                 "imputation_ratios": dict(estimates.get(p) or {}) or None}
-        if len(work) > n_rost:
-            w = _waiver_value(src, p, [r[1] for r in work], n_rost)
-            method = "estimated" if work[n_rost][2] else "roster_determined"
+        if len(work) > n_line:
+            # JEG-1047 / JEG-1249: the band (projection) or the one player (chart) at the line row.
+            w = _waiver_value(src, p, [r[1] for r in work], n_line)
+            method = "estimated" if work[n_line][2] else "roster_determined"
         elif work:
             w = work[-1][1]
             method = "insufficient_coverage"
@@ -981,7 +1021,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                         est[i] = _estimate(src, i, own_order[p], peers, m)
                 if est:
                     estimates[p] = est
-        d = _source_lines(src, pos_of, s_alloc, estimates, es, promo)
+        d = _source_lines(src, pos_of, s_alloc, estimates, es, promo, league.league_rostered)
         d.update(_mixes(d["groups"], share_in))
         d.update({"family": src.family, "status": "included" if key in inc else "excluded",
                   "allocation": s_alloc})
@@ -1591,8 +1631,12 @@ class Setting:
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
                  promotion_model: bool = True, flex_bench_seats: bool = True,
-                 basis: dict | None = None, week: int | None = None):
-        """basis: JEG-1044, the reader's value basis (None = default).
+                 basis: dict | None = None, week: int | None = None,
+                 league_rostered=None, bench_level: str = "ddf", league_reserve=()):
+        """league_rostered / bench_level / league_reserve: JEG-1188, a loaded
+        league's rostered keys, the bench level to price at and the keys in
+        IR or taxi slots (League fields).
+        basis: JEG-1044, the reader's value basis (None = default).
         lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
@@ -1625,7 +1669,9 @@ class Setting:
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
             bench_share=DEFAULT_BENCH_SHARE if bench_share is None else float(bench_share),
-            position_shares=position_shares, bench_share_override=bench_share_override)
+            position_shares=position_shares, bench_share_override=bench_share_override,
+            league_rostered=tuple(league_rostered) if league_rostered is not None else None,
+            bench_level=bench_level, league_reserve=tuple(league_reserve or ()))
         self.pos_of = {k: p["pos"] for k, p in inp.players.items()}
         self._current = None
         self._prior = None
@@ -1917,7 +1963,11 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 divergence_exclusions=divergence_exclusions,
                 promotion_model=promotion_model,
                 flex_bench_seats=flex_bench_seats,
-                basis=setting_spec.get("basis"))
+                basis=setting_spec.get("basis"),
+                # JEG-1188: a loaded league (absent = the modeled bench).
+                league_rostered=setting_spec.get("league_rostered"),
+                bench_level=setting_spec.get("bench_level", "ddf"),
+                league_reserve=setting_spec.get("league_reserve", ()))
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}

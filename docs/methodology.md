@@ -206,6 +206,66 @@ chart DDF Value").
    - d. Bench: `b_p` = D'Hondt apportionment of `round_half_up(T x B)` seats
      over `BENCH_MIX_12`. Each seat goes to the position with the largest
      `weight / (seats + 1)`, with ties going to position order.
+   - d2. **A loaded league (JEG-1188, Jeremy 2026-10-29: "we focus on vorp,
+     let other managers make stupid decisions and capitalize").** When the
+     setting carries the league's rostered players (`league_rostered`, and
+     `league_reserve` for the ones in IR or taxi slots), its rosters set the
+     bench and the waiver line instead of d, at one of two levels
+     (`bench_level`). Three counts are kept apart and labelled apart:
+     - *bench seats*: `T x B` from the settings (never derived from rosters);
+     - *rostered depth* (`bench_basis: rostered_depth`, the **market** level,
+       the other side's acceptance): `held_p` = active rostered players at
+       `p` (reserve left out). JEG-1249: the market level's starters come
+       from held players only (dedicated seats `min(T x slots_p, held_p)`,
+       then superflex, then FLEX from the held remainder, in the projected-
+       points order), so `b_p = held_p - S_p`, replacement index `R_p =
+       held_p`, and no position holds more players than the league does.
+       The modeled starters stay in `modeled_starters`; seats the league
+       can't fill are the difference, never players;
+     - *above replacement* (`bench_basis: above_replacement`, the **ddf**
+       level, his value): `R_p` = the index in the projected-points order of
+       the first player who is neither rostered nor in reserve (the best
+       available free agent), `b_p = max(0, R_p - S_p)`.
+     The waiver line at the ddf level is a player, not an index (JEG-1249):
+     `replacement_key` names the best free agent, and each source prices
+     its waiver at that player's own value in that source (listed or
+     estimated). A source with no row for him uses its own best free player
+     (the first row in its order no team holds, reserve counting as held);
+     a source with no free row takes the insufficient_coverage path. The
+     line can sit inside the starters when a free agent out-projects a
+     starter; `S_p` itself never moves at this level. At the market level
+     the waiver stays positional, at `R_p` in each source's own order (a
+     depth count, not a named player). Each position's allocation carries
+     `replacement`, `replacement_key`, `held`, `reserve`, `bench_basis` and
+     `modeled_starters`. With no league none of this applies and the output
+     is unchanged.
+     The league page uses the levels only when the league is complete
+     (`league_completeness`, fails closed to d): the team count equals the
+     settings', no team is empty or below its starting spots, no player is
+     on two teams, no pasted player is unmatched (unknown counts as
+     unmatched), and every roster has a load time no older than 7 days.
+     JEG-1249: on top of that, `DDFRosterProvenance.inferenceBlockers`
+     (JEG-1241) must return nothing: every team's roster was read from a
+     source (a local edit, a share link or an append is not a read), its
+     unmatched count is known, and no page left its bench out
+     (`bench_omitted`). A paste is read as the team's whole roster (Jeremy,
+     2026-10-29: "This hasn't been an issue on prior pastes. The rosters have
+     all filled up and the page is set up for manual checks and errors."), so
+     `coverage_unproven` doesn't block and the note says the pastes are read
+     as whole rosters. The load time is the source read (`observedAt`),
+     never the last edit. A "Use league rosters" switch shows this (Jeremy,
+     2026-10-29: "default to not using league specifics unless the rosters
+     are filled in, and give the user visibility to that a toggle with a
+     grayed out use of league specifics until criteria are met"): grayed
+     out, with what is missing, until the league qualifies; on once it
+     does; switching it off (saved with the league) prices the page with d.
+     While the levels are on, the league page does not open its trades in
+     Compare a trade (which prices with d) and says why.
+     Contract: DDF Value and the bench-share weights come from the ddf level;
+     the four trade charts and the expected depth that judges acceptance
+     come from the market level. Compare a trade and the pair finder keep d.
+     `roster_convention.league_depth` and the engine's `vpLeagueDepth` (and
+     `league_completeness` / `vpLeagueCompleteness`) are the one rule.
    - e. Starters `S_p = d_p + sf_p + fx_p`. Rostered `N_p = S_p + b_p`. If the
      candidates run out, the untaken slots stay empty.
    - f. **No projection in `I`** (degenerate week). **Lead's reading:** there

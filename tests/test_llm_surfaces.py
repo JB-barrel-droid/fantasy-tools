@@ -14,7 +14,7 @@ import build_llm_surfaces as b  # noqa: E402
 
 MCP = "https://example.test/functions/v1/mcp"
 SITE = "https://site.test/ddf/"
-TOOLS = ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "explain"]
+TOOLS = ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "risers_fallers", "audit_values", "explain"]
 
 
 class LlmSurfaceTests(unittest.TestCase):

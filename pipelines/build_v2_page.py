@@ -276,12 +276,14 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/movers.js" defer></script>'
                   '\n  <script src="v2/kdef-names.js" defer></script>'
                   '\n  <script src="v2/roster-paste.js" defer></script>'
+                  '\n  <script src="v2/roster-provenance-transitions.js" defer></script>'
                   '\n  <script src="v2/workspace.js" defer></script>'
                   '\n  <script src="v2/table-sort.js" defer></script>'
                   '\n  <script src="v2/team-summary.js" defer></script>'
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/lineup-comparison.js" defer></script>'
+                  '\n  <script src="v2/trade-readout.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
                   '\n  <script src="v2/player-flags.js" defer></script>'
@@ -365,7 +367,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "modules.js",
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "trade-readout.js", "league.js", "modules.js",
                  "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.

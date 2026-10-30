@@ -319,7 +319,7 @@ export function planWeek(bundle: Bundle, m: LeagueInputs, requested: number | nu
 
 // A saved week's natives for one source (curve-widget.js weekNatives / historyNatives / historyPpg).
 // The saved weeks carry 1-QB chart natives only, so a saved week at a superflex setting runs on them.
-function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
+export function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
   const doc = bundle.history?.docs?.[String(week)];
   const entry = doc?.sources?.[key];
   if (!doc) return { reason: `no Week ${week} content saved` };

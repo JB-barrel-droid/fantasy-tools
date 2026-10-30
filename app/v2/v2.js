@@ -380,7 +380,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research"].forEach(id => { $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research", "v2Home"].forEach(id => { if ($(id)) $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -452,6 +452,21 @@
       if (series && typeof series.is_older_week === "boolean") item.stale = series.is_older_week;
       if (series && !item.week && Number.isFinite(series.vintage_week)) item.week = series.vintage_week;
     });
+    // JEG-1178 (Jeremy, 2026-10-27): inside a week view a source is labelled with the week it contributes to that view.
+    // One that already moved on to the next week still carries the newer week in its data; the view prices it on its
+    // saved copy of the viewed week, so that is the week it shows. A source left out of the view keeps its own label.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.servedWeeks && Number.isInteger(weekState.week)) {
+      info.forEach(item => {
+        if (isDdfKey(item.key)) return;
+        const served = weekState.servedWeeks[sourceMeta(item.key).publisher];
+        // Only a source that moved past the viewed week; one on the viewed week keeps its own label.
+        if (Number.isInteger(served) && served > weekState.week) {
+          item.servedWeek = served;
+          item.week = weekState.week;
+        }
+      });
+    }
     return info;
   }
   // JEG-912: a rounding residue never shows a sign ("-0.0" is "0.0").
@@ -565,6 +580,7 @@
   }
   PHONE_NAMES.addEventListener("change", () => {
     document.querySelectorAll(".v2-nm").forEach(span => { span.textContent = phoneName(span.dataset.full, span.dataset.pos); });
+    if (view) renderHeader();   // JEG-1193: the context strip's Reviewed chip is a link on desktop only
   });
   (() => {
     let pop = null;
@@ -909,6 +925,91 @@
     $("v2Show").value = state.windowPreset;
   }
 
+  // ---------- week selector (JEG-1178, part of JEG-1176) ----------
+  // While sources move from one week to the next, each serves its own week. The engine resolves one week view
+  // (getWeekState: default = the newer week once more than half of the league's sources have it; setWeek picks).
+  // No carry-forward: a source that has not published the view's week is left out and named here.
+  const WEEK_MEMORY_KEY = "ddf.valuesWeek";
+  const nameList = keys => keys.map(key => PLAIN_NAMES[key] || key).join(", ");
+  function weekPickModel() {
+    const ws = C && C.getWeekState ? C.getWeekState() : null;
+    if (!ws || !Number.isInteger(ws.week) || !ws.views || !ws.views[ws.newest]) return null;
+    const pd = window.TradeValueProductData;
+    let fresh = null;
+    try { fresh = pd && pd.getSourceFreshness ? pd.getSourceFreshness() : null; } catch (error) { fresh = null; }
+    const total = ws.total;
+    const countOn = week => (ws.views[week] ? ws.views[week].sources.length : 0);
+    const options = ws.weeks.map(week => ({week, sources: countOn(week), total,
+      label: `Week ${week} (${countOn(week)} of ${total} sources)`}));
+    const newest = ws.newest;
+    const calendar = fresh && Number.isInteger(fresh.current_content_week) ? fresh.current_content_week : null;
+    // The week sources should be on by now. Past the newest served week, none has published it yet.
+    const expected = Math.max(newest, calendar || 0);
+    const onNewest = ws.views[newest];
+    const lagging = expected > newest ? onNewest.sources.concat(onNewest.missing_sources).sort() : onNewest.missing_sources.slice();
+    const stale = Boolean(lagging.length && pd && pd.pastThursdayNoon && pd.pastThursdayNoon(expected));
+    const viewMissing = ws.views[ws.week].missing_sources;
+    let text = "";
+    if (expected > newest) {
+      text = `Week ${expected} is not published by any of the ${total} sources yet. Showing Week ${ws.week}.`;
+    } else if (ws.week === newest && viewMissing.length) {
+      text = `${nameList(viewMissing)} ${stale ? `still on Week ${ws.week - 1} after Thursday 12:00 CT` : `not yet published for Week ${ws.week}`}. `
+        + `Left out of these values, not carried over from Week ${ws.week - 1}.`;
+    } else if (ws.week !== newest) {
+      text = `Showing Week ${ws.week}. ${countOn(newest)} of ${total} sources have posted Week ${newest}; their saved Week ${ws.week} is used.`
+        + (viewMissing.length ? ` ${nameList(viewMissing)} left out.` : "");
+    }
+    // Where the sentence above already says it (the newer week's view), the badge stands alone.
+    const staleInline = stale && expected === newest && ws.week === newest && viewMissing.length > 0;
+    const staleText = stale && !staleInline ? `${nameList(lagging)} still on Week ${expected - 1} after Thursday 12:00 CT.` : "";
+    return {week: ws.week, newest, expected, transition: Boolean(ws.transition && ws.weeks.length > 1), selected: Boolean(ws.selected),
+      default_week: ws.default_week, total, options, missing: viewMissing.slice(), lagging, stale, text, staleText,
+      label: (options.find(o => o.week === ws.week) || {}).label || `Week ${ws.week}`};
+  }
+  function renderWeekPick() {
+    const model = weekPickModel();
+    const pick = $("v2WeekPick");
+    const bar = $("v2WeekNoteBar");
+    if (!pick || !bar) return;
+    pick.hidden = !(model && model.transition);
+    if (model && model.transition) {
+      const select = $("v2WeekSelect");
+      select.replaceChildren(...model.options.map(option => {
+        const node = document.createElement("option");
+        node.value = String(option.week);
+        node.textContent = option.label;
+        return node;
+      }));
+      select.value = String(model.week);
+      select.title = model.selected ? "You picked this week. The default is Week " + model.default_week + "." : "";
+    }
+    const note = $("v2WeekNote");
+    const shown = Boolean(model && (model.text || model.staleText));
+    bar.hidden = !shown;
+    note.replaceChildren();
+    if (!shown) return;
+    if (model.stale) {
+      const badge = document.createElement("span");
+      badge.className = "v2-weeknote-stale";
+      badge.textContent = "Stale";
+      note.append(badge, model.staleText ? `${model.staleText} ` : "");
+    }
+    note.append(model.text);
+  }
+  function rememberWeek() {
+    try {
+      const ws = C.getWeekState();
+      if (ws && ws.selected) sessionStorage.setItem(WEEK_MEMORY_KEY, String(ws.week));
+      else sessionStorage.removeItem(WEEK_MEMORY_KEY);
+    } catch (error) { /* no session storage: the pick still holds for this page */ }
+  }
+  function restoreWeek() {
+    try {
+      const week = Number(sessionStorage.getItem(WEEK_MEMORY_KEY));
+      if (Number.isInteger(week) && week > 0 && C.setWeek) C.setWeek(week, false);
+    } catch (error) { /* nothing remembered */ }
+  }
+
   // ---------- header, league, methods ----------
   // JEG-861: one "NFL Week 7 · as of Oct 22" line under every value page title, from the same data
   // the Player values line uses (the data week, never the calendar week, and the fixture's built_at).
@@ -922,6 +1023,7 @@
   }
   function renderHeader() {
     renderPageStamps();
+    renderWeekPick();
     const s = view.state;
     const scoring = {standard: "Standard", half_ppr: "Half PPR", ppr: "Full PPR"}[s.scoring] || s.scoring;
     $("v2LeagueName").textContent = `${scoring} · ${s.teams} teams`;
@@ -992,7 +1094,9 @@
       li.append(document.createTextNode(" "), sourceLink(key, PLAIN_NAMES[meta.publisher] || meta.label));
       const badge = item?.stale ? weekBadge(key) : null;
       if (badge) li.appendChild(badge);
-      appendDivergence(li, key);
+      // JEG-1193: on phones the one-line strip (JEG-1119) clips its legend, so a link there would be cut off and
+      // untappable. The chip still shows; its link stays in Customize (and in this legend on desktop).
+      appendDivergence(li, key, {noLink: PHONE_NAMES.matches});
       legend.appendChild(li);
     });
 
@@ -5083,7 +5187,9 @@
     if (!compareTierRows) compareTierRows = C.getAllRows();
     return {rows: compareTierRows, pos: "ALL", engineOrder: false};
   }
-  let exampleCache = null;   // {signature, pick}: the sample trade "Try a sample trade" loads
+  // {signature, picks, next, fallback}: the examples the start button and "Show another" load in turn (JEG-1191 path A:
+  // trades the market misses; fewer than TradeValueTrade.EXAMPLE_COUNT falls back to the single JEG-1190 sample).
+  let exampleCache = null;
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -5403,7 +5509,7 @@
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
-    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
+    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, chartKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
@@ -5420,16 +5526,27 @@
     return false;
   }
 
-  // The example trade, recomputed only when the series or the values change.
-  function exampleTrade(pointKeys) {
+  // The examples, recomputed only when the series or the values change. Each call returns the next one in turn.
+  function exampleList(pointKeys, chartKeys) {
+    const T = window.TradeValueTrade;
     const key = verdictKey();
     const rows = C.getAllRows();
-    const keys = pointKeys.concat(key);
+    const keys = pointKeys.concat(key, chartKeys, T.DEAL_KEYS.value, T.DEAL_KEYS.projections);
     const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
     if (!exampleCache || exampleCache.signature !== signature) {
-      exampleCache = {signature, pick: window.TradeValueTrade.pickExample(rows, pointKeys, key)};
+      const misses = T.pickMarketMisses(rows, chartKeys);
+      const fallback = misses.length < T.EXAMPLE_COUNT;
+      const single = fallback ? T.pickExample(rows, pointKeys, key) : null;
+      exampleCache = {signature, picks: fallback ? (single ? [single] : []) : misses, next: 0, fallback};
     }
-    return exampleCache.pick;
+    return exampleCache;
+  }
+  function nextExample(pointKeys, chartKeys) {
+    const list = exampleList(pointKeys, chartKeys);
+    if (!list.picks.length) return null;
+    const pick = list.picks[list.next % list.picks.length];
+    list.next = (list.next + 1) % list.picks.length;
+    return pick;
   }
 
   function sourceCell(td, key) {
@@ -5447,7 +5564,7 @@
     // TT-06 (contract v1.2): a chart a week behind shows the shared "Wk N" badge in its row.
     if (item?.stale) sub.append(weekBadge(key), document.createTextNode(" older week"));
     else sub.textContent = item?.week ? `Week ${item.week}` : "week unknown";
-    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; the legend keeps the link
+    appendDivergence(sub, key, {noLink: true});   // JEG-1048: the 44 px row has no room for a 44 px link under the name; Customize keeps the link (JEG-1193)
     td.appendChild(document.createElement("br"));
     td.appendChild(sub);
   }
@@ -6196,6 +6313,13 @@
     const ready = compareView.ready;
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
+    // JEG-1191 path A: the Example line says what kind of trade it is, and offers the next one while there is one.
+    // The claim follows the current Deal read, so a change of charts, league or overrides that ends it drops it.
+    const examples = compareView.example && exampleCache ? exampleCache : null;
+    $("v2CExampleText").textContent = examples && window.TradeValueTrade.isMarketMiss(compareView.deal)
+      ? "DDF Value says you win; the charts favor the other side. Edit it, or add your own player."
+      : "A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.";
+    $("v2CNextExample").hidden = !(examples && examples.picks.length > 1);
     const empty = !TR.give.length && !TR.receive.length;
     $("v2CStart").hidden = !empty;
     $("v2CTryExample").disabled = !verdictKey();
@@ -6266,6 +6390,9 @@
       if (w.optimize !== d.optimize) parts.push(`optimize=${w.optimize}`);
       if (w.content !== w.build) parts.push(`week=${w.content}`);
     }
+    // JEG-1178: a week the reader picked travels with the link (wk=); the default week stays out of it.
+    const weekState = C.getWeekState ? C.getWeekState() : null;
+    if (weekState && weekState.selected && Number.isInteger(weekState.week)) parts.push(`wk=${weekState.week}`);
     // JEG-537: the advanced settings, only when they differ from the defaults (bso: 3 decimals; absent = off).
     const adv = advancedState(false);
     const advDefaults = adv && advancedState(true);
@@ -6360,7 +6487,11 @@
         optimize: ["season", "regular", "playoffs"].includes(optimize) ? optimize : wkDef.optimize};
       if (JSON.stringify(want) !== JSON.stringify(wkNow)) weeksChange = want;
     }
-    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange) return;
+    // JEG-1178: the week the sender picked. A week outside this league's transition falls back to the default.
+    const linkWeek = params.has("wk") && Number.isInteger(Number(params.get("wk"))) ? Number(params.get("wk")) : null;
+    const weekNow = C.getWeekState ? C.getWeekState() : null;
+    const wkChange = linkWeek !== null && Boolean(C.setWeek) && (!weekNow || linkWeek !== weekNow.week || !weekNow.selected);
+    if (!scoringChange && !teamsChange && !rosterChange.length && !advChange && !sharesGiven && !weeksChange && !wkChange) return;
     leagueInputs.source = "link";
     leagueInputs.notes = [];
     if (weeksChange) {
@@ -6374,6 +6505,8 @@
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
       });
     }
+    // The link's week is read after the league: the setting decides which weeks exist.
+    if (wkChange) { C.setWeek(linkWeek, false); rememberWeek(); refresh(); }
     // The link's advanced settings are the sender's choice, set after the league.
     if (advChange) {
       const error = applyAdvanced(advChange);
@@ -6382,7 +6515,9 @@
     }
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
-    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");   // JEG-1020: Find a trade reads the link's settings too
+    // JEG-1020: Find a trade reads the link's settings too. JEG-1380: a week-only link moves its results to that week.
+    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");
+    else if (wkChange) announceLeagueChange("week");
     announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;
     const linkBench = benchReadoutText(C.getBenchShareReadout ? C.getBenchShareReadout() : null);
@@ -6497,8 +6632,8 @@
     compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
     compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
     compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
-    $("v2CTryExample").addEventListener("click", () => {
-      const sample = compareView && verdictKey() ? exampleTrade(compareView.pointKeys) : null;
+    const loadExample = focusId => {
+      const sample = compareView && verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;
       if (!sample) return;
       const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
       TR.give = pick(sample.give);
@@ -6506,8 +6641,11 @@
       TR.example = {give: TR.give.map(p => p.key), receive: TR.receive.map(p => p.key)};
       TR.undo = null;
       renderCompare();
-      $("v2GiveSearch").focus();
-    });
+      $(focusId).focus();
+    };
+    $("v2CTryExample").addEventListener("click", () => loadExample("v2GiveSearch"));
+    // JEG-1191 path A: "Show another" swaps in the next example; the trade stays marked Example.
+    $("v2CNextExample").addEventListener("click", () => loadExample("v2CNextExample"));
     $("v2CVerdictBar").addEventListener("click", () => {
       const card = $("v2CVerdict");
       card.scrollIntoView({block: "center"});
@@ -6573,7 +6711,20 @@
   // ---------- How values work (frames 15 / 16) ----------
   // Explains the three views (docs/methodology.md, "The Three Views"). It adds no
   // numbers: the league line and the source lists come straight from the engine.
+  // JEG-1107: DDF Value Logic is part of this page. The frame loads on first view and reports its own height,
+  // so the dashboard scrolls and the frame never does.
+  function loadValueLogic() {
+    const frame = $("v2ValueLogicFrame");
+    if (frame && !frame.getAttribute("src")) frame.src = frame.dataset.src;
+  }
+  window.addEventListener("message", event => {
+    const frame = $("v2ValueLogicFrame");
+    if (!frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
+    const data = event.data;
+    if (data && data.type === "ddf-value-logic-height" && data.height > 0) frame.style.height = Math.ceil(data.height) + "px";
+  });
   function renderHow() {
+    loadValueLogic();
     collect();
     renderHeader();
     $("v2HowLeague").textContent = $("v2LeagueName").textContent;
@@ -6774,6 +6925,12 @@
     if (group === "ddf" && Array.isArray(prior.dropped) && prior.dropped.length) {
       notes.push(`Left out of both weeks of this DDF Value change: ${prior.dropped.map(d => `${groupSeriesName(d.source)} (${d.reason})`).join("; ")}.`);
     }
+    // JEG-1178: during a week transition a source that has not published this week is not in the blend, so it has no
+    // change to show; each source in it is compared with its own previous week.
+    const weekModel = group === "ddf" ? weekPickModel() : null;
+    if (weekModel && weekModel.transition && weekModel.missing.length) {
+      notes.push(`Skipped: ${nameList(weekModel.missing)} (not yet on Week ${weekModel.week}). Each source is compared with its own previous week.`);
+    }
     const heldOut = unavailable.filter(c => view.infoByKey[c.key] && !view.infoByKey[c.key].available);
     const noPriorOut = unavailable.filter(c => !heldOut.includes(c));
     if (heldOut.length) notes.push(`Not offered: ${heldOut.map(c => `${priorLabel(c.key)} (${c.prior.reason})`).join("; ")}.`);
@@ -6952,8 +7109,12 @@
     const base = hashBase();
     return base === "#writing/how-values" ? "how-values" : (base === "#writing/research" || base.startsWith("#writing/research/")) ? "research" : "manifesto";
   };
+  // JEG-1137 slice 2b: ?design=fieldnotes (design-flag.js) adds a Home view (#home), which is also its landing page.
+  // Without the flag #home is an unknown route, so the default site is unchanged.
+  const fieldnotes = () => document.documentElement.dataset.design === "fieldnotes";
   // The route table: the view a (canonical) hash base names, or null when no route claims it (JEG-913).
   const viewFor = base => (base === "#trade-targets" ? "targets"
+    : base === "#home" && fieldnotes() ? "home"
     : base === "#risers-fallers" ? "risers"
     : base === "#compare-trade" ? "compare"
     : base === "#find-trade" ? "find"
@@ -6963,11 +7124,11 @@
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
-  const currentView = () => viewFor(hashBase()) || "values";   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
+  const currentView = () => viewFor(hashBase()) || (fieldnotes() && !hashBase() ? "home" : "values");   // landing: the value chart (Jeremy, 2026-10-25, JEG-1106; was Trade targets, 2026-10-08)
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides", home: "Home"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -6998,11 +7159,12 @@
     $("v2How").hidden = writingSection() !== "how-values";
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
+    $("v2Home").hidden = v !== "home";   // JEG-1137 slice 2b (Fieldnotes only)
     applyStatic();
     // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
     // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
     // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
-    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides";
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides" || v === "home";
     $("v2EditSources").hidden = noShowing;
     document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
@@ -7017,6 +7179,11 @@
       else tab.removeAttribute("aria-current");
     });
     $("v2NavCurrent").textContent = navLabel;
+    // JEG-1137 slice 2b: the Fieldnotes primary bar marks its destination too (Values, Buy & sell and Check a trade
+    // are also in the full list; More marks nothing).
+    document.querySelectorAll("#v2FnPrimary [data-fn-key]").forEach(link => {
+      if (link.dataset.fnKey === v) link.setAttribute("aria-current", "page"); else link.removeAttribute("aria-current");
+    });
     closePopover();
     if (expanded && v !== "values") closeExpanded(true);
     $("v2Tip").hidden = true;
@@ -7128,7 +7295,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
-    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league") { collect(); renderHeader(); }   // text only; the nav freshness still updates
+    else if (currentView() === "writing" || currentView() === "find" || currentView() === "league" || currentView() === "home") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }
 
@@ -7445,6 +7612,12 @@
       window.matchMedia("(max-width: 767px)").addEventListener("change", event => { if (!event.matches) setSummary(false); });
     }
     $("v2Weights").addEventListener("click", openWeights);
+    $("v2WeekSelect").addEventListener("change", event => {   // JEG-1178
+      C.setWeek(Number(event.target.value));
+      rememberWeek();
+      refresh();
+      announceLeagueChange("week");   // JEG-1380: Find a trade re-runs its results on the new week's values
+    });
     $("v2Freshness").addEventListener("click", openFreshness);
     $("v2HowWeightsBtn").addEventListener("click", openWeights);
     // JEG-953: phone hamburger menu. The toggle only shows below the phone breakpoint (CSS); the menu is the same
@@ -7452,14 +7625,30 @@
     {
       const header = document.querySelector(".v2-nav");
       const toggle = $("v2NavToggle");
+      // JEG-1137 slice 2b: under ?design=fieldnotes the primary bar's More button replaces the menu button (CSS hides it).
+      const more = $("v2FnMore");
+      if (fieldnotes()) {
+        $("v2FnPrimary").hidden = false;
+        // On the /v2/ copy a "v2/#view" link loads /v2/ again without ?design=fieldnotes; keep it on this page, as the
+        // root page's link shim does (that shim runs first there and marks the click handled).
+        document.addEventListener("click", event => {
+          const link = event.target.closest && event.target.closest('a[href^="v2/#"]');
+          if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          location.hash = link.getAttribute("href").slice(3);
+        });
+      }
+      let opener = toggle;
       const setNav = (open, returnFocus) => {
         header.classList.toggle("is-open", open);
         toggle.setAttribute("aria-expanded", open ? "true" : "false");
         toggle.setAttribute("aria-label", open ? "Close menu" : "Menu");
-        if (open) (document.querySelector(".v2-tab.is-active") || document.querySelector(".v2-tab")).focus();
-        else if (returnFocus) toggle.focus();
+        more.setAttribute("aria-expanded", open ? "true" : "false");
+        if (open) (document.querySelector("#v2Tabs .v2-tab.is-active") || document.querySelector("#v2Tabs .v2-tab")).focus();
+        else if (returnFocus) opener.focus();
       };
-      toggle.addEventListener("click", () => setNav(!header.classList.contains("is-open"), true));
+      toggle.addEventListener("click", () => { opener = toggle; setNav(!header.classList.contains("is-open"), true); });
+      more.addEventListener("click", () => { opener = more; setNav(!header.classList.contains("is-open"), true); });
       $("v2Tabs").addEventListener("click", event => {
         const item = event.target.closest(".v2-tab");
         if (item && header.classList.contains("is-open")) setNav(false, false);
@@ -7766,6 +7955,7 @@
     leagueDefaults = {scoring: C.getState().scoring, teams: C.getState().teams, roster: {...C.getRosterShape()}};
     try { leagueDefaultSnapshot = JSON.stringify(leagueSnapshot()); } catch (error) { leagueDefaultSnapshot = ""; }
     restoreLeagueSettings();
+    restoreWeek();   // JEG-1178: the week picked earlier in this session; a link's wk= overrides it below
     applyStartSelection();
     loadPipeline();
     loadSourcePages();
@@ -7783,6 +7973,7 @@
       leagueInputs: () => ({...leagueInputs, notes: leagueInputs.notes.slice(), label: $("v2LeagueName").textContent}),
       // JEG-483: the drawn main chart (keys, rows, scale) and which view is expanded.
       chart: () => mainChart, expanded: () => expanded,
+      weekPick: weekPickModel,
       risers: () => risersView, risersState: R, priors: () => Object.fromEntries(priorCache),
       // JEG-872: the one source name map (symbol + label) the audit tabs read, so every tab says the same names.
       publishers: () => PUBLISHERS,

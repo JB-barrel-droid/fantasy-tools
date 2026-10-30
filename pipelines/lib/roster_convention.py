@@ -270,6 +270,170 @@ def vorp_bench_allocate(
     return counts
 
 
+BENCH_LEVELS = ("ddf", "market")
+
+
+def league_depth(starters: dict, order: dict, league_rostered, level: str = "ddf",
+                 league_reserve=()) -> dict:
+    """Per-position league counts and the replacement line (JEG-1188).
+
+    Two levels (Jeremy, 2026-10-29: "we focus on vorp, let other managers
+    make stupid decisions and capitalize"):
+
+    ddf     Pure value over replacement. Replacement is the league's best
+            available player at each position: the first player in `order`
+            that no team holds (IR and taxi players are held). His index is
+            the replacement line, and it can sit inside the starter line (a
+            free agent good enough to start): every player at or below him
+            is then worth nothing over replacement. bench_p counts the
+            players above replacement beyond the starters,
+            max(0, replacement_p - starters_p). It is not a count of
+            physical bench seats.
+    market  What the league actually holds on active roster spots: held_p =
+            players at the position in `order` on a team and not in an IR or
+            taxi slot. bench_p = max(0, held_p - starters_p) and the line
+            sits at starters_p + bench_p. Feeds the other side's acceptance,
+            never the reader's own value. Pass the starters filled from held
+            players (market_order), so starters + bench = held and no player
+            is invented (JEG-1249).
+
+    starters: {pos: league-wide starters}. order: {pos: [key, ...]} best
+    first (the allocation's order). league_rostered: every key on a team,
+    reserve slots included. league_reserve: the keys in IR or taxi slots.
+    Keys compare as strings, so int and str keys both work.
+
+    Returns {pos: {"bench", "replacement", "replacement_key", "held",
+    "reserve", "best_free_index", "bench_basis"}}. replacement_key (JEG-1249)
+    names the best free agent (str, None when every player in the order is
+    held); each source prices the waiver at that player, not at an index
+    (replacement_waiver_index). bench_basis is "above_replacement" (ddf) or
+    "rostered_depth" (market).
+    """
+    if level not in BENCH_LEVELS:
+        raise ValueError(f"bench level must be one of {BENCH_LEVELS}, got {level!r}")
+    held = {str(k) for k in league_rostered}
+    reserve = {str(k) for k in league_reserve}
+    out = {}
+    for pos in POSITIONS:
+        keys = [str(k) for k in order.get(pos, [])]
+        s = int(starters.get(pos, 0))
+        free = next((i for i, k in enumerate(keys) if k not in held and k not in reserve), len(keys))
+        n_res = sum(1 for k in keys if k in reserve)
+        n_held = sum(1 for k in keys if k in held and k not in reserve)
+        if level == "ddf":
+            bench, line, basis = max(0, free - s), free, "above_replacement"
+        else:
+            bench = max(0, n_held - s)
+            line, basis = s + bench, "rostered_depth"
+        out[pos] = {"bench": bench, "replacement": line,
+                    "replacement_key": keys[free] if free < len(keys) else None,
+                    "held": n_held, "reserve": n_res, "best_free_index": free, "bench_basis": basis}
+    return out
+
+
+def market_order(order: dict, league_rostered, league_reserve=()) -> dict:
+    """{pos: [key, ...]}: `order` kept to the players held on active roster
+    spots (JEG-1249). The market level fills its starters from this order,
+    so a position the league holds fewer players at than the modeled
+    starters shows a shortage instead of invented holdings."""
+    held = {str(k) for k in league_rostered} - {str(k) for k in league_reserve}
+    return {p: [k for k in order.get(p, []) if str(k) in held] for p in order}
+
+
+def replacement_waiver_index(work_keys: list, replacement_key, league_rostered):
+    """Index in one source's work order of the waiver player (JEG-1249).
+
+    ddf level: the replacement is a player, the league's best free agent in
+    the common order. Each source prices the waiver at that player's own row
+    (listed or estimated). A source that has no row for him uses its own
+    best free player, the first row no team holds (IR and taxi count as
+    held). None when the source has no free row at all; the caller then
+    takes the insufficient_coverage path.
+    """
+    keys = [str(k) for k in work_keys]
+    if replacement_key is not None and str(replacement_key) in keys:
+        return keys.index(str(replacement_key))
+    held = {str(k) for k in league_rostered or ()}
+    return next((i for i, k in enumerate(keys) if k not in held), None)
+
+
+def league_bench(starters: dict, order: dict, league_rostered, level: str = "ddf",
+                 league_reserve=()) -> dict:
+    """{pos: bench} from league_depth (JEG-1188)."""
+    return {p: d["bench"] for p, d in
+            league_depth(starters, order, league_rostered, level, league_reserve).items()}
+
+
+# JEG-1188: a loaded league's rosters may set replacement only when they are
+# complete, matched and fresh. Fail closed: any reason keeps the modeled line.
+RESERVE_SLOTS = ("IR", "IR+", "IR-R", "IL", "RES", "RESERVE", "TAXI", "NA")
+ROSTER_MAX_AGE_MS = 7 * 24 * 3600 * 1000
+
+
+def is_reserve_slot(slot) -> bool:
+    return slot is not None and str(slot).strip().upper() in RESERVE_SLOTS
+
+
+def league_completeness(teams_expected: int, starting_slots_per_team: int, teams: list,
+                        now_ms: float, max_age_ms: float = ROSTER_MAX_AGE_MS) -> dict:
+    """Whether a loaded league may set replacement (JEG-1188).
+
+    teams: [{"id", "players": [{"key", "slot"?}], "unresolved": int,
+    "loaded_at": ms}], valued players only (no K or DEF). Reasons, in this
+    order, each listed once:
+      team_count      teams loaded != the league's team count
+      empty_team      a team with no valued players
+      short_roster    a team with fewer active valued players than starting
+                      slots (a partial paste)
+      duplicate_owner a player on two teams
+      unresolved      a team has pasted players that were never matched, or
+                      no record of it
+      no_timestamp    a team with no load time
+      stale           a team loaded more than max_age_ms before now
+    Returns {"ok", "reasons", "rostered": sorted keys, "reserve": sorted keys}.
+    Mirrors value-model.js vpLeagueCompleteness.
+    """
+    reasons = []
+
+    def add(r):
+        if r not in reasons:
+            reasons.append(r)
+
+    if len(teams) != int(teams_expected):
+        add("team_count")
+    owner = {}
+    rostered, reserve = set(), set()
+    for t in teams:
+        players = t.get("players") or []
+        if not players:
+            add("empty_team")
+        active = [p for p in players if not is_reserve_slot(p.get("slot"))]
+        if len(active) < int(starting_slots_per_team):
+            add("short_roster")
+        for p in players:
+            k = str(p["key"])
+            if k in owner and owner[k] != str(t.get("id")):
+                add("duplicate_owner")
+            owner[k] = str(t.get("id"))
+            rostered.add(k)
+            if is_reserve_slot(p.get("slot")):
+                reserve.add(k)
+        # None = not recorded (a league saved before JEG-1188): unknown, so not matched.
+        if t.get("unresolved") is None or not int(t["unresolved"]) <= 0:
+            add("unresolved")
+    for t in teams:
+        at = t.get("loaded_at")
+        if not isinstance(at, (int, float)) or at <= 0:
+            add("no_timestamp")
+        elif now_ms - at > max_age_ms:
+            add("stale")
+    order = ["team_count", "empty_team", "short_roster", "duplicate_owner", "unresolved",
+             "no_timestamp", "stale"]
+    reasons.sort(key=order.index)
+    return {"ok": not reasons, "reasons": reasons, "rostered": sorted(rostered),
+            "reserve": sorted(reserve)}
+
+
 def allocate_league(slots: dict[str, int], teams: int, bench_per_team: int,
                     flex_count: int, superflex_count: int,
                     player_order: dict[str, list],

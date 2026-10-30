@@ -15,6 +15,9 @@
 //   JEG-1225: --basis and --ov are a share link's value context, read by app/v2/ddf-value-link.js and applied by
 //   supabase/functions/get-values/value-context.ts, the modules the deployed function uses. The values are then DDF
 //   Value after the overrides, and --with-week 1 adds `value_context` (the basis and the overrides applied).
+//     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
+//     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
+//     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -41,6 +44,8 @@ if (!read.ok) {
   process.exit(1);
 }
 const context = read.context;
+// JEG-1029: the opt-in analysis blocks come from the function's own analysis.ts.
+const { auditBlock, parseIncludes, priorBlock, seriesBlock } = require("../supabase/functions/get-values/analysis.ts");
 const leagueArg = args.league ? JSON.parse(args.league) : null;
 const legacyLeague = { scoring: args.scoring || "ppr", teams: Number(args.teams) || 12,
   ...(Number(args.superflex) ? { roster: { SUPERFLEX: 1 } } : {}) };
@@ -85,8 +90,15 @@ try {
       // A week the build did not publish stays unloaded, as a failed fetch does in the function.
     }
   }
+  // --drop-entry WEEK:SOURCE: the history saved no entry for SOURCE in WEEK (JEG-1029's unpaired prior week).
+  if (args["drop-entry"]) {
+    const [week, key] = args["drop-entry"].split(":");
+    if (!docs[week]?.sources?.[key]) throw new Error(`--drop-entry: no Week ${week} ${key} entry to drop`);
+    delete docs[week].sources[key];
+  }
   history = { index, docs };
 } catch (e) {
+  if (args["drop-entry"]) throw e;
   // No week history: the calendar rule applies, as on the page.
 }
 
@@ -141,4 +153,30 @@ const valueContext = {
   basis: context.basis, basis_applied: context.basis ? Boolean(pipeline.basis && pipeline.basis.applied) : true,
   overrides_applied: own.applied.length, overrides_not_priced: own.not_priced.map(Number),
 };
-process.stdout.write(JSON.stringify(args["with-week"] ? { values: output, week: built.week, value_context: valueContext } : output));
+// JEG-1029: --include adds the analysis blocks the function adds (series, prior, audit).
+const parsedInclude = parseIncludes(args.include);
+if (parsedInclude.error) {
+  process.stderr.write(parsedInclude.error + "\n");
+  process.exit(1);
+}
+const analysis = {};
+const includes = parsedInclude.includes;
+if (includes.has("series")) analysis.series = seriesBlock(pipeline, input.hidden || []);
+// --mutate two-weeks-back (tests/test_connector_analyses.py's broken variant): the "prior week" priced on
+// Week N-2's inputs but labelled Week N-1, so the parity check must fail on the values, not the label.
+if (includes.has("prior")) {
+  if (args.mutate === "two-weeks-back") {
+    const prior = priorBlock(bundle, input, pipeline, plan.week - 1, plan.served || {}, mapped.scoring);
+    analysis.prior = { ...prior, current_week: plan.week, prior_week: plan.week - 1 };
+  } else {
+    analysis.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served || {}, mapped.scoring);
+  }
+}
+if (includes.has("audit")) {
+  const excluded = (pipeline.excluded || []).map((e) => ({ key: e.key, reason: e.reason }));
+  analysis.audit = auditBlock(bundle, pipeline, excluded);
+}
+const withWeek = args["with-week"] || includes.size;
+process.stdout.write(JSON.stringify(withWeek
+  ? { values: output, week: built.week, ...(args["with-week"] ? { value_context: valueContext } : {}), ...analysis }
+  : output));

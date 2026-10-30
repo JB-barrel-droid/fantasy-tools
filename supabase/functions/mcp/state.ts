@@ -24,6 +24,8 @@ export const ROUTES: Record<string, string> = {
   // JEG-1329: the league finder, opened from its own share link (workspace.js shareHash).
   league: "#find-league",
   risers: "#risers-fallers",
+  // JEG-1029: audit_values opens the Values auditing tab (its Health check sub-tab by default).
+  audit: "#values-auditing",
 };
 
 // JEG-1031: get-values prices the whole league, so a state's settings beyond scoring, teams and superflex

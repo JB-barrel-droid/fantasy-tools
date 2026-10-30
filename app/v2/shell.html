@@ -39,6 +39,15 @@
           <a class="v2-tab" href="v2/#value-overrides" data-view="overrides" data-key="overrides"><span class="v2-tab-full">Overrides</span></a>
         </div>
       </nav>
+      <!-- JEG-1137 slice 2b: the Fieldnotes primary navigation, shown only with ?design=fieldnotes (v2.js unhides it).
+           In the top bar on a wide screen, a fixed bar at the foot of a phone. More opens the full page list above (#v2Tabs). -->
+      <nav class="v2-fn-primary" id="v2FnPrimary" aria-label="Primary" hidden>
+        <a class="v2-fn-go" href="v2/#home" data-fn-key="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="m3 10 9-7 9 7v11h-7v-7h-4v7H3z"/></svg><span>Home</span></a>
+        <a class="v2-fn-go" href="v2/#player-values" data-fn-key="values"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M3 3v18h18M5 7l4 2 4 6 7 3"/></svg><span>Values</span></a>
+        <a class="v2-fn-go" href="v2/#trade-targets" data-fn-key="targets"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M4 18 10 6l5 7 5-9M4 21h17"/></svg><span>Buy &amp; sell</span></a>
+        <a class="v2-fn-go" href="v2/#compare-trade" data-fn-key="compare"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true" focusable="false"><path d="M3 7h17l-4-4M21 17H4l4 4"/></svg><span>Check a trade</span></a>
+        <button type="button" class="v2-fn-go" id="v2FnMore" aria-expanded="false" aria-controls="v2Tabs"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg><span>More</span></button>
+      </nav>
     </div>
     <div class="v2-topnote" id="v2SeasonNote">
       <div class="v2-topnote-inner">
@@ -85,6 +94,11 @@
         <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
       </div>
       <button type="button" class="v2-btn v2-btn-sm v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+      <!-- JEG-1178: the week selector, shown only while sources are moving from one week to the next. -->
+      <div class="v2-ctx-week" id="v2WeekPick" hidden>
+        <label class="v2-sr" for="v2WeekSelect">Values week</label>
+        <select id="v2WeekSelect" class="v2-select" aria-describedby="v2WeekNote"></select>
+      </div>
       <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span><span id="v2FreshnessShort" class="v2-freshness-short" aria-hidden="true"></span>
       </button>
@@ -105,6 +119,9 @@
       </div>
     </div>
   </div>
+  <div class="v2-weeknote" id="v2WeekNoteBar" hidden>
+    <p class="v2-wrap v2-weeknote-text" id="v2WeekNote" role="status"></p>
+  </div>
   <div class="v2-wrap v2-assist-panel">
     <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
   </div>
@@ -124,6 +141,42 @@
       <span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span><span class="v2-skel-bar"></span>
     </section>
   </div>
+
+  <!-- JEG-1137 slice 2b: Fieldnotes Home (#home), routed only with ?design=fieldnotes. Copy: the approved JEG-1209 prototype.
+       The value-curve peek (JEG-1265) and the AI-assistant panel (JEG-1266) belong to their own lanes. -->
+  <main class="v2-wrap v2-main v2-fn-home" id="v2Home" hidden aria-labelledby="v2HomeTitle">
+    <section class="v2-fn-hero">
+      <p class="v2-meta">Free · No sign-up · Explore without a league</p>
+      <h1 class="ddf-fn-hero" id="v2HomeTitle">Understand the data.<br>Make your own call.</h1>
+      <p class="v2-fn-lead">See what forecasts, published charts and observed trades say about your players—and why they disagree.</p>
+      <div class="v2-fn-actions">
+        <a class="v2-btn v2-btn-primary" href="v2/#player-values">Explore Values →</a>
+        <a class="v2-btn" href="https://jb-barrel-droid.github.io/fantasy-tools/connect/">Use DDF in your AI assistant →</a>
+      </div>
+      <p class="v2-meta">Trade-value points for your league. Clear explanations behind every view.</p>
+    </section>
+    <section class="v2-fn-routes" aria-label="Where to start">
+      <article>
+        <p class="v2-fn-kicker">01 / Understand a value</p>
+        <h2>Know what the number means.</h2>
+        <p class="v2-meta">Explore the curve, compare views, then inspect the input categories.</p>
+        <a class="v2-btn" href="v2/#player-values">Explore Values →</a>
+      </article>
+      <article>
+        <p class="v2-fn-kicker">02 / Consider a trade</p>
+        <h2>Keep both sides in sight.</h2>
+        <p class="v2-meta">Compare the same deal across different value views.</p>
+        <a class="v2-btn" href="v2/#compare-trade">Check a trade →</a>
+        <a class="v2-btn" href="v2/#find-league">Find a league trade →</a>
+      </article>
+      <article>
+        <p class="v2-fn-kicker">03 / Bring your league</p>
+        <h2>Set up on desktop.</h2>
+        <p class="v2-meta">Copy rosters on a computer. Open a prepared state link on your phone to continue.</p>
+        <a class="v2-btn" href="v2/#find-league">Paste my league →</a>
+      </article>
+    </section>
+  </main>
 
   <main class="v2-wrap v2-main" id="v2Main" hidden>
     <div class="v2-title v2-title-row">
@@ -484,9 +537,10 @@
           <button type="button" class="v2-link" id="v2CUndo" hidden>Undo</button>
         </div>
       </div>
-      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; "Try a sample trade" loads the sample as an editable trade,
-           marked Example until the reader changes it. -->
-      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span></p>
+      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; the start button loads an example as an editable trade,
+           marked Example until the reader changes it. JEG-1191 path A: the examples are trades the market misses, and
+           "Show another" loads the next one while the trade is untouched. -->
+      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span><span id="v2CExampleText">A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span> <button type="button" class="v2-link" id="v2CNextExample" hidden>Show another</button></span></p>
     </div>
 
     <section class="v2-card v2-crosters" id="v2CRosters" aria-labelledby="v2CRostersTitle" hidden>
@@ -528,7 +582,7 @@
           <p id="v2CVerdictText"></p>
         </div>
         <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
-        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Try a sample trade</button></p>
+        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Show me a trade the market misses</button></p>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
         </div>
@@ -685,7 +739,7 @@
     <section class="v2-card v2-how-logic" aria-labelledby="v2HowLogicTitle">
       <h2 id="v2HowLogicTitle">The full value logic</h2>
       <p>Every step from a source's own numbers to a DDF Value, with the engine's own figures for a standard league: the checks, the curves, the weights, each source's recipe, and a player traced through every source. Rebuilt on every deploy.</p>
-      <p class="v2-how-links"><a class="v2-link" href="value-logic/">Open DDF Value Logic</a></p>
+      <iframe class="v2-how-logic-frame" id="v2ValueLogicFrame" title="DDF Value Logic" data-src="value-logic/" loading="lazy" scrolling="no"></iframe>
     </section>
 
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">

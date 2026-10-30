@@ -289,9 +289,11 @@ class SettingsLivePageRenderTest(unittest.TestCase):
     def tearDownClass(cls):
         cls._stack.close()
 
-    def page(self, hash_="#find-league"):
+    def page(self, hash_="#find-league", init_script=None):
         context = self.chromium.new_context(viewport={"width": 390, "height": 900}, accept_downloads=True)
         context.grant_permissions(["clipboard-read", "clipboard-write"], origin=self.base)
+        if init_script:
+            context.add_init_script(init_script)
         page = context.new_page()
         errors = []
         page.on("pageerror", lambda e: errors.append(str(e)))
@@ -390,6 +392,29 @@ class SettingsLivePageRenderTest(unittest.TestCase):
             self.assertEqual([k for k in got["teams"][name]], [k for k in keys if k in got["teams"][name]])
             self.assertGreaterEqual(len(got["teams"][name]), len(keys) - 1)
         self.assertEqual(self.overrides_state(opened)["all"], ov["all"])
+
+    def test_link_waits_for_the_page_reader(self):
+        # JEG-1379: league.js may see engine rows before v2.js has set window.TradeValueV2 (its own boot polls on a
+        # different timer). Hold TradeValueV2 back for 1.5 s after v2.js sets it: the link must still bring its player
+        # overrides and league settings, not only its teams. Without the wait the opened page has no overrides.
+        page = self.page()
+        self.press(page, "importLeague", chooser_file=self.tmp / "league.json")
+        self.status(page, "loaded")
+        self.press(page, "importOverrides", chooser_file=self.tmp / "overrides.json")
+        self.status(page, "Imported")
+        want = self.overrides_state(page)["all"]
+        self.assertEqual(len(want), 2)
+        self.press(page, "copyLink")
+        self.status(page, "Copied")
+        link = page.evaluate("navigator.clipboard.readText()")
+        self.assertIn("ov=", link)
+        late = """(() => { let held; let shown = false;
+          Object.defineProperty(window, "TradeValueV2", {configurable: true, get() { return shown ? held : undefined; },
+            set(value) { held = value; setTimeout(() => { shown = true; }, 1500); }}); })();"""
+        opened = self.page(link[link.index("#"):], init_script=late)
+        opened.wait_for_function("TradeValueWorkspace.store.get().teams.length === 2", timeout=30000)
+        self.assertEqual(self.league_state(opened)["mine"], "Paper Lions")
+        self.assertEqual(self.overrides_state(opened)["all"], want)
 
     def test_two_cancelled_overrides_imports_leave_settings_usable(self):
         # JEG-1306: the Overrides tab adds a new #v2OvImportFile on each press and keeps a cancelled one, so the wait must
