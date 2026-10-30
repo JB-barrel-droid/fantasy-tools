@@ -57,9 +57,9 @@ jobs:
       - run: make sync
       - run: python3 -m unittest -v tests.test_jeg1140_settings_fieldnotes
       - run: python3 -m unittest -v tests.test_jeg1140_settings_fieldnotes_render
-      - run: python3 -m unittest -v tests.test_jeg1140_explainer_fieldnotes_render
         env:
           SETTINGS_FIELDNOTES_SHOTS: ${{ runner.temp }}/settings-shots
+      - run: python3 -m unittest -v tests.test_jeg1140_explainer_fieldnotes_render
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4

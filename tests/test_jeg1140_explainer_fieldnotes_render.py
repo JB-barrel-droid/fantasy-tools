@@ -7,8 +7,9 @@ Opens the built dashboard at /v2/#writing/how-values and reads the explainer fra
   * the frame follows a theme switch on the parent without a reload;
   * without the flag the frame is unchanged: no data-design, and the original page color.
 
-Discrimination: test_guard_fails_without_the_rules removes the Fieldnotes block and the mirror from the template and
-requires the frame check to fail. Skips with no browser unless RENDER_TESTS_REQUIRED=1.
+Discrimination: test_guard_fails_without_the_rules (no browser) asserts the template contains the
+Fieldnotes CSS block and the JS mirror code, and that every selector in that block is scoped to the flag.
+Skips with no browser unless RENDER_TESTS_REQUIRED=1 (browser tests only).
 """
 from __future__ import annotations
 
@@ -86,12 +87,27 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
                     page.context.close()
 
     def test_frame_follows_a_theme_switch(self):
+        # The frame's MutationObserver re-reads the parent's resolved tokens when data-theme changes.
+        # Without the change the frame uses its own fixed CSS variables and its panel colour never
+        # matches the parent's dark --ddf-surface.  With the change they are equal.
         page = self.open("?design=fieldnotes", 1280)
-        light = _frame(page)["bodyBg"]
+        _frame(page)  # wait for the frame to load
         page.evaluate("document.documentElement.dataset.theme = 'dark'")
-        page.wait_for_timeout(300)
-        dark = page.evaluate("getComputedStyle(document.getElementById('v2ValueLogicFrame').contentDocument.querySelector('.panel')).backgroundColor")
-        self.assertNotEqual(light, dark)
+        page.wait_for_timeout(400)
+        result = page.evaluate("""() => {
+          const f = document.getElementById('v2ValueLogicFrame');
+          const d = f.contentDocument, p = getComputedStyle(document.documentElement);
+          const panel = d.querySelector('.panel');
+          const framePanelBg = getComputedStyle(panel).backgroundColor;
+          // Resolve --ddf-surface from the (now dark) parent into an rgb() string the same way FRAME does.
+          const tmp = d.createElement('span');
+          tmp.style.color = p.getPropertyValue('--ddf-surface');
+          d.body.appendChild(tmp);
+          const parentDarkSurface = getComputedStyle(tmp).color;
+          tmp.remove();
+          return {framePanelBg, parentDarkSurface};
+        }""")
+        self.assertEqual(result["framePanelBg"], result["parentDarkSurface"])
         page.context.close()
 
     def test_focus_ring_is_three_pixels(self):

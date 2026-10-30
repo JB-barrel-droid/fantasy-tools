@@ -14,3 +14,10 @@ into the branch (one add/add conflict in the render test; main's version taken, 
 ### Claimed, not confirmed
 - The frame falls back to Georgia for headings (the Fraunces face is declared once, in the dashboard).
 - Waiting on locks: Settings route, nav entry, appearance toggle, "View settings" button.
+
+### Corrections from independent review (2026-10-30)
+
+- Workflow: moved `test_jeg1140_explainer_fieldnotes_render` step below the `env: SETTINGS_FIELDNOTES_SHOTS` block so the settings screenshots continue to save.
+- HANDOFF.md: merged origin/main normally; kept both sides (JEG-1385 and JEG-1140 entries).
+- Docstring: updated to match what `test_guard_fails_without_the_rules` actually does (static text assertions, no browser).
+- `test_frame_follows_a_theme_switch`: replaced assertNotEqual with assertEqual(framePanelBg, parentDarkSurface). Verified: fails on main's template, passes with the change.
