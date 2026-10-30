@@ -4,6 +4,8 @@
 import { createRequire } from "node:module";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
 import { ROUTES } from "../../supabase/functions/mcp/state.ts";
+import { evalPageModule, PAGE_MODULE_FILES } from "../../supabase/functions/mcp/analyses.ts";
+import { readFileSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 const deps = { codec: require("../../app/v2/ddf-state.js"), siteOrigin: "https://site.test" };
@@ -16,7 +18,12 @@ const players = [
 const answer = async (scoring, teams, superflex) => ({ attribution: "Data Driven Football", as_of: "2026-10-24",
   setting: { scoring, teams, superflex }, players, sources_included: ["espn"], sources_excluded: [],
   bench_share: { QB: 0.2, RB: 0.3, WR: 0.3, TE: 0.25, overall: 0.28, input: 0.15 } });
-const finderDeps = { finder: require("../../app/v2/finder.js"), fetchCharts: answer };
+// JEG-1029: the analyses' page modules and an empty analysis answer (the route is all this reads).
+const modules = Object.fromEntries(Object.entries(PAGE_MODULE_FILES)
+  .map(([name, m]) => [name, evalPageModule(readFileSync(new URL(`../../app/${m.file}`, import.meta.url), "utf8"), name)]));
+const fetchAnalysis = async (...a) => ({ ...(await answer(...a)), series: {}, audit: {},
+  prior: { available: false, reason: "stub", current_week: null, prior_week: null, series: {} } });
+const finderDeps = { finder: require("../../app/v2/finder.js"), fetchCharts: answer, analysis: { fetchAnalysis, modules } };
 const rpc = (method, params) => handleRpc({ jsonrpc: "2.0", id: 1, method, params }, answer, deps, finderDeps);
 
 // The smallest valid arguments for each tool. A tool missing here is reported with route null.
@@ -30,6 +37,8 @@ const ARGS = {
   find_trades: { mine: "Josh Allen", theirs: "Bijan Robinson" },
   find_trades_league: { mine: "Josh Allen", opponents: [{ name: "Opp", roster: "Bijan Robinson" }] },
   explain: { topic: "tiers" },
+  risers_fallers: {},
+  audit_values: {},
 };
 
 const tools = (await rpc("tools/list")).result.tools.map((t) => t.name);

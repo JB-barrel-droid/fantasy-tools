@@ -20,6 +20,18 @@ import {
   selectPackage,
 } from "./viability.ts";
 import { askedWeek, type WeekFields, weekProp, withWeek } from "./week.ts";
+import {
+  type AnalysisDeps,
+  type AnalysisResponse,
+  COMPARE_SERIES,
+  fmtNet,
+  inspectionOf,
+  pageRows,
+  priorFor,
+  SERIES_LABELS,
+  slimDisagreement,
+  slimMover,
+} from "./analyses.ts";
 
 export interface PlayerValue {
   player_key: number;
@@ -90,6 +102,10 @@ const EXPLAIN_TOPICS = [
   "tiers",
   "how_to_trade",
 ];
+
+// JEG-1029: the series Risers & fallers offers (movers.js SERIES) and the sources Values auditing shows.
+const MOVERS_SERIES = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
+const AUDIT_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"];
 
 const settingsProps = {
   scoring: {
@@ -216,13 +232,14 @@ export const TOOLS = [
   {
     name: "compare_trade",
     description:
-      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware and has no per-chart breakdown, so point the user to the site link for the full view.",
+      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware. Set by_source for the site's Compare a trade breakdown: the net for DDF Value and each published trade chart (rescaled), and which charts disagree with the DDF Value verdict.",
     inputSchema: {
       type: "object",
       properties: {
         ...settingsProps,
         side_a: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team A gives up" },
         side_b: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team B gives up" },
+        by_source: { type: "boolean", default: false, description: "One row per series, as the site's Compare a trade shows it (DDF Value and the four published charts)" },
       },
       required: ["side_a", "side_b"],
     },
@@ -308,6 +325,38 @@ export const TOOLS = [
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
   {
+    name: "risers_fallers",
+    description:
+      "Who gained and lost value since last week, as the site's Risers & fallers shows it: one series at a time (DDF Value by default), Week N-1 to the week served now, both priced for the user's league. Also lists where the market (DDF Value) and the projections (DDF Value (projections)) disagree: one moved 2.5 points or more while the other moved 1.0 or less.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        series: { type: "string", enum: MOVERS_SERIES, default: "ddf_value", description: "Which series' change to show" },
+        position: { type: "string", enum: POSITIONS, default: "all", description: "Filter by position" },
+        limit: { type: "integer", minimum: 1, maximum: 25, default: 10, description: "Risers and fallers to show, each" },
+        disagreements: { type: "boolean", default: true, description: "Also list where the market and the projections disagree" },
+      },
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "audit_values",
+    description:
+      "Audit the values for the user's league, as the site's Values auditing tab shows them. view health (default): the Health check's verdicts, each check pass or flag with the reason. view source: one source's build-up (published, indexed, adjusted) with its totals and its top players in its own order.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        view: { type: "string", enum: ["health", "source"], default: "health", description: "Health check or one source's build-up" },
+        source: { type: "string", enum: AUDIT_SOURCES, default: "fantasycalc", description: "The source, for view source" },
+        position: { type: "string", enum: POSITIONS, default: "all", description: "Filter the source view by position" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 15, description: "Players to show in the source view" },
+      },
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
     name: "explain",
     description:
       "Explain how Data Driven Football values work: methodology, sources, value scale, scoring formats, superflex, tiers, how to use values in trades.",
@@ -328,6 +377,8 @@ export class ToolUnavailableError extends ToolInputError {}
 export interface FinderDeps {
   finder: Finder | null;
   fetchCharts: FetchValuesWithCharts | null;
+  /** JEG-1029: get-values' analysis blocks and the page modules that read them. */
+  analysis?: AnalysisDeps;
 }
 
 const SCORING_ALIASES: Record<string, string> = {
@@ -682,11 +733,21 @@ export async function runTool(
   const weekValues: FetchValues = async (scoring, teams, superflex, league) =>
     (priced = await fetchValues(scoring, teams, superflex, league, week));
   const charts = finderDeps?.fetchCharts;
+  const analysis = finderDeps?.analysis?.fetchAnalysis;
   const weekDeps: FinderDeps | undefined = finderDeps && {
     ...finderDeps,
     fetchCharts: charts
       ? async (scoring, teams, superflex, league) => (priced = await charts(scoring, teams, superflex, league, week))
       : null,
+    ...(finderDeps.analysis ? {
+      analysis: {
+        ...finderDeps.analysis,
+        fetchAnalysis: analysis
+          ? async (scoring, teams, superflex, league, _week, includes) =>
+            (priced = await analysis(scoring, teams, superflex, league, week, includes))
+          : null,
+      },
+    } : {}),
   };
   const result = await runPricedTool(name, args, weekValues, deps, weekDeps);
   return withWeek(result, priced, week);
@@ -703,6 +764,8 @@ async function runPricedTool(
   if (name === "make_state") return await makeState(args, fetchValues, deps);
   if (name === "find_trades") return await findTradesHandler(args, fetchValues, deps, finderDeps);
   if (name === "find_trades_league") return await findTradesLeagueHandler(args, fetchValues, deps, finderDeps);
+  if (name === "risers_fallers") return await risersFallersHandler(args, deps, finderDeps?.analysis);
+  if (name === "audit_values") return await auditValuesHandler(args, deps, finderDeps?.analysis);
   const prepared = prepare(args, deps);
   args = prepared.args;
   if (name === "explain") {
@@ -797,7 +860,10 @@ async function runPricedTool(
     if (!namesA.length || !namesB.length) {
       throw new ToolInputError("side_a and side_b each need at least one name");
     }
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    const bySource = parseBool(args.by_source, "by_source", false);
+    const data: AnalysisResponse = bySource
+      ? await analysisData(finderDeps?.analysis, "trade", s, ["series"])
+      : await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     let a = resolveNames(data.players, namesA);
     let b = resolveNames(data.players, namesB);
     stopOnUnresolved(data.players, a, b);
@@ -814,6 +880,16 @@ async function runPricedTool(
     if (!a.matched.length || !b.matched.length) {
       const why = [...a.notes, ...b.notes].filter(Boolean).join(" ");
       throw new ToolInputError(why || "side_a and side_b each need at least one matched player");
+    }
+    // Every name matched (stopOnUnresolved), so the link carries keys only (JEG-1124).
+    const work = {
+      give: a.matched.map((p) => entry(p.name, p)),
+      get: b.matched.map((p) => entry(p.name, p)),
+    };
+    if (bySource) {
+      return finish(compareBySource(data, s, a, b, finderDeps!.analysis!.modules!.trade), {
+        prepared, deps, settings: s, view: "compare", work,
+      });
     }
     const sum = (rows: PlayerValue[]) => round1(rows.reduce((t, p) => t + p.value, 0));
     const sumA = sum(a.matched);
@@ -856,17 +932,215 @@ async function runPricedTool(
         method: "sum_of_ddf_values",
         not_found: [],
       }),
-      {
-        prepared, deps, settings: s, view: "compare",
-        work: {
-          give: a.matched.map((p) => entry(p.name, p)),
-          get: b.matched.map((p) => entry(p.name, p)),
-        },
-      },
+      { prepared, deps, settings: s, view: "compare", work },
     );
   }
 
   throw new ToolInputError(`unknown tool: ${name}`);
+}
+
+// ---------- JEG-1029: risers_fallers, compare_trade by_source, audit_values ----------
+// get-values prices; the page's own modules (movers.js, trade.js, audit-pie.js, audit-source.js) read
+// what it returns exactly as the page reads its engine. See analyses.ts.
+
+type Settings = ReturnType<typeof settings>;
+const MODULE_FOR = { risers: "movers", trade: "trade", health: "auditPie", source: "auditSource" } as const;
+
+async function analysisData(
+  analysis: AnalysisDeps | undefined, use: keyof typeof MODULE_FOR, s: Settings, includes: string[],
+): Promise<AnalysisResponse> {
+  const module = analysis?.modules?.[MODULE_FOR[use]];
+  if (!analysis?.fetchAnalysis || !module) {
+    throw new ToolUnavailableError("This analysis is unavailable right now (the site's module could not be loaded). Open the site link instead.");
+  }
+  return await analysis.fetchAnalysis(s.scoring, s.teams, s.superflex, s.league, null, includes);
+}
+
+const seriesName = (key: string) => SERIES_LABELS[key] ?? key;
+
+function compareBySource(
+  data: AnalysisResponse, s: Settings, a: ResolvedNames<PlayerValue>, b: ResolvedNames<PlayerValue>,
+  // deno-lint-ignore no-explicit-any
+  trade: any,
+): ToolResult {
+  const rowsByKey = new Map(pageRows(data).map((row) => [row.player_key, row]));
+  // A player get-values has no row for comes in with no values, so every series reads it as missing.
+  const rowsOf = (list: PlayerValue[]) => list.map((p) => rowsByKey.get(p.player_key) ?? { player_key: p.player_key, name: p.name, pos: p.pos, values: {} });
+  const giveRows = rowsOf(a.matched);
+  const getRows = rowsOf(b.matched);
+  const { rows } = trade.compareTrade(giveRows, getRows, COMPARE_SERIES);
+  const verdict = trade.tradeVerdict(rows, "ddf_value");
+  // deno-lint-ignore no-explicit-any
+  const slim = rows.map((r: any) => ({
+    series: r.key, label: seriesName(r.key),
+    give: r.give === null ? null : round1(r.give), get: r.receive === null ? null : round1(r.receive),
+    net: r.net === null ? null : round1(r.net),
+    // deno-lint-ignore no-explicit-any
+    missing: r.missing.map((m: any) => ({ name: m.row.name, side: m.side === "give" ? "a" : "b" })),
+  }));
+  const names = (keys: string[]) => keys.map(seriesName).join(", ");
+  const verdictText = verdict.kind === "win"
+    ? `team A comes out ahead on DDF Value by ${fmtNet(verdict.net)}`
+    : verdict.kind === "lose"
+    ? `team A comes out behind on DDF Value by ${fmtNet(verdict.net)}`
+    : verdict.kind === "even"
+    ? "even on DDF Value"
+    : "DDF Value cannot be read: a player has no DDF Value";
+  const against = verdict.againstKeys?.length ? `Pointing the other way: ${names(verdict.againstKeys)}.` : null;
+  const agree = verdict.kind && verdict.kind !== "incomplete" && verdict.others
+    ? `${verdict.agreeKeys.length} of ${verdict.others} complete chart rows agree.` : null;
+  const incomplete = verdict.incompleteKeys?.length ? `Not read (a player is missing there): ${names(verdict.incompleteKeys)}.` : null;
+  const notFound = [...a.unmatched, ...b.unmatched];
+  const notes = [...new Set([...a.notes, ...b.notes])];
+  const text = [
+    ...header(data, s),
+    "",
+    `Team A gives up: ${a.matched.map((p) => p.name).join(", ")}`,
+    `Team B gives up: ${b.matched.map((p) => p.name).join(", ")}`,
+    "Series | Team A gives | Team A gets | Net for team A",
+    // deno-lint-ignore no-explicit-any
+    ...slim.map((r: any) => r.net === null
+      ? `${r.label} | — | — | — (no value: ${r.missing.map((m: { name: string }) => m.name).join(", ")})`
+      : `${r.label} | ${r.give.toFixed(1)} | ${r.get.toFixed(1)} | ${fmtNet(r.net)}`),
+    "",
+    `Verdict (DDF Value, one series decides; not lineup-aware): ${verdictText}.`,
+    ...[agree, against, incomplete].filter(Boolean) as string[],
+    ...(notes.length ? [notes.join("\n")] : []),
+    ...(notFound.length ? [`Warning: not found, left out: ${notFound.join(", ")}`] : []),
+  ].join("\n");
+  return ok(text, {
+    as_of: data.as_of, setting: data.setting, method: "compare_trade_by_series", rows: slim,
+    verdict: { kind: verdict.kind, series: "ddf_value", net: verdict.net === null || verdict.net === undefined ? null : round1(verdict.net),
+      agree: verdict.agreeKeys ?? [], against: verdict.againstKeys ?? [], incomplete: verdict.incompleteKeys ?? [] },
+    not_found: notFound,
+  });
+}
+
+async function risersFallersHandler(args: Record<string, unknown>, deps?: Deps, analysis?: AnalysisDeps): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  args = prepared.args;
+  const s = settings(args);
+  const series = String(args.series ?? "ddf_value");
+  if (!MOVERS_SERIES.includes(series)) {
+    throw new ToolInputError(`invalid series: ${series}. Must be one of: ${MOVERS_SERIES.join(", ")}`);
+  }
+  const pos = position(args);
+  const limit = parseBounded(args.limit, "limit", 10, 1, 25);
+  const withDisagreements = parseBool(args.disagreements, "disagreements", true);
+  const data = await analysisData(analysis, "risers", s, ["series", "prior"]);
+  const M = analysis!.modules!.movers;
+  const rows = pageRows(data).filter((r) => pos === "all" || r.pos === pos);
+  const v = M.buildMovers(rows, series, priorFor(data, series));
+  const label = seriesName(series);
+  const risers = v.risers.slice(0, limit).map(slimMover);
+  const fallers = v.fallers.slice(0, limit).map(slimMover);
+  const line = (m: ReturnType<typeof slimMover>) => `${m.name} (${m.pos}): ${m.before.toFixed(1)} → ${m.now.toFixed(1)} (${fmtNet(m.delta)})`;
+  const text: string[] = [...header(data, s), ""];
+  if (v.available) {
+    text.push(`${label}: Week ${v.priorWeek} → Week ${v.currentWeek}, both priced for this league.`);
+    text.push(`Risers (${v.risers.length}):`, ...(risers.length ? risers.map(line) : ["  none"]));
+    text.push(`Fallers (${v.fallers.length}):`, ...(fallers.length ? fallers.map(line) : ["  none"]));
+    const counts = [`${v.compared} compared`];
+    if (v.unchanged) counts.push(`${v.unchanged} unchanged (0.0)`);
+    if (v.noPrior) counts.push(`${v.noPrior} not priced in Week ${v.priorWeek}, so no change`);
+    if (v.noCurrent) counts.push(`${v.noCurrent} without a Week ${v.currentWeek} value`);
+    text.push(`Players: ${counts.join(", ")}. Missing history is no change, never a zero change.`);
+  } else {
+    text.push(`No change to show for ${label}: ${v.reason}.`);
+  }
+  // deno-lint-ignore no-explicit-any
+  let disagreements: any = null;
+  if (withDisagreements) {
+    const d = M.buildDisagreements(rows, priorFor(data, "ddf_value_charts"), priorFor(data, "ddf_value_projections"));
+    disagreements = d.available
+      ? { available: true, compared: d.compared, market: d.market.slice(0, limit).map(slimDisagreement),
+        projections: d.projections.slice(0, limit).map(slimDisagreement), market_total: d.market.length, projections_total: d.projections.length }
+      : { available: false, reason: d.reason };
+    text.push("");
+    if (d.available) {
+      const dl = (x: ReturnType<typeof slimDisagreement>) =>
+        `${x.name} (${x.pos}): DDF Value ${fmtNet(x.market_delta)}, projections ${fmtNet(x.projections_delta)}. ${x.read}`;
+      text.push(`Market vs projections, Week ${d.priorWeek} → Week ${d.currentWeek} (one moved ${M.MOVE}+ and the other ${M.QUIET.toFixed(1)} or less; ${d.compared} compared):`);
+      text.push(`Market moved (${d.market.length}):`, ...(disagreements.market.length ? disagreements.market.map(dl) : ["  none"]));
+      text.push(`Projections moved (${d.projections.length}):`, ...(disagreements.projections.length ? disagreements.projections.map(dl) : ["  none"]));
+    } else {
+      text.push(`Market vs projections: no comparison yet: ${d.reason}.`);
+    }
+  }
+  return finish(ok(text.join("\n"), {
+    as_of: data.as_of, setting: data.setting, series, position: pos, available: v.available,
+    reason: v.available ? null : v.reason, current_week: v.currentWeek ?? null, prior_week: v.priorWeek ?? null,
+    risers, fallers, counts: { compared: v.compared, unchanged: v.unchanged, no_prior: v.noPrior, no_current: v.noCurrent,
+      risers: v.risers.length, fallers: v.fallers.length },
+    disagreements,
+  }), { prepared, deps, settings: s, view: "risers" });
+}
+
+async function auditValuesHandler(args: Record<string, unknown>, deps?: Deps, analysis?: AnalysisDeps): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  args = prepared.args;
+  const s = settings(args);
+  const viewName = String(args.view ?? "health");
+  if (viewName !== "health" && viewName !== "source") throw new ToolInputError(`invalid view: ${viewName}. Must be health or source`);
+  const data = await analysisData(analysis, viewName, s, ["audit"]);
+  const inspection = inspectionOf(data);
+  const text: string[] = [...header(data, s), ""];
+  if (viewName === "health") {
+    const P = analysis!.modules!.auditPie;
+    const model = P.extract(inspection);
+    if (!model) {
+      text.push("Health check: no pipeline data available.");
+      return finish(ok(text.join("\n"), { as_of: data.as_of, setting: data.setting, view: "health", available: false, checks: [] }),
+        { prepared, deps, settings: s, view: "audit" });
+    }
+    P.computeFlags(model);
+    const checks = P.computeChecks(model);
+    // deno-lint-ignore no-explicit-any
+    const slim = checks.map((c: any) => ({ id: c.id, label: c.name, status: c.status, detail: c.reason ?? null, sources: c.sources ?? [] }));
+    // deno-lint-ignore no-explicit-any
+    const flagged = slim.filter((c: any) => c.status === "flag");
+    text.push(`Health check: ${flagged.length ? `${flagged.length} of ${slim.length} checks flagged` : "nothing flagged"}. Value pie ${round1(model.pie)} points, ${model.rows.length} sources.`);
+    // deno-lint-ignore no-explicit-any
+    text.push(...slim.map((c: any) => `${c.status.toUpperCase()} | ${c.label}${c.detail ? ` | ${c.detail}` : ""}`));
+    return finish(ok(text.join("\n"), {
+      as_of: data.as_of, setting: data.setting, view: "health", available: true, pie: round1(model.pie), sources: model.rows.length, checks: slim,
+    }), { prepared, deps, settings: s, view: "audit" });
+  }
+  const source = String(args.source ?? "fantasycalc");
+  if (!AUDIT_SOURCES.includes(source)) throw new ToolInputError(`invalid source: ${source}. Must be one of: ${AUDIT_SOURCES.join(", ")}`);
+  const pos = position(args);
+  const limit = parseBounded(args.limit, "limit", 15, 1, 50);
+  const m = analysis!.modules!.auditSource.build(inspection, source, pos === "all" ? "ALL" : pos);
+  const val = (v: number | null) => v === null ? "—" : v.toFixed(1);
+  // A stage with no points has no total: null, never 0 (the page draws nothing for it).
+  const total = (stage: string) => m.stages[stage].exists ? round1(m.totals[stage]) : null;
+  const totals = { published: total("published"), indexed: total("indexed"), adjusted: total("adjusted") };
+  if (!m.hasData) {
+    // The page's line for a source with no values (audit-source.js render), and nothing else.
+    text.push(`${m.label} has no values at these league settings${m.status ? ` (${m.status})` : ""}.`);
+    return finish(ok(text.join("\n"), {
+      as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: false, status: m.status || null,
+      shown: 0, estimated: 0, totals, rows: [],
+    }), { prepared, deps, settings: s, view: "audit" });
+  }
+  // deno-lint-ignore no-explicit-any
+  const rows = m.rows.slice(0, limit).map((r: any) => ({
+    rank: r.rank, player_key: Number(r.key), name: r.name, pos: r.pos, role: r.role, estimated: r.estimated,
+    published: r.published === null ? null : round1(r.published), indexed: r.indexed === null ? null : round1(r.indexed),
+    adjusted: r.adjusted === null ? null : round1(r.adjusted),
+  }));
+  text.push(`${m.label} build-up (${m.family}${m.position === "ALL" ? "" : `, ${m.position}`}): ${m.shown} players, ${m.estimatedCount} filled in.` +
+    (m.status ? ` Status: ${m.status}.` : ""));
+  text.push(`Totals: published ${val(totals.published)} (${m.stages.published.unit}), indexed ${m.stages.indexed.exists ? val(totals.indexed) : "— (" + (m.stages.indexed.reason || "no indexed values") + ")"}, adjusted ${val(totals.adjusted)}.`);
+  text.push("Rank | Player | Pos | Role | Published | Indexed | Adjusted");
+  // deno-lint-ignore no-explicit-any
+  text.push(...rows.map((r: any) => `${r.rank} | ${r.name}${r.estimated ? " (filled in)" : ""} | ${r.pos} | ${r.role} | ${val(r.published)} | ${val(r.indexed)} | ${val(r.adjusted)}`));
+  return finish(ok(text.join("\n"), {
+    as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: m.hasData, status: m.status || null,
+    shown: m.shown, estimated: m.estimatedCount,
+    totals,
+    rows,
+  }), { prepared, deps, settings: s, view: "audit" });
 }
 
 // ---------- find_trades tool ----------

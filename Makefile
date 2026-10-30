@@ -144,6 +144,9 @@ test-unit-modules:
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
 	python3 -m unittest tests.test_endpoint_parity
+	# JEG-1029: the connector's analyses against value_reference (offline) and the page (browser).
+	python3 -m unittest tests.test_connector_analyses
+	python3 -m unittest tests.test_connector_analyses_page
 	python3 -m unittest tests.test_harness_main_guard
 	python3 -m unittest tests.test_launch_qa_surfaces
 	python3 -m unittest tests.test_migrations
@@ -199,6 +202,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_fieldnotes_nav_render
 	python3 -m unittest tests.test_v2_fieldnotes_compare_render
+	python3 -m unittest tests.test_v2_fieldnotes_targets_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render

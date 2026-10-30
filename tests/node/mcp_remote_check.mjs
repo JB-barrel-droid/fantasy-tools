@@ -49,7 +49,7 @@ assert.equal(await handleRpc({ jsonrpc: "2.0", method: "notifications/initialize
 assert.deepEqual((await rpc("ping")).result, {});
 r = await rpc("tools/list");
 assert.deepEqual(r.result.tools.map((t) => t.name),
-  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "explain"]);
+  ["get_values", "get_player_value", "trade_targets", "compare_trade", "read_state", "make_state", "find_trades", "find_trades_league", "risers_fallers", "audit_values", "explain"]);
 assert.ok(r.result.tools.every((t) => t.inputSchema.type === "object" && !/0-70/.test(t.description)));
 assert.equal((await rpc("nope")).error.code, -32601);
 assert.equal((await handleRpc({ foo: 1 }, stub)).error.code, -32600);

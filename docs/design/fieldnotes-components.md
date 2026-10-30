@@ -106,6 +106,27 @@ the display face, the edge colour, no sideways scroll, 44 px targets and text co
 on "Every pairing", on a row's "Show players" and on "Copy link", and checks the phone verdict bar. The unflagged page's
 computed styles are unchanged, and a guard fails without the block.
 
+## Trade targets (JEG-1139)
+
+Trade targets reuses JEG-1138's value view and expandable detail: the shared selector lists in the JEG-1138 block also
+name `#v2Targets` (the targets and weight tables, and "How to use it"). Its own layout is the `v2.css` block between
+`/* JEG-1139: Trade targets in Fieldnotes` and `/* JEG-1139 end */`. Presentation only: target signals, QB treatment,
+thresholds, copy and numbers stay with `targets.js` and `v2.js`.
+
+- The two checks and the sell and buy list headings are in the display face at 22 px (20 on phone).
+- The search box and position choice sit on the control edge at 44 px, and the DDF Value and Compare against pickers
+  keep their tint with the control radius.
+- Lists use 24 px card padding (16 on phone). Player names are at body size, 650. The gap is the row's value, at 650
+  and 20 px on the phone cards.
+- The chart links inside an opened row are 44 px targets without moving the line.
+
+**Evidence:** `tests/test_v2_fieldnotes_targets_render.py`. At 390 and 1280 px it checks that the text is identical to
+the unflagged page's, with the lists closed and with the sell list opened. It checks the display-face headings, no
+sideways scroll, 44 px targets and text contrast. By keyboard it drives Show more and Show top 5, a weight group's
+toggle and "How to use it". At 1280 it drives a row's per-chart toggle by keyboard; at 390 a tap on a card opens the
+player. The unflagged page's computed styles are unchanged without either block. A guard fails without the JEG-1139
+block (headings), and without the JEG-1138 shared lists ("How to use it" under 44 px).
+
 ## Boundary and what's next
 
 - **JEG-1137 owns:** the tokens, type, controls and flag above; league entry in Fieldnotes; and the shell and navigation (slice 2b, below). The Claude release owner sequences `v2.js` turns on the ticket.
