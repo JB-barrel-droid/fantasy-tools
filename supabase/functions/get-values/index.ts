@@ -26,6 +26,7 @@ const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
 const HISTORY_INDEX_URL = `${SITE_ORIGIN}/assets/history/index.json`;
 
 import { type League, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+import { auditBlock, type Include, parseIncludes, priorBlock, seriesBlock } from "./analysis.ts";
 import {
   type Bundle,
   buildPipelineInput,
@@ -130,6 +131,20 @@ async function loadBundle(): Promise<CachedBundle> {
     loadedAt: Date.now(),
   };
   return cached;
+}
+
+// JEG-1029: the opt-in analysis blocks (analysis.ts). prior needs the week before's saved document.
+async function addAnalysis(
+  // deno-lint-ignore no-explicit-any
+  body: any, includes: Set<Include>, bundle: CachedBundle, input: any, pipeline: any,
+  plan: { week: number | null; served: Record<string, number | null> }, scoring: string,
+): Promise<void> {
+  if (includes.has("series")) body.series = seriesBlock(pipeline, input.hidden ?? []);
+  if (includes.has("prior")) {
+    if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
+    body.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served ?? {}, scoring);
+  }
+  if (includes.has("audit")) body.audit = auditBlock(bundle, pipeline, body.sources_excluded);
 }
 
 // The chart source keys the finder compares (must match finder.js CHART_KEYS).
@@ -265,6 +280,18 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 // --- Rate limiting (simple per-IP in-memory) --------------------------------
+// JEG-1061: this limiter is a SOFT GUARD ONLY, not a real per-client limit.
+// The buckets live in a Map in this function instance's memory: the counts
+// reset whenever the instance recycles and are never shared across instances,
+// so under load each instance keeps its own count and the "limit" is really
+// per instance. The key is the first entry of the x-forwarded-for header
+// (falling back to cf-connecting-ip), which the client can set to anything,
+// so a caller can mint a fresh bucket by changing one header. All this does
+// is blunt a naive burst against one warm instance. That is accepted on
+// purpose: the function stores no data, so abuse costs CPU only (about
+// 0.3 s per fresh custom league; the answer cache below is per-instance too).
+// A shared or unforgeable-key limiter would be a separate, deliberate
+// change — do not read the numbers below as a guarantee.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute
@@ -310,7 +337,7 @@ Deno.serve(async (req: Request) => {
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
-    let includeCharts = false;
+    let rawInclude: unknown = null;
     let league: League = {};
     let rawLeague: unknown = null;
     let rawWeek: unknown = null;
@@ -320,7 +347,7 @@ Deno.serve(async (req: Request) => {
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
-      includeCharts = body.include === "charts";
+      rawInclude = body.include ?? null;
       rawLeague = body.league ?? null;
       rawWeek = body.week ?? null;
     } else {
@@ -328,7 +355,7 @@ Deno.serve(async (req: Request) => {
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
-      includeCharts = url.searchParams.get("include") === "charts";
+      rawInclude = url.searchParams.get("include");
       rawLeague = url.searchParams.get("league");
       rawWeek = url.searchParams.get("week");
     }
@@ -352,6 +379,13 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
+    // JEG-1029: include is a comma list (charts, series, prior, audit); absent = the plain answer.
+    const parsedInclude = parseIncludes(rawInclude);
+    if (parsedInclude.error) {
+      return Response.json({ error: parsedInclude.error }, { status: 400, headers: cors });
+    }
+    const includes = parsedInclude.includes;
+    const includeCharts = includes.has("charts");
     // JEG-1179: optional week (N or N+1 during a transition); absent = the site's default week.
     const requestedWeek = parseWeek(rawWeek);
     if (Number.isNaN(requestedWeek)) {
@@ -381,7 +415,8 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
-    const key = `${leagueKey(mapped)}${includeCharts ? "|charts" : ""}|wk=${plan.week}`;
+    const includeKey = [...includes].sort().join(",");
+    const key = `${leagueKey(mapped)}${includeKey ? `|${includeKey}` : ""}|wk=${plan.week}`;
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
       if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
@@ -405,13 +440,12 @@ Deno.serve(async (req: Request) => {
       }
       // deno-lint-ignore no-explicit-any
       const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
-      response = {
-        at: Date.now(),
-        body: formatResponse(
-          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
-          mapped.custom, input.week,
-        ),
-      };
+      const body = formatResponse(
+        pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
+        mapped.custom, input.week,
+      );
+      await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring);
+      response = { at: Date.now(), body };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
       answerCache.set(key, response);
     }

@@ -16,7 +16,7 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Step | Spec | Engine | Python reference | Roster convention used today |
 | --- | --- | --- | --- | --- |
 | Inputs and included set | VP-0, VP-1 | `runValuePipeline`, "VP-1 included set" | `Inputs`, `Setting`, `run_pipeline` | Reader's selection of sources; no roster. |
-| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **Flex-filled bench seats (MR-28 / JEG-969, on by default since 2026-10-23):** bench-seat D'Hondt weights count superflex+flex starters alongside dedicated starters (matching `allocate_league` in the ES model); set `flex_bench_seats=false` / `setting.flex_bench_seats = false` to disable. In canonical ppr/12/1QB this changes QB bench seats from ~15 to ~4, shifting weight to RB/WR. **Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):** the market_bench 2-QB data (bps 0.28) already reflects supply-capped QB benches from FFC draft data; applying flex-filled weights on top double-counts the effect and inverts the 2-QB direction gate (JEG-702). In 2-QB/superflex, bench allocation uses dedicated starters only. **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = the value of the first player past the rostered count; on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
+| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **Flex-filled bench seats (MR-28 / JEG-969, on by default since 2026-10-23):** bench-seat D'Hondt weights count superflex+flex starters alongside dedicated starters (matching `allocate_league` in the ES model); set `flex_bench_seats=false` / `setting.flex_bench_seats = false` to disable. In canonical ppr/12/1QB this changes QB bench seats from ~15 to ~4, shifting weight to RB/WR. **Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):** the market_bench 2-QB data (bps 0.28) already reflects supply-capped QB benches from FFC draft data; applying flex-filled weights on top double-counts the effect and inverts the 2-QB direction gate (JEG-702). In 2-QB/superflex, bench allocation uses dedicated starters only. **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = for a chart, the value of the first player past the rostered count; for a projection, the mean of the 7 players around that seat (JEG-1047); on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
 | Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma`, `esApplyPromotionModel` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma`, `_apply_promotion_model` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. **Promotion/demotion model (JEG-969): switched off since JEG-1142 (Jeremy, 2026-10-27).** No role-change adjustment applies to any player: no promotion bonus for bench players, no demotion penalty for marginal starters. The starter/bench weighting (expected starts, bench share) is unchanged. A master switch, `PROMOTION_MODEL_ENABLED = false` in `value-model.js`, `value_reference.py` and `spec_reference/value_pipeline.py`, overrides every `promotion_model` flag. The model code and `config/promotion_rates.json` are kept, dormant, for the JEG-1144 research; when on, it adjusted the lineup share for persistent role-change probability (bench promotion bonus by depth and weeks remaining; starter demotion penalty). |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
@@ -206,6 +206,66 @@ chart DDF Value").
    - d. Bench: `b_p` = D'Hondt apportionment of `round_half_up(T x B)` seats
      over `BENCH_MIX_12`. Each seat goes to the position with the largest
      `weight / (seats + 1)`, with ties going to position order.
+   - d2. **A loaded league (JEG-1188, Jeremy 2026-10-29: "we focus on vorp,
+     let other managers make stupid decisions and capitalize").** When the
+     setting carries the league's rostered players (`league_rostered`, and
+     `league_reserve` for the ones in IR or taxi slots), its rosters set the
+     bench and the waiver line instead of d, at one of two levels
+     (`bench_level`). Three counts are kept apart and labelled apart:
+     - *bench seats*: `T x B` from the settings (never derived from rosters);
+     - *rostered depth* (`bench_basis: rostered_depth`, the **market** level,
+       the other side's acceptance): `held_p` = active rostered players at
+       `p` (reserve left out). JEG-1249: the market level's starters come
+       from held players only (dedicated seats `min(T x slots_p, held_p)`,
+       then superflex, then FLEX from the held remainder, in the projected-
+       points order), so `b_p = held_p - S_p`, replacement index `R_p =
+       held_p`, and no position holds more players than the league does.
+       The modeled starters stay in `modeled_starters`; seats the league
+       can't fill are the difference, never players;
+     - *above replacement* (`bench_basis: above_replacement`, the **ddf**
+       level, his value): `R_p` = the index in the projected-points order of
+       the first player who is neither rostered nor in reserve (the best
+       available free agent), `b_p = max(0, R_p - S_p)`.
+     The waiver line at the ddf level is a player, not an index (JEG-1249):
+     `replacement_key` names the best free agent, and each source prices
+     its waiver at that player's own value in that source (listed or
+     estimated). A source with no row for him uses its own best free player
+     (the first row in its order no team holds, reserve counting as held);
+     a source with no free row takes the insufficient_coverage path. The
+     line can sit inside the starters when a free agent out-projects a
+     starter; `S_p` itself never moves at this level. At the market level
+     the waiver stays positional, at `R_p` in each source's own order (a
+     depth count, not a named player). Each position's allocation carries
+     `replacement`, `replacement_key`, `held`, `reserve`, `bench_basis` and
+     `modeled_starters`. With no league none of this applies and the output
+     is unchanged.
+     The league page uses the levels only when the league is complete
+     (`league_completeness`, fails closed to d): the team count equals the
+     settings', no team is empty or below its starting spots, no player is
+     on two teams, no pasted player is unmatched (unknown counts as
+     unmatched), and every roster has a load time no older than 7 days.
+     JEG-1249: on top of that, `DDFRosterProvenance.inferenceBlockers`
+     (JEG-1241) must return nothing: every team's roster was read from a
+     source (a local edit, a share link or an append is not a read), its
+     unmatched count is known, and no page left its bench out
+     (`bench_omitted`). A paste is read as the team's whole roster (Jeremy,
+     2026-10-29: "This hasn't been an issue on prior pastes. The rosters have
+     all filled up and the page is set up for manual checks and errors."), so
+     `coverage_unproven` doesn't block and the note says the pastes are read
+     as whole rosters. The load time is the source read (`observedAt`),
+     never the last edit. A "Use league rosters" switch shows this (Jeremy,
+     2026-10-29: "default to not using league specifics unless the rosters
+     are filled in, and give the user visibility to that a toggle with a
+     grayed out use of league specifics until criteria are met"): grayed
+     out, with what is missing, until the league qualifies; on once it
+     does; switching it off (saved with the league) prices the page with d.
+     While the levels are on, the league page does not open its trades in
+     Compare a trade (which prices with d) and says why.
+     Contract: DDF Value and the bench-share weights come from the ddf level;
+     the four trade charts and the expected depth that judges acceptance
+     come from the market level. Compare a trade and the pair finder keep d.
+     `roster_convention.league_depth` and the engine's `vpLeagueDepth` (and
+     `league_completeness` / `vpLeagueCompleteness`) are the one rule.
    - e. Starters `S_p = d_p + sf_p + fx_p`. Rostered `N_p = S_p + b_p`. If the
      candidates run out, the untaken slots stay empty.
    - f. **No projection in `I`** (degenerate week). **Lead's reading:** there
@@ -215,9 +275,16 @@ chart DDF Value").
      and VP-7.2 runs a–e on blended DDF Value.
 3. **Waiver line `w_p`**, read from the work list (the listed players plus,
    for a chart, its estimated players at `p`, in sort order):
-   - If the work list is longer than `N_p`: `w_p` = the value at 0-based index
-     `N_p`. The method is `roster_determined` when that player is listed and
-     `estimated` when he is an estimated player.
+   - If the work list is longer than `N_p`: for a chart, `w_p` = the value at
+     0-based index `N_p`. For a projection, `w_p` = the mean of the values at
+     indexes `N_p - 3` through `N_p + 3`, clipped to the work list (the 7
+     players around the first non-rostered seat; JEG-1047, Jeremy 2026-10-29,
+     option A, so one fringe player's projection does not reprice the whole
+     position). A zero seat (`N_p = 0`, no team starts or benches `p`) is the
+     same band clipped at the top: the mean of indexes 0 through 3 (JEG-1244;
+     engine, Python reference and spec reference alike). The method is
+     `roster_determined` when the player at `N_p` is listed and `estimated`
+     when he is an estimated player.
    - Else, if the work list is non-empty: `w_p` = its last value. The method
      is `insufficient_coverage`.
    - Else: `no_players`. The source does not price `p`.
@@ -829,7 +896,7 @@ starters per team at `p`, flex winners included.
 work list of VP-2.4).
 
 1. `w_p` and `l_p` as VP-2.3 and VP-2.5: the waiver line is the value at
-   0-based index `N_p`, the starter line the value at index `S_p` (the first
+   0-based index `N_p` (for a projection, the 7-player band of VP-2.3), the starter line the value at index `S_p` (the first
    non-starter), floored at `w_p`.
 2. Depth edges: `e_0 = l_p`; for `k >= 1`, `e_k` = the value at index
    `S_p + k x T` (the first player at depth `k + 1`) while that index exists and

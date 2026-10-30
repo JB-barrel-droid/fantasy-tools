@@ -38,6 +38,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
 | [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
 | [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
+| [product/jeg-1221-trade-page-parity-review.md](product/jeg-1221-trade-page-parity-review.md) | Record | - | - | Trade-page parity review of labels, help and empty states across the two finders and Compare, with recommended strings, acceptance cases and two decisions for Jeremy (JEG-1221). |
 | [product/jeg-1223-ai-onboarding-copy.md](product/jeg-1223-ai-onboarding-copy.md) | Proposal | - | 2026-10-29 | Draft homepage AI onboarding strings with a claim, evidence and limitation table for the DDF connector (JEG-1223, corrected in JEG-1252). |
 
 ## Architecture and data
@@ -106,7 +107,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 |---|---|---|---|---|
 | [review-evidence/2026-10-28-jeg-1142-impact.md](review-evidence/2026-10-28-jeg-1142-impact.md) | Record | - | - | Snapshot before/after tables preserved from PR #1044; not a fresh live calculation. |
 | [claude-log/](claude-log/) | Record | - | - | One log file per PR, since 2026-10-07; see its README. |
-| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
+| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation, JEG-1367 Supabase advisor dry run (api views to security_invoker). |
 | [../archive/](../archive/) | Record | - | - | Archived material by date; see its README. `2026-10-15-docs/` holds the v2 design-notes build log (JEG-602). `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
 ## Tracker

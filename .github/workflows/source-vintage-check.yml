@@ -90,6 +90,20 @@ jobs:
         # consuming the trigger.
         if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer source-vintage-check-1 --phase "$1" --target "${GITHUB_REF_NAME:-main}"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           python3 - <<'EOF'
           import sys
           sys.path.insert(0, 'pipelines')
@@ -99,9 +113,19 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .github/source-vintage-state.json
+          release_guard stage
           git diff --cached --quiet || git commit -m "JEG-205: record dispatched pipelines code hash"
           git pull --rebase origin main
-          git push
+          release_push
+
+      - name: Retain deferred publication (source-vintage-check-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-source-vintage-check-1-${{ github.run_attempt }}
+          path: output/release-publications/source-vintage-check-1/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Report no changes
         if: steps.check.outputs.changed == 'False' && steps.check.outputs.code_changed == 'False'

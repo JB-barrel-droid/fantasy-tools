@@ -30,6 +30,7 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 PASTE = ROOT / "tests" / "fixtures" / "league_paste" / "yahoo-league-rosters.txt"
 TEAMS = ROOT / "tests" / "fixtures" / "league_paste" / "teams.json"
 SLICE_2A = "/* JEG-1137 slice 2a:"
+SLICE_2A_END = "/* JEG-1137 slice 2a end */"
 FLAG = "?design=fieldnotes"
 WIDTHS = ((390, 844), (1280, 900))
 MINE = 2   # the team the visitor marks as theirs
@@ -103,7 +104,7 @@ def setUpModule():
 
 def without_slice_2a() -> str:
     css = CSS.read_text(encoding="utf-8")
-    return css[:css.index(SLICE_2A)]
+    return css[:css.index(SLICE_2A)] + css[css.index(SLICE_2A_END):]
 
 
 def open_league(browser, base, width, height, flag=FLAG, css=None, context=None, errors=None):

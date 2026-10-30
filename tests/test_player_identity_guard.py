@@ -731,8 +731,9 @@ class TestPlayerIdentityGuard(unittest.TestCase):
 
     def test_production_injected_resolver_is_canonical(self):
         """JEG-1238: projection_capture.cbs_capture_rows takes `resolve` as a
-        parameter. Its one pinned caller, save_cbsros_references.save_captures,
-        injects resolve_name, whose every return is canonical_players' answer."""
+        parameter. Its one pinned caller, save_cbsros_references.capture_rows
+        (used by save_captures and the Sunday dry run, JEG-1386), injects
+        resolve_name, whose every return is canonical_players' answer."""
         entries, issues = injected_resolver_wiring(PIPELINES_DIR)
         self.assertEqual(issues, [])
         self.assertEqual([(e["file"], e["function"], e["param"]) for e in entries],
@@ -880,8 +881,9 @@ class TestPlayerIdentityGuard(unittest.TestCase):
                 got = self._scan({**real, "zz_probe_alias.py": probe}, contracts=INJECTED_RESOLVER_CONTRACTS)
                 self.assertTrue(any(g.startswith("zz_probe_alias.py: ") and "reference to cbs_capture_rows()" in g
                                     for g in got), got)
-        stored = saver.replace("rows, rep = pc.cbs_capture_rows(",
-                               "capture = pc.cbs_capture_rows\n        rows, rep = capture(", 1)
+        # JEG-1386: the saver's one injection now sits in capture_rows().
+        stored = saver.replace("    return pc.cbs_capture_rows(",
+                               "    capture = pc.cbs_capture_rows\n    return capture(", 1)
         self.assertNotEqual(stored, saver)
         got = self._scan({**real, "save_cbsros_references.py": stored}, contracts=INJECTED_RESOLVER_CONTRACTS)
         self.assertTrue(any(g.startswith("save_cbsros_references.py: ") and "reference to cbs_capture_rows()" in g
