@@ -10,7 +10,7 @@
  ],
  "matrix_rows": 1614,
  "sleeper_base_meta": {
-  "pulled_at": "2026-10-09T18:46:05+00:00",
+  "pulled_at": "2026-10-30T17:22:40+00:00",
   "source": "sleeper /players/nfl",
   "positions": [
    "QB",
@@ -27,19 +27,19 @@
  "sleeper_link_conflicts": 0,
  "status_counts": {
   "sleeper": {
-   "differs": 45,
+   "differs": 36,
    "missing": 685,
-   "same": 884
+   "same": 893
   },
   "espn": {
-   "differs": 8,
-   "missing": 1534,
+   "differs": 10,
+   "missing": 1532,
    "multiple": 1,
    "same": 71
   },
   "yahoo": {
-   "differs": 2,
-   "missing": 1590,
+   "differs": 3,
+   "missing": 1589,
    "same": 22
   }
  },
@@ -75,9 +75,9 @@
   },
   "QB": {
    "sleeper": {
-    "differs": 3,
+    "differs": 4,
     "missing": 69,
-    "same": 110
+    "same": 109
    },
    "espn": {
     "missing": 174,
@@ -90,27 +90,30 @@
   },
   "RB": {
    "sleeper": {
-    "differs": 10,
+    "differs": 8,
     "missing": 120,
-    "same": 220
+    "same": 222
    },
    "espn": {
-    "missing": 323,
+    "differs": 1,
+    "missing": 322,
     "same": 27
    },
    "yahoo": {
-    "missing": 344,
+    "differs": 1,
+    "missing": 343,
     "same": 6
    }
   },
   "TE": {
    "sleeper": {
-    "differs": 4,
+    "differs": 5,
     "missing": 129,
-    "same": 187
+    "same": 186
    },
    "espn": {
-    "missing": 312,
+    "differs": 1,
+    "missing": 311,
     "same": 8
    },
    "yahoo": {
@@ -120,9 +123,9 @@
   },
   "WR": {
    "sleeper": {
-    "differs": 27,
+    "differs": 18,
     "missing": 292,
-    "same": 346
+    "same": 355
    },
    "espn": {
     "differs": 1,
@@ -137,54 +140,24 @@
  },
  "resolver_on_grounded_spellings": {
   "espn": {
-   "ok": 81
+   "ok": 83
   },
   "sleeper": {
    "ok": 929
   },
   "yahoo": {
-   "ok": 24
+   "ok": 25
   }
  },
  "paste_observations": {
   "espn": {
-   "grounded": 183,
-   "ungrounded": 7
+   "grounded": 190
   },
   "yahoo": {
-   "grounded": 33,
-   "ungrounded": 2
+   "grounded": 35
   }
  },
- "ungrounded_observations": [
-  [
-   "espn",
-   "Aaron Jones Sr.",
-   "RB",
-   "MIN",
-   "ungrounded",
-   "ok",
-   164
-  ],
-  [
-   "espn",
-   "Kyle Pitts Sr.",
-   "TE",
-   "ATL",
-   "ungrounded",
-   "ok",
-   1970
-  ],
-  [
-   "yahoo",
-   "Aaron Jones Sr.",
-   "RB",
-   "MIN",
-   "ungrounded",
-   "ok",
-   164
-  ]
- ],
+ "ungrounded_observations": [],
  "sleeper_links_refused": [
   {
    "sleeper_id": "5094",
