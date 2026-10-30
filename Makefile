@@ -197,6 +197,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
+	python3 -m unittest tests.test_v2_fieldnotes_compare_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render
