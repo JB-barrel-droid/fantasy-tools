@@ -215,6 +215,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
+	python3 -m unittest tests.test_v2_compare_rosters_render
 	python3 -m unittest tests.test_v2_ddf_render
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
@@ -247,6 +248,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_article_discovery
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
+	python3 -m unittest tests.test_build_weekly_inputs
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -597,6 +599,8 @@ test-core:
 	python3 -m unittest tests.test_player_alias_table
 	python3 -m unittest tests.test_jeg539_position_and_inactive_rules
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_bake_on_change
 	python3 -m unittest tests.test_razzball_one_save
@@ -616,6 +620,8 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
 	python3 -m unittest tests.test_v2_finder_trifit
@@ -693,6 +699,8 @@ test-core-shard-1:
 	python3 -m unittest tests.test_player_aliases
 	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
+	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
+	python3 -m unittest tests.test_rebuild_chain_concurrent_main
 	python3 -m unittest tests.test_timestamps
 	python3 -m unittest tests.test_producers_schedule_tidy
 	python3 -m unittest tests.test_verify_live
@@ -754,6 +762,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
