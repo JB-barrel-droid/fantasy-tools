@@ -195,6 +195,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1367_api_invoker_migration
 	python3 -m unittest tests.test_weekly_fantasypros_contract
 	python3 -m unittest tests.test_source_probe
+	python3 -m unittest tests.test_source_lateness
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
@@ -281,6 +282,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_pull_fantasypros_parse
 	python3 -m unittest tests.test_article_discovery
+	# JEG-1163 / JEG-1164 test PRs, wired here by JEG-1180 (which changed both files).
+	python3 -m unittest tests.test_check_weekly_freshness
+	python3 -m unittest tests.test_watchdog_common_helpers
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
@@ -747,6 +751,9 @@ test-core:
 	python3 -m unittest tests.test_week_calendar
 	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
 	python3 -m unittest tests.test_week_state
+	# JEG-1180: stale flag (Thursday 12:00 CT) by each source's own week; never fails the chain.
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -859,6 +866,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_razzball_outlier_guard
