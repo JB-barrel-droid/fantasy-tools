@@ -702,6 +702,7 @@ test-core:
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_player_tags
 	python3 -m unittest tests.test_contract_qa_report
@@ -803,6 +804,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_razzball_outlier_guard
 
 test-core-shard-4:
