@@ -15,6 +15,9 @@ Contract: slices 4a and 4b of the JEG-1224 plan (docs/qa/jeg-1224/README.md, #10
 - Independent Claude re-review of 3d03331: PASS on code (JEG-1288 comment, 20:19 UTC).
 - CI: on 3d03331, preview-build, preview-shard 1, 3 and 4, and v2-render succeeded. #1119 then merged to main, and another Claude thread merged main into this branch (0ba3033, logged in `2026-10-29-jeg-1225-main-merge.md`). On 0ba3033 every check run succeeded: preview, preview-build, preview-shard 1 to 4 and v2-render (read from the check runs).
 
+- Oct 30: merged main 9d05002. The conflict was the v2 copy list; both ddf-value-link.js and trade-context.js are kept, and the rebuilt page publishes both. With the new week's data, Razzball isn't published yet, so the check's fixed `blend:espn.60_razzball.40` case was correctly refused (422). The check now picks two sources that answer in all three scorings, and passes (`get_values_value_context_check.mjs`, `tests.test_get_values_value_context`).
+- Oct 30: `get_values_week_check.mjs` (in `tests.test_mcp_week`) fails at its transition case, where Razzball isn't named missing. It fails the same way on main 9d05002 with the same build, so it isn't this PR's (week data, #1119's check).
+
 ### Claimed, not confirmed
 
 - `test_endpoint_parity.test_value_context_parity` (the site page against get-values, needs Chromium) is assumed to run in CI's preview shards. It skips locally, and I did not open the shard log to confirm which shard ran it.
