@@ -14,8 +14,9 @@ Branch `claude/JEG-1377`. No value math, no Supabase write, no migration, no dep
 ## Verified (check named)
 - Live read-only SQL: pg_cron `projection-capture-sunday` (jobid 48, `30 15 * * 0`) active with no run history; `cron.timezone` = GMT; `espn-weekly-store-sunday` (jobid 39) dispatched and ran 2026-10-25 16:20 UTC.
 - `python3 -m unittest tests.test_projection_capture_sunday_jeg1377 tests.test_projection_captures`: 47 OK. With the source and workflow changes stashed, 8 of the 11 new tests fail (the 3 DST tests pin behavior that was already right).
-
 - `python3 -m unittest tests.test_monitoring_coverage`: OK after adding `jeg1140-settings-render.yml` to the no-schedule list (it was red on main, from #1129).
 
+- Dry run on the branch, workflow_dispatch mode dry, run 40996663602 (head 07b4ae8): green. CBS 367 players, weekly pages for weeks 8 and 9; Razzball 679 rows. Planned: cbs ros 1098, cbs week 2121, razzball ros 2028 (floor 300 each); "[dry-run] nothing written".
+
 ## Claimed, not confirmed
-- The dry run on the branch through workflow_dispatch (see the PR for the run link once it finishes).
+- The retry loop and the 16:20 UTC backstop have not run live; their first live run is Sunday 2026-11-01. The backstop's shell gate and order are pinned by tests.
