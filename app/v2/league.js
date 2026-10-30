@@ -913,11 +913,16 @@
         add("spots", active.length < spots ? `${active.length} of ${spots} roster spots filled.` : `${active.length - spots} over its ${spots} roster spots.`,
           spotReasons);
       } else if (spotReasons.length) add("spots", valued ? "fewer players than starting spots." : "no players besides kickers and defenses.", spotReasons);
-      const k = Number(shape.K) || 0, d = Number(shape.DST) || 0;
-      const missing = [];
-      if (k > 0 && t.entries.length && !t.entries.some(e => e.pos === "K")) missing.push("kicker");
-      if (d > 0 && t.entries.length && !t.entries.some(isDefense)) missing.push("defense");
-      if (missing.length) add("kicker_defense", `no ${missing.join(" or ")}.`);
+      // Count against the settings' K and DEF seats (up to 3 each), not just presence.
+      const missing = [], few = [];
+      [["kicker", "kickers", Number(shape.K) || 0, e => e.pos === "K"], ["defense", "defenses", Number(shape.DST) || 0, isDefense]]
+        .forEach(([one, many, need, is]) => {
+          const have = t.entries.filter(is).length;
+          if (!need || !t.entries.length || have >= need) return;
+          if (have) few.push(`${have} of ${need} ${many}`); else missing.push(one);
+        });
+      const kd = (missing.length ? [`no ${missing.join(" or ")}`] : []).concat(few);
+      if (kd.length) add("kicker_defense", `${kd.join("; ")}.`);
       if (p.coverage === "bench_omitted") add("bench_omitted", "the pasted page left the bench out. Paste the team page with the bench shown.", ["bench_omitted"]);
       if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown", "unresolved"]);
       if (!p.observedAt) add("not_read", "not read from a site page (added by hand or from a link). Paste the team page.", ["not_source_observed", "no_timestamp"]);

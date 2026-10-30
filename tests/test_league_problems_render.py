@@ -54,7 +54,8 @@ OPEN = """(id) => { const b = document.querySelector(`#v2LgProblemsList .v2-lg-p
   return {expanded: li.querySelector('.v2-lg-toggle').getAttribute('aria-expanded'), focused: document.activeElement === li.querySelector('.v2-lg-name')}; }"""
 
 PASTED = {"unresolved": 0, "observedAt": "now", "coverage": "unknown"}
-KICKER_CHECK = 'if (missing.length) add("kicker_defense", `no ${missing.join(" or ")}.`);'
+KICKER_CHECK = 'if (kd.length) add("kicker_defense", `${kd.join("; ")}.`);'
+ROSTER_SPOT = "([k, v]) => window.TradeValueCurveControls.setRosterSpot(k, v)"
 
 
 def settle(page):
@@ -126,6 +127,17 @@ class LeagueProblemsTest(unittest.TestCase):
                     self.assertEqual(got["switch"]["disabled"], grayed, f"{name}: the switch and the list disagree")
                     for team in sorted({team for _, team, _ in want if team is not None}):
                         self.assertEqual(page.evaluate(OPEN, ids[team]), {"expanded": "true", "focused": True})
+
+            # Two kicker seats: a team with one kicker and an extra WR fills its 17 spots, so only the kicker count catches it
+            # (Codex review of 2c0df74d: presence alone passed it). Every other team holds two kickers.
+            page.evaluate(ROSTER_SPOT, ["K", 2])
+            settle(page)
+            ids, got = self.seed(page, "teams.forEach((t, i) => t.entries.push(i === 6 ? free : "
+                                       "{key: `x:K:B${i + 1}`, name: `Kicker B ${i + 1}`, pos: 'K'}));")
+            self.assertEqual(got["items"], [{"kind": "kicker_defense", "text": "Team 7: 1 of 2 kickers.", "links": [ids[6]]}])
+            self.assertEqual(got["switch"], {"checked": True, "disabled": False})
+            page.evaluate(ROSTER_SPOT, ["K", 1])
+            settle(page)
 
             # A player on two teams: one item, a link to each team, and the over count on the second team.
             ids, got = self.seed(page, "teams[5].entries.push(teams[0].entries[0]);")
