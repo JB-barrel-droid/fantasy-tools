@@ -218,6 +218,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_week_selector_render
+	# JEG-1178: the week selector's Thursday 12:00 CT stale deadline, both clocks pinned (no browser).
+	python3 -m unittest tests.test_week_stale_deadline
 	python3 -m unittest tests.test_v2_share_links
 	python3 -m unittest tests.test_v2_share_links_render
 	python3 -m unittest tests.test_v2_assist_render

@@ -78,7 +78,9 @@
   }
   function siteLink(state) {
     const route = ROUTES[state.work && state.work.view] || "#trade-targets";
-    return location.href.split("#")[0] + route + "?" + codec().encodeQuery(state);
+    // JEG-1178: the picked week (wk=) is outside the shared codec, so it rides on the link's end.
+    const wk = /(?:^|&)wk=\d+/.exec(H.leagueQuery() || "");
+    return location.href.split("#")[0] + route + "?" + codec().encodeQuery(state) + (wk ? `&${wk[0].replace(/^&/, "")}` : "");
   }
   function linkText() {
     const built = buildState();
@@ -186,7 +188,11 @@
   // A link's query (find-trade / trade-targets / any route with `view`).
   function applyLink(query) {
     if (!H || !codec()) return null;
-    return applyFrom(codec().decodeQuery(query), "link");
+    const report = applyFrom(codec().decodeQuery(query), "link");
+    // JEG-1178: a link's picked week; the codec does not carry it, the page's league reader does.
+    const wk = new URLSearchParams(String(query || "").replace(/^[#?]+/, "")).get("wk");
+    if (wk !== null && H.applyLinkLeague) H.applyLinkLeague(new URLSearchParams({wk}));
+    return report;
   }
 
   // ---------- controls ----------

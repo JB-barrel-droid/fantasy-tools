@@ -15,6 +15,9 @@
 //    minShared?, pausedSeries?: [...]}                 -> buildPairRegistry()
 //   {cmd: "defaults", excluded, active, deselected}
 //        -> {defaults, satisfied} from curve-widget's TradeValueCurvePause
+//   {cmd: "stale", cases: [{week, now?, today?}, ...]} -> {results: [bool, ...]}
+//        pastThursdayNoon(week) with window.TRADE_VALUE_NOW / TRADE_VALUE_TODAY
+//        pinned per case (JEG-1178). A case must pin at least one clock.
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -69,6 +72,20 @@ if (payload.cmd === "defaults") {
     satisfied: P.defaultCurvesSatisfied(inputs, new Set(payload.active || []),
       new Set(payload.deselected || []), excluded),
   };
+} else if (payload.cmd === "stale") {
+  const context = vm.createContext({console, Intl, Date, Math, Number, String, Object, Array, Set,
+    Map, JSON, RegExp, Error, Promise, setTimeout, clearTimeout});
+  context.window = context;
+  const pd = evalModule("product-data.js", mutations, context).exports;
+  out = {results: payload.cases.map(c => {
+    if (!c.now && !c.today) {
+      console.error("a stale case must pin TRADE_VALUE_NOW or TRADE_VALUE_TODAY (never the real clock)");
+      process.exit(4);
+    }
+    context.TRADE_VALUE_NOW = c.now || undefined;
+    context.TRADE_VALUE_TODAY = c.today || undefined;
+    return pd.pastThursdayNoon(c.week);
+  })};
 } else {
   const pd = evalModule("product-data.js", mutations).exports;
   if (payload.cmd === "weeks") {
