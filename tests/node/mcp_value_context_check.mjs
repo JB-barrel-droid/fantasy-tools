@@ -11,9 +11,11 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { handleRpc } from "../../supabase/functions/mcp/rpc.ts";
 import {
-  askedValueContext, linkValueContext, VALUE_CONTEXT_NOT_SUPPORTED, valueContextLine, valueContextRefusal,
+  askedValueContext, basisWords, linkValueContext, siteAppliesValueContext, VALUE_CONTEXT_NOT_SUPPORTED,
+  valueContextLine, valueContextRefusal,
 } from "../../supabase/functions/mcp/value-context.ts";
 import { readValuesResponse, requestValuesWith } from "../../supabase/functions/mcp/values-client.ts";
+import { ToolInputError } from "../../supabase/functions/mcp/tools.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dist = resolve(process.argv[2] || join(ROOT, "dist"));
@@ -36,8 +38,25 @@ assert.deepEqual(linkValueContext(`x?give=1&valuecontext=1`), { basis: null, ov:
   "valuecontext=1 alone is our methodology, asked for explicitly");
 assert.equal(linkValueContext(`${ORIGIN}/#compare-trade?give=1&get=2&${LEAGUE}`), null, "a link with no value context");
 assert.equal(askedValueContext({}), null);
-assert.equal(valueContextLine({ basis: "fantasycalc", overrides_applied: 1, overrides_not_priced: [9] }),
+// Pasted with punctuation, escaped ampersands, or beside another URL (review of #1219).
+assert.equal(linkValueContext(`[open](${ORIGIN}/#compare-trade?give=1&basis=fantasycalc)`).basis, "fantasycalc", "a markdown link's )");
+assert.equal(linkValueContext(`See ${ORIGIN}/#compare-trade?give=1&ov=1%3A58.`).ov, "1:58", "a sentence's full stop");
+assert.equal(linkValueContext(`${ORIGIN}/#compare-trade?give=1&amp;valuecontext=1&amp;ov=1%3A58`).ov, "1:58", "&amp;");
+assert.equal(linkValueContext(`https://other.test/x?ov=9:1 then ${ORIGIN}/#find-trade?mine=1&valuecontext=1&ov=1%3A58`).ov,
+  "1:58", "the site's marked query wins over another URL's ov=");
+// The basis is named from the link's text; get-values' value_context.basis is the engine's object.
+const engineBasis = { mode: "single", source: "fantasycalc" };
+assert.equal(valueContextLine({ basis: engineBasis, overrides_applied: 1, overrides_not_priced: [9] }, { basis: "fantasycalc", ov: "1:58" }),
   "Values: priced under the link's basis fantasycalc, with 1 player override from the link, 1 override for players with no value this week left out.");
+assert.equal(basisWords("blend:espn.60_razzball.40"), "a blend of espn 60%, razzball 40%");
+assert.doesNotMatch(valueContextLine({ basis: engineBasis }, { basis: "blend:espn.60_razzball.40", ov: null }), /object/);
+// Where the site applies a link's values (v2.js readTradeHash, league.js) and where it doesn't yet.
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#find-trade?mine=1&theirs=2`), true);
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#compare-trade?give=1&get=2`), true);
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#compare-trade?give=n:Ghost&get=2`), false);
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#compare-trade?give=1&get=2&mine=3`), false);
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#trade-targets?target=1`), false);
+assert.equal(siteAppliesValueContext(`${ORIGIN}/#risers-fallers`), false);
 for (const [status, code] of [[400, "value_context_unreadable"], [413, "value_context_too_large"], [422, "basis_unavailable"], [503, "value_context_unavailable"]]) {
   const text = valueContextRefusal(status, { code, error: "why" });
   assert.match(text, /can't be priced here: .* \(why\)\. No values are given/, code);
@@ -63,7 +82,7 @@ function answer(scoring, teams, superflex, context) {
       row(3, "Josh Allen", "QB", 40), row(4, "Josh Jacobs", "RB", 39)],
   };
   if (context && stubKnowsContext) {
-    data.value_context = { basis: context.basis, basis_applied: true, overrides: over ? { 1: 58 } : {},
+    data.value_context = { basis: context.basis ? { mode: "single", source: context.basis, weights: null } : null, basis_applied: true, overrides: over ? { 1: 58 } : {},
       overrides_applied: over ? 1 : 0, overrides_not_priced: [] };
   }
   return data;
@@ -89,6 +108,9 @@ assert.deepEqual(sent.at(-1).context, { basis: "fantasycalc", ov: "1:58" }, "the
 assert.match(text(r), /Bijan Robinson \(RB\): 58\b/, "priced at the override, not 71.8");
 assert.match(text(r), /^Values: priced under the link's basis fantasycalc, with 1 player override from the link\.$/m);
 assert.deepEqual(r.result.structuredContent.value_context.overrides_applied, 1);
+assert.equal(r.result.structuredContent.value_context.basis, "fantasycalc", "the link's text, not the engine's object");
+assert.equal(r.result.structuredContent.value_context.overrides, undefined, "the overrides map stays out of the answer");
+assert.doesNotMatch(text(r), /doesn't apply a link's own values/, "a key-only Compare link opens on the same values");
 
 // M2: the link back keeps the value context exactly, and the site's strict reader reads it back the same.
 let url = r.result.structuredContent.site_url;
@@ -128,6 +150,41 @@ for (const [name, args, tool] of [
 }
 r = await call("get_player_value", { names: ["Bijan Robinson"], state: LINK });
 assert.match(text(r), /Bijan Robinson \(RB\): value 58\b/);
+// Trade targets doesn't apply a link's values on the site yet (JEG-1224 S2): the reply says the link opens on defaults.
+assert.match(r.result.structuredContent.site_url, /#trade-targets/);
+assert.match(text(r), /^Values: .* The site doesn't apply a link's own values on this view yet, so the link opens on the default values\.$/m);
+assert.equal(r.result.structuredContent.site_applies_value_context, false);
+
+// A link with 2,000 overrides (the most get-values reads) fits a trade reply: the answer keeps counts, not the map.
+const many = Array.from({ length: 2000 }, (_, i) => [String(5000 + i), 50.5]);
+const manyStub = async (scoring, teams, superflex, league, week, context) => ({ ...answer(scoring, teams, superflex, null),
+  value_context: { basis: null, basis_applied: false, overrides: Object.fromEntries(many), overrides_applied: 0,
+    overrides_not_priced: many.map(([k]) => Number(k)) } });
+r = await call("find_trades", { mine: "Bijan Robinson, Josh Allen", theirs: "Ja'Marr Chase, Josh Jacobs",
+  state: `${ORIGIN}/#find-trade?${LEAGUE}&valuecontext=1&ov=${encodeURIComponent(many.map(([k, v]) => `${k}:${v}`).join(","))}` },
+  manyStub, { finder, fetchCharts: manyStub });
+assert.ok(!r.result.isError, `2,000 overrides: ${text(r)}`);
+assert.equal(r.result.structuredContent.value_context.overrides_not_priced_count, 2000);
+assert.equal(r.result.structuredContent.value_context.overrides_not_priced.length, 25);
+assert.match(text(r), /2000 overrides for players with no value this week left out/);
+
+// The league finder and the analyses send it too.
+r = await call("find_trades_league", { mine: "Bijan Robinson, Josh Allen",
+  opponents: [{ name: "Rival", roster: "Ja'Marr Chase, Josh Jacobs" }], state: LINK });
+assert.ok(!r.result.isError, `find_trades_league: ${text(r)}`);
+assert.deepEqual(sent.at(-1).context, { basis: "fantasycalc", ov: "1:58" }, "find_trades_league");
+const analysisDeps = { finder, fetchCharts: charts, analysis: {
+  modules: { movers: {}, trade: {}, auditPie: {}, auditSource: {} },
+  fetchAnalysis: async (scoring, teams, superflex, league, week, includes, context) => {
+    sent.push({ tool: "analysis", context: context ?? null });
+    throw new ToolInputError("analysis stub: context recorded");
+  } } };
+for (const [name, args] of [["risers_fallers", {}], ["audit_values", {}],
+  ["compare_trade", { side_a: ["Bijan Robinson"], side_b: ["Ja'Marr Chase"], by_source: true }]]) {
+  await call(name, { ...args, state: LINK }, stub, analysisDeps);
+  assert.equal(sent.at(-1).tool, "analysis", name);
+  assert.deepEqual(sent.at(-1).context, { basis: "fantasycalc", ov: "1:58" }, name);
+}
 
 // No value context: nothing sent, nothing added (the answers are as before).
 r = await call("read_state", { state: `${ORIGIN}/#compare-trade?give=1&get=2&${LEAGUE}` });
@@ -207,6 +264,14 @@ assert.match(text(r), new RegExp(`${top.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$
 assert.notEqual(top.value, 58);
 assert.equal(r.result.structuredContent.value_context.overrides_applied, 1);
 assert.equal(queryOf(r.result.structuredContent.site_url).get("ov"), `${key}:58`);
+// A basis through the real endpoint: named from the link, not as the engine's object (review of #1219).
+r = await call("get_player_value", { names: [top.name], state: `${ORIGIN}/#compare-trade?give=${key}&${LEAGUE}&valuecontext=1&basis=fantasycalc` }, real, undefined);
+assert.ok(!r.result.isError, text(r));
+assert.match(text(r), /^Values: priced under the link's basis fantasycalc\./m);
+assert.doesNotMatch(text(r), /\[object Object\]/);
+r = await call("get_player_value", { names: [top.name], state: `${ORIGIN}/#compare-trade?give=${key}&${LEAGUE}&valuecontext=1&basis=blend%3Aespn.60_fantasycalc.40` }, real, undefined);
+assert.ok(!r.result.isError, text(r));
+assert.match(text(r), /^Values: priced under the link's basis a blend of espn 60%, fantasycalc 40%\./m);
 // The real endpoint's refusals reach the reply with no numbers.
 for (const bad of ["basis=notasource", `ov=${key}%3Agarbage`]) {
   r = await call("get_player_value", { names: [top.name], state: `${ORIGIN}/#compare-trade?give=${key}&${LEAGUE}&${bad}` }, real, undefined);

@@ -89,6 +89,8 @@ const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, lea
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const res = await requestValues(scoring, teams, superflex, league, week, "charts", context);
   const data = await readValues(res) as ChartValuesResponse;
+  // The key now carries a pasted link's ov text (JEG-1343), so bound the cache like the values one.
+  if (chartCache.size >= CACHE_MAX) chartCache.delete(chartCache.keys().next().value as string);
   chartCache.set(key, { at: Date.now(), data });
   return data;
 };

@@ -17,6 +17,17 @@ What changed:
   gets the 4a reader patch and a stub that prices a sent `ov`; M1-M3 flip to pass, mutation exit codes
   follow.
 
+Independent review (before ready), fixed in the second commit:
+- The "Values:" line printed get-values' basis object ("[object Object]"); it names the basis from the
+  link's text now ("fantasycalc", "a blend of espn 60%, fantasycalc 40%"), tested against the real handler.
+- The whole overrides map went into structuredContent and counted against a trade reply's size budget (600
+  overrides made find_trades say "too large"); the answer keeps counts only.
+- Pasted punctuation (a markdown ")", a full stop), `&amp;`, and another URL's `ov=` broke or took over the
+  context; trailing punctuation is trimmed, `&amp;` decoded, and a `valuecontext=1` query wins.
+- On views where the site doesn't apply a link's values yet, the reply says the link opens on the defaults.
+- The chart cache is bounded like the values cache, since its key now carries link text.
+- Tests now cover find_trades_league, risers_fallers, audit_values and compare_trade by_source too.
+
 Left alone, noted:
 - The site's `#trade-targets` path (DDFAssist) still doesn't apply a link's value context (S2 in the
   JEG-1224 README). A site gap, not this ticket.

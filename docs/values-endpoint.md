@@ -162,7 +162,12 @@ the fallback, part of the basis, or part of the overrides:
   from before JEG-1225) asked for a basis or overrides, is the tool's error with
   no numbers, never values on our methodology in their place. A bare
   `valuecontext=1` link (our methodology, no overrides) is priced by any build
-  and keeps the marker on the link back. Tests:
+  and keeps the marker on the link back. The tool's `value_context` names the
+  basis by the link's text and leaves out the overrides map (counts only). The
+  site applies a link's values only on Find a trade, league links and key-only
+  Compare links, so on other views (Trade targets, Risers & fallers, values
+  auditing) the "Values:" line says the link opens on the default values and
+  `site_applies_value_context` is false (JEG-1224 S1, S2). Tests:
   `tests/node/mcp_value_context_check.mjs` (stub get-values, then the real
   handler on the built `dist/`), and M1-M3 in `tests/jeg-1224/`.
 - Not yet: `docs/get-values.openapi.yaml`, which ships with Pages and so

@@ -50,11 +50,11 @@ page closure and needs the built site.
 | O8 | Override for a player not in this week's values | Kept and counted: "This link uses our methodology and 2 player overrides" when one applies. | executed |
 | M1 | MCP `read_state` | Prices with our methodology and says nothing about the pasted basis or overrides (tools.ts:1106-1145; state.ts `prepare` reads only `league` and `work`). | executed, stub get-values |
 | M2, M3 | Return to site (`read_state` / `make_state` `site_url` and block) | `finish` rebuilds the link from the normalized state (state.ts:87-130), so the link back drops `basis`, `ov` and `valuecontext`. | executed, stub get-values |
-
-M1-M3 pass since JEG-1343 (the MCP tools send the link's basis and overrides to get-values, name them, and keep them on the link back); the stub get-values prices a sent `ov` as get-values does.
 | S1 | `#compare-trade` link that also has `mine`, `theirs`, `target` or a name-only player (`n:`) | `readTradeHash` hands it to `DDFAssist.applyLink` and returns (v2.js:6270-6280) before `DDFOverrides.applyLink` (v2.js:6302): basis and overrides in the link are ignored. MCP links are this shape whenever a name did not resolve. | source |
 | S2 | `#trade-targets` link | `DDFOverrides.applyLink` runs only for `#find-trade` (v2.js:6265) and plain Compare (v2.js:6302). A Trade targets link's basis and overrides are never applied. | source |
 | S3 | Reopen the same link after "Use our methodology" | `useOurs` (overrides.js:868) keeps `linkSig`, so the same link opened again in that tab is ignored (`sig === S.linkSig`, overrides.js:815). May be intended; listed under open questions. | source |
+
+M1-M3 pass since JEG-1343 (the MCP tools send the link's basis and overrides to get-values, name them, and keep them on the link back); the stub get-values prices a sent `ov` as get-values does.
 
 There is no separate "Copy for AI" control on main: JEG-1101 replaced it with Copy link, which is
 the AI hand-off (shell.html:96-101). Wherever the ticket says Copy for AI, read Copy link.
