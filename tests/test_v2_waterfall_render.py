@@ -27,7 +27,7 @@ window.TradeValueCurveControls.getAllRows():
     with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
     test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
-  * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
+  * example: with no player added, the start button draws an example (1-for-1 up to 2-for-2 since JEG-1191), marked "Example",
     and the address keeps no trade.
   * example fold (JEG-1112): the EXAMPLE state itself, with no trade seeded (it is live data: the same page a new
     visitor sees), ends with both sides, the verdict card and the totals row under each side at least
@@ -490,8 +490,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 ex = page.evaluate(READ)
                 if not ex["example"] or "Example" not in ex["example"] or "Example" not in ex["verdictEyebrow"]:
                     errors.append(tag + f"no example trade marked Example: {ex['example']!r} / {ex['verdictEyebrow']!r}")
-                elif len(ex["give"]) != 2 or len(ex["receive"]) != 2 or not ex["rows"]:
-                    errors.append(tag + f"example is not a drawn 2-for-2: {ex['give']} / {ex['receive']}")
+                # JEG-1191 (Jeremy, 2026-10-30, pick A): the examples are trades the market misses, 1-for-1 up to 2-for-2.
+                elif not (1 <= len(ex["give"]) <= 2 and 1 <= len(ex["receive"]) <= 2) or not ex["rows"]:
+                    errors.append(tag + f"example is not a drawn 1-for-1 to 2-for-2: {ex['give']} / {ex['receive']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
                 # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
@@ -625,7 +626,7 @@ EXAMPLE_READ = """() => {
   return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
     give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
     boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
-      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown')},
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown'), toolbar: q('#v2Compare .v2-chead .v2-ctoolbar')},
     innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
 # JEG-1190: the button on the empty page that opens first.
@@ -679,7 +680,8 @@ def check_example_state(result: dict) -> list[str]:
     for (width, height), snap in result.items():
         tag = f"[{width}x{height}] "
         b = snap["boxes"]
-        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2:
+        # JEG-1191 (Jeremy, 2026-10-30, pick A): an example is 1-for-1 up to 2-for-2.
+        if not snap["example"] or "Example" not in snap["example"] or not (1 <= snap["give"] <= 2 and 1 <= snap["receive"] <= 2):
             errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
             continue
         if snap["overflow"] > 0:
@@ -693,6 +695,13 @@ def check_example_state(result: dict) -> list[str]:
             errors.append(tag + "the 'Player values shown' picker is not reachable")
         if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
             limit = height - EXAMPLE_FOLD_MARGIN
+            # JEG-1383: a held source's long disabled option widened the closed picker and wrapped Compare's header toolbar
+            # to a second row at 1366 px (+56 px), so the compact header (JEG-1112) saved nothing and the fold guard could
+            # not tell it from the old header. The toolbar must stay one picker row tall.
+            bar, picker = b.get("toolbar"), b.get("picker")
+            if bar and picker and bar["height"] > 1.5 * picker["height"]:
+                errors.append(f"{tag}Compare's header toolbar wraps to {bar['height']:.0f} px (picker {picker['height']:.0f} px tall, "
+                              f"{picker['width']:.0f} px wide); the compact header no longer saves height")
             for name in ("give", "receive", "verdict", "giveTotal", "receiveTotal"):
                 box = b.get(name)
                 if not box:
@@ -747,7 +756,7 @@ class WaterfallRenderTest(unittest.TestCase):
                 b = snap["boxes"]
                 r = lambda k: b[k] and round(b[k]["bottom"], 1)  # noqa: E731
                 print(f"EXAMPLE FOLD [{label}] {width}x{height} give {r('give')} receive {r('receive')} verdict {r('verdict')} "
-                      f"totals {r('giveTotal')}/{r('receiveTotal')}", file=sys.stderr, flush=True)
+                      f"totals {r('giveTotal')}/{r('receiveTotal')} toolbar {b.get('toolbar')} picker {b.get('picker')}", file=sys.stderr, flush=True)
             errors += [f"{label} {e}" for e in check_example_state(result)]
         self.assertEqual(errors, [])
 
@@ -796,8 +805,9 @@ class WaterfallRenderTest(unittest.TestCase):
             "win verdict drops its second sentence": {"v2.js": (v2.replace(
                 WIN_AGAINST_COPY,
                 "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
+            # JEG-1191: the start button takes the next example from nextExample (was exampleTrade).
             "no example": {"v2.js": (v2.replace(
-                "verdictKey() ? exampleTrade(compareView.pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
+                "verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},

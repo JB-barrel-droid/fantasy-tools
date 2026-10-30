@@ -1,0 +1,71 @@
+/* JEG-1140: Settings and local data in the Fieldnotes design (settings-fieldnotes.js). Layout only: colors, type, focus,
+   buttons and disclosures come from the JEG-1137 foundation layer in v2.css (--ddf-* roles, .ddf-fn-btn,
+   .ddf-fn-disclosure, .ddf-fn-display). Every rule is scoped to the Fieldnotes flag, like the foundation, so nothing here
+   reaches the default site. Source: the Fieldnotes Settings screen (.settingsgrid, .settingsnav, .card, .row). */
+:root[data-design="fieldnotes"] .ddf-fn-settings {
+  color: var(--ddf-ink); max-width: var(--ddf-content-max); margin: 0 auto; padding: var(--ddf-space-4) var(--ddf-page-pad-phone);
+  overflow-wrap: anywhere;
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-head { margin-bottom: var(--ddf-space-4); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-kicker {
+  margin: 0 0 var(--ddf-space-2); color: var(--ddf-muted); font-size: var(--ddf-type-support); font-weight: 650;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings h1 { margin: 0; font-size: clamp(32px, 7vw, 46px); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-sub { margin: var(--ddf-space-2) 0 0; color: var(--ddf-muted); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-fixture,
+:root[data-design="fieldnotes"] .ddf-fn-settings-warn {
+  margin: 0 0 var(--ddf-space-3); padding: var(--ddf-space-mid) var(--ddf-space-3); border-left: 3px solid var(--ddf-warn-ink);
+  background: var(--ddf-subtle); color: var(--ddf-ink); font-size: var(--ddf-type-support);
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-state { color: var(--ddf-muted); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ddf-space-5); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-nav { display: none; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-nav ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--ddf-space-1); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-navlink {
+  width: 100%; min-height: var(--ddf-hit); padding: 8px 12px; border: 0; border-radius: var(--ddf-radius-control);
+  background: transparent; color: var(--ddf-ink); font: 600 var(--ddf-type-support)/1.25 var(--ddf-font-ui); text-align: left; cursor: pointer;
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-navlink:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-settings h2:focus-visible { outline: 3px solid var(--ddf-focus); outline-offset: 3px; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-main { display: grid; gap: var(--ddf-space-4); min-width: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-card {
+  padding: var(--ddf-space-4) var(--ddf-space-3); border: 1px solid var(--ddf-line); border-radius: var(--ddf-radius-card);
+  background: var(--ddf-surface); scroll-margin-top: var(--ddf-space-4);
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-card h2 { margin: 0 0 var(--ddf-space-2); font: 600 24px/1.2 var(--ddf-font-headline); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-card h2:focus:not(:focus-visible) { outline: none; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-lead { margin: 0 0 var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-meta { margin: var(--ddf-space-2) 0 0; color: var(--ddf-muted); font-size: var(--ddf-type-support); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-actions { display: flex; flex-wrap: wrap; gap: var(--ddf-space-2); margin: var(--ddf-space-3) 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-actions > .ddf-fn-btn { flex: 1 1 auto; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-rows { margin: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-row {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--ddf-space-2); padding: var(--ddf-space-mid) 0;
+  border-top: 1px solid var(--ddf-line);
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-row:first-child { border-top: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-row dt { font-weight: 650; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-row dd { margin: 0; display: grid; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-row dd[data-unavailable] .ddf-fn-settings-value { color: var(--ddf-muted); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-row .ddf-fn-settings-meta { margin-top: 2px; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-disclosure-body p { margin: 0 0 var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-categories { margin: 0 0 var(--ddf-space-mid); display: grid; gap: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-categories dt { font-weight: 650; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-categories dd { margin: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings .ddf-fn-disclosure { margin-top: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-settings-status {
+  position: sticky; bottom: 0; margin: var(--ddf-space-3) 0 0; padding: var(--ddf-space-mid) var(--ddf-space-3);
+  border: 1px solid var(--ddf-line); border-radius: var(--ddf-radius-control); background: var(--ddf-surface);
+  font-size: var(--ddf-type-support);
+}
+:root[data-design="fieldnotes"] .ddf-fn-settings-status:empty { padding: 0; border-width: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-settings-status[data-tone="error"] { border-left: 3px solid var(--ddf-bad-ink); }
+@media (min-width: 900px) {
+  :root[data-design="fieldnotes"] .ddf-fn-settings { padding: var(--ddf-space-5) var(--ddf-page-pad-desktop); }
+  :root[data-design="fieldnotes"] .ddf-fn-settings-grid { grid-template-columns: 220px minmax(0, 1fr); gap: var(--ddf-space-5); }
+  :root[data-design="fieldnotes"] .ddf-fn-settings-nav { display: block; position: sticky; top: var(--ddf-space-4); align-self: start; }
+  :root[data-design="fieldnotes"] .ddf-fn-settings-card { padding: var(--ddf-space-4); }
+  :root[data-design="fieldnotes"] .ddf-fn-settings-actions > .ddf-fn-btn { flex: 0 0 auto; }
+  :root[data-design="fieldnotes"] .ddf-fn-settings-row { grid-template-columns: 180px minmax(0, 1fr) auto; align-items: center; }
+}

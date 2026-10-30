@@ -79,12 +79,14 @@ and are not counted on their own.
 
 ## Value impact
 
-Each receipt carries, per source and scoring: `n`, the outlier count and
-rate, bias, mean absolute deviation (points), the same by position, and the
-five largest deviations. It does **not** carry the value of every outlier
-player. So JEG-952's "mostly low-value players" cannot be measured from the
-receipts alone. It can be recomputed offline from the committed fixture of
-each counted build (`a7283138`, `b4134b27`, `d54c7723`, listed per capture in
+Each receipt carries, per source and scoring, copied from its report: `n`,
+the outlier count and rate, bias, mean absolute deviation (points), the same
+statistics by position, and the five largest deviations with the player, the
+source's value and the consensus. The audit checks that content, not a flag
+that it existed. It does **not** carry the value of every outlier player. So
+JEG-952's "mostly low-value players" cannot be measured from the receipts
+alone. It can be recomputed offline from the committed fixture of each counted
+build (`a7283138`, `b4134b27`, `d54c7723`, listed per capture in
 `availability.json` as `recomputable_from`). This audit did not do that.
 
 ## Gaps before JEG-952 can be worked
@@ -130,18 +132,7 @@ need nothing but the committed fixtures.
 - No reporter, config, resolutions, data or Makefile change. The new test is
   not wired into a Makefile list; that wiring is the CI coordinator's.
 
-## Log (JEG-1277)
+## Log
 
-Verified (check named):
-- 55 receipts extracted from `origin/main` at `430791c4`; the audit gives
-  weeks 5, 6, 7 for all seven sources and rejects week 8 for
-  `served_week_mismatch` (`RealCommittedReceipts` in
-  `tests/test_divergence_evidence.py`).
-- The 0/1/3/4-week, duplicate, missing-date, missing-count, mixed-scoring and
-  synthetic cases (the other classes in that file; 36 tests OK).
-- The committed matrix and summary equal a fresh run
-  (`CommittedOutputsMatch`).
-
-Claimed, not confirmed:
-- That the matched index and fixture are the ones each report was built from.
-- That committed reports match what was deployed.
+The session log is
+[docs/claude-log/2026-10-29-jeg-1277-divergence-evidence-audit.md](../../claude-log/2026-10-29-jeg-1277-divergence-evidence-audit.md).

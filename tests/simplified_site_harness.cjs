@@ -117,6 +117,52 @@ const checks = {
     });
     eq(S.viewModel(ctx(cases.missing), null).reasons, ["League not carried."], "missing text shown as given");
   },
+  test_idea_fields_complete_or_withheld() {
+    // JEG-1301 finding 1: every line the answer or its detail shows must be there, or the whole answer is withheld.
+    const cases = {
+      noOpponent: c => { delete c.ideas.recommendations[0].opponent; },
+      blankOpponent: c => { c.ideas.recommendations[0].opponent = "  "; },
+      numberOpponent: c => { c.ideas.recommendations[1].opponent = 7; },
+      emptyWhy: c => { c.ideas.recommendations[0].why = []; },
+      blankWhyLine: c => { c.ideas.recommendations[2].why = ["Fine.", ""]; },
+      unlabelledSource: c => { c.ideas.recommendations[1].sources = [{anchor: "market", status: "published"}]; },
+      sourceNoStatus: c => { c.ideas.stretch[0].sources = [{anchor: "market", label: "Trade chart average"}]; },
+      sourcesNotList: c => { c.ideas.recommendations[0].sources = "Trade chart average"; }
+    };
+    Object.entries(cases).forEach(([name, edit]) => {
+      const vm = S.viewModel(ctx(edit), null);
+      eq(vm.state, "incomplete", name);
+      ok(withheld(vm) && vm.reasons.length > 0, `${name}: withheld with a reason`);
+    });
+    eq(S.viewModel(ctx(c => { delete c.ideas.recommendations[0].sources; }), null).state, "answer", "no sources at all still answers (the detail says nothing available)");
+  },
+  test_malformed_ideas_withhold() {
+    // JEG-1301 finding 2: an ideas object of the wrong shape, or one not worked out yet, is never read as "nothing qualifies".
+    const thenable = {then: () => {}, recommendations: [], stretch: []};
+    const cases = {
+      emptyObject: c => { c.ideas = {}; },
+      promise: c => { c.ideas = Promise.resolve(FIXTURE.ideas); },
+      thenable: c => { c.ideas = thenable; },
+      recsString: c => { c.ideas.recommendations = "t2|syn-rb-1|syn-wr-9"; },
+      recsObject: c => { c.ideas.recommendations = {0: c.ideas.recommendations[0]}; },
+      stretchString: c => { c.ideas.stretch = "none"; },
+      stretchObject: c => { c.ideas.stretch = {}; },
+      ideasTrue: c => { c.ideas = true; },
+      ideasText: c => { c.ideas = "ready"; }
+    };
+    Object.entries(cases).forEach(([name, edit]) => {
+      let vm;
+      try { vm = S.viewModel(ctx(edit), null); } catch (error) { throw new Error(`${name}: viewModel threw ${error.message}`); }
+      eq(vm.state, "incomplete", name);
+      ok(withheld(vm) && vm.reasons.length > 0, `${name}: withheld with a reason`);
+    });
+    eq(S.viewModel(ctx(c => { delete c.ideas.stretch; }), null).state, "answer", "no stretch list at all is fine");
+    // The live adapter: compute() handing back a Promise with every gate open is still withheld.
+    const store = {get: () => ({name: "Synthetic League", myTeamId: "a", teams: [{id: "a", name: "Synthetic Team A", entries: []}]})};
+    const live = S.viewModel(S.liveContext({TradeValueWorkspace: {store}, TradeValueTradeIdeas: {compute: () => Promise.resolve(FIXTURE.ideas)},
+      TradeValueSimplifiedGates: {context: true, readout: true, lineup: true}}), null);
+    eq(live.state, "incomplete", "a Promise from compute() is not an answer");
+  },
   test_weekly_never_blended() {
     const weekly = S.viewModel(ctx(c => { c.basis.horizon = "weekly"; }), null);
     eq(weekly.state, "incomplete", "weekly basis withheld");
