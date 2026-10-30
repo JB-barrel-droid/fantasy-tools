@@ -107,7 +107,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 |---|---|---|---|---|
 | [review-evidence/2026-10-28-jeg-1142-impact.md](review-evidence/2026-10-28-jeg-1142-impact.md) | Record | - | - | Snapshot before/after tables preserved from PR #1044; not a fresh live calculation. |
 | [claude-log/](claude-log/) | Record | - | - | One log file per PR, since 2026-10-07; see its README. |
-| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
+| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation, JEG-1367 Supabase advisor dry run (api views to security_invoker). |
 | [../archive/](../archive/) | Record | - | - | Archived material by date; see its README. `2026-10-15-docs/` holds the v2 design-notes build log (JEG-602). `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
 ## Tracker
