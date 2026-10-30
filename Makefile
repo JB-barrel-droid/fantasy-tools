@@ -654,6 +654,7 @@ test-core:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
@@ -812,6 +813,7 @@ test-core-shard-2:
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_pipelines_import_standalone

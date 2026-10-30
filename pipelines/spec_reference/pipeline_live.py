@@ -152,7 +152,9 @@ def current_natives(data: dict, s: str, scoring: str, teams: int, sf: int, dropp
         put(name, v)
     if sf >= 1:
         # VP-0 ruling: the overlay sets every player it lists, adding players
-        # only it lists; the rest keep their 1-QB native.
+        # only it lists; the rest keep their 1-QB native. A 2+ QB roster takes
+        # the overlay too (JEG-1365); this module runs only the default 1-QB
+        # roster, so `sf` is the whole rule here.
         for name, v in (combo.get("native_superflex") or {}).items():
             put(name, v)
     dropped[s] = dropped.get(s, 0) + miss
