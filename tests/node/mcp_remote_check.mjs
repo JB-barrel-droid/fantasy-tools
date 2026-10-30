@@ -581,6 +581,15 @@ const sizeCall = (name, args, fetch = sizeCharts) => handleRpc(
   { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
   stub, deps, { finder, fetchCharts: fetch });
 const nbytes = (res) => Buffer.byteLength(JSON.stringify(res.result), "utf8");
+// JEG-1329 (pick B, 2026-10-29): the trade budgets measure the reply without its site link, which
+// opens the full list and grows with every team a league link carries.
+const linkFree = (result) => {
+  const url = result.structuredContent?.site_url;
+  if (!url) return Buffer.byteLength(JSON.stringify(result), "utf8");
+  return Buffer.byteLength(JSON.stringify({ ...result, content: result.content.map((c) => ({ ...c, text: c.text.split(url).join("") })),
+    structuredContent: { ...result.structuredContent, site_url: "" } }), "utf8");
+};
+const tbytes = (res) => linkFree(res.result);
 const mineList = sizeMine.map((p) => p.name).join(", ");
 const theirList = sizeTheirs.map((p) => p.name).join(", ");
 const sizes = {};
@@ -603,7 +612,7 @@ const assertFitReply = (reply) => {
   if (rows.length > 5) assert.match(candidates, new RegExp(`^${rows.length - 5} more in the structured result`, "m"));
 };
 assertFitReply(r.result);
-sizes.findDefault = nbytes(r);
+sizes.findDefault = tbytes(r);
 assert.ok(sizes.findDefault < 6700, `find_trades default ${sizes.findDefault} bytes`);
 // The final guard measures the complete UTF-8 result after decorators such as week metadata.
 // Pin its exact boundary separately from the ranked-prefix trimming below.
@@ -612,7 +621,7 @@ for (const [name, limit, budget] of [["find_trades", 10, 6700], ["find_trades", 
   const decorated = structuredClone(defaultFind);
   decorated.structuredContent.limit = limit;
   decorated.structuredContent.week_note = "足🏈";
-  const padding = budget - Buffer.byteLength(JSON.stringify(decorated), "utf8") - 1;
+  const padding = budget - linkFree(decorated) - 1;
   decorated.structuredContent.week_note += "x".repeat(padding);
   assert.doesNotThrow(() => checkTradeReplySize(name, decorated));
   decorated.structuredContent.week_note += "x";
@@ -628,7 +637,7 @@ assert.match(r.result.content[0].text, new RegExp(`showing ${shown50}\\b`));
 assertFitReply(r.result);
 assert.deepEqual(defaultFind.structuredContent.trades, r.result.structuredContent.trades.slice(0, defaultFind.structuredContent.shown), "budget trimming preserves rank order");
 assert.match(defaultFind.content[0].text, /Fewer candidates shown to keep this reply compact/);
-sizes.find50 = nbytes(r);
+sizes.find50 = tbytes(r);
 assert.ok(sizes.find50 < 17000, `find_trades limit 50 ${sizes.find50} bytes`);
 const sizeOpps = Array.from({ length: 11 }, (_, i) => ({ name: `Opp ${i + 1}`, roster: theirList }));
 r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps });
@@ -636,12 +645,18 @@ assert.notEqual(r.result.isError, true, JSON.stringify(r.result).slice(0, 400));
 assert.equal(r.result.structuredContent.limit, 10);
 assertFitReply(r.result);
 const defaultLeague = r.result;
-sizes.league = nbytes(r);
+sizes.league = tbytes(r);
 assert.ok(sizes.league < 8000, `find_trades_league ${sizes.league} bytes`);
+// JEG-1329 pick B: the 12-team link (every roster) is outside the budget, so it costs no rows. Counted
+// in, this fixture showed 2 of the 4 rows; the wire guard (checkTradeReplySize) measures the same way.
+assert.ok(defaultLeague.structuredContent.site_url.includes("#find-league?workspace="));
+assert.ok(nbytes(r) - sizes.league > 1500, `the league link is long here: ${nbytes(r) - sizes.league} bytes`);
+assert.equal(defaultLeague.structuredContent.shown, 4, "the league link costs no trade rows");
+assert.doesNotThrow(() => checkTradeReplySize("find_trades_league", defaultLeague));
 // The larger league budget still preserves the same entire package and a ranked candidate prefix.
 r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps, limit: 100 });
 assertFitReply(r.result);
-sizes.league100 = nbytes(r);
+sizes.league100 = tbytes(r);
 assert.ok(sizes.league100 < 11500, `league limit 100 ${sizes.league100} bytes`);
 assert.deepEqual(defaultLeague.structuredContent.package, r.result.structuredContent.package);
 assert.deepEqual(defaultLeague.structuredContent.trades,
@@ -652,7 +667,7 @@ const unicodeMine = sizeMine.map(p => ({ ...p, name: `${p.name} 足🏈` }));
 const unicodeCharts = async () => ({ ...await sizeCharts(), players: unicodeMine.concat(sizeTheirs) });
 r = await sizeCall("find_trades", { mine: unicodeMine.map(p => p.name).join(", "), theirs: theirList }, unicodeCharts);
 assertFitReply(r.result);
-assert.ok(nbytes(r) < 6700);
+assert.ok(tbytes(r) < 6700);
 r = await sizeCall("find_trades_league", { mine: mineList,
   opponents: [{ name: "足🏈".repeat(1800), roster: theirList }], limit: 1 });
 assert.equal(r.result.isError, true);

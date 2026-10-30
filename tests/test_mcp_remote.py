@@ -50,6 +50,18 @@ class RemoteMcpTests(unittest.TestCase):
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         self.assertIn("All batch trade tests passed", out.stdout)
 
+    @unittest.skipIf(shutil.which("node") is None, "node not installed")
+    def test_connector_both_sides_and_league_link(self):
+        # JEG-1329: every trade row carries both teams' side of the finder's tradeFit, and the
+        # league scan's site link opens the league finder with every team (workspace.js decodeShare).
+        out = subprocess.run(
+            ["node", "--experimental-strip-types", "--no-warnings",
+             str(ROOT / "tests/node/connector_both_sides_check.mjs")],
+            capture_output=True, text=True, timeout=60,
+        )
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        self.assertTrue(out.stdout.strip().endswith("ok"))
+
     def test_function_is_public_like_get_values(self):
         cfg = (ROOT / "supabase/config.toml").read_text()
         self.assertIn("[functions.mcp]\nverify_jwt = false", cfg)

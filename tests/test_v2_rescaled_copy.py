@@ -105,7 +105,8 @@ class RescaledCopyTest(unittest.TestCase):
             "short label": ("v2.js", 'SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'SHORT_METHOD = {dda: "DDF Value", indexed: "Index", vorp'),
             "target sub-label": ("v2.js", '" · " : ""}rescaled`', '" · " : ""}indexed`'),
             "info title": ("v2.js", 'title: "Rescaled values"', 'title: "Indexed values"'),
-            "legend": ("v2.js", 'indexed: `Dashed = rescaled chart${RESCALED_TO}`', 'indexed: "Dashed = as published chart"'),
+            # JEG-1130: the desktop key reads "Dashed = one chart of the Market", still "rescaled to <basis>" under a reader basis.
+            "legend": ("v2.js", '(RESCALED_TO ? ` (rescaled${RESCALED_TO})` : "")}', '(RESCALED_TO ? ` (as published)` : "")}'),
         }
         for name, (_file, old, new) in broken.items():
             with self.subTest(mutation=name):
