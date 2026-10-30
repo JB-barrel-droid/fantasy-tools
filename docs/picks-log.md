@@ -173,3 +173,6 @@ Main advanced to `d9f617e0` with only two generated health JSON files. Merge
 it normally into the release branch; application/tests diff remains zero from
 reviewed `a6949b50`. Fresh CI and latest-main green gate still required.
 Evidence: `docs/claude-log/2026-10-28-league-health-main-integration.md`.
+
+- 10-28 10:17 AM | Connector review fix | JEG-1115 | Fit reasons exceed the old reply budgets | truncate reasons / raise caps / return a bounded ranked prefix | bounded prefix, full reasons and complete package; concise error if irreducible | Jeremy's limits are upper bounds; preserve counts and package totals; reserve 512 bytes for week decoration and check exact final UTF-8 result | be/jeg-1115-fit-review-fixes | no
+- 10-28 10:17 AM | Connector review fix | JEG-1115 | Two opponents can have the same display name | reject duplicates / use display name / use input identity | stable input index through fit and package selection, expose opponent_index | same-name teams are valid inputs; the roster and one-offer-per-opponent rule must follow identity | be/jeg-1115-fit-review-fixes | no

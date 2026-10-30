@@ -101,10 +101,14 @@ jobs:
       - run: python3 -m unittest tests.test_v2_finder_guardrails_render
       - run: python3 -m unittest tests.test_interactive_trades_release_render
       - run: python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render
+      # JEG-890 / JEG-1246: the Find a trade team value summary (thin-chart weeks and players with no DDF Value).
+      - run: python3 -m unittest tests.test_v2_finder_teams tests.test_v2_finder_teams_render
       # JEG-1056: the Compare 1366x768 fit guard (JEG-917/JEG-932) lives here, not in the deploy gate. Its
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+      # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
+      - run: python3 -m unittest -v tests.test_v2_compare_rosters_render
 
   # Keep the existing required check name. Drafts and stale events fail this
   # lightweight finalizer even though the expensive job is skipped.
