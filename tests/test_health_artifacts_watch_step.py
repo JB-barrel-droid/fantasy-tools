@@ -2,8 +2,9 @@
 """The health-artifacts watch step: exit 3 warns, exit 1 and 2 fail (JEG-1239).
 
 Jeremy, 2026-10-30, JEG-1239: "A". When the watch cannot verify that this run's
-artifacts arrived (exit 3, e.g. the served copy answers 403), the run stays green
-and is flagged as unverified. Stale (1) and not arrived (2) still turn it red.
+artifacts arrived (exit 3), the run stays green and is flagged as unverified.
+Stale (1) and not arrived (2) still turn it red. A denied fetch of the served
+copy (e.g. 403) is stale in the watcher (exit 1, fail-closed), so it stays red.
 
 The test extracts the step's `run:` script from health-artifacts.yml and runs it
 under `bash -e`, as GitHub does, with the watcher replaced by a stub that exits

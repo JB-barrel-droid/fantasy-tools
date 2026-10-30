@@ -179,9 +179,11 @@ jobs:
         # previous deploy's copy and failed 3 runs in a row (2026-10-07/08,
         # e.g. 37779712658: served checkpoints 1269 min old, this run's fresh
         # copy still deploying).
-        # Exit 3 (arrival unverified, e.g. a 403 on the served copy) is a
-        # warning, not a red run (Jeremy, 2026-10-30, JEG-1239: "A"). Stale (1)
-        # and not arrived (2) still fail the step.
+        # Exit 3 (this run's arrival could not be verified while the served
+        # copy is fresh) is a warning, not a red run (Jeremy, 2026-10-30,
+        # JEG-1239: "A"). Stale (1) and not arrived (2) still fail the step. A
+        # denied or failed fetch of the served copy is still stale (1): the
+        # freshness check fails closed and takes precedence.
         run: |
           set -o pipefail
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
