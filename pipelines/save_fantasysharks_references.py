@@ -97,6 +97,16 @@ def build_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[dict[str
             "scoring": "all", "season": season, "week": week, "source_content_date": vintage,
             "_run_id": f"{SOURCE}-save-{vintage}", "_writer_identity": "save_fantasysharks_references.py",
         })
+    by_key: dict[Any, list[dict[str, Any]]] = {}
+    for r in clean:
+        by_key.setdefault(r["player_key"], []).append(r)
+    dupes = {k for k, v in by_key.items() if len(v) > 1}
+    if dupes:  # two source rows for one player: save neither, never pick one
+        for r in clean:
+            if r["player_key"] in dupes:
+                review.append({"reason": "duplicate_player_key", "player_name": r.get("player_norm"),
+                               "player_norm": r.get("player_norm"), "pos": r.get("pos"), "player_key": r["player_key"]})
+        clean = [r for r in clean if r["player_key"] not in dupes]
     return clean, review, vintage
 
 
@@ -107,8 +117,9 @@ def main() -> None:
     args = parser.parse_args()
     clean, review, vintage = build_rows(args.snapshot or latest_snapshot())
     print(f"{SOURCE} {vintage}: {len(clean)} clean rows, {len(review)} review rows")
-    for r in review[:10]:
-        print(f"  review: {r.get('reason')}: {r.get('player_name')}")
+    for r in review:
+        extra = f" (player_key {r['player_key']})" if r.get("player_key") is not None else ""
+        print(f"  REVIEW, NOT SAVED: {r.get('reason')}: {r.get('player_name')} [{r.get('pos')}]{extra}")
     if args.dry_run:
         print(f"[dry-run] would upsert {len(clean)} rows into {TABLE}")
         return
