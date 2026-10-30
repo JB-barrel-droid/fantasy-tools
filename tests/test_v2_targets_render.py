@@ -121,7 +121,7 @@ H1 = "Trade targets"  # JEG-1119: page titles match the nav labels
 # JEG-888 (#828): the intro counts the charts the view compares, never a hard-coded "four publishers". The pinned
 # fixture (tests/_holds.py) has CBS held, so three charts are compared. test_v2_plain_copy_render proves the count follows data.
 SUBTITLE = ("We check 3 trade charts against our values for your league, two ways: "
-            "potential mispricing, player by player, and potential positional weight inflation, position by position. "
+            "potential mispricing, player by player, and the positions the market overpays for, position by position. "
             "Sell what they overpay for; buy what they undervalue.")
 INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
                 "Their ranking order is unchanged.")

@@ -8,15 +8,20 @@ Pins, on hand-built inputs (no network, no database):
   - a pull page that answers with a different week is "not offered", not data;
   - the completeness check fails on a missing week, a short capture, and a
     source that never captured, and passes on a complete set;
-  - the backfill turns week-history files into ROS rows and nothing else;
+  - the backfill turns week-history files into ROS rows and nothing else, pinned on a
+    frozen fixture with literal rows; the live-tree smoke accepts a new week but fails
+    a dropped week or source, weekly horizon, changed null handling or empty output;
   - the migration keeps the unique key, the horizon/week rule and the
     append-only trigger the writers rely on.
 Each guard is run once against a simulated broken state and must fail there.
 """
+import inspect
 import json
 import re
+import shutil
 import sys
 import tempfile
+import textwrap
 import unittest
 from datetime import datetime, timezone
 from pathlib import Path
@@ -290,13 +295,244 @@ class BackfillTests(unittest.TestCase):
         self.assertEqual(rows[0]["capture_at"], "2026-10-12T21:49:12Z")
 
     def test_real_history_counts(self):
-        rows = []
-        for p in sorted(bf.HISTORY.glob("week-*.json")):
-            rows += bf.rows_from_history(p, "b")
-        pairs = {(r["source"], r["source_week"]) for r in rows}
-        self.assertEqual({w for s, w in pairs if s == "espn"}, {2, 3, 4, 5, 6, 7})
-        self.assertEqual({w for s, w in pairs if s == "razzball"}, {3, 4, 5, 6, 7})
-        self.assertEqual({w for s, w in pairs if s == "cbs"}, {4, 5, 6, 7})
+        # Current-tree smoke over data/history. Pins the historical floor (each source's
+        # first week through week 7 must stay present) and requires every later week the
+        # tree holds, so a legitimate new week passes without editing this test.
+        live = sorted(bf.HISTORY.glob("week-*.json"))
+        self.assertTrue(live, "no data/history/week-*.json files")
+        latest = max(int(re.fullmatch(r"week-(\d+)\.json", p.name).group(1)) for p in live)
+        self.assertGreaterEqual(latest, 7)
+        assert_live_history(self, bf.rows_from_history, bf.HISTORY, latest)
+
+
+# --- JEG-1242: pinned fixture, new-week case and mutation checks --------------------
+
+FIXTURE = ROOT / "tests" / "fixtures" / "projection_history_backfill"
+
+# Written by hand from the fixture files, not computed by the code under test.
+# (source, source_week, capture_at, player_key, scoring_format, ppg)
+PINNED_ROWS = {
+    ("espn", 2, "2026-09-16T12:00:00Z", 101, "standard", 10.0),
+    ("espn", 2, "2026-09-16T12:00:00Z", 101, "half_ppr", 11.5),
+    ("espn", 2, "2026-09-16T12:00:00Z", 101, "full_ppr", 13.0),
+    ("espn", 2, "2026-09-16T12:00:00Z", 102, "standard", 5.0),
+    ("espn", 2, "2026-09-16T12:00:00Z", 102, "full_ppr", 7.25),
+    ("espn", 3, "2026-09-23T12:00:00Z", 101, "standard", 10.5),
+    ("espn", 3, "2026-09-23T12:00:00Z", 101, "half_ppr", 12.0),
+    ("espn", 3, "2026-09-23T12:00:00Z", 101, "full_ppr", 13.5),
+    ("razzball", 3, "2026-09-23T13:00:00Z", 201, "standard", 8.123),
+    ("razzball", 3, "2026-09-23T13:00:00Z", 201, "half_ppr", 9.5),
+    ("razzball", 3, "2026-09-23T13:00:00Z", 201, "full_ppr", 10.875),
+    ("espn", 4, "2026-09-30T12:00:00Z", 103, "full_ppr", 4.0),
+    ("razzball", 4, "2026-09-30T13:00:00Z", 201, "standard", 7.0),
+    ("razzball", 4, "2026-09-30T13:00:00Z", 201, "half_ppr", 8.0),
+    ("razzball", 4, "2026-09-30T13:00:00Z", 201, "full_ppr", 9.0),
+    ("cbs", 4, "2026-09-30T14:00:00Z", 301, "standard", 6.0),
+    ("cbs", 4, "2026-09-30T14:00:00Z", 301, "half_ppr", 6.5),
+    ("cbs", 4, "2026-09-30T14:00:00Z", 301, "full_ppr", 7.0),
+}
+# A legitimate later week, and the rows it must add (again written by hand).
+NEW_WEEK = {"season": 2026, "week": 5, "sources": {
+    "espn": {"captured_at": "2026-10-07T12:00:00Z", "ppg": {"101": [11.0, 12.0, 13.0]}},
+    "razzball": {"captured_at": "2026-10-07T13:00:00Z", "ppg": {"201": [6.0, 7.0, 8.0]}},
+    "cbsros": {"captured_at": "2026-10-07T14:00:00Z", "ppg": {"301": [5.0, 5.5, 6.0]}},
+    "cbs": {"captured_at": "2026-10-07T12:05:00Z", "ppg": {}}}}
+NEW_WEEK_ROWS = {
+    ("espn", 5, "2026-10-07T12:00:00Z", 101, "standard", 11.0),
+    ("espn", 5, "2026-10-07T12:00:00Z", 101, "half_ppr", 12.0),
+    ("espn", 5, "2026-10-07T12:00:00Z", 101, "full_ppr", 13.0),
+    ("razzball", 5, "2026-10-07T13:00:00Z", 201, "standard", 6.0),
+    ("razzball", 5, "2026-10-07T13:00:00Z", 201, "half_ppr", 7.0),
+    ("razzball", 5, "2026-10-07T13:00:00Z", 201, "full_ppr", 8.0),
+    ("cbs", 5, "2026-10-07T14:00:00Z", 301, "standard", 5.0),
+    ("cbs", 5, "2026-10-07T14:00:00Z", 301, "half_ppr", 5.5),
+    ("cbs", 5, "2026-10-07T14:00:00Z", 301, "full_ppr", 6.0),
+}
+# History section -> capture source, and the [standard, half_ppr, ppr] triple order,
+# restated here so the live check does not lean on the module's own tables.
+HISTORY_SOURCES = {"espn": "espn", "razzball": "razzball", "cbsros": "cbs"}
+FIRST_WEEK = {"espn": 2, "razzball": 3, "cbs": 4}
+FROZEN_THROUGH = 7
+MIN_ROWS_PER_SOURCE_WEEK = 500  # every live source-week holds 349+ players x 3 formats
+
+
+def run_backfill(rows_fn, history_dir):
+    rows = []
+    for p in sorted(Path(history_dir).glob("week-*.json")):
+        rows += rows_fn(p, "b")
+    return rows
+
+
+def assert_ros_backfill_shape(case, rows, season=2026):
+    case.assertTrue(rows, "backfill yielded no rows")
+    for r in rows:
+        case.assertEqual((r["capture_phase"], r["horizon"], r["target_week"]), ("backfill", "ros", 0), r)
+        case.assertIsNone(r["points"], r)
+        case.assertIsNone(r["games"], r)
+        case.assertIsNotNone(r["ppg"], r)
+        case.assertEqual(r["season"], season, r)
+        case.assertEqual(r["batch_id"], "b", r)
+        case.assertIn(f"data/history/week-{r['source_week']}.json", r["basis"], r)
+
+
+def key(r):
+    return (r["source"], r["source_week"], r["capture_at"], r["player_key"], r["scoring_format"], r["ppg"])
+
+
+def assert_pinned(case, rows, expected):
+    assert_ros_backfill_shape(case, rows)
+    keys = [key(r) for r in rows]
+    case.assertEqual(len(keys), len(set(keys)), "duplicate backfill rows")
+    case.assertEqual(set(keys), expected)
+
+
+def expected_live_count(path):
+    """Rows a history file should yield, counted straight from the raw JSON."""
+    d = json.loads(path.read_text(encoding="utf-8"))
+    out = {}
+    for hist_key, source in HISTORY_SOURCES.items():
+        sec = d["sources"].get(hist_key) or {}
+        if not sec.get("captured_at"):
+            continue
+        n = sum(v is not None for triple in (sec.get("ppg") or {}).values() if triple for v in triple)
+        if n:
+            out[(source, int(d["week"]))] = n
+    return out
+
+
+def assert_live_history(case, rows_fn, history_dir, latest):
+    files = sorted(Path(history_dir).glob("week-*.json"))
+    for p in files:
+        case.assertEqual(json.loads(p.read_text(encoding="utf-8"))["week"],
+                         int(re.fullmatch(r"week-(\d+)\.json", p.name).group(1)), p.name)
+    rows = run_backfill(rows_fn, history_dir)
+    assert_ros_backfill_shape(case, rows)
+    counts = {}
+    for r in rows:
+        counts[(r["source"], r["source_week"])] = counts.get((r["source"], r["source_week"]), 0) + 1
+    for source, first in FIRST_WEEK.items():
+        weeks = {w for s, w in counts if s == source}
+        case.assertTrue(set(range(first, FROZEN_THROUGH + 1)) <= weeks,
+                        f"{source}: historical weeks missing, have {sorted(weeks)}")
+        case.assertEqual(weeks, set(range(first, latest + 1)), f"{source}: weeks {sorted(weeks)}")
+        case.assertNotIn(first - 1, weeks)
+    case.assertEqual({s for s, _w in counts}, set(FIRST_WEEK))
+    for sw, n in counts.items():
+        case.assertGreaterEqual(n, MIN_ROWS_PER_SOURCE_WEEK, f"{sw}: {n} rows")
+    want = {}
+    for p in files:
+        want.update(expected_live_count(p))
+    case.assertEqual(counts, want)
+
+
+def mutant(*edits):
+    """rows_from_history with source edits (old, new), compiled against the real module globals."""
+    src = textwrap.dedent(inspect.getsource(bf.rows_from_history))
+    for old, new in edits:
+        if src.count(old) != 1:
+            raise RuntimeError(f"mutation anchor not found exactly once: {old!r}")
+        src = src.replace(old, new)
+    ns = dict(vars(bf))
+    exec(compile(src, bf.__file__, "exec"), ns)  # noqa: S102
+    return ns["rows_from_history"]
+
+
+# Structural mutants: both the frozen fixture and the live-tree smoke must catch them.
+MUTANTS = {
+    "omit razzball": lambda: mutant(('for hist_key, source in SOURCE_OF.items():',
+                                     ('for hist_key, source in ((k, v) for k, v in SOURCE_OF.items() '
+                                      'if k != "razzball"):'))),
+    "weekly cbs instead of cbsros": lambda: mutant(('for hist_key, source in SOURCE_OF.items():',
+                                                    ('for hist_key, source in ((k, v) for k, v in '
+                                                     '{**SOURCE_OF, "cbs": "cbs"}.items() if k != "cbsros"):'))),
+    "weekly horizon": lambda: mutant(('horizon="ros", target_week=0',
+                                      'horizon="week", target_week=week + 1')),
+    "drop a format": lambda: mutant(('for fmt, i in FORMAT_AT:', 'for fmt, i in FORMAT_AT[1:]:')),
+    "empty output": lambda: mutant(('    return out', '    return []')),
+    "skip latest week": lambda: mutant(('week, season = int(d["week"]), int(d["season"])',
+                                        ('week, season = int(d["week"]), int(d["season"])\n'
+                                         '    if path.name == max(path.parent.glob("week-*.json"), '
+                                         'key=lambda q: int(q.stem[5:])).name:\n        return []'))),
+}
+# Value mutants: the live tree holds no per-format nulls and its values are not pinned,
+# so only the frozen fixture's literal rows can catch these.
+VALUE_MUTANTS = {
+    "missing ppg written as 0": lambda: mutant(
+        ('if triple is None or triple[i] is None:\n                    continue',
+         'if triple is None:\n                    continue'),
+        ('ppg=triple[i]', 'ppg=0.0 if triple[i] is None else triple[i]')),
+    "per-format shift": lambda: mutant(('ppg=triple[i]', 'ppg=triple[min(i + 1, 2)]')),
+    "wrong capture_at": lambda: mutant(('capture_at=sec["captured_at"]', 'capture_at=pc.now_iso()')),
+}
+
+
+class BackfillFixtureTests(unittest.TestCase):
+    """JEG-1242: a frozen fixture with literal expected rows, separate from the live smoke."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.dir = Path(self.tmp.name)
+        for p in FIXTURE.glob("week-*.json"):
+            shutil.copy(p, self.dir / p.name)
+
+    def test_frozen_fixture_rows_are_exact(self):
+        assert_pinned(self, run_backfill(bf.rows_from_history, FIXTURE), PINNED_ROWS)
+
+    def test_a_new_week_adds_rows_without_touching_history(self):
+        (self.dir / "week-5.json").write_text(json.dumps(NEW_WEEK))
+        rows = run_backfill(bf.rows_from_history, self.dir)
+        assert_pinned(self, rows, PINNED_ROWS | NEW_WEEK_ROWS)
+        self.assertEqual({key(r) for r in rows if r["source_week"] < 5}, PINNED_ROWS)
+
+    def test_live_check_accepts_a_new_week_with_no_edit(self):
+        # The live smoke must pass when the tree gains a week beyond the frozen floor.
+        big = {"season": 2026, "week": 0, "sources": {
+            h: {"captured_at": f"2026-10-0{i}T12:00:00Z",
+                "ppg": {str(1000 + j): [1.0, 2.0, 3.0] for j in range(200)}}
+            for i, h in enumerate(HISTORY_SOURCES, 1)}}
+        d = Path(self.tmp.name) / "live"
+        d.mkdir()
+        for w in range(2, 10):
+            doc = json.loads(json.dumps(big))
+            doc["week"] = w
+            for h, src in HISTORY_SOURCES.items():
+                if w < FIRST_WEEK[src]:
+                    del doc["sources"][h]
+            (d / f"week-{w}.json").write_text(json.dumps(doc))
+        assert_live_history(self, bf.rows_from_history, d, 9)
+        (d / "week-9.json").unlink()
+        assert_live_history(self, bf.rows_from_history, d, 8)
+        with self.assertRaises(AssertionError):  # a dropped latest week is not "fine"
+            assert_live_history(self, bf.rows_from_history, d, 9)
+
+    def test_dropping_a_week_file_fails(self):
+        (self.dir / "week-3.json").unlink()
+        with self.assertRaises(AssertionError):
+            assert_pinned(self, run_backfill(bf.rows_from_history, self.dir), PINNED_ROWS)
+
+    def test_each_mutation_fails_the_pinned_fixture(self):
+        for name, build in {**MUTANTS, **VALUE_MUTANTS}.items():
+            with self.subTest(mutant=name):
+                fn = build()
+                with self.assertRaises((AssertionError, ValueError, TypeError)):
+                    assert_pinned(self, run_backfill(fn, FIXTURE), PINNED_ROWS)
+
+    def test_each_mutation_fails_the_live_smoke(self):
+        live = sorted(bf.HISTORY.glob("week-*.json"))
+        latest = max(int(re.fullmatch(r"week-(\d+)\.json", p.name).group(1)) for p in live)
+        for name, build in MUTANTS.items():
+            with self.subTest(mutant=name):
+                fn = build()
+                with self.assertRaises((AssertionError, ValueError, TypeError)):
+                    assert_live_history(self, fn, bf.HISTORY, latest)
+
+    def test_unmutated_function_passes_both_checks(self):
+        # Guards the mutation tests above against passing for the wrong reason.
+        assert_pinned(self, run_backfill(bf.rows_from_history, FIXTURE), PINNED_ROWS)
+        live = sorted(bf.HISTORY.glob("week-*.json"))
+        latest = max(int(re.fullmatch(r"week-(\d+)\.json", p.name).group(1)) for p in live)
+        assert_live_history(self, bf.rows_from_history, bf.HISTORY, latest)
 
 
 class SaverHookTests(unittest.TestCase):

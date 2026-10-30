@@ -176,6 +176,7 @@ def _run(css=None) -> dict:
             page.close()
         for tab, opener in PANELS:
             page = open_page(browser, 375, 812, tab)
+            _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
             page.locator(opener).first.click()
             page.wait_for_timeout(500)
             out["small"][f"{tab}+{opener}"] = page.evaluate(SMALL)

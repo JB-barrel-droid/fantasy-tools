@@ -253,20 +253,64 @@
       {id: "rosterF", label: "Roster value (DDF)", type: "number", first: "desc", get: money("fund", "rosterValue")},
       {id: "starterF", label: "Starter value (DDF)", type: "number", first: "desc", get: money("fund", "starterValue")},
       {id: "benchF", label: "Bench value (DDF)", type: "number", first: "desc", get: money("fund", "benchValue")},
-      {id: "rosterM", label: "Roster value (market)", type: "number", first: "desc", get: money("market", "rosterValue")},
-      {id: "starterM", label: "Starter value (market)", type: "number", first: "desc", get: money("market", "starterValue")},
-      {id: "benchM", label: "Bench value (market)", type: "number", first: "desc", get: money("market", "benchValue")},
+      {id: "rosterM", label: "Roster value (Market)", type: "number", first: "desc", get: money("market", "rosterValue")},
+      {id: "starterM", label: "Starter value (Market)", type: "number", first: "desc", get: money("market", "starterValue")},
+      {id: "benchM", label: "Bench value (Market)", type: "number", first: "desc", get: money("market", "benchValue")},
       {id: "altRank", label: other === "market" ? "Trade chart average rank" : "DDF Value rank", type: "number", first: "asc", rank: true, get: t => t.rank[other]},
       {id: "projRank", label: "DDF Value (projections) rank", type: "number", first: "asc", rank: true, get: t => t.rank.proj},
       {id: "disagree", label: "Projections vs charts", type: "number", first: "desc", get: t => biggestSigned(t.higher.concat(t.lower))},
-      {id: "under", label: "Undervalued by market", type: "number", first: "desc", get: t => topGap(t.under)},
-      {id: "over", label: "Overvalued by market", type: "number", first: "desc", get: t => topGap(t.over)}
+      {id: "under", label: "Buy (Market underpays)", type: "number", first: "desc", get: t => topGap(t.under)},
+      {id: "over", label: "Sell (Market overpays)", type: "number", first: "desc", get: t => topGap(t.over)}
     ];
   }
   const SUMMARY_DEFAULT = {col: "rank", dir: "asc"};
   const SUMMARY_TIES = [{get: t => (t.fund ? t.fund.starterValue : null), type: "number", dir: "desc"}, {get: t => t.name, type: "text", dir: "asc"}];
 
-  const api = {summaryColumns, SUMMARY_DEFAULT, SUMMARY_TIES, NOISE_FLOOR, MIN_MEDIAN_TEAMS, POSITIONS, median, denseRanks, ordinal, marketGaps, projectionGaps, DISAGREE_FLOOR, PROJ_KEY, summarize, rankOrder, headline};
+  // JEG-1213: opportunities read the same current team summary; no trade values are recomputed here.
+  function summaryFields(basis) {
+    const namedGaps = list => (list || []).map(i => `${i.name} ${i.gap > 0 ? "+" : ""}${i.gap.toFixed(1)}`).join(", ");
+    const fields = summaryColumns(basis).map(c => ({...c}));
+    const text = (id, get) => { const c = fields.find(f => f.id === id); c.type = "text"; c.first = "asc"; c.get = get; };
+    text("disagree", t => namedGaps(t.higher.concat(t.lower)));
+    text("under", t => namedGaps(t.under));
+    text("over", t => namedGaps(t.over));
+    ["roster", "starter", "bench"].forEach(part => fields.push({id: `${part}P`, label: `${part[0].toUpperCase()}${part.slice(1)} value (projections)`, type: "number", first: "desc", get: t => t.proj ? t.proj[`${part}Value`] : null}));
+    fields.push({id: "strengths", label: "Strengths", type: "text", first: "asc", get: t => t.strengths.map(i => i.text).join("; ")});
+    fields.push({id: "weaknesses", label: "Weaknesses", type: "text", first: "asc", get: t => t.weaknesses.map(i => i.text).concat(t.thinBench ? t.thinBench.text : []).join("; ")});
+    POSITIONS.forEach(pos => fields.push({id: `allocation${pos}`, label: `${pos} allocation`, type: "text", first: "asc", get: t => {
+      const p = t.positions[pos];
+      return p ? `${p.have} counted, ${p.range} expected; ${p.status}; starters ${p.starters.toFixed(1)}${p.median === null ? "" : ` vs median ${p.median.toFixed(1)}`}` : "";
+    }}));
+    return fields;
+  }
+  function summaryFieldText(team, field) {
+    const value = team ? field.get(team) : null;
+    return value === null || value === undefined || value === "" ? "—" : field.type === "number" ? (field.rank ? String(value) : value.toFixed(1)) : String(value);
+  }
+  function summaryFieldMatches(team, rule, basis) {
+    const field = summaryFields(basis).find(f => f.id === rule.field);
+    if (!field) return true;
+    const value = team ? field.get(team) : null;
+    const missing = value === null || value === undefined || value === "";
+    if (rule.op === "missing") return missing;
+    if (rule.op === "present") return !missing;
+    if (missing) return false;
+    if (field.type === "number") {
+      if (String(rule.value || "").trim() === "") return true;
+      const target = Number(rule.value);
+      if (!finite(target)) return true;
+      const actual = field.rank ? value : shown(value);
+      if (rule.op === "gte") return actual >= target;
+      if (rule.op === "lte") return actual <= target;
+      if (rule.op === "eq") return actual === target;
+      return true;
+    }
+    const a = String(value).toLocaleLowerCase();
+    const b = String(rule.value || "").trim().toLocaleLowerCase();
+    return rule.op === "notContains" ? !a.includes(b) : rule.op === "eq" ? a === b : a.includes(b);
+  }
+
+  const api = {summaryFields, summaryFieldText, summaryFieldMatches, summaryColumns, SUMMARY_DEFAULT, SUMMARY_TIES, NOISE_FLOOR, MIN_MEDIAN_TEAMS, POSITIONS, median, denseRanks, ordinal, marketGaps, projectionGaps, DISAGREE_FLOOR, PROJ_KEY, summarize, rankOrder, headline};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueTeamSummary = api;
 })(typeof window !== "undefined" ? window : globalThis);
