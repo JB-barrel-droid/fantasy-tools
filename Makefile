@@ -147,6 +147,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_league_mapping
 	# JEG-1061: get-values logs each fresh custom compute and each 429 (soft limiter measurement).
 	python3 -m unittest tests.test_jeg_1061_logging_contract
+	# JEG-1061: the compute limit shared across instances (off by default), handler and migration.
+	python3 -m unittest tests.test_jeg1061_shared_rate_limit
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
 	# JEG-1225: get-values prices under a link's basis and overrides.

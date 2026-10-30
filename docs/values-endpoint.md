@@ -175,6 +175,7 @@ mapping and clamps. Deploy `get-values` before `mcp`; an `mcp` that sends
 |---|---|---|
 | `DDF_SITE_ORIGIN` | function secret (optional) | `https://jb-barrel-droid.github.io/fantasy-tools` |
 | `DDF_API_URL` | `mcp` function secret (optional) | `$SUPABASE_URL/functions/v1/get-values` |
+| `DDF_SHARED_RATE_LIMIT` | `get-values` function secret (optional, JEG-1061) | unset: per-instance compute limit only |
 
 `datadrivenfootball.com` did not resolve on 2026-10-19, so the Pages URL is the
 default origin. Once the domain is live, set `DDF_SITE_ORIGIN` (no redeploy of
@@ -208,6 +209,22 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
   pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
   the function stores nothing, so abuse costs CPU only (about 0.3 s per
   fresh league).
+- Shared compute limit, built but off (JEG-1061, 2026-10-30): with the
+  function secret `DDF_SHARED_RATE_LIMIT=1`, each fresh custom-league compute
+  calls `public.edge_rate_hit` (migration
+  `supabase/migrations/jeg1061_shared_rate_limit_20261030.sql`), so the 10/min
+  compute limit is counted once for every instance. The key is hashed
+  (SHA-256) before it leaves the function; no IP is stored. Any error or a
+  400 ms timeout falls back to the in-memory count and logs
+  `{"event":"get_values.rate_limit_fallback", reason}`. The general 30/min
+  limit stays in memory (a database call on every request would slow cached
+  answers). The key is still the first `x-forwarded-for` entry, so this fixes
+  the per-instance count, not key forgery. Tests:
+  `tests/test_jeg1061_shared_rate_limit.py` (two handler instances against a
+  fake RPC; the migration against a local Postgres). Turning it on needs
+  Jeremy's yes: apply the migration, deploy `get-values`, set the secret.
+  Turning it off: unset the secret (no redeploy); rollback
+  `supabase/rollbacks/jeg1061_shared_rate_limit_rollback_20261030.sql`.
 - Measurement (JEG-1344, part of JEG-1061): each fresh custom compute (a
   custom league or a share link's value context, on an answer-cache miss) logs
   one JSON line `{"event":"get_values.compute", scoring, teams, superflex,

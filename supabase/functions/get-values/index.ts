@@ -45,6 +45,7 @@ import {
   applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, overrideSeries, readValueContext,
   type ValueContext,
 } from "./value-context.ts";
+import { computeLimiter, sharedCheck } from "./rate-limit.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
@@ -348,6 +349,9 @@ function corsHeaders(req: Request): Record<string, string> {
 // 0.3 s per fresh custom league; the answer cache below is per-instance too).
 // A shared or unforgeable-key limiter would be a separate, deliberate
 // change — do not read the numbers below as a guarantee.
+// JEG-1061 follow-up: the compute bucket can be counted across instances in
+// Postgres (rate-limit.ts), off unless DDF_SHARED_RATE_LIMIT=1; off, or when the
+// database does not answer, this in-memory count decides as before.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute
@@ -367,6 +371,9 @@ function checkRate(ip: string, limit = RATE_LIMIT): boolean {
   bucket.count++;
   return bucket.count <= limit;
 }
+
+const checkCompute = computeLimiter(checkRate, sharedCheck({ env: (name) => Deno.env.get(name) }),
+  (fields) => logEvent(fields));
 
 // JEG-1061: one structured log line per fresh custom compute and per 429, so the soft limiter can be
 // measured (contract: tests/node/jeg_1061_logging_contract.mjs). Settings only: no IP, header, token or
@@ -518,7 +525,7 @@ Deno.serve(async (req: Request) => {
       const fresh = Boolean(mapped.custom.length || context.custom);
       const settings = { scoring: mapped.scoring, teams: mapped.teams, superflex: mapped.setting.superflex,
         custom: mapped.custom, charts: includeCharts, week: plan.week };
-      if (fresh && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+      if (fresh && !(await checkCompute(`compute:${ip}`, COMPUTE_RATE_LIMIT, RATE_WINDOW_MS / 1000))) {
         logEvent({ event: "get_values.rate_limited", limit: "compute", max: COMPUTE_RATE_LIMIT,
           window_s: RATE_WINDOW_MS / 1000, ...settings });
         return Response.json(
