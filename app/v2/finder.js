@@ -1063,7 +1063,18 @@
         minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // JEG-1328: which of a search link's saved teams (decoded teams plus the link's roster keys) label the rosters setSides
+  // was given. A team counts only when every player given came from the link and the reader has that saved league and team.
+  function linkTeamsFor(link, mine, theirs, workspace) {
+    const none = {mineId: null, theirId: null};
+    const fromLink = (list, keys) => list.every(p => keys.has(String(p.key)));
+    if (!link || !workspace || workspace.id !== link.workspaceId) return none;
+    if (!fromLink(mine, link.mineKeys) || !fromLink(theirs, link.theirKeys)) return none;
+    const has = id => Boolean(id) && workspace.teams.some(team => team.id === id);
+    return {mineId: has(link.mineId) ? link.mineId : null, theirId: has(link.theirId) ? link.theirId : null};
+  }
+
+  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,
@@ -1280,7 +1291,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     setSides: (mine, theirs) => {
       snapshot();
       rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true};
-      adoptLinkTeams();
+      adoptLinkTeams(mine, theirs);
       const have = new Set(mine.map(p => p.key));
       S.mine = mine.map(p => ({...p}));
       S.theirs = theirs.filter(p => !have.has(p.key)).map(p => ({...p}));
@@ -1342,21 +1353,21 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     try { await navigator.clipboard.writeText(url); }
     catch (error) { say(`Copy this link: ${url}`); }
   }
-  // JEG-1328: a search link's viable-only tick and the saved teams its rosters came from. The teams are adopted when
-  // setSides puts the link's rosters in, and only when this reader has that saved league and both teams in it.
+  // JEG-1328: a search link's viable-only tick and the saved teams its rosters came from. Each team is adopted when
+  // setSides puts that link's rosters in (every player it is given came from the link), and only when this reader has
+  // that saved league and the team in it; a later state with other rosters keeps the working copy unlabelled.
   let linkTeams = null;
-  function adoptLinkTeams() {
+  function adoptLinkTeams(mine, theirs) {
     const t = linkTeams;
     linkTeams = null;
-    const ws = t && sharedStore() ? sharedStore().get() : null;
-    if (!ws || ws.id !== t.workspaceId) return;
-    const has = id => Boolean(id) && ws.teams.some(team => team.id === id);
-    if (has(t.mineId)) rosterCopy.teamId = t.mineId;
-    if (has(t.theirId)) rosterCopy.theirTeamId = t.theirId;
+    const picked = linkTeamsFor(t, mine, theirs, t && sharedStore() ? sharedStore().get() : null);
+    if (picked.mineId) rosterCopy.teamId = picked.mineId;
+    if (picked.theirId) rosterCopy.theirTeamId = picked.theirId;
   }
   api.applyHash = params => {
     const decoded = applyHash(params);
-    linkTeams = decoded && decoded.teams.workspaceId && (params.has("mine") || params.has("theirs")) ? decoded.teams : null;
+    linkTeams = decoded && decoded.teams.workspaceId && (params.has("mine") || params.has("theirs"))
+      ? {...decoded.teams, mineKeys: new Set(decoded.mine), theirKeys: new Set(decoded.theirs)} : null;
     if (decoded) S.viableOnly = decoded.viableOnly;
     return decoded;
   };

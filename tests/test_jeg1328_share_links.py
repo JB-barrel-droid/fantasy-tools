@@ -38,6 +38,9 @@ MUTATIONS = {
     "saved teams accepted without their league": ("finder.js",
         "if (!teams.workspaceId || teams.mineId === teams.theirId) { teams.mineId = null; teams.theirId = null; }",
         "if (teams.mineId && teams.mineId === teams.theirId) { teams.mineId = null; teams.theirId = null; }", "finder_link_team_ids_are_checked"),
+    "a later state's rosters pick up the link's teams": ("finder.js",
+        "if (!fromLink(mine, link.mineKeys) || !fromLink(theirs, link.theirKeys)) return none;", "",
+        "finder_link_teams_label_only_the_link_rosters"),
 }
 
 
@@ -52,7 +55,7 @@ class ShareLinkContextTest(unittest.TestCase):
     def test_share_links_round_trip(self):
         result = run(V2)
         self.assertEqual(result["failures"], [])
-        self.assertGreaterEqual(len(result["ran"]), 11)
+        self.assertGreaterEqual(len(result["ran"]), 12)
 
     def test_checks_fail_on_broken_builds(self):
         for name, (file, anchor, replacement, must_fail) in MUTATIONS.items():

@@ -14,8 +14,8 @@ What changed:
 - `app/v2/league.js`: the address pick is `trade=1~<opponent id>~<give>~<receive>`; an old name-keyed address still
   selects its trade and is rewritten; `readShareHash` applies the link's controls and pick; Copy link carries the pick.
 - `app/v2/finder.js`: the search link adds `viable=1` and the saved teams its rosters came from (`ws`, `mt`, `tt`). The
-  teams are adopted only when the reader has that same saved league and both teams in it; elsewhere the rosters stay a
-  working copy (TradeContext's rule for another workspace).
+  teams are adopted only when the reader has that same saved league and each team in it, and only for the rosters that
+  link put in (`linkTeamsFor`); elsewhere the rosters stay a working copy (TradeContext's rule for another workspace).
 - `tests/node/share_link_context_check.cjs` + `tests/test_jeg1328_share_links.py` (in `make test-unit`).
 
 ### Verified (check named)
@@ -28,6 +28,11 @@ What changed:
 - `make validate` (cloud): build and `make test-core` pass except `tests.test_week_history`, which errors on
   `ModuleNotFoundError: playwright` (no Playwright here; unrelated to this change). The 24 test-core steps after it,
   run one by one, all pass.
+
+- Review follow-up (2026-10-30, on head ac87878 after the main merge): a link's saved teams no longer stick to a later
+  state with other rosters; `finder_link_teams_label_only_the_link_rosters` plus a mutation that drops the roster check.
+  12 checks, 9 mutations; the five link and league units pass; `make validate` as above (only `test_week_history` on
+  Playwright), the 33 test-core steps after it all pass.
 
 ### Claimed, not confirmed
 - In-browser behaviour (reading a link on the League page, the pair finder's saved-team picker showing the link's

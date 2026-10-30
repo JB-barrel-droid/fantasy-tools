@@ -182,11 +182,25 @@ t("finder_link_team_ids_are_checked", () => {
   assert.deepStrictEqual(read("ws=w&mt=a&tt=a"), {workspaceId: null, mineId: null, theirId: null}, "one team on both sides");
   assert.deepStrictEqual(read("ws=w&mt=a%3Cb&tt=c"), {workspaceId: "w", mineId: null, theirId: "c"}, "a malformed id is dropped");
 });
+t("finder_link_teams_label_only_the_link_rosters", () => {
+  const link = {...F.decodeFinderHash("#find-trade?mine=k1,k2&theirs=k3&ws=w1&mt=a&tt=b", null).teams,
+    mineKeys: new Set(["k1", "k2"]), theirKeys: new Set(["k3"])};
+  const ws = {id: "w1", teams: [{id: "a"}, {id: "b"}]};
+  const p = key => ({key});
+  assert.deepStrictEqual(F.linkTeamsFor(link, [p("k1"), p("k2")], [p("k3")], ws), {mineId: "a", theirId: "b"}, "the link's rosters");
+  assert.deepStrictEqual(F.linkTeamsFor(link, [p("k1")], [p("k3")], ws), {mineId: "a", theirId: "b"}, "a player the reader dropped");
+  assert.deepStrictEqual(F.linkTeamsFor(link, [p("k1"), p("k9")], [p("k3")], ws), {mineId: null, theirId: null}, "another state's rosters");
+  assert.deepStrictEqual(F.linkTeamsFor(link, [p("k1")], [p("k3")], {id: "w2", teams: ws.teams}), {mineId: null, theirId: null}, "another saved league");
+  assert.deepStrictEqual(F.linkTeamsFor(link, [p("k1")], [p("k3")], {id: "w1", teams: [{id: "b"}]}), {mineId: null, theirId: "b"}, "each team it has");
+  assert.deepStrictEqual(F.linkTeamsFor(null, [p("k1")], [], ws), {mineId: null, theirId: null}, "no link");
+});
 t("finder_page_carries_and_applies_the_new_fields", () => {
   const src = finderSrc.replace(/\s+/g, " ");
   assert.ok(src.includes("viableOnly: S.viableOnly, teams}, league);"), "Copy link carries viable-only and the saved teams");
   assert.ok(src.includes("if (decoded) S.viableOnly = decoded.viableOnly;"), "an opened link sets viable-only");
-  assert.ok(src.includes("rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true}; adoptLinkTeams();"),
+  assert.ok(src.includes("{...decoded.teams, mineKeys: new Set(decoded.mine), theirKeys: new Set(decoded.theirs)}"),
+    "an opened link keeps its rosters beside its teams");
+  assert.ok(src.includes("rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true}; adoptLinkTeams(mine, theirs);"),
     "setSides adopts the link's saved teams");
 });
 
