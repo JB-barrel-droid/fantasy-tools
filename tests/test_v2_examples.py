@@ -14,7 +14,9 @@ The picker only chooses which trades to load; the page judges each with today's 
   * on this week's data (Python reference rows, 12 teams, Full PPR) every example passes the same read.
 
 test_checks_fail_on_broken_builds runs the checks on mutated copies (split charts allowed, repeats allowed, the
-biggest trades first, a player missing a chart allowed) and requires each to fail.
+biggest trades first, a player missing a chart allowed) and requires each to fail. The Example line's claim
+("DDF Value says you win; the charts favor the other side") is shown only while the current Deal read passes the
+same test (isMarketMiss), so a change of charts, league or overrides after loading drops it.
 """
 from __future__ import annotations
 
@@ -56,7 +58,10 @@ for (const [name, rows] of Object.entries(input.pools)) {
   const used = new Set(); const brute = [];
   for (const c of all) { if (brute.length >= T.EXAMPLE_COUNT) break; if (keys(c).some(k => used.has(k))) continue; keys(c).forEach(k => used.add(k)); brute.push(c); }
   out[name] = {picks: picks.map(show), again: again.map(show), brute: brute.map(show), pool: top.map(r => r.player_key),
-    few: T.pickMarketMisses(rows, input.charts.slice(0, 2)).length};
+    few: T.pickMarketMisses(rows, input.charts.slice(0, 2)).length,
+    // The Example line's claim (isMarketMiss) on the first pick, the same trade read on two charts, and no read.
+    claim: picks.length ? {pick: T.isMarketMiss(picks[0].deal), fewCharts: T.isMarketMiss(T.dealRead(picks[0].give, picks[0].receive,
+      input.charts.slice(0, 2))), none: T.isMarketMiss(null)} : null};
 }
 console.log(JSON.stringify(out));
 """
@@ -130,6 +135,8 @@ def check(trade_js: Path, pools: dict) -> list[str]:
             errors.append(f"{name}: not deterministic")
         if res["few"] != 0:
             errors.append(f"{name}: two charts should give no examples, gave {res['few']}")
+        if res["claim"] is not None and res["claim"] != {"pick": True, "fewCharts": False, "none": False}:
+            errors.append(f"{name}: isMarketMiss must hold for a pick and fail once the read no longer qualifies: {res['claim']}")
     return errors
 
 
@@ -147,7 +154,7 @@ class MarketMissExamplesTest(unittest.TestCase):
         source = TRADE_JS.read_text(encoding="utf-8")
         broken = {
             "split charts allowed": source.replace(
-                'deal.cell === "win|lose" && !deal.market.split ? deal.value.net : null', 'deal.cell === "win|lose" ? deal.value.net : null', 1),
+                'deal.cell === "win|lose" && !deal.market.split);', 'deal.cell === "win|lose");', 1),
             "repeats allowed": source.replace("if (!disjoint(c, used)) continue;", "", 1),
             "biggest trades first": source.replace("a.size - b.size || b.score - a.score", "b.size - a.size || b.score - a.score", 1),
             "a player missing a chart allowed": source.replace(
@@ -161,6 +168,16 @@ class MarketMissExamplesTest(unittest.TestCase):
                     path = Path(tmp) / f"{name.replace(' ', '_')}.js"
                     path.write_text(body, encoding="utf-8")
                     self.assertNotEqual(check(path, {"synthetic": SYNTH}), [], f"checks did not catch: {name}")
+
+    def test_example_claim_follows_the_current_read(self):
+        # Codex review on #1193: after an example loads, Edit sources (fewer than three charts), league settings or
+        # overrides can end the market-miss read while the players stay the same. The Example line's claim must come
+        # from the current Deal read, not from the picker having filled its list.
+        v2 = (ROOT / "app" / "v2" / "v2.js").read_text(encoding="utf-8")
+        start = v2.index('$("v2CExampleText").textContent = ')
+        claim = v2[start:v2.index(";", start)]
+        self.assertIn("TradeValueTrade.isMarketMiss(compareView.deal)", claim)
+        self.assertNotIn("fallback", claim)
 
 
 if __name__ == "__main__":

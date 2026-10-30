@@ -454,12 +454,14 @@
   }
   const keysOf = c => c.give.concat(c.receive).map(row => row.player_key);
   const disjoint = (c, used) => keysOf(c).every(k => !used.has(k));
-  // JEG-1191 path A (Jeremy's pick pending): trades the market misses. Only the Deal read's arbitrage cell,
+  // JEG-1191 path A (Jeremy's pick, 2026-10-30): trades the market misses. Only the Deal read's arbitrage cell,
   // "DDF Value likes it. The market doesn't." (win|lose, the charts not split, so "Will they accept?" is
   // Likely), ranked by the DDF Value gain. Returns up to EXAMPLE_COUNT {give, receive, deal}; fewer than
-  // EXAMPLE_COUNT means the page falls back to pickExample.
+  // EXAMPLE_COUNT means the page falls back to pickExample. isMarketMiss is the same test on any Deal read, so the
+  // page's Example line can say so only while the current read still qualifies.
+  const isMarketMiss = deal => Boolean(deal && deal.kind === "read" && deal.cell === "win|lose" && !deal.market.split);
   function pickMarketMisses(rows, chartKeys, count = EXAMPLE_COUNT, pool = EXAMPLE_POOL) {
-    const slots = [{test: deal => (deal.cell === "win|lose" && !deal.market.split ? deal.value.net : null)}];
+    const slots = [{test: deal => (isMarketMiss(deal) ? deal.value.net : null)}];
     const select = (lists, last) => {
       const used = new Set();
       const picks = [];
@@ -475,7 +477,7 @@
   }
 
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    pickMarketMisses, EXAMPLE_COUNT, EXAMPLE_POOL,
+    pickMarketMisses, isMarketMiss, EXAMPLE_COUNT, EXAMPLE_POOL,
     dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
     marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;

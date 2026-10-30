@@ -6314,8 +6314,9 @@
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
     // JEG-1191 path A: the Example line says what kind of trade it is, and offers the next one while there is one.
+    // The claim follows the current Deal read, so a change of charts, league or overrides that ends it drops it.
     const examples = compareView.example && exampleCache ? exampleCache : null;
-    $("v2CExampleText").textContent = examples && !examples.fallback
+    $("v2CExampleText").textContent = examples && window.TradeValueTrade.isMarketMiss(compareView.deal)
       ? "DDF Value says you win; the charts favor the other side. Edit it, or add your own player."
       : "A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.";
     $("v2CNextExample").hidden = !(examples && examples.picks.length > 1);
