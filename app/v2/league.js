@@ -390,7 +390,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -1008,7 +1008,7 @@
     const shape = ctx.shape || {};
     const teams = ws.teams.length;
     const seats = Number(shape.BENCH) || 0;
-    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what this player adds over the best available free agent at that position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
     const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
       el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
       el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),

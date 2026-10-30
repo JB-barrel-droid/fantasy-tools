@@ -19,6 +19,16 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1130 slice 4, copy outside the locked files (Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1130-settings-copy` (from main a750ca07), draft PR "PMM copy slice 4 (part of JEG-1130)".
+  Copy only: Overrides drops "our methodology" / "our value" for "the default DDF Value"; generic player copy
+  says "this player" / "they" (Jeremy's audit decision 10). Test `tests/test_jeg1130_settings_copy.py`.
+- Left for the next slice, once the locks release: v2.js and shell.html (JEG-1137, JEG-1263) and the hot
+  files curve-widget.js and value-model.js. The exact list is in
+  `docs/claude-log/2026-10-30-jeg-1130-settings-copy.md`. #1037 (muse) is superseded by #1138; closing it
+  needs its author or Jeremy.
+
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
