@@ -13,6 +13,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from pull_sleeper_identity import build_base, check_base, pull_sleeper
+from lib.timestamps import parse_iso_timestamp
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data/inputs/player_status.json"
@@ -42,7 +43,7 @@ def check_snapshot(snapshot):
     if snapshot.get("schema") != SCHEMA:
         problems.append("unknown status schema")
     try:
-        at = datetime.fromisoformat(snapshot["as_of"].replace("Z", "+00:00"))
+        at = parse_iso_timestamp(snapshot["as_of"])
         if at.utcoffset() is None:
             raise ValueError("missing timezone")
     except (KeyError, TypeError, ValueError, AttributeError):

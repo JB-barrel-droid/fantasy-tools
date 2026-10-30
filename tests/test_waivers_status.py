@@ -1,15 +1,15 @@
 """Waivers tab: an old Sleeper injury status never reads as current (JEG-1312).
 
-The rows' injury_status comes from the Sleeper identity base the bake read. When that refresh stops (JEG-1238: no
-successful run from Oct 15, so the live page shipped the Oct 9 copy), the tab must not print "Your Rex RunOne is Out"
-or an Out tag from the old copy. The rule in app/v2/waivers.js:
+Historically the rows' injury_status came from the Sleeper identity bake. When that refresh stopped, the tab could
+not print "Your Rex RunOne is Out" from the Oct 9 copy. These cases preserve that older dated-row API's contract;
+JEG-1363's built page uses the daily id map and stricter expiry (tests.test_daily_player_status).
 
   * statusFreshness(window.TradeValueStatus, now): shown only when the copy has a date and is at most
     STATUS_MAX_AGE_DAYS (6) old, with "Sleeper status as of <day>"; otherwise hidden, with the date and age said;
   * statusOf(row, freshness): the status a row may show, null when hidden or when the player has no status;
   * injuryNote / evaluateCandidate: no "Your X is Out" when the copy is hidden or the context has no status;
-  * build_v2_page.player_status_js: the date is meta.universe.nfl_active.identity_base_pulled_at from players.json
-    (the base the bake used), null when the file or the field is missing.
+  * build_v2_page.player_status_js: only a validated daily snapshot supplies the page's date and id map. A missing
+    file gives no date/statuses; identity-bake metadata is rejected, never mistaken for current daily status.
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks on copies of waivers.js with one rule broken.
 """

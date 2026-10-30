@@ -348,7 +348,7 @@ def player_status_js(path: Path = PLAYER_STATUS) -> str:
 
     Rows join only by their existing Sleeper id. This payload cannot alter
     players.json, the roster universe or any value input. The reader's clock
-    hides an old snapshot even when a tab/deploy is left open.
+    hides an old snapshot on each render, independently of the deploy time.
     """
     from pull_player_status import check_snapshot
 

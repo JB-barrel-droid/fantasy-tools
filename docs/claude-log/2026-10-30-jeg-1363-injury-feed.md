@@ -60,6 +60,32 @@ only; no deployment, database writes/migrations, settings or secret changes.
   ID's baked Out status. Thirty of the 770 matched statuses changed between
   the recovered 17:22 identity bake and the 22:44 live pull (DeVonta Smith:
   Questionable -> Out; Lamar Jackson: Questionable -> no status).
+- `make validate` ran with `RENDER_TESTS_REQUIRED=1` and installed Chrome.
+  The hold/source render matrix passed all 59 tests (706.860 seconds).
+  Another local validation started after this one; this gate paused between
+  suites until that process exited, then resumed. The gate caught a raw
+  timestamp parser call in this PR. The puller now uses the repository's
+  `parse_iso_timestamp`; `tests.test_timestamps` plus the four status/chip
+  suites pass all 46 tests. Remaining exact test-core commands were resumed
+  from after that corrected stage, rather than repeating the passed matrix.
+- Resumed core stopped at the user-named known red:
+  `FinderSavedTeamRenderTest.test_keyboard_mobile_and_overlap_guard`, line 415,
+  selected team `''` rather than `beta` after Home/ArrowDown/Tab. The other
+  ten tests in that module passed; no assertion or unrelated UI code changed.
+- `make value-check-compare test-integration`: passed. Engine/reference
+  comparison checked 1,234,651 values, zero mismatches (max difference zero).
+- `/tmp/JEG-1363-browser-check.py` on built `dist/`: all 12 combos
+  (standard/half PPR/full PPR x 8/10/12/14 teams) retain identical values with
+  path A's helper versus the chip helper; `fixedPieIndexed` true everywhere,
+  zero page errors. Compare renders IR and Q chips with the observed
+  `Oct 30, 22:44 UTC` date in accessible tooltips. Desktop and 390 px mobile
+  screenshots are in `output/playwright/`; mobile scroll width is 390 px.
+  Replacing the observation with Oct 9 yields no chip on render and leaves
+  every value unchanged. `JEG-1363-browser-check.json` records the comparison.
+- `tests.test_waivers_math` and `tests.test_waivers_views`: four tests pass.
+- `tests.test_v2_contract_render`: all six tests pass, including the live
+  contract and the deliberately broken-build guard checks, with rendering
+  required. The unrelated known USO journey red was not rerun.
 
 ### Claimed, not confirmed
 - Scheduled publication and production UI behavior need this PR merged and
