@@ -530,7 +530,7 @@
   }
 
   // A published chart's saved 12-team native values at this scoring. With a
-  // superflex slot on the roster, the publisher's own superflex / 2-QB values
+  // superflex slot or 2+ QB slots on the roster (JEG-1365), the publisher's own superflex / 2-QB values
   // (saved as `native_superflex`, same units) replace its 1-QB values where it
   // publishes them (VP-0 "Superflex"). Where it publishes none, the 1-QB
   // values go through the league math unchanged (JEG332-SUPERFLEX-FLEX).
@@ -541,7 +541,7 @@
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
     take(savedPublishedRow(key, "native"));
-    if (native.size && ValueModel.superflexCount(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
+    if (native.size && ValueModel.usesSuperflexValues(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
     return native;
   }
 
@@ -768,7 +768,10 @@
     return out;
   };
 
+  // extra.setting merges into the reader's setting (JEG-1188: a loaded
+  // league's league_rostered and bench_level); the rest goes to the input.
   function runPipeline(nativesByKey, included, extra = {}) {
+    const {setting: settingExtra, ...inputExtra} = extra;
     const sources = {};
     PIPELINE_SOURCE_KEYS.forEach(key => {
       const natives = nativesByKey[key];
@@ -777,10 +780,60 @@
         values: mapToValues(natives), label: pipelineLabel(key)};
     });
     return ValueModel.runValuePipeline({
-      setting: pipelineSetting(), players: pipelinePlayers(), sources, included,
+      setting: {...pipelineSetting(), ...(settingExtra || {})}, players: pipelinePlayers(), sources, included,
       basisConfig: basisConfig ? {...basisConfig, sources: [...basisConfig.sources], weights: {...basisConfig.weights}} : null,
-      lineup: resolvedLineup(), ...extra,
+      lineup: resolvedLineup(), ...inputExtra,
     });
+  }
+
+  // JEG-1188: the current week priced with a loaded league's own rosters
+  // setting the bench and the replacement line, at one level: "ddf" (his
+  // value: replacement is the league's best available player) or "market"
+  // (the other side: the league's active rostered depth). `reserve`: keys in
+  // IR or taxi slots (held, not active depth). Same sources, included set,
+  // pie and overrides as the page's rows; no prior week. Returns {rows (the
+  // getAllRows() shape), allocation (the getAdjustmentWeights().allocation
+  // shape), counts ({pos: {starters, bench, held, reserve, replacement,
+  // benchBasis}} of the allocation that sets the waiver lines), readout (the
+  // getBenchShareReadout() shape)}, all from that one run. Cached per level and roster set until
+  // the page's values are rebuilt; callers get copies.
+  let leagueLevelCache = new Map();
+  function leagueLevel(rostered, reserve, level = "ddf") {
+    if (!pipeline) return null;
+    const keys = [...new Set((rostered || []).map(String))].sort();
+    const res = [...new Set((reserve || []).map(String))].sort();
+    const cacheKey = `${level}|${keys.join(",")}|${res.join(",")}`;
+    if (!leagueLevelCache.has(cacheKey)) {
+      const saved = {pipeline, pipelinePrior, sourceMaps, compositeMap};
+      let got;
+      try {
+        pipeline = runPipeline(pipelineNatives, pipelineState.included, {pie: saved.pipeline.pie,
+          hidden: [...(pipelineState.hidden || [])],
+          setting: {league_rostered: keys, league_reserve: res, bench_level: level}});
+        pipelinePrior = null;
+        sourceMaps = new Map();
+        visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
+        const rows = Object.keys(pipeline.rows).map(Number)
+          .map(playerKey => canonicalByKey.get(playerKey))
+          .filter(Boolean)
+          .map(player => buildRow(player));
+        applyComposite(rows);
+        // counts: the allocation that sets the waiver lines (projected-points order), per position.
+        const counts = Object.fromEntries(POSITION_ORDER.map(pos => {
+          const a = pipeline.allocation?.[pos] || {};
+          return [pos, {starters: a.starters, bench: a.bench, held: a.held, reserve: a.reserve,
+            replacement: a.replacement, benchBasis: a.bench_basis}];
+        }));
+        got = {rows: rows.map(rowCopy), allocation: adjustmentAllocationRows(), counts, readout: benchShareReadout()};
+      } finally {
+        ({pipeline, pipelinePrior, sourceMaps, compositeMap} = saved);
+      }
+      if (leagueLevelCache.size >= 8) leagueLevelCache.delete(leagueLevelCache.keys().next().value);
+      leagueLevelCache.set(cacheKey, got);
+    }
+    const hit = leagueLevelCache.get(cacheKey);
+    return {rows: hit.rows.map(rowCopy), allocation: hit.allocation.map(row => ({...row})),
+      counts: JSON.parse(JSON.stringify(hit.counts)), readout: hit.readout ? JSON.parse(JSON.stringify(hit.readout)) : null};
   }
 
   // The current and prior week (VP-1, VP-8), rebuilt by computePipeline().
@@ -1442,6 +1495,7 @@
   }
 
   function rebuildDomain() {
+    leagueLevelCache = new Map();
     computePipeline();
     sourceMaps = new Map();
     visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
@@ -1498,6 +1552,11 @@
     const staleLabel = activeSourceKeys().filter(sourceIsStale)
       .map(key => ` · ${SOURCE_LABELS[key] || key}: ${freshnessText(key)}`).join("");
     const axisLabel = yAxisAuto ? "auto y-axis" : `y ${Math.round(yLow)}-${Math.round(yHigh)}`;
+    // JEG-1178: during a week transition the line says which week this is and how many sources are in it.
+    const weekState = publicWeekView();
+    const weekCount = weekState?.views?.[weekState.week]?.sources?.length;
+    const transitionLabel = weekState?.transition && Number.isInteger(weekCount)
+      ? ` · Week ${weekState.week} values (${weekCount} of ${weekState.total} sources)` : "";
     const benchShareText = `${(benchShare * 100).toFixed(benchShare * 100 % 1 ? 1 : 0)}% bench share`;
     context.replaceChildren(
       `${scoreLabel()} · ${teams} teams · ${rosterLabel} · `,
@@ -1505,7 +1564,7 @@
         textContent: benchShareText,
         title: "The bench tier's share of the league pie, computed from your league settings (the Bench % override replaces it)."
       }),
-      ` · ${positionLabel} · ${axisLabel} · ${weekLabel}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
+      ` · ${positionLabel} · ${axisLabel} · ${weekLabel}${transitionLabel}${staleLabel} · locked to ${lockLabel(lockOrder)}`,
       // league-settings-001 / methodology.md: values derived for a league
       // setting the source did not publish must be labelled derived.
       onSavedSetup() ? "" : " · published charts derived from their 12-team, standard-roster values",
@@ -2347,8 +2406,14 @@
     if (p.injuryHistory !== undefined) next.injuryHistory = p.injuryHistory;
     if (p.projectionConfidence !== undefined) next.projectionConfidence = Number(p.projectionConfidence);
     if (p.contentWeek !== undefined) next.contentWeek = p.contentWeek === null ? null : Number(p.contentWeek);
-    if (next.contentWeek !== null && !(Number.isInteger(next.contentWeek) && next.contentWeek >= 1 && next.contentWeek <= 17)) {
-      throw new RangeError("Content week must be a week from 1 to 17");
+    if (next.contentWeek !== null) {
+      // JEG-1155: the bound is product-data.js's CONTENT_WEEK_MAX (the port of
+      // pipelines/nfl_week.py), never a second number here.
+      const maxWeek = window.TradeValueProductData?.CONTENT_WEEK_MAX;
+      if (!Number.isInteger(maxWeek)) throw new Error("product-data.js must load before curve-widget.js (no CONTENT_WEEK_MAX)");
+      if (!(Number.isInteger(next.contentWeek) && next.contentWeek >= 1 && next.contentWeek <= maxWeek)) {
+        throw new RangeError(`Content week must be a week from 1 to ${maxWeek}`);
+      }
     }
     const [pLo, pHi] = next.playoffWeeks;
     const week = n => Number.isInteger(n) && n >= 1 && n <= 18;
@@ -3182,6 +3247,10 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(rowCopy),
+    // JEG-1188: one level priced with a loaded league's rosters
+    // ({rostered, reserve, level: "ddf" | "market"}): {rows, allocation,
+    // counts, readout} from the same run; null before the first build.
+    getLeagueLevel: ({rostered, reserve, level} = {}) => leagueLevel(rostered, reserve, level || "ddf"),
     // JEG-502 (read-only, lazy): search every player in players.json, the
     // whole active NFL universe included, and get any one player's row. A
     // player no source prices is materialised on demand (materialized: true,
@@ -4046,7 +4115,7 @@
       // whose values a superflex slot uses (the publisher's own, VP-0).
       publishedDerivation:Object.fromEntries([...AS_PUBLISHED_KEYS].map(key => [key, {
         mode: onSavedSetup() ? "saved" : "derived",
-        superflex: ValueModel.superflexCount(rosterShape)
+        superflex: ValueModel.usesSuperflexValues(rosterShape)
           ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values") : null}]))};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "defaultGroupedSources", "adjustableBenchShare", "tieredDdfValues"].includes(key) && value !== true);

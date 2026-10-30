@@ -114,7 +114,8 @@ class CiSpeedupTest(unittest.TestCase):
         self.assertTrue(45 < (job_timeout(read("preview.yml"), "preview-build") or 0) <= 90)
         self.assertTrue(15 < (job_timeout(read("preview.yml"), "preview-shard") or 0) <= 45)
         self.assertIsNotNone(job_timeout(read("preview.yml"), "preview"))
-        self.assertGreaterEqual(job_timeout(read("v2-render-test.yml"), "v2-render") or 0, 25)
+        self.assertGreaterEqual(job_timeout(read("v2-render-test.yml"), "render-tests") or 0, 25)
+        self.assertIsNotNone(job_timeout(read("v2-render-test.yml"), "v2-render"))
 
     def test_real_docs_only_filter(self):
         for name in PR_FILTERED:

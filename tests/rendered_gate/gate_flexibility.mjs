@@ -395,10 +395,15 @@ async function main() {
     }
 
     // ===== (c) Source toggle =====
-    // Pick the first non-default checkbox -- the one that is currently CHECKED.
+    // Pick the first checkbox that is CHECKED and draws a curve. JEG-1381: a held source (validationHold or
+    // promotionHold) keeps its checkbox checked and enabled but is left out of the curves and activeSources, so
+    // toggling it cannot move the legend; the sweep must toggle a source that is actually active.
     const firstChecked = await page.evaluate(() => {
       const inputs = [...document.querySelectorAll('#sourceToggles input[type=checkbox][data-source]')];
-      const target = inputs.find(i => i.checked && !i.disabled);
+      const C = window.TradeValueCurveControls;
+      const active = C && typeof C.getState === "function" ? C.getState().activeSources : null;
+      const drawn = i => !Array.isArray(active) || active.includes(i.dataset.source);
+      const target = inputs.find(i => i.checked && !i.disabled && drawn(i));
       return target ? target.dataset.source : null;
     });
     if (!firstChecked) {
