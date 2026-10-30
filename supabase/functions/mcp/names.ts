@@ -181,6 +181,24 @@ export function matchName<T extends Named>(players: T[], query: string): NameMat
 const SUFFIX_WORD = /^(jr|sr|ii|iii|iv|v)\.?$/i;
 
 /**
+ * JEG-1124: the nearest priced names for a query that matched no player, closest first
+ * (ties by value). matchName's own "Closest" list when it has one; otherwise the same edit
+ * distance with no cap, so a stop that asks "which player?" always has names to offer.
+ */
+export function closestNames<T extends Named>(players: T[], query: string, hit?: NameMatch<T>, n = 3): T[] {
+  if (hit?.suggestions.length) return hit.suggestions.slice(0, n);
+  const qs = tokens(query).join("");
+  if (!qs) return [];
+  const rows: Array<{ player: T; found: number }> = [];
+  for (const player of players) {
+    const found = fuzzyDistance(player.name, query, Math.max(3, qs.length));
+    if (found !== null) rows.push({ player, found });
+  }
+  rows.sort((a, b) => a.found - b.found || (b.player.value ?? 0) - (a.player.value ?? 0));
+  return rows.slice(0, n).map((row) => row.player);
+}
+
+/**
  * Split a comma-separated name list. A comma that only introduces a suffix
  * stays with the player: "Brian Thomas, Jr, Ja'Marr Chase" is two names.
  */

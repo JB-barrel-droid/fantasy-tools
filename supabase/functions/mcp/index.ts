@@ -8,9 +8,10 @@
 import { handleRpc, setMcpBuild } from "./rpc.ts";
 import { MCP_BUILD_SHA } from "./build.ts";
 import type { Codec, Deps } from "./state.ts";
-import type { ChartValuesResponse, FetchValues, FetchValuesWithCharts, ValuesResponse } from "./tools.ts";
+import { type ChartValuesResponse, type FetchValues, type FetchValuesWithCharts, ToolInputError, type ValuesResponse } from "./tools.ts";
 import { evalFinder, type Finder } from "./find-trades.ts";
 import type { FinderDeps } from "./tools.ts";
+import { type AnalysisResponse, evalPageModule, type FetchAnalysis, PAGE_MODULE_FILES, type PageModules } from "./analyses.ts";
 
 setMcpBuild(Deno.env.get("DDF_BUILD_SHA") || MCP_BUILD_SHA);
 
@@ -28,8 +29,19 @@ const cache = new Map<string, { at: number; data: ValuesResponse }>();
 
 const CACHE_MAX = 12;
 
-const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
+// JEG-1179: a week with no published sources comes back from get-values as a 400 with
+// code "week_unavailable" and a message naming the weeks there are; the tool shows that message.
+async function readValues(res: Response): Promise<unknown> {
+  if (res.ok) return await res.json();
+  if (res.status === 400) {
+    const body = await res.json().catch(() => null) as { code?: string; error?: string } | null;
+    if (body?.code === "week_unavailable" && body.error) throw new ToolInputError(body.error);
+  }
+  throw new Error(`get-values ${res.status}`);
+}
+
+const fetchValues: FetchValues = async (scoring, teams, superflex, league, week) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
@@ -37,9 +49,9 @@ const fetchValues: FetchValues = async (scoring, teams, superflex, league) => {
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
   if (league) url.searchParams.set("league", JSON.stringify(league));
+  if (week) url.searchParams.set("week", String(week));
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`get-values ${res.status}`);
-  const data = await res.json() as ValuesResponse;
+  const data = await readValues(res) as ValuesResponse;
   if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
   cache.set(key, { at: Date.now(), data });
   return data;
@@ -74,8 +86,8 @@ async function loadCodec(): Promise<Codec | null> {
 
 // Chart-enriched fetch: get-values with include=charts for the finder.
 const chartCache = new Map<string, { at: number; data: ChartValuesResponse }>();
-const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league) => {
-  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}`;
+const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, league, week) => {
+  const key = `${scoring}|${teams}|${superflex}|${league ? JSON.stringify(league) : ""}|${week ?? ""}`;
   const hit = chartCache.get(key);
   if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.data;
   const url = new URL(VALUES_URL);
@@ -83,13 +95,49 @@ const fetchCharts: FetchValuesWithCharts = async (scoring, teams, superflex, lea
   url.searchParams.set("teams", String(teams));
   url.searchParams.set("superflex", String(superflex));
   if (league) url.searchParams.set("league", JSON.stringify(league));
+  if (week) url.searchParams.set("week", String(week));
   url.searchParams.set("include", "charts");
   const res = await fetch(url, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`get-values ${res.status}`);
-  const data = await res.json() as ChartValuesResponse;
+  const data = await readValues(res) as ChartValuesResponse;
   chartCache.set(key, { at: Date.now(), data });
   return data;
 };
+
+// JEG-1029: get-values with the analysis blocks (include=series, prior, audit) for risers_fallers,
+// compare_trade by_source and audit_values. Not cached here: get-values caches each answer itself.
+const fetchAnalysis: FetchAnalysis = async (scoring, teams, superflex, league, week, includes) => {
+  const url = new URL(VALUES_URL);
+  url.searchParams.set("scoring", scoring);
+  url.searchParams.set("teams", String(teams));
+  url.searchParams.set("superflex", String(superflex));
+  if (league) url.searchParams.set("league", JSON.stringify(league));
+  if (week) url.searchParams.set("week", String(week));
+  url.searchParams.set("include", includes.join(","));
+  const res = await fetch(url, { headers: { Accept: "application/json" } });
+  return await readValues(res) as AnalysisResponse;
+};
+
+// JEG-1029: the page modules the analyses read (movers.js, trade.js, audit-pie.js, audit-source.js),
+// loaded from the published site like finder.js. A module that cannot be loaded makes its tool say so.
+let modulesCache: { at: number; modules: PageModules } | null = null;
+async function loadPageModules(): Promise<PageModules> {
+  if (modulesCache && Date.now() - modulesCache.at < CACHE_TTL_MS) return modulesCache.modules;
+  const entries = await Promise.all(Object.entries(PAGE_MODULE_FILES).map(async ([name, meta]) => {
+    try {
+      const res = await fetch(`${SITE_ORIGIN}/${meta.file}`);
+      if (res.ok) return [name, evalPageModule(await res.text(), name as keyof PageModules)];
+      console.error(`${meta.file} load failed: ${res.status}`);
+    } catch (e) {
+      console.error(`${meta.file} load failed:`, e);
+    }
+    return [name, null];
+  }));
+  const modules = Object.fromEntries(entries) as PageModules;
+  const complete = Object.values(modules).every(Boolean);
+  // As for the finder: a failure is retried after one minute, not five.
+  modulesCache = { at: complete ? Date.now() : Date.now() - CACHE_TTL_MS + 60_000, modules };
+  return modules;
+}
 
 // The finder is the site's app/v2/finder.js, loaded like the codec. It exports
 // findTrades and the constants the search uses. If it cannot be loaded, the
@@ -156,7 +204,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const deps: Deps = { codec: await loadCodec(), siteOrigin: SITE_ORIGIN };
-  const fDeps: FinderDeps = { finder: await loadFinder(), fetchCharts };
+  const fDeps: FinderDeps = { finder: await loadFinder(), fetchCharts, analysis: { fetchAnalysis, modules: await loadPageModules() } };
   const batch = Array.isArray(body);
   const responses = (await Promise.all((batch ? body : [body]).map((m) => handleRpc(m, fetchValues, deps, fDeps))))
     .filter((r) => r !== null);

@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 HARNESS = ROOT / "tests" / "node" / "opponent_inclusion_check.cjs"
-MODULES = ["opponent-inclusion.js", "workspace.js", "opportunities.js", "finder.js"]
+MODULES = ["opponent-inclusion.js", "workspace.js", "roster-provenance-transitions.js", "opportunities.js", "finder.js"]
 
 REQUIRED = [
     "test_baseline_every_opponent_included", "test_explicit_exclude_and_include", "test_duplicate_names_keyed_by_id",

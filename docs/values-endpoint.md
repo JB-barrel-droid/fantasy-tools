@@ -3,12 +3,16 @@
 Ticket JEG-616. Hosting decision: Supabase edge function (Jeremy, 2026-10-19).
 
 - Function: `supabase/functions/get-values/index.ts`. Reads the published site
-  (`value-model.js`, `lineup-parameters.json`, the comparison bundle, and the
-  `players-data` island on the home page), runs `runValuePipeline`, returns
-  blended values. No database access, no schema change, no service-role key.
+  (`value-model.js`, `lineup-parameters.json`, the comparison bundle, the
+  `players-data` island on the home page, and the week history under
+  `assets/history/`), runs `runValuePipeline`, returns blended values. No
+  database access, no schema change, no service-role key. The engine input
+  (source eligibility, the week view) is built in `get-values/pipeline.ts`,
+  which the parity runner (`tests/_edge_pipeline_runner.cjs`) imports too.
 - Public: `verify_jwt = false` in `supabase/config.toml`; per-IP rate limit
   (30/min, in memory per instance); CORS allow-list in the function.
-- Parity with the page is pinned by `tests/test_endpoint_parity.py`.
+- Parity with the page is pinned by `tests/test_endpoint_parity.py` (including
+  each week of a week transition, JEG-1179).
 - MCP server, local: `mcp-server/` (stdio), set `DDF_API_URL` to the function URL.
 - MCP server, remote (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses). See "Remote MCP" below.
 
@@ -27,6 +31,61 @@ record (used internally by the MCP `find_trades` tools). The trade finder
 judges the other team on the mean of `chart_indexed`, the market: the mean of
 `chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
 since JEG-1073 (JEG-1129).
+
+`include` takes a comma list (JEG-1029); an unknown value is a 400 (before
+JEG-1029 anything but `charts` was ignored; the change is intended, so a typo
+fails loudly instead of returning the plain answer). Besides
+`charts`, three analysis blocks (`supabase/functions/get-values/analysis.ts`,
+no value math of their own) feed the MCP analyses:
+- `series`: `{player_key: {series: value}}`, each player's Player values row in
+  the Indexed tab, unrounded: `ddf_value`, `ddf_value_charts`,
+  `ddf_value_projections`, each published chart's Indexed value and each
+  projection's Adjusted value (held sources left out, as the page hides them).
+- `prior`: the VP-8 prior week, the page's `pipelinePrior`: the same league,
+  included set and pie on Week N−1's saved inputs. `{available, reason,
+  current_week, prior_week, series: {key: {available, reason, values,
+  current_values}}}`; `current_values` (DDF Value versions only) is this week's
+  side, as `getPriorWeek` returns it. A source not serving the priced week is
+  unavailable with the reason, never filled.
+- `audit`: what the Values auditing sub-tabs read from `getInspection()`:
+  `valuePipeline` (`ValueModel.valuePipelineDiagnostics`), `setting`,
+  `excluded`, each source's per-player stages (`players`) and the rows' per-source
+  values, reasons and DDF Value (`rows`). About 1 MB.
+
+### Week (JEG-1179)
+
+Sources publish week N+1 at different times. Each answer is priced on one week,
+with the site's own rule and data:
+
+- **Default week**: `ValueModel.weekState` from the published `value-model.js`
+  (the code the page runs, not a copy) over the DDF Value sources at the
+  requested setting, each with the week it serves in
+  `assets/history/index.json`. N+1 only when more than half of those sources
+  serve it; exactly half stays on N (Jeremy, 2026-10-27, JEG-1176).
+- **`week`** (optional, GET query or POST body): N or N+1 during a transition,
+  the one week otherwise. Not a whole number from 1 to 22: 400 `invalid week`.
+  A week with no published sources: 400 with `code: "week_unavailable"`,
+  `weeks` and `default_week`, and an `error` that names them, for example
+  `Week 9 has no published sources at this setting. Weeks available: 8, 7 (default 8).`
+  Never an empty list.
+- **No carry-forward**: a source still on week N is left out of week N+1 (named in
+  `missing_sources`); a source already on N+1 is priced on its saved copy of
+  week N (`assets/history/week-<N>.json`), or named missing when none is saved.
+- Without a history index for the served build (or a `value-model.js` without
+  `weekState`), the calendar fallback applies: the week is the newest week any
+  weekly chart serves (capped at the calendar's week), and a weekly chart counts
+  as older only when it is behind that week, never just because the calendar has
+  moved on (#1028). That is the only week that can be asked for then.
+- This fixes JEG-1157: from the Tuesday flip until the charts land, the
+  calendar says N+1 while the charts serve N, and the endpoint used to price
+  almost nothing. The default now stays on N.
+
+Response fields: `week` (the week priced), `default_week`, `weeks` (the weeks
+that can be asked for), `sources_included`, `missing_sources` (DDF Value sources
+at this setting that have not published this week). Tests:
+`tests/node/get_values_week_check.mjs` (the handler on the built `dist/`,
+synthetic transitions), `tests/test_endpoint_parity.py test_week_parity` (page
+parity per week).
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
@@ -71,8 +130,20 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
 
 - The function evals the site's own `value-model.js` at cold start (loaded
   from the published origin, so the endpoint always matches the page).
-- Rate limit is per instance, not global.
-- Cold start fetches about 3.7 MB; first call is slow, results cached 5 minutes.
+- Rate limit is per instance, not global — a soft guard, not a real cap
+  (JEG-1061). Both buckets (30/min general, 10/min fresh custom-league
+  computes) live in an in-memory `Map` on the function instance and are keyed
+  by the first `x-forwarded-for` entry, which the client can set. Measured
+  live on 2026-10-24: 14 distinct custom leagues in a row from one client all
+  returned 200 in 0.17–0.65 s and the 10/min compute limit never returned
+  429, because the requests did not stay on one instance. A single instance
+  does return 429 on the 11th compute in a minute from one key; that is
+  pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
+  the function stores nothing, so abuse costs CPU only (about 0.3 s per
+  fresh league).
+- Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
+  document (about 70 KB) is fetched only when the week priced needs a saved
+  copy. First call is slow, results cached 5 minutes per league and week.
 
 ## Remote MCP (JEG-1012)
 
@@ -87,8 +158,24 @@ that needs a URL instead of a local process.
 - Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`,
   `read_state`, `make_state`, `find_trades`, `find_trades_league`, `explain`.
   Name lookup and trade math run server-side; each result also carries
-  `structuredContent`. `risers_fallers` is not offered: the endpoint has no
-  prior-week data.
+  `structuredContent`.
+- **Analyses (JEG-1029):** the page's own modules (`v2/movers.js`, `trade.js`,
+  `audit-pie.js`, `audit-source.js`, loaded from the site like `finder.js`) run
+  on get-values' `include=series,prior,audit` blocks (`mcp/analyses.ts`).
+  `risers_fallers` (`series`, `position`, `limit` 1-25, `disagreements`): the
+  served-week pair, Week N−1 → N, risers and fallers with before, now and Δ,
+  and the market vs projections disagreements with the page's read; links to
+  `#risers-fallers`. `compare_trade` with `by_source: true`: the page's default
+  Compare a trade rows (DDF Value and the four published charts, rescaled) and
+  the DDF Value verdict with the charts that agree or point the other way;
+  without it the reply is unchanged. `audit_values` (`view` health or source,
+  `source`, `position`, `limit`): the Health check's verdict rows, or one
+  source's Published / Indexed / Adjusted build-up; links to `#values-auditing`.
+  A source with no values at the setting answers the page's "has no values"
+  line with null totals, never 0 (JEG-1309); a stage with no points has a null total.
+  Parity: `tests/test_connector_analyses.py` (offline, against
+  `value_reference.py`, with broken variants) and
+  `tests/test_connector_analyses_page.py` (the live page, needs a browser).
 - `find_trades`: takes two rosters (comma-separated names), finds trade packages
   where you gain DDF Value and at least 3 of 4 trade charts say the other team
   breaks even or wins. Each trade is scored on the 9 viability checks (see
@@ -105,6 +192,25 @@ that needs a URL instead of a local process.
   the recommended package, and your projected lineup after. Optional:
   `max_per_side`, `min_rival_edge`, `limit`, `viable_only`, viability threshold
   overrides.
+- **Week (JEG-1179):** every tool that prices players takes an optional `week`
+  (passed to get-values; absent = the site's default week). `read_state` reads
+  `wk=N` from a pasted site link; an explicit `week` wins. Every result carries
+  `week`, `default_week`, `weeks`, `sources_included` and `missing_sources` in
+  `structuredContent`, a "Week:" line after the settings line, and, when a
+  week was asked for, `wk=N` on the site link. A week with no published sources
+  comes back as a tool error with get-values' message. Tests:
+  `tests/node/mcp_week_check.mjs` (`tests/test_mcp_week.py`).
+- Both finder tools default to at most 10 candidates. Text lists up to five;
+  structured candidates keep complete fit reasons. A reply may return a shorter
+  ranked prefix to fit its UTF-8 budget (pair: 6,700 bytes for limits up to 10,
+  17,000 above; league: 8,000 / 11,500). `shown` and the text report the actual
+  count. The selected league package, its total edge and projected lineup stay
+  intact. If even one candidate plus the complete envelope cannot fit, the tool
+  returns a concise error asking for fewer opponents or shorter names.
+- Opponent display names may repeat. League candidates, package offers and
+  `perOpponent` entries include `opponent_index`, the zero-based index in the
+  supplied `opponents` array. Identity follows this index through scoring and
+  package selection, so equal names never share a roster.
 - Tests: `tests/test_mcp_remote.py` (node, stub values, no network) in
   `make test-unit`.
 

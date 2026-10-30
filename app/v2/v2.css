@@ -187,6 +187,14 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-context .v2-freshness #v2FreshnessLabel { display: none; }
   .v2-context .v2-freshness .v2-freshness-short { display: inline; white-space: nowrap; }
 }
+/* Week selector (JEG-1178): only while sources move from one week to the next. Compact: one select in the row. */
+.v2-ctx-week { flex: 0 1 auto; min-width: 0; }
+.v2-ctx-week[hidden] { display: none; }
+.v2-ctx-week select { max-width: 100%; min-height: 36px; padding: 6px 28px 6px 10px; font-size: 13px; text-overflow: ellipsis; }
+.v2-weeknote { background: var(--v2-surface); border-bottom: 1px solid var(--v2-border); }
+.v2-weeknote[hidden] { display: none; }
+.v2-weeknote-text { margin-block: 0; padding-block: 4px; font-size: 12.5px; line-height: 1.35; color: var(--v2-muted); }
+.v2-weeknote-stale { display: inline-block; margin-right: 6px; padding: 0 6px; border-radius: 999px; border: 1px solid var(--v2-warn, #b45309); color: var(--v2-warn, #b45309); font-weight: 600; font-size: 11.5px; }
 .v2-ctx-menuwrap { position: relative; flex-shrink: 0; }
 .v2-ctx-more { padding: 6px 10px; min-height: 36px; font-size: 16px; line-height: 1; }
 .v2-ctx-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 40; display: flex; flex-direction: column; align-items: stretch; gap: 6px;
@@ -220,7 +228,10 @@ body.v2 > :not(.v2-app):not(script):not(.legacy-engine) { display: none !importa
   .v2-ctx-summary[aria-expanded="true"] .v2-ctx-summary-caret { transform: rotate(180deg); }
   /* Closed: only the summary and freshness. Overrides and Reset / Undo use the separate phone notification strip. */
   .v2-context:not(.is-open) .v2-context-inner::before { content: none; }
-  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness) { display: none; }
+  .v2-context:not(.is-open) .v2-context-inner > :not(.v2-ctx-summary):not(.v2-ctx-freshness):not(.v2-ctx-week) { display: none; }
+  /* JEG-1178: during a week transition the week selector stays reachable while the row is closed, on its own line. */
+  .v2-context .v2-ctx-week:not([hidden]) { display: block; order: 20; flex: 1 1 100%; padding-bottom: 6px; }
+  .v2-context .v2-ctx-week select { width: 100%; }
   /* Open: the roster line on its own line (the summary already names scoring and teams), then the buttons, then the basis. */
   .v2-context.is-open .v2-context-inner > .v2-ctx-league { order: 3; flex: 1 1 100%; }
   .v2-context.is-open .v2-ctx-league strong { display: none; }
@@ -764,6 +775,7 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
 .v2-how-sources li[data-available="false"] { color: var(--v2-muted); }
 .v2-how-sources .is-older { color: var(--v2-older); }
 .v2-how-rules { margin: 12px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; }
+.v2-how-logic-frame { display: block; width: 100%; height: 640px; border: 0; background: transparent; margin-top: 12px; }
 .v2-how-links { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 12px !important; }
 .v2-how-links .v2-link { display: inline-flex; align-items: center; text-decoration: none; padding: 0; }
 @media (max-width: 767px) {
@@ -1126,6 +1138,9 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
   #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
   #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
+  /* JEG-1383: the closed picker shows only the chosen series, but its widest option sizes it. A held source's long
+     disabled option ("... held this week (data check)") widened it until the toolbar wrapped to two rows at 1366 px. */
+  #v2Compare .v2-chead .v2-field-rank select { max-width: 300px; text-overflow: ellipsis; }
 }
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
 
@@ -1629,6 +1644,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 
 /* JEG-481: Find a trade (finder.js). */
 .v2-find-side { position: relative; }
+.v2-find-saved-team { margin: 8px 0 12px; min-width: 0; }
+.v2-find-saved-team .v2-field { display: grid; gap: 6px; }
+.v2-find-saved-team select { width: 100%; min-width: 0; max-width: 100%; }
+.v2-find-saved-team p { margin: 6px 0; }
 .v2-find-side h3 { font-size: 18px; font-weight: 700; margin: 0 0 12px; }
 .v2-find-side .v2-trade-results { left: 0; right: 0; }
 #v2Find .v2-trade-sides { margin-top: 12px; }
@@ -2002,6 +2021,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-sumrow { display: grid; gap: 2px; min-width: 0; }
 .v2-find-sumrow .v2-meta { margin: 0; }
 .v2-find-sum-names { overflow-wrap: anywhere; }
+.v2-find-sum-rails { grid-column: 1 / -1; margin: 0; }   /* JEG-1237: the folded trade settings, one line under both teams */
 @media (max-width: 767px) { .v2-find-summary { grid-template-columns: 1fr; } .v2-find-summary .v2-btn { justify-self: start; } }
 
 /* JEG-972: grouped results, one card per received player */
@@ -2096,6 +2116,36 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-assess-table .v2-find-pos { position: sticky; left: 0; z-index: 1; background: var(--v2-surface); box-shadow: 1px 0 0 var(--v2-border); text-align: left; white-space: nowrap; }
 .v2-find-assess-table tbody tr[data-row] th, .v2-find-assess-table tbody tr[data-row] td { font-weight: 600; }
 .v2-find-assess-notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; }
+
+/* JEG-890: team value summary, both pasted rosters. Two team blocks (stacked on a phone), rows Starters / Bench / Total
+   and QB / RB / WR / TE, columns DDF Value and the Trade chart average; each chart sits behind "Show each chart". Row
+   labels left, numbers right; nothing here scrolls the page sideways. */
+.v2-find-teamsum { margin: 12px 0 0; }
+.v2-find-teamsum[hidden] { display: none; }
+.v2-find-teamsum h3 { margin: 0 0 6px; font-size: 15px; }
+.v2-find-ts-grid { display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.v2-find-ts-team { flex: 1 1 320px; min-width: 0; }
+.v2-find-ts-team h4 { margin: 0 0 4px; font-size: 14px; }
+.v2-find-ts-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 13px; }
+.v2-find-ts-table th, .v2-find-ts-table td { text-align: left; padding: 3px 6px; border-top: 1px solid var(--v2-border); overflow-wrap: anywhere; }
+.v2-find-ts-table thead th { font-size: 12px; color: var(--v2-muted); }
+.v2-find-ts-table th.v2-find-ts-row { width: 38%; }
+.v2-find-ts-table td.num, .v2-find-ts-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v2-find-ts-table thead th.num { white-space: normal; }   /* "Trade chart average" and chart names wrap so the table fits 320px */
+.v2-find-ts-num.is-missing, .v2-find-ts-num.is-unavailable { color: var(--v2-muted); }
+.v2-find-ts-inc { font-size: 11px; color: var(--v2-older); white-space: nowrap; }
+/* JEG-1246: a partial cell ("182.0 incomplete") wraps inside its column instead of clipping; the warning word drops to a
+   second line, and only breaks mid-word in a column too narrow for it (four charts on a 375px phone). Never hidden. */
+.v2-find-ts-table td.num .v2-find-ts-incomplete { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: 0.25em; max-width: 100%; }
+.v2-find-ts-table td.num .v2-find-ts-incomplete > .v2-find-ts-inc { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.v2-find-ts-charts { margin-top: 10px; }
+.v2-find-ts-charts summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-ts-notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.45; }
+@media (max-width: 479px) {
+  .v2-find-ts-team { flex: 1 1 100%; }
+  .v2-find-ts-table th, .v2-find-ts-table td { padding: 3px 4px; }
+  .v2-find-ts-table th.v2-find-ts-row { width: 30%; }
+}
 
 /* JEG-988: natural / value / force fit per group. */
 .v2-find-fit { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
@@ -2201,6 +2251,12 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
 .v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
 .v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+/* JEG-1236: the summary filter value box was 26 px tall on a phone; the 44 px tap height the other controls here keep. */
+.v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }
+/* JEG-1249: "Use league rosters", grayed out until the league qualifies; a 44px tap target. */
+.v2-lg-levels-switch { display: inline-flex; align-items: center; min-height: 44px; gap: 6px; cursor: pointer; }
+.v2-lg-levels-switch input { width: 22px; height: 44px; margin: 0; cursor: inherit; }
+.v2-lg-levels-switch.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
@@ -2395,3 +2451,268 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-tabs { overscroll-behavior-x: contain; }
 #v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
 .v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }
+
+/* JEG-1281: league entry on the default site; under ?design=fieldnotes the JEG-1137 rules style these instead.
+   The league paste boxes take the 3:1 field edge the finder search box has (WCAG 1.4.11, JEG-902), and the league
+   card's summary keeps "Your league" on one line beside its ▸, the arrow on the heading's baseline. */
+:root:not([data-design="fieldnotes"]) .v2-find-import-body input[type="text"],
+:root:not([data-design="fieldnotes"]) .v2-find-import-body textarea,
+:root:not([data-design="fieldnotes"]) .v2-find-import-body select,
+:root:not([data-design="fieldnotes"]) .v2-find-paste textarea { border-color: var(--v2-field-border); }
+:root:not([data-design="fieldnotes"]) .v2-lg-card-summary { justify-content: flex-start; flex-wrap: nowrap; align-items: baseline; }
+
+/* JEG-1137: Fieldnotes foundation (opt-in). Approved source: docs/design/jeg-1209-fieldnotes/recommendation.md
+   "Shared visual and interaction system" and prototype.html. Every rule below is scoped to
+   <html data-design="fieldnotes">, which app/v2/design-flag.js sets only for ?design=fieldnotes; without it the
+   default site above is unchanged. Roles map onto the existing --v2-* and --ddf-* names, so components follow
+   without edits. New names: --ddf-subtle, --ddf-control, --ddf-focus, --ddf-action-hover, --ddf-font-display,
+   --ddf-type-hero, --ddf-type-support, --ddf-line-body, --ddf-space-mid, --ddf-space-7, --ddf-page-pad-desktop,
+   --ddf-content-max, --ddf-radius-control, --ddf-motion-feedback, --ddf-ease. */
+@font-face {
+  /* Fraunces (SIL OFL 1.1, app/v2/fonts/FONT-LICENSE.txt): the variable Latin subset from the prototype, pinned to 600.
+     Only the Fieldnotes rules name it, so the default site never downloads it. */
+  font-family: "Fraunces";
+  src: url("fonts/fraunces.woff2") format("woff2");
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+/* JEG-1137 Fieldnotes tokens: light */
+:root[data-design="fieldnotes"] {
+  --v2-canvas: #F5F2EA; --v2-surface: #FFFDF8; --v2-ink: #182D27; --v2-muted: #52635C; --v2-border: #D4D8CD;
+  --v2-field-border: #79897F; --v2-action: #126044; --v2-action-ink: #FFFFFF; --v2-action-text: #126044;
+  --v2-action-strong: #126044; --v2-negative: #922F3E; --v2-older: #80500F; --v2-focus: #175BC1;
+  --ddf-canvas: #F5F2EA; --ddf-surface: #FFFDF8; --ddf-subtle: #EAE8DF; --ddf-line: #D4D8CD; --ddf-control: #79897F;
+  --ddf-ink: #182D27; --ddf-muted: #52635C; --ddf-action: #126044; --ddf-action-ink: #FFFFFF; --ddf-action-hover: #0D4E37;
+  --ddf-good-ink: #245D46; --ddf-bad-ink: #922F3E; --ddf-warn-ink: #80500F; --ddf-focus: #175BC1;
+  --ddf-neutral-tint: #EAE8DF; --ddf-neutral-ink: #182D27;
+  /* Type: Fraunces 600 for headings and answers only; system sans for controls and body. Body 16/1.5, support 14, meta 12. */
+  --ddf-font-display: "Fraunces", Georgia, serif;
+  --ddf-font-headline: var(--ddf-font-display);
+  --ddf-font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ddf-type-hero: 52px; --ddf-type-body: 16px; --ddf-type-support: 14px; --ddf-type-meta: 12px; --ddf-line-body: 1.5;
+  /* Spacing 4/8/12/16/24/32/48/64: the existing steps plus 12 (mid) and 64 (7). Gutter 16 phone, 32 desktop; content 1184. */
+  --ddf-space-mid: 12px; --ddf-space-7: 64px;
+  --ddf-page-pad-phone: 16px; --ddf-page-pad-desktop: 32px; --ddf-content-max: 1184px;
+  --ddf-radius-card: 16px; --ddf-radius-control: 9px; --ddf-hit: 44px;
+  /* Motion: 160 ms feedback, no count-up or celebration; reduced motion settles instantly (below). */
+  --ddf-motion-feedback: 160ms; --ddf-ease: cubic-bezier(.2, .7, .2, 1);
+}
+/* JEG-1137 Fieldnotes tokens: dark */
+@media (prefers-color-scheme: dark) {
+  :root[data-design="fieldnotes"]:not([data-theme="light"]) {
+    --v2-canvas: #101B17; --v2-surface: #192720; --v2-ink: #EEF3E8; --v2-muted: #B5C4B8; --v2-border: #3D4E43;
+    --v2-field-border: #7F9688; --v2-action: #A6DFBE; --v2-action-ink: #11271C; --v2-action-text: #A6DFBE;
+    --v2-action-strong: #A6DFBE; --v2-negative: #FFB4BE; --v2-older: #EBC486; --v2-focus: #A9C7FF;
+    --ddf-canvas: #101B17; --ddf-surface: #192720; --ddf-subtle: #26372D; --ddf-line: #3D4E43; --ddf-control: #7F9688;
+    --ddf-ink: #EEF3E8; --ddf-muted: #B5C4B8; --ddf-action: #A6DFBE; --ddf-action-ink: #11271C; --ddf-action-hover: #A6DFBE;
+    --ddf-good-ink: #A6DFBE; --ddf-bad-ink: #FFB4BE; --ddf-warn-ink: #EBC486; --ddf-focus: #A9C7FF;
+    --ddf-neutral-tint: #26372D; --ddf-neutral-ink: #EEF3E8;
+  }
+}
+:root[data-design="fieldnotes"][data-theme="dark"] {
+    --v2-canvas: #101B17; --v2-surface: #192720; --v2-ink: #EEF3E8; --v2-muted: #B5C4B8; --v2-border: #3D4E43;
+    --v2-field-border: #7F9688; --v2-action: #A6DFBE; --v2-action-ink: #11271C; --v2-action-text: #A6DFBE;
+    --v2-action-strong: #A6DFBE; --v2-negative: #FFB4BE; --v2-older: #EBC486; --v2-focus: #A9C7FF;
+    --ddf-canvas: #101B17; --ddf-surface: #192720; --ddf-subtle: #26372D; --ddf-line: #3D4E43; --ddf-control: #7F9688;
+    --ddf-ink: #EEF3E8; --ddf-muted: #B5C4B8; --ddf-action: #A6DFBE; --ddf-action-ink: #11271C; --ddf-action-hover: #A6DFBE;
+    --ddf-good-ink: #A6DFBE; --ddf-bad-ink: #FFB4BE; --ddf-warn-ink: #EBC486; --ddf-focus: #A9C7FF;
+    --ddf-neutral-tint: #26372D; --ddf-neutral-ink: #EEF3E8;
+}
+@media (max-width: 600px) { :root[data-design="fieldnotes"] { --ddf-type-hero: 37px; } }
+@media (prefers-reduced-motion: reduce) { :root[data-design="fieldnotes"] { --ddf-motion-feedback: 0ms; } }
+/* JEG-1137 Fieldnotes base: body type, headings, focus ring */
+:root[data-design="fieldnotes"] .v2-app { font: 400 var(--ddf-type-body)/var(--ddf-line-body) var(--ddf-font-ui); font-synthesis: none; }
+:root[data-design="fieldnotes"] .v2-app h1,
+:root[data-design="fieldnotes"] .ddf-fn-display {
+  font-family: var(--ddf-font-headline); font-weight: 600; line-height: 1.1; letter-spacing: -0.025em;
+}
+:root[data-design="fieldnotes"] .ddf-fn-hero { font-size: var(--ddf-type-hero); }
+:root[data-design="fieldnotes"] .v2-app :focus-visible { outline-width: 3px; outline-offset: 3px; }
+/* White on the dark negative would be 1.7:1; the page canvas on it is 7:1 (light) and 10.5:1 (dark). */
+:root[data-design="fieldnotes"] .v2-state[data-state="failed"] .v2-state-sym { color: var(--v2-canvas); }
+/* JEG-1137 Fieldnotes controls (ddf-fn-*): CSS only; markup keeps native elements and ARIA state. */
+:root[data-design="fieldnotes"] .ddf-fn-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--ddf-space-2);
+  min-height: var(--ddf-hit); padding: 10px 16px; border: 1px solid var(--ddf-control); border-radius: var(--ddf-radius-control);
+  background: var(--ddf-surface); color: var(--ddf-ink); font: 600 var(--ddf-type-body)/1.25 var(--ddf-font-ui);
+  cursor: pointer; touch-action: manipulation;
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease), border-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+:root[data-design="fieldnotes"] .ddf-fn-btn--primary { background: var(--ddf-action); border-color: var(--ddf-action); color: var(--ddf-action-ink); }
+:root[data-design="fieldnotes"] .ddf-fn-btn:disabled { cursor: default; opacity: .6; }
+:root[data-design="fieldnotes"] .ddf-fn-segmented {
+  display: inline-flex; flex-wrap: wrap; gap: var(--ddf-space-1); padding: var(--ddf-space-1);
+  border: 1px solid var(--ddf-control); border-radius: 10px; background: var(--ddf-surface);
+}
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button {
+  min-height: var(--ddf-hit); padding: 8px 12px; border: 0; border-radius: 7px; background: transparent; color: var(--ddf-ink);
+  font: 600 var(--ddf-type-support)/1.25 var(--ddf-font-ui); cursor: pointer;
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button[aria-pressed="true"] { background: var(--ddf-ink); color: var(--ddf-surface); }
+:root[data-design="fieldnotes"] .ddf-fn-stepper { display: inline-flex; align-items: center; gap: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-stepper > button { min-width: var(--ddf-hit); padding: 0; }
+:root[data-design="fieldnotes"] .ddf-fn-stepper > output { min-width: 30px; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; }
+:root[data-design="fieldnotes"] .ddf-fn-checks { border: 0; margin: 0; padding: 0; display: grid; gap: var(--ddf-space-1); }
+:root[data-design="fieldnotes"] .ddf-fn-checks > legend { padding: 0; margin-bottom: var(--ddf-space-2); font-size: var(--ddf-type-support); font-weight: 650; }
+:root[data-design="fieldnotes"] .ddf-fn-checks label { display: flex; align-items: center; gap: var(--ddf-space-mid); min-height: var(--ddf-hit); cursor: pointer; }
+:root[data-design="fieldnotes"] .ddf-fn-checks input[type="checkbox"] { width: 20px; height: 20px; margin: 0; accent-color: var(--ddf-action); }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure { border-top: 1px solid var(--ddf-line); padding-top: var(--ddf-space-mid); }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary {
+  display: flex; align-items: center; gap: 10px; min-height: var(--ddf-hit); cursor: pointer; font-weight: 650; list-style: none;
+}
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] .ddf-fn-disclosure[open] > summary::after { content: "\2212"; }
+:root[data-design="fieldnotes"] .ddf-fn-focus:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-btn:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-segmented > button:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-checks input:focus-visible,
+:root[data-design="fieldnotes"] .ddf-fn-disclosure > summary:focus-visible { outline: 3px solid var(--ddf-focus); outline-offset: 3px; }
+@media (hover: hover) {
+  :root[data-design="fieldnotes"] .ddf-fn-btn:hover:not(:disabled) { border-color: var(--ddf-ink); background: var(--ddf-subtle); }
+  :root[data-design="fieldnotes"] .ddf-fn-btn--primary:hover:not(:disabled) { border-color: var(--ddf-action-hover); background: var(--ddf-action-hover); }
+  :root[data-design="fieldnotes"] .ddf-fn-segmented > button:hover:not([aria-pressed="true"]) { background: var(--ddf-subtle); }
+}
+/* JEG-1137 slice 2a: Fieldnotes on the shared v2 controls and on league entry (opt-in, same flag). Source: prototype.html
+   button, field and disclosure rules. Existing markup and class names only, so every page and the sibling Fieldnotes
+   components (JEG-1138/1139/1140) pick this up without edits. Contract: docs/design/fieldnotes-components.md. */
+:root[data-design="fieldnotes"] .v2-app .v2-btn {
+  border-radius: var(--ddf-radius-control);
+  transition: background-color var(--ddf-motion-feedback) var(--ddf-ease), border-color var(--ddf-motion-feedback) var(--ddf-ease);
+}
+@media (hover: hover) {
+  :root[data-design="fieldnotes"] .v2-app .v2-btn:not(.v2-btn-primary):not([aria-pressed="true"]):not(:disabled):hover { border-color: var(--ddf-ink); background: var(--ddf-subtle); }
+  :root[data-design="fieldnotes"] .v2-app .v2-btn-primary:not(:disabled):hover { border-color: var(--ddf-action-hover); background: var(--ddf-action-hover); filter: none; }
+}
+/* Fields sit on the control edge (3:1 on the surface, WCAG 1.4.11); the default paste boxes use the 1.3:1 line color. */
+:root[data-design="fieldnotes"] .v2-find-import-body input[type="text"],
+:root[data-design="fieldnotes"] .v2-find-import-body textarea,
+:root[data-design="fieldnotes"] .v2-find-import-body select,
+:root[data-design="fieldnotes"] .v2-find-paste textarea,
+:root[data-design="fieldnotes"] .v2-popover input[type=number],
+:root[data-design="fieldnotes"] .v2-popover select { border-color: var(--v2-field-border); }
+/* League entry is one paste box: the prototype's large field. */
+:root[data-design="fieldnotes"] .v2-find-import-body textarea { min-height: 176px; padding: 12px; resize: vertical; }
+/* Disclosures read left to right: the league card's heading sits beside its arrow, not pushed to the far edge, and the
+   whole-league import uses the Fieldnotes disclosure (ink label, rule above, plus and minus at the end). */
+:root[data-design="fieldnotes"] .v2-lg-card-summary { justify-content: flex-start; }
+:root[data-design="fieldnotes"] .v2-find-import > summary {
+  gap: 10px; padding-top: var(--ddf-space-mid); border-top: 1px solid var(--ddf-line); color: var(--ddf-ink); font-weight: 650; list-style: none;
+}
+:root[data-design="fieldnotes"] .v2-find-import > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] .v2-find-import > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] .v2-find-import[open] > summary::after { content: "\2212"; }
+/* JEG-1138: Compare a trade in Fieldnotes (opt-in, same flag). Source: prototype.html .result, .kicker, table and
+   details rules; contract docs/design/fieldnotes-components.md. Presentation only: the markup, copy, numbers and verdict
+   rules are v2.js's and trade.js's, unchanged. The first part is the reusable value view, explanation and expandable
+   detail; a page that adopts it (JEG-1139 Trade targets) adds its selectors to these lists. */
+/* Kicker: the small all-caps label above an answer or a value. */
+:root[data-design="fieldnotes"] #v2Compare .v2-cverdict .v2-eyebrow,
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-label {
+  font-size: var(--ddf-type-meta); font-weight: 750; letter-spacing: .12em; text-transform: uppercase;
+}
+/* Value view: tabular figures, muted 12 px column heads, rows on the decorative line. */
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable th,
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable th, :root[data-design="fieldnotes"] #v2Targets .v2-wtable th { font-size: var(--ddf-type-meta); color: var(--ddf-muted); border-bottom-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable td,
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td, :root[data-design="fieldnotes"] #v2Targets .v2-wtable td { border-bottom-color: var(--ddf-line); font-variant-numeric: tabular-nums; }
+/* Expandable detail: the Fieldnotes disclosure (rule above, ink label, 44 px summary, plus and minus at the end). */
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how {
+  margin-top: var(--ddf-space-mid); padding-top: var(--ddf-space-mid); border-top: 1px solid var(--ddf-line); font-size: var(--ddf-type-support);
+}
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary,
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary {
+  display: flex; align-items: center; gap: 10px; min-height: var(--ddf-hit); color: var(--ddf-ink); font-weight: 650; list-style: none; cursor: pointer;
+}
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary::-webkit-details-marker,
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::-webkit-details-marker,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary::-webkit-details-marker { display: none; }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more > summary::after,
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory > summary::after,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-more[open] > summary::after,
+:root[data-design="fieldnotes"] #v2Compare .v2-cstory[open] > summary::after,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-how[open] > summary::after { content: "\2212"; }
+/* Row detail toggles ("Show players") and source links read at support size; the toggle's own box is the 44 px target. */
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable td.player .v2-cexpand { display: inline-flex; align-items: center; min-height: var(--ddf-hit); font-size: var(--ddf-type-support); }
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable td.player .v2-cexpand::after { content: none; }
+:root[data-design="fieldnotes"] #v2Compare .v2-ctable td.player .v2-srclink { padding: 13px 0; margin: -13px 0; }
+/* Compare: the verdict is the page's answer, the prototype's result card. Its edge keeps the verdict's meaning (win,
+   lose, incomplete, as on the default site); a verdict with no side (even, none) takes the ink edge. */
+:root[data-design="fieldnotes"] #v2Compare .v2-cverdict { padding: var(--ddf-space-4); gap: var(--ddf-space-2); border-radius: var(--ddf-radius-card); }
+:root[data-design="fieldnotes"] #v2Compare .v2-cverdict:not([data-verdict="win"]):not([data-verdict="lose"]):not([data-verdict="incomplete"]),
+:root[data-design="fieldnotes"] .v2-cverdict-bar:not([data-verdict="win"]):not([data-verdict="lose"]):not([data-verdict="incomplete"]) { border-left-color: var(--ddf-ink); }
+:root[data-design="fieldnotes"] #v2Compare .v2-cverdict h2 {
+  font-family: var(--ddf-font-display); font-weight: 600; font-size: 28px; line-height: 1.15; letter-spacing: -0.02em;
+}
+:root[data-design="fieldnotes"] #v2Compare #v2CVerdictText { font-size: var(--ddf-type-body); line-height: var(--ddf-line-body); }
+:root[data-design="fieldnotes"] #v2Compare .v2-cverdict .v2-meta { font-size: var(--ddf-type-support); }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal { margin-top: var(--ddf-space-2); padding-top: var(--ddf-space-3); border-top-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-read { font-size: 18px; font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-text { font-size: var(--ddf-type-support); }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-net { font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-grid td { border-color: var(--ddf-line); border-radius: var(--ddf-radius-control); }
+:root[data-design="fieldnotes"] #v2Compare .v2-deal-grid td.is-current { border-color: var(--ddf-action); }
+/* Sharing: "Copy link to this trade" is a 44 px target at every width, not only on touch screens. Only while shown:
+   v2.js hides it until both sides have a player, and a display value here would override [hidden]. */
+:root[data-design="fieldnotes"] #v2Compare .v2-cshare-link:not([hidden]) { display: inline-flex; align-items: center; min-height: var(--ddf-hit); padding: 0 6px; }
+/* The two sides: kicker headings, the search box on the control edge at 44 px, the side total in tabular figures. */
+:root[data-design="fieldnotes"] #v2Compare .v2-trade-side h2 {
+  font-size: var(--ddf-type-meta); font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
+}
+:root[data-design="fieldnotes"] #v2Compare .v2-trade-side .v2-search input {
+  min-height: var(--ddf-hit); border-color: var(--ddf-control); border-radius: var(--ddf-radius-control);
+}
+:root[data-design="fieldnotes"] #v2Compare .v2-trade-players li { border-top-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Compare .v2-side-total { border-top-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Compare .v2-side-total b { font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Compare .v2-cexample .v2-pill { border-radius: 5px; font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Compare .v2-chead .v2-title h1 { font-size: 32px; }
+:root[data-design="fieldnotes"] .v2-cverdict-bar-go { font-weight: 650; font-size: var(--ddf-type-body); }
+@media (max-width: 767px) {
+  :root[data-design="fieldnotes"] #v2Compare .v2-cverdict { padding: var(--ddf-space-3); }
+  :root[data-design="fieldnotes"] #v2Compare .v2-cverdict h2 { font-size: 24px; }
+  :root[data-design="fieldnotes"] #v2Compare .v2-chead .v2-title h1 { font-size: 28px; }
+  :root[data-design="fieldnotes"] .v2-cverdict-bar:not([hidden]) {
+    border-radius: var(--ddf-radius-card); border-top-color: var(--ddf-line); border-right-color: var(--ddf-line); border-bottom-color: var(--ddf-line);
+  }
+}
+/* JEG-1138 end */
+/* JEG-1139: Trade targets in Fieldnotes (opt-in, same flag). Reuses JEG-1138's value view and expandable detail above
+   (its selector lists name #v2Targets); this block is the page's own layout. Source: prototype.html .target rules.
+   Presentation only: target signals, QB treatment, thresholds, copy and numbers are targets.js's and v2.js's, unchanged. */
+/* Headings: the two checks and the sell and buy lists are the page's answers, in the display face. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tcheck h2,
+:root[data-design="fieldnotes"] #v2Targets .v2-weight > h2,
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist-head h2 {
+  font-family: var(--ddf-font-display); font-weight: 600; font-size: 22px; line-height: 1.2; letter-spacing: -0.015em;
+}
+:root[data-design="fieldnotes"] #v2Targets .v2-weight-headline { font-weight: 650; }
+/* Filters: search and choices on the control edge at 44 px. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-search input,
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-field:not(.v2-field-rank) select {
+  min-height: var(--ddf-hit); border-color: var(--ddf-control); border-radius: var(--ddf-radius-control);
+}
+:root[data-design="fieldnotes"] #v2Targets .v2-tfilters .v2-field-rank { border-radius: var(--ddf-radius-control); }
+/* The lists: card spacing from the token scale, player names at the prototype's target size, the gap as the row's value. */
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist { padding: var(--ddf-space-4); }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td.player .v2-nm,
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .top b { font-size: var(--ddf-type-body); font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable td.best,
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .big { font-weight: 650; }
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards .big { font-size: 20px; }
+:root[data-design="fieldnotes"] #v2Targets .v2-tcards li { padding: var(--ddf-space-3) 0; border-top-color: var(--ddf-line); }
+:root[data-design="fieldnotes"] #v2Targets .v2-tlist-foot { margin-top: var(--ddf-space-mid); }
+/* The chart links inside an opened row: a 44 px target without moving the line (as on Compare's rows). */
+:root[data-design="fieldnotes"] #v2Targets .v2-ttable tr.t-detail .v2-srclink { padding: 14.5px 0; margin: -14.5px 0; }
+:root[data-design="fieldnotes"] #v2Targets .v2-weight { padding: var(--ddf-space-4); }
+@media (max-width: 767px) {
+  :root[data-design="fieldnotes"] #v2Targets .v2-tlist,
+  :root[data-design="fieldnotes"] #v2Targets .v2-weight { padding: var(--ddf-space-3); }
+  :root[data-design="fieldnotes"] #v2Targets .v2-tcheck h2,
+  :root[data-design="fieldnotes"] #v2Targets .v2-weight > h2,
+  :root[data-design="fieldnotes"] #v2Targets .v2-tlist-head h2 { font-size: 20px; }
+}
+/* JEG-1139 end */

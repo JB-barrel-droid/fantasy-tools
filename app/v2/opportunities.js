@@ -32,11 +32,16 @@
 
   // ---------- the labels (JEG-1108: rewritten) ----------
   // tradeFit already computes the final label (natural / market / force). These helpers extract sub-signals for columns.
+  // JEG-1324: "Our fit" reads your side of the shared Natural fit predicate (tradeFit's `natural.us`) and never says
+  // "natural": Natural means both sides (Jeremy, 2026-10-28). Labels are JEG-1221's S5 strings.
   function ourFitOf(fit) {
-    if (fit.yourValueOk && fit.constructionOk) return {label: "natural", detail: "total rises, starters hold, construction OK"};
-    if (fit.yourValueOk) return {label: "partial", detail: "total rises but construction issue"};
+    const side = fit.natural ? fit.natural.us : null;
+    if (side && side.ok) return {label: "works", detail: "total rises, starters hold, construction OK, projections hold"};
+    if (side && side.value && !side.construction) return {label: "gains, roster issue", detail: "total rises but construction issue"};
+    if (side && side.value && side.projections === false) return {label: "gains, projections fall", detail: `total rises but DDF Value (projections) falls ${Math.abs(side.projNet).toFixed(1)}`};
+    if (side && side.value) return {label: "gains, projections not checked", detail: "total rises but a player in the trade has no DDF Value (projections)"};
     const us = fit.us;
-    return {label: "force", detail: us.down ? "loses value" : us.flat ? "no measurable gain" : "starters drop"};
+    return {label: "doesn't work", detail: us.down ? "loses value" : us.flat ? "no measurable gain" : "starters drop"};
   }
   function theirFitOf(fit) {
     const them = fit.them;
@@ -53,7 +58,7 @@
     // When we have the tradeFit result, use its label directly.
     if (fit && fit.label) return fit.label;
     // Fallback for callers without the full fit object.
-    if (ourLabel === "force") return "force";
+    if (ourLabel === "force" || ourLabel === "doesn't work") return "force";
     if (!marketOk) return "force";
     if (chartEdge !== null && asShown(chartEdge) >= 0) return "market";
     return "force";
