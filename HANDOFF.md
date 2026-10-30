@@ -19,6 +19,12 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Release trains (JEG-1218 merge protocol, Claude, 2026-10-29 UTC)
+
+- Jeremy, 2026-10-29 6:27 PM CT: "Can any work be consolidated at this point into a release so we speed up?"; then "Great do this repeatedly". A train is one branch `claude/release-train-2026-10-29[-N]` off main that merges already-reviewed, non-value-math PRs normally (no squash of others' branches, no rebase, no push to their branches), so one CI run and one independent delta review cover the batch.
+- Train 1 PR lists each included PR, head and ticket. The merge gate thread merges it under Jeremy's standing OK once CI is green and its review passed; then each included PR is closed as merged via the train, with a comment, and its ticket moves on. A PR the gate merges on its own first is simply absorbed.
+- Left out of trains: value math, engine, defaults, Supabase/data (#1077, #1105, #1052, #1168, #1110), PRs with no independent review on their head, stacked PRs whose base is unmerged, and PRs with generated `dist/` churn that conflicts.
+
 ### Managed agent teardown (JEG-1173, Claude, 2026-10-29 UTC)
 
 - Claude took JEG-1173 on Jeremy's instruction (2026-10-29 10:13 AM CT);
