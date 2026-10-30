@@ -1704,10 +1704,10 @@ def gl25(S):
 def tt10(S):
     w = S["tabs"]["targets"]["weight"]
     errors = []
-    for heading in ("1. Potential mispricing", "2. Potential positional weight inflation"):
+    for heading in ("1. Potential mispricing", "2. Positions the market overpays for"):   # JEG-1130: PMM doc 3.2
         if heading not in w["h2"]:
             errors.append(f"missing numbered heading {heading!r}: {w['h2']}")
-    for name in ("potential mispricing", "potential positional weight inflation"):
+    for name in ("potential mispricing", "the positions the market overpays for"):   # JEG-1130: PMM glossary retires "positional weight inflation"
         if name not in w["sub"]:
             errors.append(f"the subtitle does not name {name!r}")
     return errors
@@ -1799,7 +1799,7 @@ PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade"
 # JEG-1212 (Jeremy, 2026-10-28): source categories supersede the old combined chart label.
 # The Doc mirror remains a historical pending contract; this partial guards the approved current UI.
 GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published charts", "observed": "Observed-trade estimates", "proj": "Projection-based values",
-                  "vorp": "Raw value above waivers (advanced)"}
+                  "vorp": "Value above waivers (advanced)"}   # JEG-1130: PMM glossary retires "Raw value above waivers"
 
 
 def gl07_partial(S):
@@ -1954,7 +1954,7 @@ def tt08(S):
 def rf02(S):
     d = S["tabs"]["risers"]["disagree"]
     errors = []
-    if d["h2"] != "Where DDF Value and the projections disagree" or d["heads"] != ["DDF Value moved, projections didn't", "Projections moved, DDF Value didn't"]:
+    if d["h2"] != "Mixed signals" or d["heads"] != ["The charts moved first", "The projections moved first"]:   # JEG-1130: PMM doc 3.2
         errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
     if d["meta"].startswith("No comparison yet") and d["n"]:
         errors.append(f"no comparison but {d['n']} players listed")

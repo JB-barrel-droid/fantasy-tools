@@ -284,7 +284,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -731,7 +731,7 @@
     const wrap = el("span", {class: "v2-lg-gaps", "data-gap": kind});
     wrap.append(items.slice(0, 3).map(fmtGap).join(", "));
     if (items.length > 3) {
-      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more ${kind} players`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
+      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more players to ${kind}`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
     }
     void id;
     return wrap;
@@ -790,7 +790,7 @@
         el("td", {class: "num", "data-cell": "altRank"}, same ? "=" : altText),
         el("td", {class: "num", "data-cell": "projRank"}, rankText(t.rank.proj, ranked)),
         el("td", {"data-cell": "disagree"}, none ? "—" : disagreeList(t)),
-        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "undervalued", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "overvalued", t.id)));
+        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "buy", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "sell", t.id)));
       const detail = el("tr", {class: "v2-lg-detail", "data-team-id": t.id},
         el("td", {colspan: String(ids.length)}, none ? "" : detailText(t, summary, basis)));
       return el("tbody", {}, main, detail);
@@ -805,8 +805,8 @@
         t.rank.proj ? el("p", {}, `DDF Value (projections) rank: ${t.rank.proj}`) : null,
         el("p", {}, "Projections vs charts: ", disagreeList(t)),
         el("p", {}, detailText(t, summary, basis)),
-        el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
-    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
+        el("p", {}, "Buy: ", gapList(t.under, "buy")), el("p", {}, "Sell: ", gapList(t.over, "sell"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
+    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Buy and Sell: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus DDF Value on the default basis, labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
     body.replaceChildren(head, tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
@@ -896,8 +896,10 @@
     return el("tr", {class: "v2-lg-opp-detail", "data-detail-for": r.id}, el("td", {colspan: String(colspan)}, box));
   }
   // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
-  // The pick lives in the address as ?trade=<opponent>~<give keys>~<receive keys> so the link reopens the same trade.
-  const tradeParam = r => [r.opponent, r.give.map(p => p.player_key).join(","), r.receive.map(p => p.player_key).join(",")].map(encodeURIComponent).join("~");
+  // The pick lives in the address as ?trade=1~<opponent team id>~<give keys>~<receive keys> so the link reopens the same
+  // trade (JEG-1328: by the opponent's id, so a rename or two teams with one name keep the right trade). Older addresses
+  // named the opponent ("<name>~<give>~<receive>"); pickFromHash still reads them and rewrites the address.
+  const tradeParam = r => W.tradePick(r.opponentId, r.give, r.receive);
   // Focus goes back to the button that opened the panel (the visible one: the table and the phone cards both carry one).
   function focusPick(id) {
     const all = [...document.querySelectorAll(`[data-pick-for="${id}"]`)];
@@ -923,7 +925,9 @@
     if (!m || !rows.length) return;
     if (UI.selectedParam === m[1]) return;
     const hit = rows.find(r => tradeParam(r) === m[1]);
-    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; }
+    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; return; }
+    const legacy = rows.find(r => W.legacyTradePick(r.opponent, r.give, r.receive) === m[1]);
+    if (legacy) { UI.selectedOpp = legacy.id; UI.selectedParam = tradeParam(legacy); setTradeHash(legacy); }
   }
   function sidePanel(heading, team, leaving, arriving, ctx) {
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
@@ -1182,11 +1186,13 @@
     // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
     const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
-      el("p", {}, ...tradeNodes(r, ctx)),
-      el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+      // JEG-1232: one line per table column, in the table's order (value first), so Our fit and Their fit each get a line.
+      el("p", {"data-line": "trade"}, ...tradeNodes(r, ctx)),
+      el("p", {"data-line": "capture"}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
-      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
-        el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
+      el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
+      el("p", {"data-line": "market"}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
+      el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
@@ -1331,11 +1337,22 @@
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
     const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
     if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);
-    params.delete("workspace");
-    params.delete("wm");
-    params.delete("trade");
-    if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
+    // JEG-1328: the sender's package size, filters and selected trade, with link positions read as the new teams' ids.
+    const extras = W.readShareExtras(params, w.teams.map(t => t.id));
+    if (Object.keys(extras.ui).length) w = W.ops.setUi(w, extras.ui);
+    const address = "#find-league" + (extras.trade ? `?trade=${extras.trade}` : "");
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + address); } catch (error) { /* the pick is lost, the league still opens */ }
+    const settingsQuery = W.shareSettingsQuery(params);
+    if (settingsQuery) w = W.ops.setSettings(w, {query: settingsQuery});
     offerReplace(w, "Shared link:");
+  }
+
+  // JEG-1379: the engine can have rows before v2.js has finished booting, and a share link's league settings and player
+  // overrides go through v2.js (TradeValueV2.applyLinkLeague, then DDFOverrides.applyLink in applyImported). Read the
+  // link once that reader is on the page, so a link never loads its teams without them. Gives up waiting after ~30 s.
+  function readShareHashWhenReady(tries = 0) {
+    if ((root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) || tries >= 120) { readShareHash(); return; }
+    setTimeout(() => readShareHashWhenReady(tries + 1), 250);
   }
 
   // ---------- the cards ----------
@@ -1355,7 +1372,7 @@
     const download2 = button("Download", {class: "v2-btn", id: "v2LgDownload"}, download);
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
-      const enc = W.shareHash(store.get(), leagueQuery());
+      const enc = W.shareHash(store.get(), leagueQuery(), {trade: UI.selectedParam});
       const ov = root.DDFOverrides;
       const shared = ov && ov.shareLink ? ov.shareLink(enc.hash) : {hash: enc.hash, dropped: false};
       const url = `${root.location.origin}${root.location.pathname}${shared.hash}`;
@@ -1415,7 +1432,7 @@
     const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: "Load a whole league: paste its rosters page"}),
       el("div", {class: "v2-find-import-body"},
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
-        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays on this device."}),
+        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Nothing to connect, no sign-up. You copy, we read the text, and it stays on this device."}),
         el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
     const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
       el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
@@ -1438,7 +1455,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
@@ -1495,7 +1512,7 @@
       refreshAll("load");
       UI.firstPaint = false;
       renderUndo();
-      readShareHash();
+      readShareHashWhenReady();
       return true;
     };
     if (!ready()) {

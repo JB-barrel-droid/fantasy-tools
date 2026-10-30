@@ -52,6 +52,8 @@
      "records": [{"check_id": "draftsharks_trade_chart_sync", "file": ".github/workflows/draftsharks-supabase-sync.yml", "contains": "\"p_check_id\": \"draftsharks_trade_chart_sync\""}]},
     {"workflow": "fantasysharks-supabase-sync.yml", "scheduler": "source_probe", "pg_cron_job": null, "dispatched_by": "source-probe.yml (on change or max age)",
      "records": [{"check_id": "fantasysharks_projections_sync", "file": ".github/workflows/fantasysharks-supabase-sync.yml", "contains": "\"p_check_id\": \"fantasysharks_projections_sync\""}]},
+    {"workflow": "ros-rankings-sync.yml", "scheduler": "pg_cron", "pg_cron_job": "ros-rankings-sync-live",
+     "records": [{"check_id": "ros_rankings_sync", "file": ".github/workflows/ros-rankings-sync.yml", "contains": "\"p_check_id\": \"ros_rankings_sync\""}]},
     {"workflow": "fidelity-pulse.yml", "scheduler": "pg_cron", "pg_cron_job": "fidelity-pulse-live",
      "records": [{"check_id": "fidelity_pulse", "file": ".github/workflows/fidelity-pulse.yml", "contains": "--check-id fidelity_pulse --owner fidelity-pulse.yml"}]},
     {"workflow": "player-identity-reconcile.yml", "scheduler": "pg_cron", "pg_cron_job": "player-identity-reconcile-nightly",
@@ -70,16 +72,19 @@
      "records": []}
   ],
   "pg_cron_sql_jobs": [
-    {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"}
+    {"jobname": "cron-retention-30d", "check_id": "pgcron_retention"},
+    {"jobname": "weekly-fantasypros-daily-check", "check_id": "weekly_fantasypros_pull"}
   ],
   "unmonitored_workflows": {
     "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",
+    "edge-drift-check.yml": "informational daily read-only check that deployed mcp/get-values match main (JEG-1049); gates nothing, a red run in Actions is the signal, a missed day only delays it",
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
     "nflverse-history-load.yml": "manual one-off load of closed 2015-2025 history (JEG-532); no schedule, nothing to miss",
     "sleeper-projections-backfill.yml": "push/manual one-off backfill of Sleeper weekly projections for measurement (JEG-540); no schedule, nothing to miss",
     "preview.yml": "pull-request preview build; no schedule, nothing to miss",
     "v2-render-test.yml": "pull_request/manual merge-time render test (JEG-618); no schedule, nothing to miss",
     "jeg1265-values-fieldnotes.yml": "pull_request/manual check of the isolated Values Fieldnotes component and its screenshots (JEG-1265); no schedule, nothing to miss",
+    "jeg1140-settings-render.yml": "pull_request/manual render check of the isolated Settings components (JEG-1140); no schedule, nothing to miss",
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "divergence-issues.yml": "push (when dist/modules/source-divergence.json changes) and manual; opens Linear sub-issues for flagged source-weeks (JEG-610); no schedule, nothing to miss",
     "loader-dry-run.yml": "push/manual dry run of the loader; no schedule",

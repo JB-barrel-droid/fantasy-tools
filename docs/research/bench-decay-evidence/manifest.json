@@ -1,0 +1,147 @@
+{
+ "schema": "bench-decay-evidence-manifest/1",
+ "ticket": "JEG-1276",
+ "parent": "JEG-948",
+ "as_of": "2026-10-29",
+ "baseline": {
+  "branch": "main",
+  "commit": "430791c41ca9578d878c14c3a37d37a0f3fe0670",
+  "commit_date": "2026-10-29"
+ },
+ "setting": {"scoring": "ppr", "teams": 12},
+ "sources": [
+  {
+   "id": "post1_bench_by_week",
+   "path": "docs/research/data/bench_value_by_week.json",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "merge_commit": "35205b8933fc8a34649f9b6e64e31336a70b4949",
+   "source_date": "2026-10-23",
+   "capture_commit": "c50e70d0fe",
+   "capture_date": "2026-10-23",
+   "content": {
+    "kind": "mixed",
+    "parts": [
+     "model_bench_share_by_week: the engine fixture at capture, re-resolved at content weeks 1-17",
+     "breakout_rate_by_week: nflverse weekly actuals, seasons 2015-2025"
+    ],
+    "content_end_date": "2026-10-23",
+    "content_end_note": "The engine fixture's own date is not recorded in the artifact; it is bounded by the capture date."
+   },
+   "git_blob": "70f28d9eb44ea8b4bd6a08073bf228f98ec05d2e",
+   "sha256": "1a933bd23acb81011ae872c2c087e9ef63b89cd54d8553046b17d0c0a528ae3d",
+   "required": true
+  },
+  {
+   "id": "post1_breakout_rate",
+   "path": "docs/research/data/breakout_rate.json",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "merge_commit": "35205b8933fc8a34649f9b6e64e31336a70b4949",
+   "source_date": "2026-10-23",
+   "capture_commit": "c50e70d0fe",
+   "capture_date": "2026-10-23",
+   "content": {"kind": "seasons", "first_season": 2015, "last_season": 2025},
+   "git_blob": "45c2e449285e6982b3e32d68ba6c9f1048cd9b68",
+   "sha256": "b29f1aa8327c39ab58a6da6cbaad279a592063c019080ec9ee6cdaf1ac659264",
+   "required": true
+  },
+  {
+   "id": "post1_starter_bench_risk",
+   "path": "docs/research/data/starter_bench_risk.json",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "merge_commit": "35205b8933fc8a34649f9b6e64e31336a70b4949",
+   "source_date": "2026-10-23",
+   "capture_commit": "c50e70d0fe",
+   "capture_date": "2026-10-23",
+   "content": {
+    "kind": "snapshot",
+    "content_end_date": "2026-10-23",
+    "content_end_note": "One engine run at capture; no by-week series."
+   },
+   "git_blob": "b2de34cbf7ee4e57236c153d9a4e7ebd5dd4c36e",
+   "sha256": "8a67bccfc44f7471e064cb75da8735ceb8b29d33b4c64b776a81715717fbf6aa",
+   "required": true
+  },
+  {
+   "id": "post1_article",
+   "path": "docs/research/posts/01-bench-player-value.md",
+   "origin": "PR #846 (JEG-544, post 1 revision)",
+   "merge_commit": "35205b8933fc8a34649f9b6e64e31336a70b4949",
+   "source_date": "2026-10-23",
+   "capture_commit": "35205b8933",
+   "capture_date": "2026-10-23",
+   "content": {"kind": "article", "content_end_date": "2026-10-23"},
+   "git_blob": "93ee6a985af17a8198ce66d38a7395d737209b22",
+   "sha256": "03053ac416eec735035c3be87d885304956d5456171b4b8ffc67e5d1c62bd052",
+   "required": false
+  },
+  {
+   "id": "jeg943_source_accuracy",
+   "path": "docs/research/data/source_accuracy_backtest.json",
+   "origin": "PR #847 (JEG-943)",
+   "merge_commit": "b0a448b89b4480f83b61211d8246947e564e3804",
+   "source_date": "2026-10-23",
+   "capture_commit": "2b028e715c",
+   "capture_date": "2026-10-23",
+   "content": {"kind": "content_weeks", "season": 2026, "first_week": 2, "last_week": 6},
+   "git_blob": "5c412aa1c12066f536d3a3b6c2356fb6edb26b6c",
+   "sha256": "99d6402cd3e918a197f7baac868fda20c0ceba2ddac4b6bce3341621af7c6c68",
+   "required": true
+  },
+  {
+   "id": "jeg943_plan",
+   "path": "docs/research/ddf-predictive-plan.md",
+   "origin": "PR #847 (JEG-943)",
+   "merge_commit": "b0a448b89b4480f83b61211d8246947e564e3804",
+   "source_date": "2026-10-23",
+   "capture_commit": "2b028e715c",
+   "capture_date": "2026-10-23",
+   "content": {"kind": "article", "content_end_date": "2026-10-23"},
+   "git_blob": "86a2392a3493b15fbad0b49aaa1bbcae3b0f61fa",
+   "sha256": "d5e768c68aaed33f789b3035cf6f82db18ab3ab78cf0514cef57ac75f035ad29",
+   "required": false
+  },
+  {
+   "id": "jeg943_post10",
+   "path": "docs/research/posts/10-how-ddf-value-should-be-built.md",
+   "origin": "PR #847 (JEG-943), last edited in PR #870 (JEG-974)",
+   "merge_commit": "b0a448b89b4480f83b61211d8246947e564e3804",
+   "source_date": "2026-10-23",
+   "capture_commit": "20d7f6ebea",
+   "capture_date": "2026-10-23",
+   "content": {"kind": "article", "content_end_date": "2026-10-23"},
+   "git_blob": "dd234243e079196e1a5b770e061940725995d9eb",
+   "sha256": "e4ecc73c1a5079ea0d1edc65ee5c5e869849464dcb48175d676526d3a211853f",
+   "required": false
+  },
+  {
+   "id": "jeg528_lineup_m",
+   "path": "docs/research/bench-decay-evidence/inputs/lineup_m_snapshot.json",
+   "origin": "Values copied from config/lineup_parameters.json (blob 485311187e, last rebuilt 2026-10-28); the per-game hazards JEG-528 cites",
+   "merge_commit": null,
+   "source_date": "2026-10-28",
+   "capture_commit": "e55755ca6d",
+   "capture_date": "2026-10-28",
+   "content": {"kind": "seasons", "first_season": 2015, "last_season": 2025},
+   "git_blob": null,
+   "sha256": "09697760c693fff9d8d74ac42078e9c824f3ea56514aea92951c021e853979a1",
+   "required": true
+  }
+ ],
+ "rules": [
+  {
+   "id": "jeg528_timing_factor",
+   "origin": "PR #604 (JEG-528, JEG-530)",
+   "merge_commit": "38124d0aff17defe4ef367f9e677edc05e5ea3d4",
+   "source_date": "2026-10-16",
+   "capture_commit": "6edd9e03ca",
+   "capture_date": "2026-10-16",
+   "statement": "timing factor = remaining objective-window weeks / 17, capped at 1; it scales the bench (fill-in) slice only, in a separate timingAdjusted series. DDF Value does not use it, and no page reads timingValue or optionValue.",
+   "full_season_weeks": 17,
+   "must_contain": [
+    {"path": "pipelines/value_reference.py", "line": "FULL_SEASON_WEEKS = 17  # LINEUP_DEFAULT_LEAGUE_WEEKS.playoff_weeks[1]"},
+    {"path": "pipelines/value_reference.py", "line": "timing_factor = min(1.0, (w1 - w0 + 1) / FULL_SEASON_WEEKS)"},
+    {"path": "app/trade-value-chart/assets/value-model.js", "line": "timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);"}
+   ]
+  }
+ ]
+}

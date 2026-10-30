@@ -5,6 +5,10 @@
 // ValueModel.runValuePipeline() with the caller's league settings, and
 // returns the same numbers the site shows.
 //
+// JEG-1179: the week priced is the site's default week (ValueModel.weekState over the published week
+// history) or the `week` the caller asks for; the input building is in pipeline.ts, shared with the
+// parity runner (tests/_edge_pipeline_runner.cjs).
+//
 // No accounts, no keys, no schema change. Reads only the published bundle.
 // Rate-limited by Supabase's built-in edge function limits.
 //
@@ -19,126 +23,58 @@ const BUNDLE_URL = `${SITE_ORIGIN}/assets/comparison-sources-data.json`;
 const PAGE_URL = `${SITE_ORIGIN}/`;
 const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
 const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
+const HISTORY_INDEX_URL = `${SITE_ORIGIN}/assets/history/index.json`;
 
-import { type League, type LeagueInputs, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+import { type League, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+import {
+  type Bundle,
+  buildPipelineInput,
+  type HistoryData,
+  parseWeek,
+  planWeek,
+  todayIso,
+  type WeekInfo,
+} from "./pipeline.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
-interface CachedBundle {
-  detail: Record<string, unknown>;
-  players: Array<Record<string, unknown>>;
+interface CachedBundle extends Bundle {
   meta: Record<string, unknown>;
-  ValueModel: Record<string, unknown>;
-  lineupConfig: Record<string, unknown> | null;
+  history: HistoryData | null;
   loadedAt: number;
 }
 
 let cached: CachedBundle | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// Pipeline source keys (must match curve-widget.js PIPELINE_SOURCE_KEYS).
-const PIPELINE_SOURCE_KEYS = [
-  "espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs",
-];
-const PROJECTION_SOURCE_KEYS = ["espn", "cbsros", "razzball"];
-const PPG_FIELD_OF: Record<string, string> = {
-  espn: "espn_ppg",
-  cbsros: "cbsros_ppg",
-  razzball: "rz_ppg",
-};
-
-// Scoring field from scoring name.
-function scoringField(scoring: string): string {
-  return scoring === "ppr" ? "ppr" : scoring === "half_ppr" ? "half_ppr" : "standard";
-}
-
-// Replicates product-data.js espnProjectsZero(): ESPN considers this player
-// listed at 0 (injured/out) even though espn_ppg is absent.
-// deno-lint-ignore no-explicit-any
-function espnProjectsZero(player: any): boolean {
-  if (player.espn_status === "ineligible") return true;
-  if (player.espn_status === "absent") return false;
-  if (player.espn_zeroed === true) return true;
-  const ppg = player.espn_ppg;
-  if (!ppg || typeof ppg !== "object") return false;
-  const values = Object.values(ppg);
-  return values.length > 0 && values.every((v) => typeof v === "number" && v === 0);
-}
-
-// --- Source freshness / eligibility (mirrors product-data.js + curve-widget.js)
-
-const CONTENT_WEEK_1_START_UTC = Date.UTC(2026, 8, 8); // Tue 2026-09-08
-const CONTENT_WEEK_MAX = 18;
-const DAY_MS = 86400000;
-
-function contentWeekForDay(day: string | null): number | null {
-  if (!day) return null;
-  const [y, m, d] = day.split("-").map(Number);
-  const days = Math.round((Date.UTC(y, m - 1, d) - CONTENT_WEEK_1_START_UTC) / DAY_MS);
-  if (days < 0) return 1;
-  return Math.min(Math.max(Math.floor(days / 7) + 1, 1), CONTENT_WEEK_MAX);
-}
-
-function todayIso(): string {
+// JEG-1179: the week history the page reads (assets/history/index.json), so the default week and the
+// week view match the page. Optional: without it the calendar rule applies, as on the page.
+async function loadHistoryIndex(): Promise<HistoryData | null> {
   try {
-    return new Intl.DateTimeFormat("en-CA", {
-      timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-    }).format(new Date());
+    const res = await fetch(HISTORY_INDEX_URL);
+    if (!res.ok) return null;
+    return { index: await res.json(), docs: {} };
   } catch {
-    return new Date().toISOString().slice(0, 10);
+    return null;
   }
 }
 
-function isoDay(v: unknown): string | null {
-  if (!v || typeof v !== "string") return null;
-  const m = v.match(/^(\d{4}-\d{2}-\d{2})/);
-  return m ? m[1] : null;
-}
-
-function parseWeekLabel(value: unknown): number | null {
-  const m = String(value || "").match(/week\s*(\d+)|wk\s*(\d+)/i);
-  return m ? Number(m[1] || m[2]) : null;
-}
-
-// deno-lint-ignore no-explicit-any
-function sourceVintage(meta: any): { week: number | null; basis: string | null } {
-  const m = meta && typeof meta === "object" ? meta : {};
-  const designated = parseWeekLabel(m.week_designated);
-  if (designated) return { week: designated, basis: "week_designated" };
-  const vintageWeek = parseWeekLabel(m.content_vintage);
-  if (vintageWeek) return { week: vintageWeek, basis: "content_vintage" };
-  const dated: Array<[string, unknown]> = [
-    ["content_vintage", m.content_vintage],
-    ["vintage", m.vintage],
-    ["espn_snapshot", m.espn_snapshot],
-    ["lineage.raw_vintage", m.lineage?.raw_vintage],
-    ["fetched_at", m.fetched_at],
-  ];
-  const found = dated.find(([, value]) => isoDay(value));
-  if (found) return { week: contentWeekForDay(isoDay(found[1])), basis: found[0] };
-  return { week: null, basis: null };
-}
-
-// Weekly chart sources (curve-widget.js WEEKED_SOURCE_KEYS base set).
-const WEEKED_SOURCES = new Set(["usatoday", "fantasycalc", "fantasypros", "cbs"]);
-
-// Hold fields on source sections.
-const HOLD_FIELDS = ["validationHold", "promotionHold"];
-
-// deno-lint-ignore no-explicit-any
-function sectionHold(sourceSection: any): { reason: string; hidden: boolean } | null {
-  if (!sourceSection || typeof sourceSection !== "object") return null;
-  for (const field of HOLD_FIELDS) {
-    const hold = sourceSection[field];
-    if (hold && typeof hold === "object" && hold.reason) {
-      // JEG-726 / JEG-787: an amber validationHold labels the source but does
-      // NOT hide it from DDF Value or Indexed.  Only red holds (the default
-      // when hold_level is absent) and promotionHolds hide.
-      const isAmber = field === "validationHold" && hold.hold_level === "amber";
-      return { reason: hold.reason, hidden: !isAmber };
-    }
+// One saved week's document (assets/history/week-<N>.json), read only when the priced week needs it
+// (a source serving a later week is priced on its saved copy of this week). A failed read leaves the
+// week without the document, so those sources are named in missing_sources.
+async function loadHistoryDoc(bundle: CachedBundle, week: number): Promise<void> {
+  const history = bundle.history;
+  if (!history || history.docs[String(week)]) return;
+  const file = history.index?.weeks?.[String(week)]?.file;
+  if (typeof file !== "string" || !/^[\w./-]+\.json$/.test(file) || file.includes("..")) return;
+  try {
+    const res = await fetch(`${SITE_ORIGIN}/${file.replace(/^\/+/, "")}`);
+    if (!res.ok) return;
+    const doc = await res.json();
+    if (doc?.week === week) history.docs[String(week)] = doc;
+  } catch {
+    // Left unloaded: the sources that needed it are reported missing for this week.
   }
-  return null;
 }
 
 // Load the bundle from the live site.
@@ -160,11 +96,12 @@ async function loadBundle(): Promise<CachedBundle> {
     throw new Error("ValueModel.runValuePipeline not found after loading value-model.js");
   }
 
-  // Fetch bundle, page, and lineup parameters in parallel.
-  const [bundleResponse, pageResponse, lpResponse] = await Promise.all([
+  // Fetch bundle, page, lineup parameters and the week history index in parallel.
+  const [bundleResponse, pageResponse, lpResponse, history] = await Promise.all([
     fetch(BUNDLE_URL),
     fetch(PAGE_URL),
     fetch(LINEUP_PARAMS_URL).catch(() => null),
+    loadHistoryIndex(),
   ]);
   if (!bundleResponse.ok) throw new Error(`bundle fetch failed: ${bundleResponse.status}`);
   if (!pageResponse.ok) throw new Error(`page fetch failed: ${pageResponse.status}`);
@@ -189,180 +126,10 @@ async function loadBundle(): Promise<CachedBundle> {
     meta: playersDoc.meta,
     ValueModel,
     lineupConfig,
+    history,
     loadedAt: Date.now(),
   };
   return cached;
-}
-
-// Build the pipeline input for the given settings.
-function buildPipelineInput(bundle: CachedBundle, m: LeagueInputs) {
-  const { scoring, teams } = m;
-  const superflex = m.setting.superflex;
-  // deno-lint-ignore no-explicit-any
-  const detail = bundle.detail as any;
-  const players = bundle.players;
-  // deno-lint-ignore no-explicit-any
-  const ValueModel = bundle.ValueModel as any;
-  const field = scoringField(scoring);
-  // The engine page always looks up chart combos at qb1 (product-data.js
-  // qbVariant: "qb1"). Superflex values are overlaid separately via
-  // native_superflex, so the combo key is always qbSlots=1.
-  const comboQbSlots = 1;
-
-  // Build player map: player_key -> {pos, name}.
-  const playerMap: Record<number, { pos: string; name: string }> = {};
-  for (const p of players) {
-    const pk = p.player_key as number;
-    playerMap[pk] = { pos: p.pos as string, name: p.name as string };
-  }
-
-  // Source validation from the detail. Values are strings like "live", "stale".
-  const sourceValidation = detail.source_validation as
-    Record<string, string> | undefined;
-
-  // --- Source freshness / eligibility (mirrors curve-widget.js) ---------------
-  const currentContentWeek = contentWeekForDay(todayIso());
-
-  // Build freshness per source.
-  const freshnessRows: Record<string, { week: number | null; status: string; isWeekly: boolean }> = {};
-  for (const key of PIPELINE_SOURCE_KEYS) {
-    const sourceMeta = detail.sources?.[key];
-    if (!sourceMeta) continue;
-    const vintage = sourceVintage(sourceMeta);
-    const isWeekly = WEEKED_SOURCES.has(key);
-    const status = vintage.week === null ? "unknown"
-      : (vintage.week >= (currentContentWeek ?? 0) ? "current" : "older");
-    freshnessRows[key] = { week: vintage.week, status, isWeekly };
-  }
-
-  // first_load_reference_week: newest vintage among weekly sources, capped at current week.
-  const weeklyWeeks = Object.entries(freshnessRows)
-    .filter(([, r]) => r.isWeekly && r.week !== null)
-    .map(([, r]) => r.week!);
-  const referenceWeek = weeklyWeeks.length
-    ? Math.min(Math.max(...weeklyWeeks), currentContentWeek ?? 0)
-    : null;
-
-  // first_load_excluded: weekly sources older than reference week.
-  const firstLoadExcluded = new Set<string>();
-  for (const [key, row] of Object.entries(freshnessRows)) {
-    if (row.isWeekly && referenceWeek !== null && row.week !== null && row.week < referenceWeek) {
-      firstLoadExcluded.add(key);
-    }
-  }
-
-  // Build sources: for each pipeline source, extract native values.
-  const sources: Record<string, unknown> = {};
-  const included: string[] = [];
-  const hiddenKeys: string[] = [];
-
-  for (const key of PIPELINE_SOURCE_KEYS) {
-    const family = PROJECTION_SOURCE_KEYS.includes(key) ? "projection" : "chart";
-    const sourceSection = detail.sources?.[key];
-
-    // Source hold (validationHold, promotionHold on source section).
-    const hold = sectionHold(sourceSection);
-
-    // Source validation status (string, e.g. "live", "stale").
-    const svStatus = sourceValidation?.[key];
-    const isValidationHeld = svStatus !== undefined && svStatus !== "live";
-
-    // Older week: a weekly chart behind the newest published week (the first-load rule). The
-    // calendar's week is not the test: on the Tuesday flip every chart is still on last week, and
-    // judging them against the calendar dropped them all and priced nobody (Oct 27 2026).
-    const isOlderWeek = firstLoadExcluded.has(key);
-
-    // JEG-610 item 2: divergence 'exclude' resolution -> held semantics.
-    const snapshot = detail.snapshot as Record<string, unknown> | undefined;
-    const divergenceExclusions = (snapshot && Array.isArray(snapshot.divergence_exclusions))
-      ? snapshot.divergence_exclusions as string[] : [];
-    const isDivergenceExcluded = divergenceExclusions.indexOf(key) !== -1;
-
-    // sourceMissingFromData: no source section at all.
-    if (!sourceSection) continue;
-
-    // Not yet published for current week: excluded (unless held or divergence-excluded).
-    if (isOlderWeek && !hold && !isValidationHeld && !isDivergenceExcluded) continue;
-
-    let values: Record<string, number>;
-
-    if (family === "chart") {
-      // Chart source: read saved native values from the combo.
-      const comboKeyStr = ValueModel.sourceComboKey(key, scoring, 12, comboQbSlots);
-      const combos = sourceSection?.combos as Record<string, Record<string, unknown>> | undefined;
-      const combo = comboKeyStr ? combos?.[comboKeyStr] : null;
-      if (!combo || !(combo as Record<string, unknown>).native) continue;
-      values = {};
-      const native = (combo as Record<string, unknown>).native as Record<string, number>;
-      const pkMap = detail.player_keys as Record<string, number>;
-      for (const [sourceId, val] of Object.entries(native)) {
-        const playerKey = pkMap?.[sourceId];
-        if (playerKey !== undefined && Number.isFinite(val)) {
-          values[playerKey] = val;
-        }
-      }
-      if (superflex && (combo as Record<string, unknown>).native_superflex) {
-        const sfNative = (combo as Record<string, unknown>).native_superflex as Record<string, number>;
-        for (const [sourceId, val] of Object.entries(sfNative)) {
-          const playerKey = pkMap?.[sourceId];
-          if (playerKey !== undefined && Number.isFinite(val)) {
-            values[playerKey] = val;
-          }
-        }
-      }
-    } else {
-      // Projection source: read per-game points from players.
-      values = {};
-      const ppgField = PPG_FIELD_OF[key];
-      for (const p of players) {
-        const pk = p.player_key as number;
-        // ESPN zero handling: players ESPN lists at 0 (ineligible/zeroed).
-        if (key === "espn" && espnProjectsZero(p) && !p.espn_ppg) {
-          values[pk] = 0;
-          continue;
-        }
-        const ppgObj = p[ppgField] as Record<string, number> | undefined;
-        const ppg = ppgObj?.[field];
-        if (ppg !== null && ppg !== undefined && Number.isFinite(ppg)) {
-          values[pk] = ppg;
-        }
-      }
-    }
-
-    if (Object.keys(values).length === 0) continue;
-
-    sources[key] = { family, status: "included", values, label: key };
-    included.push(key);
-
-    // Mark as hidden if red-held, validation-held, or divergence-excluded.
-    // JEG-726 / JEG-787: amber holds label the source but do NOT hide it.
-    if ((hold && hold.hidden) || isValidationHeld || isDivergenceExcluded) {
-      hiddenKeys.push(key);
-    }
-  }
-
-  // --- Load lineup parameters (expected-starts model) -------------------------
-  // deno-lint-ignore no-explicit-any
-  let resolvedLineup: any = null;
-  // The edge function fetches lineup-parameters.json from the site alongside the bundle.
-  if (bundle.lineupConfig &&
-      (bundle.lineupConfig as Record<string, unknown>).schema === "lineup-parameters-config/2") {
-    // deno-lint-ignore no-explicit-any
-    const lp = bundle.lineupConfig as any;
-    resolvedLineup = ValueModel.resolveLineupParameters(lp, m.lineupArgs);
-  }
-
-  // JEG-1031: the pipeline setting is the mapped league (roster shape, shares, bench override).
-  const setting = m.setting;
-
-  return {
-    setting,
-    players: playerMap,
-    sources,
-    included,
-    hidden: hiddenKeys,
-    lineup: resolvedLineup,
-  };
 }
 
 // The chart source keys the finder compares (must match finder.js CHART_KEYS).
@@ -381,6 +148,7 @@ function formatResponse(
   superflex: number,
   includeCharts = false,
   custom: string[] = [],
+  week: WeekInfo | null = null,
 ) {
   const rows = pipeline.rows || {};
   // deno-lint-ignore no-explicit-any
@@ -455,6 +223,12 @@ function formatResponse(
     as_of: (meta as Record<string, string>).as_of || null,
     setting: { scoring, teams, superflex },
     league_custom: custom,
+    // JEG-1179: the week these values are for. missing_sources: DDF Value sources at this setting that
+    // have not published this week; they are left out, never filled from another week.
+    week: week?.week ?? null,
+    default_week: week?.default_week ?? null,
+    weeks: week?.weeks ?? [],
+    missing_sources: week?.missing_sources ?? [],
     players: values,
     ...(benchShare ? { bench_share: benchShare } : {}),
     sources_included: Object.keys(pipeline.sources || {}).filter(
@@ -491,6 +265,18 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 // --- Rate limiting (simple per-IP in-memory) --------------------------------
+// JEG-1061: this limiter is a SOFT GUARD ONLY, not a real per-client limit.
+// The buckets live in a Map in this function instance's memory: the counts
+// reset whenever the instance recycles and are never shared across instances,
+// so under load each instance keeps its own count and the "limit" is really
+// per instance. The key is the first entry of the x-forwarded-for header
+// (falling back to cf-connecting-ip), which the client can set to anything,
+// so a caller can mint a fresh bucket by changing one header. All this does
+// is blunt a naive burst against one warm instance. That is accepted on
+// purpose: the function stores no data, so abuse costs CPU only (about
+// 0.3 s per fresh custom league; the answer cache below is per-instance too).
+// A shared or unforgeable-key limiter would be a separate, deliberate
+// change — do not read the numbers below as a guarantee.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute
@@ -539,6 +325,7 @@ Deno.serve(async (req: Request) => {
     let includeCharts = false;
     let league: League = {};
     let rawLeague: unknown = null;
+    let rawWeek: unknown = null;
 
     if (req.method === "POST") {
       const body = await req.json();
@@ -547,6 +334,7 @@ Deno.serve(async (req: Request) => {
       superflex = Number(body.superflex) || 0;
       includeCharts = body.include === "charts";
       rawLeague = body.league ?? null;
+      rawWeek = body.week ?? null;
     } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
@@ -554,6 +342,7 @@ Deno.serve(async (req: Request) => {
       superflex = Number(url.searchParams.get("superflex")) || 0;
       includeCharts = url.searchParams.get("include") === "charts";
       rawLeague = url.searchParams.get("league");
+      rawWeek = url.searchParams.get("week");
     }
     if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
       try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
@@ -575,6 +364,14 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
+    // JEG-1179: optional week (N or N+1 during a transition); absent = the site's default week.
+    const requestedWeek = parseWeek(rawWeek);
+    if (Number.isNaN(requestedWeek)) {
+      return Response.json(
+        { error: `invalid week: ${rawWeek}. Must be a whole number from 1 to 22, or left out for the default week` },
+        { status: 400, headers: cors },
+      );
+    }
     // The top-level fields are the base; the league section adds what they cannot say.
     const merged: League = { ...league, scoring, teams };
     if (superflex && merged.roster?.SUPERFLEX === undefined) {
@@ -587,7 +384,16 @@ Deno.serve(async (req: Request) => {
       merged,
       bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
     );
-    const key = leagueKey(mapped) + (includeCharts ? "|charts" : "");
+    // The week: the site's default (ValueModel.weekState) or the one asked for. A week with no
+    // published sources is an error that names the weeks there are, never an empty list.
+    const plan = planWeek(bundle, mapped, requestedWeek, Deno.env.get("DDF_TODAY") || todayIso());
+    if (!plan.ok) {
+      return Response.json(
+        { error: plan.error, code: "week_unavailable", weeks: plan.weeks, default_week: plan.default_week },
+        { status: 400, headers: cors },
+      );
+    }
+    const key = `${leagueKey(mapped)}${includeCharts ? "|charts" : ""}|wk=${plan.week}`;
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
       if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
@@ -596,13 +402,26 @@ Deno.serve(async (req: Request) => {
           { status: 429, headers: cors },
         );
       }
-      const input = buildPipelineInput(bundle, mapped);
+      if (plan.docWeek !== null) await loadHistoryDoc(bundle, plan.docWeek);
+      const input = buildPipelineInput(bundle, mapped, plan);
+      if (requestedWeek !== null && !input.week.sources.length) {
+        return Response.json(
+          {
+            error: `Week ${requestedWeek} has no published sources at this setting (missing: ` +
+              `${input.week.missing_sources.join(", ") || "none"}). Weeks available: ${input.week.weeks.join(", ")} ` +
+              `(default ${input.week.default_week}).`,
+            code: "week_unavailable", weeks: input.week.weeks, default_week: input.week.default_week,
+          },
+          { status: 400, headers: cors },
+        );
+      }
       // deno-lint-ignore no-explicit-any
       const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
       response = {
         at: Date.now(),
         body: formatResponse(
-          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts, mapped.custom,
+          pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
+          mapped.custom, input.week,
         ),
       };
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
