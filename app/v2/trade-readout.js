@@ -249,9 +249,11 @@
     if (!w.market) return unavailable("unavailable", STRINGS.tooFewCharts((input.chartKeys || []).length));
     const fitIn = input.fit || null;
     if (!fitIn || !fitIn.expected) return unavailable("unavailable", "Fit is not judged: the league's expected roster depth is not known here.");
-    // tradeFit's lineup nets leave an unpriced player out, which would judge the deal as if he were worth 0. Like Compare's
-    // verdict (trade.js "incomplete"), a moving player without DDF Value or the Trade chart average means no verdict, with
-    // who is missing (kickers and defenses are not evaluated and never block it).
+    // tradeFit's lineup nets leave an unpriced player out, which would judge the deal as if that player were worth 0. So a
+    // moving player without DDF Value or the Trade chart average means no verdict, with who is missing (kickers and
+    // defenses are not evaluated and never block it). Like Compare's trade.js "incomplete" rule, but stricter: Compare
+    // judges on any 3 charts that price every moving player, while the chart average needs every available chart, and
+    // tradeFit can't judge on fewer without a new number.
     const missing = [];
     w.giveRows.concat(w.receiveRows).forEach(row => {
       if (!row || F.isNotEvaluated(row)) return;

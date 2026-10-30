@@ -16,7 +16,7 @@ const GOLDEN = path.join(ROOT, "tests/fixtures/jeg1323_trade_readout_rows_golden
 // ---------- the golden trade ----------
 // 12 teams, Full PPR, 1QB. CBS is held this week (data check), so three charts are available: enough for the market
 // view (F.MIN_CHARTS). Your team holds a kicker. Their team lists a player with no engine row this week. You receive a
-// single-source player (one input prices him) and a throw-in with no FantasyPros value (so no Trade chart average).
+// single-source player (one input prices them) and a throw-in with no FantasyPros value (so no Trade chart average).
 const SHAPE = {QB: 1, RB: 2, WR: 2, TE: 1, FLEX: 1, SUPERFLEX: 0, K: 1, DST: 0, BENCH: 6};
 const CHARTS = ["usatoday", "fantasycalc", "fantasypros"];
 const SPREAD = {usatoday: 1.04, fantasycalc: 0.97, fantasypros: 1.01, cbs: 0.98};
@@ -103,8 +103,8 @@ ok(out.rows, "the readout carries the second-half rows (JEG-1323)");
 const rows = R.summary(out).rows;
 const route = leagueRoute(input());
 
-// Verdict: the golden deal's throw-in tWR3 has no Trade chart average, so there is no verdict (tradeFit would leave him
-// out, as if he were worth 0); the reason names him and the missing series (Compare's "incomplete" rule).
+// Verdict: the golden deal's throw-in tWR3 has no Trade chart average, so there is no verdict (tradeFit would leave them
+// out, as if they were worth 0); the reason names them and the missing series (Compare's "incomplete" rule).
 eq(out.rows.verdict.status, "incomplete", "a moving player without a Trade chart average means no verdict");
 eq(out.rows.verdict.missing, [{key: "tWR3", name: NAMES.tWR3, series: ["Trade chart average"]}], "who is missing, and in which series");
 eq(out.rows.verdict.reason, `No verdict: ${NAMES.tWR3} has no Trade chart average value, and a missing value is never counted as 0.`);
