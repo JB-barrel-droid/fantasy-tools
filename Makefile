@@ -187,6 +187,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
 	python3 -m unittest tests.test_health_artifacts_summary_step
 	python3 -m unittest tests.test_health_artifacts_watch
+	python3 -m unittest tests.test_health_artifacts_watch_step
 	python3 -m unittest tests.test_ops_dashboard
 	python3 -m unittest tests.test_retired_extras
 	python3 -m unittest tests.test_load_ddf_leg_contract
@@ -197,6 +198,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_fieldnotes_nav_render
+	python3 -m unittest tests.test_v2_fieldnotes_compare_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
 	python3 -m unittest tests.test_v2_targets_thin_render

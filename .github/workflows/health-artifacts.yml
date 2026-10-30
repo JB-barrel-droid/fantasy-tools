@@ -179,12 +179,23 @@ jobs:
         # previous deploy's copy and failed 3 runs in a row (2026-10-07/08,
         # e.g. 37779712658: served checkpoints 1269 min old, this run's fresh
         # copy still deploying).
+        # Exit 3 (this run's arrival could not be verified while the served
+        # copy is fresh) is a warning, not a red run (Jeremy, 2026-10-30,
+        # JEG-1239: "A"). Stale (1) and not arrived (2) still fail the step. A
+        # denied or failed fetch of the served copy is still stale (1): the
+        # freshness check fails closed and takes precedence.
         run: |
           set -o pipefail
           producer_ok=$([ "${{ steps.build.outcome }}" = "success" ] && echo true || echo false)
           await=()
           if [ "$PUBLISHED" = "true" ]; then await=(--await-published dist/modules); fi
-          python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" "${await[@]}" 2>&1 | tee /tmp/watch.log
+          rc=0
+          python3 pipelines/health_artifacts_watch.py --producer-ok "$producer_ok" "${await[@]}" 2>&1 | tee /tmp/watch.log || rc=$?
+          if [ "$rc" = "3" ]; then
+            echo "::warning title=Health artifacts unverified::arrival of this run's health artifacts could not be verified (watch exit 3); not failing the run"
+            exit 0
+          fi
+          exit "$rc"
 
       # "Is everything working?" banner source: public.monitoring_refresh_summary()
       # records pg_cron history, runs the evaluator over

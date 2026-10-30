@@ -80,6 +80,32 @@ least 4.5:1, control edges and focus at least 3:1.
 - **Phone league entry** (`league.js` `#v2LgPhoneEntry`): built only under the flag and shown only at phone widths, above the league card. The paste box stays below it, so a phone can still paste.
 - **Links keep the flag.** On the `/v2/` copy, a `v2/#view` link would load the page again without `?design=fieldnotes`, so under the flag v2.js keeps such links on the page (as the root page's shim already does).
 
+## Compare a trade (JEG-1138)
+
+The `v2.css` block between `/* JEG-1138: Compare a trade in Fieldnotes` and `/* JEG-1138 end */` puts Compare into
+Fieldnotes under the same flag. It's presentation only: the markup, copy, numbers and verdict rules stay with `v2.js` and
+`trade.js`, and no verdict cutoff is added.
+
+**Reusable for other pages (JEG-1139 adds its selectors to these lists):**
+- Kicker: the 12 px, 750, all-caps label above an answer or a value (the verdict eyebrow, "Deal read").
+- Value view: muted 12 px column heads, rows on `--ddf-line`, tabular figures.
+- Expandable detail: the Fieldnotes disclosure on an existing `<details>` (rule above, ink label, 44 px summary, plus and
+  minus at the end), and row toggles ("Show players") whose own box is the 44 px target.
+
+**Compare only:**
+- The verdict card is the prototype's result card: card radius, 24 px padding (16 on phone), and the heading in the
+  display face at 28 px (24 on phone). The left edge keeps its meaning (win `--v2-action`, lose `--v2-negative`,
+  incomplete `--v2-older`), and a verdict with no side (even, none) takes `--ddf-ink`. The phone verdict bar follows the
+  same rule.
+- "Copy link to this trade" is a 44 px target at every width, not only on touch screens.
+- The sides: kicker headings, the search box on the control edge at 44 px, totals in tabular figures.
+
+**Evidence:** `tests/test_v2_fieldnotes_compare_render.py`. At 390 and 1280 px it opens each verdict branch (none, win,
+lose, even, incomplete) as a trade link. For each, it checks that Compare's text is identical to the unflagged page's,
+the display face, the edge colour, no sideways scroll, 44 px targets and text contrast. It also drives Tab and Enter
+on "Every pairing", on a row's "Show players" and on "Copy link", and checks the phone verdict bar. The unflagged page's
+computed styles are unchanged, and a guard fails without the block.
+
 ## Boundary and what's next
 
 - **JEG-1137 owns:** the tokens, type, controls and flag above; league entry in Fieldnotes; and the shell and navigation (slice 2b, below). The Claude release owner sequences `v2.js` turns on the ticket.
