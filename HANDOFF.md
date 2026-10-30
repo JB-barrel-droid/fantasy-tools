@@ -19,6 +19,15 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline
+  classes of `tests/test_waivers_mutation_specificity.py` (Classifier, Anchor, Fixture; JEG-1279, #1144) on every PR,
+  with the Playwright package but no browser. Non-blocking: its own check, not a `needs` of `preview`, not in test-core
+  (unchanged). It goes red on a broken mutation check; nothing swallows the failure. Guard:
+  `tests/test_waivers_mutation_offline_workflow.py` (also in test-unit-modules). The Chromium class still runs nightly.
+- Next: independent review and green CI, then the merge gate merges. No settings change: it stays non-required.
+
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
 - Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
@@ -84,6 +93,17 @@ below are history, including any "Codex reviews and merges" line.
 - Sleeper identity refresh is green again after #1209 (run 41098267164,
   base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
 - JEG-1205 (#1052) stays on hold for Jeremy.
+
+### JEG-1389 bench switch and lost league settings (correction to #1105; Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1389`, draft PR. Fixes the "Use league rosters" switch not redrawing player lines (`app/v2/league.js`;
+  test `tests/test_jeg1389_switch_redraw_render.py`).
+- The live standard-bench gap was league settings lost on reload: settings from a league import or share link were
+  applied but not saved, so a reload priced at PPR / 2 WR / 7 bench. No value math is wrong. Jeremy picked A
+  (2026-10-30): an import or share link now saves them as the settings form does (`app/v2/v2.js` applyLinkLeague
+  `{save: true}`, called from `league.js`; test `tests/test_jeg1389_link_settings_reload_render.py`). Evidence and the
+  six-player before/after: `docs/claude-log/2026-10-30-jeg1389-bench-switch.md`.
+- Local render tests pin a CBS hold (`_built_dist`, JEG-881): local DDF numbers are not live numbers.
 
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 

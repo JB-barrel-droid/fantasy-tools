@@ -129,6 +129,8 @@ jobs:
       - run: python3 -m unittest tests.test_jeg1380_finder_week_render
       # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
       - run: python3 -m unittest -v tests.test_v2_compare_rosters_render
+      # JEG-1389: the league rosters switch redraws every player line; a share link's league settings survive a reload.
+      - run: python3 -m unittest tests.test_jeg1389_switch_redraw_render tests.test_jeg1389_link_settings_reload_render
       # JEG-1266: the homepage AI connection panel, isolated on its own harness page (not loaded by the site yet).
       # Its desktop and phone screenshots are kept as the run's ai-panel-previews artifact (PR evidence).
       - run: python3 -m unittest tests.test_jeg1266_ai_connection_panel tests.test_jeg1266_ai_connection_panel_render
