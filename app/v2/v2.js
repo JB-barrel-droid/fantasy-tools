@@ -6711,7 +6711,20 @@
   // ---------- How values work (frames 15 / 16) ----------
   // Explains the three views (docs/methodology.md, "The Three Views"). It adds no
   // numbers: the league line and the source lists come straight from the engine.
+  // JEG-1107: DDF Value Logic is part of this page. The frame loads on first view and reports its own height,
+  // so the dashboard scrolls and the frame never does.
+  function loadValueLogic() {
+    const frame = $("v2ValueLogicFrame");
+    if (frame && !frame.getAttribute("src")) frame.src = frame.dataset.src;
+  }
+  window.addEventListener("message", event => {
+    const frame = $("v2ValueLogicFrame");
+    if (!frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
+    const data = event.data;
+    if (data && data.type === "ddf-value-logic-height" && data.height > 0) frame.style.height = Math.ceil(data.height) + "px";
+  });
   function renderHow() {
+    loadValueLogic();
     collect();
     renderHeader();
     $("v2HowLeague").textContent = $("v2LeagueName").textContent;
