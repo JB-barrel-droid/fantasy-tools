@@ -33,7 +33,7 @@ import save_cbsros_references as sc  # noqa: E402
 import save_razzball_references as sr  # noqa: E402
 
 
-def plan(cbs_snap: Path, clean: list[dict], cbs_vintage, rz_vintage, resolve, *, now=None) -> list[str]:
+def plan(cbs_snap: Path, clean: list[dict], cbs_vintage, rz_vintage, registry, *, now=None) -> list[str]:
     """Build both sources' capture rows as a write would and check each required horizon
     against its floor. Writes nothing. -> problems (empty when every horizon clears)."""
     now = now or datetime.now(timezone.utc)
@@ -42,7 +42,7 @@ def plan(cbs_snap: Path, clean: list[dict], cbs_vintage, rz_vintage, resolve, *,
     snap = json.loads(cbs_snap.read_text(encoding="utf-8"))
     weekly_path = cbs_snap.with_name("weekly_snapshot.json")
     weekly = json.loads(weekly_path.read_text(encoding="utf-8")) if weekly_path.exists() else None
-    cbs_rows, rep = pc.cbs_capture_rows(snap.get("rows", []), weekly, resolve, vintage=cbs_vintage, **common)
+    cbs_rows, rep = sc.capture_rows(snap.get("rows", []), weekly, registry, vintage=cbs_vintage, **common)
     rz_rows = pc.razzball_capture_rows(clean, vintage=rz_vintage, **common)
     print(f"[dry-run] phase {common['phase']}; cbs plan {json.dumps(rep, default=str)}")
     problems = []
@@ -55,9 +55,10 @@ def plan(cbs_snap: Path, clean: list[dict], cbs_vintage, rz_vintage, resolve, *,
     return problems
 
 
-def _cbs_resolver():
-    registry = sc.build_registry(sc.fetch_players())
-    return lambda n, p, norm: sc.resolve_name(str(n or "").strip(), (p or "").upper() or None, registry, norm)[0]
+def _cbs_registry():
+    # The save's own registry and resolver (sc.capture_rows), so the dry run resolves
+    # names exactly as the write does (JEG-1386).
+    return sc.build_registry(sc.fetch_players())
 
 
 def main(argv=None) -> int:
@@ -72,7 +73,7 @@ def main(argv=None) -> int:
     cbs_vintage = json.loads(cbs_snap.read_text(encoding="utf-8")).get("vintage_date")
     print(f"razzball {rz_vintage}: {len(clean)} resolved rows ({len(review)} review); cbs {cbs_vintage}")
     if a.dry_run:
-        problems = plan(cbs_snap, clean, cbs_vintage, rz_vintage, _cbs_resolver())
+        problems = plan(cbs_snap, clean, cbs_vintage, rz_vintage, _cbs_registry())
         for p in problems:
             print(f"::error title=projection capture dry run::{p}")
         print("[dry-run] nothing written")
