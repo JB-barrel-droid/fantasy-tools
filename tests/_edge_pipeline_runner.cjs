@@ -36,7 +36,7 @@ const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
 const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
 // JEG-1225: the caller's basis and overrides, through the function's own value-context.ts and the site's link reader.
-const { applyOverrides, basisConfigOf, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
+const { applyOverrides, basisConfigOf, overrideSeries, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
 const ValueLink = require("../app/v2/ddf-value-link.js");
 const read = readValueContext(ValueLink, args.basis ?? null, args.ov ?? null);
 if (!read.ok) {
@@ -161,7 +161,7 @@ if (parsedInclude.error) {
 }
 const analysis = {};
 const includes = parsedInclude.includes;
-if (includes.has("series")) analysis.series = seriesBlock(pipeline, input.hidden || []);
+if (includes.has("series")) analysis.series = overrideSeries(seriesBlock(pipeline, input.hidden || []), own);
 // --mutate two-weeks-back (tests/test_connector_analyses.py's broken variant): the "prior week" priced on
 // Week N-2's inputs but labelled Week N-1, so the parity check must fail on the values, not the label.
 if (includes.has("prior")) {

@@ -297,4 +297,24 @@ for (const [body, unread, why] of [
   assert.equal(most.status, 200, `${MAX_OVERRIDES} overrides, the most allowed, still answer`);
 }
 
+// 9. include=series with overrides (Codex review of #1124 after #1156): an overridden player's DDF Value series is
+// the value in players[], as the site's row shows it. The charts-only and projections-only versions and the source
+// series stay the engine's, and players with no override keep their series.
+{
+  const plain = await (await post({ scoring: "ppr", teams: 12, include: "series" })).json();
+  const res = await post({ scoring: "ppr", teams: 12, ov: `${a}:58,${b}:+5`, include: "series" });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const rows = byKey(body);
+  for (const pk of [a, b]) {
+    assert.equal(Math.round(body.series[pk].ddf_value * 10) / 10, rows[pk].value, `${pk}: series ddf_value is the overridden value`);
+    assert.notEqual(Math.round(plain.series[pk].ddf_value * 10) / 10, rows[pk].value, `${pk}: the override moved it`);
+    const { ddf_value: _o, ...restOver } = body.series[pk];
+    const { ddf_value: _p, ...restPlain } = plain.series[pk];
+    assert.deepEqual(restOver, restPlain, `${pk}: other series are the engine's`);
+  }
+  assert.equal(rows[a].value, 58);
+  assert.deepEqual(body.series[c], plain.series[c], "a player with no override keeps its series");
+}
+
 console.log("ok");

@@ -42,7 +42,8 @@ import {
   type WeekInfo,
 } from "./pipeline.ts";
 import {
-  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, readValueContext, type ValueContext,
+  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, overrideSeries, readValueContext,
+  type ValueContext,
 } from "./value-context.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
@@ -167,8 +168,13 @@ async function addAnalysis(
   // deno-lint-ignore no-explicit-any
   body: any, includes: Set<Include>, bundle: CachedBundle, input: any, pipeline: any,
   plan: { week: number | null; served: Record<string, number | null> }, scoring: string,
+  context: ValueContext = { basis: null, overrides: {}, custom: false },
 ): Promise<void> {
-  if (includes.has("series")) body.series = seriesBlock(pipeline, input.hidden ?? []);
+  // JEG-1225: the DDF Value series carries the caller's overrides, so it agrees with players[].value.
+  if (includes.has("series")) {
+    body.series = overrideSeries(seriesBlock(pipeline, input.hidden ?? []),
+      applyOverrides(bundle.ValueModel, pipeline, context));
+  }
   if (includes.has("prior")) {
     if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
     body.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served ?? {}, scoring);
@@ -541,7 +547,7 @@ Deno.serve(async (req: Request) => {
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
           mapped.custom, input.week, bundle.ValueModel, context,
         );
-        await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring);
+        await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring, context);
         response = { at: Date.now(), body };
       }
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
