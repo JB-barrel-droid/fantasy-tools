@@ -5,6 +5,9 @@ and port #1191's chip over path A without editing v2.js or shell.html. Draft
 only; no deployment, database writes/migrations, settings or secret changes.
 
 ### Verified (check named)
+- Earliest stopped scheduled run, 38375192524 on Oct 13: the same canonical
+  identity gate rejected `derive_lineup_parameters.py`'s resolve import.
+  Later failures moved to projection_capture; the API itself kept responding.
 - `gh run list --workflow sleeper-identity-refresh.yml` and the failed-step
   log for run 40848414836: the pull succeeded but the identity gate failed
   `test_player_resolution_uses_canonical_players` on projection_capture's
@@ -45,6 +48,18 @@ only; no deployment, database writes/migrations, settings or secret changes.
 - Local sync succeeds using Python 3.12 and installed Chrome. The initial
   `make validate` attempt stopped during sync because this virtualenv's
   Playwright browser download was absent; use `CHROMIUM_PATH` for this Mac.
+- Step 2 commit: `86fa5e3c`. Step 3 ports only #1191's player-flags helper,
+  chip CSS and tests over path A's existing hooks. Neither `app/v2/v2.js`
+  nor `app/v2/shell.html` is edited. `players.json` remains byte-identical to
+  the base (SHA-256 `296c4d9d87a6647fd413a3fbb5f85c810cbf031e0936a7f0bb0fefa41c85c7c9`);
+  the display snapshot matches 770 existing rows by Sleeper id. Missing IDs
+  remain unshown, never name-matched or inferred.
+- After the chip port, `tests.test_player_flags`, `tests.test_daily_player_status`,
+  `tests.test_waivers_status`, `tests.test_validate_shards`: 38 tests OK.
+  Includes the actual daily-map tooltip and suppression of a cleared/missing
+  ID's baked Out status. Thirty of the 770 matched statuses changed between
+  the recovered 17:22 identity bake and the 22:44 live pull (DeVonta Smith:
+  Questionable -> Out; Lamar Jackson: Questionable -> no status).
 
 ### Claimed, not confirmed
 - Scheduled publication and production UI behavior need this PR merged and
