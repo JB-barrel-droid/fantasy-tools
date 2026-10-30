@@ -104,6 +104,15 @@ def run_script(text, step_name, cwd, env_extra=None):
     assert block is not None, f"step {step_name!r} missing"
     script = script_of(block)
     assert script, f"step {step_name!r} has no run block"
+    # Workflow scripts invoke the shared publication guard in throwaway repos.
+    if "pipelines/main_write_guard.py" in script:
+        helper = Path(cwd) / "pipelines/main_write_guard.py"
+        if not helper.exists():
+            helper.parent.mkdir(parents=True, exist_ok=True)
+            helper.write_bytes((ROOT / "pipelines/main_write_guard.py").read_bytes())
+            timestamps = helper.parent / "lib/timestamps.py"
+            timestamps.parent.mkdir(parents=True, exist_ok=True)
+            timestamps.write_bytes((ROOT / "pipelines/lib/timestamps.py").read_bytes())
     env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd), **(env_extra or {})}
     return subprocess.run(["bash", "-e", "-c", script], cwd=cwd, env=env,
                           capture_output=True, text=True)
