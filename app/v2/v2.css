@@ -2644,8 +2644,9 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-net { font-weight: 650; }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-grid td { border-color: var(--ddf-line); border-radius: var(--ddf-radius-control); }
 :root[data-design="fieldnotes"] #v2Compare .v2-deal-grid td.is-current { border-color: var(--ddf-action); }
-/* Sharing: "Copy link to this trade" is a 44 px target at every width, not only on touch screens. */
-:root[data-design="fieldnotes"] #v2Compare .v2-cshare-link { display: inline-flex; align-items: center; min-height: var(--ddf-hit); padding: 0 6px; }
+/* Sharing: "Copy link to this trade" is a 44 px target at every width, not only on touch screens. Only while shown:
+   v2.js hides it until both sides have a player, and a display value here would override [hidden]. */
+:root[data-design="fieldnotes"] #v2Compare .v2-cshare-link:not([hidden]) { display: inline-flex; align-items: center; min-height: var(--ddf-hit); padding: 0 6px; }
 /* The two sides: kicker headings, the search box on the control edge at 44 px, the side total in tabular figures. */
 :root[data-design="fieldnotes"] #v2Compare .v2-trade-side h2 {
   font-size: var(--ddf-type-meta); font-weight: 750; letter-spacing: .08em; text-transform: uppercase;
