@@ -130,6 +130,9 @@ test-unit-modules:
 	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
 	python3 -m unittest tests.test_edge_drift_check
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
+	python3 -m unittest tests.test_connector_roundtrip
+	python3 -m unittest tests.test_connector_inventory
 	# JEG-1225: the shared value-context link format (basis=, ov=).
 	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping

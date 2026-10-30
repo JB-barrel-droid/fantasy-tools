@@ -2006,6 +2006,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-sumrow { display: grid; gap: 2px; min-width: 0; }
 .v2-find-sumrow .v2-meta { margin: 0; }
 .v2-find-sum-names { overflow-wrap: anywhere; }
+.v2-find-sum-rails { grid-column: 1 / -1; margin: 0; }   /* JEG-1237: the folded trade settings, one line under both teams */
 @media (max-width: 767px) { .v2-find-summary { grid-template-columns: 1fr; } .v2-find-summary .v2-btn { justify-self: start; } }
 
 /* JEG-972: grouped results, one card per received player */
