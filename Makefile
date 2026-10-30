@@ -969,6 +969,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_override_adjustments_render
 	# JEG-1231: opponent inclusion control (private preview): keyboard, names, counts, phone width.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
+	python3 -m unittest tests.test_jeg1231_league_inclusion_render
 	# JEG-1275: selected-package composition preview at 1280/390/320.
 	python3 -m unittest tests.test_package_composition_preview_render
 
