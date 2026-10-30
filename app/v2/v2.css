@@ -2602,6 +2602,86 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 :root[data-design="fieldnotes"] .v2-find-import > summary::-webkit-details-marker { display: none; }
 :root[data-design="fieldnotes"] .v2-find-import > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
 :root[data-design="fieldnotes"] .v2-find-import[open] > summary::after { content: "\2212"; }
+/* JEG-1137 slice 2a end */
+/* JEG-1137 slice 2b: Fieldnotes navigation, Home and the phone league entry (opt-in, same flag). Source: prototype.html
+   topbar, bottomnav, home() and the phone paste(). Markup: shell.html #v2FnPrimary and #v2Home, league.js #v2LgPhoneEntry.
+   Contract: docs/design/fieldnotes-components.md. Phone is the site's nav breakpoint (JEG-953). */
+/* The primary bar replaces the menu button and the page name; the full page list (#v2Tabs) opens from More. */
+:root[data-design="fieldnotes"] .v2-nav .v2-nav-toggle,
+:root[data-design="fieldnotes"] .v2-nav .v2-nav-current { display: none; }
+:root[data-design="fieldnotes"] .v2-fn-primary { display: flex; gap: 4px; align-items: center; margin-left: auto; }
+:root[data-design="fieldnotes"] .v2-fn-go {
+  display: inline-flex; align-items: center; gap: 6px; min-height: var(--ddf-hit); padding: 8px 12px;
+  border: 0; border-radius: var(--ddf-radius-control); background: none; color: rgba(255,255,255,.85);
+  font: inherit; font-size: var(--ddf-type-support); font-weight: 500; line-height: 1.2; text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+:root[data-design="fieldnotes"] .v2-fn-go svg { display: none; width: 20px; height: 20px; flex: 0 0 auto; }
+:root[data-design="fieldnotes"] .v2-fn-go[aria-current="page"],
+:root[data-design="fieldnotes"] .v2-fn-go[aria-expanded="true"] { background: rgba(255,255,255,.12); color: #fff; font-weight: 650; }
+@media (hover: hover) { :root[data-design="fieldnotes"] .v2-fn-go:hover { background: rgba(255,255,255,.08); color: #fff; } }
+@media (min-width: 768px) and (min-height: 501px), (min-width: 933px) {
+  :root[data-design="fieldnotes"] .v2-nav .v2-tabs { left: auto; right: 48px; }
+}
+@media (min-width: 768px) and (min-height: 501px) and (max-width: 1279px), (min-width: 933px) and (max-width: 1279px) {
+  :root[data-design="fieldnotes"] .v2-nav .v2-tabs { right: 24px; }
+}
+@media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
+  /* Phone: five labelled destinations fixed at the foot, as in the prototype's bottom bar. */
+  :root[data-design="fieldnotes"] .v2-fn-primary {
+    position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch;
+    margin: 0; padding: 4px 4px calc(6px + env(safe-area-inset-bottom)); background: var(--ddf-surface); border-top: 1px solid var(--ddf-line);
+  }
+  :root[data-design="fieldnotes"] .v2-fn-go {
+    flex-direction: column; justify-content: center; gap: 2px; min-height: 62px; padding: 6px 2px;
+    color: var(--ddf-ink); font-size: 11px; font-weight: 600; white-space: normal; text-align: center;
+  }
+  :root[data-design="fieldnotes"] .v2-fn-go svg { display: block; }
+  :root[data-design="fieldnotes"] .v2-fn-go[aria-current="page"],
+  :root[data-design="fieldnotes"] .v2-fn-go[aria-expanded="true"] { background: var(--ddf-subtle); color: var(--ddf-action); }
+  @media (hover: hover) { :root[data-design="fieldnotes"] .v2-fn-go:hover { background: var(--ddf-subtle); color: var(--ddf-ink); } }
+  /* The bar is light, so the nav's white focus ring would vanish on it. */
+  :root[data-design="fieldnotes"] .v2-nav .v2-fn-primary :focus-visible { outline-color: var(--ddf-focus); outline-offset: -3px; }
+  /* More opens the full list as a sheet above the bar (4 + 62 + 6 px and its 1 px rule: 73 px, two-line labels included). */
+  :root[data-design="fieldnotes"] .v2-nav.is-open .v2-tabs {
+    position: fixed; z-index: 59; left: 0; right: 0; bottom: calc(73px + env(safe-area-inset-bottom)); max-height: calc(100vh - 150px); overflow-y: auto;
+    margin: 0; padding: 8px 16px 12px; background: var(--v2-nav); border-top: 1px solid rgba(255,255,255,.18);
+  }
+  /* Other things fixed at the foot sit above the bar: Compare's verdict bar and the status note. */
+  :root[data-design="fieldnotes"] .v2-cverdict-bar:not([hidden]) { bottom: calc(81px + var(--v2-safe-bottom)); }
+  :root[data-design="fieldnotes"] #v2Compare.has-verdict-bar { padding-bottom: calc(169px + var(--v2-safe-bottom)); }
+  :root[data-design="fieldnotes"] .v2-status { bottom: calc(93px + var(--v2-safe-bottom)); }
+  /* Content and scrolled-to controls clear the bar. */
+  :root[data-design="fieldnotes"] { scroll-padding-bottom: 88px; }
+  :root[data-design="fieldnotes"] .v2-app { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
+}
+/* Links styled as buttons (Home and the phone entry). */
+:root[data-design="fieldnotes"] .v2-app a.v2-btn { display: inline-flex; align-items: center; justify-content: center; color: var(--v2-ink); text-decoration: none; }
+:root[data-design="fieldnotes"] .v2-app a.v2-btn-primary { color: var(--v2-action-ink); }
+/* Home: the hero, then three ways in. */
+:root[data-design="fieldnotes"] .v2-fn-home { padding-top: 32px; padding-bottom: 48px; }
+:root[data-design="fieldnotes"] .v2-fn-hero { max-width: 640px; padding: 24px 0 40px; }
+:root[data-design="fieldnotes"] .v2-fn-hero h1 { margin: 16px 0; }
+:root[data-design="fieldnotes"] .v2-fn-lead { margin: 0 0 24px; font-size: 18px; color: var(--ddf-muted); }
+:root[data-design="fieldnotes"] .v2-fn-actions { display: flex; flex-wrap: wrap; gap: var(--ddf-space-mid); margin-bottom: 16px; }
+:root[data-design="fieldnotes"] .v2-fn-routes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+:root[data-design="fieldnotes"] .v2-fn-routes article { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding-top: 18px; border-top: 1px solid var(--ddf-control); }
+:root[data-design="fieldnotes"] .v2-fn-routes h2 { font-family: var(--ddf-font-display); font-weight: 600; font-size: 22px; line-height: 1.2; }
+:root[data-design="fieldnotes"] .v2-fn-routes .v2-btn { margin-top: 4px; }
+:root[data-design="fieldnotes"] .v2-fn-kicker { font-size: var(--ddf-type-meta); font-weight: 650; letter-spacing: .06em; text-transform: uppercase; color: var(--ddf-muted); }
+/* League entry on a phone: set up on desktop first; the paste box follows. */
+:root[data-design="fieldnotes"] .v2-fn-phone-entry { display: none; }
+:root[data-design="fieldnotes"] .v2-fn-phone-entry h2 { margin: 0 0 6px; font-family: var(--ddf-font-display); font-weight: 600; font-size: 26px; line-height: 1.15; }
+:root[data-design="fieldnotes"] .v2-fn-phone-entry h3 { margin: 20px 0 0; font-size: 17px; }
+:root[data-design="fieldnotes"] .v2-fn-steps { margin: 12px 0 16px; padding-left: 26px; }
+:root[data-design="fieldnotes"] .v2-fn-steps li { padding: 0 0 14px 6px; }
+:root[data-design="fieldnotes"] .v2-fn-steps p { margin-top: 4px; }
+@media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
+  :root[data-design="fieldnotes"] .v2-fn-routes { grid-template-columns: 1fr; }
+  :root[data-design="fieldnotes"] .v2-fn-home { padding-top: 16px; }
+  :root[data-design="fieldnotes"] .v2-fn-lead { font-size: 16px; }
+  :root[data-design="fieldnotes"] .v2-fn-phone-entry { display: block; margin-bottom: 16px; }
+}
+/* JEG-1137 slice 2b end */
 /* JEG-1138: Compare a trade in Fieldnotes (opt-in, same flag). Source: prototype.html .result, .kicker, table and
    details rules; contract docs/design/fieldnotes-components.md. Presentation only: the markup, copy, numbers and verdict
    rules are v2.js's and trade.js's, unchanged. The first part is the reusable value view, explanation and expandable
