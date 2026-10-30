@@ -111,12 +111,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -370,12 +365,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -533,12 +523,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -601,12 +586,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -780,12 +760,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -1007,12 +982,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -1075,12 +1045,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -1224,12 +1189,7 @@
     "punctuation",
     "source_disagreement"
    ],
-   "status": "known_gap",
-   "gap": "fail_closed",
-   "observed": {
-    "player_key": null,
-    "reason": "unmatched"
-   }
+   "status": "pass"
   },
   {
    "platform": "espn",
@@ -4791,7 +4751,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [275, 1998, 4282]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [275, 1998, 4282]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4806,7 +4766,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [275, 1998, 4282]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [275, 1998, 4282]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4816,12 +4776,12 @@
    "platform": "canonical",
    "spelling": "Ben VanSumeren",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 4661,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1155, 4661]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1155, 4661]; data/inputs/players_active_snapshot.json active [4661]",
    "tags": [
     "collision"
    ],
@@ -4836,7 +4796,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1155, 4661]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1155, 4661]; data/inputs/players_active_snapshot.json active [4661]",
    "tags": [
     "collision"
    ],
@@ -4851,7 +4811,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [3220, 4126]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [3220, 4126]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4866,7 +4826,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [3220, 4126]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [3220, 4126]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4881,7 +4841,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [433, 735]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [433, 735]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4896,7 +4856,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [433, 735]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [433, 735]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4911,7 +4871,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1894, 3851]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1894, 3851]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4926,7 +4886,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1894, 3851]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1894, 3851]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4941,7 +4901,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1912, 2847]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1912, 2847]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4956,7 +4916,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1912, 2847]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1912, 2847]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4971,7 +4931,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1468, 1900]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1468, 1900]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4986,7 +4946,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1468, 1900]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1468, 1900]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -4996,12 +4956,12 @@
    "platform": "canonical",
    "spelling": "DeVonta Smith",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 764,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [764, 2925]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [764, 2925]; data/inputs/players_active_snapshot.json active [764]",
    "tags": [
     "collision"
    ],
@@ -5016,7 +4976,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [764, 2925]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [764, 2925]; data/inputs/players_active_snapshot.json active [764]",
    "tags": [
     "collision"
    ],
@@ -5031,7 +4991,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1177, 2533]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1177, 2533]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -5046,7 +5006,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1177, 2533]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1177, 2533]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -5056,12 +5016,12 @@
    "platform": "canonical",
    "spelling": "Joshua Williams",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 1070,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1070, 4286]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1070, 4286]; data/inputs/players_active_snapshot.json active [1070]",
    "tags": [
     "collision"
    ],
@@ -5076,7 +5036,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1070, 4286]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1070, 4286]; data/inputs/players_active_snapshot.json active [1070]",
    "tags": [
     "collision"
    ],
@@ -5091,7 +5051,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2814, 3892]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2814, 3892]; data/inputs/players_active_snapshot.json active [2814, 3892]",
    "tags": [
     "collision"
    ],
@@ -5106,7 +5066,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2814, 3892]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2814, 3892]; data/inputs/players_active_snapshot.json active [2814, 3892]",
    "tags": [
     "collision"
    ],
@@ -5121,7 +5081,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [892, 4297]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [892, 4297]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -5136,7 +5096,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [892, 4297]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [892, 4297]; data/inputs/players_active_snapshot.json active []",
    "tags": [
     "collision"
    ],
@@ -5151,7 +5111,7 @@
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [506, 1149]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [506, 1149]; data/inputs/players_active_snapshot.json active [506, 1149]",
    "tags": [
     "collision"
    ],
@@ -5166,7 +5126,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [506, 1149]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [506, 1149]; data/inputs/players_active_snapshot.json active [506, 1149]",
    "tags": [
     "collision"
    ],
@@ -5176,12 +5136,12 @@
    "platform": "canonical",
    "spelling": "Leroy Watson IV",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 4658,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1000, 4658]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1000, 4658]; data/inputs/players_active_snapshot.json active [4658]",
    "tags": [
     "collision"
    ],
@@ -5196,7 +5156,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1000, 4658]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [1000, 4658]; data/inputs/players_active_snapshot.json active [4658]",
    "tags": [
     "collision"
    ],
@@ -5206,12 +5166,12 @@
    "platform": "canonical",
    "spelling": "Marvin Jones Jr.",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 4648,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2224, 4648]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2224, 4648]; data/inputs/players_active_snapshot.json active [4648]",
    "tags": [
     "collision"
    ],
@@ -5226,7 +5186,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2224, 4648]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2224, 4648]; data/inputs/players_active_snapshot.json active [4648]",
    "tags": [
     "collision"
    ],
@@ -5236,12 +5196,12 @@
    "platform": "canonical",
    "spelling": "Michael Carter II",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 777,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [661, 777]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [661, 777]; data/inputs/players_active_snapshot.json active [777]",
    "tags": [
     "collision"
    ],
@@ -5256,7 +5216,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [661, 777]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [661, 777]; data/inputs/players_active_snapshot.json active [777]",
    "tags": [
     "collision"
    ],
@@ -5266,12 +5226,12 @@
    "platform": "canonical",
    "spelling": "Spencer Brown",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 4032,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [684, 4032]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [684, 4032]; data/inputs/players_active_snapshot.json active [4032]",
    "tags": [
     "collision"
    ],
@@ -5286,7 +5246,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [684, 4032]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [684, 4032]; data/inputs/players_active_snapshot.json active [4032]",
    "tags": [
     "collision"
    ],
@@ -5296,12 +5256,12 @@
    "platform": "canonical",
    "spelling": "Tyler Davis",
    "pos": null,
-   "expect_key": null,
-   "expect_reason": "ambiguous",
+   "expect_key": 4127,
+   "expect_reason": "ok",
    "ground": [
     "snapshot_collision"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2320, 4127]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2320, 4127]; data/inputs/players_active_snapshot.json active [4127]",
    "tags": [
     "collision"
    ],
@@ -5316,7 +5276,7 @@
    "ground": [
     "snapshot_collision_position"
    ],
-   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2320, 4127]",
+   "evidence": "data/inputs/players_identity_snapshot.json player_keys [2320, 4127]; data/inputs/players_active_snapshot.json active [4127]",
    "tags": [
     "collision"
    ],

@@ -7,12 +7,12 @@ Sunday pre-kickoff copy (phase sunday). For every content week from 7 (Sunday co
 at least the row floor (pipelines/lib/projection_capture.py):
   espn week-ahead rows, cbs ros + week rows, razzball ros rows.
 A midweek copy is due from Wednesday 12:00 UTC of its week, a Sunday copy from the
-following Monday 12:00 UTC. Exit 1 with one line per gap; a missing Sunday copy fails
+following Monday 12:00 UTC, or with --pre-kickoff from that Sunday 16:00 UTC (JEG-1377). Exit 1 with one line per gap; a missing Sunday copy fails
 loudly here, in espn-weekly-store.yml, which feeds no published value. The CBS and Razzball
 savers never fail on a capture fault.
 
 Reads through PostgREST with one-row probes, never the table. Usage:
-  python3 pipelines/check_projection_captures.py [--season 2026] [--now ISO]
+  python3 pipelines/check_projection_captures.py [--season 2026] [--pre-kickoff] [--now ISO]
 """
 from __future__ import annotations
 
@@ -31,12 +31,14 @@ from timestamps import parse_iso_timestamp  # noqa: E402
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--season", type=int, default=2026)
+    ap.add_argument("--pre-kickoff", action="store_true",
+                    help="the current week's Sunday copy is due from Sunday 16:00 UTC (JEG-1377)")
     ap.add_argument("--now", help="ISO time, tests only")
     a = ap.parse_args(argv)
     now = parse_iso_timestamp(a.now) if a.now else datetime.now(timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
-    cells = pc.required_cells(now)
+    cells = pc.required_cells(now, sunday_due=pc.SUNDAY_DUE_PRE_KICKOFF if a.pre_kickoff else pc.SUNDAY_DUE)
     try:
         import sbclient  # noqa: PLC0415
     except ImportError:

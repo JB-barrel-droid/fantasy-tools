@@ -1,0 +1,2261 @@
+{
+ "_comment": "JEG-1271 synthetic fixtures. Every player and number is invented. verdict/groups/againstKeys are the outputs of the current trade.js (dealRead, compareTrade, tradeVerdict) on give/receive; tests/test_compare_evidence_view_contract.py recomputes them and fails if they drift. Copy strings are current site text, supplied by the caller; final wording belongs to JEG-1130.",
+ "cases": [
+  {
+   "id": "win-even-complete",
+   "description": "Value win at a fair market price; every source has every player.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-1",
+     "name": "Synthetic Receiver A",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 40,
+      "ddf_value_projections": 38,
+      "usatoday": 41,
+      "fantasycalc": 40,
+      "fantasypros": 39,
+      "cbs": 40,
+      "espn": 36,
+      "cbsros": 37,
+      "razzball": 35
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-2",
+     "name": "Synthetic Receiver B",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 44,
+      "ddf_value_projections": 42,
+      "usatoday": 40.8,
+      "fantasycalc": 39.6,
+      "fantasypros": 38.9,
+      "cbs": 39.5,
+      "espn": 40,
+      "cbsros": 41,
+      "razzball": 39
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": 4,
+      "give": 40,
+      "receive": 44,
+      "side": "win",
+      "threshold": 1.26,
+      "missing": []
+     },
+     "market": {
+      "net": -0.3000000000000007,
+      "give": 40,
+      "receive": 39.7,
+      "side": "even",
+      "threshold": 1.1955,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 4,
+       "of": 4,
+       "accept": "Likely",
+       "min": -0.5,
+       "max": -0.10000000000000142
+      },
+      "split": false
+     },
+     "projections": {
+      "net": 4,
+      "give": 38,
+      "receive": 42,
+      "side": "win",
+      "threshold": 1.2,
+      "missing": []
+     },
+     "cell": "win|even",
+     "title": "Value win at a fair market price",
+     "action": "Propose it",
+     "text": "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 41,
+        "receive": 40.8,
+        "net": -0.20000000000000284,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 39,
+        "receive": 38.9,
+        "net": -0.10000000000000142,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 40,
+        "receive": 39.5,
+        "net": -0.5,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 40,
+        "receive": 39.6,
+        "net": -0.3999999999999986,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 36,
+        "receive": 40,
+        "net": 4,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 37,
+        "receive": 41,
+        "net": 4,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 35,
+        "receive": 39,
+        "net": 4,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [
+     "usatoday",
+     "fantasypros",
+     "cbs",
+     "fantasycalc"
+    ],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "win|even",
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "win-lose-conflicting",
+   "description": "DDF Value likes it, the market doesn't: the charts point the other way.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-3",
+     "name": "Synthetic Back C",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 50,
+      "ddf_value_projections": 47,
+      "usatoday": 60,
+      "fantasycalc": 61,
+      "fantasypros": 59,
+      "cbs": 62,
+      "espn": 45,
+      "cbsros": 46,
+      "razzball": 44
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-4",
+     "name": "Synthetic Back D",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 56,
+      "ddf_value_projections": 52,
+      "usatoday": 52,
+      "fantasycalc": 53,
+      "fantasypros": 51,
+      "cbs": 54,
+      "espn": 50,
+      "cbsros": 52,
+      "razzball": 49
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": 6,
+      "give": 50,
+      "receive": 56,
+      "side": "win",
+      "threshold": 1.5899999999999999,
+      "missing": []
+     },
+     "market": {
+      "net": -8,
+      "give": 60.5,
+      "receive": 52.5,
+      "side": "lose",
+      "threshold": 1.6949999999999998,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 4,
+       "of": 4,
+       "accept": "Likely",
+       "min": -8,
+       "max": -8
+      },
+      "split": false
+     },
+     "projections": {
+      "net": 5,
+      "give": 47,
+      "receive": 52,
+      "side": "win",
+      "threshold": 1.4849999999999999,
+      "missing": []
+     },
+     "cell": "win|lose",
+     "title": "DDF Value likes it. The market doesn't.",
+     "action": "",
+     "text": "The trade charts have you 8.0 points behind, so the other manager will likely see it as their win.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 60,
+        "receive": 52,
+        "net": -8,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 59,
+        "receive": 51,
+        "net": -8,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 62,
+        "receive": 54,
+        "net": -8,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 61,
+        "receive": 53,
+        "net": -8,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 45,
+        "receive": 50,
+        "net": 5,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 46,
+        "receive": 52,
+        "net": 6,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 44,
+        "receive": 49,
+        "net": 5,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [
+     "usatoday",
+     "fantasypros",
+     "cbs",
+     "fantasycalc"
+    ],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "win|lose",
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "win-split-charts",
+   "description": "Value win while the charts disagree with each other.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-5",
+     "name": "Synthetic End E",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 30,
+      "ddf_value_projections": 29,
+      "usatoday": 30,
+      "fantasycalc": 30,
+      "fantasypros": 30,
+      "cbs": 30,
+      "espn": 28,
+      "cbsros": 27,
+      "razzball": 29
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-6",
+     "name": "Synthetic End F",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 36,
+      "ddf_value_projections": 34,
+      "usatoday": 22,
+      "fantasycalc": 25,
+      "fantasypros": 38,
+      "cbs": 37,
+      "espn": 32,
+      "cbsros": 33,
+      "razzball": 31
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": 6,
+      "give": 30,
+      "receive": 36,
+      "side": "win",
+      "threshold": 1,
+      "missing": []
+     },
+     "market": {
+      "net": 0.5,
+      "give": 30,
+      "receive": 30.5,
+      "side": "even",
+      "threshold": 1,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 2,
+       "of": 4,
+       "accept": "Toss-up",
+       "min": -8,
+       "max": 8
+      },
+      "split": true
+     },
+     "projections": {
+      "net": 5,
+      "give": 29,
+      "receive": 34,
+      "side": "win",
+      "threshold": 1,
+      "missing": []
+     },
+     "cell": "win|even",
+     "title": "Value win, but the trade charts split",
+     "action": "Propose it",
+     "text": "DDF Value says you come out ahead, but the trade charts disagree with each other by 16.0 points (−8.0 to +8.0): 2 of 4 have the other manager winning or even, so acceptance is uncertain.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 30,
+        "receive": 22,
+        "net": -8,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 30,
+        "receive": 38,
+        "net": 8,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 30,
+        "receive": 37,
+        "net": 7,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 30,
+        "receive": 25,
+        "net": -5,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 28,
+        "receive": 32,
+        "net": 4,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 27,
+        "receive": 33,
+        "net": 6,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 29,
+        "receive": 31,
+        "net": 2,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [
+     "usatoday",
+     "fantasycalc"
+    ],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "win|even",
+    "split": true,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "lose-lose-zero",
+   "description": "A loss on both, with one projection row exactly zero and a player valued at a real 0.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-7",
+     "name": "Synthetic Passer G",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 35,
+      "ddf_value_projections": 33,
+      "usatoday": 36,
+      "fantasycalc": 35,
+      "fantasypros": 37,
+      "cbs": 36,
+      "espn": 30,
+      "cbsros": 31,
+      "razzball": 32
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-8",
+     "name": "Synthetic Passer H",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 27,
+      "ddf_value_projections": 26,
+      "usatoday": 28,
+      "fantasycalc": 27,
+      "fantasypros": 29,
+      "cbs": 28,
+      "espn": 30,
+      "cbsros": 25,
+      "razzball": 26
+     }
+    },
+    {
+     "player_key": "syn-9",
+     "name": "Synthetic Kicker I",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 0,
+      "ddf_value_projections": 0,
+      "usatoday": 0,
+      "fantasycalc": 0,
+      "fantasypros": 0,
+      "cbs": 0,
+      "espn": 0,
+      "cbsros": 0,
+      "razzball": 0
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": -8,
+      "give": 35,
+      "receive": 27,
+      "side": "lose",
+      "threshold": 1,
+      "missing": []
+     },
+     "market": {
+      "net": -8,
+      "give": 36,
+      "receive": 28,
+      "side": "lose",
+      "threshold": 1,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 4,
+       "of": 4,
+       "accept": "Likely",
+       "min": -8,
+       "max": -8
+      },
+      "split": false
+     },
+     "projections": {
+      "net": -7,
+      "give": 33,
+      "receive": 26,
+      "side": "lose",
+      "threshold": 1,
+      "missing": []
+     },
+     "cell": "lose|lose",
+     "title": "A loss on both",
+     "action": "Pass",
+     "text": "DDF Value and the trade charts both say you lose.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you lose."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 36,
+        "receive": 28,
+        "net": -8,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 37,
+        "receive": 29,
+        "net": -8,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 36,
+        "receive": 28,
+        "net": -8,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 35,
+        "receive": 27,
+        "net": -8,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 30,
+        "receive": 30,
+        "net": 0,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 31,
+        "receive": 25,
+        "net": -6,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 32,
+        "receive": 26,
+        "net": -6,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "lose|lose",
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "even-even",
+   "description": "A fair trade on value and on the charts.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-10",
+     "name": "Synthetic Receiver J",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 25,
+      "ddf_value_projections": 24,
+      "usatoday": 25,
+      "fantasycalc": 26,
+      "fantasypros": 24,
+      "cbs": 25,
+      "espn": 23,
+      "cbsros": 22,
+      "razzball": 24
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-11",
+     "name": "Synthetic Receiver K",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 25.3,
+      "ddf_value_projections": 24.2,
+      "usatoday": 24.9,
+      "fantasycalc": 25.8,
+      "fantasypros": 23.7,
+      "cbs": 24.6,
+      "espn": 23.5,
+      "cbsros": 22.4,
+      "razzball": 23.7
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": 0.3000000000000007,
+      "give": 25,
+      "receive": 25.3,
+      "side": "even",
+      "threshold": 1,
+      "missing": []
+     },
+     "market": {
+      "net": -0.25,
+      "give": 25,
+      "receive": 24.75,
+      "side": "even",
+      "threshold": 1,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 4,
+       "of": 4,
+       "accept": "Likely",
+       "min": -0.3999999999999986,
+       "max": -0.10000000000000142
+      },
+      "split": false
+     },
+     "projections": {
+      "net": 0.1999999999999993,
+      "give": 24,
+      "receive": 24.2,
+      "side": "even",
+      "threshold": 1,
+      "missing": []
+     },
+     "cell": "even|even",
+     "title": "A fair trade",
+     "action": "Your call",
+     "text": "DDF Value and the trade charts both call it even.",
+     "production": "Projected production backs the value: DDF Value (projections) also calls it even."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 25,
+        "receive": 24.9,
+        "net": -0.10000000000000142,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 24,
+        "receive": 23.7,
+        "net": -0.3000000000000007,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 25,
+        "receive": 24.6,
+        "net": -0.3999999999999986,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 26,
+        "receive": 25.8,
+        "net": -0.1999999999999993,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 23,
+        "receive": 23.5,
+        "net": 0.5,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 22,
+        "receive": 22.4,
+        "net": 0.3999999999999986,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 24,
+        "receive": 23.7,
+        "net": -0.3000000000000007,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [
+     "usatoday",
+     "fantasypros",
+     "cbs",
+     "fantasycalc",
+     "razzball"
+    ],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "even|even",
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "lose-win-trap",
+   "description": "Trap: the charts say you win but DDF Value says you lose.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-12",
+     "name": "Synthetic Back L",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 48,
+      "ddf_value_projections": 46,
+      "usatoday": 40,
+      "fantasycalc": 41,
+      "fantasypros": 39,
+      "cbs": 40,
+      "espn": 47,
+      "cbsros": 45,
+      "razzball": 46
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-13",
+     "name": "Synthetic Back M",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 42,
+      "ddf_value_projections": 41,
+      "usatoday": 47,
+      "fantasycalc": 48,
+      "fantasypros": 46,
+      "cbs": 47,
+      "espn": 41,
+      "cbsros": 40,
+      "razzball": 42
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": -6,
+      "give": 48,
+      "receive": 42,
+      "side": "lose",
+      "threshold": 1.3499999999999999,
+      "missing": []
+     },
+     "market": {
+      "net": 7,
+      "give": 40,
+      "receive": 47,
+      "side": "win",
+      "threshold": 1.305,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 0,
+       "of": 4,
+       "accept": "Unlikely",
+       "min": 7,
+       "max": 7
+      },
+      "split": false
+     },
+     "projections": {
+      "net": -5,
+      "give": 46,
+      "receive": 41,
+      "side": "lose",
+      "threshold": 1.305,
+      "missing": []
+     },
+     "cell": "lose|win",
+     "title": "Trap",
+     "action": "Pass",
+     "text": "The trade charts say you win but DDF Value says you lose: it looks good at market prices, not on value.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you lose."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 40,
+        "receive": 47,
+        "net": 7,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 39,
+        "receive": 46,
+        "net": 7,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 40,
+        "receive": 47,
+        "net": 7,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 41,
+        "receive": 48,
+        "net": 7,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 47,
+        "receive": 41,
+        "net": -6,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 45,
+        "receive": 40,
+        "net": -5,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 46,
+        "receive": 42,
+        "net": -4,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [
+     "usatoday",
+     "fantasypros",
+     "cbs",
+     "fantasycalc"
+    ],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "lose|win",
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "incomplete-missing-value",
+   "description": "No deal read: DDF Value has no value for a player; several sources are missing them too.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-14",
+     "name": "Synthetic Receiver N",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 33,
+      "ddf_value_projections": 31,
+      "usatoday": 34,
+      "fantasycalc": 33,
+      "fantasypros": 32,
+      "cbs": 34,
+      "espn": 30,
+      "cbsros": 31,
+      "razzball": 29
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-15",
+     "name": "Synthetic Rookie O",
+     "pos": "WR",
+     "values": {
+      "ddf_value": null,
+      "ddf_value_projections": 20,
+      "usatoday": 19,
+      "fantasycalc": null,
+      "fantasypros": 18,
+      "cbs": 19,
+      "espn": null,
+      "cbsros": 21,
+      "razzball": 20
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "incomplete",
+     "value": {
+      "net": null,
+      "give": null,
+      "receive": null,
+      "side": null,
+      "threshold": null,
+      "missing": [
+       {
+        "row": {
+         "player_key": "syn-15",
+         "name": "Synthetic Rookie O",
+         "pos": "WR",
+         "values": {
+          "ddf_value": null,
+          "ddf_value_projections": 20,
+          "usatoday": 19,
+          "fantasycalc": null,
+          "fantasypros": 18,
+          "cbs": 19,
+          "espn": null,
+          "cbsros": 21,
+          "razzball": 20
+         }
+        },
+        "side": "receive"
+       }
+      ]
+     },
+     "market": {
+      "net": -14.666666666666666,
+      "give": 33.333333333333336,
+      "receive": 18.666666666666668,
+      "side": "lose",
+      "threshold": 1,
+      "missing": [],
+      "chartCount": 3,
+      "charts": {
+       "yes": 3,
+       "of": 3,
+       "accept": "Likely",
+       "min": -15,
+       "max": -14
+      },
+      "split": false
+     },
+     "projections": {
+      "net": -11,
+      "give": 31,
+      "receive": 20,
+      "side": "lose",
+      "threshold": 1,
+      "missing": []
+     },
+     "text": "No deal read yet: DDF Value has no value for at least one player in the trade."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 34,
+        "receive": 19,
+        "net": -15,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 32,
+        "receive": 18,
+        "net": -14,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 34,
+        "receive": 19,
+        "net": -15,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": null,
+        "receive": null,
+        "net": null,
+        "missing": [
+         {
+          "side": "receive",
+          "row": {
+           "player_key": "syn-15",
+           "name": "Synthetic Rookie O"
+          }
+         }
+        ],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": null,
+        "receive": null,
+        "net": null,
+        "missing": [
+         {
+          "side": "receive",
+          "row": {
+           "player_key": "syn-15",
+           "name": "Synthetic Rookie O"
+          }
+         }
+        ],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 31,
+        "receive": 21,
+        "net": -10,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 29,
+        "receive": 20,
+        "net": -9,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "incomplete",
+    "cell": null,
+    "split": false,
+    "tooFew": false
+   }
+  },
+  {
+   "id": "incomplete-held-too-few",
+   "description": "Two charts are held, so too few charts remain for a market read.",
+   "chartKeys": [
+    "fantasycalc",
+    "fantasypros"
+   ],
+   "heldKeys": [
+    "usatoday",
+    "cbs"
+   ],
+   "give": [
+    {
+     "player_key": "syn-16",
+     "name": "Synthetic Back P",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 41,
+      "ddf_value_projections": 40,
+      "usatoday": null,
+      "fantasycalc": 41,
+      "fantasypros": 43,
+      "cbs": null,
+      "espn": 39,
+      "cbsros": 38,
+      "razzball": 40
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-17",
+     "name": "Synthetic Back Q",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 45,
+      "ddf_value_projections": 43,
+      "usatoday": null,
+      "fantasycalc": 45,
+      "fantasypros": 46,
+      "cbs": null,
+      "espn": 42,
+      "cbsros": 43,
+      "razzball": 41
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "incomplete",
+     "value": {
+      "net": 4,
+      "give": 41,
+      "receive": 45,
+      "side": "win",
+      "threshold": 1.29,
+      "missing": []
+     },
+     "market": {
+      "net": null,
+      "give": null,
+      "receive": null,
+      "side": null,
+      "threshold": null,
+      "missing": [],
+      "chartCount": 2,
+      "minCharts": 3,
+      "tooFew": true
+     },
+     "projections": {
+      "net": 3,
+      "give": 40,
+      "receive": 43,
+      "side": "win",
+      "threshold": 1.2449999999999999,
+      "missing": []
+     },
+     "text": "Not enough compared charts to read the market (2 of 3 needed)."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": null,
+        "receive": null,
+        "net": null,
+        "missing": [],
+        "label": "USA Today",
+        "held": {
+         "reason": "held this week (data check)"
+        }
+       },
+       {
+        "key": "fantasypros",
+        "give": 43,
+        "receive": 46,
+        "net": 3,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": null,
+        "receive": null,
+        "net": null,
+        "missing": [],
+        "label": "CBS",
+        "held": {
+         "reason": "held this week (data check)"
+        }
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 41,
+        "receive": 45,
+        "net": 4,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 39,
+        "receive": 42,
+        "net": 3,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 38,
+        "receive": 43,
+        "net": 5,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 40,
+        "receive": 41,
+        "net": 1,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "incomplete",
+    "cell": null,
+    "split": false,
+    "tooFew": true
+   }
+  },
+  {
+   "id": "long-names-hard-sell",
+   "description": "Win, but a hard sell; very long player names and labels.",
+   "chartKeys": [
+    "usatoday",
+    "fantasycalc",
+    "fantasypros",
+    "cbs"
+   ],
+   "heldKeys": [],
+   "give": [
+    {
+     "player_key": "syn-18",
+     "name": "Synthetic Wide Receiver With An Extraordinarily Long Hyphenated-Double-Barrelled Name Jr.",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 38,
+      "ddf_value_projections": 36,
+      "usatoday": 38,
+      "fantasycalc": 37,
+      "fantasypros": 38,
+      "cbs": 37,
+      "espn": 35,
+      "cbsros": 34,
+      "razzball": 36
+     }
+    }
+   ],
+   "receive": [
+    {
+     "player_key": "syn-19",
+     "name": "Synthetic Running Back Whose Name Keeps Going Well Past Any Reasonable Column Width III",
+     "pos": "WR",
+     "values": {
+      "ddf_value": 46,
+      "ddf_value_projections": 44,
+      "usatoday": 45,
+      "fantasycalc": 44,
+      "fantasypros": 46,
+      "cbs": 45,
+      "espn": 42,
+      "cbsros": 41,
+      "razzball": 43
+     }
+    }
+   ],
+   "input": {
+    "synthetic": true,
+    "syntheticLabel": "Synthetic example: invented players and values, not live data.",
+    "copy": {
+     "sideWords": {
+      "win": "You win",
+      "even": "Even",
+      "lose": "You lose"
+     },
+     "missingValue": "—",
+     "tooFewCharts": "Not enough charts",
+     "chartsSplit": "Charts split",
+     "rangeJoin": "to",
+     "noValue": "no value",
+     "held": "Held",
+     "give": "You give",
+     "receive": "You receive",
+     "directions": {
+      "up": "▲ you receive more by this source",
+      "down": "▼ you give more by this source",
+      "even": "= even by this source"
+     },
+     "conflicting": "Sees the trade the other way",
+     "verdictHeading": "Deal read",
+     "evidenceHeading": "Difference by source & method",
+     "explanationHeading": "How values work"
+    },
+    "verdict": {
+     "kind": "read",
+     "value": {
+      "net": 8,
+      "give": 38,
+      "receive": 46,
+      "side": "win",
+      "threshold": 1.26,
+      "missing": []
+     },
+     "market": {
+      "net": 7.5,
+      "give": 37.5,
+      "receive": 45,
+      "side": "win",
+      "threshold": 1.2375,
+      "missing": [],
+      "chartCount": 4,
+      "charts": {
+       "yes": 0,
+       "of": 4,
+       "accept": "Unlikely",
+       "min": 7,
+       "max": 8
+      },
+      "split": false
+     },
+     "projections": {
+      "net": 8,
+      "give": 36,
+      "receive": 44,
+      "side": "win",
+      "threshold": 1.2,
+      "missing": []
+     },
+     "cell": "win|win",
+     "title": "Win, but a hard sell",
+     "action": "Propose, expect pushback",
+     "text": "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss.",
+     "production": "Projected production backs the value: DDF Value (projections) also says you come out ahead."
+    },
+    "nets": [
+     {
+      "id": "value",
+      "name": "DDF Value",
+      "question": "Are you getting real value?"
+     },
+     {
+      "id": "market",
+      "name": "Trade chart average",
+      "question": "Does the market think you are winning?"
+     },
+     {
+      "id": "projections",
+      "name": "DDF Value (projections)",
+      "question": "Is the value backed by projected production?"
+     }
+    ],
+    "groups": [
+     {
+      "id": "published",
+      "label": "Published charts",
+      "rows": [
+       {
+        "key": "usatoday",
+        "give": 38,
+        "receive": 45,
+        "net": 7,
+        "missing": [],
+        "label": "USA Today"
+       },
+       {
+        "key": "fantasypros",
+        "give": 38,
+        "receive": 46,
+        "net": 8,
+        "missing": [],
+        "label": "FantasyPros"
+       },
+       {
+        "key": "cbs",
+        "give": 37,
+        "receive": 45,
+        "net": 8,
+        "missing": [],
+        "label": "CBS"
+       }
+      ]
+     },
+     {
+      "id": "observed",
+      "label": "Observed-trade estimates",
+      "rows": [
+       {
+        "key": "fantasycalc",
+        "give": 37,
+        "receive": 44,
+        "net": 7,
+        "missing": [],
+        "label": "FantasyCalc"
+       }
+      ]
+     },
+     {
+      "id": "projections",
+      "label": "Projections",
+      "rows": [
+       {
+        "key": "espn",
+        "give": 35,
+        "receive": 42,
+        "net": 7,
+        "missing": [],
+        "label": "ESPN"
+       },
+       {
+        "key": "cbsros",
+        "give": 34,
+        "receive": 41,
+        "net": 7,
+        "missing": [],
+        "label": "CBS rest of season"
+       },
+       {
+        "key": "razzball",
+        "give": 36,
+        "receive": 43,
+        "net": 7,
+        "missing": [],
+        "label": "Razzball"
+       }
+      ]
+     }
+    ],
+    "againstKeys": [],
+    "explanation": [
+     "Each row uses one source only: the sum of what you receive minus the sum of what you give, in that source's values for your league.",
+     "Rows are never combined into one score."
+    ],
+    "disclosures": [
+     {
+      "id": "ddf-value",
+      "summary": "What DDF Value tells you",
+      "lines": [
+       "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."
+      ]
+     },
+     {
+      "id": "chart-average",
+      "summary": "What Trade chart average tells you",
+      "lines": [
+       "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."
+      ]
+     },
+     {
+      "id": "projections",
+      "summary": "What DDF Value (projections) tells you",
+      "lines": [
+       "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."
+      ]
+     }
+    ]
+   },
+   "expect": {
+    "kind": "read",
+    "cell": "win|win",
+    "split": false,
+    "tooFew": false
+   }
+  }
+ ]
+}

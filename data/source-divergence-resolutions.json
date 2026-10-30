@@ -1,5 +1,5 @@
 {
-  "about": "Resolutions for the JEG-460 source divergence soft check (pipelines/check_source_divergence.py). One entry per source-week that was investigated. resolution is one of parser_fix, mapping_fix, accepted (genuine opinion), exclude (JEG-610: remove from blends, held semantics per JEG-569); a note is required. A recorded source-week shows as 'reviewed' (or 'excluded' for the exclude resolution) instead of warn/investigate; the computed status stays in the report.",
+  "about": "Resolutions for the JEG-460 source divergence soft check (pipelines/check_source_divergence.py). One entry per source-week that was investigated. resolution is one of parser_fix, mapping_fix, accepted (genuine opinion), exclude (JEG-610: remove from blends, held semantics per JEG-569); a note is required. A recorded source-week shows as 'reviewed' (or 'excluded' for the exclude resolution) instead of warn/investigate; the computed status stays in the report. Optional inputs_fingerprint (JEG-1314): the entry applies only while the source serves inputs with that fingerprint (data/history index), so a record made for one set of inputs never marks other inputs of the same week reviewed; not allowed on exclude, which value_reference applies by source and week.",
   "resolutions": [
     {
       "source": "fantasypros",
@@ -64,6 +64,15 @@
       "issue": "JEG-788",
       "decided": "2026-10-24",
       "note": "Week 6 warn (standard 48%). Native per-game projections compared source against source (median of each player's native over the mean of the other two, shared players, weeks 5-7 from data/history and the current fixture): CBS ROS QB +17 to +19%, RB -12 to -20%; Razzball QB -19 to -23%; ESPN RB +7 to +9%, TE -7 to -8%. The pattern is stable week to week and identical in full, half and standard, and reception scoring matches across the three (half-PPR share 0.50, same full-minus-standard gap by position), so no scoring path is broken. Razzball's live QB page (updated 2026-10-23) shows Josh Allen at 20.3 STD PPG, the fixture value; his stat line rescores to 223.1 vs 223.2 published. With three sources the leave-one-out consensus is the mean of two, so one low Razzball QB line or one low CBS ROS RB line moves the other sources' outlier rates. Rates sit 1-3 points over the fixed 45% ceiling; projection sources have no trailing baseline (JEG-952 tunes these thresholds)."
+    },
+    {
+      "source": "fantasypros",
+      "week": 8,
+      "resolution": "accepted",
+      "issue": "JEG-1172",
+      "decided": "2026-10-29",
+      "inputs_fingerprint": "sha256:848f4664cff56fe463035c1763c050a1bb2ae35fee22d8e33ab313867db9c4d3",
+      "note": "Week label mix-up, not a week 8 reading. The divergence:fantasypros:w8 investigate flag (report generated 2026-10-27, e2c191c) ran when content_week had flipped to 8 while FantasyPros was still served as its Week 7 article (content 2026-10-20); its 178 natives equal frozen week 7 (this fingerprint), so 'also warned in week 7' compared the Week 7 chart with itself. That week 7 reading is already accepted (JEG-796). On the real Week 8 article (content 2026-10-27) FantasyPros is ok, 41.5-44.7%. JEG-1314 labels each source-week by its served week, so these inputs now report as week 7. Scoped by inputs_fingerprint so it never marks the real Week 8 article reviewed. Diagnosis: docs/research/JEG-1172/README.md."
     }
   ]
 }

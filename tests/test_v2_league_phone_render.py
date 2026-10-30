@@ -11,11 +11,12 @@ At 390, 360 and 320 px with the 4-team fixture in the workspace:
   * the sort selector sorts the cards, both directions, and equals an independent sort of the numbers shown on the cards;
   * every visible text meets WCAG AA contrast in light and dark, on the league cards at 1366 and 390;
   * the headers are keyboard operable: Enter on a sort button sorts, one tab stop per header, aria-sort on exactly one th;
-  * a team folds with the keyboard and Escape inside it.
+  * a team folds with the keyboard and Escape inside it;
+  * each trade card shows one line per table column in the table's order, value first, so Our fit and Their fit each have a line (JEG-1232).
 
 Discrimination: test_guard_fails_on_broken_builds serves a build with the cards hidden, the sort selector dead, a 30 px control,
-the low-contrast tint colour back, a summary column checkbox without its label, that label under 44 px, that label not taking
-the tap, and the summary filter value box back at 26 px, and requires the checks to fail.
+the low-contrast tint colour back, both fits back on one line, a summary column checkbox without its label, that label under
+44 px, that label not taking the tap, and the summary filter value box back at 26 px, and requires the checks to fail.
 """
 from __future__ import annotations
 
@@ -173,6 +174,31 @@ def check_phone(browser, base, overrides, errors):
         page.context.close()
 
 
+# JEG-1232: the trade card lines below the heading, as (data-line, text). Jeremy picked a fixed order, value first (Oct 29), matching the
+# table's columns: trade, DDF Value, projections, Our fit, Market, Their fit.
+CARD_LINES = """() => [...document.querySelectorAll('#v2LgOppsCards > li')].map(li => [...li.children].filter(n => n.tagName === 'P').map(p => [p.dataset.line || '', p.innerText.trim()]))"""
+CARD_ORDER = ["trade", "capture", "proj", "ours", "market", "theirs"]
+
+
+def check_card_lines(browser, base, overrides, errors):
+    page = open_page(browser, base, width=390, height=800, overrides=overrides, errors=errors, tag="[390px lines] ")
+    seed(page, "4team")
+    wait_opps(page)
+    cards = page.evaluate(CARD_LINES)
+    if not cards:
+        errors.append("[390px lines] no trade cards to check")
+    for i, lines in enumerate(cards):
+        ids = [k for k, _ in lines][:len(CARD_ORDER)]
+        if ids != CARD_ORDER:
+            errors.append(f"[390px lines] card {i + 1} line order {ids}, expected {CARD_ORDER}")
+        text = dict(lines)
+        if not text.get("ours", "").startswith("Our fit:") or "Their fit" in text.get("ours", ""):
+            errors.append(f"[390px lines] card {i + 1} Our fit line: {text.get('ours')!r}")
+        if not text.get("theirs", "").startswith("Their fit:"):
+            errors.append(f"[390px lines] card {i + 1} Their fit line: {text.get('theirs')!r}")
+    page.context.close()
+
+
 def check_label_targets(browser, base, overrides, errors):
     """JEG-1236: a box under 44 px passes only if its label is the real, working tap target and the box still works by keyboard."""
     from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -312,7 +338,8 @@ def check_keyboard(browser, base, overrides, errors):
     page.context.close()
 
 
-CHECKS = {"phone": check_phone, "labels": check_label_targets, "fit-filter": check_fit_filter, "contrast": check_contrast, "keyboard": check_keyboard}
+CHECKS = {"phone": check_phone, "card-lines": check_card_lines, "labels": check_label_targets, "fit-filter": check_fit_filter,
+          "contrast": check_contrast, "keyboard": check_keyboard}
 
 
 def run_checks(overrides=None, only=None) -> list[str]:
@@ -348,6 +375,7 @@ class LeaguePhoneRenderTest(unittest.TestCase):
             "a 30px control": ({"v2.css": css.replace(".v2-lg-toggle { min-width: 44px; min-height: 44px;", ".v2-lg-toggle { min-width: 30px; min-height: 30px;", 1)}, {"phone"}),
             "low contrast tint": ({"v2.css": css.replace(".v2-lg-sort.is-active { color: var(--v2-action-strong); }", ".v2-lg-sort.is-active { color: #9FD8BE; }", 1)}, {"contrast"}),
             "aria-sort on the button": ({"league.js": league.replace('const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});', 'const th = el("th", {scope: "col", "data-col": id, ...(attrs || {})});', 1)}, {"keyboard"}),
+            "both fits on one line again": ({"league.js": league.replace('el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),', 'el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', 1).replace('el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', '', 1)}, {"card-lines"}, "Our fit line"),
             "Escape does not fold": ({"league.js": league.replace('if (event.key === "Escape" && !comp.collapsed', 'if (false && !comp.collapsed', 1)}, {"keyboard"}),
             # JEG-1236: the 20 px summary column boxes pass only through their 44 px labels, so each part of that must be load-bearing.
             "a summary column checkbox loses its label": ({"league.js": league.replace('group.append(el("label", {}, input, " ", field.label));', 'group.append(el("span", {}, input, " ", field.label));', 1)}, {"phone"}, "controls under 44px"),

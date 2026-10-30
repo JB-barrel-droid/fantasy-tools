@@ -9,6 +9,10 @@
 // history) or the `week` the caller asks for; the input building is in pipeline.ts, shared with the
 // parity runner (tests/_edge_pipeline_runner.cjs).
 //
+// JEG-1225: an optional value basis and player overrides (`basis`, `ov`), in the text a share link carries. They
+// are read by the site's own app/v2/ddf-value-link.js (loaded from the published site like value-model.js) and
+// applied as the site applies them (value-context.ts), so a chat prices a pasted link the way the site does.
+//
 // No accounts, no keys, no schema change. Reads only the published bundle.
 // Rate-limited by Supabase's built-in edge function limits.
 //
@@ -24,8 +28,10 @@ const PAGE_URL = `${SITE_ORIGIN}/`;
 const VALUE_MODEL_URL = `${SITE_ORIGIN}/assets/value-model.js`;
 const LINEUP_PARAMS_URL = `${SITE_ORIGIN}/assets/lineup-parameters.json`;
 const HISTORY_INDEX_URL = `${SITE_ORIGIN}/assets/history/index.json`;
+const VALUE_LINK_URL = `${SITE_ORIGIN}/v2/ddf-value-link.js`;
 
 import { type League, type LineupDefaults, leagueKey, mapLeague } from "./league.ts";
+import { auditBlock, type Include, parseIncludes, priorBlock, seriesBlock } from "./analysis.ts";
 import {
   type Bundle,
   buildPipelineInput,
@@ -35,12 +41,19 @@ import {
   todayIso,
   type WeekInfo,
 } from "./pipeline.ts";
+import {
+  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, overrideSeries, readValueContext,
+  type ValueContext,
+} from "./value-context.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
 
 interface CachedBundle extends Bundle {
   meta: Record<string, unknown>;
   history: HistoryData | null;
+  /** The site's share-link value reader (DDFValueLink), or null when the site does not publish it yet. */
+  // deno-lint-ignore no-explicit-any
+  valueLink: any | null;
   loadedAt: number;
 }
 
@@ -96,12 +109,13 @@ async function loadBundle(): Promise<CachedBundle> {
     throw new Error("ValueModel.runValuePipeline not found after loading value-model.js");
   }
 
-  // Fetch bundle, page, lineup parameters and the week history index in parallel.
-  const [bundleResponse, pageResponse, lpResponse, history] = await Promise.all([
+  // Fetch bundle, page, lineup parameters, the week history index and the link reader in parallel.
+  const [bundleResponse, pageResponse, lpResponse, history, valueLink] = await Promise.all([
     fetch(BUNDLE_URL),
     fetch(PAGE_URL),
     fetch(LINEUP_PARAMS_URL).catch(() => null),
     loadHistoryIndex(),
+    loadValueLink(evalFn),
   ]);
   if (!bundleResponse.ok) throw new Error(`bundle fetch failed: ${bundleResponse.status}`);
   if (!pageResponse.ok) throw new Error(`page fetch failed: ${pageResponse.status}`);
@@ -127,9 +141,45 @@ async function loadBundle(): Promise<CachedBundle> {
     ValueModel,
     lineupConfig,
     history,
+    valueLink,
     loadedAt: Date.now(),
   };
   return cached;
+}
+
+// JEG-1225: the site's share-link value reader (app/v2/ddf-value-link.js, published at /v2/). Optional: a site
+// that does not publish it yet still answers every request without a basis or overrides.
+// deno-lint-ignore no-explicit-any
+async function loadValueLink(evalFn: (src: string) => unknown): Promise<any | null> {
+  try {
+    const res = await fetch(VALUE_LINK_URL);
+    if (!res.ok) return null;
+    evalFn(await res.text());
+    // deno-lint-ignore no-explicit-any
+    const link = (globalThis as any).DDFValueLink;
+    return link && typeof link.readValueContext === "function" ? link : null;
+  } catch {
+    return null;
+  }
+}
+
+// JEG-1029: the opt-in analysis blocks (analysis.ts). prior needs the week before's saved document.
+async function addAnalysis(
+  // deno-lint-ignore no-explicit-any
+  body: any, includes: Set<Include>, bundle: CachedBundle, input: any, pipeline: any,
+  plan: { week: number | null; served: Record<string, number | null> }, scoring: string,
+  context: ValueContext = { basis: null, overrides: {}, custom: false },
+): Promise<void> {
+  // JEG-1225: the DDF Value series carries the caller's overrides, so it agrees with players[].value.
+  if (includes.has("series")) {
+    body.series = overrideSeries(seriesBlock(pipeline, input.hidden ?? []),
+      applyOverrides(bundle.ValueModel, pipeline, context));
+  }
+  if (includes.has("prior")) {
+    if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
+    body.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served ?? {}, scoring);
+  }
+  if (includes.has("audit")) body.audit = auditBlock(bundle, pipeline, body.sources_excluded);
 }
 
 // The chart source keys the finder compares (must match finder.js CHART_KEYS).
@@ -149,8 +199,13 @@ function formatResponse(
   includeCharts = false,
   custom: string[] = [],
   week: WeekInfo | null = null,
+  // deno-lint-ignore no-explicit-any
+  ValueModel: any = null,
+  context: ValueContext = { basis: null, overrides: {}, custom: false },
 ) {
   const rows = pipeline.rows || {};
+  // JEG-1225: DDF Value after the caller's overrides (the pipeline's own value when there are none).
+  const own = applyOverrides(ValueModel, pipeline, context);
   // deno-lint-ignore no-explicit-any
   const values: any[] = [];
 
@@ -160,9 +215,10 @@ function formatResponse(
     const player = playerMap[Number(pk)];
     if (!player) continue;
 
-    // DDF blended value (the headline number).
+    // DDF blended value (the headline number), after the caller's override if any.
     const ddfVersions = r.ddfByVersion;
-    const blended = ddfVersions?.blended?.value;
+    const rowValue = own.values[pk];
+    const blended = rowValue?.value;
     if (typeof blended !== "number" || !Number.isFinite(blended)) continue;
 
     // deno-lint-ignore no-explicit-any
@@ -173,6 +229,11 @@ function formatResponse(
       value: Math.round(blended * 10) / 10,
       tier: r.tier ?? 0,
     };
+    if (rowValue.override !== undefined) {
+      const pv = rowValue.pipeline_value;
+      entry.override = rowValue.override;
+      entry.pipeline_value = typeof pv === "number" && Number.isFinite(pv) ? Math.round(pv * 10) / 10 : null;
+    }
 
     // include=charts: add per-chart values and DDF sub-versions so the finder
     // can check whether trade charts say the rival breaks even.
@@ -229,6 +290,16 @@ function formatResponse(
     default_week: week?.default_week ?? null,
     weeks: week?.weeks ?? [],
     missing_sources: week?.missing_sources ?? [],
+    // JEG-1225: the basis DDF Value follows (null = our methodology) and the overrides applied.
+    value_context: {
+      basis: context.basis,
+      basis_applied: context.basis ? Boolean(pipeline.basis?.applied) : true,
+      basis_members: context.basis ? [...(pipeline.basis?.members ?? [])] : [],
+      basis_fell_back_to_default: Boolean(context.basis && pipeline.basis?.fellBackToDefault),
+      overrides: context.overrides,
+      overrides_applied: own.applied.length,
+      overrides_not_priced: own.not_priced.map(Number),
+    },
     players: values,
     ...(benchShare ? { bench_share: benchShare } : {}),
     sources_included: Object.keys(pipeline.sources || {}).filter(
@@ -265,6 +336,18 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 // --- Rate limiting (simple per-IP in-memory) --------------------------------
+// JEG-1061: this limiter is a SOFT GUARD ONLY, not a real per-client limit.
+// The buckets live in a Map in this function instance's memory: the counts
+// reset whenever the instance recycles and are never shared across instances,
+// so under load each instance keeps its own count and the "limit" is really
+// per instance. The key is the first entry of the x-forwarded-for header
+// (falling back to cf-connecting-ip), which the client can set to anything,
+// so a caller can mint a fresh bucket by changing one header. All this does
+// is blunt a naive burst against one warm instance. That is accepted on
+// purpose: the function stores no data, so abuse costs CPU only (about
+// 0.3 s per fresh custom league; the answer cache below is per-instance too).
+// A shared or unforgeable-key limiter would be a separate, deliberate
+// change — do not read the numbers below as a guarantee.
 const rateBuckets = new Map<string, { count: number; resetAt: number }>();
 const RATE_LIMIT = 30; // requests per window
 const RATE_WINDOW_MS = 60_000; // 1 minute
@@ -272,7 +355,7 @@ const RATE_WINDOW_MS = 60_000; // 1 minute
 const COMPUTE_RATE_LIMIT = 10;
 // Answers kept in memory only: a few entries, the same 5-minute TTL. Nothing is written anywhere.
 const ANSWER_CACHE_MAX = 6;
-const answerCache = new Map<string, { at: number; body: unknown }>();
+const answerCache = new Map<string, { at: number; body: unknown; status?: number }>();
 
 function checkRate(ip: string, limit = RATE_LIMIT): boolean {
   const now = Date.now();
@@ -310,27 +393,33 @@ Deno.serve(async (req: Request) => {
     let scoring = "ppr";
     let teams = 12;
     let superflex = 0;
-    let includeCharts = false;
+    let rawInclude: unknown = null;
     let league: League = {};
     let rawLeague: unknown = null;
     let rawWeek: unknown = null;
+    let rawBasis: unknown = null;
+    let rawOv: unknown = null;
 
     if (req.method === "POST") {
       const body = await req.json();
       scoring = body.scoring || scoring;
       teams = Number(body.teams) || teams;
       superflex = Number(body.superflex) || 0;
-      includeCharts = body.include === "charts";
+      rawInclude = body.include ?? null;
       rawLeague = body.league ?? null;
       rawWeek = body.week ?? null;
+      rawBasis = body.basis ?? null;
+      rawOv = body.ov ?? null;
     } else {
       const url = new URL(req.url);
       scoring = url.searchParams.get("scoring") || scoring;
       teams = Number(url.searchParams.get("teams")) || teams;
       superflex = Number(url.searchParams.get("superflex")) || 0;
-      includeCharts = url.searchParams.get("include") === "charts";
+      rawInclude = url.searchParams.get("include");
       rawLeague = url.searchParams.get("league");
       rawWeek = url.searchParams.get("week");
+      rawBasis = url.searchParams.get("basis");
+      rawOv = url.searchParams.get("ov");
     }
     if (typeof rawLeague === "string" && rawLeague.length <= 2000) {
       try { rawLeague = JSON.parse(rawLeague); } catch { rawLeague = null; }
@@ -352,6 +441,13 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
+    // JEG-1029: include is a comma list (charts, series, prior, audit); absent = the plain answer.
+    const parsedInclude = parseIncludes(rawInclude);
+    if (parsedInclude.error) {
+      return Response.json({ error: parsedInclude.error }, { status: 400, headers: cors });
+    }
+    const includes = parsedInclude.includes;
+    const includeCharts = includes.has("charts");
     // JEG-1179: optional week (N or N+1 during a transition); absent = the site's default week.
     const requestedWeek = parseWeek(rawWeek);
     if (Number.isNaN(requestedWeek)) {
@@ -366,8 +462,33 @@ Deno.serve(async (req: Request) => {
       merged.roster = { ...(merged.roster ?? {}), SUPERFLEX: 1 };
     }
 
+    // JEG-1288: basis and ov past their size bounds are refused before anything is loaded, read or cached.
+    const bounds = checkBounds(rawBasis, rawOv);
+    if (bounds && !bounds.ok) {
+      return Response.json({ error: bounds.error, code: bounds.code }, { status: bounds.status, headers: cors });
+    }
+
     // Load bundle, map the league, and run the pipeline (answers are kept in memory only).
     const bundle = await loadBundle();
+    // JEG-1225: the caller's basis and overrides, as a share link writes them. Unreadable is an error, never ours,
+    // and (JEG-1288) a part with anything unreadable in it is refused whole.
+    let context: ValueContext = { basis: null, overrides: {}, custom: false };
+    if ((rawBasis !== null && rawBasis !== "") || (rawOv !== null && rawOv !== "")) {
+      if (!canReadStrictly(bundle.valueLink)) {
+        return Response.json(
+          { error: "basis and ov are not available yet: the site does not publish its link reader", code: "value_context_unavailable" },
+          { status: 503, headers: cors },
+        );
+      }
+      const read = readValueContext(bundle.valueLink, rawBasis, rawOv);
+      if (!read.ok) {
+        return Response.json(
+          { error: read.error, code: read.code, ...(read.unread ? { unread: read.unread } : {}) },
+          { status: read.status, headers: cors },
+        );
+      }
+      context = read.context;
+    }
     const mapped = mapLeague(
       merged,
       bundle.lineupConfig as { defaults?: LineupDefaults; content_week?: number | null } | null,
@@ -381,17 +502,18 @@ Deno.serve(async (req: Request) => {
         { status: 400, headers: cors },
       );
     }
-    const key = `${leagueKey(mapped)}${includeCharts ? "|charts" : ""}|wk=${plan.week}`;
+    const includeKey = [...includes].sort().join(",");
+    const key = `${leagueKey(mapped)}${includeKey ? `|${includeKey}` : ""}|wk=${plan.week}${contextKey(context)}`;
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
-      if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+      if ((mapped.custom.length || context.custom) && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
         return Response.json(
           { error: "rate limited", retry_after_seconds: 60 },
           { status: 429, headers: cors },
         );
       }
       if (plan.docWeek !== null) await loadHistoryDoc(bundle, plan.docWeek);
-      const input = buildPipelineInput(bundle, mapped, plan);
+      const input = { ...buildPipelineInput(bundle, mapped, plan), basisConfig: basisConfigOf(context) };
       if (requestedWeek !== null && !input.week.sources.length) {
         return Response.json(
           {
@@ -405,17 +527,36 @@ Deno.serve(async (req: Request) => {
       }
       // deno-lint-ignore no-explicit-any
       const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
-      response = {
-        at: Date.now(),
-        body: formatResponse(
+      // JEG-1288: a basis source that is not available here is refused, never priced under part of the basis or the
+      // fallback. The refusal is cached like an answer, so asking again costs no new run.
+      const shortfall = basisShortfall(context, pipeline, input);
+      if (shortfall) {
+        response = {
+          at: Date.now(),
+          status: 422,
+          body: {
+            error: `basis ${shortfall.unavailable.join(", ")} ${shortfall.unavailable.length === 1 ? "is" : "are"} not ` +
+              `available at this setting and week, so these values cannot follow the basis asked for. Available: ` +
+              `${shortfall.available.join(", ") || "none"}.`,
+            code: "basis_unavailable",
+            ...shortfall,
+          },
+        };
+      } else {
+        const body = formatResponse(
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
-          mapped.custom, input.week,
-        ),
-      };
+          mapped.custom, input.week, bundle.ValueModel, context,
+        );
+        await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring, context);
+        response = { at: Date.now(), body };
+      }
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
       answerCache.set(key, response);
     }
 
+    if (response.status && response.status !== 200) {
+      return Response.json(response.body, { status: response.status, headers: cors });
+    }
     return Response.json(response.body, {
       status: 200,
       headers: { ...cors, "Cache-Control": "public, max-age=300" },

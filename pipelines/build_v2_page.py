@@ -252,6 +252,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
         '  <link rel="stylesheet" href="v2/waivers.css">\n'
         '  <link rel="stylesheet" href="v2/overrides.css">\n'
+        '  <link rel="stylesheet" href="v2/opponent-inclusion.css">\n'
         # JEG-1137: ?design=fieldnotes opts into the Fieldnotes layer; synchronous so it applies before first paint.
         '  <script src="v2/design-flag.js"></script>\n'
         + FETCH_SHARE_SHIM
@@ -276,20 +277,25 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/movers.js" defer></script>'
                   '\n  <script src="v2/kdef-names.js" defer></script>'
                   '\n  <script src="v2/roster-paste.js" defer></script>'
+                  '\n  <script src="v2/roster-provenance-transitions.js" defer></script>'
                   '\n  <script src="v2/workspace.js" defer></script>'
                   '\n  <script src="v2/table-sort.js" defer></script>'
                   '\n  <script src="v2/team-summary.js" defer></script>'
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/lineup-comparison.js" defer></script>'
+                  '\n  <script src="v2/opponent-inclusion.js" defer></script>'
+                  '\n  <script src="v2/trade-readout.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
+                  '\n  <script src="v2/player-flags.js" defer></script>'
                   '\n  <script src="v2/player-status.js" defer></script>'
                   '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
                   '\n  <script src="v2/audit-core.js" defer></script>'
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
+                  '\n  <script src="v2/ddf-value-link.js" defer></script>'
                   '\n  <script src="v2/overrides.js" defer></script>'
                   '\n  <script src="v2/inputs-status.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
@@ -363,8 +369,8 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "design-flag.js", "v2.js"):
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "opponent-inclusion.js", "opponent-inclusion.css", "trade-readout.js", "league.js", "modules.js",
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.
     (out_dir / "fonts").mkdir(exist_ok=True)
