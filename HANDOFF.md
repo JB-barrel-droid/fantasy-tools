@@ -19,6 +19,12 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-30 UTC)
+
+- PR #1186, branch `claude/JEG-1350-espn-dst`. #1163 (JEG-1313) has merged; main is merged in. Two regexes in
+  `pipelines/lib/canonical_players.py` accept `d/st`; audit known gaps 12 -> 4. Review label `review-high-risk`.
+- No bake input carries D/ST text (ESPN pull reads QB/RB/WR/TE), so no published value moves. No Supabase write.
+
 ### Managed agent teardown (JEG-1173, Claude, 2026-10-29 UTC)
 
 - Claude took JEG-1173 on Jeremy's instruction (2026-10-29 10:13 AM CT);

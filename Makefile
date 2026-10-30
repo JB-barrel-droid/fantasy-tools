@@ -218,6 +218,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_ux_render
 	python3 -m unittest tests.test_v2_risers_render
 	python3 -m unittest tests.test_v2_share_render
+	python3 -m unittest tests.test_week_selector_render
+	# JEG-1178: the week selector's Thursday 12:00 CT stale deadline, both clocks pinned (no browser).
+	python3 -m unittest tests.test_week_stale_deadline
 	python3 -m unittest tests.test_v2_share_links
 	python3 -m unittest tests.test_v2_share_links_render
 	python3 -m unittest tests.test_v2_assist_render
@@ -611,6 +614,7 @@ test-core:
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_jeg1350_espn_dst
 	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_player_alias_table
@@ -712,6 +716,8 @@ test-core:
 	# Test sweep (JEG-976): the Razzball outlier hold.
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
+	# JEG-1047: projection waiver line is the 7-player band (one fringe player can't reprice a position).
+	python3 -m unittest tests.test_waiver_band_line
 
 # JEG-1170: test-core split into parallel shards for preview.yml and pages.yml. Their union
 # is exactly test-core: a line added to test-core must also go into one shard, or
@@ -722,6 +728,7 @@ test-core-shard-1:
 	python3 -m unittest tests.test_market_bench
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_player_aliases
+	python3 -m unittest tests.test_jeg1350_espn_dst
 	python3 -m unittest tests.test_ros_rank_keys
 	python3 -m unittest tests.test_chain_commits_legs
 	# JEG-1206: a validated rebuild survives main moving under it (run 40689076971).
@@ -836,6 +843,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
+	python3 -m unittest tests.test_waiver_band_line
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily

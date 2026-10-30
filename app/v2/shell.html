@@ -85,6 +85,11 @@
         <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
       </div>
       <button type="button" class="v2-btn v2-btn-sm v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+      <!-- JEG-1178: the week selector, shown only while sources are moving from one week to the next. -->
+      <div class="v2-ctx-week" id="v2WeekPick" hidden>
+        <label class="v2-sr" for="v2WeekSelect">Values week</label>
+        <select id="v2WeekSelect" class="v2-select" aria-describedby="v2WeekNote"></select>
+      </div>
       <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span><span id="v2FreshnessShort" class="v2-freshness-short" aria-hidden="true"></span>
       </button>
@@ -104,6 +109,9 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="v2-weeknote" id="v2WeekNoteBar" hidden>
+    <p class="v2-wrap v2-weeknote-text" id="v2WeekNote" role="status"></p>
   </div>
   <div class="v2-wrap v2-assist-panel">
     <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
