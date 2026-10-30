@@ -19,6 +19,13 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### make validate baseline (JEG-1263, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1263-validate-baseline` (draft PR). Fixes the two known reds: the saved-team keyboard test was
+  platform-stale (macOS Chrome opens a native popup on ArrowDown; helper falls back to `select_option`), and seven
+  unwired render modules are now in `test-render-extra` and the shards. `test_uso_site_journey_render` fails
+  (3 of 18) and sits in `KNOWN_RED` until fixed. Log: `docs/claude-log/2026-10-30-validate-baseline.md`.
+
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
 - Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
