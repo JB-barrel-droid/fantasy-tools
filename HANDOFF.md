@@ -816,8 +816,22 @@ Known bugs (repro steps and history on each ticket):
    `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
    review, log the two picks (compare stops and asks; roster scans keep going
    and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
-   Backlog: JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player
-   name; production data writes need Jeremy's yes).
+   JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player name):
+   audit done (#1114, JEG-1313, JEG-1350); JEG-1351 (Mac) merges the three
+   duplicate Sleeper rows. JEG-1387 stores the 1,034 grounded spellings as
+   `public.player_name_aliases` rows (sources sleeper/espn/yahoo) through the
+   NOT APPLIED `supabase/migrations/jeg1202_platform_spellings.sql`, built by
+   `pipelines/build_platform_spellings.py` from the audit outputs (rerun it
+   after any audit rebuild; `--check` in `tests/test_platform_spellings.py`
+   catches drift). Applying it is a production write: Jeremy's yes (his pick
+   A, 2026-10-30: after #1214 merges and JEG-1351 lands). JEG-1388 (Jeremy's
+   pick A): `pipelines/build_name_aliases.py` writes one alias list (verified
+   aliases plus platform spellings that differ from the site's name) into a
+   generated block in both `app/v2/roster-paste.js` and
+   `supabase/functions/mcp/names.ts`; `tests/test_name_aliases.py` checks
+   drift. Rerun it after JEG-1351's rebake so "Mitch Tinsley" joins. The chat
+   side goes live only with an mcp redeploy: Jeremy's yes. Still open: an
+   ESPN / Yahoo puller that saves raw spellings with ids.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
