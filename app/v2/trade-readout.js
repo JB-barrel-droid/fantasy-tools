@@ -249,6 +249,20 @@
     if (!w.market) return unavailable("unavailable", STRINGS.tooFewCharts((input.chartKeys || []).length));
     const fitIn = input.fit || null;
     if (!fitIn || !fitIn.expected) return unavailable("unavailable", "Fit is not judged: the league's expected roster depth is not known here.");
+    // tradeFit's lineup nets leave an unpriced player out, which would judge the deal as if he were worth 0. Like Compare's
+    // verdict (trade.js "incomplete"), a moving player without DDF Value or the Trade chart average means no verdict, with
+    // who is missing (kickers and defenses are not evaluated and never block it).
+    const missing = [];
+    w.giveRows.concat(w.receiveRows).forEach(row => {
+      if (!row || F.isNotEvaluated(row)) return;
+      const v = row.values || {};
+      const series = [[out.ourKey, "DDF Value"], [F.MARKET_KEY, MARKET_LABEL]].filter(([k]) => !finite(v[k])).map(([, label]) => label);
+      if (series.length) missing.push({key: keyOf(row), name: row.name || keyOf(row), series});
+    });
+    if (missing.length) {
+      const who = missing.map(m => `${m.name} has no ${m.series.join(" or ")} value`).join("; ");
+      return {status: "incomplete", reason: `No verdict: ${who}, and a missing value is never counted as 0.`, missing};
+    }
     const fit = F.tradeFit(w.sides, {shape: out.shape, expected: fitIn.expected, weights: fitIn.weights || {overall: 0},
       ourKey: out.ourKey, marketKey: F.MARKET_KEY, chartKeys: w.market, z: finite(fitIn.z) ? fitIn.z : F.FIT_Z});
     if (!fit) return unavailable("unavailable", STRINGS.tooFewCharts(w.market.length));
@@ -355,7 +369,10 @@
       const have = new Set(rows.map(keyOf));
       const labels = [];
       const views = VIEWS.filter(v => out.views[v.id].status === "available").map(v => ({...v, valueKey: out.views[v.id].valueKey}));
-      const shown = rows.map(row => (w && w.market ? F.withChartAverage([row], w.market)[0] : row));
+      // The market view's own charts, ready deal or not: before both sides are picked w is null, and reading the chart
+      // average off w would label every priced player "No Trade chart average value".
+      const charts = out.views.market.status === "available" ? out.views.market.chartKeys : null;
+      const shown = rows.map(row => (charts ? F.withChartAverage([row], charts)[0] : row));
       shown.forEach(row => {
         const key = keyOf(row);
         const name = row.name || key;
@@ -370,7 +387,7 @@
           labels.push({key, name, kind: "single-source", tag: `◐ ${count} source${count === 1 ? "" : "s"}`, text: row.ddfConfidenceNote || LOW_CONFIDENCE_NOTE});
         }
         const est = row.estimated || {};
-        [out.ourKey].concat(w && w.market ? w.market : []).forEach(series => {
+        [out.ourKey].concat(charts || []).forEach(series => {
           const reason = est[series];
           if (typeof reason === "string" && reason.trim() && finite(v[series])) labels.push({key, name, kind: "estimated", series, tag: "≈ estimated", text: reason});
         });

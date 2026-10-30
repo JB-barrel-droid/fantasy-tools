@@ -28,7 +28,11 @@ below are history, including any "Codex reviews and merges" line.
 - With Natural fit 1a on main, the verdict row also names `yourProjections` and `theirProjections` tests, read from
   `tradeFit`'s own `natural` (null = not judged = failed). The golden trade's verdict follows main's rule and moves
   from Natural to Market supported (their DDF Value (projections) falls 7.5). No route is wired, so nothing served
-  changes. Next: delta review, ready-for-review, green full CI, normal merge. If #1033 (JEG-1125 even band) lands
+  changes. Codex's two findings on `6f6d4bd` are fixed in the next commit: a moving player without DDF Value or the
+  Trade chart average now means no verdict (status `incomplete`, reason names who and which series, like Compare's
+  trade.js rule), so the golden verdict is incomplete (tWR3) and the priced checks run on the deal without tWR3; and
+  data labels read the market view's own charts, so a not-ready deal no longer labels priced players "No Trade chart
+  average value". Next: delta review, green full CI, normal merge. If #1033 (JEG-1125 even band) lands
   first, merge main again and refresh the golden with `--write-golden` after checking the drift is only the count.
 
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)

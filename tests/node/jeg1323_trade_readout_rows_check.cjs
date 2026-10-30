@@ -103,25 +103,52 @@ ok(out.rows, "the readout carries the second-half rows (JEG-1323)");
 const rows = R.summary(out).rows;
 const route = leagueRoute(input());
 
-// Verdict: tradeFit on the market rows, with which test failed.
-eq(out.rows.verdict.label, route.fit.label, "verdict label = league finder tradeFit");
-eq(out.rows.verdict.text, F.fitText(route.fit), "verdict text = fitText");
-eq(out.rows.verdict.name, R.FIT_NAME[route.fit.label]);
-eq(out.rows.verdict.tests.theirMarket.pass, route.fit.theirOk, "their-market test is tradeFit's own theirOk (JEG-1340)");
-eq(out.rows.verdict.failed, ["construction", "yourValue", "theirMarket", "yourProjections", "theirProjections"].filter(id => !{construction: route.fit.constructionOk,
-  yourValue: route.fit.yourValueOk, theirMarket: route.fit.them.net >= -route.fit.them.tau,
-  yourProjections: route.fit.natural.us.projections === true, theirProjections: route.fit.natural.them.projections === true}[id]), "failed tests named");
-// Natural fit 1a (JEG-1324): both sides' projections are tests of the verdict, read from tradeFit's own `natural`.
-eq(out.rows.verdict.tests.yourProjections, {pass: route.fit.natural.us.projections, net: route.fit.natural.us.projNet}, "your projections test = tradeFit natural.us");
-eq(out.rows.verdict.tests.theirProjections, {pass: route.fit.natural.them.projections, net: route.fit.natural.them.projNet}, "their projections test = tradeFit natural.them");
-eq(out.rows.verdict.label === "natural", out.rows.verdict.failed.length === 0, "Natural exactly when no test failed (both sides)");
-// The golden trade: their DDF Value (projections) falls, so it is not Natural under 1a even though the other tests pass.
-eq(out.rows.verdict.failed, ["theirProjections"], "golden: only their projections fail");
-eq(out.rows.verdict.label, "market", "golden: Market supported, not Natural");
-// Will they accept, no profile: the viability label and the chart count, as the league finder computes them.
+// Verdict: the golden deal's throw-in tWR3 has no Trade chart average, so there is no verdict (tradeFit would leave him
+// out, as if he were worth 0); the reason names him and the missing series (Compare's "incomplete" rule).
+eq(out.rows.verdict.status, "incomplete", "a moving player without a Trade chart average means no verdict");
+eq(out.rows.verdict.missing, [{key: "tWR3", name: NAMES.tWR3, series: ["Trade chart average"]}], "who is missing, and in which series");
+eq(out.rows.verdict.reason, `No verdict: ${NAMES.tWR3} has no Trade chart average value, and a missing value is never counted as 0.`);
+ok(!("fit" in out.rows.verdict) && !out.rows.verdict.label, "no fit label from a partial deal");
+// Will they accept, no profile and no verdict: no viability label, and the chart count is evaluateCombo's own (a chart
+// counts only when it prices every moving player).
 eq(out.rows.accept.basis, "viability");
-eq(out.rows.accept.viability, route.viability, "viability = league.js viabilityLabel");
+eq(out.rows.accept.viability, null, "no viability without a verdict");
 eq(out.rows.accept.charts, {even: route.combo.rivalOkCount, priced: route.combo.pricedCharts, available: 3}, "chart count = evaluateCombo");
+ok(out.rows.accept.text.startsWith("Viability is not judged without a fit."), "and it says so");
+
+// The same deal without the unpriced throw-in: tradeFit on the market rows, with which test failed.
+{
+  const pin = input({receive: ["tRB1", "tWR1"]});
+  const priced = R.build(pin).rows;
+  const proute = leagueRoute(input({receive: ["tRB1", "tWR1"]}));
+  eq(priced.verdict.status, "available");
+  eq(priced.verdict.label, proute.fit.label, "verdict label = league finder tradeFit");
+  eq(priced.verdict.text, F.fitText(proute.fit), "verdict text = fitText");
+  eq(priced.verdict.name, R.FIT_NAME[proute.fit.label]);
+  eq(priced.verdict.tests.theirMarket.pass, proute.fit.theirOk, "their-market test is tradeFit's own theirOk (JEG-1340)");
+  eq(priced.verdict.failed, ["construction", "yourValue", "theirMarket", "yourProjections", "theirProjections"].filter(id => !{construction: proute.fit.constructionOk,
+    yourValue: proute.fit.yourValueOk, theirMarket: proute.fit.them.net >= -proute.fit.them.tau,
+    yourProjections: proute.fit.natural.us.projections === true, theirProjections: proute.fit.natural.them.projections === true}[id]), "failed tests named");
+  // Natural fit 1a (JEG-1324): both sides' projections are tests of the verdict, read from tradeFit's own `natural`.
+  eq(priced.verdict.tests.yourProjections, {pass: proute.fit.natural.us.projections, net: proute.fit.natural.us.projNet}, "your projections test = tradeFit natural.us");
+  eq(priced.verdict.tests.theirProjections, {pass: proute.fit.natural.them.projections, net: proute.fit.natural.them.projNet}, "their projections test = tradeFit natural.them");
+  eq(priced.verdict.label === "natural", priced.verdict.failed.length === 0, "Natural exactly when no test failed (both sides)");
+  // Their DDF Value (projections) falls, so it is not Natural under 1a even though the other tests pass.
+  eq(priced.verdict.failed, ["theirProjections"], "only their projections fail");
+  eq(priced.verdict.label, "market", "Market supported, not Natural");
+  eq(priced.accept.viability, proute.viability, "viability = league.js viabilityLabel");
+  eq(priced.accept.charts, {even: proute.combo.rivalOkCount, priced: proute.combo.pricedCharts, available: 3}, "chart count = evaluateCombo");
+  // A moving player with no DDF Value at all blocks the verdict too, named with both series.
+  const noDdf = input({receive: ["tRB1", "tWR1"]});
+  const tw = noDdf.theirs.rows.find(r => r.player_key === "tWR1");
+  Object.keys(tw.values).forEach(k => { if (k !== "ddf_value_projections" && !F.PROJECTION_KEYS.includes(k)) tw.values[k] = null; });
+  const blocked = R.build(noDdf).rows.verdict;
+  eq(blocked.status, "incomplete", "no DDF Value on a moving player: no verdict");
+  eq(blocked.missing, [{key: "tWR1", name: NAMES.tWR1, series: ["DDF Value", "Trade chart average"]}]);
+  // A kicker in the deal is not evaluated and does not block the verdict.
+  const withK = R.build(input({give: ["mWR1", "mRB2", "mK"], receive: ["tRB1", "tWR1"]})).rows.verdict;
+  eq(withK.status, "available", "a kicker in the deal never blocks the verdict");
+}
 // Sell gap: per player against the Trade chart average (marketGaps), the held chart excluded.
 eq(out.rows.sellGap.basis, "market");
 const gapOf = new Map(route.gaps.under.concat(route.gaps.over).map(g => [g.key, g.gap]));
@@ -156,10 +183,17 @@ if (process.argv.includes("--write-golden")) {
 }
 
 // ---------- named cases ----------
+// Data labels before a deal is ready read the market view's own charts: with nothing picked on one side the labels are
+// the same as for the full deal, so a priced player never reads "No Trade chart average value".
+{
+  const notReady = R.build(input({give: []}));
+  ok(!notReady.ready, "an empty side is not ready");
+  eq(notReady.rows.dataLabels, out.rows.dataLabels, "labels do not depend on the deal being ready");
+}
 // Natural fit 1a: a moving player with no DDF Value (projections) leaves both sides not judged (null), never read as 0,
 // and a side that is not judged is not Natural.
 {
-  const inp = input();
+  const inp = input({receive: ["tRB1", "tWR1"]});
   const w = inp.mine.rows.find(r => r.player_key === "mWR1");
   w.values.ddf_value_projections = null;
   F.PROJECTION_KEYS.forEach(p => { w.values[p] = null; });
@@ -244,7 +278,8 @@ if (process.argv.includes("--write-golden")) {
     deal: {give: GIVE, get: RECEIVE}, pricing: {mode: "league", levels: {}}};
   const inp = R.inputFromContext(ctx, {rowsByKey: new Map(all.map(r => [r.player_key, r])), shape: SHAPE, chartKeys: CHARTS, sourceInfo: SOURCE_INFO, week: 8, fit: FIT});
   eq(R.build(inp).rows.context.text, "Half PPR · 10 teams · Superflex · DDF Value basis · Bench from your league's rosters · Week 8");
-  eq(R.build(inp).rows.verdict.label, out.rows.verdict.label, "the same deal from a TradeContext reads the same verdict");
+  eq([R.build(inp).rows.verdict.status, R.build(inp).rows.verdict.reason], [out.rows.verdict.status, out.rows.verdict.reason],
+    "the same deal from a TradeContext reads the same verdict");
 }
 // No weekly series is read: rows carrying weekly values give the same second half.
 {
@@ -258,7 +293,9 @@ if (process.argv.includes("--write-golden")) {
   const node = R.renderRows(out, {document: doc});
   eq(node.children.map(c => c.dataset.row), ["verdict", "accept", "sell-gap", "data-labels", "context"]);
   const text = node.textContent;
-  ok(text.includes(out.rows.verdict.text), "verdict text drawn");
+  ok(text.includes(out.rows.verdict.reason), "the missing-value verdict draws its reason");
+  ok(R.renderRows(R.build(input({receive: ["tRB1", "tWR1"]})), {document: doc}).textContent.includes(R.build(input({receive: ["tRB1", "tWR1"]})).rows.verdict.text),
+    "a priced deal draws its verdict text");
   ok(text.includes("Sol Whitcombe (you get): No Trade chart average value"), "unpriced player drawn by name with its reason");
   ok(text.includes("Their team, Quinn Talbot: ◐ 1 source: Only one source prices this player: ESPN."), "single-source tag drawn by name");
   ok(text.includes("Their team, Vance Okafor: No value this week"), "a roster entry with no engine row is drawn by its entry name");
