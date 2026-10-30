@@ -23,7 +23,9 @@ below are history, including any "Codex reviews and merges" line.
 
 - Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
   ("A", "Yes, send it"). Deployed from that main at about 20:15 UTC: get-values v12 and mcp v18 (were v11
-  and v17). This also took JEG-1029's connector analyses and JEG-1125's find-trades band live.
+  and v17). It shipped every edge change merged since v11/v17, not only JEG-1029: also JEG-1225 (#1124),
+  JEG-1365 2QB (#1216), JEG-1387/1388 (#1214), JEG-1344 (#1210), JEG-1125 (#1033) and smaller connector fixes
+  (list in `docs/claude-log/2026-10-30-jeg-1385-deploy.md`).
 - Live check passed: the connector's get_values at ppr/12, half_ppr/10 SF and standard/14 gives the same
   values as before the deploy (every source is paired today), find_trades answers, the edge drift check
   on main exited 0 (deployed tool list and get-values charts match main), and the function logs show only
@@ -41,6 +43,8 @@ below are history, including any "Codex reviews and merges" line.
 - Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
   picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
   the Supabase function logs for both lines and that a sample request's values are unchanged.
+- Deployed 2026-10-30 with JEG-1385 (get-values v12, main 374dc8f7); a `get_values.compute` line shows in the
+  function logs and ppr/12 values were unchanged.
 
 ### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
 
@@ -64,8 +68,8 @@ below are history, including any "Codex reviews and merges" line.
   `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
   `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
   done (one connector min_rival_edge bug, fixed in `7694bb7`).
-  Next: green CI, squash merge, check the live site, then ask Jeremy for the
-  `mcp` deploy (find-trades.ts ships with the function).
+  Merged as #1033 (a750ca07). Its find-trades.ts went live in the JEG-1385 mcp deploy (v18, main
+  374dc8f7, 2026-10-30); Jeremy was told it shipped with that deploy.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
