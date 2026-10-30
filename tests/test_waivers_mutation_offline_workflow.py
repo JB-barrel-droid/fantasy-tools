@@ -6,10 +6,10 @@ but does not block merges, and they stay out of test-core, the deploy gate for d
 
   - .github/workflows/waivers-mutation-offline.yml fires on every pull request (no paths or branches
     filter) and runs exactly the three offline classes, never the Chromium class and never a browser install;
-  - a failure turns that check red: no continue-on-error, no `|| true` / `|| echo` / `exit 0`, and the
-    test step that pipes through tee sets pipefail;
-  - it stays out of the required path: preview.yml and pages.yml never name it, and no test-core target
-    in the Makefile runs the mutation module.
+  - a failure turns that check red: no continue-on-error, no `|| true` / `|| echo` / `exit 0`, no step
+    `shell:` override, and every step that pipes through tee sets pipefail;
+  - it stays out of the required path: preview.yml and pages.yml never name it or run make test-unit,
+    and no test-core target in the Makefile runs the mutation module.
 
 Plain-text parsing on purpose (PyYAML is not on the CI runner). Each rule is negative-tested against a
 mutated copy of the real file.
@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 WF = ROOT / ".github" / "workflows"
 NAME = "waivers-mutation-offline.yml"
 MODULE = "tests.test_waivers_mutation_specificity"
+MODULE_PATH = "tests/test_waivers_mutation_specificity.py"
 OFFLINE = ("ClassifierOfflineTests", "AnchorOfflineTests", "FixtureOfflineTests")
 BROWSER_CLASS = "MutationSpecificityRenderTests"
 SWALLOWS = (re.compile(r"continue-on-error\s*:\s*true", re.I), re.compile(r"\|\|\s*(true|echo|:)"),
@@ -32,9 +33,13 @@ def read(path):
     return path.read_text(encoding="utf-8")
 
 
+def strip_comments(text):
+    return "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#")) + "\n"
+
+
 def workflow_problems(text):
     out = []
-    text = "\n".join(line for line in text.splitlines() if not line.lstrip().startswith("#")) + "\n"
+    text = strip_comments(text)
     m = re.search(r"^  pull_request:\n((?:    .*\n)*)", text, re.M)
     if not m:
         return ["no pull_request trigger"]
@@ -43,15 +48,18 @@ def workflow_problems(text):
     for cls in OFFLINE:
         if f"{MODULE}.{cls}" not in text:
             out.append(f"does not run {cls}")
-    if BROWSER_CLASS in text or re.search(rf"{re.escape(MODULE)}(?!\.)", text):
+    if BROWSER_CLASS in text or re.search(rf"{re.escape(MODULE)}(?!\.)", text) or MODULE_PATH in text:
         out.append("runs the Chromium class or the whole module (needs a browser and a build)")
     if re.search(r"playwright install", text):
         out.append("installs a browser: the offline classes need none")
     for pattern in SWALLOWS:
         if pattern.search(text):
             out.append(f"swallows a failure ({pattern.pattern})")
-    if "| tee" in text and "set -o pipefail" not in text:
-        out.append("pipes the tests through tee without pipefail, so a failure would exit 0")
+    for step in re.split(r"^      - ", text, flags=re.M)[1:]:
+        if "| tee" in step and "set -o pipefail" not in step:
+            out.append("a step pipes through tee without pipefail, so a failure would exit 0")
+    if re.search(r"^\s*shell:", text, re.M):
+        out.append("sets a step shell: keep the default bash -e so a failing command fails the step")
     if not re.search(r"^    timeout-minutes: \d+$", text, re.M):
         out.append("job has no timeout")
     return out
@@ -78,6 +86,8 @@ def gate_problems(preview, pages, makefile):
     for name, text in (("preview.yml", preview), ("pages.yml", pages)):
         if "waivers-mutation" in text or "test_waivers_mutation" in text:
             out.append(f"{name} names the Waivers mutation check: it must stay out of the required path")
+        if re.search(r"make test-unit\b", strip_comments(text)):
+            out.append(f"{name} runs make test-unit, which includes the Waivers mutation module: it must stay out of the required path")
     targets = make_targets(makefile, "test-core")
     if "test-core" not in targets:
         out.append("no test-core target found in the Makefile")
@@ -137,6 +147,19 @@ class Mutations(unittest.TestCase):
     def test_missing_pipefail_is_caught(self):
         self.assertCaught(self.wf.replace("set -o pipefail\n", "", 1), "pipefail")
 
+    def test_path_form_of_the_module_is_caught(self):
+        text = self.wf.replace(f"{MODULE}.FixtureOfflineTests", "tests/test_waivers_mutation_specificity.py", 1)
+        self.assertCaught(text, "Chromium class or the whole module")
+
+    def test_second_tee_step_without_pipefail_is_caught(self):
+        extra = '      - name: Extra\n        run: |\n          python3 -m unittest -v tests.test_x 2>&1 | tee x.log\n'
+        self.assertCaught(self.wf.replace("      - name: Summary\n", extra + "      - name: Summary\n", 1), "pipefail")
+
+    def test_step_shell_is_caught(self):
+        text = self.wf.replace("      - name: Waivers mutation offline classes\n",
+                               "      - name: Waivers mutation offline classes\n        shell: sh\n", 1)
+        self.assertCaught(text, "shell")
+
     def test_missing_timeout_is_caught(self):
         self.assertCaught(re.sub(r"    timeout-minutes: \d+\n", "", self.wf), "timeout")
 
@@ -145,6 +168,11 @@ class Mutations(unittest.TestCase):
                                                     "needs: [pr-state, preview-build, preview-shard, waivers-mutation-offline]", 1)
         problems = gate_problems(preview, read(WF / "pages.yml"), read(ROOT / "Makefile"))
         self.assertTrue(any("preview.yml" in p for p in problems), problems)
+
+    def test_full_suite_in_the_required_check_is_caught(self):
+        preview = read(WF / "preview.yml").replace("      - run: make reference\n", "      - run: make test-unit\n      - run: make reference\n", 1)
+        problems = gate_problems(preview, read(WF / "pages.yml"), read(ROOT / "Makefile"))
+        self.assertTrue(any("make test-unit" in p for p in problems), problems)
 
     def test_module_in_test_core_is_caught(self):
         makefile = read(ROOT / "Makefile").replace("test-core:\n", f"test-core:\n\tpython3 -m unittest {MODULE}.AnchorOfflineTests\n", 1)
