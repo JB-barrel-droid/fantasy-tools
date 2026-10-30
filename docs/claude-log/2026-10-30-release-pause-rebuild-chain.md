@@ -42,3 +42,12 @@ every automated push to main from that step, without stopping processing.
   `--published`; a success that hands off or finds main unchanged leaves the
   alert as it is until a run publishes. No code change.
 - CI on the new head and the independent delta review are pending.
+
+### Ported fix (CI on 569a057c)
+- `settings-render` failed on 569a057c in `test_round_trips_by_file_and_link`
+  (`{}` overrides on the opened link page), the intermittent race JEG-1379
+  names; it passed on 62803efa. Ported #1198's `app/v2/league.js` change
+  verbatim (read the share link once `TradeValueV2.applyLinkLeague` exists) so
+  this PR doesn't wait on #1198; the hunk is identical, so it no-ops once #1198
+  merges. `node --check` passes; the render test runs in CI only (no Chromium
+  in cloud sessions).

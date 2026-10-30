@@ -1338,6 +1338,14 @@
     offerReplace(w, "Shared link:");
   }
 
+  // JEG-1379: the engine can have rows before v2.js has finished booting, and a share link's league settings and player
+  // overrides go through v2.js (TradeValueV2.applyLinkLeague, then DDFOverrides.applyLink in applyImported). Read the
+  // link once that reader is on the page, so a link never loads its teams without them. Gives up waiting after ~30 s.
+  function readShareHashWhenReady(tries = 0) {
+    if ((root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) || tries >= 120) { readShareHash(); return; }
+    setTimeout(() => readShareHashWhenReady(tries + 1), 250);
+  }
+
   // ---------- the cards ----------
   function build() {
     const host = $("v2FindLeague");
@@ -1495,7 +1503,7 @@
       refreshAll("load");
       UI.firstPaint = false;
       renderUndo();
-      readShareHash();
+      readShareHashWhenReady();
       return true;
     };
     if (!ready()) {
