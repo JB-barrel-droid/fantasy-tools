@@ -1,0 +1,60 @@
+name: Edge drift check
+
+# JEG-1049: the Supabase edge functions `mcp` and `get-values` are deployed by
+# hand, so production can fall behind main unnoticed (2026-10-24: prod mcp
+# listed 7 tools, main had 8, and get-values lacked include=charts). This job
+# runs tools/edge_drift_check.mjs (JEG-1256) against the public production
+# endpoints and compares them with the checked-out code.
+#
+# Read-only: contents: read, no secrets, no deploy, no Supabase writes.
+# Daily plus on demand (Jeremy, 2026-10-29: "A").
+#
+# Exit codes (from the checker): 0 in sync, 1 drift (someone must redeploy),
+# 2 could not compare (an endpoint was unreachable or unreadable). A red run
+# is a warning: nothing else waits on this job and it does not stop the site.
+on:
+  schedule:
+    - cron: "40 12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edge-drift-check
+  cancel-in-progress: false
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Compare deployed edge functions with main
+        shell: bash
+        run: |
+          log="$(mktemp)"
+          set +e
+          node --experimental-strip-types --no-warnings tools/edge_drift_check.mjs > "$log" 2>&1
+          code=$?
+          set -e
+          cat "$log"
+          case "$code" in
+            0) verdict="In sync: deployed mcp and get-values match this commit." ;;
+            1) verdict="Drift: a deployed edge function is behind or ahead of this commit. Redeploy it." ;;
+            2) verdict="Could not compare: an endpoint was unreachable or unreadable. Not a healthy result, not a drift verdict." ;;
+            *) verdict="Checker exited $code unexpectedly." ;;
+          esac
+          {
+            echo "### Edge drift check"
+            echo
+            echo "$verdict (exit $code)"
+            echo
+            echo '```'
+            cat "$log"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"

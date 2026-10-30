@@ -39,6 +39,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -49,6 +50,7 @@ from tests.test_published_league_settings_engine import (  # noqa: E402
     FIXTURE, SAVED_SHAPE, SCORINGS, SOURCES, VALUE_MODEL, browser_inputs, browser_players,
 )
 from tests import _render_env  # noqa: E402
+from tests._week_view import own_week_reads  # noqa: E402
 
 
 def setUpModule():
@@ -128,12 +130,13 @@ process.stdout.write(JSON.stringify(shapes.map(s => VM.superflexCount(s))));
 """
 
 
-def identity_problems(model_path=VALUE_MODEL):
+def identity_problems(model_path=VALUE_MODEL, fixture=None):
     """SUPERFLEX 0 reproduces the default engine exactly (server and browser)."""
     problems = []
     for source in SOURCES:
         for scoring in SCORINGS:
-            ranked, key_by_name = unified.load_native_values(source, scoring, 12)
+            ranked, key_by_name = unified.load_native_values(
+                source, scoring, 12, fixture_path=FIXTURE if fixture is None else fixture)
             keyed = {pos: [(key_by_name[unified.norm_player_name(n)], n, v) for n, v in rows]
                      for pos, rows in ranked.items()}
             for teams in (8, 10, 12, 14):
@@ -168,6 +171,13 @@ def mutated(name, old, new):
 
 
 class SuperflexEngine(unittest.TestCase):
+    def test_identity_reads_the_supplied_fixture(self):
+        # A missing isolated fixture must fail; silently reading the default
+        # would make seeded-hold coverage a second unheld-baseline test.
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaises(FileNotFoundError):
+                identity_problems(fixture=Path(tmp) / "missing-fixture.json")
+
     def test_superflex_zero_is_the_default_engine(self):
         problems = identity_problems()
         self.assertEqual(problems, [], "\n".join(problems[:20]))
@@ -208,18 +218,28 @@ READ = """(keys) => {
 }"""
 
 
-def collect_page(widget_override=None):
+def collect_page(widget_override=None, data_overrides=None):
     from tests.test_published_league_settings_render import _chromium_executable, _server
     try:
         from playwright.sync_api import sync_playwright
     except Exception as exc:  # pragma: no cover
         raise _render_env.unavailable(f"Playwright is not available: {exc}") from exc
     out = {}
-    with _server() as url, sync_playwright() as playwright:
+    if data_overrides is None:
+        server = _server()
+    else:
+        from tests.test_week_history import _server as history_server
+        server = history_server(data_overrides)
+    with server as url, sync_playwright() as playwright:
         browser = playwright.chromium.launch(args=_render_env.HERMETIC_ARGS, executable_path=_chromium_executable(playwright))
         try:
             page = browser.new_page()
-            page.add_init_script(_render_env.pin_data_week_script())
+            if data_overrides and "assets/comparison-sources-data.json" in data_overrides:
+                from tests.test_week_history import _fixture_today
+                today = _fixture_today(json.loads(data_overrides["assets/comparison-sources-data.json"]))
+                page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
+            else:
+                page.add_init_script(_render_env.pin_data_week_script())
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             if widget_override is not None:
@@ -230,6 +250,15 @@ def collect_page(widget_override=None):
                                    timeout=20000)
             out["clamp"] = page.evaluate(SET_SF, 5)
             out["sf1"] = page.evaluate(READ, list(SOURCES) + ["espn"])
+            # JEG-1176: a chart lagging the default week view is read in its
+            # own week's view, or noted as lagging when no view has its week.
+            absent = [k for k in SOURCES if not out["sf1"]["maps"][k]]
+            own = own_week_reads(page, absent, lambda keys: page.evaluate(READ, keys), "superflex",
+                                 "superflex values not checked in the browser")
+            for week, got in own["reads"].items():
+                out["sf1"]["maps"].update(got["maps"])
+            out["sf1"]["week_fixed_pie"] = {week: got["fixedPie"] for week, got in own["reads"].items()}
+            out["sf1"]["lagging"] = own["lagging"]
             out["zero"] = page.evaluate(SET_SF, 0)
             # The classic page's roster input drives the same setter.
             out["has_input"] = page.evaluate("""() => { const i = document.querySelector('[data-roster-key="SUPERFLEX"]');
@@ -241,7 +270,7 @@ def collect_page(widget_override=None):
     return out
 
 
-def page_problems(got):
+def page_problems(got, fixture=None):
     problems = [f"page error: {e[:200]}" for e in got["errors"]]
     if got["clamp"] != 1:
         problems.append(f"setRosterSpot('SUPERFLEX', 5) left SUPERFLEX={got['clamp']}, want 1 (clamped)")
@@ -251,14 +280,20 @@ def page_problems(got):
         problems.append("no working Superflex roster input on the classic page")
     if got["sf1"]["fixedPie"] is not True:
         problems.append(f"fixedPieIndexed {got['sf1']['fixedPie']} with superflex")
+    for week, fixed in sorted((got["sf1"].get("week_fixed_pie") or {}).items()):
+        if fixed is not True:
+            problems.append(f"fixedPieIndexed {fixed} with superflex in the Week {week} view")
     # JEG-508 (VP-0 "Superflex", VP-6.4): with the slot, each chart's
     # Indexed values are its natives WITH the publisher's superflex overlay
     # times one factor (against blended DDF Value, no longer the ESPN
     # anchor). So every listed player's value / overlay native is one
     # constant, and every overlay player is plotted.
-    fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    if fixture is None:
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
     pos_of = browser_players()
     for source in SOURCES:
+        if source in (got["sf1"].get("lagging") or {}):
+            continue  # older than every week view: noted on stderr by own_week_reads
         values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
         native, _saved, _ = browser_inputs(fixture, pos_of, source, "ppr", superflex=True)
         native = {k: v for k, v in native if v > 0}
@@ -270,6 +305,49 @@ def page_problems(got):
             problems.append(f"superflex {source}: Indexed is not one factor on the superflex natives "
                             f"(ratios {min(ratios or [0]):.6f}..{max(ratios or [0]):.6f})")
     return problems
+
+
+class SuperflexPageGuard(unittest.TestCase):
+    """Exercise the page checker without letting a hold mask a broken map."""
+
+    def setUp(self):
+        self.fixture = {"player_keys": {"a": 1, "b": 2}, "sources": {
+            source: {"combos": {"full_12": {
+                "native": {"a": 10, "b": 5}, "native_superflex": {"a": 20},
+                "reindexed": {"a": 40, "b": 10},
+            }}} for source in SOURCES}}
+        self.got = {"errors": [], "clamp": 1, "zero": 0, "has_input": True,
+                    "sf1": {"fixedPie": True, "maps": {
+                        source: {"1": 40, "2": 10} for source in SOURCES}}}
+        positions = patch(__name__ + ".browser_players", return_value={1: "QB", 2: "RB"})
+        positions.start()
+        self.addCleanup(positions.stop)
+
+    def test_supplied_fixture_checks_its_own_superflex_natives(self):
+        self.assertEqual(page_problems(self.got, self.fixture), [])
+        self.fixture["sources"]["cbs"]["combos"]["full_12"]["native_superflex"]["a"] = 21
+        self.assertTrue(any("superflex cbs: Indexed is not one factor" in p
+                            for p in page_problems(self.got, self.fixture)))
+
+    def test_holds_do_not_exempt_missing_or_corrupt_pipeline_maps(self):
+        # sourceMaps is the pipeline harness, not the visible curves. A red
+        # hold excludes a chart from display and DDF, but its priced rows
+        # remain available here and still need the original numeric checks.
+        for source in SOURCES:
+            for hold in ({"reason": "chain hold"}, {"hold_level": "red"},
+                         {"hold_level": "amber"}):
+                with self.subTest(source=source, hold=hold):
+                    self.fixture["sources"][source]["validationHold"] = hold
+                    self.got["sf1"]["maps"][source] = {"1": 40, "2": 10}
+                    self.assertEqual(page_problems(self.got, self.fixture), [])
+                    self.got["sf1"]["maps"][source] = {"1": 40}
+                    self.assertTrue(any(f"superflex {source}: listed players not plotted" in p
+                                        for p in page_problems(self.got, self.fixture)))
+                    self.got["sf1"]["maps"][source] = {"1": 41, "2": 10}
+                    self.assertTrue(any(f"superflex {source}: Indexed is not one factor" in p
+                                        for p in page_problems(self.got, self.fixture)))
+                    self.got["sf1"]["maps"][source] = {"1": 40, "2": 10}
+                    del self.fixture["sources"][source]["validationHold"]
 
 
 class SuperflexPage(unittest.TestCase):

@@ -374,7 +374,12 @@ COMMON = r"""
       lowconfText: (td.querySelector('[data-low-confidence]')?.textContent || '').trim(),
       delta: td.querySelector('.delta') ? {text: td.querySelector('.delta').textContent, title: td.querySelector('.delta').title} : null}))}));
   const addTrade = async () => {
-    const rows = C.getRows();
+    // Two players not already in the sample trade: a player on a side has a disabled search
+    // result, so adding him does nothing (JEG-1142: the sample is picked from the values, so
+    // which top rows it holds moves when values move).
+    const onTrade = new Set([...document.querySelectorAll('#v2GivePlayers li[data-player-key], #v2GetPlayers li[data-player-key]')]
+      .map(li => li.dataset.playerKey));
+    const rows = C.getRows().filter(r => !onTrade.has(String(r.player_key)));
     for (const [input, results, row] of [['v2GiveSearch', 'v2GiveResults', rows[0]], ['v2GetSearch', 'v2GetResults', rows[1]]]) {
       fire($(input), row.name); await sleep(400);
       const hit = [...document.querySelectorAll('#' + results + ' button[data-player-key]')].find(b => b.dataset.playerKey === String(row.player_key));
@@ -630,7 +635,12 @@ COMPARE_JS = "async () => {" + COMMON + r"""
       current: document.querySelectorAll('#v2CDealGrid td[aria-current]').length, nets: document.querySelectorAll('#v2CDealNets li').length,
       read: $('v2CDealRead').textContent, text: $('v2CDealText').textContent, split: /The sources split/.test($('v2Compare').innerText)}});
   const out = {tabs: tabs(), pages: pagesShown(), text: visibleText(), attrs: attrText($('v2Compare')), shownKey: $('v2CShown').value};
+  // JEG-1190: Compare opens empty; Try a sample trade loads the sample, marked Example.
+  out.start = {...snap(), start: shown($('v2CStart')), tryShown: shown($('v2CTryExample'))};
+  if (shown($('v2CTryExample'))) { $('v2CTryExample').click(); await sleep(500); }
   out.example = snap();
+  // The text checks read the page with the sample loaded, as they did when it opened on the example.
+  out.text = visibleText(); out.attrs = attrText($('v2Compare'));
   out.weeks = weekInfo();
   out.rows = [...document.querySelectorAll('#v2CTable tbody tr[data-source]')].map(tr => { const wf = tr.querySelector('.v2-wf');
     return {src: tr.dataset.source, badges: badgesIn(tr), name: own(tr.querySelector('td.player')) || (tr.querySelector('td.player a[data-source-link]')?.textContent || '').trim(), give: parseFloat(tr.querySelector('[data-col="give"]')?.textContent),
@@ -647,7 +657,7 @@ COMPARE_JS = "async () => {" + COMMON + r"""
   out.otherShown = {key: other, label: [...$('v2CShown').options].find(o => o.value === other)?.textContent || '', title: $('v2CVerdictTitle').textContent};
   V.setPageKeys('compare', before); await sleep(500);
   fire($('v2CShown'), 'ddf_value'); await sleep(400);
-  // Add a player of our own to each side: the example leaves, and the link carries the league settings.
+  // Add a player of our own to each side: the first replaces the sample, and the link carries the league settings.
   await addTrade();
   out.added = snap();
   if (shown($('v2CSwap'))) { $('v2CSwap').click(); await sleep(400); }
@@ -795,7 +805,8 @@ def scenario_tabs(s: Session) -> dict:
         page.wait_for_timeout(300)
         out["risers"] = page.evaluate(RISERS_JS)
         page.evaluate("() => { location.hash = '#compare-trade'; }")
-        page.wait_for_function("() => window.TradeValueV2.compare() && document.querySelectorAll('#v2CTable tbody tr[data-source]').length", timeout=40000)
+        # JEG-1190: Compare opens empty, so wait until the sample can load; COMPARE_JS loads it.
+        page.wait_for_function("() => window.TradeValueV2.compare() && !document.getElementById('v2CTryExample').disabled", timeout=40000)
         page.wait_for_timeout(300)
         out["compare"] = page.evaluate(COMPARE_JS)
         page.evaluate("() => { location.hash = '#writing/how-values'; }")
@@ -1693,10 +1704,10 @@ def gl25(S):
 def tt10(S):
     w = S["tabs"]["targets"]["weight"]
     errors = []
-    for heading in ("1. Potential mispricing", "2. Potential positional weight inflation"):
+    for heading in ("1. Potential mispricing", "2. Positions the market overpays for"):   # JEG-1130: PMM doc 3.2
         if heading not in w["h2"]:
             errors.append(f"missing numbered heading {heading!r}: {w['h2']}")
-    for name in ("potential mispricing", "potential positional weight inflation"):
+    for name in ("potential mispricing", "the positions the market overpays for"):   # JEG-1130: PMM glossary retires "positional weight inflation"
         if name not in w["sub"]:
             errors.append(f"the subtitle does not name {name!r}")
     return errors
@@ -1785,9 +1796,10 @@ def tt05_partial(S):
 
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
-# JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
-GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published trade charts", "proj": "Projection-based values",
-                  "vorp": "Raw value above waivers (advanced)"}
+# JEG-1212 (Jeremy, 2026-10-28): source categories supersede the old combined chart label.
+# The Doc mirror remains a historical pending contract; this partial guards the approved current UI.
+GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published charts", "observed": "Observed-trade estimates", "proj": "Projection-based values",
+                  "vorp": "Value above waivers (advanced)"}   # JEG-1130: PMM glossary retires "Raw value above waivers"
 
 
 def gl07_partial(S):
@@ -1835,9 +1847,9 @@ def gl21_partial(S):
             errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
         pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
         meta = (pub or {}).get("meta", "")
-        if not pub or pub["title"] != "Published trade charts":
-            errors.append(f"{tab}: the chart group is not named 'Published trade charts'")
-        elif not re.search(r"adjusted to your league's scale", meta):
+        if not pub or pub["title"] != "Published charts":
+            errors.append(f"{tab}: the chart group is not named 'Published charts'")
+        elif not re.search(r"rescaled to your league's scale", meta):
             errors.append(f"{tab}: the chart group's meaning line is {meta!r}")
     return errors
 
@@ -1942,7 +1954,7 @@ def tt08(S):
 def rf02(S):
     d = S["tabs"]["risers"]["disagree"]
     errors = []
-    if d["h2"] != "Where DDF Value and the projections disagree" or d["heads"] != ["DDF Value moved, projections didn't", "Projections moved, DDF Value didn't"]:
+    if d["h2"] != "Mixed signals" or d["heads"] != ["The charts moved first", "The projections moved first"]:   # JEG-1130: PMM doc 3.2
         errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
     if d["meta"].startswith("No comparison yet") and d["n"]:
         errors.append(f"no comparison but {d['n']} players listed")
@@ -1983,7 +1995,7 @@ def ct01(S):
     s = c["swapped"]
     if [p["key"] for p in s["get"]] != [p["key"] for p in a["give"]]:
         errors.append("Swap did not move Give to Receive")
-    if any(not p["example"] for p in c["cleared"]["give"] + c["cleared"]["get"]):
+    if c["cleared"]["give"] or c["cleared"]["get"]:
         errors.append("Clear left players on the trade")
     return errors
 
@@ -2036,14 +2048,19 @@ def ct08(S):
 
 
 def ct05(S):
-    e = S["tabs"]["compare"]["example"]
+    """JEG-1190 (Jeremy, 2026-10-28, "A"; this replaces the JEG-469 example-on-open rule): Compare opens empty with
+    Try a sample trade; the sample loads marked Example and editable; a player of the reader's own replaces it."""
+    c = S["tabs"]["compare"]
+    st, e, a = c["start"], c["example"], c["added"]
     errors = []
+    if st["give"] or st["get"] or st["example"] or not st["tryShown"] or "give=" in st["hash"]:
+        errors.append(f"Compare does not open empty with Try a sample trade: {st['give']} / {st['get']}, try {st['tryShown']}, {st['hash']!r}")
     if not e["example"] or "Example" not in e["eyebrow"] or not e["give"] or not e["get"]:
-        errors.append(f"no example trade before a player is added: {e['eyebrow']!r}")
-    if "give=" in e["hash"] or "get=" in e["hash"] or e["share"]:
-        errors.append(f"the example goes into the link: {e['hash']!r}, share {e['share']}")
-    if S["tabs"]["compare"]["added"]["example"]:
-        errors.append("the example stays after a player is added")
+        errors.append(f"Try a sample trade did not load a trade marked Example: {e['eyebrow']!r}")
+    elif not all(p["example"] for p in e["give"] + e["get"]) or not (e["clear"] and e["swap"]):
+        errors.append(f"the sample is not marked or not editable: clear {e['clear']}, swap {e['swap']}")
+    if a["example"] or any(p["example"] for p in a["give"] + a["get"]) or len(a["give"]) != 1 or len(a["get"]) != 1:
+        errors.append(f"adding a player did not replace the sample: {a['give']} / {a['get']}")
     return errors
 
 
@@ -2312,8 +2329,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, the removed Compare headline lines back.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
-                        '{id: "pub", title: "Trade charts (as published)"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published charts", note:',
+                        '{id: "pub", title: "Trade charts (as published)", note:')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust v2-btn-sm" id="v2EditLeague"')
         # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).

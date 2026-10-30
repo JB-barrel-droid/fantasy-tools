@@ -32,6 +32,29 @@
     dj: "d.j.", pj: "p.j.", jj: "j.j.", kj: "k.j.",
   };
 
+  // Platform spellings that are not the site's name for the player (JEG-1388): [spelling, player_key].
+  // Same list as supabase/functions/mcp/names.ts.
+  // BEGIN GENERATED name aliases: python3 pipelines/build_name_aliases.py (JEG-1388). Do not edit.
+  var NAME_ALIASES = [
+    ["Cameron Skattebo", 3664],
+    ["Cameron Ward", 697],
+    ["Chigoziem Okonkwo", 4247],
+    ["Christopher Brooks", 2515],
+    ["Drew Ogletree", 920],
+    ["J. Sturdivant", 2201],
+    ["Jalen Cropper", 1268],
+    ["Joshua Palmer", 822],
+    ["Kenny Gainwell", 785],
+    ["Michael Badgley", 235],
+    ["Michael Strachan", 657],
+    ["Michael Woods", 928],
+    ["Mitch Trubisky", 4214],
+    ["Scotty Miller", 399],
+    ["Tyron Billy-Johnson", 423],
+    ["Zonovan Knight", 868]
+  ];
+  // END GENERATED name aliases
+
   function normName(name) {
     return String(name || "").toLowerCase()
       .replace(/[.'''`]/g, "")
@@ -160,6 +183,8 @@
   //   "Deebo Samuel Sr.OVideo ForecastNew Player Note"
   //   "ChiefsNo new player Notes"
   var YAHOO_GLUED_RE = /(?:Video Forecast|New Player Note|No new player Notes|Player Note|Notes?)\s*$/i;
+  // Yahoo's page-wide search header is navigation, even when its labels are glued together.
+  var YAHOO_SEARCH_NOISE_RE = /^(?:Yahoo\s*Sports\s*)+(?:Search\s*query\s*S?)?$|^Search\s*query\s*S?$/i;
   // Injury tags glued directly onto a name: "LoveQ", "EgbukaQ", "Samuel Sr.O"
   // Single uppercase letter Q/O/D right after a lowercase letter or period, or
   // multi-char tags like IR/SSPD/PUP/DTD after a lowercase letter.
@@ -236,6 +261,20 @@
       if (nick) addEntry(byName, nick, entry);
       var init = initialForm(normed);
       if (init) addEntry(byInitial, init, entry);
+    }
+
+    // A platform spelling reaches its player, unless the spelling is already
+    // some player's own name (canonical names win).
+    var byKey = {};
+    for (var j = 0; j < (playerRows || []).length; j++) {
+      var r = playerRows[j];
+      if (r && r.name) byKey[String(r.player_key)] = r;
+    }
+    for (var a = 0; a < NAME_ALIASES.length; a++) {
+      var target = byKey[String(NAME_ALIASES[a][1])];
+      var aliasKey = normName(NAME_ALIASES[a][0]);
+      if (!target || !aliasKey || byName[aliasKey]) continue;
+      addEntry(byName, aliasKey, {row: target, team: normTeam(target.team) || null, pos: target.pos || ""});
     }
 
     return {byName: byName, byInitial: byInitial};
@@ -1186,6 +1225,7 @@
       var line = rawLines[lineIdx];
       var trimmed = line.trim();
       if (!trimmed) continue;
+      if (YAHOO_SEARCH_NOISE_RE.test(trimmed)) continue;
 
       // Clean Yahoo-style glued text and ESPN doubled names
       var cleaned = cleanYahooName(trimmed);
@@ -1339,6 +1379,7 @@
   }
   function plausibleTeamName(line, index) {
     var t = cleanTeamName(line);
+    if (YAHOO_SEARCH_NOISE_RE.test(t)) return false;
     if (t.length < 2 || t.length > 60) return false;
     if (!/[A-Za-z]/.test(t) || /\t/.test(line)) return false;
     if (t.charAt(0) === "@") return false;
@@ -1524,7 +1565,7 @@
     extractTokens: extractTokens, tryNameMatch: tryNameMatch, disambiguate: disambiguate,
     lineHints: lineHints, buildFirstWords: buildFirstWords, tryDefenceOnLine: tryDefenceOnLine,
     dstSearchNames: dstSearchNames, isSlotLabel: isSlotLabel, hasBNLine: hasBNLine,
-    NICK_MAP: NICK_MAP, CITY_TO_MASCOT: CITY_TO_MASCOT, MASCOT_TO_CITY: MASCOT_TO_CITY,
+    NICK_MAP: NICK_MAP, NAME_ALIASES: NAME_ALIASES, CITY_TO_MASCOT: CITY_TO_MASCOT, MASCOT_TO_CITY: MASCOT_TO_CITY,
   };
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.DDFRosterPaste = api;

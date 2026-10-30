@@ -21,3 +21,8 @@ d377e659 and differ from #957 on; main's engine gives the same rows on the defau
 {mode: "default"} and the equal four-chart blend. The test is now a regression lock on the default path since 771c3422:
 a later deliberate value change re-freezes it again from main after that change merges (copy
 app/trade-value-chart/assets/value-model.js and curve-widget.js here) and says so in its claude-log entry.
+
+Re-frozen 2026-10-28 (JEG-1142, PR #1044): switching off the promotion/demotion model (PROMOTION_MODEL_ENABLED = false)
+deliberately changes default values at every league setting, so value-model.js and curve-widget.js were copied here
+byte for byte from the PR head, which is main's engine once it merges. The folder keeps its old name so the test's path
+does not move.

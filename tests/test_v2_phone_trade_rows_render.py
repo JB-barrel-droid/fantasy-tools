@@ -69,6 +69,9 @@ def _run(css=None) -> dict:
                 page.route("**/v2/v2.css*", lambda route: route.fulfill(status=200, content_type="text/css", body=css))
             page.goto(base + "#compare-trade", wait_until="networkidle")
             page.wait_for_timeout(1200)
+            # JEG-1190: Compare opens empty; the sample trade gives the rows to measure.
+            page.click("#v2CTryExample")
+            page.wait_for_timeout(400)
             out[width] = page.evaluate(PROBE)
             page.close()
         browser.close()

@@ -11,42 +11,278 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
+Since 2026-10-29 19:12 UTC Codex is out and Claude sessions review and merge:
+see "Review and merge protocol" in `AGENTS.md` (JEG-1218). Codex lane notes
+below are history, including any "Codex reviews and merges" line.
+
 ---
 
 ## Resume here
 
-Last updated: 2026-10-27 10:35 PM CT (2026-10-28 03:35 UTC), by the Claude
-lead session (claude.ai Duet "ddf" channel, handoff thread). Change: added the
-picks log copy (`docs/picks-log.md`) and the "Active agents and automation"
-section; the overnight routine now owns handoff upkeep.
+### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
+  matrix) and the workflow half of #1070 onto main, without #1070's JEG-1206
+  and JEG-1215 parts (main has them). It supersedes #1050, #1051 and #1070;
+  closing those needs Jeremy's OK.
+- A red validate now isolates one attributed source, reruns the full gate
+  once and publishes only after confirm; anything else stays red as before.
+- #1064 (JEG-1180, JEG-1200) merges cleanly with main b3eb8d97 and passes
+  test-core except the Playwright-only week-history transition test.
+- Sleeper identity refresh is green again after #1209 (run 41098267164,
+  base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
+- JEG-1205 (#1052) stays on hold for Jeremy.
+
+### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
+
+- Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
+- ddf replacement is a player priced by identity in each source; market depth counts held players only; JEG-1241
+  provenance wired into workspace.js / league.js, every reason fails closed; league-priced trades don't open in Compare.
+- Jeremy, 2026-10-29: pastes are read as whole rosters (`coverage_unproven` doesn't block); a page that left its bench
+  out still does. A "Use league rosters" switch is grayed out until the league qualifies, on once it does, and saved
+  when switched off (which also brings back Open in Compare). Error-checking design is a separate decision for him.
+- 2026-10-29 review fixes (JEG-1249 fb70682d): the local sync build from 9de97320 (21 generated app/dist paths) is
+  backed out to main; main merged normally (league.js keeps #1138's Buy/Sell copy plus #1105's sellBlock).
+  2026-10-30: main (#1077 squash 2458aeb7) merged in; the band sits at the line row W in all three
+  implementations, byte-identical to d07f6527. Jeremy said yes to the USO table (2026-10-30 13:02 UTC, "A");
+  main merged again (phone card keeps compareLink). Waiting on full CI and the delta review of that merge.
+- Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
+
+### USO site journey regressions lane (JEG-1240, correction JEG-1264, Claude, 2026-10-29 UTC)
+
+- Branch `claude/JEG-1240-uso-site-journey` (#1110), test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_contract.py` (Node: harness, continuity, mutation classes), `tests/test_uso_site_journey_render.py` (browser only). Synthetic rosters in USO's roster shape; no USO rosters or notes.
+- On main: 9 harness checks green, 3 mutations each add only their intended code; 3 continuity checks red by design (another device loses basis and sources; no trade-context.js yet). On main merged with #1086 the transfer check passes (same device carried, another device held for sources-changed + rows-changed); state and pair links stay red.
+- Browser journey (stages incl. pair finder, readouts, strict get= guard) has not run: no Chromium here. Wiring is the infrastructure owner's (`be/ci-regression-wiring`); no Makefile, coverage or `KNOWN_RED` hunk on this branch. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
+
+### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-30 UTC)
+
+- PR #1186, branch `claude/JEG-1350-espn-dst`. #1163 (JEG-1313) has merged; main is merged in. Two regexes in
+  `pipelines/lib/canonical_players.py` accept `d/st`; audit known gaps 12 -> 4. Review label `review-high-risk`.
+- No bake input carries D/ST text (ESPN pull reads QB/RB/WR/TE), so no published value moves. No Supabase write.
+
+### Managed agent teardown (JEG-1173, Claude, 2026-10-29 UTC)
+
+- Claude took JEG-1173 on Jeremy's instruction (2026-10-29 10:13 AM CT);
+  corrections under JEG-1269. PR #1107 (`claude/JEG-1173`); merges go through
+  the review-and-merge rule in `AGENTS.md` (Jeremy, 2026-10-29).
+- PRs #1001 and #1002 (lock file, deployment scripts) both merged on
+  2026-10-27; nothing to close. #1003 (`cma/JEG-1049`, edge drift check) is
+  the managed agent's last open PR; left open, not closed by this ticket.
+  `cma/JEG-925` is a leftover branch with no open PR; not deleted.
+- #1107: `managed-agents/` README says retired, and `scripts/lib.sh` makes
+  every script there exit unless `CMA_ALLOW_RETIRED=1`. Agent prompt files and
+  `claude-lock.json` are unchanged (record of what was deployed; no
+  `ant apply`).
+- **Operational state: deleted, on Jeremy's report.** 2026-10-29 19:18 UTC,
+  his words: "Found it and deleted the scheduled jobs." The jobs were
+  `depl_0194kATtQ6xdicZiw7wnkzmT` (`ddf-queue`) and
+  `depl_01PE9v6akCH9muDEUwxdioSs` (`ddf-weekly-usage`) in workspace
+  `wrkspc_01A4qjuy7wHWubEvx73fHKym`. No agent has an authenticated read of that
+  workspace, so his report is the receipt. A missing run comment on JEG-1173
+  afterwards is corroboration only, never proof. The last run on record is
+  `ddf-queue` at 19:08 UTC, before the deletion. (An earlier empty Deployments
+  page at about 15:20 UTC was another workspace: runs kept firing until 19:08.)
+
+### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
+
+- Current-main integration branch `be/release-pause-current-main` preserves
+  original draft #1059 as fallback; Pages #1056 is already merged.
+- Guards twelve publication blocks across ten workflows. Default unpaused;
+  six-hour maximum expiry; checked against fetched main before commit/push.
+  Deferred candidates are retained as patch/metadata artifacts, with visible
+  summaries. Existing ingestion, validation and Pages workflows remain active.
+- Review repair: alert recovery requires confirmed publication; shard leg-staging
+  parser corrected. Current integration needs independent delta review and full CI.
+- No live activation, settings changes, Supabase changes or cancellation performed.
+- JEG-1364 (Claude, 2026-10-30): main's JEG-1206 publish path replaced the
+  rebase loop; the guard now stages before the candidate commit and
+  `release_push` guards the scratch-worktree publication push (`--head`).
+- Next: parent reviews/merges after green CI, drains old-code writers, then
+  activates only for the release window.
+  Parent restores `paused: false` and verifies resumed publication before closure.
+- Procedure: `runbooks/main-write-pause.md`; evidence in the JEG-1215 session log.
+
+### Roster provenance helper (JEG-1241, Claude, 2026-10-29 UTC)
+
+- Branch `claude/JEG-1241-roster-provenance`, draft PR only. New pure module `app/v2/roster-provenance-transitions.js`
+  (`DDFRosterProvenance`) with a transition table fixture, node runner (22 source mutants) and Python wrapper. Not
+  loaded by the page; not in any Makefile list yet.
+- The #1105 owner (JEG-1188 session) agreed the API. Wiring in workspace.js / league.js is its follow-up PR after #1105
+  and this PR merge. Contract: `docs/claude-log/2026-10-29-jeg-1241-roster-provenance.md`. Reasons `bench_omitted` and
+  `coverage_unproven` are separate; which one gates is Codex's call (the owner proposes `bench_omitted` only, since no
+  parser path attests a whole roster today).
+- No merge, deploy or Supabase. Codex reviews and merges.
+
+### League candidate completeness fix (Codex, 2026-10-28 UTC)
+
+- Branch `fe/preserve-league-candidates`, separate from #1069. Fixes the
+  per-opponent top-10 truncation before fit ranking and filtering; no value,
+  fairness, or package-enumeration rule change. All qualified candidates remain.
+- Synthetic default-size regression: 52 qualified trades, 22 sending JSN;
+  old path retained 10 with zero JSN, corrected path retains all 52.
+  Not a reproduction of Jeremy's current league or a promise about its JSN deals.
+- Compact lazy fit details, cooperative fit evaluation/cancellation, and bounded
+  cache retention prevent the naive uncapped full-fit memory regression.
+  Optional size4 is still expensive; see the measured benchmark and limits in
+  `docs/claude-log/2026-10-28-league-candidate-completeness.md`.
+- Initial exact-head CI and isolated Mac browser tests passed. Release sequence
+  gate opened after #1069 and #1071 published/live passed. Current main is being
+  merged normally; fresh CI and independent delta review are required before merge.
+  Parent coordinates Mac live QA. No Supabase changes.
+  Linear issue creation was rejected by auto-review; do not retry without approval.
+
+### Interactive trades release (completed 2026-10-29 UTC)
+
+- [PR #1069](https://github.com/JB-barrel-droid/fantasy-tools/pull/1069) merged as `d68c89fa74460ca0ca45e0375e6a07130bdcdf74`. [Deploy dashboard run 40794331479](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40794331479) succeeded, including all four validation shards, build and deploy. GitHub automatically deleted the approved `release/interactive-trades-20261028` branch.
+- Mac live QA passed **14/14** on served build `tv-20261028-1928-d68c89f`: selected trade details opened inline on desktop and phone with focus/close behavior, bench expansion worked, Compare edit/cancel/swap restored the lineup and saved roster, a raised RB backup minimum excluded a 1-for-1 trade, the eight-team warning no longer showed `null`, a copied link retained eight teams, Week 8 Values search worked, and there were no page errors. QA used synthetic rosters, not Jeremy's saved leagues.
+- Shipped scope: JEG-1214 interactive Compare roster editing and resulting construction; JEG-1216 stable before/after starters and expandable bench through shared `TradeValueLineupComparison`; JEG-1184 finder guardrails, 1-for-1 option and positional backup minima. Inline opportunity details and the eight-team warning correction also shipped in this release. JEG-1214, JEG-1216 and JEG-1184 are Done in Linear. The original feature PRs [#1066](https://github.com/JB-barrel-droid/fantasy-tools/pull/1066), [#1067](https://github.com/JB-barrel-droid/fantasy-tools/pull/1067) and [#1068](https://github.com/JB-barrel-droid/fantasy-tools/pull/1068) are integration records; do not merge their changes a second time.
+- Release head `99544e4b` passed its preview and v2-render workflows after the final current-main data merge. Eight focused browser/render tests passed locally on that head. Independent review passed on the application code through `4ef4f140`; subsequent branch merges brought in only main's data/status files. The separate #1071 source framework lane was released to its owner only after Mac live QA passed.
+- Still separate: Find a Trade roster exploration and league-wide strengths, the JSN candidate-truncation fix, broader visual redesign/source taxonomy, and any stronger Natural-fit projection threshold. This release did not add waiver recommendations or change trade math.
+
+### Saved-team picker lane (JEG-1219, shipped 2026-10-29 UTC)
+
+- [PR #1094](https://github.com/JB-barrel-droid/fantasy-tools/pull/1094) merged as `6530d3df75575fcf5a11069e8e08b21e21518272` at 12:15:14 UTC. [Publication run 40871747764](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40871747764) recorded success at 12:29:20 UTC (deploy job completed 12:29:19). Its build tag `tv-20261029-0715-6530d3d` is derived from the merge's 07:15 -0500 committer time, not the publication or QA time. JEG-1219 is Done; the implementation branch's separately approved automatic cleanup was confirmed.
+- This is historical release evidence, not the current live revision. Automatic data build `1f50da71` was published by [run 40871936624](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40871936624) (deploy completed 12:46:32 UTC), then `dbda3cd1` by [run 40875278201](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40875278201) (deploy completed 13:03:39; run recorded success 13:03:40 UTC). Live has since advanced through further automatic data builds.
+- Both pair-finder sides choose saved League teams by stable ID as view-only working copies. Untouched Your roster defaults only to the star; explicit manual/session/link context wins. Saved rosters/star stay unchanged. Fresh Bench backups initialization enables click/keyboard use at zero and preserves 0–20 bounds. No new math/default/ranking or JEG-1237 fold-design change.
+- Final candidate `03d79c204825e9c3e540db01a39cacac6637a05a` integrated main normally and passed independent review and exact-head Preview/v2-render; focused group **16 PASS/no skips**, merged-code picker checks **11 PASS/no skips**. The coordinator's Mac report, recorded on JEG-1219 at **13:04:42 UTC**, states **23/23 PASS** and names `tv-20261029-0715-6530d3d` as the observed tag. It reports both selectors/starred default/Swap, manual/shared-link protection, saved rosters/star unchanged, fresh backup click/keyboard on desktop/phone, Values/Compare/League smoke, no uncaught errors, checked requests HTTP 200 and `verify_live.py` LIVE OK; a transient freshness warning did not recur. The Mac execution/page-load/tag-read time was not supplied, so the exact served-build association remains unconfirmed (see the completion note). Report-recording time is not QA execution time. This executor's origin read was proxy-blocked and it did not run that Mac verification.
+- Evidence under `docs/claude-log/`: [2026-10-29-jeg-1219-saved-team-picker.md](docs/claude-log/2026-10-29-jeg-1219-saved-team-picker.md), [2026-10-29-jeg-1219-backup-initialization.md](docs/claude-log/2026-10-29-jeg-1219-backup-initialization.md), [2026-10-29-jeg-1219-main-integration.md](docs/claude-log/2026-10-29-jeg-1219-main-integration.md), [2026-10-29-jeg-1219-release-preparation.md](docs/claude-log/2026-10-29-jeg-1219-release-preparation.md), and [2026-10-29-jeg-1219-live-completion.md](docs/claude-log/2026-10-29-jeg-1219-live-completion.md). Broader parity/context work remains JEG-1220/JEG-1229; #1086 was not wired or merged here. Coordinate selector-origin metadata before future wiring. This documentation follow-up is [draft PR #1104](https://github.com/JB-barrel-droid/fantasy-tools/pull/1104); merge/cleanup remain held pending separate approval and review. No next feature release is part of this task.
+
+The following lane notes are historical snapshots from 2026-10-28; check current
+GitHub and Linear state before acting on them.
+
+### League finder release batch (Codex, 2026-10-28 UTC)
+
+- Authorized draft release only: `release/league-finder-20261028`, based on main
+  `7e4f2603` (includes merged Pages speedup #1056 / `904d07ae`). Parent must
+  finish #1056 publication/live QA before considering a production merge.
+- Includes #1058/JEG-1213 `acd4b0c2`, with exact ancestral dependency heads
+  #1043/JEG-1134 `d886fc9f` and #969/JEG-894 `391308ed`. Both are already in
+  #1058, so merge #1058 once; no duplicate cherry-picks. Underlying PRs/tickets
+  remain open. This release PR replaces serial dependency merges for this batch.
+- Integration conflict only in this handoff: retained both lane sections.
+  No application conflict or methodology change; current-main generated assets
+  retained. Team-count support remains explicitly 8/10/12/14.
+- Excludes #1059 release switch, source health, connector/Supabase and backlog.
+  Focused combined suite: 27 PASS, no skips; workflow/shard parity: 68 PASS.
+  Required final-head preview/v2-render CI pending;
+  independent final review is parent-owned. No main merge or deployment authorized.
+- Repair after independent review of `05859570`: finder and league links now
+  carry complete value basis/player overrides, including explicit default replay
+  over saved custom readers, for the visit only. Legacy links and position-share
+  precedence remain unchanged. Focused release 13 and Overrides 3 PASS;
+  new-head CI and one independent delta review pending;
+  evidence: `docs/claude-log/2026-10-28-league-share-context-repair.md`.
+- Delta review found league Undo left the imported value context active. The next
+  repair snapshots and restores the prior visit-only context when an accepted
+  league import is undone. Cancel leaves it unchanged. Evidence:
+  `docs/claude-log/2026-10-28-league-import-undo-context.md`.
+- Final independent review passed on `8e3bf8b8`. Current main `8cd3c26e`
+  (fidelity pulse generated data only) was merged normally and cleanly afterward;
+  the integration head needs fresh required CI. Main workflow green status was
+  unavailable from this environment and must be verified before release merge.
+  Evidence: `docs/claude-log/2026-10-28-league-main-integration.md`.
+- Second current-main integration: `d9f617e0` (two generated health JSON files)
+  merged cleanly; application/tests diff remains zero against independently
+  reviewed code. Fresh release CI is required. Evidence:
+  `docs/claude-log/2026-10-28-league-health-main-integration.md`.
+
+
+
+### Pages validation lane (JEG-1170, completed 2026-10-28 UTC)
+
+- #1056 merged as `904d07ae99320dc5d47ed3d38499af891d6c2dcf` and published at
+  18:18:30 UTC. Parent reports Mac live QA passed; build
+  `tv-20261028-1235-904d07a` matches the merge commit's -0500 timestamp
+  (17:35 UTC). JEG-1170 is Done. This release prerequisite is complete.
+- All exhaustive shards, artifact and rendered gates passed. Runtime was
+  17m05s versus the 40m15s baseline. Queue time was a separate 25m36s;
+  do not include queue time in the runtime comparison.
+- Pages uses validate-base plus four exact-SHA core shards, all three rendered
+  harnesses, and the successful build's artifact. Deploy requires success from
+  every dependency. Existing cancellation and validation safeguards remain.
+- Source: parent release verification update, 2026-10-28 UTC. This integration
+  lane did not merge, deploy or independently repeat the Mac live check.
+
+### JEG-1213 league-wide finder lane (Codex, 2026-10-28 UTC)
+
+- Draft PR [#1058](https://github.com/JB-barrel-droid/fantasy-tools/pull/1058), branch `fe/jeg-1213-league-finder`. Implementation integrated; 23 targeted tests pass (20 ticket-specific unit/render + 3 existing UI regression methods). All internal subagents stopped; final head CI/review and parent merge/live checks pending. Read the live ticket and all comments (none at intake).
+- Correction after CI repair: initial head contained #1043 `68b95fa5`. Later `d886fc9f` is now merged explicitly, as is main `2ccdcc79` (including merged #1044). Reuses #969 `391308ed`. Parent should land dependencies serially; this lane does not edit, merge or deploy those PRs. #1044 engine work remains separate.
+- Scope: top-right transfer menu and league-settings sharing; paste cleanup, count warning and collapse; optional summary columns and filters for either team; #1 best opportunity, projections beside DDF, clear fit definitions and opponent totals/starters/construction, downgrade-package regression.
+- Engine accepts only 8/10/12/14 teams: exact mismatch fix limited to those counts. Unsupported counts get an explanation; no engine methodology extension.
+- Validation and exact head/PR recorded as milestones in `docs/claude-log/2026-10-28-jeg-1213-league-finder.md`. Parent owns merge/deploy/live checks; do not close JEG-1213 until live verified.
+
+
+### Top summary (board lane, 2026-10-28 9:15 AM CT / 14:15 UTC)
+
+Jeremy is near his usage limit, so Claude is stopping here. A successor picks up from this summary. The lane sections below are each lane's own notes.
+
+- **Merge rule (Jeremy, Oct 28):** merge work he asked for on green CI plus a passed independent review, without asking him again. That includes PRs built on a logged pick, which he can reverse. Merge one PR at a time, wait for its Pages deploy and check the live site before the next. A pick alone never deploys a backend. Edge-function deploys (get-values, mcp) need his explicit yes. He keeps holds of his own (JEG-1125 / #1033).
+- **Merged today:** #1023 (JEG-1190), #1027 (JEG-1176), #1028 (get-values week-flip fix), #1038 (JEG-1194), #1040 (render tests), #1031 (handoff), and #1030 (JEG-1187, Market supported, merged by the fit labels lane). #1023 and #1027 are confirmed live. The rest ride the Pages deploy for `059674f` (pending at 14:10Z); earlier deploys were cancelled by newer pushes. Deploys take 50 to 70 min, and a newer one cancels any that are pending. Confirm a Pages change by fetching its own file.
+- **Edge functions (verified 13:45 UTC):** live `get-values` is v8 (13:00Z) and matches main, including #1028. Live `mcp` is v12 (04:27Z) and matches main as of #958. Both have verify_jwt false. Copies of both deployed versions for rollback are in `/mnt/project-files/ddf/edge-rollback-2026-10-28/`.
+- **Reviewed and green, not yet merged (do next, one at a time):**
+  1. #1029 (JEG-1189 bench check, tests only)
+  2. #1034 (JEG-1155 week max 18)
+  3. #1037 (JEG-1130 PMM copy part 2)
+  Each passed independent review. Main was merged into each at 13:58Z, and their CI was re-running. Merge after green and check the live site after each. Then tell the Main green lane, which is holding #1035 until these deploys finish.
+- **Approved by Jeremy, not yet done:** merge #1024 (JEG-1179 week default plus optional week; head `179288b`, reviewed PASS) and then #1032 (JEG-1123/1124; reviewed PASS; merge main in first, since both touch `mcp/tools.ts`, a clean auto-merge). Then deploy `get-values` (index.ts, league.ts, pipeline.ts) and `mcp` (index, rpc, tools, state, names, find-trades, viability, build, week) from main. Jeremy said "Yes, merge and deploy" (13:38Z). After the deploy, check that the live get-values returns players and that the connector answers with a "Week:" line. Roll back by redeploying the copies above if anything looks off. When #1032 merges, tell the connector size and names lane: its name-ambiguity fix builds on it and needs its own yes to ship.
+- **Handed to other lanes:** #1022 (JEG-1180) goes to source freshness; review found a blocker, see the PR comment. #1030 went to fit labels (merged). Connector work after #1032 goes to connector size and names.
+- **Picks log:** `/mnt/project-files/ddf/picks-log.md` (source of truth, every lane), copied into `docs/picks-log.md`. The Reversed column marks what Jeremy undid.
+
+### Main green lane
+
+Last updated: 2026-10-28 9:10 AM CT (14:10 UTC), by the Claude "Main green"
+lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
+#1023 broke; #1031 (handoff) merged; #1035 is green and reviewed, not merged.
 
 - **Branch:** `main` (default branch, not protected, no rulesets). Every push to
   `main` triggers the "Deploy dashboard" workflow. Feature work happens on
   `be/<ticket>`, `fe/<ticket>`, `cma/<ticket>`, `muse/jeg-<id>-<slug>` and
   `banana/<...>` branches and lands by squash-merge PR.
-- **Latest relevant code commit on main:** `03807db` "Bench spread by cut: role
-  cut vs budget cut (part of JEG-859) (#1005)", 2026-10-28 03:15 UTC. Later
-  commits on main are this handoff (docs) and bot status commits.
-- **Deployed (live) revision:** the last successful "Deploy dashboard" run is
-  for `fde5b9e` (#1020, JEG-1175 transition replay), checked 03:30 UTC; at
-  03:00 UTC the live `trade-chart-build` meta tag read
-  `tv-20261028-0141-abc4675`. Re-read the tag to confirm. **In source only**
-  until a deploy succeeds: `2e90b88` (#960, JEG-1129 trade viability: judge the
-  other team on the Indexed market), `561d576` (#1006), `7594f41` (#1004),
-  `03807db` (#1005). Deploys keep getting cancelled by newer pushes.
-- **Rebuild chain is failing:** bot commits "Automated chain status (chain
-  failed; fixture not updated)" at 03:05 and 03:14 UTC, so fresh source data is
-  not reaching the fixtures (week transition work, JEG-1175 / JEG-1177).
-- **What works (verified 2026-10-28 03:00 UTC):** the live site serves at
-  https://jb-barrel-droid.github.io/fantasy-tools/ with the build tag above;
-  quick unit tests pass locally (see section 6).
-- **What is broken now (verified):** the live DDF MCP connector returns no
-  players. `get_player_value` for "Josh Allen, Bijan Robinson" (half PPR, 12
-  teams) returned `player: null` for both with `as_of 2026-10-26`. This is
-  JEG-1157 / JEG-1156 (In Review, waiting on Jeremy). Not re-checked: whether the
-  site's blended DDF Values are still blank (JEG-1156).
-- **What I am working on:** this handoff only (docs). No code change of mine is
-  in flight. Other agents are actively merging to `main` every few minutes;
+- **Latest code commits on main (verified 13:40 UTC):** `4928cc2` (#1038,
+  JEG-1194, board lane), `ed42c8e` (#1027, JEG-1176), `eec5157` (#1023,
+  JEG-1190). Merged overnight by the Main green lane: #976, #1006, #1004, #1005,
+  #963, #1011, #958, #920, #1021; #968 closed. #1028 merged by the board lane.
+- **Deployed (verified 13:30 UTC):** the deploy for `abe781d` succeeded, so
+  #1023 and #1027 are live. Deploys take 50 to 70 minutes and are atomic;
+  confirm a change by fetching its own file, not by the build tag.
+- **Render sweep on main: confirm (in flight at 14:10 UTC):** run 40700449750 on
+  `31ccf10` (after #1040). Earlier run 40694747369 on `7bdd6e1` was red.
+  #1023 makes Compare open empty with a Try a sample trade button, and the
+  sample is now a real trade, so `test_v2_names_render` found no deal nets and
+  `test_v2_plain_copy_render` lost the week line Compare hides once a trade is
+  on (`#v2Compare.has-trade`). #1040 (merged as `b594b39`) fixes those two tests.
+  Probe run 40696409208 (names fix only) passed shards 1 and 2; shard 3 failed
+  only on plain_copy, which #1040 fixes. Make stops at the first failing module
+  in a shard, and `make -k` does not change that.
+- **Week 8 rebuild (JEG-1194, checked 14:10 UTC):** the site still serves
+  week 7 for all seven sources (fixture built 2026-10-26 15:42Z). Chain run
+  40689076971 (12:35Z, `ed42c8e`) built week 8 and passed `make validate`,
+  but its push rebase conflicted on `dist/modules/source-import-health.json`,
+  so its output was dropped. Run 40689841714 (queued 12:41Z) was still running.
+  CBS week 8 was reloaded at 12:23Z (bake `cbswk8_2026-10-28t1223_v1`, 35 TE).
+- **#1038 (merged `4928cc2`):** a red on a stored save newer than the live
+  chart now holds only a build from that save (`judged_save`), never the live
+  chart. `pipelines/chain_stuck_alert.py` opens one `chain-stuck` GitHub issue
+  when the chain fails and the fixture is 6+ h old, and closes it on publish.
+  Log: docs/claude-log/2026-10-28-board-publish-holds.md.
+- **Next step (JEG-1194):** when run 40689841714 finishes, check that
+  `data/history/index.json` on main serves week 8 and the live site says
+  "data through Week 8". If it failed or conflicted again, read its log;
+  dispatch a fresh chain only if none is queued. Open issues to file: a
+  generated-file conflict drops a good rebuild; a parser fix never re-ingests
+  (CBS reloads only when its page changes; the 12:07Z pg_cron job is gone).
+- **Connector values (verified 13:45 UTC, board lane):** fixed. `get-values` was redeployed with #1028 at 13:00Z on Jeremy's yes, and the live trade tool returns players again. JEG-1157 is Done in Linear (In Review lane checked get_values, get_player_value and read_state live at 13:55Z).
+- **What I am working on:** paused. Next step for a successor: read the result
+  of render sweep run 40700449750 (fix any red module on a PR). Then, once the
+  board lane's merges (#1029, #1034, #1037, #1036) have deployed, squash-merge
+  #1035 (JEG-1193 phone chip; CI green on `110547c`, review passed; merge main
+  into it first if it is behind), wait for its deploy, confirm the live
+  `app/v2/v2.js` contains `noLink: PHONE_NAMES.matches`, and set JEG-1193 Done.
+  #1043 (JEG-1134) also reworks the phone context row; if it merges first,
+  merge main into #1035 and re-run its CI before merging.
+  Jeremy's rule: work he asked for merges on green CI with a passed review,
+  one at a time with a live check; backend and edge function deploys still need
+  his yes. Other agents are actively merging to `main` every few minutes;
   see "Active agents and automation" below before touching any branch.
 - **Next concrete action for a successor:**
   1. `git pull` on `main`, read section 7, then the Linear In Progress list
@@ -54,14 +290,141 @@ section; the overnight routine now owns handoff upkeep.
   2. Urgent: JEG-1177 (week transition A, per-source weeks), parent JEG-1176.
      Files: `pipelines/nfl_week.py`, `pipelines/check_rank_guard.py`,
      `.github/workflows/rebuild-chain.yml`, open PRs #1012 and #1022.
-  3. Keep `main` green: JEG-1135 / PR #1021 (render sweep), JEG-982 (endpoint
-     parity, edge function vs engine for 185 players).
-- **Incomplete changes / blockers:** none of mine. Open decisions waiting on
+  3. Keep `main` green: the render sweep passes; JEG-982 (endpoint parity,
+     edge function vs engine for 185 players) is still open.
+- **JEG-1142** shipped via #1044 (`2e7a2c7`) on 2026-10-28; the ticket is
+  Done. Evidence: `docs/claude-log/2026-10-28-jeg-1142-conflict-resolution.md`.
+- **JEG-1134 phone context row (Codex UI lane, 2026-10-28 15:37 UTC):** PR #1043, branch
+  `fe/jeg-1134-context-phone-summary`, draft pending CI and parent review. Main `79b9b435` integrated by merge,
+  preserving #970's single Copy link and both picks logs. New regression reproduced the clipped summary
+  with overrides; on phones the indicator and Reset/Undo now use a separate strip immediately below the
+  context row. All three states keep the row at 45px and its summary readable at 375/390px. Desktop keeps
+  the indicator in its original row. The phone overflow menu is anchored to the row so Copy link fits on
+  tabs without Customize. CI on reviewed head `68b95fa5` caught 2px summary clipping in DejaVu Sans at 375px;
+  tighter phone spacing fixes it and the regression now runs both fonts. Ten targeted tests pass locally.
+  See `docs/claude-log/2026-10-28-jeg-1134-fallback-font-ci.md` for this follow-up; new-head CI/review still required.
+  The tap sweep reports exactly the same 23 error groups
+  as clean main; its Reviewed-chip mutation leaves other hit-area rules intact. Full CI and live checks
+  remain pending; see `docs/claude-log/2026-10-28-jeg-1134-context-review-fixes.md`. Parent coordinates release: no merge,
+  deploy or deletion by this lane. #1035 remains a separate Reviewed-chip change; #967 stays superseded.
+- **Incomplete changes / blockers:** #1035 above. Open decisions waiting on
   Jeremy are the `needs-review` tickets in section 7. Branch
   `scratch/oppanel-1129` could not be deleted (blocked as destructive); it is
-  harmless, leave it.
+  harmless, leave it. The same goes for `jeg-920`, `scratch/sweep-all`,
+  `scratch/parity-1006`, `scratch/sweep-green-check` and `scratch/shard1-probe`
+  (Main green lane scratch branches; deletes are blocked; no PRs).
+
+- **JEG-1101 lane (Copy link explainer, updated 2026-10-28 9:35 AM CT):** PR #970
+  merged as `26694ee` on all-green CI. Next: once the Deploy dashboard run for a
+  commit at or after `26694ee` succeeds, confirm the live page shows Copy link
+  with "Opens this view. A chat with the DDF tool reads it too." (fetch the page's
+  own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
+  text change goes live only with an approved `mcp` deploy.
+
+- **Fit labels lane (JEG-1187, JEG-1115; follow-up 2026-10-28):**
+  Original labels shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
+  supported fire on any gain the page shows (`theirNet > NET_FLOOR`); Deploy
+  dashboard run 40703312106 (`0137a8a`, includes it) succeeded. JEG-1115: #1041
+  merged (`1bd85f7`); Jeremy said yes and get-values v9 then mcp v13 were
+  deployed from main (mcp v13 also carries #970's make_state text, JEG-1101).
+  A live `find_trades` call returns `fit` and `fitReason` on every trade.
+  Rollback copies of the previous live versions (get-values v8, mcp v12) are
+  in the project files under ddf/edge-rollback-2026-10-28. Board lane: the live
+  edge functions now include #1041, so later deploys from main keep it.
+  Follow-up worth a ticket: a fitReason can list the other team's roster
+  issues (e.g. "bench promoted to starter: Justin Jefferson" on a trade where
+  Jefferson stays with them) without saying whose roster; same text as the
+  page's `fitText`. #966 (Ba-Nana's earlier draft) is superseded by #1041;
+  leave closing it to Jeremy.
+  JEG-1115 remains open for two reproduced defects in #1041: the old size
+  fixture never produced fit labels, and duplicate opponent names reused the
+  wrong roster for fit/package selection. The parent assigned Codex exclusive
+  connector edits on `be/jeg-1115-fit-review-fixes` (draft PR #1057). The follow-up keeps full
+  fit reasons and complete packages, bounds reply bytes with a ranked prefix,
+  and uses input indices for opponent identity (`opponent_index` in replies).
+  Real-fit regression sizes are 6,128 / 16,155 / 7,070 / 10,853 bytes; the local
+  #1024 + #1032 integration is 6,291 / 16,318 / 7,233 / 11,016, all within caps.
+  See `docs/claude-log/2026-10-28-connector-fit-review-fixes.md` for checks.
+  Parent owns serial merges/releases. This session has not deployed anything;
+  the follow-up needs current-head CI/review and fresh explicit deploy approval.
+  Merge #1032 before this follow-up and retain one `tradeLines` helper plus the
+  follow-up's bounded render blocks and fit-producing tests when resolving overlap.
+
+
+### In Review tickets lane (2026-10-28, 9:10 AM CT)
+
+- **JEG-1157** (live MCP no players): Done in Linear, live check above.
+- **JEG-1156** (blank DDF Values after the week 8 flip): PR #987 was closed as
+  superseded by #1010 (JEG-1177, merged), which is the per-source week default
+  (more than half of DDF Value's sources on week N+1 picks N+1, else N; see
+  `resolveWeekView` in curve-widget.js). The week selector itself is JEG-1178.
+  Still In Review: it needs a live look at Player values showing filled DDF
+  Values. Probe branch `probe/jeg-1156-live` (never merge) runs
+  `tools/probe/jeg1156_live.mjs` in Actions run 40702410871 and prints
+  `JEG1156-LIVE` lines (rows with a DDF Value vs total). Next step: read that
+  log; if DDF Values are filled, comment the numbers on JEG-1156 and move it to
+  Done (the selector stays on JEG-1178).
+- Handed to their own lanes: JEG-894 (#969, main merged in at `b6cea06`),
+  JEG-1101 (#970, main merged in at `2b1fe3e`), both still drafts; JEG-1142
+  (branch `be/jeg-1142-promotion-off-v2` at `82cf1a7`, #999 re-applied, no PR
+  yet, movers table still to do; get-values loads the site's value-model.js,
+  so no edge deploy); JEG-1134 (draft PR #1043).
+
+- **JEG-894 lane (share links, updated 2026-10-28 9:15 AM CT):** PR #969,
+  branch `fe/JEG-894-share-links`, head `391308e` (main `31ccf10` merged in),
+  marked ready for review, not merged. Jeremy approved the build (Oct 23),
+  decision A with no privacy line (Oct 27), and said "Yes" to marking #969 ready
+  and merging it once its checks pass (Duet, 2026-10-28 9:02 AM CT). The T1
+  review on the PR and a re-read of the merged diff found no bugs. CI (preview
+  run 40701218577, v2-render run 40701218597) was still running. Next: when
+  both are green, merge main in again if it moved, squash-merge #969, wait for
+  the Deploy dashboard run, open a Compare link and a Find a trade link in a
+  fresh browser on the live site (JEG-894's acceptance criteria), then move
+  JEG-894 to Done. If a check is red, look first at `test_v2_share_links_render`
+  and `test_v2_contract_render` (reads `#v2CVerdictBar`, now inside
+  `#v2CVerdictBarWrap`).
 
 ---
+
+### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
+
+Stopped at 97% usage. State, verified 14:10 UTC:
+- PR #1022 (JEG-1180, stale flag after Thursday 12:00 CT, runbook): review
+  blocker fixed (`freshness_ok` follows `weeks_behind <= 1`, so a one-week
+  stale source is a warning, not "Not updating"). Head 487ddaa. v2-render green;
+  preview build was queued. Next: when the preview bot says validate passed,
+  mark ready and squash-merge as "(JEG-1180)", wait for Deploy dashboard, check
+  `dist/modules/reference-freshness.json` live.
+- PR #1042 (JEG-1200, per-source "late" rules + hourly `source-lateness.yml`
+  keeping one `source-late` issue): second review PASS at 6c5f589 (live week
+  label due Wed 12:00 CT; offseason guard; exit 1 when the check can't run).
+  Merge after #1022 (its doc links the runbook #1022 adds), then check the
+  first scheduled run on main and the issue it opens.
+- Live replay 13:57 UTC: only FantasySharks late (403 on every probe since at
+  least Oct 22, never saved). At Wed 12:00 CT all seven site sources go late if
+  week 8 still hasn't published (the site's history index is still week 7,
+  fixture_built_at Oct 26 15:42Z; the board lane owns publishing). The probe log
+  has no rows Oct 20-21.
+- JEG-1201, three draft PRs with notes only (no code yet): #1050 post-validate
+  isolation (hold only the source a failing test names, validate once more,
+  fail closed; a post-validate hold on espn would never be released, needs a
+  release step); #1051 hold-tolerance guard (run live-page/rank/week-history
+  checks with each source held; suspected latent bug in
+  `test_superflex.page_problems`); #1052 fill-in peers.
+- Jeremy's decision (Oct 28, 9:03 AM CT): charts fill in missing players from
+  FantasyCalc and the projection sources (espn, cbsros, razzball), never from
+  another weekly chart ("Use fantasycalc and projections sources, those should
+  be refreshing at least daily, so they are good"). FantasyCalc's own peers are
+  the projections. Impact list: only moves over 5% AND over 2 trade-value points
+  ("If the 5% only amounts to 1-2 trade value points, it's immaterial").
+  chart_sigma and DDF weights also cross charts: report, don't change, without
+  his yes.
+- Linear: JEG-1180 and JEG-1200 In Progress (mark Done when merged and live);
+  JEG-1201 In Progress. Due Nov 3-4: a Tue/Wed health comment on JEG-1176 for
+  the week 8 to 9 flip.
+- Exact next step: merge #1022 on green, then #1042, each checked live; then
+  build #1052 (value math, Jeremy approved) with the impact list in
+  /mnt/project-files/ddf/ or the PR body.
 
 ## Active agents and automation (keep current)
 
@@ -83,8 +446,8 @@ here, coordinate first (bottom of this section).
   activity as verified or guessed. (Routine change made from the main chat;
   not yet confirmed from this thread.)
 - **DDF lane threads** under the main-chat task "Run the Data Driven Football
-  board": Clearing players and teams (JEG-1190, PR #1023), Main green (PR
-  #1021), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
+  board": Clearing players and teams (JEG-1190, PR #1023), Main green (done
+  2026-10-28 06:15 UTC, verified: queue merged, sweep green), Trade viability fix (JEG-1129, PR #960 merged), Board run / week
   transition (JEG-1176/1180, PR #1022). They open PRs, merge only what Jeremy
   approved (section 1) and log picks in `docs/picks-log.md`'s source. Stop or
   steer: tell Claude in Jeremy's main Duet chat.
@@ -95,14 +458,12 @@ here, coordinate first (bottom of this section).
 
 **Other agents (from `AGENTS.md`; activity inferred from open PRs, not checked
 on their machines):**
-- **Claude Managed Agent** (`session:cma`, `managed-agents/`): deployment
-  `ddf-queue` runs hourly (America/Chicago), claims up to 3 Linear tickets
-  labeled `session:cma`, and merges on green gates; `ddf-weekly-usage` runs
-  Mondays 7 AM CT. Branches `cma/<ticket>` (open: #1003, #1011). Pause:
-  `ant beta:deployments pause --deployment-id <id>` (ids in
-  `managed-agents/README.md`; needs Jeremy's Anthropic account). It has a
-  standing takeover of any ticket with no activity for 4 hours, so keep your
-  heartbeat comments current.
+- **Claude Managed Agent** (`session:cma`, `managed-agents/`): **retired**
+  (Jeremy, 2026-10-27; teardown JEG-1173). It owns and takes over nothing. Its
+  deployments `ddf-queue` (hourly) and `ddf-weekly-usage` (Mondays 7 AM CT)
+  fired until 19:08 UTC on 2026-10-29, each stopping without work; Jeremy
+  reports deleting them at 19:18 UTC (see "Managed agent teardown" under
+  Resume here). Its last open PR is #1003 (`cma/JEG-1049`).
 - **Muse** (GitHub user `jkb-bur-bot`): only Linear tickets labeled `muse`;
   branches `muse/jeg-<id>-<slug>` (open: #981, #982, #1024). Never merges.
   Stop: remove the `muse` label or ask Jeremy.
@@ -224,6 +585,11 @@ Current picks in brief:
   per-source freshness report is warning-only; DISCOVERY_OVERDUE alarm and the
   Central watchdog calendar unchanged; new health state names (current,
   lagging, stale, unknown).
+- JEG-1180 (PR #1022, review fix): judged_at dropped from the freshness summary;
+  New York date kept in check_weekly_freshness.
+- JEG-1200 (PR #1042): live sources late after 9 h unconfirmed or when the site
+  still shows last week after Wed 12:00 CT; weekly charts late when the week's
+  article isn't out by Wed 12:00 CT; own GitHub schedule (watches pg_cron).
 
 ### Definition of done
 - Done = merged to `main` and live (Linear "Done"). For a fix: commit, merge,
@@ -312,9 +678,11 @@ source data -> reference compute -> dashboard build -> frontend/site
 - **Supabase:** project "JB-barrel-droid's Project" (ref `iskiybsimubiujwuchsl`,
   us-west-2). Edge functions in `supabase/functions/`: `get-values`, `mcp`
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
-  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
-  server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
-- **Managed agent:** `managed-agents/` (`session:cma`, queue run every 2 hours).
+  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). The `mcp`
+  function is the only MCP server; the old local one was retired 2026-10-30
+  (JEG-1372). See `docs/values-endpoint.md`.
+- **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
+  (JEG-1173); kept as a record, its scripts refuse to run.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
 - **Business rules (summary; full text in methodology/decisions):** Indexed is
   one order-preserving factor per chart and league setting (JEG-482); missing
@@ -410,8 +778,8 @@ Known bugs (repro steps and history on each ticket):
   (endpoint parity red test). In Progress.
 - JEG-1135: render sweep red on main (overrides basis render test, shards).
   PR #1021 draft.
-- JEG-1142: promotion model demotion penalty applies to almost every starter.
-  In Review (needs Jeremy).
+- JEG-1142: promotion model switched off, shipped via #1044 on 2026-10-28.
+  Done.
 
 ---
 
@@ -419,9 +787,11 @@ Known bugs (repro steps and history on each ticket):
 
 1. JEG-1177 Urgent (week transition A) under parent JEG-1176; JEG-1178 (B, site
    week selector, PR #1012); JEG-1180 (D, stale flag, PR #1022).
-2. Main green: JEG-1135 / PR #1021, JEG-982, JEG-1049 / PR #1003.
-3. Waiting on Jeremy (`needs-review`): JEG-1156, JEG-1157, JEG-1142, JEG-1134,
-   JEG-955, JEG-956, JEG-903, JEG-894, JEG-1101, JEG-1176, JEG-982.
+2. Main green: render sweep green (JEG-1135 done 2026-10-28). Still open:
+   JEG-982, JEG-1049 / PR #1003, JEG-1193 (needs Jeremy).
+3. Waiting on Jeremy (`needs-jeremy`): JEG-1156, JEG-1157, JEG-1134,
+   JEG-955, JEG-956, JEG-903, JEG-1176, JEG-982. (JEG-894 and JEG-1101 are
+   decided; PRs #969 and #970 merge on green.)
 4. JEG-1190 clear players and teams on every screen (`session:fe-cloud`); its
    PR is not merged without Jeremy's call.
 5. JEG-890 team value summary (PR #964), JEG-1093 Mac review notes, JEG-927
@@ -429,6 +799,39 @@ Known bugs (repro steps and history on each ticket):
 6. Open PRs (2026-10-28 03:30 UTC): see "Active agents and automation" for
    owners. #1005 merged at 03:15 UTC. Apply the section 1 backlog decisions;
    don't merge others without review.
+7. Connector answers and name matching (JEG-1123, JEG-1124; Claude lane
+   "connector answers smaller, names smarter", checked 2026-10-28 14:10 UTC).
+   JEG-1123 (top-5 text, data once in structuredContent, limit honored, size
+   caps) and the 2-character name minimum are in PR #1032, which the board
+   lane owns and merges after #1024 with the mcp deploy Jeremy approved. Typo
+   matching, "Closest:" suggestions and Allen/Jr ambiguity are already on
+   main (#958). One gap is built but not pushed as code: `compare_trade`
+   still totals a trade without a name that fits several players. Patch:
+   `docs/claude-log/2026-10-28-jeg-1124-ambiguity.patch` (stops compare_trade
+   and asks which player; `find_trades` / `find_trades_league` count and list
+   ambiguous roster names in text and structuredContent; new tests; sizes
+   unchanged; all connector tests green on #1032 + main). **Next step:** once
+   #1032 is on main, branch from main, `git apply` the patch, run
+   `tests/node/mcp_remote_check.mjs`, `batch_trade_check.mjs` and
+   `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
+   review, log the two picks (compare stops and asks; roster scans keep going
+   and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
+   JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player name):
+   audit done (#1114, JEG-1313, JEG-1350); JEG-1351 (Mac) merges the three
+   duplicate Sleeper rows. JEG-1387 stores the 1,034 grounded spellings as
+   `public.player_name_aliases` rows (sources sleeper/espn/yahoo) through the
+   NOT APPLIED `supabase/migrations/jeg1202_platform_spellings.sql`, built by
+   `pipelines/build_platform_spellings.py` from the audit outputs (rerun it
+   after any audit rebuild; `--check` in `tests/test_platform_spellings.py`
+   catches drift). Applying it is a production write: Jeremy's yes (his pick
+   A, 2026-10-30: after #1214 merges and JEG-1351 lands). JEG-1388 (Jeremy's
+   pick A): `pipelines/build_name_aliases.py` writes one alias list (verified
+   aliases plus platform spellings that differ from the site's name) into a
+   generated block in both `app/v2/roster-paste.js` and
+   `supabase/functions/mcp/names.ts`; `tests/test_name_aliases.py` checks
+   drift. Rerun it after JEG-1351's rebake so "Mitch Tinsley" joins. The chat
+   side goes live only with an mcp redeploy: Jeremy's yes. Still open: an
+   ESPN / Yahoo puller that saves raw spellings with ids.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
@@ -463,6 +866,30 @@ Failed approaches and traps:
 - Nothing of this session is unpushed or uncommitted.
 
 ---
+
+## JEG-1204: held and lagging source test matrix (2026-10-28)
+
+- Branch `be/jeg-1201-hold-tolerance`, existing draft PR #1051. The former
+  notes-only draft now adds seven-source held/current, lagging, and
+  held/lagging cases to `tests.test_seeded_hold_build`, already in test-core
+  and preview shard 1. No source isolation or value-engine changes.
+- The suspected current-week `test_superflex.page_problems` bug did not
+  reproduce in Chromium: held sources retain their pipeline harness maps.
+  Original numeric checks remain strict. The older identity test now
+  actually passes its isolated fixture to the loader.
+- Fixtures come from consecutive complete saved weeks, including when the
+  real build already has mixed weeks. Projection replays replace the inline
+  player PPG input as well as reference players; saved history stays intact.
+- Main `1bd85f76` is integrated. The 59-test matrix passed; the rest of the
+  full gate passed after resuming an environment-only Chromium lookup
+  failure, with 0 engine/reference mismatches across 1,229,985 comparisons.
+  After integration, 29 focused Week 8 tests passed. The full local gate was
+  not repeated after integration; required remote CI must pass on final head.
+- Exact next step for the parent: read final-head CI and review on #1051,
+  recheck main, then handle serial PR merge/release and live verification.
+  Reconcile Linear's premature Done status afterward. JEG-1203 depends on
+  the reviewed passing guard. Details and retained local artifacts are in
+  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`.
 
 ## Keeping this file current
 

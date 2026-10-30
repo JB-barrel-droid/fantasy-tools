@@ -2,8 +2,9 @@
 
 Audit: ~/code/fantasy-tools-selfhost-notes/customize-toggle-audit.md (8 defects). Decisions: Jeremy, JEG-850 comment 2026-10-22.
 
-  D1  Done applies exactly what the dialog shows. A draft with no engine series (Trade charts "Select none", DDF Value
-      alone) is refused with "Pick at least one source" and nothing changes.
+  D1  Done applies exactly what the dialog shows. A draft with no engine series (Select none on Published charts and on
+      Observed-trade estimates since the JEG-1212 split, DDF Value alone) is refused with "Pick at least one source" and
+      nothing changes. Each Select none clears exactly its own group.
   D2  JEG-1044 (Jeremy 2026-10-24): the DDF blend tab moved to the Overrides tab's Custom blend. The last usable source
       is locked on there; a held source never counts, so every usable source cannot be unticked.
   D3  "DDF Value: charts only" and the projections reference ignore the value basis (JEG-930, now the Overrides basis): a
@@ -105,6 +106,7 @@ def _open(browser, base, width, height=900, js=None, css=None, assets=None, scri
 
 
 def _customize(page):
+    _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
     page.click("#v2EditSources")
     page.wait_for_selector("#v2Popover .v2-panel-body")
 
@@ -142,12 +144,43 @@ def _untick_all_but_last(page):
 
 # ---------- the checks ----------
 
+DIALOG_TICKED = """() => Object.fromEntries([...document.querySelectorAll('#v2Popover .v2-cgroup')].map(g =>
+  [g.dataset.group, [...g.querySelectorAll('input[data-series]:checked')].map(b => b.dataset.series)]))"""
+
+
 def check_d1_done_matches(page):
     errors = []
     before = page.evaluate(ACTIVE)
     _customize(page)
-    page.click("#v2Popover [data-group='pub'] .v2-call")   # Trade charts: Select none -> DDF Value alone
+    # JEG-1212 (Jeremy, 2026-10-28) split the old Trade charts group: FantasyCalc is an observed-trade estimate, in its
+    # own group beside the published charts. The audit's draft is unchanged: every source cleared, DDF Value alone.
+    # Each source group with a ticked source is cleared with its own Select none, and each press clears exactly its
+    # own group, so a source that survives the clear (or a press that reaches another group) fails here.
+    start = page.evaluate(DIALOG_TICKED)
+    if not start.get("pub") or not start.get("observed"):
+        return [f"D1: the default draft lacks a ticked published chart or observed-trade estimate ({start}), so the split is not exercised"]
+    now = start
+    for group in [g for g, keys in start.items() if g != "ddf" and keys]:
+        call = page.text_content(f"#v2Popover [data-group='{group}'] .v2-call").strip()
+        if call != "Select none":
+            errors.append(f"D1: the {group} group's control reads {call!r}, want 'Select none' (its sources were ticked when the dialog opened)")
+            continue
+        was = now
+        page.click(f"#v2Popover [data-group='{group}'] .v2-call")
+        now = page.evaluate(DIALOG_TICKED)
+        if now.get(group):
+            errors.append(f"D1: Select none on {group} left {now[group]} ticked")
+        moved = {g: (was.get(g), now.get(g)) for g in set(was) | set(now) if g != group and was.get(g) != now.get(g)}
+        if moved:
+            errors.append(f"D1: Select none on {group} also changed other groups {moved}")
+    left = sorted(key for g, keys in now.items() if g != "ddf" for key in keys)
+    if left:
+        errors.append(f"D1: the draft still holds {left} after every Select none, so it is not DDF Value alone")
+    if now.get("ddf") != start.get("ddf"):
+        errors.append(f"D1: clearing the sources changed the DDF Value rows ({start.get('ddf')} -> {now.get('ddf')})")
     summary = page.text_content("#v2Popover [data-panel='lines'] .v2-psummary")
+    if not summary.startswith(f"{sum(len(keys) for keys in now.values())} series selected"):
+        errors.append(f"D1: the dialog counter reads {summary!r} for a draft of {sorted(key for keys in now.values() for key in keys)}")
     _done(page)
     err = page.evaluate("() => { const e = document.querySelector('#v2Popover .v2-perror'); return e && !e.hidden ? e.textContent : ''; }")
     if not _open_now(page) or "Pick at least one source" not in err:
@@ -407,6 +440,17 @@ class CustomizeCleanupTest(unittest.TestCase):
         js = self.mutate("if (![...draft].some(key => !isDdfKey(key) && view.infoByKey[key] && view.infoByKey[key].available)) {",
                          "if (false) {")
         self.assertCaught(check_d1_done_matches, "Done applies a draft with no engine series", js=js)
+
+    def test_d1_guard_catches_a_partial_clear(self):
+        # JEG-1234: the empty draft is built, not assumed. A Select none that keeps FantasyCalc (the observed-trade
+        # group) is the retained-source reset regression; one that clears every group at once ignores the JEG-1212
+        # split. Both must fail.
+        press = "selectable.forEach(item => (allOn ? draft.delete(item.key) : draft.add(item.key)));"
+        js = self.mutate(press, 'selectable.forEach(item => (allOn ? (g.id === "observed" || draft.delete(item.key)) : draft.add(item.key)));')
+        self.assertCaught(check_d1_done_matches, "Select none keeps the observed-trade estimate", js=js)
+        js = self.mutate(press, "(allOn ? [...draft].filter(key => !isDdfKey(key)) : selectable.map(item => item.key))"
+                                ".forEach(key => (allOn ? draft.delete(key) : draft.add(key)));")
+        self.assertCaught(check_d1_done_matches, "Select none reaches every group", js=js)
 
     # ---- D2 ----
     def test_d2_last_usable_input_is_locked(self):

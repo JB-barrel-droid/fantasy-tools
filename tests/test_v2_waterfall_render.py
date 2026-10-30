@@ -27,7 +27,7 @@ window.TradeValueCurveControls.getAllRows():
     with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
     test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
-  * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
+  * example: with no player added, the start button draws an example (1-for-1 up to 2-for-2 since JEG-1191), marked "Example",
     and the address keeps no trade.
   * example fold (JEG-1112): the EXAMPLE state itself, with no trade seeded (it is live data: the same page a new
     visitor sees), ends with both sides, the verdict card and the totals row under each side at least
@@ -480,14 +480,19 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 page.goto(base + "#compare-trade", wait_until="networkidle")
                 page.wait_for_function("() => window.TradeValueV2 && window.TradeValueV2.compare && window.TradeValueV2.compare()", timeout=40000)
                 page.wait_for_timeout(200)
-                # Example empty state.
+                # JEG-1190: Compare opens empty; Try a sample trade loads the sample, marked Example.
+                empty = page.evaluate(READ)
+                if empty["give"] or empty["receive"] or empty["example"] or empty["rows"]:
+                    errors.append(tag + f"Compare does not open empty: {empty['give']} / {empty['receive']}, banner {empty['example']!r}")
+                if page.is_visible("#v2CTryExample"):
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(300)
                 ex = page.evaluate(READ)
                 if not ex["example"] or "Example" not in ex["example"] or "Example" not in ex["verdictEyebrow"]:
                     errors.append(tag + f"no example trade marked Example: {ex['example']!r} / {ex['verdictEyebrow']!r}")
-                elif len(ex["give"]) != 2 or len(ex["receive"]) != 2 or not ex["rows"]:
-                    errors.append(tag + f"example is not a drawn 2-for-2: {ex['give']} / {ex['receive']}")
-                elif "give=" in ex["hash"]:
-                    errors.append(tag + f"example leaked into the address: {ex['hash']}")
+                # JEG-1191 (Jeremy, 2026-10-30, pick A): the examples are trades the market misses, 1-for-1 up to 2-for-2.
+                elif not (1 <= len(ex["give"]) <= 2 and 1 <= len(ex["receive"]) <= 2) or not ex["rows"]:
+                    errors.append(tag + f"example is not a drawn 1-for-1 to 2-for-2: {ex['give']} / {ex['receive']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
                 # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
@@ -621,15 +626,19 @@ EXAMPLE_READ = """() => {
   return {example: !ex.hidden ? ex.textContent : null, hash: location.hash,
     give: document.querySelectorAll('#v2GivePlayers li[data-player-key]').length, receive: document.querySelectorAll('#v2GetPlayers li[data-player-key]').length,
     boxes: {give: q('[data-trade-side="give"]'), receive: q('[data-trade-side="receive"]'), verdict: q('#v2CVerdict'),
-      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), useExample: q('#v2CUseExample'), picker: q('#v2CShown')},
+      giveTotal: q('#v2GiveTotal'), receiveTotal: q('#v2GetTotal'), picker: q('#v2CShown'), toolbar: q('#v2Compare .v2-chead .v2-ctoolbar')},
     innerHeight, innerWidth, overflow: document.documentElement.scrollWidth - innerWidth};
 }"""
+# JEG-1190: the button on the empty page that opens first.
+TRY_READ = """() => { const n = document.getElementById('v2CTryExample'); if (!n || n.closest('[hidden]') || !n.getClientRects().length) return null;
+  const b = n.getBoundingClientRect(); return {top: b.top, bottom: b.bottom, width: b.width, height: b.height}; }"""
 EXAMPLE_FOLD_VIEWPORTS = ((1366, 768), (1440, 900))
 EXAMPLE_PHONE_VIEWPORTS = ((390, 844), (360, 740), (320, 640))
 
 
 def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS + EXAMPLE_PHONE_VIEWPORTS) -> dict:
-    """The Compare example view per viewport: boxes of the sides, the verdict, the totals and the Use this example button."""
+    """The Compare example view per viewport: boxes of the sides, the verdict and the totals once Try a sample trade is
+    pressed, and that button's box on the empty page that opens first (JEG-1190)."""
     try:
         from playwright.sync_api import Error as PlaywrightError
         from playwright.sync_api import sync_playwright
@@ -653,7 +662,13 @@ def example_state(overrides=None, font_css="", viewports=EXAMPLE_FOLD_VIEWPORTS 
                 if font_css:
                     page.add_style_tag(content=font_css)
                 page.wait_for_timeout(300)
-                out[(width, height)] = page.evaluate(EXAMPLE_READ)
+                start = page.evaluate(TRY_READ)
+                if start:
+                    page.click("#v2CTryExample")
+                    page.wait_for_timeout(300)
+                snap = page.evaluate(EXAMPLE_READ)
+                snap["boxes"]["tryExample"] = start
+                out[(width, height)] = snap
                 page.close()
         finally:
             browser.close()
@@ -665,18 +680,28 @@ def check_example_state(result: dict) -> list[str]:
     for (width, height), snap in result.items():
         tag = f"[{width}x{height}] "
         b = snap["boxes"]
-        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2 or "give=" in snap["hash"]:
+        # JEG-1191 (Jeremy, 2026-10-30, pick A): an example is 1-for-1 up to 2-for-2.
+        if not snap["example"] or "Example" not in snap["example"] or not (1 <= snap["give"] <= 2 and 1 <= snap["receive"] <= 2):
             errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
             continue
         if snap["overflow"] > 0:
             errors.append(tag + f"horizontal overflow {snap['overflow']}px")
-        button = b.get("useExample")
+        button = b.get("tryExample")
         if not button or button["height"] < 44 or button["width"] < 44:
-            errors.append(tag + f"'Use this example' is missing or under 44 px: {button}")
+            errors.append(tag + f"'Try a sample trade' is missing or under 44 px: {button}")
+        elif (width, height) in EXAMPLE_FOLD_VIEWPORTS and button["bottom"] > height - EXAMPLE_FOLD_MARGIN:
+            errors.append(f"{tag}'Try a sample trade' ends at {button['bottom']:.1f}, below the fold")
         if not b.get("picker"):
             errors.append(tag + "the 'Player values shown' picker is not reachable")
         if (width, height) in EXAMPLE_FOLD_VIEWPORTS:
             limit = height - EXAMPLE_FOLD_MARGIN
+            # JEG-1383: a held source's long disabled option widened the closed picker and wrapped Compare's header toolbar
+            # to a second row at 1366 px (+56 px), so the compact header (JEG-1112) saved nothing and the fold guard could
+            # not tell it from the old header. The toolbar must stay one picker row tall.
+            bar, picker = b.get("toolbar"), b.get("picker")
+            if bar and picker and bar["height"] > 1.5 * picker["height"]:
+                errors.append(f"{tag}Compare's header toolbar wraps to {bar['height']:.0f} px (picker {picker['height']:.0f} px tall, "
+                              f"{picker['width']:.0f} px wide); the compact header no longer saves height")
             for name in ("give", "receive", "verdict", "giveTotal", "receiveTotal"):
                 box = b.get(name)
                 if not box:
@@ -722,8 +747,8 @@ class WaterfallRenderTest(unittest.TestCase):
 
     def test_example_state_fits_the_fold(self):
         """JEG-1112: the first view a new visitor sees (the Example, nothing seeded) ends above the fold at 1366x768 and
-        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Use this example
-        button and no sideways scroll."""
+        1440x900 with its totals, in the browser's own fonts and in DejaVu Sans; phones keep a 44 px Try a sample trade
+        button and no sideways scroll. JEG-1190: the page opens empty, so this is the view one tap on that button gives."""
         errors = []
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
             result = example_state(font_css=font_css)
@@ -731,7 +756,7 @@ class WaterfallRenderTest(unittest.TestCase):
                 b = snap["boxes"]
                 r = lambda k: b[k] and round(b[k]["bottom"], 1)  # noqa: E731
                 print(f"EXAMPLE FOLD [{label}] {width}x{height} give {r('give')} receive {r('receive')} verdict {r('verdict')} "
-                      f"totals {r('giveTotal')}/{r('receiveTotal')}", file=sys.stderr, flush=True)
+                      f"totals {r('giveTotal')}/{r('receiveTotal')} toolbar {b.get('toolbar')} picker {b.get('picker')}", file=sys.stderr, flush=True)
             errors += [f"{label} {e}" for e in check_example_state(result)]
         self.assertEqual(errors, [])
 
@@ -739,14 +764,21 @@ class WaterfallRenderTest(unittest.TestCase):
         css = V2_CSS.read_text(encoding="utf-8")
         old_header = HEADER_GRID.sub("", css)
         self.assertNotEqual(old_header, css, "the compact header rule anchor is stale")
-        self.assertEqual(check_example_state(example_state(viewports=EXAMPLE_FOLD_VIEWPORTS)), [], "the clean build must pass first")
-        # JEG-1119: the one-row context row (48 px) replaced the league and Showing bars, freeing 75 px above Compare
-        # (1366x768 bottoms 739.5 -> 664.5), so the old header alone now ends above the fold. The guard puts that height
-        # back, so it still proves the fold check catches the old header's extra 55 px.
-        old_header += "\n#v2Compare { padding-top: 75px; }\n"
+        # JEG-1119 freed 75 px above Compare, and JEG-1190 took the Use this example button out of the Example banner,
+        # so the old header alone now ends above the fold. The guard pushes Compare down (margin) until the clean build's lowest box sits
+        # 2 px above the limit (measured per font), then proves the old header's extra height is caught there.
+        limit = 768 - EXAMPLE_FOLD_MARGIN
+        names = ("give", "receive", "verdict", "giveTotal", "receiveTotal")
         for label, font_css in (("browser fonts", ""), ("DejaVu Sans", WIDE_FONT_CSS)):
-            errors = check_example_state(example_state({"v2.css": (old_header, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
-            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] ({len(errors)} errors; first: {errors[0] if errors else '-'})",
+            clean = example_state(None, font_css, EXAMPLE_FOLD_VIEWPORTS)
+            self.assertEqual(check_example_state(clean), [], f"the clean build must pass first ({label})")
+            low = max(clean[(1366, 768)]["boxes"][n]["bottom"] for n in names)
+            pad = max(0, int(limit - low) - 2)
+            padded = f"\n#v2Compare {{ margin-top: {pad}px; }}\n"
+            self.assertEqual(check_example_state(example_state({"v2.css": (css + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS)), [],
+                             f"the padded clean build must still pass ({label}, {pad} px)")
+            errors = check_example_state(example_state({"v2.css": (old_header + padded, "text/css")}, font_css, EXAMPLE_FOLD_VIEWPORTS))
+            print(f"GUARD {'CAUGHT' if errors else 'NOT CAUGHT'}: old Compare header, example state [{label}] pad {pad} px ({len(errors)} errors; first: {errors[0] if errors else '-'})",
                   file=sys.stderr, flush=True)
             self.assertTrue(any("1366x768" in e and "past" in e for e in errors), f"the old header was not caught at 1366x768 in {label}: {errors}")
 
@@ -773,8 +805,9 @@ class WaterfallRenderTest(unittest.TestCase):
             "win verdict drops its second sentence": {"v2.js": (v2.replace(
                 WIN_AGAINST_COPY,
                 "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
+            # JEG-1191: the start button takes the next example from nextExample (was exampleTrade).
             "no example": {"v2.js": (v2.replace(
-                "verdictKey() ? exampleTrade(pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
+                "verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},
