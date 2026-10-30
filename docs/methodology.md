@@ -183,7 +183,10 @@ implementation follows the rule as written.
 
 Every source runs this step in its own units: points per game for
 projections, trade value for charts. Charts and projections use the same
-rules, except that only charts are filled in (VP-2.4).
+rules, except that only charts are filled in (VP-2.4). Because the
+allocation and the fill-in run on projected points, projection inputs reach
+the chart DDF Value through this step (VP-6.3, "How projections price the
+chart DDF Value").
 
 1. **Lists.** Build each position's listed players in sort order.
 2. **League allocation `alloc`** (the "size logic", OC-4). It runs **once per
@@ -337,7 +340,10 @@ rules, except that only charts are filled in (VP-2.4).
    bench total follows the shares.
 5. Every source in `I` counts once (four charts and three projections, so 7
    at full strength). There is one weight set per league setting and week,
-   shared by all three DDF versions (OC-6).
+   shared by all three DDF versions (OC-6). The projections' mixes are in it,
+   held ones too, so this is the main route by which projection inputs move
+   the chart DDF Value (VP-6.3, "How projections price the chart DDF
+   Value").
 
 ### VP-5 Fixed league pie and Adjusted values
 
@@ -422,6 +428,40 @@ rules, except that only charts are filled in (VP-2.4).
    the player detail panel shows "Your override: 58.0" above the unchanged
    source breakdown. The basis is the reader's, so the
    prior week is run on it too.
+
+   **How projections price the chart DDF Value** (JEG-1280 ledger,
+   JEG-1283). `ddf_value` averages only the charts' Adjusted values, but
+   every chart is priced on the shared league model, so projection inputs
+   still move it. Jeremy, 2026-10-29, on the JEG-1280 ledger: "A." That is,
+   keep the measured coupling and document it; no number, default, weight
+   or hold changes. The routes:
+   - **Mean points.** The mean projected points over the projections in
+     `I` set the starters and bench seats (`allocate`, VP-2.2), and with
+     them each chart's starter and waiver lines. They also set the fill-in
+     set and the curve estimates (VP-2.4).
+   - **DDF weights.** The weights average every included source's own mix
+     (VP-3, VP-4), held sources included. A projection change shifts that
+     source's mix, and every chart is then repriced on the new weights
+     (VP-5).
+   - **Held and excluded.** A hidden held projection (VP-1.1) is left out of the DDF blends
+     (this section) but still steers the stages above, exactly as when it
+     is visible. An excluded one (outside `I`) does not: it moves nothing.
+   - **Zero and absent.** A 0.0 listing counts in mean points as 0.0; an
+     absent player is left out of the mean.
+   - **Sizes** at main `430791c4` (fixture built 2026-10-29, default
+     league, one-player projection waiver line). A ±1 PPG edit to one
+     projection source's waiver-line player moves the worst-hit other
+     player's DDF Value by a median 0.11 and up to 1.8, often at another
+     position. Removing a 0.0 listing that decides a flex seat moves it by
+     up to 2.1. About 86% of the move goes through the DDF weights; fill-in,
+     bench and lineup carry the rest. These are synthetic edits, not a
+     forecast, and they predate the seven-player waiver line (#1077, JEG-1244):
+     rerun the ledger (`ledger.py freeze`, then `run`) once that lands.
+   - **Not chosen** (2026-10-29): option C (held sources out of these
+     pricing stages) and option D (zero listings out of mean points). Both
+     are recommended for `docs/math-review-agenda.md`; neither is decided.
+
+   Ledger: `docs/research/projection-influence-ledger/README.md` (PR #1146).
 
    (Before JEG-1044, "narrowed by the reader's selection": the Customize DDF
    blend tab's choice of projection sources, equal weight. That control is

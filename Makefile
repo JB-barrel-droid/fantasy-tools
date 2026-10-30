@@ -211,6 +211,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_weekly_matchup_swaps
 	python3 -m unittest tests.test_v2_offer_render
 	python3 -m unittest tests.test_v2_waterfall_render
+	python3 -m unittest tests.test_v2_compare_rosters_render
 	python3 -m unittest tests.test_v2_ddf_render
 	python3 -m unittest tests.test_v2_panels_render
 	python3 -m unittest tests.test_v2_a11y_render
@@ -615,6 +616,8 @@ test-core:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
 	python3 -m unittest tests.test_v2_finder_trifit
@@ -757,6 +760,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_v2_finder_saved_team tests.test_v2_finder_saved_team_render
 	python3 -m unittest tests.test_v2_finder_link_tabs_render
 	python3 -m unittest tests.test_waivers_math
+	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
+	python3 -m unittest tests.test_waivers_status
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
