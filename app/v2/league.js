@@ -896,8 +896,10 @@
     return el("tr", {class: "v2-lg-opp-detail", "data-detail-for": r.id}, el("td", {colspan: String(colspan)}, box));
   }
   // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
-  // The pick lives in the address as ?trade=<opponent>~<give keys>~<receive keys> so the link reopens the same trade.
-  const tradeParam = r => [r.opponent, r.give.map(p => p.player_key).join(","), r.receive.map(p => p.player_key).join(",")].map(encodeURIComponent).join("~");
+  // The pick lives in the address as ?trade=1~<opponent team id>~<give keys>~<receive keys> so the link reopens the same
+  // trade (JEG-1328: by the opponent's id, so a rename or two teams with one name keep the right trade). Older addresses
+  // named the opponent ("<name>~<give>~<receive>"); pickFromHash still reads them and rewrites the address.
+  const tradeParam = r => W.tradePick(r.opponentId, r.give, r.receive);
   // Focus goes back to the button that opened the panel (the visible one: the table and the phone cards both carry one).
   function focusPick(id) {
     const all = [...document.querySelectorAll(`[data-pick-for="${id}"]`)];
@@ -923,7 +925,9 @@
     if (!m || !rows.length) return;
     if (UI.selectedParam === m[1]) return;
     const hit = rows.find(r => tradeParam(r) === m[1]);
-    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; }
+    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; return; }
+    const legacy = rows.find(r => W.legacyTradePick(r.opponent, r.give, r.receive) === m[1]);
+    if (legacy) { UI.selectedOpp = legacy.id; UI.selectedParam = tradeParam(legacy); setTradeHash(legacy); }
   }
   function sidePanel(heading, team, leaving, arriving, ctx) {
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
@@ -1333,10 +1337,13 @@
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
     const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
     if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);
-    params.delete("workspace");
-    params.delete("wm");
-    params.delete("trade");
-    if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
+    // JEG-1328: the sender's package size, filters and selected trade, with link positions read as the new teams' ids.
+    const extras = W.readShareExtras(params, w.teams.map(t => t.id));
+    if (Object.keys(extras.ui).length) w = W.ops.setUi(w, extras.ui);
+    const address = "#find-league" + (extras.trade ? `?trade=${extras.trade}` : "");
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + address); } catch (error) { /* the pick is lost, the league still opens */ }
+    const settingsQuery = W.shareSettingsQuery(params);
+    if (settingsQuery) w = W.ops.setSettings(w, {query: settingsQuery});
     offerReplace(w, "Shared link:");
   }
 
@@ -1365,7 +1372,7 @@
     const download2 = button("Download", {class: "v2-btn", id: "v2LgDownload"}, download);
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
-      const enc = W.shareHash(store.get(), leagueQuery());
+      const enc = W.shareHash(store.get(), leagueQuery(), {trade: UI.selectedParam});
       const ov = root.DDFOverrides;
       const shared = ov && ov.shareLink ? ov.shareLink(enc.hash) : {hash: enc.hash, dropped: false};
       const url = `${root.location.origin}${root.location.pathname}${shared.hash}`;
