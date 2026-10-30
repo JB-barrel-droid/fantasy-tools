@@ -135,6 +135,9 @@ test-unit-modules:
 	# JEG-1049: the daily/on-demand edge drift workflow stays read-only and keeps the checker's exit code.
 	python3 -m unittest tests.test_edge_drift_workflow
 	python3 -m unittest tests.test_ddf_state
+	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
+	python3 -m unittest tests.test_connector_roundtrip
+	python3 -m unittest tests.test_connector_inventory
 	python3 -m unittest tests.test_league_mapping
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
@@ -185,6 +188,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_load_ddf_leg_contract
 	python3 -m unittest tests.test_build_v2_page
 	python3 -m unittest tests.test_v2_tokens
+	# JEG-1140: Settings in the Fieldnotes design, isolated components (node checks, then the browser).
+	python3 -m unittest tests.test_jeg1140_settings_fieldnotes
+	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_assist
 	python3 -m unittest tests.test_v2_targets_render
@@ -306,6 +312,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_methodology_consistency
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
+	# JEG-1130: the approved PMM glossary on the copy outside and inside v2.js (static, no browser).
+	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy
 	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_source_freshness
 	python3 -m unittest tests.test_freshness_display_render

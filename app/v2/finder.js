@@ -1066,6 +1066,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     [["minDdfEdge", "v2FindMinEdge"], ["minUserLineupGain", "v2FindMinMine"], ["minTheirLineupGain", "v2FindMinTheirs"]].forEach(([key, id]) => {
       const input = $(id); if (input) input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
     });
+    const folded = $("v2FindSummary"); if (folded && !folded.hidden) updateSummary();
   };
   const saveSettings = () => {
     const W = root.TradeValueWorkspace;
@@ -2371,6 +2372,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
   // ---------- JEG-972: collapsible roster input ----------
   // After every Find trades press the roster input folds into one summary row per team (name, first three players,
   // position counts); "Edit rosters" opens it again. The package size, lineup boxes and Find button stay visible.
+  // JEG-1237: the protected-position and bench-backup settings fold with it, read back as one line in the summary, so
+  // the headline and results start on the first screen again; Advanced trade minimums stays its own closed disclosure.
   const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
   function positionCounts(list) {
     const counts = {};
@@ -2385,6 +2388,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     const more = list.length - 3;
     return {names: more > 0 ? `${first} + ${more} more` : first, counts: `${plural(list.length, "player")}: ${positionCounts(list)}`};
   }
+  function guardrailText() {
+    const g = S.guardrails;
+    const parts = [];
+    if (g.protectedPositions.length) parts.push(`protecting ${g.protectedPositions.join(", ")}`);
+    const backups = GUARDRAIL_POSITIONS.filter(pos => g.minBackups[pos] > 0).map(pos => `${pos} ${g.minBackups[pos]}`);
+    if (backups.length) parts.push(`minimum bench backups ${backups.join(", ")}`);
+    return `Trade settings: ${parts.length ? parts.join("; ") : "no protected positions or bench backup minimums"}`;
+  }
   function updateSummary() {
     const box = $("v2FindSummary");
     if (!box) return;
@@ -2393,7 +2404,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       const node = $(`${sideId(side)}Summary`);
       node.replaceChildren(el("b", {text: S.label[side] ? `${SIDE_NAME[side]}: ${S.label[side]}` : SIDE_NAME[side]}), el("span", {class: "v2-find-sum-names", text: t.names}), el("span", {class: "v2-meta", text: t.counts}));
     });
-    $("v2FindEdit").setAttribute("aria-label", `Edit rosters: your roster has ${plural(S.mine.length, "player")}, their roster has ${plural(S.theirs.length, "player")}`);
+    const rails = $("v2FindGuardrailSummary");
+    if (rails) rails.textContent = guardrailText();
+    $("v2FindEdit").setAttribute("aria-label", `Edit rosters and trade settings: your roster has ${plural(S.mine.length, "player")}, their roster has ${plural(S.theirs.length, "player")}`);
   }
   function setCollapsed(collapsed, focus) {
     const input = $("v2FindInput");
@@ -2402,6 +2415,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     if (!input || !summary) return;
     if (collapsed) updateSummary();
     input.hidden = collapsed;
+    const rails = $("v2FindGuardrails");
+    if (rails) rails.hidden = collapsed;
     summary.hidden = !collapsed;
     edit.setAttribute("aria-expanded", String(!collapsed));
     if (focus === "input") { const first = $("v2FindMineSearch"); if (first) first.focus(); }
@@ -2619,10 +2634,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
     undo.addEventListener("click", undoArrange);
     const clearBothButton = el("button", {type: "button", class: "v2-btn", id: "v2FindClearBoth", text: "Clear both", disabled: ""});
     clearBothButton.addEventListener("click", clearBoth);
-    const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
+    const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput v2FindGuardrails"});
     edit.addEventListener("click", () => setCollapsed(false, "input"));
     const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
-      el("div", {class: "v2-find-sumrow", id: "v2FindMineSummary"}), el("div", {class: "v2-find-sumrow", id: "v2FindTheirsSummary"}), edit);
+      el("div", {class: "v2-find-sumrow", id: "v2FindMineSummary"}), el("div", {class: "v2-find-sumrow", id: "v2FindTheirsSummary"}), edit,
+      el("p", {class: "v2-meta v2-find-sum-rails", id: "v2FindGuardrailSummary"}));
     // Escape inside the opened input folds it back once there are results to read.
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
@@ -2634,7 +2650,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
         keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go, share),
-      protectedField, backupField, advanced,
+      el("div", {class: "v2-find-guardrails", id: "v2FindGuardrails"}, protectedField, backupField), advanced,
       el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),

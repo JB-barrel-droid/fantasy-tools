@@ -287,10 +287,6 @@
         espn_projects_zero: espnProjectsZero(player),
         kdst_excluded_from_chart: isKdst,
         espn_ppg: player.espn_ppg || null,
-        // JEG-1199: ESPN's rest-of-season total behind espn_ppg, shown on
-        // Values auditing as the publisher's own number. Read only; no value
-        // reads it.
-        espn_ros: player.espn_ros || null,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
         ecr_ppg: player.ecr_ppg || null,

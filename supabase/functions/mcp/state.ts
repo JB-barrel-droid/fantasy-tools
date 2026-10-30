@@ -21,6 +21,8 @@ export const ROUTES: Record<string, string> = {
   compare: "#compare-trade",
   targets: "#trade-targets",
   finder: "#find-trade",
+  // JEG-1329: the league finder, opened from its own share link (workspace.js shareHash).
+  league: "#find-league",
   risers: "#risers-fallers",
 };
 
@@ -81,6 +83,21 @@ export interface Finish {
   work?: State;
   bare?: boolean;   // a plain site link with no state (explain)
   block?: boolean;  // append the pasteable block (make_state)
+  /** JEG-1329: a league scan's teams (yours first). The link opens the league finder with all of them. */
+  teams?: LeagueTeam[];
+}
+
+export interface LeagueTeam {
+  name: string;
+  keys: string[];
+}
+
+// JEG-1329: the league finder's share text, as app/v2/workspace.js encodeShare writes it:
+// name:key,key|name:key. A numeric key is base 36, any other key is ~ and percent-encoded.
+// The site reads it with decodeShare; tests/node/connector_both_sides_check.mjs pins the round trip.
+export function leagueShareText(teams: LeagueTeam[]): string {
+  const key = (k: string) => (/^\d+$/.test(k) ? Number(k).toString(36) : `~${encodeURIComponent(k)}`);
+  return teams.map((t) => `${encodeURIComponent(t.name)}:${t.keys.map(key).join(",")}`).join("|");
 }
 
 // Add the site link, the state to continue on the site, and any notes to a tool result.
@@ -109,6 +126,12 @@ export function finish<R extends { content: Array<{ type: "text"; text: string }
     const norm = deps.codec.normalize(state);
     outState = norm.state;
     if (outState) url = `${deps.siteOrigin}/${route}?${deps.codec.encodeQuery(outState)}`;
+  }
+  if (!f.bare && f.teams?.length) {
+    // The league finder's own link: every team, team 0 marked as yours (wm=0), then the league
+    // settings in the page's link parameters (the codec's league part, no work lists).
+    const settingsQuery = deps?.codec && outState?.league ? deps.codec.encodeQuery({ v: 1, league: outState.league }) : "";
+    url = `${deps?.siteOrigin ?? ""}/${ROUTES.league}?workspace=${leagueShareText(f.teams)}&wm=0${settingsQuery ? `&${settingsQuery}` : ""}`;
   }
 
   const block = f.block && deps?.codec && outState ? deps.codec.encodeBlock(outState, { url }) : "";

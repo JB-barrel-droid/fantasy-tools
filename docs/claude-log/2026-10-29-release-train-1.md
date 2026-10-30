@@ -18,6 +18,8 @@ Included (each merged normally, no rebase, no edits to their branches):
 | #1180 | 8981c206 | JEG-1049 |
 | #1079 | 38f0ebe0 | JEG-1222 |
 
+Refresh, 2026-10-30 02:15 UTC: #1107, #1177, #1169, #1163 and #964 merged on their own first, so the train now carries the other six (#1121, #1159, #1157, #1161, #1180, #1079). The first train commit (841e4bb3) wrongly picked up generated dist/ and app asset files that the local test run rewrote; the refreshed head drops them, so its tree is current main plus the six PR merges, this log and the HANDOFF note only.
+
 Left out: #981 (merge conflicts across 16 files on the train, including app/v2/v2.js and generated dist/), #1166 (generated dist/ churn and a workflow change; next train), #1179 (correction JEG-1345 still open, Mac render run outstanding), #1186 and #1151 (no independent review yet), all value-math PRs (#1077, #1105, #1052, #1168, #1110).
 
 ### Verified (check named)
