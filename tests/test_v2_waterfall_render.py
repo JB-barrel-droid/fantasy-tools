@@ -798,8 +798,9 @@ class WaterfallRenderTest(unittest.TestCase):
             "win verdict drops its second sentence": {"v2.js": (v2.replace(
                 WIN_AGAINST_COPY,
                 "text = `${listSeries(v.againstKeys)} ${thinks(v.againstKeys)} you lose this trade.`;", 1), js)},
+            # JEG-1191: the start button takes the next example from nextExample (was exampleTrade).
             "no example": {"v2.js": (v2.replace(
-                "verdictKey() ? exampleTrade(compareView.pointKeys) : null;", "verdictKey() ? null : null;", 1), js)},
+                "verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;", "verdictKey() ? null : null;", 1), js)},
             "landing on incomplete rows": {"trade.js": (trade.replace(
                 "net: sums.net, complete: sums.net !== null,",
                 "net: sums.net === null ? 0 : sums.net, complete: true,", 1), js)},
