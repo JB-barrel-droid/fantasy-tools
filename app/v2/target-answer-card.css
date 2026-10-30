@@ -1,0 +1,65 @@
+/* Trade target answer card (JEG-1274). Every rule is scoped to .tac; colours come from the v2.css tokens with plain
+   fallbacks so the card also renders on its own. Layout only: the new design language (JEG-1137 / JEG-1209) is applied
+   by the foundation owner later, not here. */
+.tac {
+  background: var(--v2-surface, #fff);
+  color: var(--v2-ink, #142b25);
+  border: 1px solid var(--v2-border, #dee5e2);
+  border-left: 4px solid var(--v2-border, #dee5e2);
+  border-radius: var(--v2-radius-card, 12px);
+  padding: var(--v2-pad-card, 12px) var(--v2-pad-card-x, 16px);
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-wrap: anywhere;
+}
+.tac *, .tac *::before, .tac *::after { box-sizing: border-box; }
+.tac p, .tac ul, .tac dl { margin: 0 0 8px; }
+.tac ul { padding-left: 20px; }
+.tac--buy { border-left-color: var(--v2-action, #087f5b); }
+.tac--sell { border-left-color: var(--v2-negative, #b33f50); }
+.tac--fair { border-left-color: var(--v2-field-border, #80908b); }
+.tac--missing, .tac--unavailable { border-left-color: var(--v2-older, #a56320); }
+
+.tac-fixture {
+  border: 1px dashed var(--v2-field-border, #80908b);
+  border-radius: var(--v2-radius-btn, 8px);
+  padding: 4px 8px;
+  font-size: 13px;
+  color: var(--v2-muted, #64736f);
+}
+.tac-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 4px; min-width: 0; }
+.tac-name { font-size: var(--v2-title-2, 18px); margin: 0; min-width: 0; }
+.tac-meta { color: var(--v2-muted, #64736f); font-size: 14px; margin: 0; }
+.tac-side { display: inline-block; font-weight: 700; font-size: 16px; padding: 2px 10px; border-radius: 999px; border: 1px solid currentColor; }
+.tac-side--buy { color: var(--v2-action-strong, #066b4c); }
+.tac-side--sell { color: var(--v2-negative, #b33f50); }
+.tac-side--fair { color: var(--v2-ink, #142b25); }
+.tac-message { color: var(--v2-muted, #64736f); }
+.tac-reasons li, .tac-missing li { margin: 2px 0; }
+
+.tac-values { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 140px), 1fr)); gap: 8px; }
+.tac-value { min-width: 0; border: 1px solid var(--v2-border, #dee5e2); border-radius: var(--v2-radius-btn, 8px); padding: 6px 10px; }
+.tac-value dt { font-size: 13px; color: var(--v2-muted, #64736f); }
+.tac-value dd { margin: 0; font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.tac-value.is-missing dd { font-size: 15px; color: var(--v2-muted, #64736f); font-weight: 500; }
+.tac .tac-reason { display: block; font-size: 13px; color: var(--v2-muted, #64736f); font-weight: 400; }
+
+.tac-disclosure { border-top: 1px solid var(--v2-border, #dee5e2); }
+.tac-toggle {
+  display: flex; align-items: center; width: 100%; min-height: 44px; padding: 8px 0;
+  background: none; border: 0; color: var(--v2-action-text, #087f5b);
+  font: inherit; font-weight: 600; text-align: left; cursor: pointer; touch-action: manipulation;
+}
+.tac-toggle::after { content: "+"; margin-left: auto; padding-left: 12px; }
+.tac-toggle[aria-expanded="true"]::after { content: "\2212"; }
+.tac-toggle:focus-visible { outline: 2px solid var(--v2-focus, #087f5b); outline-offset: 2px; border-radius: 4px; }
+.tac-panel { padding-bottom: 8px; min-width: 0; }
+.tac-panel[hidden] { display: none; }
+.tac-sources { list-style: none; padding: 0; }
+.tac-source { display: flex; flex-wrap: wrap; gap: 2px 12px; padding: 4px 0; min-width: 0; }
+.tac-source-name { font-weight: 600; min-width: 0; }
+.tac-source-status { color: var(--v2-muted, #64736f); }
+.tac-source-value { font-variant-numeric: tabular-nums; margin-left: auto; }
+.tac-source .tac-reason { flex-basis: 100%; }
+.tac-detail-slot { min-width: 0; }
