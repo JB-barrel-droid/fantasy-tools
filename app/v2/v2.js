@@ -6201,7 +6201,7 @@
     // JEG-1191 path A: the Example line says what kind of trade it is, and offers the next one while there is one.
     const examples = compareView.example && exampleCache ? exampleCache : null;
     $("v2CExampleText").textContent = examples && !examples.fallback
-      ? "A trade the market misses: DDF Value likes it, the trade charts don't, so the other manager will likely accept. Remove a player to change it, or add your own to start fresh."
+      ? "A trade the market misses: DDF Value says you win, while the charts favor the other manager. Edit it, or add your own player to start fresh."
       : "A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.";
     $("v2CNextExample").hidden = !(examples && examples.picks.length > 1);
     const empty = !TR.give.length && !TR.receive.length;

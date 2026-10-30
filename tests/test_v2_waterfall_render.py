@@ -27,7 +27,7 @@ window.TradeValueCurveControls.getAllRows():
     with JEG-1106's menu, so the real-page check now runs 1024-1439 -- JEG-1113;
     test_wide_font_guard_fails_on_broken_nav serves a menu that opens in the bar and requires it to be caught,
     using a baseline-vs-mutation comparison at 1280);
-  * example: with no player added, a sample 2-for-2 is drawn, marked "Example",
+  * example: with no player added, the start button draws an example (1-for-1 up to 2-for-2 since JEG-1191), marked "Example",
     and the address keeps no trade.
   * example fold (JEG-1112): the EXAMPLE state itself, with no trade seeded (it is live data: the same page a new
     visitor sees), ends with both sides, the verdict card and the totals row under each side at least
@@ -490,8 +490,9 @@ def run_checks(overrides=None, viewports=((1440, 900), (1366, 768), (1100, 900),
                 ex = page.evaluate(READ)
                 if not ex["example"] or "Example" not in ex["example"] or "Example" not in ex["verdictEyebrow"]:
                     errors.append(tag + f"no example trade marked Example: {ex['example']!r} / {ex['verdictEyebrow']!r}")
-                elif len(ex["give"]) != 2 or len(ex["receive"]) != 2 or not ex["rows"]:
-                    errors.append(tag + f"example is not a drawn 2-for-2: {ex['give']} / {ex['receive']}")
+                # JEG-1191 (Jeremy, 2026-10-30, pick A): the examples are trades the market misses, 1-for-1 up to 2-for-2.
+                elif not (1 <= len(ex["give"]) <= 2 and 1 <= len(ex["receive"]) <= 2) or not ex["rows"]:
+                    errors.append(tag + f"example is not a drawn 1-for-1 to 2-for-2: {ex['give']} / {ex['receive']}")
                 else:
                     errors += [tag + "example: " + e for e in check_waterfalls(ex, {"give": ex["give"], "receive": ex["receive"]})]
                 # JEG-1056: when seeded, patch engine values to small deterministic numbers so the waterfall
@@ -679,7 +680,8 @@ def check_example_state(result: dict) -> list[str]:
     for (width, height), snap in result.items():
         tag = f"[{width}x{height}] "
         b = snap["boxes"]
-        if not snap["example"] or "Example" not in snap["example"] or snap["give"] != 2 or snap["receive"] != 2:
+        # JEG-1191 (Jeremy, 2026-10-30, pick A): an example is 1-for-1 up to 2-for-2.
+        if not snap["example"] or "Example" not in snap["example"] or not (1 <= snap["give"] <= 2 and 1 <= snap["receive"] <= 2):
             errors.append(tag + f"not the example state (banner {snap['example']!r}, {snap['give']} for {snap['receive']}, {snap['hash']!r})")
             continue
         if snap["overflow"] > 0:
