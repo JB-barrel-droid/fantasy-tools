@@ -45,7 +45,8 @@ TOOLS = {
     "read_state": {"route": "#compare-trade", "checks": [ROUND_TRIP, REMOTE]},
     "make_state": {"route": "#find-trade", "checks": [ROUND_TRIP, REMOTE]},
     "find_trades": {"route": "#find-trade", "checks": [VALUES, ROUND_TRIP, REMOTE, FIT]},
-    "find_trades_league": {"route": "#find-trade", "checks": [VALUES, ROUND_TRIP, REMOTE]},
+    # JEG-1384: league-wide since JEG-1329 (#1175), which resolved JEG-1030 F2 for this route.
+    "find_trades_league": {"route": "#find-league", "checks": [VALUES, ROUND_TRIP, REMOTE]},
     # explain prices nothing and links to the front page without a league.
     "explain": {"route": "/", "checks": [ROUND_TRIP, REMOTE]},
 }
@@ -58,7 +59,6 @@ ROUTE_EXCEPTIONS = {
     "#value-overrides": "JEG-1224",  # value basis and overrides are not part of the DDF state yet
     "#writing": "by design: prose pages, nothing to compute",
     "#player-values": "unresolved: get_values links to Trade targets, not the value chart (JEG-1030 F2)",
-    "#find-league": "unresolved: find_trades_league links to the one-opponent finder (JEG-1030 F2)",
     "#waivers": "unresolved: no waiver analysis in the connector or in JEG-1029's proposal (JEG-1030 F3)",
 }
 EXCEPTION_FORM = re.compile(r"^(JEG-\d+|by design: .+|unresolved: .+)$")
