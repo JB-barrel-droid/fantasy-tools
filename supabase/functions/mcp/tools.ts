@@ -1539,12 +1539,40 @@ function explain(topic: string): ToolResult {
 type Entry = { key?: string; name?: string };
 const WORK_LISTS = ["give", "get", "mine", "theirs"];
 
-function resolveEntry(players: PlayerValue[], e: Entry): { input: string; player: PlayerValue | null; note: string } {
+interface ResolvedEntry {
+  input: string;
+  player: PlayerValue | null;
+  note: string;
+  /** The name match, kept so a miss can list its closest names without matching again; null for a key-only entry. */
+  hit: NameMatch<PlayerValue> | null;
+}
+
+function resolveEntry(players: PlayerValue[], e: Entry): ResolvedEntry {
   const byKey = e.key !== undefined ? players.find((p) => String(p.player_key) === e.key) ?? null : null;
-  if (byKey) return { input: e.name ?? e.key ?? "", player: byKey, note: "" };
-  if (!e.name) return { input: e.key ?? "", player: null, note: `${e.key ?? ""}: NOT FOUND` };
+  if (byKey) return { input: e.name ?? e.key ?? "", player: byKey, note: "", hit: null };
+  if (!e.name) return { input: e.key ?? "", player: null, note: `${e.key ?? ""}: NOT FOUND`, hit: null };
   const hit = matchName(players, e.name);
-  return { input: e.name, player: hit.match === "ambiguous" ? null : hit.player, note: hit.note };
+  return { input: e.name, player: hit.match === "ambiguous" ? null : hit.player, note: hit.note, hit };
+}
+
+/** JEG-1376: closest names are worked out for this many misspelled names at most; the rest are only named. */
+const MAX_CLOSEST_MISSES = 5;
+
+/**
+ * JEG-1376: the "Could not match" entries for read_state. An ambiguous name lists every player it
+ * fits, as compare_trade does; a misspelled name lists its closest names (for the first
+ * MAX_CLOSEST_MISSES only, since each one scans every player); a key-only entry is only named.
+ */
+function missLabels(players: PlayerValue[], misses: ResolvedEntry[]): string[] {
+  let scanned = 0;
+  return misses.map((miss) => {
+    if (!miss.hit) return miss.input;
+    if (miss.hit.match === "ambiguous") return `${miss.input} (could be ${miss.hit.suggestions.map((p) => p.name).join(", ")})`;
+    if (scanned >= MAX_CLOSEST_MISSES) return miss.input;
+    scanned++;
+    const near = closestNames(players, miss.input, miss.hit).map((p) => p.name);
+    return near.length ? `${miss.input} (closest: ${near.join(", ")})` : miss.input;
+  });
 }
 
 function inferView(work: Record<string, unknown>): string {
@@ -1564,17 +1592,18 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
   const work = (prepared.state.work ?? {}) as Record<string, unknown>;
 
-  const lists: Record<string, Array<{ input: string; player: PlayerValue | null }>> = {};
+  const lists: Record<string, Array<{ input: string; player: PlayerValue | null; note: string }>> = {};
   const resolvedWork: Record<string, unknown> = {};
   const unmatched: string[] = [];
+  const misses: ResolvedEntry[] = [];
   const lines: string[] = [...header(data, s), ""];
   for (const name of WORK_LISTS) {
     const list = work[name] as Entry[] | undefined;
     if (!list?.length) continue;
     const rows = list.map((e) => resolveEntry(data.players, e));
-    lists[name] = rows;
+    lists[name] = rows.map(({ input, player, note }) => ({ input, player, note }));
     resolvedWork[name] = rows.map((r, i) => r.player ? { key: String(r.player.player_key), name: r.player.name } : list[i]);
-    rows.filter((r) => !r.player).forEach((r) => unmatched.push(r.input));
+    rows.filter((r) => !r.player).forEach((r) => { unmatched.push(r.input); misses.push(r); });
     // JEG-1124 (Jeremy 2026-10-30, "Letter A."): a name that matches no player gives no total.
     const missing = rows.filter((r) => !r.player).length;
     const total = Math.round(rows.reduce((t, r) => t + (r.player?.value ?? 0), 0) * 10) / 10;
@@ -1585,13 +1614,16 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
   }
   if (work.target) {
     const r = resolveEntry(data.players, work.target as Entry);
-    lists.target = [r];
+    lists.target = [{ input: r.input, player: r.player, note: r.note }];
     resolvedWork.target = r.player ? { key: String(r.player.player_key), name: r.player.name } : work.target;
-    if (!r.player) unmatched.push(r.input);
+    if (!r.player) { unmatched.push(r.input); misses.push(r); }
     lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : (r.note || `${r.input}: NOT FOUND`)}`);
   }
   if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
-  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user which player they meant (or to check the spelling).`);
+  // JEG-1376: name each unmatched player with its closest names, the way compare_trade does.
+  if (misses.length) {
+    lines.push("", `Could not match: ${missLabels(data.players, misses).join("; ")}. Ask the user which player they meant (or to check the spelling).`);
+  }
 
   const view = typeof work.view === "string" ? work.view : inferView(work);
   return finish(

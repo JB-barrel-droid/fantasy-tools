@@ -31,6 +31,20 @@ below are history, including any "Codex reviews and merges" line.
   `docs/claude-log/2026-10-30-jeg-1130-settings-copy.md`. #1037 (muse) is superseded by #1138; closing it
   needs its author or Jeremy.
 
+### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
+
+- Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
+  unmatched name as 0: compare_trade refuses with closest names, read_state gives that list no total.
+  This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
+  under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
+  "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Independent review: approve; its findings fixed in a second commit (closest names reuse the first match
+  and stop after 5 misspelled names, key-only misses get none, ambiguous names list every fit).
+  A pasted state of 160 junk names already takes about 5.4 s of matching on main (5.9 s here); not
+  addressed in this PR.
+- Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
+  (runTool, not readState); no overlap expected.
+
 ### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
 
 - Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline
