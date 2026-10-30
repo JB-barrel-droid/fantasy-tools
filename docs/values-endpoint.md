@@ -32,6 +32,26 @@ judges the other team on the mean of `chart_indexed`, the market: the mean of
 `chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
 since JEG-1073 (JEG-1129).
 
+`include` takes a comma list (JEG-1029); an unknown value is a 400 (before
+JEG-1029 anything but `charts` was ignored; the change is intended, so a typo
+fails loudly instead of returning the plain answer). Besides
+`charts`, three analysis blocks (`supabase/functions/get-values/analysis.ts`,
+no value math of their own) feed the MCP analyses:
+- `series`: `{player_key: {series: value}}`, each player's Player values row in
+  the Indexed tab, unrounded: `ddf_value`, `ddf_value_charts`,
+  `ddf_value_projections`, each published chart's Indexed value and each
+  projection's Adjusted value (held sources left out, as the page hides them).
+- `prior`: the VP-8 prior week, the page's `pipelinePrior`: the same league,
+  included set and pie on Week N−1's saved inputs. `{available, reason,
+  current_week, prior_week, series: {key: {available, reason, values,
+  current_values}}}`; `current_values` (DDF Value versions only) is this week's
+  side, as `getPriorWeek` returns it. A source not serving the priced week is
+  unavailable with the reason, never filled.
+- `audit`: what the Values auditing sub-tabs read from `getInspection()`:
+  `valuePipeline` (`ValueModel.valuePipelineDiagnostics`), `setting`,
+  `excluded`, each source's per-player stages (`players`) and the rows' per-source
+  values, reasons and DDF Value (`rows`). About 1 MB.
+
 ### Week (JEG-1179)
 
 Sources publish week N+1 at different times. Each answer is priced on one week,
@@ -110,7 +130,17 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
 
 - The function evals the site's own `value-model.js` at cold start (loaded
   from the published origin, so the endpoint always matches the page).
-- Rate limit is per instance, not global.
+- Rate limit is per instance, not global — a soft guard, not a real cap
+  (JEG-1061). Both buckets (30/min general, 10/min fresh custom-league
+  computes) live in an in-memory `Map` on the function instance and are keyed
+  by the first `x-forwarded-for` entry, which the client can set. Measured
+  live on 2026-10-24: 14 distinct custom leagues in a row from one client all
+  returned 200 in 0.17–0.65 s and the 10/min compute limit never returned
+  429, because the requests did not stay on one instance. A single instance
+  does return 429 on the 11th compute in a minute from one key; that is
+  pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
+  the function stores nothing, so abuse costs CPU only (about 0.3 s per
+  fresh league).
 - Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
   document (about 70 KB) is fetched only when the week priced needs a saved
   copy. First call is slow, results cached 5 minutes per league and week.
@@ -128,8 +158,24 @@ that needs a URL instead of a local process.
 - Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`,
   `read_state`, `make_state`, `find_trades`, `find_trades_league`, `explain`.
   Name lookup and trade math run server-side; each result also carries
-  `structuredContent`. `risers_fallers` is not offered: the endpoint has no
-  prior-week data.
+  `structuredContent`.
+- **Analyses (JEG-1029):** the page's own modules (`v2/movers.js`, `trade.js`,
+  `audit-pie.js`, `audit-source.js`, loaded from the site like `finder.js`) run
+  on get-values' `include=series,prior,audit` blocks (`mcp/analyses.ts`).
+  `risers_fallers` (`series`, `position`, `limit` 1-25, `disagreements`): the
+  served-week pair, Week N−1 → N, risers and fallers with before, now and Δ,
+  and the market vs projections disagreements with the page's read; links to
+  `#risers-fallers`. `compare_trade` with `by_source: true`: the page's default
+  Compare a trade rows (DDF Value and the four published charts, rescaled) and
+  the DDF Value verdict with the charts that agree or point the other way;
+  without it the reply is unchanged. `audit_values` (`view` health or source,
+  `source`, `position`, `limit`): the Health check's verdict rows, or one
+  source's Published / Indexed / Adjusted build-up; links to `#values-auditing`.
+  A source with no values at the setting answers the page's "has no values"
+  line with null totals, never 0 (JEG-1309); a stage with no points has a null total.
+  Parity: `tests/test_connector_analyses.py` (offline, against
+  `value_reference.py`, with broken variants) and
+  `tests/test_connector_analyses_page.py` (the live page, needs a browser).
 - `find_trades`: takes two rosters (comma-separated names), finds trade packages
   where you gain DDF Value and at least 3 of 4 trade charts say the other team
   breaks even or wins. Each trade is scored on the 9 viability checks (see

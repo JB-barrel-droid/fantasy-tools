@@ -83,7 +83,9 @@ def plan(base: dict, players: list[dict]) -> dict:
     for sid, entry in (base.get("by_sleeper_id") or {}).items():
         if sid in universe or entry.get("pos") not in SKILL:
             continue
-        e, how = index.resolve_sleeper(sid, "", entry.get("pos"))  # no name fallback
+        # resolve_sleeper still falls back to the base record's own name when the
+        # name argument is empty; the how-not-in-ID_HOWS check below is the guard.
+        e, how = index.resolve_sleeper(sid, "", entry.get("pos"))
         if e is None or how not in ID_HOWS or e["player_key"] not in skill_rows:
             continue
         if e["player_key"] in claimed:

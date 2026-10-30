@@ -11,6 +11,9 @@
 //     --scoring ppr --teams 12 --superflex 0 --dist dist/
 //     [--bench 6] [--league '<normalized DDF league JSON>'] [--week 8]
 //     [--history-index <index.json in place of dist's>] [--with-week 1]
+//     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
+//     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
+//     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -28,6 +31,8 @@ for (let i = 2; i < process.argv.length; i += 2) {
 const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
 const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+// JEG-1029: the opt-in analysis blocks come from the function's own analysis.ts.
+const { auditBlock, parseIncludes, priorBlock, seriesBlock } = require("../supabase/functions/get-values/analysis.ts");
 const leagueArg = args.league ? JSON.parse(args.league) : null;
 const legacyLeague = { scoring: args.scoring || "ppr", teams: Number(args.teams) || 12,
   ...(Number(args.superflex) ? { roster: { SUPERFLEX: 1 } } : {}) };
@@ -72,8 +77,15 @@ try {
       // A week the build did not publish stays unloaded, as a failed fetch does in the function.
     }
   }
+  // --drop-entry WEEK:SOURCE: the history saved no entry for SOURCE in WEEK (JEG-1029's unpaired prior week).
+  if (args["drop-entry"]) {
+    const [week, key] = args["drop-entry"].split(":");
+    if (!docs[week]?.sources?.[key]) throw new Error(`--drop-entry: no Week ${week} ${key} entry to drop`);
+    delete docs[week].sources[key];
+  }
   history = { index, docs };
 } catch (e) {
+  if (args["drop-entry"]) throw e;
   // No week history: the calendar rule applies, as on the page.
 }
 
@@ -124,4 +136,28 @@ for (const [pk, row] of Object.entries(pipeline.rows || {})) {
   }
 }
 
-process.stdout.write(JSON.stringify(args["with-week"] ? { values: output, week: built.week } : output));
+// JEG-1029: --include adds the analysis blocks the function adds (series, prior, audit).
+const parsedInclude = parseIncludes(args.include);
+if (parsedInclude.error) {
+  process.stderr.write(parsedInclude.error + "\n");
+  process.exit(1);
+}
+const analysis = {};
+const includes = parsedInclude.includes;
+if (includes.has("series")) analysis.series = seriesBlock(pipeline, input.hidden || []);
+// --mutate two-weeks-back (tests/test_connector_analyses.py's broken variant): the "prior week" priced on
+// Week N-2's inputs but labelled Week N-1, so the parity check must fail on the values, not the label.
+if (includes.has("prior")) {
+  if (args.mutate === "two-weeks-back") {
+    const prior = priorBlock(bundle, input, pipeline, plan.week - 1, plan.served || {}, mapped.scoring);
+    analysis.prior = { ...prior, current_week: plan.week, prior_week: plan.week - 1 };
+  } else {
+    analysis.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served || {}, mapped.scoring);
+  }
+}
+if (includes.has("audit")) {
+  const excluded = (pipeline.excluded || []).map((e) => ({ key: e.key, reason: e.reason }));
+  analysis.audit = auditBlock(bundle, pipeline, excluded);
+}
+const withWeek = args["with-week"] || includes.size;
+process.stdout.write(JSON.stringify(withWeek ? { values: output, week: built.week, ...analysis } : output));

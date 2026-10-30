@@ -1,7 +1,13 @@
 """JEG-1354: players.active follows the active NFL universe, ids first."""
+import contextlib
+import io
+import json
 import sys
+import tempfile
+import types
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
@@ -121,6 +127,48 @@ class GuardAndWriteTests(unittest.TestCase):
         self.assertTrue(all(c[0] == "players" for c in calls))
         self.assertEqual(calls[1][2], f"?player_key=in.({spa.PATCH_BATCH + 1})")
         self.assertEqual(calls[2][2], "?player_key=in.(999)")
+
+
+class MainDryRunTests(unittest.TestCase):
+    """main() writes only with --write, and never when the guard refuses the plan."""
+
+    def _run(self, argv, players):
+        calls = []
+        fake = types.ModuleType("sbclient")
+        fake.get_all = lambda table, params: [dict(p) for p in players]
+        fake.patch = lambda table, body, params: calls.append((table, body, params))
+        base = _base({"8183": _sleeper("Brock Purdy", "QB", gsis_id="00-0037834")})
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "base.json"
+            path.write_text(json.dumps(base), encoding="utf-8")
+            with mock.patch.dict(sys.modules, {"sbclient": fake}), \
+                    contextlib.redirect_stdout(io.StringIO()), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                code = spa.main(["--base", str(path), *argv])
+        return code, calls
+
+    # One row to turn on among two skill rows: 1 change is under the 75% guard.
+    SMALL = [_player(4561, "Brock Purdy", "QB", False, gsis_id="00-0037834"),
+             _player(6, "Not In Base", "RB", True)]
+    # One row to turn on and nothing else: 1 of 1 rows is over the guard.
+    TOO_BIG = SMALL[:1]
+
+    def test_default_run_is_a_dry_run(self):
+        code, calls = self._run([], self.SMALL)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [])
+
+    def test_write_flag_patches(self):
+        code, calls = self._run(["--write"], self.SMALL)
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [("players", {"active": True}, "?player_key=in.(4561)")])
+
+    def test_refused_plan_writes_nothing_even_with_write_flag(self):
+        for argv in ([], ["--write"]):
+            with self.subTest(argv=argv):
+                code, calls = self._run(argv, self.TOO_BIG)
+                self.assertEqual(code, 1)
+                self.assertEqual(calls, [])
 
 
 if __name__ == "__main__":
