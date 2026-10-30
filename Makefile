@@ -132,6 +132,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_mcp_remote
 	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
 	python3 -m unittest tests.test_edge_drift_check
+	# JEG-1049: the daily/on-demand edge drift workflow stays read-only and keeps the checker's exit code.
+	python3 -m unittest tests.test_edge_drift_workflow
 	python3 -m unittest tests.test_ddf_state
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
