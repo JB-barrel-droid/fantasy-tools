@@ -48,6 +48,25 @@ below are history, including any "Codex reviews and merges" line.
   `ddf-queue` at 19:08 UTC, before the deletion. (An earlier empty Deployments
   page at about 15:20 UTC was another workspace: runs kept firing until 19:08.)
 
+### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
+
+- Current-main integration branch `be/release-pause-current-main` preserves
+  original draft #1059 as fallback; Pages #1056 is already merged.
+- Guards twelve publication blocks across ten workflows. Default unpaused;
+  six-hour maximum expiry; checked against fetched main before commit/push.
+  Deferred candidates are retained as patch/metadata artifacts, with visible
+  summaries. Existing ingestion, validation and Pages workflows remain active.
+- Review repair: alert recovery requires confirmed publication; shard leg-staging
+  parser corrected. Current integration needs independent delta review and full CI.
+- No live activation, settings changes, Supabase changes or cancellation performed.
+- JEG-1364 (Claude, 2026-10-30): main's JEG-1206 publish path replaced the
+  rebase loop; the guard now stages before the candidate commit and
+  `release_push` guards the scratch-worktree publication push (`--head`).
+- Next: parent reviews/merges after green CI, drains old-code writers, then
+  activates only for the release window.
+  Parent restores `paused: false` and verifies resumed publication before closure.
+- Procedure: `runbooks/main-write-pause.md`; evidence in the JEG-1215 session log.
+
 ### Roster provenance helper (JEG-1241, Claude, 2026-10-29 UTC)
 
 - Branch `claude/JEG-1241-roster-provenance`, draft PR only. New pure module `app/v2/roster-provenance-transitions.js`
