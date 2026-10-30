@@ -115,7 +115,7 @@ def check_snap(snap: dict, tag: str) -> list[str]:
     errors = []
     if "1. Potential mispricing" not in snap["h2"] or "2. Positions the market overpays for" not in snap["h2"]:
         errors.append(f"{tag}numbered check headings missing: {snap['h2']}")
-    if "potential mispricing" not in snap["sub"] or "potential positional weight inflation" not in snap["sub"]:
+    if "potential mispricing" not in snap["sub"] or "the positions the market overpays for" not in snap["sub"]:
         errors.append(f"{tag}subtitle must name both checks: {snap['sub']!r}")
     if not snap["shown"]:
         errors.append(f"{tag}the weight check is not shown")

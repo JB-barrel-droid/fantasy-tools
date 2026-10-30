@@ -10,10 +10,14 @@ position counts); "Edit rosters" opens it again. Checked at 1366x768, 390 and 32
   * Edit rosters (by keyboard) opens the input and moves focus into the first paste box; Escape folds it again and
     focus returns to the button; pressing Find again folds it again;
   * package size, the lineup boxes and Find trades stay visible while folded;
+  * JEG-1237: the protected-position and bench-backup settings fold with the rosters and read back as one "Trade
+    settings:" line in the summary (Edit rosters opens them again, by keyboard), Advanced trade minimums stays on the
+    page, and at 1366x768 the results start inside the first screen without enlarging the viewport;
   * no page errors, no sideways scroll.
 
 Discrimination: test_guard_fails_on_broken_builds serves finder.js without the fold after Find, with the button not
-tracking aria-expanded, and with no focus move on open, and requires each to fail.
+tracking aria-expanded, with no focus move on open, with the trade settings left open after Find and with no settings
+line in the summary, and requires each to fail.
 """
 from __future__ import annotations
 
@@ -33,7 +37,9 @@ def setUpModule():
 STATE = """() => {
   const vis = id => { const n = document.getElementById(id); return Boolean(n) && !n.hidden && n.getBoundingClientRect().height > 0; };
   const out = document.getElementById('v2FindOut');
-  return {input: vis('v2FindInput'), summary: vis('v2FindSummary'),
+  return {input: vis('v2FindInput'), summary: vis('v2FindSummary'), rails: vis('v2FindGuardrails'),
+    advanced: Boolean(document.querySelector('.v2-find-advanced')) && document.querySelector('.v2-find-advanced').getBoundingClientRect().height > 0,
+    railsText: (document.getElementById('v2FindGuardrailSummary') || {}).innerText || '',
     expanded: document.getElementById('v2FindEdit').getAttribute('aria-expanded'),
     label: document.getElementById('v2FindEdit').getAttribute('aria-label'),
     mine: document.getElementById('v2FindMineSummary').innerText, theirs: document.getElementById('v2FindTheirsSummary').innerText,
@@ -56,6 +62,8 @@ def check(page, tag, width) -> list[str]:
     s = page.evaluate(STATE)
     if not s["input"] or s["summary"] or s["expanded"] != "true":
         errors.append(tag + f"before Find the input should be open with no summary: {s}")
+    if not s["rails"]:
+        errors.append(tag + "before Find the protected-position and bench-backup settings are not shown")
     page.focus("#v2FindGo")
     page.wait_for_timeout(900)   # the page scrolls smoothly to the focused button; a user presses Find once it has stopped
     page.keyboard.press("Enter")
@@ -74,6 +82,12 @@ def check(page, tag, width) -> list[str]:
         errors.append(tag + f"Edit button label lacks the player counts: {s['label']!r}")
     if s["controls"]:
         errors.append(tag + f"controls hidden while folded: {s['controls']}")
+    if s["rails"]:
+        errors.append(tag + "the protected-position and bench-backup settings stay open after Find")
+    if not s["railsText"].startswith("Trade settings: ") or "no protected positions or bench backup minimums" not in s["railsText"]:
+        errors.append(tag + f"the folded summary does not read back the default trade settings: {s['railsText']!r}")
+    if not s["advanced"]:
+        errors.append(tag + "Advanced trade minimums is not on the page while folded")
     if not -8 <= s["resultsTop"] < s["viewport"] * 0.8:
         errors.append(tag + f"results start at {s['resultsTop']:.0f}px of a {s['viewport']}px screen after folding")
     if s["scrollX"] > 0:
@@ -87,16 +101,26 @@ def check(page, tag, width) -> list[str]:
         errors.append(tag + f"Edit rosters did not open the input: {s}")
     if s["focus"] != "v2FindMineSearch":
         errors.append(tag + f"focus after Edit rosters is {s['focus']!r}, expected the first paste box")
+    if not s["rails"]:
+        errors.append(tag + "Edit rosters did not open the protected-position and bench-backup settings")
     page.keyboard.press("Escape")
     page.wait_for_timeout(200)
     s = page.evaluate(STATE)
     if s["input"] or s["expanded"] != "false" or s["focus"] != "v2FindEdit":
         errors.append(tag + f"Escape did not fold the input and return focus to Edit rosters: input {s['input']}, focus {s['focus']!r}")
     page.click("#v2FindEdit")
+    # The opened settings work from the keyboard, and the folded line reads back what was set.
+    page.focus("#v2FindProtectRB")
+    page.keyboard.press("Space")
+    if not page.is_checked("#v2FindProtectRB"):
+        errors.append(tag + "the opened trade settings do not respond to the keyboard")
     page.click("#v2FindGo")
     page.wait_for_timeout(300)
-    if page.evaluate(STATE)["input"]:
+    s = page.evaluate(STATE)
+    if s["input"] or s["rails"]:
         errors.append(tag + "a second Find trades press did not fold the input again")
+    if s["railsText"] != "Trade settings: protecting RB":
+        errors.append(tag + f"the folded summary does not read back the settings just made: {s['railsText']!r}")
     return errors
 
 
@@ -142,6 +166,8 @@ class FinderCollapseRenderTest(unittest.TestCase):
             "Find does not fold the input": js.replace("    setCollapsed(true);\n    const out", "    const out", 1),
             "button does not track aria-expanded": js.replace('edit.setAttribute("aria-expanded", String(!collapsed));', "", 1),
             "no focus move on open": js.replace('if (focus === "input") { const first', 'if (false) { const first', 1),
+            "trade settings stay open after Find": js.replace("    if (rails) rails.hidden = collapsed;\n", "", 1),
+            "no settings line in the summary": js.replace("    if (rails) rails.textContent = guardrailText();\n", "", 1),
         }
         for name, body in broken.items():
             with self.subTest(mutation=name):
