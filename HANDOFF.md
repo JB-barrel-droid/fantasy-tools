@@ -808,10 +808,15 @@ Known bugs (repro steps and history on each ticket):
    NOT APPLIED `supabase/migrations/jeg1202_platform_spellings.sql`, built by
    `pipelines/build_platform_spellings.py` from the audit outputs (rerun it
    after any audit rebuild; `--check` in `tests/test_platform_spellings.py`
-   catches drift). Applying it is a production write: Jeremy's yes. Still
-   open after it: route `app/v2/roster-paste.js` and
-   `supabase/functions/mcp/names.ts` through the shared names, and an ESPN /
-   Yahoo puller that saves raw spellings with ids.
+   catches drift). Applying it is a production write: Jeremy's yes (his pick
+   A, 2026-10-30: after #1214 merges and JEG-1351 lands). JEG-1388 (Jeremy's
+   pick A): `pipelines/build_name_aliases.py` writes one alias list (verified
+   aliases plus platform spellings that differ from the site's name) into a
+   generated block in both `app/v2/roster-paste.js` and
+   `supabase/functions/mcp/names.ts`; `tests/test_name_aliases.py` checks
+   drift. Rerun it after JEG-1351's rebake so "Mitch Tinsley" joins. The chat
+   side goes live only with an mcp redeploy: Jeremy's yes. Still open: an
+   ESPN / Yahoo puller that saves raw spellings with ids.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge

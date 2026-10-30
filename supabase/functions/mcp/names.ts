@@ -7,6 +7,7 @@
 export interface Named {
   name: string;
   value?: number;
+  player_key?: number;
 }
 
 export type NameMatchKind = "exact" | "partial" | "fuzzy" | "ambiguous" | "none";
@@ -18,6 +19,29 @@ export interface NameMatch<T> {
   /** Short note for the model. Empty on an exact unique match. */
   note: string;
 }
+
+// Platform spellings that are not the site's name for the player (JEG-1388): [spelling, player_key].
+// Same list as app/v2/roster-paste.js.
+// BEGIN GENERATED name aliases: python3 pipelines/build_name_aliases.py (JEG-1388). Do not edit.
+const NAME_ALIASES: ReadonlyArray<readonly [string, number]> = [
+  ["Cameron Skattebo", 3664],
+  ["Cameron Ward", 697],
+  ["Chigoziem Okonkwo", 4247],
+  ["Christopher Brooks", 2515],
+  ["Drew Ogletree", 920],
+  ["J. Sturdivant", 2201],
+  ["Jalen Cropper", 1268],
+  ["Joshua Palmer", 822],
+  ["Kenny Gainwell", 785],
+  ["Michael Badgley", 235],
+  ["Michael Strachan", 657],
+  ["Michael Woods", 928],
+  ["Mitch Trubisky", 4214],
+  ["Scotty Miller", 399],
+  ["Tyron Billy-Johnson", 423],
+  ["Zonovan Knight", 868]
+];
+// END GENERATED name aliases
 
 const SUFFIXES = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 const SUGGESTIONS = 5;
@@ -120,6 +144,16 @@ function ambiguous<T extends Named>(query: string, hits: T[]): NameMatch<T> {
   };
 }
 
+/** A platform spelling of exactly one player in the pool (NAME_ALIASES), when no player's own name is the query. */
+function aliasHit<T extends Named>(players: T[], q: string): NameMatch<T> | null {
+  const qk = tokens(q).join(" ");
+  const keys = new Set(NAME_ALIASES.filter(([alias]) => tokens(alias).join(" ") === qk).map(([, k]) => k));
+  if (!keys.size) return null;
+  const hits = players.filter((p) => p.player_key !== undefined && keys.has(p.player_key));
+  if (hits.length !== 1) return null;
+  return { player: hits[0], match: "exact", suggestions: [], note: `"${q}" is listed as ${hits[0].name}` };
+}
+
 /**
  * Resolve one query against the priced players.
  * An exact or unique partial match is returned. A typo with one clear nearest
@@ -146,8 +180,12 @@ export function matchName<T extends Named>(players: T[], query: string): NameMat
     if (hits.length > 1) return ambiguous(q, hits);
     const player = hits[0];
     if (best === 0) return { player, match: "exact", suggestions: [], note: "" };
+    const alias = aliasHit(players, q);
+    if (alias) return alias;
     return { player, match: "partial", suggestions: [], note: `matched "${q}" to ${player.name}` };
   }
+  const alias = aliasHit(players, q);
+  if (alias) return alias;
 
   const fuzzy: Array<{ player: T; found: number }> = [];
   for (const player of players) {

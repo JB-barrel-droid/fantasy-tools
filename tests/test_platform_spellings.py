@@ -148,13 +148,12 @@ class SharedSpellingsAreHeld(unittest.TestCase):
 
 
 # The stored spellings the page's roster paste or the chat connector can't land
-# on their player today (2026-10-30, JEG-1387): (source, spelling) -> why.
-# A fixed gap may leave this list; a new miss fails.
+# on their player (2026-10-30): (source, spelling) -> why. JEG-1388's alias list
+# (pipelines/build_name_aliases.py) cleared Zonovan Knight, Kenny Gainwell and
+# Michael Woods. A fixed gap may leave this list; a new miss fails.
 MATCHER_KNOWN_GAPS = {
-    ("sleeper", "Mitch Tinsley"): "both pick 4660, the duplicate row JEG-1351 deletes",
-    ("sleeper", "Zonovan Knight"): "canonical 'Bam Knight'; curated alias not seen by JS/TS",
-    ("sleeper", "Kenny Gainwell"): "chat only: names.ts has no nickname map (paste's NICK_MAP has it)",
-    ("sleeper", "Michael Woods"): "chat only: canonical 'Mike Woods', no nickname map in names.ts",
+    ("sleeper", "Mitch Tinsley"): ("both pick 4660, the duplicate row JEG-1351 deletes; rerun "
+                                   "build_name_aliases.py once players.json is rebaked without it"),
 }
 
 

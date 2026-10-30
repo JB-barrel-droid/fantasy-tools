@@ -163,6 +163,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1202_platform_spellings
 	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
 	python3 -m unittest tests.test_platform_spellings
+	# JEG-1388: one name-alias list for roster paste and the chat connector, offline.
+	python3 -m unittest tests.test_name_aliases
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
