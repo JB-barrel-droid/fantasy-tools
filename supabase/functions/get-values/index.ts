@@ -42,7 +42,8 @@ import {
   type WeekInfo,
 } from "./pipeline.ts";
 import {
-  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, readValueContext, type ValueContext,
+  applyOverrides, basisConfigOf, basisShortfall, canReadStrictly, checkBounds, contextKey, overrideSeries, readValueContext,
+  type ValueContext,
 } from "./value-context.ts";
 
 // --- In-memory cache (lives for the function instance's lifetime) ----------
@@ -167,14 +168,12 @@ async function addAnalysis(
   // deno-lint-ignore no-explicit-any
   body: any, includes: Set<Include>, bundle: CachedBundle, input: any, pipeline: any,
   plan: { week: number | null; served: Record<string, number | null> }, scoring: string,
-  context: ValueContext,
+  context: ValueContext = { basis: null, overrides: {}, custom: false },
 ): Promise<void> {
-  if (includes.has("series")) body.series = seriesBlock(pipeline, input.hidden ?? []);
-  // JEG-1225: the caller's overrides replace DDF Value only (curve-widget.js OVERRIDE_VERSIONS), so the
-  // series' ddf_value matches the players list; every other series stays the pipeline's own.
-  if (body.series && Object.keys(context.overrides).length) {
-    const own = applyOverrides(bundle.ValueModel, pipeline, context);
-    for (const pk of own.applied) if (body.series[pk]) body.series[pk].ddf_value = own.values[pk].value as number;
+  // JEG-1225: the DDF Value series carries the caller's overrides, so it agrees with players[].value.
+  if (includes.has("series")) {
+    body.series = overrideSeries(seriesBlock(pipeline, input.hidden ?? []),
+      applyOverrides(bundle.ValueModel, pipeline, context));
   }
   if (includes.has("prior")) {
     if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);

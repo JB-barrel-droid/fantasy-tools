@@ -185,3 +185,19 @@ export function applyOverrides(
     .sort((a, b) => Number(a) - Number(b));
   return { values, applied, not_priced };
 }
+
+/**
+ * include=series after overrides: an overridden player's `ddf_value` series is the value the caller set,
+ * as the site's row shows it (curve-widget.js OVERRIDE_VERSIONS is DDF Value only). The charts-only and
+ * projections-only versions and every source series stay the engine's. Edits `series` in place.
+ */
+export function overrideSeries(
+  series: Record<string, Record<string, number>>,
+  own: { values: Record<string, RowValue>; applied: string[] },
+): Record<string, Record<string, number>> {
+  for (const pk of own.applied) {
+    const value = own.values[pk]?.value;
+    if (series[pk] && typeof value === "number" && Number.isFinite(value)) series[pk].ddf_value = value;
+  }
+  return series;
+}

@@ -39,3 +39,10 @@ Contract: Codex's P2 on `32827d64` (a request with `ov` and `include=series` ans
 ### Claimed, not confirmed
 - `prior` and `audit` still read the pipeline's own values under overrides. Not flagged, and the site's
   Movers behaviour under an override wasn't checked here.
+
+## 2026-10-30 - Correction: the series fix now comes from #1124
+
+#1124's owner fixed the same Codex finding on its own branch (`1f0120e2`, `overrideSeries` in
+value-context.ts, check section 9). This branch merged #1124's head and took its version of that fix,
+the runner change and the check. Its own section 4 and inline loop are gone. #1210's diff against #1124
+is now only the log hook, the Makefile line, the fixture and the docs.

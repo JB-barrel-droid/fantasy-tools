@@ -16,6 +16,8 @@
   const O = root.TradeValueOpportunities;
   const S = root.TradeValueTableSort;
   const L = root.TradeValueLineupComparison;
+  // JEG-1231: which opponents the search includes. Optional: without it every opponent is searched, as before.
+  const OI = root.TradeValueOpponentInclusion || null;
   const PV = root.DDFRosterProvenance;   // JEG-1249: roster provenance transitions (JEG-1241)
   if (!W || !F || !T || !O || !S || !L || !PV || !F.page) return;
   const store = W.store;
@@ -566,6 +568,7 @@
     const marked = ws.teams.find(t => t.id === ws.myTeamId);
     if (editorSummary) editorSummary.textContent = `${plural(ws.teams.length, "team")}${marked ? ` · Your team: ${marked.name}` : ws.teams.length ? " · Expand to mark your team" : " · Paste your league's rosters or add teams"}`;
     renderCountMismatch();
+    renderProblems();
   }
 
   function renderUndo() {
@@ -872,6 +875,109 @@
     unresolved_unknown: "a team's unmatched players were not recorded (older saves or shared links)",
     not_source_observed: "a team's roster was not read from a site page (added by hand or from a link)",
     bench_omitted: "a pasted page left a team's bench out", coverage_unproven: "no pasted page shows a team's whole roster, bench and reserve seats included"};
+  // ---------- JEG-1273: one list of the league's problems ----------
+  // Jeremy, 2026-10-29: "one league-wide problems list (unmatched lines, short or over teams, players on two teams, missing
+  // kickers or defenses), each linking to its team." Checks for the reader: only the reasons leagueCheck already gives keep
+  // the standard bench; short or over teams and missing kickers or defenses are shown, never gates. Every reason
+  // leagueCheck gives appears here (per team where it names one), so the list and the "Use league rosters" switch agree.
+  // Items: {kind, text, teams: [{id, name}], reasons: [leagueCheck reasons it covers]}, teams in page order, then kind.
+  const PROBLEM_KINDS = ["team_count", "unmatched", "spots", "two_teams", "kicker_defense", "bench_omitted", "unrecorded",
+    "not_read", "stale", "other"];
+  const STARTER_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const isDefense = e => e.pos === "DEF" || e.pos === "DST";
+  function leagueProblems(ws) {
+    const C = engine();
+    if (!C || !C.getState || !ws.teams.length) return null;
+    const V = root.ValueModel;
+    const shape = C.getRosterShape ? C.getRosterShape() : {};
+    const spots = STARTER_KEYS.concat(["BENCH", "K", "DST"]).reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const starting = STARTER_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const reserveSlot = e => Boolean(V && V.isReserveSlot && V.isReserveSlot(e.slot));
+    const ref = t => ({id: t.id, name: t.name});
+    const out = [];
+    const expected = Number(C.getState().teams) || 0;
+    if (ws.teams.length !== expected) {
+      out.push({kind: "team_count", teams: [], reasons: ["team_count"],
+        text: `League settings have ${plural(expected, "team")}; ${ws.teams.length} ${ws.teams.length === 1 ? "is" : "are"} loaded.`});
+    }
+    const now = Date.now();
+    const maxAge = V && V.ROSTER_MAX_AGE_MS ? V.ROSTER_MAX_AGE_MS : 7 * 24 * 3600 * 1000;
+    ws.teams.forEach(t => {
+      const p = t.provenance || {};
+      const active = t.entries.filter(e => !reserveSlot(e));
+      const valued = active.filter(e => !F.isNotEvaluated(e)).length;
+      const add = (kind, text, reasons) => out.push({kind, text: `${t.name}: ${text}`, teams: [ref(t)], reasons: reasons || []});
+      if (p.unresolved > 0) add("unmatched", `${plural(p.unresolved, "pasted player")} not matched yet. Open the team to add ${p.unresolved === 1 ? "it" : "them"}.`, ["unresolved"]);
+      // leagueCheck's empty_team and short_roster count valued players, so a team holding only a kicker and a defense is empty.
+      const spotReasons = (valued ? [] : ["empty_team"]).concat(valued < starting ? ["short_roster"] : []);
+      if (!t.entries.length) add("spots", "no players.", spotReasons);
+      else if (spots && active.length !== spots) {
+        add("spots", active.length < spots ? `${active.length} of ${spots} roster spots filled.` : `${active.length - spots} over its ${spots} roster spots.`,
+          spotReasons);
+      } else if (spotReasons.length) add("spots", valued ? "fewer players than starting spots." : "no players besides kickers and defenses.", spotReasons);
+      // Count against the settings' K and DEF seats (up to 3 each), not just presence.
+      const missing = [], few = [];
+      [["kicker", "kickers", Number(shape.K) || 0, e => e.pos === "K"], ["defense", "defenses", Number(shape.DST) || 0, isDefense]]
+        .forEach(([one, many, need, is]) => {
+          const have = t.entries.filter(is).length;
+          if (!need || !t.entries.length || have >= need) return;
+          if (have) few.push(`${have} of ${need} ${many}`); else missing.push(one);
+        });
+      const kd = (missing.length ? [`no ${missing.join(" or ")}`] : []).concat(few);
+      if (kd.length) add("kicker_defense", `${kd.join("; ")}.`);
+      if (p.coverage === "bench_omitted") add("bench_omitted", "the pasted page left the bench out. Paste the team page with the bench shown.", ["bench_omitted"]);
+      if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown", "unresolved"]);
+      if (!p.observedAt) add("not_read", "not read from a site page (added by hand or from a link). Paste the team page.", ["not_source_observed", "no_timestamp"]);
+      else if (now - p.observedAt > maxAge) add("stale", "roster is more than 7 days old. Paste it again.", ["stale"]);
+    });
+    const owners = new Map();
+    ws.teams.forEach(t => t.entries.forEach(e => { if (!owners.has(e.key)) owners.set(e.key, {name: e.name, teams: []}); owners.get(e.key).teams.push(t); }));
+    owners.forEach(o => {
+      if (o.teams.length > 1) out.push({kind: "two_teams", teams: o.teams.map(ref), reasons: ["duplicate_owner"],
+        text: `${o.name} is on ${o.teams.map(t => t.name).join(" and ")}.`});
+    });
+    const order = new Map(ws.teams.map((t, i) => [t.id, i]));
+    const at = item => (item.teams.length ? order.get(item.teams[0].id) : -1);
+    out.sort((a, b) => at(a) - at(b) || PROBLEM_KINDS.indexOf(a.kind) - PROBLEM_KINDS.indexOf(b.kind));
+    // Anything leagueCheck blocks on that no item names yet.
+    let check = null;
+    try { check = leagueCheck(C, ws); } catch (error) { check = null; }
+    const covered = new Set(out.flatMap(item => item.reasons));
+    ((check && check.reasons) || []).forEach(r => {
+      if (!covered.has(r)) out.push({kind: "other", teams: [], reasons: [r], text: `${(LEVEL_REASONS[r] || r).replace(/^./, c => c.toUpperCase())}.`});
+    });
+    return out;
+  }
+  // Open a team's box from the list and put the reader on it.
+  function openTeam(id) {
+    const card = $("v2LgCard");
+    if (card) card.open = true;
+    const comp = UI.comps.get(id);
+    if (!comp) return;
+    comp.collapsed = false;
+    comp.update();
+    comp.li.scrollIntoView({block: "nearest"});
+    const name = comp.li.querySelector(".v2-lg-name");
+    if (name) name.focus({preventScroll: true});
+  }
+  function renderProblems() {
+    const box = $("v2LgProblems");
+    if (!box) return;
+    const ws = store.get();
+    const items = leagueProblems(ws);
+    box.hidden = !items;
+    if (!items) { box.replaceChildren(); return; }
+    if (!items.length) {
+      box.dataset.state = "ready";
+      box.replaceChildren(el("p", {class: "v2-meta", id: "v2LgProblemsReady", text: "League checks: every team is loaded and checks out."}));
+      return;
+    }
+    box.dataset.state = "problems";
+    box.replaceChildren(el("h3", {class: "v2-lg-problems-head", text: `League checks: ${plural(items.length, "problem")}`}),
+      el("ul", {class: "v2-lg-problems-list", id: "v2LgProblemsList"}, ...items.map(item => el("li", {"data-kind": item.kind},
+        el("span", {text: item.text}),
+        ...item.teams.map(t => button(`Open ${t.name}`, {class: "v2-link v2-lg-problem-open", "data-team-id": t.id}, () => openTeam(t.id)))))));
+  }
   const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
   // JEG-1249: the "Use league rosters" switch. Grayed out, with what is missing, until the league qualifies; on by default
   // once it does; the reader's choice is saved with the league.
@@ -1203,6 +1309,33 @@
     const label = O.FIT_WORD[variant] || "Fit";
     return el("details", {class: "v2-lg-fit-info"}, el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {role: "note", text: F.fitTip(variant)}));
   }
+  // ---------- JEG-1231: opponents to search ----------
+  // View/search selection in ws.ui, keyed by team id. A manager marked won't trade (JEG-1217 profiles, when loaded) stays
+  // out and is shown as such. Nothing here changes a value, a fit, the ranking, the star, a roster or a profile.
+  function inclusionOpts(ws, mathCtx) {
+    const M = root.TradeValueManagerProfiles;
+    const book = M && M.store && typeof M.get === "function" ? M.store.get() : null;
+    const ctx = mathCtx || mathContext();
+    const count = t => (ctx ? rowsOfTeam(t, ctx).length : t.entries.length);
+    return {profileExcluded: id => Boolean(book && M.get(book, ws, id).excluded), playerCount: count, hasRoster: t => count(t) > 0};
+  }
+  const searchedOpponents = (ws, ctx) => (OI ? OI.searchOpponents(ws, OI.read(ws), inclusionOpts(ws, ctx)) : ws.teams.filter(t => t.id !== ws.myTeamId));
+  function renderInclusion(ws, ctx) {
+    const box = $("v2LgOppsInclusion");
+    if (!OI || !box) return;
+    if (!UI.inclusion) {
+      const change = fn => update(w => W.ops.setUi(w, OI.patch(fn(OI.read(w), w))), "ui:inclusion");
+      UI.inclusion = OI.createControl({document, idPrefix: "v2LgOi", legend: "Opponents to include",
+        // rowsOfTeam counts matched players only; unresolved names are not searched, so say "matched".
+        countLabel: n => `${n} matched ${n === 1 ? "player" : "players"}`,
+        onToggle: (id, include) => change((s, w) => OI.setIncluded(s, w, id, include)),
+        onIncludeAll: () => change((s, w) => OI.includeAll(s, w)),
+        onExcludeAll: () => change((s, w) => OI.excludeAll(s, w))});
+      box.append(UI.inclusion.element);
+    }
+    box.hidden = !teamById(ws, ws.myTeamId);
+    UI.inclusion.update(OI.describe(ws, OI.read(ws), inclusionOpts(ws, ctx)));
+  }
   function oppControls(ws, res) {
     const f = ws.ui.filters;
     const sel = (id, label, options, value, onChange) => {
@@ -1212,7 +1345,8 @@
       return el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), s);
     };
     const set = patch => { UI.oppsShown = PAGE; update(w => W.ops.setUi(w, patch), "ui:filter"); };
-    const opponents = res ? res.perOpponent : [];
+    const included = new Set(searchedOpponents(ws).map(t => t.id));
+    const opponents = res ? res.perOpponent.filter(o => included.has(o.id)) : [];
     const hide = button(ws.ui.hideForce ? "Show force fits" : "Hide force fits", {class: "v2-btn", id: "v2LgHideForce", "aria-pressed": String(Boolean(ws.ui.hideForce))},
       () => { update(w => W.ops.setUi(w, {hideForce: !w.ui.hideForce}), "ui:filter"); UI.oppsShown = PAGE; announce(store.get().ui.hideForce ? "Force fits hidden." : "Force fits shown."); });
     return el("div", {class: "v2-ctoolbar v2-lg-filters"},
@@ -1232,12 +1366,14 @@
     const has = ws.teams.some(t => t.entries.length);
     card.hidden = !has;
     if (!has || !ctx) { body.replaceChildren(); return; }
+    renderInclusion(ws, ctx);
     const mine = teamById(ws, ws.myTeamId);
     const others = ws.teams.filter(t => t.id !== ws.myTeamId && rowsOfTeam(t, ctx).length);
     const status = text => body.replaceChildren(el("p", {class: "v2-meta", id: "v2LgOppsMsg", role: "status", text}));
     if (!mine) return status("Press the star on one team to mark it as yours. Trade opportunities are found for your team against every other team.");
     if (!rowsOfTeam(mine, ctx).length) return status(`Add players to ${mine.name} to find trade opportunities.`);
     if (!others.length) return status("Add at least one other team to find trade opportunities.");
+    if (!searchedOpponents(ws, ctx).some(t => rowsOfTeam(t, ctx).length)) return status("No opponent with a roster is included, so no trades can be found. Tick a team under Opponents to include.");
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");
@@ -1252,7 +1388,9 @@
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
     const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
-    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce).filter(r => rules.every(rule =>
+    const io = OI ? inclusionOpts(ws, ctx) : null;
+    const viewFilters = OI ? OI.opponentFilter(ws.ui.filters, ws, OI.read(ws), io) : ws.ui.filters;
+    const filtered = O.filterRows(OI ? OI.filterRows(res.rows, ws, OI.read(ws), io) : res.rows, viewFilters, ws.ui.hideForce).filter(r => rules.every(rule =>
       T.summaryFieldMatches(byTeam.get(rule.side === "mine" ? mine.id : r.opponentId), rule, basis)));
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
@@ -1291,7 +1429,7 @@
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
     const headline = el("p", {class: "v2-find-headline", id: "v2LgOppsHeadline", role: "status"}, O.leagueHeadline(res, balance && balance.ready ? {over: balance.over, under: balance.under} : null) || "No trade opportunities found.");
-    const oneOpp = ws.ui.filters.opponent !== "all" && res.perOpponent.find(o => o.id === ws.ui.filters.opponent);
+    const oneOpp = viewFilters.opponent !== "all" && res.perOpponent.find(o => o.id === viewFilters.opponent);
     let oppHead = null;
     if (oneOpp) {
       const t = teamById(ws, oneOpp.id);
@@ -1402,7 +1540,7 @@
     const mine = ws && teamById(ws, ws.myTeamId);
     const live = $("v2LgOppsStatus");
     if (!ctx || !mine || !ctx.charts.length) { UI.result = null; renderOpps(); return; }
-    const opponents = ws.teams.filter(t => t.id !== mine.id);
+    const opponents = searchedOpponents(ws, ctx);
     const maxSize = ws.ui.maxSize || 2;
     const heavy = (maxSize === 3 && opponents.length > 10) || (maxSize === 4 && opponents.length > 5);
     UI.running = true;
@@ -1428,6 +1566,9 @@
     if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab") UI.comps.forEach(c => { c.lastEntries = null; });
     renderTeams();
     renderStatus();
+    // JEG-1231: a new opponent selection drops the old result (so no left-out team's offer shows) and searches again; the
+    // pairing cache keeps every reused pairing's numbers exactly.
+    if (reason === "ui:inclusion") { UI.result = null; scheduleOpps(); renderOpps(); return; }
     if (String(reason).startsWith("ui:")) {
       if (reason === "ui:sort-summary" || reason === "ui:basis") { renderSummary(); if (reason === "ui:basis") renderOpps(); }
       else renderOpps();
@@ -1615,6 +1756,7 @@
       el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
+      el("section", {class: "v2-lg-problems", id: "v2LgProblems", role: "status", "aria-live": "polite", "aria-label": "League checks", hidden: true}),
       el("ul", {class: "v2-lg-teams", id: "v2LgTeams"}),
       el("p", {class: "v2-meta v2-footnote", id: "v2LgFootnote", hidden: true, text: "K and DEF are on rosters (and counted) but not evaluated."}),
       el("div", {class: "v2-sr", id: "v2LgLive", role: "status", "aria-live": "polite"}));
@@ -1625,7 +1767,7 @@
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
         el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
-      el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
+      el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {class: "v2-lg-inclusion", id: "v2LgOppsInclusion", hidden: true}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
@@ -1683,6 +1825,11 @@
       if (UI.parsed && !UI.parsed.error && ws.myTeamId !== UI.parsedMine) showParsed(UI.parsed);
     });
     store.onStatus(renderStatus);
+    // JEG-1231: a manager marked (or unmarked) won't trade changes who is searched.
+    const profiles = root.TradeValueManagerProfiles;
+    if (OI && profiles && profiles.store && typeof profiles.store.onChange === "function") {
+      profiles.store.onChange(() => { if (UI.ready) refreshAll("ui:inclusion"); });
+    }
     const lc = store.loadStatus();
     if (lc === "corrupt" || lc === "version") notice("Saved league data could not be read. You can re-enter your teams.");
     $("v2LgTeams").addEventListener("input", () => {});

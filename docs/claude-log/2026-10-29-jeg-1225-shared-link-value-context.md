@@ -17,6 +17,7 @@ Contract: slices 4a and 4b of the JEG-1224 plan (docs/qa/jeg-1224/README.md, #10
 
 - Oct 30: merged main 9d05002. The conflict was the v2 copy list; both ddf-value-link.js and trade-context.js are kept, and the rebuilt page publishes both. With the new week's data, Razzball isn't published yet, so the check's fixed `blend:espn.60_razzball.40` case was correctly refused (422). The check now picks two sources that answer in all three scorings, and passes (`get_values_value_context_check.mjs`, `tests.test_get_values_value_context`).
 - Oct 30: `get_values_week_check.mjs` (in `tests.test_mcp_week`) fails at its transition case, where Razzball isn't named missing. It fails the same way on main 9d05002 with the same build, so it isn't this PR's (week data, #1119's check).
+- Oct 30, Codex review of a2766ad (after #1156 added `include=series`): with `ov`, the `series` block's `ddf_value` was the engine's value, not the override (Gibbs 58 in `players`, 75.0 in `series`). Now `overrideSeries` in value-context.ts sets the overridden players' `ddf_value` series in get-values and in the parity runner; the other versions and source series are unchanged, as the site's OVERRIDE_VERSIONS is DDF Value only. Check section 9 failed before (`2227: series ddf_value is the overridden value`) and passes after; `tests.test_connector_analyses`, `tests.test_endpoint_parity` (browser case skipped), get_values_handler_check and mcp_week_check pass.
 
 ### Claimed, not confirmed
 

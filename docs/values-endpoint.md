@@ -111,7 +111,11 @@ the page.
   `basis_applied`, `basis_members`, `basis_fell_back_to_default`, `overrides`,
   `overrides_applied`, and `overrides_not_priced` (keys with no pipeline row:
   named, not added). An overridden player also carries `override` and
-  `pipeline_value`. A 200 always follows the whole basis asked for.
+  `pipeline_value`. With `include=series`, an overridden player's `ddf_value`
+  series is the overridden value, as the site's row shows it; the charts-only
+  and projections-only versions, the source series and `prior` stay the
+  engine's (the site's prior Δ reads the engine's values too). A 200 always
+  follows the whole basis asked for.
 
 get-values answers only under the exact context it was asked for (JEG-1288,
 review of #1124). Each of these is refused with no prices, never answered under
