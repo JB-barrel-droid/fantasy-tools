@@ -561,19 +561,19 @@ class RebuildChainWorkflowTest(unittest.TestCase):
         # The pre-fix chain step (0b0ddee, 2026-10-07): rebuild then publish,
         # with no validate in between.
         start = WORKFLOW.index("          mkdir -p output\n")
-        end = WORKFLOW.index("            exit 1\n          fi\n", start) + len("            exit 1\n          fi\n")
+        end = WORKFLOW.index("          # The published build", start)
         mutated = WORKFLOW[:start] + WORKFLOW[end:]
         self.assertNotEqual(WORKFLOW, mutated)
         problems = post_rebuild_validation_problems(mutated)
         self.assertIn("a fixture that fails make validate was pushed", problems)
 
     def test_swallowing_the_validate_exit_code_is_caught(self):
-        mutated = WORKFLOW.replace(
-            '          if [ "$rc" -ne 0 ]; then\n'
-            "            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n"
-            "            exit 1\n",
-            '          if [ "$rc" -ne 0 ]; then\n'
-            "            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n", 1)
+        # Disable every recovery failure exit: a red first/retry validation
+        # must then reach publication, proving the real exits are necessary.
+        old = "              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log\n              exit 1\n"
+        mutated = WORKFLOW.replace(old, old.replace("              exit 1\n", ""))
+        old_initial = "              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log\n              exit 1\n"
+        mutated = mutated.replace(old_initial, old_initial.replace("              exit 1\n", ""))
         self.assertNotEqual(WORKFLOW, mutated)
         self.assertIn("a fixture that fails make validate was pushed",
                       post_rebuild_validation_problems(mutated))
