@@ -21,6 +21,13 @@ import {
 } from "./viability.ts";
 import { askedWeek, type WeekFields, weekProp, withWeek } from "./week.ts";
 import {
+  askedValueContext,
+  type PricedValueContext,
+  VALUE_CONTEXT_NOT_SUPPORTED,
+  type ValueContextText,
+  withValueContext,
+} from "./value-context.ts";
+import {
   type AnalysisDeps,
   type AnalysisResponse,
   COMPARE_SERIES,
@@ -50,6 +57,8 @@ export interface ValuesResponse extends WeekFields {
   players: PlayerValue[];
   sources_included: string[];
   sources_excluded: Array<{ key: string; reason: string }>;
+  /** JEG-1225: the basis and overrides priced, on an answer to a request that sent them. */
+  value_context?: PricedValueContext;
 }
 
 export type FetchValues = (
@@ -58,6 +67,8 @@ export type FetchValues = (
   superflex: number,
   league?: Record<string, unknown>,
   week?: number | null,
+  /** JEG-1343: a pasted link's own basis and overrides, sent to get-values as the link's text. */
+  context?: ValueContextText | null,
 ) => Promise<ValuesResponse>;
 
 /** Extended player record with per-chart values (from get-values?include=charts). */
@@ -82,6 +93,7 @@ export type FetchValuesWithCharts = (
   superflex: number,
   league?: Record<string, unknown>,
   week?: number | null,
+  context?: ValueContextText | null,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -729,28 +741,39 @@ export async function runTool(
   if (Number.isNaN(week)) {
     throw new ToolInputError(`invalid week: ${args.week}. Give a whole number from 1 to 22, or leave it out for the default week.`);
   }
+  // JEG-1343: a pasted link's own basis and overrides go to get-values with every fetch, as the week does.
+  const asked = askedValueContext(args);
+  const context: ValueContextText | null = asked ? { basis: asked.basis, ov: asked.ov } : null;
   let priced: ValuesResponse | null = null;
+  const checked = <T extends ValuesResponse>(data: T): T => {
+    // A build from before JEG-1225 prices our methodology whatever it is sent: right for a bare valuecontext=1
+    // link, wrong for one with a basis or overrides.
+    if ((context?.basis || context?.ov) && !data.value_context) throw new ToolInputError(VALUE_CONTEXT_NOT_SUPPORTED);
+    priced = data;
+    return data;
+  };
   const weekValues: FetchValues = async (scoring, teams, superflex, league) =>
-    (priced = await fetchValues(scoring, teams, superflex, league, week));
+    checked(await fetchValues(scoring, teams, superflex, league, week, context));
   const charts = finderDeps?.fetchCharts;
   const analysis = finderDeps?.analysis?.fetchAnalysis;
   const weekDeps: FinderDeps | undefined = finderDeps && {
     ...finderDeps,
     fetchCharts: charts
-      ? async (scoring, teams, superflex, league) => (priced = await charts(scoring, teams, superflex, league, week))
+      ? async (scoring, teams, superflex, league) => checked(await charts(scoring, teams, superflex, league, week, context))
       : null,
     ...(finderDeps.analysis ? {
       analysis: {
         ...finderDeps.analysis,
         fetchAnalysis: analysis
           ? async (scoring, teams, superflex, league, _week, includes) =>
-            (priced = await analysis(scoring, teams, superflex, league, week, includes))
+            checked(await analysis(scoring, teams, superflex, league, week, includes, context))
           : null,
       },
     } : {}),
   };
   const result = await runPricedTool(name, args, weekValues, deps, weekDeps);
-  return withWeek(result, priced, week);
+  const valued = withValueContext(result, (priced as ValuesResponse | null)?.value_context, context);
+  return withWeek(valued, priced, week);
 }
 
 async function runPricedTool(

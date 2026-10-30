@@ -151,8 +151,21 @@ the fallback, part of the basis, or part of the overrides:
   refusals with ESPN held),
   `tests/test_endpoint_parity.py test_value_context_parity` (page parity in
   Standard, Half PPR and PPR).
-- Not yet: the MCP tools passing a pasted link's context through (JEG-1225
-  slice 4c), and `docs/get-values.openapi.yaml`, which ships with Pages and so
+- The MCP tools (JEG-1343, slice 4c): every pricing tool reads `basis=`, `ov=`
+  and `valuecontext=1` from the pasted link or state block
+  (`mcp/value-context.ts` `linkValueContext`) and sends the link's own text to
+  get-values with each fetch (GET as before without one, a JSON POST with one:
+  `mcp/values-client.ts`). The reply adds a "Values:" line naming the basis and
+  the override count, `structuredContent.value_context`, and the same three
+  parameters on `site_url` and in a block's link, so the site opens on the same
+  values. A refusal above, or a get-values without `value_context` (a build
+  from before JEG-1225) asked for a basis or overrides, is the tool's error with
+  no numbers, never values on our methodology in their place. A bare
+  `valuecontext=1` link (our methodology, no overrides) is priced by any build
+  and keeps the marker on the link back. Tests:
+  `tests/node/mcp_value_context_check.mjs` (stub get-values, then the real
+  handler on the built `dist/`), and M1-M3 in `tests/jeg-1224/`.
+- Not yet: `docs/get-values.openapi.yaml`, which ships with Pages and so
   should list `basis` and `ov` only once this function is deployed.
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)

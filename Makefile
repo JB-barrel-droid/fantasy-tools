@@ -149,6 +149,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_mcp_week
 	# JEG-1225: get-values prices under a link's basis and overrides.
 	python3 -m unittest tests.test_get_values_value_context
+	# JEG-1343: the MCP tools price a pasted link's basis and overrides and keep them on the link back.
+	python3 -m unittest tests.test_mcp_value_context
 	python3 -m unittest tests.test_endpoint_parity
 	# JEG-1029: the connector's analyses against value_reference (offline) and the page (browser).
 	python3 -m unittest tests.test_connector_analyses
