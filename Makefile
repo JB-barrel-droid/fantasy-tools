@@ -165,6 +165,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	# JEG-1354: players.active follows the active NFL universe (ids first).
+	python3 -m unittest tests.test_sync_players_active
 	# JEG-1313: platform-spelling audit (JEG-1202), offline. In the full suite, not the deploy gate (an audit).
 	python3 -m unittest tests.test_jeg1202_platform_spellings
 	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
