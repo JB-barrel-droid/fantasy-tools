@@ -34,7 +34,7 @@ for (let i = 2; i < process.argv.length; i += 2) {
 // (supabase/functions/get-values/league.ts), so the parity test exercises the shipped mapping.
 const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
-const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+const { buildPipelineInput, excludedSources, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
 // JEG-1225: the caller's basis and overrides, through the function's own value-context.ts and the site's link reader.
 const { applyOverrides, basisConfigOf, overrideSeries, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
 const ValueLink = require("../app/v2/ddf-value-link.js");
@@ -173,7 +173,7 @@ if (includes.has("prior")) {
   }
 }
 if (includes.has("audit")) {
-  const excluded = (pipeline.excluded || []).map((e) => ({ key: e.key, reason: e.reason }));
+  const excluded = excludedSources(pipeline, input);
   analysis.audit = auditBlock(bundle, pipeline, excluded);
 }
 const withWeek = args["with-week"] || includes.size;

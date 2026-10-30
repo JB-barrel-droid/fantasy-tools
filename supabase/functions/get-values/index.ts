@@ -35,6 +35,7 @@ import { auditBlock, type Include, parseIncludes, priorBlock, seriesBlock } from
 import {
   type Bundle,
   buildPipelineInput,
+  excludedSources,
   type HistoryData,
   parseWeek,
   planWeek,
@@ -175,8 +176,9 @@ async function addAnalysis(
     body.series = overrideSeries(seriesBlock(pipeline, input.hidden ?? []),
       applyOverrides(bundle.ValueModel, pipeline, context));
   }
+  // Week N-1 was read before the input was built (JEG-1385); reading it again here could pair the prior week
+  // on a set the values were not priced on (JEG-1390).
   if (includes.has("prior")) {
-    if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
     body.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served ?? {}, scoring);
   }
   if (includes.has("audit")) body.audit = auditBlock(bundle, pipeline, body.sources_excluded);
@@ -549,6 +551,7 @@ Deno.serve(async (req: Request) => {
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
           mapped.custom, input.week, bundle.ValueModel, context,
         );
+        body.sources_excluded = excludedSources(pipeline, input);
         await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring, context);
         response = { at: Date.now(), body };
       }

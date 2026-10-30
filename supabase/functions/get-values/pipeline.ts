@@ -225,7 +225,7 @@ export type WeekPlan =
   | { ok: false; error: string; weeks: number[]; default_week: number | null };
 
 // The history index belongs to the bundle being served (curve-widget.js servedWeekOf).
-function historyMatchesBuild(bundle: Bundle): boolean {
+export function historyMatchesBuild(bundle: Bundle): boolean {
   const index = bundle.history?.index;
   if (!index || typeof index !== "object") return false;
   const built = (bundle.detail as Any).built_at;
@@ -412,13 +412,26 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
 
   // JEG-1385, VP-1.2 (curve-widget.js computePipeline, value_reference result()): when at least one included
   // source has Week N-1 saved, the included set I is those sources and this week is priced on I; the others
-  // are shown, never counted. When none has it, I is every included source. The caller loads Week N-1's
-  // document first (index.ts); an unread document reads as no source paired, so nothing is narrowed.
-  if (week !== null && bundle.history?.index) {
-    const paired = included.filter((key) => savedNatives(bundle, key, week - 1, scoring).values);
+  // are shown, never counted. When none has it, I is every included source. A source pairs only with this
+  // build's history (the week view) and a served week of its own (servedWeekOf, JEG-1390). The caller loads
+  // Week N-1's document first (index.ts); an unread document reads as no source paired, so nothing narrows.
+  const unpaired: Record<string, string> = {};
+  if (view && week !== null) {
+    const reasons: Record<string, string> = {};
+    for (const key of included) {
+      if (!Number.isInteger(plan.served[key])) {
+        reasons[key] = bundle.history?.index?.served?.[key]?.reason || `no saved week matches the ${key} values served now`;
+        continue;
+      }
+      const got = savedNatives(bundle, key, week - 1, scoring);
+      if (!got.values) reasons[key] = got.reason!;
+    }
+    const paired = included.filter((key) => !reasons[key]);
     if (paired.length && paired.length < included.length) {
       for (const key of included) {
-        if (!paired.includes(key)) sources[key] = { ...(sources[key] as Any), status: "excluded" };
+        if (paired.includes(key)) continue;
+        sources[key] = { ...(sources[key] as Any), status: "excluded" };
+        unpaired[key] = `no prior week: ${reasons[key]}`;
       }
       included.splice(0, included.length, ...paired);
     }
@@ -457,7 +470,13 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     hidden: hiddenKeys,
     lineup: resolvedLineup,
     week: info,
+    unpaired,
   };
+}
+
+/** sources_excluded: the run's excluded sources, an unpaired one with the page's "no prior week" reason (JEG-1390). */
+export function excludedSources(pipeline: Any, input: { unpaired?: Record<string, string> }) {
+  return ((pipeline.excluded ?? []) as Any[]).map((e) => ({ key: e.key, reason: input.unpaired?.[e.key] ?? e.reason }));
 }
 
 /** Parse a `week` request value: null when absent, a number when it is an integer 1-22, else NaN. */

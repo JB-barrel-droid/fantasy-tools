@@ -1,12 +1,76 @@
 {
   "schema": "get-values-pairing-sentinels/1",
-  "about": "JEG-1385 (risk register GAP-ENDPOINT-UNPAIRED-SOURCE): get-values must price this week on the VP-1.2 included set, the sources with Week N-1 saved, as the page and pipelines/value_reference.py do. Each row leaves one source's Week N-1 entry out of the committed history and requires get-values' values, series, prior and audit blocks to match the reference to 1e-6, with that source shown but not counted. Read by tests/test_connector_analyses.py test_unpaired_source_prices_this_week_on_included_set.",
+  "about": "JEG-1385 (risk register GAP-ENDPOINT-UNPAIRED-SOURCE): get-values must price this week on the VP-1.2 included set, the sources with Week N-1 saved, as the page and pipelines/value_reference.py do. Each row leaves one source's Week N-1 entry out of the committed history (optionally editing the history index too) and requires get-values' values, series, prior and audit blocks to match the reference to 1e-6, with that source shown but not counted. Read by tests/test_connector_analyses.py test_unpaired_source_prices_this_week_on_included_set. JEG-1390 rows: a history index from another build pairs nothing (the page's servedWeekOf), and a source with no served week never pairs. expect_unpaired lists the sources that must be shown but not counted.",
   "rows": [
-    {"id": "ppr-12-fantasycalc", "setting": ["ppr", 12, 0], "drop_source": "fantasycalc",
-     "note": "the ticket's measured case: 195 players' DDF Value differed on main"},
-    {"id": "half_ppr-10-sf-razzball", "setting": ["half_ppr", 10, 1], "drop_source": "razzball",
-     "note": "a projection source, at a superflex setting"},
-    {"id": "standard-14-cbs", "setting": ["standard", 14, 0], "drop_source": "cbs",
-     "note": "a chart source at standard scoring"}
+    {
+      "id": "ppr-12-fantasycalc",
+      "setting": [
+        "ppr",
+        12,
+        0
+      ],
+      "drop_source": "fantasycalc",
+      "note": "the ticket's measured case: 195 players' DDF Value differed on main",
+      "expect_unpaired": [
+        "fantasycalc"
+      ]
+    },
+    {
+      "id": "half_ppr-10-sf-razzball",
+      "setting": [
+        "half_ppr",
+        10,
+        1
+      ],
+      "drop_source": "razzball",
+      "note": "a projection source, at a superflex setting",
+      "expect_unpaired": [
+        "razzball"
+      ]
+    },
+    {
+      "id": "standard-14-cbs",
+      "setting": [
+        "standard",
+        14,
+        0
+      ],
+      "drop_source": "cbs",
+      "note": "a chart source at standard scoring",
+      "expect_unpaired": [
+        "cbs"
+      ]
+    },
+    {
+      "id": "ppr-12-fantasycalc-other-build",
+      "setting": [
+        "ppr",
+        12,
+        0
+      ],
+      "drop_source": "fantasycalc",
+      "index_edit": {
+        "fixture_built_at": "2000-01-01T00:00:00+00:00"
+      },
+      "expect_unpaired": [],
+      "note": "JEG-1390 finding 1: another build's history; f7079ab narrowed here (195 values off by up to 5.04)"
+    },
+    {
+      "id": "ppr-12-cbs-no-served-week",
+      "setting": [
+        "ppr",
+        12,
+        0
+      ],
+      "drop_source": "fantasycalc",
+      "index_edit": {
+        "served_null": "cbs"
+      },
+      "expect_unpaired": [
+        "cbs",
+        "fantasycalc"
+      ],
+      "note": "JEG-1390 finding 2: CBS has Week N-1 saved but no served week; main and f7079ab counted it (186 values off by up to 7.38)"
+    }
   ]
 }

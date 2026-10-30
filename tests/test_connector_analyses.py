@@ -28,6 +28,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -56,13 +57,30 @@ CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
 TOL = 1e-6
 
 
-def run_edge(setting, mutate=None, drop_entry=None):
-    """drop_entry: (week, source), that week's saved entry for that source left out of the history."""
+def edited_history(tmp, edit):
+    """A copy of dist's week history with its index edited (JEG-1390 sentinels): fixture_built_at replaces the
+    build stamp; served_null sets that source's served week to null (no saved week matches what it serves)."""
+    out = Path(tmp) / "history"
+    shutil.copytree(HISTORY, out)
+    index = json.loads((out / "index.json").read_text(encoding="utf-8"))
+    if "fixture_built_at" in edit:
+        index["fixture_built_at"] = edit["fixture_built_at"]
+    if "served_null" in edit:
+        index["served"][edit["served_null"]]["week"] = None
+    (out / "index.json").write_text(json.dumps(index), encoding="utf-8")
+    return out
+
+
+def run_edge(setting, mutate=None, drop_entry=None, history=None):
+    """drop_entry: (week, source), that week's saved entry for that source left out of the history.
+    history: an edited_history() directory whose index replaces dist's."""
     scoring, teams, sf = setting
     args = NODE + [str(RUNNER), "--scoring", scoring, "--teams", str(teams), "--superflex", str(sf),
                    "--dist", str(ROOT / "dist"), "--include", "series,prior,audit"]
     if mutate:
         args += ["--mutate", mutate]
+    if history:
+        args += ["--history-index", str(Path(history) / "index.json")]
     if drop_entry:
         args += ["--drop-entry", f"{drop_entry[0]}:{drop_entry[1]}"]
     env = {**os.environ, "TRADE_VALUE_TODAY": _fixture_today()}
@@ -72,13 +90,13 @@ def run_edge(setting, mutate=None, drop_entry=None):
     return json.loads(out.stdout)
 
 
-def run_reference(setting, drop_entry=None):
+def run_reference(setting, drop_entry=None, history=None):
     """The reference's page rows (Indexed tab), its prior week per series, and its diagnostics.
-    drop_entry: as run_edge's."""
+    drop_entry, history: as run_edge's."""
     import value_reference as ref
     today = date.fromisoformat(_fixture_today())
     inp = ref.Inputs.load(today=today)
-    hist = ref.History(HISTORY)
+    hist = ref.History(Path(history) if history else HISTORY)
     if drop_entry:
         week, key = drop_entry
         del hist.week_doc(week)["sources"][key]
@@ -104,7 +122,8 @@ def run_reference(setting, drop_entry=None):
         field = "indexed" if key in CHARTS else "adjusted"
         values = {str(k): r[field].get(key) for k, r in prior_rows.items() if r[field].get(key) is not None}
         prior[key] = ({"available": True, "values": values, "currentWeek": week, "priorWeek": week - 1}
-                      if values else {"available": False, "reason": f"not priced in Week {week - 1}"})
+                      if values else {"available": False, "reason": "no prior week" if week is None
+                                                  else f"not priced in Week {week - 1}"})
     return {"rows": rows, "prior": prior, "diagnostics": out["pipeline"], "week": week,
             "included": list(st["included"])}
 
@@ -143,7 +162,11 @@ def block_errors(edge: dict, reference: dict) -> list[str]:
         want = {k: v[key] for k, v in reference["rows"].items() if v.get(key) is not None}
         errors += value_diffs(got, want, f"series {key}")
     prior = edge["prior"]
-    if prior["current_week"] != reference["week"] or prior["prior_week"] != reference["week"] - 1:
+    if reference["week"] is None:
+        # No served week (JEG-1390's other-build history): no pair to label, so the prior week is unavailable.
+        if prior["available"]:
+            errors.append(f"prior available {prior['prior_week']}->{prior['current_week']}, reference has no week")
+    elif prior["current_week"] != reference["week"] or prior["prior_week"] != reference["week"] - 1:
         errors.append(f"prior pair {prior['prior_week']}->{prior['current_week']}, reference week {reference['week']}")
     for key in SERIES:
         got, want = prior["series"][key], reference["prior"][key]
@@ -259,18 +282,28 @@ class ConnectorAnalysesParity(unittest.TestCase):
         # source's Week N-1 entry left out, this week is priced on the sources that have it: the values
         # answer, the series, the prior week and the audit (pie, included set, positions) match the
         # reference, and the source is shown but not counted. On main get-values priced on every source.
+        # JEG-1390: another build's history pairs nothing, and a source with no served week never pairs.
         rows = json.loads(SENTINELS.read_text(encoding="utf-8"))["rows"]
-        self.assertGreaterEqual(len(rows), 3)
+        self.assertGreaterEqual(len(rows), 5)
         for row in rows:
-            setting, src = tuple(row["setting"]), row["drop_source"]
-            with self.subTest(sentinel=row["id"]):
+            setting, src, unpaired = tuple(row["setting"]), row["drop_source"], row["expect_unpaired"]
+            with self.subTest(sentinel=row["id"]), tempfile.TemporaryDirectory() as tmp:
+                history = edited_history(tmp, row["index_edit"]) if row.get("index_edit") else None
                 week = run_reference(setting)["week"]
                 drop = (week - 1, src)
-                edge, reference = run_edge(setting, drop_entry=drop), run_reference(setting, drop_entry=drop)
-                self.assertNotIn(src, reference["included"])
+                edge = run_edge(setting, drop_entry=drop, history=history)
+                reference = run_reference(setting, drop_entry=drop, history=history)
+                included = edge["audit"]["valuePipeline"]["included"]
                 self.assertGreater(len(reference["included"]), 1)
-                self.assertNotIn(src, edge["audit"]["valuePipeline"]["included"])
-                self.assertIn(src, edge["audit"]["players"], "an unpaired source is shown, never dropped")
+                for key in unpaired:
+                    self.assertNotIn(key, reference["included"])
+                    self.assertNotIn(key, included)
+                    self.assertIn(key, edge["audit"]["players"], "an unpaired source is shown, never dropped")
+                    reason = {e["key"]: e["reason"] for e in edge["audit"]["excluded"]}.get(key, "")
+                    self.assertTrue(reason.startswith("no prior week: "), f"{key}: {reason!r}")
+                if not unpaired:
+                    self.assertIn(src, reference["included"])
+                    self.assertIn(src, included)
                 errors = block_errors(edge, reference)
                 want = {k: v["ddf_value"] for k, v in reference["rows"].items() if v.get("ddf_value") is not None}
                 errors += value_diffs(edge["values"], want, "values")

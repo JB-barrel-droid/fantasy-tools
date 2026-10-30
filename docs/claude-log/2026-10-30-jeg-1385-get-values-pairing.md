@@ -47,3 +47,29 @@ JEG-1029 until this is fixed, then deploy once). Branch `claude/JEG-1385`, from 
   - half_ppr/10 SF, Razzball dropped: 171 change, max 3.0 (Jahmyr Gibbs 61.5 -> 58.4).
   - standard/14, CBS dropped: 217 change, max 4.9 (Jaxon Smith-Njigba 62.0 -> 57.1).
   - Today's live data: no player changes (every source paired).
+
+## Review corrections (JEG-1390, child of JEG-1385)
+
+Independent Claude review of f7079ab: request changes. Each finding, with failing-before (f7079ab with
+the new tests copied in) and passing-after (this head):
+
+1. Pairing used another build's history. Now it runs only inside the week view (which needs this
+   build's history), as the page's `servedWeekOf` and the reference's `same_build` do. Sentinel row
+   `ppr-12-fantasycalc-other-build`: f7079ab fails (FantasyCalc left out of the included set, 195
+   values off by up to 5.04 per the review); now passes, values, series and audit match the reference.
+2. A source with no served week counted as paired. Now it needs an integer served week. Row
+   `ppr-12-cbs-no-served-week`: f7079ab fails (CBS counted); now passes. priorBlock gives that
+   source's series no pair either (it showed one before; caught by the same row).
+3. The unpaired source's reason is now "no prior week: <why>" in sources_excluded and audit.excluded
+   (`excludedSources`, used by index.ts and the runner). f7079ab fails all three original rows on the
+   new reason assertion.
+4. priorBlock now pairs nothing against another build's history (main and f7079ab: available; now
+   unavailable, "the history index belongs to a different build of the values"). addAnalysis no
+   longer re-reads Week N-1, so the prior block and the values are always priced on one included set.
+5. Byte identity stays a recorded check rather than a committed golden (a golden of main's output
+   would break on every data refresh). Re-run on this head: identical to main at all three settings.
+
+Other checks on this head: `tests.test_connector_analyses` 5/5; node get-values checks (handler,
+value context, week, drift, connector round trip, rate limit) ok; `tests.test_endpoint_parity` and
+`tests.test_edge_functions_parse` ok (browser parts skipped). `jeg_1061_logging_contract.mjs` fails
+the same way on main (it waits on #1210).
