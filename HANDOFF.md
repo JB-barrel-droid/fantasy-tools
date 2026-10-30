@@ -664,8 +664,9 @@ source data -> reference compute -> dashboard build -> frontend/site
 - **Supabase:** project "JB-barrel-droid's Project" (ref `iskiybsimubiujwuchsl`,
   us-west-2). Edge functions in `supabase/functions/`: `get-values`, `mcp`
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
-  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
-  server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
+  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). The `mcp`
+  function is the only MCP server; the old local one was retired 2026-10-30
+  (JEG-1372). See `docs/values-endpoint.md`.
 - **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
   (JEG-1173); kept as a record, its scripts refuse to run.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
