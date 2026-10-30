@@ -325,9 +325,16 @@ class Jeg1213AcceptanceRenderTest(unittest.TestCase):
                 self.assertIn("total", row["theirs"].lower())
                 self.assertIn("starter", row["theirs"].lower())
                 self.assertIn("construction", row["theirs"].lower())
+            # JEG-1324: Natural now needs both teams' DDF Value (projections) to hold (Jeremy, 2026-10-29, "1a"; under 0.05 "A"),
+            # and the frozen league has no Natural row at default settings. Market must still be exercised, not pass on an empty
+            # list; a Natural row is checked the same way when there is one, and its definition is read from the tip the control shows.
+            natural_tip = page.evaluate("() => window.TradeValueFinder.fitTip('natural')").lower()
+            for word in ("roster", "starter", "projections"):
+                self.assertIn(word, natural_tip)
             for variant, words in (("natural", ("roster", "starter")), ("market", ("trade chart",))):
-                # The frozen league must exercise both definitions, not pass on an empty list.
                 info = page.locator(f'tr.v2-lg-opp[data-overall="{variant}"] .v2-lg-fit-info > summary').first
+                if variant == "natural" and not info.count():
+                    continue
                 self.assertEqual(info.count(), 1, f"fixture has no {variant} info control")
                 self.assertIn("About", info.get_attribute("aria-label"))
                 selected = page.evaluate("() => window.TradeValueLeague.ui.selectedOpp || null")

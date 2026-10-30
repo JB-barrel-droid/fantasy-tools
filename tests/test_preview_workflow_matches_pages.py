@@ -120,7 +120,7 @@ def check_preview(preview_text, pages_text):
         # allowing only the intentional difference in checkout's commit expression.
         normalized = lambda text: [normalize_step(b).replace(
             "${{ github.event.pull_request.head.sha || github.sha }}", "${{ github.sha }}")
-            for b in steps(text)]
+            for b in steps(text) if "name: Recheck PR state before expensive work" not in b]
         if normalized(preview_shard) != normalized(pages_shard):
             problems.append("preview and pages shard steps differ")
     if not re.search(r"^  pull_request:\s*$", preview_text, re.M):
@@ -162,7 +162,12 @@ def shard_problems(preview_text, name="preview-shard"):
     problems = []
     if "continue-on-error" in shard:
         problems.append(f"{name} must be blocking (no continue-on-error)")
-    if re.search(r"^    if:", shard, re.M):
+    condition = re.search(r"^    if: (.*)$", shard, re.M)
+    if name == "preview-shard":
+        if not re.search(r"^    needs: pr-state$", shard, re.M) or not condition or \
+                condition.group(1) != "needs.pr-state.outputs.run_expensive == 'true'":
+            problems.append("preview-shard must run only after the PR-state gate allows full verification")
+    elif condition:
         problems.append(f"{name} must run unconditionally (no job-level if:)")
     if not re.search(r"^      fail-fast: false$", shard, re.M):
         problems.append(f"{name} must set fail-fast: false")
@@ -184,17 +189,19 @@ def aggregate_problems(preview_text):
     problems = []
     needs = re.search(r"^    needs:\s*\[([^\]]*)\]", agg, re.M)
     needs = {n.strip() for n in needs.group(1).split(",")} if needs else set()
-    if needs != {"preview-build", "preview-shard"}:
-        problems.append(f"the preview job must need exactly preview-build and preview-shard, got {sorted(needs)}")
+    if needs != {"pr-state", "preview-build", "preview-shard"}:
+        problems.append(f"the preview job must need exactly pr-state, preview-build and preview-shard, got {sorted(needs)}")
     if not re.search(r"^    if: always\(\)$", agg, re.M):
         problems.append("the preview job must run if: always() so a failed or skipped job fails it")
     if "continue-on-error" in agg:
         problems.append("the preview job must be blocking (no continue-on-error)")
-    for n in ("preview-build", "preview-shard"):
+    for n in ("pr-state", "preview-build", "preview-shard"):
         if f"needs.{n}.result" not in agg:
             problems.append(f"the preview job must check needs.{n}.result")
-    if not re.search(r'= "success" \] && \[ "\$\w+" = "success" \]\s*$', agg, re.M):
-        problems.append("the preview job must fail unless every result is success")
+    for marker in ("RUN_EXPENSIVE", "STATE_RESULT", "BUILD_RESULT", "SHARD_RESULT",
+                   'python3 -m pipelines.ci_pr_gate verify', 'exit 1'):
+        if marker not in agg:
+            problems.append(f"the preview job must fail unless every result is success ({marker})")
     return problems
 
 
@@ -336,8 +343,8 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertCaught(mutated, "must have a preview-shard job")
 
     def test_non_blocking_shard_job_is_caught(self):
-        mutated = PREVIEW.replace("  preview-shard:\n    runs-on: ubuntu-latest\n",
-                                  "  preview-shard:\n    runs-on: ubuntu-latest\n    continue-on-error: true\n")
+        mutated = PREVIEW.replace("  preview-shard:\n    needs: pr-state\n",
+                                  "  preview-shard:\n    continue-on-error: true\n    needs: pr-state\n")
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "preview-shard must be blocking")
 
@@ -364,7 +371,7 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertCaught(mutated, "aggregate `preview` job")
 
     def test_aggregate_not_needing_the_shards_is_caught(self):
-        mutated = PREVIEW.replace("needs: [preview-build, preview-shard]", "needs: [preview-build]")
+        mutated = PREVIEW.replace("needs: [pr-state, preview-build, preview-shard]", "needs: [pr-state, preview-build]")
         self.assertNotEqual(PREVIEW, mutated)
         self.assertCaught(mutated, "must need exactly")
 
@@ -374,9 +381,9 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertCaught(mutated, "if: always()")
 
     def test_aggregate_that_ignores_results_is_caught(self):
-        mutated = re.sub(r'\[ "\$BUILD_RESULT" = "success" \] && \[ "\$SHARD_RESULT" = "success" \]', "true", PREVIEW)
+        mutated = PREVIEW.replace('          SHARD_RESULT: ${{ needs.preview-shard.result }}\n', '')
         self.assertNotEqual(PREVIEW, mutated)
-        self.assertCaught(mutated, "unless every result is success")
+        self.assertCaught(mutated, "must check needs.preview-shard.result")
 
     def test_non_blocking_aggregate_is_caught(self):
         mutated = PREVIEW.replace("    if: always()\n", "    if: always()\n    continue-on-error: true\n")
