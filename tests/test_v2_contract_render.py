@@ -1742,10 +1742,12 @@ def rs01(S):
     # JEG-1106: the menu lists the three Writing sections as entries of the "Our approach" group (all routes are Writing
     # routes: none is a view of its own), where the old top bar had one Writing tab.
     labels = [t["label"] for t in S["tabs"]["targets"]["tabs"] if t["view"] == "writing"]
-    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", "Research", "Manifesto"]:
+    # JEG-1371: Research is listed (menu and Writing sub-tabs) only once a post is published.
+    research = bool(build_v2_page.load_posts())
+    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", *(["Research"] if research else []), "Manifesto"]:
         errors.append(f"Methodology, Research and Manifesto should be the Writing entries of the Our approach group, not views of their own: {views} {labels}")
     sections = S["tabs"]["manifesto"]["sections"]
-    want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values"), ("research", "#writing/research")]
+    want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values")] + ([("research", "#writing/research")] if research else [])
     if [(x["slug"], x["href"]) for x in sections] != want:
         errors.append(f"Writing sections should be Manifesto, How values work, Research in that order: {sections}")
     return errors
