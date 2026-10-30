@@ -179,6 +179,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_source_divergence
 	python3 -m unittest tests.test_open_divergence_issues
 	python3 -m unittest tests.test_security_lockdown_migration
+	python3 -m unittest tests.test_weekly_fantasypros_contract
 	python3 -m unittest tests.test_source_probe
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
