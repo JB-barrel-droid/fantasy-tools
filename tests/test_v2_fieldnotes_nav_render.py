@@ -205,6 +205,22 @@ class FieldnotesNavTests(unittest.TestCase):
                     page.context.close()
                     self.assertEqual(errors, [])
 
+    def test_phone_verdict_bar_sits_above_the_primary_bar(self):
+        # Compare's phone verdict bar (fixed at the foot) must not hide under the primary bar (#1208 review).
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, 390, 844, hash_="#compare-trade")
+            keys = page.evaluate("""() => { const rows = window.TradeValueCurveControls.getAllRows()
+              .filter(r => Number.isFinite(r.values.ddf_value) && r.values.ddf_value > 5 && !r.ddfLowConfidence)
+              .sort((a, b) => b.values.ddf_value - a.values.ddf_value); return [String(rows[12].player_key), String(rows[2].player_key)]; }""")
+            page.evaluate("keys => { location.hash = `#compare-trade?give=${keys[0]}&get=${keys[1]}`; }", keys)
+            page.wait_for_function("() => document.getElementById('v2CVerdict').dataset.verdict === 'win'", timeout=20000)
+            page.evaluate("() => document.getElementById('v2CConstruction').scrollIntoView()")
+            page.wait_for_function("() => { const w = document.getElementById('v2CVerdictBarWrap'); return w && !w.hidden && getComputedStyle(w).display !== 'none'; }", timeout=5000)
+            spot = page.evaluate("""() => ({bar: document.getElementById('v2CVerdictBarWrap').getBoundingClientRect().bottom,
+              nav: document.getElementById('v2FnPrimary').getBoundingClientRect().top})""")
+            page.context.close()
+            self.assertLessEqual(spot["bar"], spot["nav"] + 1, f"verdict bar ends at {spot['bar']}, under the primary bar at {spot['nav']}")
+
     def test_default_page_unchanged(self):
         with browser_on_build() as (browser, base):
             for width, height in WIDTHS:

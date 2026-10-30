@@ -2642,6 +2642,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
     position: fixed; z-index: 59; left: 0; right: 0; bottom: calc(73px + env(safe-area-inset-bottom)); max-height: calc(100vh - 150px); overflow-y: auto;
     margin: 0; padding: 8px 16px 12px; background: var(--v2-nav); border-top: 1px solid rgba(255,255,255,.18);
   }
+  /* Other things fixed at the foot sit above the bar: Compare's verdict bar and the status note. */
+  :root[data-design="fieldnotes"] .v2-cverdict-bar:not([hidden]) { bottom: calc(81px + var(--v2-safe-bottom)); }
+  :root[data-design="fieldnotes"] #v2Compare.has-verdict-bar { padding-bottom: calc(169px + var(--v2-safe-bottom)); }
+  :root[data-design="fieldnotes"] .v2-status { bottom: calc(93px + var(--v2-safe-bottom)); }
   /* Content and scrolled-to controls clear the bar. */
   :root[data-design="fieldnotes"] { scroll-padding-bottom: 88px; }
   :root[data-design="fieldnotes"] .v2-app { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
