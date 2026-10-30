@@ -204,6 +204,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
+	python3 -m unittest -v tests.test_waivers_mutation_specificity
 	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
