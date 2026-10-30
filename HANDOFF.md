@@ -19,6 +19,18 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1323 trade readout second half (Claude, 2026-10-30 UTC)
+
+- PR #1174, branch `claude/JEG-1323`, now based on main (#1088 squash-merged 08:09 UTC). Child JEG-1340 (names, not
+  keys) passed re-review. Main was merged in normally; the add/add conflicts from #1088's squash were resolved
+  3-way against #1088's last branch head `08a0b82`, and `tradeFit`'s return keeps both `theirOk` (this PR) and
+  `natural` (JEG-1324).
+- With Natural fit 1a on main, the verdict row also names `yourProjections` and `theirProjections` tests, read from
+  `tradeFit`'s own `natural` (null = not judged = failed). The golden trade's verdict follows main's rule and moves
+  from Natural to Market supported (their DDF Value (projections) falls 7.5). No route is wired, so nothing served
+  changes. Next: delta review, ready-for-review, green full CI, normal merge. If #1033 (JEG-1125 even band) lands
+  first, merge main again and refresh the golden with `--write-golden` after checking the drift is only the count.
+
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the

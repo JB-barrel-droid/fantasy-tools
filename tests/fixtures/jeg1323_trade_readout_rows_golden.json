@@ -5,9 +5,9 @@
   "verdict": {
    "status": "available",
    "reason": null,
-   "label": "natural",
-   "name": "Natural fit",
-   "text": "Natural fit: you gain +7.9 on DDF Value and they gain +0.7 on the trade chart average. Roster construction works for both teams. You are short at RB and WR; they are short at RB and WR.",
+   "label": "market",
+   "name": "Market supported",
+   "text": "Market supported: the trade charts favor them (+0.7). Their DDF Value (projections) falls 7.5. You are short at RB and WR; they are short at RB and WR.",
    "tests": {
     "construction": {
      "pass": true,
@@ -25,9 +25,19 @@
     },
     "marketSupported": {
      "pass": true
+    },
+    "yourProjections": {
+     "pass": true,
+     "net": 7.464000000000027
+    },
+    "theirProjections": {
+     "pass": false,
+     "net": -7.464000000000027
     }
    },
-   "failed": [],
+   "failed": [
+    "theirProjections"
+   ],
    "basis": "tradeFit"
   },
   "accept": {

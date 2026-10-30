@@ -258,7 +258,16 @@
       theirMarket: {pass: fit.theirOk, net: fit.them.net, tau: fit.them.tau},
       marketSupported: {pass: fit.marketSupported}
     };
-    const failed = ["construction", "yourValue", "theirMarket"].filter(id => !tests[id].pass);
+    // Natural fit 1a (JEG-1324, now inside tradeFit as `natural`): each side's DDF Value (projections) must not fall.
+    // pass is null when a side is not judged (a moving player has no projection), and a side not judged is not Natural,
+    // so null counts as failed here too. Read from tradeFit, never recomputed.
+    const nat = fit.natural || null;
+    if (nat) {
+      tests.yourProjections = {pass: nat.us.projections, net: nat.us.projNet};
+      tests.theirProjections = {pass: nat.them.projections, net: nat.them.projNet};
+    }
+    const failed = ["construction", "yourValue", "theirMarket", "yourProjections", "theirProjections"]
+      .filter(id => tests[id] && tests[id].pass !== true);
     return {status: "available", reason: null, label: fit.label, name: FIT_NAME[fit.label], text: F.fitText(fit), tests, failed,
       basis: "tradeFit", fit};
   }

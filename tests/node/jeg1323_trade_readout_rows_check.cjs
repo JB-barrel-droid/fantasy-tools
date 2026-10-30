@@ -108,8 +108,16 @@ eq(out.rows.verdict.label, route.fit.label, "verdict label = league finder trade
 eq(out.rows.verdict.text, F.fitText(route.fit), "verdict text = fitText");
 eq(out.rows.verdict.name, R.FIT_NAME[route.fit.label]);
 eq(out.rows.verdict.tests.theirMarket.pass, route.fit.theirOk, "their-market test is tradeFit's own theirOk (JEG-1340)");
-eq(out.rows.verdict.failed, ["construction", "yourValue", "theirMarket"].filter(id => !{construction: route.fit.constructionOk,
-  yourValue: route.fit.yourValueOk, theirMarket: route.fit.them.net >= -route.fit.them.tau}[id]), "failed tests named");
+eq(out.rows.verdict.failed, ["construction", "yourValue", "theirMarket", "yourProjections", "theirProjections"].filter(id => !{construction: route.fit.constructionOk,
+  yourValue: route.fit.yourValueOk, theirMarket: route.fit.them.net >= -route.fit.them.tau,
+  yourProjections: route.fit.natural.us.projections === true, theirProjections: route.fit.natural.them.projections === true}[id]), "failed tests named");
+// Natural fit 1a (JEG-1324): both sides' projections are tests of the verdict, read from tradeFit's own `natural`.
+eq(out.rows.verdict.tests.yourProjections, {pass: route.fit.natural.us.projections, net: route.fit.natural.us.projNet}, "your projections test = tradeFit natural.us");
+eq(out.rows.verdict.tests.theirProjections, {pass: route.fit.natural.them.projections, net: route.fit.natural.them.projNet}, "their projections test = tradeFit natural.them");
+eq(out.rows.verdict.label === "natural", out.rows.verdict.failed.length === 0, "Natural exactly when no test failed (both sides)");
+// The golden trade: their DDF Value (projections) falls, so it is not Natural under 1a even though the other tests pass.
+eq(out.rows.verdict.failed, ["theirProjections"], "golden: only their projections fail");
+eq(out.rows.verdict.label, "market", "golden: Market supported, not Natural");
 // Will they accept, no profile: the viability label and the chart count, as the league finder computes them.
 eq(out.rows.accept.basis, "viability");
 eq(out.rows.accept.viability, route.viability, "viability = league.js viabilityLabel");
@@ -148,6 +156,19 @@ if (process.argv.includes("--write-golden")) {
 }
 
 // ---------- named cases ----------
+// Natural fit 1a: a moving player with no DDF Value (projections) leaves both sides not judged (null), never read as 0,
+// and a side that is not judged is not Natural.
+{
+  const inp = input();
+  const w = inp.mine.rows.find(r => r.player_key === "mWR1");
+  w.values.ddf_value_projections = null;
+  F.PROJECTION_KEYS.forEach(p => { w.values[p] = null; });
+  const v = R.build(inp).rows.verdict;
+  eq(v.tests.yourProjections, {pass: null, net: null}, "unjudged projections are null, not 0");
+  eq(v.tests.theirProjections, {pass: null, net: null});
+  ok(v.failed.includes("yourProjections") && v.failed.includes("theirProjections"), "an unjudged side counts as a failed test");
+  ok(v.label !== "natural", "and the trade is not Natural");
+}
 // #1084 appeal band when the reader has a profile for this manager; an unknown band falls back to viability.
 {
   const withBand = R.build(input({appeal: {band: "possible", likelihood: "Possible", why: ["By DDF Value, which you said they weigh a lot, they come out +1.2."]}}));
