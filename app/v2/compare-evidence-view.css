@@ -1,0 +1,79 @@
+/* JEG-1271: isolated Fieldnotes Compare evidence view (part of JEG-1138). Contract:
+   docs/design/compare-evidence-view-contract.md. Every rule is scoped to .cev, so the default site is unchanged
+   until a later hookup loads this file. Colours, type and spacing read the JEG-1137 Fieldnotes tokens; the
+   fallbacks are the same light-theme token values, so the isolated preview renders without v2.css. No new
+   tokens, colours or motion. Source groups share one style: none is drawn as the preferred or winning view. */
+.cev {
+  --cev-ink: var(--ddf-ink, #182D27); --cev-muted: var(--ddf-muted, #52635C); --cev-line: var(--ddf-line, #D4D8CD);
+  --cev-surface: var(--ddf-surface, #FFFDF8); --cev-subtle: var(--ddf-subtle, #EAE8DF); --cev-focus: var(--ddf-focus, #175BC1);
+  --cev-good: var(--ddf-good-ink, #245D46); --cev-bad: var(--ddf-bad-ink, #922F3E); --cev-warn: var(--ddf-warn-ink, #80500F);
+  --cev-gap: var(--ddf-space-mid, 12px); --cev-hit: var(--ddf-hit, 44px); --cev-radius: var(--ddf-radius-card, 16px);
+  box-sizing: border-box; display: grid; gap: var(--ddf-space-4, 16px); min-width: 0; max-width: 100%;
+  color: var(--cev-ink); font: 400 var(--ddf-type-body, 16px)/var(--ddf-line-body, 1.5) var(--ddf-font-ui, system-ui, -apple-system, "Segoe UI", sans-serif);
+  overflow-wrap: anywhere;
+}
+/* Resets stop at the readout slot: what the readout owner puts there keeps its own box model, margins and lists. */
+.cev :where(*):not(.cev-readout *), .cev :where(*):not(.cev-readout *)::before, .cev :where(*):not(.cev-readout *)::after { box-sizing: border-box; }
+.cev :where(p, ul, h3, h4):not(.cev-readout *) { margin: 0; }
+.cev :where(ul):not(.cev-readout *) { padding: 0; list-style: none; }
+.cev-synthetic {
+  padding: 8px var(--cev-gap); border: 1px dashed var(--cev-warn); border-radius: var(--ddf-radius-control, 9px);
+  color: var(--cev-warn); font-size: var(--ddf-type-support, 14px); font-weight: 650;
+}
+.cev-heading { font-size: var(--ddf-type-meta, 12px); font-weight: 650; letter-spacing: .04em; text-transform: uppercase; color: var(--cev-muted); }
+.cev-verdict, .cev-evidence, .cev-explain {
+  display: grid; gap: var(--cev-gap); min-width: 0; padding: var(--ddf-space-4, 16px);
+  border: 1px solid var(--cev-line); border-radius: var(--cev-radius); background: var(--cev-surface);
+}
+.cev-verdict-title { font-family: var(--ddf-font-headline, "Fraunces", Georgia, serif); font-weight: 600; font-size: 24px; line-height: 1.15; }
+.cev-verdict-text, .cev-verdict-production, .cev-explain-line, .cev-group-note { font-size: var(--ddf-type-support, 14px); color: var(--cev-ink); }
+.cev-verdict-production { color: var(--cev-muted); }
+.cev-nets { display: grid; gap: var(--ddf-space-2, 8px); }
+/* The value column is capped at half the row: a split read's value ("+0.5 · Charts split (−8.0 to +8.0)") is long,
+   and an auto column took its full width at 320 px and squeezed the net name to 0 px (JEG-1319). Past the cap the
+   value wraps; the name keeps the rest. */
+.cev-net { display: grid; grid-template-columns: minmax(0, 1fr) fit-content(50%); gap: 2px var(--cev-gap); align-items: baseline;
+  padding-top: var(--ddf-space-2, 8px); border-top: 1px solid var(--cev-line); }
+.cev-net-name { font-weight: 650; min-width: 0; }
+.cev-net-value { font-variant-numeric: tabular-nums; text-align: right; min-width: 0; }
+.cev-net-question { grid-column: 1 / -1; font-size: var(--ddf-type-meta, 12px); color: var(--cev-muted); }
+.cev-net[data-side="win"] .cev-net-value { color: var(--cev-good); }
+.cev-net[data-side="lose"] .cev-net-value { color: var(--cev-bad); }
+.cev-readout:empty { display: none; }
+/* The slot is opaque: undo the inherited wrapping the view sets, so the readout lays out as it would elsewhere. */
+.cev-readout { min-width: 0; max-width: 100%; overflow-x: auto; overflow-wrap: normal; }
+.cev-groups { display: grid; gap: var(--cev-gap); grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 900px) { .cev-groups { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); } }
+.cev-group { display: grid; align-content: start; gap: var(--ddf-space-2, 8px); min-width: 0; padding: var(--cev-gap);
+  border: 1px solid var(--cev-line); border-radius: var(--ddf-radius-control, 9px); background: var(--cev-surface); }
+.cev-group-label { font-size: var(--ddf-type-support, 14px); font-weight: 650; }
+.cev-rows { display: grid; gap: var(--ddf-space-2, 8px); }
+.cev-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--ddf-space-2, 8px); align-items: baseline; min-width: 0; }
+.cev-row-name { font-weight: 600; min-width: 0; }
+.cev-row-value { font-variant-numeric: tabular-nums; text-align: right; }
+.cev-row-direction, .cev-row-detail, .cev-row-flag { grid-column: 1 / -1; font-size: var(--ddf-type-meta, 12px); color: var(--cev-muted); min-width: 0; }
+.cev-row-value[data-dir="up"] { color: var(--cev-good); }
+.cev-row-value[data-dir="down"] { color: var(--cev-bad); }
+.cev-row[data-state="held"] .cev-row-value, .cev-row[data-state="missing"] .cev-row-value { color: var(--cev-muted); }
+.cev-row-flag { color: var(--cev-warn); font-weight: 650; }
+.cev-disclosure { min-width: 0; border-top: 1px solid var(--cev-line); }
+/* A two-column grid, not flex with an auto margin: the summary takes what is left and wraps, the glyph keeps its
+   own width, and the button never grows past its row. */
+.cev-disclosure-toggle {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 10px;
+  box-sizing: border-box; width: 100%; max-width: 100%; min-width: 0; min-height: var(--cev-hit); margin: 0; padding: 8px 0; border: 0;
+  background: transparent; color: var(--cev-ink); font: 650 var(--ddf-type-body, 16px)/1.3 var(--ddf-font-ui, system-ui, sans-serif);
+  text-align: left; cursor: pointer; touch-action: manipulation;
+}
+.cev-disclosure-toggle > span { min-width: 0; }
+.cev-disclosure-glyph { justify-self: end; font-size: 22px; font-weight: 400; line-height: 1; }
+.cev-disclosure-glyph::after { content: "+"; }
+.cev-disclosure-toggle[aria-expanded="true"] .cev-disclosure-glyph::after { content: "\2212"; }
+.cev-disclosure-toggle:focus-visible { outline: 3px solid var(--cev-focus); outline-offset: 3px; }
+.cev-disclosure-panel { display: grid; gap: var(--ddf-space-2, 8px); padding: 0 0 var(--cev-gap); font-size: var(--ddf-type-support, 14px); }
+.cev-disclosure-panel[hidden] { display: none; }
+@media (hover: hover) { .cev-disclosure-toggle:hover { background: var(--cev-subtle); } }
+@media (max-width: 400px) {
+  .cev-verdict, .cev-evidence, .cev-explain { padding: var(--cev-gap); }
+  .cev-verdict-title { font-size: 21px; }
+}
