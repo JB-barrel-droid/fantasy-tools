@@ -48,6 +48,7 @@ from the modeled bench (level-changed).
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import tempfile
 import unittest
@@ -147,6 +148,20 @@ class Run:
 
     def codes(self) -> set:
         return {(p["stage"], p["code"]) for p in self.problems}
+
+
+# A pick's stage names carry its row id, "<opponent team id>|<give>|<get>". The team id is minted fresh each time the
+# journey saves the league, so two runs name the same stage with different ids. Two runs are compared by the package.
+_RUN_TEAM = re.compile(r"^((?:equal|thrown) )[^|:]+\|")
+
+
+def same_stage(stage: str) -> str:
+    return _RUN_TEAM.sub(r"\1<team>|", stage)
+
+
+def run_shape(run: Run) -> tuple:
+    """A run's stages and its (stage, code) pairs, with each pick's per-run team id taken out."""
+    return [(same_stage(s), state) for s, state in run.stages], {(same_stage(s), c) for s, c in run.codes()}
 
 
 # ---------- in-page scripts ----------
@@ -767,13 +782,46 @@ class UsoSiteJourneyRenderTest(unittest.TestCase):
         compare = [x for x in baseline.stages if x[0].endswith("league -> Compare")]
         self.assertEqual(len(compare), 2, f"the baseline did not reach Compare for both picks: {baseline.lines()}")
         self.assertEqual([x for x in compare if x[1] != "read"], [], f"the baseline did not read Compare: {baseline.lines()}")
-        # The same stages, each read or blocked the same way: the mutant was driven as far as the build was.
-        self.assertEqual(mutant.stages, baseline.stages, f"the mutant did not reach the same stages: {mutant.lines()}")
-        self.assertFalse({c for s, c in baseline.codes() if s.endswith("league -> Compare")} & {"package-changed"},
+        # The same stages, each read or blocked the same way: the mutant was driven as far as the build was. Each run
+        # saves the league afresh, so its team ids differ; stages are compared by package (run_shape).
+        (mutant_stages, mutant_codes), (base_stages, base_codes) = run_shape(mutant), run_shape(baseline)
+        self.assertEqual(mutant_stages, base_stages, f"the mutant did not reach the same stages: {mutant.lines()}")
+        self.assertFalse({c for s, c in base_codes if s.endswith("league -> Compare")} & {"package-changed"},
                          f"package-changed already on the build, so the guard would prove nothing: {baseline.lines()}")
-        new = mutant.codes() - baseline.codes()
+        new = mutant_codes - base_codes
         self.assertIn("package-changed", {c for s, c in new if s.endswith("league -> Compare")}, mutant.lines())
         self.assertEqual({c for _, c in new} - PACKAGE_LOSS, set(), f"the mutant also lost something else: {sorted(new)}")
+
+
+class RunShapeTest(unittest.TestCase):
+    """The guard compares two journeys. Each saves the league afresh, so a pick's team id differs from run to run (the
+    Mac's 03:05 and 12:48 UTC runs on JEG-1304: the stage lists matched except for that id). Runs without a browser."""
+
+    @staticmethod
+    def _run(team, extra=None):
+        run = Run()
+        run.read("league page")
+        for stage in ("league panel", "league -> Compare", "Compare elsewhere"):
+            run.read(f"equal {team}|3247,751|1095,2756: {stage}")
+        run.problem(f"equal {team}|3247,751|1095,2756: Compare elsewhere", "basis-changed", "value basis null became x")
+        if extra:
+            run.problem(f"equal {team}|3247,751|1095,2756: league -> Compare", extra, "lost")
+        return run
+
+    def test_two_runs_of_the_same_journey_have_the_same_shape(self):
+        a, b = self._run("1cc51017-9934-4231-bee7-f62513feb50d"), self._run("a54e14e1-257a-4b00-a58f-32472fcbb1db")
+        self.assertEqual(run_shape(a), run_shape(b))
+
+    def test_a_new_code_is_still_new(self):
+        base, mutant = self._run("a54e14e1"), self._run("1cc51017", extra="package-changed")
+        self.assertEqual(run_shape(mutant)[1] - run_shape(base)[1],
+                         {("equal <team>|3247,751|1095,2756: league -> Compare", "package-changed")})
+
+    def test_another_package_is_another_stage(self):
+        other = Run()
+        other.read("equal a54e14e1|3247,751|1095,9999: league panel")
+        self.assertNotEqual(run_shape(other)[0], [("equal <team>|3247,751|1095,2756: league panel", "read")])
+        self.assertEqual(same_stage("league page"), "league page")
 
 
 if __name__ == "__main__":
