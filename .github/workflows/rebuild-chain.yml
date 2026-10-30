@@ -479,7 +479,9 @@ jobs:
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
-            if python3 pipelines/main_write_guard.py --writer rebuild-chain-1 --phase "$1" --target "main"; then
+            # JEG-1364: a push publishes the scratch-worktree commit below, so
+            # the push guard retains that commit (not this checkout's HEAD).
+            if python3 pipelines/main_write_guard.py --writer rebuild-chain-1 --phase "$1" --target "main" --head "${publication:-HEAD}"; then
               return 0
             else
               rc=$?
@@ -621,7 +623,9 @@ jobs:
               if git -C "$pub/tree" diff --cached --quiet; then outcome=unchanged; break; fi
               git -C "$pub/tree" commit -q -m "$MESSAGE"
               publication=$(git -C "$pub/tree" rev-parse HEAD)
-              if git push origin "$publication:refs/heads/main"; then outcome=pushed; break; fi
+              # JEG-1215/JEG-1364: every push to main goes through the release
+              # guard; a pause retains this publication and exits the step 0.
+              if release_push origin "$publication:refs/heads/main"; then outcome=pushed; break; fi
               if git fetch -q origin main && git merge-base --is-ancestor "$publication" FETCH_HEAD; then
                 outcome=pushed; break
               fi

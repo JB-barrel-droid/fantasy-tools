@@ -43,7 +43,7 @@ def git(*args):
     return subprocess.check_output(['git', *args], stderr=subprocess.PIPE, timeout=30)
 
 
-def check(writer, phase, target):
+def check(writer, phase, target, head='HEAD'):
     if target != 'main':
         return 0
     now = datetime.now(timezone.utc)
@@ -70,12 +70,15 @@ def check(writer, phase, target):
     # unstaged fixture changes). Push phase captures commits not on fetched main.
     base = git('rev-parse', 'HEAD').decode().strip()
     if phase == 'push':
+        # JEG-1364: --head names the commit being published when it is not this
+        # checkout's HEAD (rebuild-chain publishes a scratch-worktree commit).
+        head = git('rev-parse', f'{head}^{{commit}}').decode().strip()
         if remote:
-            base = git('merge-base', remote, 'HEAD').decode().strip()
+            base = git('merge-base', remote, head).decode().strip()
         else:
-            base = git('merge-base', 'origin/main', 'HEAD').decode().strip()
-        patch = git('diff', '--binary', '--no-ext-diff', base, 'HEAD')
-        if remote and base == git('rev-parse', 'HEAD').decode().strip():
+            base = git('merge-base', 'origin/main', head).decode().strip()
+        patch = git('diff', '--binary', '--no-ext-diff', base, head)
+        if remote and base == head:
             # A previously accepted push may have lost its acknowledgement.
             # Permit the no-op retry so its existing Pages dispatch still runs.
             print('::notice title=Main publication::No unpublished commits; permitting no-op push confirmation')
@@ -107,10 +110,11 @@ def main():
     parser.add_argument('--writer', required=True)
     parser.add_argument('--phase', choices=['stage', 'push'], required=True)
     parser.add_argument('--target', default='main')
+    parser.add_argument('--head', default='HEAD', help='commit a push publishes (push phase)')
     args = parser.parse_args()
     if not args.writer.replace('-', '').isalnum():
         parser.error('writer must contain only letters, digits and hyphens')
-    return check(args.writer, args.phase, args.target)
+    return check(args.writer, args.phase, args.target, args.head)
 
 
 if __name__ == '__main__':

@@ -177,4 +177,129 @@ class RetentionTest(unittest.TestCase):
         self.assertEqual(git(self.remote,'show','main:candidate'),'old')
 
 
+
+# JEG-1364: main's JEG-1206 publish path builds the publication in a scratch
+# worktree and pushes it by refspec. The guard must stage before the candidate
+# commit, and the scratch push must go through release_push and retain the
+# commit it would have published.
+PAUSE_ON_WORKTREE_SHIM = """#!/bin/bash
+if [ "$1" = "worktree" ] && [ "$2" = "add" ] && [ ! -e "$SHIM_STATE/fired" ]; then
+  touch "$SHIM_STATE/fired"
+  ( cd "$SHIM_OTHER" && {real} pull -q origin main && printf '%s' "$SHIM_CONTROL" > .github/main-write-pause.json \\
+    && {real} add -A && {real} -c user.name=t -c user.email=t@t commit -qm 'release pause' \\
+    && {real} push -q origin HEAD:main ) >/dev/null 2>&1
+fi
+exec {real} "$@"
+"""
+
+
+def active_control():
+    from datetime import timedelta
+    now = datetime.now(timezone.utc)
+    return json.dumps({'paused': True, 'started_at': (now - timedelta(minutes=1)).isoformat(),
+                       'expires_at': (now + timedelta(hours=1)).isoformat(), 'reason': 'release'})
+
+
+class RebuildChainPublishTest(unittest.TestCase):
+    def commit_step(self):
+        from tests.test_rebuild_chain_workflow import COMMIT, WORKFLOW, find_step
+        return script_of(find_step(WORKFLOW, COMMIT))
+
+    def test_every_main_push_is_guarded_and_stage_precedes_the_commit(self):
+        script = self.commit_step()
+        define = script.index('release_push() {')
+        body = script[define:script.index('\n}', define)]
+        pushes = [m.start() for m in re.finditer(r'\bgit(?:\s+-C\s+(?:"[^"]*"|\S+))?\s+push\b', script)]
+        self.assertEqual(len(pushes), 1, 'only release_push itself may run git push')
+        self.assertIn(script[pushes[0]:pushes[0] + 8], body)
+        self.assertIn('release_push origin "$publication:refs/heads/main"', script)
+        self.assertIn('--head "${publication:-HEAD}"', script)
+        stage = script.index('release_guard stage')
+        self.assertLess(stage, script.index('git commit -m "$MESSAGE"'))
+        self.assertLess(stage, script.index('git worktree add'))
+        self.assertLess(stage, script.index('git -C "$pub/tree" commit'))
+
+    def scenario(self, control_at):
+        import shutil
+        import sys
+        from tests.test_rebuild_chain_workflow import (
+            BASELINE, COMMIT, FIXTURE, HEALTH, SYNC_OK, WORKFLOW, run_script, write)
+        real = shutil.which('git')
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            remote, work, other = td / 'remote.git', td / 'work', td / 'other'
+            git(td, 'init', '-q', '--bare', '-b', 'main', str(remote))
+            git(td, 'clone', '-q', str(remote), str(work))
+            git(work, 'checkout', '-q', '-b', 'main')
+            for rel, content in {**BASELINE, '.github/main-write-pause.json': '{"paused":false}'}.items():
+                write(work, rel, content)
+            git(work, 'add', '-A')
+            git(work, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'baseline')
+            git(work, 'push', '-q', '-u', 'origin', 'main')
+            base = git(work, 'rev-parse', 'HEAD')
+            git(td, 'clone', '-q', str(remote), str(other))
+            # health-artifacts moves main meanwhile: the publication keeps main's
+            # report, so it differs from this run's candidate commit.
+            moves = {HEALTH: 'MAIN-HEALTH'}
+            if control_at == 'stage':
+                moves['.github/main-write-pause.json'] = active_control()
+            for rel, content in moves.items():
+                write(other, rel, content)
+            git(other, 'add', '-A')
+            git(other, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'main moved')
+            git(other, 'push', '-q', 'origin', 'main')
+            moved = git(other, 'rev-parse', 'HEAD')
+            for rel, content in {FIXTURE: 'NEW', 'output/comparison-chain-status.json': 'GREEN',
+                                 HEALTH: 'RUN-HEALTH'}.items():
+                write(work, rel, content)
+            shim, state = td / 'shim', td / 'state'
+            shim.mkdir(); state.mkdir()
+            (shim / 'git').write_text(PAUSE_ON_WORKTREE_SHIM.format(real=real))
+            (shim / 'git').chmod(0o755)
+            out = td / 'gh_out.txt'
+            env = {'PATH': f'{shim}:{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin',
+                   'GITHUB_OUTPUT': str(out), 'GITHUB_STEP_SUMMARY': str(td / 'summary.md'),
+                   'CHAIN_OUTCOME': 'success', 'CHAIN_ATTEMPT': '1', 'MAX_CHAIN_ATTEMPTS': '3',
+                   'BAKE_PLAYERS': 'false', 'SHIM_STATE': str(state), 'SHIM_OTHER': str(other),
+                   'SHIM_CONTROL': active_control() if control_at == 'push' else ''}
+            if control_at == 'stage':
+                (state / 'fired').touch()
+            sync = run_script(WORKFLOW, SYNC_OK, work, env)
+            self.assertEqual(sync.returncode, 0, sync.stdout + sync.stderr)
+            r = run_script(WORKFLOW, COMMIT, work, env)
+            retained = work / 'output/release-publications/rebuild-chain-1'
+            files = {p.name: p.read_text() for p in retained.glob('*')} if retained.exists() else {}
+            return {'rc': r.returncode, 'log': r.stdout + r.stderr, 'base': base, 'moved': moved,
+                    'main_fixture': git(remote, 'show', f'main:{FIXTURE}'),
+                    'main_log': git(remote, 'log', '--format=%s', f'{base}..main').splitlines(),
+                    'outputs': out.read_text() if out.exists() else '', 'retained': files,
+                    'worktrees': git(work, 'worktree', 'list').splitlines()}
+
+    def assertDeferred(self, r):
+        self.assertEqual(0, r['rc'], r['log'])
+        self.assertEqual('OLD', r['main_fixture'], 'nothing may publish during a pause')
+        self.assertNotIn('Automated comparison rebuild (GitHub Actions)', r['main_log'])
+        self.assertIn('pushed=false', r['outputs'])
+        self.assertIn('publication_deferred=true', r['outputs'])
+        self.assertNotIn('pushed=true', r['outputs'])
+        self.assertEqual(1, len(r['worktrees']), 'the scratch worktree is cleaned up')
+
+    def test_pause_at_stage_defers_before_the_candidate_commit(self):
+        r = self.scenario('stage')
+        self.assertDeferred(r)
+        self.assertIn('stage.patch', r['retained'])
+        self.assertIn('+NEW', r['retained']['stage.patch'])
+        self.assertNotIn('push.patch', r['retained'])
+
+    def test_pause_at_push_retains_the_scratch_publication(self):
+        r = self.scenario('push')
+        self.assertDeferred(r)
+        patch, meta = r['retained']['push.patch'], json.loads(r['retained']['push.json'])
+        self.assertIn('+NEW', patch)
+        # The retained patch is what would have published: main's newer health
+        # report is kept, so this run's own report is not in it.
+        self.assertNotIn('RUN-HEALTH', patch)
+        self.assertEqual(r['moved'], meta['base'])
+
+
 if __name__=='__main__': unittest.main()
