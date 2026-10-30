@@ -110,3 +110,20 @@ when nothing visible matches or focus did not land. No values, data contracts, s
 6. Gate: `tests.test_jeg1265_values_fieldnotes` stays as is; turn `test_page_does_not_load_it_yet` into a check that the
    page loads it, and add a contract render test on the real page comparing the component's cells to `#v2Table` cell text
    for the default and one sorted state.
+
+## 2026-10-30 - Codex review finding (P2): phone sort controls
+
+Finding on head 2bab589: at 719px and below the table headers are hidden, so phones had no way to change the sort.
+Fix: a phone-only "Sort by" select and an order button above the cards (hidden at 720px and up). Both hand on the
+header's own `next` sort (`nextSort`, the page's click rule), so a phone sort is exactly a header click: picking a column
+gives its first-click direction (A to Z for text, highest first otherwise), and the order button reverses the active
+column. The rank column is not offered, as it has no header button. No new sort rule, math or contract.
+
+### Verified (check named)
+- jsdom smoke (scratch): Sort by starts on the ranking series; Player gives name asc, then the order button gives desc;
+  ESPN equals the header's `next`; reversing the default gives the ranking series ascending; focus stays on each control.
+- `tests.test_jeg1265_values_fieldnotes` OK (17/17 checks, 18/18 mutations), plus monitoring coverage and v2 tokens.
+
+### Claimed, not confirmed
+- New render test `test_phone_sort_matches_header_sort` (320 and 390, card order equals the desktop header-click order,
+  focus kept, missing sorts last, layout fits) runs in the PR workflow; this container has no browser.

@@ -137,7 +137,7 @@
       return {...base, state: "mixed", heading: "These values are not shown together.",
         text: "Some columns are weekly and some are rest of season. Pick one horizon to see its values.", reasons: horizons};
     }
-    base.head = cols.map(col => ({id: col.id, kind: col.kind, label: col.label, method: col.method || "", group: col.group || "",
+    base.head = cols.map(col => ({id: col.id, kind: col.kind, label: col.label, method: col.method || "", group: col.group || "", text: Boolean(col.text),
       source: col.source || null, isRank: col.kind === "value" && col.source === base.rankKey, sortable: col.kind !== "rank",
       ariaSort: ariaSort(c.sort || null, base.rankKey, col), unavailable: col.unavailable || null,
       next: col.kind === "rank" ? null : nextSort(c.sort || null, base.rankKey, col)}));
@@ -243,6 +243,29 @@
     }));
   }
 
+  // Phones have no column headers, so the same sorts are offered here: "Sort by" picks a column and the order button
+  // reverses it. Both hand on the header's own next sort (nextSort), so a phone sort is exactly a header click.
+  function phoneSort(vm, on) {
+    const cols = vm.head.filter(h => h.sortable);
+    const active = vm.head.find(h => h.ariaSort);
+    if (!cols.length || !active || !active.sortable) return null;
+    const by = el("select", {id: "vfSortBy", "data-focus": "sortBy"},
+      ...cols.map(h => el("option", {value: h.id, selected: h.id === active.id,
+        text: h.method && cols.some(o => o !== h && o.label === h.label) ? `${h.label} (${h.method})` : h.label})));
+    by.addEventListener("change", () => {
+      const h = cols.find(c => c.id === by.value);
+      if (h && on.sort) on.sort(h.next);
+    });
+    const asc = active.ariaSort === "ascending";
+    const order = active.text ? (asc ? "A to Z" : "Z to A") : (asc ? "Lowest first" : "Highest first");
+    const flip = el("button", {type: "button", class: "vf-btn vf-quiet", id: "vfSortDir", "data-focus": "sortDir",
+      "aria-label": `Order: ${order}. Reverse the order`, text: order});
+    flip.addEventListener("click", () => on.sort && on.sort(active.next));
+    return el("div", {class: "vf-phonesort"},
+      el("label", {class: "vf-field", for: "vfSortBy"}, el("span", {class: "vf-label", text: "Sort by"}), by),
+      el("div", {class: "vf-field"}, el("span", {class: "vf-label", "aria-hidden": "true", text: "Order"}), flip));
+  }
+
   function controls(vm, on) {
     const search = el("input", {type: "search", id: "vfSearch", "data-focus": "search", value: vm.filters.search,
       placeholder: "Search players…", autocomplete: "off"});
@@ -305,7 +328,7 @@
       clear.addEventListener("click", () => handlers.clear && handlers.clear());
       card.append(el("div", {class: "vf-empty"}, el("p", {}, el("b", {text: vm.heading})), el("p", {class: "vf-meta", text: vm.text}), clear));
     } else {
-      card.append(table(vm, handlers), cards(vm, handlers));
+      card.append(...[table(vm, handlers), phoneSort(vm, handlers), cards(vm, handlers)].filter(Boolean));
       if (vm.more) {
         const more = el("button", {type: "button", class: "vf-btn", "data-focus": "more", text: "Show more players"});
         more.addEventListener("click", () => handlers.showMore && handlers.showMore());

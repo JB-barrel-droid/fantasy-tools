@@ -295,6 +295,49 @@ class ValuesFieldnotesRenderTest(unittest.TestCase):
         self.assertEqual(last, "syn-04", "missing USA Today value sorts last")
         page.context.close()
 
+    def test_phone_sort_matches_header_sort(self):
+        """Phones have no column headers: Sort by and the order button give the same sorts a header click gives."""
+        def keys(page, sel):
+            return page.evaluate(f"[...document.querySelectorAll('{sel}')].map(n => n.dataset.playerKey)")
+        desk = self.open(state("ready"), 1280)
+        self.assertFalse(desk.is_visible("#vfSortBy"), "desktop sorts from the headers")
+        desk.locator('button[data-focus="sort:name"]').click()
+        name_asc = keys(desk, ".vf-table tbody tr")
+        desk.locator('button[data-focus="sort:name"]').click()
+        name_desc = keys(desk, ".vf-table tbody tr")
+        desk.locator('button[data-focus="sort:fantasycalc"]').click()
+        fc_desc = keys(desk, ".vf-table tbody tr")
+        desk.context.close()
+        for width in (390, 320):
+            with self.subTest(width=width):
+                page = self.open(state("ready"), width)
+                self.assertTrue(page.is_visible("#vfSortBy"))
+                self.assertEqual(page.input_value("#vfSortBy"), "ddf_value")
+                self.assertEqual(page.inner_text("#vfSortDir"), "Highest first")
+                self.assertEqual(page.evaluate("document.querySelector('label[for=vfSortBy]').textContent.trim()"), "Sort by")
+                page.focus("#vfSortBy")
+                page.select_option("#vfSortBy", "name")
+                self.assertEqual(page.evaluate("document.activeElement.id"), "vfSortBy", "focus stays on Sort by")
+                self.assertEqual(page.inner_text("#vfSortDir"), "A to Z")
+                self.assertEqual(keys(page, ".vf-card"), name_asc, "same order as a header click")
+                page.focus("#vfSortDir")
+                page.keyboard.press("Enter")
+                self.assertEqual(page.evaluate("document.activeElement.id"), "vfSortDir", "focus stays on the order button")
+                self.assertEqual(page.inner_text("#vfSortDir"), "Z to A")
+                self.assertEqual(keys(page, ".vf-card"), name_desc)
+                page.focus("#vfSortBy")
+                page.select_option("#vfSortBy", "fantasycalc")
+                self.assertEqual(page.inner_text("#vfSortDir"), "Highest first")
+                self.assertEqual(keys(page, ".vf-card"), fc_desc)
+                page.focus("#vfSortDir")
+                page.keyboard.press("Enter")
+                self.assertEqual(page.inner_text("#vfSortDir"), "Lowest first")
+                page.locator('button[data-focus="more"]').click()
+                self.assertEqual(keys(page, ".vf-card")[-1], "syn-12", "missing FantasyCalc value sorts last")
+                self.assert_layout(page, f"phone-sort@{width}")
+                self.shot(page, f"phone-sort-{width}")
+                page.context.close()
+
     def test_keyboard_search_position_and_clear(self):
         for width in (1280, 320):
             with self.subTest(width=width):

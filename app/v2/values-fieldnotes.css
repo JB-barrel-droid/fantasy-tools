@@ -88,6 +88,8 @@
 
 /* Phones: cards instead of the table. */
 .values-fieldnotes .vf-cards { display: none; list-style: none; margin: 0; padding: 0; }
+.values-fieldnotes .vf-phonesort { display: none; flex-wrap: wrap; gap: var(--ddf-space-2, 8px) var(--ddf-space-3, 16px); align-items: end; margin: 0 0 var(--ddf-space-2, 8px); }
+.values-fieldnotes .vf-phonesort .vf-field:first-child { flex: 1 1 180px; }
 .values-fieldnotes .vf-card { border-top: 1px solid var(--ddf-line, var(--v2-border)); padding: 12px 0; display: grid; gap: 6px; }
 .values-fieldnotes .vf-card:first-child { border-top: 0; }
 .values-fieldnotes .vf-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; }
@@ -105,5 +107,6 @@
   .values-fieldnotes h1 { font-size: var(--ddf-type-emoji, 28px); }
   .values-fieldnotes .vf-tablewrap { display: none; }
   .values-fieldnotes .vf-cards { display: block; }
+  .values-fieldnotes .vf-phonesort { display: flex; }
   .values-fieldnotes .vf-field, .values-fieldnotes .vf-search, .values-fieldnotes .vf-rankby { flex: 1 1 100%; }
 }
