@@ -386,6 +386,39 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 
 ---
 
+### Codex source-health release candidate (2026-10-28, JEG-1180 / JEG-1200)
+
+Branch `be/jeg-1180-1200-source-health-rc` combines the reviewed heads of
+#1022 (`0ebd8d0f`) and #1042 (`9ebbd360`) on main `3919f998`, in that order.
+The merge had no conflicts. The candidate adds one cross-path regression:
+when a chart's Week 8 label disagrees with served Week 7 history, the
+freshness report uses Week 7 and stays publishable, while the source alert
+reports a late Week 8 chart after Wednesday noon CT. At Thursday noon CT the
+freshness state becomes stale without failing publication. The combined
+source-health suite passed 207 tests; the focused integration/shard guard
+passed 72 tests. The new test is in test-core shard 3.
+
+Next: review the draft release candidate and its own preview/render CI. The
+parent owns any latest-main integration before release, merges, deploys and
+live verification. #1022 and #1042 remain draft and open; this branch changes
+no source isolation, rebuild workflow, main write guard, or Supabase code.
+Log: `docs/claude-log/2026-10-28-source-health-rc.md`.
+
+### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.
+Main `1bd85f76` is merged into the branch. The review found a first-sync bug:
+freshness read the old history index before sync rebuilt it, so kept Week 7
+inputs labelled Week 8 could be reported current. History now rebuilds first.
+The new first-sync regression failed before the fix (`8 != 7`) and passes;
+45 focused freshness/week/sync tests pass. Log:
+`docs/claude-log/2026-10-28-jeg1180-first-sync.md`.
+
+Next: independent review and CI on the pushed head, then the parent coordinates
+serial merge and live verification. The earlier PASS at `487ddaa` below is
+superseded by this repair. #1042 follows #1022. This lane does not merge PRs,
+deploy, change Supabase, or edit JEG-1178 UI / JEG-1204 matrix work.
+
 ### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
 
 Stopped at 97% usage. State, verified 14:10 UTC:
@@ -425,6 +458,23 @@ Stopped at 97% usage. State, verified 14:10 UTC:
 - Exact next step: merge #1022 on green, then #1042, each checked live; then
   build #1052 (value math, Jeremy approved) with the impact list in
   /mnt/project-files/ddf/ or the PR body.
+
+### Codex source-health repair: JEG-1200 / #1042 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1200-source-late`.
+Main `1bd85f76` is merged into the branch. The earlier PASS at `6c5f589` is
+superseded: review reproduced successful exit on failed GitHub alert delivery
+and false resolution when served-week metadata was missing. Both now fail the
+monitoring run; incomplete publication checks leave alerts unchanged. Ordinary
+source lateness remains warning-only. Wednesday noon CT is the week deadline.
+32 focused lateness tests pass, including missing/null/malformed/partial
+metadata and network/HTTP failures. Log:
+`docs/claude-log/2026-10-28-jeg1200-monitor-failures.md`.
+
+Next: independent review and CI on the pushed head, then parent-controlled
+merge after #1022 and verification of the first scheduled main run. No
+Supabase changes, PR merges or deploys were performed by this lane. JEG-1178
+owns freshness-panel copy; JEG-1204 matrix implementation remains separate.
 
 ## Active agents and automation (keep current)
 
