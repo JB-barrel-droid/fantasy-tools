@@ -12,6 +12,8 @@ from __future__ import annotations
 import csv
 import json
 import re
+import shutil
+import subprocess
 import sys
 import unittest
 from pathlib import Path
@@ -143,6 +145,32 @@ class SharedSpellingsAreHeld(unittest.TestCase):
             rows, held = bps.build()
         self.assertEqual([(r["player_key"], r["source_player_name"]) for r in rows], [(3, "Al Jones")])
         self.assertEqual(sorted(r["player_key"] for r in held), [1, 2])
+
+
+# The stored spellings the page's roster paste or the chat connector can't land
+# on their player today (2026-10-30, JEG-1387): (source, spelling) -> why.
+# A fixed gap may leave this list; a new miss fails.
+MATCHER_KNOWN_GAPS = {
+    ("sleeper", "Mitch Tinsley"): "both pick 4660, the duplicate row JEG-1351 deletes",
+    ("sleeper", "Zonovan Knight"): "canonical 'Bam Knight'; curated alias not seen by JS/TS",
+    ("sleeper", "Kenny Gainwell"): "chat only: names.ts has no nickname map (paste's NICK_MAP has it)",
+    ("sleeper", "Michael Woods"): "chat only: canonical 'Mike Woods', no nickname map in names.ts",
+}
+
+
+@unittest.skipIf(shutil.which("node") is None, "node not installed")
+class PasteAndChatMatchers(unittest.TestCase):
+    """roster-paste.js and mcp/names.ts against every stored spelling of a priced player."""
+
+    def test_only_the_known_gaps_miss(self):
+        out = subprocess.run(["node", "--experimental-strip-types", "--no-warnings",
+                              str(ROOT / "tests/node/platform_spellings_matchers_check.mjs")],
+                             capture_output=True, text=True, timeout=120, cwd=str(ROOT))
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+        result = json.loads(out.stdout.strip().splitlines()[-1])
+        self.assertGreater(result["checked"], 500)
+        new = [m for m in result["misses"] if (m["source"], m["name"]) not in MATCHER_KNOWN_GAPS]
+        self.assertEqual(new, [], "a stored platform spelling no longer reaches its player")
 
 
 if __name__ == "__main__":

@@ -16,6 +16,12 @@ Supabase change.
   public.players has 4,702 rows, the snapshot count; every row's key is in the
   snapshot.
 - No row points at 4653, 4655 or 4660 (the rows JEG-1351 deletes).
+- `tests/node/platform_spellings_matchers_check.mjs` (run by
+  `tests.test_platform_spellings.PasteAndChatMatchers`): of 858 stored spellings
+  for priced players, roster-paste.js lands 856 and mcp/names.ts 854 (851 exact,
+  3 fuzzy) on the right player. The 4 misses are pinned as known gaps (Mitch
+  Tinsley -> 4660 in both; Zonovan Knight in both; Kenny Gainwell and Michael
+  Woods in chat only). Removing a pinned gap makes the test fail (checked).
 
 ### Claimed, not confirmed
 - The migration has not been run on any database, not even a branch. Its
