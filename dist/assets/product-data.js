@@ -287,10 +287,6 @@
         espn_projects_zero: espnProjectsZero(player),
         kdst_excluded_from_chart: isKdst,
         espn_ppg: player.espn_ppg || null,
-        // JEG-1199: ESPN's rest-of-season total behind espn_ppg, shown on
-        // Values auditing as the publisher's own number. Read only; no value
-        // reads it.
-        espn_ros: player.espn_ros || null,
         rz_ppg: player.rz_ppg || null,
         cbsros_ppg: player.cbsros_ppg || null,
         ecr_ppg: player.ecr_ppg || null,
@@ -359,42 +355,6 @@
   // (it turns over after Monday Night Football), so use America/New_York when
   // Intl is available. window.TRADE_VALUE_TODAY (YYYY-MM-DD) overrides, as it
   // already does for curve-widget.js.
-  // The one wall-clock read on this page. window.TRADE_VALUE_NOW (an ISO instant) pins it for tests (JEG-1178).
-  function wallClock() {
-    const pinned = typeof window !== "undefined" ? Date.parse(window.TRADE_VALUE_NOW || "") : NaN;
-    if (Number.isFinite(pinned)) return new Date(pinned);
-    const instant = new Date();
-    return instant;
-  }
-
-  // JEG-1178 (JEG-1176): the stale deadline for sources still on the earlier week. True once Central time is past
-  // Thursday 12:00 of the content week `week` (the week most sources have moved to). A page pinned to a day
-  // (TRADE_VALUE_TODAY) with no pinned instant reads that day from midnight.
-  function pastThursdayNoon(week) {
-    if (!Number.isInteger(week) || week < 1) return false;
-    const thursday = new Date(CONTENT_WEEK_1_START_UTC + ((week - 1) * 7 + 2) * DAY_MS).toISOString().slice(0, 10);
-    let day;
-    let minutes;
-    const pinnedNow = typeof window !== "undefined" ? Date.parse(window.TRADE_VALUE_NOW || "") : NaN;
-    const pinnedDay = typeof window !== "undefined" && !Number.isFinite(pinnedNow) ? isoDay(window.TRADE_VALUE_TODAY) : null;
-    if (pinnedDay) {
-      day = pinnedDay;
-      minutes = 0;
-    } else {
-      try {
-        const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
-          timeZone: "America/Chicago", year: "numeric", month: "2-digit", day: "2-digit",
-          hour: "2-digit", minute: "2-digit", hourCycle: "h23",
-        }).formatToParts(wallClock()).map(part => [part.type, part.value]));
-        day = `${parts.year}-${parts.month}-${parts.day}`;
-        minutes = Number(parts.hour) * 60 + Number(parts.minute);
-      } catch (e) {
-        return false;
-      }
-    }
-    return day > thursday || (day === thursday && minutes > 12 * 60);
-  }
-
   function todayIsoDay(override) {
     const forced = isoDay(override !== undefined ? override
       : (typeof window !== "undefined" ? window.TRADE_VALUE_TODAY : null));
@@ -990,7 +950,6 @@
     // Contract v1.1 additive (JEG-432 R5/R1).
     getSourceFreshness,
     getPairRegistry,
-    pastThursdayNoon,
     // Transitional helpers (not contract surfaces).
     getPlayerByKey,
     getPlayerKeysBySourceId,
@@ -1021,7 +980,6 @@
     getPairRegistry,
     // Pure builders, exported for tests (no DOM, no fetch).
     contentWeekForDay,
-    pastThursdayNoon,
     sourceVintage,
     buildSourceFreshness,
     freshnessLabel,
