@@ -259,6 +259,18 @@ def _late_marker(rep: dict[str, Any]) -> str:
     return "<!-- late: " + ",".join(sorted(rep["late"])) + " -->"
 
 
+def _open_issues(repo: str, token: str, call, per_page: int = 100, max_pages: int = 50) -> list[dict]:
+    """Every open issue and pull request, following pages: the endpoint lists
+    pull requests too, so the alert can sit past the first page."""
+    out: list[dict] = []
+    for page in range(1, max_pages + 1):
+        rows = call("GET", f"/repos/{repo}/issues?state=open&per_page={per_page}&page={page}", token) or []
+        out += rows
+        if len(rows) < per_page:
+            return out
+    raise RuntimeError(f"more than {max_pages * per_page} open issues; cannot find the {LABEL} issue")
+
+
 def alert(rep: dict[str, Any], repo: str | None, token: str | None, now: datetime, call=None) -> str:
     """Open, comment on or close the source-late issue; returns what it did."""
     if rep.get("unknown_served_weeks"):
@@ -268,8 +280,7 @@ def alert(rep: dict[str, Any], repo: str | None, token: str | None, now: datetim
         return (f"dry run: would open or update the {LABEL} issue\n{body(rep)}" if late
                 else f"dry run: no source late; would close any open {LABEL} issue")
     call = call or _call
-    issues = call("GET", f"/repos/{repo}/issues?state=open&per_page=100", token) or []
-    issues = [i for i in issues if "pull_request" not in i and (
+    issues = [i for i in _open_issues(repo, token, call) if "pull_request" not in i and (
         i.get("title") == TITLE or LABEL in {(lb or {}).get("name") for lb in i.get("labels") or []})]
     issue = issues[0] if issues else None
     if not late:

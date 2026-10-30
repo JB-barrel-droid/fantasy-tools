@@ -224,6 +224,25 @@ class AlertTest(unittest.TestCase):
         self.assertEqual(sl.alert(rep, "o/r", "t", WED_1201_CT, gh), "closed #7")
         self.assertEqual(gh.calls[-1][2]["state"], "closed")
 
+    def test_finds_the_open_issue_past_the_first_page(self):
+        # The issues endpoint lists pull requests too; a full first page of
+        # them must not hide the alert and open a duplicate.
+        rep = self.rep("espn")
+        issue = {"number": 7, "title": sl.TITLE, "labels": [], "body": sl.body(rep) + "\n" + sl._late_marker(rep),
+                 "updated_at": (WED_1201_CT - timedelta(hours=2)).isoformat()}
+        prs = [{"number": 100 + n, "title": "a pull request", "pull_request": {}} for n in range(100)]
+        pages = {1: prs, 2: [issue]}
+        calls = []
+
+        def gh(method, path, token, payload=None):
+            calls.append((method, path, payload))
+            if method == "GET":
+                return pages.get(int(path.rsplit("page=", 1)[1]), []) if "page=" in path else prs
+            return {"number": 8}
+
+        self.assertIn("#7 already open", sl.alert(rep, "o/r", "t", WED_1201_CT, gh))
+        self.assertNotIn("POST", [c[0] for c in calls])
+
     def test_dry_run_without_a_token(self):
         self.assertIn("dry run", sl.alert(self.rep("espn"), None, None, WED_1201_CT))
 
