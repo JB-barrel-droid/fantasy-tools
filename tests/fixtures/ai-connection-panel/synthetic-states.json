@@ -1,0 +1,24 @@
+{
+  "_about": "Synthetic contexts for the AI connection panel (JEG-1266). Mock capabilities only: not a live check of the page or of any chat connection. The link is a made-up address.",
+  "fixture": {"kind": "synthetic", "label": "Mock capabilities for a preview: not a live check of this page or of any chat connection."},
+  "link": "https://example.invalid/fantasy-tools/#compare-trade?v=1&scoring=half_ppr&teams=12&give=1&get=2",
+  "states": {
+    "ready": {"capabilities": {"setupGuide": true, "linkCodec": true, "clipboard": true},
+              "share": {"league": "saved", "work": ["a trade (1 for 1)"]}},
+    "default-league": {"capabilities": {"setupGuide": true, "linkCodec": true, "clipboard": true},
+                       "share": {"league": "default", "work": ["the target Synthetic WR"]}},
+    "setup-unavailable": {"capabilities": {"setupGuide": false, "linkCodec": true, "clipboard": true},
+                          "share": {"league": "saved", "work": []}},
+    "setup-unknown": {"capabilities": {"setupGuide": null, "linkCodec": true, "clipboard": true},
+                      "share": {"league": "saved", "work": []}},
+    "link-unavailable": {"capabilities": {"setupGuide": true, "linkCodec": false, "clipboard": true}, "share": null},
+    "link-unknown": {"capabilities": {"setupGuide": true, "linkCodec": null, "clipboard": null}, "share": null},
+    "clipboard-off": {"capabilities": {"setupGuide": true, "linkCodec": true, "clipboard": false},
+                      "share": {"league": "saved", "work": []}},
+    "missing-league": {"capabilities": {"setupGuide": true, "linkCodec": true, "clipboard": true},
+                       "share": {"league": null, "work": []}},
+    "claims-connected": {"capabilities": {"setupGuide": true, "linkCodec": true, "clipboard": true, "connected": true},
+                         "connection": "connected", "connected": true,
+                         "share": {"league": "saved", "work": ["a trade (1 for 1)"]}}
+  }
+}

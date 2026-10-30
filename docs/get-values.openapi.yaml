@@ -29,6 +29,13 @@ paths:
           in: query
           description: 1 if the league has a superflex slot, else 0.
           schema: { type: integer, enum: [0, 1], default: 0 }
+        - name: week
+          in: query
+          description: >
+            Optional NFL week to price. Leave it out for the site's default week. During a
+            week transition the newest week and the week before can be asked for; a week
+            with no published sources returns 400 with the weeks that can be asked for.
+          schema: { type: integer, minimum: 1, maximum: 22 }
       responses:
         "200":
           description: Values for the requested league settings
@@ -55,8 +62,20 @@ paths:
                         pos: { type: string }
                         value: { type: number }
                         tier: { type: integer }
+                  week:
+                    type: [integer, "null"]
+                    description: The week these values are for.
+                  default_week: { type: [integer, "null"] }
+                  weeks:
+                    type: array
+                    description: The weeks that can be asked for.
+                    items: { type: integer }
                   sources_included:
                     type: array
+                    items: { type: string }
+                  missing_sources:
+                    type: array
+                    description: Sources that have not published this week; left out, not filled from another week.
                     items: { type: string }
                   sources_excluded:
                     type: array
@@ -65,5 +84,5 @@ paths:
                       properties:
                         key: { type: string }
                         reason: { type: string }
-        "400": { description: Invalid scoring or teams }
+        "400": { description: "Invalid scoring, teams or week, or a week with no published sources (code week_unavailable)" }
         "429": { description: Rate limited, retry in 60 seconds }

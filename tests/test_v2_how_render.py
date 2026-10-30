@@ -307,7 +307,7 @@ class HowValuesRenderTest(unittest.TestCase):
         shell = SHELL.read_text(encoding="utf-8")
         v2 = V2_JS.read_text(encoding="utf-8")
         broken = {
-            "bare VORP": {"shell_html": shell.replace("<h2>Rescaled trade charts</h2>", "<h2>Rescaled VORP charts</h2>", 1)},
+            "bare VORP": {"shell_html": shell.replace("<h2>The Market, by chart</h2>", "<h2>The Market, by VORP chart</h2>", 1)},
             "hard-coded number": {"shell_html": shell.replace(
                 "<b>Zero is real.</b>", "<b>Zero is real.</b> About 30 players per position clear the line.", 1)},
             "league line hard-coded": {"v2_js": v2.replace(
@@ -317,7 +317,7 @@ class HowValuesRenderTest(unittest.TestCase):
                 '$("v2HowWeights").textContent = ["QB", "RB", "WR", "TE"]',
                 '$("v2HowWeights").textContent = "QB 6.1% · RB 44.2% · WR 43.6% · TE 6.1%"; void ["QB", "RB", "WR", "TE"]', 1)},
             "overclaim copy back": {"shell_html": shell.replace(
-                "Our estimate of what a player is worth:", "Fair value: the price a player is really worth:", 1)},
+                "What a player is worth in your league:", "Fair value: the price a player is really worth:", 1)},
             "no estimated gloss": {"v2_js": v2.replace("estimatedExplained = true;", "estimatedExplained = true; return;", 1)},
             # JEG-861 (#821): the stamp carries the data week; a calendar/hard-coded week is a wrong number.
             "stamp week hard-coded": {"v2_js": v2.replace(

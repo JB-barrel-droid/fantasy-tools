@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<!--
+  Private component preview: the loaded-league status header and collapsed summary (JEG-1233).
+  Not the live site and not published (pipelines/build_v2_page.py copies a named list of app/v2 files; this folder is
+  not in it). Open this file in a browser, or serve the repo root and open /app/v2-concept/league-status.html.
+  The component is app/v2/league-status.js + .css, the same files the live page will load. Here its --ls-* tokens are
+  mapped onto the Fieldnotes concept palette (app/v2-concept/concept.css, docs/design/2026-10-direction.md).
+  Every state below runs the real workspace store in memory. Team names are samples; nothing here is a value.
+  ?theme=dark for dark mode; ?shot=1 turns motion off for screenshots.
+-->
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>League status: component preview</title>
+  <link rel="stylesheet" href="../v2/league-status.css">
+  <style>
+    @font-face { font-family: "Fraunces"; src: url("fonts/fraunces-latin.woff2") format("woff2"); font-weight: 100 900; font-display: swap; }
+    :root { --canvas: #F6F3EC; --surface: #FFFCF8; --ink: #1A2824; --muted: #52635C; --line: #E3DCD0; --action: #0C7A56;
+      --warn-bg: #F8EFE1; --warn-ink: #7A4510; --bad-bg: #F8E8EA; --bad-ink: #8C2434; color-scheme: light; }
+    html[data-theme="dark"] { --canvas: #101614; --surface: #18211D; --ink: #E8F2ED; --muted: #8FA39B; --line: #2C3A34; --action: #6EE4B8;
+      --warn-bg: #3A2A16; --warn-ink: #F6D7AE; --bad-bg: #3A2228; --bad-ink: #F6C2CA; color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--canvas); color: var(--ink); font: 14px/1.45 Inter, "Source Sans 3", system-ui, sans-serif; }
+    main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 48px; }
+    h1 { font-family: "Fraunces", Georgia, serif; font-size: 28px; font-weight: 600; margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 24px; max-width: 70ch; }
+    .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 480px), 1fr)); }
+    .state > h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 8px; font-weight: 600; }
+    .v2-ls { --ls-surface: var(--surface); --ls-ink: var(--ink); --ls-muted: var(--muted); --ls-line: var(--line); --ls-focus: var(--action);
+      --ls-warn-bg: var(--warn-bg); --ls-warn-ink: var(--warn-ink); --ls-bad-bg: var(--bad-bg); --ls-bad-ink: var(--bad-ink);
+      --ls-title-font: "Fraunces", Georgia, serif; }
+    .stub { border: 1px dashed var(--line); border-radius: 8px; padding: 8px 12px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .stub button, .actions button { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+    .stub button:focus-visible, .actions button:focus-visible { outline: 2px solid var(--action); outline-offset: 2px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    html.is-shot .v2-ls-caret { transition: none; }
+  </style>
+  <script>
+    (function () {
+      var q = new URLSearchParams(location.search);
+      if (q.get("theme") === "dark") document.documentElement.setAttribute("data-theme", "dark");
+      if (q.get("shot") === "1") document.documentElement.classList.add("is-shot");
+    })();
+  </script>
+</head>
+<body>
+<main>
+  <h1>League status</h1>
+  <p class="lead">Private preview for JEG-1233. Each card is the same component reading a sample league from the real workspace store, kept in memory here. It says only what the store holds: teams, roster rows, the starred team, where this visit's league came from and whether it is saved on this device.</p>
+  <div class="grid" id="states"></div>
+</main>
+<script src="../v2/workspace.js"></script>
+<script src="../v2/league-status.js"></script>
+<script>
+(function () {
+  "use strict";
+  var W = window.TradeValueWorkspace, S = window.TradeValueLeagueStatus;
+  var grid = document.getElementById("states");
+  function memory(initial) {
+    var data = new Map(Object.entries(initial || {}));
+    return {getItem: function (k) { return data.has(k) ? data.get(k) : null; }, setItem: function (k, v) { data.set(k, String(v)); }, removeItem: function (k) { data.delete(k); }};
+  }
+  var POS = ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "RB", "WR", "QB", "TE", "WR", "RB", "K", "DEF"];
+  function league(name, teams) {
+    var ws = W.newWorkspace({name: name});
+    teams.forEach(function (t, i) {
+      var n = t.n === undefined ? 15 : t.n;
+      var entries = [];
+      for (var k = 0; k < n; k++) entries.push({key: (t.dupKeys ? "d" : "") + i + "-" + k, name: "Player " + (i + 1) + "." + (k + 1), pos: POS[k % POS.length]});
+      ws = W.ops.addTeam(ws, t.name, {entries: entries});
+    });
+    return ws;
+  }
+  var TWELVE = ["Glenview Gridiron", "Sunday Scaries", "Fourth and Long", "Waiver Wire Warriors", "The Bye Week", "Hail Mary Hopefuls",
+    "Red Zone Regulars", "Two Point Tries", "Fantasy Fumbles", "Bench Mob", "Taco Tuesday", "Late Round QBs"].map(function (n) { return {name: n}; });
+  function card(title, setup, opts) {
+    var wrap = document.createElement("section");
+    wrap.className = "state";
+    var h = document.createElement("h2");
+    h.textContent = title;
+    wrap.append(h);
+    grid.append(wrap);
+    var s = setup();
+    var stub = document.createElement("div");
+    stub.className = "stub";
+    stub.append("Existing league controls mount here, unchanged: ");
+    var b = document.createElement("button");
+    b.type = "button";
+    b.textContent = "Add team";
+    stub.append(b);
+    var mounted = S.mount(wrap, {store: s.store, id: opts.id, controls: stub, parsed: s.parsed, valuesReady: s.valuesReady, expanded: opts.expanded});
+    if (s.after) s.after(s.store, mounted);
+    if (opts.actions) {
+      var row = document.createElement("div");
+      row.className = "actions";
+      opts.actions.forEach(function (a) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.id = opts.id + "-" + a[0];
+        btn.textContent = a[1];
+        btn.addEventListener("click", function () { a[2](s.store, mounted); });
+        row.append(btn);
+      });
+      wrap.append(row);
+    }
+    return mounted;
+  }
+  function stored(ws) { var o = {}; o[W.STORAGE_KEY] = W.serialize(ws); return o; }
+  function storeFrom(initial, storageOff) { var st = W.createStore({storage: storageOff ? null : memory(initial), delay: 0}); st.load(); return st; }
+
+  card("No league yet", function () { return {store: storeFrom()}; }, {id: "lsEmpty"});
+
+  card("Saved on this device, team starred", function () {
+    var ws = league("Glenview Dynasty", TWELVE);
+    ws = W.ops.setMyTeam(ws, ws.teams[0].id);
+    return {store: storeFrom(stored(ws))};
+  }, {id: "lsSaved", actions: [
+    ["rename", "Rename my team", function (st) { st.update(function (w) { return W.ops.renameTeam(w, w.myTeamId, "Glenview Gridiron II"); }, "rename"); }],
+    ["remove", "Remove my team", function (st) { st.update(function (w) { return W.ops.removeTeam(w, w.myTeamId); }, "remove"); }]
+  ]});
+
+  card("Folded (the reader closed it)", function () {
+    var ws = league("Glenview Dynasty", TWELVE);
+    ws = W.ops.setMyTeam(ws, ws.teams[3].id);
+    return {store: storeFrom(stored(ws))};
+  }, {id: "lsFolded", expanded: false});
+
+  card("Partial paste", function () {
+    var ws = league("Office league", TWELVE.slice(0, 10).concat([{name: "Late Adds", n: 0}]));
+    var parsed = {teams: ws.teams.map(function (t, i) { return {name: t.name, count: t.entries.length, unmatched: i === 2 ? ["J. Smth WR", "Jon Doe (IR)"] : [], unsure: i === 5 ? 1 : 0}; }), skipped: 0, source: "Read"};
+    return {store: storeFrom(), parsed: function () { return parsed; }, after: function (st, m) { st.replace(ws, "add"); m.setOrigin("paste"); }};
+  }, {id: "lsPartial"});
+
+  card("Two teams with the same name", function () {
+    var ws = league("Family league", [{name: "Team Smith"}, {name: "team smith"}, {name: "Grandpa's Picks"}, {name: "The Twins"}]);
+    ws = W.ops.setMyTeam(ws, ws.teams[1].id);
+    return {store: storeFrom(stored(ws))};
+  }, {id: "lsDup"});
+
+  card("Starred team was removed", function () {
+    var ws = league("Glenview Dynasty", TWELVE);
+    ws = W.ops.setMyTeam(ws, ws.teams[0].id);
+    return {store: storeFrom(stored(ws)), after: function (st) { st.update(function (w) { return W.ops.removeTeam(w, w.myTeamId); }, "remove"); }};
+  }, {id: "lsRemoved"});
+
+  card("Values still loading", function () {
+    return {store: storeFrom(stored(league("Glenview Dynasty", TWELVE))), valuesReady: function () { return false; }};
+  }, {id: "lsLoading"});
+
+  card("This browser isn't saving", function () {
+    return {store: storeFrom(null, true), after: function (st) { st.replace(league("Shared league", TWELVE.slice(0, 8)), "replace"); }};
+  }, {id: "lsNoSave"});
+
+  card("Saved data could not be read", function () {
+    var o = {}; o[W.STORAGE_KEY] = "{not json";
+    return {store: storeFrom(o)};
+  }, {id: "lsError"});
+})();
+</script>
+</body>
+</html>

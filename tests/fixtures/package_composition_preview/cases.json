@@ -1,0 +1,2994 @@
+{
+ "fixture": {
+  "kind": "synthetic",
+  "label": "Synthetic league and trades written for the test. Not your league and not a live package."
+ },
+ "provenance": "Roster-check answers (adapter.validation, adapter.applied) recorded from the JEG-1262 helper app/v2/trade-package-constraints.js at PR 1116 head acf2e43; the preview test replays them through an injected mock adapter. Lineups are written by hand for the test and are not computed by anything.",
+ "league": {
+  "myTeamId": "a",
+  "teams": [
+   {
+    "id": "a",
+    "name": "Synthetic Team A",
+    "entries": [
+     {
+      "key": "s-a-qb1",
+      "name": "QB Able",
+      "pos": "QB",
+      "team": "SYN",
+      "slot": "QB"
+     },
+     {
+      "key": "s-a-rb1",
+      "name": "RB Alpha",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-a-rb2",
+      "name": "RB Amber",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-a-wr1",
+      "name": "WR Arrow",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-a-wr2",
+      "name": "WR Atlas",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-a-te1",
+      "name": "TE Anchor",
+      "pos": "TE",
+      "team": "SYN",
+      "slot": "TE"
+     },
+     {
+      "key": "s-a-fx1",
+      "name": "WR Aspen",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "FLEX"
+     },
+     {
+      "key": "s-a-bn1",
+      "name": "RB Aster",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "BN"
+     },
+     {
+      "key": "s-a-bn2",
+      "name": "WR Azure",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "BN"
+     },
+     {
+      "key": "x:s-a-k",
+      "name": "K Archer",
+      "pos": "K",
+      "team": "SYN",
+      "slot": "K"
+     }
+    ]
+   },
+   {
+    "id": "b",
+    "name": "Synthetic Team B",
+    "entries": [
+     {
+      "key": "s-b-qb1",
+      "name": "QB Baker",
+      "pos": "QB",
+      "team": "SYN",
+      "slot": "QB"
+     },
+     {
+      "key": "s-b-rb1",
+      "name": "RB Bravo",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-b-wr1",
+      "name": "WR Bishop",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-b-te1",
+      "name": "TE Birch",
+      "pos": "TE",
+      "team": "SYN",
+      "slot": "TE"
+     },
+     {
+      "key": "s-b-bn1",
+      "name": "RB Basil",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "BN"
+     }
+    ]
+   },
+   {
+    "id": "c",
+    "name": "Synthetic Team C",
+    "entries": [
+     {
+      "key": "s-c-qb1",
+      "name": "QB Cedar",
+      "pos": "QB",
+      "team": "SYN",
+      "slot": "QB"
+     },
+     {
+      "key": "s-c-rb1",
+      "name": "RB Charlie",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-c-wr1",
+      "name": "WR Comet",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-c-wr2",
+      "name": "WR Coral",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-c-bn1",
+      "name": "TE Cobalt",
+      "pos": "TE",
+      "team": "SYN",
+      "slot": "BN"
+     }
+    ]
+   },
+   {
+    "id": "d",
+    "name": "Synthetic Team D",
+    "entries": [
+     {
+      "key": "s-d-qb1",
+      "name": "QB Delta",
+      "pos": "QB",
+      "team": "SYN",
+      "slot": "QB"
+     },
+     {
+      "key": "s-d-rb1",
+      "name": "RB Dune",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-d-wr1",
+      "name": "WR Dart",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-d-te1",
+      "name": "TE Dawn",
+      "pos": "TE",
+      "team": "SYN",
+      "slot": "TE"
+     }
+    ]
+   },
+   {
+    "id": "e",
+    "name": "Synthetic Team E With An Extraordinarily Long Franchise Name That Keeps Going Past Any Reasonable Width",
+    "entries": [
+     {
+      "key": "s-e-rb1",
+      "name": "RB Evangelina-Maximiliana Wolfeschlegelsteinhausenbergerdorff Junior",
+      "pos": "RB",
+      "team": "SYN",
+      "slot": "RB"
+     },
+     {
+      "key": "s-e-wr1",
+      "name": "WR Bartholomew-Alexander Oyelaran-Featherstonehaugh The Third",
+      "pos": "WR",
+      "team": "SYN",
+      "slot": "WR"
+     },
+     {
+      "key": "s-e-qb1",
+      "name": "QB Echo",
+      "pos": "QB",
+      "team": "SYN",
+      "slot": "QB"
+     }
+    ]
+   }
+  ]
+ },
+ "cases": {
+  "valid_with_lineup": {
+   "about": "Three counterparties, unequal counts, a supplied before/after lineup.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    },
+    "validation": {
+     "ok": true,
+     "errors": [],
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    },
+    "applied": {
+     "ok": true,
+     "errors": [],
+     "league": {
+      "myTeamId": "a",
+      "teams": [
+       {
+        "id": "a",
+        "name": "Synthetic Team A",
+        "entries": [
+         {
+          "key": "s-a-qb1",
+          "name": "QB Able",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-a-rb1",
+          "name": "RB Alpha",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-rb2",
+          "name": "RB Amber",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-wr1",
+          "name": "WR Arrow",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-a-bn1",
+          "name": "RB Aster",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "x:s-a-k",
+          "name": "K Archer",
+          "pos": "K",
+          "team": "SYN",
+          "slot": "K"
+         },
+         {
+          "key": "s-b-rb1",
+          "name": "RB Bravo",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr1",
+          "name": "WR Comet",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-d-te1",
+          "name": "TE Dawn",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-d-wr1",
+          "name": "WR Dart",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "b",
+        "name": "Synthetic Team B",
+        "entries": [
+         {
+          "key": "s-b-qb1",
+          "name": "QB Baker",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-b-wr1",
+          "name": "WR Bishop",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-b-te1",
+          "name": "TE Birch",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-b-bn1",
+          "name": "RB Basil",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-wr2",
+          "name": "WR Atlas",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "c",
+        "name": "Synthetic Team C",
+        "entries": [
+         {
+          "key": "s-c-qb1",
+          "name": "QB Cedar",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-c-rb1",
+          "name": "RB Charlie",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr2",
+          "name": "WR Coral",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-c-bn1",
+          "name": "TE Cobalt",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-fx1",
+          "name": "WR Aspen",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "FLEX"
+         },
+         {
+          "key": "s-a-bn2",
+          "name": "WR Azure",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "BN"
+         }
+        ]
+       },
+       {
+        "id": "d",
+        "name": "Synthetic Team D",
+        "entries": [
+         {
+          "key": "s-d-qb1",
+          "name": "QB Delta",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-d-rb1",
+          "name": "RB Dune",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-te1",
+          "name": "TE Anchor",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         }
+        ]
+       },
+       {
+        "id": "e",
+        "name": "Synthetic Team E With An Extraordinarily Long Franchise Name That Keeps Going Past Any Reasonable Width",
+        "entries": [
+         {
+          "key": "s-e-rb1",
+          "name": "RB Evangelina-Maximiliana Wolfeschlegelsteinhausenbergerdorff Junior",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-e-wr1",
+          "name": "WR Bartholomew-Alexander Oyelaran-Featherstonehaugh The Third",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-e-qb1",
+          "name": "QB Echo",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         }
+        ]
+       }
+      ]
+     },
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    }
+   }
+  },
+  "valid_no_lineup": {
+   "about": "The same valid package with no lineup adapter: the final lineup is unavailable, and the helper's rosters (three recorded RB slots) are never shown as a lineup.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": null,
+    "validation": {
+     "ok": true,
+     "errors": [],
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    },
+    "applied": {
+     "ok": true,
+     "errors": [],
+     "league": {
+      "myTeamId": "a",
+      "teams": [
+       {
+        "id": "a",
+        "name": "Synthetic Team A",
+        "entries": [
+         {
+          "key": "s-a-qb1",
+          "name": "QB Able",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-a-rb1",
+          "name": "RB Alpha",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-rb2",
+          "name": "RB Amber",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-wr1",
+          "name": "WR Arrow",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-a-bn1",
+          "name": "RB Aster",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "x:s-a-k",
+          "name": "K Archer",
+          "pos": "K",
+          "team": "SYN",
+          "slot": "K"
+         },
+         {
+          "key": "s-b-rb1",
+          "name": "RB Bravo",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr1",
+          "name": "WR Comet",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-d-te1",
+          "name": "TE Dawn",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-d-wr1",
+          "name": "WR Dart",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "b",
+        "name": "Synthetic Team B",
+        "entries": [
+         {
+          "key": "s-b-qb1",
+          "name": "QB Baker",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-b-wr1",
+          "name": "WR Bishop",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-b-te1",
+          "name": "TE Birch",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-b-bn1",
+          "name": "RB Basil",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-wr2",
+          "name": "WR Atlas",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "c",
+        "name": "Synthetic Team C",
+        "entries": [
+         {
+          "key": "s-c-qb1",
+          "name": "QB Cedar",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-c-rb1",
+          "name": "RB Charlie",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr2",
+          "name": "WR Coral",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-c-bn1",
+          "name": "TE Cobalt",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-fx1",
+          "name": "WR Aspen",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "FLEX"
+         },
+         {
+          "key": "s-a-bn2",
+          "name": "WR Azure",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "BN"
+         }
+        ]
+       },
+       {
+        "id": "d",
+        "name": "Synthetic Team D",
+        "entries": [
+         {
+          "key": "s-d-qb1",
+          "name": "QB Delta",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-d-rb1",
+          "name": "RB Dune",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-te1",
+          "name": "TE Anchor",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         }
+        ]
+       },
+       {
+        "id": "e",
+        "name": "Synthetic Team E With An Extraordinarily Long Franchise Name That Keeps Going Past Any Reasonable Width",
+        "entries": [
+         {
+          "key": "s-e-rb1",
+          "name": "RB Evangelina-Maximiliana Wolfeschlegelsteinhausenbergerdorff Junior",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-e-wr1",
+          "name": "WR Bartholomew-Alexander Oyelaran-Featherstonehaugh The Third",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-e-qb1",
+          "name": "QB Echo",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         }
+        ]
+       }
+      ]
+     },
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    }
+   }
+  },
+  "duplicate_team": {
+   "about": "Two trades with the same counterparty.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-rb2"
+     ],
+     "receive": [
+      "s-b-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    },
+    "validation": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "duplicate_counterparty",
+       "tradeIndex": 2,
+       "teamId": "b",
+       "otherTradeIndex": 0,
+       "message": "trades 0 and 2 are both with b"
+      }
+     ],
+     "moves": []
+    },
+    "applied": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "duplicate_counterparty",
+       "tradeIndex": 2,
+       "teamId": "b",
+       "otherTradeIndex": 0,
+       "message": "trades 0 and 2 are both with b"
+      }
+     ]
+    }
+   }
+  },
+  "duplicate_player": {
+   "about": "One of my players offered in two trades, and one player listed twice in a side.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-wr2",
+      "s-a-bn2",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": null,
+    "validation": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "duplicate_player",
+       "key": "s-a-wr2",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 0,
+       "other": {
+        "tradeIndex": 0,
+        "side": "give",
+        "refIndex": 0
+       },
+       "message": "s-a-wr2 is used in trade 0 give and again in trade 1 give"
+      },
+      {
+       "code": "duplicate_player",
+       "key": "s-a-bn2",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 2,
+       "other": {
+        "tradeIndex": 1,
+        "side": "give",
+        "refIndex": 1
+       },
+       "message": "s-a-bn2 is used in trade 1 give and again in trade 1 give"
+      }
+     ],
+     "moves": []
+    },
+    "applied": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "duplicate_player",
+       "key": "s-a-wr2",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 0,
+       "other": {
+        "tradeIndex": 0,
+        "side": "give",
+        "refIndex": 0
+       },
+       "message": "s-a-wr2 is used in trade 0 give and again in trade 1 give"
+      },
+      {
+       "code": "duplicate_player",
+       "key": "s-a-bn2",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 2,
+       "other": {
+        "tradeIndex": 1,
+        "side": "give",
+        "refIndex": 1
+       },
+       "message": "s-a-bn2 is used in trade 1 give and again in trade 1 give"
+      }
+     ]
+    }
+   }
+  },
+  "unknown_ids": {
+   "about": "An unknown counterparty, an unknown player, a player on the wrong roster and a ref with no key: every error kept in order.",
+   "trades": [
+    {
+     "opponentId": "z",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-z-rb9"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-b-qb1",
+      {}
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": null,
+    "validation": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "unknown_counterparty",
+       "tradeIndex": 0,
+       "teamId": "z",
+       "message": "trade 0 names z, which is not in the league"
+      },
+      {
+       "code": "not_on_roster",
+       "key": "s-z-rb9",
+       "tradeIndex": 0,
+       "side": "receive",
+       "refIndex": 0,
+       "expectedTeamId": "z",
+       "actualTeamId": null,
+       "message": "s-z-rb9 is not on team z's roster"
+      },
+      {
+       "code": "not_on_roster",
+       "key": "s-b-qb1",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 0,
+       "expectedTeamId": "a",
+       "actualTeamId": "b",
+       "message": "s-b-qb1 is not on my roster (it is on team b)"
+      },
+      {
+       "code": "missing_player_key",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 1,
+       "message": "trade 1 give 1: no key"
+      }
+     ],
+     "moves": []
+    },
+    "applied": {
+     "ok": false,
+     "errors": [
+      {
+       "code": "unknown_counterparty",
+       "tradeIndex": 0,
+       "teamId": "z",
+       "message": "trade 0 names z, which is not in the league"
+      },
+      {
+       "code": "not_on_roster",
+       "key": "s-z-rb9",
+       "tradeIndex": 0,
+       "side": "receive",
+       "refIndex": 0,
+       "expectedTeamId": "z",
+       "actualTeamId": null,
+       "message": "s-z-rb9 is not on team z's roster"
+      },
+      {
+       "code": "not_on_roster",
+       "key": "s-b-qb1",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 0,
+       "expectedTeamId": "a",
+       "actualTeamId": "b",
+       "message": "s-b-qb1 is not on my roster (it is on team b)"
+      },
+      {
+       "code": "missing_player_key",
+       "tradeIndex": 1,
+       "side": "give",
+       "refIndex": 1,
+       "message": "trade 1 give 1: no key"
+      }
+     ]
+    }
+   }
+  },
+  "unavailable_none": {
+   "about": "No roster check supplied.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "package": false,
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    }
+   }
+  },
+  "unavailable_throws": {
+   "about": "The roster check throws.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "throws": "synthetic roster-check failure",
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    }
+   }
+  },
+  "unavailable_unreadable": {
+   "about": "The roster check answers something unreadable.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "validation": {
+     "ok": "yes"
+    },
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    }
+   }
+  },
+  "empty_selection": {
+   "about": "Nothing selected.",
+   "trades": [],
+   "adapter": {
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": "s-d-te1",
+        "name": "TE Dawn"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    }
+   }
+  },
+  "incomplete_lineup": {
+   "about": "Valid package; the supplied final lineup marks itself incomplete and leaves a starting slot empty.",
+   "trades": [
+    {
+     "opponentId": "b",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-b-rb1"
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-fx1",
+      "s-a-bn2"
+     ],
+     "receive": [
+      "s-c-wr1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-te1"
+     ],
+     "receive": [
+      "s-d-te1",
+      "s-d-wr1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": {
+     "before": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr2",
+        "name": "WR Atlas"
+       },
+       {
+        "slot": "TE",
+        "key": "s-a-te1",
+        "name": "TE Anchor"
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-fx1",
+        "name": "WR Aspen"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-a-bn2",
+        "name": "WR Azure"
+       }
+      ]
+     },
+     "complete": false,
+     "missing": [
+      "Synthetic: no projection for TE Dawn this week."
+     ],
+     "after": {
+      "starters": [
+       {
+        "slot": "QB",
+        "key": "s-a-qb1",
+        "name": "QB Able"
+       },
+       {
+        "slot": "RB",
+        "key": "s-a-rb1",
+        "name": "RB Alpha"
+       },
+       {
+        "slot": "RB",
+        "key": "s-b-rb1",
+        "name": "RB Bravo"
+       },
+       {
+        "slot": "WR",
+        "key": "s-a-wr1",
+        "name": "WR Arrow"
+       },
+       {
+        "slot": "WR",
+        "key": "s-c-wr1",
+        "name": "WR Comet"
+       },
+       {
+        "slot": "TE",
+        "key": null,
+        "name": null
+       },
+       {
+        "slot": "FLEX",
+        "key": "s-a-rb2",
+        "name": "RB Amber"
+       },
+       {
+        "slot": "K",
+        "key": "x:s-a-k",
+        "name": "K Archer"
+       }
+      ],
+      "bench": [
+       {
+        "slot": "BN",
+        "key": "s-a-bn1",
+        "name": "RB Aster"
+       },
+       {
+        "slot": "BN",
+        "key": "s-d-wr1",
+        "name": "WR Dart"
+       }
+      ]
+     }
+    },
+    "validation": {
+     "ok": true,
+     "errors": [],
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    },
+    "applied": {
+     "ok": true,
+     "errors": [],
+     "league": {
+      "myTeamId": "a",
+      "teams": [
+       {
+        "id": "a",
+        "name": "Synthetic Team A",
+        "entries": [
+         {
+          "key": "s-a-qb1",
+          "name": "QB Able",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-a-rb1",
+          "name": "RB Alpha",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-rb2",
+          "name": "RB Amber",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-wr1",
+          "name": "WR Arrow",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-a-bn1",
+          "name": "RB Aster",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "x:s-a-k",
+          "name": "K Archer",
+          "pos": "K",
+          "team": "SYN",
+          "slot": "K"
+         },
+         {
+          "key": "s-b-rb1",
+          "name": "RB Bravo",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr1",
+          "name": "WR Comet",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-d-te1",
+          "name": "TE Dawn",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-d-wr1",
+          "name": "WR Dart",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "b",
+        "name": "Synthetic Team B",
+        "entries": [
+         {
+          "key": "s-b-qb1",
+          "name": "QB Baker",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-b-wr1",
+          "name": "WR Bishop",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-b-te1",
+          "name": "TE Birch",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-b-bn1",
+          "name": "RB Basil",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-wr2",
+          "name": "WR Atlas",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "c",
+        "name": "Synthetic Team C",
+        "entries": [
+         {
+          "key": "s-c-qb1",
+          "name": "QB Cedar",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-c-rb1",
+          "name": "RB Charlie",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr2",
+          "name": "WR Coral",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-c-bn1",
+          "name": "TE Cobalt",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-a-fx1",
+          "name": "WR Aspen",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "FLEX"
+         },
+         {
+          "key": "s-a-bn2",
+          "name": "WR Azure",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "BN"
+         }
+        ]
+       },
+       {
+        "id": "d",
+        "name": "Synthetic Team D",
+        "entries": [
+         {
+          "key": "s-d-qb1",
+          "name": "QB Delta",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-d-rb1",
+          "name": "RB Dune",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-te1",
+          "name": "TE Anchor",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         }
+        ]
+       },
+       {
+        "id": "e",
+        "name": "Synthetic Team E With An Extraordinarily Long Franchise Name That Keeps Going Past Any Reasonable Width",
+        "entries": [
+         {
+          "key": "s-e-rb1",
+          "name": "RB Evangelina-Maximiliana Wolfeschlegelsteinhausenbergerdorff Junior",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-e-wr1",
+          "name": "WR Bartholomew-Alexander Oyelaran-Featherstonehaugh The Third",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-e-qb1",
+          "name": "QB Echo",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         }
+        ]
+       }
+      ]
+     },
+     "moves": [
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-b-rb1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-fx1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-c-wr1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-te1",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-d-te1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-d-wr1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      }
+     ]
+    }
+   }
+  },
+  "long_names": {
+   "about": "Four counterparties, one with a very long team name and very long player names; refs as strings, {key} and {player_key}.",
+   "trades": [
+    {
+     "opponentId": "e",
+     "give": [
+      "s-a-rb2"
+     ],
+     "receive": [
+      "s-e-rb1",
+      "s-e-wr1"
+     ]
+    },
+    {
+     "opponentId": "b",
+     "give": [
+      {
+       "player_key": "s-a-bn2",
+       "name": "WR Azure"
+      }
+     ],
+     "receive": [
+      {
+       "key": "s-b-bn1"
+      }
+     ]
+    },
+    {
+     "opponentId": "c",
+     "give": [
+      "s-a-bn1"
+     ],
+     "receive": [
+      "s-c-bn1"
+     ]
+    },
+    {
+     "opponentId": "d",
+     "give": [
+      "s-a-wr2"
+     ],
+     "receive": [
+      "s-d-rb1"
+     ]
+    }
+   ],
+   "adapter": {
+    "lineup": null,
+    "validation": {
+     "ok": true,
+     "errors": [],
+     "moves": [
+      {
+       "key": "s-a-rb2",
+       "from": "a",
+       "to": "e",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-e-rb1",
+       "from": "e",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-e-wr1",
+       "from": "e",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-b-bn1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-bn1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-c-bn1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 3,
+       "side": "give"
+      },
+      {
+       "key": "s-d-rb1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 3,
+       "side": "receive"
+      }
+     ]
+    },
+    "applied": {
+     "ok": true,
+     "errors": [],
+     "league": {
+      "myTeamId": "a",
+      "teams": [
+       {
+        "id": "a",
+        "name": "Synthetic Team A",
+        "entries": [
+         {
+          "key": "s-a-qb1",
+          "name": "QB Able",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-a-rb1",
+          "name": "RB Alpha",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-a-wr1",
+          "name": "WR Arrow",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-a-te1",
+          "name": "TE Anchor",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-a-fx1",
+          "name": "WR Aspen",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "FLEX"
+         },
+         {
+          "key": "x:s-a-k",
+          "name": "K Archer",
+          "pos": "K",
+          "team": "SYN",
+          "slot": "K"
+         },
+         {
+          "key": "s-e-rb1",
+          "name": "RB Evangelina-Maximiliana Wolfeschlegelsteinhausenbergerdorff Junior",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-e-wr1",
+          "name": "WR Bartholomew-Alexander Oyelaran-Featherstonehaugh The Third",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-b-bn1",
+          "name": "RB Basil",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-c-bn1",
+          "name": "TE Cobalt",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "BN"
+         },
+         {
+          "key": "s-d-rb1",
+          "name": "RB Dune",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         }
+        ]
+       },
+       {
+        "id": "b",
+        "name": "Synthetic Team B",
+        "entries": [
+         {
+          "key": "s-b-qb1",
+          "name": "QB Baker",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-b-rb1",
+          "name": "RB Bravo",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-b-wr1",
+          "name": "WR Bishop",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-b-te1",
+          "name": "TE Birch",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-a-bn2",
+          "name": "WR Azure",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "BN"
+         }
+        ]
+       },
+       {
+        "id": "c",
+        "name": "Synthetic Team C",
+        "entries": [
+         {
+          "key": "s-c-qb1",
+          "name": "QB Cedar",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-c-rb1",
+          "name": "RB Charlie",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         },
+         {
+          "key": "s-c-wr1",
+          "name": "WR Comet",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-c-wr2",
+          "name": "WR Coral",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-a-bn1",
+          "name": "RB Aster",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "BN"
+         }
+        ]
+       },
+       {
+        "id": "d",
+        "name": "Synthetic Team D",
+        "entries": [
+         {
+          "key": "s-d-qb1",
+          "name": "QB Delta",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-d-wr1",
+          "name": "WR Dart",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         },
+         {
+          "key": "s-d-te1",
+          "name": "TE Dawn",
+          "pos": "TE",
+          "team": "SYN",
+          "slot": "TE"
+         },
+         {
+          "key": "s-a-wr2",
+          "name": "WR Atlas",
+          "pos": "WR",
+          "team": "SYN",
+          "slot": "WR"
+         }
+        ]
+       },
+       {
+        "id": "e",
+        "name": "Synthetic Team E With An Extraordinarily Long Franchise Name That Keeps Going Past Any Reasonable Width",
+        "entries": [
+         {
+          "key": "s-e-qb1",
+          "name": "QB Echo",
+          "pos": "QB",
+          "team": "SYN",
+          "slot": "QB"
+         },
+         {
+          "key": "s-a-rb2",
+          "name": "RB Amber",
+          "pos": "RB",
+          "team": "SYN",
+          "slot": "RB"
+         }
+        ]
+       }
+      ]
+     },
+     "moves": [
+      {
+       "key": "s-a-rb2",
+       "from": "a",
+       "to": "e",
+       "tradeIndex": 0,
+       "side": "give"
+      },
+      {
+       "key": "s-e-rb1",
+       "from": "e",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-e-wr1",
+       "from": "e",
+       "to": "a",
+       "tradeIndex": 0,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-bn2",
+       "from": "a",
+       "to": "b",
+       "tradeIndex": 1,
+       "side": "give"
+      },
+      {
+       "key": "s-b-bn1",
+       "from": "b",
+       "to": "a",
+       "tradeIndex": 1,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-bn1",
+       "from": "a",
+       "to": "c",
+       "tradeIndex": 2,
+       "side": "give"
+      },
+      {
+       "key": "s-c-bn1",
+       "from": "c",
+       "to": "a",
+       "tradeIndex": 2,
+       "side": "receive"
+      },
+      {
+       "key": "s-a-wr2",
+       "from": "a",
+       "to": "d",
+       "tradeIndex": 3,
+       "side": "give"
+      },
+      {
+       "key": "s-d-rb1",
+       "from": "d",
+       "to": "a",
+       "tradeIndex": 3,
+       "side": "receive"
+      }
+     ]
+    }
+   }
+  }
+ }
+}

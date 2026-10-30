@@ -16,6 +16,7 @@ name: v2 render test
 # "Dispatch v2-render" step. The `push` trigger covers human/PAT/merge pushes.
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
     # file is Markdown or under docs/. Tests-only PRs still run it. The docs
     # the build reads (sync_dashboard_artifacts -> build_values_explainer,
@@ -39,20 +40,46 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: v2-render-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  v2-render:
+  pr-state:
     runs-on: ubuntu-latest
-    # JEG-1169: 15 minutes was used up by an 11-minute browser install.
-    timeout-minutes: 25
+    timeout-minutes: 5
+    outputs:
+      run_expensive: ${{ steps.gate.outputs.run_expensive }}
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Cheap draft CI guards
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_ci_speedup_workflows
+      - name: Check current PR head and draft state
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate gate
+
+  render-tests:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
+    runs-on: ubuntu-latest
+    # JEG-1169: 15 minutes was used up by an 11-minute browser install.
+    # JEG-1178: 35 with the week selector render test added (the run was about 13 minutes before it).
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -75,7 +102,57 @@ jobs:
       - run: python3 -m unittest tests.test_v2_finder_guardrails_render
       - run: python3 -m unittest tests.test_interactive_trades_release_render
       - run: python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render
+      # JEG-890 / JEG-1246: the Find a trade team value summary (thin-chart weeks and players with no DDF Value).
+      - run: python3 -m unittest tests.test_v2_finder_teams tests.test_v2_finder_teams_render
       # JEG-1056: the Compare 1366x768 fit guard (JEG-917/JEG-932) lives here, not in the deploy gate. Its
       # mutation check once passed vacuously. -v and the test's stderr print one "GUARD CAUGHT / NOT CAUGHT"
       # line per mutation into this log; RENDER_TESTS_REQUIRED=1 turns a missing browser into an error.
       - run: python3 -m unittest -v tests.test_v2_waterfall_render
+      # JEG-1178: the week selector at 0/43/57/100% coverage (390 and 1366x768), contributed-week labels,
+      # the Thursday 12:00 CT stale badge and the wk= link round trip, both clocks pinned; plus the no-browser
+      # stale-deadline boundary test (CDT and CST).
+      - run: python3 -m unittest tests.test_week_stale_deadline tests.test_week_selector_render
+      # JEG-1311: Compare's carried trade (JEG-1259 / JEG-1285); -v prints one GUARD CAUGHT / NOT CAUGHT line per fix taken out.
+      - run: python3 -m unittest -v tests.test_v2_compare_rosters_render
+      # JEG-1266: the homepage AI connection panel, isolated on its own harness page (not loaded by the site yet).
+      # Its desktop and phone screenshots are kept as the run's ai-panel-previews artifact (PR evidence).
+      - run: python3 -m unittest tests.test_jeg1266_ai_connection_panel tests.test_jeg1266_ai_connection_panel_render
+        env:
+          AI_PANEL_SHOTS: ai-panel-previews
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ai-panel-previews
+          path: ai-panel-previews/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Keep the existing required check name. Drafts and stale events fail this
+  # lightweight finalizer even though the expensive job is skipped.
+  # JEG-1292: if a ready PR shows this check red with "PR state verification failed",
+  # use Re-run failed jobs, or push, or toggle draft and back to ready.
+  v2-render:
+    # Manual dispatches keep full verification but cannot satisfy a draft PR's required check.
+    name: ${{ github.event_name == 'workflow_dispatch' && 'v2-render-manual' || 'v2-render' }}
+    needs: [pr-state, render-tests]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Full render verification completed at the current PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_RESULT: ${{ needs.pr-state.result }}
+          RUN_EXPENSIVE: ${{ needs.pr-state.outputs.run_expensive }}
+          RENDER_RESULT: ${{ needs.render-tests.result }}
+        run: |
+          echo "state: $STATE_RESULT, render: $RENDER_RESULT"
+          if [ "$STATE_RESULT" != "success" ] || [ "$RUN_EXPENSIVE" != "true" ] || \
+             [ "$RENDER_RESULT" != "success" ]; then
+            echo "Full render verification deferred or incomplete; required v2-render check cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python3 -m pipelines.ci_pr_gate verify

@@ -85,6 +85,11 @@
         <ul class="v2-showing-legend" id="v2ShowingLegend" aria-label="Series shown"></ul>
       </div>
       <button type="button" class="v2-btn v2-btn-sm v2-btn-adjust" id="v2EditSources" aria-haspopup="dialog">Customize</button>
+      <!-- JEG-1178: the week selector, shown only while sources are moving from one week to the next. -->
+      <div class="v2-ctx-week" id="v2WeekPick" hidden>
+        <label class="v2-sr" for="v2WeekSelect">Values week</label>
+        <select id="v2WeekSelect" class="v2-select" aria-describedby="v2WeekNote"></select>
+      </div>
       <button type="button" class="v2-freshness v2-ctx-freshness" id="v2Freshness" aria-haspopup="dialog">
         <span class="v2-dot" aria-hidden="true"></span><span id="v2FreshnessLabel">Loading…</span><span id="v2FreshnessShort" class="v2-freshness-short" aria-hidden="true"></span>
       </button>
@@ -104,6 +109,9 @@
         </div>
       </div>
     </div>
+  </div>
+  <div class="v2-weeknote" id="v2WeekNoteBar" hidden>
+    <p class="v2-wrap v2-weeknote-text" id="v2WeekNote" role="status"></p>
   </div>
   <div class="v2-wrap v2-assist-panel">
     <div class="v2-assist-note" id="v2AssistNote" role="status" aria-live="polite" hidden></div>
@@ -260,7 +268,7 @@
       <div class="v2-card-head">
         <div>
           <h2 id="v2VorpTitle">Value above waivers</h2>
-          <p class="v2-meta">Raw value above a waiver-level player, on its own scale. Not comparable to the trade-value points above.</p>
+          <p class="v2-meta">How much better a player is than the best free pickup. 0 = waiver-level. It has its own scale: not comparable to the trade-value points above.</p>
         </div>
       </div>
       <div class="v2-chart v2-chart-small" id="v2VorpChart"></div>
@@ -296,7 +304,7 @@
       </div>
     </div>
 
-    <p class="v2-footnote">DDF Value is our value: <span data-basis-ours>the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
+    <p class="v2-footnote">DDF Value is what a player is worth in your league: <span data-basis-ours>rooted in the trade charts, then adjusted for position weight and your league's rosters</span>. Every other series keeps its source's identity. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
@@ -304,14 +312,14 @@
   <main class="v2-wrap v2-main" id="v2Targets" hidden aria-labelledby="v2TargetsTitle">
     <div class="v2-title v2-ttitle">
       <h1 id="v2TargetsTitle">Trade targets</h1>
-      <p id="v2TIntro">We check the trade charts against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.</p>
+      <p id="v2TIntro">We check the trade charts against our values for your league, two ways: potential mispricing, player by player, and the positions the market overpays for, position by position. Sell what they overpay for; buy what they undervalue.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
 
 
     <section class="v2-tcheck" aria-labelledby="v2TCheck1Title">
       <h2 id="v2TCheck1Title">1. Potential mispricing</h2>
-      <p class="v2-meta">Our value for each player against what the trade charts pay for the same player. A big gap means the market may have him wrong.</p>
+      <p class="v2-meta">DDF Value for each player against what the market pays for the same player. A big gap means the market may have him wrong.</p>
     </section>
 
     <!-- JEG-1042 (Jeremy, 2026-10-24): the review chips sit side by side on one line, just above the filters. -->
@@ -379,7 +387,7 @@
     <p class="v2-filter-note v2-tnote" id="v2TNote" hidden></p>
 
     <section class="v2-card v2-weight" id="v2Weight" aria-labelledby="v2TCheck2Title">
-      <h2 id="v2TCheck2Title">2. Potential positional weight inflation</h2>
+      <h2 id="v2TCheck2Title">2. Positions the market overpays for</h2>
       <p class="v2-meta">How the market splits its value across positions, against how DDF Value splits it, over the same players. Compared by share of the total, so one chart's overall scale cannot make every position look cheap.</p>
       <p class="v2-weight-headline" id="v2WeightHeadline" role="status"></p>
       <p class="v2-meta v2-t-empty" id="v2WeightEmpty" hidden></p>
@@ -388,17 +396,17 @@
       </div>
       <details class="v2-weight-how">
         <summary>How to use it</summary>
-        <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. In between is fairly priced. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
+        <p>Gap = the group's share of the market total divided by its share of the DDF Value total, minus 1. Sell this group at +10% or more: the market pays more for it than DDF Value does, so offer those players. Buy this group at -10% or less. Anything in between is a fair price. Groups with fewer than 3 players show no number; the headline only names groups with 8 or more players. Open a group to see its players.</p>
       </details>
     </section>
-    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
+    <p class="v2-footnote" id="v2TFootnote">Gap = market consensus (the middle value of the compared charts; the Trade chart average is their mean) − our value for the same player, both in your league's trade-value points. Our value is <span id="v2TOursNote">DDF Value, rooted in the trade charts, then adjusted for position weight and your league's rosters</span>; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. <span id="v2TPriorNote"></span>Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero.</p>
     <p class="v2-footnote v2-brandline">Data Driven Football</p>
   </main>
 
   <main class="v2-wrap v2-main" id="v2Risers" hidden aria-labelledby="v2RisersTitle">
     <div class="v2-title">
       <h1 id="v2RisersTitle">Risers and fallers</h1>
-      <p>Who moved since last week.</p>
+      <p>Who moved since last week, and who didn't but should have.</p>
       <p class="v2-asof" data-page-asof></p>
     </div>
 
@@ -414,7 +422,7 @@
           <option value="FLEX">FLEX (RB/WR/TE)</option>
         </select>
       </label>
-      <label class="v2-field v2-field-rank"><span class="v2-field-label">Movement:</span>
+      <label class="v2-field v2-field-rank"><span class="v2-field-label">Change:</span>
         <select id="v2RSeries"></select>
       </label>
       <span id="v2RNamesInfoSlot"></span>
@@ -428,14 +436,14 @@
 
     <div class="v2-movers">
       <section class="v2-card" aria-labelledby="v2RRiseTitle">
-        <h2 id="v2RRiseTitle" class="v2-mhead up"><span aria-hidden="true">↑</span> Risers</h2>
+        <h2 id="v2RRiseTitle" class="v2-mhead up"><span aria-hidden="true">↑</span> Rising</h2>
         <p class="v2-meta">Largest gains first</p>
         <ol class="v2-mlist" id="v2RRise" aria-labelledby="v2RRiseTitle"></ol>
         <p class="v2-meta v2-t-empty" id="v2RRiseEmpty" hidden></p>
         <div class="v2-table-foot"><button type="button" class="v2-btn" id="v2RRiseMore" hidden>Show more risers</button></div>
       </section>
       <section class="v2-card" aria-labelledby="v2RFallTitle">
-        <h2 id="v2RFallTitle" class="v2-mhead down"><span aria-hidden="true">↓</span> Fallers</h2>
+        <h2 id="v2RFallTitle" class="v2-mhead down"><span aria-hidden="true">↓</span> Falling</h2>
         <p class="v2-meta">Largest declines first</p>
         <ol class="v2-mlist" id="v2RFall" aria-labelledby="v2RFallTitle"></ol>
         <p class="v2-meta v2-t-empty" id="v2RFallEmpty" hidden></p>
@@ -444,17 +452,17 @@
     </div>
 
     <section class="v2-disagree" id="v2RDisagree" aria-labelledby="v2RDisagreeTitle">
-      <h2 id="v2RDisagreeTitle">Where DDF Value and the projections disagree</h2><span id="v2RDisagreeInfoSlot"></span>
+      <h2 id="v2RDisagreeTitle">Mixed signals</h2><span id="v2RDisagreeInfoSlot"></span>
       <p class="v2-meta" id="v2RDisagreeMeta">One moved and the other did not, so one of the two is wrong.</p>
       <div class="v2-movers">
         <section class="v2-card" aria-labelledby="v2RMktTitle">
-          <h3 id="v2RMktTitle" class="v2-mhead">DDF Value moved, projections didn't</h3>
+          <h3 id="v2RMktTitle" class="v2-mhead">The charts moved first</h3>
           <p class="v2-meta">DDF Value moved 2.5 points or more; DDF Value (projections) moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RMkt" aria-labelledby="v2RMktTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RMktEmpty" hidden></p>
         </section>
         <section class="v2-card" aria-labelledby="v2RProjTitle">
-          <h3 id="v2RProjTitle" class="v2-mhead">Projections moved, DDF Value didn't</h3>
+          <h3 id="v2RProjTitle" class="v2-mhead">The projections moved first</h3>
           <p class="v2-meta">DDF Value (projections) moved 2.5 points or more; DDF Value moved 1.0 or less</p>
           <ol class="v2-mlist v2-dlist" id="v2RProj" aria-labelledby="v2RProjTitle"></ol>
           <p class="v2-meta v2-t-empty" id="v2RProjEmpty" hidden></p>
@@ -538,7 +546,7 @@
           <ul class="v2-deal-nets" id="v2CDealNets"></ul>
           <p class="v2-meta" id="v2CDealProduction"></p>
           <details class="v2-deal-more">
-            <summary>Every pairing of our value and the trade charts</summary>
+            <summary>How each lens sees it</summary>
             <div class="v2-table-wrap">
               <table class="v2-deal-grid" id="v2CDealGrid" aria-labelledby="v2CDealTitle"></table>
             </div>
@@ -578,7 +586,7 @@
       <div class="v2-card-head">
         <div>
           <h2 id="v2CVorpTitle">Value above waivers</h2>
-          <p class="v2-meta">Raw value above a waiver-level player, on each source's own scale. Not comparable to the trade-value points above or to each other. Each row's steps are drawn on that source's own scale.</p>
+          <p class="v2-meta">How much better a player is than the best free pickup. 0 = waiver-level. Each source keeps its own scale: not comparable to the trade-value points above or to each other. Each row's steps are drawn on that source's own scale.</p>
         </div>
       </div>
       <div class="v2-table-wrap">
@@ -627,7 +635,7 @@
     <section class="v2-card v2-how-names" id="v2HowNames" aria-labelledby="v2HowNamesTitle">
       <h2 id="v2HowNamesTitle">Two numbers for every player</h2>
       <ul class="v2-how-primaries">
-        <li data-primary="ddf_value"><b>DDF Value</b> Our estimate of what a player is worth: <span data-basis-ours>the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
+        <li data-primary="ddf_value"><b>DDF Value</b> What a player is worth in your league: <span data-basis-ours>rooted in the trade charts, then adjusted for position weight and your league's rosters</span>. A held or not-yet-published source is left out and labelled, and a value from a single source carries the one-source tag.</li>
         <li data-primary="ddf_value_charts"><b>Trade chart average</b> What the market will pay: the published trade charts, rescaled to the same scale and averaged.</li>
       </ul>
       <h3>Where the edge comes from</h3>
@@ -639,25 +647,25 @@
     <ol class="v2-how-views">
       <li class="v2-card" data-view-method="dda">
         <span class="v2-pill">Projections</span>
-        <h2>Projections, priced for your league</h2>
+        <h2>Projections: the alternate lens</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2"/></svg> Solid line</p>
-        <p>Redistributes each source's values into your league's value budget. Weights and bench allocation change the result.</p>
-        <p class="v2-meta">Our value. ESPN, CBS rest-of-season and Razzball are priced straight from each publisher's own projections, never from another source's. Use these to rank players and weigh a trade, one source at a time.</p>
+        <p>Redistributes each source's values into your league's total value. Weights and bench allocation change the result.</p>
+        <p class="v2-meta">Value based on projected points for your league: good for steady producers, and it can underrate upside. ESPN, CBS rest-of-season and Razzball are priced straight from each publisher's own projections, never from another source's. Use these to rank players and weigh a trade, one source at a time.</p>
         <h3>Sources</h3>
         <ul class="v2-how-sources" data-sources="dda"></ul>
       </li>
       <li class="v2-card" data-view-method="indexed">
         <span class="v2-pill is-indexed">Rescaled</span>
-        <h2>Rescaled trade charts</h2>
-        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg> Dashed line</p>
+        <h2>The Market, by chart</h2>
+        <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="6 4"/></svg> Dashed = one chart of the Market</p>
         <p>Preserves the selected publisher's relative value shape. Compare normalized points, keeping the source visible.</p>
-        <p class="v2-meta">This is what a manager trading off that chart expects. Where a chart pays more than our value, sell; where it pays less, buy.</p>
+        <p class="v2-meta">This is what a manager trading off that chart expects. Where a chart pays more than DDF Value, sell; where it pays less, buy.</p>
         <h3>Sources</h3>
         <ul class="v2-how-sources" data-sources="indexed"></ul>
       </li>
       <li class="v2-card" data-view-method="vorp">
         <span class="v2-pill is-vorp">Value above waivers</span>
-        <h2>Value over a waiver player</h2>
+        <h2>Value above waivers</h2>
         <p class="v2-how-line"><svg width="28" height="8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" stroke-width="2" stroke-dasharray="1.5 4"/></svg> Dotted line</p>
         <p>Available for projection sources with compatible inputs. Each source keeps its own scale, so these values sit in their own panel.</p>
         <p class="v2-meta">Never compared with trade-value points, and never added up across sources.</p>
@@ -691,7 +699,7 @@
     <section class="v2-how-evidence" aria-labelledby="v2HowRulesTitle">
       <h2 id="v2HowRulesTitle">Read the evidence, then make the call.</h2>
       <ul class="v2-how-rules">
-        <li><b>Methods can disagree.</b> The same player can gain on the projections and lose on the rescaled trade charts.</li>
+        <li><b>Methods can disagree.</b> The same player can gain on the projections and lose on the market.</li>
         <li><b>— means missing.</b> A missing value is unavailable and shows — with the reason, never zero.</li>
         <li><b>Zero is real.</b> A value of zero means the player sits at or below that source's waiver line for your league.</li>
         <li><b>Older weeks are opt-in.</b> Only current-week sources are selected at first; an older week is labeled wherever it appears.</li>
