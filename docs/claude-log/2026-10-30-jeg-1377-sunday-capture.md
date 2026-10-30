@@ -15,6 +15,7 @@ Branch `claude/JEG-1377`. No value math, no Supabase write, no migration, no dep
 - Live read-only SQL: pg_cron `projection-capture-sunday` (jobid 48, `30 15 * * 0`) active with no run history; `cron.timezone` = GMT; `espn-weekly-store-sunday` (jobid 39) dispatched and ran 2026-10-25 16:20 UTC.
 - `python3 -m unittest tests.test_projection_capture_sunday_jeg1377 tests.test_projection_captures`: 47 OK. With the source and workflow changes stashed, 8 of the 11 new tests fail (the 3 DST tests pin behavior that was already right).
 
+- `python3 -m unittest tests.test_monitoring_coverage`: OK after adding `jeg1140-settings-render.yml` to the no-schedule list (it was red on main, from #1129).
+
 ## Claimed, not confirmed
 - The dry run on the branch through workflow_dispatch (see the PR for the run link once it finishes).
-- `tests.test_monitoring_coverage` fails on main already: `jeg1140-settings-render.yml` is not in `config/monitoring_coverage.json`. Not touched here.
