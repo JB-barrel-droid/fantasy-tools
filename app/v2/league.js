@@ -1182,11 +1182,13 @@
     // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
     const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
-      el("p", {}, ...tradeNodes(r, ctx)),
-      el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+      // JEG-1232: one line per table column, in the table's order (value first), so Our fit and Their fit each get a line.
+      el("p", {"data-line": "trade"}, ...tradeNodes(r, ctx)),
+      el("p", {"data-line": "capture"}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
-      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
-        el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
+      el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
+      el("p", {"data-line": "market"}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
+      el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
@@ -1336,6 +1338,14 @@
     params.delete("trade");
     if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
     offerReplace(w, "Shared link:");
+  }
+
+  // JEG-1379: the engine can have rows before v2.js has finished booting, and a share link's league settings and player
+  // overrides go through v2.js (TradeValueV2.applyLinkLeague, then DDFOverrides.applyLink in applyImported). Read the
+  // link once that reader is on the page, so a link never loads its teams without them. Gives up waiting after ~30 s.
+  function readShareHashWhenReady(tries = 0) {
+    if ((root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) || tries >= 120) { readShareHash(); return; }
+    setTimeout(() => readShareHashWhenReady(tries + 1), 250);
   }
 
   // ---------- the cards ----------
@@ -1495,7 +1505,7 @@
       refreshAll("load");
       UI.firstPaint = false;
       renderUndo();
-      readShareHash();
+      readShareHashWhenReady();
       return true;
     };
     if (!ready()) {

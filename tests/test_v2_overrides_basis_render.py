@@ -476,7 +476,7 @@ class RubricTest(unittest.TestCase):
             page.wait_for_timeout(600)
             note = page.inner_text("#v2AuditBasisNote")
             self.assertIn("your custom basis (FantasyCalc)", note)
-            self.assertIn("thresholds on these pages were set on our methodology", note)
+            self.assertIn("thresholds on these pages were set on the default DDF Value", note)   # JEG-1130: PMM glossary retires "our methodology"
             page.evaluate("() => window.TradeValueCurveControls.setBasis(null)")
             page.evaluate("() => { location.hash = '#values-auditing/single-source'; location.hash = '#values-auditing/health-check'; }")
             page.wait_for_timeout(600)
