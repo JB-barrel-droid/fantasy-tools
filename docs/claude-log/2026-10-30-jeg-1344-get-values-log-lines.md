@@ -22,3 +22,20 @@ rate-limited requests, revisit at launch") without changing the limiter, cache o
 - The browser parity case and the render suites run only in CI.
 - Live log lines: not checked. That needs a `get-values` deploy, which waits on Jeremy's named yes
   after #1124 and this PR merge.
+
+## 2026-10-30 - Review fix on #1210: series DDF Value under overrides
+
+Contract: Codex's P2 on `32827d64` (a request with `ov` and `include=series` answered the override in
+`players` but the pipeline's own value in `series[pk].ddf_value`). This came from combining #1124 and
+#1156 in the main merge. Fix: the overrides replace the series' `ddf_value` only, as the site's
+`OVERRIDE_VERSIONS = ["ddf_value"]` does; every other series stays the pipeline's own.
+
+### Verified (check named)
+- `tests/node/get_values_value_context_check.mjs` section 4 fails before (series `ddf_value` 79.49, not
+  58) and passes after. The runner gives 58 for the same case.
+- `test_get_values_value_context`, `test_connector_analyses`, `test_jeg_1061_logging_contract`,
+  `test_league_mapping` OK; get-values node checks and the logging contract ok.
+
+### Claimed, not confirmed
+- `prior` and `audit` still read the pipeline's own values under overrides. Not flagged, and the site's
+  Movers behaviour under an override wasn't checked here.

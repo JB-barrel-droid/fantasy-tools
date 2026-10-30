@@ -297,4 +297,23 @@ for (const [body, unread, why] of [
   assert.equal(most.status, 200, `${MAX_OVERRIDES} overrides, the most allowed, still answer`);
 }
 
+// 4. include=series under overrides (JEG-1344 review): the series' DDF Value is the overridden value the
+// players list answers, as the site shows it; the other series and players without an override don't move.
+{
+  const ov = `${a}:58,${b}:+5`;
+  const plain = await (await post({ scoring: "ppr", teams: 12, include: "series" })).json();
+  const res = await post({ scoring: "ppr", teams: 12, include: "series", ov });
+  assert.equal(res.status, 200, "ov with include=series answers");
+  const body = await res.json();
+  const rows = byKey(body);
+  assert.equal(body.series[a].ddf_value, 58, "series ddf_value carries the absolute override");
+  assert.ok(Math.abs(body.series[b].ddf_value - (plain.series[b].ddf_value + 5)) < 1e-9,
+    "series ddf_value carries the adjustment on the pipeline's own value");
+  assert.ok(Math.abs(body.series[b].ddf_value - rows[b].value) < 0.06, "series and players agree");
+  for (const key of Object.keys(plain.series[a])) {
+    if (key !== "ddf_value") assert.equal(body.series[a][key], plain.series[a][key], `series ${key} is not overridden`);
+  }
+  assert.equal(body.series[c].ddf_value, plain.series[c].ddf_value, "a player without an override keeps its value");
+}
+
 console.log("ok");

@@ -167,8 +167,15 @@ async function addAnalysis(
   // deno-lint-ignore no-explicit-any
   body: any, includes: Set<Include>, bundle: CachedBundle, input: any, pipeline: any,
   plan: { week: number | null; served: Record<string, number | null> }, scoring: string,
+  context: ValueContext,
 ): Promise<void> {
   if (includes.has("series")) body.series = seriesBlock(pipeline, input.hidden ?? []);
+  // JEG-1225: the caller's overrides replace DDF Value only (curve-widget.js OVERRIDE_VERSIONS), so the
+  // series' ddf_value matches the players list; every other series stays the pipeline's own.
+  if (body.series && Object.keys(context.overrides).length) {
+    const own = applyOverrides(bundle.ValueModel, pipeline, context);
+    for (const pk of own.applied) if (body.series[pk]) body.series[pk].ddf_value = own.values[pk].value as number;
+  }
   if (includes.has("prior")) {
     if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
     body.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served ?? {}, scoring);
@@ -556,7 +563,7 @@ Deno.serve(async (req: Request) => {
           pipeline, input.players, bundle.meta, mapped.scoring, mapped.teams, mapped.setting.superflex, includeCharts,
           mapped.custom, input.week, bundle.ValueModel, context,
         );
-        await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring);
+        await addAnalysis(body, includes, bundle, input, pipeline, plan, mapped.scoring, context);
         response = { at: Date.now(), body };
       }
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);

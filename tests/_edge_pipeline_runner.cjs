@@ -162,6 +162,10 @@ if (parsedInclude.error) {
 const analysis = {};
 const includes = parsedInclude.includes;
 if (includes.has("series")) analysis.series = seriesBlock(pipeline, input.hidden || []);
+// JEG-1225: as get-values, the caller's overrides replace the series' DDF Value only.
+if (analysis.series) {
+  for (const pk of own.applied) if (analysis.series[pk]) analysis.series[pk].ddf_value = own.values[pk].value;
+}
 // --mutate two-weeks-back (tests/test_connector_analyses.py's broken variant): the "prior week" priced on
 // Week N-2's inputs but labelled Week N-1, so the parity check must fail on the values, not the label.
 if (includes.has("prior")) {
