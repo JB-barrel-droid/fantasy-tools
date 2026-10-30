@@ -945,7 +945,7 @@
     const state = c.state === "ok" ? c.out.headline.state : c.state;
     const text = c.state === "ok" ? c.out.headline.text : HEAD_TEXT[c.state];
     headline.dataset.state = state;
-    setText(headline.querySelector("strong"), text);
+    setText(headline.querySelector("b"), text);
     setText(headline.querySelector(".v2-wv-headctx"), c.state === "ok" && c.out.headline.context ? `Other views: ${c.out.headline.context}.` : "");
     const count = $("v2WaiversCount");
     const notes = [];
