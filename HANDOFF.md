@@ -28,11 +28,11 @@ below are history, including any "Codex reviews and merges" line.
   stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
   the Duet project files, summary on the ticket) and approves before any merge.
   Do not merge or mark #1033 ready without his yes on that before/after.
-- State: built and pushed on the branch, PR still a draft. Before/after in
-  `docs/claude-log/2026-10-30-jeg-1125-before-after.md`, log in
-  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Waiting on Jeremy's yes to
-  ship A. On his yes: mark #1033 ready, review, merge on green, check the live
-  site. Standard and PPR counts were not measured (Half PPR only).
+- State: Jeremy said ship A (2026-10-30 18:52Z, "A"). #1033 marked ready;
+  Standard, Half PPR and PPR before/after in
+  `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
+  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Next: independent review,
+  green CI, squash merge, check the live site.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 

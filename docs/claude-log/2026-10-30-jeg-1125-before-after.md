@@ -9,7 +9,7 @@ Branch `fe/jeg-1125-even-threshold`, draft PR #1033. Nothing is merged or deploy
 - Values: published sources, week 8 of the 2026 season, Half PPR, 12 teams, your USO lineup. They were computed with the edge function's own pipeline on the repo's main build (76c12c2). The live endpoint couldn't be reached from here.
 - Rosters: your USO league, read today. Kickers and defenses were skipped. Kenny Gainwell (Benny and the Jets) has no price, so he isn't in any trade.
 - League page fit and bench share are modeled the same way the connector models them.
-- Only Half PPR was measured. The band doesn't depend on scoring, so Standard and PPR move the same way, but the counts there weren't run.
+- The detailed sections below are Half PPR. Standard and PPR were measured the same way afterwards (same week, same rosters) and are in their own section.
 
 ## Your league: Tiny Hands against the other 11 teams
 
@@ -21,7 +21,7 @@ Branch `fe/jeg-1125-even-threshold`, draft PR #1033. Nothing is merged or deploy
 | Force fit | 406 | 495 |
 | Find a trade, raw count (up to 2 for 2) | 1,643 | 1,721 |
 
-884 trades are on both lists, and none of their Compare answers change.
+884 trades are on both lists. None of their verdicts, Deal reads or headline answers change. On 99 of them, "Will they accept?" now counts 4 of 4 charts instead of 3 of 4, because a chart that had you up by less than the band now counts as even.
 
 ### 324 trades leave the list
 
@@ -92,6 +92,32 @@ The first five don't change. These four are new:
 ### The trade from JEG-886: Hall + Higgins for Nacua
 
 Before, the charts split and "Will they accept?" said Unlikely, with 1 of 3 charts. After A, the read is "value win, market even", not a split, and accept is Likely, with 2 of 3 charts.
+
+## Standard and PPR
+
+These use the same week, rosters and pipeline as the Half PPR numbers above. Both formats move the same way, by a smaller or similar amount.
+
+| | Standard before | Standard after | PPR before | PPR after |
+|---|---|---|---|---|
+| League page trades listed | 1,455 | 1,483 | 782 | 834 |
+| Natural fit | 27 | 26 | 7 | 5 |
+| Market fit | 1,038 | 971 | 309 | 292 |
+| Force fit | 390 | 486 | 466 | 537 |
+| Find a trade, raw count | 1,906 | 1,926 | 1,091 | 1,134 |
+
+Trades that leave the list:
+- Standard: 318, with edges of 0.06 to 2.44 points.
+- PPR: 205, with edges of 0.05 to 2.20 points.
+- In both formats, every one of them already had an even Deal read, and the only change is the verdict, from win to even.
+
+Trades that join the list:
+- Standard: 346.
+- PPR: 257.
+- In both formats, each has one to three charts that had you up by less than the band.
+- "Will they accept?" mostly moves from Toss-up (Low) to Likely (High): 277 trades in Standard and 142 in PPR.
+- "Should you propose?" drops a level: 246 trades in Standard and 91 in PPR.
+
+Trades on both lists: Compare answers don't change. Only the accept chart count moves from 3 of 4 to 4 of 4, on 118 trades in Standard and 37 in PPR.
 
 ## League-wide check: the 20-team test league
 
