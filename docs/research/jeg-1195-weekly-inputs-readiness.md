@@ -307,7 +307,7 @@ JEG-1195 (Jeremy, 2026-10-29: "B").
   It was applied from the main chat with the six "drop ... if exists" lines and
   some comments left out, so the file here is the source, not a byte copy.
   **Follow-up, proposed and not applied:**
-  `supabase/migrations/jeg1268_weekly_fantasypros_shown_check_20261029.sql`
+  `docs/research/proposed-migrations/jeg1268_weekly_fantasypros_shown_check_20261029.sql`
   (JEG-1268) makes the "showing X of Y" check null-safe (below). Applying it
   needs Jeremy's fresh yes naming it. Until then the live check admits a page
   with only one of the two counts, so the writer must never send one alone.

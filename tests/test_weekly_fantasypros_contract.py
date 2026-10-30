@@ -18,6 +18,17 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MIGRATIONS = ROOT / "supabase/migrations"
 APPLIED = MIGRATIONS / "jeg1195_weekly_fantasypros_20261029.sql"
+# A proposed, unapplied follow-up lives outside supabase/migrations so nothing applies it by accident; the
+# checks read it after the applied migrations, as the table would be once Jeremy approves it by name.
+PROPOSED = ROOT / "docs/research/proposed-migrations"
+
+
+def migration_files():
+    return sorted(MIGRATIONS.glob("*.sql")) + sorted(PROPOSED.glob("*.sql"))
+
+
+def migration_path(name):
+    return next(path for path in migration_files() if path.name == name)
 
 
 def sql_only(text):
@@ -39,9 +50,9 @@ def check_expression(sql, name):
 
 
 def effective_check(name):
-    """The constraint as the last weekly_fantasypros migration (by name) defines it."""
+    """The constraint as the last weekly_fantasypros migration (applied by name, then proposed) defines it."""
     found = None
-    for path in sorted(MIGRATIONS.glob("*.sql")):
+    for path in migration_files():
         sql = sql_only(path.read_text(encoding="utf-8"))
         if "weekly_fantasypros" not in sql:
             continue
@@ -218,7 +229,7 @@ class RawKindContract(unittest.TestCase):
 
     def test_no_invented_rank(self):
         # A '-' rank is never coerced to 0 or any default (JEG-1268).
-        for path in sorted(MIGRATIONS.glob("*.sql")):
+        for path in migration_files():
             sql = sql_only(path.read_text(encoding="utf-8")).lower()
             if "weekly_fantasypros" not in sql:
                 continue
@@ -233,7 +244,7 @@ class FollowUpMigration(unittest.TestCase):
     def test_follow_up_replaces_constraint_in_one_statement(self):
         found = effective_check("weekly_fantasypros_pages_shown")
         self.assertNotEqual(found[0], APPLIED.name, "the half-null fix must come from a follow-up migration")
-        sql = sql_only((MIGRATIONS / found[0]).read_text(encoding="utf-8"))
+        sql = sql_only(migration_path(found[0]).read_text(encoding="utf-8"))
         self.assertRegex(
             sql,
             r"(?is)alter\s+table\s+public\.weekly_fantasypros_pages\s+"
@@ -242,7 +253,7 @@ class FollowUpMigration(unittest.TestCase):
 
     def test_follow_up_marked_proposed(self):
         found = effective_check("weekly_fantasypros_pages_shown")
-        header = (MIGRATIONS / found[0]).read_text(encoding="utf-8").splitlines()[:6]
+        header = migration_path(found[0]).read_text(encoding="utf-8").splitlines()[:6]
         self.assertTrue(any("PROPOSED" in line for line in header), header)
 
 
