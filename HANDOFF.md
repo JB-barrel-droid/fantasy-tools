@@ -19,6 +19,20 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
+  matrix) and the workflow half of #1070 onto main, without #1070's JEG-1206
+  and JEG-1215 parts (main has them). It supersedes #1050, #1051 and #1070;
+  closing those needs Jeremy's OK.
+- A red validate now isolates one attributed source, reruns the full gate
+  once and publishes only after confirm; anything else stays red as before.
+- #1064 (JEG-1180, JEG-1200) merges cleanly with main b3eb8d97 and passes
+  test-core except the Playwright-only week-history transition test.
+- Sleeper identity refresh is green again after #1209 (run 41098267164,
+  base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
+- JEG-1205 (#1052) stays on hold for Jeremy.
+
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
 - Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
@@ -664,8 +678,9 @@ source data -> reference compute -> dashboard build -> frontend/site
 - **Supabase:** project "JB-barrel-droid's Project" (ref `iskiybsimubiujwuchsl`,
   us-west-2). Edge functions in `supabase/functions/`: `get-values`, `mcp`
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
-  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
-  server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
+  in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). The `mcp`
+  function is the only MCP server; the old local one was retired 2026-10-30
+  (JEG-1372). See `docs/values-endpoint.md`.
 - **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
   (JEG-1173); kept as a record, its scripts refuse to run.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
@@ -801,8 +816,22 @@ Known bugs (repro steps and history on each ticket):
    `python3 -m unittest tests.test_mcp_remote`, open a PR, merge on green CI +
    review, log the two picks (compare stops and asks; roster scans keep going
    and list the name). Putting it live needs another mcp deploy: Jeremy's yes.
-   Backlog: JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player
-   name; production data writes need Jeremy's yes).
+   JEG-1202 (store ESPN, Sleeper and Yahoo spellings of every player name):
+   audit done (#1114, JEG-1313, JEG-1350); JEG-1351 (Mac) merges the three
+   duplicate Sleeper rows. JEG-1387 stores the 1,034 grounded spellings as
+   `public.player_name_aliases` rows (sources sleeper/espn/yahoo) through the
+   NOT APPLIED `supabase/migrations/jeg1202_platform_spellings.sql`, built by
+   `pipelines/build_platform_spellings.py` from the audit outputs (rerun it
+   after any audit rebuild; `--check` in `tests/test_platform_spellings.py`
+   catches drift). Applying it is a production write: Jeremy's yes (his pick
+   A, 2026-10-30: after #1214 merges and JEG-1351 lands). JEG-1388 (Jeremy's
+   pick A): `pipelines/build_name_aliases.py` writes one alias list (verified
+   aliases plus platform spellings that differ from the site's name) into a
+   generated block in both `app/v2/roster-paste.js` and
+   `supabase/functions/mcp/names.ts`; `tests/test_name_aliases.py` checks
+   drift. Rerun it after JEG-1351's rebake so "Mitch Tinsley" joins. The chat
+   side goes live only with an mcp redeploy: Jeremy's yes. Still open: an
+   ESPN / Yahoo puller that saves raw spellings with ids.
 
 Failed approaches and traps:
 - Two PRs on `curve-widget.js` merged minutes apart broke deploys twice: merge
@@ -837,6 +866,30 @@ Failed approaches and traps:
 - Nothing of this session is unpushed or uncommitted.
 
 ---
+
+## JEG-1204: held and lagging source test matrix (2026-10-28)
+
+- Branch `be/jeg-1201-hold-tolerance`, existing draft PR #1051. The former
+  notes-only draft now adds seven-source held/current, lagging, and
+  held/lagging cases to `tests.test_seeded_hold_build`, already in test-core
+  and preview shard 1. No source isolation or value-engine changes.
+- The suspected current-week `test_superflex.page_problems` bug did not
+  reproduce in Chromium: held sources retain their pipeline harness maps.
+  Original numeric checks remain strict. The older identity test now
+  actually passes its isolated fixture to the loader.
+- Fixtures come from consecutive complete saved weeks, including when the
+  real build already has mixed weeks. Projection replays replace the inline
+  player PPG input as well as reference players; saved history stays intact.
+- Main `1bd85f76` is integrated. The 59-test matrix passed; the rest of the
+  full gate passed after resuming an environment-only Chromium lookup
+  failure, with 0 engine/reference mismatches across 1,229,985 comparisons.
+  After integration, 29 focused Week 8 tests passed. The full local gate was
+  not repeated after integration; required remote CI must pass on final head.
+- Exact next step for the parent: read final-head CI and review on #1051,
+  recheck main, then handle serial PR merge/release and live verification.
+  Reconcile Linear's premature Done status afterward. JEG-1203 depends on
+  the reviewed passing guard. Details and retained local artifacts are in
+  `docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md`.
 
 ## Keeping this file current
 
