@@ -600,6 +600,26 @@ function resolveNames<T extends PlayerValue>(players: T[], names: string[]): Res
   return { matched, unmatched, ambiguous, notes };
 }
 
+/** "2 not found" plus, when any, "1 fits more than one player (left out; ask which)". */
+function missed<T extends PlayerValue>(res: ResolvedNames<T>): string {
+  const parts = [`${res.unmatched.length} not found`];
+  if (res.ambiguous.length) parts.push(`${res.ambiguous.length} fit${res.ambiguous.length === 1 ? "s" : ""} more than one player (left out; ask which)`);
+  return parts.join(", ");
+}
+
+/** Only set when a roster had an ambiguous name, so the usual reply stays the same size. */
+function ambiguousOf<T extends PlayerValue>(res: ResolvedNames<T>): { ambiguous?: Array<{ input: string; suggestions: string[] }> } {
+  return res.ambiguous.length ? { ambiguous: res.ambiguous } : {};
+}
+
+/** JEG-1124: a name that fits several players stops a compare so the model asks which one. */
+function stopOnAmbiguous(...sides: Array<{ ambiguous: Array<{ input: string; suggestions: string[] }> }>): void {
+  const hits = sides.flatMap((side) => side.ambiguous);
+  if (!hits.length) return;
+  const each = hits.map((h) => `"${h.input}" could be ${h.suggestions.join(", ")}`);
+  throw new ToolInputError(`More than one player fits: ${each.join("; ")}. Ask the user which player they meant, then call again with the full name.`);
+}
+
 function emptyRoster<T extends PlayerValue>(side: string, res: ResolvedNames<T>): string {
   if (res.notes.length) return `No players matched on ${side}. ${res.notes.join(" ")}`;
   return `No players matched on ${side}. Check the spelling.`;
@@ -765,6 +785,7 @@ async function runPricedTool(
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     let a = resolveNames(data.players, namesA);
     let b = resolveNames(data.players, namesB);
+    stopOnAmbiguous(a, b);
     // The same player on both sides stays on team A, matching the site.
     const giveKeys = new Set(a.matched.map((p) => p.player_key));
     const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
@@ -950,8 +971,8 @@ async function findTradesHandler(
       ...header(data, s),
       "",
       foundLine(result.total, trades.length, limit, viableOnly),
-      `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
-      `Their roster: ${theirMatched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
+      `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}; searched ${result.mine.searched} of ${result.mine.of} priced.`,
+      `Their roster: ${theirMatched.length} matched, ${missed(theirRes)}; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
     ];
     if (shortened) lines.push("Fewer candidates shown to keep this reply compact; every returned trade keeps its full fit reason.");
     if (nameNotes.length) lines.push(...nameNotes);
@@ -969,8 +990,8 @@ async function findTradesHandler(
       shown: trades.length,
       limit,
       viableCount: trades.filter((o) => o.viable).length,
-      mine: { ...result.mine, unmatched: mineRes.unmatched },
-      theirs: { ...result.theirs, unmatched: theirRes.unmatched },
+      mine: { ...result.mine, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
+      theirs: { ...result.theirs, unmatched: theirRes.unmatched, ...ambiguousOf(theirRes) },
     };
 
     const work = {
@@ -1066,7 +1087,13 @@ async function findTradesLeagueHandler(
   const allOffers: TradeOfferInput[] = [];
   const opponentsById = new Map<string, { name: string; index: number; rows: FinderRow[] }>();
   const allRowsByKey = new Map<number, FinderRow>();
-  const perOpponent: Array<{ name: string; opponent_index: number; tradesFound: number; unmatchedNames: string[] }> = [];
+  const perOpponent: Array<{
+    name: string;
+    opponent_index: number;
+    tradesFound: number;
+    unmatchedNames: string[];
+    ambiguous?: Array<{ input: string; suggestions: string[] }>;
+  }> = [];
   const nameNotes = [...mineRes.notes];
   // JEG-1329: every opponent's matched roster, in input order, for the site link (even teams with no trade).
   const leagueTeams: Array<{ name: string; keys: string[] }> = [];
@@ -1085,7 +1112,7 @@ async function findTradesLeagueHandler(
     nameNotes.push(...oppRes.notes.map((note) => `${opp.name}: ${note}`));
     const theirMatched = oppRes.matched.filter((p) => !mineKeys.has(p.player_key));
     if (!theirMatched.length) {
-      perOpponent.push({ name: opp.name, opponent_index: index, tradesFound: 0, unmatchedNames: oppRes.unmatched });
+      perOpponent.push({ name: opp.name, opponent_index: index, tradesFound: 0, unmatchedNames: oppRes.unmatched, ...ambiguousOf(oppRes) });
       continue;
     }
 
@@ -1118,6 +1145,7 @@ async function findTradesLeagueHandler(
       opponent_index: index,
       tradesFound: pairResult.trades.length,
       unmatchedNames: oppRes.unmatched,
+      ...ambiguousOf(oppRes),
     });
   }
 
@@ -1145,7 +1173,7 @@ async function findTradesLeagueHandler(
       ...header(data, s),
       "",
       `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}${shownTrades.length < limit && scored.length > shownTrades.length ? ` of limit ${limit}` : ""}.`,
-      `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found.`,
+      `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}.`,
     ];
     if (shortened) lines.push("Fewer candidates shown to keep this reply compact; the selected package and full fit reasons are preserved.");
     if (nameNotes.length) lines.push(...nameNotes);
@@ -1177,7 +1205,7 @@ async function findTradesLeagueHandler(
       limit,
       viableCount,
       perOpponent,
-      mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched },
+      mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
     };
 
     const entry = (input: string, p: PlayerValue | null) =>

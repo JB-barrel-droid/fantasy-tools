@@ -375,6 +375,18 @@ if (ft.trades.length > 0) {
 r = await callF("find_trades", { mine: "Josh Allen, Ghost", theirs: "Bijan Robinson" });
 assert.notEqual(r.result.isError, true);
 assert.deepEqual(r.result.structuredContent.mine.unmatched, ["Ghost"]);
+assert.equal(r.result.structuredContent.mine.ambiguous, undefined, "no ambiguous field when every name is clear");
+
+// JEG-1124: a roster name that fits several players is left out, counted and listed with its candidates.
+r = await callF("find_trades", { mine: "Bijan Robinson, Josh", theirs: "Ja'Marr Chase" });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+assert.deepEqual(r.result.structuredContent.mine.ambiguous, [{ input: "Josh", suggestions: ["Josh Allen", "Josh Jacobs"] }]);
+assert.match(r.result.content[0].text, /Your roster: 1 matched, 0 not found, 1 fits more than one player \(left out; ask which\)/);
+assert.match(r.result.content[0].text, /Josh: AMBIGUOUS/);
+r = await callF("find_trades_league", { mine: "Bijan Robinson", opponents: [{ name: "Opp", roster: "Ja'Marr Chase, Josh" }] });
+assert.notEqual(r.result.isError, true, JSON.stringify(r.result));
+assert.deepEqual(r.result.structuredContent.perOpponent[0].ambiguous, [{ input: "Josh", suggestions: ["Josh Allen", "Josh Jacobs"] }]);
+assert.match(r.result.content[0].text, /Opp: Josh: AMBIGUOUS/);
 
 // JEG-1070: a pasted custom league reaches the chart fetch for both finder tools, so the
 // finder prices the same league as get_values; a default league sends none.
@@ -449,6 +461,12 @@ assert.match(r.result.content[0].text, /Josh Allen/);
 r = await call("get_player_value", { names: "Jr" });
 assert.equal(r.result.structuredContent.results[0].player, null);
 assert.match(r.result.content[0].text, /Brian Thomas Jr/);
+// JEG-1124: compare_trade stops on a name that fits several players instead of totalling without it.
+r = await call("compare_trade", { side_a: "Allen, Bijan Robinson", side_b: "Ja'Marr Chase" });
+assert.equal(r.result.isError, true, JSON.stringify(r.result));
+assert.match(r.result.content[0].text, /"Allen" could be Josh Allen, Keenan Allen/);
+assert.match(r.result.content[0].text, /Ask the user which player they meant/);
+assert.doesNotMatch(r.result.content[0].text, /Verdict/);
 
 // Bad input is rejected instead of coerced.
 for (const [tool, args, needle] of [
@@ -649,9 +667,13 @@ sizes.league = tbytes(r);
 assert.ok(sizes.league < 8000, `find_trades_league ${sizes.league} bytes`);
 // JEG-1329 pick B: the 12-team link (every roster) is outside the budget, so it costs no rows. Counted
 // in, this fixture showed 2 of the 4 rows; the wire guard (checkTradeReplySize) measures the same way.
+// The row count itself follows the fit reasons' length (JEG-1324's projections reason made each row
+// longer, so 3 fit), so the check is that the rows shown would not fit if the link were counted.
 assert.ok(defaultLeague.structuredContent.site_url.includes("#find-league?workspace="));
 assert.ok(nbytes(r) - sizes.league > 1500, `the league link is long here: ${nbytes(r) - sizes.league} bytes`);
-assert.equal(defaultLeague.structuredContent.shown, 4, "the league link costs no trade rows");
+assert.ok(defaultLeague.structuredContent.shown >= 3, `showing ${defaultLeague.structuredContent.shown}`);
+assert.equal(defaultLeague.structuredContent.trades.length, defaultLeague.structuredContent.shown);
+assert.ok(nbytes(r) >= 8000 - 512, `counted in, the link would cost rows: ${nbytes(r)} bytes with it`);
 assert.doesNotThrow(() => checkTradeReplySize("find_trades_league", defaultLeague));
 // The larger league budget still preserves the same entire package and a ranked candidate prefix.
 r = await sizeCall("find_trades_league", { mine: mineList, opponents: sizeOpps, limit: 100 });
