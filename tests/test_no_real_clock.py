@@ -40,6 +40,9 @@ ALLOWLIST = {
         1, "Production reader clock after explicit/window override returns."),
     (WIDGET, 'checks.set(id, {name, status, detail: detail || "", at: new Date().toISOString(), diagnostics: diagnostics || null});'): (
         1, "Diagnostic check timestamp, not calendar eligibility."),
+    # JEG-1178: the Thursday-noon stale deadline reads the clock once, after TRADE_VALUE_NOW / TRADE_VALUE_TODAY.
+    (PRODUCT, "const instant = new Date();"): (
+        1, "Production reader clock for the Thursday 12:00 CT stale deadline, after the explicit pins."),
     (WIDGET, 'checks.set(id, {name, status: "warn", detail: detail || "", at: new Date().toISOString(), diagnostics: diagnostics || null});'): (
         1, "Diagnostic warning timestamp, not calendar eligibility."),
     (GATES[1], "const deadline = Date.now() + timeoutMs;"): (

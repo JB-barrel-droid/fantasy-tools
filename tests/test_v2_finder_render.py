@@ -41,6 +41,9 @@ FINDER_JS = ROOT / "app" / "v2" / "finder.js"
 @contextlib.contextmanager
 def _built_dist():
     """Built dist with the pinned holds (CBS held), so the held-chart check has a held chart to look for (JEG-881)."""
+    # build_v2_page reads the gitignored build/engine/index.html; build it here so a module without
+    # setUpModule (or a single test run on a clean checkout) does not depend on an earlier module's build (JEG-1182).
+    _render_env.ensure_built()
     if not (DIST / "index.html").exists():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
