@@ -19,17 +19,18 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC)
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
-- Branch `claude/JEG-1385`: get-values now prices this week on the sources with Week N-1 saved, as the
-  page and `value_reference` do; unpaired sources are shown, never counted. `index.ts` reads Week N-1
-  before building the input. Output byte-identical to main when every source is paired.
-- Review corrections under JEG-1390 (same branch): pairing needs this build's history and a served week;
-  the unpaired source's reason reads "no prior week: ...". Delta review passed on 7f0e5b1a.
-- Not live today: all seven served sources have Week 7 saved. Value math, so Jeremy approves the
-  before/after first; he said yes 2026-10-30 19:33 UTC ("A", "Yes, send it": merge once green, then deploy
-  get-values and mcp from main, live check, roll back on failure). Earlier (18:25 UTC, "B") he chose to hold the JEG-1029 get-values and mcp
-  redeploy until this lands, then deploy both from main once (rollback get-values v10, mcp v16).
+- Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
+  ("A", "Yes, send it"). Deployed from that main at about 20:15 UTC: get-values v12 and mcp v18 (were v11
+  and v17). This also took JEG-1029's connector analyses and JEG-1125's find-trades band live.
+- Live check passed: the connector's get_values at ppr/12, half_ppr/10 SF and standard/14 gives the same
+  values as before the deploy (every source is paired today), find_trades answers, the edge drift check
+  on main exited 0 (deployed tool list and get-values charts match main), and the function logs show only
+  200/202 responses. Not called directly: risers_fallers and audit_values (the cloud connector's tool
+  list predates the deploy).
+- mcp v18's `names.ts` holds the accent-stripping regex range as literal combining characters, not
+  `\u0300-\u036f` escapes: same behaviour, different bytes. The next mcp deploy from main fixes it.
 - Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
   GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
 
