@@ -619,8 +619,9 @@
     UI.comps.forEach(c => c.li.remove());
     UI.comps.clear();
     UI.cache = O.createCache();
+    // JEG-1389: the league's settings are saved, as the settings form saves them, so a reload keeps them.
     if (workspace.settings && workspace.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
-      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query));
+      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query), {save: true});
       if (root.DDFOverrides && root.DDFOverrides.applyLink) root.DDFOverrides.applyLink(new URLSearchParams(workspace.settings.query));
     }
     store.replace(workspace, "replace");
@@ -1708,7 +1709,7 @@
       UI.comps.forEach(c => c.li.remove());
       UI.comps.clear();
       if (snap.settings && snap.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
-        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query));
+        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query), {save: true});   // undoes the load's save too
       }
       if (valueContext && root.DDFOverrides && root.DDFOverrides.restoreContext) root.DDFOverrides.restoreContext(valueContext);
       store.replace(snap, "replace");

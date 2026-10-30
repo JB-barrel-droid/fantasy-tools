@@ -84,9 +84,10 @@ below are history, including any "Codex reviews and merges" line.
 
 - Branch `claude/JEG-1389`, draft PR. Fixes the "Use league rosters" switch not redrawing player lines (`app/v2/league.js`;
   test `tests/test_jeg1389_switch_redraw_render.py`).
-- Open decision for Jeremy (on JEG-1389): the live standard-bench gap is league settings lost on reload. Settings from a
-  league import or share link are applied but not saved, so a reload prices at PPR / 2 WR / 7 bench. No value math is
-  wrong. Options A (save them on import, recommended), B (re-apply on league load), C (notice only). Evidence and the
+- The live standard-bench gap was league settings lost on reload: settings from a league import or share link were
+  applied but not saved, so a reload priced at PPR / 2 WR / 7 bench. No value math is wrong. Jeremy picked A
+  (2026-10-30): an import or share link now saves them as the settings form does (`app/v2/v2.js` applyLinkLeague
+  `{save: true}`, called from `league.js`; test `tests/test_jeg1389_link_settings_reload_render.py`). Evidence and the
   six-player before/after: `docs/claude-log/2026-10-30-jeg1389-bench-switch.md`.
 - Local render tests pin a CBS hold (`_built_dist`, JEG-881): local DDF numbers are not live numbers.
 
