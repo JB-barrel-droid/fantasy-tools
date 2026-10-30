@@ -106,14 +106,19 @@ class PreKickoffDueTests(unittest.TestCase):
 
 class DryRunTests(unittest.TestCase):
     def setUp(self):
-        self.saved = (sc.save_captures, sr.save_captures, sr.build_razzball_rows, cap._cbs_resolver)
+        self.saved = (sc.save_captures, sr.save_captures, sr.build_razzball_rows, cap._cbs_registry,
+                      sc.resolve_name)
         def boom(*a, **k):
             raise AssertionError("a dry run must not write")
         sc.save_captures = sr.save_captures = boom
-        cap._cbs_resolver = lambda: (lambda name, pos, norm: abs(hash(name)) % 10**6 + 1)
+        # JEG-1386: the dry run resolves through the save's own sc.capture_rows, so the
+        # stub sits on the registry fetch and on resolve_name, not on a dry-run resolver.
+        cap._cbs_registry = lambda: None
+        sc.resolve_name = lambda name, pos, registry, norm=None: (abs(hash(name)) % 10**6 + 1, None)
 
     def tearDown(self):
-        sc.save_captures, sr.save_captures, sr.build_razzball_rows, cap._cbs_resolver = self.saved
+        (sc.save_captures, sr.save_captures, sr.build_razzball_rows, cap._cbs_registry,
+         sc.resolve_name) = self.saved
 
     def run_dry(self, n_players, *, weekly=True):
         clean = [{"player_key": i + 1, "per_game_standard": 10, "per_game_half_ppr": 11, "per_game_ppr": 12,
