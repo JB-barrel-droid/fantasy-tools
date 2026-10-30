@@ -19,6 +19,15 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline
+  classes of `tests/test_waivers_mutation_specificity.py` (Classifier, Anchor, Fixture; JEG-1279, #1144) on every PR,
+  with the Playwright package but no browser. Non-blocking: its own check, not a `needs` of `preview`, not in test-core
+  (unchanged). It goes red on a broken mutation check; nothing swallows the failure. Guard:
+  `tests/test_waivers_mutation_offline_workflow.py` (also in test-unit-modules). The Chromium class still runs nightly.
+- Next: independent review and green CI, then the merge gate merges. No settings change: it stays non-required.
+
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
 - Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
