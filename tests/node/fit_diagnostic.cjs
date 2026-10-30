@@ -28,6 +28,8 @@ function makeRows(players) {
     const values = {ddf_value: ddf};
     const market = 0.62 + 0.76 * unit(p.key, "m");
     CH.forEach(k => { values[k] = Math.round(ddf * market * (0.9 + 0.2 * unit(p.key, k)) * 10) / 10; });
+    // JEG-1324: engine rows carry DDF Value (projections); Natural fit 1a reads it on both sides. Its own draw per player.
+    values.ddf_value_projections = Math.round(ddf * (0.8 + 0.4 * unit(p.key, "p")) * 10) / 10;
     map.set(String(p.key), {player_key: String(p.key), name: p.name, pos: p.pos, team: p.team || "", values});
   });
   return map;
