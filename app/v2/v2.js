@@ -590,6 +590,13 @@
     window.addEventListener("scroll", hide, {passive: true, capture: true});
   })();
 
+  // JEG-892: the bye week on a player row's sub-line (player-flags.js), nothing for a free agent, then `tail`
+  // (the tier), so the tier stays the sub-line's last part.
+  function appendFlags(sub, row, tail) {
+    const flags = window.DDFPlayerFlags ? window.DDFPlayerFlags.node(row) : null;
+    if (flags) sub.appendChild(flags);
+    if (tail) sub.appendChild(document.createTextNode(tail));
+  }
   function appendEspnZero(parent, row) {
     const badge = espnZeroBadge(row);
     if (badge) parent.appendChild(badge);
@@ -4484,7 +4491,8 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "player-sub";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"}`;
+      appendFlags(sub, p.row, ` · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`);   // JEG-892: bye week before the tier
       name.appendChild(subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const ours = td("num is-rank");
       ours.dataset.ours = "";
@@ -4569,7 +4577,8 @@
       appendEspnZero(name, p.row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"} · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`;
+      sub.textContent = `${p.row.pos} · ${p.row.team || "Free agent"}`;
+      appendFlags(sub, p.row, ` · ${tierText(p.row, targetsView.ours, targetsView.tierScope)}`);   // JEG-892: bye week before the tier
       who.append(name, subWithTag(sub, p.row));   // beside the sub-line: no taller row (JEG-470)
       const b = targetBest(side, p);
       const big = document.createElement("div");
@@ -5754,9 +5763,11 @@
       appendEspnZero(name, row);
       const sub = document.createElement("span");
       sub.className = "v2-meta";
-      sub.textContent = row.unpriced ? "No value in any source for this league"
-        : compareView.held ? `${row.pos} · ${row.team || "Free agent"}`
-        : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
+      if (row.unpriced) sub.textContent = "No value in any source for this league";
+      else {
+        sub.textContent = `${row.pos} · ${row.team || "Free agent"}`;
+        appendFlags(sub, row, compareView.held ? "" : ` · ${tierText(row, verdictKey(), compareTierScope())}`);   // JEG-892: bye week before the tier
+      }
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";

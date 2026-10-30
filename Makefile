@@ -132,6 +132,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_mcp_remote
 	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).
 	python3 -m unittest tests.test_edge_drift_check
+	# JEG-1049: the daily/on-demand edge drift workflow stays read-only and keeps the checker's exit code.
+	python3 -m unittest tests.test_edge_drift_workflow
 	python3 -m unittest tests.test_ddf_state
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
@@ -202,6 +204,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_arrange_render
 	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
+	python3 -m unittest -v tests.test_waivers_mutation_specificity
 	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
@@ -447,6 +450,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_league_units
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
+	# JEG-1262: pure multi-trade package uniqueness and roster-application helper.
+	python3 -m unittest tests.test_jeg1183_package_constraints
 	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
 	python3 -m unittest tests.test_jeg1229_trade_context
 	# JEG-1320: one stored record for the finders' discovery controls (pure module; no route reads it yet).
@@ -634,6 +639,7 @@ test-core:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
 	python3 -m unittest tests.test_v2_finder_trifit
@@ -699,6 +705,7 @@ test-core:
 	python3 -m unittest tests.test_published_league_settings_engine
 	python3 -m unittest tests.test_value_reference_worked_example
 	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_player_tags
 	python3 -m unittest tests.test_contract_qa_report
@@ -783,6 +790,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
 	python3 -m unittest tests.test_v2_rescaled_copy
@@ -800,6 +808,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
 	python3 -m unittest tests.test_roster_convention
+	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_razzball_outlier_guard
 
 test-core-shard-4:
