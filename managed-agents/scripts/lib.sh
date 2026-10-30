@@ -6,6 +6,13 @@
 #   cma-minimax     MiniMax subscription API key
 set -euo pipefail
 
+# Retired 2026-10-27 (Jeremy, JEG-1173): every script here refuses to run, so nothing
+# recreates the deployments or starts a session by accident.
+if [[ "${CMA_ALLOW_RETIRED:-}" != "1" ]]; then
+  echo "session:cma is retired (JEG-1173); managed-agents scripts are disabled." >&2
+  exit 1
+fi
+
 MA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK="$MA_DIR/claude-lock.json"
 REPO_URL="https://github.com/JB-barrel-droid/fantasy-tools"
