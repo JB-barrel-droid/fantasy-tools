@@ -223,21 +223,6 @@
 
   function vpNumKey(a, b) { return Number(a) - Number(b); }
 
-  // JEG-1047 (Jeremy, 2026-10-29: "A"): a projection source's waiver line is
-  // the mean of the 7 players around the first non-rostered seat (work[N]),
-  // clipped to the list (N = 0: the top up to 4). Its own copy, not a call to
-  // RosterConvention.waiverBandLine: tests/test_waiver_band_line.py checks this
-  // function through runValuePipeline against roster_convention.waiver_band_line,
-  // the Python reference and the spec reference (JEG-1244).
-  var VP_WAIVER_BAND_HALF_WIDTH = 3;
-  function vpWaiverBand(work, N) {
-    var lo = Math.max(0, N - VP_WAIVER_BAND_HALF_WIDTH);
-    var hi = Math.min(work.length, N + VP_WAIVER_BAND_HALF_WIDTH + 1);
-    var sum = 0;
-    for (var i = lo; i < hi; i++) sum += work[i].native;
-    return sum / (hi - lo);
-  }
-
   // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
   // sorted best first; `score` is m (or the source's own native in the
   // degenerate case, VP-2.2f). Returns {pos: {dedicated, superflex, flex,
@@ -653,13 +638,6 @@
     return { avail: avail, unavailable: q, nPerTeam: nPerTeam, bands: bands, parts: parts };
   }
 
-  // JEG-1142 (Jeremy, 2026-10-27): no role-change math (neither the bench
-  // promotion boost nor the starter demotion cut) applies to values until the
-  // JEG-1144 risk research supports it. This master switch overrides
-  // setting.promotion_model; the model code below is kept for later.
-  // Mirrored in pipelines/value_reference.py and spec_reference/value_pipeline.py.
-  var PROMOTION_MODEL_ENABLED = false;
-
   // JEG-969: promotion/demotion rates (measured from 2015-2025 nflverse actuals).
   // Mirrors config/promotion_rates.json.
   var PROMOTION_RATES = {
@@ -984,10 +962,9 @@
       timingFactor = Math.min(1, windowWeeks / fullSeasonWeeks);
     }
 
-    // JEG-969: promotion/demotion model. Off for everyone since JEG-1142
-    // (PROMOTION_MODEL_ENABLED); setting.promotion_model only matters if that
-    // master switch is turned back on.
-    var promoEnabled = PROMOTION_MODEL_ENABLED && (setting.promotion_model !== false) && esMode;
+    // JEG-969: promotion/demotion model (on by default, 2026-10-23).
+    // Set setting.promotion_model = false to disable.
+    var promoEnabled = (setting.promotion_model !== false) && esMode;
     var promoWeeksRemaining = 0;
     if (promoEnabled && lineup.window && lineup.window[1] >= lineup.window[0]) {
       promoWeeksRemaining = lineup.window[1] - lineup.window[0] + 1;
@@ -1114,7 +1091,7 @@
         var N = a.rostered, S = a.starters;
         var method, waiver = null, starterLine = null;
         if (work.length > N) {
-          waiver = family === "projection" ? vpWaiverBand(work, N) : work[N].native;
+          waiver = work[N].native;
           method = work[N].estimated ? "estimated" : "roster_determined";
         } else if (work.length) {
           waiver = work[work.length - 1].native;
@@ -1683,61 +1660,8 @@
     };
   }
 
-  // JEG-1177 (JEG-1176): the week-transition rule. Python twin:
-  // pipelines/week_state.py; both are pinned to
-  // tests/fixtures/week_state_vectors.json (tests/test_week_state.py).
-  // entries: [{source, week}] for the sources that feed DDF Value at one
-  // league setting, each with the week it serves. Default week = the newest
-  // week when MORE than half serve it, else the week before (exactly half
-  // stays on the week before; Jeremy, 2026-10-27). A source with no known
-  // week counts in the total. No carry-forward: the newest view lists only
-  // the sources serving it; the previous view lists those serving previous
-  // or newest (a moved source is read from its saved previous week).
-  function weekState(entries) {
-    var rows = [];
-    var seen = {};
-    (entries || []).forEach(function (item) {
-      if (!item || !item.source || seen[item.source]) return;
-      seen[item.source] = true;
-      var week = Number.isInteger(item.week) ? item.week : null;
-      rows.push({source: String(item.source), week: week});
-    });
-    var weeks = rows.map(function (r) { return r.week; }).filter(function (w) { return w !== null; });
-    if (!weeks.length) {
-      return {newest: null, previous: null, default_week: null, transition: false, weeks: [],
-        on_newest: 0, total: rows.length, views: {}};
-    }
-    var newest = Math.max.apply(null, weeks);
-    var previous = newest - 1;
-    var byName = function (a, b) { return a < b ? -1 : a > b ? 1 : 0; };
-    var everyone = rows.map(function (r) { return r.source; }).sort(byName);
-    var onNewest = rows.filter(function (r) { return r.week === newest; })
-      .map(function (r) { return r.source; }).sort(byName);
-    var total = rows.length;
-    var transition = onNewest.length < total;
-    var views = {};
-    views[String(newest)] = {sources: onNewest,
-      missing_sources: everyone.filter(function (s) { return onNewest.indexOf(s) === -1; })};
-    if (transition) {
-      var prevSources = rows.filter(function (r) { return r.week === previous || r.week === newest; })
-        .map(function (r) { return r.source; }).sort(byName);
-      views[String(previous)] = {sources: prevSources,
-        missing_sources: everyone.filter(function (s) { return prevSources.indexOf(s) === -1; })};
-    }
-    return {newest: newest, previous: previous,
-      default_week: 2 * onNewest.length > total ? newest : previous,
-      transition: transition, weeks: transition ? [newest, previous] : [newest],
-      on_newest: onNewest.length, total: total, views: views};
-  }
-  function defaultWeek(entries) {
-    return weekState(entries).default_week;
-  }
-
   root.ValueModel = {
-    weekState: weekState,
-    defaultWeek: defaultWeek,
     VALUE_PIPELINE_VERSION: VALUE_PIPELINE_VERSION,
-    PROMOTION_MODEL_ENABLED: PROMOTION_MODEL_ENABLED,
     VP_DEFAULT_BENCH_SHARE: VP_DEFAULT_BENCH_SHARE,
     VP_PIE_PER_STARTING_SLOT: VP_PIE_PER_STARTING_SLOT,
     runValuePipeline: runValuePipeline,
