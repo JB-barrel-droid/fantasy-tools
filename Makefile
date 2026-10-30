@@ -860,6 +860,9 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
+	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page). First in the
+	# shard, because a make recipe stops at its first red module and this one would otherwise never run.
+	python3 -m unittest tests.test_compare_evidence_view_render
 	python3 -m unittest tests.test_v2_consistency_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
@@ -882,8 +885,6 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_top10_render
 	# JEG-1058 / JEG-1059: the adjustment kind and the flag on every overridden value.
 	python3 -m unittest tests.test_v2_override_adjustments_render
-	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page).
-	python3 -m unittest tests.test_compare_evidence_view_render
 
 test-render-extra:
 	python3 -m unittest tests.test_v2_a11y_batch1_render
