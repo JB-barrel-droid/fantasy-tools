@@ -30,7 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import identity_queue  # noqa: E402
-import save_razzball_references as base  # noqa: E402 -- shared resolver glue and Supabase hooks
+import pg_direct  # noqa: E402 -- direct Postgres hooks, login from Keychain (REST sbclient is unavailable on the Mac)
+import save_razzball_references as base  # noqa: E402 -- shared resolver glue
 from nfl_week import current_nfl_week  # noqa: E402
 
 SOURCE = "fantasysharks"
@@ -38,9 +39,9 @@ TABLE = "fantasysharks_projections"
 SNAPSHOT_COLUMN = "fantasysharks_snapshot_date"
 CONFLICT = f"player_key,{SNAPSHOT_COLUMN}"
 
-fetch_players: Callable[[], list[dict[str, Any]]] = base._default_fetch_players
-upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = base._default_upsert
-count_rows: Callable[[str, str], int] = base._default_count
+fetch_players: Callable[[], list[dict[str, Any]]] = pg_direct.fetch_players
+upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = pg_direct.upsert_rows
+count_rows: Callable[[str, str], int] = pg_direct.count_rows
 
 
 def latest_snapshot() -> Path:

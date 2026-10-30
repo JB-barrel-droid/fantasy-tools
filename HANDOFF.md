@@ -19,6 +19,12 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-621 Fantasy Sharks Mac save (Claude, 2026-10-30)
+
+- Branch `claude/JEG-621-mac-schedule`. Saver now writes through `pipelines/lib/pg_direct.py` (Keychain `ddf-supabase-db-url`).
+- Dry run vintage 2026-10-30: 477 clean, 2 skipped (Connor Heyward, Max Bredeson, both position_conflict). Jeremy's pick named
+  only Heyward, so no write yet. Next: his answer, real save of 477, wrapper + launchd plist (6:15 AM Chicago, `--delay 60`).
+
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
