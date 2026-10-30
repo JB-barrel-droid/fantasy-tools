@@ -23,7 +23,11 @@ below are history, including any "Codex reviews and merges" line.
 
 - Branch `claude/JEG-621-mac-schedule`. Saver now writes through `pipelines/lib/pg_direct.py` (Keychain `ddf-supabase-db-url`).
 - Dry run vintage 2026-10-30: 477 clean, 2 skipped (Connor Heyward, Max Bredeson, both position_conflict). Jeremy's pick named
-  only Heyward, so no write yet. Next: his answer, real save of 477, wrapper + launchd plist (6:15 AM Chicago, `--delay 60`).
+  only Heyward, so no write yet.
+- Bredeson finding (2026-10-30): same kind as Heyward, safe to skip. Fantasy Sharks lists both as TE (Bredeson id 17641, MIN,
+  ROS PPR 3.2; Heyward id 15800, LVR, 11.2); public.players holds one active RB row each (keys 2271, 914), no duplicate or
+  same-name rows (other Bredesons/Heywards are OL/DL/LB). The ESPN-based DDF leg also has both as RB, waiver tier, value 0.0.
+  No mapping error; a source-vs-table position disagreement. Fixing would mean changing the table position, not worth it. Next: his answer, real save of 477, wrapper + launchd plist (6:15 AM Chicago, `--delay 60`).
 
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
