@@ -33,6 +33,16 @@ below are history, including any "Codex reviews and merges" line.
   base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
 - JEG-1205 (#1052) stays on hold for Jeremy.
 
+### JEG-1389 bench switch and lost league settings (correction to #1105; Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1389`, draft PR. Fixes the "Use league rosters" switch not redrawing player lines (`app/v2/league.js`;
+  test `tests/test_jeg1389_switch_redraw_render.py`).
+- Open decision for Jeremy (on JEG-1389): the live standard-bench gap is league settings lost on reload. Settings from a
+  league import or share link are applied but not saved, so a reload prices at PPR / 2 WR / 7 bench. No value math is
+  wrong. Options A (save them on import, recommended), B (re-apply on league load), C (notice only). Evidence and the
+  six-player before/after: `docs/claude-log/2026-10-30-jeg1389-bench-switch.md`.
+- Local render tests pin a CBS hold (`_built_dist`, JEG-881): local DDF numbers are not live numbers.
+
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
 - Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).

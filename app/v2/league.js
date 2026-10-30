@@ -987,6 +987,8 @@
     input.checked = ready && !ctx.leagueOff;
     input.disabled = !ready;
     input.addEventListener("change", () => {
+      // JEG-1389: the switch changes every number (standard bench or the league's two levels), so the search starts afresh.
+      UI.cache = O.createCache();
       update(w => W.ops.setUi(w, {leagueRosters: input.checked}), "league-rosters");
       announce(input.checked ? "Using your league's rosters." : "Using the standard bench.");
     });
@@ -1563,7 +1565,7 @@
   // ---------- keeping the page in step ----------
   function refreshAll(reason) {
     // The engine's numbers (or its readiness) changed: the player lines show values, so they are drawn again.
-    if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab") UI.comps.forEach(c => { c.lastEntries = null; });
+    if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab" || reason === "league-rosters") UI.comps.forEach(c => { c.lastEntries = null; });
     renderTeams();
     renderStatus();
     // JEG-1231: a new opponent selection drops the old result (so no left-out team's offer shows) and searches again; the
