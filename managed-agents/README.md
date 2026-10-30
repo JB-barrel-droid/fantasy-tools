@@ -1,4 +1,16 @@
-# Managed Agent (`session:cma`)
+# Managed Agent (`session:cma`): RETIRED
+
+**Retired by Jeremy on 2026-10-27; torn down under JEG-1173 (corrections JEG-1269).** Don't apply these files, create deployments or start sessions from here. Every script in `scripts/` exits unless `CMA_ALLOW_RETIRED=1`.
+
+**Which protocol applies.** The `session:*` labels were retired in Linear on 2026-10-28; tickets are owned by the `claude` / `codex` labels (JEG-1218). Review and merging follow the rule Jeremy set on 2026-10-29 in `AGENTS.md` (Routing): Claude merges after one independent Claude review, with Jeremy approving each merge by PR number. Nothing in this folder grants merge authority.
+
+**Operational state: deleted, on Jeremy's report.** On 2026-10-29 at 19:18 UTC Jeremy said he "found it and deleted the scheduled jobs" in the Claude Console: `depl_0194kATtQ6xdicZiw7wnkzmT` (`ddf-queue`, hourly) and `depl_01PE9v6akCH9muDEUwxdioSs` (`ddf-weekly-usage`, Mondays 7 AM CT), workspace `wrkspc_01A4qjuy7wHWubEvx73fHKym`. No agent has an authenticated read of that workspace, so his report is the receipt. A missing run comment on JEG-1173 afterwards is corroboration only, never proof. The last run on record is `ddf-queue` at 19:08 UTC, before the deletion. The repository guard pauses nothing by itself; it only stops these scripts recreating the jobs.
+
+PRs #1001 and #1002 merged on 2026-10-27; nothing to close. The agent's last open PR is #1003 (`cma/JEG-1049`).
+
+The files below are kept as the record of what was deployed.
+
+## As built (historical)
 
 Hosted Claude Managed Agent that works the `session:cma` Linear queue, turns Jeremy's ideas into tickets, and reports its own usage (JEG-1173). Decisions are quoted on the ticket.
 

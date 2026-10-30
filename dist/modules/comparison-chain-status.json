@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-29T16:17:05.448212+00:00",
+  "run_at": "2026-10-29T22:37:01.704017+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -17,8 +17,14 @@
     "cbsros",
     "razzball"
   ],
-  "hold_severity": "amber",
-  "list_changes": {},
+  "hold_severity": "red",
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
+      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks"
+    ]
+  },
   "held_detail": {
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
@@ -29,12 +35,12 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Grant Calcaterra, Kylen Granson); parse notes: RB: 2 players listed with another position in the cell (kept as RB",
+      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; WR: 1 players listed with another position in the cell (kept as WR",
       "hold_severity": "amber",
       "week": 8
     },
     "razzball": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: stored_vs_chart",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -42,8 +48,8 @@
       "sections": [
         "razzball"
       ],
-      "detail": "2028/2028 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
-      "hold_severity": "amber",
+      "detail": "1923/1923 chart values equal stored snapshot 2026-10-27 (per game, 1 decimals); 33 stored players are left off the chart by its own rule (missed-games guard, JEG-555): AJ Dillon, Alec Pierce, Bryce Lance, Brycen Tremayne, Caleb Douglas, Chris Bell, Christian Kirk, Darnell Mooney, Davis Allen, De'Zha",
+      "hold_severity": "red",
       "week": 8
     }
   },
@@ -62,10 +68,14 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
+        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -105,7 +115,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -134,7 +144,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-28",
+      "content_vintage": "2026-10-29",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -174,13 +184,13 @@
     "espn": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28",
+      "published_at": "2026-10-29",
       "basis": "section_label"
     },
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-29T14:07:10+00:00",
+      "published_at": "2026-10-29T21:12:51+00:00",
       "basis": "section_label"
     },
     "fantasypros": {
@@ -204,6 +214,6 @@
   },
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: publisher_vs_stored"
+    "razzball": "fidelity: stored_vs_chart"
   }
 }

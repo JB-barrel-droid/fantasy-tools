@@ -12,15 +12,23 @@ JEG-1031: the same comparison for custom leagues (roster shape, position shares,
 advanced settings, season weeks), with the edge side mapping the league through
 supabase/functions/get-values/league.ts, the module the deployed function uses.
 
+JEG-1179: the same comparison for the week priced. On a synthetic week transition (the served history
+index with some sources pushed back one week), the edge side's default week, available weeks, the week's
+sources and missing_sources, and every DDF Value match the page's (getWeekState, setWeek), for the
+default week and each week asked for. The edge side reads the history through
+supabase/functions/get-values/pipeline.ts, the module the deployed function uses.
+
 Requires: a built dist/ and build/engine/ (make sync), Playwright chromium, node 22.6+.
 Run by `make test-unit-modules`; CI sets RENDER_TESTS_REQUIRED=1 so a missing browser fails.
 """
 from __future__ import annotations
 
+import copy
 import json
 import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -122,6 +130,40 @@ LEGACY_APPLY = """([scoring, teams, sf]) => {
 }"""
 
 
+# JEG-1179: the page's week view (getWeekState) and DDF Value after setWeek (null = the default week).
+PAGE_WEEK = """(week) => {
+    const c = window.TradeValueCurveControls;
+    if (week !== null) c.setWeek(week, false);
+    const values = {};
+    Object.entries(window.TradeValueCurveHarness.pipeline().rows).forEach(([pk, row]) => {
+        const v = row.ddfByVersion?.blended?.value;
+        if (typeof v === 'number' && Number.isFinite(v)) values[pk] = v;
+    });
+    return {values, state: c.getWeekState()};
+}"""
+
+WEEK_SOURCES = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
+
+
+def transition_index(lagging_count):
+    """The served history index with `lagging_count` sources pushed back one week behind the newest
+    served week N: a week transition on the build's own saved weeks. Only sources served from their
+    week's own snapshot move (a kept "superseded" version is tied to its week)."""
+    index = json.loads((ROOT / "dist" / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    out = copy.deepcopy(index)
+    served = out.get("served") or {}
+    weeks = [served[k]["week"] for k in WEEK_SOURCES if isinstance((served.get(k) or {}).get("week"), int)]
+    newest = max(weeks)
+    movable = [k for k in WEEK_SOURCES if (served.get(k) or {}).get("week") == newest
+               and served[k].get("version") != "superseded"]
+    if len(movable) < lagging_count or str(newest - 2) not in (out.get("weeks") or {}):
+        raise unittest.SkipTest(f"the build's history cannot stage a transition from week {newest}")
+    lagging = movable[-lagging_count:]
+    for k in lagging:
+        served[k] = {**served[k], "week": newest - 1}
+    return out, newest, lagging
+
+
 def mismatches(engine, edge):
     """(pk, page, edge) where the page's value is more than 0.01 from the edge's (absent = 0)."""
     return [(pk, ev, edge.get(str(pk))) for pk, ev in engine.items()
@@ -155,12 +197,12 @@ class EndpointParityTests(unittest.TestCase):
         cls._serve.__exit__(None, None, None)
         cls._pw.stop()
 
-    def page_values(self, script, arg):
+    def page_values(self, script, arg, base=None):
         """A fresh engine page (every run starts from the default league), then `script(arg)`."""
         page = self._browser.new_page()
         try:
             page.add_init_script(_render_env.pin_data_week_script())
-            page.goto(f"{self._base}/{_dist_server.ENGINE_URL}")
+            page.goto(f"{base or self._base}/{_dist_server.ENGINE_URL}")
             page.wait_for_function(
                 "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                 timeout=120000,
@@ -189,6 +231,38 @@ class EndpointParityTests(unittest.TestCase):
                 self.assertGreater(len(engine), 50)
                 bad = mismatches(engine, edge)
                 self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_week_parity(self):
+        """JEG-1179: on a week transition the endpoint prices the page's default week and each week asked
+        for exactly as the page does: same week, weeks, sources, missing_sources and DDF Values."""
+        for lagging_count in (3, 4):
+            index, newest, lagging = transition_index(lagging_count)
+            body = json.dumps(index).encode()
+            with tempfile.TemporaryDirectory() as tmp, \
+                    _dist_server.serve(overrides={"assets/history/index.json": body}) as base:
+                index_path = Path(tmp) / "index.json"
+                index_path.write_bytes(body)
+                for week in (None, newest, newest - 1):
+                    with self.subTest(lagging=lagging, week=week):
+                        page = self.page_values(PAGE_WEEK, week, base=base)
+                        state = page["state"]
+                        self.assertIsNotNone(state, "the page has a week view")
+                        self.assertEqual(state["weeks"], [newest, newest - 1])
+                        extra = ["--scoring", "ppr", "--teams", "12", "--history-index", str(index_path),
+                                 "--with-week", "1"] + ([] if week is None else ["--week", str(week)])
+                        edge = run_edge(extra)
+                        got = edge["week"]
+                        view = state["views"][str(state["week"])]
+                        self.assertEqual(
+                            (got["week"], got["default_week"], got["weeks"], got["sources"], got["missing_sources"]),
+                            (state["week"], state["default_week"], state["weeks"], view["sources"],
+                             view["missing_sources"]))
+                        if state["week"] == newest:
+                            for k in lagging:
+                                self.assertIn(k, got["missing_sources"], f"{k} lags: missing, not carried forward")
+                        self.assertGreater(len(page["values"]), 50)
+                        bad = mismatches(page["values"], edge["values"])
+                        self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
 
     def test_negative_wrong_bench(self):
         """A wrong bench_per_team must produce different values, proving the test catches bugs."""
