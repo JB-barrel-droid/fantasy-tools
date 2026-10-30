@@ -19,6 +19,12 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1137 slice 3: AI-connection panel on Fieldnotes Home (Claude Mac, 2026-10-30)
+
+- Draft PR on `claude/JEG-1137-ai-panel` (worktree `~/code/ft-jeg1137-ai-panel`). Mounts the JEG-1266 panel in `#v2Home`
+  per that plan; flag-only. Log: `docs/claude-log/2026-10-30-jeg-1137-ai-panel.md`. Ticket stays open: Home's value-curve
+  peek (JEG-1265) and the JEG-1130 copy gate remain.
+
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
