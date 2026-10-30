@@ -46,6 +46,7 @@ def today_ct():
 import sys as _sys  # noqa: E402
 _sys.path.insert(0, os.path.join(DEFAULT_REPO, "pipelines"))
 import nfl_week as _calendar  # noqa: E402
+import week_state as _week_state  # noqa: E402
 
 
 def content_week(asof=None):
@@ -56,6 +57,14 @@ def content_week(asof=None):
 def game_week(asof=None):
     """Game week (Thursday flip): only where the games themselves matter."""
     return _calendar.game_week(asof or today_ct())
+
+
+def source_week_state(served_week, now=None):
+    """One source's state by its OWN served week (JEG-1180): current,
+    lagging (behind, before Thursday 12:00 CT), stale (still behind after
+    it) or unknown. pipelines/week_state.py holds the rule; `now` is an
+    aware datetime, default the shared clock. A warning, never a failure."""
+    return _week_state.source_week_status(served_week, now)
 
 
 def fetch(url, timeout=60):

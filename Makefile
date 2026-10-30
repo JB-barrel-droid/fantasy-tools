@@ -167,8 +167,14 @@ test-unit-modules:
 	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	# JEG-1354: players.active follows the active NFL universe (ids first).
+	python3 -m unittest tests.test_sync_players_active
 	# JEG-1313: platform-spelling audit (JEG-1202), offline. In the full suite, not the deploy gate (an audit).
 	python3 -m unittest tests.test_jeg1202_platform_spellings
+	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
+	python3 -m unittest tests.test_platform_spellings
+	# JEG-1388: one name-alias list for roster paste and the chat connector, offline.
+	python3 -m unittest tests.test_name_aliases
 	python3 -m unittest tests.test_coverage_intro_dynamic_universe
 	python3 -m unittest tests.test_drift_snapshot_baseline
 	python3 -m unittest tests.test_pull_fantasycalc_12team
@@ -193,6 +199,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1367_api_invoker_migration
 	python3 -m unittest tests.test_weekly_fantasypros_contract
 	python3 -m unittest tests.test_source_probe
+	python3 -m unittest tests.test_source_lateness
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
@@ -279,6 +286,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_pull_fantasypros_parse
 	python3 -m unittest tests.test_article_discovery
+	# JEG-1163 / JEG-1164 test PRs, wired here by JEG-1180 (which changed both files).
+	python3 -m unittest tests.test_check_weekly_freshness
+	python3 -m unittest tests.test_watchdog_common_helpers
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
@@ -648,6 +658,7 @@ test-core:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
@@ -745,6 +756,9 @@ test-core:
 	python3 -m unittest tests.test_week_calendar
 	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
 	python3 -m unittest tests.test_week_state
+	# JEG-1180: stale flag (Thursday 12:00 CT) by each source's own week; never fails the chain.
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -803,6 +817,7 @@ test-core-shard-2:
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_pipelines_import_standalone
@@ -857,6 +872,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_razzball_outlier_guard
