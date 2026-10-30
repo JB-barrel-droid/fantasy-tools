@@ -960,6 +960,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_levels_render
 	python3 -m unittest tests.test_jeg1249_league_site_render
+	python3 -m unittest tests.test_league_problems_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
@@ -1020,6 +1021,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_basis_render
 	python3 -m unittest tests.test_v2_league_levels_render
 	python3 -m unittest tests.test_jeg1249_league_site_render
+	python3 -m unittest tests.test_league_problems_render
 	python3 -m unittest tests.test_v2_league_live_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_render
