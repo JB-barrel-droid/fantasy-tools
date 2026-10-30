@@ -666,6 +666,7 @@ test-core:
 	node tests/node/source_views_check.mjs
 	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
+	python3 -m unittest tests.test_v2_examples
 	# JEG-1271: isolated Compare evidence view contract (every rendered word and number against the input, in Node).
 	# Its Chromium layout test is in test-render-extra (JEG-1319): the view is not loaded by the page, so it must not block a deploy.
 	python3 -m unittest tests.test_compare_evidence_view_contract
@@ -839,6 +840,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_lineup_presentation_properties
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_waterfall
+	python3 -m unittest tests.test_v2_examples
 	# JEG-1271: isolated Compare evidence view contract (every rendered word and number against the input, in Node).
 	# Its Chromium layout test is in test-render-extra (JEG-1319): the view is not loaded by the page, so it must not block a deploy.
 	python3 -m unittest tests.test_compare_evidence_view_contract

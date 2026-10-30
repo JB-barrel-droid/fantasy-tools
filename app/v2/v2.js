@@ -5187,7 +5187,9 @@
     if (!compareTierRows) compareTierRows = C.getAllRows();
     return {rows: compareTierRows, pos: "ALL", engineOrder: false};
   }
-  let exampleCache = null;   // {signature, pick}: the sample trade "Try a sample trade" loads
+  // {signature, picks, next, fallback}: the examples the start button and "Show another" load in turn (JEG-1191 path A:
+  // trades the market misses; fewer than TradeValueTrade.EXAMPLE_COUNT falls back to the single JEG-1190 sample).
+  let exampleCache = null;
   const SIDE_IDS = {give: {search: "v2GiveSearch", results: "v2GiveResults", list: "v2GivePlayers", total: "v2GiveTotal"},
     receive: {search: "v2GetSearch", results: "v2GetResults", list: "v2GetPlayers", total: "v2GetTotal"}};
   const SIDE_NAME = {give: "You give", receive: "You receive"};
@@ -5507,7 +5509,7 @@
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
-    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, unavailable, shownChoices,
+    compareView = {rowsByKey, giveRows, receiveRows, ready, example: Boolean(example), pointKeys, vorpKeys, chartKeys, unavailable, shownChoices,
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
@@ -5524,16 +5526,27 @@
     return false;
   }
 
-  // The example trade, recomputed only when the series or the values change.
-  function exampleTrade(pointKeys) {
+  // The examples, recomputed only when the series or the values change. Each call returns the next one in turn.
+  function exampleList(pointKeys, chartKeys) {
+    const T = window.TradeValueTrade;
     const key = verdictKey();
     const rows = C.getAllRows();
-    const keys = pointKeys.concat(key);
+    const keys = pointKeys.concat(key, chartKeys, T.DEAL_KEYS.value, T.DEAL_KEYS.projections);
     const signature = `${keys.join(",")}|${rows.length}|${rows.reduce((acc, r) => acc + keys.reduce((a, k) => a + (Number.isFinite(r.values[k]) ? r.values[k] : 0.123), 0), 0)}`;
     if (!exampleCache || exampleCache.signature !== signature) {
-      exampleCache = {signature, pick: window.TradeValueTrade.pickExample(rows, pointKeys, key)};
+      const misses = T.pickMarketMisses(rows, chartKeys);
+      const fallback = misses.length < T.EXAMPLE_COUNT;
+      const single = fallback ? T.pickExample(rows, pointKeys, key) : null;
+      exampleCache = {signature, picks: fallback ? (single ? [single] : []) : misses, next: 0, fallback};
     }
-    return exampleCache.pick;
+    return exampleCache;
+  }
+  function nextExample(pointKeys, chartKeys) {
+    const list = exampleList(pointKeys, chartKeys);
+    if (!list.picks.length) return null;
+    const pick = list.picks[list.next % list.picks.length];
+    list.next = (list.next + 1) % list.picks.length;
+    return pick;
   }
 
   function sourceCell(td, key) {
@@ -6300,6 +6313,13 @@
     const ready = compareView.ready;
     renderVerdict();
     $("v2CExample").hidden = !compareView.example;
+    // JEG-1191 path A: the Example line says what kind of trade it is, and offers the next one while there is one.
+    // The claim follows the current Deal read, so a change of charts, league or overrides that ends it drops it.
+    const examples = compareView.example && exampleCache ? exampleCache : null;
+    $("v2CExampleText").textContent = examples && window.TradeValueTrade.isMarketMiss(compareView.deal)
+      ? "DDF Value says you win; the charts favor the other side. Edit it, or add your own player."
+      : "A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.";
+    $("v2CNextExample").hidden = !(examples && examples.picks.length > 1);
     const empty = !TR.give.length && !TR.receive.length;
     $("v2CStart").hidden = !empty;
     $("v2CTryExample").disabled = !verdictKey();
@@ -6612,8 +6632,8 @@
     compare.addEventListener("focusin", event => { const el = stepOf(event); if (el) showStepTip(el); });
     compare.addEventListener("focusout", event => { if (stepOf(event)) $("v2Tip").hidden = true; });
     compare.addEventListener("keydown", event => { if (event.key === "Escape" && stepOf(event)) $("v2Tip").hidden = true; });
-    $("v2CTryExample").addEventListener("click", () => {
-      const sample = compareView && verdictKey() ? exampleTrade(compareView.pointKeys) : null;
+    const loadExample = focusId => {
+      const sample = compareView && verdictKey() ? nextExample(compareView.pointKeys, compareView.chartKeys) : null;
       if (!sample) return;
       const pick = list => list.map(row => ({key: String(row.player_key), name: row.name}));
       TR.give = pick(sample.give);
@@ -6621,8 +6641,11 @@
       TR.example = {give: TR.give.map(p => p.key), receive: TR.receive.map(p => p.key)};
       TR.undo = null;
       renderCompare();
-      $("v2GiveSearch").focus();
-    });
+      $(focusId).focus();
+    };
+    $("v2CTryExample").addEventListener("click", () => loadExample("v2GiveSearch"));
+    // JEG-1191 path A: "Show another" swaps in the next example; the trade stays marked Example.
+    $("v2CNextExample").addEventListener("click", () => loadExample("v2CNextExample"));
     $("v2CVerdictBar").addEventListener("click", () => {
       const card = $("v2CVerdict");
       card.scrollIntoView({block: "center"});

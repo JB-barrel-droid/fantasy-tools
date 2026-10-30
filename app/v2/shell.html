@@ -492,9 +492,10 @@
           <button type="button" class="v2-link" id="v2CUndo" hidden>Undo</button>
         </div>
       </div>
-      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; "Try a sample trade" loads the sample as an editable trade,
-           marked Example until the reader changes it. -->
-      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span>A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span></p>
+      <!-- JEG-1190 (Jeremy, 2026-10-28): Compare starts empty; the start button loads an example as an editable trade,
+           marked Example until the reader changes it. JEG-1191 path A: the examples are trades the market misses, and
+           "Show another" loads the next one while the trade is untouched. -->
+      <p class="v2-cexample" id="v2CExample" hidden><span class="v2-pill">Example</span> <span><span id="v2CExampleText">A sample trade from this week's values. Remove a player to change it, or add your own to start fresh.</span> <button type="button" class="v2-link" id="v2CNextExample" hidden>Show another</button></span></p>
     </div>
 
     <section class="v2-card v2-crosters" id="v2CRosters" aria-labelledby="v2CRostersTitle" hidden>
@@ -536,7 +537,7 @@
           <p id="v2CVerdictText"></p>
         </div>
         <p class="v2-meta v2-cshare" id="v2CShareNote" role="status" hidden></p>
-        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Try a sample trade</button></p>
+        <p class="v2-cstart" id="v2CStart" hidden><button type="button" class="v2-btn" id="v2CTryExample">Show me a trade the market misses</button></p>
         <div class="v2-cverdict-fall" id="v2CVerdictFall" hidden>
           <p class="v2-meta" id="v2CVerdictFallNote"></p>
         </div>
