@@ -372,7 +372,8 @@ server.tool(
         "When superflex is enabled:",
         "  - QB values rise significantly (top QBs become the most valuable assets)",
         "  - Published chart sources that have their own superflex/2QB valuations",
-        "    use those instead of their 1QB values",
+        "    use those instead of their 1QB values (also in a league that starts",
+        "    2 QBs with no superflex slot)",
         "  - The waiver line and positional allocation adjust accordingly",
       ].join("\n"),
 
