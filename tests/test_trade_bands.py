@@ -203,7 +203,37 @@ MUTATIONS = {
 }
 
 
+RIVAL_EDGE = ROOT / "tests" / "node" / "rival_edge_band_check.mjs"
+FIND_TRADES = ROOT / "supabase" / "functions" / "mcp" / "find-trades.ts"
+
+
+def rival_edge_errors(find_trades: Path = FIND_TRADES) -> list[str]:
+    """The connector's min_rival_edge filter counts only the rival's own gain per chart (review of #1033)."""
+    with tempfile.TemporaryDirectory() as tmp:
+        node_dir = Path(tmp) / "tests" / "node"
+        mcp_dir = Path(tmp) / "supabase" / "functions" / "mcp"
+        node_dir.mkdir(parents=True)
+        mcp_dir.mkdir(parents=True)
+        shutil.copy2(RIVAL_EDGE, node_dir / RIVAL_EDGE.name)
+        shutil.copy2(find_trades, mcp_dir / "find-trades.ts")
+        out = subprocess.run(["node", "--experimental-strip-types", "--no-warnings", str(node_dir / RIVAL_EDGE.name),
+                              str(APP_V2 / "finder.js")], capture_output=True, text=True, timeout=60)
+    return [] if out.returncode == 0 and out.stdout.strip().endswith("rival edge ok") else [(out.stdout + out.stderr)[-600:]]
+
+
 class TradeBandsTest(unittest.TestCase):
+    def test_connector_rival_edge_counts_only_the_rival_gain(self):
+        if not shutil.which("node"):
+            self.skipTest("node is not installed")
+        self.assertEqual(rival_edge_errors(), [])
+        with tempfile.TemporaryDirectory() as tmp:
+            broken = Path(tmp) / "find-trades.ts"
+            src = FIND_TRADES.read_text(encoding="utf-8")
+            anchor = ".map((c) => Math.max(0, -c.net!));"
+            self.assertIn(anchor, src, "mutation anchor is stale")
+            broken.write_text(src.replace(anchor, ".map((c) => Math.abs(c.net!));", 1), encoding="utf-8")
+            self.assertNotEqual(rival_edge_errors(broken), [], "the gap size counted as the rival's edge was not caught")
+
     def test_one_even_rule(self):
         self.assertEqual(check(APP_V2), [])
 
