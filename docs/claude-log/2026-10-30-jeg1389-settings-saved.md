@@ -19,7 +19,12 @@ them the same way the settings form does, so they survive a reload. Cause named 
     Kyren Williams 44.1 drawn locally (CBS held), 45.9 with CBS shown, the live number.
   - After: OK. After the reload the engine holds half PPR, 12 teams, QB1 RB2 WR3 TE1 FLEX1 BN5, Kyren Williams
     reads the same as before the reload, and 55.8 with CBS shown.
-- With the change, all OK: test_jeg1389_switch_redraw_render 1, test_v2_share_render 2, test_v2_league_render 2,
+- After merging origin/main (3cdfd843, two automated input refreshes, no value-math file changed), Kyren Williams at
+  USO's settings with CBS shown reads 54.3, not 55.8, so a pinned 55.8 failed on the new inputs. The assertion now
+  compares on one set of inputs: the reload must price him as the link did, and not at the defaults read before the
+  link. On the merged head with the fix reverted (v2.js and league.js from c7c8800b): fails, reload at ppr / BENCH 7.
+  With the fix: OK (defaults 45.9, link 54.3, reload 54.3), and test_jeg1389_switch_redraw_render OK.
+- With the change, before the merge, all OK: test_jeg1389_switch_redraw_render 1, test_v2_share_render 2, test_v2_league_render 2,
   test_v2_inputs_status_render 8, test_v2_advanced_render 2, test_v2_season_weeks_render 2, test_v2_assist_render 2,
   test_jeg1213_import 5, test_jeg1213_acceptance_render 11, test_jeg1140_settings_fieldnotes 19,
   test_jeg1140_settings_fieldnotes_render 9.

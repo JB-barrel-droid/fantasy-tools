@@ -8,7 +8,9 @@ TradeValueV2.applyLinkLeague). Before the fix they were not saved, so a reload p
 Checks, after opening the link and again after a reload:
   - the engine holds USO's scoring, team count and roster;
   - the standard bench prices Kyren Williams the same both times, and with CBS shown (as on live, the local server holds
-    CBS) he reads 55.8, not the default-settings 45.9.
+    CBS) not at the default settings' value, read on the same inputs before the link was opened.
+The numbers move with each input refresh (55.8 / 45.9 on the inputs of 2026-10-30 at c7c8800b, 54.3 at USO's settings
+after the next comparison rebuild), so the test compares settings on one set of inputs instead of pinning a number.
 """
 from __future__ import annotations
 
@@ -64,6 +66,8 @@ class LinkSettingsReloadTest(unittest.TestCase):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base, errors=self.problems, tag="[jeg1389-link] ")
             settle(page)
+            fresh = page.evaluate(READ, KYREN)   # nothing saved yet: the site's defaults
+            self.assertNotEqual({k: fresh[k] for k in USO}, USO, "the defaults already are USO's settings; the check proves nothing")
             hash_ = page.evaluate(LINK, [self.fx["league"]["teams"], self.fx["mine"], USO_QUERY])
             self.assertTrue(hash_.startswith("#find-league?"), hash_[:40])
 
@@ -86,7 +90,9 @@ class LinkSettingsReloadTest(unittest.TestCase):
             reloaded = page.evaluate(READ, KYREN)
             self.check_uso(reloaded, "after a reload")
             self.assertEqual(reloaded["kyren"], opened["kyren"], "a reload prices Kyren Williams differently from the link")
-            self.assertEqual(reloaded["kyrenLive"], 55.8, "with CBS shown, Kyren Williams does not read USO's 55.8 after a reload")
+            self.assertEqual(reloaded["kyrenLive"], opened["kyrenLive"], "with CBS shown, a reload prices Kyren Williams differently from the link")
+            self.assertNotEqual(reloaded["kyrenLive"], fresh["kyrenLive"], "with CBS shown, a reload prices Kyren Williams at the default settings")
+            print(f"\nKyren Williams with CBS shown: defaults {fresh['kyrenLive']}, link {opened['kyrenLive']}, reload {reloaded['kyrenLive']}")
         self.assertEqual(self.problems, [])
 
 
