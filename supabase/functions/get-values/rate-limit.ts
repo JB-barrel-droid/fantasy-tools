@@ -12,8 +12,11 @@
 //   the in-memory count decides, exactly as before.
 // - On, any failure of the shared call (missing function, error, timeout) falls back to the in-memory
 //   count for that request and logs get_values.rate_limit_fallback, so a slow or missing database never
-//   blocks a request and the guard is never weaker than the old per-instance one.
-// - The key is hashed (SHA-256) before it leaves the function: no IP is stored.
+//   blocks a request. The in-memory count is fed on every request, on or off, and a request runs only when
+//   both counts allow it, so the guard is never weaker than the old per-instance one.
+// - The key leaves the function only as an HMAC-SHA-256 under the service role key, so the stored bucket
+//   cannot be turned back into an IP by hashing every address.
+// - The secret is read when an instance starts, so switching it off takes effect as instances recycle.
 // The key is still the first x-forwarded-for entry, which a client can set; this fixes the per-instance
 // count, not key forgery.
 
@@ -29,8 +32,10 @@ export interface SharedOptions {
 
 const DEFAULT_TIMEOUT_MS = 400;
 
-async function hashKey(key: string): Promise<string> {
-  const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`get-values:${key}`));
+async function hmacKey(secret: string, key: string): Promise<string> {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const bytes = await crypto.subtle.sign("HMAC", k, enc.encode(`get-values:${key}`));
   return Array.from(new Uint8Array(bytes), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -46,7 +51,7 @@ export function sharedCheck(opts: SharedOptions): SharedCheck | null {
     const res = await fetchFn(`${base}/rest/v1/rpc/edge_rate_hit`, {
       method: "POST",
       headers: { "content-type": "application/json", apikey: key, authorization: `Bearer ${key}` },
-      body: JSON.stringify({ p_bucket: await hashKey(bucket), p_limit: limit, p_window_s: windowSeconds }),
+      body: JSON.stringify({ p_bucket: await hmacKey(key, bucket), p_limit: limit, p_window_s: windowSeconds }),
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) throw new Error(`edge_rate_hit ${res.status}`);
@@ -63,12 +68,14 @@ export function sharedCheck(opts: SharedOptions): SharedCheck | null {
 export function computeLimiter(memory: MemoryCheck, shared: SharedCheck | null,
   log: (fields: Record<string, unknown>) => void = () => {}) {
   return async (key: string, limit: number, windowSeconds: number): Promise<boolean> => {
-    if (!shared) return memory(key, limit);
+    // The local count always runs, so a database that answers and then fails falls back to a full count.
+    const local = memory(key, limit);
+    if (!shared || !local) return local;
     try {
       return await shared(key, limit, windowSeconds);
     } catch (e) {
       log({ event: "get_values.rate_limit_fallback", reason: String((e as Error).message || e).slice(0, 120) });
-      return memory(key, limit);
+      return local;
     }
   };
 }

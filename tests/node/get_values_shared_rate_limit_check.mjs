@@ -7,7 +7,11 @@
 //      instance kept its own count, so all 11 passed: the 2026-10-24 live finding);
 //   2. a different key has its own budget; no key the store sees contains the IP;
 //   3. shared on but the RPC fails (500): the in-memory limit still decides, and a fallback line is logged;
-//   4. shared off (no secret): no RPC is ever called and each instance counts alone, as before.
+//   4. shared on, the database answers for 9 computes and then fails: the 11th in the minute is still a 429
+//      (the local count was fed all along, review finding on 858e162);
+//   5. shared off (no secret): no RPC is ever called and each instance counts alone, as before;
+//   6. rate-limit.ts on its own: a timeout falls back, missing credentials switch it off, and the bucket is
+//      an HMAC under the service key (not a plain hash anyone could reverse).
 // Usage: node --experimental-strip-types --no-warnings tests/node/get_values_shared_rate_limit_check.mjs <dist dir>
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -98,12 +102,23 @@ const ask = (handler, ip) => handler(new Request("https://fn.test/functions/v1/g
   }
   assert.equal((await ask(c, "9.9.9.9")).status, 429, "with the database down the in-memory limit still applies");
   const fallbacks = logged.slice(before).filter((l) => l.includes('"get_values.rate_limit_fallback"'));
-  assert.equal(fallbacks.length, 11, "each failed shared call logs one fallback line");
+  // The 11th is refused by the local count before any shared call, so 10 failed calls, 10 fallback lines.
+  assert.equal(fallbacks.length, 10, "each failed shared call logs one fallback line");
   assert.ok(fallbacks.every((l) => !l.includes("9.9.9.9")), "no IP in the fallback line");
   rpcMode = "ok";
 }
 
-// 4. Shared off: no database call, and each instance counts alone (the soft guard as before).
+// 4. The database answers, then fails mid-minute: the local count was fed, so the 11th is still a 429.
+{
+  const f = await instance(ON);
+  for (let i = 0; i < 9; i += 1) assert.equal((await ask(f, "5.5.5.5")).status, 200, `compute ${i + 1}, database up`);
+  rpcMode = "fail";
+  assert.equal((await ask(f, "5.5.5.5")).status, 200, "10th compute, database down, passes");
+  assert.equal((await ask(f, "5.5.5.5")).status, 429, "11th compute in the minute is a 429 even after the database failed");
+  rpcMode = "ok";
+}
+
+// 5. Shared off: no database call, and each instance counts alone (the soft guard as before).
 {
   const calls = rpcCalls.length;
   const d = await instance({}), e = await instance({});
@@ -112,6 +127,38 @@ const ask = (handler, ip) => handler(new Request("https://fn.test/functions/v1/g
     assert.equal(r.status, 200, `off: compute ${i + 1} spread over two instances passes, got ${r.status}`);
   }
   assert.equal(rpcCalls.length, calls, "off: no shared call");
+}
+
+// 6. rate-limit.ts on its own.
+{
+  const { computeLimiter, sharedCheck } = await import(
+    pathToFileURL(resolve(import.meta.dirname, "../../supabase/functions/get-values/rate-limit.ts")).href);
+  const env = (vars) => (k) => vars[k];
+  assert.equal(sharedCheck({ env: env({ DDF_SHARED_RATE_LIMIT: "1", SUPABASE_URL: SUPABASE }) }), null,
+    "no service key: off");
+  assert.equal(sharedCheck({ env: env({ DDF_SHARED_RATE_LIMIT: "1", SUPABASE_SERVICE_ROLE_KEY: "k" }) }), null,
+    "no URL: off");
+  assert.equal(sharedCheck({ env: env({ ...ON, DDF_SHARED_RATE_LIMIT: "true" }) }), null, "only \"1\" turns it on");
+  // A database that never answers: the 50 ms timeout aborts the call and the local count decides.
+  const hang = (_url, init) => new Promise((_, reject) => init.signal.addEventListener("abort", () => reject(init.signal.reason)));
+  const lines = [];
+  const slow = computeLimiter(() => true, sharedCheck({ env: env(ON), fetchFn: hang, timeoutMs: 50 }), (l) => lines.push(l));
+  const t0 = Date.now();
+  const alive = setTimeout(() => {}, 5000); // AbortSignal.timeout's timer does not keep node running on its own
+  assert.equal(await slow("compute:1.2.3.4", 10, 60), true, "a timed-out shared call falls back to the local count");
+  clearTimeout(alive);
+  assert.ok(Date.now() - t0 < 2000, "the timeout bounds the wait");
+  assert.equal(lines[0]?.event, "get_values.rate_limit_fallback");
+  // The bucket is keyed by the service key: another key gives another bucket for the same IP.
+  const seen = [];
+  const capture = async (_url, init) => { seen.push(JSON.parse(init.body).p_bucket); return Response.json(true); };
+  for (const secret of ["key-one", "key-two"]) {
+    await sharedCheck({ env: env({ ...ON, SUPABASE_SERVICE_ROLE_KEY: secret }), fetchFn: capture })("compute:1.2.3.4", 10, 60);
+  }
+  assert.notEqual(seen[0], seen[1], "the bucket depends on the service key (HMAC), not the IP alone");
+  const { createHash } = await import("node:crypto");
+  assert.notEqual(seen[0], createHash("sha256").update("get-values:compute:1.2.3.4").digest("hex"),
+    "not a plain SHA-256 of the key");
 }
 
 console.log = realLog;

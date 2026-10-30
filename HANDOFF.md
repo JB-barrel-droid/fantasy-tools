@@ -29,6 +29,10 @@ below are history, including any "Codex reviews and merges" line.
   400 ms timeout, fallback to the in-memory count); `index.ts` changes only the compute check and one import.
 - Tests: `tests/test_jeg1061_shared_rate_limit.py` (in `test-unit-modules`). The node check fails on main
   (11th compute across two instances passes) and passes on the branch.
+- Review (REQUEST CHANGES at 858e162) fixed in the next commit: local count always fed (DB up then down could
+  allow 19/min), HMAC bucket key, security invoker + empty search_path, tests for timeout, missing credentials,
+  RPC argument names vs SQL, Supabase-style default grants. Open before turning on: mcp shares one budget
+  (it does not forward the client address), see docs/values-endpoint.md.
 
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC)
 

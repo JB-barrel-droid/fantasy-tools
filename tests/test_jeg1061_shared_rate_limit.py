@@ -8,6 +8,7 @@
   only service_role may call it, nobody reads the table through the API roles, and the rollback removes both.
 """
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -38,14 +39,20 @@ class StaticTest(unittest.TestCase):
     def test_migration_shape(self):
         sql = MIGRATION.read_text(encoding="utf-8")
         self.assertIn("NOT APPLIED", sql)
-        self.assertIn("security definer", sql)
-        self.assertIn("set search_path = public, pg_temp", sql)
+        self.assertIn("security invoker", sql)
+        self.assertIn("set search_path = ''", sql)
         self.assertIn("enable row level security", sql)
         self.assertIn("from public, anon, authenticated", sql)
         self.assertIn("to service_role", sql)
+        self.assertNotIn("security definer", sql)
         rollback = ROLLBACK.read_text(encoding="utf-8")
         self.assertIn("drop function if exists public.edge_rate_hit(text, integer, integer)", rollback)
         self.assertIn("drop table if exists public.edge_rate_buckets", rollback)
+
+    def test_rpc_argument_names_match_the_sql(self):
+        sql = MIGRATION.read_text(encoding="utf-8")
+        a, b, c = ARG_NAMES
+        self.assertIn(f"public.edge_rate_hit({a} text, {b} integer, {c} integer)", sql)
 
     def test_off_by_default(self):
         src = (ROOT / "supabase/functions/get-values/rate-limit.ts").read_text(encoding="utf-8")
@@ -64,6 +71,18 @@ def _pg_bindir():
 BINDIR = _pg_bindir()
 
 
+def _arg_names():
+    """The RPC's argument names as rate-limit.ts sends them, in order: p_bucket, p_limit, p_window_s."""
+    src = (ROOT / "supabase/functions/get-values/rate-limit.ts").read_text(encoding="utf-8")
+    line = next((l for l in src.splitlines() if "body: JSON.stringify({" in l), "")
+    names = tuple(re.findall(r"\b(\w+): ", line.split("JSON.stringify(", 1)[-1]))
+    assert len(names) == 3, f"rate-limit.ts: RPC body not found ({names})"
+    return names
+
+
+ARG_NAMES = _arg_names()
+
+
 @unittest.skipUnless(BINDIR, "no local Postgres binaries; the static checks still ran")
 class PostgresTest(unittest.TestCase):
     @classmethod
@@ -79,7 +98,12 @@ class PostgresTest(unittest.TestCase):
         run([f"{BINDIR}/initdb", "-D", cls.data, "-A", "trust", "-U", "postgres", "--no-sync"])
         run([f"{BINDIR}/pg_ctl", "-D", cls.data, "-w", "-l", os.path.join(cls.dir, "log"),
              "-o", f"-k {cls.dir} -c listen_addresses='' -p {PORT}", "start"])
-        cls.psql("create role anon nologin; create role authenticated nologin; create role service_role nologin;")
+        # Supabase-style roles (service_role bypasses RLS) and default privileges: new tables and functions in public are granted to every API role,
+        # so the migration's own revokes are what keep anon and authenticated out.
+        cls.psql("create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;\n"
+                 "grant usage on schema public to anon, authenticated, service_role;\n"
+                 "alter default privileges in schema public grant all on tables to anon, authenticated, service_role;\n"
+                 "alter default privileges in schema public grant all on functions to anon, authenticated, service_role;")
         cls.psql(MIGRATION.read_text(encoding="utf-8"))
 
     @classmethod
@@ -100,7 +124,10 @@ class PostgresTest(unittest.TestCase):
         return res
 
     def hit(self, bucket, role="service_role", limit=10, window=60):
-        res = self.psql(f"set role {role}; select public.edge_rate_hit('{bucket}', {limit}, {window});", ok=False)
+        # Named arguments, with the names the function sends (rate-limit.ts), as PostgREST calls it.
+        a, b, c = ARG_NAMES
+        res = self.psql(f"set role {role}; select public.edge_rate_hit({a} => '{bucket}', {b} => {limit}, "
+                        f"{c} => {window});", ok=False)
         if res.returncode != 0:
             return "denied" if "permission denied" in res.stderr else res.stderr.strip()
         return res.stdout.strip()
