@@ -117,21 +117,45 @@ jobs:
         id: publish
         if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer health-artifacts-1 --phase "$1" --target "main"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           cp output/source-import-health.json dist/modules/source-import-health.json
           cp output/pipeline-checkpoints.json dist/modules/pipeline-checkpoints.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/modules/source-import-health.json dist/modules/pipeline-checkpoints.json
           if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          release_guard stage
           git commit -m "Health artifacts (CI, JEG-414)"
           for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push; then
+            if git pull --rebase --autostash origin main && release_push; then
               echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
             fi
             git rebase --abort 2>/dev/null || true
             sleep 10
           done
           echo "::error::could not push health artifacts after 3 attempts"; exit 1
+
+      - name: Retain deferred publication (health-artifacts-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-health-artifacts-1-${{ github.run_attempt }}
+          path: output/release-publications/health-artifacts-1/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Trigger Pages deploy (JEG-274)
         if: steps.publish.outputs.pushed == 'true'
@@ -181,20 +205,44 @@ jobs:
         id: publish_summary
         if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer health-artifacts-2 --phase "$1" --target "main"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           cp output/monitoring-summary.json dist/modules/monitoring-summary.json
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/modules/monitoring-summary.json
           if git diff --cached --quiet; then echo "pushed=false" >> $GITHUB_OUTPUT; exit 0; fi
+          release_guard stage
           git commit -m "Monitoring summary (CI)"
           for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push; then
+            if git pull --rebase --autostash origin main && release_push; then
               echo "pushed=true" >> $GITHUB_OUTPUT; exit 0
             fi
             git rebase --abort 2>/dev/null || true
             sleep 10
           done
           echo "::error::could not push monitoring summary after 3 attempts"; exit 1
+
+      - name: Retain deferred publication (health-artifacts-2)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-health-artifacts-2-${{ github.run_attempt }}
+          path: output/release-publications/health-artifacts-2/
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Trigger Pages deploy for the monitoring summary
         if: steps.publish_summary.outputs.pushed == 'true'
@@ -259,6 +307,20 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer health-artifacts-3 --phase "$1" --target "main"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           git pull --rebase --autostash origin main || true
           python3 pipelines/build_ops_status.py --out output/ops-status.json
           cp output/ops-status.json dist/modules/ops-status.json
@@ -266,10 +328,11 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add dist/modules/ops-status.json
           git diff --cached --quiet && exit 0
+          release_guard stage
           git commit -m "Ops status (CI)"
           pushed=false
           for attempt in 1 2 3; do
-            if git pull --rebase --autostash origin main && git push; then pushed=true; break; fi
+            if git pull --rebase --autostash origin main && release_push; then pushed=true; break; fi
             git rebase --abort 2>/dev/null || true
             sleep 10
           done
@@ -280,3 +343,11 @@ jobs:
             -d '{"ref":"main"}')
           echo "pages dispatch HTTP $code"
           [ "$code" = "204" ]
+      - name: Retain deferred publication (health-artifacts-3)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-health-artifacts-3-${{ github.run_attempt }}
+          path: output/release-publications/health-artifacts-3/
+          if-no-files-found: ignore
+          retention-days: 14

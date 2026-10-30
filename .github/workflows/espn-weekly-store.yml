@@ -86,6 +86,20 @@ jobs:
       - name: Commit the refreshed files
         if: github.event.inputs.mode == 'write'
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer espn-weekly-store-1 --phase "$1" --target "${GITHUB_REF_NAME:-main}"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/inputs/weekly_actuals_2024_2026.csv data/inputs/espn_weekly_projections_2026.csv
@@ -93,9 +107,10 @@ jobs:
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
+            release_guard stage
             git commit -m "ESPN weekly store: actuals and projections refresh (JEG-521 G4, GitHub Actions)"
             git pull --rebase --autostash origin main
-            git push
+            release_push
           fi
 
       # JEG-1377: retry for a missed Sunday pre-kickoff copy. On the 16:20 UTC Sunday run
@@ -120,6 +135,15 @@ jobs:
           python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
           python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball
           python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball
+
+      - name: Retain deferred publication (espn-weekly-store-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-espn-weekly-store-1-${{ github.run_attempt }}
+          path: output/release-publications/espn-weekly-store-1/
+          if-no-files-found: ignore
+          retention-days: 14
 
       # JEG-944: fails the run (red) when a content week's capture of any source
       # (espn, cbs, razzball) is missing from public.source_projection_captures.
