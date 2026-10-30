@@ -19,6 +19,18 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### 2QB leagues price the QB share from their own replacement level (JEG-1366, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1366`. Value math (`review-high-risk`), Jeremy's pick A at 23:36 UTC on the before/after
+  posted to JEG-1366. In a league with 2+ QB slots and no superflex slot the QB groups of the DDF weights are the
+  mean over the included projections (points above the league's own 2-QB waiver line); RB/WR/TE keep their
+  relative shares (methodology VP-4.3a). Same change in `value-model.js`, `value_reference.py` and the spec
+  reference. get-values runs the site's `value-model.js`, so the connector follows the next Pages deploy; no edge
+  code changed. 1-QB and superflex settings move 0 values. 12-team: QBs +18 to +21%, RB/WR/TE -8 to -10%.
+- Next: independent review, green CI, then the merge gate merges (Jeremy approved build and merge). No deploy
+  from this branch.
+- Evidence: `docs/claude-log/2026-10-30-jeg1366-2qb-native-share.md`, `tests/test_jeg1366_two_qb_native_share.py`.
+
 ### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
 
 - Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline

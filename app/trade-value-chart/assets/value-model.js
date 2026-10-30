@@ -58,6 +58,14 @@
     return superflexCount(shape) > 0 || Math.floor(Number(shape && shape.QB) || 0) >= 2;
   }
 
+  // JEG-1366 (Jeremy 2026-10-30, pick A): a league with 2+ dedicated QB
+  // slots and no superflex slot takes its QB share of the pie from its own
+  // points above the 2-QB replacement level (the projections' QB weights),
+  // not the charts' superflex-market share. A superflex league is unchanged.
+  function usesTwoQbNativeShare(shape) {
+    return superflexCount(shape) === 0 && Math.floor(Number(shape && shape.QB) || 0) >= 2;
+  }
+
   function flexEligible(shape) {
     return DEFAULT_FLEX_ELIGIBLE.slice();
   }
@@ -1452,6 +1460,43 @@
         W[vpGroupKey(pos, "bench")] = sumB > 0 ? bsStar * Braw[pos] / sumB : 0;
       });
     }
+    // JEG-1366: in a 2-QB league with no superflex slot the QB groups are the
+    // mean over the included projections; RB/WR/TE keep their relative shares
+    // of the rest (with a fixed bench share, starters and bench separately).
+    var twoQbProjs = !usesTwoQbNativeShare({ QB: (setting.slots || {}).QB, SUPERFLEX: setting.superflex }) ? []
+      : included.filter(function (src) {
+        var o = out[src];
+        return o.family === "projection" && o.hasWeights && o.positions.QB.method !== "no_players";
+      });
+    if (twoQbProjs.length && esMode && bsInput === null) {
+      var qW = {};
+      VP_ROLES.forEach(function (role) {
+        var sum = 0;
+        twoQbProjs.forEach(function (src) { sum += out[src].weights[vpGroupKey("QB", role)]; });
+        qW[role] = sum / twoQbProjs.length;
+      });
+      var restW = 0;
+      Object.keys(W).forEach(function (g) { if (g.indexOf("QB|") !== 0) restW += W[g]; });
+      var scaleW = restW > 0 ? (1 - qW.starter - qW.bench) / restW : 0;
+      Object.keys(W).forEach(function (g) {
+        W[g] = g.indexOf("QB|") === 0 ? qW[g.split("|")[1]] : W[g] * scaleW;
+      });
+      bsStar = 0;
+      POSITION_ORDER.forEach(function (pos) { bsStar += W[vpGroupKey(pos, "bench")]; });
+    } else if (twoQbProjs.length) {
+      [["starter", "starterMix", 1 - bsStar], ["bench", "benchMix", bsStar]].forEach(function (spec) {
+        var role = spec[0], mix = spec[1], target = spec[2], sum = 0, n = 0;
+        twoQbProjs.forEach(function (src) { if (out[src][mix]) { sum += out[src][mix].QB; n += 1; } });
+        if (!n) return;
+        var q = target * sum / n, rest = 0;
+        POSITION_ORDER.forEach(function (pos) { if (pos !== "QB") rest += W[vpGroupKey(pos, role)]; });
+        var scale = rest > 0 ? (target - q) / rest : 0;
+        POSITION_ORDER.forEach(function (pos) {
+          var g = vpGroupKey(pos, role);
+          W[g] = pos === "QB" ? q : W[g] * scale;
+        });
+      });
+    }
     var WBase = {};
     Object.keys(W).forEach(function (g) { WBase[g] = W[g]; });
     var shares = setting.position_shares;
@@ -1943,6 +1988,7 @@
     SUPERFLEX_ELIGIBLE: SUPERFLEX_ELIGIBLE,
     superflexCount: superflexCount,
     usesSuperflexValues: usesSuperflexValues,
+    usesTwoQbNativeShare: usesTwoQbNativeShare,
     stableTiebreak: stableTiebreak,
     BENCH_LEVELS: VP_BENCH_LEVELS,
     leagueDepth: vpLeagueDepth,

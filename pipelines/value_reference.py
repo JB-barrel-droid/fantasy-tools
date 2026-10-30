@@ -847,6 +847,48 @@ def _mixes(groups: dict, bench_share: float | None) -> dict:
     return {"total_vorp": total, "starter_mix": sig, "bench_mix": beta, "weights": weights}
 
 
+def uses_two_qb_native_share(shape: dict) -> bool:
+    """JEG-1366 (Jeremy 2026-10-30, pick A): a league that starts 2+ dedicated
+    QBs and has no superflex slot takes its QB share of the pie from its own
+    points above the 2-QB replacement level (the projections' QB weights at
+    the league's lines), not from the charts' superflex-market share. A
+    superflex league is unchanged: its second QB seat has an RB/WR/TE fallback."""
+    return int(shape.get("SUPERFLEX", 0) or 0) == 0 and int(shape.get("QB", 1) or 0) >= 2
+
+
+def two_qb_native_weights(w: dict, details: dict, included: list, computed_share: bool,
+                          bench_share: float) -> dict:
+    """JEG-1366: replace the QB groups of the DDF weights w with the mean over
+    the included projections (the league's own points above replacement) and
+    rescale RB/WR/TE so they keep their relative shares of the rest. With a
+    fixed bench share (slices) starters and bench are rescaled separately so
+    the bench share stays bench_share. No projection in I = w unchanged."""
+    projs = [k for k in included if details[k]["family"] == "projection"
+             and details[k]["weights"] is not None and details[k]["positions"]["QB"]["method"] != "no_players"]
+    if not projs:
+        return w
+    out = dict(w)
+    if computed_share:
+        q = {r: sum(details[k]["weights"][f"QB|{r}"] for k in projs) / len(projs) for r in ("starter", "bench")}
+        rest = sum(v for g, v in w.items() if not g.startswith("QB|"))
+        scale = (1.0 - q["starter"] - q["bench"]) / rest if rest > 0 else 0.0
+        for g in GROUPS:
+            out[g] = q[g.split("|")[1]] if g.startswith("QB|") else w[g] * scale
+        return out
+    mix = {"starter": "starter_mix", "bench": "bench_mix"}
+    target = {"starter": 1.0 - bench_share, "bench": bench_share}
+    for r in ("starter", "bench"):
+        vals = [details[k][mix[r]]["QB"] for k in projs if details[k][mix[r]] is not None]
+        if not vals:
+            continue
+        q = target[r] * sum(vals) / len(vals)
+        rest = sum(w[f"{p}|{r}"] for p in POSITIONS if p != "QB")
+        scale = (target[r] - q) / rest if rest > 0 else 0.0
+        for p in POSITIONS:
+            out[f"{p}|{r}"] = q if p == "QB" else w[f"{p}|{r}"] * scale
+    return out
+
+
 def ddf_weights(league: League, details: dict, included: list, computed_share: bool = False) -> dict:
     """VP-4: the average of the included sources' mixes, bench fixed at bs.
     computed_share (ES-15.1): the mean of the sources' own 8-group weights,
@@ -888,6 +930,10 @@ def ddf_weights(league: League, details: dict, included: list, computed_share: b
         for p in POSITIONS:
             w[f"{p}|starter"] = (1 - bs_eff) * s_raw[p] / s_sum if s_sum > 0 else 0.0
             w[f"{p}|bench"] = bs_eff * b_raw[p] / b_sum if b_sum > 0 else 0.0
+    if uses_two_qb_native_share({"QB": league.slots.get("QB", 1), "SUPERFLEX": league.superflex}):
+        w = two_qb_native_weights(w, details, included, computed_share, bs_eff)
+        if computed_share:
+            bs_eff = sum(w[f"{p}|bench"] for p in POSITIONS)
     if league.position_shares:
         for p in POSITIONS:
             share = league.position_shares.get(p)
