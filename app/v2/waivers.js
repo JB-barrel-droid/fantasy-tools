@@ -17,9 +17,9 @@
   const MAX_PAIRS = 100;             // the two-for-two search looks at no more than this many candidate pairs
   const NET_FLOOR = 0.05;            // a change that shows as 0.0 is no change (same floor as finder.js)
   const OUT_STATUS = ["Out", "Doubtful", "IR", "PUP"];
-  // JEG-1312: injury status is Sleeper's, as of the identity base the bake used (window.TradeValueStatus, player-status.js).
-  // The refresh runs Tue + Thu, so a healthy copy is at most 5 days old; past STATUS_MAX_AGE_DAYS, or with no date, the tab
-  // shows no status at all (no tag, no "Your X is Out") and says why, so an old status never reads as current.
+  // JEG-1363: daily display status is separate from the identity/value bake (window.TradeValueStatus).
+  // The old dated-row API retains its 6-day rule for compatibility. The built
+  // daily id map uses 30 hours (4 on Sunday), checked again on every render.
   const STATUS_MAX_AGE_DAYS = 6;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const statusDay = ms => new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"}).format(new Date(ms));
@@ -31,16 +31,34 @@
     }
     const ageDays = Math.max(0, (nowMs - at) / DAY_MS);
     const day = statusDay(at);
-    if (ageDays > STATUS_MAX_AGE_DAYS) {
+    const daily = status.by_sleeper_id;
+    // The existing daily 13:10 UTC + Sunday 16:30 UTC refresh: 30 hours on
+    // ordinary days, 4 hours on Sunday (America/Chicago). No clock-future copy.
+    const sunday = new Intl.DateTimeFormat("en-US", {weekday: "short", timeZone: "America/Chicago"}).format(new Date(nowMs)) === "Sun";
+    const maxAgeDays = daily ? (sunday ? 4 : 30) / 24 : STATUS_MAX_AGE_DAYS;
+    if (at > nowMs || ageDays > maxAgeDays) {
       const old = Math.floor(ageDays);
       return {shown: false, asOf: status.as_of, ageDays, label: null,
-        text: `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
+        text: daily ? `Injury status is not shown: the Sleeper copy from ${status.as_of} is outside the ${sunday ? 4 : 30}-hour freshness window.`
+          : `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
     }
-    return {shown: true, asOf: status.as_of, ageDays, label: `Sleeper status as of ${day}`, text: `Injury status: Sleeper, as of ${day}.`};
+    const dated = daily ? `${day}, ${new Date(at).toISOString().slice(11, 16)} UTC` : day;
+    return {shown: true, asOf: status.as_of, ageDays, bySleeperId: daily,
+      label: `Sleeper status as of ${dated}`, text: `Injury status: Sleeper, as of ${dated}.`};
   }
   // The status a row may show: null when the copy is stale or undated, or the player has no status (never "healthy").
-  const statusOf = (row, freshness) => (freshness && freshness.shown && row && row.injury_status && !["Active", "Inactive"].includes(row.injury_status)
-    ? row.injury_status : null);
+  function statusOf(row, freshness) {
+    if (!freshness || !freshness.shown || !row) return null;
+    if (freshness.bySleeperId) {
+      const p = freshness.bySleeperId[String(row.sleeper_id)];
+      const team = t => ({JAC: "JAX", LAR: "LA", WSH: "WAS", LVR: "LV"}[t] || t);
+      if (!p || !row.team || team(p.team) !== team(row.team) || p.pos !== row.pos) return null;
+      return ["Questionable", "Doubtful", "Out", "IR", "PUP", "Sus"].includes(p.injury_status) ? p.injury_status : null;
+    }
+    // Compatibility for older dated callers; the built page always has the
+    // daily id map, even when it is missing/empty. Never mix the two vintages.
+    return row.injury_status && !["Active", "Inactive"].includes(row.injury_status) ? row.injury_status : null;
+  }
 
   // JEG-1081 (PR 6): the view that decides the verdict. ddf = DDF Value (adjusted trade charts, the default), projections = DDF Value
   // (projections), market = Trade chart average, basis = whatever the Overrides basis makes DDF Value (same key as ddf), src:<key> = one source alone.
@@ -174,8 +192,9 @@
   }
   function injuryNote(roster, lineup, candidate, freshness) {
     if (!freshness || !freshness.shown) return null;
-    const hurt = lineup.starters.find(r => r.pos === candidate.pos && OUT_STATUS.includes(r.injury_status));
-    return hurt ? {name: hurt.name, status: hurt.injury_status, text: `Your ${hurt.name} is ${hurt.injury_status}, which adds to the need at ${candidate.pos}.`} : null;
+    const hurt = lineup.starters.find(r => r.pos === candidate.pos && OUT_STATUS.includes(statusOf(r, freshness)));
+    const status = statusOf(hurt, freshness);
+    return hurt ? {name: hurt.name, status, text: `Your ${hurt.name} is ${status}, which adds to the need at ${candidate.pos}.`} : null;
   }
   // ctx: {shape, expected, chartKeys, rosterSize, byes, status (statusFreshness; missing = no status shown)}. roster: rows (engine rows plus unpriced kicker / defense rows),
   // all carrying chart_avg when charts are available. candidate: an engine row, or an unpriced row.

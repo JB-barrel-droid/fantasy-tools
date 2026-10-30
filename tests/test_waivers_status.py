@@ -141,9 +141,11 @@ class TestWaiversStatus(unittest.TestCase):
     def test_checks_fail_on_broken_builds(self):
         source = WAIVERS_JS.read_text(encoding="utf-8")
         breaks = {
-            "no age limit": ("if (ageDays > STATUS_MAX_AGE_DAYS) {", "if (false) {"),
-            "note ignores freshness": ("if (!freshness || !freshness.shown) return null;", ""),
-            "row ignores freshness": ("(freshness && freshness.shown && row", "(row"),
+            "no age limit": ("if (at > nowMs || ageDays > maxAgeDays) {", "if (false) {"),
+            # injuryNote now uses statusOf too; removing its redundant early
+            # guard is harmless. Break the positive control instead.
+            "fresh note omitted": ("const hurt = lineup.starters.find", "const hurt = [].find"),
+            "row ignores freshness": ("if (!freshness || !freshness.shown || !row) return null;", "if (!row) return null;"),
             "undated copy shown": ("if (!Number.isFinite(at) || !finite(nowMs)) {", "if (false) {"),
         }
         with tempfile.TemporaryDirectory() as tmp:
@@ -170,14 +172,16 @@ class TestPlayerStatusJs(unittest.TestCase):
         self.assertTrue(text.startswith(prefix) and text.endswith(";\n"), text)
         return json.loads(text[len(prefix):-2])
 
-    def test_date_is_the_identity_base_the_bake_used(self):
+    def test_legacy_bake_is_not_mistaken_for_daily_status(self):
         meta = {"meta": {"as_of": "2026-10-29", "universe": {"nfl_active": {"identity_base_pulled_at": PULLED}}}}
-        self.assertEqual(self._js(meta), {"source": "Sleeper", "as_of": PULLED})
+        with self.assertRaisesRegex(ValueError, "Invalid player status snapshot"):
+            self._js(meta)
 
     def test_missing_file_or_date_gives_no_date(self):
         self.assertIsNone(self._js(None)["as_of"])
-        self.assertIsNone(self._js({"meta": {"as_of": "2026-10-29"}})["as_of"])
-        self.assertIsNone(self._js({"meta": {"universe": {"nfl_active": {"identity_base_pulled_at": ""}}}})["as_of"])
+        for payload in ({"meta": {"as_of": "2026-10-29"}}, {"as_of": ""}):
+            with self.assertRaises(ValueError):
+                self._js(payload)
 
     def test_page_loads_the_status_before_the_tab(self):
         src = (ROOT / "pipelines" / "build_v2_page.py").read_text(encoding="utf-8")
