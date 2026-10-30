@@ -10,3 +10,14 @@ Tests use fake connections only. No value math changed.
 
 Dry run on vintage 2026-10-30: 477 clean rows, 2 review rows (position_conflict: Connor Heyward and Max Bredeson). Real save
 and the launchd schedule are waiting on Jeremy's answer about Max Bredeson.
+
+### Real save and schedule (Jeremy's pick, Oct 30 4:12 PM CT)
+Saved 477 rows for vintage 2026-10-30 with Connor Heyward and Max Bredeson left out (both position_conflict; the Bredeson
+mapping is untouched and gets fixed later if the check finds an error). The save's own check read back 477 rows; a direct query
+found 477 rows and 477 distinct player_keys, and neither excluded name present. The identity-queue writer printed a warning
+(no SUPABASE_URL on the Mac); the save was unaffected.
+
+`ops/mac/run_fantasysharks_daily.sh` pulls with `--delay 60` then saves; `ops/mac/com.ddf.fantasysharks-daily.plist.template`
+runs it at 6:15 AM local (the Mac is on Central time) as launchd label `com.ddf.fantasysharks-daily`, log
+`~/Library/Logs/fantasysharks-daily.log`. Installed for now from this worktree path: after merge, re-render the template against the
+main checkout and reload.
