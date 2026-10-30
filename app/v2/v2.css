@@ -2624,11 +2624,11 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 @media (max-width: 767px), (max-width: 932px) and (max-height: 500px) {
   /* Phone: five labelled destinations fixed at the foot, as in the prototype's bottom bar. */
   :root[data-design="fieldnotes"] .v2-fn-primary {
-    position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0;
+    position: fixed; z-index: 60; left: 0; right: 0; bottom: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; align-items: stretch;
     margin: 0; padding: 4px 4px calc(6px + env(safe-area-inset-bottom)); background: var(--ddf-surface); border-top: 1px solid var(--ddf-line);
   }
   :root[data-design="fieldnotes"] .v2-fn-go {
-    flex-direction: column; justify-content: center; gap: 2px; min-height: 54px; padding: 6px 2px;
+    flex-direction: column; justify-content: center; gap: 2px; min-height: 62px; padding: 6px 2px;
     color: var(--ddf-ink); font-size: 11px; font-weight: 600; white-space: normal; text-align: center;
   }
   :root[data-design="fieldnotes"] .v2-fn-go svg { display: block; }
@@ -2637,14 +2637,14 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   @media (hover: hover) { :root[data-design="fieldnotes"] .v2-fn-go:hover { background: var(--ddf-subtle); color: var(--ddf-ink); } }
   /* The bar is light, so the nav's white focus ring would vanish on it. */
   :root[data-design="fieldnotes"] .v2-nav .v2-fn-primary :focus-visible { outline-color: var(--ddf-focus); outline-offset: -3px; }
-  /* More opens the full list as a sheet above the bar. */
+  /* More opens the full list as a sheet above the bar (4 + 62 + 6 px and its 1 px rule: 73 px, two-line labels included). */
   :root[data-design="fieldnotes"] .v2-nav.is-open .v2-tabs {
-    position: fixed; z-index: 59; left: 0; right: 0; bottom: calc(64px + env(safe-area-inset-bottom)); max-height: calc(100vh - 140px); overflow-y: auto;
+    position: fixed; z-index: 59; left: 0; right: 0; bottom: calc(73px + env(safe-area-inset-bottom)); max-height: calc(100vh - 150px); overflow-y: auto;
     margin: 0; padding: 8px 16px 12px; background: var(--v2-nav); border-top: 1px solid rgba(255,255,255,.18);
   }
   /* Content and scrolled-to controls clear the bar. */
-  :root[data-design="fieldnotes"] { scroll-padding-bottom: 80px; }
-  :root[data-design="fieldnotes"] .v2-app { padding-bottom: calc(72px + env(safe-area-inset-bottom)); }
+  :root[data-design="fieldnotes"] { scroll-padding-bottom: 88px; }
+  :root[data-design="fieldnotes"] .v2-app { padding-bottom: calc(80px + env(safe-area-inset-bottom)); }
 }
 /* Links styled as buttons (Home and the phone entry). */
 :root[data-design="fieldnotes"] .v2-app a.v2-btn { display: inline-flex; align-items: center; justify-content: center; color: var(--v2-ink); text-decoration: none; }
