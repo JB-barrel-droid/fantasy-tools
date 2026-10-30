@@ -1374,11 +1374,15 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     # before any section is keyed through the fixture's player_keys.
     try:
         import sync_universe_keys
+        removed = []
         added = sync_universe_keys.sync_files(
             repo / "data" / "fixtures" / "current" / "players.json",
-            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json")
+            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json",
+            removed)
         print(f"universe keys: {len(added)} players added to the fixture's "
               f"player_keys" + (f": {added}" if added else ""))
+        print(f"universe keys: {len(removed)} slugs dropped for players no longer "
+              f"in players.json" + (f": {removed}" if removed else ""))
     except Exception as e:  # noqa: BLE001 -- sections keep the old universe
         print(f"universe keys: sync failed ({e}); sections keep the fixture's keys")
     try:
