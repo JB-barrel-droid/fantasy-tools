@@ -22,8 +22,9 @@ below are history, including any "Codex reviews and merges" line.
 ### JEG-1137 slice 3: AI-connection panel on Fieldnotes Home (Claude Mac, 2026-10-30)
 
 - Draft PR #1225 on `claude/JEG-1137-ai-panel` (worktree `~/code/ft-jeg1137-ai-panel`). Mounts the JEG-1266 panel
-  in `#v2Home`, flag-only, gated on `fieldnotes()`; default page stays fully inert. Review finding fixes:
-  claude-log Verified/Claimed sections added, fieldnotes() gate applied, discrimination test added.
+  in `#v2Home`, flag-only. Review fixes applied: `fieldnotes()` gate on `mountAiPanel()`, claude-log
+  Verified/Claimed sections, `test_default_page_never_shows_panel` checks child count 0, and
+  `test_guard_fails_without_panel_module` (fail-before/pass-after confirmed).
   Log: `docs/claude-log/2026-10-30-jeg-1137-ai-panel.md`. Ticket stays open: Home's value-curve peek (JEG-1265)
   and the JEG-1130 copy gate remain.
 

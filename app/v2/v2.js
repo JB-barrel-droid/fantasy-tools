@@ -7969,7 +7969,7 @@
     bind();
     setStatus("");
     attachAssist();   // JEG-1026: before the link is read, which may carry a whole DDF state
-    mountAiPanel();   // JEG-1137 slice 3 / JEG-1266: after attachAssist, so the panel can read the link codec
+    if (fieldnotes()) mountAiPanel();   // JEG-1137 slice 3 / JEG-1266: flag-only; default page stays fully inert
     readTradeHash();   // may set a status: a shared link's league settings were applied
     $("v2State").hidden = true;
     applyRoute();
