@@ -426,6 +426,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg606_unpriced_team_and_value
 	python3 -m unittest tests.test_projection_captures
 	python3 -m unittest tests.test_projection_capture_sunday_jeg1377
+	python3 -m unittest tests.test_divergence_evidence
 	python3 -m unittest tests.test_pull_cbs_ros_positions
 	python3 -m unittest tests.test_pull_keeptradecut
 	python3 -m unittest tests.test_razzball_chain_hold
