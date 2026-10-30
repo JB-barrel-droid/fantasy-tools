@@ -46,6 +46,7 @@ RUNNER = ROOT / "tests" / "_edge_pipeline_runner.cjs"
 DRIVER = ROOT / "tests" / "node" / "connector_analyses_driver.mjs"
 NODE = ["node", "--experimental-strip-types", "--no-warnings"]
 HISTORY = ROOT / "dist" / "assets" / "history"
+SENTINELS = ROOT / "tests" / "fixtures" / "get_values_pairing_sentinels.json"
 
 SETTINGS = [("ppr", 12, 0), ("half_ppr", 10, 1), ("standard", 14, 0)]
 SERIES = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "fantasycalc", "usatoday", "fantasypros", "cbs",
@@ -239,18 +240,41 @@ class ConnectorAnalysesParity(unittest.TestCase):
             if not got["available"]:
                 continue
             errors += value_diffs(got["values"], want["values"], f"prior {key}")
-            # This week's side: the reference's rows, which are the run on I.
+            # This week's side: the reference's rows, which are the run on I. Since JEG-1385 get-values'
+            # own run is on I, so a series without current_values is read from the series block.
             now = {k: v[key] for k, v in reference["rows"].items() if v.get(key) is not None}
-            if "current_values" not in got:
-                errors.append(f"current {key}: no current_values")
-                continue
-            errors += value_diffs(got["current_values"], now, f"current {key}")
+            current = got.get("current_values")
+            if current is None:
+                current = {k: v[key] for k, v in edge["series"].items() if key in v}
+            errors += value_diffs(current, now, f"current {key}")
             if key in DDF:
                 errors += value_diffs(got["current_values"], want["currentValues"], f"currentValues {key}")
         self.assertEqual(errors, [], f"{len(errors)} mismatches: {errors[:10]}")
         # risers_fallers on these blocks is the page's movers.js on the reference's pair.
         out = run_driver(edge, reference, setting)
         self.assertEqual(out["tools"]["risers"], out["page"]["risers"])
+
+    def test_unpaired_source_prices_this_week_on_included_set(self):
+        # JEG-1385: VP-1.2 applies to get-values' own run, not only the prior block. With one included
+        # source's Week N-1 entry left out, this week is priced on the sources that have it: the values
+        # answer, the series, the prior week and the audit (pie, included set, positions) match the
+        # reference, and the source is shown but not counted. On main get-values priced on every source.
+        rows = json.loads(SENTINELS.read_text(encoding="utf-8"))["rows"]
+        self.assertGreaterEqual(len(rows), 3)
+        for row in rows:
+            setting, src = tuple(row["setting"]), row["drop_source"]
+            with self.subTest(sentinel=row["id"]):
+                week = run_reference(setting)["week"]
+                drop = (week - 1, src)
+                edge, reference = run_edge(setting, drop_entry=drop), run_reference(setting, drop_entry=drop)
+                self.assertNotIn(src, reference["included"])
+                self.assertGreater(len(reference["included"]), 1)
+                self.assertNotIn(src, edge["audit"]["valuePipeline"]["included"])
+                self.assertIn(src, edge["audit"]["players"], "an unpaired source is shown, never dropped")
+                errors = block_errors(edge, reference)
+                want = {k: v["ddf_value"] for k, v in reference["rows"].items() if v.get("ddf_value") is not None}
+                errors += value_diffs(edge["values"], want, "values")
+                self.assertEqual(errors, [], f"{len(errors)} mismatches: {errors[:10]}")
 
     def test_broken_variants_fail(self):
         setting = SETTINGS[0]

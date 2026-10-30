@@ -513,6 +513,8 @@ Deno.serve(async (req: Request) => {
         );
       }
       if (plan.docWeek !== null) await loadHistoryDoc(bundle, plan.docWeek);
+      // JEG-1385: Week N-1's document decides the included set (VP-1.2), so it is read before the input is built.
+      if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
       const input = { ...buildPipelineInput(bundle, mapped, plan), basisConfig: basisConfigOf(context) };
       if (requestedWeek !== null && !input.week.sources.length) {
         return Response.json(

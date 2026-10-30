@@ -410,6 +410,20 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     if ((f.hold && f.hold.hidden) || f.validationHeld || f.divergenceExcluded) hiddenKeys.push(key);
   }
 
+  // JEG-1385, VP-1.2 (curve-widget.js computePipeline, value_reference result()): when at least one included
+  // source has Week N-1 saved, the included set I is those sources and this week is priced on I; the others
+  // are shown, never counted. When none has it, I is every included source. The caller loads Week N-1's
+  // document first (index.ts); an unread document reads as no source paired, so nothing is narrowed.
+  if (week !== null && bundle.history?.index) {
+    const paired = included.filter((key) => savedNatives(bundle, key, week - 1, scoring).values);
+    if (paired.length && paired.length < included.length) {
+      for (const key of included) {
+        if (!paired.includes(key)) sources[key] = { ...(sources[key] as Any), status: "excluded" };
+      }
+      included.splice(0, included.length, ...paired);
+    }
+  }
+
   // The week this answer is priced on, with the view's sources and missing sources.
   let info: WeekInfo;
   if (view) {

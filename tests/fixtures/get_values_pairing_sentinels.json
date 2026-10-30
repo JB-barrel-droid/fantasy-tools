@@ -1,0 +1,12 @@
+{
+  "schema": "get-values-pairing-sentinels/1",
+  "about": "JEG-1385 (risk register GAP-ENDPOINT-UNPAIRED-SOURCE): get-values must price this week on the VP-1.2 included set, the sources with Week N-1 saved, as the page and pipelines/value_reference.py do. Each row leaves one source's Week N-1 entry out of the committed history and requires get-values' values, series, prior and audit blocks to match the reference to 1e-6, with that source shown but not counted. Read by tests/test_connector_analyses.py test_unpaired_source_prices_this_week_on_included_set.",
+  "rows": [
+    {"id": "ppr-12-fantasycalc", "setting": ["ppr", 12, 0], "drop_source": "fantasycalc",
+     "note": "the ticket's measured case: 195 players' DDF Value differed on main"},
+    {"id": "half_ppr-10-sf-razzball", "setting": ["half_ppr", 10, 1], "drop_source": "razzball",
+     "note": "a projection source, at a superflex setting"},
+    {"id": "standard-14-cbs", "setting": ["standard", 14, 0], "drop_source": "cbs",
+     "note": "a chart source at standard scoring"}
+  ]
+}

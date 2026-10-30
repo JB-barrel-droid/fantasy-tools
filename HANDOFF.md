@@ -19,6 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1385`: get-values now prices this week on the sources with Week N-1 saved, as the
+  page and `value_reference` do; unpaired sources are shown, never counted. `index.ts` reads Week N-1
+  before building the input. Output byte-identical to main when every source is paired.
+- Not live today: all seven served sources have Week 7 saved. Value math, so Jeremy approves the
+  before/after first. Jeremy (2026-10-30 18:25 UTC, "B") chose to hold the JEG-1029 get-values and mcp
+  redeploy until this lands, then deploy both from main once (rollback get-values v10, mcp v16).
+- Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
+  GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
+
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
 - Branch `claude/project-thread-n1r1o8` carries #1050 (with #1051's held-source
