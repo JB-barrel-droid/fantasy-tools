@@ -19,6 +19,16 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
+
+- Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
+  unmatched name as 0: compare_trade refuses with closest names, read_state gives that list no total.
+  This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
+  under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
+  "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
+  (runTool, not readState); no overlap expected.
+
 ### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
 
 - Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes

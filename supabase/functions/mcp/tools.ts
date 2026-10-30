@@ -1591,7 +1591,14 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : (r.note || `${r.input}: NOT FOUND`)}`);
   }
   if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
-  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user which player they meant (or to check the spelling).`);
+  // JEG-1376: name each unmatched player with its closest names, the way compare_trade does.
+  if (unmatched.length) {
+    const each = unmatched.map((input) => {
+      const near = closestNames(data.players, input, matchName(data.players, input)).map((p) => p.name);
+      return near.length ? `${input} (closest: ${near.join(", ")})` : input;
+    });
+    lines.push("", `Could not match: ${each.join("; ")}. Ask the user which player they meant (or to check the spelling).`);
+  }
 
   const view = typeof work.view === "string" ? work.view : inferView(work);
   return finish(
