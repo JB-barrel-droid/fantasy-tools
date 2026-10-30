@@ -6,7 +6,7 @@
 
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
-import { type NameMatch, matchName, splitNames } from "./names.ts";
+import { closestNames, type NameMatch, matchName, splitNames } from "./names.ts";
 import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, type FitSides, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
 import {
   type RosterShape,
@@ -612,12 +612,27 @@ function ambiguousOf<T extends PlayerValue>(res: ResolvedNames<T>): { ambiguous?
   return res.ambiguous.length ? { ambiguous: res.ambiguous } : {};
 }
 
-/** JEG-1124: a name that fits several players stops a compare so the model asks which one. */
-function stopOnAmbiguous(...sides: Array<{ ambiguous: Array<{ input: string; suggestions: string[] }> }>): void {
+/**
+ * JEG-1124: a name that fits several players, or (Jeremy 2026-10-30, "Letter A.") matches no
+ * player, stops a compare so the model asks which one. A not-found name lists its closest names.
+ */
+function stopOnUnresolved<T extends PlayerValue>(players: T[], ...sides: Array<ResolvedNames<T>>): void {
   const hits = sides.flatMap((side) => side.ambiguous);
-  if (!hits.length) return;
-  const each = hits.map((h) => `"${h.input}" could be ${h.suggestions.join(", ")}`);
-  throw new ToolInputError(`More than one player fits: ${each.join("; ")}. Ask the user which player they meant, then call again with the full name.`);
+  const missing = sides.flatMap((side) => side.unmatched);
+  if (!hits.length && !missing.length) return;
+  const parts: string[] = [];
+  if (hits.length) {
+    const each = hits.map((h) => `"${h.input}" could be ${h.suggestions.join(", ")}`);
+    parts.push(`More than one player fits: ${each.join("; ")}.`);
+  }
+  if (missing.length) {
+    const each = missing.map((input) => {
+      const near = closestNames(players, input, matchName(players, input)).map((p) => p.name);
+      return `"${input}" matches no player${near.length ? `; closest: ${near.join(", ")}` : ""}`;
+    });
+    parts.push(`${each.join(". ")}.`);
+  }
+  throw new ToolInputError(`${parts.join(" ")} Ask the user which player they meant, then call again with the full name.`);
 }
 
 function emptyRoster<T extends PlayerValue>(side: string, res: ResolvedNames<T>): string {
@@ -785,7 +800,7 @@ async function runPricedTool(
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     let a = resolveNames(data.players, namesA);
     let b = resolveNames(data.players, namesB);
-    stopOnAmbiguous(a, b);
+    stopOnUnresolved(data.players, a, b);
     // The same player on both sides stays on team A, matching the site.
     const giveKeys = new Set(a.matched.map((p) => p.player_key));
     const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
@@ -804,7 +819,6 @@ async function runPricedTool(
     const sumA = sum(a.matched);
     const sumB = sum(b.matched);
     const diff = round1(sumA - sumB);
-    const notFound = [...a.unmatched, ...b.unmatched];
     const verdict = Math.abs(diff) < 2
       ? "roughly even"
       : diff > 0
@@ -823,30 +837,30 @@ async function runPricedTool(
       `Verdict (DDF Value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
       "The site's Compare a trade shows the per-chart breakdown for this trade; open the link below.",
       ...(notes.length ? [notes.join("\n")] : []),
-      ...(notFound.length ? [`Warning: not found, left out of the total: ${notFound.join(", ")}`] : []),
     ].join("\n");
-    const pack = (rows: PlayerValue[], missed: string[]) => ({
+    // Every name matched (stopOnUnresolved), so not_found stays empty; kept for the reply's shape.
+    const pack = (rows: PlayerValue[]) => ({
       total: sum(rows),
       players: rows.map((p) => ({ name: p.name, pos: p.pos, value: p.value })),
-      not_found: missed,
+      not_found: [] as string[],
     });
     // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
     return finish(
       ok(text, {
         as_of: data.as_of,
         setting: data.setting,
-        side_a: pack(a.matched, a.unmatched),
-        side_b: pack(b.matched, b.unmatched),
+        side_a: pack(a.matched),
+        side_b: pack(b.matched),
         difference: diff,
         verdict,
         method: "sum_of_ddf_values",
-        not_found: notFound,
+        not_found: [],
       }),
       {
         prepared, deps, settings: s, view: "compare",
         work: {
-          give: a.matched.map((p) => entry(p.name, p)).concat(a.unmatched.map((n) => entry(n, null))),
-          get: b.matched.map((p) => entry(p.name, p)).concat(b.unmatched.map((n) => entry(n, null))),
+          give: a.matched.map((p) => entry(p.name, p)),
+          get: b.matched.map((p) => entry(p.name, p)),
         },
       },
     );
@@ -1287,8 +1301,12 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     lists[name] = rows;
     resolvedWork[name] = rows.map((r, i) => r.player ? { key: String(r.player.player_key), name: r.player.name } : list[i]);
     rows.filter((r) => !r.player).forEach((r) => unmatched.push(r.input));
+    // JEG-1124 (Jeremy 2026-10-30, "Letter A."): a name that matches no player gives no total.
+    const missing = rows.filter((r) => !r.player).length;
     const total = Math.round(rows.reduce((t, r) => t + (r.player?.value ?? 0), 0) * 10) / 10;
-    lines.push(`${name} (total ${total.toFixed(1)}):`);
+    lines.push(missing
+      ? `${name} (no total: ${missing} name${missing === 1 ? "" : "s"} not matched):`
+      : `${name} (total ${total.toFixed(1)}):`);
     lines.push(...rows.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.note || `${r.input}: NOT FOUND`}`));
   }
   if (work.target) {
@@ -1299,7 +1317,7 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
     lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : (r.note || `${r.input}: NOT FOUND`)}`);
   }
   if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
-  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user to check the spelling.`);
+  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user which player they meant (or to check the spelling).`);
 
   const view = typeof work.view === "string" ? work.view : inferView(work);
   return finish(

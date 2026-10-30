@@ -86,9 +86,13 @@ const c = r.result.structuredContent;
 assert.equal(c.difference, -31.8);
 assert.match(c.verdict, /team B gives up more value|team A comes out ahead/);
 assert.match(c.verdict, /team A comes out ahead by 31\.8/);
+// JEG-1124 (Jeremy 2026-10-30, "Letter A."): a missing name stops the compare (no verdict, no
+// totals) and asks which player was meant. It used to total without it ("roughly even" here).
 r = await call("compare_trade", { side_a: "Josh Allen", side_b: "Josh Jacobs, Ghost" });
-assert.deepEqual(r.result.structuredContent.not_found, ["Ghost"]);
-assert.match(r.result.structuredContent.verdict, /roughly even/);
+assert.equal(r.result.isError, true, JSON.stringify(r.result));
+assert.match(r.result.content[0].text, /"Ghost" matches no player; closest: /);
+assert.match(r.result.content[0].text, /Ask the user which player they meant/);
+assert.doesNotMatch(r.result.content[0].text, /Verdict|roughly even|total/);
 
 // Bad input is a tool error, not a protocol error.
 for (const [name, args] of [["get_values", { scoring: "bad" }], ["get_values", { teams: 11 }],
@@ -123,12 +127,17 @@ assert.equal(back.league.teams, 10);
 assert.equal(back.league.roster.SUPERFLEX, 1);
 
 // compare_trade: the link is a Compare a trade link; team A gives, team B gets; keys not just names.
+// JEG-1124 (Jeremy 2026-10-30, "Letter A."): an unmatched name now stops the compare, so it no
+// longer reaches the link by name; a stopped compare carries no link.
 r = await callD("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson, Ghost" });
+assert.equal(r.result.isError, true, JSON.stringify(r.result));
+assert.equal(r.result.structuredContent?.site_url, undefined);
+r = await callD("compare_trade", { side_a: "Josh Allen", side_b: "Bijan Robinson" });
 url = r.result.structuredContent.site_url;
 assert.ok(url.startsWith(ORIGIN + "/#compare-trade?"));
 back = codec.decodeQuery(url.split("?")[1]).state;
 assert.deepEqual(back.work.give, [{ key: "3" }]);
-assert.deepEqual(back.work.get, [{ key: "1" }, { name: "Ghost" }]);
+assert.deepEqual(back.work.get, [{ key: "1" }]);
 
 // Trade targets links the target player.
 r = await callD("trade_targets", { player_name: "Josh Allen" });
@@ -169,6 +178,10 @@ const sc = r.result.structuredContent;
 assert.deepEqual(sc.unmatched, ["Nobody"]);
 assert.equal(sc.lists.give[1].player.name, "Ja'Marr Chase");
 assert.match(r.result.content[0].text, /give \(total 110\.2\)/);
+// JEG-1124 (Jeremy 2026-10-30, "Letter A."): the get list has an unmatched name, so it gives no total.
+assert.match(r.result.content[0].text, /get \(no total: 1 name not matched\)/);
+assert.doesNotMatch(r.result.content[0].text, /get \(total/);
+assert.match(r.result.content[0].text, /Could not match: Nobody\. Ask the user which player they meant/);
 assert.match(r.result.content[0].text, /target: Zero Guy \(TE\): 0/);
 assert.deepEqual(sc.state.work.give, [{ key: "3", name: "Josh Allen" }, { key: "2", name: "Ja'Marr Chase" }]);
 assert.ok(sc.site_url.startsWith(ORIGIN + "/#compare-trade?"), "view inferred from give/get");
@@ -467,6 +480,14 @@ assert.equal(r.result.isError, true, JSON.stringify(r.result));
 assert.match(r.result.content[0].text, /"Allen" could be Josh Allen, Keenan Allen/);
 assert.match(r.result.content[0].text, /Ask the user which player they meant/);
 assert.doesNotMatch(r.result.content[0].text, /Verdict/);
+// JEG-1124 (Jeremy 2026-10-30, "Letter A."): a name that matches no player stops the compare too,
+// with the closest names, instead of totalling without it.
+r = await call("compare_trade", { side_a: "Zzyzx Notaplayer, Bijan Robinson", side_b: "Ja'Marr Chase" });
+assert.equal(r.result.isError, true, JSON.stringify(r.result));
+assert.match(r.result.content[0].text, /"Zzyzx Notaplayer" matches no player; closest: [A-Z][^;.]+/);
+assert.match(r.result.content[0].text, /Ask the user which player they meant/);
+assert.doesNotMatch(r.result.content[0].text, /Verdict|total/);
+assert.equal(r.result.structuredContent?.verdict, undefined);
 
 // Bad input is rejected instead of coerced.
 for (const [tool, args, needle] of [
