@@ -98,15 +98,40 @@ jobs:
             git push
           fi
 
+      # JEG-1377: retry for a missed Sunday pre-kickoff copy. On the 16:20 UTC Sunday run
+      # (any run on a Sunday from 16:00 UTC), when a capture is missing, pull CBS and
+      # Razzball and run the capture-only writer (first one wins, so a stored copy is never
+      # replaced). Not the gate: the check below decides red, so a fault here only logs.
+      - name: Sunday backstop, CBS and Razzball pre-kickoff capture (JEG-1377)
+        if: always() && github.event.inputs.mode == 'write'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -o pipefail
+          if [ "$(date -u +%u)" != 7 ] || [ "$(date -u +%H)" -lt 16 ]; then
+            echo "Not Sunday 16:00 UTC or later: no backstop."; exit 0
+          fi
+          if python3 pipelines/check_projection_captures.py --pre-kickoff; then
+            echo "Every capture due is stored: no backstop."; exit 0
+          fi
+          echo "::warning title=projection capture backstop::a capture is missing at the pre-kickoff check; pulling CBS and Razzball"
+          python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot
+          python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball
+          python3 pipelines/capture_projections_only.py --cbs /tmp/cbsros_snapshot --razzball /tmp/razzball
+
       # JEG-944: fails the run (red) when a content week's capture of any source
       # (espn, cbs, razzball) is missing from public.source_projection_captures.
       # Runs after the commit step so it never holds back the store itself.
+      # JEG-1377: --pre-kickoff makes this week's Sunday copy due from Sunday 16:00 UTC,
+      # so the 16:20 UTC Sunday run alerts before the noon CT kickoffs, not on Monday.
       - name: Check projection captures (JEG-944)
         if: always() && github.event.inputs.mode == 'write'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 pipelines/check_projection_captures.py
+        run: python3 pipelines/check_projection_captures.py --pre-kickoff
 
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
