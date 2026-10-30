@@ -25,12 +25,29 @@ below are history, including any "Codex reviews and merges" line.
   page and `value_reference` do; unpaired sources are shown, never counted. `index.ts` reads Week N-1
   before building the input. Output byte-identical to main when every source is paired.
 - Review corrections under JEG-1390 (same branch): pairing needs this build's history and a served week;
-  the unpaired source's reason reads "no prior week: ...". Delta review of those commits next.
+  the unpaired source's reason reads "no prior week: ...". Delta review passed on 7f0e5b1a.
 - Not live today: all seven served sources have Week 7 saved. Value math, so Jeremy approves the
-  before/after first. Jeremy (2026-10-30 18:25 UTC, "B") chose to hold the JEG-1029 get-values and mcp
+  before/after first; he said yes 2026-10-30 19:33 UTC ("A", "Yes, send it": merge once green, then deploy
+  get-values and mcp from main, live check, roll back on failure). Earlier (18:25 UTC, "B") he chose to hold the JEG-1029 get-values and mcp
   redeploy until this lands, then deploy both from main once (rollback get-values v10, mcp v16).
 - Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
   GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
+
+### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
+
+- PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
+  main merge `2027b305`. Merge #1124 first, then #1210.
+- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
+  picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
+  the Supabase function logs for both lines and that a sample request's values are unchanged.
+
+### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
+
+- Fix commit is on `claude/project-thread-h3wq1f`, stacked on #1187's branch `claude/project-thread-ri695e` (the cloud
+  session could push only to its own branch). Its PR targets that branch; once merged there, #1187 needs a delta
+  review only. `main()` now has tests for dry run, `--write` and the 75% guard. No production write: the write still
+  waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
+  `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
@@ -60,6 +77,16 @@ below are history, including any "Codex reviews and merges" line.
   implementations, byte-identical to d07f6527. Jeremy said yes to the USO table (2026-10-30 13:02 UTC, "A");
   main merged again (phone card keeps compareLink). Waiting on full CI and the delta review of that merge.
 - Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
+
+### 2QB leagues use superflex values (JEG-1365, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1365-2qb-superflex`. Value math (`review-high-risk`): a league with 2+ QB slots and no
+  superflex slot now reads each chart's `native_superflex` overlay, same as SF 1. One rule `usesSuperflexValues`
+  in `value-model.js` (page, via `curve-widget.js`), `value_reference.py` and `get-values/pipeline.ts`; seats and the
+  waiver line are unchanged. Connector explain text says so. 1-QB and superflex settings move 0 values.
+- Needs before merge: Jeremy's yes on the before/after (on the ticket). Live connector needs a get-values redeploy
+  (and mcp for the explain text) after merge, each on his yes. Follow-up for the real 2-QB logic: JEG-1366.
+- Evidence: `docs/claude-log/2026-10-30-jeg1365-2qb-superflex.md`, `tests/test_jeg1365_two_qb_superflex_values.py`.
 
 ### USO site journey regressions lane (JEG-1240, correction JEG-1264, Claude, 2026-10-29 UTC)
 
@@ -399,6 +426,39 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
 
 ---
 
+### Codex source-health release candidate (2026-10-28, JEG-1180 / JEG-1200)
+
+Branch `be/jeg-1180-1200-source-health-rc` combines the reviewed heads of
+#1022 (`0ebd8d0f`) and #1042 (`9ebbd360`) on main `3919f998`, in that order.
+The merge had no conflicts. The candidate adds one cross-path regression:
+when a chart's Week 8 label disagrees with served Week 7 history, the
+freshness report uses Week 7 and stays publishable, while the source alert
+reports a late Week 8 chart after Wednesday noon CT. At Thursday noon CT the
+freshness state becomes stale without failing publication. The combined
+source-health suite passed 207 tests; the focused integration/shard guard
+passed 72 tests. The new test is in test-core shard 3.
+
+Next: review the draft release candidate and its own preview/render CI. The
+parent owns any latest-main integration before release, merges, deploys and
+live verification. #1022 and #1042 remain draft and open; this branch changes
+no source isolation, rebuild workflow, main write guard, or Supabase code.
+Log: `docs/claude-log/2026-10-28-source-health-rc.md`.
+
+### Codex source-health repair: JEG-1180 / #1022 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1176-stale-flag`.
+Main `1bd85f76` is merged into the branch. The review found a first-sync bug:
+freshness read the old history index before sync rebuilt it, so kept Week 7
+inputs labelled Week 8 could be reported current. History now rebuilds first.
+The new first-sync regression failed before the fix (`8 != 7`) and passes;
+45 focused freshness/week/sync tests pass. Log:
+`docs/claude-log/2026-10-28-jeg1180-first-sync.md`.
+
+Next: independent review and CI on the pushed head, then the parent coordinates
+serial merge and live verification. The earlier PASS at `487ddaa` below is
+superseded by this repair. #1042 follows #1022. This lane does not merge PRs,
+deploy, change Supabase, or edit JEG-1178 UI / JEG-1204 matrix work.
+
 ### Lane: Keep every source fresh (JEG-1200, JEG-1180, JEG-1201), 2026-10-28 9:10 AM CT
 
 Stopped at 97% usage. State, verified 14:10 UTC:
@@ -438,6 +498,23 @@ Stopped at 97% usage. State, verified 14:10 UTC:
 - Exact next step: merge #1022 on green, then #1042, each checked live; then
   build #1052 (value math, Jeremy approved) with the impact list in
   /mnt/project-files/ddf/ or the PR body.
+
+### Codex source-health repair: JEG-1200 / #1042 (2026-10-28 15:08 UTC)
+
+Owner: `session:be`, Codex source-health lane, branch `be/jeg-1200-source-late`.
+Main `1bd85f76` is merged into the branch. The earlier PASS at `6c5f589` is
+superseded: review reproduced successful exit on failed GitHub alert delivery
+and false resolution when served-week metadata was missing. Both now fail the
+monitoring run; incomplete publication checks leave alerts unchanged. Ordinary
+source lateness remains warning-only. Wednesday noon CT is the week deadline.
+32 focused lateness tests pass, including missing/null/malformed/partial
+metadata and network/HTTP failures. Log:
+`docs/claude-log/2026-10-28-jeg1200-monitor-failures.md`.
+
+Next: independent review and CI on the pushed head, then parent-controlled
+merge after #1022 and verification of the first scheduled main run. No
+Supabase changes, PR merges or deploys were performed by this lane. JEG-1178
+owns freshness-panel copy; JEG-1204 matrix implementation remains separate.
 
 ## Active agents and automation (keep current)
 

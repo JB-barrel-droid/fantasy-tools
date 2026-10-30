@@ -370,6 +370,13 @@ function checkRate(ip: string, limit = RATE_LIMIT): boolean {
   return bucket.count <= limit;
 }
 
+// JEG-1061: one structured log line per fresh custom compute and per 429, so the soft limiter can be
+// measured (contract: tests/node/jeg_1061_logging_contract.mjs). Settings only: no IP, header, token or
+// player data.
+function logEvent(fields: Record<string, unknown>): void {
+  console.log(JSON.stringify(fields));
+}
+
 // --- Serve ------------------------------------------------------------------
 
 Deno.serve(async (req: Request) => {
@@ -383,6 +390,7 @@ Deno.serve(async (req: Request) => {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     req.headers.get("cf-connecting-ip") || "unknown";
   if (!checkRate(ip)) {
+    logEvent({ event: "get_values.rate_limited", limit: "general", max: RATE_LIMIT, window_s: RATE_WINDOW_MS / 1000 });
     return Response.json(
       { error: "rate limited", retry_after_seconds: 60 },
       { status: 429, headers: cors },
@@ -508,12 +516,19 @@ Deno.serve(async (req: Request) => {
     const key = `${leagueKey(mapped)}${includeKey ? `|${includeKey}` : ""}|wk=${plan.week}${contextKey(context)}`;
     let response = answerCache.get(key);
     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
-      if ((mapped.custom.length || context.custom) && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+      // A custom league or a link's value context is a fresh engine run: limited and logged as compute.
+      const fresh = Boolean(mapped.custom.length || context.custom);
+      const settings = { scoring: mapped.scoring, teams: mapped.teams, superflex: mapped.setting.superflex,
+        custom: mapped.custom, charts: includeCharts, week: plan.week };
+      if (fresh && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
+        logEvent({ event: "get_values.rate_limited", limit: "compute", max: COMPUTE_RATE_LIMIT,
+          window_s: RATE_WINDOW_MS / 1000, ...settings });
         return Response.json(
           { error: "rate limited", retry_after_seconds: 60 },
           { status: 429, headers: cors },
         );
       }
+      const started = performance.now();
       if (plan.docWeek !== null) await loadHistoryDoc(bundle, plan.docWeek);
       // JEG-1385: Week N-1's document decides the included set (VP-1.2), so it is read before the input is built.
       if (Number.isInteger(plan.week)) await loadHistoryDoc(bundle, (plan.week as number) - 1);
@@ -557,6 +572,7 @@ Deno.serve(async (req: Request) => {
       }
       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
       answerCache.set(key, response);
+      if (fresh) logEvent({ event: "get_values.compute", ...settings, ms: Math.round(performance.now() - started) });
     }
 
     if (response.status && response.status !== 200) {

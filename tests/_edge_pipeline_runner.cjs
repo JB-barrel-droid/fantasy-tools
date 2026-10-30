@@ -18,6 +18,7 @@
 //     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
 //     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
 //     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
+//     [--dump-natives fantasycalc]     (test only: print that source's natives in the input, JEG-1365)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -131,6 +132,13 @@ if (!plan.ok) {
   process.exit(1);
 }
 const built = buildPipelineInput(bundle, mapped, plan);
+
+// JEG-1365: --dump-natives KEY prints the natives the function's own input carries for one source
+// (a chart's 1-QB list, overlaid with its superflex / 2-QB list where the setting uses it) and stops.
+if (args["dump-natives"]) {
+  process.stdout.write(JSON.stringify(built.sources[args["dump-natives"]]?.values ?? null));
+  process.exit(0);
+}
 
 // --bench overrides bench_per_team (the negative test's deliberately wrong value).
 const setting = { ...built.setting };

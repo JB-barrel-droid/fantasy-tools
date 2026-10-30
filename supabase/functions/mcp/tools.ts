@@ -1521,7 +1521,7 @@ const EXPLANATIONS: Record<string, string> = {
   scoring_formats:
     "standard = no points per reception, half_ppr = 0.5, ppr = 1.0. PPR lifts high-target receivers and pass-catching backs; standard favors rushers and touchdown-dependent players.",
   superflex:
-    "Superflex adds a slot that takes a QB, which sharply raises QB values and shifts replacement levels. Charts that publish their own superflex values use them.",
+    "Superflex adds a slot that takes a QB, which sharply raises QB values and shifts replacement levels. Charts that publish their own superflex values use them, in a superflex league and in a league that starts 2 QBs (a pasted DDF state or site link whose roster has 2 QB slots). The 2-QB league keeps its own starter and waiver counts; only those charts' values change.",
   tiers:
     "Tier is where a player sits in the league: starter (fills a starting lineup slot), bench (worth rostering as depth) or waiver (replacement level, freely available). It is not a quality band, so two players in the same tier can have very different values; compare values, not tiers.",
   how_to_trade:
