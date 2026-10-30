@@ -280,8 +280,9 @@ class EndToEndTest(unittest.TestCase):
         """Mutation check: each break of the production helper is caught."""
         src = VALUE_MODEL.read_text(encoding="utf-8")
         mutations = {
-            "one-player line": ('family === "projection" ? vpWaiverBand(work, N) : work[N].native',
-                                "work[N].native"),
+            # JEG-1249 integration: the band sits at the line row W (N with no league).
+            "one-player line": ('family === "projection" ? vpWaiverBand(work, W) : work[W].native',
+                                "work[W].native"),
             "5-player band": ("var VP_WAIVER_BAND_HALF_WIDTH = 3;", "var VP_WAIVER_BAND_HALF_WIDTH = 2;"),
             "zero seat as one player": ("function vpWaiverBand(work, N) {",
                                         "function vpWaiverBand(work, N) {\n    if (N === 0) return work[0].native;"),

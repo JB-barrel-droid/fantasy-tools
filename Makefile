@@ -464,6 +464,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_trifit
 	python3 -m unittest tests.test_v2_finder_balance
 	python3 -m unittest tests.test_v2_league_units
+	# JEG-1188: the two league bench levels (rule, real USO/Charlotte leagues, completeness, sweep).
+	python3 -m unittest tests.test_league_bench_levels
+	python3 -m unittest tests.test_league_levels_real
+	python3 -m unittest tests.test_league_levels_trades
+	python3 -m unittest tests.test_jeg1249_bench_corrections
+	python3 -m unittest tests.test_roster_provenance_transitions
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	python3 -m unittest tests.test_jeg1230_trade_readout
@@ -951,6 +957,8 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_finder_eval_render
 	python3 -m unittest tests.test_v2_finder_groups_render
 	python3 -m unittest tests.test_v2_league_basis_render
+	python3 -m unittest tests.test_v2_league_levels_render
+	python3 -m unittest tests.test_jeg1249_league_site_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
@@ -1008,6 +1016,8 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_finder_kdef_search_render
 	python3 -m unittest tests.test_v2_finder_triview_render
 	python3 -m unittest tests.test_v2_league_basis_render
+	python3 -m unittest tests.test_v2_league_levels_render
+	python3 -m unittest tests.test_jeg1249_league_site_render
 	python3 -m unittest tests.test_v2_league_live_render
 	python3 -m unittest tests.test_v2_league_phone_render
 	python3 -m unittest tests.test_v2_league_render

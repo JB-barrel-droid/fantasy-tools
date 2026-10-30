@@ -19,6 +19,21 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
+
+- Same branch `claude/JEG-1188-two-level-bench`, PR #1105; includes #1108 (JEG-1241) at `dc10602d` by merge. An independent Claude reviewer does delta reviews; Jeremy approves the merge by PR number (it changes value math).
+- ddf replacement is a player priced by identity in each source; market depth counts held players only; JEG-1241
+  provenance wired into workspace.js / league.js, every reason fails closed; league-priced trades don't open in Compare.
+- Jeremy, 2026-10-29: pastes are read as whole rosters (`coverage_unproven` doesn't block); a page that left its bench
+  out still does. A "Use league rosters" switch is grayed out until the league qualifies, on once it does, and saved
+  when switched off (which also brings back Open in Compare). Error-checking design is a separate decision for him.
+- 2026-10-29 review fixes (JEG-1249 fb70682d): the local sync build from 9de97320 (21 generated app/dist paths) is
+  backed out to main; main merged normally (league.js keeps #1138's Buy/Sell copy plus #1105's sellBlock).
+  2026-10-30: main (#1077 squash 2458aeb7) merged in; the band sits at the line row W in all three
+  implementations, byte-identical to d07f6527. Jeremy said yes to the USO table (2026-10-30 13:02 UTC, "A");
+  main merged again (phone card keeps compareLink). Waiting on full CI and the delta review of that merge.
+- Evidence: `docs/claude-log/pr-jeg-1188-two-level-bench.md` (JEG-1249 section). No Supabase change.
+
 ### USO site journey regressions lane (JEG-1240, correction JEG-1264, Claude, 2026-10-29 UTC)
 
 - Branch `claude/JEG-1240-uso-site-journey` (#1110), test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_contract.py` (Node: harness, continuity, mutation classes), `tests/test_uso_site_journey_render.py` (browser only). Synthetic rosters in USO's roster shape; no USO rosters or notes.

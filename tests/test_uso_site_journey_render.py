@@ -774,7 +774,8 @@ class UsoSiteJourneyRenderTest(unittest.TestCase):
         from tests._league_render import browser_on_build, source
         body = source("league.js")
         anchor = '&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"'
-        self.assertEqual(body.count(anchor), 2, "mutation anchor is stale")
+        # #1105 (JEG-1249): the table panel and the phone card both build this link through compareLink, so it is one copy.
+        self.assertEqual(body.count(anchor), 1, "mutation anchor is stale")
         broken = body.replace(anchor, '`, text: "Open in Compare a trade"')
         with browser_on_build() as (browser, base):
             baseline = journey(browser, base)

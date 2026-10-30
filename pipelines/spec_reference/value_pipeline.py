@@ -38,6 +38,9 @@ from lib.roster_convention import (
     starter_line as _convention_starter_line,
     waiver_band_line as _convention_waiver_band_line,
     vorp_bench_allocate as _vorp_bench,
+    league_depth as _league_depth,
+    market_order as _market_order,
+    replacement_waiver_index as _replacement_waiver_index,
     POSITIONS as _CONV_POSITIONS,
 )
 
@@ -70,6 +73,13 @@ class Setting:
     flex_eligible: tuple = ("RB", "WR", "TE")
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14 override (off = None)
+    # JEG-1188: a loaded league's rostered keys (IR and taxi included), the
+    # keys in IR or taxi slots, and which bench level to price at ("ddf" =
+    # his value, "market" = the other side's). None = no league: the modeled
+    # bench rule runs.
+    league_rostered: tuple | None = None
+    bench_level: str = "ddf"
+    league_reserve: tuple = ()
 
     @classmethod
     def from_fixture(cls, s: dict) -> "Setting":
@@ -79,7 +89,11 @@ class Setting:
                    bench_share=float(s.get("bench_share", DEFAULT_BENCH_SHARE)),
                    flex_eligible=tuple(s.get("flex_eligible") or ("RB", "WR", "TE")),
                    position_shares=s.get("position_shares"),
-                   bench_share_override=s.get("bench_share_override"))
+                   bench_share_override=s.get("bench_share_override"),
+                   league_rostered=(tuple(s["league_rostered"])
+                                    if s.get("league_rostered") is not None else None),
+                   bench_level=s.get("bench_level") or "ddf",
+                   league_reserve=tuple(s.get("league_reserve") or ()))
 
     def starting_slots_per_team(self) -> int:
         return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + self.flex + self.superflex
@@ -163,6 +177,11 @@ def dhondt_bench(setting, *, flex_filled: dict | None = None) -> dict:
     return {p: seats.get(p, 0) for p in POSITIONS}
 
 
+# JEG-1188: the league counts each allocation carries when a league is loaded.
+LEAGUE_DEPTH_FIELDS = ("replacement", "replacement_key", "held", "reserve", "bench_basis",
+                       "modeled_starters")
+
+
 def allocate(setting: Setting, order: dict, scores: dict, *,
              flex_bench_seats: bool = True) -> dict:
     """League allocation (VP-2.2 a-e) on a per-position order with scores.
@@ -181,12 +200,30 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
             got[p] += 1
         return got
 
-    sf_cands = [(k, p) for p in POSITIONS for k in order[p][ded[p]:]]
-    sf = take(sf_cands, T * setting.superflex)
-    fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
-                for k in order[p][ded[p] + sf[p]:]]
-    fx = take(fx_cands, T * setting.flex)
-    if flex_bench_seats:
+    def fill(o: dict, ded: dict):
+        sf_cands = [(k, p) for p in POSITIONS for k in o.get(p, [])[ded[p]:]]
+        sf = take(sf_cands, T * setting.superflex)
+        fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
+                    for k in o.get(p, [])[ded[p] + sf[p]:]]
+        return sf, take(fx_cands, T * setting.flex)
+
+    sf, fx = fill(order, ded)
+    depth = None
+    if setting.league_rostered is not None:
+        # JEG-1188: a loaded league sets the bench and the replacement line
+        # from its own rosters.
+        modeled = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
+        if setting.bench_level == "market":
+            # JEG-1249: market starters come from held players only.
+            held = _market_order(order, setting.league_rostered, setting.league_reserve)
+            ded = {p: min(ded[p], len(held.get(p, []))) for p in POSITIONS}
+            sf, fx = fill(held, ded)
+        depth = _league_depth({p: ded[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                              setting.league_rostered, setting.bench_level, setting.league_reserve)
+        for p in POSITIONS:
+            depth[p]["modeled_starters"] = modeled[p]
+        bench = {p: depth[p]["bench"] for p in POSITIONS}
+    elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
         _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
@@ -210,6 +247,8 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
         starters = ded[p] + sf[p] + fx[p]
         out[p] = {"dedicated": ded[p], "superflex": sf[p], "flex": fx[p], "bench": bench[p],
                   "starters": starters, "rostered": starters + bench[p]}
+        if depth is not None:
+            out[p].update({k: depth[p][k] for k in LEAGUE_DEPTH_FIELDS})
     return out
 
 
@@ -490,8 +529,11 @@ def apply_promotion_model(parts: dict, values: list, S: int, T: int, pos: str,
 
 def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
                  fill_sets: dict | None, peers: list, m: dict, bs: float | None,
-                 es: dict | None = None, promotion: dict | None = None) -> dict:
-    """VP-2 (work lists, waiver/starter lines, slices) and VP-3 for one source."""
+                 es: dict | None = None, promotion: dict | None = None,
+                 league_rostered=None) -> dict:
+    """VP-2 (work lists, waiver/starter lines, slices) and VP-3 for one source.
+    league_rostered: a loaded league's held keys (JEG-1249), for the ddf
+    level's waiver by player identity."""
     nat = natives[s]
     listed_by_pos = {p: [] for p in POSITIONS}
     for k in nat:
@@ -515,15 +557,24 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
         work_val.update({i: e["value"] for i, e in estimates.items()})
         work = sorted(work_val, key=lambda k: (-work_val[k], k in estimates, k))
         N, S = a["rostered"], a["starters"]
+        # JEG-1188: the waiver line sits at the replacement index, which a
+        # loaded league can put inside the starter line. JEG-1249: at the ddf
+        # level it is the replacement player's own row in this source.
+        W = a.get("replacement", N)
+        if a.get("bench_basis") == "above_replacement":
+            W = _replacement_waiver_index(work, a["replacement_key"], league_rostered)
+            if W is None:
+                W = len(work)
         info = dict(a)
         info.update(listed=len(listed), extended=bool(estimates),
                     imputation_ratios=estimates or None)
-        if len(work) > N:
-            # JEG-1047 (Jeremy, 2026-10-29): a projection's line is the
-            # 7-player band around the first non-rostered seat.
-            w = (_convention_waiver_band_line([work_val[k] for k in work], N)
-                 if family == PROJECTION else work_val[work[N]])
-            method = "estimated" if work[N] in estimates else "roster_determined"
+        if len(work) > W:
+            # JEG-1047 / JEG-1249 (Jeremy, 2026-10-29: "A, 7-player average"): a
+            # projection's line is the 7-player band around the line row W; a
+            # chart reads the one player at W.
+            w = (_convention_waiver_band_line([work_val[k] for k in work], W)
+                 if family == PROJECTION else work_val[work[W]])
+            method = "estimated" if work[W] in estimates else "roster_determined"
         elif work:
             w = work_val[work[-1]]
             method = "insufficient_coverage"
@@ -900,7 +951,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         else:
             a = alloc
         peers = [k for k in peers_all if k != s]
-        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es, promo)
+        priced[s] = price_source(s, family[s], natives, pos_of, a, fill_sets, peers, m, bs, es, promo,
+                                 league_rostered=setting.league_rostered)
         priced[s]["status"] = "included" if s in inc else sources[s].get("status", "excluded")
         priced[s]["allocation"] = a
     S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares)

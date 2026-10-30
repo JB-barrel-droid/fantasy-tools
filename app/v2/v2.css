@@ -2253,6 +2253,10 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
 /* JEG-1236: the summary filter value box was 26 px tall on a phone; the 44 px tap height the other controls here keep. */
 .v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }
+/* JEG-1249: "Use league rosters", grayed out until the league qualifies; a 44px tap target. */
+.v2-lg-levels-switch { display: inline-flex; align-items: center; min-height: 44px; gap: 6px; cursor: pointer; }
+.v2-lg-levels-switch input { width: 22px; height: 44px; margin: 0; cursor: inherit; }
+.v2-lg-levels-switch.is-disabled { color: var(--v2-muted); cursor: not-allowed; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }

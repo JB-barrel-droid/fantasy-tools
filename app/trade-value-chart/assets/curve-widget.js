@@ -768,7 +768,10 @@
     return out;
   };
 
+  // extra.setting merges into the reader's setting (JEG-1188: a loaded
+  // league's league_rostered and bench_level); the rest goes to the input.
   function runPipeline(nativesByKey, included, extra = {}) {
+    const {setting: settingExtra, ...inputExtra} = extra;
     const sources = {};
     PIPELINE_SOURCE_KEYS.forEach(key => {
       const natives = nativesByKey[key];
@@ -777,10 +780,60 @@
         values: mapToValues(natives), label: pipelineLabel(key)};
     });
     return ValueModel.runValuePipeline({
-      setting: pipelineSetting(), players: pipelinePlayers(), sources, included,
+      setting: {...pipelineSetting(), ...(settingExtra || {})}, players: pipelinePlayers(), sources, included,
       basisConfig: basisConfig ? {...basisConfig, sources: [...basisConfig.sources], weights: {...basisConfig.weights}} : null,
-      lineup: resolvedLineup(), ...extra,
+      lineup: resolvedLineup(), ...inputExtra,
     });
+  }
+
+  // JEG-1188: the current week priced with a loaded league's own rosters
+  // setting the bench and the replacement line, at one level: "ddf" (his
+  // value: replacement is the league's best available player) or "market"
+  // (the other side: the league's active rostered depth). `reserve`: keys in
+  // IR or taxi slots (held, not active depth). Same sources, included set,
+  // pie and overrides as the page's rows; no prior week. Returns {rows (the
+  // getAllRows() shape), allocation (the getAdjustmentWeights().allocation
+  // shape), counts ({pos: {starters, bench, held, reserve, replacement,
+  // benchBasis}} of the allocation that sets the waiver lines), readout (the
+  // getBenchShareReadout() shape)}, all from that one run. Cached per level and roster set until
+  // the page's values are rebuilt; callers get copies.
+  let leagueLevelCache = new Map();
+  function leagueLevel(rostered, reserve, level = "ddf") {
+    if (!pipeline) return null;
+    const keys = [...new Set((rostered || []).map(String))].sort();
+    const res = [...new Set((reserve || []).map(String))].sort();
+    const cacheKey = `${level}|${keys.join(",")}|${res.join(",")}`;
+    if (!leagueLevelCache.has(cacheKey)) {
+      const saved = {pipeline, pipelinePrior, sourceMaps, compositeMap};
+      let got;
+      try {
+        pipeline = runPipeline(pipelineNatives, pipelineState.included, {pie: saved.pipeline.pie,
+          hidden: [...(pipelineState.hidden || [])],
+          setting: {league_rostered: keys, league_reserve: res, bench_level: level}});
+        pipelinePrior = null;
+        sourceMaps = new Map();
+        visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
+        const rows = Object.keys(pipeline.rows).map(Number)
+          .map(playerKey => canonicalByKey.get(playerKey))
+          .filter(Boolean)
+          .map(player => buildRow(player));
+        applyComposite(rows);
+        // counts: the allocation that sets the waiver lines (projected-points order), per position.
+        const counts = Object.fromEntries(POSITION_ORDER.map(pos => {
+          const a = pipeline.allocation?.[pos] || {};
+          return [pos, {starters: a.starters, bench: a.bench, held: a.held, reserve: a.reserve,
+            replacement: a.replacement, benchBasis: a.bench_basis}];
+        }));
+        got = {rows: rows.map(rowCopy), allocation: adjustmentAllocationRows(), counts, readout: benchShareReadout()};
+      } finally {
+        ({pipeline, pipelinePrior, sourceMaps, compositeMap} = saved);
+      }
+      if (leagueLevelCache.size >= 8) leagueLevelCache.delete(leagueLevelCache.keys().next().value);
+      leagueLevelCache.set(cacheKey, got);
+    }
+    const hit = leagueLevelCache.get(cacheKey);
+    return {rows: hit.rows.map(rowCopy), allocation: hit.allocation.map(row => ({...row})),
+      counts: JSON.parse(JSON.stringify(hit.counts)), readout: hit.readout ? JSON.parse(JSON.stringify(hit.readout)) : null};
   }
 
   // The current and prior week (VP-1, VP-8), rebuilt by computePipeline().
@@ -1442,6 +1495,7 @@
   }
 
   function rebuildDomain() {
+    leagueLevelCache = new Map();
     computePipeline();
     sourceMaps = new Map();
     visibleSourceKeys().forEach(key => sourceMaps.set(key, seriesValuesFrom(pipeline, key)));
@@ -3193,6 +3247,10 @@
     // Every priced player at every position (Compare a trade), ignoring the
     // position filter; the same value maps getRows reads.
     getAllRows: () => universe.map(rowCopy),
+    // JEG-1188: one level priced with a loaded league's rosters
+    // ({rostered, reserve, level: "ddf" | "market"}): {rows, allocation,
+    // counts, readout} from the same run; null before the first build.
+    getLeagueLevel: ({rostered, reserve, level} = {}) => leagueLevel(rostered, reserve, level || "ddf"),
     // JEG-502 (read-only, lazy): search every player in players.json, the
     // whole active NFL universe included, and get any one player's row. A
     // player no source prices is materialised on demand (materialized: true,
