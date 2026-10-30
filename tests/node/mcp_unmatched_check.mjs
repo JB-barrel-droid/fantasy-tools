@@ -14,6 +14,7 @@ const players = [
   { player_key: 13, name: "Tylan Wallace", pos: "WR", value: 3.1, tier: "waiver" },
   { player_key: 14, name: "Kenneth Walker III", pos: "RB", value: 30.2, tier: "starter" },
   { player_key: 15, name: "Josh Palmer", pos: "WR", value: 6.5, tier: "bench" },
+  { player_key: 16, name: "Josh Allen", pos: "QB", value: 40.0, tier: "starter" },
 ];
 const stub = async (scoring, teams, superflex) => ({
   attribution: "Data Driven Football", as_of: "2026-10-24",
@@ -52,5 +53,28 @@ for (const scoring of ["standard", "half_ppr", "ppr"]) {
   assert.match(text, /Could not match: Zzyzx Notaplayer \(closest: [A-Z][^)]+\)\. Ask the user which player they meant/,
     `${scoring} read_state did not name closest players: ${text}`);
 }
+
+// read_state edge cases (review of #1231): an ambiguous name lists every player it fits, a key-only
+// miss gets no made-up closest names, an unmatched target is named, and closest names are worked
+// out for at most 5 misses so a pasted state full of junk names stays cheap.
+const edge = codec.encodeBlock({ league: { scoring: "half_ppr", teams: 12 },
+  work: { give: [{ name: "Josh" }, { key: "999" }], target: { name: "Zzyzx Notaplayer" } } });
+let r = await call("read_state", { state: edge });
+let text = r.result.content[0].text;
+assert.match(text, /give \(no total: 2 names not matched\)/, text);
+assert.match(text, /Could not match: Josh \(could be Josh Palmer, Josh Allen\)|Could not match: Josh \(could be Josh Allen, Josh Palmer\)/, text);
+assert.match(text, /; 999; /, `key-only miss should be named alone: ${text}`);
+assert.doesNotMatch(text, /999 \(closest/);
+assert.match(text, /Zzyzx Notaplayer \(closest: [A-Z][^)]+\)\. Ask the user/, text);
+assert.deepEqual(r.result.structuredContent.unmatched, ["Josh", "999", "Zzyzx Notaplayer"]);
+
+const junk = Array.from({ length: 8 }, (_, i) => ({ name: `Qqqxv Junkname${i}` }));
+r = await call("read_state", { state: codec.encodeBlock({ league: { scoring: "ppr" }, work: { get: junk } }) });
+text = r.result.content[0].text;
+assert.match(text, /get \(no total: 8 names not matched\)/);
+const line = text.split("\n").find((l) => l.startsWith("Could not match:"));
+assert.ok(line, text);
+assert.ok((line.match(/\(closest: /g) ?? []).length <= 5, `closest names past the cap: ${line}`);
+assert.match(line, /Qqqxv Junkname7/, "every miss is still named");
 
 console.log("ok");

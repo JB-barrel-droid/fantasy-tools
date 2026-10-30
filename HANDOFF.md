@@ -26,6 +26,10 @@ below are history, including any "Codex reviews and merges" line.
   This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
   under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
   "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Independent review: approve; its findings fixed in a second commit (closest names reuse the first match
+  and stop after 5 misspelled names, key-only misses get none, ambiguous names list every fit).
+  A pasted state of 160 junk names already takes about 5.4 s of matching on main (5.9 s here); not
+  addressed in this PR.
 - Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
   (runTool, not readState); no overlap expected.
 
