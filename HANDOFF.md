@@ -35,6 +35,20 @@ below are history, including any "Codex reviews and merges" line.
   average value". Next: delta review, green full CI, normal merge. If #1033 (JEG-1125 even band) lands
   first, merge main again and refresh the golden with `--write-golden` after checking the drift is only the count.
 
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1385`: get-values now prices this week on the sources with Week N-1 saved, as the
+  page and `value_reference` do; unpaired sources are shown, never counted. `index.ts` reads Week N-1
+  before building the input. Output byte-identical to main when every source is paired.
+- Review corrections under JEG-1390 (same branch): pairing needs this build's history and a served week;
+  the unpaired source's reason reads "no prior week: ...". Delta review passed on 7f0e5b1a.
+- Not live today: all seven served sources have Week 7 saved. Value math, so Jeremy approves the
+  before/after first; he said yes 2026-10-30 19:33 UTC ("A", "Yes, send it": merge once green, then deploy
+  get-values and mcp from main, live check, roll back on failure). Earlier (18:25 UTC, "B") he chose to hold the JEG-1029 get-values and mcp
+  redeploy until this lands, then deploy both from main once (rollback get-values v10, mcp v16).
+- Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
+  GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
+
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
@@ -50,6 +64,23 @@ below are history, including any "Codex reviews and merges" line.
   review only. `main()` now has tests for dry run, `--write` and the 75% guard. No production write: the write still
   waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
   `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
+
+### JEG-1125 one shared "even" band, option A (Claude, 2026-10-30 UTC)
+
+- Branch `fe/jeg-1125-even-threshold`, PR #1033. Jeremy picked A on
+  2026-10-29 9:11 PM CT and said yes to building it on 2026-10-30: one even
+  band, max(1 point, 3% of the average side), for Compare's verdict, Compare's
+  Deal read and Find a trade. THIN_MARGIN (5%) is a separate confidence rule and
+  stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
+  the Duet project files, summary on the ticket) and approves before any merge.
+  Do not merge or mark #1033 ready without his yes on that before/after.
+- State: Jeremy said ship A (2026-10-30 18:52Z, "A"). #1033 marked ready;
+  Standard, Half PPR and PPR before/after in
+  `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
+  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
+  done (one connector min_rival_edge bug, fixed in `7694bb7`).
+  Next: green CI, squash merge, check the live site, then ask Jeremy for the
+  `mcp` deploy (find-trades.ts ships with the function).
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
