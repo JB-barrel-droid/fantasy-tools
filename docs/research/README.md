@@ -14,6 +14,7 @@ Durable evidence behind the tool's opinionated choices (JEG-604, 2026-10-12). Re
 | [jeg613-q4-context.md](jeg613-q4-context.md) | JEG-613 open question 4: whether bias-adjusted charts belong in DDF Value, written for Jeremy's decision (2026-10-22). |
 | [jeg613-scoring.md](jeg613-scoring.md) | JEG-613 read-only audit of value goals, scoring and the engine at the 12 standard setups, with Jeremy's answers (2026-10-22). |
 | [qb-values-review-2026-10-16.md](qb-values-review-2026-10-16.md) | JEG-702 investigation of QB values on a 2-QB board and the part-timer per-game question; no value math changed. |
+| [jeg1047-waiver-line.md](jeg1047-waiver-line.md) | JEG-1047: the projection waiver line rests on one player; sensitivity on the 12-combo grid and the line-rule options for Jeremy (2026-10-29). Script `tools/research/jeg1047_waiver_anchor.py`. |
 | [jeg-1198-ros-rank-anchor.md](jeg-1198-ros-rank-anchor.md) | JEG-1198: whether rest-of-season rankings can anchor trade values (rank curves, scarcity, aggregation, worked examples); research only, no-go recommendation (2026-10-29). Current finding first: expert ROS rankings are readable (option C feed) and track DDF Value closely, so a review check, not a value; the first study's modeled-only availability audit is kept as dated history. Joins on canonical player_key; baseline recipe and its reproduction check documented (JEG-1251). Scripts `tools/research/ros_rank_anchor*.py`, `ros_rank_keys.py`, `ros_rank_baseline_check.py`, data `data/jeg1198/`. |
 
 ## Post drafts

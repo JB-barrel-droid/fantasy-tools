@@ -711,6 +711,8 @@ test-core:
 	# Test sweep (JEG-976): the Razzball outlier hold.
 	# (tests.test_value_pipeline_engine is wired into test-core by #914 / JEG-1057.)
 	python3 -m unittest tests.test_razzball_outlier_guard
+	# JEG-1047: projection waiver line is the 7-player band (one fringe player can't reprice a position).
+	python3 -m unittest tests.test_waiver_band_line
 
 # JEG-1170: test-core split into parallel shards for preview.yml and pages.yml. Their union
 # is exactly test-core: a line added to test-core must also go into one shard, or
@@ -835,6 +837,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
+	python3 -m unittest tests.test_waiver_band_line
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily
