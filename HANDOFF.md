@@ -19,6 +19,29 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Managed agent teardown (JEG-1173, Claude, 2026-10-29 UTC)
+
+- Claude took JEG-1173 on Jeremy's instruction (2026-10-29 10:13 AM CT);
+  corrections under JEG-1269. PR #1107 (`claude/JEG-1173`); merges go through
+  the review-and-merge rule in `AGENTS.md` (Jeremy, 2026-10-29).
+- PRs #1001 and #1002 (lock file, deployment scripts) both merged on
+  2026-10-27; nothing to close. #1003 (`cma/JEG-1049`, edge drift check) is
+  the managed agent's last open PR; left open, not closed by this ticket.
+  `cma/JEG-925` is a leftover branch with no open PR; not deleted.
+- #1107: `managed-agents/` README says retired, and `scripts/lib.sh` makes
+  every script there exit unless `CMA_ALLOW_RETIRED=1`. Agent prompt files and
+  `claude-lock.json` are unchanged (record of what was deployed; no
+  `ant apply`).
+- **Operational state: deleted, on Jeremy's report.** 2026-10-29 19:18 UTC,
+  his words: "Found it and deleted the scheduled jobs." The jobs were
+  `depl_0194kATtQ6xdicZiw7wnkzmT` (`ddf-queue`) and
+  `depl_01PE9v6akCH9muDEUwxdioSs` (`ddf-weekly-usage`) in workspace
+  `wrkspc_01A4qjuy7wHWubEvx73fHKym`. No agent has an authenticated read of that
+  workspace, so his report is the receipt. A missing run comment on JEG-1173
+  afterwards is corroboration only, never proof. The last run on record is
+  `ddf-queue` at 19:08 UTC, before the deletion. (An earlier empty Deployments
+  page at about 15:20 UTC was another workspace: runs kept firing until 19:08.)
+
 ### Commits-only release switch (JEG-1215, Codex, 2026-10-28)
 
 - Current-main integration branch `be/release-pause-current-main` preserves
@@ -30,8 +53,11 @@ below are history, including any "Codex reviews and merges" line.
 - Review repair: alert recovery requires confirmed publication; shard leg-staging
   parser corrected. Current integration needs independent delta review and full CI.
 - No live activation, settings changes, Supabase changes or cancellation performed.
-- Next: parent reviews/merges after green CI, coordinates rebuild-chain overlap
-  with #1054, drains old-code writers, then activates only for the release window.
+- JEG-1364 (Claude, 2026-10-30): main's JEG-1206 publish path replaced the
+  rebase loop; the guard now stages before the candidate commit and
+  `release_push` guards the scratch-worktree publication push (`--head`).
+- Next: parent reviews/merges after green CI, drains old-code writers, then
+  activates only for the release window.
   Parent restores `paused: false` and verifies resumed publication before closure.
 - Procedure: `runbooks/main-write-pause.md`; evidence in the JEG-1215 session log.
 
@@ -254,8 +280,8 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   own file, not the build tag), then move JEG-1101 to Done. The `mcp` tools.ts
   text change goes live only with an approved `mcp` deploy.
 
-- **Fit labels lane (JEG-1187, JEG-1115; done 2026-10-28 10:15 AM CT):**
-  Both shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
+- **Fit labels lane (JEG-1187, JEG-1115; follow-up 2026-10-28):**
+  Original labels shipped. JEG-1187: #1030 (`759a4f9`) makes Find a trade's Market
   supported fire on any gain the page shows (`theirNet > NET_FLOOR`); Deploy
   dashboard run 40703312106 (`0137a8a`, includes it) succeeded. JEG-1115: #1041
   merged (`1bd85f7`); Jeremy said yes and get-values v9 then mcp v13 were
@@ -269,6 +295,19 @@ lane (paused: Jeremy's usage limit). Change: #1040 fixed the two render tests
   Jefferson stays with them) without saying whose roster; same text as the
   page's `fitText`. #966 (Ba-Nana's earlier draft) is superseded by #1041;
   leave closing it to Jeremy.
+  JEG-1115 remains open for two reproduced defects in #1041: the old size
+  fixture never produced fit labels, and duplicate opponent names reused the
+  wrong roster for fit/package selection. The parent assigned Codex exclusive
+  connector edits on `be/jeg-1115-fit-review-fixes` (draft PR #1057). The follow-up keeps full
+  fit reasons and complete packages, bounds reply bytes with a ranked prefix,
+  and uses input indices for opponent identity (`opponent_index` in replies).
+  Real-fit regression sizes are 6,128 / 16,155 / 7,070 / 10,853 bytes; the local
+  #1024 + #1032 integration is 6,291 / 16,318 / 7,233 / 11,016, all within caps.
+  See `docs/claude-log/2026-10-28-connector-fit-review-fixes.md` for checks.
+  Parent owns serial merges/releases. This session has not deployed anything;
+  the follow-up needs current-head CI/review and fresh explicit deploy approval.
+  Merge #1032 before this follow-up and retain one `tradeLines` helper plus the
+  follow-up's bounded render blocks and fit-producing tests when resolving overlap.
 
 
 ### In Review tickets lane (2026-10-28, 9:10 AM CT)
@@ -378,14 +417,12 @@ here, coordinate first (bottom of this section).
 
 **Other agents (from `AGENTS.md`; activity inferred from open PRs, not checked
 on their machines):**
-- **Claude Managed Agent** (`session:cma`, `managed-agents/`): deployment
-  `ddf-queue` runs hourly (America/Chicago), claims up to 3 Linear tickets
-  labeled `session:cma`, and merges on green gates; `ddf-weekly-usage` runs
-  Mondays 7 AM CT. Branches `cma/<ticket>` (open: #1003, #1011). Pause:
-  `ant beta:deployments pause --deployment-id <id>` (ids in
-  `managed-agents/README.md`; needs Jeremy's Anthropic account). It has a
-  standing takeover of any ticket with no activity for 4 hours, so keep your
-  heartbeat comments current.
+- **Claude Managed Agent** (`session:cma`, `managed-agents/`): **retired**
+  (Jeremy, 2026-10-27; teardown JEG-1173). It owns and takes over nothing. Its
+  deployments `ddf-queue` (hourly) and `ddf-weekly-usage` (Mondays 7 AM CT)
+  fired until 19:08 UTC on 2026-10-29, each stopping without work; Jeremy
+  reports deleting them at 19:18 UTC (see "Managed agent teardown" under
+  Resume here). Its last open PR is #1003 (`cma/JEG-1049`).
 - **Muse** (GitHub user `jkb-bur-bot`): only Linear tickets labeled `muse`;
   branches `muse/jeg-<id>-<slug>` (open: #981, #982, #1024). Never merges.
   Stop: remove the `muse` label or ask Jeremy.
@@ -602,7 +639,8 @@ source data -> reference compute -> dashboard build -> frontend/site
   (remote MCP connector), `usatoday-fetch`. Migrations and pg_cron schedules
   in `supabase/migrations/` (e.g. `gha_schedules_pg_cron.sql`). Local MCP
   server in `mcp-server/` (TypeScript). See `docs/values-endpoint.md`.
-- **Managed agent:** `managed-agents/` (`session:cma`, queue run every 2 hours).
+- **Managed agent:** `managed-agents/` (`session:cma`), retired 2026-10-27
+  (JEG-1173); kept as a record, its scripts refuse to run.
 - **Sibling trees, not the chart:** `weekly_vegas/`, `waiver_wire/`.
 - **Business rules (summary; full text in methodology/decisions):** Indexed is
   one order-preserving factor per chart and league setting (JEG-482); missing

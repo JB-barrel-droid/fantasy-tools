@@ -50,7 +50,7 @@
   // JEG-474 vocabulary: every series belongs to one of these groups, named the same everywhere.
   const SERIES_GROUPS = [
     {id: "ddf", title: "DDF Value", one: "DDF Value", many: "DDF Values",
-      note: "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."},
+      note: "DDF Value for each player: rooted in the trade charts, then adjusted for position weight and your league's rosters."},
     {id: "proj", title: "Projections", one: "projection", many: "projections",
       note: "What players are projected to score, turned into trade value for your league."},
     {id: "pub", title: "Published charts", one: "published chart", many: "published charts",
@@ -1078,7 +1078,7 @@
     });
     // The line-style key is part of the legend (JEG-475): the styles on the chart, plain words at 768 px and up.
     const methods = new Set(view.plotKeys.map(k => sourceMeta(k).method));
-    const words = isNarrow() ? {dda: "Solid = DDA", indexed: `Dashed = rescaled${RESCALED_TO}`} : {dda: "Solid = our value", indexed: `Dashed = rescaled chart${RESCALED_TO}`};
+    const words = isNarrow() ? {dda: "Solid = DDA", indexed: `Dashed = rescaled${RESCALED_TO}`} : {dda: "Solid = DDF Value", indexed: "Dashed = one chart of the Market" + (RESCALED_TO ? ` (rescaled${RESCALED_TO})` : "")};
     const key = document.createElement("span");
     key.className = "v2-legend-key";
     key.textContent = ["dda", "indexed"].filter(m => methods.has(m)).map(m => words[m]).join(" · ");
@@ -2563,11 +2563,11 @@
     {id: "pub", title: "Published charts", note: "Published trade-value opinions, rescaled to your league's scale."},
     {id: "observed", title: "Observed-trade estimates", note: "Estimates derived from completed trades."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
-    {id: "vorp", title: "Raw value above waivers (advanced)", note: "Points above replacement, each on its own scale. Shown in a separate panel."}];
+    {id: "vorp", title: "Value above waivers (advanced)", note: "Points above the waiver line, each on its own scale. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
-    ddf_value: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_charts: "DDF Value: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.",
-    ddf_value_projections: "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
+    ddf_value: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    ddf_value_charts: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    ddf_value_projections: "The alternate: the projection sources, equal weight, averaged for your league. It stays this way when you choose a different basis on Overrides."};
   // The engine's reason a source is out of the blend, in plain words (never "held: fidelity: scrape_validity").
   function plainOutReason(reason) {
     const text = String(reason || "");
@@ -3886,11 +3886,11 @@
   // chart average is the existing four rescaled chart inputs, including FantasyCalc, averaged. The projections
   // version is the alternate, named for the deal read's production check.
   const NAME_DEFS = [
-    ["DDF Value", "Our estimate of what a player is worth: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged."],
+    ["DDF Value", "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters."],
     ["Trade chart average", "The mean of the selected, available rescaled chart inputs with complete values for a comparison. Trade readouts need at least three complete inputs. FantasyCalc is eligible alongside USA Today, FantasyPros and CBS. It is an estimate, not a record of what a trade will pay."]];
   // The deal read's nets (DEAL_NETS) by the name they define themselves with. Since JEG-1073 the projections net is
   // the alternate version, not DDF Value; the net itself is trade.js's.
-  const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: ESPN, CBS rest of season and Razzball projections, equal weight, averaged for your league."];
+  const PROJECTIONS_DEF = ["DDF Value (projections)", "The alternate: the projection sources, equal weight, averaged for your league."];
   const DEAL_NET_DEF = {value: NAME_DEFS[0], market: NAME_DEFS[1], projections: PROJECTIONS_DEF};
   const EDGE_DEF = "The edge: buy below DDF Value and sell above it. It is best when DDF Value says you win and the market says you lose.";
   const INFO_SPECS = {
@@ -4655,7 +4655,7 @@
     // chart, are not in `used`), so it never says "four" in a three-chart week.
     const introCount = targetsView.used.length;
     const introCharts = !introCount ? "the trade charts" : sc ? `${tradeChartCount(1)} (${scName})` : tradeChartCount(introCount);
-    $("v2TIntro").textContent = `We check ${introCharts} against our values for your league, two ways: potential mispricing, player by player, and potential positional weight inflation, position by position. Sell what they overpay for; buy what they undervalue.`;
+    $("v2TIntro").textContent = `We check ${introCharts} against our values for your league, two ways: potential mispricing, player by player, and the positions the market overpays for, position by position. Sell what they overpay for; buy what they undervalue.`;
     let renderError = null;
     TARGET_SIDES.forEach(side => {
       const ids = TARGET_IDS[side];
@@ -4773,7 +4773,7 @@
     }
     // JEG-1073: DDF Value is the Adjusted trade charts averaged; the projections version is the alternate.
     $("v2TOursNote").textContent = isDdfKey(targetsView.ours)
-      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "the projection sources ESPN, CBS rest of season and Razzball, averaged for your league"}`
+      ? `${targetsView.ours === DDF_KEY ? "DDF Value" : sourceMeta(targetsView.ours).label}, ${targetsView.ours === DDF_KEY ? basisPhrase() : "rooted in projected points, averaged for your league"}`
       : `${window.TradeValueTargets.OUR_NAMES[targetsView.ours]}${window.TradeValueTargets.CHART_KEYS.includes(targetsView.ours) ? " (rescaled)" : " with Data Driven Adjustments"}`;
     // JEG-851: rewrite the footnote lead-in for single-chart mode.
     const footEl = $("v2TFootnote");
@@ -4994,8 +4994,8 @@
     $("v2TPosition").addEventListener("change", event => { C.setPosition(event.target.value); resetLists(); renderTargets(); });
     $("v2TChart").addEventListener("change", event => { T.chart = event.target.value; resetLists(); renderTargets(); });
     $("v2NamesInfoSlot").replaceWith(namesInfoButton("On the chart"));
-    $("v2RNamesInfoSlot").replaceWith(namesInfoButton("Movement"));
-    $("v2RDisagreeInfoSlot").replaceWith(namesInfoButton("Where the market and the projections disagree"));
+    $("v2RNamesInfoSlot").replaceWith(namesInfoButton("Change"));
+    $("v2RDisagreeInfoSlot").replaceWith(namesInfoButton("Mixed signals"));
     $("v2TOurs").addEventListener("change", event => {
       T.ours = event.target.value;
       saveTargetsOurs(T.ours);
@@ -5032,10 +5032,35 @@
   const TR = {give: [], receive: [], shown: null, open: new Set(), example: null, undo: null};
   // Compare's team choice is view state. The saved league remains the source of truth;
   // trying a trade never moves players between its stored rosters.
-  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null};
+  const compareTeams = {mineId: null, theirId: null, mineChosen: false, theirChosen: false, editing: false, snapshot: null, carriedSwapped: false};
   function endCompareEdit() {
     compareTeams.snapshot = null;
     compareTeams.editing = false;
+  }
+  // JEG-1259: a trade that arrived with its own context (tc=, TradeValueTradeContext): its rosters, deal, settings, value
+  // basis, sources and bench level. While it is pending Compare prices exactly those rosters, or holds and says why;
+  // it never substitutes this reader's saved teams and never writes them. Choosing a team ends it.
+  let carriedTrade = null;    // {text, transfer} from the address
+  let compareCarried = null;  // receive()'s result for this render
+  function receiveCarried() {
+    if (!carriedTrade) return null;
+    const TC = window.TradeValueTradeContext;
+    const held = detail => ({status: "hold", reasons: [{code: "context-unreadable", where: "transfer", detail}]});
+    if (!TC) return held("this page cannot read a carried trade");
+    if (!carriedTrade.transfer) return held("the trade context in this link could not be read");
+    const t = carriedTrade.transfer;
+    const keys = TC.pricingKeys({mine: t.mine && t.mine.roster, theirs: t.theirs && t.theirs.roster, deal: t.deal});
+    const common = TC.commonFromPage({leagueQuery: leagueLinkParts().join("&"),
+      valueContext: window.DDFOverrides && window.DDFOverrides.snapshotContext ? window.DDFOverrides.snapshotContext() : null,
+      sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    try {
+      // Compare prices the modeled bench on this build; a trade priced at another level is held, never repriced here.
+      return TC.receive(t, {route: "compare", common, pricing: TC.modeledPricing(C, keys), ws: window.TradeValueWorkspace?.store?.get() || null});
+    } catch (error) { return held("the trade context in this link could not be read"); }
+  }
+  function carriedHoldText(result) {
+    const why = result.reasons.map(r => r.detail).filter(Boolean).slice(0, 3).join("; ");
+    return `This trade arrived with its own rosters and values, but this page would price it differently (${why}). Lineup changes are held; choose teams above to price it with this page's settings.`;
   }
   let compareView = null;
   // JEG-467 (Jeremy, 2026-10-08): the verdict is by DDF Value. Whenever DDF Value is shown and
@@ -5059,6 +5084,25 @@
     const ws = store?.get();
     if (!ws) return {teams: [], mine: null, theirs: null, ready: false};
     const teams = ws.teams || [];
+    if (compareCarried && compareCarried.status === "hold") {
+      // Held: no team is shown as chosen, so nothing reads as priced on this reader's saved rosters.
+      Object.assign(compareTeams, {mineId: null, theirId: null, mineChosen: false, theirChosen: false});
+      return {teams, mine: null, theirs: null, ready: false, held: compareCarried};
+    }
+    if (compareCarried && compareCarried.status === "ok") {
+      // The carried rosters are authoritative; a saved team they exactly match keeps its option in the pickers.
+      const shown = (team, side) => ({id: team.id || `carried-${side}`, name: team.name || (side === "mine" ? "Your team (from the link)" : "Their team (from the link)"),
+        entries: team.roster.map(e => ({...e})), carried: true});
+      const sides = [compareCarried.context.teams.mine, compareCarried.context.teams.theirs];
+      if (compareTeams.carriedSwapped) sides.reverse();   // Swap exchanges the carried rosters too
+      const mine = shown(sides[0], "mine");
+      const theirs = shown(sides[1], "theirs");
+      compareTeams.mineId = mine.id;
+      compareTeams.theirId = theirs.id;
+      const list = teams.map(t => (t.id === mine.id ? mine : t.id === theirs.id ? theirs : t));
+      [mine, theirs].forEach(t => { if (!list.includes(t)) list.push(t); });
+      return {teams: list, mine, theirs, ready: Boolean(mine.entries.length && theirs.entries.length), carried: compareCarried.context};
+    }
     if (!compareTeams.mineChosen && !compareTeams.mineId) compareTeams.mineId = ws.myTeamId || null;
     if (!compareTeams.theirChosen && !compareTeams.theirId)
       compareTeams.theirId = teams.find(t => t.id !== compareTeams.mineId && t.entries.length)?.id || null;
@@ -5104,6 +5148,17 @@
       });
       select.value = selected || "";
       select.addEventListener("change", () => {
+        if (carriedTrade) {
+          // Choosing a team ends the carried trade; the other side keeps the roster it showed only if it is a saved team.
+          const keep = id => (id && ctx.teams.some(t => t.id === id && !String(id).startsWith("carried-")) ? id : null);
+          compareTeams.mineId = keep(compareTeams.mineId);
+          compareTeams.theirId = keep(compareTeams.theirId);
+          compareTeams.mineChosen = Boolean(compareTeams.mineId);
+          compareTeams.theirChosen = Boolean(compareTeams.theirId);
+          carriedTrade = null;
+          compareCarried = null;
+          compareTeams.carriedSwapped = false;
+        }
         if (side === "give") { compareTeams.mineId = select.value || null; compareTeams.mineChosen = true; }
         else { compareTeams.theirId = select.value || null; compareTeams.theirChosen = true; }
         TR.example = null;
@@ -5139,7 +5194,8 @@
       edit.addEventListener("click", () => {
         if (!compareTeams.editing) compareTeams.snapshot = {give: TR.give.slice(), receive: TR.receive.slice(), example: TR.example,
           undo: TR.undo, mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen};
+          mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped,
+          carriedTrade};   // JEG-1285: Cancel brings back a carried trade that a team choice ended
         else compareTeams.snapshot = null;
         compareTeams.editing = !compareTeams.editing;
         renderCompare();
@@ -5155,7 +5211,9 @@
         cancel.addEventListener("click", () => {
           ({give: TR.give, receive: TR.receive, example: TR.example, undo: TR.undo} = compareTeams.snapshot);
           ({mineId: compareTeams.mineId, theirId: compareTeams.theirId,
-            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen} = compareTeams.snapshot);
+            mineChosen: compareTeams.mineChosen, theirChosen: compareTeams.theirChosen, carriedSwapped: compareTeams.carriedSwapped} = compareTeams.snapshot);
+          carriedTrade = compareTeams.snapshot.carriedTrade || null;
+          compareCarried = null;
           endCompareEdit();
           renderCompare();
           $("v2CEditRosters")?.focus();
@@ -5167,7 +5225,8 @@
     status.className = "v2-meta";
     status.id = "v2CRosterStatus";
     status.setAttribute("role", "status");
-    status.textContent = !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
+    status.textContent = ctx.held ? carriedHoldText(ctx.held)
+      : !ctx.ready ? "Add two rosters in Your league to see lineup and roster fit here."
       : !compareRosterMembership(ctx) ? "This trade includes players outside the selected rosters. Choose players from those rosters to see lineup changes."
       : "Select players from either roster below. Values and lineups update after each change.";
     const lists = document.createElement("div");
@@ -5216,11 +5275,12 @@
       lists.appendChild(section);
     });
     host.replaceChildren(intro, controls, actions, status, lists);
-    card.hidden = !ctx.teams.length;
+    card.hidden = !ctx.teams.length && !ctx.held;
   }
 
   function compareConstructionInput() {
     const ctx = compareRosterContext();
+    if (ctx.held) return {reason: carriedHoldText(ctx.held), held: true};
     if (!ctx.ready) return {reason: "Add both rosters in Your league to see starters, bench and open spots."};
     if (!compareRosterMembership(ctx)) return {reason: "Choose trade players from the selected rosters to see lineup changes."};
     if (!compareView.ready) return {reason: "Add a player to both sides to see how each roster changes."};
@@ -5242,6 +5302,9 @@
     const host = $("v2CConstructionBody");
     const input = compareConstructionInput();
     host.replaceChildren();
+    // JEG-1259 / JEG-1240: the bench level that priced these lineups (Compare prices the modeled bench on this build).
+    card.dataset.benchLevel = compareCarried && compareCarried.status === "ok" ? compareCarried.context.pricing.mode : "modeled";
+    card.dataset.carried = compareCarried ? compareCarried.status : "none";
     if (input.reason) {
       const note = document.createElement("p");
       note.className = "v2-meta";
@@ -5290,6 +5353,7 @@
 
   function collectCompare() {
     compareTierRows = null;
+    compareCarried = receiveCarried();
     const rowsByKey = new Map(C.getAllRows().map(row => [String(row.player_key), row]));
     // A player the engine no longer has a row for stays listed, missing in every series.
     const resolve = list => list.map(p => rowsByKey.get(p.key) || {player_key: p.key, name: p.name, values: {}, unpriced: true});
@@ -5317,7 +5381,9 @@
     const example = isUntouchedExample();
     const giveRows = resolve(TR.give);
     const receiveRows = resolve(TR.receive);
-    const ready = giveRows.length > 0 && receiveRows.length > 0;
+    // JEG-1285: a held carried trade shows its players but no number or claim priced on this page.
+    const held = compareCarried && compareCarried.status === "hold" ? compareCarried : null;
+    const ready = !held && giveRows.length > 0 && receiveRows.length > 0;
     const points = ready ? TC.compareTrade(giveRows, receiveRows, pointKeys).rows : [];
     const vorp = ready ? TC.compareTrade(giveRows, receiveRows, vorpKeys).rows : [];
     const metaFor = key => ({...sourceMeta(key), week: view.infoByKey[key]?.week ?? null});
@@ -5332,8 +5398,8 @@
       points, story: ready ? TC.tradeStory(points, metaFor) : {kind: null},
       verdict: ready ? TC.tradeVerdict(points.concat(vorp), verdictKey()) : {kind: null, key: verdictKey()},
       deal,
-      totals: TR.shown ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
-      vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
+      totals: TR.shown && !held ? {give: TC.sideTotal(giveRows, TR.shown), receive: TC.sideTotal(receiveRows, TR.shown)} : null,
+      held, vorp, falls: {points: pointFalls, vorp: falls(vorpKeys)}, scale: TC.waterfallScale(pointFalls)};
   }
 
   // True while the sides are exactly the sample "Try a sample trade" loaded; any change drops the Example mark for good.
@@ -5689,13 +5755,17 @@
       const sub = document.createElement("span");
       sub.className = "v2-meta";
       sub.textContent = row.unpriced ? "No value in any source for this league"
+        : compareView.held ? `${row.pos} · ${row.team || "Free agent"}`
         : `${row.pos} · ${row.team || "Free agent"} · ${tierText(row, verdictKey(), compareTierScope())}`;
       who.append(name, sub);
       const value = document.createElement("span");
       value.className = "v2-trade-value";
       value.dataset.source = shown || "";
       const v = shown && row.values ? row.values[shown] : null;
-      if (Number.isFinite(v)) {
+      if (compareView.held) {
+        value.textContent = "held";
+        value.dataset.held = "true";
+      } else if (Number.isFinite(v)) {
         value.textContent = fmt(v);
         appendLowConfidence(value, row, shown);
         // JEG-1059: the badge next to the value the reader set.
@@ -6010,6 +6080,7 @@
     if (!key) return {kind: "none", title: "No verdict yet", text: "Pick a series in Player values shown."};
     // JEG-1190: the empty start, in the approved copy (PMM doc 3.3, "Check a trade (empty)").
     if (!TR.give.length && !TR.receive.length) return {kind: "none", title: "Who's on the table?", text: "Add players to each side and we'll call it."};
+    if (compareView.held) return {kind: "none", title: "No verdict while this trade is held", text: carriedHoldText(compareView.held)};
     if (!compareView.ready || !v.kind) {
       return {kind: "none", title: "No verdict yet", text: `Add a player to both sides. The verdict reads ${name}, then names the sources that see it the other way.`};
     }
@@ -6120,7 +6191,8 @@
     $("v2Compare").classList.toggle("has-trade", Boolean(TR.give.length || TR.receive.length));
     $("v2Compare").classList.toggle("is-example", compareView.example);
     $("v2CEmpty").hidden = ready && compareView.pointKeys.length > 0;
-    $("v2CEmpty").textContent = !ready ? "No result until both sides have at least one player."
+    $("v2CEmpty").textContent = compareView.held ? "No result while this trade is held; the verdict says why."
+      : !ready ? "No result until both sides have at least one player."
       : "No trade-value source is selected. Use Edit sources to pick one.";
     const table = $("v2CTable");
     table.hidden = !ready || !compareView.pointKeys.length;
@@ -6141,6 +6213,7 @@
     $("v2CMeta").textContent = ready
       ? `${compareView.example ? "Example trade · " : ""}Receive − give · ${compareView.pointKeys.length} source${compareView.pointKeys.length === 1 ? "" : "s"} · trade-value points. `
         + `Every row's steps share one scale, ${fmt(sc.lo)} to ${fmt(sc.hi)}.`
+      : compareView.held ? "Held: no values are shown until this trade can be priced the same way here."
       : "Receive − give, one row per source, once both sides have a player.";
     // JEG-1190: the sample trade is a real trade, so Clear, Swap and Share work on it too. Each side has its own Clear,
     // and Undo puts back what the last Clear took.
@@ -6209,9 +6282,20 @@
         else parts.push(`ov=${ov.ov}`);
       }
     }
+    // JEG-1259: a pending carried trade stays in the address (reload and share keep it), with this visit's deal.
+    if (carriedTrade) parts.push(`tc=${carriedTradeText()}`);
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
   let shareDroppedOverrides = false;
+  function carriedTradeText() {
+    const TC = window.TradeValueTradeContext;
+    if (!TC || !compareCarried || compareCarried.status !== "ok") return carriedTrade.text;
+    const deal = {give: TR.give.map(p => p.key).filter(Boolean), get: TR.receive.map(p => p.key).filter(Boolean)};
+    const teams = compareCarried.context.teams;
+    const patch = compareTeams.carriedSwapped ? {deal, mine: teams.theirs, theirs: teams.mine} : {deal};
+    try { return TC.encodeTransfer(TC.toTransfer(TC.withChanges(compareCarried.context, patch))); }
+    catch (error) { return carriedTrade.text; }
+  }
   // Apply a link's scoring and roster when they differ from the reader's; say so.
   function applyLinkLeague(params) {
     const scoring = params.get("scoring");
@@ -6310,7 +6394,13 @@
       base = named;
       try { history.replaceState(history.state, "", location.pathname + location.search + base + "?" + query); } catch (error) { /* the state below still applies */ }
     }
-    if (base === "#compare-trade") endCompareEdit();
+    if (base === "#compare-trade") {
+      endCompareEdit();
+      const text = params.get("tc");
+      carriedTrade = text ? {text, transfer: window.TradeValueTradeContext ? window.TradeValueTradeContext.decodeTransfer(text) : null} : null;
+      compareCarried = null;
+      compareTeams.carriedSwapped = false;
+    }
     // JEG-894: a Find a trade search link (#find-trade?mine=..&theirs=..&size=..&km=..&kt=..) is the finder's own: it
     // sets the package size and the lineup ticks and runs the search, once the shared link path below has put the rosters in.
     // Apply value context before the shared reader resolves rows and starts the finder.
@@ -6371,7 +6461,7 @@
     }
     // JEG-1044: say what else the link carries, and when the player overrides did not fit.
     const carries = /[?&]basis=/.test(url) || /[?&]ov=/.test(url)
-      ? " Your value basis and player overrides are in the link too; the reader can switch back to our methodology in one click." : "";
+      ? " Your value basis and player overrides are in the link too; the reader can switch back to the default DDF Value in one click." : "";
     const dropped = shareDroppedOverrides && window.DDFOverrides ? ` ${window.DDFOverrides.dropOverridesNote()}` : "";
     try {
       await navigator.clipboard.writeText(url);
@@ -6455,6 +6545,7 @@
     $("v2CSwap").addEventListener("click", () => {
       [TR.give, TR.receive] = [TR.receive, TR.give];
       [compareTeams.mineId, compareTeams.theirId] = [compareTeams.theirId, compareTeams.mineId];
+      if (carriedTrade) compareTeams.carriedSwapped = !compareTeams.carriedSwapped;
       TR.undo = null;
       renderCompare();
     });
@@ -6981,13 +7072,13 @@
   // JEG-1044: the words that depend on the reader's basis (Overrides tab). With our methodology every string is the
   // one it always was; with another basis a "Rescaled" value says which basis it is rescaled to, and DDF Value says
   // it is not ours, so a reader is never misled about what a number means.
-  const OURS_DEFAULT = "the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged";
+  const OURS_DEFAULT = "rooted in the trade charts, then adjusted for position weight and your league's rosters";
   function currentBasis() { return C && C.getBasis ? C.getBasis() : null; }
   function basisPhrase() {
     const b = currentBasis();
     if (!b || b.isDefault) return OURS_DEFAULT;
-    return b.mode === "single" ? `${b.label} alone (your basis, not our methodology)`
-      : `${b.label} (your basis, not our methodology), averaged for your league`;
+    return b.mode === "single" ? `${b.label} alone (your basis, not the default DDF Value)`
+      : `${b.label} (your basis, not the default DDF Value), averaged for your league`;
   }
   function syncBasisLabels() {
     const b = currentBasis();
@@ -7006,12 +7097,12 @@
     observed.title = custom ? `Observed-trade estimates (rescaled${to})` : "Observed-trade estimates";
     observed.note = custom ? `Algorithmic estimates from completed trades. Rescaled series use ${b.label}'s point scale for your league (your basis); adjusted series follow their own label.`
       : "Algorithmic estimates from completed trades. Rescaled series use our point scale for your league; adjusted series follow their own label.";
-    SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `Our value for each player, following your basis: ${basisPhrase()}.`
-      : "Our value for each player: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league and averaged.";
-    DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `Our value: ${OURS_DEFAULT}.`;
-    INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not our methodology). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
+    SERIES_GROUPS.find(g => g.id === "ddf").note = custom ? `DDF Value for each player, following your basis: ${basisPhrase()}.`
+      : "DDF Value for each player: rooted in the trade charts, then adjusted for position weight and your league's rosters.";
+    DDF_ROW_TIPS.ddf_value = custom ? `Your basis, not ours: ${basisPhrase()}. Change it on Overrides.` : `DDF Value: ${OURS_DEFAULT}.`;
+    INFO_SPECS.indexed.lines = [custom ? `Each publisher's trade values, rescaled to ${b.label}'s point scale for your league (your basis, not the default DDF Value). Their ranking order is unchanged.` : INDEXED_INFO_DEFAULT];
     NAME_DEFS[0][1] = custom ? `Your estimate of what a player is worth, following your basis: ${basisPhrase()}.`
-      : `Our estimate of what a player is worth: ${OURS_DEFAULT}.`;
+      : `What a player is worth in your league: ${OURS_DEFAULT}.`;
     INFO_SPECS.names.lines = NAME_DEFS.map(([name, text]) => [name, text]).concat([["", EDGE_DEF]]);
     document.querySelectorAll("[data-basis-ours]").forEach(node => { node.textContent = basisPhrase(); });
     const cap = $("v2TChartCaption");
@@ -7039,7 +7130,7 @@
     const basis = currentBasis();
     if (basisNote) {
       basisNote.hidden = !basis || basis.isDefault;
-      basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from our methodology, and the thresholds on these pages were set on our methodology.`;
+      basisNote.textContent = basisNote.hidden ? "" : `Values are shown for your custom basis (${basis.label}). Diagnostics may differ from the default DDF Value, and the thresholds on these pages were set on the default DDF Value.`;
     }
     const slugs = window.DDFAudit ? window.DDFAudit.slugs : ["health-check", "single-source"];
     const asked = decodeURIComponent(hashBase().slice("#values-auditing/".length));

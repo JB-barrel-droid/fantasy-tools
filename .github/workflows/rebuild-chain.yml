@@ -506,6 +506,10 @@ jobs:
             git add dist/modules/input-lineage.json 2>/dev/null || true
             # JEG-479: engine vs Python reference report (own add, may be absent).
             git add dist/modules/value-check.json 2>/dev/null || true
+            # JEG-1314: the divergence report the chain's make sync just wrote.
+            # Without this add only a hand-run sync refreshed it (stale from
+            # 2026-10-27 to 10-29), and divergence-issues.yml reads this copy.
+            git add dist/modules/source-divergence.json 2>/dev/null || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true
@@ -540,50 +544,115 @@ jobs:
           else
             release_guard stage
             git commit -m "$MESSAGE"
-            # JEG-299: main is hot (health pushes + lane merges move it during
-            # the chain run). Rebase onto the latest tip before pushing so a
-            # non-fast-forward rejection doesn't drop the rebuild; retry when
-            # main moves again between pull and push. --autostash: a failed
-            # chain leaves the partial fixture unstaged by design.
-            #
-            # A rebase CONFLICT means main received newer generated outputs
-            # while this run built (2026-10-08, run 37802134747). Neither side
-            # of that merge is the newest data, so it is never resolved here
-            # and never force-pushed: this run's output is dropped and a fresh
-            # chain run is dispatched; it checks out the new main and
-            # regenerates everything from the newest data. Bounded by
-            # MAX_CHAIN_ATTEMPTS, after which the job fails loudly.
+            # JEG-1206: publish onto current main without rebase, merge or
+            # force-push. Run 40689076971 passed validation, then its rebase
+            # conflicted on dist/modules/source-import-health.json, which the
+            # health-artifacts job had pushed meanwhile, and the whole rebuild
+            # was dropped. Now each try fetches main and sorts what main
+            # changed since this run's base:
+            #   - an independent monitor report this run also wrote (import
+            #     health, Actions status, checkpoints, monitoring summary, ops
+            #     status): main's report is newer, so it is kept and the rest
+            #     of this run's output publishes beside it;
+            #   - a rebuild input or output (fixture, week history, DDF legs,
+            #     projection inputs, config/, fidelity holds, the chain's own
+            #     dist files), or any other file this run also wrote: this
+            #     run's numbers are not the newest, so nothing is published and
+            #     a fresh run regenerates from current main (the handoff below).
+            #     A failed chain hands off only for a file it wrote itself: its
+            #     status-only commit publishes beside newer inputs (JEG-1308);
+            #   - anything else (code, docs, other reports): kept as main has
+            #     it, and this run's files publish on top.
+            # The publication is ONE normal commit on current main, built in a
+            # scratch worktree so this checkout (and a failed chain's unstaged
+            # partial fixture) is never touched. A push rejected because main
+            # moved again re-sorts from the new tip; a push whose reply was
+            # lost is confirmed on main before any retry, so the Pages
+            # dispatch below still fires exactly once.
+            candidate=$(git rev-parse HEAD)
+            base=$(git rev-parse HEAD^)
+            mkdir -p output
+            git diff --binary --no-renames "$base" "$candidate" > output/rebuild-publication.patch
+            pub=$(mktemp -d)
+            trap 'git worktree remove --force "$pub/tree" >/dev/null 2>&1 || true; rm -rf "$pub"' EXIT
             outcome=rejected
+            publication=""
+            regen=""
             for try in 1 2 3; do
-              if git pull --rebase --autostash origin main; then
-                if release_push; then outcome=pushed; break; fi
-              elif [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]; then
-                git rebase --abort || true
+              if [ "$try" -gt 1 ]; then sleep 10; fi
+              if ! git fetch -q origin main; then continue; fi
+              tip=$(git rev-parse FETCH_HEAD)
+              if [ -n "$publication" ] && git merge-base --is-ancestor "$publication" "$tip"; then
+                outcome=pushed; break
+              fi
+              if ! git merge-base --is-ancestor "$base" "$tip"; then
+                echo "::error::origin/main no longer contains this run's base $base; not publishing, never force-pushing."
+                outcome=diverged; break
+              fi
+              keep_main=()
+              while IFS= read -r path; do
+                [ -n "$path" ] || continue
+                ours=false
+                if ! git diff --quiet "$base" "$candidate" -- "$path"; then ours=true; fi
+                case "$path" in
+                  dist/modules/source-import-health.json|dist/modules/github-actions.json|dist/modules/pipeline-checkpoints.json|dist/modules/monitoring-summary.json|dist/modules/ops-status.json)
+                    if $ours; then keep_main+=(":(exclude)$path"); fi ;;
+                  data/fixtures/*|data/history/*|data/ddf-two-tier/*|data/inputs/*|config/*|dist/modules/fidelity-pulse.json|dist/modules/comparison-sources-data.json|dist/modules/comparison-chain-status.json|dist/modules/input-lineage.json|dist/modules/value-check.json)
+                    # A failed chain stages only status and health, so a newer
+                    # input says nothing about that red status (JEG-1308).
+                    if $ours || [ "$CHAIN_OUTCOME" = "success" ]; then regen="$path"; break; fi ;;
+                  *)
+                    if $ours; then regen="$path"; break; fi ;;
+                esac
+              done < <(git diff --name-only --no-renames "$base" "$tip")
+              if [ -n "$regen" ]; then
+                echo "main changed $regen since this run's base; regenerating instead of publishing."
                 outcome=conflict; break
               fi
-              sleep 10
+              for kept in "${keep_main[@]}"; do
+                echo "Keeping main's newer ${kept#:(exclude)}."
+              done
+              git worktree remove --force "$pub/tree" >/dev/null 2>&1 || true
+              git worktree add -q --detach "$pub/tree" "$tip"
+              git diff --binary --no-renames "$base" "$candidate" -- . "${keep_main[@]}" > "$pub/publish.patch"
+              if [ -s "$pub/publish.patch" ]; then
+                git -C "$pub/tree" apply --index "$pub/publish.patch"
+              fi
+              if git -C "$pub/tree" diff --cached --quiet; then outcome=unchanged; break; fi
+              git -C "$pub/tree" commit -q -m "$MESSAGE"
+              publication=$(git -C "$pub/tree" rev-parse HEAD)
+              if git push origin "$publication:refs/heads/main"; then outcome=pushed; break; fi
+              if git fetch -q origin main && git merge-base --is-ancestor "$publication" FETCH_HEAD; then
+                outcome=pushed; break
+              fi
             done
             case "$outcome" in
               pushed)
                 echo "pushed=true" >> $GITHUB_OUTPUT
                 ;;
+              unchanged)
+                echo "Nothing of this run's output differs from current main."
+                echo "pushed=false" >> $GITHUB_OUTPUT
+                ;;
               conflict)
                 echo "pushed=false" >> $GITHUB_OUTPUT
                 if [ "$CHAIN_ATTEMPT" -ge "$MAX_CHAIN_ATTEMPTS" ]; then
-                  echo "::error::Rebase onto origin/main conflicted on generated files on attempt $CHAIN_ATTEMPT of $MAX_CHAIN_ATTEMPTS; not retrying. Rebuild output preserved in run artifacts."
+                  echo "::error::main changed $regen during attempt $CHAIN_ATTEMPT of $MAX_CHAIN_ATTEMPTS; not retrying. This run's output is in the rebuild-publication artifact."
                   exit 1
                 fi
                 next=$((CHAIN_ATTEMPT + 1))
-                python3 pipelines/source_probe.py dispatch-chain --reason "regenerate-after-conflict" \
-                  --field "attempt=$next" --field "bake_players=$BAKE_PLAYERS"
+                dispatch=$(python3 pipelines/source_probe.py dispatch-chain --reason "regenerate-after-conflict" \
+                  --field "attempt=$next" --field "bake_players=$BAKE_PLAYERS")
+                echo "$dispatch"
                 echo "handoff=true" >> $GITHUB_OUTPUT
-                MSG="main received newer generated outputs during this run; dropped this run's output and dispatched a fresh chain run (attempt $next of $MAX_CHAIN_ATTEMPTS) to regenerate on top of it."
+                MSG="main changed $regen during this run, so its output was not published (kept in the rebuild-publication artifact). Regeneration from current main, attempt $next of $MAX_CHAIN_ATTEMPTS: $dispatch"
                 echo "::warning title=rebuild-chain handoff::$MSG"
                 echo "### Rebuild chain handoff" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
                 echo "$MSG" >> "${GITHUB_STEP_SUMMARY:-/dev/null}"
                 ;;
               *)
-                echo "::error::push to main rejected 3 times without a conflict; not force-pushing."
+                echo "pushed=false" >> $GITHUB_OUTPUT
+                echo "::error::could not publish onto current main ($outcome); not force-pushing. This run's output is in the rebuild-publication artifact."
                 exit 1
                 ;;
             esac
@@ -672,6 +741,17 @@ jobs:
             output/value-check-prehold.json
             output/value-check-prehold.md
           if-no-files-found: warn
+          retention-days: 14
+
+      # JEG-1206: when main moved and this run's output was not published,
+      # the exact candidate commit is still recoverable from the run page.
+      - name: Upload rebuild publication candidate (JEG-1206)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rebuild-publication
+          path: output/rebuild-publication.patch
+          if-no-files-found: ignore
           retention-days: 14
 
       - name: Upload review artifacts (JEG-113)

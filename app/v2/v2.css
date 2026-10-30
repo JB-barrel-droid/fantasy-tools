@@ -2006,6 +2006,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-sumrow { display: grid; gap: 2px; min-width: 0; }
 .v2-find-sumrow .v2-meta { margin: 0; }
 .v2-find-sum-names { overflow-wrap: anywhere; }
+.v2-find-sum-rails { grid-column: 1 / -1; margin: 0; }   /* JEG-1237: the folded trade settings, one line under both teams */
 @media (max-width: 767px) { .v2-find-summary { grid-template-columns: 1fr; } .v2-find-summary .v2-btn { justify-self: start; } }
 
 /* JEG-972: grouped results, one card per received player */
@@ -2100,6 +2101,36 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-assess-table .v2-find-pos { position: sticky; left: 0; z-index: 1; background: var(--v2-surface); box-shadow: 1px 0 0 var(--v2-border); text-align: left; white-space: nowrap; }
 .v2-find-assess-table tbody tr[data-row] th, .v2-find-assess-table tbody tr[data-row] td { font-weight: 600; }
 .v2-find-assess-notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 14px; line-height: 1.45; }
+
+/* JEG-890: team value summary, both pasted rosters. Two team blocks (stacked on a phone), rows Starters / Bench / Total
+   and QB / RB / WR / TE, columns DDF Value and the Trade chart average; each chart sits behind "Show each chart". Row
+   labels left, numbers right; nothing here scrolls the page sideways. */
+.v2-find-teamsum { margin: 12px 0 0; }
+.v2-find-teamsum[hidden] { display: none; }
+.v2-find-teamsum h3 { margin: 0 0 6px; font-size: 15px; }
+.v2-find-ts-grid { display: flex; flex-wrap: wrap; gap: 12px; min-width: 0; }
+.v2-find-ts-team { flex: 1 1 320px; min-width: 0; }
+.v2-find-ts-team h4 { margin: 0 0 4px; font-size: 14px; }
+.v2-find-ts-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 13px; }
+.v2-find-ts-table th, .v2-find-ts-table td { text-align: left; padding: 3px 6px; border-top: 1px solid var(--v2-border); overflow-wrap: anywhere; }
+.v2-find-ts-table thead th { font-size: 12px; color: var(--v2-muted); }
+.v2-find-ts-table th.v2-find-ts-row { width: 38%; }
+.v2-find-ts-table td.num, .v2-find-ts-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.v2-find-ts-table thead th.num { white-space: normal; }   /* "Trade chart average" and chart names wrap so the table fits 320px */
+.v2-find-ts-num.is-missing, .v2-find-ts-num.is-unavailable { color: var(--v2-muted); }
+.v2-find-ts-inc { font-size: 11px; color: var(--v2-older); white-space: nowrap; }
+/* JEG-1246: a partial cell ("182.0 incomplete") wraps inside its column instead of clipping; the warning word drops to a
+   second line, and only breaks mid-word in a column too narrow for it (four charts on a 375px phone). Never hidden. */
+.v2-find-ts-table td.num .v2-find-ts-incomplete { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: baseline; column-gap: 0.25em; max-width: 100%; }
+.v2-find-ts-table td.num .v2-find-ts-incomplete > .v2-find-ts-inc { min-width: 0; white-space: normal; overflow-wrap: anywhere; }
+.v2-find-ts-charts { margin-top: 10px; }
+.v2-find-ts-charts summary { cursor: pointer; min-height: 44px; display: flex; align-items: center; font-weight: 600; color: var(--v2-action); }
+.v2-find-ts-notes { margin: 8px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; line-height: 1.45; }
+@media (max-width: 479px) {
+  .v2-find-ts-team { flex: 1 1 100%; }
+  .v2-find-ts-table th, .v2-find-ts-table td { padding: 3px 4px; }
+  .v2-find-ts-table th.v2-find-ts-row { width: 30%; }
+}
 
 /* JEG-988: natural / value / force fit per group. */
 .v2-find-fit { margin: 0; font-size: 14px; line-height: 1.45; overflow-wrap: anywhere; }
@@ -2205,6 +2236,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-lg-field-options fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 6px; border: 1px solid var(--v2-border); margin: 8px 0; }
 .v2-lg-field-options fieldset label { display: flex; align-items: center; min-height: 44px; gap: 6px; }
 .v2-lg-field-options input[type="checkbox"] { min-width: 20px; min-height: 20px; }
+/* JEG-1236: the summary filter value box was 26 px tall on a phone; the 44 px tap height the other controls here keep. */
+.v2-lg-field-options .v2-field input[type="text"] { min-height: 44px; }
 .v2-lg-summary-rule { overflow-wrap: anywhere; }
 .v2-lg-fit-info { display: inline-block; vertical-align: middle; }
 .v2-lg-detail-body { display: grid; gap: 4px; }
@@ -2399,6 +2432,15 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-tabs { overscroll-behavior-x: contain; }
 #v2Main .v2-table-wrap, .v2-ptable-wrap, .v2-dmatrix-wrap, .audit-pie-scroll { overscroll-behavior-x: contain; }
 .v2-drawer, .v2-popover, .v2-panel-body { overscroll-behavior: contain; }
+
+/* JEG-1281: league entry on the default site; under ?design=fieldnotes the JEG-1137 rules style these instead.
+   The league paste boxes take the 3:1 field edge the finder search box has (WCAG 1.4.11, JEG-902), and the league
+   card's summary keeps "Your league" on one line beside its ▸, the arrow on the heading's baseline. */
+:root:not([data-design="fieldnotes"]) .v2-find-import-body input[type="text"],
+:root:not([data-design="fieldnotes"]) .v2-find-import-body textarea,
+:root:not([data-design="fieldnotes"]) .v2-find-import-body select,
+:root:not([data-design="fieldnotes"]) .v2-find-paste textarea { border-color: var(--v2-field-border); }
+:root:not([data-design="fieldnotes"]) .v2-lg-card-summary { justify-content: flex-start; flex-wrap: nowrap; align-items: baseline; }
 
 /* JEG-1137: Fieldnotes foundation (opt-in). Approved source: docs/design/jeg-1209-fieldnotes/recommendation.md
    "Shared visual and interaction system" and prototype.html. Every rule below is scoped to
