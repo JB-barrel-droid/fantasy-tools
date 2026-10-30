@@ -13,6 +13,7 @@
 //     [--history-index <index.json in place of dist's>] [--with-week 1]
 //     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
 //     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
+//     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -76,8 +77,15 @@ try {
       // A week the build did not publish stays unloaded, as a failed fetch does in the function.
     }
   }
+  // --drop-entry WEEK:SOURCE: the history saved no entry for SOURCE in WEEK (JEG-1029's unpaired prior week).
+  if (args["drop-entry"]) {
+    const [week, key] = args["drop-entry"].split(":");
+    if (!docs[week]?.sources?.[key]) throw new Error(`--drop-entry: no Week ${week} ${key} entry to drop`);
+    delete docs[week].sources[key];
+  }
   history = { index, docs };
 } catch (e) {
+  if (args["drop-entry"]) throw e;
   // No week history: the calendar rule applies, as on the page.
 }
 

@@ -55,12 +55,15 @@ CHARTS = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
 TOL = 1e-6
 
 
-def run_edge(setting, mutate=None):
+def run_edge(setting, mutate=None, drop_entry=None):
+    """drop_entry: (week, source), that week's saved entry for that source left out of the history."""
     scoring, teams, sf = setting
     args = NODE + [str(RUNNER), "--scoring", scoring, "--teams", str(teams), "--superflex", str(sf),
                    "--dist", str(ROOT / "dist"), "--include", "series,prior,audit"]
     if mutate:
         args += ["--mutate", mutate]
+    if drop_entry:
+        args += ["--drop-entry", f"{drop_entry[0]}:{drop_entry[1]}"]
     env = {**os.environ, "TRADE_VALUE_TODAY": _fixture_today()}
     out = subprocess.run(args, capture_output=True, text=True, timeout=120, env=env)
     if out.returncode != 0:
@@ -68,12 +71,16 @@ def run_edge(setting, mutate=None):
     return json.loads(out.stdout)
 
 
-def run_reference(setting):
-    """The reference's page rows (Indexed tab), its prior week per series, and its diagnostics."""
+def run_reference(setting, drop_entry=None):
+    """The reference's page rows (Indexed tab), its prior week per series, and its diagnostics.
+    drop_entry: as run_edge's."""
     import value_reference as ref
     today = date.fromisoformat(_fixture_today())
     inp = ref.Inputs.load(today=today)
     hist = ref.History(HISTORY)
+    if drop_entry:
+        week, key = drop_entry
+        del hist.week_doc(week)["sources"][key]
     div = ref.load_divergence_exclusions(week=ref.freshness(inp)["current_week"])
     scoring, teams, sf = setting
     out = ref.compute(inp, {"scoring": scoring, "teams": teams, "superflex": sf}, views=("indexed",), hist=hist,
@@ -97,7 +104,8 @@ def run_reference(setting):
         values = {str(k): r[field].get(key) for k, r in prior_rows.items() if r[field].get(key) is not None}
         prior[key] = ({"available": True, "values": values, "currentWeek": week, "priorWeek": week - 1}
                       if values else {"available": False, "reason": f"not priced in Week {week - 1}"})
-    return {"rows": rows, "prior": prior, "diagnostics": out["pipeline"], "week": week}
+    return {"rows": rows, "prior": prior, "diagnostics": out["pipeline"], "week": week,
+            "included": list(st["included"])}
 
 
 def run_driver(edge, reference, setting, swap=False):
@@ -207,6 +215,42 @@ class ConnectorAnalysesParity(unittest.TestCase):
                     self.assertFalse(e["available"], src)
                 errors = tool_errors(out)
                 self.assertEqual(errors, [], f"{len(errors)} mismatches: {errors[:5]}")
+
+    def test_unpaired_source_prior_pairs_on_included_set(self):
+        # JEG-1029 review (P2): an included source with no Week N-1 snapshot. VP-1.2: I is the sources
+        # with one, this week is run on I and the prior week on I, so the Δ is over one source set. The
+        # current side must be the run on I, not get-values' full run (Codex: +5.9 for Josh Allen).
+        setting = SETTINGS[0]
+        week = self.cases[setting][1]["week"]
+        drop = (week - 1, "fantasycalc")
+        edge, reference = run_edge(setting, drop_entry=drop), run_reference(setting, drop_entry=drop)
+        self.assertNotIn("fantasycalc", reference["included"])
+        self.assertGreater(len(reference["included"]), 1)
+        prior = edge["prior"]
+        self.assertTrue(prior["available"], prior["reason"])
+        self.assertEqual((prior["current_week"], prior["prior_week"]), (week, week - 1))
+        self.assertFalse(prior["series"]["fantasycalc"]["available"])
+        errors = []
+        for key in SERIES:
+            got, want = prior["series"][key], reference["prior"][key]
+            if key == "fantasycalc":
+                continue
+            self.assertEqual(got["available"], want["available"], key)
+            if not got["available"]:
+                continue
+            errors += value_diffs(got["values"], want["values"], f"prior {key}")
+            # This week's side: the reference's rows, which are the run on I.
+            now = {k: v[key] for k, v in reference["rows"].items() if v.get(key) is not None}
+            if "current_values" not in got:
+                errors.append(f"current {key}: no current_values")
+                continue
+            errors += value_diffs(got["current_values"], now, f"current {key}")
+            if key in DDF:
+                errors += value_diffs(got["current_values"], want["currentValues"], f"currentValues {key}")
+        self.assertEqual(errors, [], f"{len(errors)} mismatches: {errors[:10]}")
+        # risers_fallers on these blocks is the page's movers.js on the reference's pair.
+        out = run_driver(edge, reference, setting)
+        self.assertEqual(out["tools"]["risers"], out["page"]["risers"])
 
     def test_broken_variants_fail(self):
         setting = SETTINGS[0]

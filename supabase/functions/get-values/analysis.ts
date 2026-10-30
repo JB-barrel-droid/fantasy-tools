@@ -75,7 +75,8 @@ export interface PriorSeries {
   available: boolean;
   reason: string | null;
   values?: Record<string, number>;
-  /** DDF Value versions: this week's side over the same inputs (getPriorWeek's currentValues). */
+  /** This week's side over the same included set (getPriorWeek's currentValues): every DDF Value
+   *  version, and a source series when some included source has no Week N-1. */
   current_values?: Record<string, number>;
 }
 
@@ -92,6 +93,9 @@ export interface PriorBlock {
  * week: the week priced (null without a week history). served: each source's served week.
  * The page's composite pair needs at least one included source with Week N-1 saved (VP-1.2); a source
  * series needs its own Week N-1 entry and to serve the priced week (frame 22's exact pair).
+ * I is the included sources with Week N-1 saved. When that is fewer than `result` counts, this week is
+ * re-run on I (curve-widget.js computePipeline runs the current week on I) and every series' current
+ * side is read from that run, so a Δ never comes from a source joining or leaving the set.
  */
 export function priorBlock(bundle: Bundle, input: Any, result: Any, week: number | null,
   served: Record<string, number | null>, scoring: string): PriorBlock {
@@ -116,17 +120,28 @@ export function priorBlock(bundle: Bundle, input: Any, result: Any, week: number
     const why = (input.included as string[]).map((key) => `${key}: ${reasons[key] ?? "not run"}`).join("; ");
     return none(`no source has a prior week at this setting (${why})`);
   }
+  // This week on I: `result` when every included source has Week N-1; else the same input with the
+  // unpaired sources shown, never counted, and its own pie (the page's runPipeline(natives, I)).
+  const paired = included.length === (input.included as string[]).length;
+  let current = result;
+  if (!paired) {
+    const now: Record<string, unknown> = {};
+    for (const [key, src] of Object.entries((input.sources ?? {}) as Record<string, Any>)) {
+      now[key] = { ...src, status: included.includes(key) ? "included" : "excluded" };
+    }
+    current = ValueModel.runValuePipeline({ ...input, sources: now, included, hidden });
+  }
   const sources: Record<string, unknown> = {};
   for (const key of PIPELINE_SOURCE_KEYS) {
     if (!natives[key]) continue;
     const src = (input.sources as Any)[key];
     sources[key] = { ...src, status: included.includes(key) ? "included" : "excluded", values: natives[key] };
   }
-  const run = ValueModel.runValuePipeline({ ...input, sources, included, pie: result.pie, hidden });
+  const run = ValueModel.runValuePipeline({ ...input, sources, included, pie: current.pie, hidden });
   const series: Record<string, PriorSeries> = {};
   for (const key of keys) {
     if (DDF_SERIES[key]) {
-      series[key] = { available: true, reason: null, values: seriesValues(run, key), current_values: seriesValues(result, key) };
+      series[key] = { available: true, reason: null, values: seriesValues(run, key), current_values: seriesValues(current, key) };
       continue;
     }
     if (Number.isInteger(served[key]) && served[key] !== week) {
@@ -137,8 +152,11 @@ export function priorBlock(bundle: Bundle, input: Any, result: Any, week: number
       series[key] = { available: false, reason: `${key} is not priced on Week ${prior}` };
     } else {
       const values = seriesValues(run, key);
-      series[key] = Object.keys(values).length ? { available: true, reason: null, values }
-        : { available: false, reason: `no ${scoring} values for Week ${prior} at this setting` };
+      // Unpaired, `result`'s rows (the series block) are not this week on I: give the current side too.
+      series[key] = !Object.keys(values).length
+        ? { available: false, reason: `no ${scoring} values for Week ${prior} at this setting` }
+        : paired ? { available: true, reason: null, values }
+        : { available: true, reason: null, values, current_values: seriesValues(current, key) };
     }
   }
   return { available: true, reason: null, current_week: week, prior_week: prior, series };
