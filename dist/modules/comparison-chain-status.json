@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-29T22:37:01.704017+00:00",
+  "run_at": "2026-10-30T02:44:06.315084+00:00",
   "nfl_week": 8,
   "sources": {
-    "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks)",
+    "usatoday": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 8); candidate not promoted: usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
+    "fantasycalc": "promoted 3/3",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -14,30 +14,25 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
-    "razzball"
+    "razzball",
+    "usatoday"
   ],
   "hold_severity": "red",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
-      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks"
-    ]
-  },
+  "list_changes": {},
   "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; WR: 1 players listed with another position in the cell (kept as WR",
+    "usatoday": {
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
+      "reason": "review hold",
+      "stage": "review",
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 8",
+        "content_vintage": "2026-10-27",
+        "content_week": 8
+      },
+      "weeks_behind": 0,
       "hold_severity": "amber",
-      "week": 8
+      "rolled_back": 0
     },
     "razzball": {
       "reason": "fidelity: stored_vs_chart",
@@ -57,25 +52,34 @@
   "detail": {
     "usatoday": {
       "source": "usatoday",
+      "status": "held",
+      "stage": "review",
+      "detail": "usatoday-full-12-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: coverage:full_12/RB:fail -- candidate priced 85 < fixture 86 (dropped: elijah mitchell; added: none) -- live verification skipped; fill-in not applied: 1 dropped player(s) are a pipeline loss (elijah mitchell); 1 dropped player(s) still listed by the source but unpriced (elijah mitchell) -- anchor/pipeline loss, not churn. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
+      "sections": 3,
+      "list_change_warnings": [],
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 8",
+        "content_vintage": "2026-10-27",
+        "content_week": 8
+      },
+      "weeks_behind": 0,
+      "hold_severity": "amber"
+    },
+    "fantasycalc": {
+      "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
       "detail": "promoted 3/3",
       "promoted": 3,
       "sections": 3,
       "list_change_warnings": []
-    },
-    "fantasycalc": {
-      "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
-      "promoted": 3,
-      "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
-        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks"
-      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -90,7 +94,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7128 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7140 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -107,7 +111,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-30 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -156,7 +160,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-29",
+      "content_vintage": "2026-10-30",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -164,7 +168,7 @@
     "razzball": {
       "content_vintage": "2026-10-27",
       "content_week": 8,
-      "health_status": "ok",
+      "health_status": "warn",
       "lagging_one_week": false
     }
   },
@@ -178,7 +182,7 @@
     "cbsros": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-29",
+      "published_at": "2026-10-30",
       "basis": "section_label"
     },
     "espn": {
@@ -213,7 +217,6 @@
     }
   },
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: stored_vs_chart"
   }
 }

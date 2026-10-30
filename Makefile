@@ -663,6 +663,9 @@ test-core:
 	node tests/node/league_status_check.cjs
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_v2_examples
+	# JEG-1271: isolated Compare evidence view contract (every rendered word and number against the input, in Node).
+	# Its Chromium layout test is in test-render-extra (JEG-1319): the view is not loaded by the page, so it must not block a deploy.
+	python3 -m unittest tests.test_compare_evidence_view_contract
 	# Phone layout guards (JEG-829): run on the Linux CI runner, where the wide fallback face (DejaVu Sans) applies.
 	python3 -m unittest tests.test_v2_phone_customize_targets_render
 	python3 -m unittest tests.test_v2_phone_fallback_font_render
@@ -834,6 +837,9 @@ test-core-shard-4:
 	python3 -m unittest tests.test_v2_headlines
 	python3 -m unittest tests.test_v2_waterfall
 	python3 -m unittest tests.test_v2_examples
+	# JEG-1271: isolated Compare evidence view contract (every rendered word and number against the input, in Node).
+	# Its Chromium layout test is in test-render-extra (JEG-1319): the view is not loaded by the page, so it must not block a deploy.
+	python3 -m unittest tests.test_compare_evidence_view_contract
 	python3 -m unittest tests.test_v2_phone_landscape_render
 	python3 -m unittest tests.test_v2_hamburger_nav_render
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
@@ -907,6 +913,9 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_league_parsed_render
 
 test-render-sweep-3:
+	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page). First in the
+	# shard, because a make recipe stops at its first red module and this one would otherwise never run.
+	python3 -m unittest tests.test_compare_evidence_view_render
 	python3 -m unittest tests.test_v2_consistency_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
@@ -999,6 +1008,8 @@ test-render-extra:
 	python3 -m unittest tests.test_package_composition_preview_render
 	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
 	python3 -m unittest tests.test_v2_league_status_render
+	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page).
+	python3 -m unittest tests.test_compare_evidence_view_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
