@@ -2,7 +2,7 @@
 -- with the live grants, RLS state and policies, read from project
 -- iskiybsimubiujwuchsl on 2026-10-30 02:15 UTC (pg_class.relacl,
 -- pg_policies, pg_get_viewdef). Synthetic rows only. Used by
--- tests/test_jeg1367_api_invoker_migration.py against a throwaway Postgres.
+-- tests/test_jeg1367_api_invoker_migration.py against a throwaway Postgres (JEG-1367, JEG-1374).
 -- api.v_current_weekly_signals keeps 4 of its 33 signal ->> columns: access
 -- depends on the tables and filters, not on how many keys are read.
 
@@ -304,7 +304,10 @@ insert into players values
 insert into player_ppg_legs values (101, 'b1', '{"ppg":15.1}', null, null, null, null, 9, now());
 insert into product_snapshot (snapshot_id, contract_version, is_active, publishable, espn_zeroed, generated_at, health) values
   (gen_random_uuid(), 'v1', true, true, '{103}', now(), '{"ok":true}'),
-  (gen_random_uuid(), 'v0', false, false, '{101}', now() - interval '1 day', '{"ok":false}');
+  (gen_random_uuid(), 'v0', false, false, '{101}', now() - interval '1 day', '{"ok":false}'),
+  -- active but not publishable: api.product_snapshot hides it; same
+  -- espn_zeroed as the live row so api.players' LIMIT 1 pick is stable.
+  (gen_random_uuid(), 'v2', true, false, '{103}', now() - interval '1 hour', '{"ok":"draft"}');
 insert into product_options (product_key, contract_version, bench_share_default, as_published_keys, source_keys) values
   ('default', 'v1', 0.2, '{fantasycalc}', '{fantasycalc,cbs}'),
   ('experiment', 'v1', 0.5, '{cbs}', '{cbs}');
