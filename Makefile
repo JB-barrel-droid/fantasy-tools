@@ -446,6 +446,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_league_units
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
+	# JEG-1262: pure multi-trade package uniqueness and roster-application helper.
+	python3 -m unittest tests.test_jeg1183_package_constraints
 	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
 	python3 -m unittest tests.test_jeg1229_trade_context
 	# JEG-1320: one stored record for the finders' discovery controls (pure module; no route reads it yet).
