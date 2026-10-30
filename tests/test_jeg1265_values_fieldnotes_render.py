@@ -314,7 +314,7 @@ class ValuesFieldnotesRenderTest(unittest.TestCase):
                 self.assertTrue(page.is_visible("#vfSortBy"))
                 self.assertEqual(page.input_value("#vfSortBy"), "ddf_value")
                 self.assertEqual(page.inner_text("#vfSortDir"), "Highest first")
-                self.assertEqual(page.evaluate("document.querySelector('label[for=vfSortBy]').textContent.trim()"), "Sort by")
+                self.assertEqual(page.evaluate("document.querySelector('label[for=vfSortBy] .vf-label').textContent.trim()"), "Sort by")
                 page.focus("#vfSortBy")
                 page.select_option("#vfSortBy", "name")
                 self.assertEqual(page.evaluate("document.activeElement.id"), "vfSortBy", "focus stays on Sort by")
