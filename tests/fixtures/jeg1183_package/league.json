@@ -1,0 +1,31 @@
+{
+  "_note": "JEG-1262: a four-team league for the trade package constraint checks. Keys follow workspace.js (strings; x: keys are unpriced K/DEF or unknown players). Values are deliberately absent: the helper never reads them.",
+  "myTeamId": "team-mine",
+  "teams": [
+    {"id": "team-mine", "name": "My team", "entries": [
+      {"key": "1001", "name": "Quinn Alpha", "pos": "QB", "team": "AAA", "slot": "QB"},
+      {"key": "1002", "name": "Reed Bravo", "pos": "RB", "team": "BBB", "slot": "RB"},
+      {"key": "1003", "name": "Wes Charlie", "pos": "WR", "team": "CCC", "slot": "WR"},
+      {"key": "1004", "name": "Tate Delta", "pos": "TE", "team": "DDD", "slot": "TE"},
+      {"key": "1005", "name": "Rory Echo", "pos": "RB", "team": "EEE", "slot": "BN"},
+      {"key": "1006", "name": "Will Foxtrot", "pos": "WR", "team": "FFF", "slot": "BN"},
+      {"key": "x:DEF:GGG", "name": "GGG Defense", "pos": "DEF", "team": "GGG", "slot": "DEF"}
+    ]},
+    {"id": "team-a", "name": "Alpha Club", "entries": [
+      {"key": "2001", "name": "Quin Golf", "pos": "QB", "team": "HHH"},
+      {"key": "2002", "name": "Ray Hotel", "pos": "RB", "team": "III", "slot": "RB"},
+      {"key": "2003", "name": "Wade India", "pos": "WR", "team": "JJJ"},
+      {"key": "x:K:KKK", "name": "Kip Juliet", "pos": "K", "team": "KKK"}
+    ]},
+    {"id": "team-b", "name": "Bravo Club", "entries": [
+      {"key": "3001", "name": "Rob Kilo", "pos": "RB", "team": "LLL"},
+      {"key": "3002", "name": "Walt Lima", "pos": "WR", "team": "MMM"},
+      {"key": "3003", "name": "Ty Mike", "pos": "TE", "team": "NNN"},
+      {"key": "x:WR:unmatched rookie", "name": "Unmatched Rookie", "pos": "WR"}
+    ]},
+    {"id": "team-c", "name": "Charlie Club", "entries": [
+      {"key": "4001", "name": "Quade November", "pos": "QB", "team": "OOO"},
+      {"key": "4002", "name": "Wyatt Oscar", "pos": "WR", "team": "PPP"}
+    ]}
+  ]
+}

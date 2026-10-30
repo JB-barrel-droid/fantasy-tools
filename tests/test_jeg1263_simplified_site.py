@@ -21,7 +21,7 @@ MODULES = ["simplified-site.js", "opportunities.js", "finder.js", "league.js"]
 REQUIRED = [
     "test_name_and_route_are_exact", "test_route_contract", "test_answer_leads_with_the_top_idea", "test_order_is_the_given_ranking",
     "test_values_match_dashboard", "test_context_not_mutated", "test_loading_and_error", "test_empty_without_league_or_team",
-    "test_incomplete_withholds", "test_weekly_never_blended", "test_no_qualifying_result", "test_detail_view",
+    "test_incomplete_withholds", "test_idea_fields_complete_or_withheld", "test_malformed_ideas_withhold", "test_weekly_never_blended", "test_no_qualifying_result", "test_detail_view",
     "test_fixture_labelled", "test_live_adapter_withholds_until_gates", "test_live_adapter_no_league",
 ]
 
@@ -29,8 +29,15 @@ REQUIRED = [
 MUTATIONS = [
     ("weekly basis accepted", 'else if (horizon !== HORIZON)', 'else if (false)', "test_weekly_never_blended"),
     ("weekly idea accepted", '(!rec.horizon || rec.horizon === HORIZON)', 'true', "test_weekly_never_blended"),
-    ("ideas re-ranked", 'const recs = c.ideas.recommendations || [];',
-     'const recs = (c.ideas.recommendations || []).slice().sort((a, b) => a.share - b.share);', "test_order_is_the_given_ranking"),
+    ("ideas re-ranked", 'const recs = c.ideas.recommendations;',
+     'const recs = c.ideas.recommendations.slice().sort((a, b) => a.share - b.share);', "test_order_is_the_given_ranking"),
+    # JEG-1301: the reviewer's two findings, one guard each.
+    ("opponent not checked", 'rec.id && text(rec.opponent) &&', 'rec.id &&', "test_idea_fields_complete_or_withheld"),
+    ("empty why accepted", ' && rec.why.length && rec.why.every(text)', '', "test_idea_fields_complete_or_withheld"),
+    ("source labels not checked", '(Array.isArray(rec.sources) && rec.sources.every(s => s && text(s.label) && text(s.status)))', 'true',
+     "test_idea_fields_complete_or_withheld"),
+    ("not-ready ideas read as an answer", 'else if (typeof ideas.then === "function")', 'else if (false)', "test_malformed_ideas_withhold"),
+    ("ideas shape not checked", '!Array.isArray(ideas.recommendations) || ', '', "test_malformed_ideas_withhold"),
     ("own number format", 'const gainText = O.fmt(rec.ourGain);', 'const gainText = "+" + rec.ourGain.toFixed(2);', "test_values_match_dashboard"),
     ("context mutated", 'vm.stretch = stretch.map(', 'vm.stretch = stretch.reverse().map(', "test_context_not_mutated"),
     ("gates ignored", 'gates[key] !== true', 'false', "test_live_adapter_withholds_until_gates"),
