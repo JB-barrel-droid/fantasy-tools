@@ -53,10 +53,10 @@ def hours_since(ts, now: datetime) -> float | None:
     return None if dt is None else (now - dt).total_seconds() / 3600
 
 
-def decide(chain_outcome: str, built_at, now: datetime) -> str:
+def decide(chain_outcome: str, built_at, now: datetime, published: bool = False) -> str:
     """'open' (stuck), 'close' (published) or 'none' (failed, not stuck yet)."""
     if chain_outcome == "success":
-        return "close"
+        return "close" if published else "none"
     if chain_outcome != "failure":
         return "none"  # skipped or cancelled: says nothing either way
     age = hours_since(built_at, now)
@@ -152,13 +152,14 @@ def _read(path: Path) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--chain-outcome", required=True)
+    ap.add_argument("--published", default="false")
     ap.add_argument("--status", default=str(STATUS))
     ap.add_argument("--history", default=str(HISTORY))
     args = ap.parse_args(argv)
     now = datetime.now(timezone.utc)
     status, history = _read(Path(args.status)), _read(Path(args.history))
     try:
-        action = decide(args.chain_outcome, history.get("fixture_built_at"), now)
+        action = decide(args.chain_outcome, history.get("fixture_built_at"), now, published=args.published == "true")
         text = body(status, history, now) if action == "open" else ""
         done = run(action, text, os.environ.get("GITHUB_REPOSITORY"), os.environ.get("GITHUB_TOKEN"), now)
     except Exception as e:  # noqa: BLE001 -- an alert never fails the chain job

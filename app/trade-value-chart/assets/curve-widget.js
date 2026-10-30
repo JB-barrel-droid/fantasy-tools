@@ -2352,8 +2352,14 @@
     if (p.injuryHistory !== undefined) next.injuryHistory = p.injuryHistory;
     if (p.projectionConfidence !== undefined) next.projectionConfidence = Number(p.projectionConfidence);
     if (p.contentWeek !== undefined) next.contentWeek = p.contentWeek === null ? null : Number(p.contentWeek);
-    if (next.contentWeek !== null && !(Number.isInteger(next.contentWeek) && next.contentWeek >= 1 && next.contentWeek <= 17)) {
-      throw new RangeError("Content week must be a week from 1 to 17");
+    if (next.contentWeek !== null) {
+      // JEG-1155: the bound is product-data.js's CONTENT_WEEK_MAX (the port of
+      // pipelines/nfl_week.py), never a second number here.
+      const maxWeek = window.TradeValueProductData?.CONTENT_WEEK_MAX;
+      if (!Number.isInteger(maxWeek)) throw new Error("product-data.js must load before curve-widget.js (no CONTENT_WEEK_MAX)");
+      if (!(Number.isInteger(next.contentWeek) && next.contentWeek >= 1 && next.contentWeek <= maxWeek)) {
+        throw new RangeError(`Content week must be a week from 1 to ${maxWeek}`);
+      }
     }
     const [pLo, pHi] = next.playoffWeeks;
     const week = n => Number.isInteger(n) && n >= 1 && n <= 18;

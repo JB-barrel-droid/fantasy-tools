@@ -1137,6 +1137,9 @@ a.v2-div-chip::after { content: ""; position: absolute; left: 0; right: 0; top: 
   #v2Compare .v2-chead .v2-cexample .v2-pill { grid-row: 1; grid-column: 2; align-self: center; justify-self: start; }
   #v2Compare .v2-chead .v2-cexample > span:not(.v2-pill) { grid-row: 2; grid-column: 3 / -1; }
   #v2Compare .v2-chead .v2-ctoolbar { grid-row: 1; grid-column: 5; }
+  /* JEG-1383: the closed picker shows only the chosen series, but its widest option sizes it. A held source's long
+     disabled option ("... held this week (data check)") widened it until the toolbar wrapped to two rows at 1366 px. */
+  #v2Compare .v2-chead .v2-field-rank select { max-width: 300px; text-overflow: ellipsis; }
 }
 #v2Compare.is-example .v2-trade-side { border-style: dashed; }
 
