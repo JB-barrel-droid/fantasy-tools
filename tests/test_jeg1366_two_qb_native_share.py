@@ -197,6 +197,8 @@ class SpecWeights(unittest.TestCase):
         self.assertAlmostEqual(w["QB|bench"], .04)
         self.assertAlmostEqual(sum(w.values()), 1.0)
         self.assertAlmostEqual(w["WR|starter"] / w["RB|starter"], .30 / .295)
+        self.assertAlmostEqual(bs, sum(w[f"{p}|bench"] for p in spec.POSITIONS), places=12)
+        self.assertNotAlmostEqual(bs, .09, places=4)  # the mean bench share before the step
         _, _, _, off = spec.ddf_weights(self.priced(), ["c", "p"], None, None)
         self.assertAlmostEqual(off["QB|starter"], .27)
 

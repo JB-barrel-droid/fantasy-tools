@@ -13,6 +13,8 @@ Contract: in a league with 2+ dedicated QB slots and no superflex slot, the QB s
 
 - Review follow-up (findings 1 to 5 on 566ba1cb): `ReferenceBenchShare` (fixed bench-share path, recomputed `bench_share_applied`, QB 2 plus superflex keeps every source's share), `SpecWiring` (run_week passes the rule on at QB 2 and off with superflex or 1 QB), and three engine cases through the edge runner (weights and bench share at QB 2, the fixed share at 0.1 with values, QB 2 plus superflex). Each of 7 deliberate breaks (JS fixed branch off, JS bsStar recompute removed, JS superflex hard-coded 0, reference fixed branch off, reference bench share recompute removed, reference superflex hard-coded 0, spec passing False) fails the file; all 18 tests pass on the fix. test_mcp_remote, test_mcp_week, test_endpoint_parity, test_jeg1365 pass.
 
+- Delta review PASS on 6f7d117d (receipt on #1236). Its two leftovers fixed next: the spec computed-share test now pins the recomputed bench share (fails with the recompute removed), and the connector copy says QBs are "usually" worth more than in superflex (8-team PPR is the one fixture setting where they are not).
+
 ### Claimed, not confirmed
 - `value_check compare --rerun-engine` and the page at QB 2 need Playwright, which this cloud session lacks; they run in CI.
 - The connector changes once Pages serves the new `value-model.js` (get-values loads it from the site); no edge redeploy is needed for the values, but none was checked live.
