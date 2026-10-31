@@ -7912,6 +7912,13 @@
     bindRisers();
   }
 
+  // JEG-1137 slice 3 (JEG-1266 plan step 3): the Home page's AI-connection panel, live adapter. The panel re-reads on hashchange.
+  function mountAiPanel() {
+    const aip = window.TradeValueAiConnectionPanel;
+    const host = $("v2AiPanel");
+    if (aip && host) aip.mount(host, aip.liveAdapter(window));
+  }
+
   // JEG-1026: what ddf-assist.js (Copy link, state links) may read and change on this page.
   // A narrow set of hooks, so the assist code never reaches into this file's state.
   function attachAssist() {
@@ -7969,6 +7976,7 @@
     bind();
     setStatus("");
     attachAssist();   // JEG-1026: before the link is read, which may carry a whole DDF state
+    if (fieldnotes()) mountAiPanel();   // JEG-1137 slice 3 / JEG-1266: flag-only; default page stays fully inert
     readTradeHash();   // may set a status: a shared link's league settings were applied
     $("v2State").hidden = true;
     applyRoute();
