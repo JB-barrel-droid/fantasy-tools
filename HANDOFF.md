@@ -19,6 +19,33 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### PR #1236 main integration (JEG-1366, Codex Bridge, 2026-10-31)
+
+- Jeremy authorized a normal main-to-PR merge, focused checks and push when clear. PR stays ready;
+  no main merge, deploy, Supabase write or Linear status change in this job.
+- Remote branch `claude/JEG-1366`; fresh local branch `codex/JEG-1366-main-merge` in
+  `fantasy-tools-worktrees/jeg-1366-main-merge`. Merge parents: PR `1c830350`, main `c7ab7562`.
+- Cancelled Claude session left unpushed merge `dcd12435`, 19 generated tracked modifications in its merge
+  worktree and 59 staged data refreshes in its old-head worktree. Patches and generated files archived under
+  `/tmp/jeg1366-cancelled-state-archive`; those changes discarded and both stale worktrees removed.
+  The old local merge branch is retained for recovery only; never use it as the PR push source.
+- Only textual conflict: this handoff; both lanes retained. The three value implementations auto-merge;
+  2QB reweighting runs inside each whole-seat allocation before fractional blending. Main's changes remain.
+- **Approved numbers DO move.** On current 2026 week-8/ROS inputs, 12-team QB shares are Standard 43.7607%,
+  Half PPR 40.7900%, PPR 36.7921% (approved: 38.4386%, 38.4355%, 36.0203%). Allen Standard 91.3 -> 101.3;
+  Burrow Half PPR 63.5 -> 67.0; Gibbs PPR 60.7 -> 58.7. Original inputs plus seat_sigma=0 reproduce all nine
+  approved tables exactly at 0.1-point precision; fractional seats and refreshed inputs explain the movement.
+- Focused math: 113 unique tests pass across the completed runs. An initial run had two setup errors from
+  missing Playwright Chromium 1208; affected Node checks passed using verified sync-produced assets without
+  re-running the browser explainer. Expanded 2QB parity covers all 3 scorings x 10/12/14 teams; 1QB and SF
+  are unchanged by the 2QB rule at all 3 scorings. Rank guard: 0 inversions. No heavy validate/render/sweep.
+- Independent normal-CDF/binomial/group-budget arithmetic gives Allen Standard 101.282388, Burrow Half PPR
+  67.010993, Gibbs PPR 58.656006 (12 teams, pie 2688). No value formula changed in this integration.
+- Full evidence and 1,306 named rounded value changes:
+  `docs/claude-log/2026-10-31-jeg1366-main-merge.md` and its linked CSV. Reproducer:
+  `tools/jeg1366_before_after.py`. Next: Claude high-risk delta review and exact-head CI before any main merge;
+  Jeremy must see the new values. Explainer reviewed.json stays unsigned; browser build is unverified here.
+
 ### 2QB leagues price the QB share from their own replacement level (JEG-1366, Claude, 2026-10-30 UTC)
 
 - Branch `claude/JEG-1366`. Value math (`review-high-risk`), Jeremy's pick A at 23:36 UTC on the before/after
@@ -33,8 +60,91 @@ below are history, including any "Codex reviews and merges" line.
   methodology figures, and the mcp `superflex` explanation (`supabase/functions/mcp/tools.ts`, live only after
   the mcp redeploy in the JEG-1400 bundle, which needs Jeremy's yes).
 - Next: delta review of the new head, ready for review, green CI, then the merge gate merges (Jeremy approved build
-  and merge). No deploy from this branch.
+  and merge). No deploy from this branch. This is the original pre-fractional-seat approval; see the integration update above for changed numbers and remaining review.
 - Evidence: `docs/claude-log/2026-10-30-jeg1366-2qb-native-share.md`, `tests/test_jeg1366_two_qb_native_share.py`.
+
+### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
+
+- Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
+  fractional flex everywhere, fractional bench only with no league loaded, sigma 0.75 PPG (`seat_sigma`; 0 is the
+  old hard rule). Python reference, spec reference and engine (value-model.js) all run once per whole allocation of
+  the seat mix and weight-average (methodology VP-2.2 g). Engine equals Python on 30 live settings (1e-13).
+- Tests: `test_fractional_seats_stability` (test-core shard 2; no other player moves more than 1.0 on a 1 PPG
+  fringe change; hard rule fails it), `test_fractional_seats_engine`, `test_fractional_seats_worked_example`. The
+  worked example fixture is pinned to `seat_sigma: 0`; its new `variant_fractional_seats` block pins 0.75.
+- Value change: merge needs Jeremy's OK by PR number after the before/after (JEG-1333's table is this build's:
+  the reference reproduces the prototype exactly); deploying get-values and mcp needs a separate yes.
+- Review fix (2026-10-31): each source's per-player records now blend too (0 where a player is off the work list,
+  slices restated at the blended rate, moved/unpaid budgets blended), so the page's fixed-pie guard holds; before,
+  it threw and CI's settings render timed out. `test_fractional_seats_pie` (test-unit-modules) covers it.
+- Rank guard fix (2026-10-31): Indexed is native x the blended factor for every player a chart prices, so it
+  keeps the chart's order (CI's rank guard failed at 14 settings). DDF values unchanged; only low-end Indexed
+  entries move. Also in `test_fractional_seats_pie`.
+- Math inspector fix (2026-10-31): value above waivers is restated at the blended display factor, so
+  vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
+- Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
+  values-explainer) run in CI or on the Mac.
+- CI: test-core now has five shards. Shard 1 passed its 30-minute job limit under the seat mix (seeded hold build
+  774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
+  `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
+
+### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
+
+- Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
+  week 8 -> 9 vectors at 0/49/50/51/100%, unknown inputs in the denominator,
+  and per-source publication/week provenance. No engine, default or calendar changes.
+  New vector completeness test fails on base 168aba93 (5 missing cases), passes
+  with the vectors. Jeremy authorized this Bridge job Oct 30; the old Codex pause above
+  does not apply. Independent Claude review remains required.
+- Read-only live check: chain run `2026-10-30T20:27:48.388544+00:00` green;
+  CBS, CBS ROS, ESPN, FantasyCalc, FantasyPros, Razzball and USA Today all serve week 8.
+  Their chain dates agree with fixture week_state dates; all 12 settings default to 8
+  (Standard/Half PPR/PPR x 8/10/12/14 teams). Season is honestly 2026.
+- Gaps: history entries use `week` and `week_evidence`/`pulled_at`, not explicit
+  `served_week`/`published_at`. Projection entries have content dates only. FantasyCalc
+  served index points to a superseded week-8 fingerprint, different from the ordinary
+  week-8 snapshot; public assets/history/superseded/week-8.json returns 404 (the store
+  intentionally does not serve that directory). Cannot independently equate its current
+  publication date/natives to the ordinary snapshot. Do not call this provenance complete.
+- Targeted combined run: 101 tests, 4 failures and 2 errors. Failures: weekly-input
+  freshness-rule source assertion expects `one_week_behind`; producer golden bytes differ
+  in three tests. Errors: get-values wrapper and history module setup call sync, which
+  needs missing Playwright chromium_headless_shell-1208. Sync generated files were
+  discarded. No heavy suite, browser installation, dispatch or publishing performed.
+  Mixed/corrupted/carry-forward browser sentinels exist in WeekTransitionSentinelTest,
+  but were not executed successfully here. CI must run them; do not infer a pass.
+- Standalone shared-vector/provenance/calendar module passes (11 tests). Direct
+  get_values_week_check.mjs against committed dist fails at line 137: expected week
+  views [8, 7], got [7]. The missing build prevents claiming a current-build connector
+  pass; investigate fixture/hold eligibility in CI. MCP tool week check passed in the
+  combined run.
+- Nov 3-4 acceptance (later job): GET live modules/comparison-chain-status.json,
+  assets/comparison-sources-data.json, assets/history/index.json and week-8/week-9.json
+  under https://jb-barrel-droid.github.io/fantasy-tools/. Record build/run times and each
+  source's week, date, fingerprint and populated values before/after. Check every scoring
+  and league-size setting: >50% eligible league-specific DDF sources on 9 selects 9;
+  ties/unknowns select 8. Inspect both week views: lagging sources absent from week 9,
+  moved sources use saved week-8 values when viewing 8. Check site and connector agree,
+  weekly input horizon remains separate from ROS, no relabelled/carried values, and chain
+  publication recovers from conflicts without manual repair (JEG-1206). Read CI evidence
+  for mixed-source success and corrupted-source failure. Nov 3 flip is 05:00 UTC
+  (midnight New York, after DST); use injected clocks for replay. No manual dispatch or
+  repair is acceptance evidence. JEG-1176 stays open until observed Nov 3-4 acceptance.
+
+
+### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
+
+- Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
+  unmatched name as 0: compare_trade refuses with closest names, read_state gives that list no total.
+  This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
+  under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
+  "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Independent review: approve; its findings fixed in a second commit (closest names reuse the first match
+  and stop after 5 misspelled names, key-only misses get none, ambiguous names list every fit).
+  A pasted state of 160 junk names already takes about 5.4 s of matching on main (5.9 s here); not
+  addressed in this PR.
+- Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
+  (runTool, not readState); no overlap expected.
 
 ### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
 
@@ -152,6 +262,14 @@ below are history, including any "Codex reviews and merges" line.
 - Branch `claude/JEG-1240-uso-site-journey` (#1110), test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_contract.py` (Node: harness, continuity, mutation classes), `tests/test_uso_site_journey_render.py` (browser only). Synthetic rosters in USO's roster shape; no USO rosters or notes.
 - On main: 9 harness checks green, 3 mutations each add only their intended code; 3 continuity checks red by design (another device loses basis and sources; no trade-context.js yet). On main merged with #1086 the transfer check passes (same device carried, another device held for sources-changed + rows-changed); state and pair links stay red.
 - Browser journey (stages incl. pair finder, readouts, strict get= guard) has not run: no Chromium here. Wiring is the infrastructure owner's (`be/ci-regression-wiring`); no Makefile, coverage or `KNOWN_RED` hunk on this branch. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
+
+### Research tab hidden until a post publishes (JEG-1371, Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-d3joeq`. Build-only: `pipelines/build_v2_page.py` drops the Research menu entry and
+  Writing sub-tab when `app/v2/research/` has no published post; one published post brings both back at the next
+  `make sync`. No edit to `app/v2/v2.js` or `shell.html` (JEG-1263 holds them). `#writing/research` still opens the
+  empty Research page; nothing links to it. Render tests that pin the menu now read the post count.
+- Evidence: `docs/claude-log/2026-10-30-jeg-1371-hide-research.md`.
 
 ### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-30 UTC)
 

@@ -372,11 +372,305 @@
     return sum / (hi - lo);
   }
 
+  // JEG-1121: the usage discount of the k-th bench candidate at a position,
+  // c^(1 + floor(k / t1)) with c = starters_per_team × (bye_rate + miss_rate)
+  // and t1 = round(2 × c × teams). Returns disc(pos, k). Mirrors
+  // roster_convention.vorp_bench_discount.
+  // miss rates (from lineup_parameters.json, rounded for Python parity)
+  var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
+  var VORP_BYE = 1.0 / 17.0;
+  function vpVorpBenchDiscount(starters, teams) {
+    var c = {}, t1 = {};
+    POSITION_ORDER.forEach(function (pos) {
+      c[pos] = ((starters[pos] || 0) / teams) * (VORP_BYE + (VORP_MISS[pos] || 0.12));
+      // t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
+      t1[pos] = Math.max(1, Math.round(2.0 * c[pos] * teams));
+    });
+    return function (pos, k) { return Math.pow(c[pos], 1 + Math.floor(k / (t1[pos] || 1))); };
+  }
+
+  function vpCounts(m) {
+    var out = {};
+    POSITION_ORDER.forEach(function (pos) { out[pos] = Math.trunc(Number((m || {})[pos]) || 0); });
+    return out;
+  }
+
+  // JEG-1335 (JEG-1333 option B; Jeremy, 2026-10-29 "Go with B", 2026-10-30
+  // "Letter A"): flex seats, and with no league loaded the bench seats too,
+  // are shared by the players near the cutoff. Each candidate holds
+  // Phi((score - tau) / sigma) of a seat, tau set so the shares fill the
+  // seats; the fractional counts become a weighted mix of whole allocations
+  // (systematic rounding), the pipeline runs once per allocation and every
+  // value is weight-averaged. sigma (mean PPG) = 0 is today's hard rule.
+  // These are the seat functions of fractional-seats.js (JEG-1334), kept here
+  // because the page, the edge functions and the headless check load this one
+  // file; tests/test_fractional_seats_engine.py holds the copies equal.
+  var VP_SEAT_SIGMA = 0.75;
+  var VP_SEAT_PRUNE = 1e-3;
+  var VP_SEAT_BISECT = 200;
+
+  function vpSeatAdd(out, p, v) { out[p] = (out[p] || 0) + v; }
+
+  // items: [[pos, score, sigma]] in tie-break order. Returns {pos: seats}.
+  function vpSoftSelect(items, n) {
+    var out = {};
+    n = Math.trunc(n);
+    if (n <= 0 || !items.length) return out;
+    var i;
+    if (n >= items.length) {
+      for (i = 0; i < items.length; i += 1) vpSeatAdd(out, items[i][0], 1);
+      return out;
+    }
+    var allZero = true, anyZero = false, gmax = -Infinity, smin = Infinity, smax = -Infinity;
+    for (i = 0; i < items.length; i += 1) {
+      var g = +items[i][2], sc = +items[i][1];
+      if (g > 0) allZero = false; else anyZero = true;
+      if (g > gmax) gmax = g;
+      if (sc < smin) smin = sc;
+      if (sc > smax) smax = sc;
+    }
+    if (allZero) {
+      var ranked = items.map(function (_x, j) { return j; });
+      ranked.sort(function (a, b) {
+        var d = (+items[b][1]) - (+items[a][1]);
+        return d !== 0 ? d : a - b;
+      });
+      for (i = 0; i < n; i += 1) vpSeatAdd(out, items[ranked[i]][0], 1);
+      return out;
+    }
+    if (anyZero) throw new Error("vpSoftSelect: sigma must be all zero or all positive");
+    var lo = smin - 50 * gmax - 1, hi = smax + 50 * gmax + 1, tau, tot;
+    for (var it = 0; it < VP_SEAT_BISECT; it += 1) {
+      tau = 0.5 * (lo + hi);
+      if (tau <= lo || tau >= hi) break;  // the interval can't shrink further
+      tot = 0;
+      for (i = 0; i < items.length; i += 1) tot += esPhi((+items[i][1] - tau) / (+items[i][2]));
+      if (tot > n) lo = tau; else hi = tau;
+    }
+    tau = 0.5 * (lo + hi);
+    for (i = 0; i < items.length; i += 1) vpSeatAdd(out, items[i][0], esPhi((+items[i][1] - tau) / (+items[i][2])));
+    tot = 0;
+    var keys = Object.keys(out);
+    // Sum in insertion order, as Python does.
+    for (i = 0; i < keys.length; i += 1) tot += out[keys[i]];
+    if (tot <= 0) return out;
+    var scaled = {};
+    for (i = 0; i < keys.length; i += 1) scaled[keys[i]] = out[keys[i]] * n / tot;
+    return scaled;
+  }
+
+  // Fractional counts (summing to a whole number) to [[weight, counts]].
+  function vpDecompose(frac) {
+    var positions = POSITION_ORDER;
+    var fl = {}, f = {}, tot = 0, p, j;
+    positions.forEach(function (q) {
+      var v = +(frac[q] || 0);
+      fl[q] = Math.floor(v + 1e-12);
+      f[q] = Math.max(0, v - fl[q]);
+    });
+    for (j = 0; j < positions.length; j += 1) tot += f[positions[j]];
+    var k = Math.floor(tot + 0.5);
+    if (k === 0) return [[1, Object.assign({}, fl)]];
+    var scale = k / tot, ends = {}, c = 0;
+    for (j = 0; j < positions.length; j += 1) {
+      p = positions[j];
+      ends[p] = [c, c + f[p] * scale];
+      c += f[p] * scale;
+    }
+    var set = {0: 0, 1: 1};
+    positions.forEach(function (q) { set[ends[q][0] % 1] = ends[q][0] % 1; set[ends[q][1] % 1] = ends[q][1] % 1; });
+    var pts = Object.keys(set).map(function (key) { return set[key]; }).sort(function (a, b) { return a - b; });
+    var got = {}, order = [];
+    for (j = 0; j + 1 < pts.length; j += 1) {
+      var u0 = pts[j], u1 = pts[j + 1];
+      if (u1 - u0 < 1e-12) continue;
+      var u = 0.5 * (u0 + u1), sel = Object.assign({}, fl);
+      positions.forEach(function (q) {
+        var a = ends[q][0], b = ends[q][1];
+        for (var m = 0; m < k; m += 1) {
+          if (a <= u + m && u + m < b) { sel[q] += 1; break; }
+        }
+      });
+      var key = positions.map(function (q) { return sel[q]; }).join(",");
+      if (!(key in got)) { got[key] = 0; order.push(key); }
+      got[key] += u1 - u0;
+    }
+    return order.map(function (key) {
+      var parts = key.split(",").map(Number), counts = {};
+      positions.forEach(function (q, idx) { counts[q] = parts[idx]; });
+      return [got[key], counts];
+    });
+  }
+
+  function vpHardBench(remaining, score, totalBench, disc) {
+    var counts = {};
+    POSITION_ORDER.forEach(function (p) { counts[p] = 0; });
+    for (var seat = 0; seat < Math.max(0, Math.trunc(totalBench)); seat += 1) {
+      var best = -1e18, winner = null;
+      for (var j = 0; j < POSITION_ORDER.length; j += 1) {
+        var p = POSITION_ORDER[j], cands = remaining[p] || [], k = counts[p];
+        if (k >= cands.length) continue;
+        var eff = Math.max(0, +(score[cands[k]] || 0)) * disc(p, k);
+        if (eff > best || (eff === best && winner !== null && vpPosIndex(p) < vpPosIndex(winner))) {
+          best = eff; winner = p;
+        }
+      }
+      if (winner === null || best <= 0) break;
+      counts[winner] += 1;
+    }
+    return counts;
+  }
+
+  // fractional_seats.allocation_mix: [[weight, {pos: {flex, bench}}]].
+  function vpSeatMix(o) {
+    var t = Math.trunc(o.teams), d = o.dedicated, sf = o.superflex, sigma = +o.sigma;
+    var order = o.order, score = o.score;
+    var fitems = [];
+    POSITION_ORDER.forEach(function (p) {
+      if (o.flexEligible.indexOf(p) < 0) return;
+      (order[p] || []).forEach(function (id, idx) {
+        if (idx >= d[p] + sf[p]) fitems.push([vpPosIndex(p), id, p]);
+      });
+    });
+    fitems.sort(function (a, b) { return a[0] - b[0] || vpNumKey(a[1], b[1]); });
+    var items = fitems.map(function (x) { return [x[2], +score[x[1]], sigma]; });
+    var fxf = vpSoftSelect(items, Math.trunc(o.flexSeats));
+    var fxIn = {};
+    POSITION_ORDER.forEach(function (p) { fxIn[p] = fxf[p] || 0; });
+    var out = [];
+    vpDecompose(fxIn).forEach(function (fv) {
+      var wv = fv[0], fx = fv[1], starters = {}, remaining = {};
+      POSITION_ORDER.forEach(function (p) {
+        starters[p] = d[p] + sf[p] + fx[p];
+        remaining[p] = (order[p] || []).slice(starters[p]);
+      });
+      var disc = vpVorpBenchDiscount(starters, t), verts;
+      if (!o.softBench || !(sigma > 0)) {
+        verts = [[1, vpHardBench(remaining, score, o.benchSeats, disc)]];
+      } else {
+        var bitems = [];
+        POSITION_ORDER.forEach(function (p) {
+          remaining[p].forEach(function (id, k) {
+            var dk = +disc(p, k), eff = Math.max(0, +(score[id] || 0)) * dk;
+            if (eff > 0 && dk > 0) bitems.push([p, eff, sigma * dk]);
+          });
+        });
+        var nb = Math.min(Math.trunc(o.benchSeats), bitems.length);
+        var bf = vpSoftSelect(bitems, nb), bIn = {};
+        POSITION_ORDER.forEach(function (p) { bIn[p] = bf[p] || 0; });
+        verts = vpDecompose(bIn);
+      }
+      verts.forEach(function (bv) {
+        var a = {};
+        POSITION_ORDER.forEach(function (p) {
+          a[p] = { flex: fx[p], bench: Math.trunc(bv[1][p] || 0) };
+        });
+        out.push([wv * bv[0], a]);
+      });
+    });
+    var kept = out.filter(function (x) { return x[0] >= VP_SEAT_PRUNE; });
+    if (!kept.length) kept = [out.reduce(function (m, x) { return x[0] > m[0] ? x : m; })];
+    var tot = 0;
+    kept.forEach(function (x) { tot += x[0]; });
+    return kept.map(function (x) { return [x[0] / tot, x[1]]; });
+  }
+
+  function vpSeatSigma(setting) {
+    var v = setting.seat_sigma;
+    return vpFinite(v) ? v : VP_SEAT_SIGMA;
+  }
+
+  // VP-2.2 with fractional seats: [[weight, allocation]], weights summing to
+  // 1, each allocation vpAllocate's shape. Flex is fractional everywhere; the
+  // bench only with no league loaded and the VORP bench rule (a loaded
+  // league's bench comes from its rosters, the D'Hondt bench from the flex
+  // split, per vertex). Superflex keeps the hard rule. Mirrors
+  // value_reference.allocation_mix.
+  function vpAllocationMix(orders, setting) {
+    var base = vpAllocate(orders, setting);
+    var sigma = vpSeatSigma(setting);
+    if (!(sigma > 0)) return [[1, base]];
+    var teams = Number(setting.teams) || 0;
+    var loaded = Array.isArray(setting.league_rostered);
+    var o = loaded && setting.bench_level === "market"
+      ? vpMarketOrder(orders, setting.league_rostered, setting.league_reserve) : orders;
+    var ids = {}, score = {}, d = {}, sf = {};
+    POSITION_ORDER.forEach(function (pos) {
+      ids[pos] = (o[pos] || []).map(function (r) { score[r.key] = r.score; return r.key; });
+      d[pos] = base[pos].dedicated;
+      sf[pos] = base[pos].superflex;
+    });
+    var softBench = !loaded && setting.flex_bench_seats !== false;
+    var mix = vpSeatMix({ teams: teams, dedicated: d, superflex: sf, flexEligible: VP_FLEX_ELIGIBLE,
+      flexSeats: teams * Math.max(0, Number(setting.flex) || 0),
+      benchSeats: vpRoundHalfUp(teams * Math.max(0, Number(setting.bench_per_team) || 0)),
+      order: ids, score: score, sigma: sigma, softBench: softBench });
+    return mix.map(function (v) {
+      var flex = {}, bench = {};
+      POSITION_ORDER.forEach(function (pos) { flex[pos] = v[1][pos].flex; bench[pos] = v[1][pos].bench; });
+      return [v[0], vpAllocate(orders, setting, { flex: flex, bench: softBench ? bench : null })];
+    });
+  }
+
+  // Counts and indexes in a pipeline result: a blend of vertices takes them
+  // from the heaviest vertex instead of averaging (JEG-1335).
+  var VP_BLEND_HELD = {};
+  ["dedicated", "superflex", "flex", "bench", "starters", "rostered", "modeled_starters", "replacement",
+    "held", "reserve", "listed", "rank", "players", "band", "shared_players", "count", "prior_count",
+    "setting", "sharedPlayers"].forEach(function (k) { VP_BLEND_HELD[k] = true; });
+
+  function vpIsPlainObject(v) {
+    return v !== null && typeof v === "object" && !Array.isArray(v);
+  }
+
+  // Weight-average [[weight, value]] over the vertex runs: objects key by key
+  // over the runs holding the key; numbers over the runs where they are a
+  // number (weights renormalized; one value when they all agree; null when
+  // none is); everything else and the VP_BLEND_HELD counts from the heaviest
+  // run (the first on a tie). Mirrors value_reference.blend_values.
+  function vpBlend(parts, key) {
+    var heavy = parts[0];
+    parts.forEach(function (x) { if (x[0] > heavy[0]) heavy = x; });
+    // "players" is held as a count; a source's per-player records blend.
+    if (key !== undefined && VP_BLEND_HELD[key] && !(key === "players" && vpIsPlainObject(heavy[1]))) return heavy[1];
+    // A null beside objects counts as no entry.
+    var objs = parts.filter(function (x) { return vpIsPlainObject(x[1]); });
+    if (objs.length && parts.every(function (x) {
+      return vpIsPlainObject(x[1]) || x[1] === null || x[1] === undefined;
+    })) {
+      parts = objs;
+      var keys = [], seen = {};
+      parts.forEach(function (x) {
+        Object.keys(x[1]).forEach(function (k) {
+          if (!Object.prototype.hasOwnProperty.call(seen, k)) { seen[k] = true; keys.push(k); }
+        });
+      });
+      var out = {};
+      keys.forEach(function (k) {
+        out[k] = vpBlend(parts.filter(function (x) { return Object.prototype.hasOwnProperty.call(x[1], k); })
+          .map(function (x) { return [x[0], x[1][k]]; }), k);
+      });
+      return out;
+    }
+    var nums = parts.filter(function (x) { return vpFinite(x[1]); });
+    var numOrNull = parts.every(function (x) { return vpFinite(x[1]) || x[1] === null || x[1] === undefined; });
+    if (nums.length && numOrNull) {
+      if (nums.every(function (x) { return x[1] === nums[0][1]; })) return nums[0][1];
+      var tw = 0, tv = 0;
+      nums.forEach(function (x) { tw += x[0]; tv += x[0] * x[1]; });
+      return tv / tw;
+    }
+    return heavy[1];
+  }
+
   // VP-2.2 a-e on per-position orders. `orders[pos]` = [{key, score}] already
   // sorted best first; `score` is m (or the source's own native in the
   // degenerate case, VP-2.2f). Returns {pos: {dedicated, superflex, flex,
-  // bench, starters, rostered}}.
-  function vpAllocate(orders, setting) {
+  // bench, starters, rostered}}. fixed (JEG-1335): one vertex of
+  // vpAllocationMix, {flex: {pos: n}, bench: {pos: n} | null}, in place of the
+  // hard flex cutoff (on the held players at the market level) and, with no
+  // league loaded, the hard bench cutoff. Omitted = today's hard rule.
+  function vpAllocate(orders, setting, fixed) {
     var teams = Number(setting.teams) || 0;
     var slots = setting.slots || {};
     var sfSlots = Math.max(0, Number(setting.superflex) || 0);
@@ -406,7 +700,9 @@
     }
     var sf = takeBest(POSITION_ORDER, function (pos) { return alloc[pos].dedicated; }, teams * sfSlots);
     POSITION_ORDER.forEach(function (pos) { alloc[pos].superflex = sf[pos]; });
-    var fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
+    var isMarket = Array.isArray(setting.league_rostered) && setting.bench_level === "market";
+    var fixedFlex = fixed && fixed.flex ? vpCounts(fixed.flex) : null;
+    var fx = fixedFlex && !isMarket ? fixedFlex : takeBest(VP_FLEX_ELIGIBLE, function (pos) {
       return alloc[pos].dedicated + alloc[pos].superflex;
     }, teams * flexSlots);
     // JEG-1121 revised: bench allocation.
@@ -426,7 +722,7 @@
         sf = takeBest(POSITION_ORDER, function (pos) { return alloc[pos].dedicated; }, teams * sfSlots,
           heldOrders);
         POSITION_ORDER.forEach(function (pos) { alloc[pos].superflex = sf[pos]; });
-        fx = takeBest(VP_FLEX_ELIGIBLE, function (pos) {
+        fx = fixedFlex || takeBest(VP_FLEX_ELIGIBLE, function (pos) {
           return alloc[pos].dedicated + alloc[pos].superflex;
         }, teams * flexSlots, heldOrders);
       }
@@ -450,32 +746,20 @@
       }
       var bench = vpBenchSeats(slots, teams, benchPerTeam, {superflex: isTwoQb, flexFilled: ff});
       POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = bench[pos]; });
+    } else if (fixed && fixed.bench) {
+      var fixedBench = vpCounts(fixed.bench);
+      POSITION_ORDER.forEach(function (pos) { alloc[pos].bench = fixedBench[pos]; });
     } else {
       // JEG-1121 stable: bench fills by PPG × usage discount in one cross-position pass.
       // Replacement level = 0 (any positive-PPG player competes).
       // Discount for backup k at pos: c^(1 + floor(k / t1)), where
       // c = starters_per_team × (bye_rate + miss_rate), t1 = round(2 × c × teams).
       // No D'Hondt fallback; seats left unfilled if no positive-PPG candidates remain.
-      var isTwoQbVorp = sfSlots > 0 || (Number(slots.QB) || 0) >= 2;
-      // Starters per team for coverage rate
-      var startPT = {};
+      var vorpStarters = {};
       POSITION_ORDER.forEach(function (pos) {
-        startPT[pos] = (alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0)) / teams;
+        vorpStarters[pos] = alloc[pos].dedicated + (sf[pos] || 0) + (fx[pos] || 0);
       });
-      // miss rates (from lineup_parameters.json, rounded for Python parity)
-      var VORP_MISS = {QB: 0.12, RB: 0.14, WR: 0.11, TE: 0.15};
-      var VORP_BYE = 1.0 / 17.0;
-      // t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
-      var vorpT1 = {};
-      POSITION_ORDER.forEach(function (pos) {
-        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
-        vorpT1[pos] = Math.max(1, Math.round(2.0 * c * teams));
-      });
-      function vorpDiscount(pos, k) {
-        var c = startPT[pos] * (VORP_BYE + (VORP_MISS[pos] || 0.12));
-        var tier = Math.floor(k / (vorpT1[pos] || 1));
-        return Math.pow(c, 1 + tier);
-      }
+      var vorpDiscount = vpVorpBenchDiscount(vorpStarters, teams);
       // Greedy bench fill: seats go to the highest PPG × discount candidate.
       var benchCounts = {};
       POSITION_ORDER.forEach(function (pos) { benchCounts[pos] = 0; });
@@ -1111,7 +1395,23 @@
     });
 
     // --- VP-2.2 league allocation (once, on the projected-points order).
-    var allocation = degenerate ? null : vpAllocate(ppgOrder, setting);
+    // JEG-1335: input.seatAllocation is one vertex of the fractional-seat mix;
+    // without it the mix is built, and a mix of more than one vertex runs the
+    // pipeline at each and returns the weight-averaged result.
+    var allocation = null;
+    if (!degenerate) {
+      if (input.seatAllocation) {
+        allocation = input.seatAllocation;
+      } else {
+        var seatMix = vpAllocationMix(ppgOrder, setting);
+        if (seatMix.length > 1) {
+          return vpBlendRuns(seatMix, seatMix.map(function (v) {
+            return runValuePipeline(Object.assign({}, input, { seatAllocation: v[1] }));
+          }));
+        }
+        allocation = seatMix[0][1];
+      }
+    }
 
     // --- VP-2.4a rosterable / fill sets.
     var fillSets = {};
@@ -1765,35 +2065,8 @@
       });
       slotFill = vpAllocate(ddfOrders, setting);
     }
-    POSITION_ORDER.forEach(function (pos) {
-      var ranked = rowKeys.filter(function (k) {
-        return rows[k].pos === pos && vpFinite(rows[k].ddfByVersion.blended.value);
-      }).sort(function (a, b) {
-        var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
-        if (da !== db) return db - da;
-        var ma = rows[a].meanPpg, mb = rows[b].meanPpg;
-        if (ma !== mb) {
-          if (ma === null) return 1;
-          if (mb === null) return -1;
-          return mb - ma;
-        }
-        return vpNumKey(a, b);
-      });
-      ranked.forEach(function (k, i) {
-        var rank = i + 1;
-        var v = rows[k].ddfByVersion.blended.value;
-        rows[k].tier = v === 0 ? "waiver"
-          : (rank <= slotFill[pos].starters ? "starter" : (rank <= slotFill[pos].rostered ? "bench" : "waiver"));
-      });
-    });
-    rowKeys.forEach(function (k) { if (rows[k].tier === undefined) rows[k].tier = null; });
-    var defaultRanking = rowKeys.slice().sort(function (a, b) {
-      var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
-      var fa = vpFinite(da), fb = vpFinite(db);
-      if (fa !== fb) return fa ? -1 : 1;
-      if (fa && da !== db) return db - da;
-      return vpNumKey(a, b);
-    });
+    vpAssignTiers(rows, rowKeys, slotFill);
+    var defaultRanking = vpDefaultRanking(rows, rowKeys);
 
     // ES-14 readout: the bench tier's share of each position's blended DDF
     // Value and of the whole (players ranked S_p+1..N_p on the projected-
@@ -1856,6 +2129,193 @@
     };
   }
 
+  // VP-7.3: each row's tier from its rank on the blended DDF Value.
+  function vpAssignTiers(rows, rowKeys, slotFill) {
+    POSITION_ORDER.forEach(function (pos) {
+      var ranked = rowKeys.filter(function (k) {
+        return rows[k].pos === pos && vpFinite(rows[k].ddfByVersion.blended.value);
+      }).sort(function (a, b) {
+        var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
+        if (da !== db) return db - da;
+        var ma = rows[a].meanPpg, mb = rows[b].meanPpg;
+        if (ma !== mb) {
+          if (ma === null) return 1;
+          if (mb === null) return -1;
+          return mb - ma;
+        }
+        return vpNumKey(a, b);
+      });
+      ranked.forEach(function (k, i) {
+        var rank = i + 1;
+        var v = rows[k].ddfByVersion.blended.value;
+        rows[k].tier = v === 0 ? "waiver"
+          : (rank <= slotFill[pos].starters ? "starter" : (rank <= slotFill[pos].rostered ? "bench" : "waiver"));
+      });
+    });
+    rowKeys.forEach(function (k) { if (rows[k].tier === undefined) rows[k].tier = null; });
+  }
+
+  function vpDefaultRanking(rows, rowKeys) {
+    return rowKeys.slice().sort(function (a, b) {
+      var da = rows[a].ddfByVersion.blended.value, db = rows[b].ddfByVersion.blended.value;
+      var fa = vpFinite(da), fb = vpFinite(db);
+      if (fa !== fb) return fa ? -1 : 1;
+      if (fa && da !== db) return db - da;
+      return vpNumKey(a, b);
+    });
+  }
+
+  // JEG-1335: one result from the runs at each vertex of the seat mix. Values
+  // are the weight-average (vpBlend); the allocation, slot fill and fill sets
+  // are the heaviest vertex's, and the tiers and ranking are recomputed on
+  // the blended values. Mirrors value_reference._blend_runs.
+  // JEG-1335: a source's per-player records after the blend. A player off the
+  // source's work list in one allocation holds 0 there, so his adjusted value
+  // (and display VORP, option and timing values) is the weight-average with 0
+  // for that allocation, as his row's value is, and the source still sums to
+  // the pie. Players on the list only in other allocations rank after the
+  // heaviest allocation's. Each slice is restated at the blended rate,
+  // sum_v w_v * rate_v * slice_v / rate, so rate x slice adds up to the
+  // blended value for each player and group. Twin of
+  // value_reference._blend_source_players.
+  var VP_SLICE_FIELDS = [["benchSlice", "bench"], ["starterSlice", "starter"],
+    ["optionBenchSlice", "bench"], ["optionStarterSlice", "starter"]];
+  var VP_SOURCE_VALUE_FIELDS = ["adjusted", "vorpDisplay", "optionAdjusted", "timingAdjusted"];
+  // JEG-1335: Indexed stays one factor per chart under the seat mix (VP-6.4,
+  // JEG-482): the factor is the weight-average of the allocations' factors,
+  // and every player the blended chart prices is his native times it. A
+  // player priced in only some allocations would otherwise carry a part
+  // value there and could sit below a player the chart ranks lower.
+  function vpReindexBlended(out) {
+    Object.keys(out.indexed || {}).forEach(function (src) {
+      var f = out.indexed[src].factor, o = (out.sources || {})[src];
+      if (!vpFinite(f) || !o || !vpIsPlainObject(o.players)) return;
+      Object.keys(o.players).forEach(function (k) {
+        if (out.rows[k]) out.rows[k].indexed[src] = o.players[k].native * f;
+      });
+    });
+  }
+
+  function vpBlendSourcePlayers(mix, runs, out) {
+    var tot = 0, heavy = 0;
+    mix.forEach(function (v, j) { tot += v[0]; if (v[0] > mix[heavy][0]) heavy = j; });
+    Object.keys(out.sources || {}).forEach(function (src) {
+      var o = out.sources[src], rates = o.rates || {}, players = o.players;
+      var vsrc = runs.map(function (r) { return (r.sources || {})[src] || {}; });
+      // A budget moved to the other role, or unpaid, in some allocations: the
+      // blended amount is the weight-average with 0 where it was not.
+      [["unfundedMoved", ["from", "to"]], ["unfundedGroups", ["group"]]].forEach(function (fk) {
+        var field = fk[0], kf = fk[1];
+        if (!Array.isArray(o[field])) return;
+        var acc = {}, order = [];
+        mix.forEach(function (v, j) {
+          (vsrc[j][field] || []).forEach(function (rec) {
+            var id = kf.map(function (f) { return rec[f]; }).join("\u0000");
+            if (!Object.prototype.hasOwnProperty.call(acc, id)) { acc[id] = { rec: rec, amount: 0 }; order.push(id); }
+            acc[id].amount += v[0] * rec.amount;
+          });
+        });
+        o[field] = order.map(function (id) {
+          var out1 = {};
+          kf.forEach(function (f) { out1[f] = acc[id].rec[f]; });
+          out1.amount = acc[id].amount / tot;
+          return out1;
+        });
+      });
+      if (!vpIsPlainObject(players)) return;
+      // The work order: the heaviest allocation's, then the players on the
+      // list only in other allocations, by their own rank there.
+      var hp = vsrc[heavy].players || {}, byPos = {};
+      Object.keys(players).forEach(function (k) {
+        var pl = players[k];
+        if (vpIsPlainObject(pl) && vpFinite(pl.rank)) (byPos[pl.pos] = byPos[pl.pos] || []).push(k);
+      });
+      Object.keys(byPos).forEach(function (q) {
+        byPos[q].sort(function (a, b) {
+          var ia = Object.prototype.hasOwnProperty.call(hp, a) ? 0 : 1, ib = Object.prototype.hasOwnProperty.call(hp, b) ? 0 : 1;
+          if (ia !== ib) return ia - ib;
+          if (players[a].rank !== players[b].rank) return players[a].rank - players[b].rank;
+          return a < b ? -1 : a > b ? 1 : 0;
+        });
+        byPos[q].forEach(function (k, n) { players[k].rank = n + 1; });
+      });
+      Object.keys(players).forEach(function (k) {
+        var pl = players[k];
+        if (!vpIsPlainObject(pl)) return;
+        var recs = mix.map(function (v, j) {
+          var rs = (runs[j].sources || {})[src] || {};
+          return [v[0], (rs.players || {})[k] || {}, rs.rates || {}];
+        });
+        VP_SOURCE_VALUE_FIELDS.forEach(function (f) {
+          if (!vpFinite(pl[f])) return;
+          var t = 0;
+          recs.forEach(function (x) { t += x[0] * (vpFinite(x[1][f]) ? x[1][f] : 0); });
+          pl[f] = t / tot;
+        });
+        VP_SLICE_FIELDS.forEach(function (fk) {
+          var f = fk[0], g = pl.pos + "|" + fk[1], rate = rates[g];
+          if (!vpFinite(pl[f]) || !vpFinite(rate) || rate === 0) return;
+          var part = 0;
+          recs.forEach(function (x) { if (vpFinite(x[1][f]) && vpFinite(x[2][g])) part += x[0] * x[2][g] * x[1][f]; });
+          pl[f] = part / tot / rate;
+        });
+        // Value above waivers is restated at the blended display factor, so
+        // vorp x factor is the blended display VORP, as for a single run.
+        if (vpFinite(pl.vorp) && vpFinite(pl.vorpDisplay) && vpFinite(o.vorpFactor) && o.vorpFactor > 0) {
+          pl.vorp = pl.vorpDisplay / o.vorpFactor;
+        }
+      });
+    });
+  }
+
+  function vpBlendRuns(mix, runs) {
+    var parts = mix.map(function (v, j) { return [v[0], runs[j]]; });
+    var out = vpBlend(parts);
+    vpBlendSourcePlayers(mix, runs, out);
+    vpReindexBlended(out);
+    var heavy = 0;
+    mix.forEach(function (v, j) { if (v[0] > mix[heavy][0]) heavy = j; });
+    var alloc = mix[heavy][1];
+    var rows = out.rows, rowKeys = Object.keys(runs[heavy].rows);
+    // A row's estimate and reason labels are the heaviest allocation's, so
+    // they agree with each other (a union could say both "estimated" and
+    // "below rosterable depth" for one source).
+    Object.keys(rows).forEach(function (k) {
+      var hr = runs[heavy].rows[k];
+      if (!hr) return;
+      ["estimated", "estimatedPath", "reasons"].forEach(function (f) {
+        if (Object.prototype.hasOwnProperty.call(hr, f)) rows[k][f] = vpIsPlainObject(hr[f]) ? Object.assign({}, hr[f]) : hr[f];
+      });
+    });
+    rowKeys.forEach(function (k) { delete rows[k].tier; });
+    vpAssignTiers(rows, rowKeys, alloc);
+    out.allocation = alloc;
+    out.slotFill = alloc;
+    out.fillSets = runs[heavy].fillSets;
+    // The blended estimates are the union over the allocations, so the
+    // estimated count is theirs (the heaviest run's count would drop an
+    // estimate made only in a lighter allocation).
+    Object.keys(out.sources || {}).forEach(function (src) {
+      var pos = out.sources[src].positions || {};
+      Object.keys(pos).forEach(function (q) {
+        if (pos[q] && pos[q].estimates) pos[q].nEstimated = Object.keys(pos[q].estimates).length;
+      });
+    });
+    out.defaultRanking = vpDefaultRanking(rows, rowKeys);
+    out.allocationMix = mix.map(function (v) { return { weight: v[0], allocation: v[1] }; });
+    var expected = {};
+    POSITION_ORDER.forEach(function (pos) {
+      expected[pos] = {};
+      ["dedicated", "superflex", "flex", "bench", "starters", "rostered"].forEach(function (f) {
+        var t = 0;
+        mix.forEach(function (v) { t += v[0] * v[1][pos][f]; });
+        expected[pos][f] = t;
+      });
+    });
+    out.allocationExpected = expected;
+    return out;
+  }
+
   // Compact, JSON-safe summary for TradeValueCurveDiagnostics.valuePipeline
   // (VP-11). Player-level detail stays on the rows.
   function valuePipelineDiagnostics(result) {
@@ -1896,7 +2356,10 @@
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
       basis: result.basis || null,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
-      slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
+      slotFill: result.slotFill, fillSets: result.fillSets,
+      allocationMix: result.allocationMix || null, allocationExpected: result.allocationExpected || null,
+      seatSigma: vpSeatSigma(result.setting || {}),
+      sources: sources
     };
   }
 
@@ -1994,7 +2457,10 @@
     leagueDepth: vpLeagueDepth,
     leagueCompleteness: vpLeagueCompleteness,
     isReserveSlot: vpIsReserveSlot,
-    ROSTER_MAX_AGE_MS: VP_ROSTER_MAX_AGE_MS
+    ROSTER_MAX_AGE_MS: VP_ROSTER_MAX_AGE_MS,
+    // JEG-1335: the seat functions, for tests/test_fractional_seats_engine.py.
+    seatFunctions: { softSelect: vpSoftSelect, decompose: vpDecompose, seatMix: vpSeatMix,
+      vorpBenchDiscount: vpVorpBenchDiscount, SEAT_SIGMA: VP_SEAT_SIGMA, SEAT_PRUNE: VP_SEAT_PRUNE }
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
 

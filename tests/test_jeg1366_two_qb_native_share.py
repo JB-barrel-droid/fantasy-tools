@@ -97,20 +97,34 @@ class ReferenceWeights(unittest.TestCase):
                     self.assertAlmostEqual(sum(res["ddf_weights"].values()), 1.0, places=9)
 
     def test_rb_wr_te_keep_their_relative_shares(self):
-        res = ref.Setting(self.inp, "ppr", 12, qb=2).result()
-        w = res["ddf_weights"]
-        raw = {}
-        for g in ref.GROUPS:
-            vals = [res["sources"][k]["weights"][g] for k in res["included"]
-                    if res["sources"][k]["weights"] is not None]
-            raw[g] = sum(vals) / len(vals)
+        from unittest import mock
+
+        # VP-4 runs per allocation before the fractional-seat blend. A ratio
+        # of blended weights need not equal the blend of the original ratios.
         rest = [g for g in ref.GROUPS if not g.startswith("QB|")]
-        for g in rest[1:]:
-            self.assertAlmostEqual(w[g] / w[rest[0]], raw[g] / raw[rest[0]], places=9)
+        native_weights = ref.two_qb_native_weights
+        per_allocation = []
+
+        def check_allocation(raw, *args, **kwargs):
+            w = native_weights(raw, *args, **kwargs)
+            for g in rest[1:]:
+                self.assertAlmostEqual(w[g] / w[rest[0]], raw[g] / raw[rest[0]], places=9)
+            self.assertAlmostEqual(sum(w.values()), 1.0, places=9)
+            per_allocation.append(w)
+            return w
+
+        with mock.patch.object(ref, "two_qb_native_weights", side_effect=check_allocation):
+            res = ref.Setting(self.inp, "ppr", 12, qb=2).result()
+        mix = res["allocation_mix"]
+        self.assertGreater(len(mix), 1)
+        self.assertEqual(len(per_allocation), len(mix))
+        for g in ref.GROUPS:
+            want = sum(a["weight"] * w[g] for a, w in zip(mix, per_allocation))
+            self.assertAlmostEqual(res["ddf_weights"][g], want, places=9)
 
     def test_two_qb_prices_qbs_above_superflex(self):
-        """The share rises at 12-team PPR on the fixture (36.0% against 30.5%
-        before JEG-1366), so the top QB is worth more than in superflex."""
+        """On the current 12-team PPR fixture the native QB share and the
+        top QB value exceed the corresponding superflex setting."""
         two = ref.Setting(self.inp, "ppr", 12, qb=2)
         sf = ref.Setting(self.inp, "ppr", 12, superflex=1)
         self.assertGreater(qb_weight(two.result()), qb_weight(sf.result()) + 0.02)
@@ -121,16 +135,17 @@ class ReferenceWeights(unittest.TestCase):
 
     def test_superflex_and_one_qb_untouched(self):
         orig = ref.uses_two_qb_native_share
-        for kw in ({}, {"superflex": 1}):
-            with self.subTest(**kw):
-                on = ref.Setting(self.inp, "ppr", 12, **kw).rows("adj")
-                ref.uses_two_qb_native_share = lambda shape: False
-                try:
-                    off = ref.Setting(self.inp, "ppr", 12, **kw).rows("adj")
-                finally:
-                    ref.uses_two_qb_native_share = orig
-                self.assertEqual({k: v["ddf_value"] for k, v in on.items()},
-                                 {k: v["ddf_value"] for k, v in off.items()})
+        for scoring in ref.SCORINGS:
+            for kw in ({}, {"superflex": 1}):
+                with self.subTest(scoring=scoring, **kw):
+                    on = ref.Setting(self.inp, scoring, 12, **kw).rows("adj")
+                    ref.uses_two_qb_native_share = lambda shape: False
+                    try:
+                        off = ref.Setting(self.inp, scoring, 12, **kw).rows("adj")
+                    finally:
+                        ref.uses_two_qb_native_share = orig
+                    self.assertEqual({k: v["ddf_value"] for k, v in on.items()},
+                                     {k: v["ddf_value"] for k, v in off.items()})
 
 
 class ReferenceBenchShare(unittest.TestCase):
@@ -243,16 +258,17 @@ class Engine(unittest.TestCase):
         cls.inp = ref.Inputs.load(today=date.fromisoformat(data_today()))
 
     def test_engine_equals_reference_in_a_two_qb_league(self):
-        out = subprocess.run(RUNNER + ["--league", json.dumps(TWO_QB), "--dist", str(ROOT / "dist")],
-                             capture_output=True, text=True, timeout=120, env=self.env)
-        self.assertEqual(out.returncode, 0, out.stderr[-800:])
-        edge = {int(k): v for k, v in json.loads(out.stdout).items()}
-        rows = ref.Setting(self.inp, "ppr", 12, qb=2).rows("adj")
-        want = {int(k): v["ddf_value"] for k, v in rows.items()
-                if isinstance(v.get("ddf_value"), (int, float))}
-        self.assertGreater(len(edge), 50)
-        bad = [k for k in set(edge) | set(want) if abs(edge.get(k, 0) - want.get(k, 0)) > TOL]
-        self.assertEqual(bad[:10], [], f"{len(bad)} players differ")
+        for scoring in ref.SCORINGS:
+            for teams in (10, 12, 14):
+                with self.subTest(scoring=scoring, teams=teams):
+                    league = {**TWO_QB, "scoring": scoring, "teams": teams}
+                    edge = {int(k): v for k, v in self.edge(league).items()}
+                    rows = ref.Setting(self.inp, scoring, teams, qb=2).rows("adj")
+                    want = {int(k): v["ddf_value"] for k, v in rows.items()
+                            if isinstance(v.get("ddf_value"), (int, float))}
+                    self.assertGreater(len(edge), 50)
+                    bad = [k for k in set(edge) | set(want) if abs(edge.get(k, 0) - want.get(k, 0)) > TOL]
+                    self.assertEqual(bad[:10], [], f"{len(bad)} players differ")
 
     def edge(self, league, *extra):
         out = subprocess.run(RUNNER + ["--league", json.dumps(league), "--dist", str(ROOT / "dist"), *extra],

@@ -77,7 +77,10 @@ class WorkflowTest(unittest.TestCase):
                     p=Path(td); (p/'pipelines').mkdir()
                     (p/'pipelines/main_write_guard.py').write_text('raise SystemExit(75)\n')
                     for call in ['release_guard stage', 'release_push origin HEAD:main']:
-                        result=subprocess.run(['bash','-e','-c',script[:end]+'\n'+call+'\ntouch committed\n'],cwd=p)
+                        # The publication-pause scenarios run on main; branch refusal
+                        # is exercised separately against a real temporary remote.
+                        result=subprocess.run(['bash','-e','-c',script[:end]+'\n'+call+'\ntouch committed\n'],
+                                              cwd=p,env={**os.environ,'GITHUB_REF':'refs/heads/main'})
                         self.assertEqual(result.returncode,0)
                         self.assertFalse((p/'committed').exists())
 
