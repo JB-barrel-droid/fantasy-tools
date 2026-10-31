@@ -2290,7 +2290,10 @@
       benchShareApplied: result.benchShareApplied, included: result.included, excluded: result.excluded,
       basis: result.basis || null,
       degenerate: result.degenerate, ddfWeights: result.ddfWeights, allocation: result.allocation,
-      slotFill: result.slotFill, fillSets: result.fillSets, sources: sources
+      slotFill: result.slotFill, fillSets: result.fillSets,
+      allocationMix: result.allocationMix || null, allocationExpected: result.allocationExpected || null,
+      seatSigma: vpSeatSigma(result.setting || {}),
+      sources: sources
     };
   }
 

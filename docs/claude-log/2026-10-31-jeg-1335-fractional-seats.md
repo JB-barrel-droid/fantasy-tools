@@ -25,6 +25,10 @@ Contract: build option A of the JEG-1333 before/after (Jeremy, 2026-10-30 23:41 
 - New `tests/test_fractional_seats_pie.py` (test-unit-modules): the page's arithmetic on the worked example at the default and at 0, plus the Python and spec references. Fails on c0c535c (every source at the default), passes now. The page's check on live engine runs, 18 settings (grid, USO and Charlotte with no league, loaded and market): every source within 1e-11. Engine against Python on the 30 live settings still within 1e-13. Row values are unchanged by this fix.
 - Speedups: the seat bisection stops once its bracket stops moving, and the blend returns early when every allocation agrees (same results). `tests/test_waiver_band_line.py` makes the unperturbed run once per setting instead of once per case.
 
+### Values explainer (Codex review on ef6d859, P1)
+- The "How values work" narrative (`app/values-explainer/template.html`) still said slots are filled once. It now says flex seats are shared near the cutoff, the bench too with no league loaded, superflex stays whole, the pipeline runs per allocation and averages, and counts, tiers and labels come from the heaviest allocation. At each setting it reads the number of allocations, the heaviest weight and the expected flex counts from the engine (`valuePipelineDiagnostics` now carries `allocationMix`, `allocationExpected` and `seatSigma`; the builder passes them through).
+- `app/values-explainer/reviewed.json` records the logic-file hashes as reviewed, written the way `make values-explainer MARK_REVIEWED=1` writes it; the page build itself needs Chromium and runs in CI's `make sync`.
+
 ### Claimed, not confirmed
 - value_check compare, the rank guard, the 12-combo sweep, make validate and `make values-explainer MARK_REVIEWED=1` need Chromium, which the cloud session can't download; they run in CI or on the Mac.
 - Engine run time per setting goes from about 0.06 s to about 0.35 s (one run per allocation, 3 to 12 allocations). Not measured on the page or the edge functions.
