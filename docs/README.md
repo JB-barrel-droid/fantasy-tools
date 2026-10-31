@@ -28,6 +28,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [decisions/drafts/fantasypros-half12-drift.md](decisions/drafts/fantasypros-half12-drift.md) | Record | - | - | Draft decision on FantasyPros half-PPR 12-team drift. |
 | [risk-register.md](risk-register.md) | Maintained | JEG-598 | 2026-10-22 | Open and fixed correctness risks, one row per GAP id, with a ticket index (JEG-598, 2026-10-12). |
 | [research/](research/) | Record | - | - | Evidence behind opinionated choices: bench rule research, the roster convention audit, the QB bench-share artifact, research post 1 facts (JEG-604). |
+| [research/projection-influence-ledger/](research/projection-influence-ledger/) | Record | JEG-1280 | 2026-10-29 | Offline ledger splitting each chart DDF Value move from projection inputs into lineup, bench, fill-in and position-weight stages (816 pairs, default league only). |
 | [feature-contract.md](feature-contract.md) | Maintained | unknown | unknown | Front-end feature contract with numbered IDs (GL-xx etc.); mirror of the Google Doc. |
 | [contract/feature-contract-id-map.md](contract/feature-contract-id-map.md) | Maintained | JEG-602 | 2026-10-22 | Maps every contract ID to its check or ticket, lists the Doc edits that need Jeremy's Drive (JEG-602), and the lines the Doc needs for the 2026-10-22 merges with the tests that pin them (JEG-874). |
 | [kdst-group-contract.md](kdst-group-contract.md) | Record | - | - | K/DST group definitions, units and source availability (JEG-211). |
