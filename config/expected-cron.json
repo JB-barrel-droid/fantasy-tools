@@ -1,0 +1,135 @@
+[
+  {
+    "name": "pages-deploy-live",
+    "schedule": "30 11 * * *",
+    "target": "workflow:pages.yml",
+    "active": true,
+    "source": "gha_schedules_pg_cron.sql"
+  },
+  {
+    "name": "sleeper-identity-refresh-live",
+    "schedule": "17 9 * * 2,4",
+    "target": "workflow:sleeper-identity-refresh.yml",
+    "active": true,
+    "source": "gha_schedules_pg_cron.sql"
+  },
+  {
+    "name": "weekly-fantasypros-daily-check",
+    "schedule": "0 16 * * *",
+    "target": "function:public.weekly_fp_record_daily_check",
+    "active": true,
+    "source": "jeg1195_weekly_fantasypros_20261029.sql"
+  },
+  {
+    "name": "health-artifacts-live",
+    "schedule": "50 */6 * * *",
+    "target": "workflow:health-artifacts.yml",
+    "active": true,
+    "source": "jeg414_health_artifacts_pg_cron.sql"
+  },
+  {
+    "name": "trigger-fantasycalc-weekly-save",
+    "schedule": "7 13 * * 2,5",
+    "target": "workflow:fantasycalc-weekly-save.yml",
+    "active": true,
+    "source": "jeg427_fantasycalc_weekly_save.sql"
+  },
+  {
+    "name": "player-identity-reconcile-nightly",
+    "schedule": "30 7 * * *",
+    "target": "workflow:player-identity-reconcile.yml",
+    "active": true,
+    "source": "jeg438_alias_table_curated.sql"
+  },
+  {
+    "name": "fidelity-pulse-live",
+    "schedule": "40 */3 * * *",
+    "target": "workflow:fidelity-pulse.yml",
+    "active": true,
+    "source": "jeg480_fidelity_pulse.sql"
+  },
+  {
+    "name": "espn-weekly-store-live",
+    "schedule": "40 12 * * *",
+    "target": "workflow:espn-weekly-store.yml",
+    "active": true,
+    "source": "jeg521_g4_weekly_store_20261009.sql"
+  },
+  {
+    "name": "espn-weekly-store-sunday",
+    "schedule": "20 16 * * 0",
+    "target": "workflow:espn-weekly-store.yml",
+    "active": true,
+    "source": "jeg521_g4_weekly_store_20261009.sql"
+  },
+  {
+    "name": "player-status-history-live",
+    "schedule": "10 13 * * *",
+    "target": "workflow:player-status-history.yml",
+    "active": true,
+    "source": "jeg521_g4_weekly_store_20261009.sql"
+  },
+  {
+    "name": "player-status-history-sunday",
+    "schedule": "30 16 * * 0",
+    "target": "workflow:player-status-history.yml",
+    "active": true,
+    "source": "jeg521_g4_weekly_store_20261009.sql"
+  },
+  {
+    "name": "projection-capture-sunday",
+    "schedule": "30 15 * * 0",
+    "target": "workflow:projection-capture-sunday.yml",
+    "active": true,
+    "source": "jeg944_source_projection_captures_20261023.sql"
+  },
+  {
+    "name": "rebuild-chain-bake-live",
+    "schedule": "45 11 * * *",
+    "target": "workflow:rebuild-chain.yml",
+    "active": true,
+    "source": "rebuild_chain_bake_pg_cron.sql"
+  },
+  {
+    "name": "ros-rankings-sync-live",
+    "schedule": "40 13 * * *",
+    "target": "workflow:ros-rankings-sync.yml",
+    "active": true,
+    "source": "ros_rankings_sync_schedule_20261029.sql"
+  },
+  {
+    "name": "source-probe-sharks",
+    "schedule": "45 4,16 * * *",
+    "target": "workflow:source-probe.yml",
+    "active": true,
+    "source": "sharks_probe_schedule_20261015.sql"
+  },
+  {
+    "name": "source-probe-fantasycalc",
+    "schedule": "5 * * * *",
+    "target": "workflow:source-probe.yml",
+    "active": true,
+    "source": "source_probe_schedules_20261008.sql"
+  },
+  {
+    "name": "source-probe-projections",
+    "schedule": "25 3-23/4 * * *",
+    "target": "workflow:source-probe.yml",
+    "active": true,
+    "source": "source_probe_schedules_20261008.sql"
+  },
+  {
+    "name": "source-probe-trade-charts",
+    "schedule": "35 */3 * * 1-4",
+    "target": "workflow:source-probe.yml",
+    "active": true,
+    "source": "source_probe_schedules_20261008.sql"
+  },
+  {
+    "name": "source-probe-trade-charts-weekend",
+    "schedule": "35 0,12 * * 0,5,6",
+    "target": "workflow:source-probe.yml",
+    "active": true,
+    "source": "source_probe_schedules_20261008.sql"
+  }
+]

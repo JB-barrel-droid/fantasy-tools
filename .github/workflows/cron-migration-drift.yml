@@ -1,0 +1,33 @@
+name: Cron and migration drift
+on:
+  schedule:
+    - cron: '55 12 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cron-migration-drift
+  cancel-in-progress: false
+jobs:
+  drift:
+    # Disabled until Jeremy provisions and verifies the read-only role. See runbook.
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install 'psycopg[binary]==3.2.13'
+      - name: Compare and notify
+        env:
+          SUPABASE_DRIFT_READONLY_DSN: ${{ secrets.SUPABASE_DRIFT_READONLY_DSN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          set +e
+          python tools/cron_migration_drift.py --notify > drift.txt 2>&1
+          code=$?
+          cat drift.txt
+          cat drift.txt >> "$GITHUB_STEP_SUMMARY"
+          exit "$code"
