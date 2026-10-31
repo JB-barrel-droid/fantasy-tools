@@ -30,6 +30,50 @@ below are history, including any "Codex reviews and merges" line.
   re-mark belongs with a full narrative re-review (JEG-1395/JEG-1396 touch the explainer), not this PR.
 - Next: exact-head CI green, then the merge gate merges.
 
+### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
+
+- Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
+  week 8 -> 9 vectors at 0/49/50/51/100%, unknown inputs in the denominator,
+  and per-source publication/week provenance. No engine, default or calendar changes.
+  New vector completeness test fails on base 168aba93 (5 missing cases), passes
+  with the vectors. Jeremy authorized this Bridge job Oct 30; the old Codex pause above
+  does not apply. Independent Claude review remains required.
+- Read-only live check: chain run `2026-10-30T20:27:48.388544+00:00` green;
+  CBS, CBS ROS, ESPN, FantasyCalc, FantasyPros, Razzball and USA Today all serve week 8.
+  Their chain dates agree with fixture week_state dates; all 12 settings default to 8
+  (Standard/Half PPR/PPR x 8/10/12/14 teams). Season is honestly 2026.
+- Gaps: history entries use `week` and `week_evidence`/`pulled_at`, not explicit
+  `served_week`/`published_at`. Projection entries have content dates only. FantasyCalc
+  served index points to a superseded week-8 fingerprint, different from the ordinary
+  week-8 snapshot; public assets/history/superseded/week-8.json returns 404 (the store
+  intentionally does not serve that directory). Cannot independently equate its current
+  publication date/natives to the ordinary snapshot. Do not call this provenance complete.
+- Targeted combined run: 101 tests, 4 failures and 2 errors. Failures: weekly-input
+  freshness-rule source assertion expects `one_week_behind`; producer golden bytes differ
+  in three tests. Errors: get-values wrapper and history module setup call sync, which
+  needs missing Playwright chromium_headless_shell-1208. Sync generated files were
+  discarded. No heavy suite, browser installation, dispatch or publishing performed.
+  Mixed/corrupted/carry-forward browser sentinels exist in WeekTransitionSentinelTest,
+  but were not executed successfully here. CI must run them; do not infer a pass.
+- Standalone shared-vector/provenance/calendar module passes (11 tests). Direct
+  get_values_week_check.mjs against committed dist fails at line 137: expected week
+  views [8, 7], got [7]. The missing build prevents claiming a current-build connector
+  pass; investigate fixture/hold eligibility in CI. MCP tool week check passed in the
+  combined run.
+- Nov 3-4 acceptance (later job): GET live modules/comparison-chain-status.json,
+  assets/comparison-sources-data.json, assets/history/index.json and week-8/week-9.json
+  under https://jb-barrel-droid.github.io/fantasy-tools/. Record build/run times and each
+  source's week, date, fingerprint and populated values before/after. Check every scoring
+  and league-size setting: >50% eligible league-specific DDF sources on 9 selects 9;
+  ties/unknowns select 8. Inspect both week views: lagging sources absent from week 9,
+  moved sources use saved week-8 values when viewing 8. Check site and connector agree,
+  weekly input horizon remains separate from ROS, no relabelled/carried values, and chain
+  publication recovers from conflicts without manual repair (JEG-1206). Read CI evidence
+  for mixed-source success and corrupted-source failure. Nov 3 flip is 05:00 UTC
+  (midnight New York, after DST); use injected clocks for replay. No manual dispatch or
+  repair is acceptance evidence. JEG-1176 stays open until observed Nov 3-4 acceptance.
+
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
