@@ -1,33 +1,47 @@
 {
-  "run_at": "2026-10-30T19:28:37.703292+00:00",
+  "run_at": "2026-10-31T16:53:08.114967+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-full-12-qb1-section full_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill | fantasycalc-half-12-qb1-section half_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-half-12-qb1-section half_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill)",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [
-    "post_rebuild_validation"
+  "failed": [],
+  "success": true,
+  "outcome": "published_with_holds",
+  "held": [
+    "razzball"
   ],
-  "success": false,
-  "outcome": "failed",
-  "held": [],
-  "hold_severity": "none",
+  "hold_severity": "amber",
   "list_changes": {
     "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill",
-      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill"
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper"
     ]
   },
-  "held_detail": {},
+  "held_detail": {
+    "razzball": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "2028/2028 values match exactly across 3 columns; 2 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
+      "week": 8
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -43,16 +57,16 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-full-12-qb1-section full_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill | fantasycalc-half-12-qb1-section half_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-half-12-qb1-section half_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
       "promoted": 3,
       "sections": 3,
       "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill",
-        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 64 -> 65: dropped none; added tyrone tracy jr",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 72 -> 72: dropped rashid shaheed; added tyreek hill"
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper"
       ]
     },
     "fantasypros": {
@@ -85,7 +99,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-30 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-31 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -134,7 +148,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-30",
+      "content_vintage": "2026-10-31",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -161,7 +175,7 @@
     "cbsros": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-30",
+      "published_at": "2026-10-31",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -183,7 +197,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-30T17:05:25+00:00",
+      "published_at": "2026-10-31T14:05:26+00:00",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -228,15 +242,7 @@
   "stale_sources": [],
   "lagging_sources": [],
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
-  "post_rebuild_validation": {
-    "status": "failed",
-    "command": "make validate",
-    "failed_tests": [],
-    "assertions": [],
-    "make_targets": [
-      "Makefile:95: reference"
-    ],
-    "detail": "make validate failed at Makefile:95: reference",
-    "recorded_at": "2026-10-30T19:29:54.478232+00:00"
+  "fidelity_holds": {
+    "razzball": "fidelity: publisher_vs_stored"
   }
 }
