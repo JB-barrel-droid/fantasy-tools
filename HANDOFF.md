@@ -11,21 +11,9 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
-PSpice (Jeremy's personal agent on the Dots platform, default) and Muse are
-the two named successors for the whole Duet coordinator role. PSpice is the
-same seat earlier notes call Jeremy's direct Codex. Read [docs/cutover-runbook.md](docs/cutover-runbook.md)
-in PR #1245 until it lands. JEG-1444 decision 11 (Jeremy, 2026-10-31 12:42
-UTC, "A") specifies independent exact-head Codex review while Claude is out,
-and merge by the acting successor after review/green CI and approval gates.
-High-risk merges and all deploys retain Jeremy's specific-yes requirement.
-Muse uses the GitHub API as jkb-bur-bot; every post starts `Written by Muse.`,
-includes `<!-- author: muse -->` and uses recommend wording. A Muse comment
-never counts as Jeremy's approval, even though Linear displays his name.
-Muse has no Mac route or push wake: its proposed codex-mac label handoff is
-pending, and JEG-1449 researches access. No label or watcher is created here.
-PSpice's dry-run cycle precedes Muse's; both are plans, not completed checks.
-When Claude returns, normal AGENTS review routing resumes. Older lane notes
-below do not override these rules.
+Since 2026-10-29 19:12 UTC Codex is out and Claude sessions review and merge:
+see "Review and merge protocol" in `AGENTS.md` (JEG-1218). Codex lane notes
+below are history, including any "Codex reviews and merges" line.
 
 ---
 
