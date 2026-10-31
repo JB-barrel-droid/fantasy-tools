@@ -19,7 +19,7 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-- JEG-1428: `be/jeg-1428-freshness-pin`, draft PR pending; 36 contract tests pass, validate blocked by missing Playwright Chromium; awaiting lead review.
+- JEG-1428: `be/jeg-1428-freshness-pin`, draft PR [#1251](https://github.com/JB-barrel-droid/fantasy-tools/pull/1251); 36 contract tests pass, validate blocked by missing Playwright Chromium; awaiting lead review.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
