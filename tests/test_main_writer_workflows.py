@@ -5,7 +5,10 @@ missing environment/ref/credential boundaries and duplicate deployment paths.
 """
 from pathlib import Path
 import re
+import subprocess
+import tempfile
 import unittest
+from tests.test_rebuild_chain_workflow import script_of, step_blocks
 
 ROOT = Path(__file__).resolve().parents[1]
 NAMES = ('espn-supabase-sync', 'espn-history-probe', 'espn-weekly-store',
@@ -53,12 +56,49 @@ def problems(text):
             continue
         if APP_BINDING not in block or 'credential.helper' not in block or 'main-writer-credential.py' not in block:
             errors.append('every push step must use the ephemeral credential helper')
-        if 'set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"' not in block:
+        if 'set -- origin "HEAD:${GITHUB_REF:?}"' not in block:
             errors.append('bare publication must have an explicit workflow-ref destination')
     return errors
 
 
 class MainWriterWorkflowTest(unittest.TestCase):
+    def test_linear_issue_creation_requires_explicit_dispatch(self):
+        text = (ROOT/'.github/workflows/divergence-issues.yml').read_text()
+        events = text.split('\non:\n', 1)[1].split('\npermissions:', 1)[0]
+        self.assertEqual(re.findall(r'^  ([A-Za-z0-9_]+):', events, re.M),
+                         ['workflow_dispatch'])
+
+    def test_publication_wrappers_require_a_ref_before_calling_git(self):
+        checked = 0
+        for name in NAMES:
+            text = (ROOT/f'.github/workflows/{name}.yml').read_text()
+            for block in step_blocks(text):
+                script = script_of(block)
+                if not script or 'release_push()' not in script:
+                    continue
+                function = re.search(r'^release_push\(\) \{\n.*?^\}', script,
+                                     flags=re.M | re.S).group()
+                with tempfile.TemporaryDirectory() as td:
+                    folder = Path(td)
+                    binary = folder/'git'
+                    binary.write_text('#!/bin/sh\n: > "$PROBE_MARKER"\n')
+                    binary.chmod(0o700)
+                    marker = folder/'git-was-called'
+                    for ref in (None, ''):
+                        env = {'PATH': td+':/usr/bin:/bin',
+                               'PROBE_MARKER': str(marker)}
+                        if ref is not None:
+                            env['GITHUB_REF'] = ref
+                        result = subprocess.run(
+                            ['bash', '-e', '-c',
+                             'release_guard() { :; }\n'+function+'\nrelease_push\n'],
+                            cwd=folder, env=env, capture_output=True, text=True)
+                        self.assertNotEqual(result.returncode, 0,
+                                            name+': missing ref reached publication')
+                        self.assertFalse(marker.exists(), name+': Git was called')
+                checked += 1
+        self.assertGreaterEqual(checked, len(NAMES))
+
     def test_ten_workflows_enforce_separate_main_and_branch_boundaries(self):
         for name in NAMES:
             with self.subTest(workflow=name):
@@ -71,6 +111,7 @@ class MainWriterWorkflowTest(unittest.TestCase):
                      ("github.ref != 'refs/heads/main'", "github.ref != ''", 'exclude main'),
                      (APP_BINDING, '', 'ephemeral credential helper'),
                      ('persist-credentials: false', 'persist-credentials: true', 'persist authentication'),
+                     ('HEAD:${GITHUB_REF:?}', 'HEAD:${GITHUB_REF:-refs/heads/main}', 'workflow-ref destination'),
                      (APP_KEY, 'private-key: ${{ secrets.UNRELATED_KEY }}', 'environment secrets')]
         for old, new, expected in mutations:
             with self.subTest(boundary=expected):

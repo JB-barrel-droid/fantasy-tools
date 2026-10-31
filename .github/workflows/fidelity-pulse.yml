@@ -149,7 +149,7 @@ jobs:
           }
           release_push() {
             release_guard push
-            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           cp output/fidelity-pulse.json dist/modules/fidelity-pulse.json

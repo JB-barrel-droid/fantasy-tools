@@ -154,7 +154,7 @@ jobs:
           }
           release_push() {
             release_guard push
-            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           cp output/source-import-health.json dist/modules/source-import-health.json
@@ -253,7 +253,7 @@ jobs:
           }
           release_push() {
             release_guard push
-            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           cp output/monitoring-summary.json dist/modules/monitoring-summary.json
@@ -354,7 +354,7 @@ jobs:
           }
           release_push() {
             release_guard push
-            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           git pull --rebase --autostash origin main || true

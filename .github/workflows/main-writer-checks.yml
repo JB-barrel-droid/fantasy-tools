@@ -8,6 +8,7 @@ on:
       - "pipelines/main_write_guard.py"
       - "tests/test_main_writer*.py"
       - "tests/test_main_write_guard.py"
+      - "tests/test_open_divergence_issues.py"
       - "tests/test_rebuild_chain*.py"
       - "tests/test_v2_render_runs_on_data_push.py"
       - "tests/test_deploy_gate_unconditional.py"
@@ -36,6 +37,7 @@ jobs:
           tests.test_main_writer_credentials
           tests.test_main_writer_workflows
           tests.test_main_write_guard
+          tests.test_open_divergence_issues
           tests.test_rebuild_chain_workflow
           tests.test_rebuild_chain_concurrent_main
           tests.test_rebuild_chain_consolidation_nonblocking
@@ -53,6 +55,7 @@ jobs:
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           -shellcheck= -pyflakes=
           .github/workflows/main-writer-checks.yml
+          .github/workflows/divergence-issues.yml
           .github/workflows/espn-supabase-sync.yml
           .github/workflows/espn-history-probe.yml
           .github/workflows/espn-weekly-store.yml

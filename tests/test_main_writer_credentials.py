@@ -38,6 +38,7 @@ class WriterCredentialTests(unittest.TestCase):
                  ({**REQUEST, 'protocol': 'http'}, environment()),
                  ({**REQUEST, 'path': 'JB-barrel-droid/other.git'}, environment()),
                  (REQUEST, environment(GITHUB_REPOSITORY='JB-barrel-droid/other')),
+                 (REQUEST, environment('')),
                  (REQUEST, environment('refs/tags/main')),
                  (REQUEST, environment('refs/pull/1/merge'))]
         for request, env in cases:

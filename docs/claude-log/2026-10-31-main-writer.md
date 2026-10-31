@@ -75,3 +75,44 @@ passed in 61.929 seconds. Actionlint 1.7.12 passed all eleven workflows. The
 old publication-pause harness initially omitted GITHUB_REF; supplying the main
 ref made that scenario explicit without changing any assertion. All branch,
 missing-ref and guard-removal mutation scenarios passed.
+
+### Approved trigger change and final review follow-up
+
+Jeremy approved all three concrete decisions at 18:57 UTC on 2026-10-31:
+manual-only divergence issues, GitHub's existing automatic deletion of only
+remote refs/heads/codex/JEG-1441-main-writer after gated PR #1259 merge, and a
+public PR-description update with verified current implementation and gates.
+No repository deletion setting or local branch deletion is authorized by that
+exception. The separately approved named scratch cleanup remains its own scope.
+
+The divergence workflow intentionally removes its pre-existing main-push
+trigger, including human pushes and PR merges, rather than merely excluding
+App pushes. Manual dispatch still invokes the same issue builder, now naming
+the served report explicitly. No Linear credential was read, changed or used.
+
+The shell publication wrappers now require GITHUB_REF with ${GITHUB_REF:?}
+before calling Git, complementing the credential helper's existing refusal of
+empty refs. A real-shell regression test executes every extracted wrapper with
+both missing and empty refs and a local fake Git command; Git must never be
+called. The dispatch-only contract and wrapper test both failed before these
+changes. Existing security assertions are retained, including a mutation that
+restores the old main fallback. The credential unit matrix now directly covers
+an empty ref. No live publication or external API call is used in these tests.
+
+Verified earlier: all 13 CI checks passed on both 7c6e8c6 and 6772f10b. The latter
+strict comparison agreed on 1,234,508 values with zero mismatches across all
+seven sources, and the rendered gate had zero page errors and zero of twelve
+fixed-pie failures. These are receipts for those heads only. The full independent
+Claude Opus 4.6/high review passed 7c6e8c6 (session
+28b52122-1634-4e7a-818d-7bc990cd8abe). A separate charter review comment also
+identified the trigger/fallback follow-ups; those findings are addressed here.
+The final changed head still requires fresh CI and one Claude high-risk delta
+review. Main was integrated normally through 12887fc7, with no rebase or force
+push and no generated changes relative to main. Ruleset activation still needs
+fresh action-time confirmation; App publication proof must use an authorized
+normal refresh, and all refresh verification tests remain non-publishing.
+
+Verified after the approved change: all 118 offline credential/publication and
+manual issue-builder tests passed in 52.397 seconds. The existing served-report
+contract passed separately, and actionlint 1.7.12 passed all twelve workflows.
+Whitespace checks passed. These tests make no live Linear or GitHub writes.
