@@ -38,11 +38,13 @@ from lib.roster_convention import (
     starter_line as _convention_starter_line,
     waiver_band_line as _convention_waiver_band_line,
     vorp_bench_allocate as _vorp_bench,
+    vorp_bench_discount as _vorp_bench_discount,
     league_depth as _league_depth,
     market_order as _market_order,
     replacement_waiver_index as _replacement_waiver_index,
     POSITIONS as _CONV_POSITIONS,
 )
+from lib import fractional_seats as _FS
 
 POSITIONS = ("QB", "RB", "WR", "TE")
 POS_ORDER = {p: i for i, p in enumerate(POSITIONS)}
@@ -80,6 +82,9 @@ class Setting:
     league_rostered: tuple | None = None
     bench_level: str = "ddf"
     league_reserve: tuple = ()
+    # JEG-1335: projection noise of the fractional flex and bench seats, in
+    # mean points per game. None = SEAT_SIGMA; 0 = the hard cutoffs.
+    seat_sigma: float | None = None
 
     @classmethod
     def from_fixture(cls, s: dict) -> "Setting":
@@ -93,7 +98,8 @@ class Setting:
                    league_rostered=(tuple(s["league_rostered"])
                                     if s.get("league_rostered") is not None else None),
                    bench_level=s.get("bench_level") or "ddf",
-                   league_reserve=tuple(s.get("league_reserve") or ()))
+                   league_reserve=tuple(s.get("league_reserve") or ()),
+                   seat_sigma=s.get("seat_sigma"))
 
     def starting_slots_per_team(self) -> int:
         return sum(int(self.slots.get(p, 0)) for p in POSITIONS) + self.flex + self.superflex
@@ -183,13 +189,18 @@ LEAGUE_DEPTH_FIELDS = ("replacement", "replacement_key", "held", "reserve", "ben
 
 
 def allocate(setting: Setting, order: dict, scores: dict, *,
-             flex_bench_seats: bool = True) -> dict:
+             flex_bench_seats: bool = True, flex_counts: dict | None = None,
+             bench_counts: dict | None = None) -> dict:
     """League allocation (VP-2.2 a-e) on a per-position order with scores.
 
     flex_bench_seats (MR-28): on by default (2026-10-23, Jeremy approved).
     Bench weights count sf+flex starters.
     Skipped in 2-QB / superflex (Jeremy, 2026-10-23, option A):
-    market_bench 2-QB data already reflects supply-capped QB benches."""
+    market_bench 2-QB data already reflects supply-capped QB benches.
+
+    flex_counts, bench_counts (JEG-1335): one vertex of allocation_mix in
+    place of the hard flex cutoff (on the held players at the market level)
+    and, with no league loaded, the hard bench cutoff."""
     T = setting.teams
     ded = {p: T * int(setting.slots.get(p, 0)) for p in POSITIONS}
 
@@ -200,14 +211,17 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
             got[p] += 1
         return got
 
-    def fill(o: dict, ded: dict):
+    def fill(o: dict, ded: dict, fixed: dict | None = None):
         sf_cands = [(k, p) for p in POSITIONS for k in o.get(p, [])[ded[p]:]]
         sf = take(sf_cands, T * setting.superflex)
+        if fixed is not None:
+            return sf, {p: int(fixed.get(p, 0)) for p in POSITIONS}
         fx_cands = [(k, p) for p in POSITIONS if p in setting.flex_eligible
                     for k in o.get(p, [])[ded[p] + sf[p]:]]
         return sf, take(fx_cands, T * setting.flex)
 
-    sf, fx = fill(order, ded)
+    market = setting.league_rostered is not None and setting.bench_level == "market"
+    sf, fx = fill(order, ded, None if market else flex_counts)
     depth = None
     if setting.league_rostered is not None:
         # JEG-1188: a loaded league sets the bench and the replacement line
@@ -217,12 +231,14 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
             # JEG-1249: market starters come from held players only.
             held = _market_order(order, setting.league_rostered, setting.league_reserve)
             ded = {p: min(ded[p], len(held.get(p, []))) for p in POSITIONS}
-            sf, fx = fill(held, ded)
+            sf, fx = fill(held, ded, flex_counts)
         depth = _league_depth({p: ded[p] + sf[p] + fx[p] for p in POSITIONS}, order,
                               setting.league_rostered, setting.bench_level, setting.league_reserve)
         for p in POSITIONS:
             depth[p]["modeled_starters"] = modeled[p]
         bench = {p: depth[p]["bench"] for p in POSITIONS}
+    elif bench_counts is not None:
+        bench = {p: int(bench_counts.get(p, 0)) for p in POSITIONS}
     elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: ded[p] + sf[p] + fx[p] for p in POSITIONS}
@@ -250,6 +266,79 @@ def allocate(setting: Setting, order: dict, scores: dict, *,
         if depth is not None:
             out[p].update({k: depth[p][k] for k in LEAGUE_DEPTH_FIELDS})
     return out
+
+
+# JEG-1335 (JEG-1333 option B; Jeremy, 2026-10-29 "Go with B", 2026-10-30
+# "Letter A"): projection noise, in mean points per game, of the fractional
+# flex and bench seats.
+SEAT_SIGMA = 0.75
+
+
+def allocation_mix(setting: Setting, order: dict, scores: dict, *,
+                   flex_bench_seats: bool = True, sigma: float | None = None) -> list:
+    """VP-2.2 with fractional seats, [(weight, allocation)]. Flex seats are
+    shared by the players near the cutoff everywhere; bench seats too only
+    with no league loaded (VORP bench rule). Superflex keeps the hard rule.
+    sigma 0 = [(1, allocate(...))]; None = the setting's seat_sigma, else
+    SEAT_SIGMA."""
+    if sigma is None:
+        sigma = setting.seat_sigma
+    sigma = SEAT_SIGMA if sigma is None else float(sigma)
+    base = allocate(setting, order, scores, flex_bench_seats=flex_bench_seats)
+    if sigma <= 0:
+        return [(1.0, base)]
+    T = setting.teams
+    o = order
+    if setting.league_rostered is not None and setting.bench_level == "market":
+        o = _market_order(order, setting.league_rostered, setting.league_reserve)
+    soft_bench = setting.league_rostered is None and flex_bench_seats
+    mix = _FS.allocation_mix(
+        teams=T, dedicated={p: base[p]["dedicated"] for p in POSITIONS},
+        superflex={p: base[p]["superflex"] for p in POSITIONS},
+        flex_eligible=tuple(setting.flex_eligible), flex_seats=T * setting.flex,
+        bench_seats=T * setting.bench_per_team, order=o, score=scores, sigma=sigma,
+        bench_discount=_vorp_bench_discount, positions=POSITIONS, soft_bench=soft_bench)
+    out = []
+    for w, a in mix:
+        fx = {p: a[p]["flex"] for p in POSITIONS}
+        b = {p: a[p]["bench"] for p in POSITIONS} if soft_bench else None
+        out.append((w, allocate(setting, order, scores, flex_bench_seats=flex_bench_seats,
+                                flex_counts=fx, bench_counts=b)))
+    return out
+
+
+# Counts and indexes: a blend of vertex runs keeps the heaviest vertex's.
+BLEND_HELD = frozenset({
+    "dedicated", "superflex", "flex", "bench", "starters", "rostered", "modeled_starters",
+    "replacement", "held", "reserve", "listed", "rank", "players", "band", "shared_players",
+    "count", "prior_count", "setting",
+})
+
+
+def _is_num(v) -> bool:
+    return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+def blend(parts: list, key=None):
+    """Weight-average [(weight, value)] over the vertex runs: dicts key by
+    key over the runs holding the key, numbers over the runs where they are
+    a number (weights renormalized; the one value when they all agree; None
+    when none is), everything else and
+    the BLEND_HELD counts from the heaviest run (the first on a tie)."""
+    heavy = max(parts, key=lambda x: x[0])[1]
+    if key in BLEND_HELD:
+        return heavy
+    dicts = [(w, v) for w, v in parts if isinstance(v, dict)]
+    if dicts and all(isinstance(v, dict) or v is None for _, v in parts):
+        # A None beside dicts counts as no entry.
+        keys = list(dict.fromkeys(k for _, v in dicts for k in v))
+        return {k: blend([(w, v[k]) for w, v in dicts if k in v], k) for k in keys}
+    nums = [(w, v) for w, v in parts if _is_num(v)]
+    if nums and all(_is_num(v) or v is None for _, v in parts):
+        if all(v == nums[0][1] for _, v in nums):
+            return nums[0][1]
+        return sum(w * float(v) for w, v in nums) / sum(w for w, _ in nums)
+    return heavy
 
 
 # ---------------------------------------------------------------- VP-2.4 fill-in
@@ -886,8 +975,13 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
              selection: list | None = None, names: dict | None = None,
              lineup: dict | None = None, hidden: list | None = None,
              promotion_model: bool = True, flex_bench_seats: bool = True,
-             basis: dict | None = None) -> dict:
+             basis: dict | None = None, allocation: dict | None = None,
+             seat_sigma: float | None = None) -> dict:
     """VP-2 .. VP-7 for one week.
+
+    allocation (JEG-1335): one vertex of allocation_mix to run at. None =
+    build the mix at seat_sigma (None = SEAT_SIGMA); a mix of more than one
+    vertex runs each and blends the runs (blend), one vertex runs as before.
 
     basis: JEG-1044, the reader's value basis ({"mode": "single"|"blend", ...});
            None or mode "default" = equal-weight projections. It changes only
@@ -916,7 +1010,15 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
     degenerate = not proj_in
     if not degenerate:
         p_order = score_order(m, pos_of)
-        alloc = allocate(setting, p_order, m, flex_bench_seats=flex_bench_seats)
+        if allocation is None:
+            mix = allocation_mix(setting, p_order, m, flex_bench_seats=flex_bench_seats, sigma=seat_sigma)
+            if len(mix) > 1:
+                runs = [run_week(setting, pos_of, sources, included, selection, names, lineup, hidden,
+                                 promotion_model, flex_bench_seats, basis, allocation=a)
+                        for _, a in mix]
+                return _blend_weeks(mix, runs, m, pos_of)
+            allocation = mix[0][1]
+        alloc = allocation
         fill_sets = {p: p_order[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     else:   # VP-2.2 f (SA-3)
         alloc, fill_sets, p_order = None, None, None
@@ -1041,26 +1143,10 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                              flex_bench_seats=flex_bench_seats)
     else:
         slot_fill = alloc
-    for p in POSITIONS:
-        ranked = [k for k in row_keys if pos_of[k] == p and rows[k]["ddf_blended"]["value"] is not None]
-        ranked.sort(key=lambda k: (-rows[k]["ddf_blended"]["value"],
-                                   0 if k in m else 1, -m.get(k, 0.0), k))
-        for rank, k in enumerate(ranked, start=1):
-            v = rows[k]["ddf_blended"]["value"]
-            if v == 0:
-                t = "waiver"
-            elif rank <= slot_fill[p]["starters"]:
-                t = "starter"
-            elif rank <= slot_fill[p]["rostered"]:
-                t = "bench"
-            else:
-                t = "waiver"
-            rows[k]["ddf_tier"] = t
+    assign_tiers(rows, pos_of, slot_fill, m)
     for k in row_keys:
-        rows[k].setdefault("ddf_tier", None)
         rows[k].setdefault("indexed", {})
-    ranking = sorted(row_keys, key=lambda k: (rows[k]["ddf_blended"]["value"] is None,
-                                              -(rows[k]["ddf_blended"]["value"] or 0.0), k))
+    ranking = default_ranking(rows)
     budgets = {g: pie * W[g] for g in GROUP_KEYS}
     # ES-14 readout (SA-ES-5): bench tier = ranks S_p+1..N_p of the
     # projected-points order; value = blended DDF Value over I, no selection.
@@ -1117,6 +1203,59 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
         "default_ranking": ranking,
         "rows": rows,
     }
+
+
+def assign_tiers(rows: dict, pos_of: dict, slot_fill: dict, m: dict) -> None:
+    """VP-7.3: each row's ddf_tier from its rank on the blended DDF Value."""
+    for p in POSITIONS:
+        ranked = [k for k in sorted(rows) if pos_of[k] == p and rows[k]["ddf_blended"]["value"] is not None]
+        ranked.sort(key=lambda k: (-rows[k]["ddf_blended"]["value"],
+                                   0 if k in m else 1, -m.get(k, 0.0), k))
+        for rank, k in enumerate(ranked, start=1):
+            v = rows[k]["ddf_blended"]["value"]
+            if v == 0:
+                t = "waiver"
+            elif rank <= slot_fill[p]["starters"]:
+                t = "starter"
+            elif rank <= slot_fill[p]["rostered"]:
+                t = "bench"
+            else:
+                t = "waiver"
+            rows[k]["ddf_tier"] = t
+    for k in rows:
+        rows[k].setdefault("ddf_tier", None)
+
+
+def default_ranking(rows: dict) -> list:
+    return sorted(rows, key=lambda k: (rows[k]["ddf_blended"]["value"] is None,
+                                       -(rows[k]["ddf_blended"]["value"] or 0.0), k))
+
+
+def _blend_weeks(mix: list, runs: list, m: dict, pos_of: dict) -> dict:
+    """JEG-1335: one week's result from the runs at each vertex of the mix.
+    Values are the weight-average (blend); the allocation, slot fill and
+    fill sets are the heaviest vertex's, and the tiers and ranking are
+    recomputed on the blended values."""
+    out = blend([(w, r) for (w, _), r in zip(mix, runs)])
+    heavy = max(range(len(mix)), key=lambda j: mix[j][0])
+    alloc = mix[heavy][1]
+    rows = out["rows"]
+    for r in rows.values():
+        r.pop("ddf_tier", None)
+    assign_tiers(rows, pos_of, alloc, m)
+    out["allocation"] = alloc
+    # The blended imputation ratios are the union over the vertices, so a
+    # position is extended when any vertex estimated a player there.
+    for src in (out.get("sources") or {}).values():
+        for info in (src.get("positions") or {}).values():
+            if isinstance(info, dict) and "extended" in info:
+                info["extended"] = bool(info.get("imputation_ratios"))
+    out["slot_fill_mean_ppg"] = alloc
+    out["fill_sets"] = runs[heavy]["fill_sets"]
+    out["allocation_mix"] = [{"weight": w, "allocation": a} for w, a in mix]
+    out["allocation_expected"] = _FS.expected_counts(mix, POSITIONS)
+    out["default_ranking"] = default_ranking(rows)
+    return out
 
 
 # ---------------------------------------------------------------- VP-8

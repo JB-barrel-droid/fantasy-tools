@@ -206,6 +206,25 @@ def waiver_band_line(values: list[float], rostered: int,
     return sum(window) / len(window)
 
 
+def vorp_bench_discount(starters: dict[str, int], teams: int):
+    """The usage discount of the k-th bench candidate at a position (JEG-1121):
+    c_p^(1 + floor(k / t1_p)), with c_p = starters_per_team × (bye_rate +
+    miss_rate) and t1_p = round(2 × c_p × teams). Returns disc(pos, k).
+
+    The one definition, used by vorp_bench_allocate and by the fractional
+    bench seats (JEG-1335, pipelines/lib/fractional_seats.py).
+    """
+    spt = {pos: starters.get(pos, 0) / teams for pos in POSITIONS}
+    c = {pos: spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12)) for pos in POSITIONS}
+    # t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
+    t1 = {pos: max(1, round(2.0 * c[pos] * float(teams))) for pos in POSITIONS}
+
+    def _discount(pos: str, k: int) -> float:
+        return c[pos] ** (1 + k // t1[pos])
+
+    return _discount
+
+
 def vorp_bench_allocate(
     starters: dict[str, int],
     remaining: dict[str, list],
@@ -231,17 +250,7 @@ def vorp_bench_allocate(
     starters[pos]: league-wide starter count (dedicated + sf + flex).
     remaining[pos]: non-starter candidates sorted best-first (by PPG).
     """
-    spt = {pos: starters.get(pos, 0) / teams for pos in POSITIONS}
-
-    # t1[pos] = round(2 × coverage_rate × teams): tier-1 boundary.
-    t1: dict[str, int] = {}
-    for pos in POSITIONS:
-        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
-        t1[pos] = max(1, round(2.0 * c * float(teams)))
-
-    def _discount(pos: str, k: int) -> float:
-        c = spt[pos] * (_BYE_RATE + _BENCH_MISS_RATE.get(pos, 0.12))
-        return c ** (1 + k // t1[pos])
+    _discount = vorp_bench_discount(starters, teams)
 
     counts: dict[str, int] = {pos: 0 for pos in POSITIONS}
     for _ in range(max(0, int(total_bench))):

@@ -166,7 +166,7 @@ def _run_python(doc: dict) -> dict:
     s = doc["setting"]
     league = vr.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
                        bench=s["bench_per_team"], bench_share=s["bench_share"],
-                       flex_eligible=tuple(s["flex_eligible"]))
+                       flex_eligible=tuple(s["flex_eligible"]), seat_sigma=s.get("seat_sigma"))
     sources = {k: vr.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()})
                for k, v in doc["inputs"].items()}
     pos_of = {int(i): p["pos"] for i, p in doc["players"].items()}
@@ -338,24 +338,46 @@ class OnePlayerPerturbationTest(unittest.TestCase):
     def _run(self, scoring, teams, src, pos, replay=None):
         """Adjusted values at `pos` in `src`, and every allocation the run
         made. With `replay`, each allocation call returns the recorded one
-        instead (slots and bench seats held)."""
-        orig = vr.allocate
+        instead (slots and bench seats held). JEG-1335: a run makes its
+        allocations through allocation_mix (the fractional-seat mix), so the
+        mix is recorded and replayed whole, weights included; allocate calls
+        made inside it are not recorded on their own."""
+        orig_alloc, orig_mix = vr.allocate, vr.allocation_mix
         made = []
         it = iter(replay) if replay is not None else None
+        depth = [0]
 
-        def allocate(*args, **kwargs):
-            out = copy.deepcopy(next(it)) if it is not None else orig(*args, **kwargs)
-            made.append(copy.deepcopy(out))
+        def call(kind, orig, args, kwargs):
+            if depth[0]:
+                return orig(*args, **kwargs)
+            if it is not None:
+                got_kind, out = next(it)
+                self.assertEqual(got_kind, kind, "allocation calls changed between runs")
+                out = copy.deepcopy(out)
+            else:
+                depth[0] += 1
+                try:
+                    out = orig(*args, **kwargs)
+                finally:
+                    depth[0] -= 1
+            made.append((kind, copy.deepcopy(out)))
             return out
 
-        vr.allocate = allocate
+        vr.allocate = lambda *a, **k: call("allocate", orig_alloc, a, k)
+        vr.allocation_mix = lambda *a, **k: call("mix", orig_mix, a, k)
         try:
             rows = vr.Setting(self.inp, scoring, teams).result()["rows"]
         finally:
-            vr.allocate = orig
+            vr.allocate, vr.allocation_mix = orig_alloc, orig_mix
         if replay is not None:
             self.assertEqual(len(made), len(replay), "allocation calls changed between runs")
         return {i: (r.get("adjusted") or {}).get(src) for i, r in rows.items() if r["pos"] == pos}, made
+
+    @staticmethod
+    def _slots(made):
+        """The whole allocations a run used, without the mix weights: a
+        perturbation that only reweights the mix has not flipped a slot."""
+        return [[a for _w, a in out] if kind == "mix" else out for kind, out in made]
 
     def _worst(self, scoring, teams, src, pos, key, delta, hold_slots=True):
         """(worst move of another player, whether the free allocation changed)."""
@@ -370,7 +392,7 @@ class OnePlayerPerturbationTest(unittest.TestCase):
             rec[scoring] = old
         moves = [abs(new[i] - b) for i, b in base.items()
                  if i != key and b is not None and new.get(i) is not None]
-        return max(moves, default=0.0), new_alloc != base_alloc
+        return max(moves, default=0.0), self._slots(new_alloc) != self._slots(base_alloc)
 
     def test_fringe_player_moves_no_one_more_than_tolerance(self):
         cases = self._cases()

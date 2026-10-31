@@ -73,7 +73,8 @@ def run(fx: dict, override: float | None):
     s = {**fx["setting"], **SETTING_CHANGE}
     league = ref.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
                         bench=s["bench_per_team"], bench_share=s["bench_share"],
-                        flex_eligible=tuple(s["flex_eligible"]), bench_share_override=override)
+                        flex_eligible=tuple(s["flex_eligible"]), seat_sigma=s.get("seat_sigma"),
+                        bench_share_override=override)
     sources = {k: ref.SourceInput(k, v["family"], {int(i): float(x) for i, x in v["values"].items()})
                for k, v in fx["inputs"].items()}
     pos_of = {int(i): p["pos"] for i, p in fx["players"].items()}

@@ -139,6 +139,10 @@ test-unit-modules:
 	python3 -m unittest tests.test_ddf_state
 	# JEG-1334: fractional flex and bench seats helper (option B, JEG-1286).
 	python3 -m unittest tests.test_fractional_seats
+	# JEG-1335: the engine's copy of the seat functions, and the worked example's
+	# fractional-seat variant in the reference, the spec reference and the engine.
+	python3 -m unittest tests.test_fractional_seats_engine
+	python3 -m unittest tests.test_fractional_seats_worked_example
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory
@@ -644,6 +648,8 @@ test-core:
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	# JEG-1152: engine promotion model part-for-part with the reference.
 	python3 -m unittest tests.test_promotion_model_parity
 	python3 -m unittest tests.test_static_export
@@ -816,6 +822,8 @@ test-core-shard-1:
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
