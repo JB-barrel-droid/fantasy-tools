@@ -85,7 +85,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
-| [cutover-runbook.md](cutover-runbook.md) | Proposal | JEG-1445 | 2026-10-31 | PSpice full coordinator takeover checklist, installed Mac bridge/digest entry, recovery state, pending merge owner and Claude/Duet gap inventory; dry run pending review. |
+| [cutover-runbook.md](cutover-runbook.md) | Proposal | JEG-1445 | 2026-10-31 | PSpice/Muse full coordinator takeover checklist, installed Mac bridge/digest entry, recovery state, decision 11 merge gate and Claude/Duet gap inventory; dry run pending review. |
 | [picks-log.md](picks-log.md) | Record | - | - | Copy of the Claude lanes' picks log (choices made for Jeremy, each reversible; nothing merges on a pick alone). Source of truth is his main-chat log until lanes write here. |
 | [review-context.md](review-context.md) | Maintained | JEG-1211 | 2026-10-29 | Selective PR reading, concise briefs, and keeping review evidence without memo streams. |
 | [preview-deploys.md](preview-deploys.md) | Maintained | unknown | unknown | Preview deploy design and phase 1 status. |

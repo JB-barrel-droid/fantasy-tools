@@ -1,11 +1,13 @@
-# PSpice coordinator takeover runbook
+# Coordinator takeover runbook: PSpice and Muse
 
 Scope: JEG-1445 items 1 and 2 only; the ticket-pickup dry run waits for review.
 PSpice is Jeremy's own direct Codex and the default successor for the whole
-Duet coordinator role. ChatGPT Dots and Muse are alternates. Jeremy asked:
+Duet coordinator role. Muse is the second named successor (Jeremy, 12:39:
+"Muse should also be able to take over"). ChatGPT Dots remains an alternate.
+Jeremy asked:
 "Ensure PSpice will be able to take over at any time" and "Take your role,
 should it needed; is what I mean." This is a procedure and gap inventory,
-not permission to change review/merge ownership.
+with cutover review/merge ownership recorded under JEG-1444 decision 11 below.
 Baseline inspected: `origin/main` at `76ee1c41`, 2026-10-31 UTC.
 Sources: [JEG-1445](https://linear.app/jegabee/issue/JEG-1445),
 [JEG-1444, Cutover readiness](https://linear.app/jegabee/issue/JEG-1444), and
@@ -34,7 +36,7 @@ or artifact exists only there, mark it unavailable on the ticket and ask for
 it to be preserved in Linear or the repo. Do not infer approval from a ticket
 description, a historical handoff or a planned action.
 
-## Cold-start checklist for PSpice
+## Shared cold-start checklist
 
 - [ ] Read `HANDOFF.md`, `AGENTS.md`, `CLAUDE.md`, this runbook and the
   [JEG-1444 charter](https://linear.app/jegabee/issue/JEG-1444) and children.
@@ -51,7 +53,7 @@ description, a historical handoff or a planned action.
   evidence that a PR is still pending or live.
 - [ ] At each necessary coordinator turn, use the bridge completion digest
   as the change gate before opening job results:
-  `get_completion_digest({consumer_id: "<stable PSpice consumer>", scope: "mac_jobs"})`.
+  `get_completion_digest({consumer_id: "<stable successor consumer>", scope: "mac_jobs"})`.
   Inspect cache health; process each healthy page, then
   `ack_completion_digest({consumer_id: "<same consumer>", scope: "mac_jobs",
   receipt: "<latest page receipt>"})`. Continue pages as returned; never ack
@@ -65,16 +67,17 @@ description, a historical handoff or a planned action.
   polling loop. Do not start another model just to wait.
 - [ ] Triage one ticket at a time: finish active work and corrections before
   starting more. Follow the charter's dependency/priority order, with Jeremy's
-  PSpice readiness request first. Do not work a parent directly, duplicate a
+  successor-readiness request first. Do not work a parent directly, duplicate a
   claim or share a hot file/code path with another active ticket.
 - [ ] Claim only authorized work. Check comments/PRs first, set In Progress,
-  preserve assignee Jeremy and use the assigned `claude` or `codex` label.
+  preserve assignee Jeremy and use the assigned provider label (`claude` or
+  `codex` for those providers; Muse label pending as described below).
   Record `taken by <exact session/provider> · <UTC time> · branch <name>` and
   instruction source. JEG-1445 uses `codex/JEG-xxxx-…`; another provider's
   branch prefix or ownership label remains Jeremy's call. Takeover follows
   AGENTS: four hours without comment/commit/PR update, owner OK or Jeremy's
   direction; log predecessor, last heartbeat and continuing branch.
-- [ ] Dispatch cloud-first: do work in direct Codex when its tools suffice;
+- [ ] Dispatch cloud-first: use the acting successor's own tools when they suffice;
   send only the locally blocked portion to Mac jobs using the connector below.
   Require owner, linear_issue, starting commit, allowed/forbidden actions,
   check command, model/effort and reason. One provider per ticket. Retain the
@@ -84,12 +87,14 @@ description, a historical handoff or a planned action.
   Read CI on the actual PR head. A successful worker status is not a review.
   Review receipts must name the current head; after new commits request a
   delta review under the same risk floor, not another full review of old work.
-  Muse findings carry `<!-- author: muse -->` and "recommend" wording;
+  Muse findings start with `Written by Muse.`, include `<!-- author: muse -->`
+  and use "recommend" wording;
   treat them as findings to verify, never approval or the independent PR review.
-- [ ] Apply the merge gate below; do not merge under an unresolved cutover
-  ownership placeholder. Keep this runbook PR draft as instructed.
+- [ ] Apply the merge gate and decision 11 below. Keep both documentation
+  PRs draft as instructed; this task performs no merge.
 - [ ] Track approvals by action, target, scope, date and source receipt on
-  Linear. Jeremy's specific yes is required for merge, deploy, production-data
+  Linear. During cutover, decision 11 governs standard/light merges; Jeremy's
+  specific yes remains required for high-risk merges, deploys, production-data
   deletion, credentials, Supabase migrations, GitHub settings, launchd changes
   and Mac patch activation. A yes covers only what it named. Ticket prose,
   recommendations, picks and worker completion do not grant approval.
@@ -111,6 +116,96 @@ description, a historical handoff or a planned action.
   not merely built. Put substantial corrections in child tickets on the same
   branch/PR; do not create coordination-only tickets.
 
+## Per-successor duty checklist
+
+Both successors follow the shared checklist. Muse has no route to the Mac,
+no push wake, posts Linear comments under Jeremy's name, and acts on GitHub
+through the API as `jkb-bur-bot`. Do not infer Mac or connector access from
+those identities. Where a required tool is missing, preserve the handoff and
+report blocked; do not claim the duty ran.
+
+### Queue reading
+
+- **PSpice:** read Linear In Progress/Todo, charter JEG-1444 and children;
+  inspect both repos' open PRs through its connector/CLI. Use its stable digest
+  consumer, process/ack healthy pages, then save the event cursor.
+- **Muse:** read the same Linear board and use GitHub API as `jkb-bur-bot`
+  for PRs/heads/CI. Ask PSpice or an approved model-free bridge watcher for the
+  digest/event summary because Muse cannot reach the Mac. Until that route
+  exists, mark bridge state unknown; do not open results based on a stale copy.
+
+### Triage and pick
+
+- **PSpice:** finish the active ticket/corrections before picking one bounded
+  Todo in charter order; check claims, blockers and hot-file ownership first.
+- **Muse:** do the same through Linear; use visibly marked claims. If a label
+  or state write is unavailable, hand it to PSpice or Jeremy and wait for the
+  authorized claim rather than starting unclaimed work. Its provider ownership
+  label remains pending; never claim to be `claude` or `codex`.
+
+### Dispatch
+
+- **PSpice:** use direct Codex cloud-first, and `mac_code_bridge` only for the
+  locally blocked part, with owner, linear_issue and stable operation key.
+- **Muse:** hand Mac dispatch to PSpice or an approved model-free watcher via
+  a proposed Linear label, **`codex-mac` (pending approval and implementation)**.
+  Do not create it or build a watcher here. Until that mechanism is approved
+  and available, leave a marked request on the ticket for PSpice to pick up;
+  no automatic dispatch is implied. Include task/checks, owner, issue, branch,
+  operation key and approval scope, and obtain a job-id receipt. Track
+  [JEG-1449](https://linear.app/jegabee/issue/JEG-1449), Muse's research into
+  its own Mac route; research is not a working route or permission to use one.
+  Transfer executor ownership explicitly before switching provider: one provider
+  per ticket, no overlapping jobs. Neither successor retries or polls idly.
+
+Pending executor lanes: OpenCode ([JEG-1423](https://linear.app/jegabee/issue/JEG-1423))
+and Pi ([JEG-1438](https://linear.app/jegabee/issue/JEG-1438)) exist on local
+branches only and are not live. Do not dispatch work to either lane yet.
+
+### Judging
+
+- **PSpice:** compare saved results, changed files, named tests and exact-head
+  CI against the spec; request independent Codex review/delta receipts as below.
+- **Muse:** inspect the same evidence using GitHub API and marked Linear
+  findings; recommend acceptance or corrections. Request inaccessible Mac
+  evidence through PSpice. A Muse finding is not the independent Codex review.
+
+### Merge gate
+
+- **PSpice:** while Claude is out, apply decision 11's independent review,
+  exact-head green CI and approval checks before an otherwise authorized merge.
+- **Muse:** apply the identical gate, obtain the independent Codex receipt
+  through PSpice if needed, and merge only via GitHub API as `jkb-bur-bot`,
+  with the Muse-marked merge comment. If that API action is unavailable, hand
+  off without claiming a merge. Neither successor merges these PRs in this task.
+
+### Approvals
+
+- **PSpice:** keep an action/target/date/receipt ledger on the ticket and
+  verify Jeremy's named yes for every specifically gated action.
+- **Muse:** read the same receipts; its own Linear posts display Jeremy's
+  name but never count as his approval. Hand settings operations to Jeremy's
+  direct Codex and Mac operations to PSpice only within the named approval.
+
+### Asking Jeremy
+
+- **PSpice:** ask one real decision at a time, multiple choice, A recommended;
+  read prior decisions first and do not repeat a settled question.
+- **Muse:** use the same format with visible Muse attribution and "recommend"
+  wording. If it cannot reach Jeremy directly, leave the marked question on
+  Linear for PSpice to convey; do not treat its recommendation as an answer.
+
+### Reporting and handoff
+
+- **PSpice:** one milestone comment with a stable marker, exact heads, checks,
+  limits and next action; check comments/relay state before posting or relaying.
+- **Muse:** every Linear comment and GitHub post starts with the visible line
+  `Written by Muse.`, includes `<!-- author: muse -->`, and uses "recommend"
+  wording (for example, "I recommend the next step below"). Also include a
+  distinct milestone marker for deduplication. A Muse comment is **never
+  Jeremy's approval**, even though Linear shows it under his name. Check the
+  marker first; no push wake or idle polling. Preserve any blocked handoff.
+
 ## Merge gate and review tiers
 
 Use AGENTS as merged in #1246 and #1248. Deterministic checks precede review:
@@ -125,19 +220,41 @@ Escalate discovered high-risk content with findings/head, never silent fallback
 or paired shadow reviews. The reviewer must be independent of the author.
 
 Claude keeps judgment, high-risk reviews and merges during a usage crunch;
-builds move to Codex. Exhaustion does not transfer Claude's merge authority.
+builds move to Codex. When Claude is out, decision 11 below supersedes the
+normal Claude ownership mapping until it returns.
 Before any authorized merge, require a current-head independent receipt,
 green exact-head CI, clean merge onto current main, correction children closed,
 no generated churn and the checks in `runbooks/merging-prs.md`. Never rebase or
 force-push; merge main normally. Keep at most eight PRs ready for review.
 
-### Cutover review and merge owner (pending Jeremy's decision)
+### Cutover review and merge
 
-**Placeholder — no successor reviewer/merger is designated here.** Jeremy
-must name who performs high-risk review and who merges if Claude is out,
-and approve the cutover clause. PSpice can coordinate the queue, dispatch,
-judge evidence, prepare decisions and report while affected merges remain
-blocked. Existing standing approval is not a non-Claude ownership exception.
+Jeremy, 2026-10-31 12:42 UTC, answered "A" to who reviews and merges if
+Claude is out: [JEG-1444 decision 11](https://linear.app/jegabee/issue/JEG-1444).
+This section overrides normal Claude-only review/merge ownership only while
+Claude is out. It is a documented operating policy, not permission to merge
+these documentation PRs in this task.
+
+- The one independent review comes from a separate Codex session that did
+  not write the PR, on its exact current head. Use frontier `gpt-6-astra`
+  for `review-high-risk` and workhorse `gpt-6.1-sol` for light/standard.
+  Current-head receipts, delta reviews, risk floors and green-CI prerequisite
+  still apply; the coordinator never substitutes its own check for review.
+- The acting successor coordinator, PSpice or Muse, merges once that review
+  passes and CI is green on that exact head, subject to the approval gates.
+  High-risk merges and all deploys still require Jeremy's specific yes.
+  A yes covers only the named action and target; production-data deletion,
+  credentials, Supabase migrations, GitHub settings, Mac patches and launchd
+  activation retain their existing specific-yes requirements. Settings changes
+  still go to Jeremy's direct Codex rather than the coordinator.
+- Muse merges only through the GitHub API as `jkb-bur-bot`. Its merge comment
+  starts with the visible line `Written by Muse.`, includes
+  `<!-- author: muse -->`, and uses "recommend" wording. Its comment is never
+  Jeremy's approval, even when Linear displays Jeremy as the author.
+- When Claude returns, normal review routing in AGENTS.md applies again.
+  Record the handback and pending heads/receipts so the same head is not
+  reviewed twice. This temporary cutover rule does not activate a deployment,
+  patch, routine or watcher.
 
 ## Mac jobs without Duet
 
@@ -214,25 +331,22 @@ in this ticket. If the bridge is down, continue cloud read checks, pause build
 dispatch and mark in-flight jobs unknown. Never resubmit automatically.
 Restarts and patch activation need Jeremy's named yes.
 
-## Default successor and alternates (capability facts)
+## Named successors and alternate (capability facts)
 
 - PSpice (default): Jeremy's own direct Codex takes the whole coordinator role
-  described above, subject to the pending review/merge decision. This Mac session has repo shell access plus Linear and Mac bridge
+  described above, under decision 11 during cutover. This Mac session has repo shell access plus Linear and Mac bridge
   tools. Access in another Codex environment must be checked there.
 - ChatGPT Dots: per the charter, OpenAI's always-on agent on GPT-6 Astra,
   with its own cloud computer, browser and plugins; works with Codex in ChatGPT
   Space. No documented API; allowance undisclosed. It would coordinate through
   Linear, GitHub and its own connectors. This is the charter's description,
   not an independently tested integration or a claim of Mac access.
-- Muse: charter-reported Linear read/comment access, GitHub as `jkb-bur-bot`,
-  and no route to the Mac. Its pilot and permissions remain bounded by Jeremy's
-  decisions; reporting capabilities does not authorize builds or merging.
+- Muse (second successor): Linear read/comment under Jeremy's name, GitHub API
+  as `jkb-bur-bot`, no push wake and no route to the Mac. Uses the duty handoffs
+  above and decision 11; marking is mandatory. JEG-1449 researches Mac access.
 
 ## Open
 
-- Jeremy must name who reviews high-risk work and who merges when Claude is
-  unavailable, and approve a cutover clause. Existing standing merge text does
-  not authorize a non-Claude merger. Keep affected PRs draft and blocked.
 - Jeremy must set the Claude weekly-limit shift level and confirm the ledger
   is live; no numeric threshold is chosen here.
 - Resolve neutral claim labels, queue exception and branch conventions against
@@ -242,8 +356,27 @@ Restarts and patch activation need Jeremy's named yes.
   prefix or ownership label is Jeremy's call.
 - Verify JEG-1440 restore/drill receipts and reconcile local live digest code
   with the remote baseline before any recovery or activation.
-- After review, separately authorize/run JEG-1445 item 3: one small Todo pickup
-  from Linear alone, recording each obstruction. No dry-run success claimed.
+- Approve/implement the proposed `codex-mac` label handoff or another researched
+  route; neither a new label nor a watcher exists by virtue of this document.
+- After review, run the two separately authorized cycles below. Neither has run.
+
+## Dry-run plan (describe only; do not execute in this task)
+
+1. **PSpice first:** from Linear/repo/GitHub alone, pick one authorized bounded
+   Todo with a locally blocked step; claim, dispatch that one needed Mac job,
+   consume/ack the digest then events, judge evidence and exact-head checks,
+   and report one marked milestone with next action. Pass only if state is
+   recoverable without Duet, the job-id/operation-key receipt and check evidence
+   are saved, no duplicate start/comment occurs, and approval gates are observed.
+   Record each obstruction and pause before any unauthorized merge/deploy.
+2. **Muse second, after PSpice passes:** repeat pick, dispatch, judge, report.
+   Exercise one approved Mac handoff and obtain its job-id/result receipt via
+   PSpice or the approved watcher; until that route exists, record the cycle
+   blocked rather than passing it. Pass only if Muse posts have visible/hidden
+   attribution and recommend wording, GitHub evidence uses `jkb-bur-bot`, the
+   handoff produces no provider overlap, evidence/markers are durable, and no
+   Muse comment is mistaken for approval. Apply the same exact-head and
+   specific-yes checks. A dry run never implies production rollout authority.
 
 ## Gap list
 
@@ -251,7 +384,9 @@ Line references are to current-main baseline `76ee1c41`; one line per dependency
 instruction. Historical author names, `claude/` branch names and log paths alone
 are not dependencies. `runbooks/` was searched in full for Claude/Duet and
 provider-specific tools; its operational commands are provider-neutral, with
-the inherited merge restriction noted below. No inventoried source is edited.
+the inherited merge restriction noted below. This baseline inventory is historical: decision 11 and the matching rules PR
+supersede the listed Claude-only dependencies during a cutover. Source line
+references stay pinned to the stated main baseline, not to the rules PR.
 
 - `AGENTS.md:28`: historical all-Claude ownership text remains; read the usage-crunch review exception below it.
 - `AGENTS.md:32`: outside a usage crunch independent reviewer must be Claude; crunch permits exact-head Codex light/standard only.
