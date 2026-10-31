@@ -5,7 +5,9 @@ red on its own monitored check (consolidated_values_write).
 
 Rebuild run 37641559947 is the broken state: the consolidation step failed,
 the job failed, and the Pages dispatch (implicit success()) was skipped while
-the fixture had already been pushed.
+the fixture had already been pushed. JEG-1441 changes the transport: an App
+push now triggers Pages directly. The regression boundary is therefore the
+publication step, which must still run after a failed consolidation write.
 
 The workflow is stdlib-parsed (no pyyaml in CI). A small evaluator runs the
 job's steps in order the way GitHub does: a step whose `if:` has no status
@@ -26,13 +28,16 @@ import record_monitor_check as rec  # noqa: E402
 WORKFLOW = ROOT / ".github" / "workflows" / "rebuild-chain.yml"
 CONSOLIDATE = "Build consolidation layer (JEG-324)"
 RECORD = "Record consolidated_values check"
-DISPATCH = "Trigger Pages deploy after chain push (JEG-274)"
+PUBLISH = "Commit and push if changed"
 
 
 def parse_steps(text):
     """[{name, id, if, continue_on_error, run}] for the job's steps."""
-    steps_at = text.index("\n    steps:\n")
-    body = text[steps_at:]
+    header = re.search(r"\n    steps:(?:[ \t]+&[A-Za-z0-9_-]+)?[ \t]*\n", text)
+    if header is None:
+        raise ValueError("Main job steps header missing")
+    # Anchors do not change the step sequence. Do not consume later jobs.
+    body = re.split(r"\n  [A-Za-z0-9_-]+:[ \t]*\n", text[header.start():], maxsplit=1)[0]
     chunks = re.split(r"\n      - (?=name:|uses:)", body)[1:]
     out = []
     for c in chunks:
@@ -109,14 +114,14 @@ def guard_problems(text):
     """Every way the workflow breaks the decision; empty = compliant."""
     problems = []
     names = [s["name"] for s in parse_steps(text)]
-    for n in (CONSOLIDATE, RECORD, DISPATCH):
+    for n in (CONSOLIDATE, RECORD, PUBLISH):
         if n not in names:
             problems.append(f"missing step {n!r}")
     if problems:
         return problems
     ran, recorded, _job = simulate(text, FAILED_WRITE)
-    if not ran[DISPATCH]:
-        problems.append("a failed consolidation write skips the Pages dispatch")
+    if not ran[PUBLISH]:
+        problems.append("a failed consolidation write skips publication")
     if not ran[RECORD]:
         problems.append("a failed consolidation write is not recorded")
     else:
@@ -130,9 +135,9 @@ def guard_problems(text):
     record = next(s for s in parse_steps(text) if s["name"] == RECORD)
     if "always()" not in (record["if"] or ""):
         problems.append("the record step must run if: always() (an earlier failure must still be recorded)")
-    dispatch = next(s for s in parse_steps(text) if s["name"] == DISPATCH)
-    if dispatch["if"] and "consolidate" in dispatch["if"]:
-        problems.append("the Pages dispatch depends on the consolidation step")
+    publish = next(s for s in parse_steps(text) if s["name"] == PUBLISH)
+    if publish["if"] and "consolidate" in publish["if"]:
+        problems.append("publication depends on the consolidation step")
     return problems
 
 
@@ -140,13 +145,22 @@ class NonBlockingConsolidationTest(unittest.TestCase):
     def setUp(self):
         self.text = WORKFLOW.read_text(encoding="utf-8")
 
+    def test_anchor_preserves_every_guarded_step(self):
+        anchored = self.text
+        plain = anchored.replace("steps: &writer-steps", "steps:", 1)
+        self.assertNotEqual(anchored, plain)
+        self.assertEqual(parse_steps(anchored), parse_steps(plain))
+        names = [step["name"] for step in parse_steps(anchored)]
+        for name in (CONSOLIDATE, RECORD, PUBLISH):
+            self.assertIn(name, names)
+
     def test_real_workflow_complies(self):
         self.assertEqual(guard_problems(self.text), [])
 
-    def test_failed_write_still_dispatches_pages_and_records_red(self):
+    def test_failed_write_still_publishes_and_records_red(self):
         ran, recorded, _ = simulate(self.text, FAILED_WRITE)
         self.assertTrue(ran[CONSOLIDATE])
-        self.assertTrue(ran[DISPATCH])
+        self.assertTrue(ran[PUBLISH])
         self.assertEqual(recorded, "failure")
         self.assertFalse(rec.build_payload("consolidated_values_write", "rebuild-chain.yml", recorded)["p_ok"])
 
@@ -158,24 +172,24 @@ class NonBlockingConsolidationTest(unittest.TestCase):
 
     def test_run_37641559947_shape_is_caught(self):
         # The live broken state: no continue-on-error on the write, and the
-        # dispatch on its implicit success().
+        # publication on its implicit success().
         broken = self.mutate("        id: consolidate\n        if: steps.chain.outcome == 'success'\n"
                              "        continue-on-error: true\n",
                              "        id: consolidate\n        if: steps.chain.outcome == 'success'\n")
-        broken = broken.replace("if: ${{ !cancelled() && steps.push.outputs.pushed == 'true' }}",
-                                "if: steps.push.outputs.pushed == 'true'", 1)
-        self.assertIn("a failed consolidation write skips the Pages dispatch", guard_problems(broken))
+        broken = broken.replace("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
+                                "        env:\n          MAIN_WRITER_TOKEN:", 1)
+        self.assertIn("a failed consolidation write skips publication", guard_problems(broken))
 
-    def test_either_safeguard_alone_keeps_pages_dispatched(self):
-        # Defence in depth: dropping only one of continue-on-error / !cancelled()
-        # still dispatches Pages.
+    def test_either_safeguard_alone_keeps_publication_running(self):
+        # Defence in depth: dropping only one of continue-on-error / always()
+        # still reaches publication, which triggers Pages through the App push.
         no_coe = self.mutate("        continue-on-error: true\n        env:\n          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n"
                              "          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}\n        run: |\n"
                              "          # Build consolidation rows",
                              "        env:\n          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n"
                              "          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}\n        run: |\n"
                              "          # Build consolidation rows")
-        self.assertTrue(simulate(no_coe, FAILED_WRITE)[0][DISPATCH])
+        self.assertTrue(simulate(no_coe, FAILED_WRITE)[0][PUBLISH])
 
     def test_record_from_job_status_is_caught(self):
         # continue-on-error keeps job.status green: recording it would hide the red.
@@ -193,12 +207,12 @@ class NonBlockingConsolidationTest(unittest.TestCase):
                                 "        id: consolidate\n        if: steps.chain.outcome == 'success'\n", 1)
         self.assertIn("a failed consolidation write is not recorded", guard_problems(broken))
 
-    def test_dispatch_gated_on_the_write_is_caught(self):
-        broken = self.mutate("if: ${{ !cancelled() && steps.push.outputs.pushed == 'true' }}",
-                             "if: ${{ steps.consolidate.outcome == 'success' && steps.push.outputs.pushed == 'true' }}")
+    def test_publication_gated_on_the_write_is_caught(self):
+        broken = self.mutate("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
+                             "        if: ${{ steps.consolidate.outcome == 'success' }}\n        env:\n          MAIN_WRITER_TOKEN:")
         problems = guard_problems(broken)
-        self.assertIn("a failed consolidation write skips the Pages dispatch", problems)
-        self.assertIn("the Pages dispatch depends on the consolidation step", problems)
+        self.assertIn("a failed consolidation write skips publication", problems)
+        self.assertIn("publication depends on the consolidation step", problems)
 
     def test_evaluator_matches_github_implicit_success(self):
         self.assertFalse(evaluate("steps.push.outputs.pushed == 'true'",
