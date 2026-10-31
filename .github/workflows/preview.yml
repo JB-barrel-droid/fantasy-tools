@@ -5,17 +5,33 @@ name: Preview build
 # permissions, no deploy step. Keep the build steps below identical to pages.yml;
 # tests/test_preview_workflow_matches_pages.py fails if they drift.
 #
+# JEG-1170: both workflows split make validate into validate-base plus the exact
+# test-core shards. Here the preview check needs preview-build and every shard;
+# Pages needs its build and every shard before publishing its built artifact.
+#
 # Deliberate differences from pages.yml:
-#   - make validate is blocking here (on a PR it is the only gate);
-#   - the full test suite (make test-unit) also runs here, non-blocking, in its
-#     own job (full-suite) so it cannot turn the preview check red (JEG-978);
-#   - a rendered gate (JEG-47) loads the built dist in headless Chromium and fails on any
-#     uncaught page error or a DDF pie readout that does not sum to 100.0 (JEG-24);
+#   - the full test suite (make test-unit) no longer runs on PRs: it never
+#     finished inside its 45-minute timeout and held a runner, so it moved to
+#     full-suite.yml, nightly plus workflow_dispatch (JEG-1169; JEG-978 before);
+#   - pull requests that change only docs skip this check (JEG-1169);
 #   - checkout uses the PR head SHA, not the default merge ref, so the build tag
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
+    # file is Markdown or under docs/. Tests-only PRs still run it. The docs
+    # the build reads (sync_dashboard_artifacts -> build_values_explainer,
+    # build_llm_surfaces) stay included.
+    paths:
+      - "**"
+      - "!**/*.md"
+      - "!docs/**"
+      - "docs/methodology.md"
+      - "docs/math-review-agenda.md"
+      - "docs/use-ddf-in-claude-chatgpt.md"
+      - "app/llm/**"
   workflow_dispatch:
 
 permissions:
@@ -27,13 +43,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  preview:
+  pr-state:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_expensive: ${{ steps.gate.outputs.run_expensive }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Cheap draft CI guards
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows
+      - name: Check current PR head and draft state
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate gate
+
+  preview-build:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
+    runs-on: ubuntu-latest
+    # JEG-1169: the default is 6 hours. A normal run is ~45 minutes.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -41,13 +83,25 @@ jobs:
       # one they skipped and validate passed with them unrun (until
       # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
       # an error for every later step instead of a silent skip.
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
       - name: Browser for the render tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Validation coverage and workflow guards
+        run: python3 -m unittest tests.test_validate_shards tests.test_preview_workflow_matches_pages tests.test_deploy_gate_unconditional tests.test_ci_speedup_workflows
       - run: make sync
-      - run: make validate
+      # JEG-1170: test-core runs in the preview-shard jobs.
+      - run: make validate-base
       # Monitor signals refreshed on every deploy (warnings, never deploy
       # blocks; Jeremy 2026-10-08). GAP-E2E-FIDELITY: the JEG-77 card's only
       # producer. GAP-031: the ESPN-zeroed staleness signal (exits 1 when it
@@ -77,7 +131,8 @@ jobs:
         id: gate
         run: |
           npm ci --prefix tests/rendered_gate
-          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
+          # JEG-1169: no second Chromium install. playwright-core 1.49.1 uses the
+          # browser the python playwright 1.49.1 step installed (same build, same cache dir).
           # JEG-1152: pin the gate pages' clock to the data's week.
           export TRADE_VALUE_TODAY="$(python3 -c 'from tests.test_week_history import _fixture_today; print(_fixture_today())')"
           echo "TRADE_VALUE_TODAY=$TRADE_VALUE_TODAY"
@@ -112,7 +167,7 @@ jobs:
             const sha = context.payload.pull_request.head.sha;
             const body = [
               marker,
-              `**Preview build** for \`${sha.slice(0, 7)}\` (validate passed)`,
+              `**Preview build** for \`${sha.slice(0, 7)}\` (validate-base passed; test-core shards report in the preview check)`,
               '',
               `- Build tag: \`${process.env.TAG}\``,
               `- dist manifest root: \`${process.env.ROOT}\``,
@@ -137,38 +192,84 @@ jobs:
               await github.rest.issues.createComment({owner, repo, issue_number, body});
             }
 
-  # JEG-978: the full suite runs in its own job so it cannot fail the `preview`
-  # check. As a step in that job, a suite that took the runner down (JEG-979:
-  # a test exhausted memory, "runner lost communication") failed the whole job
-  # even with continue-on-error, after validate and the rendered gate passed.
-  # Steps use multi-line run blocks so the pages.yml parity guard
-  # (tests/test_preview_workflow_matches_pages.py) does not read them as build steps.
-  full-suite:
-    name: Full test suite (informational, non-blocking)
+  # JEG-1170: validate's test-core runs here as test-core-shard-N, one matrix job per shard,
+  # in parallel with preview-build (which runs validate-base: validate minus test-core).
+  # Together they are exactly `make validate` (tests/test_validate_shards.py,
+  # tests/test_preview_workflow_matches_pages.py). Each shard builds its own dist first,
+  # as `make validate` does (reference, then sync).
+  preview-shard:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
     runs-on: ubuntu-latest
-    continue-on-error: true
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      # Same setup the suite had as the preview job's last step: the render
-      # tests required, and playwright-core for the JEG-103/JEG-135 harness tests.
+      # The headless render tests in `make validate` need a browser. Without
+      # one they skipped and validate passed with them unrun (until
+      # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
+      # an error for every later step instead of a silent skip.
+      # JEG-1169: cache the Chromium download. The key carries the Playwright
+      # version pinned below and in tests/rendered_gate/package.json (both
+      # 1.49.1 share one browser build), so a version bump misses the cache and
+      # downloads the matching build. --with-deps still installs the OS packages.
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
       - name: Browser for the render tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
-          npm ci --prefix tests/rendered_gate
-          npx --prefix tests/rendered_gate playwright-core install --with-deps chromium
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
-      - name: Build
+      - run: make reference
+      - run: make sync
+      - run: make test-core-shard-${{ matrix.shard }}
+
+  # JEG-1170: the required check. Named `preview` so the check name is unchanged; it passes
+  # only when the live PR is ready at the same head and all heavy jobs succeeded.
+  # A draft gets a visibly red required check, never a skipped-success check.
+  # JEG-1292: the PR state read is retried (3 reads over ~30 s). If a ready PR still shows
+  # this check red with "PR state verification failed", use Re-run failed jobs, or push,
+  # or toggle draft and back to ready.
+  preview:
+    # A manual run on a draft branch must not mint the required PR check.
+    name: ${{ github.event_name == 'workflow_dispatch' && 'preview-manual' || 'preview' }}
+    needs: [pr-state, preview-build, preview-shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Full verification completed at the current PR head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_RESULT: ${{ needs.pr-state.result }}
+          RUN_EXPENSIVE: ${{ needs.pr-state.outputs.run_expensive }}
+          BUILD_RESULT: ${{ needs.preview-build.result }}
+          SHARD_RESULT: ${{ needs.preview-shard.result }}
         run: |
-          make sync
-      - name: make test-unit
-        run: |
-          python3 -m pip install --quiet pytest
-          make test-unit
+          echo "state: $STATE_RESULT, build: $BUILD_RESULT, shards: $SHARD_RESULT"
+          if [ "$STATE_RESULT" != "success" ] || [ "$RUN_EXPENSIVE" != "true" ] || \
+             [ "$BUILD_RESULT" != "success" ] || [ "$SHARD_RESULT" != "success" ]; then
+            echo "Full preview verification deferred or incomplete; required preview check cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python3 -m pipelines.ci_pr_gate verify

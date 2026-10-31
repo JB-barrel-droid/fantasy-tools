@@ -500,6 +500,7 @@ def check_tabs(browser, base, overrides, errors):
 def check_phone(browser, base, overrides, errors):
     for width in (390, 320):
         page = _open(browser, base, "#find-trade", width=width, height=780, overrides=overrides, errors=errors, tag=f"[{width}px] ")
+        _render_env.open_phone_context(page)  # JEG-1134: on a phone the context row opens first
         page.click("#v2EditLeague")
         page.click('#v2Popover details.v2-padv summary')
         page.click('#v2Popover [aria-label="Teams"] button[data-value="10"]')

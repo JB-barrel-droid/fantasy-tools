@@ -86,6 +86,13 @@
 
 .v2-ov-bar { display: inline-flex; align-items: center; gap: 8px; }
 .v2-ov-bar[hidden], .v2-ov-banners[hidden] { display: none; }
+.v2-ov-phone-row { display: none; }
+@media (max-width: 767px) {
+  .v2-ov-phone-row:not([hidden]) { display: flex; padding: 4px 16px; background: var(--v2-rank-tint); border-bottom: 1px solid var(--v2-border); }
+  #v2Context[hidden] + .v2-ov-phone-row { display: none; }
+  .v2-ov-phone-row .v2-ov-bar { min-width: 0; }
+  .v2-app .v2-ov-phone-row .v2-ov-badge, .v2-app .v2-ov-phone-row .v2-ov-reset { min-height: 44px; }
+}
 .v2-ov-banner-in { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-block: 6px; margin-inline: auto; }
 .v2-ov-banner { background: var(--v2-rank-tint); }
 .v2-ov-bar .v2-ov-badge { margin-right: 0; white-space: nowrap; max-width: 46ch; overflow: hidden; text-overflow: ellipsis; }

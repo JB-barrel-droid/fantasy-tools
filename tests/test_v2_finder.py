@@ -2,9 +2,11 @@
 
 A trade is listed only when, in the engine's own values:
 
-  * DDF Value says you win (receive - give > 0 as shown, i.e. at least 0.05);
+  * DDF Value says you win: receive - give clears the one even band, max(1, 3% of the average side)
+    (JEG-1125 option A, Jeremy 2026-10-29; before that, > 0 as shown, i.e. at least 0.05);
   * at least min(3, available charts) of the available trade charts say the rival breaks even or wins
-    (chart net <= 0 as shown); only charts the engine marks available are counted (JEG-819);
+    (the chart's net for you is inside that chart's band or below); only charts the engine marks available are
+    counted (JEG-819);
   * a chart that does not price every player in the package is left out of the count, never read as 0;
   * a player with no DDF Value is never searched (not counted as 0);
   * the default is up to 2-for-2; a larger maximum finds larger packages; simpler trades rank first on a tie.
@@ -68,10 +70,19 @@ def check(finder_js: Path) -> list[str]:
     # Every chart says the rival loses: not listed.
     if run(finder_js, mine, [row("t1", 25, 30)])["total"] != 0:
         errors.append("a trade the charts call bad for the rival is listed")
-    # DDF edge zero, under 0.05 or negative: not listed, even though the rival loves it.
-    for ddf in (20, 20.04, 15):
+    # DDF edge zero, inside the even band (under 1 point here) or negative: not listed, even though the rival loves it.
+    for ddf in (20, 20.04, 20.5, 20.99, 15):
         if run(finder_js, mine, [row("t1", ddf, 10)])["total"] != 0:
             errors.append(f"a trade with DDF edge {ddf - 20} is listed")
+    # JEG-1125 option A: an edge just past the band (1 point) is listed.
+    if run(finder_js, mine, [row("t1", 21.01, 10)])["total"] != 1:
+        errors.append("a trade with DDF edge 1.01 (past the band) is not listed")
+    # JEG-1125 option A: a chart that has you up 0.5 (inside its 1-point band) calls it even, so the rival breaks even.
+    if run(finder_js, mine, [row("t1", 25, 20.5)])["total"] != 1:
+        errors.append("charts inside their even band do not count as the rival breaking even")
+    # Past the band (+1.5 for you on every chart) the rival loses: not listed.
+    if run(finder_js, mine, [row("t1", 25, 21.5)])["total"] != 0:
+        errors.append("charts past their even band count as the rival breaking even")
     # 3 of 4 charts accept: listed. 2 of 4: not.
     if run(finder_js, mine, [row("t1", 25, [18, 18, 18, 30])])["total"] != 1:
         errors.append("3 of 4 charts accepting is not enough to list")
@@ -125,11 +136,14 @@ def check(finder_js: Path) -> list[str]:
 
 
 MUTANTS = {
-    "rival test inverted": ("const rivalOk = pointsAsShown(net) <= 0;", "const rivalOk = pointsAsShown(net) >= 0;"),
+    "rival test inverted": ("const rivalOk = pointsPastEven(net, g, r) <= 0;", "const rivalOk = pointsPastEven(net, g, r) >= 0;"),
+    "rival test back on 0.0 as shown": ("const rivalOk = pointsPastEven(net, g, r) <= 0;", "const rivalOk = Math.abs(net) < 0.05 || net < 0;"),
+    "edge back on 0.0 as shown": [("pointsPastEven(edge, give[0], get[0]) > 0", "edge >= 0.05"),
+                                  ("if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0)", "if (mid0 - give.sums[0] >= 0.05)")],
     "2 of 4 is enough": ("const MIN_CHARTS = 3;", "const MIN_CHARTS = 2;"),
     "missing chart read as 0": ("if (!finite(v)) return null; total += v;", "total += finite(v) ? v : 0;"),
     "DDF edge not required": [("if (!judged.passes.edge || !judged.passes.charts) continue;", "if (!judged.passes.charts) continue;"),
-                              ("if (pointsAsShown(theirSubs[mid].sums[0] - give.sums[0]) > 0)", "if (true)")],
+                              ("if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0)", "if (true)")],
     "chartKeys ignored (held chart counted)": ("const chartKeys = (o.chartKeys || CHART_KEYS).slice();", "const chartKeys = CHART_KEYS.slice();"),
     "default size 3": ("Math.max(1, o.maxSize || 2)", "Math.max(1, o.maxSize || 3)"),
     "no simplicity weight": ("const EXTRA_PLAYER_WEIGHT = 0.1;", "const EXTRA_PLAYER_WEIGHT = 0;"),

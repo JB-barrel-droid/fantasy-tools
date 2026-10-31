@@ -20,9 +20,29 @@
   const MAX_TEAMS = 20;
   const SAVE_DELAY_MS = 1000;
   const SHARE_LIMIT = 1800;
+  const FINDER_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const FINDER_LIMITS = ["minDdfEdge", "minUserLineupGain", "minTheirLineupGain"];
 
+  // JEG-1249: each team's roster provenance (what a source showed, apart from local edits) goes through the JEG-1241 helper.
+  const P = root.DDFRosterProvenance || (typeof require === "function" ? require("./roster-provenance-transitions.js") : null);
   const clone = value => JSON.parse(JSON.stringify(value));
   const isObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+  // Finder settings are stored with the league, including in JSON exports. Invalid imports reset to safe defaults.
+  function normalizeFinderSettings(raw) {
+    const value = isObject(raw) ? raw : {};
+    const positions = Array.isArray(value.protectedPositions) ? value.protectedPositions : [];
+    const out = {protectedPositions: FINDER_POSITIONS.filter(pos => positions.includes(pos)), keepMine: value.keepMine !== false,
+      keepTheirs: value.keepTheirs !== false, maxSize: [1, 2, 3, 4].includes(value.maxSize) ? value.maxSize : 2,
+      minBackups: Object.fromEntries(FINDER_POSITIONS.map(pos => [pos, Number.isInteger(value.minBackups && value.minBackups[pos])
+        && value.minBackups[pos] >= 0 && value.minBackups[pos] <= 20 ? value.minBackups[pos] : 0])),
+      minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null};
+    FINDER_LIMITS.forEach(key => {
+      const n = value[key];
+      if (key !== "minDdfEdge" && (n === null || n === undefined || n === "")) return;
+      if (typeof n === "number" && Number.isFinite(n) && n >= 0 && n <= 100 && Math.round(n * 10) === n * 10) out[key] = n;
+    });
+    return out;
+  }
   const cleanName = (name, fallback) => {
     const text = String(name == null ? "" : name).replace(/\s+/g, " ").trim().slice(0, MAX_NAME);
     return text || fallback || "";
@@ -55,16 +75,25 @@
     });
     return out;
   }
+  // JEG-1188 / JEG-1249: provenance = {unresolved (null = unknown), observedAt (a source roster read), editedAt (any local
+  // change), coverage, settled}, from DDFRosterProvenance. The league page prices with the league's own rosters only when
+  // every team's provenance shows a complete, matched, current source observation. A team made without a source
+  // observation (by hand, or from a share link) has none.
+  const plainProvenance = p => ({unresolved: p.unresolved, observedAt: p.observedAt, editedAt: p.editedAt, coverage: p.coverage, settled: p.settled.slice()});
+  const provenanceOf = raw => plainProvenance(P.normalize(raw));
   function newTeam(name, opts) {
     const o = opts || {};
     const now = o.now || Date.now();
-    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now};
+    return {id: o.id || newId("team"), name: cleanName(name, "Team"), sourceText: "", sourceTeam: null, removed: [], entries: cleanEntries(o.entries), createdAt: now, updatedAt: now,
+      provenance: provenanceOf(o.provenance || {unresolved: 0, editedAt: now})};
   }
   function newWorkspace(opts) {
     const o = opts || {};
     const now = o.now || Date.now();
     return {id: o.id || newId("league"), name: cleanName(o.name, "My league"), settings: null, teams: [], myTeamId: null, createdAt: now, updatedAt: now,
-      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2}};
+      // leagueRosters (JEG-1249): use the league's own rosters for the bench once they qualify; false = the reader switched it off.
+      ui: {sort: {summary: null, opps: null}, rankBasis: "fund", hideForce: false, leagueRosters: true, filters: {fit: "all", opponent: "all", minCapture: 0, minCharts: 0}, maxSize: 2,
+        finderSettings: normalizeFinderSettings(null)}};
   }
   // Fills anything missing so a workspace saved by an older build still loads.
   function normalizeWorkspace(raw) {
@@ -79,12 +108,14 @@
       ids.add(id);
       teams.push({id, name: cleanName(t.name, `Team ${teams.length + 1}`), sourceText: typeof t.sourceText === "string" ? t.sourceText : "", sourceTeam: Number.isInteger(t.sourceTeam) ? t.sourceTeam : null,
         removed: Array.isArray(t.removed) ? t.removed.map(String) : [], entries: cleanEntries(t.entries),
-        createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt});
+        createdAt: Number(t.createdAt) || base.createdAt, updatedAt: Number(t.updatedAt) || base.createdAt,
+        // A JEG-1188 save kept rosterAt / unresolved on the team: rosterAt was refreshed by every edit, so it reads as editedAt only.
+        provenance: provenanceOf(isObject(t.provenance) ? t.provenance : {unresolved: t.unresolved, rosterAt: t.rosterAt})});
     });
     const ui = isObject(raw.ui) ? raw.ui : {};
     return {...base, id: String(raw.id || base.id), settings: isObject(raw.settings) ? raw.settings : null, teams,
       myTeamId: ids.has(String(raw.myTeamId)) ? String(raw.myTeamId) : null, updatedAt: Number(raw.updatedAt) || base.updatedAt,
-      ui: {...base.ui, ...ui, filters: {...base.ui.filters, ...(isObject(ui.filters) ? ui.filters : {})}, sort: {...base.ui.sort, ...(isObject(ui.sort) ? ui.sort : {})}}};
+      ui: {...base.ui, ...ui, finderSettings: normalizeFinderSettings(ui.finderSettings), filters: {...base.ui.filters, ...(isObject(ui.filters) ? ui.filters : {})}, sort: {...base.ui.sort, ...(isObject(ui.sort) ? ui.sort : {})}}};
   }
 
   // ---------- pure operations: each returns a new workspace ----------
@@ -104,8 +135,17 @@
       return touch({...ws, teams: ws.teams.filter(t => t.id !== id), myTeamId: ws.myTeamId === id ? null : ws.myTeamId});
     },
     renameTeam: (ws, id, name) => mapTeam(ws, id, t => ({...t, name: cleanName(name, t.name)})),
-    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => ({...t, entries: cleanEntries(entries), ...(extra || {})})),
-    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: []})),
+    // extra.provenance: the caller's DDFRosterProvenance transition (a paste, a reconciled item); without it the change
+    // is a local edit, which never counts as a source observation.
+    setEntries: (ws, id, entries, extra) => mapTeam(ws, id, t => {
+      const {provenance, ...rest} = extra || {};
+      return {...t, entries: cleanEntries(entries), ...rest,
+        provenance: provenanceOf(provenance || P.localEdit(t.provenance, {now: Date.now()}))};
+    }),
+    clearTeam: (ws, id) => mapTeam(ws, id, t => ({...t, entries: [], sourceText: "", sourceTeam: null, removed: [],
+      provenance: provenanceOf(P.clear(t.provenance, {now: Date.now()}))})),
+    // JEG-1190: every team goes; the league's settings, name and view choices stay.
+    clearLeague: ws => (ws.teams.length ? touch({...ws, teams: [], myTeamId: null}) : ws),
     setSourceText: (ws, id, text) => mapTeam(ws, id, t => ({...t, sourceText: String(text || "")})),
     addRemoved: (ws, id, key) => mapTeam(ws, id, t => ({...t, removed: t.removed.includes(String(key)) ? t.removed : t.removed.concat([String(key)])})),
     setMyTeam: (ws, id) => (id === null || ws.teams.some(t => t.id === id) ? touch({...ws, myTeamId: id}) : ws),
@@ -161,18 +201,21 @@
 
   // ---------- share links (JEG-1021 section 2.5) ----------
   // team1:k,k,k|team2:k,k ; numeric player keys are base 36, anything else is "~" + percent-encoded. K and DEF entries
-  // (keys "x:...") travel by name and position: "!NAME.POS".
+  // (keys "x:...") travel by name/position plus their exact identity: "!NAME.POS:KEY[:TEAM]".
+  // Older "!NAME.POS" links remain readable.
   function encodeKey(entry) {
     if (/^\d+$/.test(entry.key)) return Number(entry.key).toString(36);
-    if (entry.key.startsWith("x:")) return `!${encodeURIComponent(entry.name)}.${entry.pos}`;
+    if (entry.key.startsWith("x:")) return `!${encodeURIComponent(entry.name)}.${entry.pos}:${encodeURIComponent(entry.key)}${entry.team ? `:${encodeURIComponent(entry.team)}` : ""}`;
     return `~${encodeURIComponent(entry.key)}`;
   }
   function decodeKey(token, byKey) {
     if (token.startsWith("!")) {
-      const at = token.lastIndexOf(".");
-      const name = decodeURIComponent(token.slice(1, at));
-      const pos = token.slice(at + 1);
-      return {key: `x:${pos}:${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`, name, pos};
+      const parts = token.split(":");
+      const at = parts[0].lastIndexOf(".");
+      const name = decodeURIComponent(parts[0].slice(1, at));
+      const pos = parts[0].slice(at + 1);
+      const key = parts[1] ? decodeURIComponent(parts[1]) : `x:${pos}:${name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()}`;
+      return {key, name, pos, ...(parts[2] ? {team: decodeURIComponent(parts[2])} : {})};
     }
     const key = token.startsWith("~") ? decodeURIComponent(token.slice(1)) : String(parseInt(token, 36));
     const row = byKey && byKey.get(key);
@@ -183,18 +226,98 @@
     const enc = list => list.map(team => `${encodeURIComponent(team.name)}:${team.entries.map(encodeKey).join(",")}`).join("|");
     const mineFirst = ws.teams.slice().sort((a, b) => (b.id === ws.myTeamId) - (a.id === ws.myTeamId));
     const full = enc(mineFirst);
-    if (full.length <= SHARE_LIMIT) return {text: full, full: true, mine: ws.myTeamId ? 0 : null};
+    // ids: the teams that travel, in link order (JEG-1328: the link refers to a team by this position, as wm does).
+    if (full.length <= SHARE_LIMIT) return {text: full, full: true, mine: ws.myTeamId ? 0 : null, ids: mineFirst.map(t => t.id)};
     const mine = ws.teams.find(t => t.id === ws.myTeamId);
-    return {text: mine ? enc([mine]) : "", full: false, mine: mine ? 0 : null};
+    return {text: mine ? enc([mine]) : "", full: false, mine: mine ? 0 : null, ids: mine ? [mine.id] : []};
+  }
+  // Reuse the bounded roster codec; settings are the page's own complete league query.
+  // opts.trade: the league finder's selected trade (tradePick), carried when its opponent travels.
+  function shareHash(ws, leagueQuery, opts) {
+    const encoded = encodeShare(ws);
+    const query = String(leagueQuery || "").replace(/^[?&]+/, "");
+    const extra = shareExtras(ws, encoded.ids, (opts || {}).trade);
+    const {ids, ...rest} = encoded;
+    return {...rest, hash: `#find-league?workspace=${encoded.text}&wm=${encoded.mine === null ? "none" : encoded.mine}${extra.length ? `&${extra.join("&")}` : ""}${query ? `&${query}` : ""}`};
   }
   function decodeShare(text, byKey) {
-    const teams = String(text || "").split("|").filter(Boolean).map((part, i) => {
-      const at = part.indexOf(":");
-      if (at < 0) return null;
-      const tokens = part.slice(at + 1).split(",").filter(Boolean);
-      return {name: decodeURIComponent(part.slice(0, at)) || `Team ${i + 1}`, entries: tokens.map(token => decodeKey(token, byKey))};
-    }).filter(Boolean);
-    return teams.slice(0, MAX_TEAMS);
+    try {
+      const teams = String(text || "").split("|").filter(Boolean).map((part, i) => {
+        const at = part.indexOf(":");
+        if (at < 0) return null;
+        const tokens = part.slice(at + 1).split(",").filter(Boolean);
+        return {name: decodeURIComponent(part.slice(0, at)) || `Team ${i + 1}`, entries: tokens.map(token => decodeKey(token, byKey))};
+      }).filter(Boolean);
+      return teams.slice(0, MAX_TEAMS);
+    } catch (error) {
+      // Reject the entire malformed link rather than importing a partial league over a saved one.
+      return [];
+    }
+  }
+
+  // ---------- JEG-1328: what a league link carries beside the rosters ----------
+  // The league finder's discovery controls and its selected trade. A reader's league gets new team ids, so the link names
+  // a team by its position in the link (as wm does) and readShareExtras turns positions into the new teams' ids. Missing
+  // means today's default, which is what a reader's new league starts with, so links made before these fields open the
+  // same view they always did. Parameter names match the pair finder's link where the control is the same (size).
+  const LEAGUE_SIZES = [2, 3, 4];
+  const LEAGUE_FITS = ["all", "natural", "naturalMarket"];
+  const SHARE_OWN_PARAMS = ["workspace", "wm", "size", "hf", "fit", "opp", "mcap", "mch", "trade"];
+  const shareNumber = text => (/^\d{1,3}(?:\.\d)?$/.test(String(text)) && Number(text) <= 100 ? Number(text) : null);
+  // The selected trade: "1~<opponent team id>~<give keys>~<receive keys>". Links made before JEG-1328 keyed it by the
+  // opponent's name ("<name>~<give>~<receive>"); legacyTradePick reads those.
+  const pickKeys = list => (list || []).map(p => String(typeof p === "object" && p ? p.player_key || p.key : p)).join(",");
+  const tradePick = (opponentId, give, receive) => ["1", String(opponentId), pickKeys(give), pickKeys(receive)].map(encodeURIComponent).join("~");
+  const legacyTradePick = (opponentName, give, receive) => [String(opponentName), pickKeys(give), pickKeys(receive)].map(encodeURIComponent).join("~");
+  // {opponentId, give, receive} for the current form, {legacy: true, opponent, give, receive} for a name-keyed one, else null.
+  function parseTradePick(text) {
+    let parts;
+    try { parts = String(text || "").split("~").map(decodeURIComponent); } catch (error) { return null; }
+    const keys = s => s.split(",").filter(Boolean);
+    if (parts.length === 4 && parts[0] === "1" && parts[1]) return {opponentId: parts[1], give: keys(parts[2]), receive: keys(parts[3])};
+    if (parts.length === 3 && parts[0]) return {legacy: true, opponent: parts[0], give: keys(parts[1]), receive: keys(parts[2])};
+    return null;
+  }
+  function shareExtras(ws, ids, trade) {
+    const ui = isObject(ws.ui) ? ws.ui : {};
+    const f = isObject(ui.filters) ? ui.filters : {};
+    const at = id => ids.indexOf(id);
+    const out = [];
+    if (LEAGUE_SIZES.includes(ui.maxSize) && ui.maxSize !== 2) out.push(`size=${ui.maxSize}`);
+    if (ui.hideForce) out.push("hf=1");
+    if (LEAGUE_FITS.includes(f.fit) && f.fit !== "all") out.push(`fit=${f.fit}`);
+    if (f.opponent && f.opponent !== "all" && at(f.opponent) >= 0) out.push(`opp=${at(f.opponent)}`);
+    if (shareNumber(f.minCapture)) out.push(`mcap=${f.minCapture}`);
+    if (shareNumber(f.minCharts)) out.push(`mch=${f.minCharts}`);
+    const pick = trade ? parseTradePick(trade) : null;
+    if (pick && !pick.legacy && at(pick.opponentId) >= 0) out.push(`trade=${tradePick(at(pick.opponentId), pick.give, pick.receive)}`);
+    return out;
+  }
+  // params: the link's URLSearchParams; teamIds: the ids the reader's new league gave the link's teams, in link order.
+  // Returns {ui (a setUi patch), trade (the pick for the address, by the new team id; a legacy pick unchanged; or null)}.
+  function readShareExtras(params, teamIds) {
+    const idAt = text => (/^\d{1,2}$/.test(String(text)) && teamIds[Number(text)] ? teamIds[Number(text)] : null);
+    const ui = {};
+    const filters = {};
+    const size = Number(params.get("size"));
+    if (LEAGUE_SIZES.includes(size)) ui.maxSize = size;
+    if (params.get("hf") === "1") ui.hideForce = true;
+    if (LEAGUE_FITS.includes(params.get("fit"))) filters.fit = params.get("fit");
+    if (idAt(params.get("opp"))) filters.opponent = idAt(params.get("opp"));
+    if (shareNumber(params.get("mcap")) !== null) filters.minCapture = shareNumber(params.get("mcap"));
+    if (shareNumber(params.get("mch")) !== null) filters.minCharts = shareNumber(params.get("mch"));
+    if (Object.keys(filters).length) ui.filters = filters;
+    const pick = params.has("trade") ? parseTradePick(params.get("trade")) : null;
+    const trade = !pick ? null : pick.legacy ? legacyTradePick(pick.opponent, pick.give, pick.receive)
+      : idAt(pick.opponentId) ? tradePick(idAt(pick.opponentId), pick.give, pick.receive) : null;
+    return {ui, trade};
+  }
+  // The league settings a link leaves once its own parameters are read: the league query plus the value context
+  // (valuecontext, basis, ov), which the league keeps with its settings (league.js applies both when it loads).
+  function shareSettingsQuery(params) {
+    const rest = new URLSearchParams(params.toString());
+    SHARE_OWN_PARAMS.forEach(name => rest.delete(name));
+    return rest.toString();
   }
 
   // ---------- the store ----------
@@ -332,8 +455,8 @@
     } catch (error) { return null; }
   }
 
-  const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, cleanEntries, cleanName, ops, parseStored, serialize,
-    exportJson, importJson, copyText, encodeShare, decodeShare, createStore};
+  const api = {STORAGE_KEY, VERSION, MAX_NAME, MAX_TEAMS, SHARE_LIMIT, newWorkspace, newTeam, normalizeWorkspace, normalizeFinderSettings, cleanEntries, cleanName, ops, parseStored, serialize,
+    exportJson, importJson, copyText, encodeShare, shareHash, decodeShare, tradePick, legacyTradePick, parseTradePick, readShareExtras, shareSettingsQuery, createStore};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueWorkspace = api;
 

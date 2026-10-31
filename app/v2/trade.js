@@ -56,12 +56,12 @@
   //   agree     every complete row points the same way;
   //   split     complete rows point different ways (different publishers);
   //   incomplete no row is complete.
-  // A net that shows as 0.0 points neither way. meta(key) -> {publisher, method, week}.
+  // A net inside the even band (evenBand, JEG-1125) points neither way. meta(key) -> {publisher, method, week}.
   function tradeStory(rows, meta) {
     const complete = rows.filter(row => row.net !== null);
     if (!rows.length) return {kind: null};
     if (!complete.length) return {kind: "incomplete"};
-    const sign = row => (Math.abs(row.net) < 0.05 ? 0 : row.net > 0 ? 1 : -1);
+    const sign = row => rowSign(row);
     const byPublisher = new Map();
     complete.forEach(row => {
       const m = meta(row.key);
@@ -89,7 +89,23 @@
     return {kind: "split", ...counts};
   }
 
-  const signOf = net => (Math.abs(net) < 0.05 ? 0 : net > 0 ? 1 : -1);   // 0.0 as shown points neither way
+  // JEG-1125: the trade bands, defined once here. Find a trade (finder.js) reads them from this file, and
+  // tests/test_trade_bands.py fails if any copy drifts. Two rules, two questions:
+  //   evenBand     option A (Jeremy, 2026-10-29): the one "even" band for every win / even / lose call on a trade,
+  //                max(EVEN_FLOOR = 1 point, EVEN_SHARE = 3% of the average side). A net inside it is even.
+  //                Compare's verdict and per-source sides, the trade story, "Will they accept?" (the other manager
+  //                wins or breaks even), the Deal read (sideOf) and Find a trade (DDF Value edge and "rival breaks
+  //                even or wins") all use it, each on its own series' give and receive.
+  //   THIN_MARGIN  not an even band: the headline's confidence drops when the margin is under 5% of the value traded.
+  // SHOWN_EVEN (0.05) is only how a number prints: a net under it shows as 0.0. Find a trade's fit floor NET_FLOOR
+  // reads it; it no longer decides whether a trade is even.
+  const SHOWN_EVEN = 0.05;
+  const EVEN_FLOOR = 1;
+  const EVEN_SHARE = 0.03;
+  const evenBand = (give, receive) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + receive) / 2));
+  const bandSign = (net, give, receive) => (Math.abs(net) < evenBand(give, receive) ? 0 : net > 0 ? 1 : -1);
+  const rowSign = row => bandSign(row.net, row.give, row.receive);   // a compareTrade row with a net
+  const signOf = net => (Math.abs(net) < SHOWN_EVEN ? 0 : net > 0 ? 1 : -1);   // display only: 0.0 as shown
 
   // JEG-468 waterfall for one series: the same sums as compareTrade, shown as steps.
   // 0 → one step down per player given (largest first) → one step up per player
@@ -140,10 +156,10 @@
     const others = rows.filter(row => row.key !== key);
     const complete = others.filter(row => row.net !== null);
     const incompleteKeys = others.filter(row => row.net === null).map(row => row.key);
-    const keysWhere = want => complete.filter(row => signOf(row.net) === want).map(row => row.key);
+    const keysWhere = want => complete.filter(row => rowSign(row) === want).map(row => row.key);
     const base = {key, upKeys: keysWhere(1), downKeys: keysWhere(-1), evenKeys: keysWhere(0), incompleteKeys, others: complete.length};
     if (head.net === null) return {kind: "incomplete", net: null, missing: head.missing, againstKeys: [], agreeKeys: [], ...base};
-    const s = signOf(head.net);
+    const s = rowSign(head);
     const kind = s > 0 ? "win" : s < 0 ? "lose" : "even";
     const againstKeys = s > 0 ? base.downKeys : s < 0 ? base.upKeys : [];
     const agreeKeys = s > 0 ? base.upKeys : s < 0 ? base.downKeys : base.evenKeys;
@@ -158,7 +174,7 @@
   //            Unclear when they split or the margin is under 5%.
   //            The chart agreement count stays in the reasons for honesty ("0 of N agree").
   //   accept:  "Will they accept?" from the published value charts (chartKeys): the share of complete
-  //            charts on which the other manager wins or breaks even (our net <= 0, as shown).
+  //            charts on which the other manager wins or breaks even (our net inside the even band or below, JEG-1125).
   //            Likely at two thirds or more, Unlikely at one third or less, otherwise Toss-up.
   // The level is High / Medium / Low here; the page names it for what it measures (JEG-895, v2.js
   // LEVEL_LABELS: "Our value: strong / moderate / weak", "Charts agree: strongly / mostly / weakly"):
@@ -166,8 +182,10 @@
   //            under 5%, Low when DDF Value is even or missing;
   //   accept   agreement: >= 75% of charts on the answer's side = High, >= 60% = Medium, else Low;
   //   few sources fewer than 3 complete sources caps at Medium;
+  //   charts   propose "High" needs 3 or more trade charts on the answer's side, else Medium (JEG-950);
   //   data     a low-confidence (one-source) DDF Value in the trade lowers the propose line one level.
   const THIN_MARGIN = 0.05;
+  const MIN_CHARTS_FOR_HIGH = 3;
   const LEVELS = ["Low", "Medium", "High"];
   const lowered = level => LEVELS[Math.max(0, LEVELS.indexOf(level) - 1)];
   const capped = (level, cap) => LEVELS[Math.min(LEVELS.indexOf(level), LEVELS.indexOf(cap))];
@@ -217,6 +235,13 @@
         else reasons.push(`DDF Value agrees (${fmtNet(pNet)})`);
       }
       if (ctx && ctx.lowConfidence) { level = lowered(level); reasons.push("a one-source DDF Value is in this trade"); }
+      // JEG-950 (Jeremy, 2026-10-23 and 2026-10-25): 3+ trade charts on the answer's side keep the level,
+      // 2 cap it at Medium, 1 or none cap it at Low. No extra reason line:
+      // the "N of M charts agree" reason line says why (keeps Compare's height).
+      if (answer === "Yes" || answer === "No") {
+        if (chartAgree < MIN_CHARTS_FOR_HIGH - 1) level = capped(level, "Low");
+        else if (chartAgree < MIN_CHARTS_FOR_HIGH) level = capped(level, "Medium");
+      }
       // Honesty: always show the chart agreement count (rendered as its own line, JEG-895).
       reasons.push(`${chartAgree} of ${chartTotal} charts agree`);
       propose = {answer, confidence: level, agree: chartAgree, of: chartTotal, margin, reasons};
@@ -227,7 +252,7 @@
     if (!charts.length) {
       accept = {answer: null, confidence: null, reasons: []};
     } else {
-      const yes = charts.filter(row => signOf(row.net) <= 0).length;
+      const yes = charts.filter(row => rowSign(row) <= 0).length;
       const share = yes / charts.length;
       const answer = share >= 2 / 3 ? "Likely" : share <= 1 / 3 ? "Unlikely" : "Toss-up";
       const same = answer === "Likely" ? yes : answer === "Unlikely" ? charts.length - yes : Math.max(yes, charts.length - yes);
@@ -286,7 +311,9 @@
       text: "DDF Value says you come out ahead and the trade charts agree, so the other manager will likely see a loss."},
     "win|even": {title: "Value win at a fair market price", action: "Propose it",
       text: "DDF Value says you come out ahead and the trade charts call it fair, so the other manager has little reason to refuse."},
-    "win|lose": {title: "Value win, charts say you lose: send it", action: "Send it",
+    // JEG-950 (Jeremy, 2026-10-26): the title is the verdict; the live read's text is the real market gap
+    // (marketGapText, below). The static text stays for the 3x3 grid, where there is no single net to show.
+    "win|lose": {title: "DDF Value likes it. The market doesn't.", action: "",
       text: "DDF Value says you come out ahead while the trade charts say you lose, so the other manager will likely see it as their win."},
     "even|win": {title: "Even on value, a hard sell", action: "Counter for more",
       text: "DDF Value calls it even but the trade charts say you win, so the other manager will likely see a loss."},
@@ -302,11 +329,11 @@
       text: "DDF Value and the trade charts both say you lose."}
   };
   const sideOf = (net, give, receive) => {
-    const threshold = Math.max(1, 0.03 * ((give + receive) / 2));
+    const threshold = evenBand(give, receive);
     return {side: net >= threshold ? "win" : net <= -threshold ? "lose" : "even", threshold};
   };
   // JEG-886: the Deal read must not contradict "Will they accept?" (tradeHeadlines), which counts the
-  // charts on which the other manager wins or breaks even (net <= 0 as shown). Each market column's copy
+  // charts on which the other manager wins or breaks even (net inside the even band or below, JEG-1125). Each market column's copy
   // assumes one answer to that question: charts win for you -> Unlikely; charts even or lose -> Likely.
   // An average can hide the per-chart disagreement (+0.5, -7.2, +9.1 average to +0.8 "even" while only
   // 1 of 3 charts has the other manager winning). When the count the headline uses does not match the
@@ -328,6 +355,15 @@
     return {...SPLIT_READS[vSide],
       text: `${said}, but the trade charts ${range}: ${charts.yes} of ${charts.of} have the other manager winning or even, so acceptance is uncertain.`};
   }
+  // JEG-950 (Jeremy, 2026-10-26): the win|lose sub-line shows the real computed market gap, so the number
+  // and the direction word always come from the market net, never hard-coded: "ahead" or "behind", "even"
+  // at exactly zero. On the win|lose cell the market always has you behind, and that gap is why the other
+  // manager is likely to accept, so the line says so instead of advising to close it (Jeremy, 2026-10-28:
+  // the old "down ... Close the gap to land it." read like advice to give up more). One decimal.
+  const marketGapWord = net => (net > 0 ? "ahead" : net < 0 ? "behind" : "even");
+  const marketGapText = net => (net === 0 ? "The trade charts call it even."
+    : net > 0 ? `The trade charts have you ${Math.abs(net).toFixed(1)} points ahead.`
+      : `The trade charts have you ${Math.abs(net).toFixed(1)} points behind, so the other manager will likely see it as their win.`);
   // One production sentence: P's side against V's side.
   // JEG-1073: DDF Value is the trade charts again and the projections version is the alternate, so p !== v is a
   // live case (it was dead between JEG-804 and JEG-1073): the sentence says how the two differ.
@@ -359,7 +395,7 @@
         chartCount: completeCharts.length};
       // JEG-886: the same per-chart count "Will they accept?" uses, and the range the average hides.
       const nets = completeCharts.map(row => row.net);
-      const yes = completeCharts.filter(row => signOf(row.net) <= 0).length;
+      const yes = completeCharts.filter(row => rowSign(row) <= 0).length;
       market.charts = {yes, of: completeCharts.length, accept: acceptAnswer(yes, completeCharts.length),
         min: Math.min(...nets), max: Math.max(...nets)};
       market.split = market.charts.accept !== DEAL_SPLIT_ACCEPT[market.side];
@@ -371,13 +407,96 @@
     if (market.tooFew) {
       return {kind: "incomplete", ...out, text: `Not enough compared charts to read the market (${market.chartCount} of ${MIN_DEAL_CHARTS} needed).`};
     }
-    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[`${out.value.side}|${out.market.side}`];
-    return {kind: "read", ...out, cell: `${out.value.side}|${out.market.side}`, title: cell.title, action: cell.action, text: cell.text,
+    const cellKey = `${out.value.side}|${out.market.side}`;
+    const cell = market.split ? splitRead(out.value.side, market.charts) : DEAL_READS[cellKey];
+    // JEG-950: on the win|lose cell the live read shows the market gap instead of the static grid explanation.
+    const text = !market.split && cellKey === "win|lose" ? marketGapText(market.net) : cell.text;
+    return {kind: "read", ...out, cell: cellKey, title: cell.title, action: cell.action, text,
       production: out.projections.net === null ? null : productionCheck(out.projections.side, out.value.side)};
   }
 
+  // ---------- JEG-1191 rotating examples ----------
+  // "Try a sample trade" becomes a short list of real trades, each judged by today's Deal read (dealRead): this
+  // only chooses which trades to load, it adds no evaluation rule. The pool is the top EXAMPLE_POOL players by
+  // DDF Value that DDF Value, DDF Value (projections) and every compared chart price; trades run 1-for-1 up to
+  // 2-for-2. Candidates are ranked fewest players first, then by the slot's score, then by player keys, so the
+  // same data always gives the same list. No player appears in two examples.
+  const EXAMPLE_POOL = 36;
+  const EXAMPLE_COUNT = 3;
+  const SHAPES_BY_SIZE = [[2, [[1, 1]]], [3, [[1, 2], [2, 1]]], [4, [[2, 2]]]];
+  function subsets(n, size) {
+    const out = [];
+    for (let a = 0; a < n; a++) {
+      if (size === 1) out.push([a]);
+      else for (let b = a + 1; b < n; b++) out.push([a, b]);
+    }
+    return out;
+  }
+  // slots: [{test(deal) -> score | null}]. select(lists) -> picks or null, where lists[i] is slot i's candidates,
+  // ranked. Tiers are added smallest first and the walk stops at the first tier where select fills.
+  function rankExamples(rows, chartKeys, slots, select, pool = EXAMPLE_POOL) {
+    const need = [DEAL_KEYS.value, DEAL_KEYS.projections].concat(chartKeys || []);
+    if (!chartKeys || chartKeys.length < MIN_DEAL_CHARTS) return [];
+    const top = rows.filter(row => row.values && need.every(k => finite(row.values[k])))
+      .sort((a, b) => b.values[DEAL_KEYS.value] - a.values[DEAL_KEYS.value] || String(a.player_key).localeCompare(String(b.player_key)))
+      .slice(0, pool);
+    const ddf = top.map(row => row.values[DEAL_KEYS.value]);
+    const lists = slots.map(() => []);
+    const tie = c => c.give.concat(c.receive).map(row => String(row.player_key)).join(",");
+    for (const [size, shapes] of SHAPES_BY_SIZE) {
+      for (const [g, r] of shapes) {
+        const gives = subsets(top.length, g);
+        const gets = subsets(top.length, r);
+        for (const gi of gives) for (const ri of gets) {
+          if (ri.some(i => gi.includes(i))) continue;
+          // DDF Value must move by at least a point for any read to be a win or a loss (sideOf's floor).
+          const vNet = ri.reduce((s, i) => s + ddf[i], 0) - gi.reduce((s, i) => s + ddf[i], 0);
+          if (Math.abs(vNet) < 1) continue;
+          const give = gi.map(i => top[i]);
+          const receive = ri.map(i => top[i]);
+          const deal = dealRead(give, receive, chartKeys);
+          if (deal.kind !== "read") continue;
+          slots.forEach((slot, i) => {
+            const score = slot.test(deal);
+            if (score !== null && score !== undefined) lists[i].push({give, receive, deal, size, score, slot: i});
+          });
+        }
+      }
+      lists.forEach(list => list.sort((a, b) => a.size - b.size || b.score - a.score || tie(a).localeCompare(tie(b))));
+      const picks = select(lists);
+      if (picks) return picks;
+    }
+    return select(lists, true) || [];
+  }
+  const keysOf = c => c.give.concat(c.receive).map(row => row.player_key);
+  const disjoint = (c, used) => keysOf(c).every(k => !used.has(k));
+  // JEG-1191 path A (Jeremy's pick, 2026-10-30): trades the market misses. Only the Deal read's arbitrage cell,
+  // "DDF Value likes it. The market doesn't." (win|lose, the charts not split, so "Will they accept?" is
+  // Likely), ranked by the DDF Value gain. Returns up to EXAMPLE_COUNT {give, receive, deal}; fewer than
+  // EXAMPLE_COUNT means the page falls back to pickExample. isMarketMiss is the same test on any Deal read, so the
+  // page's Example line can say so only while the current read still qualifies.
+  const isMarketMiss = deal => Boolean(deal && deal.kind === "read" && deal.cell === "win|lose" && !deal.market.split);
+  function pickMarketMisses(rows, chartKeys, count = EXAMPLE_COUNT, pool = EXAMPLE_POOL) {
+    const slots = [{test: deal => (isMarketMiss(deal) ? deal.value.net : null)}];
+    const select = (lists, last) => {
+      const used = new Set();
+      const picks = [];
+      for (const c of lists[0]) {
+        if (picks.length >= count) break;
+        if (!disjoint(c, used)) continue;
+        keysOf(c).forEach(k => used.add(k));
+        picks.push({give: c.give, receive: c.receive, deal: c.deal});
+      }
+      return picks.length >= count || last ? picks : null;
+    };
+    return rankExamples(rows, chartKeys, slots, select, pool);
+  }
+
   const api = {compareTrade, sideTotal, tradeStory, waterfall, waterfallScale, tradeVerdict, tradeHeadlines, THIN_MARGIN, pickExample,
-    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS};
+    SHOWN_EVEN, signOf, sideOf, EVEN_FLOOR, EVEN_SHARE, evenBand, bandSign, rowSign,
+    pickMarketMisses, isMarketMiss, EXAMPLE_COUNT, EXAMPLE_POOL,
+    dealRead, DEAL_READS, DEAL_SIDES, DEAL_KEYS, MIN_DEAL_CHARTS, DEAL_SPLIT_ACCEPT, SPLIT_READS,
+    marketGapWord, marketGapText};
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.TradeValueTrade = api;
 })(typeof window !== "undefined" ? window : globalThis);

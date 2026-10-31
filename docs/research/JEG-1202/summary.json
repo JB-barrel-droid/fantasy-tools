@@ -1,0 +1,208 @@
+{
+ "schema": "jeg1202-coverage-summary-v1",
+ "matrix_positions": [
+  "QB",
+  "RB",
+  "WR",
+  "TE",
+  "K",
+  "DST"
+ ],
+ "matrix_rows": 1614,
+ "sleeper_base_meta": {
+  "pulled_at": "2026-10-30T17:22:40+00:00",
+  "source": "sleeper /players/nfl",
+  "positions": [
+   "QB",
+   "RB",
+   "WR",
+   "TE",
+   "K"
+  ],
+  "n_players": 4234,
+  "n_name_keys": 4131,
+  "n_ambiguous_names": 39
+ },
+ "sleeper_links": 930,
+ "sleeper_link_conflicts": 0,
+ "status_counts": {
+  "sleeper": {
+   "differs": 36,
+   "missing": 685,
+   "same": 893
+  },
+  "espn": {
+   "differs": 10,
+   "missing": 1532,
+   "multiple": 1,
+   "same": 71
+  },
+  "yahoo": {
+   "differs": 3,
+   "missing": 1589,
+   "same": 22
+  }
+ },
+ "status_by_position": {
+  "DST": {
+   "sleeper": {
+    "missing": 32
+   },
+   "espn": {
+    "differs": 7,
+    "missing": 24,
+    "multiple": 1
+   },
+   "yahoo": {
+    "differs": 2,
+    "missing": 30
+   }
+  },
+  "K": {
+   "sleeper": {
+    "differs": 1,
+    "missing": 43,
+    "same": 21
+   },
+   "espn": {
+    "missing": 59,
+    "same": 6
+   },
+   "yahoo": {
+    "missing": 63,
+    "same": 2
+   }
+  },
+  "QB": {
+   "sleeper": {
+    "differs": 4,
+    "missing": 69,
+    "same": 109
+   },
+   "espn": {
+    "missing": 174,
+    "same": 8
+   },
+   "yahoo": {
+    "missing": 179,
+    "same": 3
+   }
+  },
+  "RB": {
+   "sleeper": {
+    "differs": 8,
+    "missing": 120,
+    "same": 222
+   },
+   "espn": {
+    "differs": 1,
+    "missing": 322,
+    "same": 27
+   },
+   "yahoo": {
+    "differs": 1,
+    "missing": 343,
+    "same": 6
+   }
+  },
+  "TE": {
+   "sleeper": {
+    "differs": 5,
+    "missing": 129,
+    "same": 186
+   },
+   "espn": {
+    "differs": 1,
+    "missing": 311,
+    "same": 8
+   },
+   "yahoo": {
+    "missing": 318,
+    "same": 2
+   }
+  },
+  "WR": {
+   "sleeper": {
+    "differs": 18,
+    "missing": 292,
+    "same": 355
+   },
+   "espn": {
+    "differs": 1,
+    "missing": 642,
+    "same": 22
+   },
+   "yahoo": {
+    "missing": 656,
+    "same": 9
+   }
+  }
+ },
+ "resolver_on_grounded_spellings": {
+  "espn": {
+   "ok": 83
+  },
+  "sleeper": {
+   "ok": 929
+  },
+  "yahoo": {
+   "ok": 25
+  }
+ },
+ "paste_observations": {
+  "espn": {
+   "grounded": 190
+  },
+  "yahoo": {
+   "grounded": 35
+  }
+ },
+ "ungrounded_observations": [],
+ "sleeper_links_refused": [
+  {
+   "sleeper_id": "5094",
+   "name": "Ryan Izzo",
+   "gsis_key": 216,
+   "why": "idmap status conflict"
+  }
+ ],
+ "suspected_duplicate_canonical_rows": [
+  {
+   "linked_key": 437,
+   "linked_full_name": "Joseph Fortson",
+   "gsis_less_key": 4655,
+   "gsis_less_full_name": "Jody Fortson",
+   "position": "TE",
+   "sleeper_id": "6665",
+   "via": "idmap"
+  },
+  {
+   "linked_key": 1155,
+   "linked_full_name": "Ben VanSumeren",
+   "gsis_less_key": 4661,
+   "gsis_less_full_name": "Ben VanSumeren",
+   "position": "RB",
+   "sleeper_id": "11273",
+   "via": "idmap"
+  },
+  {
+   "linked_key": 2785,
+   "linked_full_name": "Nyheim Hines",
+   "gsis_less_key": 4653,
+   "gsis_less_full_name": "Nyheim Miller-Hines",
+   "position": "RB",
+   "sleeper_id": "5347",
+   "via": "idmap+gsis"
+  },
+  {
+   "linked_key": 4363,
+   "linked_full_name": "Mitchell Tinsley",
+   "gsis_less_key": 4660,
+   "gsis_less_full_name": "Mitch Tinsley",
+   "position": "WR",
+   "sleeper_id": "11068",
+   "via": "idmap"
+  }
+ ],
+ "resolver_misses_on_grounded": []
+}

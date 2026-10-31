@@ -1,5 +1,7 @@
 """JEG-510 (Jeremy, GL-21, 2026-10-09): the published trade charts are labeled
-"rescaled", never "as published", "published chart" or "indexed".
+"rescaled" for the numeric transformation, never "as published" or "indexed".
+JEG-1212 changes "Published charts" into a source category, so that phrase is
+now allowed while the transformation label still says rescaled.
 
 Scans the user-facing strings of app/v2 (shell.html text and attributes, plus
 the string literals of the v2 scripts). Internal keys and method ids stay
@@ -18,7 +20,6 @@ SCRIPTS = ("v2.js", "targets.js", "movers.js", "trade.js", "finder.js", "modules
 
 BANNED = [
     (re.compile(r"as[ -]published", re.I), "as published"),
-    (re.compile(r"published charts?", re.I), "published chart"),
     # "indexed" as a word, not a css class / id (is-indexed, data-sources="indexed")
     (re.compile(r"(?<![-\w.#])indexed(?![-\w])", re.I), "indexed"),
     (re.compile(r"(?<![-\w.#])Index(?![-\w])"), "Index"),
@@ -78,12 +79,13 @@ class RescaledCopyTest(unittest.TestCase):
     def test_agreed_labels_present(self):
         scripts, shell = _load()
         v2 = scripts["v2.js"]
-        self.assertIn('title: "Trade charts (rescaled)"', v2)
-        self.assertIn('["published", "Trade charts (rescaled)"]', v2)
+        self.assertIn('title: "Published charts"', v2)
+        self.assertIn('["published", "Published charts"]', v2)
+        self.assertIn('title: "Observed-trade estimates"', v2)
         self.assertIn("chart (rescaled)", v2)
         self.assertIn(
-            "Each publisher's trade values, rescaled to our point scale for your league. "
-            "Their ranking order is unchanged.", v2)
+            "Published trade-value opinions. Rescaled series use our point scale for your league; "
+            "adjusted series follow their own label.", v2)
 
     def test_scale_anchor_not_described(self):
         # JEG-499: do not say whether the scale is ESPN- or DDF-anchored until it is settled.
@@ -96,14 +98,15 @@ class RescaledCopyTest(unittest.TestCase):
         scripts, shell = _load()
         v2 = scripts["v2.js"]
         broken = {
-            "group title": ("v2.js", 'title: "Trade charts (rescaled)"', 'title: "Trade charts (as published)"'),
-            "series name": ("v2.js", "chart (rescaled${RESCALED_TO})`,\n      vorp", "chart (as published)`,\n      vorp"),
+            "group title": ("v2.js", 'title: "Published charts"', 'title: "Trade charts (as published)"'),
+            "series name": ("v2.js", "chart (rescaled${RESCALED_TO})`,\n      observed", "chart (as published)`,\n      observed"),
             # JEG-1119 (Jeremy, 2026-10-26): the method labels read "Market"; the anchors follow, the mutations do not.
-            "column label": ("v2.js", 'PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'PLAIN_METHOD = {dda: "DDF Value", indexed: "Published chart", vorp'),
+            "column label": ("v2.js", 'PLAIN_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'PLAIN_METHOD = {dda: "DDF Value", indexed: "As published", vorp'),
             "short label": ("v2.js", 'SHORT_METHOD = {dda: "DDF Value", indexed: "Market", vorp', 'SHORT_METHOD = {dda: "DDF Value", indexed: "Index", vorp'),
             "target sub-label": ("v2.js", '" · " : ""}rescaled`', '" · " : ""}indexed`'),
             "info title": ("v2.js", 'title: "Rescaled values"', 'title: "Indexed values"'),
-            "legend": ("v2.js", 'indexed: `Dashed = rescaled chart${RESCALED_TO}`', 'indexed: "Dashed = published chart"'),
+            # JEG-1130: the desktop key reads "Dashed = one chart of the Market", still "rescaled to <basis>" under a reader basis.
+            "legend": ("v2.js", '(RESCALED_TO ? ` (rescaled${RESCALED_TO})` : "")}', '(RESCALED_TO ? ` (as published)` : "")}'),
         }
         for name, (_file, old, new) in broken.items():
             with self.subTest(mutation=name):

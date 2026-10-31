@@ -21,7 +21,11 @@ export const ROUTES: Record<string, string> = {
   compare: "#compare-trade",
   targets: "#trade-targets",
   finder: "#find-trade",
+  // JEG-1329: the league finder, opened from its own share link (workspace.js shareHash).
+  league: "#find-league",
   risers: "#risers-fallers",
+  // JEG-1029: audit_values opens the Values auditing tab (its Health check sub-tab by default).
+  audit: "#values-auditing",
 };
 
 // JEG-1031: get-values prices the whole league, so a state's settings beyond scoring, teams and superflex
@@ -53,7 +57,8 @@ export function prepare(args: Record<string, unknown>, deps?: Deps): Prepared {
     } else {
       const r = deps.codec.decodeBlock(args.state);
       state = r.state;
-      warnings.push(...r.warnings);
+      // The codec's "no DDF state found" line repeats the sentence added below.
+      warnings.push(...r.warnings.filter((w) => !/no ddf state found/i.test(w)));
       if (!state) warnings.push("No usable DDF state was found in the pasted text; using the other settings.");
     }
   }
@@ -80,6 +85,21 @@ export interface Finish {
   work?: State;
   bare?: boolean;   // a plain site link with no state (explain)
   block?: boolean;  // append the pasteable block (make_state)
+  /** JEG-1329: a league scan's teams (yours first). The link opens the league finder with all of them. */
+  teams?: LeagueTeam[];
+}
+
+export interface LeagueTeam {
+  name: string;
+  keys: string[];
+}
+
+// JEG-1329: the league finder's share text, as app/v2/workspace.js encodeShare writes it:
+// name:key,key|name:key. A numeric key is base 36, any other key is ~ and percent-encoded.
+// The site reads it with decodeShare; tests/node/connector_both_sides_check.mjs pins the round trip.
+export function leagueShareText(teams: LeagueTeam[]): string {
+  const key = (k: string) => (/^\d+$/.test(k) ? Number(k).toString(36) : `~${encodeURIComponent(k)}`);
+  return teams.map((t) => `${encodeURIComponent(t.name)}:${t.keys.map(key).join(",")}`).join("|");
 }
 
 // Add the site link, the state to continue on the site, and any notes to a tool result.
@@ -88,11 +108,13 @@ export function finish<R extends { content: Array<{ type: "text"; text: string }
   f: Finish,
 ): R {
   const { prepared, deps, settings: s } = f;
-  const notes = [...prepared.warnings];
+  const notes = [...new Set(prepared.warnings)];
 
   const league: State = { ...(prepared.state?.league ?? {}), scoring: s.scoring, teams: s.teams };
-  if (s.superflex && !(league.roster && league.roster.SUPERFLEX !== undefined)) {
-    league.roster = { ...(league.roster ?? {}), SUPERFLEX: 1 };
+  // The link must describe the league actually priced. An explicit superflex argument
+  // can override SF1 or SF0 in a pasted state, so replace that slot in either case.
+  if (s.superflex || league.roster?.SUPERFLEX !== undefined) {
+    league.roster = { ...(league.roster ?? {}), SUPERFLEX: s.superflex ? 1 : 0 };
   }
   const state: State = { v: 1, league, work: { ...(prepared.state?.work ?? {}), ...(f.work ?? {}), view: f.view } };
 
@@ -106,6 +128,12 @@ export function finish<R extends { content: Array<{ type: "text"; text: string }
     const norm = deps.codec.normalize(state);
     outState = norm.state;
     if (outState) url = `${deps.siteOrigin}/${route}?${deps.codec.encodeQuery(outState)}`;
+  }
+  if (!f.bare && f.teams?.length) {
+    // The league finder's own link: every team, team 0 marked as yours (wm=0), then the league
+    // settings in the page's link parameters (the codec's league part, no work lists).
+    const settingsQuery = deps?.codec && outState?.league ? deps.codec.encodeQuery({ v: 1, league: outState.league }) : "";
+    url = `${deps?.siteOrigin ?? ""}/${ROUTES.league}?workspace=${leagueShareText(f.teams)}&wm=0${settingsQuery ? `&${settingsQuery}` : ""}`;
   }
 
   const block = f.block && deps?.codec && outState ? deps.codec.encodeBlock(outState, { url }) : "";

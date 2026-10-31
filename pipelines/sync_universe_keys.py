@@ -11,10 +11,17 @@ there, or every chart that prices him drops him again (Tyreek Hill, CBS
 Week 5).
 
 This step adds the missing slugs (and their display name / team) before the
-chain builds any section. It only adds: an existing slug is never renamed or
-re-keyed, so legacy slug quirks stay byte-for-byte. The slug is the legacy
-label convention (canonical_players.norm_plain of the canonical name); a
-slug already held by another player gets "-<player_key>" appended.
+chain builds any section. It never renames or re-keys an existing slug, so
+legacy slug quirks stay byte-for-byte. The slug is the legacy label
+convention (canonical_players.norm_plain of the canonical name); a slug
+already held by another player gets "-<player_key>" appended.
+
+It also drops a slug whose player_key is no longer in players.json (JEG-1391):
+a player row merged into another and deleted (JEG-1351 removed 4653, 4655 and
+4660) otherwise stays in player_keys for good, and build_reference_data's
+orphan check fails every chain run. A drop larger than MAX_PRUNE_SHARE of the
+slugs is refused, so a short players.json can't empty the map; the orphan
+check then fails loudly instead.
 
 Usage: python3 pipelines/sync_universe_keys.py [--players P] [--fixture F]
 """
@@ -31,6 +38,7 @@ sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 from canonical_players import norm_plain  # noqa: E402
 
 FIXTURE_DIR = ROOT / "data" / "fixtures" / "current"
+MAX_PRUNE_SHARE = 0.02
 
 
 def sync(fixture: dict, players: list[dict]) -> list[tuple[str, int]]:
@@ -65,14 +73,46 @@ def sync(fixture: dict, players: list[dict]) -> list[tuple[str, int]]:
     return added
 
 
-def sync_files(players_path: Path, fixture_path: Path) -> list[tuple[str, int]]:
+def prune(fixture: dict, players: list[dict]) -> list[tuple[str, int]]:
+    """Drop each player_keys slug whose player_key is not in players.json,
+    with its display name and team.
+
+    Mutates ``fixture``; returns the (slug, player_key) pairs dropped. Drops
+    nothing when ``players`` is empty or the drop would exceed
+    MAX_PRUNE_SHARE of the slugs.
+    """
+    player_keys = fixture.get("player_keys")
+    current = {p.get("player_key") for p in players if isinstance(p.get("player_key"), int)}
+    if not isinstance(player_keys, dict) or not current:
+        return []
+    gone = sorted((slug, key) for slug, key in player_keys.items()
+                  if isinstance(key, int) and key not in current)
+    if not gone or len(gone) > MAX_PRUNE_SHARE * len(player_keys):
+        return []
+    for slug, _ in gone:
+        del player_keys[slug]
+        for side in ("display", "teams"):
+            if isinstance(fixture.get(side), dict):
+                fixture[side].pop(slug, None)
+    return gone
+
+
+def sync_files(players_path: Path, fixture_path: Path,
+               removed: list | None = None) -> list[tuple[str, int]]:
+    """Sync and prune the fixture file in place; returns the slugs added.
+
+    Dropped slugs are appended to ``removed`` when a list is passed.
+    """
     if not players_path.is_file() or not fixture_path.is_file():
         return []
     players = json.loads(players_path.read_text(encoding="utf-8")).get("players") or []
     raw = fixture_path.read_text(encoding="utf-8")
     fixture = json.loads(raw)
+    dropped = prune(fixture, players)
     added = sync(fixture, players)
-    if added:
+    if removed is not None:
+        removed.extend(dropped)
+    if added or dropped:
         # Keep the file's own layout (pretty with its indent, or compact).
         lines = raw.splitlines()
         second = lines[1] if len(lines) > 1 else ""
@@ -88,9 +128,12 @@ def main(argv=None) -> int:
     ap.add_argument("--players", default=str(FIXTURE_DIR / "players.json"))
     ap.add_argument("--fixture", default=str(FIXTURE_DIR / "comparison-sources-data.json"))
     args = ap.parse_args(argv)
-    added = sync_files(Path(args.players), Path(args.fixture))
+    removed: list = []
+    added = sync_files(Path(args.players), Path(args.fixture), removed)
     print(f"universe keys: {len(added)} players.json players added to the "
           f"fixture's player_keys" + (f": {added}" if added else ""))
+    print(f"universe keys: {len(removed)} slugs dropped for players no longer in "
+          f"players.json" + (f": {removed}" if removed else ""))
     return 0
 
 

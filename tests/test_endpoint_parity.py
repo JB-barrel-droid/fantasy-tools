@@ -12,14 +12,29 @@ JEG-1031: the same comparison for custom leagues (roster shape, position shares,
 advanced settings, season weeks), with the edge side mapping the league through
 supabase/functions/get-values/league.ts, the module the deployed function uses.
 
+JEG-1179: the same comparison for the week priced. On a synthetic week transition (the served history
+index with some sources pushed back one week), the edge side's default week, available weeks, the week's
+sources and missing_sources, and every DDF Value match the page's (getWeekState, setWeek), for the
+default week and each week asked for. The edge side reads the history through
+supabase/functions/get-values/pipeline.ts, the module the deployed function uses.
+
+JEG-1225: the same comparison under a share link's value basis and player overrides. The page gets them through
+its own engine setters (setBasis, setValueOverrides, as the Overrides tab applies a link); the edge side reads the
+link's basis= and ov= text through app/v2/ddf-value-link.js and supabase/functions/get-values/value-context.ts,
+the modules the deployed function uses. Standard, Half PPR and PPR, each with a single-source basis, a blend with an
+absolute override and two adjustments, and overrides on our methodology.
+
 Requires: a built dist/ and build/engine/ (make sync), Playwright chromium, node 22.6+.
 Run by `make test-unit-modules`; CI sets RENDER_TESTS_REQUIRED=1 so a missing browser fails.
 """
 from __future__ import annotations
 
+import copy
 import json
+import os
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -27,6 +42,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from tests import _dist_server, _render_env  # noqa: E402
+from tests.test_week_history import _fixture_today  # noqa: E402
 
 
 # The Node.js script that runs the edge function's pipeline logic headlessly.
@@ -89,7 +105,11 @@ def run_edge(extra, override_bench=None):
     args = NODE + extra + ["--dist", str(ROOT / "dist")]
     if override_bench is not None:
         args += ["--bench", str(override_bench)]
-    result = subprocess.run(args, capture_output=True, text=True, timeout=60)
+    # JEG-982: both sides read the clock in the served data's own content week. On the real clock, from
+    # the Tuesday flip until the new week's charts land, every chart is "not yet published" and both
+    # sides price nothing (the test then fails on "0 not greater than 50").
+    env = {**os.environ, "TRADE_VALUE_TODAY": _fixture_today()}
+    result = subprocess.run(args, capture_output=True, text=True, timeout=60, env=env)
     if result.returncode != 0:
         raise RuntimeError(f"Edge pipeline runner failed: {result.stderr}")
     return json.loads(result.stdout)
@@ -114,6 +134,69 @@ LEGACY_APPLY = """([scoring, teams, sf]) => {
     });
     return values;
 }"""
+
+
+# JEG-1179: the page's week view (getWeekState) and DDF Value after setWeek (null = the default week).
+PAGE_WEEK = """(week) => {
+    const c = window.TradeValueCurveControls;
+    if (week !== null) c.setWeek(week, false);
+    const values = {};
+    Object.entries(window.TradeValueCurveHarness.pipeline().rows).forEach(([pk, row]) => {
+        const v = row.ddfByVersion?.blended?.value;
+        if (typeof v === 'number' && Number.isFinite(v)) values[pk] = v;
+    });
+    return {values, state: c.getWeekState()};
+}"""
+
+WEEK_SOURCES = ["espn", "cbsros", "razzball", "fantasycalc", "usatoday", "fantasypros", "cbs"]
+
+
+def transition_index(lagging_count):
+    """The served history index with `lagging_count` sources pushed back one week behind the newest
+    served week N: a week transition on the build's own saved weeks. Only sources served from their
+    week's own snapshot move (a kept "superseded" version is tied to its week)."""
+    index = json.loads((ROOT / "dist" / "assets" / "history" / "index.json").read_text(encoding="utf-8"))
+    out = copy.deepcopy(index)
+    served = out.get("served") or {}
+    weeks = [served[k]["week"] for k in WEEK_SOURCES if isinstance((served.get(k) or {}).get("week"), int)]
+    newest = max(weeks)
+    movable = [k for k in WEEK_SOURCES if (served.get(k) or {}).get("week") == newest
+               and served[k].get("version") != "superseded"]
+    if len(movable) < lagging_count or str(newest - 2) not in (out.get("weeks") or {}):
+        raise unittest.SkipTest(f"the build's history cannot stage a transition from week {newest}")
+    lagging = movable[-lagging_count:]
+    for k in lagging:
+        served[k] = {**served[k], "week": newest - 1}
+    return out, newest, lagging
+
+
+# JEG-1225: the page's DDF Value per pipeline row after setBasis and setValueOverrides (what the Overrides tab calls
+# when a link is applied). The rows carry the override; the pipeline rows say which players the engine prices.
+PAGE_VALUE_CONTEXT = """([scoring, basis, overrides]) => {
+    const c = window.TradeValueCurveControls;
+    c.setScoring(scoring, false); c.setTeams(12, false);
+    c.setBasis(basis, false);
+    c.setValueOverrides(overrides);
+    const priced = window.TradeValueCurveHarness.pipeline().rows;
+    const values = {};
+    c.getAllRows().forEach(row => {
+        const v = row.values && row.values.ddf_value;
+        if (String(row.player_key) in priced && typeof v === 'number' && Number.isFinite(v)) values[row.player_key] = v;
+    });
+    return values;
+}"""
+
+
+def value_context_cases(top):
+    """(basis= text, ov= text, the page's basis record, the page's overrides) for the parity cases."""
+    a, b, c = top
+    blend = {"mode": "blend", "sources": ["espn", "razzball"], "weights": {"espn": 60, "razzball": 40}}
+    return [
+        ("fantasycalc", None, {"mode": "single", "source": "fantasycalc"}, {}),
+        ("blend:espn.60_razzball.40", f"{a}:58,{b}:+5,{c}:-3", blend,
+         {a: 58, b: {"type": "adjustment", "delta": 5}, c: {"type": "adjustment", "delta": -3}}),
+        (None, f"{a}:58,{b}:+5", None, {a: 58, b: {"type": "adjustment", "delta": 5}}),
+    ]
 
 
 def mismatches(engine, edge):
@@ -149,11 +232,12 @@ class EndpointParityTests(unittest.TestCase):
         cls._serve.__exit__(None, None, None)
         cls._pw.stop()
 
-    def page_values(self, script, arg):
+    def page_values(self, script, arg, base=None):
         """A fresh engine page (every run starts from the default league), then `script(arg)`."""
         page = self._browser.new_page()
         try:
-            page.goto(f"{self._base}/{_dist_server.ENGINE_URL}")
+            page.add_init_script(_render_env.pin_data_week_script())
+            page.goto(f"{base or self._base}/{_dist_server.ENGINE_URL}")
             page.wait_for_function(
                 "() => window.TradeValueCurveControls && window.TradeValueCurveControls.isReady()",
                 timeout=120000,
@@ -182,6 +266,60 @@ class EndpointParityTests(unittest.TestCase):
                 self.assertGreater(len(engine), 50)
                 bad = mismatches(engine, edge)
                 self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_week_parity(self):
+        """JEG-1179: on a week transition the endpoint prices the page's default week and each week asked
+        for exactly as the page does: same week, weeks, sources, missing_sources and DDF Values."""
+        for lagging_count in (3, 4):
+            index, newest, lagging = transition_index(lagging_count)
+            body = json.dumps(index).encode()
+            with tempfile.TemporaryDirectory() as tmp, \
+                    _dist_server.serve(overrides={"assets/history/index.json": body}) as base:
+                index_path = Path(tmp) / "index.json"
+                index_path.write_bytes(body)
+                for week in (None, newest, newest - 1):
+                    with self.subTest(lagging=lagging, week=week):
+                        page = self.page_values(PAGE_WEEK, week, base=base)
+                        state = page["state"]
+                        self.assertIsNotNone(state, "the page has a week view")
+                        self.assertEqual(state["weeks"], [newest, newest - 1])
+                        extra = ["--scoring", "ppr", "--teams", "12", "--history-index", str(index_path),
+                                 "--with-week", "1"] + ([] if week is None else ["--week", str(week)])
+                        edge = run_edge(extra)
+                        got = edge["week"]
+                        view = state["views"][str(state["week"])]
+                        self.assertEqual(
+                            (got["week"], got["default_week"], got["weeks"], got["sources"], got["missing_sources"]),
+                            (state["week"], state["default_week"], state["weeks"], view["sources"],
+                             view["missing_sources"]))
+                        if state["week"] == newest:
+                            for k in lagging:
+                                self.assertIn(k, got["missing_sources"], f"{k} lags: missing, not carried forward")
+                        self.assertGreater(len(page["values"]), 50)
+                        bad = mismatches(page["values"], edge["values"])
+                        self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+
+    def test_value_context_parity(self):
+        """JEG-1225: under a link's basis and overrides the endpoint prices every player as the page does, in all
+        three scorings, and the context moves DDF Value (so a context the endpoint ignored would fail)."""
+        base = run_edge_pipeline(("ppr", 12, 0))
+        top = [int(pk) for pk, _ in sorted(base.items(), key=lambda kv: -kv[1])[:3]]
+        for scoring in ("standard", "half_ppr", "ppr"):
+            ours = run_edge_pipeline((scoring, 12, 0))
+            for basis, ov, record, overrides in value_context_cases(top):
+                with self.subTest(scoring=scoring, basis=basis, ov=ov):
+                    page = self.page_values(PAGE_VALUE_CONTEXT, [scoring, record, overrides])
+                    extra = ["--scoring", scoring, "--teams", "12", "--superflex", "0"]
+                    extra += (["--basis", basis] if basis else []) + (["--ov", ov] if ov else [])
+                    edge = run_edge(extra)
+                    self.assertGreater(len(page), 50)
+                    bad = mismatches(page, edge)
+                    self.assertFalse(bad, f"{len(bad)} mismatches (page, edge): {bad[:10]}")
+                    self.assertTrue(any(abs(v - ours.get(pk, 0.0)) > 0.1 for pk, v in edge.items()),
+                                    "the value context did not change any values")
+                    if ov:
+                        self.assertAlmostEqual(edge[str(top[0])], 58, places=6)
+                        self.assertAlmostEqual(page[str(top[0])], 58, places=6)
 
     def test_negative_wrong_bench(self):
         """A wrong bench_per_team must produce different values, proving the test catches bugs."""

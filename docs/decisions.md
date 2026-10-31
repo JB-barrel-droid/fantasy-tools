@@ -262,6 +262,8 @@ Option 2, chosen by Jeremy (2026-10-06, explicit): "I don't want muse owning thi
 
 Approved by Jeremy in session on 2026-10-06; recorded as `proceeded` because the format has no `approved` outcome.
 
+Amended 2026-10-26 (Jeremy, in chat: "Set it up with two tickets for now, items in backlog that are low risk"; "I gave muse the one ticket"): Muse owns Linear tickets labeled `muse` (first: JEG-1145), on `muse/*` branches, and opens PRs but never merges. Everything else above stands.
+
 ## league-settings-001: Save one league setup; derive other league settings in the browser
 - id: league-settings-001
 - created: 2026-10-06
@@ -1036,3 +1038,58 @@ Jeremy, 2026-10-22 (multiple choice, all took the recommendation; quoted on JEG-
 ## JEG-855: nav order
 
 Jeremy, 2026-10-22: Manifesto, How values work and Research fold into one Writing tab, first in the nav; order Writing, Player values, Trade targets, Risers & fallers, Compare a trade, Values auditing. The landing tab stays Trade targets. Shipped in #810.
+
+## JEG-1324: Natural fit 1a tolerance and missing projections
+
+Jeremy, 2026-10-29 (multiple choice, quoted on JEG-1324):
+- D2, how far DDF Value (projections) may fall before a trade stops being Natural fit: "A", under 0.05 (a change that
+  shows as 0.0 holds). Built for both teams (`PROJ_FLOOR` = the 0.05 display floor in `app/v2/finder.js`).
+- A moving player with no DDF Value (projections): "A", that side is not judged, so the trade is not Natural, and the fit
+  text says projections were not checked. A missing value is never read as 0.
+
+Shipped in #1178 (`naturalFit`, `projectionsHold`); guarded by `tests/test_v2_finder_fit.py` checks 16 to 19.
+
+## JEG-1047: projection waiver line is a 7-player band
+
+Jeremy, 2026-10-29 (multiple choice on the JEG-1047 research, answer "A"): each projection source's waiver line at a position is the average of the 7 players around the first non-rostered seat (indexes `N_p - 3` to `N_p + 3`, clipped to the list), not that one player. Trade charts keep the one-player line. Short-list fallback (`insufficient_coverage`, last value) is unchanged. Tolerance that went with the pick: a 1 PPG change to the waiver-line player moves no other player at the position by more than 1.0 point in that source's Adjusted value, on the 12-combo grid (one player failed it in 19% of cases, worst 3.2; the band's worst is 0.82). Research: `docs/research/jeg1047-waiver-line.md`. Code: `waiver_band_line` in `pipelines/lib/roster_convention.py` (JS twin `waiverBandLine`), used by `value_reference.py`, the spec reference and `value-model.js` `vpWaiverBand`. Guard: `tests/test_waiver_band_line.py`. Not chosen: median band (identical to one player), fitted curve, time smoothing (can be decided later on its own).
+
+Jeremy, 2026-10-29 (JEG-1244, option A): the tolerance check holds the league's slots and bench seats fixed, because the bar is about the waiver line. When the perturbed player also sits at a flex or bench cutoff by mean projected points, the slot-filling step can flip (standard/10, CBS ROS WR Jalen Coker −1 PPG: flex WR→RB, WR rostered 38→35, Smith-Njigba moves 2.35; with slots held, 0.19; the one-player rule moves 1.62 there too). That jump is tracked on its own ticket; the slot-filling rule is unchanged. A loaded league (#1105) uses the same band around the replacement index (Jeremy, 2026-10-29: "A, 7-player average").
+
+## JEG-1218: Claude reviews and merges; Codex is out
+
+Jeremy, 2026-10-29 19:12 UTC (in chat): "I want to get off of Codex I think, having you use a seperate reviewer makes sense. Codex is slowing us down." Claude sessions now own review and merging; every PR gets one independent review from a Claude session that did not write it. At 20:10 UTC he picked A: a Codex pass on a PR's exact current head counts as that PR's one review. He approves merges by PR number, and at 21:08 UTC gave a standing OK: "merge anything you recommend once it is green". Value changes, Supabase changes and edge deploys still need his yes each time. The rules are in `AGENTS.md` "Review and merge protocol"; they replace the Codex-coordinator protocol of closed PR #1073.
+
+## JEG-1286: fractional flex and bench seats (option B)
+
+Jeremy, 2026-10-29 21:08 UTC, replying "Go with B" to the coordinator's
+plain-language summary of options A to D (`docs/research/jeg1286-flex-flips.md`):
+flex and bench seats become fractional. Each candidate near a cutoff holds a
+seat share Φ((mean PPG − cutoff) / σ), with σ = 0.75 PPG. The fractional
+counts are written as a weighted mix of whole allocations, the pipeline runs
+once per allocation, and every value is weight-averaged. Bench seats get the
+same treatment on the bench rule's discounted points. As σ goes to 0 this is
+today's rule. Not taken: A (keep the hard cutoff), C (fixed flex split from
+real-league usage), D (bench discount decoupled from the flex split).
+
+Build: JEG-1333. The seat-share helper is JEG-1334. The engine and reference
+wiring is JEG-1335, after #1077 (JEG-1244) and #1105 (JEG-1188). Reverse:
+σ = 0 in the helper reproduces today's allocation exactly.
+
+Jeremy, 2026-10-30 23:41 UTC (voice call, relayed): "Letter A." on JEG-1333's
+before/after: fractional flex everywhere, fractional bench only when no
+league is loaded (a loaded league's bench comes from its rosters). Built in
+JEG-1335 (`docs/methodology.md` VP-2.2 g).
+
+## JEG-1310: CBS rest of season stays as it has been
+
+Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.
+
+## JEG-1444: Usage crunch offload, and Codex reviews in a crunch
+
+Jeremy, 2026-10-31 10:38 UTC: "We are on pace to run out of usage 4 days early. I want as much offloaded to other tools as possible during usage crunches". A crunch is any week the Claude pool is on pace to run out before its reset. In a crunch Claude keeps judging, the required reviews it alone may give, merging, and steps nothing else can do; build, fixes, docs and checks go to Codex, and read-only investigations go to Muse (charter JEG-1444, decision 10).
+
+Jeremy, 2026-10-31 10:42 UTC, "A": during a crunch, Codex gives the one independent review on `review-light` and `review-standard` PRs; `review-high-risk` PRs keep a Claude reviewer (rule in `AGENTS.md`, review and merge protocol). Not taken: B, a Claude reviewer on every PR. Merges, deploys, production deletes and credentials still need his yes as before.
+
+## Sources are judged for private consumption for now
+
+Jeremy, 2026-10-31 10:35 UTC: "We will act as though the site is for private consumption for now". Source terms are judged against private use until he says the site's status changed: a ban on automated collection still rules a source out, a ban on redistribution alone doesn't. On JEG-612 this makes 4for4 viable (a puller needs its own ticket and his go); PFF, RotoWire and Establish The Run stay out.

@@ -106,7 +106,9 @@ export function findTradesForPair(
   opts?: FindTradesOpts,
 ): FindTradesResult {
   const maxSize = Math.max(1, Math.min(4, opts?.maxSize ?? 2));
-  const limit = Math.max(1, Math.min(50, opts?.limit ?? 10));
+  // The tool asks for a pool larger than the number it will show, so a later
+  // dedupe can still fill the caller's limit. 500 is the pool cap.
+  const limit = Math.max(1, Math.min(500, opts?.limit ?? 10));
   const minRivalEdge = opts?.minRivalEdge ?? 0;
 
   // Call the finder's own search — the same function the site uses.
@@ -114,7 +116,7 @@ export function findTradesForPair(
     ourKey: finder.OUR_KEY,
     chartKeys: finder.CHART_KEYS,
     maxSize,
-    limit: limit + 20, // fetch extra so we can filter by minRivalEdge
+    limit: Math.min(500, limit + (minRivalEdge > 0 ? 20 : 0)),
   });
 
   const ddfKey = finder.OUR_KEY;
@@ -143,11 +145,13 @@ export function findTradesForPair(
   if (minRivalEdge > 0) {
     trades = trades.filter((t) => {
       // The rival's edge on the chart average: the mean of the charts where
-      // the rival comes out ahead. A positive rivalOkCount means enough charts
-      // agree, so we approximate: sum the rival-favourable chart nets.
+      // the rival breaks even or comes out ahead. JEG-1125: rivalOk now also
+      // holds for a chart that has you up by less than the even band, where
+      // the rival gains nothing, so a chart counts only the rival's own gain
+      // (-net, never below 0), not the size of the gap.
       const rivalNets = t.charts
         .filter((c) => c.net !== null && c.rivalOk)
-        .map((c) => Math.abs(c.net!));
+        .map((c) => Math.max(0, -c.net!));
       const avgRivalEdge = rivalNets.length ? rivalNets.reduce((a, b) => a + b, 0) / rivalNets.length : 0;
       return avgRivalEdge >= minRivalEdge;
     });

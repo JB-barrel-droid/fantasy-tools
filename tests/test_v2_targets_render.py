@@ -33,8 +33,8 @@ Numbers (every rendered row, both lists, after "Show all" opens 25 of each):
     (remembered on this device); the Methods row stays hidden on this tab;
   * simulated engine rows (SIMULATE_ROWS, until the engine ships them and
     because current data has no chart value at 0 or null): a one-source DDF Value
-    (ddfLowConfidence) is a target and shows "◐ 1 source" with the engine's
-    note as its tooltip; a player with no DDF input is left out and counted
+    gets no Sell or Buy call and the notes say so (JEG-1186, Jeremy 2026-10-27
+    "Suppress"; replaces 2026-10-08 "a target shown with ◐ 1 source"); a player with no DDF input is left out and counted
     with the engine's reason; a chart value of 0 shows "waiver line", no gap;
     a chart value the engine does not have (JEG-541: simulated, since after
     JEG-508 every chart prices every player) shows — with the engine's reason;
@@ -47,7 +47,7 @@ and a "Show all N … targets" control (N = the engine's list length) that opens
 25, then pages of 25, and "Show top 5" collapses, each list on its own. Side by
 side from 1024 px, stacked below (phone cards too). At 1440 × 900 and
 1366 × 768 the H1 and subtitle are above the fold and the top 5 of both lists end
-by TOP5_FOLD_PX (1060; JEG-675, proposed 2026-10-17 and awaiting Jeremy's
+by TOP5_FOLD_PX (1110; JEG-675, proposed 2026-10-17 and awaiting Jeremy's
 confirmation: rows are two-line since #639, measured 1058.5 / 1055.5 px on the
 pinned-holds fixture; Jeremy's rule "relax the fold spec"), and the filters sit
 on one row. Two-column rows show only Player · Our value ·
@@ -72,8 +72,8 @@ waiver rule removed, picked series ignored; prior-week chart dropped, badge
 removed; "indexed" label removed, aria-expanded never reset; lists open on 25,
 no two-column layout; old headline; Pos/Team/Tier columns back with one-line
 headers; default reverted to ESPN, tier read from espnRole, source count
-missing, pick not remembered, one-source player left out, low-confidence
-marker missing, native rank off by one) and requires the checks to fail on each.
+missing, pick not remembered, one-source player listed, one-source note missing,
+native rank off by one) and requires the checks to fail on each.
 """
 from __future__ import annotations
 
@@ -121,7 +121,7 @@ H1 = "Trade targets"  # JEG-1119: page titles match the nav labels
 # JEG-888 (#828): the intro counts the charts the view compares, never a hard-coded "four publishers". The pinned
 # fixture (tests/_holds.py) has CBS held, so three charts are compared. test_v2_plain_copy_render proves the count follows data.
 SUBTITLE = ("We check 3 trade charts against our values for your league, two ways: "
-            "potential mispricing, player by player, and potential positional weight inflation, position by position. "
+            "potential mispricing, player by player, and the positions the market overpays for, position by position. "
             "Sell what they overpay for; buy what they undervalue.")
 INDEXED_TEXT = ("Each publisher's trade values, rescaled to our point scale for your league. "
                 "Their ranking order is unchanged.")
@@ -261,7 +261,7 @@ LAYOUT = """(sides) => {
 
 # Simulated engine rows (JEG-455 / Jeremy 2026-10-08, and the waiver rule): wraps getRows so that
 #  low  - the player with the highest compared chart value has a one-source DDF Value of 5.5
-#         (ddfCount 1, ddfLowConfidence, the engine's note) -> a sell target with the marker;
+#         (ddfCount 1, ddfLowConfidence, the engine's note) -> would lead Sell, but JEG-1186 leaves it off and notes it;
 #  none - another player has no DDF input (null, count 0, a reason) -> left out and counted;
 #  zero - the top sell target's second chart is at its waiver line (0) -> "waiver line", no gap.
 # Current data has no chart value at or below 0 (JEG-482 pure rescale), so "zero" keeps that rule tested.
@@ -441,6 +441,14 @@ def is_flagged(snapshot, key) -> bool:
     return bool(flag.get("out")) or any(finite(values.get(c)) and flag.get("estimated", {}).get(c) for c in snapshot["used"])
 
 
+def is_thin(snapshot, key) -> bool:
+    """JEG-1186 (Jeremy, 2026-10-27: "Suppress"): DDF Value backed by fewer than 2 sources gets no Buy/Sell call."""
+    if snapshot["ours"] != DDF:
+        return False
+    count = (snapshot["ddf"].get(key) or {}).get("count")
+    return finite(count) and count < 2
+
+
 def expected_side(snapshot, side, keep_flagged=False):
     """The independent Check 1 list for one side: [(key, gap, agree, of, score)] from the engine rows (JEG-677).
     Sell: consensus gap, ours >= SELL_FLOOR (JEG-820). Buy: the gap at the charts' rank at or under -BUY_RANK_MARGIN
@@ -468,7 +476,10 @@ def expected_side(snapshot, side, keep_flagged=False):
         shown = gap if side == "sell" else rank_gaps[key]
         if side == "buy" and shown > -BUY_RANK_MARGIN:   # JEG-833: the charts rank him where we do: the scale, not a Buy
             continue
-        if is_flagged(snapshot, key) and not keep_flagged:
+        if is_flagged(snapshot, key):
+            if not keep_flagged:
+                continue
+        elif is_thin(snapshot, key):   # JEG-1186: counted apart (thinSource), never in leftOut
             continue
         found.append((index, key, shown, agree, len(priced), abs(shown) * min(ours, consensus)))
     found.sort(key=lambda f: (-f[5], f[0]))
@@ -534,10 +545,13 @@ def check(snapshot) -> list[str]:
     else:
         listed = {key for key, *_ in snapshot["allBest"]}
         if our_key == DDF and side == "sell":
-            if probe["low"] not in listed:
-                errors.append(f"one-source player {probe['low']} is not a sell target (Jeremy: show it, flagged)")
-            if not any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
-                errors.append(f"one-source player {probe['low']} is not rendered in the top rows")
+            # JEG-1186 (Jeremy, 2026-10-27: "Suppress"): the one-source probe gets no Sell call, and the notes say why.
+            if probe["low"] in listed:
+                errors.append(f"one-source player {probe['low']} is a sell target (JEG-1186: no call on 1 source)")
+            if any(r["key"] == probe["low"] for r in snapshot["table"] + snapshot["cards"]):
+                errors.append(f"one-source player {probe['low']} is rendered in the Sell rows")
+            if "left off Buy and Sell: only 1 source backs" not in snapshot["note"]:
+                errors.append(f"no 'left off Buy and Sell: only 1 source' note: {snapshot['note']!r}")
         if our_key == DDF:
             if probe["none"] in listed:
                 errors.append(f"player {probe['none']} with no DDF input is listed as a {side} target")
@@ -860,6 +874,7 @@ def _built_dist(html_sub=None):
 
 def _open(browser, url, width, height, targets_js, v2_js, v2_css):
     page = browser.new_page(viewport={"width": width, "height": height})
+    page.add_init_script(_render_env.pin_data_week_script())   # JEG-1152: the data's week, not the wall clock
     errors = []
     page.on("pageerror", lambda e: errors.append(str(e)))
     # Only the local build is under test; the web font is not.
@@ -1127,10 +1142,9 @@ class TradeTargetsRenderTest(unittest.TestCase):
                                                    "const tierText = row => tierLabel(row.espnRole);")}, numbers_only),
             "source count missing": ({"v2_js": (v2, "      if (count) cell.appendChild(count);\n", "")}, numbers_only),
             "pick not remembered": ({"v2_js": (v2, "      saveTargetsOurs(T.ours);\n", "")}, numbers_only),
-            "one-source player left out": ({"targets_js": (targets, "      if (!finite(ours)) {",
-                                                           "      if (!finite(ours) || row.ddfLowConfidence) {")}, numbers_only),
-            "low-confidence marker missing": ({"v2_js": (v2, "    if (isLowConfidence(row, key)) {\n      const node = lowConfidenceNode(row, key);",
-                                                         "    if (false) {\n      const node = lowConfidenceNode(row, key);")}, numbers_only),
+            # JEG-1186: the one-source rule is now Suppress, so its mutations let the player back in or drop the note.
+            "one-source player listed": ({"targets_js": (targets, "return n !== null && n < MIN_DDF_SOURCES;", "return false;")}, numbers_only),
+            "one-source note missing": ({"v2_js": (v2, "    if (targetsView.thinSource && !blocked) {", "    if (false) {")}, numbers_only),
             # JEG-504
             "market difference sign opposite to the gap": ({"v2_js": (v2, 'diff.textContent = fmtGap(-m.diff)', 'diff.textContent = fmtGap(m.diff)')}, numbers_only),
             "consensus counts only compared-and-positive": ({"targets_js": (targets, "const values = priced.map(key => cells[key].value);",
@@ -1148,8 +1162,8 @@ class TradeTargetsRenderTest(unittest.TestCase):
             # JEG-842: an out player back in Buy / Sell, the estimated rule dropped, and the note gone.
             "out players recommended (JEG-842)": ({"targets_js": (targets, 'if (row.espnProjectsZero) return "out";', "")}, numbers_only),
             "estimated values trusted (JEG-842)": ({"targets_js": (targets, 'return Object.keys(cells).some(key => finite(cells[key].value) && est[key]) ? "estimated" : null;', "return null;")}, numbers_only),
-            "buy not filtered (JEG-842)": ({"targets_js": (targets, "const buy = buyAll.filter(p => !flagged(p));", "const buy = buyAll;")}, numbers_only),
-            "sell not filtered (JEG-842)": ({"targets_js": (targets, "const sell = sellAll.filter(p => !flagged(p));", "const sell = sellAll;")}, numbers_only),
+            "buy not filtered (JEG-842)": ({"targets_js": (targets, "const buy = buyAll.filter(p => !flagged(p) && !thin(p));", "const buy = buyAll.filter(p => !thin(p));")}, numbers_only),
+            "sell not filtered (JEG-842)": ({"targets_js": (targets, "const sell = sellAll.filter(p => !flagged(p) && !thin(p));", "const sell = sellAll.filter(p => !thin(p));")}, numbers_only),
             "left-out note removed (JEG-842)": ({"v2_js": (v2, "    if (targetsView.leftOut && !blocked) {", "    if (false) {")}, numbers_only),
             "score not shown (JEG-833)": ({"v2_js": (v2, "      bc.appendChild(scoreNode(side, p, b));\n", "")}, numbers_only),
             "rows sorted by raw gap, copy unchanged (JEG-833)": ({"targets_js": (targets, "const byScore = (a, b) => b.market.score - a.market.score || a.order - b.order;",

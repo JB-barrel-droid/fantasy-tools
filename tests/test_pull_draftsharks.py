@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 sys.path.insert(0, os.path.join(ROOT, "pipelines"))
@@ -67,6 +68,15 @@ class TestDraftSharksPull(unittest.TestCase):
         b = ds.build_snapshot(roster_players)["fingerprint"]
         self.assertNotEqual(a, b)
 
+    def test_distinct_players_with_same_chart_value_are_retained(self):
+        ps = roster()
+        ps[0]["dsValueRedraftHalfPpr"] = 69
+        ps[1]["dsValueRedraftHalfPpr"] = 69
+        snap = ds.build_snapshot(ps)
+        same_value = [r for r in snap["rows"] if r["ds"]["redraft_half_ppr"] == 69]
+        self.assertEqual({r["draftsharks_id"] for r in same_value}, {1, 2})
+        self.assertEqual(snap["vintage_basis"], "fetch_date_not_publisher_chart_date")
+
     def test_tiny_body_is_blocked(self):
         with self.assertRaises(ds.PullError) as c:
             ds.extract_players("<html>login</html>")
@@ -83,6 +93,33 @@ class TestDraftSharksPull(unittest.TestCase):
         with self.assertRaises(ds.PullError) as c:
             ds.build_snapshot(ps)
         self.assertEqual(c.exception.code, "SOURCE_LAYOUT")
+
+    def test_missing_column_in_later_player_is_layout(self):
+        ps = roster()
+        del ps[-1]["marketValueRedraftHalfPpr"]
+        with self.assertRaises(ds.PullError) as c:
+            ds.build_snapshot(ps)
+        self.assertEqual(c.exception.code, "SOURCE_LAYOUT")
+
+    def test_missing_and_duplicate_player_identity_fail(self):
+        ps = roster()
+        ps[-1]["id"] = ps[0]["id"]
+        with self.assertRaises(ds.PullError) as c:
+            ds.build_snapshot(ps)
+        self.assertEqual(c.exception.code, "SOURCE_LAYOUT")
+        ps[-1]["id"] = 999
+        ps[-1]["first_name"] = ""
+        ps[-1]["last_name"] = None
+        with self.assertRaises(ds.PullError) as c:
+            ds.build_snapshot(ps)
+        self.assertEqual(c.exception.code, "SOURCE_LAYOUT")
+
+    def test_saved_embedded_array_fixture_accepts_json_whitespace(self):
+        fixture = os.path.join(ROOT, "tests", "fixtures", "draftsharks", "embedded_chart.html")
+        with mock.patch.object(ds, "MIN_BODY", 0):
+            with open(fixture, encoding="utf-8") as f:
+                players = ds.extract_players(f.read())
+        self.assertEqual(players[0]["id"], 101)
 
     def test_truncated_position_fails(self):
         ps = [p for p in roster() if p["fantasy_position"] != "TE"]

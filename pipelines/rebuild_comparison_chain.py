@@ -1165,6 +1165,22 @@ def describe_result(result):
     return f"FAILED at stage '{stage}': {result.get('detail', '')}"
 
 
+def chain_source_weeks(repo):
+    """{source: {served_week, label_week, published_at, basis}} from the
+    fixture this run built and the week history index (week_state.py)."""
+    from week_state import source_weeks
+    try:
+        fixture = json.loads((Path(repo) / "data" / "fixtures" / "current" /
+                              "comparison-sources-data.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    try:
+        index = json.loads((Path(repo) / "data" / "history" / "index.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        index = None
+    return source_weeks(fixture, index)
+
+
 def source_vintages(repo):
     """Per-source content week as the import-health gate judged it.
 
@@ -1215,6 +1231,12 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
     success = len(failed) == 0
     severities = [results[s].get("hold_severity") for s in held]
     hold_severity = ("red" if "red" in severities else "amber") if held else "none"
+    from week_state import STALE_RULE, annotate_source_weeks, sources_in_state
+    source_weeks = chain_source_weeks(repo)
+    try:
+        source_weeks = annotate_source_weeks(source_weeks)
+    except Exception as exc:  # a warning-only report must never stop the status write
+        print(f"::warning::source week states not computed: {exc}")
     status_data = {
         "run_at": datetime.now(timezone.utc).isoformat(),
         "nfl_week": nfl_week,
@@ -1247,6 +1269,16 @@ def write_chain_status(repo, results, reindex_result, nfl_week, runner):
         "detail": results,
         "reindex_fixture": reindex_result,
         "source_vintages": source_vintages(repo),
+        # JEG-1177: each source's own served week and publish time (a source
+        # on week N while others serve N+1 is lagging, not a failure).
+        # JEG-1180: plus each source's state against the calendar (current /
+        # lagging / stale / unknown). Stale (still on week N after Thursday
+        # 12:00 CT of week N+1) is a warning only: it never feeds `failed`,
+        # `success`, `outcome` or a hold.
+        "source_weeks": source_weeks,
+        "stale_sources": sources_in_state(source_weeks, "stale"),
+        "lagging_sources": sources_in_state(source_weeks, "lagging"),
+        "stale_rule": STALE_RULE,
     }
     for rel in ("output/comparison-chain-status.json",
                 "dist/modules/comparison-chain-status.json"):
@@ -1263,6 +1295,33 @@ def all_review_gated_held(results):
     return bool(gated) and all(results[s]["status"] == "held" for s in gated)
 
 
+def release_post_validate_hold(repo, source):
+    """Release a previous post-validate hold only after a complete source run.
+
+    The ESPN section builder copies the old section and thus its hold. The
+    other builders normally replace their section, but use the same rule so a
+    corrected save is retried consistently for every source. An unrelated
+    review, fidelity, or value-check hold is never released here.
+    """
+    path = Path(repo) / FIXTURE_REL
+    if not path.is_file():
+        return False
+    fixture = json.loads(path.read_text(encoding="utf-8"))
+    changed = False
+    for sec in (source, f"{source}_adjusted"):
+        section = (fixture.get("sources") or {}).get(sec)
+        if not isinstance(section, dict):
+            continue
+        hold = section.get("validationHold") or {}
+        if (hold.get("reason") == "chain hold: post-validate source failure"
+                and hold.get("root") == source):
+            del section["validationHold"]
+            changed = True
+    if changed:
+        path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
+    return changed
+
+
 def write_step_summary(status_data, path=None):
     """Append a held-source report to the GitHub run summary (if available)."""
     path = path or os.environ.get("GITHUB_STEP_SUMMARY")
@@ -1270,6 +1329,15 @@ def write_step_summary(status_data, path=None):
              "| source | result |", "| --- | --- |"]
     for source, text in (status_data.get("sources") or {}).items():
         lines.append(f"| {source} | {str(text).replace('|', '/')[:400]} |")
+    # JEG-1180: a stale source is a warning annotation, never an error.
+    weeks = status_data.get("source_weeks") or {}
+    for source in status_data.get("stale_sources") or []:
+        w = weeks.get(source) or {}
+        lines.append(f"| {source} | STALE: still serves Week {w.get('served_week')} "
+                     f"(calendar Week {w.get('expected_week')}) after {w.get('stale_after')} |")
+        print(f"::warning title=Source stale ({source})::{source} still serves Week "
+              f"{w.get('served_week')} after Thursday 12:00 CT (calendar Week {w.get('expected_week')}). "
+              f"Warning only; the chain publishes. See docs/week-transition-runbook.md.")
     for source in status_data.get("held") or []:
         d = status_data["held_detail"][source]
         level = "error" if d.get("hold_severity") == "red" else "warning"
@@ -1306,11 +1374,15 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
     # before any section is keyed through the fixture's player_keys.
     try:
         import sync_universe_keys
+        removed = []
         added = sync_universe_keys.sync_files(
             repo / "data" / "fixtures" / "current" / "players.json",
-            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json")
+            repo / "data" / "fixtures" / "current" / "comparison-sources-data.json",
+            removed)
         print(f"universe keys: {len(added)} players added to the fixture's "
               f"player_keys" + (f": {added}" if added else ""))
+        print(f"universe keys: {len(removed)} slugs dropped for players no longer "
+              f"in players.json" + (f": {removed}" if removed else ""))
     except Exception as e:  # noqa: BLE001 -- sections keep the old universe
         print(f"universe keys: sync failed ({e}); sections keep the fixture's keys")
     try:
@@ -1336,6 +1408,8 @@ def execute_chain(nfl_week=None, repo=REPO, run_fn=run):
             # review hold in a review-gated one) keeps that source's last
             # promoted section; the other sources still publish.
             res = results[source]
+            if res["status"] == "ok":
+                release_post_validate_hold(repo, source)
             # A runner that already isolated its own failure returns "held";
             # isolating twice would only overwrite its rolled_back count.
             if res["status"] not in ("ok", "held") and (

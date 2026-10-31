@@ -57,6 +57,7 @@ import reindex_comparison_section as reindex_mod  # noqa: E402
 import save_usatoday_references as usat  # noqa: E402
 import verify_import_health as health_mod  # noqa: E402
 from tests import _render_env  # noqa: E402
+from tests._week_view import own_week_reads  # noqa: E402
 
 FIXTURE = ROOT / "data" / "fixtures" / "current" / "comparison-sources-data.json"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
@@ -392,7 +393,7 @@ class OneQbReaders(unittest.TestCase):
 # superflex), and without the slot it is unchanged. Broken state: a widget
 # that ignores native_superflex (the overlay line removed).
 APP = ROOT / "app" / "trade-value-chart"
-OVERLAY_LINE = ('    if (native.size && ValueModel.superflexCount(rosterShape)) '
+OVERLAY_LINE = ('    if (native.size && ValueModel.usesSuperflexValues(rosterShape)) '
                 'take(savedPublishedRow(key, "native_superflex"));\n')
 PAGE_SOURCES = ("fantasycalc", "cbs", "fantasypros", "usatoday")
 SET_AND_READ = """([n, keys]) => { const c = window.TradeValueCurveControls;
@@ -423,6 +424,26 @@ def injected_fixture():
     return fixture
 
 
+def read_by_week(page, n, keys):
+    """SET_AND_READ at `n` superflex slots in the default week view. JEG-1176:
+    a chart lagging that view is read in its own week's view (its maps and
+    derivation note replace the empty ones), or listed in `lagging` and noted
+    on stderr when no view has its week (tests/_week_view.py)."""
+    out = page.evaluate(SET_AND_READ, [n, keys])
+    absent = [k for k in keys if k in PAGE_SOURCES and not out["maps"][k]]
+    own = own_week_reads(page, absent, lambda group: page.evaluate(SET_AND_READ, [n, group]),
+                         "superflex overlay", "publisher superflex values not checked in the browser")
+    out["derivation"] = dict(out["derivation"] or {})
+    out["week_fixed_pie"] = {}
+    for week, got in own["reads"].items():
+        out["maps"].update(got["maps"])
+        for key in got["maps"]:
+            out["derivation"][key] = (got["derivation"] or {}).get(key)
+        out["week_fixed_pie"][week] = got["fixedPie"]
+    out["lagging"] = own["lagging"]
+    return out
+
+
 def collect_overlay_page(fixture, widget_override=None):
     from tests.test_published_league_settings_render import _chromium_executable, _server
     try:
@@ -446,8 +467,8 @@ def collect_overlay_page(fixture, widget_override=None):
             page.goto(url, wait_until="networkidle")
             page.wait_for_function("() => window.TradeValueCurveHarness && window.TradeValueCurveDiagnostics",
                                    timeout=20000)
-            out["sf1"] = page.evaluate(SET_AND_READ, [1, list(PAGE_SOURCES) + ["espn"]])
-            out["sf0"] = page.evaluate(SET_AND_READ, [0, list(PAGE_SOURCES)])
+            out["sf1"] = read_by_week(page, 1, list(PAGE_SOURCES) + ["espn"])
+            out["sf0"] = read_by_week(page, 0, list(PAGE_SOURCES))
             out["errors"] = errors
         finally:
             browser.close()
@@ -465,6 +486,9 @@ def overlay_problems(widget_override=None):
     got = collect_overlay_page(fixture, widget_override)
     plain = collect_overlay_page(json.loads(FIXTURE.read_text(encoding="utf-8")))
     problems = [f"page error: {e[:200]}" for e in got["errors"]]
+    # Charts older than every week view are noted on stderr, not checked.
+    lagging = {k for side in (got, plain) for read in (side["sf1"], side["sf0"]) for k in read["lagging"]}
+    checked = [k for k in PAGE_SOURCES if k not in lagging]
     pos_of = browser_players()
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "fixture.json"
@@ -474,7 +498,7 @@ def overlay_problems(widget_override=None):
             # JEG-508 (VP-6.4): Indexed = the overlaid natives times ONE
             # factor against blended DDF Value (no longer the ESPN anchor):
             # value / overlay native is one constant over the listed players.
-            for source in PAGE_SOURCES:
+            for source in checked:
                 values = {int(k): v for k, v in got["sf1"]["maps"][source].items()}
                 native, _saved, _ = browser_inputs(fixture, pos_of, source, "ppr", superflex=True)
                 native = {k: v for k, v in native if v > 0}
@@ -484,10 +508,10 @@ def overlay_problems(widget_override=None):
                 ratios = [values[k] / v for k, v in native.items() if k in values]
                 if not ratios or max(ratios) - min(ratios) > 1e-9 * max(ratios):
                     problems.append(f"superflex {source}: Indexed is not one factor on the overlaid natives")
-    for source in PAGE_SOURCES:
+    for source in checked:
         if got["sf0"]["maps"][source] != plain["sf0"]["maps"][source]:
             problems.append(f"{source}: values moved without a superflex slot")
-    for source in ("fantasycalc", "cbs"):
+    for source in [k for k in ("fantasycalc", "cbs") if k in checked]:
         if got["sf1"]["maps"][source] == plain["sf1"]["maps"][source]:
             problems.append(f"{source}: publisher superflex values not used (same as derived)")
         note = ((got["sf1"]["derivation"] or {}).get(source) or {}).get("superflex")
@@ -495,6 +519,9 @@ def overlay_problems(widget_override=None):
             problems.append(f"{source}: derivation note {note!r}")
     if got["sf1"]["fixedPie"] is not True:
         problems.append(f"fixedPieIndexed {got['sf1']['fixedPie']} with publisher superflex values")
+    for week, fixed in sorted(got["sf1"]["week_fixed_pie"].items()):
+        if fixed is not True:
+            problems.append(f"fixedPieIndexed {fixed} with publisher superflex values in the Week {week} view")
     return problems
 
 

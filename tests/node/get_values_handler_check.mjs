@@ -37,6 +37,29 @@ assert.equal(res.status, 200);
 let body = await res.json();
 assert.deepEqual(body.league_custom, []);
 same(body, runner({ scoring: "ppr", teams: 12 }));
+const todayDefault = body;
+
+// Week flip: the calendar moves to a new week before any chart publishes it, so for a while every
+// weekly chart is "behind the calendar". Older-week is judged against the newest published week, not
+// the calendar, so a later clock prices the same players at the same values. (Oct 27 2026: judging
+// against the calendar dropped every chart and get-values returned no players.)
+const RealDate = Date;
+const later = RealDate.UTC(2027, 0, 12, 15); // calendar past the last content week
+globalThis.Date = class extends RealDate {
+  constructor(...a) { super(...(a.length ? a : [later])); }
+  static now() { return later; }
+};
+try {
+  res = await ask({ scoring: "ppr", teams: 12 }, "7.7.7.7");
+  assert.equal(res.status, 200);
+  body = await res.json();
+  assert.ok(body.players.length > 50, `a later calendar week still prices players (${body.players.length})`);
+  const before = new Map(todayDefault.players.map((p) => [p.player_key, p.value]));
+  const moved = body.players.filter((p) => Math.abs(p.value - (before.get(p.player_key) ?? 0)) > 0.06);
+  assert.equal(moved.length, 0, `values moved with the calendar: ${JSON.stringify(moved.slice(0, 3))}`);
+} finally {
+  globalThis.Date = RealDate;
+}
 
 // Custom league: priced, flagged, and equal to the runner (which the parity test ties to the page).
 const league = { roster: { WR: 3, BENCH: 6 }, shares: { QB: 0.2, RB: 0.4, WR: 0.3, TE: 0.1 }, bso: 0.2,
@@ -47,6 +70,37 @@ body = await res.json();
 assert.deepEqual(body.league_custom.sort(), ["bso", "conf", "inj", "optimize", "roster", "shares", "weeks"]);
 assert.equal(body.setting.superflex, 1);
 same(body, runner({ ...league, scoring: "half_ppr", teams: 10, roster: { ...league.roster, SUPERFLEX: 1 } }));
+
+// JEG-1129: include=charts sends each chart's Indexed value (chart_indexed) next to its Adjusted value
+// (chart_values). The Adjusted values average to DDF Value itself, so the finder judges the other team
+// on chart_indexed; at least some players must differ between the two, or the rival check is DDF again.
+res = await ask({ scoring: "half_ppr", teams: 12, include: "charts" }, "6.6.6.6");
+assert.equal(res.status, 200);
+body = await res.json();
+if (body.players.length) {
+  const CH = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
+  for (const p of body.players) {
+    assert.ok(p.chart_indexed && CH.every((k) => k in p.chart_indexed), `chart_indexed on ${p.name}`);
+    assert.ok(p.chart_values && CH.every((k) => k in p.chart_values), `chart_values on ${p.name}`);
+  }
+  const differs = body.players.filter((p) => CH.some((k) => p.chart_indexed[k] !== null && p.chart_values[k] !== null
+    && Math.abs(p.chart_indexed[k] - p.chart_values[k]) > 0.5));
+  assert.ok(differs.length > body.players.length / 4,
+    `Indexed and Adjusted chart values differ for most players (${differs.length} of ${body.players.length})`);
+}
+// JEG-1115: include=charts also sends the engine's bench-share readout (bench_share), the weights the
+// connector's fit label counts bench players at, so it matches the site instead of rebuilding them.
+{
+  const bs = body.bench_share;
+  assert.ok(bs && typeof bs === "object", "include=charts sends bench_share");
+  for (const k of ["QB", "RB", "WR", "TE", "overall", "input"]) {
+    assert.ok(k in bs, `bench_share.${k} is present`);
+    assert.ok(bs[k] === null || (Number.isFinite(bs[k]) && bs[k] >= 0 && bs[k] <= 1), `bench_share.${k} is a share or null: ${bs[k]}`);
+  }
+  assert.ok(Number.isFinite(bs.overall) || Number.isFinite(bs.input), "an overall share or the league input is set");
+  res = await ask({ scoring: "half_ppr", teams: 12 }, "6.6.6.7");
+  assert.equal((await res.json()).bench_share, undefined, "plain get-values stays as it was");
+}
 
 // GET with a JSON league string works; garbage league is ignored, not a 500.
 res = await handler(new Request("https://fn.test/functions/v1/get-values?scoring=ppr&teams=12&league=" +

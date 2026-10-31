@@ -1,6 +1,6 @@
 // Trade Value v2 — Find a trade (JEG-481: first slice, then league import and roster sanity).
 //
-// You type in your roster and a rival's. The search lists packages (1-for-1 up to N-for-N)
+// You choose saved League teams or type in your roster and a rival's. The search lists packages (1-for-1 up to N-for-N)
 // where the published trade charts say the rival breaks even or wins, and DDF Value says you win.
 //
 // No value math of its own: every number is an engine row value (TradeValueCurveControls
@@ -8,9 +8,8 @@
 // value stays missing, never 0.
 //
 // Decisions (Jeremy, 2026-10-09 / 2026-10-10, recorded on JEG-481):
-//   * rosters are typed in with player search; the second slice (2026-10-16) adds import from a Sleeper league,
-//     a public ESPN league, or pasted names. Direct fetches need no key and no account; a private league is
-//     refused by the host, and the card says to paste the roster instead;
+//   * rosters are typed in with player search; the second slice (2026-10-16) adds pasted names. The Sleeper / ESPN
+//     league-ID fetchers were deleted (Jeremy, 2026-10-27, JEG-1131): paste is the only way to load a league;
 //   * default 1-for-1 up to 2-for-2, a toggle raises the maximum players per side;
 //   * "fair to the rival" = at least 3 of the 4 trade charts say the rival breaks even or wins;
 //   * ranking prefers simpler trades.
@@ -22,12 +21,22 @@
   const OUR_KEY = "ddf_value";
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const MIN_CHARTS = 3;
-  const MAX_SIZE_CHOICES = [2, 3, 4];
+  const MAX_SIZE_CHOICES = [1, 2, 3, 4];
   const MAX_SUBSETS = 6000;          // per side; larger rosters search the top players by DDF Value
   const EXTRA_PLAYER_WEIGHT = 0.1;   // each player beyond a 1-for-1 takes 10% off the ranking score
   const LIMIT = 10;
   const finite = value => typeof value === "number" && Number.isFinite(value);
-  const pointsAsShown = net => (Math.abs(net) < 0.05 ? 0 : net);   // 0.0 as shown points neither way
+  // JEG-1125 option A: "even" is Compare's one band, evenBand in trade.js: max(EVEN_FLOOR, EVEN_SHARE x the average
+  // side) on each series' own give and receive. SHOWN_EVEN is only how a net prints (0.0) and NET_FLOOR's fit floor.
+  // The page loads trade.js first and Node can require it. The MCP edge function evaluates this file on its own, so
+  // each number after || is a standalone copy: tests/test_trade_bands.py fails if one differs from trade.js.
+  const TRADE = typeof module !== "undefined" && module.exports
+    ? (() => { try { return require("./trade.js"); } catch (e) { return null; } })() : root.TradeValueTrade;
+  const SHOWN_EVEN = (TRADE && finite(TRADE.SHOWN_EVEN) && TRADE.SHOWN_EVEN) || 0.05;
+  const EVEN_FLOOR = (TRADE && finite(TRADE.EVEN_FLOOR) && TRADE.EVEN_FLOOR) || 1;
+  const EVEN_SHARE = (TRADE && finite(TRADE.EVEN_SHARE) && TRADE.EVEN_SHARE) || 0.03;
+  const evenBand = (give, get) => Math.max(EVEN_FLOOR, EVEN_SHARE * ((give + get) / 2));
+  const pointsPastEven = (net, give, get) => (Math.abs(net) < evenBand(give, get) ? 0 : net);   // inside the band: even
 
   // Every subset of 1..maxSize items, as arrays of indices.
   function subsets(count, maxSize) {
@@ -61,7 +70,8 @@
       return total;
     });
   }
-  // give / get: sums arrays. The edge is get - give for you; the rival is happy on a chart when its net is <= 0 as shown.
+  // give / get: sums arrays. The edge is get - give for you and must clear the even band; the rival is happy on a chart
+  // when its net is even (inside that chart's band) or below.
   // A chart that does not price every player in the package is left out of the count (net null).
   function judgeSums(give, get, chartKeys, minCharts) {
     const edge = give[0] === null || get[0] === null ? null : get[0] - give[0];
@@ -73,13 +83,13 @@
       const r = get[c + 1];
       if (g === null || r === null) { charts.push({key: chartKeys[c], net: null, rivalOk: null}); continue; }
       const net = r - g;
-      const rivalOk = pointsAsShown(net) <= 0;
+      const rivalOk = pointsPastEven(net, g, r) <= 0;
       priced += 1;
       if (rivalOk) ok += 1;
       charts.push({key: chartKeys[c], net, rivalOk});
     }
     return {edge, charts, pricedCharts: priced, rivalOkCount: ok,
-      passes: {edge: edge !== null && pointsAsShown(edge) > 0, charts: priced >= minCharts && ok >= minCharts}};
+      passes: {edge: edge !== null && pointsPastEven(edge, give[0], get[0]) > 0, charts: priced >= minCharts && ok >= minCharts}};
   }
   // Roster sanity for a package: {mine, theirs} issue lists, and whether the keep-lineup boxes reject it.
   function judgeLineup(giveRows, getRows, sanity) {
@@ -87,6 +97,55 @@
     const issues = {mine: lineupIssues(sanity.mineCounts, giveRows, getRows, sanity.shape),
       theirs: lineupIssues(sanity.theirCounts, getRows, giveRows, sanity.shape)};
     return {issues, passes: !((sanity.keepMine && issues.mine.length) || (sanity.keepTheirs && issues.theirs.length))};
+  }
+  const GUARDRAIL_POSITIONS = ["QB", "RB", "WR", "TE"];
+  const activeGuardrails = g => Boolean(g && ((Array.isArray(g.protectedPositions) && g.protectedPositions.length)
+    || GUARDRAIL_POSITIONS.some(pos => g.minBackups && g.minBackups[pos] > 0)
+    || g.minDdfEdge > 0 || typeof g.minUserLineupGain === "number" || typeof g.minTheirLineupGain === "number"));
+  // The starter picker allocates QB/RB/WR/TE, then FLEX and SUPERFLEX once each. Only its remaining valued players
+  // count as backups; a real 0 is valued, while a missing DDF value is never silently treated as a player at 0.
+  function benchBackups(rows, shape, valueKey) {
+    const bench = pickStarters(rows, shape, valueKey).bench;
+    return Object.fromEntries(GUARDRAIL_POSITIONS.map(pos => [pos, bench.filter(row => row.pos === pos).length]));
+  }
+  // Mirrors viability.ts's neverWeaker guardrail using this page's existing starter picker and DDF values.
+  function judgeGuardrails(giveRows, getRows, guardrails) {
+    if (!guardrails || !guardrails.shape) return true;
+    const protectedPositions = Array.isArray(guardrails.protectedPositions) ? guardrails.protectedPositions : [];
+    const userMinimum = guardrails.minUserLineupGain;
+    const theirMinimum = guardrails.minTheirLineupGain;
+    const minimumBackups = guardrails.minBackups || {};
+    if (!protectedPositions.length && userMinimum == null && theirMinimum == null
+      && !GUARDRAIL_POSITIONS.some(pos => minimumBackups[pos] > 0)) return true;
+    const valueKey = guardrails.ourKey || OUR_KEY;
+    const after = rosterAfter(guardrails.mine, giveRows, getRows);
+    if (GUARDRAIL_POSITIONS.some(pos => minimumBackups[pos] > 0)) {
+      const counts = benchBackups(after, guardrails.shape, valueKey);
+      if (GUARDRAIL_POSITIONS.some(pos => counts[pos] < (minimumBackups[pos] || 0))) return false;
+    }
+    if (protectedPositions.length) {
+      const beforePicked = pickStarters(guardrails.mine, guardrails.shape, valueKey);
+      const afterPicked = pickStarters(after, guardrails.shape, valueKey);
+      for (const pos of protectedPositions) {
+        if (!GUARDRAIL_POSITIONS.includes(pos)) continue;
+        const valueAt = picked => picked.starters.filter(r => r.pos === pos).reduce((sum, r) => sum + r.values[valueKey], 0);
+        if (valueAt(afterPicked) < valueAt(beforePicked) - 0.05) return false;
+      }
+    }
+    if (typeof userMinimum === "number" && Number.isFinite(userMinimum)) {
+      if (!(rosterImpact(guardrails.mine, giveRows, getRows, guardrails.shape, valueKey).starterDelta > userMinimum)) return false;
+    }
+    if (typeof theirMinimum === "number" && Number.isFinite(theirMinimum)) {
+      const charts = guardrails.chartKeys || CHART_KEYS;
+      const theirImpact = rosterImpact(withChartAverage(guardrails.theirs, charts), withChartAverage(getRows, charts),
+        withChartAverage(giveRows, charts), guardrails.shape, MARKET_KEY);
+      if (!(theirImpact.starterDelta > theirMinimum)) return false;
+    }
+    return true;
+  }
+  function rosterAfter(roster, leaving, arriving) {
+    const gone = new Set(leaving.map(r => String(r.player_key)));
+    return roster.filter(r => !gone.has(String(r.player_key))).concat(arriving);
   }
   const scoreOf = (edge, players) => edge * (1 - EXTRA_PLAYER_WEIGHT * (players - 2));
   // Any package, judged exactly as the search judges it. ctx comes from findTrades (result.ctx).
@@ -97,12 +156,14 @@
     const edge = judged.edge;
     return {edge, charts: judged.charts, pricedCharts: judged.pricedCharts, rivalOkCount: judged.rivalOkCount, issues: lineup.issues,
       score: edge === null ? null : scoreOf(edge, giveRows.length + receiveRows.length),
-      passes: {edge: judged.passes.edge, charts: judged.passes.charts, lineup: lineup.passes}};
+      passes: {edge: judged.passes.edge && (!(ctx.guardrails && ctx.guardrails.minDdfEdge > 0) || edge > ctx.guardrails.minDdfEdge),
+        charts: judged.passes.charts, lineup: lineup.passes,
+        ...(ctx.guardrails ? {guardrails: judgeGuardrails(giveRows, receiveRows, ctx.guardrails)} : {})}};
   }
 
   // mine / theirs: engine rows. opts: {ourKey, chartKeys, maxSize, minCharts, limit}.
   // Each trade: {give, receive, edge, charts: [{key, net, rivalOk}], pricedCharts, rivalOkCount, score, throwIns}.
-  // edge and net are receive - give for you; the rival is happy when a chart's net is <= 0 as shown.
+  // edge and net are receive - give for you; the rival is happy when a chart's net is even (inside its band, JEG-1125) or below.
   // Rows that differ only by a player worth 0.0 everywhere are one row (the simpler trade), see collapseThrowIns.
   function findTrades(mine, theirs, opts) {
     const o = opts || {};
@@ -111,9 +172,11 @@
     const chartKeys = (o.chartKeys || CHART_KEYS).slice();
     const minCharts = o.minCharts || Math.min(MIN_CHARTS, chartKeys.length);
     const limit = o.limit || LIMIT;
+    const guardrails = activeGuardrails(o.guardrails) ? o.guardrails : null;
     // Optional roster sanity: {shape, mine, theirs (all the side's rows), keepMine, keepTheirs}.
     const sanity = o.sanity ? {...o.sanity, mineCounts: countByPos(o.sanity.mine || []), theirCounts: countByPos(o.sanity.theirs || [])} : null;
     let sanityDropped = 0;
+    let guardrailDropped = 0;
     const mineP = pool(mine, ourKey, maxSize);
     const theirsP = pool(theirs, ourKey, maxSize);
     const keys = [ourKey].concat(chartKeys);
@@ -131,7 +194,8 @@
       let lo = 0; let hi = theirSubs.length;
       while (lo < hi) {
         const mid = (lo + hi) >> 1;
-        if (pointsAsShown(theirSubs[mid].sums[0] - give.sums[0]) > 0) hi = mid; else lo = mid + 1;
+        const mid0 = theirSubs[mid].sums[0];
+        if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0) hi = mid; else lo = mid + 1;
       }
       for (let t = lo; t < theirSubs.length; t++) {
         const get = theirSubs[t];
@@ -164,6 +228,8 @@
         }
         const lineup = judgeLineup(giveRows, getRows, sanity);
         if (!lineup.passes) { sanityDropped += 1; continue; }
+        if (guardrails && ((guardrails.minDdfEdge > 0 && !(verdict.edge > guardrails.minDdfEdge))
+          || !judgeGuardrails(giveRows, getRows, guardrails))) { guardrailDropped += 1; continue; }
         const entry = {give: giveRows, receive: getRows, edge: verdict.edge, charts: verdict.charts, issues: lineup.issues,
           pricedCharts: verdict.pricedCharts, rivalOkCount: verdict.rivalOkCount, score: scoreOf(verdict.edge, giveRows.length + getRows.length),
           ...(addedThrowIns.length ? {addedThrowIns} : {}), ...(unbalanced ? {unbalanced: true} : {})};
@@ -182,8 +248,9 @@
       || (a.give.length + a.receive.length) - (b.give.length + b.receive.length)
       || idOf(a).localeCompare(idOf(b)));
     const collapsed = collapseThrowIns(found, chartKeys, ourKey);
-    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped, ourKey, chartKeys, minCharts, maxSize,
-      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity}};
+    return {trades: collapsed.slice(0, limit), total: collapsed.length, foldedThrowIns: found.length - collapsed.length, sanityDropped,
+      ...(guardrails ? {guardrailDropped} : {}), ourKey, chartKeys, minCharts, maxSize,
+      mine: mineP, theirs: theirsP, ctx: {ourKey, chartKeys, minCharts, sanity, ...(guardrails ? {guardrails} : {})}};
   }
   const idOf = trade => `${trade.give.map(r => r.player_key)}|${trade.receive.map(r => r.player_key)}`;
 
@@ -405,6 +472,68 @@
     if (impact.spotsOpened > 0) parts.push(`opens ${countWord(impact.spotsOpened, "roster spot")} (fill from waivers)`);
     return parts.length ? parts.join("; ") : "Starters by position unchanged";
   }
+  // JEG-1043: a team's starters at each position it gives up, before and after the trade (names in lineup order;
+  // FLEX and SUPERFLEX starters count at their own position). One entry per QB/RB/WR/TE among the leaving players.
+  function startersAtGivenPositions(impact, leaving) {
+    const names = (l, pos) => l.starters.filter(r => r.pos === pos).map(r => r.name);
+    return ["QB", "RB", "WR", "TE"].filter(pos => leaving.some(r => r.pos === pos))
+      .map(pos => ({pos, before: names(impact.before, pos), after: names(impact.after, pos)}));
+  }
+  const givenPositionsLine = entries => entries.map(e => `${e.pos} ${e.before.join(", ") || "none"} → ${e.after.join(", ") || "none"}`).join("; ");
+  // JEG-1043: "Show viable offers only" keeps the groups whose best package has a viability label, in the same order.
+  const viableGroups = (groups, labelOf) => groups.filter(g => Boolean(labelOf(g)));
+
+  // ---------- JEG-890: team value summary for both pasted rosters ----------
+  // A team's value by row (Starters, Bench, Total, then QB/RB/WR/TE) in each series, for the Find a trade page. The
+  // starters are the ones pickStarters picks once from DDF Value, so Starters and Bench mean the same people in every
+  // column. A player a series does not price is missing, never 0: that cell is a partial sum marked incomplete and the
+  // missing names are returned (a real 0.0 counts). Held charts are absent from chartKeys; the caller names them.
+  // JEG-1246: a player DDF Value does not price cannot be placed as a starter or on the bench (pickStarters never
+  // guesses a slot for him), so he sits in his own "unplaced" partition: Starters + Bench + No DDF Value = Total in
+  // every series. That row is listed only when someone is in it, and while it is, Starters and Bench carry his names
+  // as `unplaced` (their split is not known, never a silent 0 or an invented starter).
+  const SUMMARY_ROWS = ["starters", "bench", "unplaced", "total", "QB", "RB", "WR", "TE"];
+  // players priced by valueOf: their sum, how many, and who has no value (never counted as 0). An empty row is a real
+  // 0.0; a row nobody prices has no number at all (value null).
+  function summaryCell(players, valueOf) {
+    let sum = 0;
+    let priced = 0;
+    const missing = [];
+    players.forEach(row => {
+      const v = valueOf(row);
+      if (finite(v)) { sum += v; priced += 1; } else missing.push(row.name);
+    });
+    return {value: priced || !players.length ? sum : null, priced, count: players.length, missing: missing.filter(Boolean), complete: missing.length === 0};
+  }
+  // rows: one team's engine rows; shape: the league's slots; chartKeys: the available, non-held charts (the list run()
+  // compares); ourKey: DDF Value. series: [{key, id, cells}] with id "ddf", then "market" (the mean of chartKeys, absent
+  // as a column when fewer than MIN_CHARTS of them), then one per chart. cells[row] per SUMMARY_ROWS.
+  // Kickers and defenses (isNotEvaluated) are left out of every row, as the roster assessment leaves them out.
+  function teamSummary(teamRows, shape, chartKeys, ourKey) {
+    const rows = (teamRows || []).filter(r => !isNotEvaluated(r));
+    const key = ourKey || OUR_KEY;
+    const charts = chartKeys || [];
+    const picked = pickStarters(rows, shape, key);
+    const market = charts.length >= MIN_CHARTS;
+    const avg = market ? new Map(withChartAverage(rows, charts).map(r => [String(r.player_key), r.values[MARKET_KEY]])) : null;
+    const byPos = pos => rows.filter(r => r.pos === pos);
+    const sets = {starters: picked.starters, bench: picked.bench, unplaced: picked.unvalued, total: rows.slice(), QB: byPos("QB"), RB: byPos("RB"), WR: byPos("WR"), TE: byPos("TE")};
+    const unplaced = picked.unvalued.map(r => r.name).filter(Boolean);
+    const valueOf = seriesKey => (seriesKey === MARKET_KEY
+      ? row => (avg ? avg.get(String(row.player_key)) : null)
+      : row => (row.values ? row.values[seriesKey] : null));
+    const view = seriesKey => {
+      const pick = valueOf(seriesKey);
+      const cells = {};
+      SUMMARY_ROWS.forEach(name => { cells[name] = summaryCell(sets[name], pick); });
+      if (unplaced.length) ["starters", "bench"].forEach(name => { cells[name].unplaced = unplaced.slice(); });
+      return {key: seriesKey, cells};
+    };
+    const series = [{...view(key), id: "ddf"}];
+    series.push(market ? {...view(MARKET_KEY), id: "market"} : {key: MARKET_KEY, id: "market", available: false});
+    charts.forEach(k => series.push({...view(k), id: k}));
+    return {rows: SUMMARY_ROWS.filter(name => name !== "unplaced" || unplaced.length), series, picked, market, unplaced, size: rows.length, shape};
+  }
 
   // ---------- roster sanity (JEG-481, second slice) ----------
   // Slots that need a named position. FLEX and SUPERFLEX are not counted, so the check is conservative toward the
@@ -451,7 +580,7 @@
   }
 
   // ---------- league import (JEG-481, second slice) ----------
-  // Rosters come from a public league (Sleeper or ESPN) or pasted names; they become the same typed-in lists the
+  // Rosters come from pasted names (JEG-1131: no platform fetchers); they become the same typed-in lists the
   // search card already uses. Names are matched to the engine's own rows, never invented.
   const SUFFIX = /\b(jr|sr|ii|iii|iv|v)\b\.?$/;
   const normName = name => String(name || "").toLowerCase().replace(/[.'’`]/g, "").replace(/[^a-z0-9 ]+/g, " ")
@@ -479,33 +608,6 @@
       matched.push(hits[0]);
     });
     return {matched, unmatched};
-  }
-  const SLEEPER_POS = {DEF: "DEF"};
-  // Sleeper: league rosters + league users + the player directory. Returns [{id, label, entries}].
-  function parseSleeper(rosters, users, directory) {
-    const owners = new Map((users || []).map(u => [String(u.user_id), (u.metadata && u.metadata.team_name) || u.display_name || u.username]));
-    return (rosters || []).map(r => ({
-      id: String(r.roster_id),
-      label: owners.get(String(r.owner_id)) || `Team ${r.roster_id}`,
-      entries: (r.players || []).map(id => {
-        const p = (directory || {})[id];
-        if (!p) return null;
-        const name = p.full_name || [p.first_name, p.last_name].filter(Boolean).join(" ");
-        return name ? {name, pos: SLEEPER_POS[p.position] || p.position || ""} : null;
-      }).filter(Boolean)
-    }));
-  }
-  const ESPN_POS = {1: "QB", 2: "RB", 3: "WR", 4: "TE", 5: "K", 16: "DEF"};
-  // ESPN (public league, view=mRoster&view=mTeam). Returns [{id, label, entries}].
-  function parseEspn(json) {
-    return ((json && json.teams) || []).map(team => ({
-      id: String(team.id),
-      label: team.name || [team.location, team.nickname].filter(Boolean).join(" ") || `Team ${team.id}`,
-      entries: (((team.roster || {}).entries) || []).map(entry => {
-        const player = (entry.playerPoolEntry || {}).player || {};
-        return player.fullName ? {name: player.fullName, pos: ESPN_POS[player.defaultPositionId] || ""} : null;
-      }).filter(Boolean)
-    }));
   }
   // Pasted names: one per line or comma-separated; a trailing "(QB - TEN)" style note is dropped.
   function parsePasted(text) {
@@ -588,10 +690,10 @@
   // plus bench at bench weight) rises at all (above 0.05; no noise floor on your side) with starter value not worse AND the other team's Trade chart average change is
   // within the noise floor (max(0.05, FIT_Z x noise)) or positive.
   // Market supported (renamed from Market fit, definition FLIPPED): the Trade chart average says the other team's side
-  // is favorable. Independent of the roster test.
+  // is favorable (their change above 0.05, as shown; JEG-1187). Independent of the roster test.
   // Force fit: everything else. The old fourth label (value) is retired (JEG-1108).
   const FIT_Z = 1;
-  const NET_FLOOR = 0.05;
+  const NET_FLOOR = SHOWN_EVEN;
   const FIT_TIER = {natural: 0, market: 1, force: 2};
   // The standard error of one player's value in a view: DDF Value, half the gap between its chart-based and
   // projection-based versions (two readings of one value); DDF Value (projections), the standard error of the mean of
@@ -651,6 +753,9 @@
     const before = lineupValue(team.roster, ctx.shape, key);
     const next = lineupValue(after, ctx.shape, key);
     const starterDelta = next.starterValue - before.starterValue;
+    // A roster's raw total is different from the bench-weighted net used for fit. Only report its change when every
+    // moving player has this view: lineupValue omits unpriced rows, which must not turn a missing trade value into zero.
+    const totalDelta = team.leaving.concat(team.arriving).every(r => r.values && finite(r.values[key])) ? next.total - before.total : null;
     const net = netOf(next, key, ctx.weights) - netOf(before, key, ctx.weights);
     const noise = Math.sqrt(team.leaving.concat(team.arriving).reduce((total, r) => total + Math.pow(valueNoise(r, key, ctx.chartKeys), 2), 0));
     const tau = Math.max(NET_FLOOR, (finite(ctx.z) ? ctx.z : FIT_Z) * noise);
@@ -679,7 +784,7 @@
     const away = needAfter > needBefore;
     const awayAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter > depth[pos].distBefore);
     const towardAt = DEPTH_POS.filter(pos => depth[pos] && depth[pos].distAfter < depth[pos].distBefore);
-    return {key, net, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
+    return {key, net, totalDelta, starterDelta, benchDelta: net - starterDelta, tau, up, down, flat: !up && !down, toward, away, awayAt, towardAt, depth, ready,
       needBefore, needAfter, emptyBefore, emptyAfter, ok: (up && !away) || (!up && !down && toward)};
   }
   // JEG-1108: rewritten fit labels. Three labels: natural, market, force (value retired).
@@ -689,6 +794,34 @@
   // Force: everything else.
   // sides: {mine, theirs: {roster, leaving, arriving}}; ctx adds ourKey and marketKey (and optionally projectionsKey). null when the market view is not available.
   const FIT_VARIANTS = ["natural", "market", "force"];
+  // JEG-1324: Natural fit 1a (Jeremy, 2026-10-29: "1a"; and "Natural means both sides, not just 1 side"). This is the one
+  // predicate every route uses to call a trade Natural: tradeFit here, ourFitOf (opportunities.js) through tradeFit's
+  // `natural` field, and the connector, which evaluates this file. Each side passes three tests: its value test (yours: DDF
+  // Value total up past 0.05 with starters no worse; theirs: Trade chart average up or within its noise floor), its own
+  // roster construction, and its DDF Value (projections) not declining.
+  // "Not declining" (Jeremy, 2026-10-29, D2 "A"): a fall that shows as 0.0 (under 0.05) holds, so a Natural trade never
+  // shows a negative projections change. A side's projections are judged only when every moving player has a DDF Value
+  // (projections); otherwise the side is not judged (null), and a side that is not judged is not Natural (Jeremy,
+  // 2026-10-29, "A" on JEG-1324): a missing projection is never read as 0.
+  const PROJ_FLOOR = NET_FLOOR;
+  const projectionsHold = net => (finite(net) ? net >= 0 || Math.abs(net) < PROJ_FLOOR : null);
+  // The bench-weighted change of one team in one view (the same measure as teamFit's net), without the depth readout.
+  function viewNet(team, ctx, key) {
+    const gone = new Set(team.leaving.map(r => String(r.player_key)));
+    const after = team.roster.filter(r => !gone.has(String(r.player_key))).concat(team.arriving);
+    return netOf(lineupValue(after, ctx.shape, key), key, ctx.weights) - netOf(lineupValue(team.roster, ctx.shape, key), key, ctx.weights);
+  }
+  // parts: {yourValueOk, theirValueOk, myConstruction, theirConstruction, usProjNet, themProjNet} (a net is null when not judged).
+  function naturalFit(parts) {
+    const side = (value, construction, projNet) => {
+      const projections = projectionsHold(projNet);
+      return {value: Boolean(value), construction: Boolean(construction && construction.ok), projections, projNet: finite(projNet) ? projNet : null,
+        ok: Boolean(value) && Boolean(construction && construction.ok) && projections === true};
+    };
+    const us = side(parts.yourValueOk, parts.myConstruction, parts.usProjNet);
+    const them = side(parts.theirValueOk, parts.theirConstruction, parts.themProjNet);
+    return {ok: us.ok && them.ok, us, them};
+  }
   function tradeFit(sides, ctx) {
     if (!ctx || !ctx.marketKey) return null;
     const projKey = ctx.projectionsKey || PROJECTIONS_KEY;
@@ -712,10 +845,15 @@
     const theirNet = them.net;
     const theirTau = them.tau;
     const theirOk = theirNet >= -theirTau;
-    // Market supported: the Trade chart average says the other team's side is favorable (they gain).
-    const marketSupported = theirNet > theirTau;
-    // Natural: all three conditions pass.
-    const isNatural = constructionOk && yourValueOk && theirOk;
+    // Market supported: the Trade chart average says the other team's side is favorable (they gain). Any gain the page
+    // shows (above the 0.05 display floor), not the noise floor (JEG-1187): the finder only lists trades you win on DDF
+    // Value, so on real charts the other team's gain never cleared its noise floor and the label could not appear. The
+    // noise floor stays where Jeremy put it (2026-10-25): the tolerance for a loss on their side of Natural fit.
+    const marketSupported = theirNet > NET_FLOOR;
+    // Natural: both sides pass the 1a predicate (JEG-1324), which adds both sides' projections to the tests above.
+    const natural = naturalFit({yourValueOk, theirValueOk: theirOk, myConstruction, theirConstruction,
+      usProjNet: projected ? usProj.net : null, themProjNet: projected ? viewNet(sides.theirs, ctx, projKey) : null});
+    const isNatural = natural.ok;
     const label = isNatural ? "natural" : marketSupported ? "market" : "force";
     // Keep variant for backward compat; no projections variant now (simplified).
     const variant = label;
@@ -723,7 +861,7 @@
     const usServing = us;
     const fillsNeed = us.toward || them.toward;
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
-      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported};
+      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported, natural};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
@@ -744,8 +882,18 @@
     const depth = us.ready || them.ready
       ? ` ${us.ready ? `You are ${stateText(us)}` : ""}${us.ready && them.ready ? "; " : ""}${them.ready ? `${us.ready ? "they" : "They"} are ${stateText(them)}` : ""}.`
       : "";
+    // JEG-1324: both sides' DDF Value (projections), the 1a test. A side that is not judged says so; never a 0.
+    const proj = fit.natural || null;
+    const projWhy = [];
+    if (proj) {
+      [[proj.us, "Your"], [proj.them, "Their"]].forEach(([side, who]) => {
+        if (side.projections === false) projWhy.push(`${who} DDF Value (projections) falls ${Math.abs(side.projNet).toFixed(1)}.`);
+      });
+      if (proj.us.projections === null || proj.them.projections === null) projWhy.push("DDF Value (projections) not checked: a player in the trade has none, so it cannot be a Natural fit.");
+    }
     if (fit.label === "natural") {
-      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}. Roster construction works for both teams.${depth}`;
+      const held = proj ? ` DDF Value (projections) holds for both teams (you ${fitFmt(proj.us.projNet)}, they ${fitFmt(proj.them.projNet)}).` : "";
+      return `Natural fit: ${net(us, "you")} and ${net(them, "they")}. Roster construction works for both teams.${held}${depth}`;
     }
     if (fit.label === "market") {
       const why = [];
@@ -754,6 +902,7 @@
         why.push(`Roster construction issue${issues.length > 1 ? "s" : ""}: ${issues.join("; ")}.`);
       }
       if (!fit.yourValueOk) why.push(`Your DDF Value total does not rise (${fitFmt(us.net)}, starters ${fitFmt(us.starterDelta)}).`);
+      why.push(...projWhy);
       return `Market supported: the trade charts favor them (${fitFmt(them.net)}).${why.length ? ` ${why.join(" ")}` : ""}${depth}`;
     }
     const why = [];
@@ -767,6 +916,7 @@
     }
     if (them.net < -them.tau) why.push(`They lose ${Math.abs(them.net).toFixed(1)} on ${VIEW_NAME[them.key]}, outside the ${them.tau.toFixed(1)} noise floor.`);
     if (!fit.marketSupported) why.push(`The trade charts do not favor them (${fitFmt(them.net)}).`);
+    why.push(...projWhy);
     const other = [[fit.usOther, "you", us], [fit.themOther, "they", them]].filter(([o, , own]) => !own.ok && o.up).map(([o, who]) => `Only on ${VIEW_NAME[o.key]} do ${who} gain (${fitFmt(o.net)}).`);
     return `Force fit: ${why.join(" ")}${other.length ? ` ${other.join(" ")}` : ""}${depth}`;
   }
@@ -812,25 +962,137 @@
     if (!finite(d.ddf)) return `${what}: no value`;
     return `${what} ${sign(d.ddf)} DDF Value${others.length ? ` (${others.join(", ")})` : ""}`;
   }
-  const VIEW_TIPS = {ddf: "Our methodology: the four trade charts (FantasyCalc, USA Today, FantasyPros, CBS), adjusted for your league's position weights.",
-    market: "What the market pays: the same four trade charts, uniformly rescaled (no position weighting). The common language for trade proposals.",
-    projections: "The alternate: ESPN, CBS rest-of-season and Razzball projections, averaged for your league. Independent of the trade market."};
+  // JEG-1130 (PMM doc, final naming 2026-10-26): one plain sentence per read, and no publisher names in a definition.
+  const VIEW_TIPS = {ddf: "What a player is worth in your league: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
+    market: "What other managers will pay: the public trade market on one scale, before any position-weight adjustment. The common language for trade proposals.",
+    projections: "The same read rooted in projections: projected points, adjusted for position weight and your league's rosters. Good for steady producers; it can underrate upside."};
   // Spec 4c; under a basis of the reader's own (Overrides) DDF Value is theirs, and the market's point scale follows it (spec 5b).
   function viewTip(id, basis) {
     const custom = Boolean(basis && !basis.isDefault);
     const name = custom ? basis.label : "";
-    if (id === "ddf" && custom) return `Your basis, not our methodology: ${name}, adjusted for your league's position weights. Change it on Overrides.`;
+    if (id === "ddf" && custom) return `Your basis, not the default DDF Value: ${name}, adjusted for your league's position weights. Change it on Overrides.`;
     if (id === "market" && custom) return `${VIEW_TIPS.market} Rescaled to ${basis.mode === "single" ? `${name}'s point scale` : `the point scale of ${name}`}.`;
     return VIEW_TIPS[id];
   }
   // JEG-1081 PR 7: what each fit label means, for the label's tooltip (spec 4c). Plain words, no abbreviations.
   const FIT_TIPS = {
-    natural: "Natural fit: neither roster is broken (no bench player is forced into a starting spot and no starter is lost without a starter coming back), your DDF Value total rises with your starters no worse, and the Trade chart average does not show the other team losing.",
-    market: "Market supported: the Trade chart average says the other team comes out ahead on this trade.",
+    natural: "Natural fit: both rosters keep their starting slots filled, no bench player is forced into a starting spot, and no starter is lost without a starter coming back. Your DDF Value rises with your starters no worse. Their Trade chart average change is positive or any loss is within the source disagreement allowance. Neither team's DDF Value (projections) falls (a change under 0.05 counts as level), and every player in the trade has one. Fit totals weight bench value by the league's bench share.",
+    market: "Market supported: their Trade chart average fit value rises by more than 0.05 points, using the league's bench share. A trade can earn this label while their starters lose value or either roster has construction issues; check the team-fit details.",
     force: "Force fit: a roster would be broken, a side loses, or the other team does not clear the bar on the Trade chart average."
   };
   const fitTip = variant => FIT_TIPS[variant] || FIT_TIPS.force;
-  const api = {viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parseSleeper, parseEspn, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+
+  // ---------- JEG-894: a Find a trade search link ----------
+  // A search is a roster pair, a package size and the two lineup ticks; the link carries all of them, plus the league
+  // settings (the caller passes the page's own league query, so the reader's numbers are the sender's). Ids are the
+  // engine player_key. The link is a plain URL fragment: it is never sent to a server.
+  const FINDER_ID = /^[0-9A-Za-z_-]+$/;
+  const FINDER_MAX_SIDE = 40;   // a crafted link cannot freeze the page
+  const finderKeys = list => (list || []).map(p => (typeof p === "string" ? p : p && p.key))
+    .filter(k => k !== undefined && k !== null && k !== "").map(k => encodeURIComponent(String(k))).join(",");
+  // JEG-1328: the link also names the saved teams the two rosters were loaded from (ws = the league's id, mt / tt = the
+  // teams' ids). They only matter to a reader with that same saved league; anywhere else the rosters stay a working copy.
+  const FINDER_TEAM_ID = /^[0-9A-Za-z_-]{1,64}$/;
+  // state: {mine, theirs, maxSize, keepMine, keepTheirs, guardrails, viableOnly, teams: {workspaceId, mineId, theirId}};
+  // leagueQuery: the page's leagueLinkParts().join("&") (may be "").
+  function encodeFinderHash(state, leagueQuery) {
+    const s = state || {};
+    const parts = [];
+    const mine = finderKeys(s.mine);
+    const theirs = finderKeys(s.theirs);
+    if (mine) parts.push(`mine=${mine}`);
+    if (theirs) parts.push(`theirs=${theirs}`);
+    const size = Number(s.maxSize);
+    parts.push(`size=${MAX_SIZE_CHOICES.includes(size) ? size : 2}`);
+    parts.push(`km=${s.keepMine === false ? 0 : 1}`);
+    parts.push(`kt=${s.keepTheirs === false ? 0 : 1}`);
+    const g = s.guardrails || {};
+    const backups = GUARDRAIL_POSITIONS.filter(pos => g.minBackups && g.minBackups[pos] > 0)
+      .map(pos => `${pos}:${g.minBackups[pos]}`);
+    if (backups.length) parts.push(`backups=${backups.join(",")}`);
+    const positions = GUARDRAIL_POSITIONS.filter(pos => Array.isArray(g.protectedPositions) && g.protectedPositions.includes(pos));
+    if (positions.length) parts.push(`protect=${positions.join(",")}`);
+    if (g.minDdfEdge > 0) parts.push(`minEdge=${g.minDdfEdge}`);
+    if (g.minUserLineupGain !== null && g.minUserLineupGain !== undefined) parts.push(`minMine=${g.minUserLineupGain}`);
+    if (g.minTheirLineupGain !== null && g.minTheirLineupGain !== undefined) parts.push(`minTheirs=${g.minTheirLineupGain}`);
+    if (s.viableOnly) parts.push("viable=1");
+    const t = s.teams || {};
+    const ids = [["mt", t.mineId], ["tt", t.theirId]].filter(([, id]) => FINDER_TEAM_ID.test(String(id || "")));
+    if (FINDER_TEAM_ID.test(String(t.workspaceId || "")) && ids.length) parts.push(`ws=${t.workspaceId}`, ...ids.map(([k, id]) => `${k}=${id}`));
+    const tail = String(leagueQuery || "").replace(/^[?&]+/, "");
+    if (tail) parts.push(tail);
+    return `#find-trade?${parts.join("&")}`;
+  }
+  // Pure: ids must look like keys, each side is capped, an id on both sides stays on "mine", `size` is 2/3/4 (else 2),
+  // km/kt default on. knownKeys (a Set or array of engine keys) drops ids the engine no longer prices and counts them;
+  // without it every well-formed id is kept. Returns {mine, theirs, size, keepMine, keepTheirs, dropped, unknown, both}.
+  function decodeFinderHash(query, knownKeys) {
+    // Accept a bare query ("mine=1"), a "?mine=1" query, or a full fragment ("#find-trade?mine=1").
+    const raw = String(query || "");
+    const params = new URLSearchParams(raw.includes("?") ? raw.slice(raw.indexOf("?") + 1) : raw.replace(/^[#?]+/, ""));
+    const known = knownKeys ? new Set([...knownKeys].map(String)) : null;
+    let dropped = 0;
+    let unknown = 0;
+    const readSide = name => {
+      const out = [];
+      const seen = new Set();
+      String(params.get(name) || "").split(",").map(s => s.trim()).filter(Boolean).forEach(raw => {
+        let id; try { id = decodeURIComponent(raw); } catch (error) { id = raw; }
+        if (!FINDER_ID.test(id)) { dropped += 1; return; }
+        if (seen.has(id)) return;
+        if (known && !known.has(id)) { unknown += 1; return; }
+        if (out.length >= FINDER_MAX_SIDE) { dropped += 1; return; }
+        seen.add(id);
+        out.push(id);
+      });
+      return out;
+    };
+    const mine = readSide("mine");
+    const mineSet = new Set(mine);
+    const theirsAll = readSide("theirs");
+    const both = theirsAll.filter(k => mineSet.has(k));
+    const theirs = theirsAll.filter(k => !mineSet.has(k));
+    const size = Number(params.get("size"));
+    const validMinimum = name => {
+      if (!params.has(name)) return null;
+      const raw = params.get(name);
+      if (!/^(?:\d{1,3})(?:\.\d)?$/.test(raw)) return null;
+      const n = Number(raw);
+      return n <= 100 ? n : null;
+    };
+    const backups = {};
+    (params.get("backups") || "").split(",").forEach(entry => {
+      const match = /^(QB|RB|WR|TE):(\d{1,2})$/.exec(entry);
+      if (match && Number(match[2]) <= 20) backups[match[1]] = Number(match[2]);
+    });
+    const teamId = name => (FINDER_TEAM_ID.test(params.get(name) || "") ? params.get(name) : null);
+    const teams = {workspaceId: teamId("ws"), mineId: teamId("mt"), theirId: teamId("tt")};
+    if (!teams.workspaceId || teams.mineId === teams.theirId) { teams.mineId = null; teams.theirId = null; }
+    if (!teams.mineId && !teams.theirId) teams.workspaceId = null;
+    return {mine, theirs, size: MAX_SIZE_CHOICES.includes(size) ? size : 2,
+      keepMine: params.get("km") !== "0", keepTheirs: params.get("kt") !== "0", viableOnly: params.get("viable") === "1", teams, dropped, unknown, both: both.length,
+      guardrails: {protectedPositions: GUARDRAIL_POSITIONS.filter(pos => (params.get("protect") || "").split(",").includes(pos)), minBackups: backups,
+        minDdfEdge: validMinimum("minEdge") || 0, minUserLineupGain: validMinimum("minMine"), minTheirLineupGain: validMinimum("minTheirs")}};
+  }
+
+  // JEG-1328: which of a search link's saved teams (decoded teams plus the link's roster keys) label the rosters setSides
+  // was given. A team counts only when every player given came from the link and the reader has that saved league and team.
+  function linkTeamsFor(link, mine, theirs, workspace) {
+    const none = {mineId: null, theirId: null};
+    const fromLink = (list, keys) => list.every(p => keys.has(String(p.key)));
+    if (!link || !workspace || workspace.id !== link.workspaceId) return none;
+    if (!fromLink(mine, link.mineKeys) || !fromLink(theirs, link.theirKeys)) return none;
+    const has = id => Boolean(id) && workspace.teams.some(team => team.id === id);
+    return {mineId: has(link.mineId) ? link.mineId : null, theirId: has(link.theirId) ? link.theirId : null};
+  }
+
+  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  // Stable identity comes from League, never the name (duplicate names are valid).
+  function savedTeamChoices(workspace) {
+    return workspace.teams.map((team, i) => ({id: team.id,
+      label: `${team.name} · Team ${i + 1} · ${team.entries.length} players${workspace.myTeamId === team.id ? " · Your team" : ""}`}));
+  }
+  api.savedTeamChoices = savedTeamChoices;
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueFinder = api;
 
@@ -841,46 +1103,207 @@
   // mine / theirs: [{key, name, pos}]; sel: keys ticked for "Move selected"; undo: the rosters before the last swap or move (JEG-854).
   // src: the page text each side was read from (JEG-1020: re-read when the league settings change); removed: players the
 // reader took off by hand, which a re-read must not bring back.
-const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, sel: new Set(), undo: null, label: {mine: "", theirs: ""},
-    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set()};
+const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
+    guardrails: {protectedPositions: [], minBackups: {QB: 0, RB: 0, WR: 0, TE: 0}, minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null},
+    sel: new Set(), undo: null, label: {mine: "", theirs: ""},
+    src: {mine: null, theirs: null}, removed: new Set(), answered: new Set(), viableOnly: false};
   const renders = {};
-  // JEG-1022: what the Waivers tab (waivers.js) reuses from this page, so there is one assessment table and one "my roster".
+  // JEG-1022: Waivers reuses the assessment helpers; its roster stays the workspace's marked team.
   const mineListeners = [];
-  // JEG-1021: "my roster" is one list: this card's "Your roster", the league's marked team and the Waivers tab all read and write the
-  // workspace store (workspace.js). A change here is pushed to it; a change there (the league page, Waivers, another tab) is pulled in.
+  // JEG-1219: the matchup is view context. League/Waivers keep the marked roster; neither finder side writes it.
   const sharedStore = () => (root.TradeValueWorkspace ? root.TradeValueWorkspace.store : null);
-  const keysOf = list => list.map(p => p.key).join(",");
-  let syncing = false;
-  const pushMine = () => {
-    const store = sharedStore();
-    if (!store || syncing || keysOf(store.getMyRoster()) === keysOf(S.mine)) return;
-    syncing = true;
-    try { store.setMyRoster(S.mine.map(p => ({...p}))); } finally { syncing = false; }
+  // JEG-1114: the settings this tab last applied, and whether an opened link's settings hold this tab. Another tab's
+  // unrelated write (a rename, the star) carries the same saved settings and must not re-apply them or clear the results;
+  // while a link holds the tab, no other-tab pull replaces its settings until the reader changes one here or loads a
+  // league (a same-tab load or replace always reconciles).
+  const settingsKey = settings => JSON.stringify(settings);
+  let appliedSettings = null;
+  let linkHolds = false;
+  const savedSettings = () => {
+    const W = root.TradeValueWorkspace;
+    return W && W.store ? W.normalizeFinderSettings(W.store.get().ui.finderSettings) : null;
   };
+  const applySettings = settings => {
+    if (!settings) return;
+    S.maxSize = settings.maxSize;
+    S.keepMine = settings.keepMine;
+    S.keepTheirs = settings.keepTheirs;
+    S.guardrails = {protectedPositions: settings.protectedPositions.slice(), minBackups: {...settings.minBackups}, minDdfEdge: settings.minDdfEdge,
+      minUserLineupGain: settings.minUserLineupGain, minTheirLineupGain: settings.minTheirLineupGain};
+    const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    GUARDRAIL_POSITIONS.forEach(pos => { const box = $(`v2FindProtect${pos}`); if (box) box.checked = S.guardrails.protectedPositions.includes(pos); });
+    GUARDRAIL_POSITIONS.forEach(pos => {
+      const n = S.guardrails.minBackups[pos];
+      const readout = $(`v2FindBackups${pos}`); if (readout) readout.textContent = String(n);
+      const down = $(`v2FindBackups${pos}Down`); if (down) down.disabled = n === 0;
+      const up = $(`v2FindBackups${pos}Up`); if (up) up.disabled = n === 20;
+    });
+    [["minDdfEdge", "v2FindMinEdge"], ["minUserLineupGain", "v2FindMinMine"], ["minTheirLineupGain", "v2FindMinTheirs"]].forEach(([key, id]) => {
+      const input = $(id); if (input) input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+    });
+    const folded = $("v2FindSummary"); if (folded && !folded.hidden) updateSummary();
+  };
+  const saveSettings = () => {
+    const W = root.TradeValueWorkspace;
+    if (!W || !W.store) return;
+    const value = W.normalizeFinderSettings({...S.guardrails, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs});
+    linkHolds = false;
+    appliedSettings = settingsKey(value);
+    W.store.update(w => W.ops.setUi(w, {finderSettings: value}), "finder-settings");
+  };
+  let linkPending = false;   // JEG-894: a search link asked for a run once the rosters are in
+  // The star is an initial default only. Explicit/manual/link context wins over subsequent workspace changes.
+  let rosterCopy = null;   // {workspaceId, teamId, theirTeamId, active}
+  const selectionKey = side => side === "mine" ? "teamId" : "theirTeamId";
+  const pickerId = side => side === "mine" ? "v2FindSavedTeam" : "v2FindTheirSavedTeam";
+  const reloadId = side => side === "mine" ? "v2FindReloadTeam" : "v2FindTheirReloadTeam";
+  const pendingRosterInput = side => {
+    const prefix = side === "mine" ? "v2FindMine" : "v2FindTheirs";
+    return Boolean($(prefix + "Search")?.value.trim() || $(prefix + "Paste")?.value.trim()
+      || $(prefix + "PasteResult")?.querySelector("button") || S[side].some(p => S.sel.has(p.key)));
+  };
+  const DRAFT_KEY = "ddf.v2.finder-roster-copy";
+  const pristineDefault = () => Boolean(rosterCopy?.autoDefault && rosterCopy.initialRoster === JSON.stringify(S.mine)
+    && !S.theirs.length && !S.src.mine && !S.src.theirs && !S.sel.size);
+  function saveRosterCopy() {
+    if (!rosterCopy) return;
+    if (rosterCopy.autoDefault && !pristineDefault()) rosterCopy.autoDefault = false;
+    if (rosterCopy.autoDefault) return;   // Only an engaged matchup is a persisted draft, not an unseen initial default.
+    if (S.mine.length || S.theirs.length || S.src.mine || S.src.theirs) rosterCopy.active = true;
+    if (!rosterCopy.active) return;   // An untouched empty view must not suppress a later initial starred-team default.
+    try {
+      root.sessionStorage.setItem(DRAFT_KEY, JSON.stringify({v: 1, ...rosterCopy, mine: S.mine, theirs: S.theirs,
+        src: S.src, label: S.label, removed: [...S.removed], answered: [...S.answered]}));
+    } catch (error) { /* Storage may be disabled or full; the working copy still works for this visit. */ }
+  }
+  function restoreRosterCopy() {
+    try {
+      const draft = JSON.parse(root.sessionStorage.getItem(DRAFT_KEY));
+      const W = root.TradeValueWorkspace;
+      if (!draft || draft.v !== 1 || typeof draft.workspaceId !== "string" || !Array.isArray(draft.mine) || !Array.isArray(draft.theirs)) return;
+      rosterCopy = {workspaceId: draft.workspaceId, teamId: typeof draft.teamId === "string" ? draft.teamId : null,
+        theirTeamId: typeof draft.theirTeamId === "string" ? draft.theirTeamId : null, active: true};
+      S.mine = W.cleanEntries(draft.mine); S.theirs = W.cleanEntries(draft.theirs);
+      ["mine", "theirs"].forEach(side => {
+        const src = draft.src && draft.src[side];
+        S.src[side] = src && typeof src.text === "string" ? {text: src.text, team: Number.isInteger(src.team) ? src.team : null} : null;
+        S.label[side] = draft.label && typeof draft.label[side] === "string" ? draft.label[side] : "";
+      });
+      S.removed = new Set(Array.isArray(draft.removed) ? draft.removed.map(String) : []);
+      S.answered = new Set(Array.isArray(draft.answered) ? draft.answered.map(String) : []);
+    } catch (error) { /* Ignore invalid or unavailable session storage without writing to League. */ }
+  }
+  function updateSavedTeamPicker() {
+    const store = sharedStore();
+    if (!store) return;
+    const ws = store.get();
+    const choices = savedTeamChoices(ws);
+    const sameLeague = rosterCopy && rosterCopy.workspaceId === ws.id;
+    ["mine", "theirs"].forEach(side => {
+      const select = $(pickerId(side)), note = $(pickerId(side) + "Note");
+      if (!select || !note) return;
+      const id = sameLeague && rosterCopy[selectionKey(side)];
+      const otherId = sameLeague && rosterCopy[selectionKey(side === "mine" ? "theirs" : "mine")];
+      const chosen = ws.teams.find(t => t.id === id);
+      select.replaceChildren(el("option", {value: "", text: "Current roster"}),
+        ...choices.map(t => {
+          const option = el("option", {value: t.id, text: t.label});
+          option.disabled = t.id === otherId;
+          return option;
+        }));
+      // Keep a deleted ID visible: neither a new name nor a new league may redirect this copy to another team.
+      if (id && !chosen) select.append(el("option", {value: id, text: "Previously selected team (no longer in this league)", disabled: ""}));
+      select.value = id || "";
+      select.disabled = !choices.length;
+      const reload = $(reloadId(side));
+      if (reload) reload.hidden = !chosen;
+      const marked = store.getMyTeam();
+      const suffix = side === "mine" ? (marked ? ` League and Waivers still use ${marked.name}, the marked Your team.` : " No team is marked as Your team in League.") : "";
+      note.textContent = (!choices.length ? "No saved teams. Add teams on the League page. " : "")
+        + (rosterCopy && !sameLeague ? "The saved league changed. Your working roster is kept; choose a team to load a copy from this league."
+          : id && !chosen ? "That team is no longer in this league. Your working roster is kept; choose a saved team to load another copy."
+          : "Working copy in this tab. Saved League rosters stay unchanged.") + suffix;
+    });
+  }
+  function chooseSavedTeam(side, id) {
+    const store = sharedStore(), ws = store && store.get();
+    const team = ws && ws.teams.find(t => t.id === id);
+    if (id && !team) { updateSavedTeamPicker(); return; }
+    const sameLeague = rosterCopy && rosterCopy.workspaceId === ws.id;
+    const otherKey = selectionKey(side === "mine" ? "theirs" : "mine");
+    if (id && sameLeague && rosterCopy[otherKey] === id) {
+      updateSavedTeamPicker(); arrangeSay("Choose different saved teams for the two sides."); return;
+    }
+    const prefix = side === "mine" ? "v2FindMine" : "v2FindTheirs";
+    const input = $(prefix + "Search"), result = $(prefix + "PasteResult");
+    // A partially typed query or unanswered paste choice cannot disappear just from changing a select.
+    if (pendingRosterInput(side) && !root.confirm(`Load this roster and clear the unfinished input or player selections for ${side === "mine" ? "Your" : "Their"} roster? Your current rosters can be restored with Undo. Saved League teams stay unchanged.`)) {
+      updateSavedTeamPicker(); return;
+    }
+    snapshot();
+    const previousKeys = new Set(S[side].map(p => p.key));
+    rosterCopy = {workspaceId: ws.id, teamId: sameLeague ? rosterCopy.teamId : null,
+      theirTeamId: sameLeague ? rosterCopy.theirTeamId : null, active: true, [selectionKey(side)]: team ? team.id : null};
+    if (team) {
+      S[side] = team.entries.map(p => ({...p}));
+      S.label[side] = team.name;
+      S.src[side] = null;
+    }
+    if (input) input.value = "";
+    const paste = $(prefix + "Paste"); if (paste) paste.value = "";
+    if (result) result.replaceChildren();
+    const searchResults = $(prefix + "Results");
+    if (searchResults) { searchResults.replaceChildren(); searchResults.hidden = true; }
+    // The explicit pick supersedes rosters from an opened link. Keep its league, value context and search controls,
+    // but do not replay the old rosters over this tab's persisted working copy on reload or repeated navigation.
+    if (location.hash.split("?")[0] === "#find-trade") {
+      const params = new URLSearchParams(location.hash.split("?")[1] || "");
+      params.delete("mine"); params.delete("theirs");
+      const query = params.toString();
+      root.history.replaceState(root.history.state, "", location.pathname + location.search + "#find-trade" + (query ? `?${query}` : ""));
+    }
+    previousKeys.forEach(key => S.sel.delete(key));
+    renderBoth(); clearOutput();
+    arrangeSay(team ? `Loaded a copy of ${team.name}. Saved teams and the marked Your team are unchanged. Undo restores the previous rosters.` : "Kept the current roster as a working copy. Saved teams stay unchanged.");
+  }
+  function savedTeamPicker(side) {
+    const label = side === "mine" ? "Your saved League team" : "Their saved League team";
+    const select = el("select", {id: pickerId(side), "aria-label": label, "aria-describedby": pickerId(side) + "Note"});
+    select.addEventListener("change", () => chooseSavedTeam(side, select.value));
+    const reload = el("button", {type: "button", class: "v2-link", id: reloadId(side), text: "Reload saved team", hidden: ""});
+    reload.addEventListener("click", () => chooseSavedTeam(side, select.value));
+    return el("div", {class: "v2-find-saved-team"},
+      el("label", {class: "v2-field"}, el("span", {text: label}), select), reload,
+      el("p", {class: "v2-meta", id: pickerId(side) + "Note", role: "status"}));
+  }
   const pullMine = () => {
     const store = sharedStore();
-    if (!store || syncing) return;
-    const now = store.getMyRoster();
-    if (keysOf(now) === keysOf(S.mine)) return;
-    syncing = true;
-    try {
-      S.mine = now.map(p => ({...p}));
-      S.sel.clear();
-      renderBoth();
-      if ($("v2FindOut")) clearOutput();
-    } finally { syncing = false; }
+    if (!store || (rosterCopy?.active && !pristineDefault()) || (S.mine.length && !pristineDefault())
+      || S.theirs.length || pendingRosterInput("mine") || pendingRosterInput("theirs")) return;
+    const ws = store.get(), team = ws.teams.find(t => t.id === ws.myTeamId);
+    S.mine = team ? team.entries.map(p => ({...p})) : [];
+    rosterCopy = {workspaceId: ws.id, teamId: team ? team.id : null, theirTeamId: null, active: Boolean(team),
+      autoDefault: true, initialRoster: JSON.stringify(S.mine)};
+    S.label.mine = team ? team.name : "";
+    S.sel.clear(); renderBoth();
+    if ($("v2FindOut")) clearOutput();
     mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } });
   };
-  const mineChanged = () => { pushMine(); mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } }); };
+  const mineChanged = () => { saveRosterCopy(); updateSavedTeamPicker(); mineListeners.forEach(fn => { try { fn(); } catch (error) { console.warn("Roster listener failed:", error); } }); };
   api.ui = {depthContext, marketKeys, benchWeights, sideAssessment, assessmentTable, imbalanceText: w => imbalanceText(w), biggestImbalance,
     getMine: () => S.mine.map(p => ({...p})),
-    setMine: list => { S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
+    setMine: list => { rosterCopy = {...(rosterCopy || {workspaceId: sharedStore().get().id}), teamId: null, active: true, autoDefault: false};
+      S.mine = list.map(p => ({...p})); S.sel.clear(); renderBoth(); if ($("v2FindOut")) clearOutput(); },
     onMineChange: fn => { mineListeners.push(fn); },
     // JEG-1026: a DDF state (a pasted block or a link) sets both rosters at once. Undo puts back what was there; the page text each
     // side was read from is dropped (these players did not come from it), so a league-settings re-read does not overwrite them.
     getTheirs: () => S.theirs.map(p => ({...p})),
     setSides: (mine, theirs) => {
       snapshot();
+      rosterCopy = {workspaceId: sharedStore().get().id, teamId: null, theirTeamId: null, active: true};
+      adoptLinkTeams(mine, theirs);
       const have = new Set(mine.map(p => p.key));
       S.mine = mine.map(p => ({...p}));
       S.theirs = theirs.filter(p => !have.has(p.key)).map(p => ({...p}));
@@ -889,9 +1312,81 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       S.sel.clear();
       renderBoth();
       if ($("v2FindOut")) clearOutput();
+      // JEG-894: a search link sets the rosters through here; run the search it asked for now that they are in.
+      if (linkPending) { linkPending = false; if (S.mine.length && S.theirs.length) { if ($("v2FindSummary")) updateSummary(); run(); } }
       return {bothSides: theirs.filter(p => have.has(p.key)).map(p => p.name)};
     }};
 
+  // JEG-894: the finder's own part of a search link. The rosters and the league settings arrive through the shared link
+  // path (ddf-assist.js, which owns #find-trade?mine=..&theirs=..); this sets the package size and the two lineup ticks
+  // and asks for the search to run as soon as setSides has the rosters in.
+  function applyHash(params) {
+    if (!params || location.hash.split("?")[0] !== "#find-trade") return null;
+    const hasRosters = params.has("mine") || params.has("theirs");
+    if (!hasRosters && !(rosterCopy && params.has("size"))) return null;
+    const decoded = decodeFinderHash(params.toString(), null);
+    S.maxSize = decoded.size;
+    S.keepMine = decoded.keepMine;
+    S.keepTheirs = decoded.keepTheirs;
+    const linkSettings = root.TradeValueWorkspace.normalizeFinderSettings({...decoded.guardrails, maxSize: decoded.size,
+      keepMine: decoded.keepMine, keepTheirs: decoded.keepTheirs});
+    applySettings(linkSettings);
+    const size = $("v2FindSize"); if (size) size.value = String(S.maxSize);
+    const km = $("v2FindKeepMine"); if (km) km.checked = S.keepMine;
+    const kt = $("v2FindKeepTheirs"); if (kt) kt.checked = S.keepTheirs;
+    linkPending = hasRosters;
+    // The opened link wins in this tab, across other tabs' writes. Like its rosters (JEG-1219), its settings stay this
+    // tab's: nothing is written to the saved league.
+    appliedSettings = settingsKey(linkSettings);
+    linkHolds = true;
+    return decoded;
+  }
+  // The "Copy link to this search" button: both rosters, the package size, the lineup ticks and the league settings.
+  async function copyLink(button) {
+    const note = $("v2FindShareNote");
+    const say = text => { if (note) { note.hidden = false; note.textContent = text; } };
+    const empty = !S.mine.length && !S.theirs.length ? "both rosters" : !S.mine.length ? "your roster" : !S.theirs.length ? "their roster" : "";
+    if (empty) { say(`Add at least one player to ${empty} to make a link.`); return; }
+    const league = root.TradeValueV2 && root.TradeValueV2.leagueQuery ? root.TradeValueV2.leagueQuery() : "";
+    const teams = rosterCopy ? {workspaceId: rosterCopy.workspaceId, mineId: rosterCopy.teamId, theirId: rosterCopy.theirTeamId} : null;
+    const hash = encodeFinderHash({mine: S.mine, theirs: S.theirs, maxSize: S.maxSize, keepMine: S.keepMine, keepTheirs: S.keepTheirs, guardrails: S.guardrails,
+      viableOnly: S.viableOnly, teams}, league);
+    const ov = root.DDFOverrides;
+    const shared = ov && ov.shareLink ? ov.shareLink(hash) : {hash, dropped: false};
+    const url = location.href.split("#")[0] + shared.hash;
+    say("\u2713 Link copied. It opens this search with both rosters and these trade settings.");
+    if (button) {
+      if (!button.dataset.copyLabel) button.dataset.copyLabel = button.textContent;
+      button.textContent = "Copied";
+      clearTimeout(button.copyTimer);
+      button.copyTimer = setTimeout(() => { button.textContent = button.dataset.copyLabel; }, 2000);
+    }
+    if (shared.dropped) say(ov.dropOverridesNote());
+    try { await navigator.clipboard.writeText(url); }
+    catch (error) { say(`Copy this link: ${url}`); }
+  }
+  // JEG-1328: a search link's viable-only tick and the saved teams its rosters came from. Each team is adopted when
+  // setSides puts that link's rosters in (every player it is given came from the link), and only when this reader has
+  // that saved league and the team in it; a later state with other rosters keeps the working copy unlabelled.
+  let linkTeams = null;
+  function adoptLinkTeams(mine, theirs) {
+    const t = linkTeams;
+    linkTeams = null;
+    const picked = linkTeamsFor(t, mine, theirs, t && sharedStore() ? sharedStore().get() : null);
+    if (picked.mineId) rosterCopy.teamId = picked.mineId;
+    if (picked.theirId) rosterCopy.theirTeamId = picked.theirId;
+  }
+  api.applyHash = params => {
+    const decoded = applyHash(params);
+    linkTeams = decoded && decoded.teams.workspaceId && (params.has("mine") || params.has("theirs"))
+      ? {...decoded.teams, mineKeys: new Set(decoded.mine), theirKeys: new Set(decoded.theirs)} : null;
+    if (decoded) S.viableOnly = decoded.viableOnly;
+    return decoded;
+  };
+  api.copyLink = copyLink;
+
+  // JEG-892: the bye week (player-flags.js) on a player row; null when there is none.
+  const flagsOf = row => (root.DDFPlayerFlags ? root.DDFPlayerFlags.node(row) : null);
   function el(tag, props, ...kids) {
     const node = document.createElement(tag);
     Object.entries(props || {}).forEach(([k, v]) => { if (k === "text") node.textContent = v; else node.setAttribute(k, v); });
@@ -925,6 +1420,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function updateArrange() {
     const undo = $("v2FindUndo");
     if (undo) undo.disabled = !S.undo;
+    const clearBothButton = $("v2FindClearBoth");
+    if (clearBothButton) clearBothButton.disabled = !S.mine.length && !S.theirs.length;
     ["mine", "theirs"].forEach(side => {
       const button = $(`v2Find${side[0].toUpperCase()}${side.slice(1)}MoveSel`);
       if (!button) return;
@@ -933,17 +1430,22 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       button.textContent = n ? `Move ${n} selected to the other team` : "Move selected to the other team";
     });
   }
-  function renderBoth() { renders.mine && renders.mine(); renders.theirs && renders.theirs(); updateArrange(); }
+  function renderBoth() { renders.mine && renders.mine(); renders.theirs && renders.theirs(); updateArrange(); updateSavedTeamPicker(); }
   function rerun() {
     const out = $("v2FindOut");
     const had = out && !out.hidden && out.childElementCount > 0;
     clearOutput();
     if (had) run();
   }
-  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice(), label: {...S.label}, src: {...S.src}}; }
-  function afterArrange(text) { S.sel.clear(); renderBoth(); rerun(); arrangeSay(text); }
+  function snapshot() { S.undo = {mine: S.mine.slice(), theirs: S.theirs.slice(), label: {...S.label}, src: {...S.src},
+    rosterCopy: rosterCopy && {...rosterCopy}, removed: new Set(S.removed), answered: new Set(S.answered)}; }
+  function afterArrange(text) {
+    if (rosterCopy) { rosterCopy.autoDefault = false; rosterCopy.active = true; }
+    S.sel.clear(); renderBoth(); rerun(); arrangeSay(text);
+  }
   function swapTeams() {
     snapshot();
+    if (rosterCopy) [rosterCopy.teamId, rosterCopy.theirTeamId] = [rosterCopy.theirTeamId, rosterCopy.teamId];
     [S.mine, S.theirs] = [S.theirs, S.mine];
     [S.label.mine, S.label.theirs] = [S.label.theirs, S.label.mine];
     [S.src.mine, S.src.theirs] = [S.src.theirs, S.src.mine];
@@ -960,37 +1462,29 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.theirs = S.theirs.filter(p => !set.has(p.key)).concat(toTheirs);
     afterArrange(`Moved ${going.map(p => p.name).join(", ")} to the other team. Undo puts them back.`);
   }
+  // JEG-1219: clear only this matchup's working rosters; League/Waivers keep their saved teams.
+  function clearBoth() {
+    if (!S.mine.length && !S.theirs.length) return;
+    snapshot();
+    S.mine = [];
+    S.theirs = [];
+    S.src = {mine: null, theirs: null};
+    S.label = {mine: "", theirs: ""};
+    afterArrange("Cleared both working rosters. Saved League teams stay unchanged. Undo puts them back.");
+  }
   function undoArrange() {
     if (!S.undo) return;
     S.mine = S.undo.mine;
     S.theirs = S.undo.theirs;
     if (S.undo.label) S.label = {...S.undo.label};
     if (S.undo.src) S.src = {...S.undo.src};
+    // Undoing a copy selection must not write an old snapshot over a team changed in another tab.
+    rosterCopy = S.undo.rosterCopy || (rosterCopy ? {...rosterCopy, teamId: null, theirTeamId: null, active: true} : null);
+    if (rosterCopy) { rosterCopy.autoDefault = false; rosterCopy.active = true; }
+    if (S.undo.removed) S.removed = S.undo.removed;
+    if (S.undo.answered) S.answered = S.undo.answered;
     S.undo = null;
     afterArrange("Undone.");
-  }
-
-  // Public league endpoints. Both answer cross-origin requests; a private ESPN league answers 401/403.
-  let sleeperDirectory = null;
-  async function getJson(url, what) {
-    let response;
-    try { response = await root.fetch(url); } catch (error) { throw new Error(`Could not reach ${what}.`); }
-    if (response.status === 401 || response.status === 403) throw new Error(`${what} says that league is private.`);
-    if (response.status === 404) throw new Error(`${what} has no league with that ID.`);
-    if (!response.ok) throw new Error(`${what} answered with an error (${response.status}).`);
-    return response.json();
-  }
-  async function loadSleeper(leagueId) {
-    const base = "https://api.sleeper.app/v1";
-    const [rosters, users] = await Promise.all([getJson(`${base}/league/${leagueId}/rosters`, "Sleeper"), getJson(`${base}/league/${leagueId}/users`, "Sleeper")]);
-    if (!sleeperDirectory) sleeperDirectory = await getJson(`${base}/players/nfl`, "Sleeper");
-    return parseSleeper(rosters, users, sleeperDirectory);
-  }
-  async function loadEspn(leagueId) {
-    const now = new Date();
-    const season = now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
-    const json = await getJson(`https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/${season}/segments/0/leagues/${leagueId}?view=mRoster&view=mTeam`, "ESPN");
-    return parseEspn(json);
   }
 
   // ---------- JEG-853: a whole page pasted in (Jeremy, 2026-10-22: "control all, copy the whole page, drop the text in") ----------
@@ -1253,6 +1747,81 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (kept.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not evaluated, left out of every count and sum: ${[["Your team", a.kept], ["Their team", b.kept]].filter(([, l]) => l.length).map(([who, l]) => `${who} ${listJoin(l.map(p => p.pos))}`).join("; ")}.`}));
     box.append(notes);
   }
+  // ---------- JEG-890: the team value card (display only; reads the rows, no math of its own) ----------
+  const TS_LABEL = {starters: "Starters", bench: "Bench", unplaced: "No DDF Value", total: "Total", QB: "QB", RB: "RB", WR: "WR", TE: "TE"};
+  const tsSeriesName = (key, id) => (id === "ddf" ? "DDF Value" : id === "market" ? "Trade chart average" : (CHART_NAMES[key] || key));
+  // A cell: the number, or "—" when the row has players and none is priced (never 0), plus "incomplete" when a series
+  // does not price every player in the row. The word is on the Total row; other rows carry a "*" with the names as a tip.
+  // JEG-1246: a series with no cells (the Trade chart average with fewer than MIN_CHARTS charts) is "n/a" before any
+  // cell is read. Starters and Bench carry a "*" while a player with no DDF Value cannot be placed in either.
+  function tsCell(series, name) {
+    if (series.available === false || !series.cells) return el("span", {class: "v2-find-ts-num is-unavailable", title: "Not enough charts this week", text: "n/a"});
+    const cell = series.cells[name];
+    const total = name === "total";
+    const tip = `No value for ${cell.missing.join(", ")}`;
+    if (cell.value === null) return el("span", {class: "v2-find-ts-incomplete", title: tip}, el("span", {class: "v2-find-ts-num is-missing", text: "—"}), el("span", {class: "v2-find-ts-inc", text: " incomplete"}));
+    const num = el("span", {class: "v2-find-ts-num", text: cell.value.toFixed(1)});
+    if (cell.complete && cell.unplaced && cell.unplaced.length) {
+      const why = `Not placed, no DDF Value: ${cell.unplaced.join(", ")}`;
+      return el("span", {class: "v2-find-ts-incomplete", "data-unplaced": "", title: why}, num, el("abbr", {class: "v2-find-ts-inc", title: why, text: "*"}));
+    }
+    if (cell.complete) return num;
+    return el("span", {class: "v2-find-ts-incomplete", title: tip}, num,
+      total ? el("span", {class: "v2-find-ts-inc", text: " incomplete"}) : el("abbr", {class: "v2-find-ts-inc", title: tip, text: "*"}));
+  }
+  function tsTable(sum, ids) {
+    const head = el("tr", {}, el("th", {scope: "col", class: "v2-find-ts-row", text: "Row"}),
+      ...ids.map(id => { const s = sum.series.find(x => x.id === id); return el("th", {scope: "col", class: "num", "data-series": id, text: tsSeriesName(s.key, id)}); }));
+    const body = sum.rows.map(name => el("tr", {"data-row": name}, el("th", {scope: "row", class: "v2-find-ts-row", text: TS_LABEL[name]}),
+      ...ids.map(id => { const s = sum.series.find(x => x.id === id); return el("td", {class: "num v2-find-ts-cell", "data-series": id}, tsCell(s, name)); })));
+    return el("table", {class: "v2-find-ts-table"}, el("thead", {}, head), el("tbody", {}, ...body));
+  }
+  const tsBlock = (sum, label, ids, side) => el("div", {class: "v2-find-ts-team", "data-team": side},
+    el("h4", {text: label}), tsTable(sum, ids));
+  // The card: both rosters, once both are in. The two columns are DDF Value and the Trade chart average; the per-chart
+  // columns sit behind "Show each chart". A held chart is named ("FantasyCalc not compared"), never silently dropped.
+  function renderTeamSummary() {
+    const box = $("v2FindTeamSummary");
+    if (!box) return;
+    const C = engine();
+    if (!C || !C.getRosterShape || !S.mine.length || !S.theirs.length) { box.hidden = true; box.replaceChildren(); return; }
+    const shape = C.getRosterShape();
+    const info = C.getSourceInfo ? C.getSourceInfo() : [];
+    const available = new Set(info.filter(i => i.available).map(i => i.key));
+    const charts = CHART_KEYS.filter(k => available.has(k));
+    const held = CHART_KEYS.filter(k => !available.has(k)).map(k => CHART_NAMES[k] || k);
+    const byKey = rowMap();
+    const rowsOf = list => list.map(p => byKey.get(p.key)).filter(Boolean);
+    const mine = teamSummary(rowsOf(S.mine), shape, charts, OUR_KEY);
+    const theirs = teamSummary(rowsOf(S.theirs), shape, charts, OUR_KEY);
+    const kids = [el("h3", {text: "Team value summary"}),
+      el("div", {class: "v2-find-ts-grid"}, tsBlock(mine, "Your team", ["ddf", "market"], "mine"), tsBlock(theirs, "Their team", ["ddf", "market"], "theirs"))];
+    if (charts.length) {
+      kids.push(el("details", {class: "v2-find-ts-charts"}, el("summary", {text: "Show each chart"}),
+        el("div", {class: "v2-find-table-wrap"}, el("div", {class: "v2-find-ts-grid"},
+          tsBlock(mine, "Your team", charts, "mine"), tsBlock(theirs, "Their team", charts, "theirs")))));
+    } else {
+      kids.push(el("p", {class: "v2-meta", text: "No trade chart is compared this week."}));
+    }
+    const notes = el("ul", {class: "v2-find-ts-notes"});
+    if (held.length) notes.append(el("li", {"data-note": "held", text: `${held.map(name => `${name} not compared`).join(", ")}.`}));
+    if (!mine.market) notes.append(el("li", {"data-note": "market", text: `Trade chart average: not enough charts this week (${charts.length} of ${MIN_CHARTS} needed).`}));
+    [[mine, "Your"], [theirs, "Their"]].forEach(([sum, who]) => {
+      if (sum.unplaced.length) notes.append(el("li", {"data-note": "unplaced", text: `${who} team: no DDF Value for ${listJoin(sum.unplaced)}, so Starters and Bench leave them out; their chart values are in the No DDF Value row and the Total.`}));
+    });
+    [[mine, "Your"], [theirs, "Their"]].forEach(([sum, who]) => {
+      sum.series.filter(s => s.cells).forEach(s => {
+        const total = s.cells.total;
+        if (total.complete || !total.missing.length) return;
+        notes.append(el("li", {"data-note": "incomplete", text: `${who} team, ${tsSeriesName(s.key, s.id)}: ${total.value === null ? "no listed player has a value" : "incomplete, a partial total"} (no value for ${listJoin(total.missing)}).`}));
+      });
+    });
+    const notEval = [["Your", S.mine], ["Their", S.theirs]].map(([who, list]) => [who, list.filter(isNotEvaluated)]).filter(([, l]) => l.length);
+    if (notEval.length) notes.append(el("li", {"data-note": "not-evaluated", text: `Not valued, left out of the totals: ${notEval.map(([who, l]) => `${who} ${listJoin(l.map(p => p.pos))}`).join("; ")}.`}));
+    box.hidden = false;
+    box.replaceChildren(...kids, notes);
+  }
+
   // JEG-988: the engine's bench weights (the share of starts the bench takes, per position) and the fit context.
   function benchWeights() {
     const C = engine();
@@ -1421,7 +1990,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const label = el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: `Add players to ${title.toLowerCase()}: search by name, or paste a whole team page`}), input);
     const searchWrap = el("div", {class: "v2-find-search-wrap"}, label, results);
     const help = el("p", {class: "v2-meta v2-find-paste-help", id: `${id}PasteHelp`,
-      text: "Type a name to search, or paste a team page from any fantasy site (Ctrl+A, Ctrl+C on the page; a matchup page fills both rosters). Pasted text stays in this browser; nothing is sent anywhere."});
+      text: "Type a name to search, or paste a team page: select all and copy on the page (Ctrl+A, Ctrl+C), then paste here. A matchup page fills both rosters. It stays on this device; nothing is sent anywhere."});
     const result = el("div", {class: "v2-find-paste-result", id: `${id}PasteResult`, role: "status", "aria-live": "polite"});
     const clear = el("button", {type: "button", class: "v2-link v2-find-clear", id: `${id}Clear`, text: "Clear", hidden: "", "aria-label": `Clear ${title.toLowerCase()}`});
     clear.addEventListener("click", () => {
@@ -1441,12 +2010,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const moveSel = el("button", {type: "button", class: "v2-btn v2-find-movesel", id: `${id}MoveSel`, text: "Move selected to the other team", disabled: ""});
     moveSel.addEventListener("click", () => moveKeys(S[side].filter(p => S.sel.has(p.key)).map(p => p.key)));
     const wrap = el("div", {class: "v2-trade-side v2-find-side", id}, el("div", {class: "v2-find-side-head"}, el("h3", {text: title}), clear),
-      searchWrap, help, result, list, moveSel, importBox());
+      savedTeamPicker(side), searchWrap, help, result, list, moveSel, importBox());
     const render = () => {
       clear.hidden = !S[side].length;
       const byKey = rowMap();
       const charts = marketKeys();
       renderAssessment();
+      renderTeamSummary();
       list.replaceChildren(...S[side].map(p => {
         const remove = el("button", {type: "button", class: "v2-link v2-find-remove", "aria-label": `Remove ${p.name}`, text: "Remove"});
         remove.addEventListener("click", () => { S[side] = S[side].filter(q => q.key !== p.key); S.sel.delete(p.key); S.removed.add(p.key); render(); updateArrange(); clearOutput(); });
@@ -1456,9 +2026,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const move = el("button", {type: "button", class: "v2-link v2-find-move", "aria-label": `Move ${p.name} to the other team`, text: "Move"});
         move.addEventListener("click", () => moveKeys([p.key]));
         const badge = isNotEvaluated(p) ? el("span", {class: "v2-find-noteval", text: "Not evaluated"}) : null;
-        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}), badge, scoreChips(p, byKey, charts)), move, remove);
+        return el("li", {class: "v2-find-row"}, el("label", {class: "v2-find-tick"}, pick), el("div", {}, el("b", {text: p.name}), el("span", {class: "v2-meta", text: p.pos ? ` ${p.pos}` : ""}, flagsOf(byKey[p.key] || p)), badge, scoreChips(p, byKey, charts)), move, remove);
       }));
       if (side === "mine") mineChanged();
+      else saveRosterCopy();
     };
     renders[side] = render;
     // JEG-853 / JEG-988 / JEG-1010: text that is a whole page (looksLikePage) is read by roster-paste.js in the
@@ -1511,47 +2082,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (rest.length) parts.push(`Not matched (${rest.length}): ${rest.slice(0, 8).map(u => u.name).join(", ")}${rest.length > 8 ? ", …" : ""}.`);
       return parts.join(" ");
     }
-    // Import: a Sleeper league, a public ESPN league, or pasted names. Names are matched to the engine's rows.
+    // Import: pasted names (JEG-1131: paste is the only league load). Names are matched to the engine's rows.
     function importBox() {
-      const sel = el("select", {id: `${id}Source`, "aria-label": "Where the roster comes from"},
-        el("option", {value: "sleeper", text: "Sleeper league ID"}), el("option", {value: "espn", text: "ESPN public league ID"}),
-        el("option", {value: "paste", text: "Pasted names"}));
-      const leagueId = el("input", {type: "text", id: `${id}League`, placeholder: "League ID", autocomplete: "off", inputmode: "numeric", "aria-label": "League ID"});
-      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", hidden: "", "aria-label": "Pasted player names"});
-      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Load teams"});
-      const team = el("select", {id: `${id}Team`, hidden: "", "aria-label": "Team to import"});
-      const use = el("button", {type: "button", class: "v2-btn", id: `${id}Use`, text: "Use this team", hidden: ""});
+      const paste = el("textarea", {id: `${id}Paste`, rows: "4", placeholder: "One player per line", "aria-label": "Pasted player names"});
+      const load = el("button", {type: "button", class: "v2-btn", id: `${id}Load`, text: "Add players"});
       const status = el("p", {class: "v2-meta", id: `${id}Status`, role: "status"});
-      let teams = [];
-      const say = text => { status.textContent = text; };
-      sel.addEventListener("change", () => {
-        const isPaste = sel.value === "paste";
-        paste.hidden = !isPaste;
-        leagueId.hidden = isPaste;
-        load.textContent = isPaste ? "Add players" : "Load teams";
-        team.hidden = true; use.hidden = true; say("");
-      });
-      load.addEventListener("click", async () => {
-        if (sel.value === "paste") { say(apply(parsePasted(paste.value), "", false)); paste.value = ""; return; }
-        const idText = leagueId.value.trim();
-        if (!/^[A-Za-z0-9_-]+$/.test(idText)) { say("Enter the league ID: the number in your league's web address."); return; }
-        say(sel.value === "sleeper" ? "Loading the league and Sleeper's player names (about 15 MB the first time)…" : "Loading the league…");
-        try {
-          teams = await (sel.value === "sleeper" ? loadSleeper(idText) : loadEspn(idText));
-        } catch (error) {
-          teams = [];
-          say(`${error.message} You can paste the roster instead.`);
-          team.hidden = true; use.hidden = true;
-          return;
-        }
-        team.replaceChildren(...teams.map((t, i) => el("option", {value: String(i), text: `${t.label} (${t.entries.length} players)`})));
-        team.hidden = !teams.length; use.hidden = !teams.length;
-        say(teams.length ? `Found ${teams.length} teams. Pick yours and choose Use this team.` : "That league has no teams.");
-      });
-      use.addEventListener("click", () => { const t = teams[Number(team.value)]; if (t) say(apply(t.entries, t.label, true)); });
-      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a Sleeper or ESPN league ID, or a list of names"}),
-        el("div", {class: "v2-find-import-body"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "From:"}), sel),
-          leagueId, paste, load, team, use, status));
+      load.addEventListener("click", () => { status.textContent = apply(parsePasted(paste.value), "", false); paste.value = ""; });
+      return el("details", {class: "v2-find-import"}, el("summary", {text: "Other ways to add players: a list of names"}),
+        el("div", {class: "v2-find-import-body"}, paste, load, status));
     }
     window.TradeValueNameSearch.combobox(input, results);   // JEG-900
     input.addEventListener("input", () => {
@@ -1564,7 +2102,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains". JEG-995: priced
       // players first, so on a tie they come before a defense or kicker.
       const hits = window.TradeValueNameSearch.search(engine().getAllRows().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = alreadyOnRoster(row, onRosters);
@@ -1596,7 +2134,12 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const note = text => out.append(el("p", {class: "v2-meta", text}));
     const C = engine();
     if (!C) return note("Values are still loading.");
-    if (!S.mine.length || !S.theirs.length) { setHeadline("missing"); return note("Add at least one player to each roster."); }
+    if (rosterCopy?.teamId && rosterCopy.teamId === rosterCopy.theirTeamId) {
+      setHeadline("pending"); return note("Choose different saved teams for the two sides before finding trades.");
+    }
+    if (!S.mine.length || !S.theirs.length) { setHeadline("missing"); return note("Pick a trade partner. Paste in their roster and yours, and we'll find deals they'll like."); }
+    const both = S.mine.filter(p => S.theirs.some(q => q.key === p.key));
+    if (both.length) { setHeadline("pending"); return note(`Players on both rosters: ${both.map(p => p.name).join(", ")}. Remove them from one side before finding trades.`); }
     const all = C.getAllRows();
     const byKey = new Map(all.map(r => [String(r.player_key), r]));
     const rowsOf = list => list.map(p => byKey.get(p.key)).filter(Boolean);
@@ -1614,7 +2157,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       rosterGaps(rows, shape).forEach(g => note(`${who} roster has ${g.have} ${g.pos} for ${g.need} starting slot${g.need === 1 ? "" : "s"} in this league.`));
     });
     const res = findTrades(mineRows, theirRows, {chartKeys: charts, maxSize: S.maxSize, limit: 1e7,
+      guardrails: {...S.guardrails, shape, mine: mineRows, theirs: theirRows, chartKeys: charts, ourKey: OUR_KEY},
       sanity: shape ? {shape, mine: mineRows, theirs: theirRows, keepMine: S.keepMine, keepTheirs: S.keepTheirs} : null});
+    if (res.guardrailDropped) note(`${res.guardrailDropped} trade${res.guardrailDropped === 1 ? " was" : "s were"} left out by your protected positions or Advanced minimums.`);
     if (res.sanityDropped) note(`${res.sanityDropped} trade${res.sanityDropped === 1 ? "" : "s"} left out because ${res.sanityDropped === 1 ? "it leaves" : "they leave"} a starting lineup short at a position. Untick the boxes below to see ${res.sanityDropped === 1 ? "it" : "them"}.`);
     // JEG-988: defenses and kickers stay on the rosters and are not evaluated: they are named apart from players who merely lack a value.
     const notEval = S.mine.concat(S.theirs).filter(isNotEvaluated).length;
@@ -1625,7 +2170,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      note(`No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try a larger package.`);
+      note(`No slam dunks with this team. No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try another team, or a larger package.`);
       setHeadline("none", {reason: "no trades were found"});
       return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }
@@ -1660,14 +2205,36 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       + (res.foldedThrowIns ? ` ${plural(res.foldedThrowIns, "trade")} folded into a simpler one that only adds a player worth 0.0.` : "") + foldNote);
     const list = el("ol", {class: "v2-find-list", id: "v2FindList"});
     const ctx = {...res.ctx, maxSize: res.maxSize, lineup, fit: fitCtx};
-    groups.slice(0, shownCount).forEach(g => list.append(groupCard(g, ctx)));
-    if (naturalCount && list.firstElementChild) { list.firstElementChild.id = "v2FindFirstNatural"; list.firstElementChild.tabIndex = -1; }
-    out.append(list);
-    if (groups.length > shownCount) {
-      const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(groups.length - shownCount, "more group")}`});
-      more.addEventListener("click", () => { groups.slice(shownCount).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
-      out.append(more);
+    // JEG-1043: "Show viable offers only" filters the groups by their best package's viability label (JEG-1108) and
+    // re-lists them; the ranking and the top-10 limit stay as they are.
+    const viabOf = fitCtx ? g => viabilityFor(ctx, fitFor(lineup, fitCtx, g.best.give, g.best.receive), g.best.give, g.best.receive) : null;
+    const tail = el("div", {class: "v2-find-list-tail"});
+    const renderList = () => {
+      const shown = S.viableOnly && viabOf ? viableGroups(groups, viabOf) : groups;
+      const count = Math.min(GROUP_LIMIT, shown.length);
+      list.replaceChildren(...shown.slice(0, count).map(g => groupCard(g, ctx)));
+      const first = list.firstElementChild;
+      if (naturalCount && first && first.dataset.findFit === "natural") { first.id = "v2FindFirstNatural"; first.tabIndex = -1; }
+      tail.replaceChildren();
+      if (!shown.length) {
+        tail.append(el("p", {class: "v2-find-empty", id: "v2FindViableEmpty"}, el("b", {text: "No slam dunks with this team."}),
+          " Your rosters fit a little too well. Try another team, or turn off \u201cShow viable offers only\u201d to see every offer."));
+      } else if (shown.length > count) {
+        const more = el("button", {type: "button", class: "v2-btn", id: "v2FindMoreGroups", text: `Show ${plural(shown.length - count, "more group")}`});
+        more.addEventListener("click", () => { shown.slice(count).forEach(g => list.append(groupCard(g, ctx))); more.remove(); });
+        tail.append(more);
+      }
+    };
+    if (viabOf) {
+      const viableCount = groups.filter(viabOf).length;
+      const box = el("input", {type: "checkbox", id: "v2FindViableOnly"});
+      box.checked = S.viableOnly;
+      box.addEventListener("change", () => { S.viableOnly = box.checked; renderList(); });
+      out.append(el("label", {class: "v2-find-viable-toggle", for: "v2FindViableOnly"}, box,
+        ` Show viable offers only (${viableCount} of ${plural(groups.length, "group")})`));
     }
+    renderList();
+    out.append(list, tail);
   }
 
   // ---------- roster impact on the page (display only) ----------
@@ -1750,6 +2317,10 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         const marketNote = lineup.market ? "" : " Trade chart average: not enough charts.";
         lines.append(el("p", {class: "v2-meta v2-find-impact-line"}, el("span", {class: "v2-find-who", text: `${name}: `}), `best starting lineup ${parts.join("; ")}.${marketNote}`),
           el("p", {class: "v2-meta v2-find-need"}, `${who === "mine" ? "Your" : "Their"} starters by position: ${needLine(imps.ddf)}.`));
+        // JEG-1043: the starters at each position this side gives up, before → after (DDF Value lineup).
+        const given = startersAtGivenPositions(imps.ddf, sideRows(lineup, "ddf", who, giveRows, recvRows).leaving);
+        if (given.length) lines.append(el("p", {class: "v2-meta v2-find-given", "data-line": "given"},
+          `${who === "mine" ? "Your starters at the positions you give up" : "Their starters at the positions they give up"}: ${givenPositionsLine(given)}.`));
         // JEG-1081: the same trade in the other views, one line each for starters and bench (hidden on a phone until expanded).
         const own = sideRows(lineup, "ddf", who, giveRows, recvRows);
         const projImp = hasProjections(own.roster.concat(own.arriving)) ? rosterImpact(own.roster, own.leaving, own.arriving, lineup.shape, PROJECTIONS_KEY) : null;
@@ -1765,6 +2336,13 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // One group: the player you receive, the best package for him preselected, side players selectable.
   // Each toggle re-judges the package with evaluateCombo, the function the search itself uses.
   const GROUP_LIMIT = 10;
+  // JEG-1108 / JEG-1043: the viability label of one package (null when it is not viable or cannot be judged).
+  function viabilityFor(ctx, fit, giveRows, recvRows) {
+    const lineup = ctx.lineup;
+    const mineAvg = lineup && lineup.mine ? lineup.mine.market || lineup.mine.ddf : null;
+    const theirAvg = lineup && lineup.theirs ? lineup.theirs.market || lineup.theirs.ddf : null;
+    return fit && mineAvg && theirAvg && lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, lineup.shape, ctx.ourKey, ctx.chartKeys || []) : null;
+  }
   const valueText = (row, key) => (finite(row.values[key]) ? row.values[key].toFixed(1) : "no value");
   function groupCard(group, ctx) {
     const ourKey = ctx.ourKey;
@@ -1783,7 +2361,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
     const coreBadge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(group.core) : null;
     target.append(el("span", {class: "v2-find-target-label", text: "Target: "}), el("span", {class: "v2-find-target-name", text: names(group.heavy)}),
-      el("span", {class: "v2-meta"}, ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)}`, coreBadge, " DDF Value"));
+      el("span", {class: "v2-meta"}, ` ${[group.core.pos, group.core.team].filter(Boolean).join(" · ")} · ${valueText(group.core, ourKey)}`, coreBadge, " DDF Value", flagsOf(group.core)));
     const boxes = [];
     const sideSet = (title, rows, sel, fixed) => {
       const box = el("fieldset", {class: "v2-find-side-pick"}, el("legend", {text: title}));
@@ -1795,7 +2373,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         input.addEventListener("change", () => { if (input.checked) sel.add(keyOf(r)); else sel.delete(keyOf(r)); refresh(); });
         // JEG-1059: the badge that marks a value the reader set, next to the DDF Value number.
         const badge = window.DDFOverrides && window.DDFOverrides.flag ? window.DDFOverrides.flag(r) : null;
-        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta"}, `(${valueText(r, ourKey)}`, badge, " DDF Value)"));
+        const label = el("label", {class: "v2-find-pick-row"}, input, el("span", {text: `${r.name} `}), el("span", {class: "v2-meta"}, `(${valueText(r, ourKey)}`, badge, " DDF Value)", flagsOf(r)));
         box.append(label);
         if (!fixed) boxes.push({input, row: r, sel, side: title});
       });
@@ -1832,6 +2410,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       if (!e.passes.edge) warn.push("DDF Value does not say you win this package.");
       if (!e.passes.charts) warn.push(`Only ${e.rivalOkCount} of ${e.pricedCharts} charts have them winning or even, so they may say no.`);
       if (!e.passes.lineup) warn.push("It leaves a starting lineup short at a position.");
+      if (e.passes.guardrails === false) warn.push("It breaks your protected positions or Advanced minimums.");
       const same = group.trades.find(t => idOf(t) === `${giveRows.map(r => r.player_key)}|${recvRows.map(r => r.player_key)}`);
       const throwIns = same && same.throwIns ? [].concat(same.throwIns.give, same.throwIns.receive) : [];
       // JEG-1059: the badge that marks a value the reader set, next to the throw-in's DDF Value.
@@ -1872,9 +2451,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         // JEG-1108: viability label alongside fit.
         const FIT_LABEL = {natural: "Natural fit", market: "Market supported", force: "Force fit"};
         const VIAB_LABEL = {High: "High viability", "Med-High": "Medium-high viability", Medium: "Medium viability"};
-        const mineAvg = ctx.lineup && ctx.lineup.mine ? ctx.lineup.mine.market || ctx.lineup.mine.ddf : null;
-        const theirAvg = ctx.lineup && ctx.lineup.theirs ? ctx.lineup.theirs.market || ctx.lineup.theirs.ddf : null;
-        const viab = mineAvg && theirAvg && ctx.lineup.shape ? viabilityLabel(fit, mineAvg, theirAvg, giveRows, recvRows, ctx.lineup.shape, ourKey, ctx.chartKeys || []) : null;
+        const viab = viabilityFor(ctx, fit, giveRows, recvRows);
+        li.dataset.findViable = viab || "";
         const viabSuffix = viab ? ` · ${VIAB_LABEL[viab] || viab}` : "";
         fitLine.replaceChildren(el("b", {text: `${FIT_LABEL[fit.label] || text.slice(0, cut + 1)}${viabSuffix}:`}), ` ${text.slice(cut + 2)}`);
         fitLine.dataset.fit = fit.label;
@@ -1893,6 +2471,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   // ---------- JEG-972: collapsible roster input ----------
   // After every Find trades press the roster input folds into one summary row per team (name, first three players,
   // position counts); "Edit rosters" opens it again. The package size, lineup boxes and Find button stay visible.
+  // JEG-1237: the protected-position and bench-backup settings fold with it, read back as one line in the summary, so
+  // the headline and results start on the first screen again; Advanced trade minimums stays its own closed disclosure.
   const POS_ORDER = ["QB", "RB", "WR", "TE", "K", "DEF"];
   function positionCounts(list) {
     const counts = {};
@@ -1907,6 +2487,14 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     const more = list.length - 3;
     return {names: more > 0 ? `${first} + ${more} more` : first, counts: `${plural(list.length, "player")}: ${positionCounts(list)}`};
   }
+  function guardrailText() {
+    const g = S.guardrails;
+    const parts = [];
+    if (g.protectedPositions.length) parts.push(`protecting ${g.protectedPositions.join(", ")}`);
+    const backups = GUARDRAIL_POSITIONS.filter(pos => g.minBackups[pos] > 0).map(pos => `${pos} ${g.minBackups[pos]}`);
+    if (backups.length) parts.push(`minimum bench backups ${backups.join(", ")}`);
+    return `Trade settings: ${parts.length ? parts.join("; ") : "no protected positions or bench backup minimums"}`;
+  }
   function updateSummary() {
     const box = $("v2FindSummary");
     if (!box) return;
@@ -1915,7 +2503,9 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
       const node = $(`${sideId(side)}Summary`);
       node.replaceChildren(el("b", {text: S.label[side] ? `${SIDE_NAME[side]}: ${S.label[side]}` : SIDE_NAME[side]}), el("span", {class: "v2-find-sum-names", text: t.names}), el("span", {class: "v2-meta", text: t.counts}));
     });
-    $("v2FindEdit").setAttribute("aria-label", `Edit rosters: your roster has ${plural(S.mine.length, "player")}, their roster has ${plural(S.theirs.length, "player")}`);
+    const rails = $("v2FindGuardrailSummary");
+    if (rails) rails.textContent = guardrailText();
+    $("v2FindEdit").setAttribute("aria-label", `Edit rosters and trade settings: your roster has ${plural(S.mine.length, "player")}, their roster has ${plural(S.theirs.length, "player")}`);
   }
   function setCollapsed(collapsed, focus) {
     const input = $("v2FindInput");
@@ -1924,6 +2514,8 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     if (!input || !summary) return;
     if (collapsed) updateSummary();
     input.hidden = collapsed;
+    const rails = $("v2FindGuardrails");
+    if (rails) rails.hidden = collapsed;
     summary.hidden = !collapsed;
     edit.setAttribute("aria-expanded", String(!collapsed));
     if (focus === "input") { const first = $("v2FindMineSearch"); if (first) first.focus(); }
@@ -1931,6 +2523,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   }
   const hasResults = () => { const out = $("v2FindOut"); return Boolean(out) && !out.hidden && out.childElementCount > 0; };
   function findPressed() {
+    if (rosterCopy) { rosterCopy.autoDefault = false; rosterCopy.active = true; saveRosterCopy(); }
     run();
     if (!S.mine.length || !S.theirs.length) return;
     setCollapsed(true);
@@ -2014,6 +2607,11 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     S.sel = new Set([...S.sel].filter(k => S.mine.concat(S.theirs).some(p => p.key === k)));
     return say;
   }
+  // JEG-1380: the week the page now shows, named in the note after a week change.
+  function weekNote() {
+    const state = engine().getWeekState ? engine().getWeekState() : null;
+    return state && Number.isInteger(state.week) ? `Updated for Week ${state.week}.` : "Updated for the selected week.";
+  }
   function onLeagueSettingsChanged(event) {
     if (!$("v2Find") || !engine()) return;
     const hadResults = hasResults();
@@ -2042,7 +2640,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     }
     if (!$("v2FindSummary").hidden) updateSummary();
     const note = $("v2FindSettingsNote");
-    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
+    const text = (hadResults || S.mine.length || S.theirs.length) ? `${event && event.detail && event.detail.reason === "sources" ? "Updated for the new source selection." : event && event.detail && event.detail.reason === "overrides" ? "Updated for your value overrides." : event && event.detail && event.detail.reason === "week" ? weekNote() : "Updated for the new league settings."} ${say.join(" ")}`.trim() : "";
     if (note) note.textContent = text;
     if (event && event.detail && event.detail.notes) event.detail.notes.push(...say);
   }
@@ -2051,24 +2649,100 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
   function build() {
     const host = $("v2FindTrade");
     if (!host || $("v2Find")) return;
-    const size = el("select", {id: "v2FindSize"}, ...MAX_SIZE_CHOICES.map(n => el("option", {value: String(n), text: `Up to ${n}-for-${n}`})));
-    size.addEventListener("change", () => { S.maxSize = Number(size.value); clearOutput(); });
+    const size = el("select", {id: "v2FindSize"}, ...MAX_SIZE_CHOICES.map(n => el("option", {value: String(n), text: n === 1 ? "1-for-1 only" : `Up to ${n}-for-${n}`})));
+    size.value = String(S.maxSize);
+    size.addEventListener("change", () => { S.maxSize = Number(size.value); saveSettings(); clearOutput(); });
     const keep = (id, label, field) => {
       const box = el("input", {type: "checkbox", id});
       box.checked = S[field];
-      box.addEventListener("change", () => { S[field] = box.checked; clearOutput(); });
+      box.addEventListener("change", () => { S[field] = box.checked; saveSettings(); clearOutput(); });
       return el("label", {class: "v2-field"}, box, el("span", {text: ` ${label}`}));
     };
+    const protectedBoxes = GUARDRAIL_POSITIONS.map(pos => {
+      const box = el("input", {type: "checkbox", id: `v2FindProtect${pos}`});
+      box.checked = S.guardrails.protectedPositions.includes(pos);
+      box.addEventListener("change", () => {
+        S.guardrails.protectedPositions = GUARDRAIL_POSITIONS.filter(p => {
+          const input = $(`v2FindProtect${p}`); return input && input.checked;
+        });
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-protect-choice"}, box, el("span", {text: pos}));
+    });
+    const protectedField = el("fieldset", {class: "v2-find-protect"},
+      el("legend", {text: "Protect my starting group at"}),
+      el("p", {class: "v2-meta", text: "Hide trades that weaken your starters at a selected position on DDF Value."}),
+      el("div", {class: "v2-find-protect-choices"}, ...protectedBoxes));
+    const backupRows = GUARDRAIL_POSITIONS.map(pos => {
+      const n = S.guardrails.minBackups[pos];
+      const readout = el("output", {id: `v2FindBackups${pos}`, "aria-live": "polite", text: String(n)});
+      const adjust = (delta, suffix, label) => {
+        const button = el("button", {type: "button", id: `v2FindBackups${pos}${suffix}`, class: "v2-btn", text: delta < 0 ? "−" : "+",
+          "aria-label": `${label} minimum ${pos} bench backups`});
+        button.disabled = delta < 0 ? n === 0 : n === 20;
+        button.addEventListener("click", () => {
+          S.guardrails.minBackups[pos] = Math.max(0, Math.min(20, S.guardrails.minBackups[pos] + delta));
+          const count = S.guardrails.minBackups[pos];
+          readout.textContent = String(count);
+          $(`v2FindBackups${pos}Down`).disabled = count === 0;
+          $(`v2FindBackups${pos}Up`).disabled = count === 20;
+          saveSettings(); clearOutput();
+        });
+        return button;
+      };
+      return el("div", {class: "v2-find-backup-row"}, el("span", {text: pos}),
+        adjust(-1, "Down", "Decrease"), readout, adjust(1, "Up", "Increase"));
+    });
+    const backupField = el("fieldset", {class: "v2-find-protect v2-find-backups"},
+      el("legend", {text: "Minimum bench backups on my team"}),
+      el("p", {class: "v2-meta", text: "After starters, FLEX and superflex are filled. Current default: 0 at every position. Players without a DDF Value do not count."}),
+      el("div", {class: "v2-find-backup-rows"}, ...backupRows));
+    const advancedStatus = el("p", {class: "v2-meta", id: "v2FindAdvancedStatus", role: "status"});
+    const minimum = (key, id, label) => {
+      const input = el("input", {type: "number", id, min: "0", max: "100", step: "0.1", inputmode: "decimal"});
+      input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+      input.addEventListener("change", () => {
+        const raw = input.value.trim();
+        const valid = (raw === "" && key !== "minDdfEdge") || (/^\d{1,3}(?:\.\d)?$/.test(raw) && Number(raw) <= 100);
+        if (!valid) {
+          advancedStatus.textContent = `${label}: enter 0 to 100, in steps of 0.1.`;
+          input.value = S.guardrails[key] === null ? "" : String(S.guardrails[key]);
+          input.focus();
+          return;
+        }
+        S.guardrails[key] = raw === "" ? null : Number(raw);
+        advancedStatus.textContent = "Trade settings saved on this device.";
+        saveSettings(); clearOutput();
+      });
+      return el("label", {class: "v2-find-minimum"}, el("span", {text: label}), input);
+    };
+    const advanced = el("details", {class: "v2-find-advanced"}, el("summary", {text: "Advanced trade minimums"}),
+      el("p", {class: "v2-meta", text: "A starting-lineup minimum is off when blank. Setting it to 0 requires a strictly positive gain. Your DDF Value gain must always be positive."}),
+      minimum("minDdfEdge", "v2FindMinEdge", "Minimum DDF Value gain"),
+      minimum("minUserLineupGain", "v2FindMinMine", "Minimum gain for my starting lineup"),
+      minimum("minTheirLineupGain", "v2FindMinTheirs", "Minimum market gain for their starting lineup"), advancedStatus,
+      el("button", {type: "button", class: "v2-btn", id: "v2FindResetSettings", text: "Reset trade settings"}));
+    advanced.querySelector("#v2FindResetSettings").addEventListener("click", () => {
+      applySettings({protectedPositions: [], minBackups: {QB: 0, RB: 0, WR: 0, TE: 0}, maxSize: 2, keepMine: true, keepTheirs: true,
+        minDdfEdge: 0, minUserLineupGain: null, minTheirLineupGain: null});
+      advancedStatus.textContent = "Trade settings reset and saved.";
+      saveSettings(); clearOutput();
+    });
     const go = el("button", {type: "button", class: "v2-btn", id: "v2FindGo", text: "Find trades"});
     go.addEventListener("click", findPressed);
+    const share = el("button", {type: "button", class: "v2-btn", id: "v2FindShare", text: "Copy link to this search"});
+    share.addEventListener("click", () => copyLink(share));
     const swap = el("button", {type: "button", class: "v2-btn", id: "v2FindSwap", text: "Swap teams"});
     swap.addEventListener("click", swapTeams);
     const undo = el("button", {type: "button", class: "v2-btn", id: "v2FindUndo", text: "Undo", disabled: ""});
     undo.addEventListener("click", undoArrange);
-    const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput"});
+    const clearBothButton = el("button", {type: "button", class: "v2-btn", id: "v2FindClearBoth", text: "Clear both", disabled: ""});
+    clearBothButton.addEventListener("click", clearBoth);
+    const edit = el("button", {type: "button", class: "v2-btn", id: "v2FindEdit", text: "Edit rosters", "aria-expanded": "true", "aria-controls": "v2FindInput v2FindGuardrails"});
     edit.addEventListener("click", () => setCollapsed(false, "input"));
     const summaryRow = el("div", {class: "v2-find-summary", id: "v2FindSummary", hidden: ""},
-      el("div", {class: "v2-find-sumrow", id: "v2FindMineSummary"}), el("div", {class: "v2-find-sumrow", id: "v2FindTheirsSummary"}), edit);
+      el("div", {class: "v2-find-sumrow", id: "v2FindMineSummary"}), el("div", {class: "v2-find-sumrow", id: "v2FindTheirsSummary"}), edit,
+      el("p", {class: "v2-meta v2-find-sum-rails", id: "v2FindGuardrailSummary"}));
     // Escape inside the opened input folds it back once there are results to read.
     const card = el("section", {class: "v2-card", id: "v2Find", "aria-labelledby": "v2FindTitle"},
       el("div", {class: "v2-card-head"}, el("div", {},
@@ -2076,12 +2750,15 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
         el("p", {class: "v2-meta", text: "Paste in your roster and another manager's (or one matchup page for both), or search names. Lists trades where DDF Value says you win and the available charts say the other manager breaks even or wins."}))),
       summaryRow,
       el("div", {id: "v2FindInput"},
-        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
+        el("div", {class: "v2-ctoolbar v2-find-arrange"}, swap, clearBothButton, undo, el("p", {class: "v2-meta", id: "v2FindArrangeNote", role: "status"})),
         el("div", {class: "v2-trade-sides"}, sideCard("mine", "Your roster"), sideCard("theirs", "Their roster"))),
       el("div", {class: "v2-ctoolbar"}, el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: "Package size:"}), size),
-        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go),
+        keep("v2FindKeepMine", "Keep my starting lineup filled", "keepMine"), keep("v2FindKeepTheirs", "Keep theirs filled", "keepTheirs"), go, share),
+      el("div", {class: "v2-find-guardrails", id: "v2FindGuardrails"}, protectedField, backupField), advanced,
+      el("p", {class: "v2-meta v2-find-share-note", id: "v2FindShareNote", role: "status", hidden: ""}),
       el("div", {class: "v2-find-headline", id: "v2FindFit", role: "status", "aria-live": "polite", "data-state": "missing"}, el("b", {text: fitHeadline("missing").text})),
       el("section", {class: "v2-find-assess", id: "v2FindAssess", "aria-label": "Roster assessment", hidden: ""}),
+      el("section", {class: "v2-find-teamsum", id: "v2FindTeamSummary", "aria-label": "Team value summary", hidden: ""}),
       el("p", {class: "v2-meta", id: "v2FindSettingsNote"}),
       el("div", {id: "v2FindOut", "aria-live": "polite", hidden: ""}));
     card.addEventListener("keydown", event => {
@@ -2090,9 +2767,24 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true, s
     host.insertBefore(card, host.querySelector(".v2-footnote"));
   }
   // JEG-1021: the league page (league.js) reads rosters with the same parser, name list reader and defense / kicker choices.
-  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, loadSleeper, loadEspn, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
-  if (sharedStore()) sharedStore().subscribe(pullMine);
-  const start = () => { build(); pullMine(); };
+  api.page = {parsePage, cleanLine, notEvaluatedChoices, teamCode, slotWord, MIN_MATCHED, MIN_SHARE, NAME_LIST_SHARE};
+  if (sharedStore()) {
+    sharedStore().subscribe(pullMine);
+    sharedStore().onChange((w, change) => {
+      pullMine();
+      updateSavedTeamPicker();
+      if (!["load", "replace", "other-tab"].includes(change.reason)) return;
+      if (linkHolds && change.reason === "other-tab") return;
+      linkHolds = false;
+      const incoming = root.TradeValueWorkspace.normalizeFinderSettings(w.ui.finderSettings);
+      const key = settingsKey(incoming);
+      if (key === appliedSettings) return;
+      appliedSettings = key;
+      applySettings(incoming);
+      if ($("v2FindOut")) clearOutput();
+    });
+  }
+  const start = () => { restoreRosterCopy(); const saved = savedSettings(); if (saved) appliedSettings = settingsKey(saved); applySettings(saved); build(); pullMine(); if (rosterCopy) renderBoth(); updateSavedTeamPicker(); };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);

@@ -17,10 +17,11 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 HARNESS = ROOT / "tests" / "league_harness.cjs"
 FIXTURES = ROOT / "tests" / "fixtures" / "league"
-MODULES = ["workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
+MODULES = ["roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js"]
 
 REQUIRED = [
-    "test_workspace_create", "test_workspace_corrupt", "test_workspace_versioned", "test_team_add_remove", "test_team_reorder",
+    "test_opportunities_preserve_qualified_candidates", "test_opportunities_fit_after_full_search", "test_opportunities_cancel_during_pairing", "test_opportunities_cache_row_budget",
+    "test_workspace_create", "test_workspace_corrupt", "test_workspace_versioned", "test_team_add_remove", "test_team_reorder", "test_clear_league",
     "test_share_link_encode", "test_share_link_decode", "test_export_import", "test_store_my_roster", "test_store_status_and_debounce",
     "test_sort_core", "test_summary_roster_value", "test_summary_ranks_fund", "test_summary_ranks_market", "test_summary_ranks_dense",
     "test_summary_strengths", "test_summary_weaknesses", "test_summary_undervalued", "test_summary_overvalued", "test_summary_gap_noise",
@@ -28,8 +29,10 @@ REQUIRED = [
     "test_summary_headline_independent_of_sort", "test_sort_numeric_asc_desc", "test_sort_blanks_last", "test_sort_rank_unchanged",
     "test_sort_tiebreak", "test_opportunities_columns", "test_opportunities_fit_label", "test_opportunities_fit_label_rows",
     "test_opportunities_rank", "test_opportunities_tier_before_edge", "test_opportunities_1_opponent", "test_opportunities_partial",
+    "test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture",
     "test_multi_trade_cache", "test_opportunities_filters", "test_opportunities_cap_and_headline",
     "test_summary_ranks_proj", "test_summary_disagree_list", "test_summary_allocation_wording", "test_summary_proj_partial", "test_summary_disagree_charts_key", "test_opportunities_proj_agreement",
+    "test_opportunities_our_fit_both_sides",
 ]
 
 
@@ -59,6 +62,7 @@ def mutated(changes: dict[str, tuple[str, str]]):
 
 # name -> (file, old, new, the checks that must fail)
 MUTATIONS = {
+    "pairing truncates before fit and filters": ("opportunities.js", "limit: Infinity,", "limit: F.LIMIT,", {"test_opportunities_preserve_qualified_candidates"}),
     "strength rule inverted (below the median counts)": ("team-summary.js", "const valueLow = med !== null && shown(sum) < shown(med);",
         "const valueLow = med !== null && shown(sum) > shown(med);", {"test_summary_strengths", "test_summary_weaknesses"}),
     "noise floor 1.0 instead of 2.0": ("team-summary.js", "const NOISE_FLOOR = 2.0;", "const NOISE_FLOOR = 1.0;", {"test_summary_gap_noise"}),
@@ -71,6 +75,10 @@ MUTATIONS = {
     "projections view built from any one projected player": ("team-summary.js", "rows.filter(r => POSITIONS.includes(r.pos)).every(r => r.values && finite(r.values[PROJ_KEY]))", "rows.some(r => r.values && finite(r.values[PROJ_KEY]))", {"test_summary_proj_partial"}),
     "disagreement reads DDF Value instead of the charts": ("team-summary.js", "const charts = finite(v[CHARTS_KEY]) ? v[CHARTS_KEY] : v[OUR_KEY];", "const charts = v[OUR_KEY];", {"test_summary_disagree_charts_key"}),
     "disagreement column sorts unsigned": ("team-summary.js", "list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap", "Math.abs(list.slice().sort((a, b) => Math.abs(b.gap) - Math.abs(a.gap))[0].gap)", {"test_summary_disagree_charts_key"}),
+    "cap keeps three rows for one received core player": ("opportunities.js", "const CAP_PER_CORE = 2;", "const CAP_PER_CORE = 3;",
+        {"test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture"}),
+    "cap never folds the overflow": ("opportunities.js", "if (used < limit) { list.push(row); return; }", "list.push(row); return;",
+        {"test_opportunities_cap_per_core", "test_opportunities_cap_on_a_fixture"}),
     "projections edge direction flipped": ("opportunities.js", "const projEdge = projGive !== null && projRecv !== null ? projRecv - projGive : null;", "const projEdge = projGive !== null && projRecv !== null ? projGive - projRecv : null;", {"test_opportunities_proj_agreement"}),
     "level counts as agreement": ("opportunities.js", "if (projEdge >= 0.05) return true;", "if (projEdge >= 0) return true;", {"test_opportunities_proj_agreement"}),
     "a missing projection counts as 0": ("opportunities.js", "const sumAll = (list, key) => list.reduce((n, r) => (n === null || !r.values || !finite(r.values[key]) ? null : n + r.values[key]), 0);", "const sumAll = (list, key) => list.reduce((n, r) => n + (r.values && finite(r.values[key]) ? r.values[key] : 0), 0);", {"test_opportunities_proj_agreement"}),
@@ -86,6 +94,8 @@ MUTATIONS = {
         "const c = compareValues(x, y, tie.type || \"number\") * (tie.dir === \"desc\" ? -1 : 1) * sign;", {"test_sort_tiebreak", "test_sort_core"}),
     "fit tier ignored in the ranking": ("opportunities.js", "return a.tier - b.tier || shown(b.edge)", "return shown(b.edge)", {"test_opportunities_rank", "test_opportunities_tier_before_edge"}),
     "overall fit ignores the finder's label": ("opportunities.js", "if (fit && fit.label) return fit.label;", 'if (fit && fit.label) return "natural";', {"test_opportunities_fit_label", "test_opportunities_fit_label_rows"}),
+    "our fit says natural for one side (JEG-1324)": ("opportunities.js", 'if (side && side.ok) return {label: "works",', 'if (side && side.ok) return {label: "natural",', {"test_opportunities_our_fit_both_sides", "test_opportunities_columns"}),
+    "our fit ignores the shared predicate (JEG-1324)": ("opportunities.js", "if (side && side.ok) return", "if (side && side.value) return", {"test_opportunities_our_fit_both_sides"}),
     "cache ignores the values": ("opportunities.js", 'const rowSig = r => `${r.player_key}:${[OUR_KEY, "ddf_value_projections"].concat(["usatoday", "fantasycalc", "fantasypros", "cbs"]).map(k => (r.values && finite(r.values[k]) ? r.values[k].toFixed(3) : "-")).join(",")}:${r.pos}`;',
         'const rowSig = r => `${r.player_key}:${r.pos}`;', {"test_multi_trade_cache"}),
     "capture is not the finder edge": ("opportunities.js", "edge: t.edge, edgePct", "edge: t.edge + 0.7, edgePct", {"test_opportunities_1_opponent"}),
@@ -96,6 +106,7 @@ MUTATIONS = {
         'try { data = JSON.parse(text); } catch (error) { return {status: "empty", workspace: null}; }', {"test_workspace_corrupt"}),
     "unknown storage version accepted": ("workspace.js", 'if (data.v !== VERSION) return {status: "version", workspace: null};', "", {"test_workspace_versioned"}),
     "removing my team keeps the mark": ("workspace.js", "myTeamId: ws.myTeamId === id ? null : ws.myTeamId});", "myTeamId: ws.myTeamId});", {"test_team_add_remove"}),
+    "clearing the league keeps my team's mark": ("workspace.js", "touch({...ws, teams: [], myTeamId: null})", "touch({...ws, teams: []})", {"test_clear_league"}),
     "reorder swaps the wrong way": ("workspace.js", "[teams[from], teams[to]] = [teams[to], teams[from]];", "[teams[from], teams[to]] = [teams[from], teams[to]];", {"test_team_reorder"}),
     "my-roster listeners fire on every change": ("workspace.js", "if (was !== now || before.myTeamId !== ws.myTeamId) mineListeners",
         "if (true) mineListeners", {"test_store_my_roster"}),

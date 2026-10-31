@@ -14,8 +14,12 @@ Rules (additive only: an existing row is never updated, re-keyed or removed):
     (metadata.sleeper_id).
   - Skipped, never guessed: a name the table already holds at a skill
     position (a new namesake would make position-less lookups of the
-    existing player ambiguous), and two missing players sharing one name.
-    Both are listed in the output for review.
+    existing player ambiguous), two missing players sharing one name, and
+    (JEG-1351) a Sleeper id that data/inputs/sleeper_projection_idmap.csv
+    already ties, through gsis with status matched, to an existing row: the
+    name differs (Sleeper "Nyheim Miller-Hines", "Jody Fortson", "Mitch
+    Tinsley") but it is the same person, so a new row would be a duplicate.
+    All are listed in the output for review.
   - player_key is the table's identity column (GENERATED ALWAYS): the
     database assigns it; rows go in Sleeper-id order. full_name is Sleeper's
     spelling; metadata carries sleeper_id, team and the source.
@@ -28,6 +32,7 @@ Usage: python3 pipelines/sync_sleeper_players.py [--write] [--base P]
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from pathlib import Path
@@ -40,6 +45,7 @@ from canonical_players import (  # noqa: E402
 import nfl_universe  # noqa: E402
 
 BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
+IDMAP = ROOT / "data" / "inputs" / "sleeper_projection_idmap.csv"
 SOURCE = "sleeper-identity-refresh (JEG-502)"
 _STALE_ABBR = {"LAR": "LA", "JAC": "JAX", "STL": "LA", "OAK": "LV", "SD": "LAC"}
 
@@ -54,8 +60,23 @@ def resolve_key(name, pos, registry):
     return key if (registry.by_key.get(key) or {}).get("position") in SKILL_POSITIONS else None
 
 
-def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, str]) -> dict:
+def load_idmap_keys(path: Path = IDMAP) -> dict[str, int]:
+    """{sleeper_id: player_key} for idmap rows with status matched (JEG-949:
+    exact ids only, sleeper_id -> gsis -> public.players)."""
+    if not path.exists():
+        return {}
+    out = {}
+    with path.open(encoding="utf-8", newline="") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("status") == "matched" and str(r.get("player_key") or "").isdigit():
+                out[str(r["sleeper_id"])] = int(r["player_key"])
+    return out
+
+
+def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, str],
+         idmap_keys: dict[str, int] | None = None) -> dict:
     """{"insert": [row, ...], "skipped": [{sleeper_id, name, pos, reason}, ...]}."""
+    idmap_keys = idmap_keys or {}
     universe = nfl_universe.active_universe(base)
     missing = {sid: rec for sid, rec in universe.items()
                if sid not in known_sleeper_ids and resolve_key(rec["name"], rec["pos"], registry) is None}
@@ -69,7 +90,11 @@ def plan(base: dict, registry, known_sleeper_ids: set[str], team_ids: dict[str, 
         rec = missing[sid]
         norm = norm_player_name(rec["name"])
         reason = None
-        if norm in skill_names:
+        linked = idmap_keys.get(sid)
+        if linked is not None and linked in registry.by_key:
+            reason = (f"the Sleeper id is tied by gsis to player_key {linked} "
+                      f"({registry.by_key[linked]['full_name']}) in sleeper_projection_idmap.csv")
+        elif norm in skill_names:
             reason = "the players table already has a skill-position player with this name"
         elif len(names[norm]) > 1:
             reason = "two missing players share this name"
@@ -107,7 +132,7 @@ def main(argv=None) -> int:
     base = json.loads(args.base.read_text(encoding="utf-8"))
     registry = load_registry()
     known = {str(r["sleeper_id"]) for r in sb_get_sleeper_ids(sbclient)}
-    result = plan(base, registry, known, _team_ids(sbclient))
+    result = plan(base, registry, known, _team_ids(sbclient), load_idmap_keys())
     print(f"universe {result['n_universe']}, not on the players table {result['n_missing']}: "
           f"insert {len(result['insert'])}, skipped {len(result['skipped'])}")
     for s in result["skipped"]:

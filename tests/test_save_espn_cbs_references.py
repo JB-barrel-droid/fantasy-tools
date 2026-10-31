@@ -327,6 +327,21 @@ class SaveEspnCbsReferencesTest(unittest.TestCase):
         by_scoring = {r["scoring"]: r["value"] for r in rows}
         self.assertEqual(by_scoring, {"standard": 45.0, "half_ppr": 46.0, "ppr": 47.0})
 
+    def test_cbs_headers_match_without_regard_to_case(self):
+        # Week 8 2026: the TE table's headers were "TM", "NON", "0.5", "PPR";
+        # the case-sensitive match sent every TE's standard value to review.
+        result = self.save(
+            "cbs",
+            tables=[
+                {"title": "Tight end trade values", "headers": ["Player", "TM", "NON", "0.5", "PPR"],
+                 "rows": [["Alex Smith", "KC", "20", "21", "22"]]},
+            ],
+        )
+        self.assertEqual(result["written"], 3)
+        _, rows, _ = self.writes[0]
+        by_scoring = {r["scoring"]: r["value"] for r in rows}
+        self.assertEqual(by_scoring, {"standard": 20.0, "half_ppr": 21.0, "ppr": 22.0})
+
     def test_cbs_dashed_qbs_are_review_not_written(self):
         # QBs with '--' in the 1QB columns carry 2QB-only value; the save must
         # not invent a 1QB value for them. Purdy's dashed cell goes to review

@@ -1,0 +1,18 @@
+{
+  "_note": "JEG-1262: a valid three-trade package for league.json, one trade per counterparty. Trade 0 is 1-for-1 with plain keys; trade 1 is 2-for-1 with workspace entries and moves my x: DEF; trade 2 is 1-for-2 with engine rows (player_key plus values) and receives an unmatched x: player. The values on the rows must never reach the rosters.",
+  "trades": [
+    {"opponentId": "team-a", "opponent": "Alpha Club", "give": ["1003"], "receive": ["2002"]},
+    {"opponentId": "team-b", "opponent": "Bravo Club",
+      "give": [{"key": "1005", "name": "Rory Echo", "pos": "RB"}, {"key": "x:DEF:GGG", "name": "GGG Defense", "pos": "DEF"}],
+      "receive": [{"key": "3003", "name": "Ty Mike", "pos": "TE"}]},
+    {"opponentId": "team-c", "opponent": "Charlie Club",
+      "give": [{"player_key": "1006", "name": "Will Foxtrot", "pos": "WR", "values": {"ddf_value": 12.5}}],
+      "receive": [{"player_key": "4002", "name": "Wyatt Oscar", "pos": "WR", "values": {"ddf_value": 9.1}}, {"player_key": "4001", "name": "Quade November", "pos": "QB", "values": {"ddf_value": 3.2}}]}
+  ],
+  "expected": {
+    "team-mine": ["1001", "1002", "1004", "2002", "3003", "4002", "4001"],
+    "team-a": ["2001", "2003", "x:K:KKK", "1003"],
+    "team-b": ["3001", "3002", "x:WR:unmatched rookie", "1005", "x:DEF:GGG"],
+    "team-c": ["1006"]
+  }
+}

@@ -18,15 +18,18 @@
 // a graph with a draggable value line, the players nearest that value) and keeps them in the browser
 // (localStorage).
 //
-// Contract: window.DDFOverrides = {boot(engine), render(), count(), all(), basis(), shareParams(), applyLink(params)}.
+// Contract: window.DDFOverrides = {boot(engine), render(), count(), all(), basis(), shareParams(), shareLink(hash), applyLink(params)}.
 //   boot(engine)  v2.js calls it once the engine is ready, before the first view renders, so the saved basis and
 //                 overrides apply everywhere from the first paint.
 //   render()      v2.js calls it when the Overrides tab shows; idempotent.
 //   shareParams() the basis and overrides as share-link parameters ({basis, ov, dropped}).
 //   applyLink(p)  reads them back for the recipient (URLSearchParams). They apply in memory for the visit and are
 //                 never saved until the recipient changes something on this tab.
+// JEG-1225: the link format itself (basis=, ov=, the packed z:/z2: forms) is app/v2/ddf-value-link.js, shared with
+// get-values and the MCP function; it loads before this file.
 (function (root) {
   "use strict";
+  const VL = root.DDFValueLink;
 
   const SAVE_KEY = "ddf-v2-value-overrides";
   // The retired Customize "DDF blend" tab kept its choice inside the selection record (v2.js SAVE_KEY).
@@ -39,7 +42,7 @@
   const BASIS_SOURCES = [
     ["espn", "ESPN"], ["cbsros", "CBS rest of season"], ["razzball", "Razzball"],
     ["fantasycalc", "FantasyCalc"], ["usatoday", "USA Today"], ["fantasypros", "FantasyPros"], ["cbs", "CBS trade chart"]];
-  const BASIS_KEYS = BASIS_SOURCES.map(item => item[0]);
+  const BASIS_KEYS = VL.BASIS_KEYS;
   const SINGLE_ORDER = ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"];
   // JEG-1073 (Jeremy, 2026-10-25): our methodology is the four trade charts' Adjusted values, equal weight; the
   // projections are the alternate. The legacy DDF blend tab (JEG-1044) chose among the projections.
@@ -47,7 +50,6 @@
   const LEGACY_PROJECTIONS = ["espn", "cbsros", "razzball"];
   const labelOf = key => (BASIS_SOURCES.find(item => item[0] === key) || [key, key])[1];
   const LINK_BUDGET = 1800;   // characters of share-link hash; past this the link drops the player overrides
-  const PACK_AFTER = 6;       // more overrides than this are packed in the link
 
   const S = {engine: null, values: {}, names: {}, selected: null, draft: null, scope: "pos", query: "", dragging: false,
     // JEG-1044: mode is what the picker shows (default | single | blend). blend holds every source's tick and
@@ -63,25 +65,12 @@
   // JEG-1058: an override is either an absolute value (a number) or an adjustment
   // to the pipeline's own value ({type: "adjustment", delta}). The fixed-pie scale
   // caps what an override can say (spec 3.6).
-  const OVERRIDE_MIN = 0;
-  const OVERRIDE_MAX = 100;
-  const isAdjustment = entry => !!(entry && typeof entry === "object" && entry.type === "adjustment");
-  // JEG-1058: every override that arrives from outside the editor (a share
-  // link, an import, a saved record) is put on the scale the editor shows: an
-  // absolute value between 0 and 100, an adjustment within the scale's span.
-  // The value it produces is the same either way, because the result is
-  // capped anyway; the adjustment is capped so it always fits a packed link.
+  const {OVERRIDE_MIN, OVERRIDE_MAX, isAdjustment} = VL;
+  // JEG-1058: every override that arrives from outside the editor (a share link, an import, a saved record) is put
+  // on the scale the editor shows (ddf-value-link.js normalizeEntry).
+  const normalizeEntry = VL.normalizeEntry;
   const clampOverrideValue = v => round1(Math.min(OVERRIDE_MAX, Math.max(OVERRIDE_MIN, v)));
   const clampOverrideDelta = d => round1(Math.min(OVERRIDE_MAX, Math.max(-OVERRIDE_MAX, d)));
-  function normalizeEntry(entry) {
-    if (isAdjustment(entry)) {
-      const delta = Number(entry.delta);
-      if (!Number.isFinite(delta) || delta === 0) return null;
-      return {type: "adjustment", delta: clampOverrideDelta(delta)};
-    }
-    if (!finite(entry) || entry < OVERRIDE_MIN) return null;
-    return clampOverrideValue(entry);
-  }
   function el(tag, attrs, kids) {
     const node = document.createElement(tag);
     Object.entries(attrs || {}).forEach(([k, v]) => {
@@ -109,7 +98,7 @@
     return out;
   }
   S.blend = blankBlend();
-  const clampWeight = v => Math.min(100, Math.max(1, Math.round(Number(v) || 1)));
+  const clampWeight = VL.clampWeight;
   // A saved or linked record -> the picker's state. Unknown sources are dropped; a record with nothing usable reads
   // as our methodology. Returns the sources it dropped.
   function setBasisState(rec) {
@@ -179,8 +168,9 @@
     S.session = true;
     S.linkSig = rec.sig || null;
     S.linkNote = rec.note || null;
-    S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours)};
+    S.linkExtra = {basis: rec.basis || null, values: rec.values || null, ours: Boolean(rec.ours), replace: Boolean(rec.replace)};
     if (rec.ours) { setBasisState(null); S.values = {}; S.names = {}; return; }
+    if (rec.replace) { S.values = {}; S.names = {}; }
     if (rec.basis) setBasisState(rec.basis);
     if (rec.values) Object.entries(rec.values).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
   }
@@ -194,9 +184,9 @@
     try { record = JSON.parse(localStorage.getItem(LEGACY_SELECTION_KEY) || "null"); } catch (error) { return; }
     const inputs = record && Array.isArray(record.inputs) ? record.inputs.filter(key => LEGACY_PROJECTIONS.includes(key)) : [];
     if (!inputs.length) return;
-    // The old default (every projection ticked) is gone with JEG-1073; any projections they ticked carry over as
-    // the same equal-weight average of what was ticked.
-    if (inputs.length) {
+    // Every projection ticked was the old default: it maps to our methodology (Jeremy, 2026-10-27, JEG-1135).
+    // Fewer carry over as the same equal-weight average of what was ticked.
+    if (inputs.length < LEGACY_PROJECTIONS.length) {
       setBasisState({mode: "blend", sources: inputs, weights: Object.fromEntries(inputs.map(key => [key, 1]))});
       S.notice = "The DDF blend control has moved to the Overrides tab, with more options. Your previous selection has been carried over.";
     }
@@ -315,7 +305,8 @@
 
   // ---------- the bar under the header (every view) ----------
   // "Overrides active: ..." with a one-click reset, a shared link's banner, and the one-time carry-over notice.
-  // The indicator sits in the league row (no extra height on any tab); banners get their own strip under the header.
+  // Desktop keeps the indicator in the context row. Phones use a separate notification strip so the summary,
+  // freshness, and one-tap Reset / Undo remain readable without expanding the closed context row (JEG-1134).
   function barHost() {
     let bar = $("v2OvBar");
     if (bar) return bar;
@@ -324,6 +315,23 @@
     bar = el("div", {id: "v2OvBar", class: "v2-ov-bar", hidden: true});
     inner.insertBefore(bar, $("v2EditSources"));
     return bar;
+  }
+  function placeBar(bar) {
+    const context = $("v2Context");
+    let phoneRow = $("v2OvPhoneRow");
+    if (!context) return;
+    const phone = window.matchMedia("(max-width: 767px)").matches;
+    if (phone) {
+      if (!phoneRow) {
+        phoneRow = el("div", {id: "v2OvPhoneRow", class: "v2-ov-phone-row", hidden: true});
+        context.after(phoneRow);
+      }
+      if (bar.parentNode !== phoneRow) phoneRow.appendChild(bar);
+    } else {
+      const inner = context.querySelector(".v2-context-inner");
+      if (inner && bar.parentNode !== inner) inner.insertBefore(bar, $("v2EditSources"));
+    }
+    if (phoneRow) phoneRow.hidden = !phone || bar.hidden;
   }
   function bannerHost() {
     let box = $("v2OvBanners");
@@ -352,9 +360,14 @@
     const text = activeText();
     const line = [];
     if (text) {
+      // JEG-1135: the badge sits in the league row, so it shows a compact word only. The full
+      // "Overrides active: ..." line stays in the DOM as visually-hidden text (so screen readers and
+      // inner_text still read it) and as the tooltip.
       line.push(el("a", {id: "v2OverrideBadge", class: "v2-ov-badge", href: "v2/#value-overrides", role: "status", "aria-live": "polite",
-          title: "Your basis and player values replace our methodology on every tab. Open Overrides to change them.", text}),
-        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset all",
+          title: `${text}. Your basis and player values replace our methodology on every tab. Open Overrides to change them.`},
+          [el("span", {class: "v2-ov-badge-short", "aria-hidden": "true", text: "Overrides on"}),
+           el("span", {class: "v2-sr", text})]),
+        el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset",
           "aria-label": "Reset to our methodology: clear the custom basis and every player override", onclick: resetAll}));
     } else if (S.undo) {
       line.push(el("span", {class: "v2-ov-bar-msg", role: "status", "aria-live": "polite", text: "Back to our methodology."}),
@@ -362,6 +375,7 @@
     }
     bar.replaceChildren(...line);
     bar.hidden = !line.length;
+    placeBar(bar);
     const notes = [];
     if (S.linkNote) {
       notes.push(el("div", {class: "v2-ov-banner", id: "v2OvLinkBanner", role: "region", "aria-label": "Shared link settings"}, [
@@ -408,7 +422,7 @@
   }
   function summaryText() {
     const info = basisInfo();
-    if (S.mode === "default") return "DDF Value = our methodology: the trade charts FantasyCalc, USA Today, FantasyPros and CBS, adjusted to your league, equal weight.";
+    if (S.mode === "default") return "DDF Value = the default: rooted in the trade charts, then adjusted for position weight and your league's rosters, equal weight.";
     if (S.mode === "single") return `DDF Value = ${labelOf(S.single)} only: that source's value for your league, on the same point scale as every source.`;
     const pct = percents();
     const label = BASIS_KEYS.filter(key => pct[key] !== undefined).map(key => `${pct[key]}% ${labelOf(key)}`).join(" + ");
@@ -645,86 +659,27 @@
   }
 
   // ---------- share links ----------
+  // The format is read and written by ddf-value-link.js (JEG-1225); in short:
   // basis=fantasycalc | basis=blend:espn.60_razzball.40 (absent = ours). ov=2227:58.0,1110:42.5 for a few players;
   // ov=z:<base64url> beyond PACK_AFTER (3 bytes of player key + 2 bytes of tenths per override, about half the
   // characters). Old links without either work unchanged.
   // JEG-1058: an adjustment travels as ov=2227:+5 (a signed delta). The packed form
   // gains a type byte (ov=z2:) when any override is an adjustment; ov=z: stays the
   // original absolute-only layout, so links made before this change still read.
-  const b64 = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  const unb64 = text => Uint8Array.from(atob(text.replace(/-/g, "+").replace(/_/g, "/")), ch => ch.charCodeAt(0));
-  function packOverrides(map) {
-    const bytes = [];
-    Object.keys(map).forEach(key => {
-      const k = Number(key);
-      const tenths = Math.round(map[key] * 10);
-      if (!Number.isInteger(k) || k < 0 || k > 0xFFFFFF || tenths < 0 || tenths > 0xFFFF) return;
-      bytes.push((k >> 16) & 255, (k >> 8) & 255, k & 255, (tenths >> 8) & 255, tenths & 255);
-    });
-    return b64(bytes);
-  }
-  function unpackOverrides(text) {
-    const bytes = unb64(text);
-    const out = {};
-    for (let i = 0; i + 4 < bytes.length; i += 5) {
-      const entry = normalizeEntry(((bytes[i + 3] << 8) | bytes[i + 4]) / 10);
-      if (entry !== null) out[String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2])] = entry;
-    }
-    return out;
-  }
-  // The packed form that carries the kind: 3 bytes of player key, 1 byte of type
-  // (0 absolute, 1 adjustment) and 2 bytes of tenths (signed, so a delta can be
-  // negative).
-  function packOverridesWithTypes(map) {
-    const bytes = [];
-    Object.keys(map).forEach(key => {
-      const k = Number(key);
-      const entry = map[key];
-      const adjustment = isAdjustment(entry);
-      const tenths = Math.round((adjustment ? Number(entry.delta) : Number(entry)) * 10);
-      if (!Number.isInteger(k) || k < 0 || k > 0xFFFFFF) return;
-      if (!Number.isFinite(tenths)) return;
-      // The tenths are inside the two bytes they travel in: an override is on
-      // the scale, so this is the same number, never a dropped player.
-      const packed = Math.min(32767, Math.max(-32768, tenths));
-      bytes.push((k >> 16) & 255, (k >> 8) & 255, k & 255, adjustment ? 1 : 0, (packed >> 8) & 255, packed & 255);
-    });
-    return b64(bytes);
-  }
-  function unpackOverridesWithTypes(text) {
-    const bytes = unb64(text);
-    const out = {};
-    for (let i = 0; i + 5 < bytes.length; i += 6) {
-      const key = String((bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2]);
-      const raw = (bytes[i + 4] << 8) | bytes[i + 5];
-      const tenths = raw >= 32768 ? raw - 65536 : raw;
-      const value = tenths / 10;
-      const entry = bytes[i + 3] === 1 ? normalizeEntry({type: "adjustment", delta: value}) : normalizeEntry(value);
-      if (entry !== null) out[key] = entry;
-    }
-    return out;
-  }
-  // One override in a link: key:value for an absolute value, key:+5 for an adjustment.
-  const ovParam = (key, entry) => (isAdjustment(entry)
-    ? `${key}:${Number(entry.delta) >= 0 ? "+" : ""}${round1(Number(entry.delta))}`
-    : `${key}:${entry}`);
   function shareParams() {
-    const out = {basis: null, ov: null, dropped: false};
     const info = basisInfo();
-    const rec = basisRecord();
-    if (info && !info.isDefault) {
-      if (info.mode === "single") out.basis = info.source;
-      else out.basis = `blend:${info.sources.map(key => `${key}.${info.weights[key]}`).join("_")}`;
-    } else if (rec.mode !== "default" && !info) {
-      out.basis = rec.mode === "single" ? rec.source : `blend:${rec.sources.map(key => `${key}.${rec.weights[key]}`).join("_")}`;
-    }
-    const keys = Object.keys(S.values);
-    if (keys.length) {
-      const anyAdjustment = keys.some(key => isAdjustment(S.values[key]));
-      if (anyAdjustment) out.ov = keys.length > PACK_AFTER ? `z2:${packOverridesWithTypes(S.values)}` : keys.map(key => ovParam(key, S.values[key])).join(",");
-      else out.ov = keys.length > PACK_AFTER ? `z:${packOverrides(S.values)}` : keys.map(key => `${key}:${S.values[key]}`).join(",");
-    }
-    return out;
+    const basis = info ? (info.isDefault ? null : VL.formatBasisParam(info)) : VL.formatBasisParam(basisRecord());
+    return {basis, ov: VL.formatOvParam(S.values), dropped: false};
+  }
+  // Complete value context for finder/league links, including explicit defaults.
+  function shareLink(hash) {
+    const shared = shareParams();
+    // Keep the bounded workspace codec's raw separators/escaping unchanged.
+    const base = hash + (hash.includes("?") ? "&" : "?") + "valuecontext=1"
+      + (shared.basis ? `&basis=${encodeURIComponent(shared.basis)}` : "");
+    const full = base + (shared.ov ? `&ov=${encodeURIComponent(shared.ov)}` : "");
+    const dropped = Boolean(shared.ov && full.length > LINK_BUDGET);
+    return {hash: dropped ? base : full, dropped};
   }
   // The share-link text a recipient is told about; also what an over-long link falls back to.
   function dropOverridesNote() {
@@ -732,57 +687,23 @@
     renderList($("v2OvList"));
     return "Your player overrides are too large for a link. Use Export on the Overrides tab to share them as a file.";
   }
-  function parseBasisParam(text) {
-    if (!text) return null;
-    if (text.startsWith("blend:")) {
-      const sources = [];
-      const weights = {};
-      text.slice(6).split("_").forEach(part => {
-        const [key, w] = part.split(".");
-        if (BASIS_KEYS.includes(key) && Number(w) >= 1) { sources.push(key); weights[key] = clampWeight(w); }
-      });
-      return sources.length ? {mode: "blend", sources, weights} : null;
-    }
-    return BASIS_KEYS.includes(text) ? {mode: "single", source: text} : null;
-  }
-  // JEG-1058: a value that starts with + or - is an adjustment (ov=2227:+5); a plain number is an absolute value.
-  function parseOvParam(text) {
-    if (!text) return null;
-    let map = {};
-    try {
-      if (text.startsWith("z2:")) map = unpackOverridesWithTypes(text.slice(3));
-      else if (text.startsWith("z:")) map = unpackOverrides(text.slice(2));
-      else text.split(",").forEach(part => {
-        const [key, v] = part.split(":");
-        if (!/^\d+$/.test(key) || v === undefined || v === "") return;
-        // A sign means an adjustment. A leading space is the "+" that a URL parser
-        // turned into a space (URLSearchParams reads "+" as a space), so it is a sign too.
-        if (/^[+-]/.test(v) || /^\s/.test(v)) {
-          const delta = Number(v);
-          const entry = normalizeEntry({type: "adjustment", delta});
-          if (entry !== null) map[key] = entry;
-        } else {
-          const value = Number(v);
-          const entry = normalizeEntry(value);
-          if (entry !== null) map[key] = entry;
-        }
-      });
-    } catch (error) { return null; }
-    return Object.keys(map).length ? map : null;
-  }
   // The recipient's side. In memory for the visit: the reader's own saved settings are not touched.
   function applyLink(params) {
-    const basisText = params.get("basis");
-    const ovText = params.get("ov");
-    if (!basisText && !ovText) return false;
-    const sig = `${basisText || ""}|${ovText || ""}`;
+    const link = VL.readValueContext(params);
+    const {basisText, ovText, complete} = link;
+    if (!link.present) return false;
+    const sig = `${complete ? "full:" : ""}${basisText || ""}|${ovText || ""}`;
     if (sig === S.linkSig) return false;
-    const basis = parseBasisParam(basisText);
-    const overrides = parseOvParam(ovText);
+    const parsedBasis = link.basis;
+    const parsedOverrides = link.overrides;
+    if (complete && link.unread.length) return false;
+    const basis = parsedBasis || (complete ? {mode: "default"} : null);
+    const overrides = parsedOverrides || (complete ? {} : null);
     if (!basis && !overrides) return false;
     S.linkSig = sig;
     S.session = true;
     if (basis) setBasisState(basis);
+    if (complete) { S.values = {}; S.names = {}; }
     if (overrides) {
       Object.entries(overrides).forEach(([key, v]) => { const entry = normalizeEntry(v); if (entry !== null) S.values[key] = entry; });
       Object.keys(overrides).forEach(key => { const row = rowOf(key); if (row) S.names[key] = row.name; });
@@ -794,14 +715,36 @@
     }
     const parts = [];
     const info = basisInfo();
-    if (basis) parts.push(`a custom basis (${info ? info.label : "see Overrides"})`);
+    if (basis) parts.push(info && info.isDefault ? "our methodology" : `a custom basis (${info ? info.label : "see Overrides"})`);
     if (overrides) parts.push(`${Object.keys(overrides).length} player override${Object.keys(overrides).length === 1 ? "" : "s"}`);
     S.linkNote = `This link uses ${parts.join(" and ")}. They apply for this visit only.`;
-    S.linkExtra = {basis: basis || null, values: overrides || null};
+    S.linkExtra = {basis: basis || null, values: overrides || null, replace: complete};
     saveLinkState(S.linkExtra);
     syncBar();
     announce("sources");
     return true;
+  }
+  // An accepted league import may be undone without changing saved preferences.
+  function snapshotContext() {
+    return {basis: basisRecord(), values: JSON.parse(JSON.stringify(S.values)),
+      names: {...S.names}, session: S.session, linkSig: S.linkSig,
+      linkNote: S.linkNote, linkExtra: S.linkExtra ? JSON.parse(JSON.stringify(S.linkExtra)) : null};
+  }
+  function restoreContext(snapshot) {
+    if (!snapshot) return;
+    setBasisState(snapshot.basis);
+    S.values = {...snapshot.values};
+    S.names = {...snapshot.names};
+    S.session = snapshot.session;
+    S.linkSig = snapshot.linkSig;
+    S.linkNote = snapshot.linkNote;
+    S.linkExtra = snapshot.linkExtra;
+    if (S.engine) { S.engine.setBasis(engineBasis(), true); S.engine.setValueOverrides(S.values); }
+    S.applied = JSON.stringify(engineBasis());
+    saveLinkState(S.linkExtra || {});
+    syncBar();
+    announce("sources");
+    if ($("v2Overrides") && !$("v2Overrides").hidden) render();
   }
   function useOurs() {
     S.linkNote = null;
@@ -1170,8 +1113,12 @@
     syncBar();
     // Anything else that sets the basis (a script, a link) moves the indicator too.
     window.addEventListener("trade-value-shared-change", () => syncBar());
+    window.matchMedia("(max-width: 767px)").addEventListener("change", () => {
+      const bar = $("v2OvBar");
+      if (bar) placeBar(bar);
+    });
   }
 
   root.DDFOverrides = {boot, render, count: () => Object.keys(S.values).length, all: () => ({...S.values}),
-    basis: () => basisRecord(), shareParams, applyLink, dropOverridesNote, flag, state: S};
+    basis: () => basisRecord(), shareParams, shareLink, applyLink, snapshotContext, restoreContext, dropOverridesNote, flag, state: S};
 })(window);

@@ -18,7 +18,8 @@
     ],
     "superflex": 0,
     "bench_per_team": 2,
-    "bench_share": 0.15
+    "bench_share": 0.15,
+    "seat_sigma": 0
   },
   "constants": {
     "BENCH_MIX_12": {
@@ -481,36 +482,36 @@
       ]
     },
     "starter_mix_mean": {
-      "QB": 0.143679,
-      "RB": 0.243258,
-      "WR": 0.324742,
-      "TE": 0.288321
+      "QB": 0.136817,
+      "RB": 0.244977,
+      "WR": 0.326836,
+      "TE": 0.291369
     },
     "bench_mix_mean": {
-      "QB": 0.193069,
-      "RB": 0.348319,
-      "WR": 0.298297,
-      "TE": 0.160314
+      "QB": 0.107115,
+      "RB": 0.414984,
+      "WR": 0.411308,
+      "TE": 0.066594
     },
     "ddf_weights": {
-      "QB|starter": 0.122128,
-      "QB|bench": 0.02896,
-      "RB|starter": 0.206769,
-      "RB|bench": 0.052248,
-      "WR|starter": 0.276031,
-      "WR|bench": 0.044745,
-      "TE|starter": 0.245072,
-      "TE|bench": 0.024047
+      "QB|starter": 0.116295,
+      "QB|bench": 0.016067,
+      "RB|starter": 0.208231,
+      "RB|bench": 0.062248,
+      "WR|starter": 0.277811,
+      "WR|bench": 0.061696,
+      "TE|starter": 0.247664,
+      "TE|bench": 0.009989
     },
     "group_budgets": {
-      "QB|starter": 34.195716,
-      "QB|bench": 8.108911,
-      "RB|starter": 57.89538,
-      "RB|bench": 14.629419,
-      "WR|starter": 77.288622,
-      "WR|bench": 12.528471,
-      "TE|starter": 68.620283,
-      "TE|bench": 6.7332
+      "QB|starter": 32.562526,
+      "QB|bench": 4.498813,
+      "RB|starter": 58.304546,
+      "RB|bench": 17.429321,
+      "WR|starter": 77.787042,
+      "WR|bench": 17.274917,
+      "TE|starter": 69.345886,
+      "TE|bench": 2.796949
     },
     "indexed": {
       "c1": {
@@ -666,41 +667,41 @@
         }
       },
       "c5": {
-        "factor": 0.524238,
+        "factor": 0.525453,
         "shared_players": 13,
-        "ddf_total": 278.894741,
+        "ddf_total": 279.540879,
         "native_total": 532.0,
         "values": {
-          "101": 19.921053,
-          "102": 12.581718,
-          "103": 7.339335,
-          "104": 3.855688,
-          "201": 49.802632,
-          "202": 30.405818,
-          "203": 17.299862,
+          "101": 19.967206,
+          "102": 12.610867,
+          "103": 7.356339,
+          "104": 3.86462,
+          "201": 49.918014,
+          "202": 30.476261,
+          "203": 17.339942,
           "204": 0.0,
           "205": 0.0,
           "206": 0.0,
-          "207": 10.256056,
+          "207": 10.279817,
           "208": 0.0,
           "209": 0.0,
           "210": 0.0,
           "211": 0.0,
           "212": 0.0,
           "213": 0.0,
-          "301": 42.987535,
-          "302": 25.163435,
-          "303": 22.018006,
-          "304": 11.009003,
-          "305": 7.377561,
+          "301": 43.087128,
+          "302": 25.221733,
+          "303": 22.069017,
+          "304": 11.034508,
+          "305": 7.394653,
           "306": 0.0,
           "307": 0.0,
           "308": 0.0,
-          "401": 25.163435,
-          "402": 11.533241,
-          "403": 3.669668,
-          "404": 2.340078,
-          "405": 0.857765
+          "401": 25.221733,
+          "402": 11.559961,
+          "403": 3.678169,
+          "404": 2.345499,
+          "405": 0.859752
         }
       }
     },
@@ -710,12 +711,12 @@
       401,
       101,
       302,
-      402,
       202,
-      102,
+      402,
       303,
-      403,
+      102,
       203,
+      403,
       304,
       103,
       404,
@@ -784,8 +785,8 @@
             "listed": 4,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 9.0,
-            "starter_line": 14.0,
+            "waiver_value": 14.25,
+            "starter_line": 14.25,
             "method": "roster_determined"
           },
           "RB": {
@@ -798,7 +799,7 @@
             "listed": 13,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 8.5,
+            "waiver_value": 9.357143,
             "starter_line": 12.0,
             "method": "roster_determined"
           },
@@ -812,7 +813,7 @@
             "listed": 8,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 6.0,
+            "waiver_value": 6.857143,
             "starter_line": 9.5,
             "method": "roster_determined"
           },
@@ -826,22 +827,22 @@
             "listed": 5,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 1.5,
+            "waiver_value": 6.225,
             "starter_line": 6.5,
             "method": "roster_determined"
           }
         },
         "groups": {
-          "QB|starter": 8.0,
-          "QB|bench": 13.0,
+          "QB|starter": 7.5,
+          "QB|bench": 0.0,
           "RB|starter": 8.0,
-          "RB|bench": 8.5,
+          "RB|bench": 5.928571,
           "WR|starter": 11.5,
-          "WR|bench": 12.5,
+          "WR|bench": 9.071429,
           "TE|starter": 12.9,
-          "TE|bench": 16.5
+          "TE|bench": 0.825
         },
-        "total_vorp": 90.9,
+        "total_vorp": 55.725,
         "players": {
           "101": {
             "pos": "QB",
@@ -849,13 +850,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 11.0,
+            "vorp": 5.75,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 6.0,
-            "adjusted": 28.765599,
-            "vorp_display": 33.883388
+            "bench_slice": 0.0,
+            "starter_slice": 5.75,
+            "adjusted": 28.413693,
+            "vorp_display": 28.89188
           },
           "102": {
             "pos": "QB",
@@ -863,13 +864,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 1.75,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 2.0,
-            "adjusted": 11.667741,
-            "vorp_display": 21.562156
+            "bench_slice": 0.0,
+            "starter_slice": 1.75,
+            "adjusted": 8.647646,
+            "vorp_display": 8.793181
           },
           "103": {
             "pos": "QB",
@@ -877,13 +878,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 3.0,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.0,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 1.871287,
-            "vorp_display": 9.240924
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "104": {
             "pos": "QB",
@@ -905,13 +906,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 9.5,
+            "vorp": 8.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 6.0,
-            "adjusted": 49.445413,
-            "vorp_display": 29.262926
+            "adjusted": 51.498107,
+            "vorp_display": 43.427546
           },
           "202": {
             "pos": "RB",
@@ -919,13 +920,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 5.5,
+            "vorp": 4.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 2.0,
-            "adjusted": 20.497723,
-            "vorp_display": 16.941694
+            "adjusted": 22.345834,
+            "vorp_display": 23.328847
           },
           "203": {
             "pos": "RB",
@@ -933,13 +934,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.642857,
             "starter_slice": 0.0,
-            "adjusted": 2.581662,
-            "vorp_display": 4.620462
+            "adjusted": 1.889926,
+            "vorp_display": 3.230148
           },
           "207": {
             "pos": "RB",
@@ -1087,13 +1088,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.0,
+            "vorp": 9.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 6.5,
-            "adjusted": 47.192845,
-            "vorp_display": 30.80308
+            "adjusted": 48.999439,
+            "vorp_display": 45.939883
           },
           "302": {
             "pos": "WR",
@@ -1101,13 +1102,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 6.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 3.5,
-            "adjusted": 27.030596,
-            "vorp_display": 21.562156
+            "adjusted": 28.707167,
+            "vorp_display": 30.865859
           },
           "303": {
             "pos": "WR",
@@ -1115,13 +1116,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 5.0,
+            "vorp": 4.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 1.5,
-            "adjusted": 13.589096,
-            "vorp_display": 15.40154
+            "adjusted": 15.178986,
+            "vorp_display": 20.81651
           },
           "304": {
             "pos": "WR",
@@ -1129,13 +1130,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 2.0,
+            "vorp": 1.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 2.0,
+            "bench_slice": 1.142857,
             "starter_slice": 0.0,
-            "adjusted": 2.004555,
-            "vorp_display": 6.160616
+            "adjusted": 2.176367,
+            "vorp_display": 5.742485
           },
           "305": {
             "pos": "WR",
@@ -1199,13 +1200,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.5,
+            "vorp": 5.775,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 5.5,
-            "adjusted": 31.297074,
-            "vorp_display": 32.343234
+            "adjusted": 30.498392,
+            "vorp_display": 29.017497
           },
           "403": {
             "pos": "TE",
@@ -1213,13 +1214,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 8.9,
+            "vorp": 4.175,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 3.9,
-            "adjusted": 22.786031,
-            "vorp_display": 27.414741
+            "adjusted": 21.897352,
+            "vorp_display": 20.978017
           },
           "402": {
             "pos": "TE",
@@ -1227,13 +1228,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 8.5,
+            "vorp": 3.775,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 3.5,
-            "adjusted": 20.65827,
-            "vorp_display": 26.182618
+            "adjusted": 19.747092,
+            "vorp_display": 18.968147
           },
           "404": {
             "pos": "TE",
@@ -1241,13 +1242,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 0.612109,
-            "vorp_display": 4.620462
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "405": {
             "pos": "TE",
@@ -1265,39 +1266,44 @@
           }
         },
         "weights": {
-          "QB|starter": 0.168317,
-          "QB|bench": 0.038614,
-          "RB|starter": 0.168317,
-          "RB|bench": 0.025248,
-          "WR|starter": 0.241955,
-          "WR|bench": 0.037129,
-          "TE|starter": 0.271411,
-          "TE|bench": 0.04901
+          "QB|starter": 0.159774,
+          "QB|bench": 0.0,
+          "RB|starter": 0.170426,
+          "RB|bench": 0.056195,
+          "WR|starter": 0.244987,
+          "WR|bench": 0.085985,
+          "TE|starter": 0.274812,
+          "TE|bench": 0.00782
         },
         "starter_mix": {
-          "QB": 0.19802,
-          "RB": 0.19802,
-          "WR": 0.284653,
-          "TE": 0.319307
+          "QB": 0.18797,
+          "RB": 0.200501,
+          "WR": 0.288221,
+          "TE": 0.323308
         },
         "bench_mix": {
-          "QB": 0.257426,
-          "RB": 0.168317,
-          "WR": 0.247525,
-          "TE": 0.326733
+          "QB": 0.0,
+          "RB": 0.374633,
+          "WR": 0.573234,
+          "TE": 0.052133
         },
         "rates": {
-          "QB|starter": 4.274464,
-          "QB|bench": 0.623762,
-          "RB|starter": 7.236922,
-          "RB|bench": 1.721108,
-          "WR|starter": 6.72075,
-          "WR|bench": 1.002278,
-          "TE|starter": 5.319402,
-          "TE|bench": 0.408073
+          "QB|starter": 4.941512,
+          "QB|bench": 0.0,
+          "RB|starter": 7.288068,
+          "RB|bench": 2.939886,
+          "WR|starter": 6.764091,
+          "WR|bench": 1.904322,
+          "TE|starter": 5.37565,
+          "TE|bench": 3.390241
         },
-        "unfunded_moved": [],
-        "vorp_display_factor": 3.080308,
+        "unfunded_moved": [
+          {
+            "from": "QB|bench",
+            "to": "QB|starter"
+          }
+        ],
+        "vorp_display_factor": 5.024675,
         "status": "included"
       },
       "p2": {
@@ -1313,8 +1319,8 @@
             "listed": 4,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 9.0,
-            "starter_line": 14.0,
+            "waiver_value": 14.75,
+            "starter_line": 14.75,
             "method": "roster_determined"
           },
           "RB": {
@@ -1327,7 +1333,7 @@
             "listed": 12,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 8.0,
+            "waiver_value": 8.542857,
             "starter_line": 12.3,
             "method": "roster_determined"
           },
@@ -1355,22 +1361,22 @@
             "listed": 5,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 1.5,
+            "waiver_value": 6.375,
             "starter_line": 6.5,
             "method": "roster_determined"
           }
         },
         "groups": {
-          "QB|starter": 9.0,
-          "QB|bench": 14.0,
+          "QB|starter": 7.5,
+          "QB|bench": 0.0,
           "RB|starter": 7.4,
-          "RB|bench": 10.2,
+          "RB|bench": 8.571429,
           "WR|starter": 8.5,
           "WR|bench": 13.5,
           "TE|starter": 13.5,
-          "TE|bench": 16.5
+          "TE|bench": 0.375
         },
-        "total_vorp": 92.6,
+        "total_vorp": 59.346429,
         "players": {
           "101": {
             "pos": "QB",
@@ -1378,13 +1384,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 13.0,
+            "vorp": 7.25,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 8.0,
-            "adjusted": 33.292231,
-            "vorp_display": 39.308855
+            "bench_slice": 0.0,
+            "starter_slice": 7.25,
+            "adjusted": 35.825961,
+            "vorp_display": 34.205934
           },
           "102": {
             "pos": "QB",
@@ -1392,13 +1398,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 6.0,
+            "vorp": 0.25,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 1.0,
-            "adjusted": 6.695564,
-            "vorp_display": 18.142549
+            "bench_slice": 0.0,
+            "starter_slice": 0.25,
+            "adjusted": 1.235378,
+            "vorp_display": 1.179515
           },
           "103": {
             "pos": "QB",
@@ -1406,13 +1412,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 4.0,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.0,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 2.316832,
-            "vorp_display": 12.095032
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "104": {
             "pos": "QB",
@@ -1434,13 +1440,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 9.0,
+            "vorp": 8.457143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.3,
+            "bench_slice": 3.757143,
             "starter_slice": 4.7,
-            "adjusted": 42.938694,
-            "vorp_display": 27.213823
+            "adjusted": 44.671118,
+            "vorp_display": 39.901306
           },
           "202": {
             "pos": "RB",
@@ -1448,13 +1454,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 6.457143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.3,
+            "bench_slice": 3.757143,
             "starter_slice": 2.7,
-            "adjusted": 27.291294,
-            "vorp_display": 21.166307
+            "adjusted": 28.913133,
+            "vorp_display": 30.465186
           },
           "203": {
             "pos": "RB",
@@ -1462,13 +1468,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 1.6,
+            "vorp": 1.057143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.6,
+            "bench_slice": 1.057143,
             "starter_slice": 0.0,
-            "adjusted": 2.294811,
-            "vorp_display": 4.838013
+            "adjusted": 2.149616,
+            "vorp_display": 4.987663
           },
           "204": {
             "pos": "RB",
@@ -1607,8 +1613,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 6.5,
-            "adjusted": 62.351186,
-            "vorp_display": 30.237581
+            "adjusted": 63.962891,
+            "vorp_display": 47.180598
           },
           "302": {
             "pos": "WR",
@@ -1621,8 +1627,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 1.5,
-            "adjusted": 16.887291,
-            "vorp_display": 15.11879
+            "adjusted": 18.205807,
+            "vorp_display": 23.590299
           },
           "303": {
             "pos": "WR",
@@ -1635,8 +1641,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 0.5,
-            "adjusted": 7.794512,
-            "vorp_display": 12.095032
+            "adjusted": 9.054391,
+            "vorp_display": 18.872239
           },
           "304": {
             "pos": "WR",
@@ -1649,8 +1655,8 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 0.0,
-            "adjusted": 2.784105,
-            "vorp_display": 9.071274
+            "adjusted": 3.83887,
+            "vorp_display": 14.154179
           },
           "305": {
             "pos": "WR",
@@ -1714,13 +1720,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.5,
+            "vorp": 5.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 5.5,
-            "adjusted": 29.996775,
-            "vorp_display": 31.74946
+            "adjusted": 29.184344,
+            "vorp_display": 26.539086
           },
           "402": {
             "pos": "TE",
@@ -1728,13 +1734,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 9.5,
+            "vorp": 4.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 4.5,
-            "adjusted": 24.913791,
-            "vorp_display": 28.725702
+            "adjusted": 24.047612,
+            "vorp_display": 21.821027
           },
           "403": {
             "pos": "TE",
@@ -1742,13 +1748,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 8.5,
+            "vorp": 3.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 3.5,
-            "adjusted": 19.830807,
-            "vorp_display": 25.701944
+            "adjusted": 18.910879,
+            "vorp_display": 17.102967
           },
           "404": {
             "pos": "TE",
@@ -1756,13 +1762,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 0.612109,
-            "vorp_display": 4.535637
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "405": {
             "pos": "TE",
@@ -1780,39 +1786,44 @@
           }
         },
         "weights": {
-          "QB|starter": 0.199219,
-          "QB|bench": 0.038745,
-          "RB|starter": 0.163802,
-          "RB|bench": 0.028229,
-          "WR|starter": 0.188151,
-          "WR|bench": 0.037362,
-          "TE|starter": 0.298828,
-          "TE|bench": 0.045664
+          "QB|starter": 0.172764,
+          "QB|bench": 0.0,
+          "RB|starter": 0.170461,
+          "RB|bench": 0.057279,
+          "WR|starter": 0.195799,
+          "WR|bench": 0.090215,
+          "TE|starter": 0.310976,
+          "TE|bench": 0.002506
         },
         "starter_mix": {
-          "QB": 0.234375,
-          "RB": 0.192708,
-          "WR": 0.221354,
-          "TE": 0.351562
+          "QB": 0.203252,
+          "RB": 0.200542,
+          "WR": 0.230352,
+          "TE": 0.365854
         },
         "bench_mix": {
-          "QB": 0.258303,
-          "RB": 0.188192,
-          "WR": 0.249077,
-          "TE": 0.304428
+          "QB": 0.0,
+          "RB": 0.381862,
+          "WR": 0.601432,
+          "TE": 0.016706
         },
         "rates": {
-          "QB|starter": 3.799524,
-          "QB|bench": 0.579208,
-          "RB|starter": 7.8237,
-          "RB|bench": 1.434257,
-          "WR|starter": 9.092779,
-          "WR|bench": 0.928035,
-          "TE|starter": 5.082984,
-          "TE|bench": 0.408073
+          "QB|starter": 4.941512,
+          "QB|bench": 0.0,
+          "RB|starter": 7.878993,
+          "RB|bench": 2.033421,
+          "WR|starter": 9.151417,
+          "WR|bench": 1.279623,
+          "TE|starter": 5.136732,
+          "TE|bench": 7.458531
         },
-        "unfunded_moved": [],
-        "vorp_display_factor": 3.023758,
+        "unfunded_moved": [
+          {
+            "from": "QB|bench",
+            "to": "QB|starter"
+          }
+        ],
+        "vorp_display_factor": 4.71806,
         "status": "included"
       },
       "c1": {
@@ -1924,7 +1935,7 @@
             "start_worthy": null,
             "bench_slice": 12.0,
             "starter_slice": 20.0,
-            "adjusted": 30.495506,
+            "adjusted": 27.791497,
             "vorp_display": 23.455497
           },
           "102": {
@@ -1938,7 +1949,7 @@
             "start_worthy": null,
             "bench_slice": 12.0,
             "starter_slice": 5.0,
-            "adjusted": 9.978076,
+            "adjusted": 8.253981,
             "vorp_display": 12.460733
           },
           "103": {
@@ -1952,7 +1963,7 @@
             "start_worthy": null,
             "bench_slice": 7.0,
             "starter_slice": 0.0,
-            "adjusted": 1.831044,
+            "adjusted": 1.015861,
             "vorp_display": 5.13089
           },
           "104": {
@@ -1980,7 +1991,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 42.5,
-            "adjusted": 50.48461,
+            "adjusted": 51.900746,
             "vorp_display": 51.308901
           },
           "202": {
@@ -1994,7 +2005,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 12.5,
-            "adjusted": 18.905312,
+            "adjusted": 20.098267,
             "vorp_display": 29.319372
           },
           "203": {
@@ -2008,7 +2019,7 @@
             "start_worthy": null,
             "bench_slice": 15.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.994764
           },
           "204": {
@@ -2162,7 +2173,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 49.0,
-            "adjusted": 52.793567,
+            "adjusted": 54.478363,
             "vorp_display": 48.376963
           },
           "302": {
@@ -2176,7 +2187,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 19.0,
-            "adjusted": 22.681117,
+            "adjusted": 24.171724,
             "vorp_display": 26.387435
           },
           "303": {
@@ -2190,7 +2201,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 9.0,
-            "adjusted": 12.643633,
+            "adjusted": 14.06951,
             "vorp_display": 19.057592
           },
           "304": {
@@ -2204,7 +2215,7 @@
             "start_worthy": null,
             "bench_slice": 8.0,
             "starter_slice": 0.0,
-            "adjusted": 1.698776,
+            "adjusted": 2.342362,
             "vorp_display": 5.863874
           },
           "305": {
@@ -2274,7 +2285,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 40.0,
-            "adjusted": 52.666167,
+            "adjusted": 52.130127,
             "vorp_display": 31.518325
           },
           "402": {
@@ -2288,7 +2299,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 13.0,
-            "adjusted": 18.356025,
+            "adjusted": 17.457184,
             "vorp_display": 11.727749
           },
           "403": {
@@ -2302,7 +2313,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 1.0,
-            "adjusted": 3.107073,
+            "adjusted": 2.046987,
             "vorp_display": 2.931937
           },
           "404": {
@@ -2316,7 +2327,7 @@
             "start_worthy": null,
             "bench_slice": 2.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 1.465969
           },
           "405": {
@@ -2357,14 +2368,14 @@
           "TE": 0.064327
         },
         "rates": {
-          "QB|starter": 1.367829,
-          "QB|bench": 0.261578,
-          "RB|starter": 1.052643,
-          "RB|bench": 0.208992,
-          "WR|starter": 1.003748,
-          "WR|bench": 0.212347,
-          "TE|starter": 1.270746,
-          "TE|bench": 0.612109
+          "QB|starter": 1.302501,
+          "QB|bench": 0.145123,
+          "RB|starter": 1.060083,
+          "RB|bench": 0.24899,
+          "WR|starter": 1.010221,
+          "WR|bench": 0.292795,
+          "TE|starter": 1.284183,
+          "TE|bench": 0.254268
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.732984,
@@ -2513,7 +2524,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 14.0,
-            "adjusted": 27.315714,
+            "adjusted": 24.668273,
             "vorp_display": 16.990677
           },
           "102": {
@@ -2527,7 +2538,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 6.0,
-            "adjusted": 13.637428,
+            "adjusted": 11.643263,
             "vorp_display": 11.327118
           },
           "103": {
@@ -2541,7 +2552,7 @@
             "start_worthy": null,
             "bench_slice": 4.0,
             "starter_slice": 0.0,
-            "adjusted": 1.351485,
+            "adjusted": 0.749802,
             "vorp_display": 2.83178
           },
           "104": {
@@ -2569,7 +2580,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 57.5,
-            "adjusted": 53.304191,
+            "adjusted": 54.740253,
             "vorp_display": 60.175316
           },
           "202": {
@@ -2583,7 +2594,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 12.5,
-            "adjusted": 16.085732,
+            "adjusted": 17.25876,
             "vorp_display": 28.317796
           },
           "203": {
@@ -2597,7 +2608,7 @@
             "start_worthy": null,
             "bench_slice": 15.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.619173
           },
           "204": {
@@ -2667,7 +2678,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 57.5,
-            "adjusted": 57.43097,
+            "adjusted": 59.128261,
             "vorp_display": 51.679977
           },
           "302": {
@@ -2681,7 +2692,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 17.5,
-            "adjusted": 19.957699,
+            "adjusted": 21.413331,
             "vorp_display": 23.362181
           },
           "303": {
@@ -2695,7 +2706,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 7.5,
-            "adjusted": 10.589381,
+            "adjusted": 11.984599,
             "vorp_display": 16.282733
           },
           "304": {
@@ -2709,7 +2720,7 @@
             "start_worthy": null,
             "bench_slice": 8.0,
             "starter_slice": 0.0,
-            "adjusted": 1.839042,
+            "adjusted": 2.535768,
             "vorp_display": 5.663559
           },
           "305": {
@@ -2737,7 +2748,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 44.5,
-            "adjusted": 51.658812,
+            "adjusted": 51.010696,
             "vorp_display": 34.248783
           },
           "402": {
@@ -2751,7 +2762,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 14.5,
-            "adjusted": 18.185504,
+            "adjusted": 17.183435,
             "vorp_display": 13.010436
           },
           "403": {
@@ -2765,7 +2776,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 2.5,
-            "adjusted": 4.79618,
+            "adjusted": 3.652531,
             "vorp_display": 4.515097
           },
           "404": {
@@ -2779,7 +2790,7 @@
             "start_worthy": null,
             "bench_slice": 1.377753,
             "starter_slice": 0.0,
-            "adjusted": 0.712987,
+            "adjusted": 0.296173,
             "vorp_display": 0.975373
           },
           "405": {
@@ -2820,14 +2831,14 @@
           "TE": 0.080558
         },
         "rates": {
-          "QB|starter": 1.709786,
-          "QB|bench": 0.337871,
-          "RB|starter": 0.827077,
-          "RB|bench": 0.208992,
-          "WR|starter": 0.936832,
-          "WR|bench": 0.22988,
-          "TE|starter": 1.115777,
-          "TE|bench": 0.5175
+          "QB|starter": 1.628126,
+          "QB|bench": 0.187451,
+          "RB|starter": 0.832922,
+          "RB|bench": 0.24899,
+          "WR|starter": 0.942873,
+          "WR|bench": 0.316971,
+          "TE|starter": 1.127575,
+          "TE|bench": 0.214968
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.707945,
@@ -2942,7 +2953,7 @@
             "start_worthy": null,
             "bench_slice": 120.0,
             "starter_slice": 200.0,
-            "adjusted": 30.495506,
+            "adjusted": 27.791497,
             "vorp_display": 23.455497
           },
           "102": {
@@ -2956,7 +2967,7 @@
             "start_worthy": null,
             "bench_slice": 120.0,
             "starter_slice": 50.0,
-            "adjusted": 9.978076,
+            "adjusted": 8.253981,
             "vorp_display": 12.460733
           },
           "103": {
@@ -2970,7 +2981,7 @@
             "start_worthy": null,
             "bench_slice": 70.0,
             "starter_slice": 0.0,
-            "adjusted": 1.831044,
+            "adjusted": 1.015861,
             "vorp_display": 5.13089
           },
           "104": {
@@ -2998,7 +3009,7 @@
             "start_worthy": null,
             "bench_slice": 275.0,
             "starter_slice": 425.0,
-            "adjusted": 50.48461,
+            "adjusted": 51.900746,
             "vorp_display": 51.308901
           },
           "202": {
@@ -3012,7 +3023,7 @@
             "start_worthy": null,
             "bench_slice": 275.0,
             "starter_slice": 125.0,
-            "adjusted": 18.905312,
+            "adjusted": 20.098267,
             "vorp_display": 29.319372
           },
           "203": {
@@ -3026,7 +3037,7 @@
             "start_worthy": null,
             "bench_slice": 150.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.994764
           },
           "204": {
@@ -3180,7 +3191,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 490.0,
-            "adjusted": 52.793567,
+            "adjusted": 54.478363,
             "vorp_display": 48.376963
           },
           "302": {
@@ -3194,7 +3205,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 190.0,
-            "adjusted": 22.681117,
+            "adjusted": 24.171724,
             "vorp_display": 26.387435
           },
           "303": {
@@ -3208,7 +3219,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 90.0,
-            "adjusted": 12.643633,
+            "adjusted": 14.06951,
             "vorp_display": 19.057592
           },
           "304": {
@@ -3222,7 +3233,7 @@
             "start_worthy": null,
             "bench_slice": 80.0,
             "starter_slice": 0.0,
-            "adjusted": 1.698776,
+            "adjusted": 2.342362,
             "vorp_display": 5.863874
           },
           "305": {
@@ -3292,7 +3303,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 400.0,
-            "adjusted": 52.666167,
+            "adjusted": 52.130127,
             "vorp_display": 31.518325
           },
           "402": {
@@ -3306,7 +3317,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 130.0,
-            "adjusted": 18.356025,
+            "adjusted": 17.457184,
             "vorp_display": 11.727749
           },
           "403": {
@@ -3320,7 +3331,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 10.0,
-            "adjusted": 3.107073,
+            "adjusted": 2.046987,
             "vorp_display": 2.931937
           },
           "404": {
@@ -3334,7 +3345,7 @@
             "start_worthy": null,
             "bench_slice": 20.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 1.465969
           },
           "405": {
@@ -3375,14 +3386,14 @@
           "TE": 0.064327
         },
         "rates": {
-          "QB|starter": 0.136783,
-          "QB|bench": 0.026158,
-          "RB|starter": 0.105264,
-          "RB|bench": 0.020899,
-          "WR|starter": 0.100375,
-          "WR|bench": 0.021235,
-          "TE|starter": 0.127075,
-          "TE|bench": 0.061211
+          "QB|starter": 0.13025,
+          "QB|bench": 0.014512,
+          "RB|starter": 0.106008,
+          "RB|bench": 0.024899,
+          "WR|starter": 0.101022,
+          "WR|bench": 0.02928,
+          "TE|starter": 0.128418,
+          "TE|bench": 0.025427
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.073298,
@@ -3497,7 +3508,7 @@
             "start_worthy": null,
             "bench_slice": 13.0,
             "starter_slice": 15.0,
-            "adjusted": 25.702065,
+            "adjusted": 23.123029,
             "vorp_display": 18.578199
           },
           "102": {
@@ -3511,7 +3522,7 @@
             "start_worthy": null,
             "bench_slice": 13.0,
             "starter_slice": 8.0,
-            "adjusted": 15.294673,
+            "adjusted": 13.212695,
             "vorp_display": 13.933649
           },
           "103": {
@@ -3525,7 +3536,7 @@
             "start_worthy": null,
             "bench_slice": 5.0,
             "starter_slice": 0.0,
-            "adjusted": 1.307889,
+            "adjusted": 0.725615,
             "vorp_display": 3.317536
           },
           "104": {
@@ -3553,7 +3564,7 @@
             "start_worthy": null,
             "bench_slice": 42.5,
             "starter_slice": 32.5,
-            "adjusted": 47.219854,
+            "adjusted": 48.55011,
             "vorp_display": 49.763033
           },
           "202": {
@@ -3567,7 +3578,7 @@
             "start_worthy": null,
             "bench_slice": 42.5,
             "starter_slice": 12.5,
-            "adjusted": 21.488574,
+            "adjusted": 22.636978,
             "vorp_display": 36.492891
           },
           "203": {
@@ -3581,7 +3592,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 0.0,
-            "adjusted": 3.81637,
+            "adjusted": 4.54678,
             "vorp_display": 19.905213
           },
           "205": {
@@ -3721,7 +3732,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 43.5,
-            "adjusted": 49.216527,
+            "adjusted": 50.827752,
             "vorp_display": 39.810427
           },
           "302": {
@@ -3735,7 +3746,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 23.5,
-            "adjusted": 28.18561,
+            "adjusted": 29.66121,
             "vorp_display": 26.540284
           },
           "303": {
@@ -3749,7 +3760,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 6.5,
-            "adjusted": 10.30933,
+            "adjusted": 11.669649,
             "vorp_display": 15.260664
           },
           "304": {
@@ -3763,7 +3774,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 0.0,
-            "adjusted": 2.105625,
+            "adjusted": 2.903347,
             "vorp_display": 6.635071
           },
           "305": {
@@ -3819,7 +3830,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 33.0,
-            "adjusted": 44.562164,
+            "adjusted": 43.940431,
             "vorp_display": 25.876777
           },
           "402": {
@@ -3833,7 +3844,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 18.0,
-            "adjusted": 25.141329,
+            "adjusted": 24.314237,
             "vorp_display": 15.924171
           },
           "403": {
@@ -3847,7 +3858,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 2.0,
-            "adjusted": 4.425772,
+            "adjusted": 3.37963,
             "vorp_display": 5.308057
           },
           "404": {
@@ -3861,7 +3872,7 @@
             "start_worthy": null,
             "bench_slice": 4.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 2.654028
           },
           "405": {
@@ -3902,14 +3913,14 @@
           "TE": 0.096703
         },
         "rates": {
-          "QB|starter": 1.48677,
-          "QB|bench": 0.261578,
-          "RB|starter": 1.286564,
-          "RB|bench": 0.127212,
-          "WR|starter": 1.051546,
-          "WR|bench": 0.210563,
-          "TE|starter": 1.294722,
-          "TE|bench": 0.306055
+          "QB|starter": 1.415762,
+          "QB|bench": 0.145123,
+          "RB|starter": 1.295657,
+          "RB|bench": 0.151559,
+          "WR|starter": 1.058327,
+          "WR|bench": 0.290335,
+          "TE|starter": 1.308413,
+          "TE|bench": 0.127134
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.663507,
@@ -4202,7 +4213,7 @@
             "start_worthy": null,
             "bench_slice": 11.645161,
             "starter_slice": 19.0,
-            "adjusted": 30.226044,
+            "adjusted": 27.528743,
             "vorp_display": 21.840842
           },
           "102": {
@@ -4216,7 +4227,7 @@
             "start_worthy": null,
             "bench_slice": 11.645161,
             "starter_slice": 5.0,
-            "adjusted": 10.278544,
+            "adjusted": 8.533936,
             "vorp_display": 11.863026
           },
           "103": {
@@ -4230,7 +4241,7 @@
             "start_worthy": null,
             "bench_slice": 6.645161,
             "starter_slice": 0.0,
-            "adjusted": 1.800038,
+            "adjusted": 0.998659,
             "vorp_display": 4.736014
           },
           "104": {
@@ -4258,7 +4269,7 @@
             "start_worthy": null,
             "bench_slice": 25.936269,
             "starter_slice": 49.5,
-            "adjusted": 52.032746,
+            "adjusted": 53.471352,
             "vorp_display": 53.763516
           },
           "202": {
@@ -4272,7 +4283,7 @@
             "start_worthy": null,
             "bench_slice": 25.936269,
             "starter_slice": 12.5,
-            "adjusted": 17.482277,
+            "adjusted": 18.676704,
             "vorp_display": 27.393573
           },
           "203": {
@@ -4286,7 +4297,7 @@
             "start_worthy": null,
             "bench_slice": 13.436269,
             "starter_slice": 0.0,
-            "adjusted": 3.009775,
+            "adjusted": 3.585811,
             "vorp_display": 9.576044
           },
           "207": {
@@ -4314,7 +4325,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 50.5,
-            "adjusted": 54.04983,
+            "adjusted": 55.771653,
             "vorp_display": 48.41171
           },
           "302": {
@@ -4328,7 +4339,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 16.5,
-            "adjusted": 20.142564,
+            "adjusted": 21.645724,
             "vorp_display": 24.179871
           },
           "303": {
@@ -4342,7 +4353,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 10.5,
-            "adjusted": 14.158929,
+            "adjusted": 15.623502,
             "vorp_display": 19.903664
           },
           "304": {
@@ -4356,7 +4367,7 @@
             "start_worthy": null,
             "bench_slice": 6.927083,
             "starter_slice": 0.0,
-            "adjusted": 1.465769,
+            "adjusted": 2.02108,
             "vorp_display": 4.93694
           },
           "305": {
@@ -4384,7 +4395,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 42.268116,
-            "adjusted": 50.323513,
+            "adjusted": 49.769724,
             "vorp_display": 33.043525
           },
           "402": {
@@ -4398,7 +4409,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 16.268116,
-            "adjusted": 20.490776,
+            "adjusted": 19.62153,
             "vorp_display": 14.513295
           },
           "403": {
@@ -4412,7 +4423,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 1.268116,
-            "adjusted": 3.279582,
+            "adjusted": 2.228342,
             "vorp_display": 3.822778
           },
           "404": {
@@ -4426,7 +4437,7 @@
             "start_worthy": null,
             "bench_slice": 2.827556,
             "starter_slice": 0.0,
-            "adjusted": 1.259612,
+            "adjusted": 0.523239,
             "vorp_display": 2.015202
           },
           "405": {
@@ -4467,14 +4478,14 @@
           "TE": 0.089136
         },
         "rates": {
-          "QB|starter": 1.424821,
-          "QB|bench": 0.27088,
-          "RB|starter": 0.933796,
-          "RB|bench": 0.224004,
-          "WR|starter": 0.997273,
-          "WR|bench": 0.2116,
-          "TE|starter": 1.147413,
-          "TE|bench": 0.445477
+          "QB|starter": 1.356772,
+          "QB|bench": 0.150284,
+          "RB|starter": 0.940396,
+          "RB|bench": 0.266876,
+          "WR|starter": 1.003704,
+          "WR|bench": 0.291765,
+          "TE|starter": 1.159546,
+          "TE|bench": 0.18505
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.712701,
@@ -4486,17 +4497,17 @@
         "name": "QB Alpha",
         "pos": "QB",
         "adjusted": {
-          "p1": 28.765599,
-          "p2": 33.292231,
-          "c1": 30.495506,
-          "c2": 27.315714,
-          "c3": 30.495506,
-          "c4": 25.702065,
-          "c5": 30.226044
+          "p1": 28.413693,
+          "p2": 35.825961,
+          "c1": 27.791497,
+          "c2": 24.668273,
+          "c3": 27.791497,
+          "c4": 23.123029,
+          "c5": 27.528743
         },
         "vorp_vs_waivers": {
-          "p1": 33.883388,
-          "p2": 39.308855,
+          "p1": 28.89188,
+          "p2": 34.205934,
           "c1": 23.455497,
           "c2": 16.990677,
           "c3": 23.455497,
@@ -4505,7 +4516,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 28.434832,
+          "value": 25.777886,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4516,7 +4527,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 28.434832,
+          "value": 25.777886,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4527,7 +4538,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 31.028915,
+          "value": 32.119827,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4540,7 +4551,7 @@
           "c2": 15.107914,
           "c3": 17.877095,
           "c4": 15.896188,
-          "c5": 19.921053
+          "c5": 19.967206
         },
         "ddf_tier": "starter",
         "mean_ppg": 21.0
@@ -4549,17 +4560,17 @@
         "name": "QB Bravo",
         "pos": "QB",
         "adjusted": {
-          "p1": 11.667741,
-          "p2": 6.695564,
-          "c1": 9.978076,
-          "c2": 13.637428,
-          "c3": 9.978076,
-          "c4": 15.294673,
-          "c5": 10.278544
+          "p1": 8.647646,
+          "p2": 1.235378,
+          "c1": 8.253981,
+          "c2": 11.643263,
+          "c3": 8.253981,
+          "c4": 13.212695,
+          "c5": 8.533936
         },
         "vorp_vs_waivers": {
-          "p1": 21.562156,
-          "p2": 18.142549,
+          "p1": 8.793181,
+          "p2": 1.179515,
           "c1": 12.460733,
           "c2": 11.327118,
           "c3": 12.460733,
@@ -4568,7 +4579,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 12.29718,
+          "value": 10.410969,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4579,7 +4590,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 12.29718,
+          "value": 10.410969,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4590,7 +4601,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 9.181652,
+          "value": 4.941512,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4603,7 +4614,7 @@
           "c2": 11.079137,
           "c3": 11.173184,
           "c4": 12.716951,
-          "c5": 12.581718
+          "c5": 12.610867
         },
         "ddf_tier": "starter",
         "mean_ppg": 15.5
@@ -4612,17 +4623,17 @@
         "name": "QB Charlie",
         "pos": "QB",
         "adjusted": {
-          "p1": 1.871287,
-          "p2": 2.316832,
-          "c1": 1.831044,
-          "c2": 1.351485,
-          "c3": 1.831044,
-          "c4": 1.307889,
-          "c5": 1.800038
+          "p1": 0.0,
+          "p2": 0.0,
+          "c1": 1.015861,
+          "c2": 0.749802,
+          "c3": 1.015861,
+          "c4": 0.725615,
+          "c5": 0.998659
         },
         "vorp_vs_waivers": {
-          "p1": 9.240924,
-          "p2": 12.095032,
+          "p1": 0.0,
+          "p2": 0.0,
           "c1": 5.13089,
           "c2": 2.83178,
           "c3": 5.13089,
@@ -4631,7 +4642,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 1.572614,
+          "value": 0.872484,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4642,7 +4653,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.572614,
+          "value": 0.872484,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4653,7 +4664,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.094059,
+          "value": 0.0,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4666,7 +4677,7 @@
           "c2": 5.035971,
           "c3": 6.703911,
           "c4": 5.450122,
-          "c5": 7.339335
+          "c5": 7.356339
         },
         "ddf_tier": "bench",
         "mean_ppg": 12.5
@@ -4731,7 +4742,7 @@
           "c2": 3.021583,
           "c3": 3.575419,
           "c4": 3.179238,
-          "c5": 3.855688
+          "c5": 3.86462
         },
         "ddf_tier": "waiver",
         "mean_ppg": 9.0
@@ -4740,17 +4751,17 @@
         "name": "RB Delta",
         "pos": "RB",
         "adjusted": {
-          "p1": 49.445413,
-          "p2": 42.938694,
-          "c1": 50.48461,
-          "c2": 53.304191,
-          "c3": 50.48461,
-          "c4": 47.219854,
-          "c5": 52.032746
+          "p1": 51.498107,
+          "p2": 44.671118,
+          "c1": 51.900746,
+          "c2": 54.740253,
+          "c3": 51.900746,
+          "c4": 48.55011,
+          "c5": 53.471352
         },
         "vorp_vs_waivers": {
-          "p1": 29.262926,
-          "p2": 27.213823,
+          "p1": 43.427546,
+          "p2": 39.901306,
           "c1": 51.308901,
           "c2": 60.175316,
           "c3": 51.308901,
@@ -4759,7 +4770,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 50.76035,
+          "value": 52.165616,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4770,7 +4781,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 50.76035,
+          "value": 52.165616,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4781,7 +4792,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 46.192053,
+          "value": 48.084613,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4794,7 +4805,7 @@
           "c2": 50.359712,
           "c3": 40.223464,
           "c4": 38.605028,
-          "c5": 49.802632
+          "c5": 49.918014
         },
         "ddf_tier": "starter",
         "mean_ppg": 17.5
@@ -4803,17 +4814,17 @@
         "name": "RB Echo",
         "pos": "RB",
         "adjusted": {
-          "p1": 20.497723,
-          "p2": 27.291294,
-          "c1": 18.905312,
-          "c2": 16.085732,
-          "c3": 18.905312,
-          "c4": 21.488574,
-          "c5": 17.482277
+          "p1": 22.345834,
+          "p2": 28.913133,
+          "c1": 20.098267,
+          "c2": 17.25876,
+          "c3": 20.098267,
+          "c4": 22.636978,
+          "c5": 18.676704
         },
         "vorp_vs_waivers": {
-          "p1": 16.941694,
-          "p2": 21.166307,
+          "p1": 23.328847,
+          "p2": 30.465186,
           "c1": 29.319372,
           "c2": 28.317796,
           "c3": 29.319372,
@@ -4822,7 +4833,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 18.490474,
+          "value": 19.667677,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4833,7 +4844,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 18.490474,
+          "value": 19.667677,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4844,7 +4855,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 23.894508,
+          "value": 25.629483,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4857,7 +4868,7 @@
           "c2": 27.697842,
           "c3": 26.815642,
           "c4": 29.521492,
-          "c5": 30.405818
+          "c5": 30.476261
         },
         "ddf_tier": "starter",
         "mean_ppg": 14.5
@@ -4866,17 +4877,17 @@
         "name": "RB Foxtrot",
         "pos": "RB",
         "adjusted": {
-          "p1": 2.581662,
-          "p2": 2.294811,
-          "c1": 3.134875,
-          "c2": 3.134875,
-          "c3": 3.134875,
-          "c4": 3.81637,
-          "c5": 3.009775
+          "p1": 1.889926,
+          "p2": 2.149616,
+          "c1": 3.734855,
+          "c2": 3.734855,
+          "c3": 3.734855,
+          "c4": 4.54678,
+          "c5": 3.585811
         },
         "vorp_vs_waivers": {
-          "p1": 4.620462,
-          "p2": 4.838013,
+          "p1": 3.230148,
+          "p2": 4.987663,
           "c1": 10.994764,
           "c2": 10.619173,
           "c3": 10.994764,
@@ -4885,7 +4896,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 3.273974,
+          "value": 3.900575,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4896,7 +4907,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 3.273974,
+          "value": 3.900575,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4907,7 +4918,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.438236,
+          "value": 2.019771,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4920,7 +4931,7 @@
           "c2": 15.107914,
           "c3": 15.642458,
           "c4": 18.167072,
-          "c5": 17.299862
+          "c5": 17.339942
         },
         "ddf_tier": "bench",
         "mean_ppg": 9.8
@@ -5177,7 +5188,7 @@
           "c2": 1.510791,
           "c3": 0.446927,
           "c4": 0.908354,
-          "c5": 10.256056
+          "c5": 10.279817
         },
         "ddf_tier": "waiver",
         "mean_ppg": 8.5
@@ -5564,17 +5575,17 @@
         "name": "WR Lima",
         "pos": "WR",
         "adjusted": {
-          "p1": 47.192845,
-          "p2": 62.351186,
-          "c1": 52.793567,
-          "c2": 57.43097,
-          "c3": 52.793567,
-          "c4": 49.216527,
-          "c5": 54.04983
+          "p1": 48.999439,
+          "p2": 63.962891,
+          "c1": 54.478363,
+          "c2": 59.128261,
+          "c3": 54.478363,
+          "c4": 50.827752,
+          "c5": 55.771653
         },
         "vorp_vs_waivers": {
-          "p1": 30.80308,
-          "p2": 30.237581,
+          "p1": 45.939883,
+          "p2": 47.180598,
           "c1": 48.376963,
           "c2": 51.679977,
           "c3": 48.376963,
@@ -5583,7 +5594,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 53.372724,
+          "value": 55.051507,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5594,7 +5605,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 53.372724,
+          "value": 55.051507,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5605,7 +5616,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 54.772015,
+          "value": 56.481165,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5618,7 +5629,7 @@
           "c2": 42.805755,
           "c3": 35.75419,
           "c4": 34.06326,
-          "c5": 42.987535
+          "c5": 43.087128
         },
         "ddf_tier": "starter",
         "mean_ppg": 16.5
@@ -5627,17 +5638,17 @@
         "name": "WR Mike",
         "pos": "WR",
         "adjusted": {
-          "p1": 27.030596,
-          "p2": 16.887291,
-          "c1": 22.681117,
-          "c2": 19.957699,
-          "c3": 22.681117,
-          "c4": 28.18561,
-          "c5": 20.142564
+          "p1": 28.707167,
+          "p2": 18.205807,
+          "c1": 24.171724,
+          "c2": 21.413331,
+          "c3": 24.171724,
+          "c4": 29.66121,
+          "c5": 21.645724
         },
         "vorp_vs_waivers": {
-          "p1": 21.562156,
-          "p2": 15.11879,
+          "p1": 30.865859,
+          "p2": 23.590299,
           "c1": 26.387435,
           "c2": 23.362181,
           "c3": 26.387435,
@@ -5646,7 +5657,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 22.741747,
+          "value": 24.222997,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5657,7 +5668,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 22.741747,
+          "value": 24.222997,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5668,7 +5679,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 21.958943,
+          "value": 23.456487,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5681,7 +5692,7 @@
           "c2": 22.661871,
           "c3": 22.346369,
           "c4": 24.979724,
-          "c5": 25.163435
+          "c5": 25.221733
         },
         "ddf_tier": "starter",
         "mean_ppg": 12.5
@@ -5690,17 +5701,17 @@
         "name": "WR November",
         "pos": "WR",
         "adjusted": {
-          "p1": 13.589096,
-          "p2": 7.794512,
-          "c1": 12.643633,
-          "c2": 10.589381,
-          "c3": 12.643633,
-          "c4": 10.30933,
-          "c5": 14.158929
+          "p1": 15.178986,
+          "p2": 9.054391,
+          "c1": 14.06951,
+          "c2": 11.984599,
+          "c3": 14.06951,
+          "c4": 11.669649,
+          "c5": 15.623502
         },
         "vorp_vs_waivers": {
-          "p1": 15.40154,
-          "p2": 12.095032,
+          "p1": 20.81651,
+          "p2": 18.872239,
           "c1": 19.057592,
           "c2": 16.282733,
           "c3": 19.057592,
@@ -5709,7 +5720,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 11.925318,
+          "value": 13.336815,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5720,7 +5731,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 11.925318,
+          "value": 13.336815,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5731,7 +5742,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 10.691804,
+          "value": 12.116688,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5744,7 +5755,7 @@
           "c2": 17.625899,
           "c3": 17.877095,
           "c4": 17.258719,
-          "c5": 22.018006
+          "c5": 22.069017
         },
         "ddf_tier": "starter",
         "mean_ppg": 11.0
@@ -5753,17 +5764,17 @@
         "name": "WR Oscar",
         "pos": "WR",
         "adjusted": {
-          "p1": 2.004555,
-          "p2": 2.784105,
-          "c1": 1.698776,
-          "c2": 1.839042,
-          "c3": 1.698776,
-          "c4": 2.105625,
-          "c5": 1.465769
+          "p1": 2.176367,
+          "p2": 3.83887,
+          "c1": 2.342362,
+          "c2": 2.535768,
+          "c3": 2.342362,
+          "c4": 2.903347,
+          "c5": 2.02108
         },
         "vorp_vs_waivers": {
-          "p1": 6.160616,
-          "p2": 9.071274,
+          "p1": 5.742485,
+          "p2": 14.154179,
           "c1": 5.863874,
           "c2": 5.663559,
           "c3": 5.863874,
@@ -5772,7 +5783,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 1.777303,
+          "value": 2.450639,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5783,7 +5794,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.777303,
+          "value": 2.450639,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5794,7 +5805,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.39433,
+          "value": 3.007619,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5807,7 +5818,7 @@
           "c2": 10.071942,
           "c3": 9.832402,
           "c4": 11.35442,
-          "c5": 11.009003
+          "c5": 11.034508
         },
         "ddf_tier": "bench",
         "mean_ppg": 9.0
@@ -5872,7 +5883,7 @@
           "c2": 6.043165,
           "c3": 6.256983,
           "c4": 6.812652,
-          "c5": 7.377561
+          "c5": 7.394653
         },
         "ddf_tier": "waiver",
         "mean_ppg": 6.5
@@ -6070,17 +6081,17 @@
         "name": "TE Sierra",
         "pos": "TE",
         "adjusted": {
-          "p1": 31.297074,
-          "p2": 29.996775,
-          "c1": 52.666167,
-          "c2": 51.658812,
-          "c3": 52.666167,
-          "c4": 44.562164,
-          "c5": 50.323513
+          "p1": 30.498392,
+          "p2": 29.184344,
+          "c1": 52.130127,
+          "c2": 51.010696,
+          "c3": 52.130127,
+          "c4": 43.940431,
+          "c5": 49.769724
         },
         "vorp_vs_waivers": {
-          "p1": 32.343234,
-          "p2": 31.74946,
+          "p1": 29.017497,
+          "p2": 26.539086,
           "c1": 31.518325,
           "c2": 34.248783,
           "c3": 31.518325,
@@ -6089,7 +6100,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 49.802664,
+          "value": 49.212745,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6100,7 +6111,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 49.802664,
+          "value": 49.212745,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6111,7 +6122,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 30.646924,
+          "value": 29.841368,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6124,7 +6135,7 @@
           "c2": 25.179856,
           "c3": 20.111732,
           "c4": 18.167072,
-          "c5": 25.163435
+          "c5": 25.221733
         },
         "ddf_tier": "starter",
         "mean_ppg": 12.0
@@ -6133,17 +6144,17 @@
         "name": "TE Tango",
         "pos": "TE",
         "adjusted": {
-          "p1": 20.65827,
-          "p2": 24.913791,
-          "c1": 18.356025,
-          "c2": 18.185504,
-          "c3": 18.356025,
-          "c4": 25.141329,
-          "c5": 20.490776
+          "p1": 19.747092,
+          "p2": 24.047612,
+          "c1": 17.457184,
+          "c2": 17.183435,
+          "c3": 17.457184,
+          "c4": 24.314237,
+          "c5": 19.62153
         },
         "vorp_vs_waivers": {
-          "p1": 26.182618,
-          "p2": 28.725702,
+          "p1": 18.968147,
+          "p2": 21.821027,
           "c1": 11.727749,
           "c2": 13.010436,
           "c3": 11.727749,
@@ -6152,7 +6163,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 20.543409,
+          "value": 19.644097,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6163,7 +6174,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 20.543409,
+          "value": 19.644097,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6174,7 +6185,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 22.786031,
+          "value": 21.897352,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6187,7 +6198,7 @@
           "c2": 10.071942,
           "c3": 8.044693,
           "c4": 11.35442,
-          "c5": 11.533241
+          "c5": 11.559961
         },
         "ddf_tier": "starter",
         "mean_ppg": 10.5
@@ -6196,17 +6207,17 @@
         "name": "TE Uniform",
         "pos": "TE",
         "adjusted": {
-          "p1": 22.786031,
-          "p2": 19.830807,
-          "c1": 3.107073,
-          "c2": 4.79618,
-          "c3": 3.107073,
-          "c4": 4.425772,
-          "c5": 3.279582
+          "p1": 21.897352,
+          "p2": 18.910879,
+          "c1": 2.046987,
+          "c2": 3.652531,
+          "c3": 2.046987,
+          "c4": 3.37963,
+          "c5": 2.228342
         },
         "vorp_vs_waivers": {
-          "p1": 27.414741,
-          "p2": 25.701944,
+          "p1": 20.978017,
+          "p2": 17.102967,
           "c1": 2.931937,
           "c2": 4.515097,
           "c3": 2.931937,
@@ -6215,7 +6226,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 3.902152,
+          "value": 2.826873,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6226,7 +6237,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 3.902152,
+          "value": 2.826873,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6237,7 +6248,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 21.308419,
+          "value": 20.404115,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6250,7 +6261,7 @@
           "c2": 4.028777,
           "c3": 2.681564,
           "c4": 4.087591,
-          "c5": 3.669668
+          "c5": 3.678169
         },
         "ddf_tier": "starter",
         "mean_ppg": 10.2
@@ -6259,17 +6270,17 @@
         "name": "TE Victor",
         "pos": "TE",
         "adjusted": {
-          "p1": 0.612109,
-          "p2": 0.612109,
-          "c1": 1.224218,
-          "c2": 0.712987,
-          "c3": 1.224218,
-          "c4": 1.224218,
-          "c5": 1.259612
+          "p1": 0.0,
+          "p2": 0.0,
+          "c1": 0.508536,
+          "c2": 0.296173,
+          "c3": 0.508536,
+          "c4": 0.508536,
+          "c5": 0.523239
         },
         "vorp_vs_waivers": {
-          "p1": 4.620462,
-          "p2": 4.535637,
+          "p1": 0.0,
+          "p2": 0.0,
           "c1": 1.465969,
           "c2": 0.975373,
           "c3": 1.465969,
@@ -6280,7 +6291,7 @@
           "c5": "peers"
         },
         "ddf_blended": {
-          "value": 1.105259,
+          "value": 0.459121,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6291,7 +6302,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.105259,
+          "value": 0.459121,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6302,7 +6313,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 0.612109,
+          "value": 0.0,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6315,7 +6326,7 @@
           "c2": 1.510791,
           "c3": 1.787709,
           "c4": 2.270884,
-          "c5": 2.340078
+          "c5": 2.345499
         },
         "ddf_tier": "bench",
         "mean_ppg": 3.0
@@ -6381,7 +6392,7 @@
           "c2": 0.816959,
           "c3": 0.893855,
           "c4": 0.454177,
-          "c5": 0.857765
+          "c5": 0.859752
         },
         "ddf_tier": "waiver",
         "mean_ppg": 1.5
@@ -6408,24 +6419,24 @@
     },
     "source_weights": {
       "p1": {
-        "QB|starter": 0.178218,
-        "QB|bench": 0.025743,
-        "RB|starter": 0.178218,
-        "RB|bench": 0.016832,
-        "WR|starter": 0.256188,
-        "WR|bench": 0.024752,
-        "TE|starter": 0.287376,
-        "TE|bench": 0.032673
+        "QB|starter": 0.169173,
+        "QB|bench": 0.0,
+        "RB|starter": 0.180451,
+        "RB|bench": 0.037463,
+        "WR|starter": 0.259398,
+        "WR|bench": 0.057323,
+        "TE|starter": 0.290977,
+        "TE|bench": 0.005213
       },
       "p2": {
-        "QB|starter": 0.210938,
-        "QB|bench": 0.02583,
-        "RB|starter": 0.173437,
-        "RB|bench": 0.018819,
-        "WR|starter": 0.199219,
-        "WR|bench": 0.024908,
-        "TE|starter": 0.316406,
-        "TE|bench": 0.030443
+        "QB|starter": 0.182927,
+        "QB|bench": 0.0,
+        "RB|starter": 0.180488,
+        "RB|bench": 0.038186,
+        "WR|starter": 0.207317,
+        "WR|bench": 0.060143,
+        "TE|starter": 0.329268,
+        "TE|bench": 0.001671
       },
       "c1": {
         "QB|starter": 0.106635,
@@ -6479,23 +6490,23 @@
       }
     },
     "ddf_weights": {
-      "QB|starter": 0.129312,
-      "QB|bench": 0.019307,
-      "RB|starter": 0.218932,
-      "RB|bench": 0.034832,
-      "WR|starter": 0.292268,
-      "WR|bench": 0.02983,
-      "TE|starter": 0.259488,
-      "TE|bench": 0.016031
+      "QB|starter": 0.123136,
+      "QB|bench": 0.010711,
+      "RB|starter": 0.220479,
+      "RB|bench": 0.041498,
+      "WR|starter": 0.294153,
+      "WR|bench": 0.041131,
+      "TE|starter": 0.262232,
+      "TE|bench": 0.006659
     },
     "rows_ddf_blended": {
-      "101": 28.825842,
-      "102": 11.738917,
-      "103": 1.048409,
+      "101": 26.583187,
+      "102": 10.312334,
+      "103": 0.581656,
       "104": 0.0,
-      "201": 51.519695,
-      "202": 17.351591,
-      "203": 2.182649,
+      "201": 52.581486,
+      "202": 18.171904,
+      "203": 2.600383,
       "204": 0.0,
       "205": 0.0,
       "206": 0.0,
@@ -6506,18 +6517,18 @@
       "211": 0.0,
       "212": 0.0,
       "213": 0.0,
-      "301": 55.106914,
-      "302": 22.674116,
-      "303": 11.221426,
-      "304": 1.184869,
+      "301": 56.352017,
+      "302": 23.710066,
+      "303": 12.18352,
+      "304": 1.633759,
       "305": 0.0,
       "306": 0.0,
       "307": 0.0,
       "308": 0.0,
-      "401": 51.996554,
-      "402": 21.016166,
-      "403": 3.396012,
-      "404": 0.736839,
+      "401": 51.802013,
+      "402": 20.494033,
+      "403": 2.687561,
+      "404": 0.306081,
       "405": 0.0
     }
   },
@@ -6560,71 +6571,71 @@
         "WR": 0.086132,
         "TE": 0.230478
       },
-      "bench_share_applied": 0.10058,
+      "bench_share_applied": 0.065749,
       "ddf_weights": {
-        "QB|starter": 0.122607,
-        "QB|bench": 0.006854,
-        "RB|starter": 0.272882,
-        "RB|bench": 0.040991,
-        "WR|starter": 0.32743,
-        "WR|bench": 0.043424,
-        "TE|starter": 0.1765,
-        "TE|bench": 0.009311
+        "QB|starter": 0.138108,
+        "QB|bench": 0.00545,
+        "RB|starter": 0.274336,
+        "RB|bench": 0.024555,
+        "WR|starter": 0.325172,
+        "WR|bench": 0.026614,
+        "TE|starter": 0.196635,
+        "TE|bench": 0.009131
       },
       "group_budgets": {
-        "QB|starter": 34.329974,
-        "QB|bench": 1.919154,
-        "RB|starter": 76.406969,
-        "RB|bench": 11.477398,
-        "WR|starter": 91.680532,
-        "WR|bench": 12.15873,
-        "TE|starter": 49.420059,
-        "TE|bench": 2.607185
+        "QB|starter": 38.67017,
+        "QB|bench": 1.525952,
+        "RB|starter": 76.813961,
+        "RB|bench": 6.875459,
+        "WR|starter": 91.048298,
+        "WR|bench": 7.45184,
+        "TE|starter": 55.057756,
+        "TE|bench": 2.556563
       },
       "bench_share_readout": {
-        "QB": 0.049312,
-        "RB": 0.120491,
-        "WR": 0.11356,
-        "TE": 0.037538,
-        "overall": 0.093292,
+        "QB": 0.030068,
+        "RB": 0.070571,
+        "WR": 0.07177,
+        "TE": 0.028136,
+        "overall": 0.056447,
         "override": false,
-        "fill_in_share": 0.10058
+        "fill_in_share": 0.065749
       },
       "sources": {
         "p1": {
           "groups": {
-            "QB|starter": 11.29895,
-            "QB|bench": 0.7078,
-            "RB|starter": 13.764596,
-            "RB|bench": 2.246706,
-            "WR|starter": 19.346455,
-            "WR|bench": 3.70702,
-            "TE|starter": 16.088148,
-            "TE|bench": 1.427637
+            "QB|starter": 13.346539,
+            "QB|bench": 0.650952,
+            "RB|starter": 14.513596,
+            "RB|bench": 1.611818,
+            "WR|starter": 17.787362,
+            "WR|bench": 1.941283,
+            "TE|starter": 18.994,
+            "TE|bench": 1.458814
           },
-          "total_vorp": 68.587312,
-          "surplus_total": 123.9,
+          "total_vorp": 70.304365,
+          "surplus_total": 111.457143,
           "weights": {
-            "QB|starter": 0.164738,
-            "QB|bench": 0.01032,
-            "RB|starter": 0.200687,
-            "RB|bench": 0.032757,
-            "WR|starter": 0.28207,
-            "WR|bench": 0.054048,
-            "TE|starter": 0.234564,
-            "TE|bench": 0.020815
+            "QB|starter": 0.189839,
+            "QB|bench": 0.009259,
+            "RB|starter": 0.206439,
+            "RB|bench": 0.022926,
+            "WR|starter": 0.253005,
+            "WR|bench": 0.027613,
+            "TE|starter": 0.270168,
+            "TE|bench": 0.02075
           },
           "rates": {
-            "QB|starter": 3.038333,
-            "QB|bench": 2.711436,
-            "RB|starter": 5.550978,
-            "RB|bench": 5.108545,
-            "WR|starter": 4.73888,
-            "WR|bench": 3.279921,
-            "TE|starter": 3.07183,
-            "TE|bench": 1.826223
+            "QB|starter": 2.897393,
+            "QB|bench": 2.344185,
+            "RB|starter": 5.292552,
+            "RB|bench": 4.265656,
+            "WR|starter": 5.118707,
+            "WR|bench": 3.838615,
+            "TE|starter": 2.898692,
+            "TE|bench": 1.752494
           },
-          "vorp_display_factor": 2.259887,
+          "vorp_display_factor": 2.512176,
           "positions": {
             "QB": {
               "waiver_value": 9.0,
@@ -6645,7 +6656,7 @@
               }
             },
             "RB": {
-              "waiver_value": 5.0,
+              "waiver_value": 5.328571,
               "starter_line": 12.0,
               "avail": 0.782,
               "bands": [
@@ -6657,7 +6668,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 5.0,
+                  "lo": 5.328571,
                   "hi": 7.0,
                   "fill": 0.0
                 }
@@ -6669,7 +6680,7 @@
               }
             },
             "WR": {
-              "waiver_value": 3.0,
+              "waiver_value": 4.8,
               "starter_line": 9.5,
               "avail": 0.8096,
               "bands": [
@@ -6681,7 +6692,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 3.0,
+                  "lo": 4.8,
                   "hi": 5.0,
                   "fill": 0.036252
                 }
@@ -6713,81 +6724,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.063215,
-              "starter_slice": 7.11838,
-              "lineup_share": 0.652872,
+              "bench_slice": 0.076162,
+              "starter_slice": 8.576362,
+              "lineup_share": 0.786593,
               "start_worthy": 0.95221,
-              "adjusted": 21.799413,
-              "vorp_display": 24.858757
+              "adjusted": 25.027631,
+              "vorp_display": 27.63394
             },
             "102": {
-              "bench_slice": 0.203576,
-              "starter_slice": 3.597883,
-              "lineup_share": 0.543066,
+              "bench_slice": 0.245272,
+              "starter_slice": 4.334799,
+              "lineup_share": 0.654296,
               "start_worthy": 0.756298,
-              "adjusted": 11.48355,
-              "vorp_display": 15.819209
+              "adjusted": 13.134579,
+              "vorp_display": 17.585235
             },
             "103": {
-              "bench_slice": 0.44101,
-              "starter_slice": 0.582687,
-              "lineup_share": 0.341232,
+              "bench_slice": 0.329518,
+              "starter_slice": 0.435378,
+              "lineup_share": 0.254965,
               "start_worthy": 0.177242,
-              "adjusted": 2.966165,
-              "vorp_display": 6.779661
+              "adjusted": 2.033912,
+              "vorp_display": 7.536529
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.182361,
+              "lineup_share": 0.074862,
               "start_worthy": 0.001013,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.199922,
-              "starter_slice": 7.908995,
-              "lineup_share": 0.623763,
+              "bench_slice": 0.221191,
+              "starter_slice": 8.750395,
+              "lineup_share": 0.708017,
               "start_worthy": 0.88307,
-              "adjusted": 44.923969,
-              "vorp_display": 29.378531
+              "adjusted": 47.255443,
+              "vorp_display": 31.832863
             },
             "202": {
-              "bench_slice": 0.362097,
-              "starter_slice": 4.309616,
-              "lineup_share": 0.519079,
+              "bench_slice": 0.396001,
+              "starter_slice": 4.713145,
+              "lineup_share": 0.589193,
               "start_worthy": 0.695046,
-              "adjusted": 25.772369,
-              "vorp_display": 20.338983
+              "adjusted": 26.633771,
+              "vorp_display": 21.784158
             },
             "203": {
-              "bench_slice": 0.69529,
-              "starter_slice": 1.22092,
-              "lineup_share": 0.383242,
+              "bench_slice": 0.494135,
+              "starter_slice": 0.867693,
+              "lineup_share": 0.291523,
               "start_worthy": 0.237525,
-              "adjusted": 10.329221,
-              "vorp_display": 11.299435
+              "adjusted": 6.70012,
+              "vorp_display": 11.735452
             },
             "207": {
-              "bench_slice": 0.629845,
-              "starter_slice": 0.307157,
-              "lineup_share": 0.267715,
+              "bench_slice": 0.359552,
+              "starter_slice": 0.175343,
+              "lineup_share": 0.168661,
               "start_worthy": 0.070701,
-              "adjusted": 4.922616,
-              "vorp_display": 7.909605
+              "adjusted": 2.461739,
+              "vorp_display": 7.967188
             },
             "204": {
-              "bench_slice": 0.359552,
-              "starter_slice": 0.017907,
-              "lineup_share": 0.18873,
+              "bench_slice": 0.140939,
+              "starter_slice": 0.007019,
+              "lineup_share": 0.088522,
               "start_worthy": 0.00537,
-              "adjusted": 1.936191,
-              "vorp_display": 4.519774
+              "adjusted": 0.638348,
+              "vorp_display": 4.198923
             },
             "205": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.052269,
+              "lineup_share": 0.013052,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6795,7 +6806,7 @@
             "206": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6803,7 +6814,7 @@
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6811,7 +6822,7 @@
             "209": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6819,7 +6830,7 @@
             "210": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6827,7 +6838,7 @@
             "211": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6835,7 +6846,7 @@
             "212": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6843,63 +6854,63 @@
             "213": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 0.245765,
-              "starter_slice": 8.376248,
-              "lineup_share": 0.663232,
+              "bench_slice": 0.240563,
+              "starter_slice": 8.271014,
+              "lineup_share": 0.759962,
               "start_worthy": 0.912158,
-              "adjusted": 40.500127,
-              "vorp_display": 29.378531
+              "adjusted": 43.260327,
+              "vorp_display": 28.136375
             },
             "302": {
-              "bench_slice": 0.404489,
-              "starter_slice": 5.758778,
-              "lineup_share": 0.616327,
+              "bench_slice": 0.377122,
+              "starter_slice": 5.412262,
+              "lineup_share": 0.706022,
               "start_worthy": 0.815257,
-              "adjusted": 28.616852,
-              "vorp_display": 22.59887
+              "adjusted": 29.15141,
+              "vorp_display": 20.599846
             },
             "303": {
-              "bench_slice": 0.570532,
-              "starter_slice": 3.816023,
-              "lineup_share": 0.548319,
+              "bench_slice": 0.502688,
+              "starter_slice": 3.389591,
+              "lineup_share": 0.627787,
               "start_worthy": 0.675282,
-              "adjusted": 19.954975,
-              "vorp_display": 18.079096
+              "adjusted": 19.279948,
+              "vorp_display": 15.575493
             },
             "304": {
-              "bench_slice": 1.073283,
-              "starter_slice": 1.299652,
-              "lineup_share": 0.474587,
+              "bench_slice": 0.562251,
+              "starter_slice": 0.689094,
+              "lineup_share": 0.391045,
               "start_worthy": 0.265986,
-              "adjusted": 9.67918,
-              "vorp_display": 11.299435
+              "adjusted": 5.685537,
+              "vorp_display": 8.038964
             },
             "305": {
-              "bench_slice": 0.866656,
-              "starter_slice": 0.091802,
-              "lineup_share": 0.319486,
+              "bench_slice": 0.230529,
+              "starter_slice": 0.025183,
+              "lineup_share": 0.213093,
               "start_worthy": 0.025921,
-              "adjusted": 3.277598,
-              "vorp_display": 6.779661
+              "adjusted": 1.013814,
+              "vorp_display": 3.014612
             },
             "306": {
-              "bench_slice": 0.546295,
-              "starter_slice": 0.003951,
-              "lineup_share": 0.275123,
+              "bench_slice": 0.028131,
+              "starter_slice": 0.000219,
+              "lineup_share": 0.141746,
               "start_worthy": 0.00135,
-              "adjusted": 1.81053,
-              "vorp_display": 4.519774
+              "adjusted": 0.109101,
+              "vorp_display": 0.502435
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.067313,
+              "lineup_share": 0.006733,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6907,47 +6918,47 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.052868,
+              "lineup_share": 0.000412,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.240371,
-              "starter_slice": 6.292778,
-              "lineup_share": 0.622205,
+              "bench_slice": 0.283791,
+              "starter_slice": 7.429489,
+              "lineup_share": 0.734598,
               "start_worthy": 0.904822,
-              "adjusted": 19.769314,
-              "vorp_display": 23.728814
+              "adjusted": 22.033142,
+              "vorp_display": 26.377852
             },
             "403": {
-              "bench_slice": 0.308577,
-              "starter_slice": 5.057936,
-              "lineup_share": 0.602979,
+              "bench_slice": 0.364317,
+              "starter_slice": 5.971589,
+              "lineup_share": 0.7119,
               "start_worthy": 0.858012,
-              "adjusted": 16.100651,
-              "vorp_display": 20.112994
+              "adjusted": 17.948261,
+              "vorp_display": 22.35837
             },
             "402": {
-              "bench_slice": 0.330422,
-              "starter_slice": 4.736778,
-              "lineup_share": 0.596141,
+              "bench_slice": 0.390109,
+              "starter_slice": 5.592419,
+              "lineup_share": 0.703827,
               "start_worthy": 0.841345,
-              "adjusted": 15.154003,
-              "vorp_display": 19.20904
+              "adjusted": 16.894361,
+              "vorp_display": 21.353499
             },
             "404": {
-              "bench_slice": 0.548268,
-              "starter_slice": 0.000656,
-              "lineup_share": 0.365949,
+              "bench_slice": 0.420598,
+              "starter_slice": 0.000503,
+              "lineup_share": 0.280734,
               "start_worthy": 0.000429,
-              "adjusted": 1.003275,
-              "vorp_display": 3.389831
+              "adjusted": 0.738554,
+              "vorp_display": 3.768265
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232233,
+              "lineup_share": 0.151894,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6956,38 +6967,38 @@
         },
         "p2": {
           "groups": {
-            "QB|starter": 12.574091,
-            "QB|bench": 0.725655,
-            "RB|starter": 16.549311,
-            "RB|bench": 4.118516,
-            "WR|starter": 19.214068,
-            "WR|bench": 4.620345,
-            "TE|starter": 16.559715,
-            "TE|bench": 1.398785
+            "QB|starter": 14.675412,
+            "QB|bench": 0.714636,
+            "RB|starter": 15.031765,
+            "RB|bench": 2.028271,
+            "WR|starter": 16.614129,
+            "WR|bench": 2.597667,
+            "TE|starter": 19.55075,
+            "TE|bench": 1.424751
           },
-          "total_vorp": 75.760486,
-          "surplus_total": 140.6,
+          "total_vorp": 72.637381,
+          "surplus_total": 117.314286,
           "weights": {
-            "QB|starter": 0.165972,
-            "QB|bench": 0.009578,
-            "RB|starter": 0.218443,
-            "RB|bench": 0.054362,
-            "WR|starter": 0.253616,
-            "WR|bench": 0.060986,
-            "TE|starter": 0.21858,
-            "TE|bench": 0.018463
+            "QB|starter": 0.202037,
+            "QB|bench": 0.009838,
+            "RB|starter": 0.206943,
+            "RB|bench": 0.027923,
+            "WR|starter": 0.228727,
+            "WR|bench": 0.035762,
+            "TE|starter": 0.269155,
+            "TE|bench": 0.019615
           },
           "rates": {
-            "QB|starter": 2.730215,
-            "QB|bench": 2.644719,
-            "RB|starter": 4.616927,
-            "RB|bench": 2.78678,
-            "WR|starter": 4.771531,
-            "WR|bench": 2.631564,
-            "TE|starter": 2.984354,
-            "TE|bench": 1.863892
+            "QB|starter": 2.635031,
+            "QB|bench": 2.135287,
+            "RB|starter": 5.110109,
+            "RB|bench": 3.389813,
+            "WR|starter": 5.480173,
+            "WR|bench": 2.868666,
+            "TE|starter": 2.816145,
+            "TE|bench": 1.794393
           },
-          "vorp_display_factor": 1.991465,
+          "vorp_display_factor": 2.386751,
           "positions": {
             "QB": {
               "waiver_value": 9.0,
@@ -7008,7 +7019,7 @@
               }
             },
             "RB": {
-              "waiver_value": 2.2,
+              "waiver_value": 4.457143,
               "starter_line": 12.3,
               "avail": 0.782,
               "bands": [
@@ -7020,7 +7031,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 2.2,
+                  "lo": 4.457143,
                   "hi": 6.0,
                   "fill": 0.0
                 }
@@ -7032,21 +7043,15 @@
               }
             },
             "WR": {
-              "waiver_value": 3.0,
+              "waiver_value": 5.2,
               "starter_line": 10.5,
               "avail": 0.8096,
               "bands": [
                 {
                   "depth": 1,
-                  "lo": 4.0,
+                  "lo": 5.2,
                   "hi": 10.5,
                   "fill": 0.344548
-                },
-                {
-                  "depth": 2,
-                  "lo": 3.0,
-                  "hi": 4.0,
-                  "fill": 0.036252
                 }
               ],
               "lineup": {
@@ -7076,81 +7081,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.033886,
-              "starter_slice": 8.643302,
-              "lineup_share": 0.667476,
+              "bench_slice": 0.040827,
+              "starter_slice": 10.413616,
+              "lineup_share": 0.804188,
               "start_worthy": 0.978319,
-              "adjusted": 23.687694,
-              "vorp_display": 25.889047
+              "adjusted": 27.527382,
+              "vorp_display": 31.027764
             },
             "102": {
-              "bench_slice": 0.253002,
-              "starter_slice": 2.627811,
-              "lineup_share": 0.480136,
+              "bench_slice": 0.304821,
+              "starter_slice": 3.166038,
+              "lineup_share": 0.578477,
               "start_worthy": 0.644447,
-              "adjusted": 7.843609,
-              "vorp_display": 11.948791
+              "adjusted": 8.99349,
+              "vorp_display": 14.320507
             },
             "103": {
-              "bench_slice": 0.438767,
-              "starter_slice": 1.302978,
-              "lineup_share": 0.435436,
+              "bench_slice": 0.368987,
+              "starter_slice": 1.095758,
+              "lineup_share": 0.366186,
               "start_worthy": 0.334562,
-              "adjusted": 4.717825,
-              "vorp_display": 7.965861
+              "adjusted": 3.67525,
+              "vorp_display": 9.547004
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.182361,
+              "lineup_share": 0.074862,
               "start_worthy": 0.001013,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.336323,
-              "starter_slice": 8.547343,
-              "lineup_share": 0.600248,
+              "bench_slice": 0.323531,
+              "starter_slice": 8.222237,
+              "lineup_share": 0.681325,
               "start_worthy": 0.838275,
-              "adjusted": 40.399722,
-              "vorp_display": 29.473684
+              "adjusted": 43.11324,
+              "vorp_display": 29.936678
             },
             "202": {
-              "bench_slice": 0.469256,
-              "starter_slice": 6.524262,
-              "lineup_share": 0.546369,
+              "bench_slice": 0.438715,
+              "starter_slice": 6.099635,
+              "lineup_share": 0.620169,
               "start_worthy": 0.739842,
-              "adjusted": 31.429757,
-              "vorp_display": 25.490754
+              "adjusted": 32.656962,
+              "vorp_display": 25.163176
             },
             "203": {
-              "bench_slice": 1.323285,
-              "starter_slice": 1.271649,
-              "lineup_share": 0.350667,
+              "bench_slice": 0.659465,
+              "starter_slice": 0.633731,
+              "lineup_share": 0.251455,
               "start_worthy": 0.157577,
-              "adjusted": 9.558815,
-              "vorp_display": 14.736842
+              "adjusted": 5.473899,
+              "vorp_display": 12.27472
             },
             "204": {
-              "bench_slice": 1.283552,
-              "starter_slice": 0.205485,
-              "lineup_share": 0.25673,
+              "bench_slice": 0.475073,
+              "starter_slice": 0.076055,
+              "lineup_share": 0.15556,
               "start_worthy": 0.027452,
-              "adjusted": 4.525683,
-              "vorp_display": 11.550498
+              "adjusted": 1.999058,
+              "vorp_display": 8.455918
             },
             "205": {
-              "bench_slice": 0.706099,
-              "starter_slice": 0.000573,
-              "lineup_share": 0.185966,
+              "bench_slice": 0.131487,
+              "starter_slice": 0.000107,
+              "lineup_share": 0.085292,
               "start_worthy": 8.8e-05,
-              "adjusted": 1.970388,
-              "vorp_display": 7.567568
+              "adjusted": 0.446261,
+              "vorp_display": 3.682416
             },
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039883,
+              "lineup_share": 1e-06,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7158,7 +7163,7 @@
             "206": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7166,7 +7171,7 @@
             "209": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7174,7 +7179,7 @@
             "210": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7182,7 +7187,7 @@
             "211": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7190,7 +7195,7 @@
             "212": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7198,63 +7203,63 @@
             "213": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 0.32741,
-              "starter_slice": 8.888061,
-              "lineup_share": 0.658248,
+              "bench_slice": 0.299203,
+              "starter_slice": 8.586093,
+              "lineup_share": 0.752991,
               "start_worthy": 0.898759,
-              "adjusted": 43.271264,
-              "vorp_display": 27.880512
+              "adjusted": 47.911583,
+              "vorp_display": 28.163663
             },
             "302": {
-              "bench_slice": 0.7142,
-              "starter_slice": 4.205657,
-              "lineup_share": 0.546651,
+              "bench_slice": 0.586136,
+              "starter_slice": 3.641957,
+              "lineup_share": 0.621778,
               "start_worthy": 0.661539,
-              "adjusted": 21.946885,
-              "vorp_display": 17.923186
+              "adjusted": 21.63998,
+              "vorp_display": 16.229907
             },
             "303": {
-              "bench_slice": 0.825175,
-              "starter_slice": 3.165781,
-              "lineup_share": 0.49887,
+              "bench_slice": 0.647761,
+              "starter_slice": 2.630592,
+              "lineup_share": 0.565233,
               "start_worthy": 0.560215,
-              "adjusted": 17.277125,
-              "vorp_display": 15.931721
+              "adjusted": 16.274308,
+              "vorp_display": 13.843156
             },
             "304": {
-              "bench_slice": 1.19042,
-              "starter_slice": 2.751209,
-              "lineup_share": 0.56309,
+              "bench_slice": 0.684713,
+              "starter_slice": 1.685844,
+              "lineup_share": 0.493866,
               "start_worthy": 0.433816,
-              "adjusted": 16.260144,
-              "vorp_display": 13.940256
+              "adjusted": 11.202932,
+              "vorp_display": 11.456405
             },
             "305": {
-              "bench_slice": 1.29125,
-              "starter_slice": 0.203361,
-              "lineup_share": 0.373653,
+              "bench_slice": 0.379854,
+              "starter_slice": 0.069644,
+              "lineup_share": 0.249721,
               "start_worthy": 0.04779,
-              "adjusted": 4.368349,
-              "vorp_display": 7.965861
+              "adjusted": 1.471335,
+              "vorp_display": 4.296152
             },
             "306": {
-              "bench_slice": 0.27189,
+              "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.27189,
+              "lineup_share": 0.044256,
               "start_worthy": 0.0,
-              "adjusted": 0.715495,
-              "vorp_display": 1.991465
+              "adjusted": 0.0,
+              "vorp_display": 0.0
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.099216,
+              "lineup_share": 0.003878,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7262,47 +7267,47 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.057891,
+              "lineup_share": 0.000192,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.240371,
-              "starter_slice": 6.292778,
-              "lineup_share": 0.622205,
+              "bench_slice": 0.283791,
+              "starter_slice": 7.429489,
+              "lineup_share": 0.734598,
               "start_worthy": 0.904822,
-              "adjusted": 19.227903,
-              "vorp_display": 20.910384
+              "adjusted": 21.431755,
+              "vorp_display": 25.060887
             },
             "402": {
-              "bench_slice": 0.279725,
-              "starter_slice": 5.529503,
-              "lineup_share": 0.611498,
+              "bench_slice": 0.330254,
+              "starter_slice": 6.528339,
+              "lineup_share": 0.721957,
               "start_worthy": 0.878764,
-              "adjusted": 17.023374,
-              "vorp_display": 18.918919
+              "adjusted": 18.977357,
+              "vorp_display": 22.674135
             },
             "403": {
-              "bench_slice": 0.330422,
-              "starter_slice": 4.736778,
-              "lineup_share": 0.596141,
+              "bench_slice": 0.390109,
+              "starter_slice": 5.592419,
+              "lineup_share": 0.703827,
               "start_worthy": 0.841345,
-              "adjusted": 14.752096,
-              "vorp_display": 16.927454
+              "adjusted": 16.449072,
+              "vorp_display": 20.287384
             },
             "404": {
-              "bench_slice": 0.548268,
-              "starter_slice": 0.000656,
-              "lineup_share": 0.365949,
+              "bench_slice": 0.420598,
+              "starter_slice": 0.000503,
+              "lineup_share": 0.280734,
               "start_worthy": 0.000429,
-              "adjusted": 1.02387,
-              "vorp_display": 2.987198
+              "adjusted": 0.756136,
+              "vorp_display": 3.580127
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232233,
+              "lineup_share": 0.151894,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7311,36 +7316,36 @@
         },
         "c1": {
           "groups": {
-            "QB|starter": 31.824284,
-            "QB|bench": 1.872418,
-            "RB|starter": 90.109176,
-            "RB|bench": 13.622406,
-            "WR|starter": 108.442222,
-            "WR|bench": 11.286112,
-            "TE|starter": 40.984087,
-            "TE|bench": 0.865937
+            "QB|starter": 38.125628,
+            "QB|bench": 1.391018,
+            "RB|starter": 101.55583,
+            "RB|bench": 9.162057,
+            "WR|starter": 124.283011,
+            "WR|bench": 8.277911,
+            "TE|starter": 48.248277,
+            "TE|bench": 0.863323
           },
-          "total_vorp": 299.006643,
+          "total_vorp": 331.907056,
           "surplus_total": 493.0,
           "weights": {
-            "QB|starter": 0.106433,
-            "QB|bench": 0.006262,
-            "RB|starter": 0.301362,
-            "RB|bench": 0.045559,
-            "WR|starter": 0.362675,
-            "WR|bench": 0.037745,
-            "TE|starter": 0.137067,
-            "TE|bench": 0.002896
+            "QB|starter": 0.114868,
+            "QB|bench": 0.004191,
+            "RB|starter": 0.305977,
+            "RB|bench": 0.027604,
+            "WR|starter": 0.374451,
+            "WR|bench": 0.02494,
+            "TE|starter": 0.145367,
+            "TE|bench": 0.002601
           },
           "rates": {
-            "QB|starter": 1.078735,
-            "QB|bench": 1.02496,
-            "RB|starter": 0.847938,
-            "RB|bench": 0.842538,
-            "WR|starter": 0.845432,
-            "WR|bench": 1.077318,
-            "TE|starter": 1.205835,
-            "TE|bench": 3.010826
+            "QB|starter": 1.014283,
+            "QB|bench": 1.097004,
+            "RB|starter": 0.756372,
+            "RB|bench": 0.750427,
+            "WR|starter": 0.732588,
+            "WR|bench": 0.900208,
+            "TE|starter": 1.141134,
+            "TE|bench": 2.961305
           },
           "vorp_display_factor": 0.567951,
           "positions": {
@@ -7431,81 +7436,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.019758,
-              "starter_slice": 21.637874,
-              "lineup_share": 0.676801,
+              "bench_slice": 0.023804,
+              "starter_slice": 26.069728,
+              "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 23.361786,
+              "adjusted": 26.468191,
               "vorp_display": 18.174442
             },
             "102": {
-              "bench_slice": 0.316966,
-              "starter_slice": 9.801322,
-              "lineup_share": 0.595193,
+              "bench_slice": 0.381886,
+              "starter_slice": 11.808821,
+              "lineup_share": 0.7171,
               "start_worthy": 0.848359,
-              "adjusted": 10.897908,
+              "adjusted": 12.396416,
               "vorp_display": 9.655172
             },
             "103": {
-              "bench_slice": 1.535695,
-              "starter_slice": 0.385088,
-              "lineup_share": 0.274398,
+              "bench_slice": 0.985328,
+              "starter_slice": 0.247079,
+              "lineup_share": 0.176058,
               "start_worthy": 0.043108,
-              "adjusted": 1.989434,
+              "adjusted": 1.331516,
               "vorp_display": 3.975659
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.18178,
+              "lineup_share": 0.074183,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.137708,
-              "starter_slice": 57.238695,
-              "lineup_share": 0.683052,
+              "bench_slice": 0.156309,
+              "starter_slice": 64.970141,
+              "lineup_share": 0.775315,
               "start_worthy": 0.989072,
-              "adjusted": 48.650872,
+              "adjusted": 49.258878,
               "vorp_display": 47.707911
             },
             "202": {
-              "bench_slice": 1.263775,
-              "starter_slice": 31.403826,
-              "lineup_share": 0.604956,
+              "bench_slice": 1.434478,
+              "starter_slice": 35.645659,
+              "lineup_share": 0.686669,
               "start_worthy": 0.844124,
-              "adjusted": 27.693267,
+              "adjusted": 28.037841,
               "vorp_display": 30.669371
             },
             "203": {
-              "bench_slice": 7.38823,
-              "starter_slice": 1.466656,
-              "lineup_share": 0.305341,
+              "bench_slice": 4.735369,
+              "starter_slice": 0.94003,
+              "lineup_share": 0.195703,
               "start_worthy": 0.041451,
-              "adjusted": 7.468498,
+              "adjusted": 4.264563,
               "vorp_display": 16.470588
             },
             "204": {
-              "bench_slice": 3.717173,
+              "bench_slice": 2.324473,
               "starter_slice": 0.0,
-              "lineup_share": 0.265512,
+              "lineup_share": 0.166034,
               "start_worthy": 0.0,
-              "adjusted": 3.13186,
+              "adjusted": 1.744348,
               "vorp_display": 7.951318
             },
             "205": {
-              "bench_slice": 1.115521,
+              "bench_slice": 0.511428,
               "starter_slice": 0.0,
-              "lineup_share": 0.18592,
+              "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.939869,
+              "adjusted": 0.38379,
               "vorp_display": 3.407708
             },
             "206": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7513,7 +7518,7 @@
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7521,7 +7526,7 @@
             "209": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7529,7 +7534,7 @@
             "210": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7537,7 +7542,7 @@
             "211": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7545,7 +7550,7 @@
             "212": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7553,7 +7558,7 @@
             "213": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7561,63 +7566,63 @@
             "207": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 1.9e-05,
-              "starter_slice": 52.978144,
-              "lineup_share": 0.706376,
+              "bench_slice": 2.2e-05,
+              "starter_slice": 60.719935,
+              "lineup_share": 0.809599,
               "start_worthy": 0.999999,
-              "adjusted": 44.789442,
+              "adjusted": 44.482743,
               "vorp_display": 42.596349
             },
             "302": {
-              "bench_slice": 0.017901,
-              "starter_slice": 31.734964,
-              "lineup_share": 0.705619,
+              "bench_slice": 0.020517,
+              "starter_slice": 36.372451,
+              "lineup_share": 0.808733,
               "start_worthy": 0.998365,
-              "adjusted": 26.849041,
+              "adjusted": 26.664507,
               "vorp_display": 25.557809
             },
             "303": {
-              "bench_slice": 0.347513,
-              "starter_slice": 23.714553,
-              "lineup_share": 0.687488,
+              "bench_slice": 0.398296,
+              "starter_slice": 27.180003,
+              "lineup_share": 0.787951,
               "start_worthy": 0.959204,
-              "adjusted": 20.423426,
+              "adjusted": 20.270306,
               "vorp_display": 19.878296
             },
             "304": {
-              "bench_slice": 6.49674,
-              "starter_slice": 0.014562,
-              "lineup_share": 0.383018,
+              "bench_slice": 4.738411,
+              "starter_slice": 0.010621,
+              "lineup_share": 0.279355,
               "start_worthy": 0.000772,
-              "adjusted": 7.011365,
+              "adjusted": 4.273336,
               "vorp_display": 9.655172
             },
             "305": {
-              "bench_slice": 3.317096,
+              "bench_slice": 2.504107,
               "starter_slice": 0.0,
-              "lineup_share": 0.368566,
+              "lineup_share": 0.278234,
               "start_worthy": 0.0,
-              "adjusted": 3.573567,
+              "adjusted": 2.254216,
               "vorp_display": 5.111562
             },
             "306": {
-              "bench_slice": 1.106842,
+              "bench_slice": 0.616557,
               "starter_slice": 0.0,
-              "lineup_share": 0.27671,
+              "lineup_share": 0.154139,
               "start_worthy": 0.0,
-              "adjusted": 1.19242,
+              "adjusted": 0.55503,
               "vorp_display": 2.271805
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.061973,
+              "lineup_share": 0.014675,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7625,47 +7630,47 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.048171,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.024486,
-              "starter_slice": 28.336876,
-              "lineup_share": 0.659567,
+              "bench_slice": 0.028909,
+              "starter_slice": 33.45558,
+              "lineup_share": 0.778709,
               "start_worthy": 0.994932,
-              "adjusted": 34.243329,
+              "adjusted": 38.262913,
               "vorp_display": 24.421907
             },
             "402": {
-              "bench_slice": 0.054686,
-              "starter_slice": 10.403183,
-              "lineup_share": 0.653617,
+              "bench_slice": 0.064564,
+              "starter_slice": 12.282389,
+              "lineup_share": 0.771685,
               "start_worthy": 0.981649,
-              "adjusted": 12.709176,
+              "adjusted": 14.207048,
               "vorp_display": 9.087221
             },
             "403": {
-              "bench_slice": 0.296384,
-              "starter_slice": 1.815192,
-              "lineup_share": 0.527894,
+              "bench_slice": 0.349922,
+              "starter_slice": 2.143084,
+              "lineup_share": 0.623252,
               "start_worthy": 0.685129,
-              "adjusted": 3.081184,
+              "adjusted": 3.481773,
               "vorp_display": 2.271805
             },
             "404": {
-              "bench_slice": 0.49038,
-              "starter_slice": 0.428836,
-              "lineup_share": 0.459608,
+              "bench_slice": 0.419927,
+              "starter_slice": 0.367225,
+              "lineup_share": 0.393576,
               "start_worthy": 0.234798,
-              "adjusted": 1.993555,
+              "adjusted": 1.662585,
               "vorp_display": 1.135903
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232236,
+              "lineup_share": 0.151898,
               "start_worthy": 7e-06,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7674,36 +7679,36 @@
         },
         "c2": {
           "groups": {
-            "QB|starter": 26.184776,
-            "QB|bench": 1.17238,
-            "RB|starter": 98.376013,
-            "RB|bench": 12.305347,
-            "WR|starter": 104.436216,
-            "WR|bench": 9.50998,
-            "TE|starter": 47.298262,
-            "TE|bench": 0.871819
+            "QB|starter": 31.54445,
+            "QB|bench": 0.800267,
+            "RB|starter": 111.288182,
+            "RB|bench": 8.119181,
+            "WR|starter": 119.685054,
+            "WR|bench": 6.957015,
+            "TE|starter": 55.837459,
+            "TE|bench": 0.825437
           },
-          "total_vorp": 300.154794,
+          "total_vorp": 335.057044,
           "surplus_total": 485.157249,
           "weights": {
-            "QB|starter": 0.087238,
-            "QB|bench": 0.003906,
-            "RB|starter": 0.327751,
-            "RB|bench": 0.040997,
-            "WR|starter": 0.347941,
-            "WR|bench": 0.031684,
-            "TE|starter": 0.15758,
-            "TE|bench": 0.002905
+            "QB|starter": 0.094147,
+            "QB|bench": 0.002388,
+            "RB|starter": 0.332147,
+            "RB|bench": 0.024232,
+            "WR|starter": 0.357208,
+            "WR|bench": 0.020764,
+            "TE|starter": 0.166651,
+            "TE|bench": 0.002464
           },
           "rates": {
-            "QB|starter": 1.311066,
-            "QB|bench": 1.636973,
-            "RB|starter": 0.776683,
-            "RB|bench": 0.932716,
-            "WR|starter": 0.877861,
-            "WR|bench": 1.278523,
-            "TE|starter": 1.04486,
-            "TE|bench": 2.990511
+            "QB|starter": 1.225895,
+            "QB|bench": 1.906804,
+            "RB|starter": 0.690226,
+            "RB|bench": 0.846817,
+            "WR|starter": 0.760732,
+            "WR|bench": 1.071126,
+            "TE|starter": 0.986036,
+            "TE|bench": 3.097225
           },
           "vorp_display_factor": 0.577132,
           "positions": {
@@ -7794,81 +7799,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.02404,
-              "starter_slice": 16.177513,
-              "lineup_share": 0.675065,
+              "bench_slice": 0.028964,
+              "starter_slice": 19.49098,
+              "lineup_share": 0.813331,
               "start_worthy": 0.991847,
-              "adjusted": 21.249143,
+              "adjusted": 23.949114,
               "vorp_display": 13.851179
             },
             "102": {
-              "bench_slice": 0.157831,
-              "starter_slice": 10.001644,
-              "lineup_share": 0.634967,
+              "bench_slice": 0.190158,
+              "starter_slice": 12.050173,
+              "lineup_share": 0.765021,
               "start_worthy": 0.919804,
-              "adjusted": 13.371182,
+              "adjusted": 15.134836,
               "vorp_display": 9.234119
             },
             "103": {
-              "bench_slice": 0.990509,
-              "starter_slice": 0.005619,
-              "lineup_share": 0.249032,
+              "bench_slice": 0.581145,
+              "starter_slice": 0.003297,
+              "lineup_share": 0.146111,
               "start_worthy": 0.001007,
-              "adjusted": 1.628803,
+              "adjusted": 1.112172,
               "vorp_display": 2.30853
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.18178,
+              "lineup_share": 0.074183,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.038125,
-              "starter_slice": 66.652278,
-              "lineup_share": 0.68753,
+              "bench_slice": 0.043274,
+              "starter_slice": 75.655254,
+              "lineup_share": 0.780397,
               "start_worthy": 0.99738,
-              "adjusted": 51.803246,
+              "adjusted": 52.255844,
               "vorp_display": 55.981849
             },
             "202": {
-              "bench_slice": 1.053481,
-              "starter_slice": 30.992098,
-              "lineup_share": 0.616261,
+              "bench_slice": 1.195778,
+              "starter_slice": 35.178318,
+              "lineup_share": 0.699502,
               "start_worthy": 0.865097,
-              "adjusted": 25.053632,
+              "adjusted": 25.293584,
               "vorp_display": 30.010888
             },
             "203": {
-              "bench_slice": 7.247458,
-              "starter_slice": 0.731636,
-              "lineup_share": 0.295522,
+              "bench_slice": 4.503293,
+              "starter_slice": 0.454611,
+              "lineup_share": 0.183626,
               "start_worthy": 0.021531,
-              "adjusted": 7.328071,
+              "adjusted": 4.127248,
               "vorp_display": 15.582577
             },
             "204": {
-              "bench_slice": 3.222604,
+              "bench_slice": 2.035883,
               "starter_slice": 0.0,
-              "lineup_share": 0.26855,
+              "lineup_share": 0.169657,
               "start_worthy": 0.0,
-              "adjusted": 3.005775,
+              "adjusted": 1.72402,
               "vorp_display": 6.92559
             },
             "206": {
-              "bench_slice": 0.74368,
+              "bench_slice": 0.340952,
               "starter_slice": 0.0,
-              "lineup_share": 0.18592,
+              "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.693643,
+              "adjusted": 0.288724,
               "vorp_display": 2.30853
             },
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7876,7 +7881,7 @@
             "205": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7884,103 +7889,103 @@
             "207": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
               "bench_slice": 2e-06,
-              "starter_slice": 56.346109,
-              "lineup_share": 0.706376,
+              "starter_slice": 64.580068,
+              "lineup_share": 0.8096,
               "start_worthy": 1.0,
-              "adjusted": 49.464081,
+              "adjusted": 49.128152,
               "vorp_display": 46.036632
             },
             "302": {
-              "bench_slice": 0.012641,
-              "starter_slice": 28.054385,
-              "lineup_share": 0.705771,
+              "bench_slice": 0.014488,
+              "starter_slice": 32.154023,
+              "lineup_share": 0.808907,
               "start_worthy": 0.998694,
-              "adjusted": 24.644026,
+              "adjusted": 24.476126,
               "vorp_display": 22.951333
             },
             "303": {
-              "bench_slice": 0.352095,
-              "starter_slice": 20.005408,
-              "lineup_share": 0.683875,
+              "bench_slice": 0.403548,
+              "starter_slice": 22.928835,
+              "lineup_share": 0.783811,
               "start_worthy": 0.951401,
-              "adjusted": 18.01214,
+              "adjusted": 17.874958,
               "vorp_display": 17.180008
             },
             "304": {
-              "bench_slice": 5.632823,
-              "starter_slice": 0.030314,
-              "lineup_share": 0.383477,
+              "bench_slice": 4.111774,
+              "starter_slice": 0.022128,
+              "lineup_share": 0.279925,
               "start_worthy": 0.001851,
-              "adjusted": 7.228306,
+              "adjusted": 4.421062,
               "vorp_display": 8.523021
             },
             "305": {
-              "bench_slice": 2.459047,
+              "bench_slice": 1.840447,
               "starter_slice": 0.0,
-              "lineup_share": 0.363341,
+              "lineup_share": 0.271939,
               "start_worthy": 0.0,
-              "adjusted": 3.143949,
+              "adjusted": 1.971351,
               "vorp_display": 3.905962
             },
             "306": {
-              "bench_slice": 1.053372,
+              "bench_slice": 0.586756,
               "starter_slice": 0.0,
-              "lineup_share": 0.276704,
+              "lineup_share": 0.154131,
               "start_worthy": 0.0,
-              "adjusted": 1.34676,
+              "adjusted": 0.628489,
               "vorp_display": 2.197058
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.061973,
+              "lineup_share": 0.014675,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.030569,
-              "starter_slice": 31.882301,
-              "lineup_share": 0.65966,
+              "bench_slice": 0.036091,
+              "starter_slice": 37.641441,
+              "lineup_share": 0.778819,
               "start_worthy": 0.994979,
-              "adjusted": 33.403957,
+              "adjusted": 37.227607,
               "vorp_display": 27.920372
             },
             "402": {
-              "bench_slice": 0.066493,
-              "starter_slice": 11.95356,
-              "lineup_share": 0.654055,
+              "bench_slice": 0.078504,
+              "starter_slice": 14.112822,
+              "lineup_share": 0.772201,
               "start_worthy": 0.982007,
-              "adjusted": 12.688645,
+              "adjusted": 14.1589,
               "vorp_display": 10.606398
             },
             "403": {
-              "bench_slice": 0.283021,
-              "starter_slice": 3.451197,
-              "lineup_share": 0.585507,
+              "bench_slice": 0.334146,
+              "starter_slice": 4.074612,
+              "lineup_share": 0.691271,
               "start_worthy": 0.816981,
-              "adjusted": 4.452396,
+              "adjusted": 5.05264,
               "vorp_display": 3.680808
             },
             "404": {
-              "bench_slice": 0.491735,
-              "starter_slice": 0.011204,
-              "lineup_share": 0.365043,
+              "bench_slice": 0.376695,
+              "starter_slice": 0.008583,
+              "lineup_share": 0.279642,
               "start_worthy": 0.007966,
-              "adjusted": 1.482246,
+              "adjusted": 1.175173,
               "vorp_display": 0.795146
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232233,
+              "lineup_share": 0.151894,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7989,36 +7994,36 @@
         },
         "c3": {
           "groups": {
-            "QB|starter": 318.242838,
-            "QB|bench": 18.724184,
-            "RB|starter": 901.091758,
-            "RB|bench": 136.224064,
-            "WR|starter": 1084.422221,
-            "WR|bench": 112.861124,
-            "TE|starter": 409.840871,
-            "TE|bench": 8.659367
+            "QB|starter": 381.25628,
+            "QB|bench": 13.910184,
+            "RB|starter": 1015.558302,
+            "RB|bench": 91.620573,
+            "WR|starter": 1242.830106,
+            "WR|bench": 82.779109,
+            "TE|starter": 482.482771,
+            "TE|bench": 8.633232
           },
-          "total_vorp": 2990.066428,
+          "total_vorp": 3319.070556,
           "surplus_total": 4930.0,
           "weights": {
-            "QB|starter": 0.106433,
-            "QB|bench": 0.006262,
-            "RB|starter": 0.301362,
-            "RB|bench": 0.045559,
-            "WR|starter": 0.362675,
-            "WR|bench": 0.037745,
-            "TE|starter": 0.137067,
-            "TE|bench": 0.002896
+            "QB|starter": 0.114868,
+            "QB|bench": 0.004191,
+            "RB|starter": 0.305977,
+            "RB|bench": 0.027604,
+            "WR|starter": 0.374451,
+            "WR|bench": 0.02494,
+            "TE|starter": 0.145367,
+            "TE|bench": 0.002601
           },
           "rates": {
-            "QB|starter": 0.107874,
-            "QB|bench": 0.102496,
-            "RB|starter": 0.084794,
-            "RB|bench": 0.084254,
-            "WR|starter": 0.084543,
-            "WR|bench": 0.107732,
-            "TE|starter": 0.120584,
-            "TE|bench": 0.301083
+            "QB|starter": 0.101428,
+            "QB|bench": 0.1097,
+            "RB|starter": 0.075637,
+            "RB|bench": 0.075043,
+            "WR|starter": 0.073259,
+            "WR|bench": 0.090021,
+            "TE|starter": 0.114113,
+            "TE|bench": 0.29613
           },
           "vorp_display_factor": 0.056795,
           "positions": {
@@ -8109,81 +8114,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.197577,
-              "starter_slice": 216.378739,
-              "lineup_share": 0.676801,
+              "bench_slice": 0.238044,
+              "starter_slice": 260.697276,
+              "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 23.361786,
+              "adjusted": 26.468191,
               "vorp_display": 18.174442
             },
             "102": {
-              "bench_slice": 3.169657,
-              "starter_slice": 98.013217,
-              "lineup_share": 0.595193,
+              "bench_slice": 3.818864,
+              "starter_slice": 118.088213,
+              "lineup_share": 0.7171,
               "start_worthy": 0.848359,
-              "adjusted": 10.897908,
+              "adjusted": 12.396416,
               "vorp_display": 9.655172
             },
             "103": {
-              "bench_slice": 15.35695,
-              "starter_slice": 3.850882,
-              "lineup_share": 0.274398,
+              "bench_slice": 9.853276,
+              "starter_slice": 2.47079,
+              "lineup_share": 0.176058,
               "start_worthy": 0.043108,
-              "adjusted": 1.989434,
+              "adjusted": 1.331516,
               "vorp_display": 3.975659
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.18178,
+              "lineup_share": 0.074183,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 1.37708,
-              "starter_slice": 572.386947,
-              "lineup_share": 0.683052,
+              "bench_slice": 1.563087,
+              "starter_slice": 649.701415,
+              "lineup_share": 0.775315,
               "start_worthy": 0.989072,
-              "adjusted": 48.650872,
+              "adjusted": 49.258878,
               "vorp_display": 47.707911
             },
             "202": {
-              "bench_slice": 12.637752,
-              "starter_slice": 314.038255,
-              "lineup_share": 0.604956,
+              "bench_slice": 14.344781,
+              "starter_slice": 356.456589,
+              "lineup_share": 0.686669,
               "start_worthy": 0.844124,
-              "adjusted": 27.693267,
+              "adjusted": 28.037841,
               "vorp_display": 30.669371
             },
             "203": {
-              "bench_slice": 73.8823,
-              "starter_slice": 14.666556,
-              "lineup_share": 0.305341,
+              "bench_slice": 47.353695,
+              "starter_slice": 9.400298,
+              "lineup_share": 0.195703,
               "start_worthy": 0.041451,
-              "adjusted": 7.468498,
+              "adjusted": 4.264563,
               "vorp_display": 16.470588
             },
             "204": {
-              "bench_slice": 37.171726,
+              "bench_slice": 23.24473,
               "starter_slice": 0.0,
-              "lineup_share": 0.265512,
+              "lineup_share": 0.166034,
               "start_worthy": 0.0,
-              "adjusted": 3.13186,
+              "adjusted": 1.744348,
               "vorp_display": 7.951318
             },
             "205": {
-              "bench_slice": 11.155207,
+              "bench_slice": 5.11428,
               "starter_slice": 0.0,
-              "lineup_share": 0.18592,
+              "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.939869,
+              "adjusted": 0.38379,
               "vorp_display": 3.407708
             },
             "206": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8191,7 +8196,7 @@
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8199,7 +8204,7 @@
             "209": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8207,7 +8212,7 @@
             "210": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8215,7 +8220,7 @@
             "211": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8223,7 +8228,7 @@
             "212": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8231,7 +8236,7 @@
             "213": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8239,63 +8244,63 @@
             "207": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 0.000194,
-              "starter_slice": 529.781436,
-              "lineup_share": 0.706376,
+              "bench_slice": 0.000223,
+              "starter_slice": 607.199354,
+              "lineup_share": 0.809599,
               "start_worthy": 0.999999,
-              "adjusted": 44.789442,
+              "adjusted": 44.482743,
               "vorp_display": 42.596349
             },
             "302": {
-              "bench_slice": 0.179014,
-              "starter_slice": 317.349637,
-              "lineup_share": 0.705619,
+              "bench_slice": 0.205174,
+              "starter_slice": 363.724512,
+              "lineup_share": 0.808733,
               "start_worthy": 0.998365,
-              "adjusted": 26.849041,
+              "adjusted": 26.664507,
               "vorp_display": 25.557809
             },
             "303": {
-              "bench_slice": 3.475134,
-              "starter_slice": 237.145528,
-              "lineup_share": 0.687488,
+              "bench_slice": 3.982962,
+              "starter_slice": 271.800033,
+              "lineup_share": 0.787951,
               "start_worthy": 0.959204,
-              "adjusted": 20.423426,
+              "adjusted": 20.270306,
               "vorp_display": 19.878296
             },
             "304": {
-              "bench_slice": 64.967399,
-              "starter_slice": 0.14562,
-              "lineup_share": 0.383018,
+              "bench_slice": 47.384113,
+              "starter_slice": 0.106208,
+              "lineup_share": 0.279355,
               "start_worthy": 0.000772,
-              "adjusted": 7.011365,
+              "adjusted": 4.273336,
               "vorp_display": 9.655172
             },
             "305": {
-              "bench_slice": 33.170964,
+              "bench_slice": 25.041065,
               "starter_slice": 0.0,
-              "lineup_share": 0.368566,
+              "lineup_share": 0.278234,
               "start_worthy": 0.0,
-              "adjusted": 3.573567,
+              "adjusted": 2.254216,
               "vorp_display": 5.111562
             },
             "306": {
-              "bench_slice": 11.068418,
+              "bench_slice": 6.165572,
               "starter_slice": 0.0,
-              "lineup_share": 0.27671,
+              "lineup_share": 0.154139,
               "start_worthy": 0.0,
-              "adjusted": 1.19242,
+              "adjusted": 0.55503,
               "vorp_display": 2.271805
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.061973,
+              "lineup_share": 0.014675,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8303,47 +8308,47 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.048171,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.244862,
-              "starter_slice": 283.368762,
-              "lineup_share": 0.659567,
+              "bench_slice": 0.289093,
+              "starter_slice": 334.555799,
+              "lineup_share": 0.778709,
               "start_worthy": 0.994932,
-              "adjusted": 34.243329,
+              "adjusted": 38.262913,
               "vorp_display": 24.421907
             },
             "402": {
-              "bench_slice": 0.54686,
-              "starter_slice": 104.031833,
-              "lineup_share": 0.653617,
+              "bench_slice": 0.645643,
+              "starter_slice": 122.823888,
+              "lineup_share": 0.771685,
               "start_worthy": 0.981649,
-              "adjusted": 12.709176,
+              "adjusted": 14.207048,
               "vorp_display": 9.087221
             },
             "403": {
-              "bench_slice": 2.963844,
-              "starter_slice": 18.151919,
-              "lineup_share": 0.527894,
+              "bench_slice": 3.499225,
+              "starter_slice": 21.430837,
+              "lineup_share": 0.623252,
               "start_worthy": 0.685129,
-              "adjusted": 3.081184,
+              "adjusted": 3.481773,
               "vorp_display": 2.271805
             },
             "404": {
-              "bench_slice": 4.903802,
-              "starter_slice": 4.288357,
-              "lineup_share": 0.459608,
+              "bench_slice": 4.19927,
+              "starter_slice": 3.672247,
+              "lineup_share": 0.393576,
               "start_worthy": 0.234798,
-              "adjusted": 1.993555,
+              "adjusted": 1.662585,
               "vorp_display": 1.135903
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232236,
+              "lineup_share": 0.151898,
               "start_worthy": 7e-06,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8352,36 +8357,36 @@
         },
         "c4": {
           "groups": {
-            "QB|starter": 32.033084,
-            "QB|bench": 1.473265,
-            "RB|starter": 88.819221,
-            "RB|bench": 11.466074,
-            "WR|starter": 104.301567,
-            "WR|bench": 12.139965,
-            "TE|starter": 45.59622,
-            "TE|bench": 1.946945
+            "QB|starter": 38.592783,
+            "QB|bench": 1.006663,
+            "RB|starter": 99.591279,
+            "RB|bench": 8.349852,
+            "WR|starter": 119.357778,
+            "WR|bench": 9.133283,
+            "TE|starter": 53.67166,
+            "TE|bench": 1.860654
           },
-          "total_vorp": 297.776341,
+          "total_vorp": 331.563951,
           "surplus_total": 489.0,
           "weights": {
-            "QB|starter": 0.107574,
-            "QB|bench": 0.004948,
-            "RB|starter": 0.298275,
-            "RB|bench": 0.038506,
-            "WR|starter": 0.350268,
-            "WR|bench": 0.040769,
-            "TE|starter": 0.153122,
-            "TE|bench": 0.006538
+            "QB|starter": 0.116396,
+            "QB|bench": 0.003036,
+            "RB|starter": 0.300368,
+            "RB|bench": 0.025183,
+            "WR|starter": 0.359984,
+            "WR|bench": 0.027546,
+            "TE|starter": 0.161874,
+            "TE|bench": 0.005612
           },
           "rates": {
-            "QB|starter": 1.071704,
-            "QB|bench": 1.302654,
-            "RB|starter": 0.860253,
-            "RB|bench": 1.000988,
-            "WR|starter": 0.878995,
-            "WR|bench": 1.001546,
-            "TE|starter": 1.083863,
-            "TE|bench": 1.339116
+            "QB|starter": 1.002005,
+            "QB|bench": 1.515852,
+            "RB|starter": 0.771292,
+            "RB|bench": 0.823423,
+            "WR|starter": 0.762818,
+            "WR|bench": 0.815899,
+            "TE|starter": 1.025825,
+            "TE|bench": 1.374013
           },
           "vorp_display_factor": 0.572597,
           "positions": {
@@ -8472,81 +8477,81 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.047156,
-              "starter_slice": 18.768304,
-              "lineup_share": 0.671981,
+              "bench_slice": 0.056815,
+              "starter_slice": 22.612415,
+              "lineup_share": 0.809615,
               "start_worthy": 0.986305,
-              "adjusted": 20.175489,
+              "adjusted": 22.74388,
               "vorp_display": 16.03272
             },
             "102": {
-              "bench_slice": 0.182684,
-              "starter_slice": 13.262686,
-              "lineup_share": 0.640256,
+              "bench_slice": 0.220101,
+              "starter_slice": 15.979139,
+              "lineup_share": 0.771392,
               "start_worthy": 0.929301,
-              "adjusted": 14.451643,
+              "adjusted": 16.344822,
               "vorp_display": 12.02454
             },
             "103": {
-              "bench_slice": 1.243425,
-              "starter_slice": 0.002094,
-              "lineup_share": 0.249104,
+              "bench_slice": 0.729747,
+              "starter_slice": 0.001229,
+              "lineup_share": 0.146195,
               "start_worthy": 0.0003,
-              "adjusted": 1.621996,
+              "adjusted": 1.10742,
               "vorp_display": 2.862986
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.18178,
+              "lineup_share": 0.074183,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.375954,
-              "starter_slice": 52.701562,
-              "lineup_share": 0.671867,
+              "bench_slice": 0.426735,
+              "starter_slice": 59.820161,
+              "lineup_share": 0.762619,
               "start_worthy": 0.968308,
-              "adjusted": 45.712983,
+              "adjusted": 46.490198,
               "vorp_display": 45.235174
             },
             "202": {
-              "bench_slice": 1.552554,
-              "starter_slice": 33.52535,
-              "lineup_share": 0.594541,
+              "bench_slice": 1.762264,
+              "starter_slice": 38.053746,
+              "lineup_share": 0.674848,
               "start_worthy": 0.824781,
-              "adjusted": 30.394358,
+              "adjusted": 30.80164,
               "vorp_display": 33.783231
             },
             "203": {
-              "bench_slice": 8.18355,
-              "starter_slice": 2.592309,
-              "lineup_share": 0.316937,
+              "bench_slice": 5.4215,
+              "starter_slice": 1.717372,
+              "lineup_share": 0.209967,
               "start_worthy": 0.064592,
-              "adjusted": 10.421672,
+              "adjusted": 5.788782,
               "vorp_display": 19.468303
             },
             "205": {
-              "bench_slice": 0.982176,
+              "bench_slice": 0.568877,
               "starter_slice": 0.0,
-              "lineup_share": 0.245544,
+              "lineup_share": 0.142219,
               "start_worthy": 0.0,
-              "adjusted": 0.983145,
+              "adjusted": 0.468426,
               "vorp_display": 2.290389
             },
             "206": {
-              "bench_slice": 0.37184,
+              "bench_slice": 0.170476,
               "starter_slice": 0.0,
-              "lineup_share": 0.18592,
+              "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.372207,
+              "adjusted": 0.140374,
               "vorp_display": 1.145194
             },
             "208": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.048421,
+              "lineup_share": 0.008998,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8554,7 +8559,7 @@
             "209": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.040171,
+              "lineup_share": 0.000305,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8562,7 +8567,7 @@
             "210": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8570,7 +8575,7 @@
             "211": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8578,7 +8583,7 @@
             "212": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8586,7 +8591,7 @@
             "213": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8594,7 +8599,7 @@
             "204": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8602,103 +8607,103 @@
             "207": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.039882,
+              "lineup_share": 0.0,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 6e-05,
-              "starter_slice": 48.73977,
-              "lineup_share": 0.706374,
+              "bench_slice": 6.9e-05,
+              "starter_slice": 55.8622,
+              "lineup_share": 0.809598,
               "start_worthy": 0.999996,
-              "adjusted": 42.842063,
+              "adjusted": 42.612765,
               "vorp_display": 39.509202
             },
             "302": {
-              "bench_slice": 0.00562,
-              "starter_slice": 34.596112,
-              "lineup_share": 0.706158,
+              "bench_slice": 0.006442,
+              "starter_slice": 39.651704,
+              "lineup_share": 0.80935,
               "start_worthy": 0.999529,
-              "adjusted": 30.41543,
+              "adjusted": 30.252301,
               "vorp_display": 28.05726
             },
             "303": {
-              "bench_slice": 0.722411,
-              "starter_slice": 20.507339,
-              "lineup_share": 0.66343,
+              "bench_slice": 0.827978,
+              "starter_slice": 23.504114,
+              "lineup_share": 0.760378,
               "start_worthy": 0.907243,
-              "adjusted": 18.749372,
+              "adjusted": 18.604915,
               "vorp_display": 18.323108
             },
             "304": {
-              "bench_slice": 6.991894,
-              "starter_slice": 0.458346,
-              "lineup_share": 0.392118,
+              "bench_slice": 5.182901,
+              "starter_slice": 0.339759,
+              "lineup_share": 0.290666,
               "start_worthy": 0.022088,
-              "adjusted": 7.405585,
+              "adjusted": 4.487901,
               "vorp_display": 10.879346
             },
             "305": {
-              "bench_slice": 3.313204,
+              "bench_slice": 2.499417,
               "starter_slice": 0.0,
-              "lineup_share": 0.368134,
+              "lineup_share": 0.277713,
               "start_worthy": 0.0,
-              "adjusted": 3.318325,
+              "adjusted": 2.039273,
               "vorp_display": 5.153374
             },
             "306": {
-              "bench_slice": 1.106776,
+              "bench_slice": 0.616476,
               "starter_slice": 0.0,
-              "lineup_share": 0.276694,
+              "lineup_share": 0.154119,
               "start_worthy": 0.0,
-              "adjusted": 1.108487,
+              "adjusted": 0.502983,
               "vorp_display": 2.290389
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.061973,
+              "lineup_share": 0.014675,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.061303,
-              "starter_slice": 25.61202,
-              "lineup_share": 0.65829,
+              "bench_slice": 0.072376,
+              "starter_slice": 30.238512,
+              "lineup_share": 0.777202,
               "start_worthy": 0.991492,
-              "adjusted": 27.842014,
+              "adjusted": 31.118882,
               "vorp_display": 22.331288
             },
             "402": {
-              "bench_slice": 0.098177,
-              "starter_slice": 15.600146,
-              "lineup_share": 0.654097,
+              "bench_slice": 0.115911,
+              "starter_slice": 18.418118,
+              "lineup_share": 0.772251,
               "start_worthy": 0.981357,
-              "adjusted": 17.039891,
+              "adjusted": 19.053037,
               "vorp_display": 13.742331
             },
             "403": {
-              "bench_slice": 0.525142,
-              "starter_slice": 3.920176,
-              "lineup_share": 0.555665,
+              "bench_slice": 0.620003,
+              "starter_slice": 4.628306,
+              "lineup_share": 0.656039,
               "start_worthy": 0.739819,
-              "adjusted": 4.95216,
+              "adjusted": 5.599727,
               "vorp_display": 4.580777
             },
             "404": {
-              "bench_slice": 1.262323,
-              "starter_slice": 0.463879,
-              "lineup_share": 0.431551,
+              "bench_slice": 1.052364,
+              "starter_slice": 0.386723,
+              "lineup_share": 0.359772,
               "start_worthy": 0.123633,
-              "adjusted": 2.193179,
+              "adjusted": 1.842673,
               "vorp_display": 2.290389
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232233,
+              "lineup_share": 0.151894,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -8707,36 +8712,36 @@
         },
         "c5": {
           "groups": {
-            "QB|starter": 30.714896,
-            "QB|bench": 1.810284,
-            "RB|starter": 86.135174,
-            "RB|bench": 10.001739,
-            "WR|starter": 109.014898,
-            "WR|bench": 10.460391,
-            "TE|starter": 46.829691,
-            "TE|bench": 1.25932
+            "QB|starter": 36.842194,
+            "QB|bench": 1.318722,
+            "RB|starter": 97.313276,
+            "RB|bench": 6.438818,
+            "WR|starter": 124.945052,
+            "WR|bench": 7.628328,
+            "TE|starter": 55.115961,
+            "TE|bench": 1.238179
           },
-          "total_vorp": 296.226394,
+          "total_vorp": 330.840528,
           "surplus_total": 480.895111,
           "weights": {
-            "QB|starter": 0.103687,
-            "QB|bench": 0.006111,
-            "RB|starter": 0.290775,
-            "RB|bench": 0.033764,
-            "WR|starter": 0.368012,
-            "WR|bench": 0.035312,
-            "TE|starter": 0.158088,
-            "TE|bench": 0.004251
+            "QB|starter": 0.111359,
+            "QB|bench": 0.003986,
+            "RB|starter": 0.29414,
+            "RB|bench": 0.019462,
+            "WR|starter": 0.377659,
+            "WR|bench": 0.023057,
+            "TE|starter": 0.166594,
+            "TE|bench": 0.003743
           },
           "rates": {
-            "QB|starter": 1.117698,
-            "QB|bench": 1.060139,
-            "RB|starter": 0.887059,
-            "RB|bench": 1.14754,
-            "WR|starter": 0.840991,
-            "WR|bench": 1.162359,
-            "TE|starter": 1.055315,
-            "TE|bench": 2.070312
+            "QB|starter": 1.049616,
+            "QB|bench": 1.157145,
+            "RB|starter": 0.789347,
+            "RB|bench": 1.067814,
+            "WR|starter": 0.728707,
+            "WR|bench": 0.976864,
+            "TE|starter": 0.998944,
+            "TE|bench": 2.064777
           },
           "vorp_display_factor": 0.582248,
           "positions": {
@@ -8827,177 +8832,177 @@
           },
           "players": {
             "101": {
-              "bench_slice": 0.018931,
-              "starter_slice": 20.721754,
-              "lineup_share": 0.676801,
+              "bench_slice": 0.022808,
+              "starter_slice": 24.965969,
+              "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 23.18073,
+              "adjusted": 26.231082,
               "vorp_display": 17.84307
             },
             "102": {
-              "bench_slice": 0.290268,
-              "starter_slice": 9.708179,
-              "lineup_share": 0.600682,
+              "bench_slice": 0.34972,
+              "starter_slice": 11.696602,
+              "lineup_share": 0.723713,
               "start_worthy": 0.858211,
-              "adjusted": 11.158535,
+              "adjusted": 12.681621,
               "vorp_display": 9.691604
             },
             "103": {
-              "bench_slice": 1.501086,
-              "starter_slice": 0.284963,
-              "lineup_share": 0.268774,
+              "bench_slice": 0.946194,
+              "starter_slice": 0.179623,
+              "lineup_share": 0.169419,
               "start_worthy": 0.033013,
-              "adjusted": 1.909863,
+              "adjusted": 1.283419,
               "vorp_display": 3.869129
             },
             "104": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.18178,
+              "lineup_share": 0.074183,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.071543,
-              "starter_slice": 57.590919,
-              "lineup_share": 0.685863,
+              "bench_slice": 0.081207,
+              "starter_slice": 65.369942,
+              "lineup_share": 0.778505,
               "start_worthy": 0.994296,
-              "adjusted": 51.168633,
+              "adjusted": 51.686294,
               "vorp_display": 48.9512
             },
             "202": {
-              "bench_slice": 1.041539,
-              "starter_slice": 27.641101,
-              "lineup_share": 0.609325,
+              "bench_slice": 1.182224,
+              "starter_slice": 31.374689,
+              "lineup_share": 0.691629,
               "start_worthy": 0.852319,
-              "adjusted": 25.714491,
+              "adjusted": 26.027918,
               "vorp_display": 27.40804
             },
             "203": {
-              "bench_slice": 5.709589,
-              "starter_slice": 0.903154,
-              "lineup_share": 0.299587,
+              "bench_slice": 3.594878,
+              "starter_slice": 0.568645,
+              "lineup_share": 0.188627,
               "start_worthy": 0.032944,
-              "adjusted": 7.353133,
+              "adjusted": 4.287519,
               "vorp_display": 12.851852
             },
             "207": {
-              "bench_slice": 1.93946,
+              "bench_slice": 1.012191,
               "starter_slice": 0.0,
-              "lineup_share": 0.224564,
+              "lineup_share": 0.117198,
               "start_worthy": 0.0,
-              "adjusted": 2.225608,
+              "adjusted": 1.080832,
               "vorp_display": 5.028617
             },
             "204": {
-              "bench_slice": 1.239608,
+              "bench_slice": 0.568318,
               "starter_slice": 0.0,
-              "lineup_share": 0.18592,
+              "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 1.422501,
+              "adjusted": 0.606858,
               "vorp_display": 3.882092
             },
             "205": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.040129,
+              "lineup_share": 0.00026,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 1.7e-05,
-              "starter_slice": 54.028516,
-              "lineup_share": 0.706376,
+              "bench_slice": 2e-05,
+              "starter_slice": 61.9238,
+              "lineup_share": 0.8096,
               "start_worthy": 0.999999,
-              "adjusted": 45.437508,
+              "adjusted": 45.124308,
               "vorp_display": 44.534356
             },
             "302": {
-              "bench_slice": 0.040322,
-              "starter_slice": 29.894755,
-              "lineup_share": 0.704571,
+              "bench_slice": 0.046214,
+              "starter_slice": 34.263329,
+              "lineup_share": 0.807531,
               "start_worthy": 0.996101,
-              "adjusted": 25.188083,
+              "adjusted": 25.013063,
               "vorp_display": 24.73794
             },
             "303": {
-              "bench_slice": 0.235269,
-              "starter_slice": 25.090692,
-              "lineup_share": 0.69411,
+              "bench_slice": 0.269649,
+              "starter_slice": 28.75724,
+              "lineup_share": 0.795541,
               "start_worthy": 0.973506,
-              "adjusted": 21.37451,
+              "adjusted": 21.219005,
               "vorp_display": 21.244454
             },
             "304": {
-              "bench_slice": 5.926081,
-              "starter_slice": 0.000936,
-              "lineup_share": 0.38271,
+              "bench_slice": 4.31975,
+              "starter_slice": 0.000682,
+              "lineup_share": 0.278972,
               "start_worthy": 5.4e-05,
-              "adjusted": 6.889021,
+              "adjusted": 4.220306,
               "vorp_display": 9.017256
             },
             "305": {
-              "bench_slice": 3.149003,
+              "bench_slice": 2.374563,
               "starter_slice": 0.0,
-              "lineup_share": 0.367879,
+              "lineup_share": 0.277406,
               "start_worthy": 0.0,
-              "adjusted": 3.660272,
+              "adjusted": 2.319626,
               "vorp_display": 4.983978
             },
             "306": {
-              "bench_slice": 1.109699,
+              "bench_slice": 0.618131,
               "starter_slice": 0.0,
-              "lineup_share": 0.276704,
+              "lineup_share": 0.154131,
               "start_worthy": 0.0,
-              "adjusted": 1.289868,
+              "adjusted": 0.60383,
               "vorp_display": 2.335055
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.061973,
+              "lineup_share": 0.014675,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
             },
             "401": {
-              "bench_slice": 0.033727,
-              "starter_slice": 30.542469,
-              "lineup_share": 0.659484,
+              "bench_slice": 0.03982,
+              "starter_slice": 36.059586,
+              "lineup_share": 0.778612,
               "start_worthy": 0.994569,
-              "adjusted": 32.301741,
+              "adjusted": 36.103724,
               "vorp_display": 26.995202
             },
             "402": {
-              "bench_slice": 0.065558,
-              "starter_slice": 13.269245,
-              "lineup_share": 0.654829,
+              "bench_slice": 0.0774,
+              "starter_slice": 15.666168,
+              "lineup_share": 0.773116,
               "start_worthy": 0.983779,
-              "adjusted": 14.138953,
+              "adjusted": 15.809437,
               "vorp_display": 11.856765
             },
             "403": {
-              "bench_slice": 0.395833,
-              "starter_slice": 2.486427,
-              "lineup_share": 0.537355,
+              "bench_slice": 0.467335,
+              "starter_slice": 2.935569,
+              "lineup_share": 0.634422,
               "start_worthy": 0.699865,
-              "adjusted": 3.44346,
+              "adjusted": 3.897411,
               "vorp_display": 3.123052
             },
             "404": {
-              "bench_slice": 0.764202,
-              "starter_slice": 0.53155,
-              "lineup_share": 0.458259,
+              "bench_slice": 0.653625,
+              "starter_slice": 0.454637,
+              "lineup_share": 0.39195,
               "start_worthy": 0.205611,
-              "adjusted": 2.14309,
+              "adjusted": 1.803746,
               "vorp_display": 1.646337
             },
             "405": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.232233,
+              "lineup_share": 0.151894,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -9007,153 +9012,153 @@
       },
       "rows": {
         "101": {
-          "ddf_blended": 21.991787,
-          "lineup_share": 0.670166,
+          "ddf_blended": 24.848067,
+          "lineup_share": 0.807429,
           "start_worthy": 0.983102
         },
         "102": {
-          "ddf_blended": 12.469817,
-          "lineup_share": 0.582383,
+          "ddf_blended": 14.139424,
+          "lineup_share": 0.701667,
           "start_worthy": 0.82607
         },
         "103": {
-          "ddf_blended": 1.787524,
-          "lineup_share": 0.302996,
+          "ddf_blended": 1.208632,
+          "lineup_share": 0.209822,
           "start_worthy": 0.098205
         },
         "104": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.181974,
+          "lineup_share": 0.07441,
           "start_worthy": 0.000338
         },
         "201": {
-          "ddf_blended": 49.333933,
-          "lineup_share": 0.658721,
+          "ddf_blended": 49.922804,
+          "lineup_share": 0.747696,
           "start_worthy": 0.945067
         },
         "202": {
-          "ddf_blended": 27.213937,
-          "lineup_share": 0.581755,
+          "ddf_blended": 27.540246,
+          "lineup_share": 0.660335,
           "start_worthy": 0.803535
         },
         "203": {
-          "ddf_blended": 8.142844,
-          "lineup_share": 0.325216,
+          "ddf_blended": 4.617028,
+          "lineup_share": 0.22015,
           "start_worthy": 0.092604
         },
         "204": {
-          "ddf_blended": 1.890034,
-          "lineup_share": 0.200887,
+          "ddf_blended": 1.018807,
+          "lineup_share": 0.110835,
           "start_worthy": 0.00547
         },
         "205": {
-          "ddf_blended": 0.480754,
-          "lineup_share": 0.124952,
+          "ddf_blended": 0.213054,
+          "lineup_share": 0.054344,
           "start_worthy": 1.5e-05
         },
         "206": {
-          "ddf_blended": 0.266463,
-          "lineup_share": 0.098297,
+          "ddf_blended": 0.107274,
+          "lineup_share": 0.034095,
           "start_worthy": 0.0
         },
         "207": {
-          "ddf_blended": 0.556402,
-          "lineup_share": 0.122385,
+          "ddf_blended": 0.270208,
+          "lineup_share": 0.057172,
           "start_worthy": 0.01414
         },
         "208": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.04159,
+          "lineup_share": 0.0018,
           "start_worthy": 0.0
         },
         "209": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.039954,
+          "lineup_share": 7.6e-05,
           "start_worthy": 0.0
         },
         "210": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.039882,
+          "lineup_share": 0.0,
           "start_worthy": 0.0
         },
         "211": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.039882,
+          "lineup_share": 0.0,
           "start_worthy": 0.0
         },
         "212": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.039882,
+          "lineup_share": 0.0,
           "start_worthy": 0.0
         },
         "213": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.039882,
+          "lineup_share": 0.0,
           "start_worthy": 0.0
         },
         "301": {
-          "ddf_blended": 45.633274,
-          "lineup_share": 0.691164,
+          "ddf_blended": 45.336992,
+          "lineup_share": 0.791892,
           "start_worthy": 0.968485
         },
         "302": {
-          "ddf_blended": 26.774145,
-          "lineup_share": 0.664183,
+          "ddf_blended": 26.601499,
+          "lineup_share": 0.760387,
           "start_worthy": 0.911581
         },
         "303": {
-          "ddf_blended": 19.639862,
-          "lineup_share": 0.629348,
+          "ddf_blended": 19.492296,
+          "lineup_share": 0.720117,
           "start_worthy": 0.837809
         },
         "304": {
-          "ddf_blended": 7.133569,
-          "lineup_share": 0.429833,
+          "ddf_blended": 4.350651,
+          "lineup_share": 0.335638,
           "start_worthy": 0.120761
         },
         "305": {
-          "ddf_blended": 3.424029,
-          "lineup_share": 0.360176,
+          "ddf_blended": 2.146116,
+          "lineup_share": 0.261351,
           "start_worthy": 0.012285
         },
         "306": {
-          "ddf_blended": 1.234384,
-          "lineup_share": 0.275638,
+          "ddf_blended": 0.572583,
+          "lineup_share": 0.133754,
           "start_worthy": 0.000225
         },
         "307": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.06907,
+          "lineup_share": 0.011552,
           "start_worthy": 0.0
         },
         "308": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.052977,
+          "lineup_share": 0.000201,
           "start_worthy": 0.0
         },
         "401": {
-          "ddf_blended": 31.94776,
-          "lineup_share": 0.646902,
+          "ddf_blended": 35.678282,
+          "lineup_share": 0.763757,
           "start_worthy": 0.964269
         },
         "402": {
-          "ddf_blended": 14.144166,
-          "lineup_share": 0.637373,
+          "ddf_blended": 15.807106,
+          "lineup_share": 0.752506,
           "start_worthy": 0.941484
         },
         "403": {
-          "ddf_blended": 3.9823,
-          "lineup_share": 0.56759,
+          "ddf_blended": 4.507888,
+          "lineup_share": 0.670118,
           "start_worthy": 0.773525
         },
         "404": {
-          "ddf_blended": 1.953017,
-          "lineup_share": 0.407727,
+          "ddf_blended": 1.621044,
+          "lineup_share": 0.331068,
           "start_worthy": 0.095478
         },
         "405": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.232233,
+          "lineup_share": 0.151895,
           "start_worthy": 1e-06
         }
       }
@@ -9194,128 +9199,365 @@
     "expected": {
       "bench_share_applied": 0.1,
       "ddf_weights": {
-        "QB|starter": 0.123527,
-        "QB|bench": 0.00671,
-        "RB|starter": 0.272185,
-        "RB|bench": 0.04191,
-        "WR|starter": 0.32677,
-        "WR|bench": 0.043068,
-        "TE|starter": 0.177518,
-        "TE|bench": 0.008311
+        "QB|starter": 0.133757,
+        "QB|bench": 0.007799,
+        "RB|starter": 0.263592,
+        "RB|bench": 0.03889,
+        "WR|starter": 0.312386,
+        "WR|bench": 0.041189,
+        "TE|starter": 0.190265,
+        "TE|bench": 0.012123
       },
       "bench_share_readout": {
-        "QB": 0.048133,
-        "RB": 0.122763,
-        "WR": 0.112946,
-        "TE": 0.034369,
-        "overall": 0.092987,
+        "QB": 0.04234,
+        "RB": 0.105296,
+        "WR": 0.110091,
+        "TE": 0.03595,
+        "overall": 0.084045,
         "override": true,
         "fill_in_share": 0.1
       },
       "source_weights": {
         "p1": {
-          "QB|starter": 0.168089,
-          "QB|bench": 0.00875,
-          "RB|starter": 0.204769,
-          "RB|bench": 0.027774,
-          "WR|starter": 0.287807,
-          "WR|bench": 0.045827,
-          "TE|starter": 0.239335,
-          "TE|bench": 0.017649
+          "QB|starter": 0.185823,
+          "QB|bench": 0.011495,
+          "RB|starter": 0.202072,
+          "RB|bench": 0.028463,
+          "WR|starter": 0.247652,
+          "WR|bench": 0.034281,
+          "TE|starter": 0.264452,
+          "TE|bench": 0.025761
         },
         "p2": {
-          "QB|starter": 0.174379,
-          "QB|bench": 0.00668,
-          "RB|starter": 0.229507,
-          "RB|bench": 0.037912,
-          "WR|starter": 0.266462,
-          "WR|bench": 0.042532,
-          "TE|starter": 0.229652,
-          "TE|bench": 0.012876
+          "QB|starter": 0.200508,
+          "QB|bench": 0.010563,
+          "RB|starter": 0.205377,
+          "RB|bench": 0.02998,
+          "WR|starter": 0.226996,
+          "WR|bench": 0.038397,
+          "TE|starter": 0.267119,
+          "TE|bench": 0.02106
         },
         "c1": {
-          "QB|starter": 0.105549,
-          "QB|bench": 0.006773,
-          "RB|starter": 0.298859,
-          "RB|bench": 0.049273,
-          "WR|starter": 0.359663,
-          "WR|bench": 0.040822,
-          "TE|starter": 0.135929,
-          "TE|bench": 0.003132
+          "QB|starter": 0.109903,
+          "QB|bench": 0.007063,
+          "RB|starter": 0.29275,
+          "RB|bench": 0.046521,
+          "WR|starter": 0.358264,
+          "WR|bench": 0.042032,
+          "TE|starter": 0.139083,
+          "TE|bench": 0.004384
         },
         "c2": {
-          "QB|starter": 0.085294,
-          "QB|bench": 0.004914,
-          "RB|starter": 0.320449,
-          "RB|bench": 0.051574,
-          "WR|starter": 0.340189,
-          "WR|bench": 0.039858,
-          "TE|starter": 0.154069,
-          "TE|bench": 0.003654
+          "QB|starter": 0.089177,
+          "QB|bench": 0.004791,
+          "RB|starter": 0.314615,
+          "RB|bench": 0.048612,
+          "WR|starter": 0.338353,
+          "WR|bench": 0.041654,
+          "TE|starter": 0.157854,
+          "TE|bench": 0.004942
         },
         "c3": {
-          "QB|starter": 0.105549,
-          "QB|bench": 0.006773,
-          "RB|starter": 0.298859,
-          "RB|bench": 0.049273,
-          "WR|starter": 0.359663,
-          "WR|bench": 0.040822,
-          "TE|starter": 0.135929,
-          "TE|bench": 0.003132
+          "QB|starter": 0.109903,
+          "QB|bench": 0.007063,
+          "RB|starter": 0.29275,
+          "RB|bench": 0.046521,
+          "WR|starter": 0.358264,
+          "WR|bench": 0.042032,
+          "TE|starter": 0.139083,
+          "TE|bench": 0.004384
         },
         "c4": {
-          "QB|starter": 0.106481,
-          "QB|bench": 0.005451,
-          "RB|starter": 0.295244,
-          "RB|bench": 0.042426,
-          "WR|starter": 0.346709,
-          "WR|bench": 0.044919,
-          "TE|starter": 0.151566,
-          "TE|bench": 0.007204
+          "QB|starter": 0.111607,
+          "QB|bench": 0.004947,
+          "RB|starter": 0.288009,
+          "RB|bench": 0.04103,
+          "WR|starter": 0.345171,
+          "WR|bench": 0.04488,
+          "TE|starter": 0.155213,
+          "TE|bench": 0.009143
         },
         "c5": {
-          "QB|starter": 0.101371,
-          "QB|bench": 0.007693,
-          "RB|starter": 0.28428,
-          "RB|bench": 0.042503,
-          "WR|starter": 0.359792,
-          "WR|bench": 0.044452,
-          "TE|starter": 0.154556,
-          "TE|bench": 0.005352
+          "QB|starter": 0.105526,
+          "QB|bench": 0.007933,
+          "RB|starter": 0.278731,
+          "RB|bench": 0.038732,
+          "WR|starter": 0.357876,
+          "WR|bench": 0.045887,
+          "TE|starter": 0.157867,
+          "TE|bench": 0.007448
         }
       },
       "rows_ddf_blended": {
-        "101": 22.15582,
-        "102": 12.555348,
-        "103": 1.755255,
+        "101": 24.087752,
+        "102": 13.869753,
+        "103": 1.678161,
         "104": 0.0,
-        "201": 49.211652,
-        "202": 27.174351,
-        "203": 8.295281,
-        "204": 1.93244,
-        "205": 0.49154,
-        "206": 0.272441,
-        "207": 0.568886,
+        "201": 48.059968,
+        "202": 27.209656,
+        "203": 6.876542,
+        "204": 1.613558,
+        "205": 0.337429,
+        "206": 0.169898,
+        "207": 0.427948,
         "208": 0.0,
         "209": 0.0,
         "210": 0.0,
         "211": 0.0,
         "212": 0.0,
         "213": 0.0,
-        "301": 45.541279,
-        "302": 26.720034,
-        "303": 19.597457,
-        "304": 7.075838,
-        "305": 3.39599,
-        "306": 1.224276,
+        "301": 43.554212,
+        "302": 25.567827,
+        "303": 18.979624,
+        "304": 6.691535,
+        "305": 3.32142,
+        "306": 0.886154,
         "307": 0.0,
         "308": 0.0,
-        "401": 32.122993,
-        "402": 14.207872,
-        "403": 3.912969,
-        "404": 1.78828,
+        "401": 34.556598,
+        "402": 15.36286,
+        "403": 4.711893,
+        "404": 2.037213,
         "405": 0.0
       }
+    }
+  },
+  "variant_fractional_seats": {
+    "note": "JEG-1335: the fixture's league at the default seat sigma (0.75 PPG): flex seats, and with no league loaded the bench seats, are shared near the cutoff; the pipeline runs once per whole allocation and every value is weight-averaged. Written by tools/worked_example_fractional_seats.py from pipelines/value_reference.py.",
+    "setting_change": {
+      "seat_sigma": null
+    },
+    "expected": {
+      "allocation_mix": [
+        {
+          "weight": 0.402628,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 0,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.001208,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 2
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.005389,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.019106,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 2
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.57167,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        }
+      ],
+      "allocation_expected": {
+        "QB": {
+          "flex": 0.0,
+          "bench": 1.0,
+          "starters": 2.0,
+          "rostered": 3.0
+        },
+        "RB": {
+          "flex": 0.409225,
+          "bench": 1.001208,
+          "starters": 2.409225,
+          "rostered": 3.410432
+        },
+        "WR": {
+          "flex": 0.993403,
+          "bench": 1.019106,
+          "starters": 2.993403,
+          "rostered": 4.012508
+        },
+        "TE": {
+          "flex": 0.597372,
+          "bench": 0.979687,
+          "starters": 2.597372,
+          "rostered": 3.577059
+        }
+      },
+      "rows_ddf_blended": {
+        "101": 25.746909,
+        "102": 10.46744,
+        "103": 0.923201,
+        "104": 0.0,
+        "201": 58.378108,
+        "202": 26.389111,
+        "203": 7.371601,
+        "204": 0.379027,
+        "205": 0.04923,
+        "206": 0.000555,
+        "207": 0.090933,
+        "208": 0.0,
+        "209": 0.0,
+        "210": 0.0,
+        "211": 0.0,
+        "212": 0.0,
+        "213": 0.0,
+        "301": 53.446214,
+        "302": 23.467555,
+        "303": 12.904033,
+        "304": 2.372189,
+        "305": 0.021963,
+        "306": 0.0,
+        "307": 0.0,
+        "308": 0.0,
+        "401": 40.275313,
+        "402": 15.307453,
+        "403": 2.143789,
+        "404": 0.265375,
+        "405": 0.0
+      },
+      "rows_ddf_tier": {
+        "101": "starter",
+        "102": "starter",
+        "103": "bench",
+        "104": "waiver",
+        "201": "starter",
+        "202": "starter",
+        "203": "bench",
+        "204": "waiver",
+        "205": "waiver",
+        "206": "waiver",
+        "207": "waiver",
+        "208": "waiver",
+        "209": "waiver",
+        "210": "waiver",
+        "211": "waiver",
+        "212": "waiver",
+        "213": "waiver",
+        "301": "starter",
+        "302": "starter",
+        "303": "starter",
+        "304": "bench",
+        "305": "waiver",
+        "306": "waiver",
+        "307": "waiver",
+        "308": "waiver",
+        "401": "starter",
+        "402": "starter",
+        "403": "starter",
+        "404": "bench",
+        "405": "waiver"
+      },
+      "default_ranking": [
+        201,
+        301,
+        401,
+        202,
+        101,
+        302,
+        402,
+        303,
+        102,
+        203,
+        304,
+        403,
+        103,
+        204,
+        404,
+        207,
+        205,
+        305,
+        206,
+        104,
+        208,
+        209,
+        210,
+        211,
+        212,
+        213,
+        306,
+        307,
+        308,
+        405
+      ]
     }
   }
 }
