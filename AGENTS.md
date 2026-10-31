@@ -46,11 +46,25 @@ over older review or merge text in this file and in `HANDOFF.md`.
   until the fix head is pushed and the PR's CI is green on that exact head.
   A job diagnosing a red CI run is diagnosis, not a review, and is not subject
   to this green-CI prerequisite.
+- **Freshness before promotion and merge (JEG-1466).** Jeremy, 2026-10-31:
+  "Ok, so set up best practices then"; "Ensure they're rebased before promoting
+  upward". Merge `origin/main` into the branch just before review and again
+  just before merge: no rebase, no force-push. The fail-closed
+  `python3 pipelines/pr_freshness_gate.py <PR>` must pass at both boundaries.
+  Use `python3 -m pipelines.pr_promotion ready-for-review <PR>` to promote and
+  `python3 -m pipelines.pr_promotion merge-gate <PR>` before merging.
+- **Handoffs.** PRs stop editing `HANDOFF.md`; handoff notes go on the Linear
+  ticket (Jeremy's best-practices decision, 2026-10-31, JEG-1466).
 - **Current-head receipt.** The review receipt names its exact head. A review
   counts and can pass a PR only if that head equals the PR head at merge.
   Discard an older-head review and log it as waste. After a push, review the
   new commits as a delta against the previously reviewed head, applying the
   same CI and risk gates, and issue a receipt for the new head.
+  Exception (JEG-1466, Jeremy, 2026-10-31): skip re-review after merging main
+  only when the PR's own diff has the same stable patch-id against its old
+  and new main, outside explicitly identified merge-only files. Record both
+  heads, patch-ids and exclusions on Linear; carry the receipt to the new head
+  only after the freshness gate passes. Code/rule/test changes need delta review.
 - **Corrections.** A substantial review finding becomes one child ticket with
   the same owner, branch and PR. The owner acknowledges each finding and
   returns a corrected head with a test that fails before and passes after. A
@@ -72,7 +86,10 @@ over older review or merge text in this file and in `HANDOFF.md`.
   merge onto current main. Engine PRs still go one at a time (Hot files below).
   Jeremy approves merges by PR number, and on 2026-10-29 at 21:08 UTC gave a
   standing OK: "merge anything you recommend once it is green". That covers a
-  PR whose independent review passed, once its checks are green.
+  PR whose independent review passed, once its checks are green. JEG-1444
+  decision 13 narrows that standing OK: Jeremy, 2026-10-31, "One set of
+  approvals at 6 am, one at 4 pm." Merge only in his 6 AM or 4 PM Central
+  window, on his yes. Nothing sits on an auto-merge path.
 - **Still needs Jeremy's yes each time**, standing OK or not: any PR that
   changes value math (how values are computed) or a published value, whether
   or not it claims the published numbers move, with the before and after

@@ -18,6 +18,7 @@ name: Preview build
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
 on:
+  merge_group:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
@@ -134,7 +135,8 @@ jobs:
           # JEG-1169: no second Chromium install. playwright-core 1.49.1 uses the
           # browser the python playwright 1.49.1 step installed (same build, same cache dir).
           # JEG-1152: pin the gate pages' clock to the data's week.
-          export TRADE_VALUE_TODAY="$(python3 -c 'from tests.test_week_history import _fixture_today; print(_fixture_today())')"
+          TRADE_VALUE_TODAY="$(python3 -c 'from tests.test_week_history import _fixture_today; print(_fixture_today())')"
+          export TRADE_VALUE_TODAY
           echo "TRADE_VALUE_TODAY=$TRADE_VALUE_TODAY"
           set +e
           node tests/rendered_gate/gate.mjs dist --out rendered-gate.json

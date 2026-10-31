@@ -5,6 +5,11 @@
 `AGENTS.md` (imported above) holds every repo rule. This file adds only what
 is specific to Claude Code; put shared rules in `AGENTS.md`.
 
+JEG-1466 (Jeremy, 2026-10-31: "Ok, so set up best practices then"): follow
+`AGENTS.md`'s freshness gate, merge-main/no-rebase, unchanged-patch re-review,
+Linear handoff and 6 AM/4 PM Central approval-window rules before promotion
+or merge; the Oct 29 standing OK does not create an auto-merge path.
+
 - **User-level rules.** Follow the user-level Linear rules and "Usage
   Discipline" section; the repo rules in `AGENTS.md` override them where they
   differ.

@@ -63,6 +63,20 @@ class PrGateTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             decide("unknown", {})
 
+    def test_merge_group_runs_full_verification_without_a_live_pr(self):
+        self.assertTrue(decide("merge_group", {"merge_group": {"head_sha": "b" * 40}})[0])
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            (root / "event.json").write_text(json.dumps({"merge_group": {"head_sha": "b" * 40}}))
+            env = {"GITHUB_EVENT_PATH": str(root / "event.json"),
+                   "GITHUB_EVENT_NAME": "merge_group", "GITHUB_OUTPUT": str(root / "output"),
+                   "GITHUB_STEP_SUMMARY": str(root / "summary")}
+            fetch = mock.Mock(side_effect=AssertionError("merge_group must not fetch a PR"))
+            self.assertEqual(0, run("gate", env, fetch))
+            self.assertIn("run_expensive=true", (root / "output").read_text())
+            self.assertEqual(0, run("verify", env, fetch))
+            fetch.assert_not_called()
+
     def test_live_api_error_fails_gate_and_final_verification(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)

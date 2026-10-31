@@ -77,7 +77,7 @@ def live_pull(fetch, repo, snapshot, token):
 
 def decide(event_name, event, live=None):
     """Return (run_expensive, reason); unknown/stale PR state never passes."""
-    if event_name in ("push", "workflow_dispatch"):
+    if event_name in ("push", "workflow_dispatch", "merge_group"):
         return True, f"{event_name}: full verification required"
     if event_name != "pull_request":
         raise ValueError(f"unsupported event: {event_name}")
