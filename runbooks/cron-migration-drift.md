@@ -32,25 +32,42 @@ No SQL was sent and no real mismatch could be confirmed or ticketed.
 ## Baseline and identity
 
 `config/expected-cron.json` records repo intent, not an observed cloud snapshot.
-Its 19 entries come from the cited migration files; retired producer and
+Its 23 entries come from the cited migration files; retired producer and
 monitoring jobs are excluded. `health-artifacts-live` uses the later
 `20261008_monitoring_6h_and_posture.sql` override. Update this file alongside
 future schedule changes. Targets identify workflow filenames or SQL function
 names; dispatch payload changes are outside this check. Active state is checked.
-Raw cron commands are never returned from the query or logged.
+Unrecognized commands use a `raw:` MD5 fingerprint, including the retention
+DELETE job. This is a change detector, not a security checksum; raw commands
+are never returned from the query or logged. Whitespace changes to raw commands
+are reported. An empty migration inventory or fewer than half the expected cron
+jobs (currently fewer than 12) exits 2 before notifying Linear. This floor is a
+visibility guard, not a substitute for the owner-count verification above.
 
 Applied migrations match by recorded name (or version when name is absent).
-Timestamp-prefixed CLI filenames strip their 14-digit version; legacy arbitrary
-filenames retain their stem. Historical MCP names that differ from filenames
-will appear on both sides: reconcile those explicitly after the first live
-inventory; never silently mark them applied. This checks inventory, not SQL
-content/checksums, and never executes migration files.
+Timestamp-prefixed CLI filenames strip their 14-digit version. Legacy
+`20261008_name` and `name_20261008` normalize to the latter, on both sides.
+`config/migration-drift-map.json` holds explicit `aliases` (canonical name plus
+reason) and `ignore` entries (reason). Both are initially empty: no additional
+historical identity exception has been verified, and inventing exceptions would
+hide real drift. Add only verified exceptions using normalized names, with a
+reason per entry. Unknown names still appear in the diff. This checks inventory,
+not SQL content/checksums, and never executes migration files.
 
 The notifier follows `pipelines/open_divergence_issues.py`'s Linear transport.
-A stable child title/key creates once and replaces its latest diff on subsequent
-mismatches, including archived/resolved matches; it does not auto-close tickets.
+A stable child title/key creates once and updates an active ticket only when
+the parsed diff changes. A recurrence after completion, cancellation or archival
+creates a new ticket linking prior tickets; it never rewrites a closed ticket.
+It does not auto-close tickets.
 No ticket is created for unavailable evidence. Authentication errors are
 reported without exception details to avoid exposing connection configuration.
 
 Verification: `python -m unittest tests.test_cron_migration_drift`.
 F1 is not applicable: this changes an operational checker, no product workflow.
+
+Baseline review: the four additional jobs are retained/altered by
+`source_probe_schedules_20261008.sql`, `monitoring_coverage_20261007.sql`,
+`20261008_monitoring_6h_and_posture.sql`, `producers_schedule_tidy_20261008.sql`
+and `20261008_live_page_synthetic_schedule.sql`. The exact vintage-check slot
+is corroborated by `docs/architecture-current.md`; the retention command and
+03:00 slot by `docs/audits/jeg285-phase2/02-pgcron-job-specs.md`.

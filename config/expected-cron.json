@@ -131,5 +131,33 @@
     "target": "workflow:source-probe.yml",
     "active": true,
     "source": "source_probe_schedules_20261008.sql"
+  },
+  {
+    "name": "vintage-check-live",
+    "schedule": "0 * * * *",
+    "target": "workflow:source-vintage-check.yml",
+    "active": true,
+    "source": "source_probe_schedules_20261008.sql; docs/architecture-current.md"
+  },
+  {
+    "name": "cron-retention-30d",
+    "schedule": "0 3 * * *",
+    "target": "raw:b5fa07bbafad629a56302ddc9ab8a69c",
+    "active": true,
+    "source": "monitoring_coverage_20261007.sql; docs/audits/jeg285-phase2/02-pgcron-job-specs.md"
+  },
+  {
+    "name": "trigger-player-trace-live",
+    "schedule": "47 12 * * *",
+    "target": "workflow:player-trace-rebuild.yml",
+    "active": true,
+    "source": "producers_schedule_tidy_20261008.sql"
+  },
+  {
+    "name": "live-page-synthetic-live",
+    "schedule": "15 12 * * *",
+    "target": "workflow:live-page-synthetic.yml",
+    "active": true,
+    "source": "20261008_live_page_synthetic_schedule.sql; monitoring_coverage_20261007.sql"
   }
 ]
