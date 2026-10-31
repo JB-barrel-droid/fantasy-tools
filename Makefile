@@ -143,6 +143,8 @@ test-unit-modules:
 	# fractional-seat variant in the reference, the spec reference and the engine.
 	python3 -m unittest tests.test_fractional_seats_engine
 	python3 -m unittest tests.test_fractional_seats_worked_example
+	# JEG-1335: every source's pie still balances under the seat mix (the page's fixed-pie check).
+	python3 -m unittest tests.test_fractional_seats_pie
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory

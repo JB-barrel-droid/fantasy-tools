@@ -25,12 +25,15 @@ from __future__ import annotations
 
 import copy
 import json
+import multiprocessing
+import os
 import random
 import shutil
 import subprocess
 import sys
 import tempfile
 import unittest
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
@@ -298,6 +301,14 @@ class EndToEndTest(unittest.TestCase):
             self.assertTrue(bad, f"a broken engine passed: {label}")
 
 
+def _worst_job(args):
+    """One _worst call in a worker process (forked, so it sees the parent's
+    loaded inputs and any patched waiver rule)."""
+    case_args, hold_slots = args
+    t = OnePlayerPerturbationTest("test_band_beats_one_player_rule")
+    return t._worst(*case_args, hold_slots=hold_slots)
+
+
 class OnePlayerPerturbationTest(unittest.TestCase):
     """A 1 PPG change to the waiver-line player moves no other player at the
     position by more than 1.0 point in that source's Adjusted value, with the
@@ -335,7 +346,7 @@ class OnePlayerPerturbationTest(unittest.TestCase):
                     out.append((scoring, teams, src, pos, work[n][0]))
         return out
 
-    def _run(self, scoring, teams, src, pos, replay=None):
+    def _run(self, scoring, teams, src, pos, replay=None, all_rows=False):
         """Adjusted values at `pos` in `src`, and every allocation the run
         made. With `replay`, each allocation call returns the recorded one
         instead (slots and bench seats held). JEG-1335: a run makes its
@@ -371,6 +382,20 @@ class OnePlayerPerturbationTest(unittest.TestCase):
             vr.allocate, vr.allocation_mix = orig_alloc, orig_mix
         if replay is not None:
             self.assertEqual(len(made), len(replay), "allocation calls changed between runs")
+        if all_rows:
+            return rows, made
+        return {i: (r.get("adjusted") or {}).get(src) for i, r in rows.items() if r["pos"] == pos}, made
+
+    _base_cache: dict = {}
+
+    def _base(self, scoring, teams, src, pos):
+        """The unperturbed run: the same for every player and step at a
+        setting (and waiver rule), so it is made once (JEG-1335: with the seat
+        mix each run is several pipeline runs)."""
+        ck = (scoring, teams, vr._waiver_value)
+        if ck not in self._base_cache:
+            self._base_cache[ck] = self._run(scoring, teams, src, pos, all_rows=True)
+        rows, made = self._base_cache[ck]
         return {i: (r.get("adjusted") or {}).get(src) for i, r in rows.items() if r["pos"] == pos}, made
 
     @staticmethod
@@ -382,7 +407,7 @@ class OnePlayerPerturbationTest(unittest.TestCase):
     def _worst(self, scoring, teams, src, pos, key, delta, hold_slots=True):
         """(worst move of another player, whether the free allocation changed)."""
         field = vr.PPG_FIELD[src]
-        base, base_alloc = self._run(scoring, teams, src, pos)
+        base, base_alloc = self._base(scoring, teams, src, pos)
         rec = self.inp.players[key][field]
         old = rec[scoring]
         rec[scoring] = max(0.0, old + delta)
@@ -394,15 +419,26 @@ class OnePlayerPerturbationTest(unittest.TestCase):
                  if i != key and b is not None and new.get(i) is not None]
         return max(moves, default=0.0), self._slots(new_alloc) != self._slots(base_alloc)
 
+    def _map_worst(self, jobs, hold_slots=True):
+        """_worst over [(scoring, teams, src, pos, key, delta)], in parallel
+        where the platform forks (JEG-1335: each run is one pipeline run per
+        allocation of the seat mix, so the suite is several times slower)."""
+        for j in jobs:
+            self._base(*j[:4])   # once per setting, before the workers fork
+        workers = min(len(jobs), os.cpu_count() or 1)
+        if workers > 1 and "fork" in multiprocessing.get_all_start_methods():
+            with ProcessPoolExecutor(max_workers=workers, mp_context=multiprocessing.get_context("fork")) as ex:
+                return list(ex.map(_worst_job, [(j, hold_slots) for j in jobs]))
+        return [self._worst(*j, hold_slots=hold_slots) for j in jobs]
+
     def test_fringe_player_moves_no_one_more_than_tolerance(self):
         cases = self._cases()
         self.assertGreaterEqual(len(cases), 20, "expected a waiver line at most source/position cells")
         failures = []
-        for scoring, teams, src, pos, key in cases:
-            for delta in (-1.0, 1.0):
-                worst, _ = self._worst(scoring, teams, src, pos, key, delta)
-                if worst > TOLERANCE:
-                    failures.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+        jobs = [(*c, d) for c in cases for d in (-1.0, 1.0)]
+        for (scoring, teams, src, pos, key, delta), (worst, _) in zip(jobs, self._map_worst(jobs)):
+            if worst > TOLERANCE:
+                failures.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
         self.assertEqual(failures, [], "one fringe player repriced the position:\n" + "\n".join(failures))
 
     def test_only_slot_flips_break_the_bar_with_slots_free(self):
@@ -410,23 +446,22 @@ class OnePlayerPerturbationTest(unittest.TestCase):
         perturbation changed the league's slots or bench seats (the separate
         flex-flip ticket), never the waiver line alone."""
         bad = []
-        for scoring, teams, src, pos, key in self._cases():
-            for delta in (-1.0, 1.0):
-                worst, flipped = self._worst(scoring, teams, src, pos, key, delta, hold_slots=False)
-                if worst > TOLERANCE and not flipped:
-                    bad.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
+        jobs = [(*c, d) for c in self._cases() for d in (-1.0, 1.0)]
+        for (scoring, teams, src, pos, key, delta), (worst, flipped) in zip(jobs, self._map_worst(jobs, False)):
+            if worst > TOLERANCE and not flipped:
+                bad.append(f"{scoring}/{teams} {src} {pos} {key} {delta:+}: {worst:.3f}")
         self.assertEqual(bad, [], "over the bar with the slots unchanged:\n" + "\n".join(bad))
 
     def test_band_beats_one_player_rule(self):
         """Mutation check: with the slots held the same way, the one-player
         rule moves some other player further than the band does and fails the
         bar."""
-        cases = self._cases(MUTATION_CELLS)
-        band = max(self._worst(*c, d)[0] for c in cases for d in (-1.0, 1.0))
+        jobs = [(*c, d) for c in self._cases(MUTATION_CELLS) for d in (-1.0, 1.0)]
+        band = max(w for w, _ in self._map_worst(jobs))
         orig = vr._waiver_value
         vr._waiver_value = lambda src, pos, values, n: values[n]
         try:
-            one = max(self._worst(*c, d)[0] for c in cases for d in (-1.0, 1.0))
+            one = max(w for w, _ in self._map_worst(jobs))
         finally:
             vr._waiver_value = orig
         self.assertGreater(one, band)

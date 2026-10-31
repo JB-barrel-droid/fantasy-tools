@@ -434,6 +434,7 @@
     var lo = smin - 50 * gmax - 1, hi = smax + 50 * gmax + 1, tau, tot;
     for (var it = 0; it < VP_SEAT_BISECT; it += 1) {
       tau = 0.5 * (lo + hi);
+      if (tau <= lo || tau >= hi) break;  // the interval can't shrink further
       tot = 0;
       for (i = 0; i < items.length; i += 1) tot += esPhi((+items[i][1] - tau) / (+items[i][2]));
       if (tot > n) lo = tau; else hi = tau;
@@ -622,7 +623,8 @@
   function vpBlend(parts, key) {
     var heavy = parts[0];
     parts.forEach(function (x) { if (x[0] > heavy[0]) heavy = x; });
-    if (key !== undefined && VP_BLEND_HELD[key]) return heavy[1];
+    // "players" is held as a count; a source's per-player records blend.
+    if (key !== undefined && VP_BLEND_HELD[key] && !(key === "players" && vpIsPlainObject(heavy[1]))) return heavy[1];
     // A null beside objects counts as no entry.
     var objs = parts.filter(function (x) { return vpIsPlainObject(x[1]); });
     if (objs.length && parts.every(function (x) {
@@ -2122,13 +2124,103 @@
   // are the weight-average (vpBlend); the allocation, slot fill and fill sets
   // are the heaviest vertex's, and the tiers and ranking are recomputed on
   // the blended values. Mirrors value_reference._blend_runs.
+  // JEG-1335: a source's per-player records after the blend. A player off the
+  // source's work list in one allocation holds 0 there, so his adjusted value
+  // (and display VORP, option and timing values) is the weight-average with 0
+  // for that allocation, as his row's value is, and the source still sums to
+  // the pie. Players on the list only in other allocations rank after the
+  // heaviest allocation's. Each slice is restated at the blended rate,
+  // sum_v w_v * rate_v * slice_v / rate, so rate x slice adds up to the
+  // blended value for each player and group. Twin of
+  // value_reference._blend_source_players.
+  var VP_SLICE_FIELDS = [["benchSlice", "bench"], ["starterSlice", "starter"],
+    ["optionBenchSlice", "bench"], ["optionStarterSlice", "starter"]];
+  var VP_SOURCE_VALUE_FIELDS = ["adjusted", "vorpDisplay", "optionAdjusted", "timingAdjusted"];
+  function vpBlendSourcePlayers(mix, runs, out) {
+    var tot = 0, heavy = 0;
+    mix.forEach(function (v, j) { tot += v[0]; if (v[0] > mix[heavy][0]) heavy = j; });
+    Object.keys(out.sources || {}).forEach(function (src) {
+      var o = out.sources[src], rates = o.rates || {}, players = o.players;
+      var vsrc = runs.map(function (r) { return (r.sources || {})[src] || {}; });
+      // A budget moved to the other role, or unpaid, in some allocations: the
+      // blended amount is the weight-average with 0 where it was not.
+      [["unfundedMoved", ["from", "to"]], ["unfundedGroups", ["group"]]].forEach(function (fk) {
+        var field = fk[0], kf = fk[1];
+        if (!Array.isArray(o[field])) return;
+        var acc = {}, order = [];
+        mix.forEach(function (v, j) {
+          (vsrc[j][field] || []).forEach(function (rec) {
+            var id = kf.map(function (f) { return rec[f]; }).join("\u0000");
+            if (!Object.prototype.hasOwnProperty.call(acc, id)) { acc[id] = { rec: rec, amount: 0 }; order.push(id); }
+            acc[id].amount += v[0] * rec.amount;
+          });
+        });
+        o[field] = order.map(function (id) {
+          var out1 = {};
+          kf.forEach(function (f) { out1[f] = acc[id].rec[f]; });
+          out1.amount = acc[id].amount / tot;
+          return out1;
+        });
+      });
+      if (!vpIsPlainObject(players)) return;
+      // The work order: the heaviest allocation's, then the players on the
+      // list only in other allocations, by their own rank there.
+      var hp = vsrc[heavy].players || {}, byPos = {};
+      Object.keys(players).forEach(function (k) {
+        var pl = players[k];
+        if (vpIsPlainObject(pl) && vpFinite(pl.rank)) (byPos[pl.pos] = byPos[pl.pos] || []).push(k);
+      });
+      Object.keys(byPos).forEach(function (q) {
+        byPos[q].sort(function (a, b) {
+          var ia = Object.prototype.hasOwnProperty.call(hp, a) ? 0 : 1, ib = Object.prototype.hasOwnProperty.call(hp, b) ? 0 : 1;
+          if (ia !== ib) return ia - ib;
+          if (players[a].rank !== players[b].rank) return players[a].rank - players[b].rank;
+          return a < b ? -1 : a > b ? 1 : 0;
+        });
+        byPos[q].forEach(function (k, n) { players[k].rank = n + 1; });
+      });
+      Object.keys(players).forEach(function (k) {
+        var pl = players[k];
+        if (!vpIsPlainObject(pl)) return;
+        var recs = mix.map(function (v, j) {
+          var rs = (runs[j].sources || {})[src] || {};
+          return [v[0], (rs.players || {})[k] || {}, rs.rates || {}];
+        });
+        VP_SOURCE_VALUE_FIELDS.forEach(function (f) {
+          if (!vpFinite(pl[f])) return;
+          var t = 0;
+          recs.forEach(function (x) { t += x[0] * (vpFinite(x[1][f]) ? x[1][f] : 0); });
+          pl[f] = t / tot;
+        });
+        VP_SLICE_FIELDS.forEach(function (fk) {
+          var f = fk[0], g = pl.pos + "|" + fk[1], rate = rates[g];
+          if (!vpFinite(pl[f]) || !vpFinite(rate) || rate === 0) return;
+          var part = 0;
+          recs.forEach(function (x) { if (vpFinite(x[1][f]) && vpFinite(x[2][g])) part += x[0] * x[2][g] * x[1][f]; });
+          pl[f] = part / tot / rate;
+        });
+      });
+    });
+  }
+
   function vpBlendRuns(mix, runs) {
     var parts = mix.map(function (v, j) { return [v[0], runs[j]]; });
     var out = vpBlend(parts);
+    vpBlendSourcePlayers(mix, runs, out);
     var heavy = 0;
     mix.forEach(function (v, j) { if (v[0] > mix[heavy][0]) heavy = j; });
     var alloc = mix[heavy][1];
     var rows = out.rows, rowKeys = Object.keys(runs[heavy].rows);
+    // A row's estimate and reason labels are the heaviest allocation's, so
+    // they agree with each other (a union could say both "estimated" and
+    // "below rosterable depth" for one source).
+    Object.keys(rows).forEach(function (k) {
+      var hr = runs[heavy].rows[k];
+      if (!hr) return;
+      ["estimated", "estimatedPath", "reasons"].forEach(function (f) {
+        if (Object.prototype.hasOwnProperty.call(hr, f)) rows[k][f] = vpIsPlainObject(hr[f]) ? Object.assign({}, hr[f]) : hr[f];
+      });
+    });
     rowKeys.forEach(function (k) { delete rows[k].tier; });
     vpAssignTiers(rows, rowKeys, alloc);
     out.allocation = alloc;

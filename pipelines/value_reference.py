@@ -452,8 +452,14 @@ def blend_values(parts: list, key: str | None = None):
     vertex (the first on a tie). A None beside dicts counts as no entry.
     value-model.js vpBlend is the twin."""
     heavy = max(parts, key=lambda x: x[0])[1]
-    if key in BLEND_HELD:
+    if key in BLEND_HELD and not (key == "players" and isinstance(heavy, dict)):
+        # "players" is held as a count; a source's per-player records blend.
         return heavy
+    first = parts[0][1]
+    if all(v == first for _w, v in parts[1:]):
+        # Equal in every vertex: the blend is that value (a number keeps the
+        # first vertex's, as below; anything else the heaviest's).
+        return first if _finite(first) else heavy
     dicts = [(w, v) for w, v in parts if isinstance(v, dict)]
     if dicts and all(isinstance(v, dict) or v is None for _w, v in parts):
         keys = []
@@ -473,13 +479,85 @@ def blend_values(parts: list, key: str | None = None):
     return heavy
 
 
+SLICE_FIELDS = (("bench_slice", "bench"), ("starter_slice", "starter"),
+                ("option_bench_slice", "bench"), ("option_starter_slice", "starter"))
+SOURCE_VALUE_FIELDS = ("adjusted", "vorp_display", "option_adjusted", "timing_adjusted")
+
+
+def _blend_source_players(mix: list, runs: list, out: dict) -> None:
+    """JEG-1335: a source's per-player records after the blend. A player off
+    the source's work list in one vertex holds 0 there, so his adjusted value
+    (and display VORP, option and timing values) is the weight-average with
+    0 for that vertex, as his row's value is, and the source still sums to
+    the pie. Players on the list only in other vertices rank after the
+    heaviest vertex's. Each slice is restated at the blended rate,
+    sum_v w_v * rate_v * slice_v / rate, so rate x slice adds up to the
+    blended value for each player and group."""
+    tot = sum(w for w, _ in mix)
+    heavy = max(range(len(mix)), key=lambda j: mix[j][0])
+    for key, src in (out.get("sources") or {}).items():
+        vsrc = [((r.get("sources") or {}).get(key) or {}) for r in runs]
+        # A budget moved to the other role (or left unpaid) in some vertices:
+        # the blended amount is the weight-average with 0 where it was not.
+        if "unfunded_moved" in src:
+            moved = {}
+            for (w, _), rs in zip(mix, vsrc):
+                for mv in rs.get("unfunded_moved") or []:
+                    k = (mv["from"], mv["to"])
+                    moved[k] = moved.get(k, 0.0) + w * mv["amount"]
+            src["unfunded_moved"] = [{"from": f, "to": t, "amount": a / tot} for (f, t), a in moved.items()]
+        if "unfunded_groups" in src:
+            src["unfunded_groups"] = list(dict.fromkeys(g for rs in vsrc for g in rs.get("unfunded_groups") or []))
+        rates, players = src.get("rates") or {}, src.get("players")
+        if not isinstance(players, dict):
+            continue
+        # The work order: the heaviest vertex's, then the players on the list
+        # only in other vertices, by their own rank there.
+        hp = vsrc[heavy].get("players") or {}
+        by_pos = {}
+        for i, pl in players.items():
+            if isinstance(pl, dict) and isinstance(pl.get("rank"), int):
+                by_pos.setdefault(pl.get("pos"), []).append(i)
+        for keys in by_pos.values():
+            keys.sort(key=lambda i: (i not in hp, players[i]["rank"], str(i)))
+            for n, i in enumerate(keys, 1):
+                players[i]["rank"] = n
+        for i, pl in players.items():
+            if not isinstance(pl, dict):
+                continue
+            recs = []
+            for (w, _), r in zip(mix, runs):
+                rs = (r.get("sources") or {}).get(key) or {}
+                recs.append((w, (rs.get("players") or {}).get(i) or {}, rs.get("rates") or {}))
+            for field in SOURCE_VALUE_FIELDS:
+                if field in pl and _finite(pl[field]):
+                    pl[field] = sum(w * (v[field] if _finite(v.get(field)) else 0.0) for w, v, _ in recs) / tot
+            for field, kind in SLICE_FIELDS:
+                g = f"{pl.get('pos')}|{kind}"
+                rate = rates.get(g)
+                if field not in pl or not _finite(pl[field]) or not _finite(rate) or rate == 0:
+                    continue
+                part = sum(w * vr[g] * v[field] for w, v, vr in recs if _finite(v.get(field)) and _finite(vr.get(g)))
+                pl[field] = part / tot / rate
+
+
 def _blend_runs(mix: list, runs: list, m: dict) -> dict:
     """One run_pipeline result from the runs at each vertex of `mix`."""
     parts = [(w, r) for (w, _a), r in zip(mix, runs)]
     out = blend_values(parts)
+    _blend_source_players(mix, runs, out)
     heavy = max(range(len(mix)), key=lambda j: mix[j][0])
     alloc = mix[heavy][1]
     rows = out["rows"]
+    # A row's estimate and reason labels are the heaviest vertex's, so they
+    # agree with each other (a union could say both "estimated" and "below
+    # rosterable depth" for one source).
+    for i, r in rows.items():
+        hr = runs[heavy]["rows"].get(i)
+        if hr is not None:
+            for f in ("estimated", "reasons"):
+                if f in hr:
+                    r[f] = dict(hr[f]) if isinstance(hr[f], dict) else hr[f]
     for r in rows.values():
         r.pop("ddf_tier", None)
     _tiers(rows, alloc, m)

@@ -30,6 +30,9 @@ below are history, including any "Codex reviews and merges" line.
   worked example fixture is pinned to `seat_sigma: 0`; its new `variant_fractional_seats` block pins 0.75.
 - Value change: merge needs Jeremy's OK by PR number after the before/after (JEG-1333's table is this build's:
   the reference reproduces the prototype exactly); deploying get-values and mcp needs a separate yes.
+- Review fix (2026-10-31): each source's per-player records now blend too (0 where a player is off the work list,
+  slices restated at the blended rate, moved/unpaid budgets blended), so the page's fixed-pie guard holds; before,
+  it threw and CI's settings render timed out. `test_fractional_seats_pie` (test-unit-modules) covers it.
 - Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
   values-explainer) run in CI or on the Mac.
 

@@ -289,7 +289,15 @@ chart DDF Value").
      rest renormalized). The pipeline runs once per allocation and every
      number is weight-averaged; counts and labels come from the heaviest
      allocation, and tiers and the default ranking are recomputed on the
-     blended values. The output carries `allocation_mix` (weight, allocation)
+     blended values. A row's estimate and reason labels are the heaviest
+     allocation's. Each source's per-player records keep its pie: a player
+     off the source's work list in one allocation counts 0 there, each
+     slice is restated at the blended rate (Σ w·rate·slice / blended rate,
+     so rate × slice is the player's value), a budget moved to the other
+     role or unpaid in some allocations is the weight-average with 0 where it
+     was not, and the work order is the heaviest allocation's with the
+     players listed only in others after it (`tests/test_fractional_seats_pie.py`).
+     The output carries `allocation_mix` (weight, allocation)
      and `allocation_expected` (the weighted counts); `allocation`,
      `slot_fill` and the fill sets are the heaviest allocation's. The
      degenerate week (f) keeps the hard rule. Effect: a 1 PPG change in one
