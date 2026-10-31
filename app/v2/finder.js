@@ -861,7 +861,7 @@
     const usServing = us;
     const fillsNeed = us.toward || them.toward;
     return {label, variant, qualifier, us, usProj, usServing, usOther, them, themOther, fillsNeed, projected,
-      constructionOk, myConstruction, theirConstruction, yourValueOk, marketSupported, natural};
+      constructionOk, myConstruction, theirConstruction, yourValueOk, theirOk, marketSupported, natural};
   }
   const fitFmt = n => (Math.abs(n) < 0.05 ? "0.0" : (n > 0 ? "+" : "−") + Math.abs(n).toFixed(1));
   const VIEW_NAME = {ddf_value: "DDF Value", chart_avg: "the trade chart average", ddf_value_projections: "DDF Value (projections)"};
