@@ -375,6 +375,27 @@ def check_settings(browser, base, overrides, errors):
         errors.append("[settings] a settings change lost a team, a name, a roster or my team")
     if "Reprocessing 4 teams" not in page.inner_text("#v2LgLive") and "Reprocessing 4 teams" not in page.inner_text("#v2LgNotice"):
         errors.append("[settings] the reprocess is not announced")
+    # JEG-1424: three scorings give three different top gains, and going back to Full PPR restores the first result exactly.
+    def top_gains():
+        return [(r["id"], r["capture"]) for r in page.evaluate(OPP_ROWS)][:3]
+
+    def switch(scoring):
+        page.click("#v2EditLeague")
+        page.click(f'#v2Popover [aria-label="Scoring"] button[data-value="{scoring}"]')
+        page.wait_for_timeout(900)
+        page.click('#v2Popover [data-done="league"]')
+        page.wait_for_function("() => document.getElementById('v2LgNotice').textContent.includes('League settings updated')", timeout=10000)
+        wait_opps(page)
+        return top_gains()
+
+    first_full = [(r["id"], r["capture"]) for r in before_opp][:3]
+    gains = {"Standard": top_gains(), "Half PPR": switch("half_ppr")}
+    gains["Full PPR"] = switch("ppr")
+    for a, b in (("Standard", "Half PPR"), ("Standard", "Full PPR"), ("Half PPR", "Full PPR")):
+        if gains[a] == gains[b]:
+            errors.append(f"[settings] the top gains are the same under {a} and {b} scoring: {gains[a]}")
+    if gains["Full PPR"] != first_full:
+        errors.append(f"[settings] back on Full PPR the top gains are {gains['Full PPR']}, not the first Full PPR result {first_full}")
     page.context.close()
 
 
