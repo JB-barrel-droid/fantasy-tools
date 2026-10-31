@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import re
 import unittest
+import sys
 from pathlib import Path
 
 from tests import _render_env
@@ -29,7 +30,12 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 JS = ROOT / "app" / "v2" / "v2.js"
 PHONES = ((320, 568), (360, 740), (390, 844), (844, 390))
 WIDE = ((768, 1024), (1366, 768))
-LABELS = ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", "Research", "Manifesto", "Customize", "Overrides"]
+sys.path.insert(0, str(ROOT / "pipelines"))
+import build_v2_page  # noqa: E402
+
+# JEG-1371: the Research entry is in the menu only once a post is published.
+RESEARCH = ["Research"] if build_v2_page.load_posts() else []
+LABELS = ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", *RESEARCH, "Manifesto", "Customize", "Overrides"]
 
 
 def setUpModule():
