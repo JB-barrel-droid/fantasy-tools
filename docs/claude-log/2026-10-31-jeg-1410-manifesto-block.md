@@ -13,3 +13,13 @@ Contract: Keep Jeremy’s Manifesto unchanged and add a short draft mapping bloc
 - Jeremy has not approved this draft copy. No production check, merge or deploy performed.
 - The saved-team failure was not independently reproduced on untouched main. It is outside the changed Manifesto section.
 - Draft PR #1253 was created and the branch pushed; final copy approval and a green full gate remain.
+
+## Extra merge-window correction (Codex, 2026-10-31)
+
+### Verified (check named)
+- Applied the existing JEG-1410 finding: the unbuilt feature is a goal that switches between making the playoffs and winning them as team chances change. The current playoff-weeks/optimize settings are not denied.
+- `python3 -m unittest tests.test_jeg1410_manifesto_copy`: 1 test passed; the Manifesto article retains its pinned SHA-256 and the separate block remains below it.
+- `git diff --check` passed. Only the added block sentence and this log changed.
+
+### Claimed, not confirmed
+- Jeremy's final copy approval remains outstanding. Full exact-head CI and independent review remain required. No heavy local suite or production action ran.
