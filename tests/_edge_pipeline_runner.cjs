@@ -11,6 +11,14 @@
 //     --scoring ppr --teams 12 --superflex 0 --dist dist/
 //     [--bench 6] [--league '<normalized DDF league JSON>'] [--week 8]
 //     [--history-index <index.json in place of dist's>] [--with-week 1]
+//     [--basis <basis= text>] [--ov <ov= text>]
+//   JEG-1225: --basis and --ov are a share link's value context, read by app/v2/ddf-value-link.js and applied by
+//   supabase/functions/get-values/value-context.ts, the modules the deployed function uses. The values are then DDF
+//   Value after the overrides, and --with-week 1 adds `value_context` (the basis and the overrides applied).
+//     [--include series,prior,audit]   (JEG-1029: adds get-values' analysis blocks, analysis.ts)
+//     [--mutate two-weeks-back]        (test only: a deliberately broken prior week)
+//     [--drop-entry 7:fantasycalc]     (test only: that week's saved entry for that source is absent)
+//     [--dump-natives fantasycalc]     (test only: print that source's natives in the input, JEG-1365)
 //   Needs `node --experimental-strip-types` (it loads the edge function's .ts modules).
 
 "use strict";
@@ -27,7 +35,18 @@ for (let i = 2; i < process.argv.length; i += 2) {
 // (supabase/functions/get-values/league.ts), so the parity test exercises the shipped mapping.
 const { mapLeague } = require("../supabase/functions/get-values/league.ts");
 // JEG-1179: source eligibility and the week view come from the function's own pipeline.ts.
-const { buildPipelineInput, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+const { buildPipelineInput, excludedSources, parseWeek, planWeek, todayIso } = require("../supabase/functions/get-values/pipeline.ts");
+// JEG-1225: the caller's basis and overrides, through the function's own value-context.ts and the site's link reader.
+const { applyOverrides, basisConfigOf, overrideSeries, readValueContext } = require("../supabase/functions/get-values/value-context.ts");
+const ValueLink = require("../app/v2/ddf-value-link.js");
+const read = readValueContext(ValueLink, args.basis ?? null, args.ov ?? null);
+if (!read.ok) {
+  process.stderr.write(read.error + "\n");
+  process.exit(1);
+}
+const context = read.context;
+// JEG-1029: the opt-in analysis blocks come from the function's own analysis.ts.
+const { auditBlock, parseIncludes, priorBlock, seriesBlock } = require("../supabase/functions/get-values/analysis.ts");
 const leagueArg = args.league ? JSON.parse(args.league) : null;
 const legacyLeague = { scoring: args.scoring || "ppr", teams: Number(args.teams) || 12,
   ...(Number(args.superflex) ? { roster: { SUPERFLEX: 1 } } : {}) };
@@ -72,8 +91,15 @@ try {
       // A week the build did not publish stays unloaded, as a failed fetch does in the function.
     }
   }
+  // --drop-entry WEEK:SOURCE: the history saved no entry for SOURCE in WEEK (JEG-1029's unpaired prior week).
+  if (args["drop-entry"]) {
+    const [week, key] = args["drop-entry"].split(":");
+    if (!docs[week]?.sources?.[key]) throw new Error(`--drop-entry: no Week ${week} ${key} entry to drop`);
+    delete docs[week].sources[key];
+  }
   history = { index, docs };
 } catch (e) {
+  if (args["drop-entry"]) throw e;
   // No week history: the calendar rule applies, as on the page.
 }
 
@@ -107,21 +133,58 @@ if (!plan.ok) {
 }
 const built = buildPipelineInput(bundle, mapped, plan);
 
+// JEG-1365: --dump-natives KEY prints the natives the function's own input carries for one source
+// (a chart's 1-QB list, overlaid with its superflex / 2-QB list where the setting uses it) and stops.
+if (args["dump-natives"]) {
+  process.stdout.write(JSON.stringify(built.sources[args["dump-natives"]]?.values ?? null));
+  process.exit(0);
+}
+
 // --bench overrides bench_per_team (the negative test's deliberately wrong value).
 const setting = { ...built.setting };
 if (benchOverride !== null) setting.bench_per_team = benchOverride;
-const input = { ...built, setting };
+const input = { ...built, setting, basisConfig: basisConfigOf(context) };
 
 // --- Run pipeline -----------------------------------------------------------
 const pipeline = ValueModel.runValuePipeline(input);
 
-// --- Output DDF blended values ----------------------------------------------
+// --- Output DDF blended values (after the caller's overrides) -----------------
+const own = applyOverrides(ValueModel, pipeline, context);
 const output = {};
-for (const [pk, row] of Object.entries(pipeline.rows || {})) {
-  const blended = row.ddfByVersion && row.ddfByVersion.blended && row.ddfByVersion.blended.value;
-  if (typeof blended === "number" && Number.isFinite(blended)) {
-    output[pk] = blended;
+for (const [pk, { value }] of Object.entries(own.values)) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    output[pk] = value;
   }
 }
 
-process.stdout.write(JSON.stringify(args["with-week"] ? { values: output, week: built.week } : output));
+const valueContext = {
+  basis: context.basis, basis_applied: context.basis ? Boolean(pipeline.basis && pipeline.basis.applied) : true,
+  overrides_applied: own.applied.length, overrides_not_priced: own.not_priced.map(Number),
+};
+// JEG-1029: --include adds the analysis blocks the function adds (series, prior, audit).
+const parsedInclude = parseIncludes(args.include);
+if (parsedInclude.error) {
+  process.stderr.write(parsedInclude.error + "\n");
+  process.exit(1);
+}
+const analysis = {};
+const includes = parsedInclude.includes;
+if (includes.has("series")) analysis.series = overrideSeries(seriesBlock(pipeline, input.hidden || []), own);
+// --mutate two-weeks-back (tests/test_connector_analyses.py's broken variant): the "prior week" priced on
+// Week N-2's inputs but labelled Week N-1, so the parity check must fail on the values, not the label.
+if (includes.has("prior")) {
+  if (args.mutate === "two-weeks-back") {
+    const prior = priorBlock(bundle, input, pipeline, plan.week - 1, plan.served || {}, mapped.scoring);
+    analysis.prior = { ...prior, current_week: plan.week, prior_week: plan.week - 1 };
+  } else {
+    analysis.prior = priorBlock(bundle, input, pipeline, plan.week, plan.served || {}, mapped.scoring);
+  }
+}
+if (includes.has("audit")) {
+  const excluded = excludedSources(pipeline, input);
+  analysis.audit = auditBlock(bundle, pipeline, excluded);
+}
+const withWeek = args["with-week"] || includes.size;
+process.stdout.write(JSON.stringify(withWeek
+  ? { values: output, week: built.week, ...(args["with-week"] ? { value_context: valueContext } : {}), ...analysis }
+  : output));

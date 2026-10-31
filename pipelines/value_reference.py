@@ -48,10 +48,16 @@ from lib.roster_convention import (
     bench_seats as _convention_bench_seats,
     starter_line as _convention_starter_line,
     waiver_line as _convention_waiver_line,
+    waiver_band_line as _convention_waiver_band_line,
     market_bench_ratios as _convention_market_bench_ratios,
     vorp_bench_allocate as _vorp_bench_allocate,
+    vorp_bench_discount as _vorp_bench_discount,
+    league_depth as _league_depth,
+    market_order as _market_order,
+    replacement_waiver_index as _replacement_waiver_index,
     POSITIONS as _CONV_POSITIONS,
 )
+from lib import fractional_seats as _FS  # noqa: E402  (JEG-1335: fractional flex and bench seats)
 from nfl_week import today_ny  # noqa: E402  (JEG-1177: one New York-time calendar)
 from week_state import week_state as _week_state  # noqa: E402  (JEG-1177: shared defaultWeek rule)
 
@@ -163,6 +169,13 @@ def roster(superflex: int = 0) -> dict:
     return {**DEFAULT_ROSTER, "SUPERFLEX": int(superflex)}
 
 
+def uses_superflex_values(shape: dict) -> bool:
+    """A chart's superflex / 2-QB values (native_superflex) price the league
+    when it has a superflex slot or starts 2+ dedicated QBs (JEG-1365, Jeremy
+    2026-10-29, audit decision 9 A: a 2QB league uses superflex values)."""
+    return int(shape.get("SUPERFLEX", 0) or 0) >= 1 or int(shape.get("QB", 1) or 0) >= 2
+
+
 CONTENT_WEEK_SETTINGS = [
     # JEG-527: content-week case — a non-default content week with the regular-season objective.
     {"scoring": "ppr", "teams": 12, "superflex": 0,
@@ -241,6 +254,15 @@ class League:
     flex_eligible: tuple = FLEX_ELIGIBLE
     position_shares: dict | None = None   # reader position shares (VP-4.4)
     bench_share_override: float | None = None   # ES-14: the reader's override, off by default
+    # JEG-1188: a loaded league's rostered keys and the bench level ("ddf" =
+    # his value, best free agent as replacement; "market" = the league's
+    # rostered depth, for the other side). None = no league.
+    league_rostered: tuple | None = None
+    bench_level: str = "ddf"
+    league_reserve: tuple = ()   # JEG-1188: keys in IR or taxi slots
+    # JEG-1335: projection noise of the fractional flex and bench seats, in
+    # mean points per game. None = SEAT_SIGMA; 0 = the hard cutoffs.
+    seat_sigma: float | None = None
 
     @property
     def starting_slots(self) -> int:
@@ -284,7 +306,8 @@ def bench_seats(league: League, *, flex_filled: dict | None = None) -> dict:
 
 
 def allocate(league: League, order: dict, score: dict, *,
-             flex_bench_seats: bool = True) -> dict:
+             flex_bench_seats: bool = True, flex_counts: dict | None = None,
+             bench_counts: dict | None = None) -> dict:
     """VP-2.2 a-e on per-position orders (best first) and a score per
     player (mean points per game, or a source's own natives in the
     degenerate week, or blended DDF Value for VP-7.2's degenerate slot fill).
@@ -296,7 +319,12 @@ def allocate(league: League, order: dict, score: dict, *,
     Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):
     market_bench 2-QB data (bps 0.28) already reflects supply-capped QB
     benches from FFC draft data; applying flex_bench_seats on top
-    double-counts the effect and inverts the 2-QB direction gate."""
+    double-counts the effect and inverts the 2-QB direction gate.
+
+    flex_counts, bench_counts (JEG-1335): one vertex of allocation_mix. The
+    flex seats by position (of the held players in a loaded league's market
+    level) and, with no league loaded, the bench seats, in place of the hard
+    cutoffs. None = today's hard rule."""
     t = int(league.teams)
     d = {p: t * int(league.slots.get(p, 0)) for p in POSITIONS}
 
@@ -307,12 +335,36 @@ def allocate(league: League, order: dict, score: dict, *,
             got[p] += 1
         return got
 
-    sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(order.get(p, [])) if idx >= d[p]],
-              t * int(league.superflex))
-    fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
-               for idx, i in enumerate(order.get(p, [])) if idx >= d[p] + sf[p]],
-              t * int(league.flex))
-    if flex_bench_seats:
+    def fill(o, d, fixed=None):
+        sf = take([(p, i) for p in POSITIONS for idx, i in enumerate(o.get(p, [])) if idx >= d[p]],
+                  t * int(league.superflex))
+        if fixed is not None:
+            return sf, {p: int(fixed.get(p, 0)) for p in POSITIONS}
+        fx = take([(p, i) for p in POSITIONS if p in league.flex_eligible
+                   for idx, i in enumerate(o.get(p, [])) if idx >= d[p] + sf[p]],
+                  t * int(league.flex))
+        return sf, fx
+
+    market = league.league_rostered is not None and league.bench_level == "market"
+    sf, fx = fill(order, d, None if market else flex_counts)
+    depth = None
+    if league.league_rostered is not None:
+        # JEG-1188: a loaded league sets the bench and the replacement line
+        # from its own rosters.
+        modeled = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
+        if league.bench_level == "market":
+            # JEG-1249: market starters come from held players only.
+            held = _market_order(order, league.league_rostered, league.league_reserve)
+            d = {p: min(d[p], len(held.get(p, []))) for p in POSITIONS}
+            sf, fx = fill(held, d, flex_counts)
+        depth = _league_depth({p: d[p] + sf[p] + fx[p] for p in POSITIONS}, order,
+                              league.league_rostered, league.bench_level, league.league_reserve)
+        for p in POSITIONS:
+            depth[p]["modeled_starters"] = modeled[p]
+        b = {p: depth[p]["bench"] for p in POSITIONS}
+    elif bench_counts is not None:
+        b = {p: int(bench_counts.get(p, 0)) for p in POSITIONS}
+    elif flex_bench_seats:
         # JEG-1121 VORP: bench fills by VORP × usage discount.
         _starters = {p: d[p] + sf[p] + fx[p] for p in POSITIONS}
         _remaining = {p: order.get(p, [])[_starters[p]:] for p in POSITIONS}
@@ -336,6 +388,218 @@ def allocate(league: League, order: dict, score: dict, *,
         s = d[p] + sf[p] + fx[p]
         out[p] = {"dedicated": d[p], "superflex": sf[p], "flex": fx[p], "bench": b[p],
                   "starters": s, "rostered": s + b[p]}
+        if depth is not None:
+            out[p].update({k: depth[p][k] for k in ("replacement", "replacement_key", "held", "reserve",
+                                                    "bench_basis", "modeled_starters")})
+    return out
+
+
+# JEG-1335 (JEG-1333 option B; Jeremy, 2026-10-29 "Go with B", 2026-10-30
+# "Letter A"): flex seats, and with no league loaded the bench seats too, are
+# shared by the players near the cutoff instead of handed whole to whoever
+# ranks above it. sigma is the projection noise in mean points per game.
+SEAT_SIGMA = 0.75
+
+
+def allocation_mix(league: League, order: dict, score: dict, *,
+                   flex_bench_seats: bool = True, sigma: float | None = None) -> list:
+    """VP-2.2 with fractional seats: [(weight, allocation)], weights summing
+    to 1, each allocation the shape of allocate()'s (pipelines/lib/
+    fractional_seats.py builds the mix). Flex is fractional everywhere. The
+    bench is fractional only with no league loaded and the VORP bench rule;
+    a loaded league's bench comes from its rosters (JEG-1188) and the D'Hondt
+    bench from the flex split, per vertex. Superflex keeps the hard rule.
+    sigma = 0 is [(1, allocate(...))], today's allocation; None = the
+    league's seat_sigma, else SEAT_SIGMA."""
+    if sigma is None:
+        sigma = league.seat_sigma
+    sigma = SEAT_SIGMA if sigma is None else float(sigma)
+    base = allocate(league, order, score, flex_bench_seats=flex_bench_seats)
+    if sigma <= 0:
+        return [(1.0, base)]
+    t = int(league.teams)
+    o = order
+    if league.league_rostered is not None and league.bench_level == "market":
+        o = _market_order(order, league.league_rostered, league.league_reserve)
+    soft_bench = league.league_rostered is None and flex_bench_seats
+    mix = _FS.allocation_mix(
+        teams=t, dedicated={p: base[p]["dedicated"] for p in POSITIONS},
+        superflex={p: base[p]["superflex"] for p in POSITIONS},
+        flex_eligible=tuple(league.flex_eligible), flex_seats=t * int(league.flex),
+        bench_seats=t * int(league.bench), order=o, score=score, sigma=sigma,
+        bench_discount=_vorp_bench_discount, positions=POSITIONS, soft_bench=soft_bench)
+    return [(w, allocate(league, order, score, flex_bench_seats=flex_bench_seats,
+                         flex_counts={p: a[p]["flex"] for p in POSITIONS},
+                         bench_counts={p: a[p]["bench"] for p in POSITIONS} if soft_bench else None))
+            for w, a in mix]
+
+
+# Counts and indexes in a pipeline result: a blend of vertices takes them
+# from the heaviest vertex instead of averaging (JEG-1335).
+BLEND_HELD = frozenset({
+    "dedicated", "superflex", "flex", "bench", "starters", "rostered", "modeled_starters",
+    "replacement", "held", "reserve", "listed", "rank", "players", "band", "shared_players",
+    "count", "prior_count", "setting",
+})
+
+
+def blend_values(parts: list, key: str | None = None):
+    """Weight-average a list of (weight, value) from the vertices' runs
+    (JEG-1335). Dicts blend key by key over the vertices that hold the key;
+    numbers average over the vertices where they are a number (weights
+    renormalized; the one value when they all agree), None when none is;
+    everything else, and the counts in BLEND_HELD, comes from the heaviest
+    vertex (the first on a tie). A None beside dicts counts as no entry.
+    value-model.js vpBlend is the twin."""
+    heavy = max(parts, key=lambda x: x[0])[1]
+    if key in BLEND_HELD and not (key == "players" and isinstance(heavy, dict)):
+        # "players" is held as a count; a source's per-player records blend.
+        return heavy
+    first = parts[0][1]
+    if all(v == first for _w, v in parts[1:]):
+        # Equal in every vertex: the blend is that value (a number keeps the
+        # first vertex's, as below; anything else the heaviest's).
+        return first if _finite(first) else heavy
+    dicts = [(w, v) for w, v in parts if isinstance(v, dict)]
+    if dicts and all(isinstance(v, dict) or v is None for _w, v in parts):
+        keys = []
+        seen = set()
+        for _w, v in dicts:
+            for k in v:
+                if k not in seen:
+                    seen.add(k)
+                    keys.append(k)
+        return {k: blend_values([(w, v[k]) for w, v in dicts if k in v], k) for k in keys}
+    nums = [(w, v) for w, v in parts if _finite(v)]
+    if nums and all(_finite(v) or v is None for _w, v in parts):
+        if all(v == nums[0][1] for _w, v in nums):
+            return nums[0][1]
+        tot = sum(w for w, _v in nums)
+        return sum(w * float(v) for w, v in nums) / tot
+    return heavy
+
+
+SLICE_FIELDS = (("bench_slice", "bench"), ("starter_slice", "starter"),
+                ("option_bench_slice", "bench"), ("option_starter_slice", "starter"))
+SOURCE_VALUE_FIELDS = ("adjusted", "vorp_display", "option_adjusted", "timing_adjusted")
+
+
+def _blend_source_players(mix: list, runs: list, out: dict) -> None:
+    """JEG-1335: a source's per-player records after the blend. A player off
+    the source's work list in one vertex holds 0 there, so his adjusted value
+    (and display VORP, option and timing values) is the weight-average with
+    0 for that vertex, as his row's value is, and the source still sums to
+    the pie. Players on the list only in other vertices rank after the
+    heaviest vertex's. Each slice is restated at the blended rate,
+    sum_v w_v * rate_v * slice_v / rate, so rate x slice adds up to the
+    blended value for each player and group."""
+    tot = sum(w for w, _ in mix)
+    heavy = max(range(len(mix)), key=lambda j: mix[j][0])
+    for key, src in (out.get("sources") or {}).items():
+        vsrc = [((r.get("sources") or {}).get(key) or {}) for r in runs]
+        # A budget moved to the other role (or left unpaid) in some vertices:
+        # the blended amount is the weight-average with 0 where it was not.
+        if "unfunded_moved" in src:
+            moved = {}
+            for (w, _), rs in zip(mix, vsrc):
+                for mv in rs.get("unfunded_moved") or []:
+                    k = (mv["from"], mv["to"])
+                    moved[k] = moved.get(k, 0.0) + w * mv["amount"]
+            src["unfunded_moved"] = [{"from": f, "to": t, "amount": a / tot} for (f, t), a in moved.items()]
+        if "unfunded_groups" in src:
+            src["unfunded_groups"] = list(dict.fromkeys(g for rs in vsrc for g in rs.get("unfunded_groups") or []))
+        rates, players = src.get("rates") or {}, src.get("players")
+        if not isinstance(players, dict):
+            continue
+        # The work order: the heaviest vertex's, then the players on the list
+        # only in other vertices, by their own rank there.
+        hp = vsrc[heavy].get("players") or {}
+        by_pos = {}
+        for i, pl in players.items():
+            if isinstance(pl, dict) and isinstance(pl.get("rank"), int):
+                by_pos.setdefault(pl.get("pos"), []).append(i)
+        for keys in by_pos.values():
+            keys.sort(key=lambda i: (i not in hp, players[i]["rank"], str(i)))
+            for n, i in enumerate(keys, 1):
+                players[i]["rank"] = n
+        for i, pl in players.items():
+            if not isinstance(pl, dict):
+                continue
+            recs = []
+            for (w, _), r in zip(mix, runs):
+                rs = (r.get("sources") or {}).get(key) or {}
+                recs.append((w, (rs.get("players") or {}).get(i) or {}, rs.get("rates") or {}))
+            for field in SOURCE_VALUE_FIELDS:
+                if field in pl and _finite(pl[field]):
+                    pl[field] = sum(w * (v[field] if _finite(v.get(field)) else 0.0) for w, v, _ in recs) / tot
+            for field, kind in SLICE_FIELDS:
+                g = f"{pl.get('pos')}|{kind}"
+                rate = rates.get(g)
+                if field not in pl or not _finite(pl[field]) or not _finite(rate) or rate == 0:
+                    continue
+                part = sum(w * vr[g] * v[field] for w, v, vr in recs if _finite(v.get(field)) and _finite(vr.get(g)))
+                pl[field] = part / tot / rate
+            # Value above waivers is restated at the blended display factor,
+            # so vorp x factor is the blended display VORP, as for one run.
+            f = src.get("vorp_display_factor")
+            if _finite(pl.get("vorp")) and _finite(pl.get("vorp_display")) and _finite(f) and f > 0:
+                pl["vorp"] = pl["vorp_display"] / f
+
+
+def _reindex_blended(out: dict) -> None:
+    """JEG-1335: Indexed stays one factor per chart under the seat mix (VP-6.4,
+    JEG-482): the factor is the weight-average of the vertices' factors, and
+    every player the blended chart prices is his native times it. A player
+    priced in only some vertices would otherwise carry a part value there and
+    could sit below a player the chart ranks lower."""
+    for key, ix in (out.get("indexed") or {}).items():
+        f = ix.get("factor")
+        players = ((out.get("sources") or {}).get(key) or {}).get("players")
+        if f is None or not isinstance(players, dict):
+            continue
+        for i, pl in players.items():
+            if i in out["rows"]:
+                v = pl["native"] * f
+                out["rows"][i]["indexed"][key] = v
+                if isinstance(ix.get("values"), dict):
+                    ix["values"][i] = v
+
+
+def _blend_runs(mix: list, runs: list, m: dict) -> dict:
+    """One run_pipeline result from the runs at each vertex of `mix`."""
+    parts = [(w, r) for (w, _a), r in zip(mix, runs)]
+    out = blend_values(parts)
+    _blend_source_players(mix, runs, out)
+    _reindex_blended(out)
+    heavy = max(range(len(mix)), key=lambda j: mix[j][0])
+    alloc = mix[heavy][1]
+    rows = out["rows"]
+    # A row's estimate and reason labels are the heaviest vertex's, so they
+    # agree with each other (a union could say both "estimated" and "below
+    # rosterable depth" for one source).
+    for i, r in rows.items():
+        hr = runs[heavy]["rows"].get(i)
+        if hr is not None:
+            for f in ("estimated", "reasons"):
+                if f in hr:
+                    r[f] = dict(hr[f]) if isinstance(hr[f], dict) else hr[f]
+    for r in rows.values():
+        r.pop("ddf_tier", None)
+    _tiers(rows, alloc, m)
+    _player_tags(rows)
+    out["allocation"] = alloc
+    out["slot_fill"] = alloc
+    # The blended imputation ratios are the union over the vertices, so a
+    # position is extended when any vertex estimated a player there.
+    for src in (out.get("sources") or {}).values():
+        for info in (src.get("positions") or {}).values():
+            if isinstance(info, dict) and "extended" in info:
+                info["extended"] = bool(info.get("imputation_ratios"))
+    out["fill_sets"] = runs[heavy]["fill_sets"]
+    out["allocation_mix"] = [{"weight": w, "allocation": a} for w, a in mix]
+    out["allocation_expected"] = _FS.expected_counts(mix, POSITIONS)
+    out["default_ranking"] = sorted(rows, key=lambda i: (rows[i]["ddf"]["blended"]["value"] is None,
+                                                         -(rows[i]["ddf"]["blended"]["value"] or 0.0), i))
     return out
 
 
@@ -678,11 +942,23 @@ def _apply_promotion_model(parts: dict, xs: list, starters: int, teams: int,
 # VP-2 .. VP-5 for one source
 # ---------------------------------------------------------------------------
 
+def _waiver_value(src: SourceInput, pos: str, values: list, n_rost: int) -> float:
+    """VP-2.5 waiver line when the work list runs past the rostered count. A
+    chart: the first non-rostered player. A projection: the 7-player band
+    around that seat (JEG-1047, Jeremy 2026-10-29), so one fringe player's
+    projection does not reprice the position."""
+    if src.family == "projection":
+        return _convention_waiver_band_line(values, n_rost)
+    return values[n_rost]
+
+
 def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
-                  es: dict | None = None, promotion: dict | None = None) -> dict:
+                  es: dict | None = None, promotion: dict | None = None,
+                  league_rostered=None) -> dict:
     """VP-2.3, 2.5, 2.6 and VP-3.1: work lists, waiver and starter lines,
     slices (or, with `es` = {teams, lineup, chart_sigma}, the ES-5 parts)
-    and the 8 group totals."""
+    and the 8 group totals. league_rostered: a loaded league's held keys
+    (JEG-1249), for the ddf level's waiver by player identity."""
     positions, players = {}, {}
     groups = {g: 0.0 for g in GROUPS}
     surplus = 0.0
@@ -692,11 +968,18 @@ def _source_lines(src: SourceInput, pos_of: dict, alloc: dict, estimates: dict,
         est = [(i, e["value"], True) for i, e in (estimates.get(p) or {}).items()]
         work = sorted(listed + est, key=lambda r: (-r[1], r[2], r[0]))
         n_rost, n_start = a["rostered"], a["starters"]
+        n_line = a.get("replacement", n_rost)   # JEG-1188: may sit inside the starters
+        if a.get("bench_basis") == "above_replacement":
+            # JEG-1249: the replacement player's own row in this source.
+            n_line = _replacement_waiver_index([r[0] for r in work], a["replacement_key"], league_rostered)
+            if n_line is None:
+                n_line = len(work)
         info = {**a, "listed": len(listed), "extended": bool(est),
                 "imputation_ratios": dict(estimates.get(p) or {}) or None}
-        if len(work) > n_rost:
-            w = work[n_rost][1]
-            method = "estimated" if work[n_rost][2] else "roster_determined"
+        if len(work) > n_line:
+            # JEG-1047 / JEG-1249: the band (projection) or the one player (chart) at the line row.
+            w = _waiver_value(src, p, [r[1] for r in work], n_line)
+            method = "estimated" if work[n_line][2] else "roster_determined"
         elif work:
             w = work[-1][1]
             method = "insufficient_coverage"
@@ -853,7 +1136,9 @@ def _price(detail: dict, budgets: dict, pie: float, timing_factor: float = 1.0) 
                 if g[ok] > 0:
                     b2[ok] += budgets[gk]
                     b2[gk] = 0.0
-                    moved.append(gk)
+                    # Same record as the engine's unfundedMoved (JEG-1047: the
+                    # worked example now pins one).
+                    moved.append({"from": gk, "to": ok, "amount": budgets[gk]})
                 else:
                     unpaid.append(gk)
     rates = {k: (b2[k] / g[k] if g[k] > 0 else 0.0) for k in GROUPS}
@@ -903,8 +1188,13 @@ def mean_ppg(sources: dict, included: list) -> dict:
 def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                  selection: list | None = None, lineup: dict | None = None,
                  hidden: set | None = None, promotion_model: bool = True,
-                 flex_bench_seats: bool = True, basis: dict | None = None) -> dict:
+                 flex_bench_seats: bool = True, basis: dict | None = None,
+                 allocation: dict | None = None, seat_sigma: float | None = None) -> dict:
     """VP-1.3 .. VP-7 at one setting and week.
+
+    allocation: one vertex of allocation_mix to run at (JEG-1335). None =
+    build the mix at seat_sigma (None = SEAT_SIGMA), run each vertex and blend the runs; a mix of
+    one vertex runs once, as before. The degenerate week keeps VP-2.2f.
 
     basis: JEG-1044, the reader's value basis ({"mode": "single"|"blend", ...});
     None or mode "default" = equal-weight projections. Only the blended DDF
@@ -922,8 +1212,15 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
     degenerate = not any(sources[k].family == "projection" for k in inc)
     order_m = {p: sorted((i for i in m if pos_of[i] == p), key=lambda i: (-m[i], i)) for p in POSITIONS}
 
-    alloc = None if degenerate else allocate(league, order_m, m,
-                                              flex_bench_seats=flex_bench_seats)
+    if not degenerate and allocation is None:
+        mix = allocation_mix(league, order_m, m, flex_bench_seats=flex_bench_seats, sigma=seat_sigma)
+        if len(mix) > 1:
+            runs = [run_pipeline(league, sources, pos_of, included, selection, lineup, hidden,
+                                 promotion_model, flex_bench_seats, basis, allocation=a)
+                    for _w, a in mix]
+            return _blend_runs(mix, runs, m)
+        allocation = mix[0][1]
+    alloc = None if degenerate else allocation
     fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}
     chart_peers = [sources[k] for k in inc if sources[k].family == "chart"]
     es = None
@@ -968,7 +1265,7 @@ def run_pipeline(league: League, sources: dict, pos_of: dict, included: list,
                         est[i] = _estimate(src, i, own_order[p], peers, m)
                 if est:
                     estimates[p] = est
-        d = _source_lines(src, pos_of, s_alloc, estimates, es, promo)
+        d = _source_lines(src, pos_of, s_alloc, estimates, es, promo, league.league_rostered)
         d.update(_mixes(d["groups"], share_in))
         d.update({"family": src.family, "status": "included" if key in inc else "excluded",
                   "allocation": s_alloc})
@@ -1578,8 +1875,12 @@ class Setting:
                  lineup_settings: dict | None = None, bench_share_override: float | None = None,
                  expected_starts: bool = True, divergence_exclusions: set | None = None,
                  promotion_model: bool = True, flex_bench_seats: bool = True,
-                 basis: dict | None = None, week: int | None = None):
-        """basis: JEG-1044, the reader's value basis (None = default).
+                 basis: dict | None = None, week: int | None = None,
+                 league_rostered=None, bench_level: str = "ddf", league_reserve=()):
+        """league_rostered / bench_level / league_reserve: JEG-1188, a loaded
+        league's rostered keys, the bench level to price at and the keys in
+        IR or taxi slots (League fields).
+        basis: JEG-1044, the reader's value basis (None = default).
         lineup_settings: derive_lineup_parameters.resolve() keyword
         arguments (objective, injury_history, league_weeks,
         projection_confidence); None = the config's defaults. expected_starts
@@ -1612,7 +1913,9 @@ class Setting:
             teams=self.teams, slots={p: self.shape[p] for p in POSITIONS}, flex=self.shape["FLEX"],
             superflex=self.shape["SUPERFLEX"], bench=self.shape["BENCH"],
             bench_share=DEFAULT_BENCH_SHARE if bench_share is None else float(bench_share),
-            position_shares=position_shares, bench_share_override=bench_share_override)
+            position_shares=position_shares, bench_share_override=bench_share_override,
+            league_rostered=tuple(league_rostered) if league_rostered is not None else None,
+            bench_level=bench_level, league_reserve=tuple(league_reserve or ()))
         self.pos_of = {k: p["pos"] for k, p in inp.players.items()}
         self._current = None
         self._prior = None
@@ -1622,8 +1925,8 @@ class Setting:
     def natives(self, src: str) -> dict:
         """Current-week natives at this setting's scoring. A chart: the saved
         12-team list, the saved native_superflex replacing it for the players
-        it covers when SF >= 1. A projection: per-game points; ESPN lists a
-        player it projects at zero (espn_status ineligible) at 0.0 (JEG-496;
+        it covers when SF >= 1 or the roster starts 2+ QBs (JEG-1365). A
+        projection: per-game points; ESPN lists a player it projects at zero (espn_status ineligible) at 0.0 (JEG-496;
         Reference reading of "every player on ESPN's list", VP-6.1, matching
         the ESPN week snapshot, which carries those players at 0)."""
         if self.inp.section(src) is None:
@@ -1631,7 +1934,7 @@ class Setting:
         if FAMILY[src] == "chart":
             cell = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native")
             out = dict(cell["values"]) if cell else {}
-            if out and self.shape["SUPERFLEX"] >= 1:
+            if out and uses_superflex_values(self.shape):
                 sf = self.inp.cell(src, self.scoring, SAVED_TEAMS, "native_superflex")
                 if sf:
                     out.update(sf["values"])
@@ -1904,7 +2207,11 @@ def compute(inp: Inputs, setting_spec: dict, views=VIEWS, hist: History | None =
                 divergence_exclusions=divergence_exclusions,
                 promotion_model=promotion_model,
                 flex_bench_seats=flex_bench_seats,
-                basis=setting_spec.get("basis"))
+                basis=setting_spec.get("basis"),
+                # JEG-1188: a loaded league (absent = the modeled bench).
+                league_rostered=setting_spec.get("league_rostered"),
+                bench_level=setting_spec.get("bench_level", "ddf"),
+                league_reserve=setting_spec.get("league_reserve", ()))
     res, st = s.result(), s.state()
     prior = s.prior_result()
     out = {"setting": setting_spec, "views": {}, "prior": {}, "composite": {}}

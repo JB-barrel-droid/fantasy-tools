@@ -152,8 +152,18 @@ function sourceFlags(detail: Any, key: string) {
   };
 }
 
+/**
+ * Whether published charts' own superflex / 2-QB values (native_superflex) price this setting:
+ * a superflex slot or 2+ dedicated QB slots (value-model.js usesSuperflexValues; JEG-1365, Jeremy
+ * 2026-10-29, audit decision 9 A). Hand-copied rather than read from the live ValueModel so a
+ * page published before JEG-1365 still gives the same answer here.
+ */
+export function usesSuperflexValues(setting: LeagueInputs["setting"]): boolean {
+  return Number(setting.superflex) > 0 || Math.floor(Number(setting.slots?.QB) || 0) >= 2;
+}
+
 /** A source's natives this week (curve-widget.js currentNatives): {player_key: value}. */
-function currentNatives(bundle: Bundle, key: string, scoring: string, superflex: number): Record<number, number> {
+function currentNatives(bundle: Bundle, key: string, scoring: string, superflexValues: boolean): Record<number, number> {
   const detail = bundle.detail as Any;
   const section = detail.sources?.[key];
   const values: Record<number, number> = {};
@@ -169,7 +179,7 @@ function currentNatives(bundle: Bundle, key: string, scoring: string, superflex:
       const playerKey = pkMap?.[sourceId];
       if (playerKey !== undefined && Number.isFinite(val)) values[playerKey] = val;
     }
-    if (superflex && combo.native_superflex) {
+    if (superflexValues && combo.native_superflex) {
       for (const [sourceId, val] of Object.entries(combo.native_superflex as Record<string, number>)) {
         const playerKey = pkMap?.[sourceId];
         if (playerKey !== undefined && Number.isFinite(val)) values[playerKey] = val;
@@ -225,7 +235,7 @@ export type WeekPlan =
   | { ok: false; error: string; weeks: number[]; default_week: number | null };
 
 // The history index belongs to the bundle being served (curve-widget.js servedWeekOf).
-function historyMatchesBuild(bundle: Bundle): boolean {
+export function historyMatchesBuild(bundle: Bundle): boolean {
   const index = bundle.history?.index;
   if (!index || typeof index !== "object") return false;
   const built = (bundle.detail as Any).built_at;
@@ -268,13 +278,13 @@ function weekList(weeks: number[]): string {
  */
 export function planWeek(bundle: Bundle, m: LeagueInputs, requested: number | null, today: string): WeekPlan {
   const detail = bundle.detail as Any;
-  const superflex = m.setting.superflex;
+  const superflexValues = usesSuperflexValues(m.setting);
   // DDF Value sources at this setting, judged without any week rule (resolveWeekView's candidates).
   const candidates = PIPELINE_SOURCE_KEYS.filter((key) => {
     const f = sourceFlags(detail, key);
     if (!f.section) return false;
     if ((f.hold && f.hold.hidden) || f.validationHeld || f.divergenceExcluded) return false;
-    return Object.keys(currentNatives(bundle, key, m.scoring, superflex)).length > 0;
+    return Object.keys(currentNatives(bundle, key, m.scoring, superflexValues)).length > 0;
   });
   const fallback = calendarFreshness(detail, today);
   const served: Record<string, number | null> = {};
@@ -319,7 +329,7 @@ export function planWeek(bundle: Bundle, m: LeagueInputs, requested: number | nu
 
 // A saved week's natives for one source (curve-widget.js weekNatives / historyNatives / historyPpg).
 // The saved weeks carry 1-QB chart natives only, so a saved week at a superflex setting runs on them.
-function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
+export function savedNatives(bundle: Bundle, key: string, week: number, scoring: string): { values?: Record<number, number>; reason?: string } {
   const doc = bundle.history?.docs?.[String(week)];
   const entry = doc?.sources?.[key];
   if (!doc) return { reason: `no Week ${week} content saved` };
@@ -346,7 +356,7 @@ function savedNatives(bundle: Bundle, key: string, week: number, scoring: string
 // Build the pipeline input for the given settings and week plan.
 export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extract<WeekPlan, { ok: true }>) {
   const { scoring } = m;
-  const superflex = m.setting.superflex;
+  const superflexValues = usesSuperflexValues(m.setting);
   const detail = bundle.detail as Any;
   const ValueModel = bundle.ValueModel as Any;
 
@@ -381,7 +391,7 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     // sourceMissingFromData: no source section at all.
     if (!f.section) continue;
 
-    let values = currentNatives(bundle, key, scoring, superflex);
+    let values = currentNatives(bundle, key, scoring, superflexValues);
     const served = view ? plan.served[key] : null;
     let olderWeek: boolean;
     if (view && Number.isInteger(served)) {
@@ -408,6 +418,33 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     // Mark as hidden if red-held, validation-held, or divergence-excluded.
     // JEG-726 / JEG-787: amber holds label the source but do NOT hide it.
     if ((f.hold && f.hold.hidden) || f.validationHeld || f.divergenceExcluded) hiddenKeys.push(key);
+  }
+
+  // JEG-1385, VP-1.2 (curve-widget.js computePipeline, value_reference result()): when at least one included
+  // source has Week N-1 saved, the included set I is those sources and this week is priced on I; the others
+  // are shown, never counted. When none has it, I is every included source. A source pairs only with this
+  // build's history (the week view) and a served week of its own (servedWeekOf, JEG-1390). The caller loads
+  // Week N-1's document first (index.ts); an unread document reads as no source paired, so nothing narrows.
+  const unpaired: Record<string, string> = {};
+  if (view && week !== null) {
+    const reasons: Record<string, string> = {};
+    for (const key of included) {
+      if (!Number.isInteger(plan.served[key])) {
+        reasons[key] = bundle.history?.index?.served?.[key]?.reason || `no saved week matches the ${key} values served now`;
+        continue;
+      }
+      const got = savedNatives(bundle, key, week - 1, scoring);
+      if (!got.values) reasons[key] = got.reason!;
+    }
+    const paired = included.filter((key) => !reasons[key]);
+    if (paired.length && paired.length < included.length) {
+      for (const key of included) {
+        if (paired.includes(key)) continue;
+        sources[key] = { ...(sources[key] as Any), status: "excluded" };
+        unpaired[key] = `no prior week: ${reasons[key]}`;
+      }
+      included.splice(0, included.length, ...paired);
+    }
   }
 
   // The week this answer is priced on, with the view's sources and missing sources.
@@ -443,7 +480,13 @@ export function buildPipelineInput(bundle: Bundle, m: LeagueInputs, plan: Extrac
     hidden: hiddenKeys,
     lineup: resolvedLineup,
     week: info,
+    unpaired,
   };
+}
+
+/** sources_excluded: the run's excluded sources, an unpaired one with the page's "no prior week" reason (JEG-1390). */
+export function excludedSources(pipeline: Any, input: { unpaired?: Record<string, string> }) {
+  return ((pipeline.excluded ?? []) as Any[]).map((e) => ({ key: e.key, reason: input.unpaired?.[e.key] ?? e.reason }));
 }
 
 /** Parse a `week` request value: null when absent, a number when it is an integer 1-22, else NaN. */

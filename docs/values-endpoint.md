@@ -13,8 +13,7 @@ Ticket JEG-616. Hosting decision: Supabase edge function (Jeremy, 2026-10-19).
   (30/min, in memory per instance); CORS allow-list in the function.
 - Parity with the page is pinned by `tests/test_endpoint_parity.py` (including
   each week of a week transition, JEG-1179).
-- MCP server, local: `mcp-server/` (stdio), set `DDF_API_URL` to the function URL.
-- MCP server, remote (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses). See "Remote MCP" below.
+- MCP server (JEG-1012): `supabase/functions/mcp/` (Streamable HTTP, stateless, JSON responses), the hosted connector. See "Remote MCP" below. The old locally run server was retired on 2026-10-30 (JEG-1372); it described a 0-70 scale and an 85% starter weight that no longer match the site.
 
 ## Request
 
@@ -31,6 +30,26 @@ record (used internally by the MCP `find_trades` tools). The trade finder
 judges the other team on the mean of `chart_indexed`, the market: the mean of
 `chart_values` is DDF Value itself, and `ddf_value_charts` equals DDF Value
 since JEG-1073 (JEG-1129).
+
+`include` takes a comma list (JEG-1029); an unknown value is a 400 (before
+JEG-1029 anything but `charts` was ignored; the change is intended, so a typo
+fails loudly instead of returning the plain answer). Besides
+`charts`, three analysis blocks (`supabase/functions/get-values/analysis.ts`,
+no value math of their own) feed the MCP analyses:
+- `series`: `{player_key: {series: value}}`, each player's Player values row in
+  the Indexed tab, unrounded: `ddf_value`, `ddf_value_charts`,
+  `ddf_value_projections`, each published chart's Indexed value and each
+  projection's Adjusted value (held sources left out, as the page hides them).
+- `prior`: the VP-8 prior week, the page's `pipelinePrior`: the same league,
+  included set and pie on Week N−1's saved inputs. `{available, reason,
+  current_week, prior_week, series: {key: {available, reason, values,
+  current_values}}}`; `current_values` (DDF Value versions only) is this week's
+  side, as `getPriorWeek` returns it. A source not serving the priced week is
+  unavailable with the reason, never filled.
+- `audit`: what the Values auditing sub-tabs read from `getInspection()`:
+  `valuePipeline` (`ValueModel.valuePipelineDiagnostics`), `setting`,
+  `excluded`, each source's per-player stages (`players`) and the rows' per-source
+  values, reasons and DDF Value (`rows`). About 1 MB.
 
 ### Week (JEG-1179)
 
@@ -67,6 +86,75 @@ at this setting that have not published this week). Tests:
 synthetic transitions), `tests/test_endpoint_parity.py test_week_parity` (page
 parity per week).
 
+### Value basis and player overrides from a share link (JEG-1225)
+
+Jeremy, 2026-10-28 (JEG-1224 D1: "B"): a chat given a link with the sender's own
+basis or overrides prices its answer under them. get-values takes them in the
+text the link carries, optional, GET query or POST body:
+
+- **`basis`**: `fantasycalc` (one source) or `blend:espn.60_razzball.40` (whole
+  percents), as `basis=` in a share link. Absent: our methodology.
+- **`ov`**: `2227:58` (an absolute DDF Value), `2227:+5` (an adjustment), comma
+  separated, or the packed `z:`/`z2:` form, as `ov=` in a share link.
+
+The text is read by the site's own `app/v2/ddf-value-link.js` (the one reader of
+the link format, loaded from `<site>/v2/` at cold start like `value-model.js`).
+`get-values/value-context.ts` sends the basis to `runValuePipeline` as
+`basisConfig` in the form the page's engine does (`curve-widget.js`
+`canonicalBasis`) and applies each override with `ValueModel.applyDdfOverride`,
+as the page does. No new value math. An override replaces DDF Value only: the
+tier, the charts' values and the projections version are the pipeline's, as on
+the page.
+
+- The response adds `value_context`: `basis` (null = our methodology),
+  `basis_applied`, `basis_members`, `basis_fell_back_to_default`, `overrides`,
+  `overrides_applied`, and `overrides_not_priced` (keys with no pipeline row:
+  named, not added). An overridden player also carries `override` and
+  `pipeline_value`. With `include=series`, an overridden player's `ddf_value`
+  series is the overridden value, as the site's row shows it; the charts-only
+  and projections-only versions, the source series and `prior` stay the
+  engine's (the site's prior Δ reads the engine's values too). A 200 always
+  follows the whole basis asked for.
+
+get-values answers only under the exact context it was asked for (JEG-1288,
+review of #1124). Each of these is refused with no prices, never answered under
+the fallback, part of the basis, or part of the overrides:
+
+- **A basis source that is not available here** (held, hidden, or not published
+  at this setting and week), alone or in a blend: 422 with
+  `code: "basis_unavailable"`, `requested`, `unavailable` and `available` (the
+  sources a basis could follow now). The refusal is cached like an answer.
+- **A part with anything unreadable in it**: 400 with
+  `code: "value_context_unreadable"`, `unread` (`basis`, `ov`) and the reason in
+  `error`. get-values reads strictly (`readValueContext(params, {strict: true})`
+  in the shared module): an unknown or repeated source, a weight outside 1 to
+  100, an override that is not a number on the 0 to 100 scale (an adjustment of
+  0, or past ±100), a repeated player, a stray comma, or packed bytes that are
+  not whole entries or carry an unknown type. Everything the site writes reads
+  back the same (2,000 random links in `tests/node/ddf_value_link_check.cjs`).
+  The site itself still reads old links leniently, keeping what it can.
+- **Too large**: 413 with `code: "value_context_too_large"`, before the link is
+  read, cached or priced. The bounds, in `get-values/value-context.ts`:
+  `basis` at most 256 characters (all seven sources take 91), `ov` at most
+  32,768 characters and 2,000 overrides. Why 2,000: the site lists 1,163 players
+  and prices 741 at a time (Oct 29, 2026), so it is every player with room to
+  spare, and 2,000 overrides take at most 29,999 characters plain or 16,003
+  packed. Nothing a site link writes is excluded. To change a bound, change the
+  constant and this paragraph; nothing else depends on the numbers.
+- A site that does not publish `v2/ddf-value-link.js` yet: requests without a
+  basis or overrides answer as before; with one, 503
+  `code: "value_context_unavailable"`.
+- The answer cache key and the compute rate limit include the context.
+- Tests: `tests/node/get_values_value_context_check.mjs` (the handler on the
+  built `dist/` against the parity runner, errors, cache, the site's share link
+  read back, the basis form against `curve-widget.js`, and the JEG-1288
+  refusals with ESPN held),
+  `tests/test_endpoint_parity.py test_value_context_parity` (page parity in
+  Standard, Half PPR and PPR).
+- Not yet: the MCP tools passing a pasted link's context through (JEG-1225
+  slice 4c), and `docs/get-values.openapi.yaml`, which ships with Pages and so
+  should list `basis` and `ov` only once this function is deployed.
+
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
 
 Jeremy, 2026-10-24: "Compute on demand, store nothing." `league.ts` maps the
@@ -86,8 +174,7 @@ mapping and clamps. Deploy `get-values` before `mcp`; an `mcp` that sends
 | Name | Where | Default |
 |---|---|---|
 | `DDF_SITE_ORIGIN` | function secret (optional) | `https://jb-barrel-droid.github.io/fantasy-tools` |
-| `DDF_API_URL` | MCP server env (required) | none |
-| `DDF_SITE_URL` | MCP server env (optional) | the Pages URL |
+| `DDF_API_URL` | `mcp` function secret (optional) | `$SUPABASE_URL/functions/v1/get-values` |
 
 `datadrivenfootball.com` did not resolve on 2026-10-19, so the Pages URL is the
 default origin. Once the domain is live, set `DDF_SITE_ORIGIN` (no redeploy of
@@ -110,7 +197,25 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
 
 - The function evals the site's own `value-model.js` at cold start (loaded
   from the published origin, so the endpoint always matches the page).
-- Rate limit is per instance, not global.
+- Rate limit is per instance, not global — a soft guard, not a real cap
+  (JEG-1061). Both buckets (30/min general, 10/min fresh custom-league
+  computes) live in an in-memory `Map` on the function instance and are keyed
+  by the first `x-forwarded-for` entry, which the client can set. Measured
+  live on 2026-10-24: 14 distinct custom leagues in a row from one client all
+  returned 200 in 0.17–0.65 s and the 10/min compute limit never returned
+  429, because the requests did not stay on one instance. A single instance
+  does return 429 on the 11th compute in a minute from one key; that is
+  pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
+  the function stores nothing, so abuse costs CPU only (about 0.3 s per
+  fresh league).
+- Measurement (JEG-1344, part of JEG-1061): each fresh custom compute (a
+  custom league or a share link's value context, on an answer-cache miss) logs
+  one JSON line `{"event":"get_values.compute", scoring, teams, superflex,
+  custom, charts, week, ms}`, and each 429 logs `{"event":
+  "get_values.rate_limited", limit: "general"|"compute", max, window_s, ...}`
+  (the compute one adds the settings). Settings only: no IP, header, token or
+  player data. Read them in the Supabase function logs. Contract:
+  `tests/node/jeg_1061_logging_contract.mjs`.
 - Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
   document (about 70 KB) is fetched only when the week priced needs a saved
   copy. First call is slow, results cached 5 minutes per league and week.
@@ -128,8 +233,24 @@ that needs a URL instead of a local process.
 - Tools: `get_values`, `get_player_value`, `trade_targets`, `compare_trade`,
   `read_state`, `make_state`, `find_trades`, `find_trades_league`, `explain`.
   Name lookup and trade math run server-side; each result also carries
-  `structuredContent`. `risers_fallers` is not offered: the endpoint has no
-  prior-week data.
+  `structuredContent`.
+- **Analyses (JEG-1029):** the page's own modules (`v2/movers.js`, `trade.js`,
+  `audit-pie.js`, `audit-source.js`, loaded from the site like `finder.js`) run
+  on get-values' `include=series,prior,audit` blocks (`mcp/analyses.ts`).
+  `risers_fallers` (`series`, `position`, `limit` 1-25, `disagreements`): the
+  served-week pair, Week N−1 → N, risers and fallers with before, now and Δ,
+  and the market vs projections disagreements with the page's read; links to
+  `#risers-fallers`. `compare_trade` with `by_source: true`: the page's default
+  Compare a trade rows (DDF Value and the four published charts, rescaled) and
+  the DDF Value verdict with the charts that agree or point the other way;
+  without it the reply is unchanged. `audit_values` (`view` health or source,
+  `source`, `position`, `limit`): the Health check's verdict rows, or one
+  source's Published / Indexed / Adjusted build-up; links to `#values-auditing`.
+  A source with no values at the setting answers the page's "has no values"
+  line with null totals, never 0 (JEG-1309); a stage with no points has a null total.
+  Parity: `tests/test_connector_analyses.py` (offline, against
+  `value_reference.py`, with broken variants) and
+  `tests/test_connector_analyses_page.py` (the live page, needs a browser).
 - `find_trades`: takes two rosters (comma-separated names), finds trade packages
   where you gain DDF Value and at least 3 of 4 trade charts say the other team
   breaks even or wins. Each trade is scored on the 9 viability checks (see

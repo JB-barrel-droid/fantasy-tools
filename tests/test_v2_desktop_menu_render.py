@@ -14,6 +14,7 @@ landing route, Customize, and a menu wider than the screen must each make the ch
 """
 from __future__ import annotations
 
+import sys
 import unittest
 from pathlib import Path
 
@@ -25,6 +26,14 @@ CSS = ROOT / "app" / "v2" / "v2.css"
 JS = ROOT / "app" / "v2" / "v2.js"
 SIZES = ((1366, 768), (1000, 700))
 GROUPS = ["Trade", "Players", "Auditing", "Our approach", "Settings"]
+sys.path.insert(0, str(ROOT / "pipelines"))
+import build_v2_page  # noqa: E402
+
+# JEG-1371: the Research entry is in the menu only once a post is published. Without one, its routes still open the
+# (empty) Research page, and no menu entry is current.
+HAS_RESEARCH = bool(build_v2_page.load_posts())
+ENTRIES = 14 if HAS_RESEARCH else 13
+RESEARCH_LINK = ("writing/research", "Research") if HAS_RESEARCH else (None, "")
 # hash -> (entry that is current, name shown beside the button)
 DEEP_LINKS = {
     "": ("values", "Value chart"),
@@ -43,11 +52,11 @@ DEEP_LINKS = {
     "#writing": ("writing/manifesto", "Manifesto"),
     "#writing/manifesto": ("writing/manifesto", "Manifesto"),
     "#writing/how-values": ("writing/how-values", "Methodology"),
-    "#writing/research": ("writing/research", "Research"),
-    "#writing/research/anything": ("writing/research", "Research"),
+    "#writing/research": RESEARCH_LINK,
+    "#writing/research/anything": RESEARCH_LINK,
     "#manifesto": ("writing/manifesto", "Manifesto"),
     "#how-values": ("writing/how-values", "Methodology"),
-    "#research": ("writing/research", "Research"),
+    "#research": RESEARCH_LINK,
     "#value-overrides": ("overrides", "Overrides"),
 }
 
@@ -123,8 +132,8 @@ def run_checks(css=None, js=None) -> list[str]:
                 page.focus("#v2NavToggle")
                 page.keyboard.press("Enter")
                 s = page.evaluate(STATE)
-                if s["expanded"] != "true" or s["shownItems"] != 14 or s["items"] != 14:
-                    errors.append(f"{tag}: Enter did not open the menu with 14 entries ({s['expanded']}, {s['shownItems']} shown)")
+                if s["expanded"] != "true" or s["shownItems"] != ENTRIES or s["items"] != ENTRIES:
+                    errors.append(f"{tag}: Enter did not open the menu with {ENTRIES} entries ({s['expanded']}, {s['shownItems']} shown)")
                 if s["focusKey"] != "compare":
                     errors.append(f"{tag}: open menu focus is on {s['focusKey']!r}, want the page on show")
                 if s["heads"] != GROUPS or not s["groupsLabelled"]:
@@ -162,11 +171,11 @@ def run_checks(css=None, js=None) -> list[str]:
                     errors.append(f"{tag}: Enter on an entry gave hash {s['hash']!r}, name {s['name']!r}, expanded {s['expanded']}")
                 # Pointer: click opens, an entry navigates, a tap outside closes.
                 page.click("#v2NavToggle")
-                page.click('.v2-tab[data-key="writing/research"]')
+                page.click('.v2-tab[data-key="writing/how-values"]')
                 page.wait_for_timeout(250)
                 s = page.evaluate(STATE)
-                if s["hash"] != "#writing/research" or s["name"] != "Research" or s["expanded"] != "false":
-                    errors.append(f"{tag}: click on Research gave hash {s['hash']!r}, name {s['name']!r}, expanded {s['expanded']}")
+                if s["hash"] != "#writing/how-values" or s["name"] != "Methodology" or s["expanded"] != "false":
+                    errors.append(f"{tag}: click on Methodology gave hash {s['hash']!r}, name {s['name']!r}, expanded {s['expanded']}")
                 page.click("#v2NavToggle")
                 page.mouse.click(size[0] - 8, size[1] - 8)
                 if page.evaluate(STATE)["expanded"] != "false":
@@ -190,7 +199,7 @@ def run_checks(css=None, js=None) -> list[str]:
                 page.wait_for_function("() => window.TradeValueV2", timeout=40000)
                 page.wait_for_timeout(200)
                 s = page.evaluate(STATE)
-                if s["current"] != [key] or s["name"] != name:
+                if s["current"] != ([key] if key else []) or s["name"] != name:
                     errors.append(f"deep link {hash_!r}: current {s['current']} name {s['name']!r}, want [{key!r}] {name!r}")
             page.close()
         finally:

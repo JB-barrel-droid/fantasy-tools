@@ -9,10 +9,15 @@ waiver candidate list, all real player keys from the build and all distinct. The
   * Clear on Your roster empties the shared roster (the store Find a trade reads, and Find a trade's own list), says on the
     page that it was cleared on both Find a trade screens, and leaves the candidates, teammates and settings alone; Enter on
     Undo puts back the exact keys in order, the kicker and the defense included, and Find a trade shows the roster again;
+  * focus (JEG-1316, option A): after roster Clear it lands on the unfolded roster input, with Undo
+    reached by Tab; after roster Undo it lands on the roster control that is on screen (Edit roster once results fold the
+    input), and "Your roster is back." shows outside the folded input;
   * no page errors, no request leaves the local server, no sideways scroll.
 
 Discrimination: test_guard_fails_on_source_mutants serves app/v2/waivers.js with (1) candidate Clear calling the roster's
-clear, (2) Undo writing back into the other list, (3) the roster's Undo writing into the candidates. Each mutant carries a
+clear, (2) Undo writing back into the other list, (3) the roster's Undo writing into the candidates, (4) roster Clear
+focusing before the input unfolds, (5) roster Undo leaving focus to the fold, (6) the "is back" message left inside the
+folded input. Each mutant carries a
 marker the page must report (so the mutant was the file actually served), and each must fail the named state assertion,
 not just any assertion. The baseline run must report no marker.
 """
@@ -83,6 +88,9 @@ SNAP = """() => {
     mineShown: [...document.querySelectorAll('#v2WaiversMineList > li b')].map(b => b.textContent),
     mineClear: vis(document.getElementById('v2WaiversMineClear')), candsClear: vis(document.getElementById('v2WaiversCandsClear')),
     mineMsg: msg('v2WaiversMine'), candsMsg: msg('v2WaiversCands'),
+    mineBack: (() => { const n = document.getElementById('v2WaiversMineBack'); return {text: n ? n.innerText.replace(/\\s+/g, ' ').trim() : '', visible: vis(n && n.firstElementChild)}; })(),
+    focusVisible: vis(document.activeElement),
+    mineFolded: Boolean(document.getElementById('v2WaiversMineInput') && document.getElementById('v2WaiversMineInput').hidden),
     focus: document.activeElement ? (document.activeElement.id || document.activeElement.tagName.toLowerCase()) : null,
     mutant: window.__waiversMutant || null, scrollX: document.documentElement.scrollWidth - innerWidth};
 }"""
@@ -183,8 +191,10 @@ def check(page, tag, seed, external, notes) -> list[str]:
         errors.append(tag + "mine-clear: the candidate list on the page changed")
     if not b1["mineMsg"]["visible"] or "both Find a trade screens" not in b1["mineMsg"]["text"]:
         errors.append(tag + f"mine-clear: sharing not disclosed {b1['mineMsg']}")
-    reached = tab_to(page, "v2WaiversMineUndo")
-    notes.append(f"{tag}after roster Clear focus was {b1['focus']!r}; Tab reached Undo within 3: {reached}")
+    if b1["focus"] != "v2WaiversMineSearch" or not b1["focusVisible"]:
+        errors.append(tag + f"mine-clear: focus was {b1['focus']!r} (visible {b1['focusVisible']}), not the roster input")
+    if not tab_to(page, "v2WaiversMineUndo"):
+        errors.append(tag + f"mine-clear: Undo not reached with Tab from {b1['focus']!r}")
     u = page.evaluate(UNDO, "v2WaiversMineUndo")
     if not u["ok"]:
         errors.append(tag + f"mine-clear: Undo not a visible keyboard button ({u['why']})")
@@ -200,7 +210,12 @@ def check(page, tag, seed, external, notes) -> list[str]:
     if [p for p in b2["minePos"] if p in ("K", "DEF")] != [p for p in b0["minePos"] if p in ("K", "DEF")]:
         errors.append(tag + f"mine-undo: kicker or defense not restored {b2['minePos']}")
     unchanged(errors, tag, "mine-undo", b0, b2, roster=False)
-    notes.append(f"{tag}after roster Undo focus was {b2['focus']!r}; 'is back' message visible: {b2['mineMsg']['visible']}")
+    want = "v2WaiversEdit" if b2["mineFolded"] else "v2WaiversMineSearch"
+    if b2["focus"] != want or not b2["focusVisible"]:
+        errors.append(tag + f"mine-undo: focus was {b2['focus']!r} (visible {b2['focusVisible']}), not {want} (input folded: {b2['mineFolded']})")
+    if not b2["mineBack"]["visible"] or b2["mineBack"]["text"] != "Your roster is back.":
+        errors.append(tag + f"mine-undo: 'is back' message not visible {b2['mineBack']}")
+    notes.append(f"{tag}after roster Undo focus was {b2['focus']!r}")
     names = [n for n, p in zip(b0["mineShown"], b0["minePos"]) if p not in ("K", "DEF")] if len(b0["mineShown"]) == len(b0["minePos"]) else []
     go(page, "find-trade", "v2FindTrade")
     shown = page.evaluate(FIND_MINE)
@@ -272,6 +287,9 @@ MUTANTS = {
     "candidate clear calls roster clear": ("      stores[target].set([]);\n", "      stores.mine.set([]);\n", "cands-clear: roster changed"),
     "undo restores the other list": ("        stores[target].set(before);\n", '        stores[target === "mine" ? "cands" : "mine"].set(before);\n', "cands-undo: candidates not restored"),
     "roster undo writes into candidates": ("        stores[target].set(before);\n", "        (target === \"mine\" ? stores.cands : stores[target]).set(before);\n", "mine-undo: roster not restored exactly"),
+    "roster clear focuses before the input unfolds": ("      if (target === \"mine\") renderSummary();\n", "", "mine-clear: focus was"),
+    "roster undo leaves focus to the fold": ("          S.focusAfterUndo = true;\n", "", "mine-undo: focus was"),
+    "roster undo message inside the folded input": ("          S.backSig = rosterSig(before);\n", "", "mine-undo: 'is back' message not visible"),
 }
 
 

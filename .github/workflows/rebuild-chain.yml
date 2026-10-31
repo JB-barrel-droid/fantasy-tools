@@ -323,10 +323,31 @@ jobs:
           env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate.log 2>&1
           rc=$?
           set -e
-          cat output/post-rebuild-validate.log
+          cat output/post-rebuild-validate.log || echo "::warning::initial validation log could not be read"
           if [ "$rc" -ne 0 ]; then
-            python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
-            exit 1
+            # JEG-1203: only the isolator may name a single changed culprit.
+            # A decline or error keeps the original red validation status.
+            if ! python3 pipelines/isolate_post_validate.py isolate \
+                --log output/post-rebuild-validate.log \
+                --week "${{ steps.week.outputs.nfl_week }}"; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate.log
+              exit 1
+            fi
+            # Re-run the COMPLETE gate once on the rolled-back fixture. Never
+            # rerun the source chain or publish before confirm succeeds.
+            set +e
+            env -u SUPABASE_URL -u SUPABASE_SERVICE_KEY make validate > output/post-rebuild-validate-retry.log 2>&1
+            retry_rc=$?
+            set -e
+            cat output/post-rebuild-validate-retry.log || echo "::warning::retry validation log could not be read"
+            if [ "$retry_rc" -ne 0 ]; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log
+              exit 1
+            fi
+            if ! python3 pipelines/isolate_post_validate.py confirm; then
+              python3 pipelines/record_post_rebuild_validation.py --log output/post-rebuild-validate-retry.log
+              exit 1
+            fi
           fi
           # The published build (holds applied, dist/ synced by validate):
           # output/value-check.json is the report of what ships, with the held
@@ -477,6 +498,22 @@ jobs:
           BAKE_PLAYERS: ${{ inputs.bake_players || 'false' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            # JEG-1364: a push publishes the scratch-worktree commit below, so
+            # the push guard retains that commit (not this checkout's HEAD).
+            if python3 pipelines/main_write_guard.py --writer rebuild-chain-1 --phase "$1" --target "main" --head "${publication:-HEAD}"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           if [ "$CHAIN_OUTCOME" = "success" ]; then
@@ -492,6 +529,10 @@ jobs:
             git add dist/modules/input-lineage.json 2>/dev/null || true
             # JEG-479: engine vs Python reference report (own add, may be absent).
             git add dist/modules/value-check.json 2>/dev/null || true
+            # JEG-1314: the divergence report the chain's make sync just wrote.
+            # Without this add only a hand-run sync refreshed it (stale from
+            # 2026-10-27 to 10-29), and divergence-issues.yml reads this copy.
+            git add dist/modules/source-divergence.json 2>/dev/null || true
             # Week history: the saved weeks and their index (built against
             # this fixture by the chain's make sync).
             git add data/history || true
@@ -524,6 +565,7 @@ jobs:
             echo "No changes to commit."
             echo "pushed=false" >> $GITHUB_OUTPUT
           else
+            release_guard stage
             git commit -m "$MESSAGE"
             # JEG-1206: publish onto current main without rebase, merge or
             # force-push. Run 40689076971 passed validation, then its rebase
@@ -602,7 +644,9 @@ jobs:
               if git -C "$pub/tree" diff --cached --quiet; then outcome=unchanged; break; fi
               git -C "$pub/tree" commit -q -m "$MESSAGE"
               publication=$(git -C "$pub/tree" rev-parse HEAD)
-              if git push origin "$publication:refs/heads/main"; then outcome=pushed; break; fi
+              # JEG-1215/JEG-1364: every push to main goes through the release
+              # guard; a pause retains this publication and exits the step 0.
+              if release_push origin "$publication:refs/heads/main"; then outcome=pushed; break; fi
               if git fetch -q origin main && git merge-base --is-ancestor "$publication" FETCH_HEAD; then
                 outcome=pushed; break
               fi
@@ -646,6 +690,15 @@ jobs:
       # honored when triggered via GITHUB_TOKEN (the documented exception).
       # This only fires for chain commits (always GITHUB_TOKEN-originated), so
       # it cannot double-fire on PAT pushes — those never run this workflow.
+      - name: Retain deferred publication (rebuild-chain-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-rebuild-chain-1-${{ github.run_attempt }}
+          path: output/release-publications/rebuild-chain-1/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Trigger Pages deploy after chain push (JEG-274)
         # !cancelled(): once the fixture is on main it is deployed, whatever
         # an earlier non-publishing step (e.g. the consolidation write) did.
@@ -747,7 +800,7 @@ jobs:
         if: always() && github.ref == 'refs/heads/main'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}"
+        run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}" --published "${{ steps.push.outputs.pushed }}"
 
       - name: Fail the job if the chain failed
         if: steps.chain.outcome == 'failure'

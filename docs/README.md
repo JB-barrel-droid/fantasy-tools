@@ -38,6 +38,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [product/methodology-outline.md](product/methodology-outline.md) | Proposal | - | - | Draft page list for a reader-facing Methodology section under "Learn" (JEG-1105); which pages wait for JEG-1081. |
 | [product/fit-label-glossary-draft.md](product/fit-label-glossary-draft.md) | Proposal | - | - | Draft plain definitions and numeric rules for Natural, Value, Market and Force fit, with code-vs-doc disagreements (JEG-1097). |
 | [product/ddf-two-views-article-outline.md](product/ddf-two-views-article-outline.md) | Proposal | - | - | Outline of the Trade Charts vs Projections view pros-and-cons article, with the JEG-1073 numbers and what is still to measure (JEG-1102). |
+| [product/jeg-1221-trade-page-parity-review.md](product/jeg-1221-trade-page-parity-review.md) | Record | - | - | Trade-page parity review of labels, help and empty states across the two finders and Compare, with recommended strings, acceptance cases and two decisions for Jeremy (JEG-1221). |
 | [product/jeg-1223-ai-onboarding-copy.md](product/jeg-1223-ai-onboarding-copy.md) | Proposal | - | 2026-10-29 | Draft homepage AI onboarding strings with a claim, evidence and limitation table for the DDF connector (JEG-1223, corrected in JEG-1252). |
 
 ## Architecture and data
@@ -74,7 +75,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [SUPABASE_WRITER_AUDIT.md](SUPABASE_WRITER_AUDIT.md) | Record | - | - | Audit of Supabase writers' missing safeguards. |
 | [supabase-tables.md](supabase-tables.md) | Maintained | JEG-600 | 2026-10-12 | Every public table and view, who writes it, who reads it, and whether it is live or legacy (JEG-600). |
 | [projection-captures.md](projection-captures.md) | Maintained | JEG-944 | unknown | Forward-projection captures: what each source offers, the capture cadence, and the append-only table (JEG-944, parent JEG-943). |
-| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-1012 | 2026-10-24 | The `get-values` and remote `mcp` Supabase edge functions and the local MCP server that serve blended values (JEG-616, JEG-1012). |
+| [values-endpoint.md](values-endpoint.md) | Maintained | JEG-1012 | 2026-10-24 | The `get-values` and remote `mcp` Supabase edge functions that serve blended values (JEG-616, JEG-1012). The old locally run server was retired (JEG-1372). |
 | [use-ddf-in-claude-chatgpt.md](use-ddf-in-claude-chatgpt.md) | Maintained | JEG-1028 | 2026-10-24 | How to connect the values to Claude and ChatGPT (connector URL, skill, llms.txt, server card, Custom GPT Actions) and the current limits. Sources are in `app/llm/`, built by `pipelines/build_llm_surfaces.py`. |
 | [get-values.openapi.yaml](get-values.openapi.yaml) | Maintained | JEG-1012 | 2026-10-24 | OpenAPI schema of `get-values` for a Custom GPT's Actions. |
 | [supabase-egress-notes.md](supabase-egress-notes.md) | Record | JEG-793 | - | Which reads cost the cloud project's egress; steps 1 to 3 of JEG-793, figures inferred from code, not measured (2026-10-21). |
@@ -91,6 +92,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [watchdog.md](watchdog.md) | Maintained | unknown | unknown | Every source-pulling job, who schedules it, and what watches it. |
 | [guard-harness.md](guard-harness.md) | Maintained | unknown | unknown | Node harness for the browser curve-widget guard math. |
 | [wiring-through-process.md](wiring-through-process.md) | Maintained | unknown | unknown | Standing rule: a fix is not done until wired to the live path. |
+| [week-transition-runbook.md](week-transition-runbook.md) | Maintained | JEG-1180 | 2026-10-28 | Week N to N+1 flip: what normal looks like Tuesday to Thursday, lagging vs stale (still on N after Thursday 12:00 CT; a warning, never a chain failure), where each check reports it, and when a person steps in. |
 | [week-coding-rules.md](week-coding-rules.md) | Maintained | unknown | unknown | Rules for codifying page elements (headline etc.) to the dataset. |
 | [engineering-notes.md](engineering-notes.md) | Maintained | unknown | unknown | Dated incident and design notes moved out of AGENTS.md. |
 | [delegation-workflow.md](delegation-workflow.md) | Maintained | unknown | unknown | Tiers and how work is delegated to agents. |
@@ -106,7 +108,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 |---|---|---|---|---|
 | [review-evidence/2026-10-28-jeg-1142-impact.md](review-evidence/2026-10-28-jeg-1142-impact.md) | Record | - | - | Snapshot before/after tables preserved from PR #1044; not a fresh live calculation. |
 | [claude-log/](claude-log/) | Record | - | - | One log file per PR, since 2026-10-07; see its README. |
-| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation. |
+| [audits/](audits/) | Record | - | - | Ticket audits: JEG-183 pipeline review, JEG-208 dashboard and monitor views, JEG-221 to JEG-243 guard/imputation/batch audits with their JSON oracles, JEG-285 scheduler inventory (phase 1) and pg_cron migration specs (phase 2), JEG-292 caption rank investigation, JEG-1367 Supabase advisor dry run (api views to security_invoker). |
 | [../archive/](../archive/) | Record | - | - | Archived material by date; see its README. `2026-10-15-docs/` holds the v2 design-notes build log (JEG-602). `2026-10-12-docs/` holds the frozen claude-log.md, JEG-92 pilot, QA round 1, migration plan/status, ChatGPT batch prompt and draft briefs (JEG-605). |
 
 ## Tracker
