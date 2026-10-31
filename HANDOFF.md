@@ -128,15 +128,6 @@ below are history, including any "Codex reviews and merges" line.
 - Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
   GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
 
-### JEG-1140 Settings and explanations in Fieldnotes (Claude, 2026-10-30 UTC)
-
-- Branch `claude/JEG-1140-settings-components`, draft PR #1229. Settings components already on main (#1129).
-  This slice: the "How values work" frame (`app/values-explainer/template.html`) follows `?design=fieldnotes`, mirroring the
-  dashboard's resolved tokens in light and dark, 44 px targets, 3 px focus ring. Test: `tests.test_jeg1140_explainer_fieldnotes_render`.
-- Still waits on the `v2.js`/`shell.html` locks (JEG-1137, JEG-1263): the Settings route and nav entry, the appearance
-  toggle and "View settings" button, a public overrides `ready()`, a store `onChange` hook, unique ids for a second mount.
-- Fraunces is loaded only by the dashboard, so the frame falls back to Georgia until a shared face is agreed.
-
 ### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
 
 - PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
