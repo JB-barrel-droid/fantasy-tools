@@ -16,12 +16,13 @@
 //     up to +10% (both in recommendations); Long shot from -25% up to -10% (stretch offers); worse is not shown. Words, not a
 //     percent: the reader's own read of the manager, not a prediction. These bands apply here only (JEG-1125 is untouched).
 // Picks made here (Claude, picks log, reversible):
-//   * Draft capital = the preseason FantasyPros draft rank at the player's position (row.preseason_ecr_rank, positional; no
-//     overall rank is invented), priced as today's DDF Value of the player now at that rank at that position. A player with no
+//   * Draft capital = the preseason FantasyPros draft rank at the player's position (preseason_ecr_rank, positional; no
+//     overall rank is invented; engine rows don't carry it, so manager-recs-ui.js passes it in from the canonical players), priced as today's DDF Value of the player now at that rank at that position. A player with no
 //     preseason rank leaves the draft view unavailable for that trade, never zero.
 //   * Rankings have no feed yet (JEG-1198), so that anchor is unavailable and falls back like an unmarked one.
-//   * A trade is "a win for you" when its DDF Value gain shows as more than 0.0 and your own fit is not force (total rises and
-//     starters hold, opportunities.js ourFitOf).
+//   * A trade is "a win for you" when its DDF Value gain shows as more than 0.0 and your own fit is not "doesn't work" (total
+//     rises and starters hold, opportunities.js ourFitOf). Their side never decides it: an overall force fit from their side
+//     alone stays in.
 (function (root) {
   "use strict";
 
@@ -36,6 +37,10 @@
     draft: {label: "Preseason FantasyPros draft rankings", status: "published, preseason (not your league's own draft; does not change with scoring)"},
     rankings: {label: "Player rankings", status: "unavailable (no rankings feed yet)"}
   };
+  // Your side's labels from opportunities.js ourFitOf (JEG-1324): your own fit fails, or the total rises but your roster
+  // construction fails.
+  const OURS_FAILS = "doesn't work";
+  const OURS_ROSTER_ISSUE = "gains, roster issue";
   const finite = n => typeof n === "number" && Number.isFinite(n);
   const shown = n => Math.round(n * 10) / 10;
   const sum = (list, fn) => list.reduce((n, r) => (n === null ? null : (v => (finite(v) ? n + v : null))(fn(r))), 0);
@@ -51,17 +56,19 @@
     Object.keys(byPos).forEach(pos => byPos[pos].sort((a, b) => b - a));
     return byPos;
   }
-  function draftValue(row, curve) {
-    const rank = row && row.preseason_ecr_rank;
+  // ranks: optional Map of player_key -> preseason_ecr_rank, used when the row itself has no rank.
+  function draftValue(row, curve, ranks) {
+    const own = row && row.preseason_ecr_rank;
+    const rank = Number.isInteger(own) ? own : row && ranks ? ranks.get(Number(row.player_key)) : null;
     if (!Number.isInteger(rank) || rank < 1) return null;
     const list = curve[row.pos];
     return list && rank <= list.length ? list[rank - 1] : null;
   }
 
   // The other manager's gain in each view, for one trade. They receive what you give and send what you get.
-  function anchorGains(opp, curve) {
-    const draftGive = sum(opp.give, r => draftValue(r, curve));
-    const draftRecv = sum(opp.receive, r => draftValue(r, curve));
+  function anchorGains(opp, curve, ranks) {
+    const draftGive = sum(opp.give, r => draftValue(r, curve, ranks));
+    const draftRecv = sum(opp.receive, r => draftValue(r, curve, ranks));
     return {
       market: finite(opp.chartEdge) ? opp.chartEdge : null,
       draft: draftGive !== null && draftRecv !== null ? draftGive - draftRecv : null,
@@ -118,8 +125,8 @@
   }
 
   // The row's roster warnings, per team: {ours: [words], theirs: [words]}; both empty when every check ran and passed.
-  // ours.label "partial" means construction failed for one or both teams; the row keeps only their side's result, so ours
-  // comes from fullFit(row) (opportunities.js) when it is given. Without it, ours says it could not be told apart.
+  // ours.label "gains, roster issue" means your construction failed; the row keeps only their side's issues, so yours come
+  // from fullFit(row) (opportunities.js) when it is given.
   const issuesText = c => (c.issues || []).join("; ") || "issue";
   function health(row, fullFit) {
     const ours = [];
@@ -131,22 +138,22 @@
       const their = row.theirs && row.theirs.construction;
       if (!their) theirs.push("roster construction not judged");
       else if (!their.ok) theirs.push(`roster construction: ${issuesText(their)}`);
-      if (row.ours.label === "partial") {
+      if (row.ours.label === OURS_ROSTER_ISSUE) {
         let mine = null;
         try { mine = fullFit ? (fullFit(row) || {}).myConstruction || null : null; } catch (error) { mine = null; }
-        if (mine) { if (!mine.ok) ours.push(`roster construction: ${issuesText(mine)}`); }
-        else ours.push(their && !their.ok ? "roster construction not checked apart from theirs" : "roster construction issue");
+        ours.push(mine && !mine.ok ? `roster construction: ${issuesText(mine)}` : "roster construction issue");
       }
     }
     if (row.partial) theirs.push("partial roster");
     return {ours, theirs};
   }
 
-  // Win for the reader: DDF gain shows above 0.0 and our own fit is not force.
-  const isWin = row => finite(row.edge) && shown(row.edge) > 0 && !(row.ours && row.ours.label === "force");
+  // Win for the reader: DDF gain shows above 0.0 and our own fit works (their side doesn't decide it).
+  const isWin = row => finite(row.edge) && shown(row.edge) > 0 && !(row.ours && row.ours.label === OURS_FAILS);
   const order = (x, y) => y.ourGain - x.ourGain || (y.share - x.share) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0);
 
-  // opts: {rows (opportunities rows), book, ws, allRows, profiles (manager-profiles.js API), fullFit (optional, opportunities.js)}.
+  // opts: {rows (opportunities rows), book, ws, allRows, profiles (manager-profiles.js API), fullFit (optional, opportunities.js),
+  //   ranks (optional Map player_key -> preseason_ecr_rank, from the canonical players)}.
   // Returns {recommendations, stretch, counts: {considered, excluded, notWin, noAppeal, hidden}}.
   function build(opts) {
     const P = opts.profiles;
@@ -158,7 +165,7 @@
       const who = eligible.get(String(row.opponentId));
       if (!who) { out.counts.excluded += 1; return; }
       if (!isWin(row)) { out.counts.notWin += 1; return; }
-      const gains = anchorGains(row, curve);
+      const gains = anchorGains(row, curve, opts.ranks);
       const a = appeal(who.profile, gains);
       const sent = sum(row.receive, ddf);
       const judged = band(a.gain, sent);
@@ -189,7 +196,7 @@
       why: rec.why.slice(), sources: `Your gain is in DDF Value. Their side judged on: ${sources || "nothing available"}.`};
   }
 
-  const api = {OUR_KEY, WEIGHT, BANDS, LABEL, SOURCES, draftCurve, draftValue, anchorGains, appeal, band, explain, health, isWin, build, view};
+  const api = {OUR_KEY, OURS_FAILS, OURS_ROSTER_ISSUE, WEIGHT, BANDS, LABEL, SOURCES, draftCurve, draftValue, anchorGains, appeal, band, explain, health, isWin, build, view};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueManagerRecs = api;
 })(typeof window !== "undefined" ? window : globalThis);

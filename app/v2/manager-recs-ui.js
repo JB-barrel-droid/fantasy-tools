@@ -25,7 +25,7 @@
     return node;
   }
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || `${one}s`)}`;
-  // Our own construction check for a "partial" row, recomputed once per row object (opportunities.js fullFit).
+  // Our own construction check for a "gains, roster issue" row, recomputed once per row object (opportunities.js fullFit).
   const fits = new WeakMap();
   function fullFit(row) {
     const O = root.TradeValueOpportunities;
@@ -34,12 +34,26 @@
     return fits.get(row);
   }
 
+  // Preseason ranks by player_key from the canonical players (product-data.js). The engine rows the opportunities come from
+  // don't carry them, so without this the draft-capital view would never have data. Kept once read; null until it can be read.
+  let ranks = null;
+  function preseasonRanks() {
+    if (ranks) return ranks;
+    const D = root.TradeValueProductData;
+    let players = [];
+    try { players = D && D.getPlayers ? D.getPlayers() : []; } catch (error) { return null; }
+    if (!players.length) return null;
+    ranks = new Map();
+    players.forEach(p => { if (Number.isInteger(p.preseason_ecr_rank)) ranks.set(Number(p.player_key), p.preseason_ecr_rank); });
+    return ranks;
+  }
+
   function compute() {
     const L = root.TradeValueLeague;
     const C = root.TradeValueCurveControls;
     const result = L && L.ui && L.ui.result;
     if (!result || !C || !C.getAllRows) return null;
-    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: C.getAllRows(), profiles: M, fullFit});
+    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: C.getAllRows(), profiles: M, fullFit, ranks: preseasonRanks()});
   }
 
   // v is R.view(rec): every shown string comes from there, so the redraw check below sees all of it.
@@ -136,7 +150,7 @@
     let tries = 0;
     const timer = setInterval(() => { tries += 1; if (mount() || tries > 120) clearInterval(timer); }, 250);
   }
-  root.TradeValueTradeIdeas = {render, compute};
+  root.TradeValueTradeIdeas = {render, compute, preseasonRanks};
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
   else start();
 })(typeof window !== "undefined" ? window : globalThis);

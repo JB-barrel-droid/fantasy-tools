@@ -16,7 +16,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 HARNESS = ROOT / "tests" / "manager_recs_harness.cjs"
-MODULES = ["manager-recs.js", "manager-profiles.js", "workspace.js", "roster-provenance-transitions.js"]
+# opportunities.js: the harness takes its "Our fit" labels from the real ourFitOf.
+MODULES = ["manager-recs.js", "manager-profiles.js", "workspace.js", "roster-provenance-transitions.js", "opportunities.js"]
 
 REQUIRED = [
     "test_draft_curve_positional", "test_unmarked_manager_uses_market", "test_blend_strong_counts_double",
@@ -24,7 +25,7 @@ REQUIRED = [
     "test_missing_draft_rank_falls_back", "test_draft_gain_from_ranks", "test_band_boundaries", "test_rank_by_our_gain_not_appeal",
     "test_stretch_section", "test_excluded_and_my_team_left_out", "test_only_your_wins", "test_no_appeal_number_is_counted_not_shown",
     "test_values_untouched", "test_sources_labelled", "test_health_warnings_both_sides", "test_view_shows_every_displayed_field",
-    "test_force_fit_candidates_kept", "test_legacy_note_in_why",
+    "test_force_fit_candidates_kept", "test_legacy_note_in_why", "test_draft_ranks_from_canonical_players",
 ]
 
 
@@ -69,10 +70,11 @@ MUTATIONS = [
     ("sources not labelled", "sources: a.basis.map(x => ({anchor: x.anchor, ...SOURCES[x.anchor]}))", "sources: []", "test_sources_labelled"),
     ("roster warnings dropped", "health: health(row, opts.fullFit),", "health: {ours: [], theirs: []},", "test_health_warnings_both_sides"),
     ("partial roster not carried", "if (row.partial) theirs.push(\"partial roster\");", "", "test_health_warnings_both_sides"),
-    ("our side called healthy when it can't be told", "else ours.push(their && !their.ok ?", "else if (!their || their.ok) ours.push(their && !their.ok ?",
-     "test_health_warnings_both_sides"),
+    ("your roster issue not shown", "if (row.ours.label === OURS_ROSTER_ISSUE) {", "if (row.ours.label === \"partial\") {", "test_health_warnings_both_sides"),
+    ("your own failing fit recommended", "row.ours.label === OURS_FAILS);", "row.ours.label === \"force\");", "test_only_your_wins"),
+    ("canonical preseason ranks ignored", ": row && ranks ? ranks.get(Number(row.player_key)) : null;", ": null;", "test_draft_ranks_from_canonical_players"),
     ("health filter added", "if (!isWin(row)) { out.counts.notWin += 1; return; }",
-     "if (!isWin(row) || !row.ours || row.ours.label === \"partial\" || row.partial) { out.counts.notWin += 1; return; }", "test_health_warnings_both_sides"),
+     "if (!isWin(row) || !row.ours || row.ours.label === OURS_ROSTER_ISSUE || row.partial) { out.counts.notWin += 1; return; }", "test_health_warnings_both_sides"),
     ("force fits excluded", "if (!isWin(row)) { out.counts.notWin += 1; return; }", "if (!isWin(row) || row.overall === \"force\") { out.counts.notWin += 1; return; }",
      "test_force_fit_candidates_kept"),
     ("warnings not shown", "health: sides.length ? `Roster check: ${sides.join(\" \")}` : \"\",", "health: \"\",", "test_health_warnings_both_sides"),
@@ -100,6 +102,15 @@ class ManagerRecs(unittest.TestCase):
                     tmp.cleanup()
                 failed = {f["name"] for f in result["failures"]}
                 self.assertIn(expect, failed, f"{label}: {expect} did not catch it (failed: {sorted(failed)})")
+
+    def test_canonical_players_keep_the_preseason_rank(self):
+        # Engine rows don't carry preseason_ecr_rank, so Trade ideas reads it from product-data.js getPlayers().
+        product = (ROOT / "app" / "trade-value-chart" / "assets" / "product-data.js").read_text(encoding="utf-8")
+        body = product.split("function buildPlayers(", 1)[1].split("\n  }\n", 1)[0]
+        self.assertIn("preseason_ecr_rank: Number.isInteger(player.preseason_ecr_rank) ? player.preseason_ecr_rank : null", body)
+        ui = (APP / "manager-recs-ui.js").read_text(encoding="utf-8")
+        self.assertIn("getPlayers()", ui)
+        self.assertIn("ranks: preseasonRanks()", ui)
 
     def test_module_has_no_dom_or_engine_dependency(self):
         text = (APP / "manager-recs.js").read_text(encoding="utf-8")
