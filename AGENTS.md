@@ -100,8 +100,10 @@ these documentation PRs in this task.
   still apply; the coordinator never substitutes its own check for review.
 - The acting successor coordinator, PSpice or Muse, merges once that review
   passes and CI is green on that exact head, subject to the approval gates.
-  The acting successor runs the same batch window in the Review and merge
-  protocol (JEG-1444 decision 13), including per-batch deploy approval naming
+  The acting successor runs the same two daily batch and approval windows,
+  at 6:00 AM and 4:00 PM US Central time, in the Review and merge protocol
+  (JEG-1444 decision 13, timing updated 13:26 UTC), with no merge windows or
+  approval asks overnight and with per-batch deploy approval naming
   PR numbers, isolated high-risk/value-math releases and immediate Urgent work.
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
@@ -173,9 +175,13 @@ or merge text in this file and in `HANDOFF.md`.
   progress without Jeremy's yes.
 - **At most 8 PRs ready for review at once.** Keep the rest as drafts.
 - **Merging (JEG-1444 decision 13; Jeremy, 2026-10-31 13:16 UTC).**
-  Low-risk PRs ship together in one release about once a day, in one merge
-  window on the existing overnight merge run. Group CI, review, branch
-  integration, merge-gate wake-ups and deploy checks into that window rather
+  Two batch and approval windows run each day, at 6:00 AM and 4:00 PM
+  US Central time (America/Chicago), per Jeremy's 2026-10-31 13:26 UTC update.
+  No merge windows or approval asks overnight. Each window gathers the
+  low-risk PRs that became eligible since the last window and merges a batch
+  of at most 7 PRs of the same risk. Ask Jeremy for the per-batch deploy yes
+  in that window, naming the PR numbers. Group CI, review, branch
+  integration, merge-gate wake-ups and deploy checks into the window rather
   than repeating the release cycle per PR. A batch holds at most 7 PRs of
   the same risk. Each still merges on its own reviewed head with green CI on
   that exact head and a clean merge onto current main; batching never waives
@@ -190,7 +196,7 @@ or merge text in this file and in `HANDOFF.md`.
   After the batch, run one CI run and one deploy check on main. If main goes
   red at any point, stop the batch and diagnose; any revert goes through the
   normal gate. Deploys still need Jeremy's yes per batch, naming the PR
-  numbers. The routine-data-refresh exception is unchanged. The daily
+  numbers. The routine-data-refresh exception is unchanged. The two-window
   cadence and cap of 7 are defaults Jeremy can change.
   The Claude merge session runs the window normally; during cutover the
   acting successor runs it under decision 11. Jeremy's 2026-10-29 21:08 UTC
