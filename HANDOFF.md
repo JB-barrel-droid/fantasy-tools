@@ -44,46 +44,36 @@ below are history, including any "Codex reviews and merges" line.
   774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
   `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
 
-### JEG-1176 pre-transition follow-up (Codex Bridge, 2026-10-31)
+### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
 
-- Jeremy's Oct 30 20:56 CT decision: keep `06ebcba9` on main; no revert.
-  It receives separate independent review. Follow-up branch `claude/JEG-1176`
-  starts at `f404dfe6` (includes that commit). Upstream is unset; push.default
-  is simple. Check both before every push and use only
-  `git push origin HEAD:refs/heads/claude/JEG-1176`; verify remote task SHA
-  and main before/after. No main pushes, merges, dispatches or deployment here.
-- Fixed test setup only: weekly producer replay now pins a local empty alias
-  fixture. Golden changes only that input's hash; player data is byte-identical.
-  New global-alias-isolation test fails on `f404dfe6` with the old helper and passes
-  with the pin. Three golden failures were the same shared-alias hash drift.
-  Freshness test's source-text assertion was wrong: weekly-contract age labels
-  (`one_week_behind`) differ from dashboard deadline labels (`lagging`/`stale`,
-  JEG-1180). Replaced it with behavior checks across Thursday noon CT.
-- Installed Chrome via CHROMIUM_PATH unblocked sync. MCP/get-values week checks
-  and all four WeekTransitionSentinelTest checks pass (6 tests, 79 s): mixed
-  input passes, corrupted CBS fails as intended, carry-forward mutation fails,
-  engine/reference agree. The earlier [8,7] vs [7] failure was stale committed
-  dist: a current build passes without connector/default/value-rule changes.
-  Added Standard alongside Half PPR and PPR to transition engine/reference parity.
-- Read-only live evidence, Oct 31 chain `2026-10-31T05:02:16.696759+00:00`:
-  `published_with_holds`, amber fidelity holds for CBS ROS (1 unresolved name)
-  and Razzball (2 unresolved names). All seven serve week 8; all 12 defaults
-  are 8; season is 2026. Each chain week/date equals fixture week_state.
-  Each served entry fingerprint recomputes and equals the index; week-8 schema
-  validates. FantasyCalc's superseded entry is correctly served through
-  `assets/history/served.json` (not the intentionally private superseded folder).
-  Its week-8 publication evidence is `2026-10-31T00:06:19+00:00`; fingerprint
-  matches. Earlier provenance concern is resolved, no production change needed.
-  History schema calls these fields `week`, `week_evidence`/`pulled_at`; public
-  fixture/chain explicitly expose served_week/published_at. Do not treat the
-  schema's different field names or expected superseded-folder 404 as a bug.
-- Final checks: producer/weekly-contract/week-state modules: 102 tests pass.
-  Chrome transition parity (all three scorings), superseded-version and week-file
-  schema checks: 7 tests pass. Earlier MCP + transition sentinels: 6 tests pass.
-  `git diff --check` passes.
-- No value math, week default or calendar changes. Generated build churn is
-  discarded. No heavy render/12-combo suite. Full CI and independent review
-  remain required; observed Nov 3-4 transition acceptance is still pending.
+- Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
+  week 8 -> 9 vectors at 0/49/50/51/100%, unknown inputs in the denominator,
+  and per-source publication/week provenance. No engine, default or calendar changes.
+  New vector completeness test fails on base 168aba93 (5 missing cases), passes
+  with the vectors. Jeremy authorized this Bridge job Oct 30; the old Codex pause above
+  does not apply. Independent Claude review remains required.
+- Read-only live check: chain run `2026-10-30T20:27:48.388544+00:00` green;
+  CBS, CBS ROS, ESPN, FantasyCalc, FantasyPros, Razzball and USA Today all serve week 8.
+  Their chain dates agree with fixture week_state dates; all 12 settings default to 8
+  (Standard/Half PPR/PPR x 8/10/12/14 teams). Season is honestly 2026.
+- Gaps: history entries use `week` and `week_evidence`/`pulled_at`, not explicit
+  `served_week`/`published_at`. Projection entries have content dates only. FantasyCalc
+  served index points to a superseded week-8 fingerprint, different from the ordinary
+  week-8 snapshot; public assets/history/superseded/week-8.json returns 404 (the store
+  intentionally does not serve that directory). Cannot independently equate its current
+  publication date/natives to the ordinary snapshot. Do not call this provenance complete.
+- Targeted combined run: 101 tests, 4 failures and 2 errors. Failures: weekly-input
+  freshness-rule source assertion expects `one_week_behind`; producer golden bytes differ
+  in three tests. Errors: get-values wrapper and history module setup call sync, which
+  needs missing Playwright chromium_headless_shell-1208. Sync generated files were
+  discarded. No heavy suite, browser installation, dispatch or publishing performed.
+  Mixed/corrupted/carry-forward browser sentinels exist in WeekTransitionSentinelTest,
+  but were not executed successfully here. CI must run them; do not infer a pass.
+- Standalone shared-vector/provenance/calendar module passes (11 tests). Direct
+  get_values_week_check.mjs against committed dist fails at line 137: expected week
+  views [8, 7], got [7]. The missing build prevents claiming a current-build connector
+  pass; investigate fixture/hold eligibility in CI. MCP tool week check passed in the
+  combined run.
 - Nov 3-4 acceptance (later job): GET live modules/comparison-chain-status.json,
   assets/comparison-sources-data.json, assets/history/index.json and week-8/week-9.json
   under https://jb-barrel-droid.github.io/fantasy-tools/. Record build/run times and each
