@@ -19,6 +19,23 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): blocked before deployment
+
+- Jeremy authorized only `mcp` on `iskiybsimubiujwuchsl` at 12:13 PM CT Oct 31
+  (pick A), plus restoring its previous source if deployment or either live check fails.
+- Isolated ops checkout pinned to fetched `origin/main` `c267aa71`. Confirmed
+  `find-trades.ts` uses `Math.max(0, -c.net!)` and `tools.ts` names unmatched players
+  with closest matches (#1231). Production metadata reports active mcp **v18**,
+  JWT verification disabled; v18 is the recorded rollback point.
+- Supabase CLI 2.122.0 invoked through npx. The pre-deploy rollback-source download
+  failed with `AccessTokenRequiredError`: local CLI authentication is absent.
+  No deployment attempted, no rollback needed, no credential changes or data writes.
+- Local `rival_edge_band_check.mjs` and `mcp_unmatched_check.mjs` both passed.
+  Live checks A (min_rival_edge 0.5) and B (pasted Zzyzx Notaplayer state) were not run.
+- Next: an operator must establish CLI authentication separately, then resume with
+  a fresh metadata/source capture before the single-function deploy and both live checks.
+  No automatic retry. JEG-1400 remains open. This branch is documentation only.
+
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
