@@ -19,6 +19,13 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1397 methodology worked example generated (Claude, 2026-10-31 UTC): branch pushed, no PR yet
+
+- Branch `claude/JEG-1397`. `tools/methodology_worked_example.py` writes the worked example and hand-checks in
+  `docs/methodology.md` from the fixture via the spec reference; `tests/test_methodology_worked_example.py`
+  (test-unit-modules) fails when they drift. VP-2.2d/VP-2.5 now state the greedy bench and midpoint starter line.
+  Docs only, no value change. Log: `docs/claude-log/2026-10-31-jeg-1397-worked-example-generated.md`.
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
