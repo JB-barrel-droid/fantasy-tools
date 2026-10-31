@@ -71,6 +71,7 @@ from timestamps import parse_iso_timestamp  # noqa: E402
 PRODUCER = "pipelines/build_waiver_board.py"
 DEFAULT_POINTS_LEG = "experts.espn_weekly"
 VALUES_KIND, VALUES_VERSION = "ddf-values", 1
+VALUES_VIEW, VALUES_SERIES = "adj", "ddf_value"  # value_reference's Adjusted view and COMPOSITE_KEY
 NOT_PRICED_POS = ("K", "DST")
 SNAPSHOT_LABELS = ("published", "modeled", "stale")
 STATUS_FIELDS = ("status", "injury_status", "practice_participation")
@@ -111,6 +112,10 @@ def check_values(snap: dict, setting: dict) -> dict:
     """A values snapshot, checked; BoardError on a malformed one or another setting."""
     if not isinstance(snap, dict) or snap.get("kind") != VALUES_KIND or snap.get("version") != VALUES_VERSION:
         raise wb.BoardError(f"values input is not a {VALUES_KIND} v{VALUES_VERSION} snapshot")
+    if snap.get("view") != VALUES_VIEW or snap.get("series") != VALUES_SERIES:
+        # The board's DDF Value is the Adjusted view's ddf_value; any other view or series is another price.
+        raise wb.BoardError(f"values input is view {snap.get('view')!r} series {snap.get('series')!r}; "
+                            f"the board takes view {VALUES_VIEW!r} series {VALUES_SERIES!r}")
     vset = snap.get("setting")
     if (not isinstance(vset, dict) or set(vset) != set(wb.SETTING_KEYS)
             or any(isinstance(v, bool) for v in vset.values()) or vset != setting):
@@ -151,6 +156,8 @@ def values_from_reference(setting: dict, today: date, fixture: Path | None = Non
     """A values snapshot from pipelines/value_reference.py at the setting, read-only on the published inputs."""
     import nfl_week
     import value_reference as ref
+    if ref.COMPOSITE_KEY != VALUES_SERIES:
+        raise wb.BoardError(f"value_reference serves {ref.COMPOSITE_KEY!r}, the board reads {VALUES_SERIES!r}")
     fixture = Path(fixture or ref.FIXTURE)
     players = Path(players or ref.PLAYERS)
     history = Path(history or ref.HISTORY)
@@ -189,7 +196,7 @@ def values_from_reference(setting: dict, today: date, fixture: Path | None = Non
                                     f"the week history `make sync` writes, from the same build, in {history.name}/)")}
     return {
         "kind": VALUES_KIND, "version": VALUES_VERSION, "source": "value_reference",
-        "source_version": ref.VERSION, "view": "adj", "series": ref.COMPOSITE_KEY,
+        "source_version": ref.VERSION, "view": VALUES_VIEW, "series": VALUES_SERIES,
         "setting": dict(setting), "season": nfl_week.SEASON, "content_week": week,
         "content_vintage": (pl_doc.get("meta") or {}).get("as_of"), "label": "published",
         "inputs": [{"name": fixture.name, "sha256": _sha256(fixture.read_bytes())},

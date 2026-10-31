@@ -11,7 +11,7 @@ and validator: `pipelines/lib/waiver_board.py`. Design: `docs/design/waiver-benc
 | Input | Lane | From |
 | -- | -- | -- |
 | Weekly inputs | This week | a `weekly-inputs` 1.x artifact (`docs/weekly-inputs-contract.md`, producer `pipelines/build_weekly_inputs.py`). Refused unless the contract validator passes it. |
-| DDF Value | Value | `pipelines/value_reference.py` at the setting (Adjusted view, `ddf_value`, the engine's twin) on the published `players.json` and chart fixture, read only; or a saved values snapshot of the same shape (`--values`). Its content week is the week the reference priced (the served week of its prior pair, as the page's week view; without a week history, the newest week the weekly charts serve), never the build day's calendar week. Checked against get-values' own pipeline in the tests. |
+| DDF Value | Value | `pipelines/value_reference.py` at the setting (Adjusted view, `ddf_value`, the engine's twin) on the published `players.json` and chart fixture, read only; or a saved values snapshot of the same shape (`--values`), refused unless it is view `adj`, series `ddf_value`. Its content week is the week the reference priced (the served week of its prior pair, as the page's week view; without a week history, the newest week the weekly charts serve), never the build day's calendar week. Checked against get-values' own pipeline in the tests. |
 
 The board prices nobody. Every DDF Value and prior-week DDF Value is the
 reference's own number. Change is DDF Value minus the reference's prior-week

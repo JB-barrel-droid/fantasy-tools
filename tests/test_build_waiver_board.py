@@ -374,6 +374,13 @@ class Refusals(unittest.TestCase):
         with self.assertRaisesRegex(wb.BoardError, "has no source"):
             build(v=v)
 
+    def test_snapshot_view_and_series(self):
+        for k, other in (("view", "native"), ("series", "ddf_chart")):
+            v = values()
+            v[k] = other
+            with self.assertRaisesRegex(wb.BoardError, "the board takes view 'adj' series 'ddf_value'"):
+                build(v=v)
+
     def test_values_keys_and_setting_written_one_way(self):
         v = values()
         v["players"]["0101"] = v["players"].pop("101")
@@ -430,6 +437,14 @@ class ValidatorCatches(unittest.TestCase):
         b = copy.deepcopy(self.board)
         edit(b)
         return wb.validate(b)
+
+    def test_missing_lane_field_is_reported_not_raised(self):
+        for lane, f in (("value", "change"), ("value", "ddf_value"), ("this_week", "bye_week"),
+                        ("this_week", "on_bye")):
+            def edit(b, lane=lane, f=f):
+                del b["players"][0][lane][f]
+            got = self.problems(edit)
+            self.assertTrue(any(f"$.players[0].{lane}: needs exactly" in p for p in got), (lane, f, got))
 
     def test_value_under_a_disabled_source(self):
         def edit(b):

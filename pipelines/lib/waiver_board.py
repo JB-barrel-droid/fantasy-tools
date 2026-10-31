@@ -200,11 +200,10 @@ def validate(doc: Any) -> list[str]:
         for k in ("name", "position", "team"):
             if row[k] is not None and not isinstance(row[k], str):
                 add(f"{p}.{k}: not a string or null")
-        _lane(row["value"], VALUE_FIELDS, sources, f"{p}.value", add)
-        _lane(row["this_week"], WEEK_FIELDS, sources, f"{p}.this_week", add)
-        if isinstance(row["value"], dict) and isinstance(row["value"].get("missing_reason"), dict):
+        # Cross-field checks run only on a lane whose shape passed, so a missing key is reported, never raised.
+        if _lane(row["value"], VALUE_FIELDS, sources, f"{p}.value", add):
             _value_row(row["value"], f"{p}.value", add)
-        if isinstance(row["this_week"], dict) and isinstance(row["this_week"].get("missing_reason"), dict):
+        if _lane(row["this_week"], WEEK_FIELDS, sources, f"{p}.this_week", add):
             _week_row(row["this_week"], doc["board_week"] if week_ok else None, f"{p}.this_week", add)
     if not out and rows != sorted(rows, key=sort_key):
         add("$.players: not sorted by DDF Value (highest first, missing last), then player_key")
@@ -334,14 +333,15 @@ def _value_freshness(sid: str, src: dict, sources: dict, doc: dict) -> str | Non
     return freshness_for_weeks(doc["board_week"], src["content_week"])
 
 
-def _lane(lane: Any, fields: dict, sources: dict, path: str, add) -> None:
+def _lane(lane: Any, fields: dict, sources: dict, path: str, add) -> bool:
+    """Checks one lane; True when its shape is whole (every field and a missing_reason object)."""
     if not isinstance(lane, dict) or set(lane) != {*fields, "missing_reason"}:
         add(f"{path}: needs exactly {', '.join(fields)}, missing_reason")
-        return
+        return False
     reasons = lane["missing_reason"]
     if not isinstance(reasons, dict):
         add(f"{path}.missing_reason: not an object")
-        return
+        return False
     for f, why in reasons.items():
         if f not in fields:
             add(f"{path}.missing_reason.{f}: not a field of this lane")
@@ -363,6 +363,7 @@ def _lane(lane: Any, fields: dict, sources: dict, path: str, add) -> None:
                 add(f"{path}.{f}: has a value although source {sid} is disabled")
             elif why is not None and why != src.get("disabled_reason"):
                 add(f"{path}.missing_reason.{f}: not source {sid}'s disabled reason")
+    return True
 
 
 def _value_row(lane: dict, path: str, add) -> None:
