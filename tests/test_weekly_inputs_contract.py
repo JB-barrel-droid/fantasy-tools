@@ -282,16 +282,25 @@ class RulesPinnedToRepoTest(unittest.TestCase):
     def test_scoring_keys_are_the_repo_scoring_keys(self):
         self.assertEqual(set(wic.SCORINGS), set(SCORING))
 
-    def test_freshness_rule_matches_check_reference_freshness(self):
-        # pipelines/check_reference_freshness.py make_source_week_item: 0 behind current,
-        # 1 behind one_week_behind, 2+ stale, unknown week unknown.
+    def test_weekly_contract_freshness_is_relative_to_requested_week(self):
+        # Contract labels describe input age relative to the requested week.
+        # Dashboard lagging/stale labels instead use a Thursday deadline (JEG-1180).
         self.assertEqual(wic.freshness_for_weeks(8, 8), "current")
         self.assertEqual(wic.freshness_for_weeks(8, 7), "one_week_behind")
         self.assertEqual(wic.freshness_for_weeks(8, 6), "stale")
         self.assertEqual(wic.freshness_for_weeks(8, None), "unknown")
-        src = (ROOT / "pipelines" / "check_reference_freshness.py").read_text()
-        for word in wic.FRESHNESS:
-            self.assertIn(f'"{word}"', src)
+
+    def test_dashboard_deadline_labels_are_a_separate_contract(self):
+        from datetime import date, datetime, timezone
+        from pipelines.check_reference_freshness import make_source_week_item
+        section = {"week_designated": "Week 8"}
+        # Same input age, two dashboard labels: Thursday noon CT is the boundary.
+        for hour, expected in ((17, "lagging"), (18, "stale")):
+            now = datetime(2026, 11, 5, hour, tzinfo=timezone.utc)
+            row = make_source_week_item("cbs", section, None, date(2026, 11, 5), now=now)
+            self.assertEqual(row["status"], expected)
+            self.assertFalse(row["enforced"])
+            self.assertEqual(wic.freshness_for_weeks(9, 8), "one_week_behind")
 
     def test_stdlib_and_repo_timestamps_only(self):
         tree = ast.parse(MODULE.read_text())
