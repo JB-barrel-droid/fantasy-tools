@@ -19,6 +19,25 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1394: Advanced settings and Mac finder gate (Codex Bridge, updated 2026-10-31)
+
+- Draft PR #1240, branch `claude/JEG-1394-advanced-render`; current main `c267aa71`
+  merged normally. The Advanced draft-reference fix remains unchanged.
+- Clean detached-main worktree reproduced `test_keyboard_mobile_and_overlap_guard`
+  at `tests/test_v2_finder_saved_team_render.py:415`: selected `''`, expected `beta`.
+  The keyboard setup at lines 411-414 used Home/ArrowDown. Event tracing and a
+  standalone native select confirm those keys do not change selection in local
+  headless Mac Chrome; letter type-ahead does. Test setup now uses type-ahead,
+  retaining all selection, overlap, roster-preservation and phone assertions.
+- Focused Chrome test passed all three widths; all 11 saved-team finder tests
+  also passed inside the full `make validate` rerun. The gate then failed with
+  three errors at `tests/test_v2_phone_fallback_font_render.py:76`: local Chrome
+  cannot resolve DejaVu Sans (the canvas text-width probe matches monospace). This environment
+  dependency needs a separate follow-up; no font-test assertion was weakened,
+  no font installation or unchanged retry attempted. Full gate is not green.
+- No value math, scoring, season labels or `shell.html` edits. No merge or
+  deployment authorized. The v2.js lock is released with this handoff.
+
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
