@@ -19,29 +19,27 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): rolled back, verification incomplete
+### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): v21 live, both checks passed
 
-- Jeremy's 12:13 PM CT approval covered only mcp on iskiybsimubiujwuchsl and rollback.
-  After Jeremy installed/authenticated CLI 2.122.0, re-fetched main: still c267aa71;
-  both requested fixes remain present. Downloaded active v18 source successfully into
-  `/Users/botcomp/code/wt/ops-JEG-1400-rollback` before deployment.
-- Deployed mcp only from detached origin/main c267aa71: active v19, verify_jwt false.
-- Check B PASSED on v19: read_state with Gibbs / Hubbard and Zzyzx Notaplayer
-  returned `get (no total: 1 name not matched)` and `Could not match: Zzyzx Notaplayer
-  (closest: Tylan Wallace, Kenneth Walker III, Josh Palmer)`.
-- Check A INCOMPLETE: the live baseline (min_rival_edge 0) returned Jonathan Taylor
-  for Amon-Ra St. Brown, but the verifier assumed returned trades had a charts field;
-  that field is omitted by the public response. It threw before calling min_rival_edge
-  0.5. This is a verifier error, not evidence of a product defect. Live get-values
-  indexed chart data identifies a discriminating case: rival-ok nets +0.5, +1.2,
-  -0.6; corrected average rival edge 0.2, old absolute calculation 0.7667.
-- Per the failure/rollback instruction, restored saved v18 source immediately with
-  a single mcp-only deploy: Supabase now reports active **v20** (v18 source), JWT
-  verification false. No retry of deployment or check A; no other function, migration,
-  credential or data changes. JEG-1400 remains open; #1261 remains a docs-only draft.
-- Next authorized run must fix the verifier to use the fetched indexed chart data,
-  then check baseline presence and exclusion at min_rival_edge 0.5; do not assume
-  public find_trades exposes per-chart nets. No further deploy attempted in this run.
+- Fresh authorization: Jeremy said "yes" at 12:38 PM CT to the 12:37 question:
+  redeploy mcp only from main after fixing the verifier, both live checks, automatic
+  rollback on either failure. No other functions, migrations, data or credential changes.
+- First confirmed v20 verify_jwt false matches the recorded v18 setting. Captured
+  v20 source in `/Users/botcomp/code/wt/ops-JEG-1400-v20-rollback` before deploy.
+- Re-fetched origin/main: still c267aa71; both fixes present. Deployed only mcp
+  from detached main with explicit project-ref iskiybsimubiujwuchsl and no-verify-jwt:
+  production now ACTIVE **v21**, verify_jwt false. **No rollback this run**.
+- Check A PASSED: ppr/12, Jonathan Taylor for Amon-Ra St. Brown, max_per_side 1;
+  public response returns that trade at min_rival_edge 0 and zero trades at 0.5.
+  Verifier reads only public trades/userGives/userGets fields. Fresh get-values
+  indexed chart data: rival-ok nets +0.5, +1.2, -0.6; first two are inside even
+  bands 1.0 and 1.56. Correct rival average 0.2; buggy absolute average 0.7667.
+- v20 already carried the fixed calculation (restored v18 source), so it cannot
+  be a buggy baseline. Same verifier passed against v20 and rejected a local
+  Math.abs(net) mutation through the real handleRpc public-response path.
+- Check B PASSED on v21: pasted Gibbs / Hubbard + Zzyzx Notaplayer gives no get
+  total and names Zzyzx Notaplayer with closest Tylan Wallace, Kenneth Walker III,
+  Josh Palmer. JEG-1400 can be Done. #1261 remains a docs-only draft; no merge.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
