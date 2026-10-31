@@ -19,21 +19,74 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1352 finder assessment fixture (Codex Bridge, 2026-10-30 CT)
+### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
-- Branch `claude/JEG-1352`, based on `168aba93` with JEG-1324 merged. The old ESPN/Yahoo positive case fails at all
-  four viewports: after overlaps are removed, Yahoo has one RB for two starting slots. Finder code is unchanged.
-- The test now serves frozen 2026 Week 8 raw engine inputs and a labelled modeled roster pairing. Its named witness
-  must pass the real search and both sides of Natural 1a, and the grouped results must include a Natural candidate.
-  The positive expectation, negative scenario, four viewports and seven mutations remain; the Natural headline mutant
-  must produce the wrong-headline diagnostic. Repaired two stale mutation anchors; stale anchors and exceptions now fail loudly.
-- `CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" python3 -m unittest
-  tests.test_v2_finder_eval_render` passes: 4 tests, all four viewports, all three scorings and all seven mutations.
-  Draft PR [#1241](https://github.com/JB-barrel-droid/fantasy-tools/pull/1241) awaits a separate Claude review and CI.
-  No fit/value/default code changed; no merge or deploy.
-- Push this branch with `git push -u origin refs/heads/claude/JEG-1352:refs/heads/claude/JEG-1352`. This Mac has
-  `push.default=upstream`: the requested shorthand initially targeted inherited `origin/main` and was rejected.
-  Main was not updated; the explicit source/destination push succeeded.
+- Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
+  fractional flex everywhere, fractional bench only with no league loaded, sigma 0.75 PPG (`seat_sigma`; 0 is the
+  old hard rule). Python reference, spec reference and engine (value-model.js) all run once per whole allocation of
+  the seat mix and weight-average (methodology VP-2.2 g). Engine equals Python on 30 live settings (1e-13).
+- Tests: `test_fractional_seats_stability` (test-core shard 2; no other player moves more than 1.0 on a 1 PPG
+  fringe change; hard rule fails it), `test_fractional_seats_engine`, `test_fractional_seats_worked_example`. The
+  worked example fixture is pinned to `seat_sigma: 0`; its new `variant_fractional_seats` block pins 0.75.
+- Value change: merge needs Jeremy's OK by PR number after the before/after (JEG-1333's table is this build's:
+  the reference reproduces the prototype exactly); deploying get-values and mcp needs a separate yes.
+- Review fix (2026-10-31): each source's per-player records now blend too (0 where a player is off the work list,
+  slices restated at the blended rate, moved/unpaid budgets blended), so the page's fixed-pie guard holds; before,
+  it threw and CI's settings render timed out. `test_fractional_seats_pie` (test-unit-modules) covers it.
+- Rank guard fix (2026-10-31): Indexed is native x the blended factor for every player a chart prices, so it
+  keeps the chart's order (CI's rank guard failed at 14 settings). DDF values unchanged; only low-end Indexed
+  entries move. Also in `test_fractional_seats_pie`.
+- Math inspector fix (2026-10-31): value above waivers is restated at the blended display factor, so
+  vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
+- Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
+  values-explainer) run in CI or on the Mac.
+- CI: test-core now has five shards. Shard 1 passed its 30-minute job limit under the seat mix (seeded hold build
+  774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
+  `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
+
+### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
+
+- Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
+  week 8 -> 9 vectors at 0/49/50/51/100%, unknown inputs in the denominator,
+  and per-source publication/week provenance. No engine, default or calendar changes.
+  New vector completeness test fails on base 168aba93 (5 missing cases), passes
+  with the vectors. Jeremy authorized this Bridge job Oct 30; the old Codex pause above
+  does not apply. Independent Claude review remains required.
+- Read-only live check: chain run `2026-10-30T20:27:48.388544+00:00` green;
+  CBS, CBS ROS, ESPN, FantasyCalc, FantasyPros, Razzball and USA Today all serve week 8.
+  Their chain dates agree with fixture week_state dates; all 12 settings default to 8
+  (Standard/Half PPR/PPR x 8/10/12/14 teams). Season is honestly 2026.
+- Gaps: history entries use `week` and `week_evidence`/`pulled_at`, not explicit
+  `served_week`/`published_at`. Projection entries have content dates only. FantasyCalc
+  served index points to a superseded week-8 fingerprint, different from the ordinary
+  week-8 snapshot; public assets/history/superseded/week-8.json returns 404 (the store
+  intentionally does not serve that directory). Cannot independently equate its current
+  publication date/natives to the ordinary snapshot. Do not call this provenance complete.
+- Targeted combined run: 101 tests, 4 failures and 2 errors. Failures: weekly-input
+  freshness-rule source assertion expects `one_week_behind`; producer golden bytes differ
+  in three tests. Errors: get-values wrapper and history module setup call sync, which
+  needs missing Playwright chromium_headless_shell-1208. Sync generated files were
+  discarded. No heavy suite, browser installation, dispatch or publishing performed.
+  Mixed/corrupted/carry-forward browser sentinels exist in WeekTransitionSentinelTest,
+  but were not executed successfully here. CI must run them; do not infer a pass.
+- Standalone shared-vector/provenance/calendar module passes (11 tests). Direct
+  get_values_week_check.mjs against committed dist fails at line 137: expected week
+  views [8, 7], got [7]. The missing build prevents claiming a current-build connector
+  pass; investigate fixture/hold eligibility in CI. MCP tool week check passed in the
+  combined run.
+- Nov 3-4 acceptance (later job): GET live modules/comparison-chain-status.json,
+  assets/comparison-sources-data.json, assets/history/index.json and week-8/week-9.json
+  under https://jb-barrel-droid.github.io/fantasy-tools/. Record build/run times and each
+  source's week, date, fingerprint and populated values before/after. Check every scoring
+  and league-size setting: >50% eligible league-specific DDF sources on 9 selects 9;
+  ties/unknowns select 8. Inspect both week views: lagging sources absent from week 9,
+  moved sources use saved week-8 values when viewing 8. Check site and connector agree,
+  weekly input horizon remains separate from ROS, no relabelled/carried values, and chain
+  publication recovers from conflicts without manual repair (JEG-1206). Read CI evidence
+  for mixed-source success and corrupted-source failure. Nov 3 flip is 05:00 UTC
+  (midnight New York, after DST); use injected clocks for replay. No manual dispatch or
+  repair is acceptance evidence. JEG-1176 stays open until observed Nov 3-4 acceptance.
+
 
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 

@@ -103,9 +103,9 @@ class ValidateShardsTest(unittest.TestCase):
         self.assertEqual([], matrix_problems(self.makefile, self.pages, "pages.yml"))
 
     def test_pages_matrix_missing_extra_duplicate_and_wrong_target_are_caught(self):
-        for old, new in (("shard: [1, 2, 3, 4]", "shard: [1, 2, 3]"),
-                         ("shard: [1, 2, 3, 4]", "shard: [1, 2, 3, 4, 99]"),
-                         ("shard: [1, 2, 3, 4]", "shard: [1, 2, 3, 4, 4]"),
+        for old, new in (("shard: [1, 2, 3, 4, 5]", "shard: [1, 2, 3, 4]"),
+                         ("shard: [1, 2, 3, 4, 5]", "shard: [1, 2, 3, 4, 5, 99]"),
+                         ("shard: [1, 2, 3, 4, 5]", "shard: [1, 2, 3, 4, 5, 5]"),
                          ("make test-core-shard-${{ matrix.shard }}", "make test-core-shard-1")):
             with self.subTest(new=new):
                 broken = self.pages.replace(old, new, 1)
