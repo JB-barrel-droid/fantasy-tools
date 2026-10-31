@@ -1075,6 +1075,11 @@ Build: JEG-1333. The seat-share helper is JEG-1334. The engine and reference
 wiring is JEG-1335, after #1077 (JEG-1244) and #1105 (JEG-1188). Reverse:
 σ = 0 in the helper reproduces today's allocation exactly.
 
+Jeremy, 2026-10-30 23:41 UTC (voice call, relayed): "Letter A." on JEG-1333's
+before/after: fractional flex everywhere, fractional bench only when no
+league is loaded (a loaded league's bench comes from its rosters). Built in
+JEG-1335 (`docs/methodology.md` VP-2.2 g).
+
 ## JEG-1310: CBS rest of season stays as it has been
 
 Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.
