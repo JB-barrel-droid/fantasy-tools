@@ -19,6 +19,8 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+- JEG-1424 (2026-10-30): branch `claude/JEG-1424`, draft PR; test-only extension of `check_settings` to Standard, Half PPR, Full PPR and the exact Full PPR restore. See `docs/claude-log/league-settings-three-scorings.md`.
+
 ### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
 
 - Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
