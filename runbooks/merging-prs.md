@@ -4,6 +4,28 @@ The merge checks the lead ran on every PR merged on 2026-10-22 (PRs #795 to #821
 
 ## Before merging
 
+JEG-1466, Jeremy, 2026-10-31: "Ok, so set up best practices then" and
+"Ensure they're rebased before promoting upward". Merge `origin/main` into
+the branch just before review and again just before merge; no rebase or
+force-push. Push the branch normally, then require
+`python3 pipelines/pr_freshness_gate.py <PR>` to pass (0 = fresh/green,
+1 = refused, 2 = unavailable evidence; no retries). Use
+`python3 -m pipelines.pr_promotion ready-for-review <PR>` for draft promotion
+and `python3 -m pipelines.pr_promotion merge-gate <PR>` at the final merge
+boundary. The informational workflow is a snapshot, never this authorization.
+Generic skipped checks, pending checks and missing evidence fail closed;
+`skipped` needs an explicit `skipped-by-path` receipt in the check output.
+The #1255 registry is read only from main when present; it attributes known
+test failures and never waives a red status. Draft-deferred red CI still
+refuses promotion; resolve that evidence rather than bypassing the gate.
+
+Skip re-review only if the merge leaves the PR's own diff unchanged: compare
+`git diff <old-main> <reviewed-head> -- . <merge-only-exclusions> | git patch-id --stable`
+with the corresponding new-main/new-head diff, excluding only explicitly
+identified merge-only files. Record both heads, patch-ids and exclusions on
+Linear before carrying the receipt forward; any code/rule/test delta needs
+review. PRs stop editing `HANDOFF.md`; handoff notes go on the Linear ticket.
+
 1. **The bot report matches the head.** The `preview.yml` run posts one "Preview build for `<sha>` (validate passed)" comment on the PR with the build tag, the dist manifest root, the artifact link and the rendered gate result. The `<sha>` must be the PR's current head (`gh pr view <n> --json headRefOid`). A report for an older head proves nothing about the commit you merge.
 2. **`v2-render` is green** on the head (`gh pr checks <n>`; about 4 to 5 minutes).
 3. **The PR is mergeable** (`gh pr view <n> --json mergeable`): no conflicts with `main`. If `UNKNOWN`, wait a minute and ask again.
@@ -14,6 +36,11 @@ The merge checks the lead ran on every PR merged on 2026-10-22 (PRs #795 to #821
 
 ## Merge
 
+- The Oct 29 standing OK ("merge anything you recommend once it is green")
+  is limited by JEG-1444 decision 13: Jeremy, 2026-10-31, "One set of
+  approvals at 6 am, one at 4 pm." Merge only in his 6 AM or 4 PM Central
+  window, on his yes. Nothing sits on an auto-merge path. The gate passing
+  does not authorize a merge or deploy.
 - Squash-merge. Final PR of a ticket: title is the bare id ("JEG-850 ..."); earlier PRs say "(part of JEG-850)".
 - Comment on the ticket: PR number, head sha, "bot report matched head", "v2-render green", what the lead checked and what is not yet verified (live site after deploy).
 - Published output changed: wait for Deploy dashboard, then `runbooks/verify-live.md`.
