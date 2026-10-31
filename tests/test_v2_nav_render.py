@@ -37,6 +37,9 @@ DIST = ROOT / "dist"
 sys.path.insert(0, str(ROOT / "pipelines"))
 import build_v2_page  # noqa: E402
 
+# JEG-1371: the Research entry is in the menu only once a post is published.
+RESEARCH = ["Research"] if build_v2_page.load_posts() else []
+
 from tests.test_published_league_settings_render import _chromium_executable  # noqa: E402
 from tests import _render_env  # noqa: E402
 
@@ -109,7 +112,7 @@ def run_checks(v2_js=None, v2_css=None) -> list[str]:
             # JEG-855: Manifesto, How values work and Research are sections of one Writing tab (Jeremy, 2026-10-22);
             # the landing tab stays Trade targets.
             names = [tab["text"] for tab in tabs]
-            if names != ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", "Research", "Manifesto", "Customize", "Overrides"]:
+            if names != ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", *RESEARCH, "Manifesto", "Customize", "Overrides"]:
                 errors.append(f"nav order: {names}, want the grouped menu (Trade, Players, Auditing, Our approach, Settings; JEG-1106)")
             # JEG-953 (Jeremy, 2026-10-23): below 768 px the tabs live in a hamburger menu, so their row layout is
             # no longer pinned here; tests/test_v2_hamburger_nav_render.py covers the phone menu.
