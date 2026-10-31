@@ -1,0 +1,18 @@
+## 2026-10-29 - JEG-1235 validation-repair completion
+
+Contract: record #1098's publication and coordinator-reported live smoke, close only the scoped validation-repair ticket after acceptance, and prepare this documentation follow-up as a draft PR. No new PR merge/deletion, deployment, next feature release or Supabase operation.
+
+### Verified (check named)
+
+- #1098 merged as `cebac717008cfe61412d70677ab6f371d974ddb6` at 14:53:30 UTC. [Publication 40896011842](https://github.com/JB-barrel-droid/fantasy-tools/actions/runs/40896011842) completed success at **15:11:02 UTC**; the deploy action reported success. Its artifact tag `tv-20261029-0953-cebac71` derives from the merge's 09:53 -0500 committer time. Build-tag time, publication time and QA execution time are separate.
+- Exact candidate `8f024a8ba716d657e222fb9b12a7e71224e14e3a` included current main `62494d98` by a normal merge. Recorded independent source/delta review passed, as did Preview/v2-render and the strict seven-source comparison with zero mismatches. Coordinator-provided Mac integration evidence: **9 focused tests in 264.058s, all 13 mutations caught, no skips/failures/errors**. This executor did not duplicate that focused run.
+- The only implementation changes were `tests/test_v2_finder_groups_render.py`, `tests/test_v2_league_parsed_render.py` and `tests/test_v2_league_top10_render.py`: deterministic larger-package and nonvacuous empty-side coverage, repeated paste through visible disclosures, and a live fold-control mutation anchor. No app, valuation, default, search or fit change. Approved automatic cleanup of the implementation branch was confirmed by authenticated remote-head lookup; no manual deletion.
+- [Coordinator live report](https://github.com/JB-barrel-droid/fantasy-tools/pull/1098#issuecomment-6502432670): live smoke PASS, naming the `tv-20261029-0953-cebac71` tag. Reported desktop/phone groups and Space, paste reopening, pagination 10→20→127→10, keyboard fold, Values search, Compare Swap and navigation passed with no page/console errors. The initial collapsed-section timeout was corrected as a test-sequence issue, followed by remaining-only checks; no product blocker was reported. This is attributed report content, not a new live-browser execution here; its exact QA/tag-read time was not provided.
+- Scoped acceptance review combines the recorded source/CI/mutation evidence, publication and coordinator-reported live pass. JEG-1235's premature automatic Done state had first been reverted while the live gate was pending; after the report was recorded it was set to **Done** and read back. No bench-valuation ticket or other feature issue was closed by this follow-up.
+- Documentation-only follow-up: one new HANDOFF section and this dated note; unrelated sections and draft #1104's corrections remain separate. `git diff --check`, changed-file scope and referenced-path checks are the applicable documentation checks. No browser/full-suite rerun or discretionary workflow dispatch.
+
+### Claimed, not confirmed
+
+- The observed served tag and live outcomes are coordinator-reported. No raw Mac execution/page-load/tag-read timestamp was supplied, so exact QA/build-time association is not independently established here. This note does not claim the release tag is still served or describe current live health after later builds.
+- This is a test-only validation repair, not a fix or proof of correctness for bench valuation. That workstream remains separate.
+- This documentation branch/PR stays draft and unmerged, with merge and cleanup held pending separate approval. No direct main push, force push, manual/unrelated deletion, Supabase operation or next feature release is performed here.
