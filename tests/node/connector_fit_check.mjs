@@ -108,8 +108,9 @@ for (const opp of teams.slice(1)) {
 }
 assert.ok(compared > 0, "the fixture league produced trades to judge");
 assert.equal(counts.Natural + counts["Market supported"] + counts.Force, compared, "every trade got a label");
-assert.ok(counts.Natural > 0 && counts["Market supported"] > 0 && counts.Force > 0,
-  `the rule separates trades on the fixture: ${JSON.stringify(counts)}`);
+// JEG-1125 (option A): the separation check moved to the diagnostic's rows below. With the shared even band
+// the top F.LIMIT trades per opponent hold no Natural trade on this fixture (main had 1 of 189), while the
+// full set the diagnostic checks still holds every label.
 
 // The set tests/node/fit_diagnostic.cjs counts: the connector's label for each of its rows equals
 // the label the diagnostic reports (its overall fit), row for row. Since #1072, runAll keeps every
@@ -138,10 +139,15 @@ assert.equal(judged.size, compared, "the trades judged in (a) are distinct");
   assert.deepEqual(missing, [], "every trade judged in (a) is one of the diagnostic's rows");
   assert.ok(out.rows.length >= compared, `the diagnostic keeps at least the judged trades: ${out.rows.length} < ${compared}`);
   const rosterOf = new Map(oppTeams.map((t) => [t.id, t.entries.map((e) => rows.get(e.key)).filter(Boolean)]));
+  const rowCounts = { Natural: 0, "Market supported": 0, Force: 0 };
   for (const row of out.rows) {
     const got = fitForTrade(F, mine, rosterOf.get(row.opponentId), row.give, row.receive, fitCtx);
     assert.equal(got.fit, FIT_LABELS[row.overall], `fit_diagnostic row parity — ${row.id}`);
+    if (got.fit in rowCounts) rowCounts[got.fit] += 1;
   }
+  // Parity above is shown on every label: the rule separates trades on the fixture.
+  assert.ok(rowCounts.Natural > 0 && rowCounts["Market supported"] > 0 && rowCounts.Force > 0,
+    `the rule separates trades on the fixture: ${JSON.stringify(rowCounts)}`);
 }
 
 // ---------------------------------------------------------------------------

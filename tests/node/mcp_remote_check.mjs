@@ -181,7 +181,7 @@ assert.match(r.result.content[0].text, /give \(total 110\.2\)/);
 // JEG-1124 (Jeremy 2026-10-30, "Letter A."): the get list has an unmatched name, so it gives no total.
 assert.match(r.result.content[0].text, /get \(no total: 1 name not matched\)/);
 assert.doesNotMatch(r.result.content[0].text, /get \(total/);
-assert.match(r.result.content[0].text, /Could not match: Nobody\. Ask the user which player they meant/);
+assert.match(r.result.content[0].text, /Could not match: Nobody( \(closest: [^)]+\))?\. Ask the user which player they meant/);
 assert.match(r.result.content[0].text, /target: Zero Guy \(TE\): 0/);
 assert.deepEqual(sc.state.work.give, [{ key: "3", name: "Josh Allen" }, { key: "2", name: "Ja'Marr Chase" }]);
 assert.ok(sc.site_url.startsWith(ORIGIN + "/#compare-trade?"), "view inferred from give/get");

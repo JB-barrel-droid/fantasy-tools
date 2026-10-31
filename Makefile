@@ -145,6 +145,8 @@ test-unit-modules:
 	# JEG-1225: the shared value-context link format (basis=, ov=).
 	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1061: get-values logs each fresh custom compute and each 429 (soft limiter measurement).
+	python3 -m unittest tests.test_jeg_1061_logging_contract
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
 	# JEG-1225: get-values prices under a link's basis and overrides.
@@ -165,6 +167,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	# JEG-1354: players.active follows the active NFL universe (ids first).
+	python3 -m unittest tests.test_sync_players_active
 	# JEG-1313: platform-spelling audit (JEG-1202), offline. In the full suite, not the deploy gate (an audit).
 	python3 -m unittest tests.test_jeg1202_platform_spellings
 	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
@@ -227,6 +231,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
 	python3 -m unittest -v tests.test_waivers_mutation_specificity
+	# JEG-1373: guard for the per-PR, non-blocking offline run of its three offline classes.
+	python3 -m unittest tests.test_waivers_mutation_offline_workflow
 	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
