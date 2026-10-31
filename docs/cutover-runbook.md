@@ -186,9 +186,13 @@ Timing updated by Jeremy at 13:26 UTC: "One set of approvals at 6 am, one at
   PR numbers in one multiple-choice question within that window, A recommended.
   High-risk and
   value-math changes ship alone; engine PRs stay one at a time. Urgent work
-  (live numbers wrong or deploy broken) ships alone at once with normal gates.
+  (live numbers wrong or deploy broken) ships alone with normal gates and may
+  ask Jeremy outside the 6 AM and 4 PM windows, but never during sleeping
+  hours, 10 PM to 6 AM US Central. An urgent ask arising then waits for the
+  6 AM window (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
 - **Muse:** run the same 6:00 AM and 4:00 PM US Central batch and approval
-  windows, gathering PRs eligible since the last one, obtaining the independent Codex
+  windows, with the same Urgent ask exception and sleeping-hours restriction
+  as PSpice, gathering PRs eligible since the last one, obtaining the independent Codex
   receipt through PSpice if needed. Merge the batch only through GitHub API
   as `jkb-bur-bot`, with visible Muse attribution, `<!-- author: muse -->` and
   recommend wording in merge comments. Ask Jeremy for the per-batch deploy
@@ -272,7 +276,10 @@ these documentation PRs in this task.
   at 6:00 AM and 4:00 PM US Central time, in the Review and merge protocol
   (JEG-1444 decision 13, timing updated 13:26 UTC), with no merge windows or
   approval asks overnight and with per-batch deploy approval naming
-  PR numbers, isolated high-risk/value-math releases and immediate Urgent work.
+  PR numbers and isolated high-risk/value-math releases. Urgent work ships alone with normal gates and may ask Jeremy outside the
+  6 AM and 4 PM windows, but never during sleeping hours, 10 PM to 6 AM
+  US Central. An urgent ask arising then waits for the 6 AM window
+  (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
   credentials, Supabase migrations, GitHub settings, Mac patches and launchd
