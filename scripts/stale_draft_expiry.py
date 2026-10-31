@@ -33,13 +33,19 @@ def tickets(pr):
         str(pr.get(k) or '') for k in ('title', 'body', 'headRefName')))))
 
 
-def select(pr, comments, reviews, review_comments, commits, labels, now, days):
+def normalize_label(name):
+    return re.sub(r'[\s_-]+', '-', name.strip().lower())
+
+
+def select(pr, comments, reviews, review_comments, commits, labels, now, days, events=()):
     if pr.get('state') != 'OPEN' or not pr['isDraft']:
         return None
-    if 'keep-open' in {x['name'].lower() for x in pr['labels']}:
+    protected = {normalize_label(name) for name in PROTECTED}
+    pr_labels = {normalize_label(x['name']) for x in pr['labels']}
+    if pr_labels & (protected | {'keep-open'}):
         return None
     ids = tickets(pr)
-    if not ids or any(t not in labels or PROTECTED & set(labels[t]) for t in ids):
+    if not ids or any(t not in labels or protected & {normalize_label(name) for name in labels[t]} for t in ids):
         return None  # Missing ticket information fails closed.
     warnings = [c for c in comments if WARNING in c['body'] and c['user']['login'] == 'github-actions[bot]']
     # Local gh authors can also run apply: only accept a marker authored by the current actor.
@@ -50,6 +56,7 @@ def select(pr, comments, reviews, review_comments, commits, labels, now, days):
             activity.append(stamp(c.get('updated_at') or c['created_at']))
     for c in review_comments:
         activity.append(stamp(c.get('updated_at') or c['created_at']))
+    activity += [stamp(e['created_at']) for e in events if e.get('event') == 'reopened']
     activity += [stamp(r['submitted_at']) for r in reviews if r.get('submitted_at')]
     activity += [stamp(c['commit']['committer']['date']) for c in commits]
     # updatedAt conservatively covers pushes of old commits and metadata changes.
@@ -64,11 +71,10 @@ def select(pr, comments, reviews, review_comments, commits, labels, now, days):
     if not warnings:
         return {'action': 'warn', 'days_quiet': quiet, 'tickets': ids}
     warned = max(stamp(c['created_at']) for c in warnings)
-    # Warning update is the start of the second window. Later activity starts a
-    # full new two-window grace period without posting a second warning.
-    cutoff = warned + timedelta(days=days)
+    # Any later activity (including closure/reopen) starts a new warning cycle.
     if last > warned + timedelta(seconds=5):
-        cutoff = max(cutoff, last + timedelta(days=2 * days))
+        return {'action': 'warn', 'days_quiet': quiet, 'tickets': ids}
+    cutoff = warned + timedelta(days=days)
     if now >= cutoff:
         return {'action': 'close', 'days_quiet': quiet, 'tickets': ids}
     return None
@@ -120,12 +126,13 @@ def main():
     for pr in prs:
         number = pr['number']
         path = f'repos/{args.repo}'
-        def inspect(p):
+        def inspect(p, ticket_labels):
             p['_actor'] = actor
             return select(p, pages(f'{path}/issues/{number}/comments'),
                           pages(f'{path}/pulls/{number}/reviews'), pages(f'{path}/pulls/{number}/comments'),
-                          pages(f'{path}/pulls/{number}/commits'), labels, now, days)
-        action = inspect(pr)
+                          pages(f'{path}/pulls/{number}/commits'), ticket_labels, now, days,
+                          events=pages(f'{path}/issues/{number}/events'))
+        action = inspect(pr, labels)
         if not action:
             continue
         print(f"| #{number} | {pr['title'].replace('|', '/')} | {action['days_quiet']:.1f} | {action['action']} |", flush=True)
@@ -134,8 +141,8 @@ def main():
         # Recheck draft, exemptions and activity immediately before mutation.
         pr = gh('pr', 'view', str(number), '--repo', args.repo, '--json',
                 'number,title,body,headRefName,isDraft,state,labels,createdAt,updatedAt')
-        labels = load_labels(tickets(pr), args.linear_labels)
-        fresh = inspect(pr)
+        recheck_labels = load_labels(tickets(pr), args.linear_labels)
+        fresh = inspect(pr, recheck_labels)
         if not fresh or fresh['action'] != action['action']:
             continue
         if action['action'] == 'warn':
