@@ -19,12 +19,6 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### Weekly-inputs contract 1.1: roster and slate legs (JEG-1416, Muse, 2026-10-31): built locally, not pushed
-
-- Branch `muse/JEG-1196-contract-1-1` (base origin/main 51557a5), local commits only; nothing pushed, no PR, no Linear post.
-- Schema `weekly-inputs` 1.1.0, additive: new optional `roster` leg (ESPN rostered % and adds trend, per player) and `slate` leg (kickoff time for the player's team in the game week) in `pipelines/lib/weekly_inputs_contract.py`; 1.0.x artifacts still validate under the 1.1 reader. Producer `pipelines/build_weekly_inputs.py` reads both from explicit stored local files only (`--espn-roster`, `--slate`); the stored shapes are defined in `docs/weekly-inputs-contract.md` (no stored ESPN roster shape existed in the producer). Tests first (commit `aec60921a`), then implementation. Check: `tests.test_weekly_inputs_contract` + `tests.test_build_weekly_inputs` = 115 tests, with only the pre-existing base failure left (the freshness-vocabulary assertion against `pipelines/check_reference_freshness.py`, red before this slice).
-- NOT included: the waiver-board builder source flip (a waiver-board builder consuming these legs). That belongs with/after PR #1239 (JEG-1415); no waiver-board builder files were touched or created, and no value math changed.
-
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
