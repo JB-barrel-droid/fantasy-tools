@@ -541,11 +541,31 @@ def _blend_source_players(mix: list, runs: list, out: dict) -> None:
                 pl[field] = part / tot / rate
 
 
+def _reindex_blended(out: dict) -> None:
+    """JEG-1335: Indexed stays one factor per chart under the seat mix (VP-6.4,
+    JEG-482): the factor is the weight-average of the vertices' factors, and
+    every player the blended chart prices is his native times it. A player
+    priced in only some vertices would otherwise carry a part value there and
+    could sit below a player the chart ranks lower."""
+    for key, ix in (out.get("indexed") or {}).items():
+        f = ix.get("factor")
+        players = ((out.get("sources") or {}).get(key) or {}).get("players")
+        if f is None or not isinstance(players, dict):
+            continue
+        for i, pl in players.items():
+            if i in out["rows"]:
+                v = pl["native"] * f
+                out["rows"][i]["indexed"][key] = v
+                if isinstance(ix.get("values"), dict):
+                    ix["values"][i] = v
+
+
 def _blend_runs(mix: list, runs: list, m: dict) -> dict:
     """One run_pipeline result from the runs at each vertex of `mix`."""
     parts = [(w, r) for (w, _a), r in zip(mix, runs)]
     out = blend_values(parts)
     _blend_source_players(mix, runs, out)
+    _reindex_blended(out)
     heavy = max(range(len(mix)), key=lambda j: mix[j][0])
     alloc = mix[heavy][1]
     rows = out["rows"]

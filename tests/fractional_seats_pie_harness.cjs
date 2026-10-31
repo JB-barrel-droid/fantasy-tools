@@ -1,7 +1,7 @@
 // JEG-1335: the page's fixed-pie check (curve-widget.js fixedPieDiagnostics)
 // on an engine run of the worked example, at a given seat sigma. Prints
 // {mix, checks: [{source, total, target, vorpTotal, groups, sliceGap, rowGap}],
-// indexed, bothLabels}. Used by tests/test_fractional_seats_pie.py.
+// indexed, order: [{source, inversions, gap}], bothLabels}. Used by tests/test_fractional_seats_pie.py.
 "use strict";
 const ValueModel = require(process.argv[2]);
 const doc = require(process.argv[3]);
@@ -40,8 +40,23 @@ Object.entries(result.sources).forEach(([key, src]) => {
 });
 const indexed = Object.entries(result.indexed || {}).filter(([, ix]) => ix.factor !== null)
   .map(([key, ix]) => ({source: key, gap: Math.abs(ix.nativeTotal * ix.factor - ix.ddfTotal)}));
+// Same arithmetic as indexedOrderDiagnostics: each chart's Indexed values keep
+// its own order over the players it prices, and each is native x factor.
+const order = [];
+Object.entries(result.sources).forEach(([key, src]) => {
+  if (src.indexedFactor === null || src.indexedFactor === undefined) return;
+  const ps = Object.entries(src.players).map(([k, p]) => ({k, ...p}));
+  ps.sort((a, b) => b.native - a.native || (a.estimated === b.estimated ? 0 : a.estimated ? 1 : -1) || Number(a.k) - Number(b.k));
+  let inversions = 0, gap = 0;
+  ps.forEach(p => { gap = Math.max(gap, Math.abs(result.rows[p.k].indexed[key] - p.native * src.indexedFactor)); });
+  for (let i = 0; i < ps.length; i += 1) for (let j = i + 1; j < ps.length; j += 1) {
+    if (ps[i].native === ps[j].native) continue;
+    if (!(result.rows[ps[i].k].indexed[key] > result.rows[ps[j].k].indexed[key])) inversions += 1;
+  }
+  order.push({source: key, inversions, gap});
+});
 let bothLabels = 0;
 Object.values(result.rows).forEach(row => Object.keys(row.estimated || {}).forEach(s => {
   if (/Below rosterable depth/.test((row.reasons || {})[s] || "")) bothLabels++;
 }));
-console.log(JSON.stringify({mix: (result.allocationMix || []).length, checks, indexed, bothLabels}));
+console.log(JSON.stringify({mix: (result.allocationMix || []).length, checks, indexed, order, bothLabels}));

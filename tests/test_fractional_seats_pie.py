@@ -18,6 +18,11 @@ at the default sigma and at sigma 0:
   rate x slice is the player's value, the source's record equals the row's
   value, and no row is both estimated and below rosterable depth for one
   source;
+- all three: each chart's Indexed value is native x its factor for every
+  player it prices, so Indexed keeps the chart's own order (VP-6.4, the
+  page's indexedOrderDiagnostics and tests/test_rank_guard.py). Averaging
+  the rows gave a player priced in only some allocations a part value there,
+  below players the chart ranks lower (CI rank guard on ef6d859);
 - Python reference and spec reference: each source sums to the pie and
   rate x slice is the player's value.
 
@@ -74,6 +79,24 @@ def _python_gaps(res: dict, bench_key: str, starter_key: str) -> list:
     return out
 
 
+def _python_indexed(res: dict) -> list:
+    """[(chart, inversions, worst |indexed - native x factor|)] over the players
+    each chart prices, for a Python result."""
+    out = []
+    for key, ix in (res.get("indexed") or {}).items():
+        f = ix.get("factor")
+        players = (res["sources"].get(key) or {}).get("players") or {}
+        if f is None or not players:
+            continue
+        val = {i: res["rows"][i]["indexed"][key] for i in players}
+        gap = max(abs(val[i] - p["native"] * f) for i, p in players.items())
+        ks = sorted(players, key=lambda i: -players[i]["native"])
+        inv = sum(1 for a in range(len(ks)) for b in range(a + 1, len(ks))
+                  if players[ks[a]]["native"] != players[ks[b]]["native"] and not val[ks[a]] > val[ks[b]])
+        out.append((key, inv, gap))
+    return out
+
+
 class FractionalSeatPie(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -94,6 +117,11 @@ class FractionalSeatPie(unittest.TestCase):
                 self.assertLessEqual(c["rowGap"], TOL)
         for ix in got["indexed"]:
             self.assertLessEqual(ix["gap"], TOL, ix)
+        self.assertTrue(got["order"])
+        for o in got["order"]:
+            with self.subTest(sigma=sigma, indexed=o["source"]):
+                self.assertEqual(o["inversions"], 0)
+                self.assertLessEqual(o["gap"], TOL)
         self.assertEqual(got["bothLabels"], 0)
 
     def test_engine_default_sigma(self):
@@ -118,6 +146,12 @@ class FractionalSeatPie(unittest.TestCase):
                 with self.subTest(sigma=sigma, source=key):
                     self.assertLessEqual(sum_gap, TOL)
                     self.assertLessEqual(slice_gap, TOL)
+            order = _python_indexed(res)
+            self.assertTrue(order)
+            for key, inv, gap in order:
+                with self.subTest(sigma=sigma, indexed=key):
+                    self.assertEqual(inv, 0)
+                    self.assertLessEqual(gap, TOL)
 
     def test_spec_reference(self):
         for change in (self.change, {**self.change, "seat_sigma": 0}):
@@ -128,6 +162,12 @@ class FractionalSeatPie(unittest.TestCase):
                 with self.subTest(change=change, source=key):
                     self.assertLessEqual(sum_gap, TOL)
                     self.assertLessEqual(slice_gap, TOL)
+            order = _python_indexed(res)
+            self.assertTrue(order)
+            for key, inv, gap in order:
+                with self.subTest(change=change, indexed=key):
+                    self.assertEqual(inv, 0)
+                    self.assertLessEqual(gap, TOL)
 
 
 if __name__ == "__main__":

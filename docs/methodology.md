@@ -297,6 +297,12 @@ chart DDF Value").
      role or unpaid in some allocations is the weight-average with 0 where it
      was not, and the work order is the heaviest allocation's with the
      players listed only in others after it (`tests/test_fractional_seats_pie.py`).
+     Indexed (VP-6.4) stays one factor per chart: the factor is the
+     weight-average of the allocations' factors, and every player the
+     blended chart prices is his native times it, so Indexed keeps the
+     chart's own order (an average of the rows would give a player priced in
+     only some allocations a part value, below players the chart ranks
+     lower; `tests/test_rank_guard.py`).
      The output carries `allocation_mix` (weight, allocation)
      and `allocation_expected` (the weighted counts); `allocation`,
      `slot_fill` and the fill sets are the heaviest allocation's. The

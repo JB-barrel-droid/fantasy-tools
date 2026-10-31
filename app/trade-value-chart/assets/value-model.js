@@ -2136,6 +2136,21 @@
   var VP_SLICE_FIELDS = [["benchSlice", "bench"], ["starterSlice", "starter"],
     ["optionBenchSlice", "bench"], ["optionStarterSlice", "starter"]];
   var VP_SOURCE_VALUE_FIELDS = ["adjusted", "vorpDisplay", "optionAdjusted", "timingAdjusted"];
+  // JEG-1335: Indexed stays one factor per chart under the seat mix (VP-6.4,
+  // JEG-482): the factor is the weight-average of the allocations' factors,
+  // and every player the blended chart prices is his native times it. A
+  // player priced in only some allocations would otherwise carry a part
+  // value there and could sit below a player the chart ranks lower.
+  function vpReindexBlended(out) {
+    Object.keys(out.indexed || {}).forEach(function (src) {
+      var f = out.indexed[src].factor, o = (out.sources || {})[src];
+      if (!vpFinite(f) || !o || !vpIsPlainObject(o.players)) return;
+      Object.keys(o.players).forEach(function (k) {
+        if (out.rows[k]) out.rows[k].indexed[src] = o.players[k].native * f;
+      });
+    });
+  }
+
   function vpBlendSourcePlayers(mix, runs, out) {
     var tot = 0, heavy = 0;
     mix.forEach(function (v, j) { tot += v[0]; if (v[0] > mix[heavy][0]) heavy = j; });
@@ -2207,6 +2222,7 @@
     var parts = mix.map(function (v, j) { return [v[0], runs[j]]; });
     var out = vpBlend(parts);
     vpBlendSourcePlayers(mix, runs, out);
+    vpReindexBlended(out);
     var heavy = 0;
     mix.forEach(function (v, j) { if (v[0] > mix[heavy][0]) heavy = j; });
     var alloc = mix[heavy][1];
