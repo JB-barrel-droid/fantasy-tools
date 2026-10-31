@@ -8,7 +8,9 @@ is specific to Claude Code; put shared rules in `AGENTS.md`.
 - **User-level rules.** Follow the user-level Linear rules and "Usage
   Discipline" section; the repo rules in `AGENTS.md` override them where they
   differ.
-- **Subagents:** use the capability tiers and current model mapping in
+- **Implementation subagents:** `deep-worker` (Opus) for T1 tickets;
+  `worker` (Sonnet) for everything else (implementation tiers in `AGENTS.md`).
+- **Review subagents:** use the capability tiers and current model mapping in
   `AGENTS.md`: high-risk review, value math and design need deep reasoning;
   light, standard and small delta reviews use the mapped standard capability.
   Apply its coordinator risk label, deterministic high-risk floor, pushed-head

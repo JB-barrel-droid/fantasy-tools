@@ -93,7 +93,7 @@ current model in the lane.
 | **T2 build** | Sonnet (`worker`) | Codex, medium | a strong open model (checked per task) | Implementation against a written spec: pullers, pipeline stages, migrations, FE built to a contract line, tests. Escalate to T1 after 2 failed gate runs |
 | **T3 light** | Haiku | small GPT | cheap OpenRouter models for deterministically checked bounded tasks; MiniMax excluded from autonomous coding | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
 
-The ChatGPT/Codex column is inactive since Codex stopped on 2026-10-29
+The ChatGPT/Codex column applies to explicitly authorized bridge build work
 (review and merge protocol above).
 
 Rules:
@@ -140,7 +140,9 @@ Current model mapping (change this table when provider capability changes):
 file list and diff, not a model's classification. Force `review-high-risk`
 for any hot file in **Hot files and merging** below, value-math logic files
 (the existing `LOGIC_FILES` list in `pipelines/build_values_explainer.py`,
-referenced under **Values explainer**), fixtures, `config/`, or Supabase.
+referenced under **Values explainer**), or any path matching these existing
+repo globs (recursive): `tests/fixtures/**`, `config/**`, `supabase/**`, or
+`sql/**` (including `sql/migrations/**`).
 Also force it for any diff that removes or weakens test assertions or skips
 tests, regardless of the label or whether the diff claims to preserve values.
 These checks override a light or standard label and apply to deltas too.
@@ -172,6 +174,14 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
   untrusted input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
+- **MiniMax: M3 or newer only, for bulk non-coding work** (Jeremy,
+  2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
+  more recent one Minimax added to the subscription"). Never autonomous
+  coding, never value math; output is untrusted until the gate passes.
+  The earlier rule (2026-10-09: "I only want to use M3 if we use it. 2.5
+  stinks.") still holds: never M2.5. The lanes/outbox dispatch protocol was
+  archived 2026-10-07 (`archive/2026-10-07/lanes/`); `lanes/protocol.py` and
+  `lanes/plan_status.py` stay only for existing tests.
 - **Supabase first** for schedules, checks and orchestration (pg_cron, Edge
   Functions, the `monitoring` schema). GitHub Actions does the site build,
   deploy and repo tests; pg_cron schedules any job that must run in Actions.
