@@ -11,6 +11,6 @@ Contract: document scope items 1 and 2 only, with a file:line gap inventory. Ope
 - make validate failed at sync: Playwright chromium_headless_shell-1208 executable is absent. No retry or browser installation. Generated app/dist files remain unstaged in this isolated worktree; only the three requested docs are committed.
 
 ### Claimed, not confirmed
-- Dots and Muse capabilities are charter-reported; no independent integration check here.
+- PSpice (the Dots agent) then Muse; no alternate seat. Capabilities are charter-reported; no independent integration check here.
 - New coordinator end-to-end pickup and bridge recovery are untested; JEG-1445 item 3 and JEG-1440 remain separate work.
 - Review/merge replacement and weekly-limit threshold require Jeremy's decision.

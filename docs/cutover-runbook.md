@@ -65,6 +65,7 @@ description, a historical handoff or a planned action.
   handoff state. If `changed` is false, end completion processing immediately;
   continue only separately necessary board work. Finished is a worker claim,
   not independent verification. Inspect saved results for invalid/empty outcomes.
+- [ ] If the connector lacks `get_completion_digest`, use `list_bridge_events` alone and mark digest state unknown.
 - [ ] Then read `list_bridge_events` with the saved opaque cursor, process
   each page and persist `next_cursor` only after processing. It complements
   the digest for input/failure events. No push wake exists; never run an idle
@@ -102,9 +103,9 @@ description, a historical handoff or a planned action.
   deletion, credentials, Supabase migrations, GitHub settings, launchd changes
   and Mac patch activation. A yes covers only what it named. Ticket prose,
   recommendations, picks and worker completion do not grant approval.
-  GitHub settings requests go to Jeremy's own Codex as a complete print, never
-  executed by the coordinator. Do not restart disabled/retired routines,
+  GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator. Do not restart disabled/retired routines,
   including JEG-1173 schedules, without his specific yes.
+- [ ] Hold every approval ask for the 6 AM or 4 PM Central window. Only an Urgent fix may ask outside them, never 10 PM to 6 AM Central; it then waits for 6 AM.
 - [ ] Ask Jeremy only real decisions, one at a time, multiple choice with A
   the recommendation and enough context to decide. Check prior answers first.
   Use `needs-jeremy`/In Review for a blocked decision, with the actual question.
@@ -149,8 +150,8 @@ report blocked; do not claim the duty ran.
 
 ### Dispatch
 
-- **PSpice:** use direct Codex cloud-first, and `mac_code_bridge` only for the
-  locally blocked part, with owner, linear_issue and stable operation key.
+- **PSpice:** use its own cloud tools first. Use `mac_code_bridge` only for
+  the locally blocked part, with owner, linear_issue and stable operation key.
 - **Muse:** hand Mac dispatch to PSpice or an approved model-free watcher via
   a proposed Linear label, **`codex-mac` (pending approval and implementation)**.
   Do not create it or build a watcher here. Until that mechanism is approved
@@ -182,8 +183,7 @@ Timing updated by Jeremy at 13:26 UTC: "One set of approvals at 6 am, one at
 4 pm." No merge windows or approval asks overnight.
 
 - **PSpice:** while Claude is out, run two batch and approval windows a day,
-  at 6:00 AM and 4:00 PM US Central time (America/Chicago). Each gathers PRs
-  that became eligible since the last window: at most 7 PRs of the same risk,
+  at 6:00 AM and 4:00 PM US Central time (America/Chicago). Each window gathers the PRs that became eligible since the last window, batched by matching risk: at most 7 PRs of the same risk,
   each on its own reviewed head with green CI on that head. Group CI, review,
   branch integration, merge-gate wake-ups and deploy checks by release;
   never waive per-head evidence. Ask for the per-batch deploy yes naming the
@@ -218,8 +218,7 @@ unchanged. The two-window cadence and cap of 7 are defaults Jeremy can change.
 - **PSpice:** keep an action/target/date/receipt ledger on the ticket and
   verify Jeremy's named yes for every specifically gated action.
 - **Muse:** read the same receipts; its own Linear posts display Jeremy's
-  name but never count as his approval. Hand settings operations to Jeremy's
-  direct Codex and Mac operations to PSpice only within the named approval.
+  name but never count as his approval. Give settings prints to Jeremy to paste into PSpice; hand Mac operations to PSpice.
 
 ### Asking Jeremy
 
@@ -253,8 +252,8 @@ on the exact head count for light/standard; high-risk keeps a Claude reviewer.
 Escalate discovered high-risk content with findings/head, never silent fallback
 or paired shadow reviews. The reviewer must be independent of the author.
 
-Claude keeps judgment, high-risk reviews and merges during a usage crunch;
-builds move to Codex. When Claude is out, decision 11 below supersedes the
+Claude keeps judgment, high-risk reviews and merges; Codex builds; Muse does QA on tickets labelled `muse-qa`.
+When Claude is out, decision 11 below supersedes the
 normal Claude ownership mapping until it returns.
 Before any authorized merge, require a current-head independent receipt,
 green exact-head CI, clean merge onto current main, correction children closed,
@@ -287,8 +286,7 @@ these documentation PRs in this task.
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
   credentials, Supabase migrations, GitHub settings, Mac patches and launchd
-  activation retain their existing specific-yes requirements. Settings changes
-  still go to Jeremy's direct Codex rather than the coordinator.
+  activation retain their existing specific-yes requirements. GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator.
 - Muse merges only through the GitHub API as `jkb-bur-bot`. Its merge comment
   starts with the visible line `Written by Muse.`, includes
   `<!-- author: muse -->`, and uses "recommend" wording. Its comment is never
@@ -300,8 +298,7 @@ these documentation PRs in this task.
 
 ## Mac jobs without Duet
 
-Today's verified entry point is the installed `mac_code_bridge` MCP connector
-available in this Codex session. It exposes native Codex start/status/result
+PSpice must confirm `mac_code_bridge` appears in its own tool list before dispatch; if absent, report blocked. It exposes native Codex start/status/result
 tools using the Mac's existing ChatGPT login. It does not require a Claude job
 or Duet model turn. A fresh coordinator must already have that connector;
 connector grants and browser cookies do not transfer from Duet. Do not copy
@@ -337,7 +334,7 @@ completion. Process every event page before saving `next_cursor`. There is
 no push wake receiver; read events on a purposeful coordinator wake, with no
 idle monitoring loop. Do not automatically resubmit an uncertain or failed
 job; retain its id and report unknown state. Cross-provider active ticket
-overlaps are rejected. Never kill a shared Desktop process for takeover.
+overlaps are rejected. Never send work to, or kill, a session the bridge didn't start, including shared Desktop processes.
 
 The structured result has `status` (`done`, `blocked`, `needs_input`), summary,
 branch, PR number, named check results, files touched, question, report and
@@ -381,8 +378,7 @@ Restarts and patch activation need Jeremy's named yes.
   platform as using GPT-6 Astra, with a cloud computer, browser, plugins and
   Codex in ChatGPT Space; no documented API, allowance undisclosed. Those are
   platform facts, not a separate alternate agent or a verified Mac route.
-  This Mac session has repo shell, Linear and bridge tools; verify access
-  in PSpice's actual environment rather than assuming grants transfer.
+  PSpice must confirm `mac_code_bridge` appears in its own tool list before dispatch; if absent, report blocked.
 - Muse (second successor): Linear read/comment under Jeremy's name, GitHub API
   as `jkb-bur-bot`, no push wake and no route to the Mac. Uses the duty handoffs
   above and decision 11; marking is mandatory. JEG-1449 researches Mac access.
