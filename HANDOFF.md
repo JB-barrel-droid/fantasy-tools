@@ -19,6 +19,8 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+- JEG-1410: `fe/jeg-1410-manifesto-block` adds draft Manifesto mapping copy; validation underway, Jeremy approves at the draft PR.
+
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
