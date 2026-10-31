@@ -36,12 +36,14 @@ contracts and approval gates remain in force.
   routines without Jeremy's specific yes. This includes JEG-1173's retired
   schedules; retirement is not a retry
   opportunity. Mac launchd changes and patch activation also need his yes.
-- GitHub settings changes go to Jeremy's own Codex in a complete print;
-  coordinators never execute them directly. For every print to his Codex,
+- GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator.
+  For every print to PSpice,
   provide one complete block per session, labeled with that session's exact
   name and stating model and effort. Include task, checkout, checks, allowed
   actions, forbidden actions and approval reference so it runs without chat
   memory. Never split a session's instructions across fragments.
+- Never send work to, or kill, a session the bridge didn't start, including shared Desktop processes.
+- Hold every approval ask for the 6 AM or 4 PM Central window. Only an Urgent fix may ask outside them, never 10 PM to 6 AM Central; it then waits for 6 AM.
 - Cloud first. Delegate to the Mac only the locally blocked portion. Approved
   Mac locations are `/Users/botcomp/code` and the bridge folders already
   approved by the local runtime. Check the advertised folder list; do not
@@ -76,8 +78,8 @@ contracts and approval gates remain in force.
   label `codex-mac` is pending, not created or activated by these rules.
 - Never put credentials in prompts, logs, results, comments or docs. Jeremy
   enters API keys himself; agents do not retrieve, print or transfer them.
-- During a usage crunch Claude keeps judgment, high-risk reviews and merges;
-  builds go to Codex. The exact-head light/standard Codex review exception
+- Claude keeps judgment, high-risk reviews and merges; Codex builds; Muse does QA on tickets labelled `muse-qa`.
+  The exact-head light/standard Codex review exception
   below applies while Claude is available; while Claude is out, decision 11
   below specifies independent Codex review and successor merge ownership.
 - Keep rules, queue state, claims, receipts and decisions in the repo, Linear
@@ -112,8 +114,7 @@ these documentation PRs in this task.
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
   credentials, Supabase migrations, GitHub settings, Mac patches and launchd
-  activation retain their existing specific-yes requirements. Settings changes
-  still go to Jeremy's direct Codex rather than the coordinator.
+  activation retain their existing specific-yes requirements. GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator.
 - Muse merges only through the GitHub API as `jkb-bur-bot`. Its merge comment
   starts with the visible line `Written by Muse.`, includes
   `<!-- author: muse -->`, and uses "recommend" wording. Its comment is never
@@ -181,9 +182,9 @@ or merge text in this file and in `HANDOFF.md`.
 - **Merging (JEG-1444 decision 13; Jeremy, 2026-10-31 13:16 UTC).**
   Two batch and approval windows run each day, at 6:00 AM and 4:00 PM
   US Central time (America/Chicago), per Jeremy's 2026-10-31 13:26 UTC update.
-  No merge windows or approval asks overnight. Each window gathers the
-  low-risk PRs that became eligible since the last window and merges a batch
-  of at most 7 PRs of the same risk. Ask Jeremy for the per-batch deploy yes
+  No merge windows or approval asks overnight (10 PM to 6 AM Central). Each
+  window gathers the PRs that became eligible since the last window, batched by matching risk;
+  a batch holds at most 7 PRs of the same risk. Ask Jeremy for the per-batch deploy yes
   in that window, naming the PR numbers. Group CI, review, branch
   integration, merge-gate wake-ups and deploy checks into the window rather
   than repeating the release cycle per PR. A batch holds at most 7 PRs of
@@ -301,7 +302,7 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
 
 | Work type | Route |
 | --- | --- |
-| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
+| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | History: Ba-Nana (Grok Bot), superseded by PSpice then Muse; see `HANDOFF.md` |
 | Review | Claude sessions, capability selected by review risk tier above; during a usage crunch, Codex may review `review-light` and `review-standard` PRs |
 | Integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
@@ -311,15 +312,13 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
   classification or summarization with checkable outputs. MiniMax stays out
   of autonomous coding. This supersedes the earlier temporary cheap-coding
   window; rules 2 and 3 still apply.
-- **Muse (Roman)** works here only as a last resort when Jeremy asks (the
-  `muse` label was retired on 2026-10-27; see `HANDOFF.md` "Working with
-  Muse"). It works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Muse output is
-  untrusted input until it passes the repo pipeline. Muse never
-  resolves player identity, edits fixtures, triages `review_rows`, pushes to
-  `main` or closes PRs or Linear issues. The only merge exception is the
-  acting successor coordinator under decision 11, using the GitHub API and
-  all gates in that section.
+- **Muse (Roman)** does QA on tickets labelled `muse-qa`; it is not a
+  last-resort PR author. Findings use the mandatory Muse attribution and
+  recommend wording above. QA findings are not independent approval. Muse
+  never resolves player identity, edits fixtures, triages `review_rows`,
+  pushes to `main` or closes PRs or Linear issues. The only merge exception is
+  the acting successor coordinator under decision 11, using the GitHub API
+  and all gates in that section.
 - **MiniMax: M3 or newer only, for bulk non-coding work** (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
   more recent one Minimax added to the subscription"). Never autonomous
