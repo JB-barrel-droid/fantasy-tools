@@ -45,7 +45,7 @@ def league_of(fx: dict, bench_share: float | None = None) -> ref.League:
     return ref.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
                       bench=s["bench_per_team"],
                       bench_share=s["bench_share"] if bench_share is None else bench_share,
-                      flex_eligible=tuple(s["flex_eligible"]))
+                      flex_eligible=tuple(s["flex_eligible"]), seat_sigma=s.get("seat_sigma"))
 
 
 def sources_of(fx: dict) -> dict:
@@ -295,7 +295,7 @@ class ExpectedStartsVariant(unittest.TestCase):
         s = {**fx["setting"], **var["setting_change"]}
         league = ref.League(teams=s["teams"], slots=dict(s["slots"]), flex=s["flex"], superflex=s["superflex"],
                             bench=s["bench_per_team"], bench_share=s["bench_share"],
-                            flex_eligible=tuple(s["flex_eligible"]),
+                            flex_eligible=tuple(s["flex_eligible"]), seat_sigma=s.get("seat_sigma"),
                             bench_share_override=league_change.get("bench_share_override",
                                                                    s.get("bench_share_override")))
         pos_of = {int(i): p["pos"] for i, p in fx["players"].items()}
