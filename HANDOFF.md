@@ -19,6 +19,18 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1352 finder assessment fixture (Codex Bridge, 2026-10-30 CT)
+
+- Branch `claude/JEG-1352`, based on `168aba93` with JEG-1324 merged. The old ESPN/Yahoo positive case fails at all
+  four viewports: after overlaps are removed, Yahoo has one RB for two starting slots. Finder code is unchanged.
+- The test now serves frozen 2026 Week 8 raw engine inputs and a labelled modeled roster pairing. Its named witness
+  must pass the real search and both sides of Natural 1a, and the grouped results must include a Natural candidate.
+  The positive expectation, negative scenario, four viewports and seven mutations remain; the Natural headline mutant
+  must produce the wrong-headline diagnostic. Repaired two stale mutation anchors; stale anchors and exceptions now fail loudly.
+- `CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" python3 -m unittest
+  tests.test_v2_finder_eval_render` passes: 4 tests, all four viewports, all three scorings and all seven mutations.
+  Draft PR on this branch is for a separate Claude review and CI. No fit/value/default code changed; no merge or deploy.
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
