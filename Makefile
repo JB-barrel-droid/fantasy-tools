@@ -355,7 +355,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
 	# JEG-1130: the approved PMM glossary on the copy outside and inside v2.js (static, no browser).
-	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy
+	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy tests.test_jeg1130_settings_copy
 	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_source_freshness
 	python3 -m unittest tests.test_freshness_display_render
