@@ -16,7 +16,10 @@
   const O = root.TradeValueOpportunities;
   const S = root.TradeValueTableSort;
   const L = root.TradeValueLineupComparison;
-  if (!W || !F || !T || !O || !S || !L || !F.page) return;
+  // JEG-1231: which opponents the search includes. Optional: without it every opponent is searched, as before.
+  const OI = root.TradeValueOpponentInclusion || null;
+  const PV = root.DDFRosterProvenance;   // JEG-1249: roster provenance transitions (JEG-1241)
+  if (!W || !F || !T || !O || !S || !L || !PV || !F.page) return;
   const store = W.store;
   const engine = () => root.TradeValueCurveControls;
   const $ = id => document.getElementById(id);
@@ -71,26 +74,109 @@
   }
 
   // ---------- the engine, read once per render ----------
+  // JEG-1188 (Jeremy, 2026-10-29: "we focus on vorp, let other managers make stupid decisions and capitalize"): with the whole
+  // league loaded, the league's own rosters set the bench at two levels. Contract, per input of the math:
+  //   DDF Value and the bench-share weights: the DDF level, one run (replacement is the league's best available player).
+  //   Trade chart values (the other side's acceptance) and expected roster depth: the market level, one run (the league's
+  //     active rostered depth; IR and taxi players are held but are not depth).
+  // Only this page reads the levels. Compare and the pair finder keep the modeled bench, and the note says so.
+  // The league must pass ValueModel.leagueCompleteness (every team loaded, matched, no player on two teams, no partial roster,
+  // rosters read from a source within a week) and DDFRosterProvenance.inferenceBlockers (JEG-1249: every team's roster was
+  // observed from a source, its unmatched count is known and zero, and no page left its bench out). Any reason keeps the
+  // modeled bench, and the note gives the reasons. Players missing from a roster are read as free agents only when no
+  // reason remains. A paste is read as the team's whole roster (Jeremy, 2026-10-29: "This hasn't been an issue on prior
+  // pastes. The rosters have all filled up and the page is set up for manual checks and errors."), so coverage_unproven
+  // doesn't block; the levels note says the pastes are read as whole rosters.
+  const NON_BLOCKING = ["coverage_unproven"];
+  const STARTING_SLOT_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  function leagueCheck(C, ws) {
+    const V = root.ValueModel;
+    if (!V || !V.leagueCompleteness || !C.getState || !ws || ws.teams.length < 2) return null;
+    const shape = C.getRosterShape ? C.getRosterShape() : {};
+    const check = V.leagueCompleteness({teamsExpected: C.getState().teams, now: Date.now(),
+      startingSlotsPerTeam: STARTING_SLOT_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0),
+      teams: ws.teams.map(t => ({id: t.id, unresolved: t.provenance.unresolved, loadedAt: PV.freshnessTime(t.provenance),
+        players: t.entries.filter(e => !F.isNotEvaluated(e)).map(e => ({key: e.key, slot: e.slot}))}))});
+    const reasons = PV.inferenceBlockers({teams: ws.teams.map(t => ({id: t.id, provenance: t.provenance})), existingReasons: check.reasons})
+      .filter(r => !NON_BLOCKING.includes(r));
+    return {...check, ok: !reasons.length, reasons};
+  }
+  let levelMemo = null;
+  if (typeof root.addEventListener === "function") root.addEventListener("trade-value-rows-change", () => { levelMemo = null; });
+  // null: no league to check (fewer than two teams). {check, levels: null}: the league failed the check, or (off: true) the
+  // reader switched league rosters off (Jeremy, 2026-10-29: "default to not using league specifics unless the rosters are
+  // filled in, and give the user visibility to that a toggle with a grayed out use of league specifics until criteria are
+  // met"). {check, levels}.
+  function leagueLevels(C) {
+    if (!C.getLeagueLevel) return null;
+    const ws = store.get();
+    const check = leagueCheck(C, ws);
+    if (!check) return null;
+    if (!check.ok) return {check, levels: null};
+    if (ws.ui.leagueRosters === false) return {check, levels: null, off: true};
+    const sig = `${check.rostered.join(",")}|${check.reserve.join(",")}`;
+    if (levelMemo && levelMemo.sig === sig) return {check, levels: levelMemo.levels};
+    const args = {rostered: check.rostered, reserve: check.reserve};
+    const ddf = C.getLeagueLevel({...args, level: "ddf"});
+    const market = C.getLeagueLevel({...args, level: "market"});
+    if (!ddf || !market || !ddf.rows.length || !market.rows.length) return {check, levels: null};
+    const marketByKey = new Map(market.rows.map(r => [String(r.player_key), r]));
+    const rows = ddf.rows.map(r => {
+      const m = marketByKey.get(String(r.player_key));
+      if (!m) return r;
+      const values = {...r.values};
+      F.CHART_KEYS.forEach(key => { values[key] = m.values[key]; });
+      return {...r, values};
+    });
+    const levels = {rows, ddf: new Map(ddf.rows.map(r => [String(r.player_key), r])), market: marketByKey,
+      marketAllocation: market.allocation, ddfCounts: ddf.counts, marketCounts: market.counts, ddfReadout: ddf.readout};
+    levelMemo = {sig, levels};
+    return {check, levels};
+  }
+  // His players worth more to the market than to him (JEG-1188): DDF Value at the DDF level against DDF Value at the market
+  // level, gap first. Empty without a full league.
+  const SELL_MIN_GAP = 2;
+  function sellCandidates(team, ctx, limit = 5) {
+    if (!team || !ctx || !ctx.levels) return [];
+    return team.entries.map(e => {
+      const d = ctx.levels.ddf.get(e.key), m = ctx.levels.market.get(e.key);
+      const ours = d && finite(d.values[OUR_KEY]) ? d.values[OUR_KEY] : null;
+      const theirs = m && finite(m.values[OUR_KEY]) ? m.values[OUR_KEY] : null;
+      return ours === null || theirs === null ? null : {key: e.key, name: d.name, pos: d.pos, ours, theirs, gap: theirs - ours};
+    }).filter(c => c && c.gap >= SELL_MIN_GAP).sort((a, b) => b.gap - a.gap || a.name.localeCompare(b.name)).slice(0, limit);
+  }
   function mathContext() {
     const C = engine();
     if (!C || !C.getAllRows) return null;
-    const all = C.getAllRows();
+    let league = null;
+    try { league = leagueLevels(C); } catch (error) { league = null; }
+    const levels = league && league.levels;
+    const all = levels ? levels.rows : C.getAllRows();
     if (!all.length) return null;
     const rowsByKey = new Map(all.map(r => [String(r.player_key), r]));
     const shape = C.getRosterShape ? C.getRosterShape() : null;
     let expected = null;
-    try { expected = F.expectedDepth(C.getAdjustmentWeights().allocation, C.getState().teams); } catch (error) { expected = null; }
+    try { expected = F.expectedDepth(levels ? levels.marketAllocation : C.getAdjustmentWeights().allocation, C.getState().teams); } catch (error) { expected = null; }
     const info = C.getSourceInfo ? C.getSourceInfo() : [];
     const available = new Set(info.filter(item => item.available).map(item => item.key));
     const charts = F.CHART_KEYS.filter(key => available.has(key));
     const market = charts.length >= F.MIN_CHARTS ? charts : null;
-    const readout = C.getBenchShareReadout ? C.getBenchShareReadout() : null;
+    const readout = levels ? levels.ddfReadout : (C.getBenchShareReadout ? C.getBenchShareReadout() : null);
     const overall = readout && finite(readout.overall) ? readout.overall : (C.getBenchShare ? C.getBenchShare() : null);
     const weights = {overall: finite(overall) ? overall : 0};
     F.DEPTH_POS.forEach(pos => { if (readout && finite(readout[pos])) weights[pos] = readout[pos]; });
-    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights};
+    return {rowsByKey, shape, expected, charts, market, chartKeys: market, weights, levels, leagueCheck: league ? league.check : null,
+      leagueOff: Boolean(league && league.off)};
   }
   const rowsOfTeam = (team, ctx) => team.entries.map(e => ctx.rowsByKey.get(e.key)).filter(Boolean);
+  // JEG-1249: Compare a trade prices with the standard bench (C.getAllRows). With the league's own rosters setting the bench
+  // here, opening the trade there would change its values and gains, so the handoff is held, and says so, until Compare can
+  // carry this page's pricing (JEG-1229). With the standard bench on both pages the link opens the same trade at the same
+  // values.
+  const compareLink = (r, ctx) => (ctx && ctx.levels
+    ? el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
+      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."})
+    : el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
   const isK = entry => F.isNotEvaluated(entry);
 
   // ---------- team list ----------
@@ -142,8 +228,15 @@
     const say = (...kids) => panel.replaceChildren(...kids.filter(Boolean));
     const para = (text, cls) => el("p", {class: cls || "v2-meta", text});
 
-    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}.
-    function place(rows, replace, extra) {
+    // Add entries (engine rows or kept K/DEF) to this team; returns {added, onOther}. JEG-1249, the team's provenance
+    // (DDFRosterProvenance), in the same update:
+    //   source.replace: a paste that is the whole team, a new source observation. Its unmatched count is source.missed
+    //     plus the players held by another team; source.coverage is what the page showed (coverageFrom).
+    //   source.missed without replace: a paste added onto the roster. Not an observation; an unknown count stays unknown.
+    //   source.settle: the pasted line one player was added for ("Yes, add", Search to add). Counts once, and only when
+    //     the player was added.
+    // A paste that adds nothing and leaves nothing out changes nothing, not even the edit time.
+    function place(rows, replace, extra, source) {
       const ws = store.get();
       const t = teamById(ws, teamId);
       const keep = replace ? [] : t.entries;
@@ -158,9 +251,19 @@
         have.add(key);
         added.push(entryOf(row, slot));
       });
-      update(w => W.ops.setEntries(w, teamId, keep.concat(added), extra), "entries");
+      const src = source || {};
+      const now = Date.now();
+      let provenance;
+      if (replace) provenance = PV.replaceFromSource(t.provenance, {now, coverage: src.coverage,
+        unresolved: src.missed === undefined ? null : src.missed + onOther.length});
+      else if (src.settle !== undefined) provenance = PV.reconcile(t.provenance, {now, key: src.settle, accepted: added.length > 0});
+      else if (src.missed !== undefined) provenance = PV.appendFromSource(t.provenance, {now, added: added.length, missed: src.missed, rejected: onOther.length});
+      if (!replace && !added.length && (provenance === undefined || provenance === t.provenance)) return {added, onOther};
+      update(w => W.ops.setEntries(w, teamId, keep.concat(added), {...(extra || {}), ...(provenance ? {provenance} : {})}), "entries");
       return {added, onOther};
     }
+    // JEG-1249: the pasted line "Search to add" is looking for, so the add settles that line once.
+    let searchLine = null;
     function keepKD(unmatched) {
       const kept = [];
       const ws = store.get();
@@ -178,7 +281,7 @@
       if (add.length) update(w => W.ops.setEntries(w, teamId, t.entries.concat(add).concat([]), {}), "entries");
       return kept;
     }
-    const searchFor = line => { input.value = F.page.cleanLine(line); input.dispatchEvent(new Event("input", {bubbles: true})); input.focus(); };
+    const searchFor = line => { searchLine = F.page.cleanLine(line); input.value = F.page.cleanLine(line); input.dispatchEvent(new Event("input", {bubbles: true})); input.focus(); };
     const evaluatedOnly = list2 => (list2 || []).filter(u => !F.isNotEvaluated(u));
     const unmatchedBlock = items => (items.length ? [para(`Not matched (${items.length}): add them by search.`, "v2-find-paste-note"),
       el("ul", {class: "v2-find-unmatched"}, ...items.slice(0, 40).map(u => el("li", {}, el("span", {text: F.page.cleanLine(u.line || u.name)}), el("span", {class: "v2-meta", text: u.reason ? ` (${u.reason})` : ""}),
@@ -187,7 +290,7 @@
       el("ul", {class: "v2-find-unsure-list"}, ...unsure.map(p => {
         const li = el("li", {class: "v2-find-unsure"});
         const yes = button("Yes, add", {class: "v2-btn v2-find-confirm", "aria-label": `Yes, add ${p.row.name}`}, () => {
-          const r = place([{row: p.row, slot: p.slot}], false);
+          const r = place([{row: p.row, slot: p.slot}], false, undefined, {settle: p.sourceLine});
           li.replaceChildren(el("span", {text: r.added.length ? `Added ${p.row.name}.` : `${p.row.name} is already on a roster.`}));
         });
         const no = button("No, search", {class: "v2-btn v2-find-search-add", "aria-label": `No, search for ${F.page.cleanLine(p.sourceLine)}`}, () => { li.remove(); searchFor(p.sourceLine); });
@@ -196,7 +299,9 @@
       }))] : []);
 
     // players: parser players ({id, confidence, slot, sourceLine}); replace: a whole team page is the whole team.
-    function placePlayers(res, players, replace, teamIndex) {
+    // unmatched: this team's unmatched lines (a matchup page has one list per side); the page's list by default.
+    function placePlayers(res, players, replace, teamIndex, unmatched) {
+      const unmatchedOf = unmatched || res.unmatched;
       const ctx = mathContext();
       const sure = [];
       const unsure = [];
@@ -205,8 +310,9 @@
         if (!row) return;
         if (p.confidence >= 1) sure.push({row, slot: p.slot}); else unsure.push({...p, row});
       });
-      const {added, onOther} = place(sure, replace, replace ? {sourceText: res.sourceText, sourceTeam: teamIndex === undefined ? null : teamIndex, removed: []} : undefined);
-      const kept = keepKD(res.unmatched);
+      const {added, onOther} = place(sure, replace, replace ? {sourceText: res.sourceText, sourceTeam: teamIndex === undefined ? null : teamIndex, removed: []} : undefined,
+        {missed: evaluatedOnly(unmatchedOf).length + unsure.length, coverage: PV.coverageFrom(res)});
+      const kept = keepKD(unmatchedOf);
       return {added, onOther, unsure, kept};
     }
     function report(res, placed, extra) {
@@ -219,10 +325,10 @@
       const label = (r, i) => res.teams[i].teamName || `Team ${i + 1} (listed ${i ? "second" : "first"})`;
       const cards = res.teams.map((tm, i) => {
         const use = button(`${label(res, i)} is this team`, {class: "v2-btn v2-find-pick-team"}, () => {
-          const placed = placePlayers(res, tm.players, true, i);
+          const placed = placePlayers(res, tm.players, true, i, tm.unmatched || []);
           const other = 1 - i;
           const addOther = button(`Add ${label(res, other)} as a new team`, {class: "v2-btn"}, () => {
-            addTeamFromPlayers(label(res, other), res, res.teams[other].players, other);
+            addTeamFromPlayers(label(res, other), res, res.teams[other].players, other, res.teams[other].unmatched || []);
             addOther.disabled = true;
           });
           report(res, placed, [addOther]);
@@ -240,7 +346,7 @@
       const lines = F.parsePasted(text);
       const nameMatch = F.matchNames(lines, rows);
       if (nameMatch.matched.length >= 2 && nameMatch.matched.length >= F.page.NAME_LIST_SHARE * lines.length) {
-        const placed = place(nameMatch.matched.map(row => ({row})), false);
+        const placed = place(nameMatch.matched.map(row => ({row})), false, undefined, {missed: evaluatedOnly(nameMatch.unmatched).length});
         const kept = keepKD(nameMatch.unmatched);
         const rest = evaluatedOnly(nameMatch.unmatched);
         say(para(`Added ${plural(placed.added.length, "player")} from the list.${kept.length ? ` Kept, not evaluated: ${kept.join(", ")}.` : ""}${placed.onOther.length ? ` Left out because they are on another team: ${placed.onOther.join(", ")}.` : ""}`),
@@ -284,7 +390,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `No player name matches “${q}”.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -294,7 +400,10 @@
         if (holder) b.disabled = true;
         b.addEventListener("click", () => {
           const t = team();
-          update(w => W.ops.setEntries(w, teamId, t.entries.concat([row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : entryOf(row)])), "entries");
+          const line = searchLine;
+          searchLine = null;
+          update(w => W.ops.setEntries(w, teamId, t.entries.concat([row.notEvaluated ? {key, name: row.name, pos: row.pos, team: row.team} : entryOf(row)]),
+            line && !row.notEvaluated ? {provenance: PV.reconcile(t.provenance, {now: Date.now(), key: line, accepted: true})} : {}), "entries");
           input.value = "";
           results.replaceChildren();
           results.hidden = true;
@@ -306,14 +415,20 @@
     return {node, renderList, input, say};
   }
 
-  function addTeamFromPlayers(name, res, players, teamIndex) {
+  function addTeamFromPlayers(name, res, players, teamIndex, unmatched) {
     const ctx = mathContext();
     const ws = store.get();
     const rows = [];
-    players.forEach(p => { const row = ctx.rowsByKey.get(String(p.id)); if (row && p.confidence >= 1 && !holderOf(ws, String(row.player_key), null)) rows.push(entryOf(row, p.slot)); });
+    let missed = (unmatched || []).filter(u => !F.isNotEvaluated(u)).length;
+    players.forEach(p => {
+      const row = ctx.rowsByKey.get(String(p.id));
+      if (!row) return;
+      if (p.confidence >= 1 && !holderOf(ws, String(row.player_key), null)) rows.push(entryOf(row, p.slot)); else missed += 1;
+    });
     update(w => W.ops.addTeam(w, name, {entries: rows}), "add");
     const added = store.get().teams[store.get().teams.length - 1];
-    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex}), "entries");
+    update(w => W.ops.setEntries(w, added.id, rows, {sourceText: res.sourceText, sourceTeam: teamIndex,
+      provenance: PV.replaceFromSource(added.provenance, {now: Date.now(), unresolved: missed, coverage: PV.coverageFrom(res)})}), "entries");
     UI.justAdded = added.id;
     announce(`Team added: ${added.name}.`);
   }
@@ -453,6 +568,7 @@
     const marked = ws.teams.find(t => t.id === ws.myTeamId);
     if (editorSummary) editorSummary.textContent = `${plural(ws.teams.length, "team")}${marked ? ` · Your team: ${marked.name}` : ws.teams.length ? " · Expand to mark your team" : " · Paste your league's rosters or add teams"}`;
     renderCountMismatch();
+    renderProblems();
   }
 
   function renderUndo() {
@@ -503,8 +619,9 @@
     UI.comps.forEach(c => c.li.remove());
     UI.comps.clear();
     UI.cache = O.createCache();
+    // JEG-1389: the league's settings are saved, as the settings form saves them, so a reload keeps them.
     if (workspace.settings && workspace.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
-      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query));
+      root.TradeValueV2.applyLinkLeague(new URLSearchParams(workspace.settings.query), {save: true});
       if (root.DDFOverrides && root.DDFOverrides.applyLink) root.DDFOverrides.applyLink(new URLSearchParams(workspace.settings.query));
     }
     store.replace(workspace, "replace");
@@ -576,12 +693,13 @@
   function leagueEntries(t, ctx, taken) {
     const list = [];
     let unsure = 0;
+    let conflicts = 0;   // JEG-1188: a player another team already has
     t.players.forEach(p => {
       const row = ctx.rowsByKey.get(String(p.id));
       if (!row) return;
       if (p.confidence < 1) { unsure += 1; return; }
       const key = String(row.player_key);
-      if (taken.has(key)) return;
+      if (taken.has(key)) { conflicts += 1; return; }
       taken.add(key);
       list.push(entryOf(row, p.slot));
     });
@@ -593,7 +711,7 @@
       list.push({key, name, pos: u.pos, team: u.team || undefined});
     });
     const missed = (t.unmatched || []).filter(u => !F.isNotEvaluated(u)).map(u => F.page.cleanLine(u.line || u.name)).filter(Boolean);
-    return {list, unsure, missed};
+    return {list, unsure, missed, unresolved: missed.length + unsure + conflicts};
   }
   function pasteWholeLeague(text) {
     const status = $("v2LgLeagueStatus");
@@ -631,8 +749,9 @@
     update(w => {
       let next = w;
       plan.forEach(item => {
-        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: []}); updated += 1; }
-        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list}); added += 1; }
+        const provenance = PV.replaceFromSource(null, {now: Date.now(), unresolved: item.unresolved, coverage: PV.coverageFrom(item.t)});
+        if (item.id) { next = W.ops.setEntries(next, item.id, item.list, {sourceText: "", sourceTeam: null, removed: [], provenance}); updated += 1; }
+        else if (added < room) { next = W.ops.addTeam(next, item.t.teamName, {entries: item.list, provenance}); added += 1; }
         else { skipped += 1; parsed.push({name: item.t.teamName, count: 0, unmatched: [], unsure: 0, leftOut: true}); return; }
         parsed.push({name: item.t.teamName, count: item.list.length, unmatched: item.missed, unsure: item.unsure});
         const notes = [];
@@ -731,7 +850,7 @@
     const wrap = el("span", {class: "v2-lg-gaps", "data-gap": kind});
     wrap.append(items.slice(0, 3).map(fmtGap).join(", "));
     if (items.length > 3) {
-      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more ${kind} players`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
+      wrap.append(" ", el("details", {class: "v2-lg-more"}, el("summary", {text: `+${items.length - 3} more`, "aria-label": `Show ${items.length - 3} more players to ${kind}`}), el("span", {text: items.slice(3).map(fmtGap).join(", ")})));
     }
     void id;
     return wrap;
@@ -748,6 +867,163 @@
     return wrap;
   }
   const rankText = (r, ranked) => (r === null || r === undefined ? "—" : ranked < 2 ? "—" : String(r));
+  // JEG-1188: which bench the numbers use, three separate counts, and his sell candidates. null without a league to check.
+  const LEVEL_REASONS = {team_count: "not every team is loaded", empty_team: "a team has no players",
+    short_roster: "a team has fewer players than starting spots", duplicate_owner: "a player is on two teams",
+    unresolved: "some pasted players are not matched to a team yet", no_timestamp: "a team's roster date is unknown (shared or older saves)",
+    stale: "a team's roster is more than 7 days old",
+    // JEG-1249: roster provenance (DDFRosterProvenance.REASONS).
+    unresolved_unknown: "a team's unmatched players were not recorded (older saves or shared links)",
+    not_source_observed: "a team's roster was not read from a site page (added by hand or from a link)",
+    bench_omitted: "a pasted page left a team's bench out", coverage_unproven: "no pasted page shows a team's whole roster, bench and reserve seats included"};
+  // ---------- JEG-1273: one list of the league's problems ----------
+  // Jeremy, 2026-10-29: "one league-wide problems list (unmatched lines, short or over teams, players on two teams, missing
+  // kickers or defenses), each linking to its team." Checks for the reader: only the reasons leagueCheck already gives keep
+  // the standard bench; short or over teams and missing kickers or defenses are shown, never gates. Every reason
+  // leagueCheck gives appears here (per team where it names one), so the list and the "Use league rosters" switch agree.
+  // Items: {kind, text, teams: [{id, name}], reasons: [leagueCheck reasons it covers]}, teams in page order, then kind.
+  const PROBLEM_KINDS = ["team_count", "unmatched", "spots", "two_teams", "kicker_defense", "bench_omitted", "unrecorded",
+    "not_read", "stale", "other"];
+  const STARTER_KEYS = ["QB", "RB", "WR", "TE", "FLEX", "SUPERFLEX"];
+  const isDefense = e => e.pos === "DEF" || e.pos === "DST";
+  function leagueProblems(ws) {
+    const C = engine();
+    if (!C || !C.getState || !ws.teams.length) return null;
+    const V = root.ValueModel;
+    const shape = C.getRosterShape ? C.getRosterShape() : {};
+    const spots = STARTER_KEYS.concat(["BENCH", "K", "DST"]).reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const starting = STARTER_KEYS.reduce((n, k) => n + (Number(shape[k]) || 0), 0);
+    const reserveSlot = e => Boolean(V && V.isReserveSlot && V.isReserveSlot(e.slot));
+    const ref = t => ({id: t.id, name: t.name});
+    const out = [];
+    const expected = Number(C.getState().teams) || 0;
+    if (ws.teams.length !== expected) {
+      out.push({kind: "team_count", teams: [], reasons: ["team_count"],
+        text: `League settings have ${plural(expected, "team")}; ${ws.teams.length} ${ws.teams.length === 1 ? "is" : "are"} loaded.`});
+    }
+    const now = Date.now();
+    const maxAge = V && V.ROSTER_MAX_AGE_MS ? V.ROSTER_MAX_AGE_MS : 7 * 24 * 3600 * 1000;
+    ws.teams.forEach(t => {
+      const p = t.provenance || {};
+      const active = t.entries.filter(e => !reserveSlot(e));
+      const valued = active.filter(e => !F.isNotEvaluated(e)).length;
+      const add = (kind, text, reasons) => out.push({kind, text: `${t.name}: ${text}`, teams: [ref(t)], reasons: reasons || []});
+      if (p.unresolved > 0) add("unmatched", `${plural(p.unresolved, "pasted player")} not matched yet. Open the team to add ${p.unresolved === 1 ? "it" : "them"}.`, ["unresolved"]);
+      // leagueCheck's empty_team and short_roster count valued players, so a team holding only a kicker and a defense is empty.
+      const spotReasons = (valued ? [] : ["empty_team"]).concat(valued < starting ? ["short_roster"] : []);
+      if (!t.entries.length) add("spots", "no players.", spotReasons);
+      else if (spots && active.length !== spots) {
+        add("spots", active.length < spots ? `${active.length} of ${spots} roster spots filled.` : `${active.length - spots} over its ${spots} roster spots.`,
+          spotReasons);
+      } else if (spotReasons.length) add("spots", valued ? "fewer players than starting spots." : "no players besides kickers and defenses.", spotReasons);
+      // Count against the settings' K and DEF seats (up to 3 each), not just presence.
+      const missing = [], few = [];
+      [["kicker", "kickers", Number(shape.K) || 0, e => e.pos === "K"], ["defense", "defenses", Number(shape.DST) || 0, isDefense]]
+        .forEach(([one, many, need, is]) => {
+          const have = t.entries.filter(is).length;
+          if (!need || !t.entries.length || have >= need) return;
+          if (have) few.push(`${have} of ${need} ${many}`); else missing.push(one);
+        });
+      const kd = (missing.length ? [`no ${missing.join(" or ")}`] : []).concat(few);
+      if (kd.length) add("kicker_defense", `${kd.join("; ")}.`);
+      if (p.coverage === "bench_omitted") add("bench_omitted", "the pasted page left the bench out. Paste the team page with the bench shown.", ["bench_omitted"]);
+      if (p.unresolved === null || p.unresolved === undefined) add("unrecorded", "unmatched players weren't recorded (an older save or a shared link). Paste the roster again.", ["unresolved_unknown", "unresolved"]);
+      if (!p.observedAt) add("not_read", "not read from a site page (added by hand or from a link). Paste the team page.", ["not_source_observed", "no_timestamp"]);
+      else if (now - p.observedAt > maxAge) add("stale", "roster is more than 7 days old. Paste it again.", ["stale"]);
+    });
+    const owners = new Map();
+    ws.teams.forEach(t => t.entries.forEach(e => { if (!owners.has(e.key)) owners.set(e.key, {name: e.name, teams: []}); owners.get(e.key).teams.push(t); }));
+    owners.forEach(o => {
+      if (o.teams.length > 1) out.push({kind: "two_teams", teams: o.teams.map(ref), reasons: ["duplicate_owner"],
+        text: `${o.name} is on ${o.teams.map(t => t.name).join(" and ")}.`});
+    });
+    const order = new Map(ws.teams.map((t, i) => [t.id, i]));
+    const at = item => (item.teams.length ? order.get(item.teams[0].id) : -1);
+    out.sort((a, b) => at(a) - at(b) || PROBLEM_KINDS.indexOf(a.kind) - PROBLEM_KINDS.indexOf(b.kind));
+    // Anything leagueCheck blocks on that no item names yet.
+    let check = null;
+    try { check = leagueCheck(C, ws); } catch (error) { check = null; }
+    const covered = new Set(out.flatMap(item => item.reasons));
+    ((check && check.reasons) || []).forEach(r => {
+      if (!covered.has(r)) out.push({kind: "other", teams: [], reasons: [r], text: `${(LEVEL_REASONS[r] || r).replace(/^./, c => c.toUpperCase())}.`});
+    });
+    return out;
+  }
+  // Open a team's box from the list and put the reader on it.
+  function openTeam(id) {
+    const card = $("v2LgCard");
+    if (card) card.open = true;
+    const comp = UI.comps.get(id);
+    if (!comp) return;
+    comp.collapsed = false;
+    comp.update();
+    comp.li.scrollIntoView({block: "nearest"});
+    const name = comp.li.querySelector(".v2-lg-name");
+    if (name) name.focus({preventScroll: true});
+  }
+  function renderProblems() {
+    const box = $("v2LgProblems");
+    if (!box) return;
+    const ws = store.get();
+    const items = leagueProblems(ws);
+    box.hidden = !items;
+    if (!items) { box.replaceChildren(); return; }
+    if (!items.length) {
+      box.dataset.state = "ready";
+      box.replaceChildren(el("p", {class: "v2-meta", id: "v2LgProblemsReady", text: "League checks: every team is loaded and checks out."}));
+      return;
+    }
+    box.dataset.state = "problems";
+    box.replaceChildren(el("h3", {class: "v2-lg-problems-head", text: `League checks: ${plural(items.length, "problem")}`}),
+      el("ul", {class: "v2-lg-problems-list", id: "v2LgProblemsList"}, ...items.map(item => el("li", {"data-kind": item.kind},
+        el("span", {text: item.text}),
+        ...item.teams.map(t => button(`Open ${t.name}`, {class: "v2-link v2-lg-problem-open", "data-team-id": t.id}, () => openTeam(t.id)))))));
+  }
+  const posCounts = counts => F.DEPTH_POS.map(pos => `${pos} ${counts && counts[pos] && finite(counts[pos].bench) ? counts[pos].bench : "—"}`).join(", ");
+  // JEG-1249: the "Use league rosters" switch. Grayed out, with what is missing, until the league qualifies; on by default
+  // once it does; the reader's choice is saved with the league.
+  function levelSwitch(ctx) {
+    const ready = Boolean(ctx.leagueCheck && ctx.leagueCheck.ok);
+    const input = el("input", {type: "checkbox", id: "v2LgUseLeague", role: "switch"});
+    input.checked = ready && !ctx.leagueOff;
+    input.disabled = !ready;
+    input.addEventListener("change", () => {
+      // JEG-1389: the switch changes every number (standard bench or the league's two levels), so the search starts afresh.
+      UI.cache = O.createCache();
+      update(w => W.ops.setUi(w, {leagueRosters: input.checked}), "league-rosters");
+      announce(input.checked ? "Using your league's rosters." : "Using the standard bench.");
+    });
+    return el("label", {class: `v2-field v2-lg-levels-switch${ready ? "" : " is-disabled"}`, "data-ready": String(ready)}, input,
+      el("span", {text: " Use league rosters"}));
+  }
+  function sellBlock(ws, ctx) {
+    if (!ctx) return null;
+    if (!ctx.leagueCheck) {
+      return el("div", {id: "v2LgSell"}, levelSwitch(ctx), el("p", {class: "v2-meta", id: "v2LgLevelsNote",
+        text: "Priced with the standard bench. League rosters can be used once every team in your league is loaded."}));
+    }
+    if (!ctx.levels) {
+      const why = ctx.leagueCheck.reasons.map(r => LEVEL_REASONS[r] || r).join("; ");
+      return el("div", {id: "v2LgSell"}, levelSwitch(ctx), el("p", {class: "v2-meta", id: "v2LgLevelsNote",
+        text: ctx.leagueOff ? "Priced with the standard bench: league rosters are switched off."
+          : `Priced with the standard bench. League rosters can be used once every team is loaded, matched and up to date${why ? `: ${why}` : ""}.`}));
+    }
+    const shape = ctx.shape || {};
+    const teams = ws.teams.length;
+    const seats = Number(shape.BENCH) || 0;
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
+    const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
+      el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
+      el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),
+      el("li", {id: "v2LgCountAbove", text: `Players beyond the starters who beat the best free agent: ${posCounts(ctx.levels.ddfCounts)}.`}));
+    const mine = teamById(ws, ws.myTeamId);
+    const sells = sellCandidates(mine, ctx);
+    if (!mine || !sells.length) return el("div", {id: "v2LgSell"}, levelSwitch(ctx), basisNote, counts);
+    return el("div", {id: "v2LgSell"}, levelSwitch(ctx), basisNote, counts,
+      el("p", {class: "v2-find-headline", id: "v2LgSellHead", text: `Sell candidates on ${mine.name}: worth more to your league than to you.`}),
+      el("ul", {class: "v2-lg-sell", id: "v2LgSellList"}, ...sells.map(c => el("li", {"data-key": c.key},
+        el("b", {text: `${c.name} (${c.pos})`}), ` ${money(c.ours)} to you, ${money(c.theirs)} at your league's depth`))));
+  }
   function renderSummaryNow() {
     const card = $("v2LgSummary");
     if (!card) return;
@@ -790,7 +1066,7 @@
         el("td", {class: "num", "data-cell": "altRank"}, same ? "=" : altText),
         el("td", {class: "num", "data-cell": "projRank"}, rankText(t.rank.proj, ranked)),
         el("td", {"data-cell": "disagree"}, none ? "—" : disagreeList(t)),
-        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "undervalued", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "overvalued", t.id)));
+        el("td", {"data-cell": "under"}, none ? "—" : gapList(t.under, "buy", t.id)), el("td", {"data-cell": "over"}, none ? "—" : gapList(t.over, "sell", t.id)));
       const detail = el("tr", {class: "v2-lg-detail", "data-team-id": t.id},
         el("td", {colspan: String(ids.length)}, none ? "" : detailText(t, summary, basis)));
       return el("tbody", {}, main, detail);
@@ -805,9 +1081,9 @@
         t.rank.proj ? el("p", {}, `DDF Value (projections) rank: ${t.rank.proj}`) : null,
         el("p", {}, "Projections vs charts: ", disagreeList(t)),
         el("p", {}, detailText(t, summary, basis)),
-        el("p", {}, "Undervalued: ", gapList(t.under, "undervalued")), el("p", {}, "Overvalued: ", gapList(t.over, "overvalued"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
-    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Under and overvalued: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus the adjusted trade charts (DDF Value on the default basis), labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
-    body.replaceChildren(head, tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note);
+        el("p", {}, "Buy: ", gapList(t.under, "buy")), el("p", {}, "Sell: ", gapList(t.over, "sell"))) : el("p", {class: "v2-meta", text: "No roster entered"}))));
+    const note = el("p", {class: "v2-meta v2-footnote", text: "K and DEF are on rosters but not evaluated. Buy and Sell: DDF Value minus the Trade chart average. Projections vs charts: DDF Value (projections) minus DDF Value on the default basis, labelled projections higher or lower. Both are listed when the gap is more than 2.0 points."});
+    body.replaceChildren(...[head, sellBlock(ws, ctx), tools, el("div", {class: "v2-lg-phonetools"}, phoneSort("v2LgSummary", cols, state, onSort)), el("div", {class: "v2-find-table-wrap v2-lg-tablewrap"}, table), cards, note].filter(Boolean));
     const live = $("v2LgSummaryCount");
     if (live) live.textContent = `${plural(summary.teams.length, "team")}`;
   }
@@ -869,10 +1145,11 @@
     box.append(el("p", {}, el("b", {text: "You give: "}), ...ourLine(r.give), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.give), MARKET_KEY) : "no trade chart average"} (Trade chart average).`),
       el("p", {}, el("b", {text: "You receive: "}), ...ourLine(r.receive), ` (DDF Value); ${ctx.market ? valueLine(withAvg(r.receive), MARKET_KEY) : "no trade chart average"} (Trade chart average).`));
     if (r.fit) {
-      box.append(el("p", {class: "v2-find-fit", title: F.fitTip(r.fit.variant), text: F.fitText(r.fit)}));
-      if (r.fit.us && r.give.concat(r.receive).every(p => p.values && finite(p.values[OUR_KEY]))
-          && finite(r.fit.us.starterDelta) && r.fit.us.starterDelta > 0.05) {
-        box.append(el("p", {class: "v2-find-fit", text: `Your best starting lineup gains ${money(r.fit.us.starterDelta)} on DDF Value.`}));
+      const fit = O.fullFit(r);
+      box.append(el("p", {class: "v2-find-fit", title: F.fitTip(fit.variant), text: F.fitText(fit)}));
+      if (fit.us && r.give.concat(r.receive).every(p => p.values && finite(p.values[OUR_KEY]))
+          && finite(fit.us.starterDelta) && fit.us.starterDelta > 0.05) {
+        box.append(el("p", {class: "v2-find-fit", text: `Your best starting lineup gains ${money(fit.us.starterDelta)} on DDF Value.`}));
       }
     }
     const ws = store.get();
@@ -891,12 +1168,14 @@
       };
       box.append(line("Your", mine, r.give, r.receive), line(`${opp.name}'s`, opp, r.receive, r.give));
     }
-    box.append(el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
+    box.append(compareLink(r, ctx));
     return el("tr", {class: "v2-lg-opp-detail", "data-detail-for": r.id}, el("td", {colspan: String(colspan)}, box));
   }
   // JEG-1099: click a row (or its "Both teams" button) and the two lineups it changes open below the table.
-  // The pick lives in the address as ?trade=<opponent>~<give keys>~<receive keys> so the link reopens the same trade.
-  const tradeParam = r => [r.opponent, r.give.map(p => p.player_key).join(","), r.receive.map(p => p.player_key).join(",")].map(encodeURIComponent).join("~");
+  // The pick lives in the address as ?trade=1~<opponent team id>~<give keys>~<receive keys> so the link reopens the same
+  // trade (JEG-1328: by the opponent's id, so a rename or two teams with one name keep the right trade). Older addresses
+  // named the opponent ("<name>~<give>~<receive>"); pickFromHash still reads them and rewrites the address.
+  const tradeParam = r => W.tradePick(r.opponentId, r.give, r.receive);
   // Focus goes back to the button that opened the panel (the visible one: the table and the phone cards both carry one).
   function focusPick(id) {
     const all = [...document.querySelectorAll(`[data-pick-for="${id}"]`)];
@@ -922,7 +1201,9 @@
     if (!m || !rows.length) return;
     if (UI.selectedParam === m[1]) return;
     const hit = rows.find(r => tradeParam(r) === m[1]);
-    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; }
+    if (hit) { UI.selectedOpp = hit.id; UI.selectedParam = m[1]; return; }
+    const legacy = rows.find(r => W.legacyTradePick(r.opponent, r.give, r.receive) === m[1]);
+    if (legacy) { UI.selectedOpp = legacy.id; UI.selectedParam = tradeParam(legacy); setTradeHash(legacy); }
   }
   function sidePanel(heading, team, leaving, arriving, ctx) {
     const withAvg = list => (ctx.market ? F.withChartAverage(list, ctx.market) : list);
@@ -961,7 +1242,7 @@
       el("div", {class: "v2-card-head"}, el("div", {}, el("h3", {id: "v2LgOppPanelTitle", tabindex: "-1", text: `Trade details: vs ${r.opponent}`}),
         el("p", {class: "v2-meta", text: "Both teams, before and after. Press Escape to close."}))),
       el("div", {class: "v2-lg-oppsides"}, sidePanel("Your team", mine, r.give, r.receive, ctx), sidePanel("Their team", opp, r.receive, r.give, ctx)),
-      r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(r.fit)}) : null,
+      r.fit ? el("p", {class: "v2-find-fit", id: "v2LgOppPanelFit", text: F.fitText(O.fullFit(r))}) : null,
       el("p", {class: "v2-meta", id: "v2LgOppPanelViability", "data-slot": "viability", text: viabilityText(r, mine, opp, ctx)}),
       el("div", {class: "v2-ctoolbar"}, copyLinkBtn, close));
   }
@@ -1031,6 +1312,33 @@
     const label = O.FIT_WORD[variant] || "Fit";
     return el("details", {class: "v2-lg-fit-info"}, el("summary", {"aria-label": `About ${label}`, text: "ⓘ"}), el("p", {role: "note", text: F.fitTip(variant)}));
   }
+  // ---------- JEG-1231: opponents to search ----------
+  // View/search selection in ws.ui, keyed by team id. A manager marked won't trade (JEG-1217 profiles, when loaded) stays
+  // out and is shown as such. Nothing here changes a value, a fit, the ranking, the star, a roster or a profile.
+  function inclusionOpts(ws, mathCtx) {
+    const M = root.TradeValueManagerProfiles;
+    const book = M && M.store && typeof M.get === "function" ? M.store.get() : null;
+    const ctx = mathCtx || mathContext();
+    const count = t => (ctx ? rowsOfTeam(t, ctx).length : t.entries.length);
+    return {profileExcluded: id => Boolean(book && M.get(book, ws, id).excluded), playerCount: count, hasRoster: t => count(t) > 0};
+  }
+  const searchedOpponents = (ws, ctx) => (OI ? OI.searchOpponents(ws, OI.read(ws), inclusionOpts(ws, ctx)) : ws.teams.filter(t => t.id !== ws.myTeamId));
+  function renderInclusion(ws, ctx) {
+    const box = $("v2LgOppsInclusion");
+    if (!OI || !box) return;
+    if (!UI.inclusion) {
+      const change = fn => update(w => W.ops.setUi(w, OI.patch(fn(OI.read(w), w))), "ui:inclusion");
+      UI.inclusion = OI.createControl({document, idPrefix: "v2LgOi", legend: "Opponents to include",
+        // rowsOfTeam counts matched players only; unresolved names are not searched, so say "matched".
+        countLabel: n => `${n} matched ${n === 1 ? "player" : "players"}`,
+        onToggle: (id, include) => change((s, w) => OI.setIncluded(s, w, id, include)),
+        onIncludeAll: () => change((s, w) => OI.includeAll(s, w)),
+        onExcludeAll: () => change((s, w) => OI.excludeAll(s, w))});
+      box.append(UI.inclusion.element);
+    }
+    box.hidden = !teamById(ws, ws.myTeamId);
+    UI.inclusion.update(OI.describe(ws, OI.read(ws), inclusionOpts(ws, ctx)));
+  }
   function oppControls(ws, res) {
     const f = ws.ui.filters;
     const sel = (id, label, options, value, onChange) => {
@@ -1040,7 +1348,8 @@
       return el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), s);
     };
     const set = patch => { UI.oppsShown = PAGE; update(w => W.ops.setUi(w, patch), "ui:filter"); };
-    const opponents = res ? res.perOpponent : [];
+    const included = new Set(searchedOpponents(ws).map(t => t.id));
+    const opponents = res ? res.perOpponent.filter(o => included.has(o.id)) : [];
     const hide = button(ws.ui.hideForce ? "Show force fits" : "Hide force fits", {class: "v2-btn", id: "v2LgHideForce", "aria-pressed": String(Boolean(ws.ui.hideForce))},
       () => { update(w => W.ops.setUi(w, {hideForce: !w.ui.hideForce}), "ui:filter"); UI.oppsShown = PAGE; announce(store.get().ui.hideForce ? "Force fits hidden." : "Force fits shown."); });
     return el("div", {class: "v2-ctoolbar v2-lg-filters"},
@@ -1060,12 +1369,14 @@
     const has = ws.teams.some(t => t.entries.length);
     card.hidden = !has;
     if (!has || !ctx) { body.replaceChildren(); return; }
+    renderInclusion(ws, ctx);
     const mine = teamById(ws, ws.myTeamId);
     const others = ws.teams.filter(t => t.id !== ws.myTeamId && rowsOfTeam(t, ctx).length);
     const status = text => body.replaceChildren(el("p", {class: "v2-meta", id: "v2LgOppsMsg", role: "status", text}));
     if (!mine) return status("Press the star on one team to mark it as yours. Trade opportunities are found for your team against every other team.");
     if (!rowsOfTeam(mine, ctx).length) return status(`Add players to ${mine.name} to find trade opportunities.`);
     if (!others.length) return status("Add at least one other team to find trade opportunities.");
+    if (!searchedOpponents(ws, ctx).some(t => rowsOfTeam(t, ctx).length)) return status("No opponent with a roster is included, so no trades can be found. Tick a team under Opponents to include.");
     if (!ctx.charts.length) return status("No trade chart is available this week, so acceptance cannot be judged.");
     const res = UI.result;
     if (!res) return status(UI.running ? "Finding trades…" : "Finding trades…");
@@ -1080,7 +1391,9 @@
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
     const rules = Array.isArray(ws.ui.summaryFilters) ? ws.ui.summaryFilters.filter(rule => rule && typeof rule === "object" && ["mine", "theirs"].includes(rule.side)) : [];
-    const filtered = O.filterRows(res.rows, ws.ui.filters, ws.ui.hideForce).filter(r => rules.every(rule =>
+    const io = OI ? inclusionOpts(ws, ctx) : null;
+    const viewFilters = OI ? OI.opponentFilter(ws.ui.filters, ws, OI.read(ws), io) : ws.ui.filters;
+    const filtered = O.filterRows(OI ? OI.filterRows(res.rows, ws, OI.read(ws), io) : res.rows, viewFilters, ws.ui.hideForce).filter(r => rules.every(rule =>
       T.summaryFieldMatches(byTeam.get(rule.side === "mine" ? mine.id : r.opponentId), rule, basis)));
     const sorted = S.sortRows(filtered, cols, state, O.OPP_TIES);
     // JEG-885 (Jeremy, 2026-10-25, option B; 2026-10-26, option A): the opening 10 rows hold at most O.CAP_PER_CORE rows for
@@ -1119,7 +1432,7 @@
     const mineRows = rowsOfTeam(mine, ctx);
     const balance = ctx.expected && ctx.shape ? F.rosterBalance(mineRows, ctx.expected, OUR_KEY, ctx.shape) : null;
     const headline = el("p", {class: "v2-find-headline", id: "v2LgOppsHeadline", role: "status"}, O.leagueHeadline(res, balance && balance.ready ? {over: balance.over, under: balance.under} : null) || "No trade opportunities found.");
-    const oneOpp = ws.ui.filters.opponent !== "all" && res.perOpponent.find(o => o.id === ws.ui.filters.opponent);
+    const oneOpp = viewFilters.opponent !== "all" && res.perOpponent.find(o => o.id === viewFilters.opponent);
     let oppHead = null;
     if (oneOpp) {
       const t = teamById(ws, oneOpp.id);
@@ -1181,12 +1494,14 @@
     // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
     const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
-      el("p", {}, ...tradeNodes(r, ctx)),
-      el("p", {}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
+      // JEG-1232: one line per table column, in the table's order (value first), so Our fit and Their fit each get a line.
+      el("p", {"data-line": "trade"}, ...tradeNodes(r, ctx)),
+      el("p", {"data-line": "capture"}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
-      el("p", {}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
-        el("p", {}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
-      el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}),
+      el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
+      el("p", {"data-line": "market"}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
+      el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
+      compareLink(r, ctx),
       " ", button(UI.selectedOpp === r.id ? "Hide both teams" : "Both teams", {class: "v2-link v2-lg-pick-btn", "data-pick-for": r.id, "data-card": "1", "aria-expanded": String(UI.selectedOpp === r.id), "aria-controls": "v2LgOppPanel"}, () => togglePick(r)),
       r.overall ? fitInfo(r.overall) : null,
       ...optional.map(c => el("p", {"data-cell": c.id}, `${c.label}: ${T.summaryFieldText(byTeam.get(c.side === "mine" ? mine.id : r.opponentId), c.field)}`)),
@@ -1228,7 +1543,7 @@
     const mine = ws && teamById(ws, ws.myTeamId);
     const live = $("v2LgOppsStatus");
     if (!ctx || !mine || !ctx.charts.length) { UI.result = null; renderOpps(); return; }
-    const opponents = ws.teams.filter(t => t.id !== mine.id);
+    const opponents = searchedOpponents(ws, ctx);
     const maxSize = ws.ui.maxSize || 2;
     const heavy = (maxSize === 3 && opponents.length > 10) || (maxSize === 4 && opponents.length > 5);
     UI.running = true;
@@ -1251,9 +1566,12 @@
   // ---------- keeping the page in step ----------
   function refreshAll(reason) {
     // The engine's numbers (or its readiness) changed: the player lines show values, so they are drawn again.
-    if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab") UI.comps.forEach(c => { c.lastEntries = null; });
+    if (reason === "load" || reason === "settings" || reason === "replace" || reason === "other-tab" || reason === "league-rosters") UI.comps.forEach(c => { c.lastEntries = null; });
     renderTeams();
     renderStatus();
+    // JEG-1231: a new opponent selection drops the old result (so no left-out team's offer shows) and searches again; the
+    // pairing cache keeps every reused pairing's numbers exactly.
+    if (reason === "ui:inclusion") { UI.result = null; scheduleOpps(); renderOpps(); return; }
     if (String(reason).startsWith("ui:")) {
       if (reason === "ui:sort-summary" || reason === "ui:basis") { renderSummary(); if (reason === "ui:basis") renderOpps(); }
       else renderOpps();
@@ -1326,15 +1644,28 @@
     try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + "#find-league" + (keep ? `?${keep[1]}` : "")); } catch (error) { /* the link stays in the address bar */ }
     if (!teams.length) { $("v2LgCard").open = true; notice("That league link is empty or invalid. Your saved league has been kept."); return; }
     let w = W.newWorkspace({name: "Shared league"});
-    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown)}); });
+    // JEG-1188: a link does not say when its rosters were read, and its unknown players are not on the team.
+    teams.forEach(t => { w = W.ops.addTeam(w, t.name, {entries: t.entries.filter(e => !e.unknown),
+      provenance: {unresolved: t.entries.filter(e => e.unknown && !F.isNotEvaluated(e)).length}}); });
     // New links preserve an unmarked league; legacy links have always put the marked roster first.
     const mine = params.has("wm") ? (params.get("wm") === "none" ? null : Number(params.get("wm"))) : 0;
     if (Number.isInteger(mine) && w.teams[mine]) w = W.ops.setMyTeam(w, w.teams[mine].id);
-    params.delete("workspace");
-    params.delete("wm");
-    params.delete("trade");
-    if (params.toString()) w = W.ops.setSettings(w, {query: params.toString()});
+    // JEG-1328: the sender's package size, filters and selected trade, with link positions read as the new teams' ids.
+    const extras = W.readShareExtras(params, w.teams.map(t => t.id));
+    if (Object.keys(extras.ui).length) w = W.ops.setUi(w, extras.ui);
+    const address = "#find-league" + (extras.trade ? `?trade=${extras.trade}` : "");
+    try { root.history.replaceState(root.history.state, "", root.location.pathname + root.location.search + address); } catch (error) { /* the pick is lost, the league still opens */ }
+    const settingsQuery = W.shareSettingsQuery(params);
+    if (settingsQuery) w = W.ops.setSettings(w, {query: settingsQuery});
     offerReplace(w, "Shared link:");
+  }
+
+  // JEG-1379: the engine can have rows before v2.js has finished booting, and a share link's league settings and player
+  // overrides go through v2.js (TradeValueV2.applyLinkLeague, then DDFOverrides.applyLink in applyImported). Read the
+  // link once that reader is on the page, so a link never loads its teams without them. Gives up waiting after ~30 s.
+  function readShareHashWhenReady(tries = 0) {
+    if ((root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) || tries >= 120) { readShareHash(); return; }
+    setTimeout(() => readShareHashWhenReady(tries + 1), 250);
   }
 
   // ---------- the cards ----------
@@ -1354,7 +1685,7 @@
     const download2 = button("Download", {class: "v2-btn", id: "v2LgDownload"}, download);
     const copyText = button("Copy as text", {class: "v2-btn", id: "v2LgCopyText"}, () => copy(W.copyText(store.get()), "Copied the teams as text."));
     const copyLink = button("Copy link", {class: "v2-btn", id: "v2LgCopyLink"}, () => {
-      const enc = W.shareHash(store.get(), leagueQuery());
+      const enc = W.shareHash(store.get(), leagueQuery(), {trade: UI.selectedParam});
       const ov = root.DDFOverrides;
       const shared = ov && ov.shareLink ? ov.shareLink(enc.hash) : {hash: enc.hash, dropped: false};
       const url = `${root.location.origin}${root.location.pathname}${shared.hash}`;
@@ -1378,7 +1709,7 @@
       UI.comps.forEach(c => c.li.remove());
       UI.comps.clear();
       if (snap.settings && snap.settings.query && root.TradeValueV2 && root.TradeValueV2.applyLinkLeague) {
-        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query));
+        root.TradeValueV2.applyLinkLeague(new URLSearchParams(snap.settings.query), {save: true});   // undoes the load's save too
       }
       if (valueContext && root.DDFOverrides && root.DDFOverrides.restoreContext) root.DDFOverrides.restoreContext(valueContext);
       store.replace(snap, "replace");
@@ -1414,7 +1745,7 @@
     const leagueBox = el("details", {class: "v2-find-import", id: "v2LgImport", open: store.get().teams.length === 0}, el("summary", {text: "Load a whole league: paste its rosters page"}),
       el("div", {class: "v2-find-import-body"},
         el("label", {class: "v2-find-search-label"}, el("span", {class: "v2-sr", text: "Paste a whole league's rosters page"}), leaguePaste),
-        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Pasted text stays on this device."}),
+        el("p", {class: "v2-meta", id: "v2LgLeaguePasteHelp", text: "ESPN: League, then Rosters. Yahoo: your league's rosters page. Press Ctrl+A then Ctrl+C on the page (on a phone, select all and copy) and paste. Every team is set up with its name. Sleeper shows one roster per page: copy each team's page and paste it with Add team. Nothing to connect, no sign-up. You copy, we read the text, and it stays on this device."}),
         el("div", {class: "v2-meta", id: "v2LgLeagueStatus", role: "status"})));
     const league = el("details", {class: "v2-card v2-lg-editor", id: "v2LgCard", "aria-labelledby": "v2LgTitle", open: true},
       el("summary", {class: "v2-card-head v2-lg-card-summary"}, el("div", {},
@@ -1428,6 +1759,7 @@
       el("p", {class: "v2-meta", text: "Saved on this device. Bookmark this page to come back, or use Download to keep a copy or move it to another device. Nothing is sent anywhere."}),
       el("p", {class: "v2-meta", id: "v2LgEmpty", text: "No teams yet. Let's get your league in here: paste your league's rosters page below, or add a team and paste its roster or search players by name. No sign-up; it saves on this device."}),
       leagueBox,
+      el("section", {class: "v2-lg-problems", id: "v2LgProblems", role: "status", "aria-live": "polite", "aria-label": "League checks", hidden: true}),
       el("ul", {class: "v2-lg-teams", id: "v2LgTeams"}),
       el("p", {class: "v2-meta v2-footnote", id: "v2LgFootnote", hidden: true, text: "K and DEF are on rosters (and counted) but not evaluated."}),
       el("div", {class: "v2-sr", id: "v2LgLive", role: "status", "aria-live": "polite"}));
@@ -1437,8 +1769,8 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least three of the four trade charts say the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
-      el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {id: "v2LgOppsBody"}));
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+      el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {class: "v2-lg-inclusion", id: "v2LgOppsInclusion", hidden: true}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
       const tr = event.target.closest && event.target.closest("tr.v2-lg-opp");
@@ -1463,6 +1795,22 @@
       focusPick(id);
     });
     const anchor = host.querySelector(".v2-footnote");
+    // JEG-1137 slice 2b: under ?design=fieldnotes a phone first reads "Set up your league on desktop" (CSS shows it at
+    // phone widths only). The paste box below stays, so a phone can still paste. Copy: the approved JEG-1209 prototype.
+    if (document.documentElement.dataset.design === "fieldnotes") {
+      const step = (title, text) => el("li", {}, el("b", {text: title}), el("p", {class: "v2-meta", text}));
+      host.insertBefore(el("section", {class: "v2-card v2-fn-phone-entry", id: "v2LgPhoneEntry", "aria-labelledby": "v2LgPhoneTitle"},
+        el("h2", {id: "v2LgPhoneTitle", text: "Set up your league on desktop."}),
+        el("p", {class: "v2-meta", text: "Copying a full league is easier on a computer."}),
+        el("h3", {text: "Start there. Continue here."}),
+        el("ol", {class: "v2-fn-steps"},
+          step("Open DDF on your computer.", "Use the desktop guide to open the correct roster page."),
+          step("Paste and review your teams.", "Check matches and choose your team."),
+          step("Copy the prepared state link.", "Send it to yourself, then open it on this phone. Local storage alone does not sync between devices.")),
+        el("p", {}, el("a", {class: "v2-btn v2-btn-primary", href: "v2/#player-values", text: "Explore Values now"})),
+        el("h3", {text: "Already have a prepared link?"}),
+        el("p", {class: "v2-meta", text: "Open the exact link from desktop to restore the supported league and work context. A plain homepage bookmark does not carry your roster."})), anchor);
+    }
     host.insertBefore(el("div", {class: "v2-lg-transfer-bar"}, transfer), anchor);
     host.insertBefore(el("p", {class: "v2-meta", id: "v2LgNotice", role: "status"}), anchor);
     host.insertBefore(el("div", {class: "v2-lg-mismatch", id: "v2LgMismatch", role: "status", hidden: true}), anchor);
@@ -1480,6 +1828,11 @@
       if (UI.parsed && !UI.parsed.error && ws.myTeamId !== UI.parsedMine) showParsed(UI.parsed);
     });
     store.onStatus(renderStatus);
+    // JEG-1231: a manager marked (or unmarked) won't trade changes who is searched.
+    const profiles = root.TradeValueManagerProfiles;
+    if (OI && profiles && profiles.store && typeof profiles.store.onChange === "function") {
+      profiles.store.onChange(() => { if (UI.ready) refreshAll("ui:inclusion"); });
+    }
     const lc = store.loadStatus();
     if (lc === "corrupt" || lc === "version") notice("Saved league data could not be read. You can re-enter your teams.");
     $("v2LgTeams").addEventListener("input", () => {});
@@ -1494,7 +1847,7 @@
       refreshAll("load");
       UI.firstPaint = false;
       renderUndo();
-      readShareHash();
+      readShareHashWhenReady();
       return true;
     };
     if (!ready()) {

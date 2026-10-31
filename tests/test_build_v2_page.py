@@ -41,6 +41,41 @@ class BuildV2PageTest(unittest.TestCase):
         self.assertIn('href="v2/audit-pie.css"', html)
         self.assertIn('href="v2/audit-source.css"', html)
 
+    def test_design_flag_loads_in_head_before_paint(self):
+        # JEG-1137: ?design=fieldnotes must set data-design before first paint, on both pages, after v2.css.
+        for at_root in (False, True):
+            html = build_v2_page.build_v2_html(INDEX, '<div id="v2App"></div>', at_root=at_root)
+            tag = '<script src="v2/design-flag.js"></script>'
+            self.assertEqual(html.count(tag), 1)
+            self.assertLess(html.index(tag), html.index("</head>"))
+            self.assertGreater(html.index(tag), html.index('href="v2/v2.css"'))
+        flag_js = (build_v2_page.APP_V2 / "design-flag.js").read_text(encoding="utf-8")
+        self.assertIn('get("design")', flag_js)
+        self.assertIn('=== "fieldnotes"', flag_js)
+
+    def test_research_nav_hidden_until_a_post_publishes(self):
+        # JEG-1371 (Jeremy, 2026-10-29, audit decision 2: A): with no published post, neither the menu entry nor the
+        # Writing sub-tab for Research is on the page, on /v2/ or at the root. One published post brings both back.
+        shell = (build_v2_page.APP_V2 / "shell.html").read_text(encoding="utf-8")
+        self.assertIn('data-key="writing/research"', shell)
+        self.assertIn('data-writing="research"', shell)
+        post = {"slug": "bench-share", "title": "Bench share", "summary": "How bench share was tested.",
+                "date": "2026-11-01", "body": "<p>Body.</p>"}
+        for at_root in (False, True):
+            empty = build_v2_page.build_v2_html(INDEX, shell, at_root=at_root, posts=[])
+            self.assertNotIn('data-key="writing/research"', empty)
+            self.assertNotIn('data-writing="research"', empty)
+            self.assertNotIn('<span class="v2-tab-full">Research</span>', empty)
+            # The other Writing entries stay, and the Research page still builds so #writing/research resolves.
+            self.assertIn('data-key="writing/how-values"', empty)
+            self.assertIn('data-key="writing/manifesto"', empty)
+            self.assertIn('data-writing="how-values"', empty)
+            self.assertIn('id="v2Research"', empty)
+            published = build_v2_page.build_v2_html(INDEX, shell, at_root=at_root, posts=[post])
+            self.assertEqual(published.count('data-key="writing/research"'), 1)
+            self.assertEqual(published.count('data-writing="research"'), 1)
+            self.assertIn('href="#writing/research/bench-share"', published)
+
     def test_missing_engine_script_fails_closed(self):
         broken = INDEX.replace('<script src="assets/value-model.js?v=x" defer></script>', "")
         with self.assertRaises(SystemExit):

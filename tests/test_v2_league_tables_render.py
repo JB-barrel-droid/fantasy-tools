@@ -140,7 +140,7 @@ def check_summary(browser, base, overrides, errors):
     if len(rows) != 4:
         errors.append(f"[summary] {len(rows)} rows for 4 teams")
     heads = page.evaluate("() => [...document.querySelectorAll('#v2LgSummaryTable thead th')].map(th => th.textContent.replace(/[▲▼↕]/g, '').trim())")
-    for want in ("Rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (market)", "Starter value (market)", "Bench value (market)", "Trade chart average rank", "DDF Value (projections) rank", "Projections vs charts", "Undervalued by market", "Overvalued by market"):
+    for want in ("Rank", "Team", "Roster value (DDF)", "Starter value (DDF)", "Bench value (DDF)", "Roster value (Market)", "Starter value (Market)", "Bench value (Market)", "Trade chart average rank", "DDF Value (projections) rank", "Projections vs charts", "Buy (Market underpays)", "Sell (Market overpays)"):   # JEG-1130: glossary Buy / Sell; labels capitalize Market
         if want not in heads:
             errors.append(f"[summary] no column {want!r}: {heads}")
     exp = page.evaluate(EXPECT)

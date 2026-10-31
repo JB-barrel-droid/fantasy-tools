@@ -18,7 +18,8 @@
     ],
     "superflex": 0,
     "bench_per_team": 2,
-    "bench_share": 0.15
+    "bench_share": 0.15,
+    "seat_sigma": 0
   },
   "constants": {
     "BENCH_MIX_12": {
@@ -481,36 +482,36 @@
       ]
     },
     "starter_mix_mean": {
-      "QB": 0.143679,
-      "RB": 0.243258,
-      "WR": 0.324742,
-      "TE": 0.288321
+      "QB": 0.136817,
+      "RB": 0.244977,
+      "WR": 0.326836,
+      "TE": 0.291369
     },
     "bench_mix_mean": {
-      "QB": 0.193069,
-      "RB": 0.348319,
-      "WR": 0.298297,
-      "TE": 0.160314
+      "QB": 0.107115,
+      "RB": 0.414984,
+      "WR": 0.411308,
+      "TE": 0.066594
     },
     "ddf_weights": {
-      "QB|starter": 0.122128,
-      "QB|bench": 0.02896,
-      "RB|starter": 0.206769,
-      "RB|bench": 0.052248,
-      "WR|starter": 0.276031,
-      "WR|bench": 0.044745,
-      "TE|starter": 0.245072,
-      "TE|bench": 0.024047
+      "QB|starter": 0.116295,
+      "QB|bench": 0.016067,
+      "RB|starter": 0.208231,
+      "RB|bench": 0.062248,
+      "WR|starter": 0.277811,
+      "WR|bench": 0.061696,
+      "TE|starter": 0.247664,
+      "TE|bench": 0.009989
     },
     "group_budgets": {
-      "QB|starter": 34.195716,
-      "QB|bench": 8.108911,
-      "RB|starter": 57.89538,
-      "RB|bench": 14.629419,
-      "WR|starter": 77.288622,
-      "WR|bench": 12.528471,
-      "TE|starter": 68.620283,
-      "TE|bench": 6.7332
+      "QB|starter": 32.562526,
+      "QB|bench": 4.498813,
+      "RB|starter": 58.304546,
+      "RB|bench": 17.429321,
+      "WR|starter": 77.787042,
+      "WR|bench": 17.274917,
+      "TE|starter": 69.345886,
+      "TE|bench": 2.796949
     },
     "indexed": {
       "c1": {
@@ -666,41 +667,41 @@
         }
       },
       "c5": {
-        "factor": 0.524238,
+        "factor": 0.525453,
         "shared_players": 13,
-        "ddf_total": 278.894741,
+        "ddf_total": 279.540879,
         "native_total": 532.0,
         "values": {
-          "101": 19.921053,
-          "102": 12.581718,
-          "103": 7.339335,
-          "104": 3.855688,
-          "201": 49.802632,
-          "202": 30.405818,
-          "203": 17.299862,
+          "101": 19.967206,
+          "102": 12.610867,
+          "103": 7.356339,
+          "104": 3.86462,
+          "201": 49.918014,
+          "202": 30.476261,
+          "203": 17.339942,
           "204": 0.0,
           "205": 0.0,
           "206": 0.0,
-          "207": 10.256056,
+          "207": 10.279817,
           "208": 0.0,
           "209": 0.0,
           "210": 0.0,
           "211": 0.0,
           "212": 0.0,
           "213": 0.0,
-          "301": 42.987535,
-          "302": 25.163435,
-          "303": 22.018006,
-          "304": 11.009003,
-          "305": 7.377561,
+          "301": 43.087128,
+          "302": 25.221733,
+          "303": 22.069017,
+          "304": 11.034508,
+          "305": 7.394653,
           "306": 0.0,
           "307": 0.0,
           "308": 0.0,
-          "401": 25.163435,
-          "402": 11.533241,
-          "403": 3.669668,
-          "404": 2.340078,
-          "405": 0.857765
+          "401": 25.221733,
+          "402": 11.559961,
+          "403": 3.678169,
+          "404": 2.345499,
+          "405": 0.859752
         }
       }
     },
@@ -710,12 +711,12 @@
       401,
       101,
       302,
-      402,
       202,
-      102,
+      402,
       303,
-      403,
+      102,
       203,
+      403,
       304,
       103,
       404,
@@ -784,8 +785,8 @@
             "listed": 4,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 9.0,
-            "starter_line": 14.0,
+            "waiver_value": 14.25,
+            "starter_line": 14.25,
             "method": "roster_determined"
           },
           "RB": {
@@ -798,7 +799,7 @@
             "listed": 13,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 8.5,
+            "waiver_value": 9.357143,
             "starter_line": 12.0,
             "method": "roster_determined"
           },
@@ -812,7 +813,7 @@
             "listed": 8,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 6.0,
+            "waiver_value": 6.857143,
             "starter_line": 9.5,
             "method": "roster_determined"
           },
@@ -826,22 +827,22 @@
             "listed": 5,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 1.5,
+            "waiver_value": 6.225,
             "starter_line": 6.5,
             "method": "roster_determined"
           }
         },
         "groups": {
-          "QB|starter": 8.0,
-          "QB|bench": 13.0,
+          "QB|starter": 7.5,
+          "QB|bench": 0.0,
           "RB|starter": 8.0,
-          "RB|bench": 8.5,
+          "RB|bench": 5.928571,
           "WR|starter": 11.5,
-          "WR|bench": 12.5,
+          "WR|bench": 9.071429,
           "TE|starter": 12.9,
-          "TE|bench": 16.5
+          "TE|bench": 0.825
         },
-        "total_vorp": 90.9,
+        "total_vorp": 55.725,
         "players": {
           "101": {
             "pos": "QB",
@@ -849,13 +850,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 11.0,
+            "vorp": 5.75,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 6.0,
-            "adjusted": 28.765599,
-            "vorp_display": 33.883388
+            "bench_slice": 0.0,
+            "starter_slice": 5.75,
+            "adjusted": 28.413693,
+            "vorp_display": 28.89188
           },
           "102": {
             "pos": "QB",
@@ -863,13 +864,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 1.75,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 2.0,
-            "adjusted": 11.667741,
-            "vorp_display": 21.562156
+            "bench_slice": 0.0,
+            "starter_slice": 1.75,
+            "adjusted": 8.647646,
+            "vorp_display": 8.793181
           },
           "103": {
             "pos": "QB",
@@ -877,13 +878,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 3.0,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.0,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 1.871287,
-            "vorp_display": 9.240924
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "104": {
             "pos": "QB",
@@ -905,13 +906,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 9.5,
+            "vorp": 8.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 6.0,
-            "adjusted": 49.445413,
-            "vorp_display": 29.262926
+            "adjusted": 51.498107,
+            "vorp_display": 43.427546
           },
           "202": {
             "pos": "RB",
@@ -919,13 +920,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 5.5,
+            "vorp": 4.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 2.0,
-            "adjusted": 20.497723,
-            "vorp_display": 16.941694
+            "adjusted": 22.345834,
+            "vorp_display": 23.328847
           },
           "203": {
             "pos": "RB",
@@ -933,13 +934,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.642857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.642857,
             "starter_slice": 0.0,
-            "adjusted": 2.581662,
-            "vorp_display": 4.620462
+            "adjusted": 1.889926,
+            "vorp_display": 3.230148
           },
           "207": {
             "pos": "RB",
@@ -1087,13 +1088,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.0,
+            "vorp": 9.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 6.5,
-            "adjusted": 47.192845,
-            "vorp_display": 30.80308
+            "adjusted": 48.999439,
+            "vorp_display": 45.939883
           },
           "302": {
             "pos": "WR",
@@ -1101,13 +1102,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 6.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 3.5,
-            "adjusted": 27.030596,
-            "vorp_display": 21.562156
+            "adjusted": 28.707167,
+            "vorp_display": 30.865859
           },
           "303": {
             "pos": "WR",
@@ -1115,13 +1116,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 5.0,
+            "vorp": 4.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 3.5,
+            "bench_slice": 2.642857,
             "starter_slice": 1.5,
-            "adjusted": 13.589096,
-            "vorp_display": 15.40154
+            "adjusted": 15.178986,
+            "vorp_display": 20.81651
           },
           "304": {
             "pos": "WR",
@@ -1129,13 +1130,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 2.0,
+            "vorp": 1.142857,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 2.0,
+            "bench_slice": 1.142857,
             "starter_slice": 0.0,
-            "adjusted": 2.004555,
-            "vorp_display": 6.160616
+            "adjusted": 2.176367,
+            "vorp_display": 5.742485
           },
           "305": {
             "pos": "WR",
@@ -1199,13 +1200,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.5,
+            "vorp": 5.775,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 5.5,
-            "adjusted": 31.297074,
-            "vorp_display": 32.343234
+            "adjusted": 30.498392,
+            "vorp_display": 29.017497
           },
           "403": {
             "pos": "TE",
@@ -1213,13 +1214,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 8.9,
+            "vorp": 4.175,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 3.9,
-            "adjusted": 22.786031,
-            "vorp_display": 27.414741
+            "adjusted": 21.897352,
+            "vorp_display": 20.978017
           },
           "402": {
             "pos": "TE",
@@ -1227,13 +1228,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 8.5,
+            "vorp": 3.775,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.275,
             "starter_slice": 3.5,
-            "adjusted": 20.65827,
-            "vorp_display": 26.182618
+            "adjusted": 19.747092,
+            "vorp_display": 18.968147
           },
           "404": {
             "pos": "TE",
@@ -1241,13 +1242,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 0.612109,
-            "vorp_display": 4.620462
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "405": {
             "pos": "TE",
@@ -1265,39 +1266,44 @@
           }
         },
         "weights": {
-          "QB|starter": 0.168317,
-          "QB|bench": 0.038614,
-          "RB|starter": 0.168317,
-          "RB|bench": 0.025248,
-          "WR|starter": 0.241955,
-          "WR|bench": 0.037129,
-          "TE|starter": 0.271411,
-          "TE|bench": 0.04901
+          "QB|starter": 0.159774,
+          "QB|bench": 0.0,
+          "RB|starter": 0.170426,
+          "RB|bench": 0.056195,
+          "WR|starter": 0.244987,
+          "WR|bench": 0.085985,
+          "TE|starter": 0.274812,
+          "TE|bench": 0.00782
         },
         "starter_mix": {
-          "QB": 0.19802,
-          "RB": 0.19802,
-          "WR": 0.284653,
-          "TE": 0.319307
+          "QB": 0.18797,
+          "RB": 0.200501,
+          "WR": 0.288221,
+          "TE": 0.323308
         },
         "bench_mix": {
-          "QB": 0.257426,
-          "RB": 0.168317,
-          "WR": 0.247525,
-          "TE": 0.326733
+          "QB": 0.0,
+          "RB": 0.374633,
+          "WR": 0.573234,
+          "TE": 0.052133
         },
         "rates": {
-          "QB|starter": 4.274464,
-          "QB|bench": 0.623762,
-          "RB|starter": 7.236922,
-          "RB|bench": 1.721108,
-          "WR|starter": 6.72075,
-          "WR|bench": 1.002278,
-          "TE|starter": 5.319402,
-          "TE|bench": 0.408073
+          "QB|starter": 4.941512,
+          "QB|bench": 0.0,
+          "RB|starter": 7.288068,
+          "RB|bench": 2.939886,
+          "WR|starter": 6.764091,
+          "WR|bench": 1.904322,
+          "TE|starter": 5.37565,
+          "TE|bench": 3.390241
         },
-        "unfunded_moved": [],
-        "vorp_display_factor": 3.080308,
+        "unfunded_moved": [
+          {
+            "from": "QB|bench",
+            "to": "QB|starter"
+          }
+        ],
+        "vorp_display_factor": 5.024675,
         "status": "included"
       },
       "p2": {
@@ -1313,8 +1319,8 @@
             "listed": 4,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 9.0,
-            "starter_line": 14.0,
+            "waiver_value": 14.75,
+            "starter_line": 14.75,
             "method": "roster_determined"
           },
           "RB": {
@@ -1327,7 +1333,7 @@
             "listed": 12,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 8.0,
+            "waiver_value": 8.542857,
             "starter_line": 12.3,
             "method": "roster_determined"
           },
@@ -1355,22 +1361,22 @@
             "listed": 5,
             "extended": false,
             "imputation_ratios": null,
-            "waiver_value": 1.5,
+            "waiver_value": 6.375,
             "starter_line": 6.5,
             "method": "roster_determined"
           }
         },
         "groups": {
-          "QB|starter": 9.0,
-          "QB|bench": 14.0,
+          "QB|starter": 7.5,
+          "QB|bench": 0.0,
           "RB|starter": 7.4,
-          "RB|bench": 10.2,
+          "RB|bench": 8.571429,
           "WR|starter": 8.5,
           "WR|bench": 13.5,
           "TE|starter": 13.5,
-          "TE|bench": 16.5
+          "TE|bench": 0.375
         },
-        "total_vorp": 92.6,
+        "total_vorp": 59.346429,
         "players": {
           "101": {
             "pos": "QB",
@@ -1378,13 +1384,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 13.0,
+            "vorp": 7.25,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 8.0,
-            "adjusted": 33.292231,
-            "vorp_display": 39.308855
+            "bench_slice": 0.0,
+            "starter_slice": 7.25,
+            "adjusted": 35.825961,
+            "vorp_display": 34.205934
           },
           "102": {
             "pos": "QB",
@@ -1392,13 +1398,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 6.0,
+            "vorp": 0.25,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
-            "starter_slice": 1.0,
-            "adjusted": 6.695564,
-            "vorp_display": 18.142549
+            "bench_slice": 0.0,
+            "starter_slice": 0.25,
+            "adjusted": 1.235378,
+            "vorp_display": 1.179515
           },
           "103": {
             "pos": "QB",
@@ -1406,13 +1412,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 4.0,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.0,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 2.316832,
-            "vorp_display": 12.095032
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "104": {
             "pos": "QB",
@@ -1434,13 +1440,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 9.0,
+            "vorp": 8.457143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.3,
+            "bench_slice": 3.757143,
             "starter_slice": 4.7,
-            "adjusted": 42.938694,
-            "vorp_display": 27.213823
+            "adjusted": 44.671118,
+            "vorp_display": 39.901306
           },
           "202": {
             "pos": "RB",
@@ -1448,13 +1454,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 7.0,
+            "vorp": 6.457143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 4.3,
+            "bench_slice": 3.757143,
             "starter_slice": 2.7,
-            "adjusted": 27.291294,
-            "vorp_display": 21.166307
+            "adjusted": 28.913133,
+            "vorp_display": 30.465186
           },
           "203": {
             "pos": "RB",
@@ -1462,13 +1468,13 @@
             "imputed": false,
             "rank": 3,
             "role": "bench",
-            "vorp": 1.6,
+            "vorp": 1.057143,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.6,
+            "bench_slice": 1.057143,
             "starter_slice": 0.0,
-            "adjusted": 2.294811,
-            "vorp_display": 4.838013
+            "adjusted": 2.149616,
+            "vorp_display": 4.987663
           },
           "204": {
             "pos": "RB",
@@ -1607,8 +1613,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 6.5,
-            "adjusted": 62.351186,
-            "vorp_display": 30.237581
+            "adjusted": 63.962891,
+            "vorp_display": 47.180598
           },
           "302": {
             "pos": "WR",
@@ -1621,8 +1627,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 1.5,
-            "adjusted": 16.887291,
-            "vorp_display": 15.11879
+            "adjusted": 18.205807,
+            "vorp_display": 23.590299
           },
           "303": {
             "pos": "WR",
@@ -1635,8 +1641,8 @@
             "start_worthy": null,
             "bench_slice": 3.5,
             "starter_slice": 0.5,
-            "adjusted": 7.794512,
-            "vorp_display": 12.095032
+            "adjusted": 9.054391,
+            "vorp_display": 18.872239
           },
           "304": {
             "pos": "WR",
@@ -1649,8 +1655,8 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 0.0,
-            "adjusted": 2.784105,
-            "vorp_display": 9.071274
+            "adjusted": 3.83887,
+            "vorp_display": 14.154179
           },
           "305": {
             "pos": "WR",
@@ -1714,13 +1720,13 @@
             "imputed": false,
             "rank": 1,
             "role": "starter",
-            "vorp": 10.5,
+            "vorp": 5.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 5.5,
-            "adjusted": 29.996775,
-            "vorp_display": 31.74946
+            "adjusted": 29.184344,
+            "vorp_display": 26.539086
           },
           "402": {
             "pos": "TE",
@@ -1728,13 +1734,13 @@
             "imputed": false,
             "rank": 2,
             "role": "starter",
-            "vorp": 9.5,
+            "vorp": 4.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 4.5,
-            "adjusted": 24.913791,
-            "vorp_display": 28.725702
+            "adjusted": 24.047612,
+            "vorp_display": 21.821027
           },
           "403": {
             "pos": "TE",
@@ -1742,13 +1748,13 @@
             "imputed": false,
             "rank": 3,
             "role": "starter",
-            "vorp": 8.5,
+            "vorp": 3.625,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 5.0,
+            "bench_slice": 0.125,
             "starter_slice": 3.5,
-            "adjusted": 19.830807,
-            "vorp_display": 25.701944
+            "adjusted": 18.910879,
+            "vorp_display": 17.102967
           },
           "404": {
             "pos": "TE",
@@ -1756,13 +1762,13 @@
             "imputed": false,
             "rank": 4,
             "role": "bench",
-            "vorp": 1.5,
+            "vorp": 0.0,
             "lineup_share": null,
             "start_worthy": null,
-            "bench_slice": 1.5,
+            "bench_slice": 0.0,
             "starter_slice": 0.0,
-            "adjusted": 0.612109,
-            "vorp_display": 4.535637
+            "adjusted": 0.0,
+            "vorp_display": 0.0
           },
           "405": {
             "pos": "TE",
@@ -1780,39 +1786,44 @@
           }
         },
         "weights": {
-          "QB|starter": 0.199219,
-          "QB|bench": 0.038745,
-          "RB|starter": 0.163802,
-          "RB|bench": 0.028229,
-          "WR|starter": 0.188151,
-          "WR|bench": 0.037362,
-          "TE|starter": 0.298828,
-          "TE|bench": 0.045664
+          "QB|starter": 0.172764,
+          "QB|bench": 0.0,
+          "RB|starter": 0.170461,
+          "RB|bench": 0.057279,
+          "WR|starter": 0.195799,
+          "WR|bench": 0.090215,
+          "TE|starter": 0.310976,
+          "TE|bench": 0.002506
         },
         "starter_mix": {
-          "QB": 0.234375,
-          "RB": 0.192708,
-          "WR": 0.221354,
-          "TE": 0.351562
+          "QB": 0.203252,
+          "RB": 0.200542,
+          "WR": 0.230352,
+          "TE": 0.365854
         },
         "bench_mix": {
-          "QB": 0.258303,
-          "RB": 0.188192,
-          "WR": 0.249077,
-          "TE": 0.304428
+          "QB": 0.0,
+          "RB": 0.381862,
+          "WR": 0.601432,
+          "TE": 0.016706
         },
         "rates": {
-          "QB|starter": 3.799524,
-          "QB|bench": 0.579208,
-          "RB|starter": 7.8237,
-          "RB|bench": 1.434257,
-          "WR|starter": 9.092779,
-          "WR|bench": 0.928035,
-          "TE|starter": 5.082984,
-          "TE|bench": 0.408073
+          "QB|starter": 4.941512,
+          "QB|bench": 0.0,
+          "RB|starter": 7.878993,
+          "RB|bench": 2.033421,
+          "WR|starter": 9.151417,
+          "WR|bench": 1.279623,
+          "TE|starter": 5.136732,
+          "TE|bench": 7.458531
         },
-        "unfunded_moved": [],
-        "vorp_display_factor": 3.023758,
+        "unfunded_moved": [
+          {
+            "from": "QB|bench",
+            "to": "QB|starter"
+          }
+        ],
+        "vorp_display_factor": 4.71806,
         "status": "included"
       },
       "c1": {
@@ -1924,7 +1935,7 @@
             "start_worthy": null,
             "bench_slice": 12.0,
             "starter_slice": 20.0,
-            "adjusted": 30.495506,
+            "adjusted": 27.791497,
             "vorp_display": 23.455497
           },
           "102": {
@@ -1938,7 +1949,7 @@
             "start_worthy": null,
             "bench_slice": 12.0,
             "starter_slice": 5.0,
-            "adjusted": 9.978076,
+            "adjusted": 8.253981,
             "vorp_display": 12.460733
           },
           "103": {
@@ -1952,7 +1963,7 @@
             "start_worthy": null,
             "bench_slice": 7.0,
             "starter_slice": 0.0,
-            "adjusted": 1.831044,
+            "adjusted": 1.015861,
             "vorp_display": 5.13089
           },
           "104": {
@@ -1980,7 +1991,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 42.5,
-            "adjusted": 50.48461,
+            "adjusted": 51.900746,
             "vorp_display": 51.308901
           },
           "202": {
@@ -1994,7 +2005,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 12.5,
-            "adjusted": 18.905312,
+            "adjusted": 20.098267,
             "vorp_display": 29.319372
           },
           "203": {
@@ -2008,7 +2019,7 @@
             "start_worthy": null,
             "bench_slice": 15.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.994764
           },
           "204": {
@@ -2162,7 +2173,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 49.0,
-            "adjusted": 52.793567,
+            "adjusted": 54.478363,
             "vorp_display": 48.376963
           },
           "302": {
@@ -2176,7 +2187,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 19.0,
-            "adjusted": 22.681117,
+            "adjusted": 24.171724,
             "vorp_display": 26.387435
           },
           "303": {
@@ -2190,7 +2201,7 @@
             "start_worthy": null,
             "bench_slice": 17.0,
             "starter_slice": 9.0,
-            "adjusted": 12.643633,
+            "adjusted": 14.06951,
             "vorp_display": 19.057592
           },
           "304": {
@@ -2204,7 +2215,7 @@
             "start_worthy": null,
             "bench_slice": 8.0,
             "starter_slice": 0.0,
-            "adjusted": 1.698776,
+            "adjusted": 2.342362,
             "vorp_display": 5.863874
           },
           "305": {
@@ -2274,7 +2285,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 40.0,
-            "adjusted": 52.666167,
+            "adjusted": 52.130127,
             "vorp_display": 31.518325
           },
           "402": {
@@ -2288,7 +2299,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 13.0,
-            "adjusted": 18.356025,
+            "adjusted": 17.457184,
             "vorp_display": 11.727749
           },
           "403": {
@@ -2302,7 +2313,7 @@
             "start_worthy": null,
             "bench_slice": 3.0,
             "starter_slice": 1.0,
-            "adjusted": 3.107073,
+            "adjusted": 2.046987,
             "vorp_display": 2.931937
           },
           "404": {
@@ -2316,7 +2327,7 @@
             "start_worthy": null,
             "bench_slice": 2.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 1.465969
           },
           "405": {
@@ -2357,14 +2368,14 @@
           "TE": 0.064327
         },
         "rates": {
-          "QB|starter": 1.367829,
-          "QB|bench": 0.261578,
-          "RB|starter": 1.052643,
-          "RB|bench": 0.208992,
-          "WR|starter": 1.003748,
-          "WR|bench": 0.212347,
-          "TE|starter": 1.270746,
-          "TE|bench": 0.612109
+          "QB|starter": 1.302501,
+          "QB|bench": 0.145123,
+          "RB|starter": 1.060083,
+          "RB|bench": 0.24899,
+          "WR|starter": 1.010221,
+          "WR|bench": 0.292795,
+          "TE|starter": 1.284183,
+          "TE|bench": 0.254268
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.732984,
@@ -2513,7 +2524,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 14.0,
-            "adjusted": 27.315714,
+            "adjusted": 24.668273,
             "vorp_display": 16.990677
           },
           "102": {
@@ -2527,7 +2538,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 6.0,
-            "adjusted": 13.637428,
+            "adjusted": 11.643263,
             "vorp_display": 11.327118
           },
           "103": {
@@ -2541,7 +2552,7 @@
             "start_worthy": null,
             "bench_slice": 4.0,
             "starter_slice": 0.0,
-            "adjusted": 1.351485,
+            "adjusted": 0.749802,
             "vorp_display": 2.83178
           },
           "104": {
@@ -2569,7 +2580,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 57.5,
-            "adjusted": 53.304191,
+            "adjusted": 54.740253,
             "vorp_display": 60.175316
           },
           "202": {
@@ -2583,7 +2594,7 @@
             "start_worthy": null,
             "bench_slice": 27.5,
             "starter_slice": 12.5,
-            "adjusted": 16.085732,
+            "adjusted": 17.25876,
             "vorp_display": 28.317796
           },
           "203": {
@@ -2597,7 +2608,7 @@
             "start_worthy": null,
             "bench_slice": 15.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.619173
           },
           "204": {
@@ -2667,7 +2678,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 57.5,
-            "adjusted": 57.43097,
+            "adjusted": 59.128261,
             "vorp_display": 51.679977
           },
           "302": {
@@ -2681,7 +2692,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 17.5,
-            "adjusted": 19.957699,
+            "adjusted": 21.413331,
             "vorp_display": 23.362181
           },
           "303": {
@@ -2695,7 +2706,7 @@
             "start_worthy": null,
             "bench_slice": 15.5,
             "starter_slice": 7.5,
-            "adjusted": 10.589381,
+            "adjusted": 11.984599,
             "vorp_display": 16.282733
           },
           "304": {
@@ -2709,7 +2720,7 @@
             "start_worthy": null,
             "bench_slice": 8.0,
             "starter_slice": 0.0,
-            "adjusted": 1.839042,
+            "adjusted": 2.535768,
             "vorp_display": 5.663559
           },
           "305": {
@@ -2737,7 +2748,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 44.5,
-            "adjusted": 51.658812,
+            "adjusted": 51.010696,
             "vorp_display": 34.248783
           },
           "402": {
@@ -2751,7 +2762,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 14.5,
-            "adjusted": 18.185504,
+            "adjusted": 17.183435,
             "vorp_display": 13.010436
           },
           "403": {
@@ -2765,7 +2776,7 @@
             "start_worthy": null,
             "bench_slice": 3.877753,
             "starter_slice": 2.5,
-            "adjusted": 4.79618,
+            "adjusted": 3.652531,
             "vorp_display": 4.515097
           },
           "404": {
@@ -2779,7 +2790,7 @@
             "start_worthy": null,
             "bench_slice": 1.377753,
             "starter_slice": 0.0,
-            "adjusted": 0.712987,
+            "adjusted": 0.296173,
             "vorp_display": 0.975373
           },
           "405": {
@@ -2820,14 +2831,14 @@
           "TE": 0.080558
         },
         "rates": {
-          "QB|starter": 1.709786,
-          "QB|bench": 0.337871,
-          "RB|starter": 0.827077,
-          "RB|bench": 0.208992,
-          "WR|starter": 0.936832,
-          "WR|bench": 0.22988,
-          "TE|starter": 1.115777,
-          "TE|bench": 0.5175
+          "QB|starter": 1.628126,
+          "QB|bench": 0.187451,
+          "RB|starter": 0.832922,
+          "RB|bench": 0.24899,
+          "WR|starter": 0.942873,
+          "WR|bench": 0.316971,
+          "TE|starter": 1.127575,
+          "TE|bench": 0.214968
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.707945,
@@ -2942,7 +2953,7 @@
             "start_worthy": null,
             "bench_slice": 120.0,
             "starter_slice": 200.0,
-            "adjusted": 30.495506,
+            "adjusted": 27.791497,
             "vorp_display": 23.455497
           },
           "102": {
@@ -2956,7 +2967,7 @@
             "start_worthy": null,
             "bench_slice": 120.0,
             "starter_slice": 50.0,
-            "adjusted": 9.978076,
+            "adjusted": 8.253981,
             "vorp_display": 12.460733
           },
           "103": {
@@ -2970,7 +2981,7 @@
             "start_worthy": null,
             "bench_slice": 70.0,
             "starter_slice": 0.0,
-            "adjusted": 1.831044,
+            "adjusted": 1.015861,
             "vorp_display": 5.13089
           },
           "104": {
@@ -2998,7 +3009,7 @@
             "start_worthy": null,
             "bench_slice": 275.0,
             "starter_slice": 425.0,
-            "adjusted": 50.48461,
+            "adjusted": 51.900746,
             "vorp_display": 51.308901
           },
           "202": {
@@ -3012,7 +3023,7 @@
             "start_worthy": null,
             "bench_slice": 275.0,
             "starter_slice": 125.0,
-            "adjusted": 18.905312,
+            "adjusted": 20.098267,
             "vorp_display": 29.319372
           },
           "203": {
@@ -3026,7 +3037,7 @@
             "start_worthy": null,
             "bench_slice": 150.0,
             "starter_slice": 0.0,
-            "adjusted": 3.134875,
+            "adjusted": 3.734855,
             "vorp_display": 10.994764
           },
           "204": {
@@ -3180,7 +3191,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 490.0,
-            "adjusted": 52.793567,
+            "adjusted": 54.478363,
             "vorp_display": 48.376963
           },
           "302": {
@@ -3194,7 +3205,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 190.0,
-            "adjusted": 22.681117,
+            "adjusted": 24.171724,
             "vorp_display": 26.387435
           },
           "303": {
@@ -3208,7 +3219,7 @@
             "start_worthy": null,
             "bench_slice": 170.0,
             "starter_slice": 90.0,
-            "adjusted": 12.643633,
+            "adjusted": 14.06951,
             "vorp_display": 19.057592
           },
           "304": {
@@ -3222,7 +3233,7 @@
             "start_worthy": null,
             "bench_slice": 80.0,
             "starter_slice": 0.0,
-            "adjusted": 1.698776,
+            "adjusted": 2.342362,
             "vorp_display": 5.863874
           },
           "305": {
@@ -3292,7 +3303,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 400.0,
-            "adjusted": 52.666167,
+            "adjusted": 52.130127,
             "vorp_display": 31.518325
           },
           "402": {
@@ -3306,7 +3317,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 130.0,
-            "adjusted": 18.356025,
+            "adjusted": 17.457184,
             "vorp_display": 11.727749
           },
           "403": {
@@ -3320,7 +3331,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 10.0,
-            "adjusted": 3.107073,
+            "adjusted": 2.046987,
             "vorp_display": 2.931937
           },
           "404": {
@@ -3334,7 +3345,7 @@
             "start_worthy": null,
             "bench_slice": 20.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 1.465969
           },
           "405": {
@@ -3375,14 +3386,14 @@
           "TE": 0.064327
         },
         "rates": {
-          "QB|starter": 0.136783,
-          "QB|bench": 0.026158,
-          "RB|starter": 0.105264,
-          "RB|bench": 0.020899,
-          "WR|starter": 0.100375,
-          "WR|bench": 0.021235,
-          "TE|starter": 0.127075,
-          "TE|bench": 0.061211
+          "QB|starter": 0.13025,
+          "QB|bench": 0.014512,
+          "RB|starter": 0.106008,
+          "RB|bench": 0.024899,
+          "WR|starter": 0.101022,
+          "WR|bench": 0.02928,
+          "TE|starter": 0.128418,
+          "TE|bench": 0.025427
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.073298,
@@ -3497,7 +3508,7 @@
             "start_worthy": null,
             "bench_slice": 13.0,
             "starter_slice": 15.0,
-            "adjusted": 25.702065,
+            "adjusted": 23.123029,
             "vorp_display": 18.578199
           },
           "102": {
@@ -3511,7 +3522,7 @@
             "start_worthy": null,
             "bench_slice": 13.0,
             "starter_slice": 8.0,
-            "adjusted": 15.294673,
+            "adjusted": 13.212695,
             "vorp_display": 13.933649
           },
           "103": {
@@ -3525,7 +3536,7 @@
             "start_worthy": null,
             "bench_slice": 5.0,
             "starter_slice": 0.0,
-            "adjusted": 1.307889,
+            "adjusted": 0.725615,
             "vorp_display": 3.317536
           },
           "104": {
@@ -3553,7 +3564,7 @@
             "start_worthy": null,
             "bench_slice": 42.5,
             "starter_slice": 32.5,
-            "adjusted": 47.219854,
+            "adjusted": 48.55011,
             "vorp_display": 49.763033
           },
           "202": {
@@ -3567,7 +3578,7 @@
             "start_worthy": null,
             "bench_slice": 42.5,
             "starter_slice": 12.5,
-            "adjusted": 21.488574,
+            "adjusted": 22.636978,
             "vorp_display": 36.492891
           },
           "203": {
@@ -3581,7 +3592,7 @@
             "start_worthy": null,
             "bench_slice": 30.0,
             "starter_slice": 0.0,
-            "adjusted": 3.81637,
+            "adjusted": 4.54678,
             "vorp_display": 19.905213
           },
           "205": {
@@ -3721,7 +3732,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 43.5,
-            "adjusted": 49.216527,
+            "adjusted": 50.827752,
             "vorp_display": 39.810427
           },
           "302": {
@@ -3735,7 +3746,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 23.5,
-            "adjusted": 28.18561,
+            "adjusted": 29.66121,
             "vorp_display": 26.540284
           },
           "303": {
@@ -3749,7 +3760,7 @@
             "start_worthy": null,
             "bench_slice": 16.5,
             "starter_slice": 6.5,
-            "adjusted": 10.30933,
+            "adjusted": 11.669649,
             "vorp_display": 15.260664
           },
           "304": {
@@ -3763,7 +3774,7 @@
             "start_worthy": null,
             "bench_slice": 10.0,
             "starter_slice": 0.0,
-            "adjusted": 2.105625,
+            "adjusted": 2.903347,
             "vorp_display": 6.635071
           },
           "305": {
@@ -3819,7 +3830,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 33.0,
-            "adjusted": 44.562164,
+            "adjusted": 43.940431,
             "vorp_display": 25.876777
           },
           "402": {
@@ -3833,7 +3844,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 18.0,
-            "adjusted": 25.141329,
+            "adjusted": 24.314237,
             "vorp_display": 15.924171
           },
           "403": {
@@ -3847,7 +3858,7 @@
             "start_worthy": null,
             "bench_slice": 6.0,
             "starter_slice": 2.0,
-            "adjusted": 4.425772,
+            "adjusted": 3.37963,
             "vorp_display": 5.308057
           },
           "404": {
@@ -3861,7 +3872,7 @@
             "start_worthy": null,
             "bench_slice": 4.0,
             "starter_slice": 0.0,
-            "adjusted": 1.224218,
+            "adjusted": 0.508536,
             "vorp_display": 2.654028
           },
           "405": {
@@ -3902,14 +3913,14 @@
           "TE": 0.096703
         },
         "rates": {
-          "QB|starter": 1.48677,
-          "QB|bench": 0.261578,
-          "RB|starter": 1.286564,
-          "RB|bench": 0.127212,
-          "WR|starter": 1.051546,
-          "WR|bench": 0.210563,
-          "TE|starter": 1.294722,
-          "TE|bench": 0.306055
+          "QB|starter": 1.415762,
+          "QB|bench": 0.145123,
+          "RB|starter": 1.295657,
+          "RB|bench": 0.151559,
+          "WR|starter": 1.058327,
+          "WR|bench": 0.290335,
+          "TE|starter": 1.308413,
+          "TE|bench": 0.127134
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.663507,
@@ -4202,7 +4213,7 @@
             "start_worthy": null,
             "bench_slice": 11.645161,
             "starter_slice": 19.0,
-            "adjusted": 30.226044,
+            "adjusted": 27.528743,
             "vorp_display": 21.840842
           },
           "102": {
@@ -4216,7 +4227,7 @@
             "start_worthy": null,
             "bench_slice": 11.645161,
             "starter_slice": 5.0,
-            "adjusted": 10.278544,
+            "adjusted": 8.533936,
             "vorp_display": 11.863026
           },
           "103": {
@@ -4230,7 +4241,7 @@
             "start_worthy": null,
             "bench_slice": 6.645161,
             "starter_slice": 0.0,
-            "adjusted": 1.800038,
+            "adjusted": 0.998659,
             "vorp_display": 4.736014
           },
           "104": {
@@ -4258,7 +4269,7 @@
             "start_worthy": null,
             "bench_slice": 25.936269,
             "starter_slice": 49.5,
-            "adjusted": 52.032746,
+            "adjusted": 53.471352,
             "vorp_display": 53.763516
           },
           "202": {
@@ -4272,7 +4283,7 @@
             "start_worthy": null,
             "bench_slice": 25.936269,
             "starter_slice": 12.5,
-            "adjusted": 17.482277,
+            "adjusted": 18.676704,
             "vorp_display": 27.393573
           },
           "203": {
@@ -4286,7 +4297,7 @@
             "start_worthy": null,
             "bench_slice": 13.436269,
             "starter_slice": 0.0,
-            "adjusted": 3.009775,
+            "adjusted": 3.585811,
             "vorp_display": 9.576044
           },
           "207": {
@@ -4314,7 +4325,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 50.5,
-            "adjusted": 54.04983,
+            "adjusted": 55.771653,
             "vorp_display": 48.41171
           },
           "302": {
@@ -4328,7 +4339,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 16.5,
-            "adjusted": 20.142564,
+            "adjusted": 21.645724,
             "vorp_display": 24.179871
           },
           "303": {
@@ -4342,7 +4353,7 @@
             "start_worthy": null,
             "bench_slice": 17.427083,
             "starter_slice": 10.5,
-            "adjusted": 14.158929,
+            "adjusted": 15.623502,
             "vorp_display": 19.903664
           },
           "304": {
@@ -4356,7 +4367,7 @@
             "start_worthy": null,
             "bench_slice": 6.927083,
             "starter_slice": 0.0,
-            "adjusted": 1.465769,
+            "adjusted": 2.02108,
             "vorp_display": 4.93694
           },
           "305": {
@@ -4384,7 +4395,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 42.268116,
-            "adjusted": 50.323513,
+            "adjusted": 49.769724,
             "vorp_display": 33.043525
           },
           "402": {
@@ -4398,7 +4409,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 16.268116,
-            "adjusted": 20.490776,
+            "adjusted": 19.62153,
             "vorp_display": 14.513295
           },
           "403": {
@@ -4412,7 +4423,7 @@
             "start_worthy": null,
             "bench_slice": 4.095672,
             "starter_slice": 1.268116,
-            "adjusted": 3.279582,
+            "adjusted": 2.228342,
             "vorp_display": 3.822778
           },
           "404": {
@@ -4426,7 +4437,7 @@
             "start_worthy": null,
             "bench_slice": 2.827556,
             "starter_slice": 0.0,
-            "adjusted": 1.259612,
+            "adjusted": 0.523239,
             "vorp_display": 2.015202
           },
           "405": {
@@ -4467,14 +4478,14 @@
           "TE": 0.089136
         },
         "rates": {
-          "QB|starter": 1.424821,
-          "QB|bench": 0.27088,
-          "RB|starter": 0.933796,
-          "RB|bench": 0.224004,
-          "WR|starter": 0.997273,
-          "WR|bench": 0.2116,
-          "TE|starter": 1.147413,
-          "TE|bench": 0.445477
+          "QB|starter": 1.356772,
+          "QB|bench": 0.150284,
+          "RB|starter": 0.940396,
+          "RB|bench": 0.266876,
+          "WR|starter": 1.003704,
+          "WR|bench": 0.291765,
+          "TE|starter": 1.159546,
+          "TE|bench": 0.18505
         },
         "unfunded_moved": [],
         "vorp_display_factor": 0.712701,
@@ -4486,17 +4497,17 @@
         "name": "QB Alpha",
         "pos": "QB",
         "adjusted": {
-          "p1": 28.765599,
-          "p2": 33.292231,
-          "c1": 30.495506,
-          "c2": 27.315714,
-          "c3": 30.495506,
-          "c4": 25.702065,
-          "c5": 30.226044
+          "p1": 28.413693,
+          "p2": 35.825961,
+          "c1": 27.791497,
+          "c2": 24.668273,
+          "c3": 27.791497,
+          "c4": 23.123029,
+          "c5": 27.528743
         },
         "vorp_vs_waivers": {
-          "p1": 33.883388,
-          "p2": 39.308855,
+          "p1": 28.89188,
+          "p2": 34.205934,
           "c1": 23.455497,
           "c2": 16.990677,
           "c3": 23.455497,
@@ -4505,7 +4516,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 28.434832,
+          "value": 25.777886,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4516,7 +4527,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 28.434832,
+          "value": 25.777886,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4527,7 +4538,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 31.028915,
+          "value": 32.119827,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4540,7 +4551,7 @@
           "c2": 15.107914,
           "c3": 17.877095,
           "c4": 15.896188,
-          "c5": 19.921053
+          "c5": 19.967206
         },
         "ddf_tier": "starter",
         "mean_ppg": 21.0
@@ -4549,17 +4560,17 @@
         "name": "QB Bravo",
         "pos": "QB",
         "adjusted": {
-          "p1": 11.667741,
-          "p2": 6.695564,
-          "c1": 9.978076,
-          "c2": 13.637428,
-          "c3": 9.978076,
-          "c4": 15.294673,
-          "c5": 10.278544
+          "p1": 8.647646,
+          "p2": 1.235378,
+          "c1": 8.253981,
+          "c2": 11.643263,
+          "c3": 8.253981,
+          "c4": 13.212695,
+          "c5": 8.533936
         },
         "vorp_vs_waivers": {
-          "p1": 21.562156,
-          "p2": 18.142549,
+          "p1": 8.793181,
+          "p2": 1.179515,
           "c1": 12.460733,
           "c2": 11.327118,
           "c3": 12.460733,
@@ -4568,7 +4579,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 12.29718,
+          "value": 10.410969,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4579,7 +4590,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 12.29718,
+          "value": 10.410969,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4590,7 +4601,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 9.181652,
+          "value": 4.941512,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4603,7 +4614,7 @@
           "c2": 11.079137,
           "c3": 11.173184,
           "c4": 12.716951,
-          "c5": 12.581718
+          "c5": 12.610867
         },
         "ddf_tier": "starter",
         "mean_ppg": 15.5
@@ -4612,17 +4623,17 @@
         "name": "QB Charlie",
         "pos": "QB",
         "adjusted": {
-          "p1": 1.871287,
-          "p2": 2.316832,
-          "c1": 1.831044,
-          "c2": 1.351485,
-          "c3": 1.831044,
-          "c4": 1.307889,
-          "c5": 1.800038
+          "p1": 0.0,
+          "p2": 0.0,
+          "c1": 1.015861,
+          "c2": 0.749802,
+          "c3": 1.015861,
+          "c4": 0.725615,
+          "c5": 0.998659
         },
         "vorp_vs_waivers": {
-          "p1": 9.240924,
-          "p2": 12.095032,
+          "p1": 0.0,
+          "p2": 0.0,
           "c1": 5.13089,
           "c2": 2.83178,
           "c3": 5.13089,
@@ -4631,7 +4642,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 1.572614,
+          "value": 0.872484,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4642,7 +4653,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.572614,
+          "value": 0.872484,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4653,7 +4664,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.094059,
+          "value": 0.0,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4666,7 +4677,7 @@
           "c2": 5.035971,
           "c3": 6.703911,
           "c4": 5.450122,
-          "c5": 7.339335
+          "c5": 7.356339
         },
         "ddf_tier": "bench",
         "mean_ppg": 12.5
@@ -4731,7 +4742,7 @@
           "c2": 3.021583,
           "c3": 3.575419,
           "c4": 3.179238,
-          "c5": 3.855688
+          "c5": 3.86462
         },
         "ddf_tier": "waiver",
         "mean_ppg": 9.0
@@ -4740,17 +4751,17 @@
         "name": "RB Delta",
         "pos": "RB",
         "adjusted": {
-          "p1": 49.445413,
-          "p2": 42.938694,
-          "c1": 50.48461,
-          "c2": 53.304191,
-          "c3": 50.48461,
-          "c4": 47.219854,
-          "c5": 52.032746
+          "p1": 51.498107,
+          "p2": 44.671118,
+          "c1": 51.900746,
+          "c2": 54.740253,
+          "c3": 51.900746,
+          "c4": 48.55011,
+          "c5": 53.471352
         },
         "vorp_vs_waivers": {
-          "p1": 29.262926,
-          "p2": 27.213823,
+          "p1": 43.427546,
+          "p2": 39.901306,
           "c1": 51.308901,
           "c2": 60.175316,
           "c3": 51.308901,
@@ -4759,7 +4770,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 50.76035,
+          "value": 52.165616,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4770,7 +4781,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 50.76035,
+          "value": 52.165616,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4781,7 +4792,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 46.192053,
+          "value": 48.084613,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4794,7 +4805,7 @@
           "c2": 50.359712,
           "c3": 40.223464,
           "c4": 38.605028,
-          "c5": 49.802632
+          "c5": 49.918014
         },
         "ddf_tier": "starter",
         "mean_ppg": 17.5
@@ -4803,17 +4814,17 @@
         "name": "RB Echo",
         "pos": "RB",
         "adjusted": {
-          "p1": 20.497723,
-          "p2": 27.291294,
-          "c1": 18.905312,
-          "c2": 16.085732,
-          "c3": 18.905312,
-          "c4": 21.488574,
-          "c5": 17.482277
+          "p1": 22.345834,
+          "p2": 28.913133,
+          "c1": 20.098267,
+          "c2": 17.25876,
+          "c3": 20.098267,
+          "c4": 22.636978,
+          "c5": 18.676704
         },
         "vorp_vs_waivers": {
-          "p1": 16.941694,
-          "p2": 21.166307,
+          "p1": 23.328847,
+          "p2": 30.465186,
           "c1": 29.319372,
           "c2": 28.317796,
           "c3": 29.319372,
@@ -4822,7 +4833,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 18.490474,
+          "value": 19.667677,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4833,7 +4844,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 18.490474,
+          "value": 19.667677,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4844,7 +4855,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 23.894508,
+          "value": 25.629483,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4857,7 +4868,7 @@
           "c2": 27.697842,
           "c3": 26.815642,
           "c4": 29.521492,
-          "c5": 30.405818
+          "c5": 30.476261
         },
         "ddf_tier": "starter",
         "mean_ppg": 14.5
@@ -4866,17 +4877,17 @@
         "name": "RB Foxtrot",
         "pos": "RB",
         "adjusted": {
-          "p1": 2.581662,
-          "p2": 2.294811,
-          "c1": 3.134875,
-          "c2": 3.134875,
-          "c3": 3.134875,
-          "c4": 3.81637,
-          "c5": 3.009775
+          "p1": 1.889926,
+          "p2": 2.149616,
+          "c1": 3.734855,
+          "c2": 3.734855,
+          "c3": 3.734855,
+          "c4": 4.54678,
+          "c5": 3.585811
         },
         "vorp_vs_waivers": {
-          "p1": 4.620462,
-          "p2": 4.838013,
+          "p1": 3.230148,
+          "p2": 4.987663,
           "c1": 10.994764,
           "c2": 10.619173,
           "c3": 10.994764,
@@ -4885,7 +4896,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 3.273974,
+          "value": 3.900575,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4896,7 +4907,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 3.273974,
+          "value": 3.900575,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -4907,7 +4918,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.438236,
+          "value": 2.019771,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -4920,7 +4931,7 @@
           "c2": 15.107914,
           "c3": 15.642458,
           "c4": 18.167072,
-          "c5": 17.299862
+          "c5": 17.339942
         },
         "ddf_tier": "bench",
         "mean_ppg": 9.8
@@ -5177,7 +5188,7 @@
           "c2": 1.510791,
           "c3": 0.446927,
           "c4": 0.908354,
-          "c5": 10.256056
+          "c5": 10.279817
         },
         "ddf_tier": "waiver",
         "mean_ppg": 8.5
@@ -5564,17 +5575,17 @@
         "name": "WR Lima",
         "pos": "WR",
         "adjusted": {
-          "p1": 47.192845,
-          "p2": 62.351186,
-          "c1": 52.793567,
-          "c2": 57.43097,
-          "c3": 52.793567,
-          "c4": 49.216527,
-          "c5": 54.04983
+          "p1": 48.999439,
+          "p2": 63.962891,
+          "c1": 54.478363,
+          "c2": 59.128261,
+          "c3": 54.478363,
+          "c4": 50.827752,
+          "c5": 55.771653
         },
         "vorp_vs_waivers": {
-          "p1": 30.80308,
-          "p2": 30.237581,
+          "p1": 45.939883,
+          "p2": 47.180598,
           "c1": 48.376963,
           "c2": 51.679977,
           "c3": 48.376963,
@@ -5583,7 +5594,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 53.372724,
+          "value": 55.051507,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5594,7 +5605,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 53.372724,
+          "value": 55.051507,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5605,7 +5616,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 54.772015,
+          "value": 56.481165,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5618,7 +5629,7 @@
           "c2": 42.805755,
           "c3": 35.75419,
           "c4": 34.06326,
-          "c5": 42.987535
+          "c5": 43.087128
         },
         "ddf_tier": "starter",
         "mean_ppg": 16.5
@@ -5627,17 +5638,17 @@
         "name": "WR Mike",
         "pos": "WR",
         "adjusted": {
-          "p1": 27.030596,
-          "p2": 16.887291,
-          "c1": 22.681117,
-          "c2": 19.957699,
-          "c3": 22.681117,
-          "c4": 28.18561,
-          "c5": 20.142564
+          "p1": 28.707167,
+          "p2": 18.205807,
+          "c1": 24.171724,
+          "c2": 21.413331,
+          "c3": 24.171724,
+          "c4": 29.66121,
+          "c5": 21.645724
         },
         "vorp_vs_waivers": {
-          "p1": 21.562156,
-          "p2": 15.11879,
+          "p1": 30.865859,
+          "p2": 23.590299,
           "c1": 26.387435,
           "c2": 23.362181,
           "c3": 26.387435,
@@ -5646,7 +5657,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 22.741747,
+          "value": 24.222997,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5657,7 +5668,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 22.741747,
+          "value": 24.222997,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5668,7 +5679,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 21.958943,
+          "value": 23.456487,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5681,7 +5692,7 @@
           "c2": 22.661871,
           "c3": 22.346369,
           "c4": 24.979724,
-          "c5": 25.163435
+          "c5": 25.221733
         },
         "ddf_tier": "starter",
         "mean_ppg": 12.5
@@ -5690,17 +5701,17 @@
         "name": "WR November",
         "pos": "WR",
         "adjusted": {
-          "p1": 13.589096,
-          "p2": 7.794512,
-          "c1": 12.643633,
-          "c2": 10.589381,
-          "c3": 12.643633,
-          "c4": 10.30933,
-          "c5": 14.158929
+          "p1": 15.178986,
+          "p2": 9.054391,
+          "c1": 14.06951,
+          "c2": 11.984599,
+          "c3": 14.06951,
+          "c4": 11.669649,
+          "c5": 15.623502
         },
         "vorp_vs_waivers": {
-          "p1": 15.40154,
-          "p2": 12.095032,
+          "p1": 20.81651,
+          "p2": 18.872239,
           "c1": 19.057592,
           "c2": 16.282733,
           "c3": 19.057592,
@@ -5709,7 +5720,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 11.925318,
+          "value": 13.336815,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5720,7 +5731,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 11.925318,
+          "value": 13.336815,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5731,7 +5742,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 10.691804,
+          "value": 12.116688,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5744,7 +5755,7 @@
           "c2": 17.625899,
           "c3": 17.877095,
           "c4": 17.258719,
-          "c5": 22.018006
+          "c5": 22.069017
         },
         "ddf_tier": "starter",
         "mean_ppg": 11.0
@@ -5753,17 +5764,17 @@
         "name": "WR Oscar",
         "pos": "WR",
         "adjusted": {
-          "p1": 2.004555,
-          "p2": 2.784105,
-          "c1": 1.698776,
-          "c2": 1.839042,
-          "c3": 1.698776,
-          "c4": 2.105625,
-          "c5": 1.465769
+          "p1": 2.176367,
+          "p2": 3.83887,
+          "c1": 2.342362,
+          "c2": 2.535768,
+          "c3": 2.342362,
+          "c4": 2.903347,
+          "c5": 2.02108
         },
         "vorp_vs_waivers": {
-          "p1": 6.160616,
-          "p2": 9.071274,
+          "p1": 5.742485,
+          "p2": 14.154179,
           "c1": 5.863874,
           "c2": 5.663559,
           "c3": 5.863874,
@@ -5772,7 +5783,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 1.777303,
+          "value": 2.450639,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5783,7 +5794,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.777303,
+          "value": 2.450639,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -5794,7 +5805,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 2.39433,
+          "value": 3.007619,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -5807,7 +5818,7 @@
           "c2": 10.071942,
           "c3": 9.832402,
           "c4": 11.35442,
-          "c5": 11.009003
+          "c5": 11.034508
         },
         "ddf_tier": "bench",
         "mean_ppg": 9.0
@@ -5872,7 +5883,7 @@
           "c2": 6.043165,
           "c3": 6.256983,
           "c4": 6.812652,
-          "c5": 7.377561
+          "c5": 7.394653
         },
         "ddf_tier": "waiver",
         "mean_ppg": 6.5
@@ -6070,17 +6081,17 @@
         "name": "TE Sierra",
         "pos": "TE",
         "adjusted": {
-          "p1": 31.297074,
-          "p2": 29.996775,
-          "c1": 52.666167,
-          "c2": 51.658812,
-          "c3": 52.666167,
-          "c4": 44.562164,
-          "c5": 50.323513
+          "p1": 30.498392,
+          "p2": 29.184344,
+          "c1": 52.130127,
+          "c2": 51.010696,
+          "c3": 52.130127,
+          "c4": 43.940431,
+          "c5": 49.769724
         },
         "vorp_vs_waivers": {
-          "p1": 32.343234,
-          "p2": 31.74946,
+          "p1": 29.017497,
+          "p2": 26.539086,
           "c1": 31.518325,
           "c2": 34.248783,
           "c3": 31.518325,
@@ -6089,7 +6100,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 49.802664,
+          "value": 49.212745,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6100,7 +6111,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 49.802664,
+          "value": 49.212745,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6111,7 +6122,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 30.646924,
+          "value": 29.841368,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6124,7 +6135,7 @@
           "c2": 25.179856,
           "c3": 20.111732,
           "c4": 18.167072,
-          "c5": 25.163435
+          "c5": 25.221733
         },
         "ddf_tier": "starter",
         "mean_ppg": 12.0
@@ -6133,17 +6144,17 @@
         "name": "TE Tango",
         "pos": "TE",
         "adjusted": {
-          "p1": 20.65827,
-          "p2": 24.913791,
-          "c1": 18.356025,
-          "c2": 18.185504,
-          "c3": 18.356025,
-          "c4": 25.141329,
-          "c5": 20.490776
+          "p1": 19.747092,
+          "p2": 24.047612,
+          "c1": 17.457184,
+          "c2": 17.183435,
+          "c3": 17.457184,
+          "c4": 24.314237,
+          "c5": 19.62153
         },
         "vorp_vs_waivers": {
-          "p1": 26.182618,
-          "p2": 28.725702,
+          "p1": 18.968147,
+          "p2": 21.821027,
           "c1": 11.727749,
           "c2": 13.010436,
           "c3": 11.727749,
@@ -6152,7 +6163,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 20.543409,
+          "value": 19.644097,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6163,7 +6174,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 20.543409,
+          "value": 19.644097,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6174,7 +6185,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 22.786031,
+          "value": 21.897352,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6187,7 +6198,7 @@
           "c2": 10.071942,
           "c3": 8.044693,
           "c4": 11.35442,
-          "c5": 11.533241
+          "c5": 11.559961
         },
         "ddf_tier": "starter",
         "mean_ppg": 10.5
@@ -6196,17 +6207,17 @@
         "name": "TE Uniform",
         "pos": "TE",
         "adjusted": {
-          "p1": 22.786031,
-          "p2": 19.830807,
-          "c1": 3.107073,
-          "c2": 4.79618,
-          "c3": 3.107073,
-          "c4": 4.425772,
-          "c5": 3.279582
+          "p1": 21.897352,
+          "p2": 18.910879,
+          "c1": 2.046987,
+          "c2": 3.652531,
+          "c3": 2.046987,
+          "c4": 3.37963,
+          "c5": 2.228342
         },
         "vorp_vs_waivers": {
-          "p1": 27.414741,
-          "p2": 25.701944,
+          "p1": 20.978017,
+          "p2": 17.102967,
           "c1": 2.931937,
           "c2": 4.515097,
           "c3": 2.931937,
@@ -6215,7 +6226,7 @@
         },
         "estimated": {},
         "ddf_blended": {
-          "value": 3.902152,
+          "value": 2.826873,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6226,7 +6237,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 3.902152,
+          "value": 2.826873,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6237,7 +6248,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 21.308419,
+          "value": 20.404115,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6250,7 +6261,7 @@
           "c2": 4.028777,
           "c3": 2.681564,
           "c4": 4.087591,
-          "c5": 3.669668
+          "c5": 3.678169
         },
         "ddf_tier": "starter",
         "mean_ppg": 10.2
@@ -6259,17 +6270,17 @@
         "name": "TE Victor",
         "pos": "TE",
         "adjusted": {
-          "p1": 0.612109,
-          "p2": 0.612109,
-          "c1": 1.224218,
-          "c2": 0.712987,
-          "c3": 1.224218,
-          "c4": 1.224218,
-          "c5": 1.259612
+          "p1": 0.0,
+          "p2": 0.0,
+          "c1": 0.508536,
+          "c2": 0.296173,
+          "c3": 0.508536,
+          "c4": 0.508536,
+          "c5": 0.523239
         },
         "vorp_vs_waivers": {
-          "p1": 4.620462,
-          "p2": 4.535637,
+          "p1": 0.0,
+          "p2": 0.0,
           "c1": 1.465969,
           "c2": 0.975373,
           "c3": 1.465969,
@@ -6280,7 +6291,7 @@
           "c5": "peers"
         },
         "ddf_blended": {
-          "value": 1.105259,
+          "value": 0.459121,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6291,7 +6302,7 @@
           ]
         },
         "ddf_charts": {
-          "value": 1.105259,
+          "value": 0.459121,
           "count": 4,
           "low_confidence": false,
           "sources": [
@@ -6302,7 +6313,7 @@
           ]
         },
         "ddf_projections": {
-          "value": 0.612109,
+          "value": 0.0,
           "count": 2,
           "low_confidence": false,
           "sources": [
@@ -6315,7 +6326,7 @@
           "c2": 1.510791,
           "c3": 1.787709,
           "c4": 2.270884,
-          "c5": 2.340078
+          "c5": 2.345499
         },
         "ddf_tier": "bench",
         "mean_ppg": 3.0
@@ -6381,7 +6392,7 @@
           "c2": 0.816959,
           "c3": 0.893855,
           "c4": 0.454177,
-          "c5": 0.857765
+          "c5": 0.859752
         },
         "ddf_tier": "waiver",
         "mean_ppg": 1.5
@@ -6408,24 +6419,24 @@
     },
     "source_weights": {
       "p1": {
-        "QB|starter": 0.178218,
-        "QB|bench": 0.025743,
-        "RB|starter": 0.178218,
-        "RB|bench": 0.016832,
-        "WR|starter": 0.256188,
-        "WR|bench": 0.024752,
-        "TE|starter": 0.287376,
-        "TE|bench": 0.032673
+        "QB|starter": 0.169173,
+        "QB|bench": 0.0,
+        "RB|starter": 0.180451,
+        "RB|bench": 0.037463,
+        "WR|starter": 0.259398,
+        "WR|bench": 0.057323,
+        "TE|starter": 0.290977,
+        "TE|bench": 0.005213
       },
       "p2": {
-        "QB|starter": 0.210938,
-        "QB|bench": 0.02583,
-        "RB|starter": 0.173437,
-        "RB|bench": 0.018819,
-        "WR|starter": 0.199219,
-        "WR|bench": 0.024908,
-        "TE|starter": 0.316406,
-        "TE|bench": 0.030443
+        "QB|starter": 0.182927,
+        "QB|bench": 0.0,
+        "RB|starter": 0.180488,
+        "RB|bench": 0.038186,
+        "WR|starter": 0.207317,
+        "WR|bench": 0.060143,
+        "TE|starter": 0.329268,
+        "TE|bench": 0.001671
       },
       "c1": {
         "QB|starter": 0.106635,
@@ -6479,23 +6490,23 @@
       }
     },
     "ddf_weights": {
-      "QB|starter": 0.129312,
-      "QB|bench": 0.019307,
-      "RB|starter": 0.218932,
-      "RB|bench": 0.034832,
-      "WR|starter": 0.292268,
-      "WR|bench": 0.02983,
-      "TE|starter": 0.259488,
-      "TE|bench": 0.016031
+      "QB|starter": 0.123136,
+      "QB|bench": 0.010711,
+      "RB|starter": 0.220479,
+      "RB|bench": 0.041498,
+      "WR|starter": 0.294153,
+      "WR|bench": 0.041131,
+      "TE|starter": 0.262232,
+      "TE|bench": 0.006659
     },
     "rows_ddf_blended": {
-      "101": 28.825842,
-      "102": 11.738917,
-      "103": 1.048409,
+      "101": 26.583187,
+      "102": 10.312334,
+      "103": 0.581656,
       "104": 0.0,
-      "201": 51.519695,
-      "202": 17.351591,
-      "203": 2.182649,
+      "201": 52.581486,
+      "202": 18.171904,
+      "203": 2.600383,
       "204": 0.0,
       "205": 0.0,
       "206": 0.0,
@@ -6506,18 +6517,18 @@
       "211": 0.0,
       "212": 0.0,
       "213": 0.0,
-      "301": 55.106914,
-      "302": 22.674116,
-      "303": 11.221426,
-      "304": 1.184869,
+      "301": 56.352017,
+      "302": 23.710066,
+      "303": 12.18352,
+      "304": 1.633759,
       "305": 0.0,
       "306": 0.0,
       "307": 0.0,
       "308": 0.0,
-      "401": 51.996554,
-      "402": 21.016166,
-      "403": 3.396012,
-      "404": 0.736839,
+      "401": 51.802013,
+      "402": 20.494033,
+      "403": 2.687561,
+      "404": 0.306081,
       "405": 0.0
     }
   },
@@ -6560,71 +6571,71 @@
         "WR": 0.086132,
         "TE": 0.230478
       },
-      "bench_share_applied": 0.071134,
+      "bench_share_applied": 0.065749,
       "ddf_weights": {
-        "QB|starter": 0.13148,
-        "QB|bench": 0.005127,
-        "RB|starter": 0.274705,
-        "RB|bench": 0.025824,
-        "WR|starter": 0.335094,
-        "WR|bench": 0.031725,
-        "TE|starter": 0.187587,
-        "TE|bench": 0.008458
+        "QB|starter": 0.138108,
+        "QB|bench": 0.00545,
+        "RB|starter": 0.274336,
+        "RB|bench": 0.024555,
+        "WR|starter": 0.325172,
+        "WR|bench": 0.026614,
+        "TE|starter": 0.196635,
+        "TE|bench": 0.009131
       },
       "group_budgets": {
-        "QB|starter": 36.81442,
-        "QB|bench": 1.435533,
-        "RB|starter": 76.917435,
-        "RB|bench": 7.230838,
-        "WR|starter": 93.82619,
-        "WR|bench": 8.88309,
-        "TE|starter": 52.524318,
-        "TE|bench": 2.368177
+        "QB|starter": 38.67017,
+        "QB|bench": 1.525952,
+        "RB|starter": 76.813961,
+        "RB|bench": 6.875459,
+        "WR|starter": 91.048298,
+        "WR|bench": 7.45184,
+        "TE|starter": 55.057756,
+        "TE|bench": 2.556563
       },
       "bench_share_readout": {
-        "QB": 0.029759,
-        "RB": 0.073395,
-        "WR": 0.081937,
-        "TE": 0.027516,
-        "overall": 0.061573,
+        "QB": 0.030068,
+        "RB": 0.070571,
+        "WR": 0.07177,
+        "TE": 0.028136,
+        "overall": 0.056447,
         "override": false,
-        "fill_in_share": 0.071134
+        "fill_in_share": 0.065749
       },
       "sources": {
         "p1": {
           "groups": {
             "QB|starter": 13.346539,
             "QB|bench": 0.650952,
-            "RB|starter": 14.999658,
-            "RB|bench": 1.732271,
-            "WR|starter": 21.716121,
-            "WR|bench": 3.184887,
+            "RB|starter": 14.513596,
+            "RB|bench": 1.611818,
+            "WR|starter": 17.787362,
+            "WR|bench": 1.941283,
             "TE|starter": 18.994,
             "TE|bench": 1.458814
           },
-          "total_vorp": 76.083243,
-          "surplus_total": 123.9,
+          "total_vorp": 70.304365,
+          "surplus_total": 111.457143,
           "weights": {
-            "QB|starter": 0.17542,
-            "QB|bench": 0.008556,
-            "RB|starter": 0.197148,
-            "RB|bench": 0.022768,
-            "WR|starter": 0.285426,
-            "WR|bench": 0.041861,
-            "TE|starter": 0.249648,
-            "TE|bench": 0.019174
+            "QB|starter": 0.189839,
+            "QB|bench": 0.009259,
+            "RB|starter": 0.206439,
+            "RB|bench": 0.022926,
+            "WR|starter": 0.253005,
+            "WR|bench": 0.027613,
+            "TE|starter": 0.270168,
+            "TE|bench": 0.02075
           },
           "rates": {
-            "QB|starter": 2.75835,
-            "QB|bench": 2.205281,
-            "RB|starter": 5.127946,
-            "RB|bench": 4.174196,
-            "WR|starter": 4.320578,
-            "WR|bench": 2.789138,
-            "TE|starter": 2.765311,
-            "TE|bench": 1.623357
+            "QB|starter": 2.897393,
+            "QB|bench": 2.344185,
+            "RB|starter": 5.292552,
+            "RB|bench": 4.265656,
+            "WR|starter": 5.118707,
+            "WR|bench": 3.838615,
+            "TE|starter": 2.898692,
+            "TE|bench": 1.752494
           },
-          "vorp_display_factor": 2.259887,
+          "vorp_display_factor": 2.512176,
           "positions": {
             "QB": {
               "waiver_value": 9.0,
@@ -6645,7 +6656,7 @@
               }
             },
             "RB": {
-              "waiver_value": 5.0,
+              "waiver_value": 5.328571,
               "starter_line": 12.0,
               "avail": 0.782,
               "bands": [
@@ -6657,7 +6668,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 5.0,
+                  "lo": 5.328571,
                   "hi": 7.0,
                   "fill": 0.0
                 }
@@ -6669,7 +6680,7 @@
               }
             },
             "WR": {
-              "waiver_value": 3.0,
+              "waiver_value": 4.8,
               "starter_line": 9.5,
               "avail": 0.8096,
               "bands": [
@@ -6681,7 +6692,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 3.0,
+                  "lo": 4.8,
                   "hi": 5.0,
                   "fill": 0.036252
                 }
@@ -6717,24 +6728,24 @@
               "starter_slice": 8.576362,
               "lineup_share": 0.786593,
               "start_worthy": 0.95221,
-              "adjusted": 23.824563,
-              "vorp_display": 24.858757
+              "adjusted": 25.027631,
+              "vorp_display": 27.63394
             },
             "102": {
               "bench_slice": 0.245272,
               "starter_slice": 4.334799,
               "lineup_share": 0.654296,
               "start_worthy": 0.756298,
-              "adjusted": 12.497784,
-              "vorp_display": 15.819209
+              "adjusted": 13.134579,
+              "vorp_display": 17.585235
             },
             "103": {
               "bench_slice": 0.329518,
               "starter_slice": 0.435378,
               "lineup_share": 0.254965,
               "start_worthy": 0.177242,
-              "adjusted": 1.927604,
-              "vorp_display": 6.779661
+              "adjusted": 2.033912,
+              "vorp_display": 7.536529
             },
             "104": {
               "bench_slice": 0.0,
@@ -6745,44 +6756,44 @@
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.226926,
-              "starter_slice": 8.977293,
+              "bench_slice": 0.221191,
+              "starter_slice": 8.750395,
               "lineup_share": 0.708017,
               "start_worthy": 0.88307,
-              "adjusted": 46.982309,
-              "vorp_display": 29.378531
+              "adjusted": 47.255443,
+              "vorp_display": 31.832863
             },
             "202": {
-              "bench_slice": 0.411006,
-              "starter_slice": 4.891732,
+              "bench_slice": 0.396001,
+              "starter_slice": 4.713145,
               "lineup_share": 0.589193,
               "start_worthy": 0.695046,
-              "adjusted": 26.800158,
-              "vorp_display": 20.338983
+              "adjusted": 26.633771,
+              "vorp_display": 21.784158
             },
             "203": {
-              "bench_slice": 0.52889,
-              "starter_slice": 0.928724,
+              "bench_slice": 0.494135,
+              "starter_slice": 0.867693,
               "lineup_share": 0.291523,
               "start_worthy": 0.237525,
-              "adjusted": 6.970137,
-              "vorp_display": 11.299435
+              "adjusted": 6.70012,
+              "vorp_display": 11.735452
             },
             "207": {
-              "bench_slice": 0.396803,
-              "starter_slice": 0.193509,
+              "bench_slice": 0.359552,
+              "starter_slice": 0.175343,
               "lineup_share": 0.168661,
               "start_worthy": 0.070701,
-              "adjusted": 2.64864,
-              "vorp_display": 7.909605
+              "adjusted": 2.461739,
+              "vorp_display": 7.967188
             },
             "204": {
-              "bench_slice": 0.168645,
-              "starter_slice": 0.008399,
+              "bench_slice": 0.140939,
+              "starter_slice": 0.007019,
               "lineup_share": 0.088522,
               "start_worthy": 0.00537,
-              "adjusted": 0.747028,
-              "vorp_display": 4.519774
+              "adjusted": 0.638348,
+              "vorp_display": 4.198923
             },
             "205": {
               "bench_slice": 0.0,
@@ -6849,57 +6860,57 @@
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 0.281679,
-              "starter_slice": 9.600285,
-              "lineup_share": 0.760151,
+              "bench_slice": 0.240563,
+              "starter_slice": 8.271014,
+              "lineup_share": 0.759962,
               "start_worthy": 0.912158,
-              "adjusted": 42.264419,
-              "vorp_display": 29.378531
+              "adjusted": 43.260327,
+              "vorp_display": 28.136375
             },
             "302": {
-              "bench_slice": 0.463597,
-              "starter_slice": 6.600319,
-              "lineup_share": 0.706392,
+              "bench_slice": 0.377122,
+              "starter_slice": 5.412262,
+              "lineup_share": 0.706022,
               "start_worthy": 0.815257,
-              "adjusted": 29.810229,
-              "vorp_display": 22.59887
+              "adjusted": 29.15141,
+              "vorp_display": 20.599846
             },
             "303": {
-              "bench_slice": 0.653905,
-              "starter_slice": 4.373666,
-              "lineup_share": 0.628446,
+              "bench_slice": 0.502688,
+              "starter_slice": 3.389591,
+              "lineup_share": 0.627787,
               "start_worthy": 0.675282,
-              "adjusted": 20.720592,
-              "vorp_display": 18.079096
+              "adjusted": 19.279948,
+              "vorp_display": 15.575493
             },
             "304": {
-              "bench_slice": 0.889172,
-              "starter_slice": 1.076709,
-              "lineup_share": 0.393176,
+              "bench_slice": 0.562251,
+              "starter_slice": 0.689094,
+              "lineup_share": 0.391045,
               "start_worthy": 0.265986,
-              "adjusted": 7.132029,
-              "vorp_display": 11.299435
+              "adjusted": 5.685537,
+              "vorp_display": 8.038964
             },
             "305": {
-              "bench_slice": 0.594346,
-              "starter_slice": 0.062957,
-              "lineup_share": 0.219101,
+              "bench_slice": 0.230529,
+              "starter_slice": 0.025183,
+              "lineup_share": 0.213093,
               "start_worthy": 0.025921,
-              "adjusted": 1.929722,
-              "vorp_display": 6.779661
+              "adjusted": 1.013814,
+              "vorp_display": 3.014612
             },
             "306": {
-              "bench_slice": 0.302189,
-              "starter_slice": 0.002186,
-              "lineup_share": 0.152187,
+              "bench_slice": 0.028131,
+              "starter_slice": 0.000219,
+              "lineup_share": 0.141746,
               "start_worthy": 0.00135,
-              "adjusted": 0.852289,
-              "vorp_display": 4.519774
+              "adjusted": 0.109101,
+              "vorp_display": 0.502435
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.020353,
+              "lineup_share": 0.006733,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6907,7 +6918,7 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.004993,
+              "lineup_share": 0.000412,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -6917,32 +6928,32 @@
               "starter_slice": 7.429489,
               "lineup_share": 0.734598,
               "start_worthy": 0.904822,
-              "adjusted": 21.005542,
-              "vorp_display": 23.728814
+              "adjusted": 22.033142,
+              "vorp_display": 26.377852
             },
             "403": {
               "bench_slice": 0.364317,
               "starter_slice": 5.971589,
               "lineup_share": 0.7119,
               "start_worthy": 0.858012,
-              "adjusted": 17.104718,
-              "vorp_display": 20.112994
+              "adjusted": 17.948261,
+              "vorp_display": 22.35837
             },
             "402": {
               "bench_slice": 0.390109,
               "starter_slice": 5.592419,
               "lineup_share": 0.703827,
               "start_worthy": 0.841345,
-              "adjusted": 16.098062,
-              "vorp_display": 19.20904
+              "adjusted": 16.894361,
+              "vorp_display": 21.353499
             },
             "404": {
               "bench_slice": 0.420598,
               "starter_slice": 0.000503,
               "lineup_share": 0.280734,
               "start_worthy": 0.000429,
-              "adjusted": 0.684173,
-              "vorp_display": 3.389831
+              "adjusted": 0.738554,
+              "vorp_display": 3.768265
             },
             "405": {
               "bench_slice": 0.0,
@@ -6958,36 +6969,36 @@
           "groups": {
             "QB|starter": 14.675412,
             "QB|bench": 0.714636,
-            "RB|starter": 18.144024,
-            "RB|bench": 2.964877,
-            "WR|starter": 21.248816,
-            "WR|bench": 4.334254,
+            "RB|starter": 15.031765,
+            "RB|bench": 2.028271,
+            "WR|starter": 16.614129,
+            "WR|bench": 2.597667,
             "TE|starter": 19.55075,
             "TE|bench": 1.424751
           },
-          "total_vorp": 83.05752,
-          "surplus_total": 140.6,
+          "total_vorp": 72.637381,
+          "surplus_total": 117.314286,
           "weights": {
-            "QB|starter": 0.17669,
-            "QB|bench": 0.008604,
-            "RB|starter": 0.218451,
-            "RB|bench": 0.035697,
-            "WR|starter": 0.255833,
-            "WR|bench": 0.052184,
-            "TE|starter": 0.235388,
-            "TE|bench": 0.017154
+            "QB|starter": 0.202037,
+            "QB|bench": 0.009838,
+            "RB|starter": 0.206943,
+            "RB|bench": 0.027923,
+            "WR|starter": 0.228727,
+            "WR|bench": 0.035762,
+            "TE|starter": 0.269155,
+            "TE|bench": 0.019615
           },
           "rates": {
-            "QB|starter": 2.508578,
-            "QB|bench": 2.008762,
-            "RB|starter": 4.239271,
-            "RB|bench": 2.438832,
-            "WR|starter": 4.415596,
-            "WR|bench": 2.049509,
-            "TE|starter": 2.686563,
-            "TE|bench": 1.662169
+            "QB|starter": 2.635031,
+            "QB|bench": 2.135287,
+            "RB|starter": 5.110109,
+            "RB|bench": 3.389813,
+            "WR|starter": 5.480173,
+            "WR|bench": 2.868666,
+            "TE|starter": 2.816145,
+            "TE|bench": 1.794393
           },
-          "vorp_display_factor": 1.991465,
+          "vorp_display_factor": 2.386751,
           "positions": {
             "QB": {
               "waiver_value": 9.0,
@@ -7008,7 +7019,7 @@
               }
             },
             "RB": {
-              "waiver_value": 2.2,
+              "waiver_value": 4.457143,
               "starter_line": 12.3,
               "avail": 0.782,
               "bands": [
@@ -7020,7 +7031,7 @@
                 },
                 {
                   "depth": 2,
-                  "lo": 2.2,
+                  "lo": 4.457143,
                   "hi": 6.0,
                   "fill": 0.0
                 }
@@ -7032,21 +7043,15 @@
               }
             },
             "WR": {
-              "waiver_value": 3.0,
+              "waiver_value": 5.2,
               "starter_line": 10.5,
               "avail": 0.8096,
               "bands": [
                 {
                   "depth": 1,
-                  "lo": 4.0,
+                  "lo": 5.2,
                   "hi": 10.5,
                   "fill": 0.344548
-                },
-                {
-                  "depth": 2,
-                  "lo": 3.0,
-                  "hi": 4.0,
-                  "fill": 0.036252
                 }
               ],
               "lineup": {
@@ -7080,24 +7085,24 @@
               "starter_slice": 10.413616,
               "lineup_share": 0.804188,
               "start_worthy": 0.978319,
-              "adjusted": 26.205383,
-              "vorp_display": 25.889047
+              "adjusted": 27.527382,
+              "vorp_display": 31.027764
             },
             "102": {
               "bench_slice": 0.304821,
               "starter_slice": 3.166038,
               "lineup_share": 0.578477,
               "start_worthy": 0.644447,
-              "adjusted": 8.554567,
-              "vorp_display": 11.948791
+              "adjusted": 8.99349,
+              "vorp_display": 14.320507
             },
             "103": {
               "bench_slice": 0.368987,
               "starter_slice": 1.095758,
               "lineup_share": 0.366186,
               "start_worthy": 0.334562,
-              "adjusted": 3.490002,
-              "vorp_display": 7.965861
+              "adjusted": 3.67525,
+              "vorp_display": 9.547004
             },
             "104": {
               "bench_slice": 0.0,
@@ -7108,44 +7113,44 @@
               "vorp_display": 0.0
             },
             "201": {
-              "bench_slice": 0.381752,
-              "starter_slice": 9.701865,
+              "bench_slice": 0.323531,
+              "starter_slice": 8.222237,
               "lineup_share": 0.681325,
               "start_worthy": 0.838275,
-              "adjusted": 42.059863,
-              "vorp_display": 29.473684
+              "adjusted": 43.11324,
+              "vorp_display": 29.936678
             },
             "202": {
-              "bench_slice": 0.53264,
-              "starter_slice": 7.405518,
+              "bench_slice": 0.438715,
+              "starter_slice": 6.099635,
               "lineup_share": 0.620169,
               "start_worthy": 0.739842,
-              "adjusted": 32.693019,
-              "vorp_display": 25.490754
+              "adjusted": 32.656962,
+              "vorp_display": 25.163176
             },
             "203": {
-              "bench_slice": 0.948897,
-              "starter_slice": 0.911869,
+              "bench_slice": 0.659465,
+              "starter_slice": 0.633731,
               "lineup_share": 0.251455,
               "start_worthy": 0.157577,
-              "adjusted": 6.17986,
-              "vorp_display": 14.736842
+              "adjusted": 5.473899,
+              "vorp_display": 12.27472
             },
             "204": {
-              "bench_slice": 0.777741,
-              "starter_slice": 0.124509,
+              "bench_slice": 0.475073,
+              "starter_slice": 0.076055,
               "lineup_share": 0.15556,
               "start_worthy": 0.027452,
-              "adjusted": 2.424608,
-              "vorp_display": 11.550498
+              "adjusted": 1.999058,
+              "vorp_display": 8.455918
             },
             "205": {
-              "bench_slice": 0.323847,
-              "starter_slice": 0.000263,
+              "bench_slice": 0.131487,
+              "starter_slice": 0.000107,
               "lineup_share": 0.085292,
               "start_worthy": 8.8e-05,
-              "adjusted": 0.790923,
-              "vorp_display": 7.567568
+              "adjusted": 0.446261,
+              "vorp_display": 3.682416
             },
             "208": {
               "bench_slice": 0.0,
@@ -7204,57 +7209,57 @@
               "vorp_display": 0.0
             },
             "301": {
-              "bench_slice": 0.375255,
-              "starter_slice": 10.186889,
-              "lineup_share": 0.754439,
+              "bench_slice": 0.299203,
+              "starter_slice": 8.586093,
+              "lineup_share": 0.752991,
               "start_worthy": 0.898759,
-              "adjusted": 45.750279,
-              "vorp_display": 27.880512
+              "adjusted": 47.911583,
+              "vorp_display": 28.163663
             },
             "302": {
-              "bench_slice": 0.818567,
-              "starter_slice": 4.820237,
-              "lineup_share": 0.626534,
+              "bench_slice": 0.586136,
+              "starter_slice": 3.641957,
+              "lineup_share": 0.621778,
               "start_worthy": 0.661539,
-              "adjusted": 22.961879,
-              "vorp_display": 17.923186
+              "adjusted": 21.63998,
+              "vorp_display": 16.229907
             },
             "303": {
-              "bench_slice": 0.945759,
-              "starter_slice": 3.628403,
-              "lineup_share": 0.57177,
+              "bench_slice": 0.647761,
+              "starter_slice": 2.630592,
+              "lineup_share": 0.565233,
               "start_worthy": 0.560215,
-              "adjusted": 17.959902,
-              "vorp_display": 15.931721
+              "adjusted": 16.274308,
+              "vorp_display": 13.843156
             },
             "304": {
-              "bench_slice": 1.063778,
-              "starter_slice": 2.458523,
-              "lineup_share": 0.503186,
+              "bench_slice": 0.684713,
+              "starter_slice": 1.685844,
+              "lineup_share": 0.493866,
               "start_worthy": 0.433816,
-              "adjusted": 13.036066,
-              "vorp_display": 13.940256
+              "adjusted": 11.202932,
+              "vorp_display": 11.456405
             },
             "305": {
-              "bench_slice": 0.982685,
-              "starter_slice": 0.154764,
-              "lineup_share": 0.284362,
+              "bench_slice": 0.379854,
+              "starter_slice": 0.069644,
+              "lineup_share": 0.249721,
               "start_worthy": 0.04779,
-              "adjusted": 2.697398,
-              "vorp_display": 7.965861
+              "adjusted": 1.471335,
+              "vorp_display": 4.296152
             },
             "306": {
-              "bench_slice": 0.14821,
+              "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.14821,
+              "lineup_share": 0.044256,
               "start_worthy": 0.0,
-              "adjusted": 0.303757,
-              "vorp_display": 1.991465
+              "adjusted": 0.0,
+              "vorp_display": 0.0
             },
             "307": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.054275,
+              "lineup_share": 0.003878,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7262,7 +7267,7 @@
             "308": {
               "bench_slice": 0.0,
               "starter_slice": 0.0,
-              "lineup_share": 0.010335,
+              "lineup_share": 0.000192,
               "start_worthy": 0.0,
               "adjusted": 0.0,
               "vorp_display": 0.0
@@ -7272,32 +7277,32 @@
               "starter_slice": 7.429489,
               "lineup_share": 0.734598,
               "start_worthy": 0.904822,
-              "adjusted": 20.431498,
-              "vorp_display": 20.910384
+              "adjusted": 21.431755,
+              "vorp_display": 25.060887
             },
             "402": {
               "bench_slice": 0.330254,
               "starter_slice": 6.528339,
               "lineup_share": 0.721957,
               "start_worthy": 0.878764,
-              "adjusted": 18.08773,
-              "vorp_display": 18.918919
+              "adjusted": 18.977357,
+              "vorp_display": 22.674135
             },
             "403": {
               "bench_slice": 0.390109,
               "starter_slice": 5.592419,
               "lineup_share": 0.703827,
               "start_worthy": 0.841345,
-              "adjusted": 15.67281,
-              "vorp_display": 16.927454
+              "adjusted": 16.449072,
+              "vorp_display": 20.287384
             },
             "404": {
               "bench_slice": 0.420598,
               "starter_slice": 0.000503,
               "lineup_share": 0.280734,
               "start_worthy": 0.000429,
-              "adjusted": 0.700457,
-              "vorp_display": 2.987198
+              "adjusted": 0.756136,
+              "vorp_display": 3.580127
             },
             "405": {
               "bench_slice": 0.0,
@@ -7333,14 +7338,14 @@
             "TE|bench": 0.002601
           },
           "rates": {
-            "QB|starter": 0.965608,
-            "QB|bench": 1.032001,
-            "RB|starter": 0.757391,
-            "RB|bench": 0.789215,
-            "WR|starter": 0.75494,
-            "WR|bench": 1.073108,
-            "TE|starter": 1.088626,
-            "TE|bench": 2.743095
+            "QB|starter": 1.014283,
+            "QB|bench": 1.097004,
+            "RB|starter": 0.756372,
+            "RB|bench": 0.750427,
+            "WR|starter": 0.732588,
+            "WR|bench": 0.900208,
+            "TE|starter": 1.141134,
+            "TE|bench": 2.961305
           },
           "vorp_display_factor": 0.567951,
           "positions": {
@@ -7435,7 +7440,7 @@
               "starter_slice": 26.069728,
               "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 25.197709,
+              "adjusted": 26.468191,
               "vorp_display": 18.174442
             },
             "102": {
@@ -7443,7 +7448,7 @@
               "starter_slice": 11.808821,
               "lineup_share": 0.7171,
               "start_worthy": 0.848359,
-              "adjusted": 11.796802,
+              "adjusted": 12.396416,
               "vorp_display": 9.655172
             },
             "103": {
@@ -7451,7 +7456,7 @@
               "starter_slice": 0.247079,
               "lineup_share": 0.176058,
               "start_worthy": 0.043108,
-              "adjusted": 1.255441,
+              "adjusted": 1.331516,
               "vorp_display": 3.975659
             },
             "104": {
@@ -7467,7 +7472,7 @@
               "starter_slice": 64.970141,
               "lineup_share": 0.775315,
               "start_worthy": 0.989072,
-              "adjusted": 49.331138,
+              "adjusted": 49.258878,
               "vorp_display": 47.707911
             },
             "202": {
@@ -7475,7 +7480,7 @@
               "starter_slice": 35.645659,
               "lineup_share": 0.686669,
               "start_worthy": 0.844124,
-              "adjusted": 28.129801,
+              "adjusted": 28.037841,
               "vorp_display": 30.669371
             },
             "203": {
@@ -7483,7 +7488,7 @@
               "starter_slice": 0.94003,
               "lineup_share": 0.195703,
               "start_worthy": 0.041451,
-              "adjusted": 4.449197,
+              "adjusted": 4.264563,
               "vorp_display": 16.470588
             },
             "204": {
@@ -7491,7 +7496,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.166034,
               "start_worthy": 0.0,
-              "adjusted": 1.83451,
+              "adjusted": 1.744348,
               "vorp_display": 7.951318
             },
             "205": {
@@ -7499,7 +7504,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.403627,
+              "adjusted": 0.38379,
               "vorp_display": 3.407708
             },
             "206": {
@@ -7571,7 +7576,7 @@
               "starter_slice": 60.719935,
               "lineup_share": 0.809599,
               "start_worthy": 0.999999,
-              "adjusted": 45.839919,
+              "adjusted": 44.482743,
               "vorp_display": 42.596349
             },
             "302": {
@@ -7579,7 +7584,7 @@
               "starter_slice": 36.372451,
               "lineup_share": 0.808733,
               "start_worthy": 0.998365,
-              "adjusted": 27.481028,
+              "adjusted": 26.664507,
               "vorp_display": 25.557809
             },
             "303": {
@@ -7587,7 +7592,7 @@
               "starter_slice": 27.180003,
               "lineup_share": 0.787951,
               "start_worthy": 0.959204,
-              "adjusted": 20.946681,
+              "adjusted": 20.270306,
               "vorp_display": 19.878296
             },
             "304": {
@@ -7595,7 +7600,7 @@
               "starter_slice": 0.010621,
               "lineup_share": 0.279355,
               "start_worthy": 0.000772,
-              "adjusted": 5.092844,
+              "adjusted": 4.273336,
               "vorp_display": 9.655172
             },
             "305": {
@@ -7603,7 +7608,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.278234,
               "start_worthy": 0.0,
-              "adjusted": 2.687176,
+              "adjusted": 2.254216,
               "vorp_display": 5.111562
             },
             "306": {
@@ -7611,7 +7616,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.154139,
               "start_worthy": 0.0,
-              "adjusted": 0.661632,
+              "adjusted": 0.55503,
               "vorp_display": 2.271805
             },
             "307": {
@@ -7635,7 +7640,7 @@
               "starter_slice": 33.45558,
               "lineup_share": 0.778709,
               "start_worthy": 0.994932,
-              "adjusted": 36.499908,
+              "adjusted": 38.262913,
               "vorp_display": 24.421907
             },
             "402": {
@@ -7643,7 +7648,7 @@
               "starter_slice": 12.282389,
               "lineup_share": 0.771685,
               "start_worthy": 0.981649,
-              "adjusted": 13.548031,
+              "adjusted": 14.207048,
               "vorp_display": 9.087221
             },
             "403": {
@@ -7651,7 +7656,7 @@
               "starter_slice": 2.143084,
               "lineup_share": 0.623252,
               "start_worthy": 0.685129,
-              "adjusted": 3.292887,
+              "adjusted": 3.481773,
               "vorp_display": 2.271805
             },
             "404": {
@@ -7659,7 +7664,7 @@
               "starter_slice": 0.367225,
               "lineup_share": 0.393576,
               "start_worthy": 0.234798,
-              "adjusted": 1.55167,
+              "adjusted": 1.662585,
               "vorp_display": 1.135903
             },
             "405": {
@@ -7696,14 +7701,14 @@
             "TE|bench": 0.002464
           },
           "rates": {
-            "QB|starter": 1.167065,
-            "QB|bench": 1.793817,
-            "RB|starter": 0.691155,
-            "RB|bench": 0.890587,
-            "WR|starter": 0.783942,
-            "WR|bench": 1.276854,
-            "TE|starter": 0.940665,
-            "TE|bench": 2.868999
+            "QB|starter": 1.225895,
+            "QB|bench": 1.906804,
+            "RB|starter": 0.690226,
+            "RB|bench": 0.846817,
+            "WR|starter": 0.760732,
+            "WR|bench": 1.071126,
+            "TE|starter": 0.986036,
+            "TE|bench": 3.097225
           },
           "vorp_display_factor": 0.577132,
           "positions": {
@@ -7798,7 +7803,7 @@
               "starter_slice": 19.49098,
               "lineup_share": 0.813331,
               "start_worthy": 0.991847,
-              "adjusted": 22.799194,
+              "adjusted": 23.949114,
               "vorp_display": 13.851179
             },
             "102": {
@@ -7806,7 +7811,7 @@
               "starter_slice": 12.050173,
               "lineup_share": 0.765021,
               "start_worthy": 0.919804,
-              "adjusted": 14.404443,
+              "adjusted": 15.134836,
               "vorp_display": 9.234119
             },
             "103": {
@@ -7814,7 +7819,7 @@
               "starter_slice": 0.003297,
               "lineup_share": 0.146111,
               "start_worthy": 0.001007,
-              "adjusted": 1.046316,
+              "adjusted": 1.112172,
               "vorp_display": 2.30853
             },
             "104": {
@@ -7830,7 +7835,7 @@
               "starter_slice": 75.655254,
               "lineup_share": 0.780397,
               "start_worthy": 0.99738,
-              "adjusted": 52.328081,
+              "adjusted": 52.255844,
               "vorp_display": 55.981849
             },
             "202": {
@@ -7838,7 +7843,7 @@
               "starter_slice": 35.178318,
               "lineup_share": 0.699502,
               "start_worthy": 0.865097,
-              "adjusted": 25.378631,
+              "adjusted": 25.293584,
               "vorp_display": 30.010888
             },
             "203": {
@@ -7846,7 +7851,7 @@
               "starter_slice": 0.454611,
               "lineup_share": 0.183626,
               "start_worthy": 0.021531,
-              "adjusted": 4.324781,
+              "adjusted": 4.127248,
               "vorp_display": 15.582577
             },
             "204": {
@@ -7854,7 +7859,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.169657,
               "start_worthy": 0.0,
-              "adjusted": 1.813131,
+              "adjusted": 1.72402,
               "vorp_display": 6.92559
             },
             "206": {
@@ -7862,7 +7867,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.303647,
+              "adjusted": 0.288724,
               "vorp_display": 2.30853
             },
             "208": {
@@ -7894,7 +7899,7 @@
               "starter_slice": 64.580068,
               "lineup_share": 0.8096,
               "start_worthy": 1.0,
-              "adjusted": 50.627057,
+              "adjusted": 49.128152,
               "vorp_display": 46.036632
             },
             "302": {
@@ -7902,7 +7907,7 @@
               "starter_slice": 32.154023,
               "lineup_share": 0.808907,
               "start_worthy": 0.998694,
-              "adjusted": 25.225402,
+              "adjusted": 24.476126,
               "vorp_display": 22.951333
             },
             "303": {
@@ -7910,7 +7915,7 @@
               "starter_slice": 22.928835,
               "lineup_share": 0.783811,
               "start_worthy": 0.951401,
-              "adjusted": 18.490157,
+              "adjusted": 17.874958,
               "vorp_display": 17.180008
             },
             "304": {
@@ -7918,7 +7923,7 @@
               "starter_slice": 0.022128,
               "lineup_share": 0.279925,
               "start_worthy": 0.001851,
-              "adjusted": 5.267481,
+              "adjusted": 4.421062,
               "vorp_display": 8.523021
             },
             "305": {
@@ -7926,7 +7931,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.271939,
               "start_worthy": 0.0,
-              "adjusted": 2.349981,
+              "adjusted": 1.971351,
               "vorp_display": 3.905962
             },
             "306": {
@@ -7934,7 +7939,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.154131,
               "start_worthy": 0.0,
-              "adjusted": 0.749201,
+              "adjusted": 0.628489,
               "vorp_display": 2.197058
             },
             "307": {
@@ -7950,7 +7955,7 @@
               "starter_slice": 37.641441,
               "lineup_share": 0.778819,
               "start_worthy": 0.994979,
-              "adjusted": 35.511516,
+              "adjusted": 37.227607,
               "vorp_display": 27.920372
             },
             "402": {
@@ -7958,7 +7963,7 @@
               "starter_slice": 14.112822,
               "lineup_share": 0.772201,
               "start_worthy": 0.982007,
-              "adjusted": 13.500661,
+              "adjusted": 14.1589,
               "vorp_display": 10.606398
             },
             "403": {
@@ -7966,7 +7971,7 @@
               "starter_slice": 4.074612,
               "lineup_share": 0.691271,
               "start_worthy": 0.816981,
-              "adjusted": 4.791507,
+              "adjusted": 5.05264,
               "vorp_display": 3.680808
             },
             "404": {
@@ -7974,7 +7979,7 @@
               "starter_slice": 0.008583,
               "lineup_share": 0.279642,
               "start_worthy": 0.007966,
-              "adjusted": 1.088812,
+              "adjusted": 1.175173,
               "vorp_display": 0.795146
             },
             "405": {
@@ -8011,14 +8016,14 @@
             "TE|bench": 0.002601
           },
           "rates": {
-            "QB|starter": 0.096561,
-            "QB|bench": 0.1032,
-            "RB|starter": 0.075739,
-            "RB|bench": 0.078922,
-            "WR|starter": 0.075494,
-            "WR|bench": 0.107311,
-            "TE|starter": 0.108863,
-            "TE|bench": 0.274309
+            "QB|starter": 0.101428,
+            "QB|bench": 0.1097,
+            "RB|starter": 0.075637,
+            "RB|bench": 0.075043,
+            "WR|starter": 0.073259,
+            "WR|bench": 0.090021,
+            "TE|starter": 0.114113,
+            "TE|bench": 0.29613
           },
           "vorp_display_factor": 0.056795,
           "positions": {
@@ -8113,7 +8118,7 @@
               "starter_slice": 260.697276,
               "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 25.197709,
+              "adjusted": 26.468191,
               "vorp_display": 18.174442
             },
             "102": {
@@ -8121,7 +8126,7 @@
               "starter_slice": 118.088213,
               "lineup_share": 0.7171,
               "start_worthy": 0.848359,
-              "adjusted": 11.796802,
+              "adjusted": 12.396416,
               "vorp_display": 9.655172
             },
             "103": {
@@ -8129,7 +8134,7 @@
               "starter_slice": 2.47079,
               "lineup_share": 0.176058,
               "start_worthy": 0.043108,
-              "adjusted": 1.255441,
+              "adjusted": 1.331516,
               "vorp_display": 3.975659
             },
             "104": {
@@ -8145,7 +8150,7 @@
               "starter_slice": 649.701415,
               "lineup_share": 0.775315,
               "start_worthy": 0.989072,
-              "adjusted": 49.331138,
+              "adjusted": 49.258878,
               "vorp_display": 47.707911
             },
             "202": {
@@ -8153,7 +8158,7 @@
               "starter_slice": 356.456589,
               "lineup_share": 0.686669,
               "start_worthy": 0.844124,
-              "adjusted": 28.129801,
+              "adjusted": 28.037841,
               "vorp_display": 30.669371
             },
             "203": {
@@ -8161,7 +8166,7 @@
               "starter_slice": 9.400298,
               "lineup_share": 0.195703,
               "start_worthy": 0.041451,
-              "adjusted": 4.449197,
+              "adjusted": 4.264563,
               "vorp_display": 16.470588
             },
             "204": {
@@ -8169,7 +8174,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.166034,
               "start_worthy": 0.0,
-              "adjusted": 1.83451,
+              "adjusted": 1.744348,
               "vorp_display": 7.951318
             },
             "205": {
@@ -8177,7 +8182,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.403627,
+              "adjusted": 0.38379,
               "vorp_display": 3.407708
             },
             "206": {
@@ -8249,7 +8254,7 @@
               "starter_slice": 607.199354,
               "lineup_share": 0.809599,
               "start_worthy": 0.999999,
-              "adjusted": 45.839919,
+              "adjusted": 44.482743,
               "vorp_display": 42.596349
             },
             "302": {
@@ -8257,7 +8262,7 @@
               "starter_slice": 363.724512,
               "lineup_share": 0.808733,
               "start_worthy": 0.998365,
-              "adjusted": 27.481028,
+              "adjusted": 26.664507,
               "vorp_display": 25.557809
             },
             "303": {
@@ -8265,7 +8270,7 @@
               "starter_slice": 271.800033,
               "lineup_share": 0.787951,
               "start_worthy": 0.959204,
-              "adjusted": 20.946681,
+              "adjusted": 20.270306,
               "vorp_display": 19.878296
             },
             "304": {
@@ -8273,7 +8278,7 @@
               "starter_slice": 0.106208,
               "lineup_share": 0.279355,
               "start_worthy": 0.000772,
-              "adjusted": 5.092844,
+              "adjusted": 4.273336,
               "vorp_display": 9.655172
             },
             "305": {
@@ -8281,7 +8286,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.278234,
               "start_worthy": 0.0,
-              "adjusted": 2.687176,
+              "adjusted": 2.254216,
               "vorp_display": 5.111562
             },
             "306": {
@@ -8289,7 +8294,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.154139,
               "start_worthy": 0.0,
-              "adjusted": 0.661632,
+              "adjusted": 0.55503,
               "vorp_display": 2.271805
             },
             "307": {
@@ -8313,7 +8318,7 @@
               "starter_slice": 334.555799,
               "lineup_share": 0.778709,
               "start_worthy": 0.994932,
-              "adjusted": 36.499908,
+              "adjusted": 38.262913,
               "vorp_display": 24.421907
             },
             "402": {
@@ -8321,7 +8326,7 @@
               "starter_slice": 122.823888,
               "lineup_share": 0.771685,
               "start_worthy": 0.981649,
-              "adjusted": 13.548031,
+              "adjusted": 14.207048,
               "vorp_display": 9.087221
             },
             "403": {
@@ -8329,7 +8334,7 @@
               "starter_slice": 21.430837,
               "lineup_share": 0.623252,
               "start_worthy": 0.685129,
-              "adjusted": 3.292887,
+              "adjusted": 3.481773,
               "vorp_display": 2.271805
             },
             "404": {
@@ -8337,7 +8342,7 @@
               "starter_slice": 3.672247,
               "lineup_share": 0.393576,
               "start_worthy": 0.234798,
-              "adjusted": 1.55167,
+              "adjusted": 1.662585,
               "vorp_display": 1.135903
             },
             "405": {
@@ -8374,14 +8379,14 @@
             "TE|bench": 0.005612
           },
           "rates": {
-            "QB|starter": 0.95392,
-            "QB|bench": 1.426031,
-            "RB|starter": 0.772331,
-            "RB|bench": 0.865984,
-            "WR|starter": 0.786092,
-            "WR|bench": 0.972606,
-            "TE|starter": 0.978623,
-            "TE|bench": 1.272766
+            "QB|starter": 1.002005,
+            "QB|bench": 1.515852,
+            "RB|starter": 0.771292,
+            "RB|bench": 0.823423,
+            "WR|starter": 0.762818,
+            "WR|bench": 0.815899,
+            "TE|starter": 1.025825,
+            "TE|bench": 1.374013
           },
           "vorp_display_factor": 0.572597,
           "positions": {
@@ -8476,7 +8481,7 @@
               "starter_slice": 22.612415,
               "lineup_share": 0.809615,
               "start_worthy": 0.986305,
-              "adjusted": 21.651449,
+              "adjusted": 22.74388,
               "vorp_display": 16.03272
             },
             "102": {
@@ -8484,7 +8489,7 @@
               "starter_slice": 15.979139,
               "lineup_share": 0.771392,
               "start_worthy": 0.929301,
-              "adjusted": 15.556689,
+              "adjusted": 16.344822,
               "vorp_display": 12.02454
             },
             "103": {
@@ -8492,7 +8497,7 @@
               "starter_slice": 0.001229,
               "lineup_share": 0.146195,
               "start_worthy": 0.0003,
-              "adjusted": 1.041814,
+              "adjusted": 1.10742,
               "vorp_display": 2.862986
             },
             "104": {
@@ -8508,7 +8513,7 @@
               "starter_slice": 59.820161,
               "lineup_share": 0.762619,
               "start_worthy": 0.968308,
-              "adjusted": 46.570512,
+              "adjusted": 46.490198,
               "vorp_display": 45.235174
             },
             "202": {
@@ -8516,7 +8521,7 @@
               "starter_slice": 38.053746,
               "lineup_share": 0.674848,
               "start_worthy": 0.824781,
-              "adjusted": 30.91618,
+              "adjusted": 30.80164,
               "vorp_display": 33.783231
             },
             "203": {
@@ -8524,7 +8529,7 @@
               "starter_slice": 1.717372,
               "lineup_share": 0.209967,
               "start_worthy": 0.064592,
-              "adjusted": 6.021311,
+              "adjusted": 5.788782,
               "vorp_display": 19.468303
             },
             "205": {
@@ -8532,7 +8537,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.142219,
               "start_worthy": 0.0,
-              "adjusted": 0.492638,
+              "adjusted": 0.468426,
               "vorp_display": 2.290389
             },
             "206": {
@@ -8540,7 +8545,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.147629,
+              "adjusted": 0.140374,
               "vorp_display": 1.145194
             },
             "208": {
@@ -8612,7 +8617,7 @@
               "starter_slice": 55.8622,
               "lineup_share": 0.809598,
               "start_worthy": 0.999996,
-              "adjusted": 43.912894,
+              "adjusted": 42.612765,
               "vorp_display": 39.509202
             },
             "302": {
@@ -8620,7 +8625,7 @@
               "starter_slice": 39.651704,
               "lineup_share": 0.80935,
               "start_worthy": 0.999529,
-              "adjusted": 31.176151,
+              "adjusted": 30.252301,
               "vorp_display": 28.05726
             },
             "303": {
@@ -8628,7 +8633,7 @@
               "starter_slice": 23.504114,
               "lineup_share": 0.760378,
               "start_worthy": 0.907243,
-              "adjusted": 19.281692,
+              "adjusted": 18.604915,
               "vorp_display": 18.323108
             },
             "304": {
@@ -8636,7 +8641,7 @@
               "starter_slice": 0.339759,
               "lineup_share": 0.290666,
               "start_worthy": 0.022088,
-              "adjusted": 5.308005,
+              "adjusted": 4.487901,
               "vorp_display": 10.879346
             },
             "305": {
@@ -8644,7 +8649,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.277713,
               "start_worthy": 0.0,
-              "adjusted": 2.430949,
+              "adjusted": 2.039273,
               "vorp_display": 5.153374
             },
             "306": {
@@ -8652,7 +8657,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.154119,
               "start_worthy": 0.0,
-              "adjusted": 0.599589,
+              "adjusted": 0.502983,
               "vorp_display": 2.290389
             },
             "307": {
@@ -8668,7 +8673,7 @@
               "starter_slice": 30.238512,
               "lineup_share": 0.777202,
               "start_worthy": 0.991492,
-              "adjusted": 29.68422,
+              "adjusted": 31.118882,
               "vorp_display": 22.331288
             },
             "402": {
@@ -8676,7 +8681,7 @@
               "starter_slice": 18.418118,
               "lineup_share": 0.772251,
               "start_worthy": 0.981357,
-              "adjusted": 18.17192,
+              "adjusted": 19.053037,
               "vorp_display": 13.742331
             },
             "403": {
@@ -8684,7 +8689,7 @@
               "starter_slice": 4.628306,
               "lineup_share": 0.656039,
               "start_worthy": 0.739819,
-              "adjusted": 5.318485,
+              "adjusted": 5.599727,
               "vorp_display": 4.580777
             },
             "404": {
@@ -8692,7 +8697,7 @@
               "starter_slice": 0.386723,
               "lineup_share": 0.359772,
               "start_worthy": 0.123633,
-              "adjusted": 1.71787,
+              "adjusted": 1.842673,
               "vorp_display": 2.290389
             },
             "405": {
@@ -8729,14 +8734,14 @@
             "TE|bench": 0.003743
           },
           "rates": {
-            "QB|starter": 0.999246,
-            "QB|bench": 1.088579,
-            "RB|starter": 0.79041,
-            "RB|bench": 1.123007,
-            "WR|starter": 0.75094,
-            "WR|bench": 1.164487,
-            "TE|starter": 0.952978,
-            "TE|bench": 1.912629
+            "QB|starter": 1.049616,
+            "QB|bench": 1.157145,
+            "RB|starter": 0.789347,
+            "RB|bench": 1.067814,
+            "WR|starter": 0.728707,
+            "WR|bench": 0.976864,
+            "TE|starter": 0.998944,
+            "TE|bench": 2.064777
           },
           "vorp_display_factor": 0.582248,
           "positions": {
@@ -8831,7 +8836,7 @@
               "starter_slice": 24.965969,
               "lineup_share": 0.815423,
               "start_worthy": 0.994967,
-              "adjusted": 24.971976,
+              "adjusted": 26.231082,
               "vorp_display": 17.84307
             },
             "102": {
@@ -8839,7 +8844,7 @@
               "starter_slice": 11.696602,
               "lineup_share": 0.723713,
               "start_worthy": 0.858211,
-              "adjusted": 12.068482,
+              "adjusted": 12.681621,
               "vorp_display": 9.691604
             },
             "103": {
@@ -8847,7 +8852,7 @@
               "starter_slice": 0.179623,
               "lineup_share": 0.169419,
               "start_worthy": 0.033013,
-              "adjusted": 1.209494,
+              "adjusted": 1.283419,
               "vorp_display": 3.869129
             },
             "104": {
@@ -8863,7 +8868,7 @@
               "starter_slice": 65.369942,
               "lineup_share": 0.778505,
               "start_worthy": 0.994296,
-              "adjusted": 51.760284,
+              "adjusted": 51.686294,
               "vorp_display": 48.9512
             },
             "202": {
@@ -8871,7 +8876,7 @@
               "starter_slice": 31.374689,
               "lineup_share": 0.691629,
               "start_worthy": 0.852319,
-              "adjusted": 26.126529,
+              "adjusted": 26.027918,
               "vorp_display": 27.40804
             },
             "203": {
@@ -8879,7 +8884,7 @@
               "starter_slice": 0.568645,
               "lineup_share": 0.188627,
               "start_worthy": 0.032944,
-              "adjusted": 4.486536,
+              "adjusted": 4.287519,
               "vorp_display": 12.851852
             },
             "207": {
@@ -8887,7 +8892,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.117198,
               "start_worthy": 0.0,
-              "adjusted": 1.136698,
+              "adjusted": 1.080832,
               "vorp_display": 5.028617
             },
             "204": {
@@ -8895,7 +8900,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.085238,
               "start_worthy": 0.0,
-              "adjusted": 0.638225,
+              "adjusted": 0.606858,
               "vorp_display": 3.882092
             },
             "205": {
@@ -8911,7 +8916,7 @@
               "starter_slice": 61.9238,
               "lineup_share": 0.8096,
               "start_worthy": 0.999999,
-              "adjusted": 46.501059,
+              "adjusted": 45.124308,
               "vorp_display": 44.534356
             },
             "302": {
@@ -8919,7 +8924,7 @@
               "starter_slice": 34.263329,
               "lineup_share": 0.807531,
               "start_worthy": 0.996101,
-              "adjusted": 25.783507,
+              "adjusted": 25.013063,
               "vorp_display": 24.73794
             },
             "303": {
@@ -8927,7 +8932,7 @@
               "starter_slice": 28.75724,
               "lineup_share": 0.795541,
               "start_worthy": 0.973506,
-              "adjusted": 21.908954,
+              "adjusted": 21.219005,
               "vorp_display": 21.244454
             },
             "304": {
@@ -8935,7 +8940,7 @@
               "starter_slice": 0.000682,
               "lineup_share": 0.278972,
               "start_worthy": 5.4e-05,
-              "adjusted": 5.030805,
+              "adjusted": 4.220306,
               "vorp_display": 9.017256
             },
             "305": {
@@ -8943,7 +8948,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.277406,
               "start_worthy": 0.0,
-              "adjusted": 2.765149,
+              "adjusted": 2.319626,
               "vorp_display": 4.983978
             },
             "306": {
@@ -8951,7 +8956,7 @@
               "starter_slice": 0.0,
               "lineup_share": 0.154131,
               "start_worthy": 0.0,
-              "adjusted": 0.719806,
+              "adjusted": 0.60383,
               "vorp_display": 2.335055
             },
             "307": {
@@ -8967,7 +8972,7 @@
               "starter_slice": 36.059586,
               "lineup_share": 0.778612,
               "start_worthy": 0.994569,
-              "adjusted": 34.440166,
+              "adjusted": 36.103724,
               "vorp_display": 26.995202
             },
             "402": {
@@ -8975,7 +8980,7 @@
               "starter_slice": 15.666168,
               "lineup_share": 0.773116,
               "start_worthy": 0.983779,
-              "adjusted": 15.077557,
+              "adjusted": 15.809437,
               "vorp_display": 11.856765
             },
             "403": {
@@ -8983,7 +8988,7 @@
               "starter_slice": 2.935569,
               "lineup_share": 0.634422,
               "start_worthy": 0.699865,
-              "adjusted": 3.691372,
+              "adjusted": 3.897411,
               "vorp_display": 3.123052
             },
             "404": {
@@ -8991,7 +8996,7 @@
               "starter_slice": 0.454637,
               "lineup_share": 0.39195,
               "start_worthy": 0.205611,
-              "adjusted": 1.683401,
+              "adjusted": 1.803746,
               "vorp_display": 1.646337
             },
             "405": {
@@ -9007,17 +9012,17 @@
       },
       "rows": {
         "101": {
-          "ddf_blended": 23.655082,
+          "ddf_blended": 24.848067,
           "lineup_share": 0.807429,
           "start_worthy": 0.983102
         },
         "102": {
-          "ddf_blended": 13.456604,
+          "ddf_blended": 14.139424,
           "lineup_share": 0.701667,
           "start_worthy": 0.82607
         },
         "103": {
-          "ddf_blended": 1.138266,
+          "ddf_blended": 1.208632,
           "lineup_share": 0.209822,
           "start_worthy": 0.098205
         },
@@ -9027,37 +9032,37 @@
           "start_worthy": 0.000338
         },
         "201": {
-          "ddf_blended": 49.997504,
+          "ddf_blended": 49.922804,
           "lineup_share": 0.747696,
           "start_worthy": 0.945067
         },
         "202": {
-          "ddf_blended": 27.637785,
+          "ddf_blended": 27.540246,
           "lineup_share": 0.660335,
           "start_worthy": 0.803535
         },
         "203": {
-          "ddf_blended": 4.820456,
+          "ddf_blended": 4.617028,
           "lineup_share": 0.22015,
           "start_worthy": 0.092604
         },
         "204": {
-          "ddf_blended": 1.071467,
+          "ddf_blended": 1.018807,
           "lineup_share": 0.110835,
           "start_worthy": 0.00547
         },
         "205": {
-          "ddf_blended": 0.224066,
+          "ddf_blended": 0.213054,
           "lineup_share": 0.054344,
           "start_worthy": 1.5e-05
         },
         "206": {
-          "ddf_blended": 0.112819,
+          "ddf_blended": 0.107274,
           "lineup_share": 0.034095,
           "start_worthy": 0.0
         },
         "207": {
-          "ddf_blended": 0.284174,
+          "ddf_blended": 0.270208,
           "lineup_share": 0.057172,
           "start_worthy": 0.01414
         },
@@ -9092,62 +9097,62 @@
           "start_worthy": 0.0
         },
         "301": {
-          "ddf_blended": 46.720232,
-          "lineup_share": 0.792164,
+          "ddf_blended": 45.336992,
+          "lineup_share": 0.791892,
           "start_worthy": 0.968485
         },
         "302": {
-          "ddf_blended": 27.416522,
-          "lineup_share": 0.761241,
+          "ddf_blended": 26.601499,
+          "lineup_share": 0.760387,
           "start_worthy": 0.911581
         },
         "303": {
-          "ddf_blended": 20.156871,
-          "lineup_share": 0.721316,
+          "ddf_blended": 19.492296,
+          "lineup_share": 0.720117,
           "start_worthy": 0.837809
         },
         "304": {
-          "ddf_blended": 5.174784,
-          "lineup_share": 0.337547,
+          "ddf_blended": 4.350651,
+          "lineup_share": 0.335638,
           "start_worthy": 0.120761
         },
         "305": {
-          "ddf_blended": 2.558314,
-          "lineup_share": 0.268126,
+          "ddf_blended": 2.146116,
+          "lineup_share": 0.261351,
           "start_worthy": 0.012285
         },
         "306": {
-          "ddf_blended": 0.682557,
-          "lineup_share": 0.15282,
+          "ddf_blended": 0.572583,
+          "lineup_share": 0.133754,
           "start_worthy": 0.000225
         },
         "307": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.022221,
+          "lineup_share": 0.011552,
           "start_worthy": 0.0
         },
         "308": {
           "ddf_blended": 0.0,
-          "lineup_share": 0.005109,
+          "lineup_share": 0.000201,
           "start_worthy": 0.0
         },
         "401": {
-          "ddf_blended": 34.033952,
+          "ddf_blended": 35.678282,
           "lineup_share": 0.763757,
           "start_worthy": 0.964269
         },
         "402": {
-          "ddf_blended": 15.074542,
+          "ddf_blended": 15.807106,
           "lineup_share": 0.752506,
           "start_worthy": 0.941484
         },
         "403": {
-          "ddf_blended": 4.273563,
+          "ddf_blended": 4.507888,
           "lineup_share": 0.670118,
           "start_worthy": 0.773525
         },
         "404": {
-          "ddf_blended": 1.510438,
+          "ddf_blended": 1.621044,
           "lineup_share": 0.331068,
           "start_worthy": 0.095478
         },
@@ -9194,44 +9199,44 @@
     "expected": {
       "bench_share_applied": 0.1,
       "ddf_weights": {
-        "QB|starter": 0.128261,
-        "QB|bench": 0.006928,
-        "RB|starter": 0.265234,
-        "RB|bench": 0.038493,
-        "WR|starter": 0.323743,
-        "WR|bench": 0.044283,
-        "TE|starter": 0.182762,
-        "TE|bench": 0.010295
+        "QB|starter": 0.133757,
+        "QB|bench": 0.007799,
+        "RB|starter": 0.263592,
+        "RB|bench": 0.03889,
+        "WR|starter": 0.312386,
+        "WR|bench": 0.041189,
+        "TE|starter": 0.190265,
+        "TE|bench": 0.012123
       },
       "bench_share_readout": {
-        "QB": 0.039586,
-        "RB": 0.103925,
-        "WR": 0.113689,
-        "TE": 0.032642,
-        "overall": 0.085059,
+        "QB": 0.04234,
+        "RB": 0.105296,
+        "WR": 0.110091,
+        "TE": 0.03595,
+        "overall": 0.084045,
         "override": true,
         "fill_in_share": 0.1
       },
       "source_weights": {
         "p1": {
-          "QB|starter": 0.173943,
-          "QB|bench": 0.009264,
-          "RB|starter": 0.195488,
-          "RB|bench": 0.024652,
-          "WR|starter": 0.283023,
-          "WR|bench": 0.045324,
-          "TE|starter": 0.247546,
-          "TE|bench": 0.02076
+          "QB|starter": 0.185823,
+          "QB|bench": 0.011495,
+          "RB|starter": 0.202072,
+          "RB|bench": 0.028463,
+          "WR|starter": 0.247652,
+          "WR|bench": 0.034281,
+          "TE|starter": 0.264452,
+          "TE|bench": 0.025761
         },
         "p2": {
-          "QB|starter": 0.179408,
-          "QB|bench": 0.007571,
-          "RB|starter": 0.221813,
-          "RB|bench": 0.031413,
-          "WR|starter": 0.259769,
-          "WR|bench": 0.045921,
-          "TE|starter": 0.23901,
-          "TE|bench": 0.015095
+          "QB|starter": 0.200508,
+          "QB|bench": 0.010563,
+          "RB|starter": 0.205377,
+          "RB|bench": 0.02998,
+          "WR|starter": 0.226996,
+          "WR|bench": 0.038397,
+          "TE|starter": 0.267119,
+          "TE|bench": 0.02106
         },
         "c1": {
           "QB|starter": 0.109903,
@@ -9285,37 +9290,274 @@
         }
       },
       "rows_ddf_blended": {
-        "101": 23.093011,
-        "102": 13.261448,
-        "103": 1.498427,
+        "101": 24.087752,
+        "102": 13.869753,
+        "103": 1.678161,
         "104": 0.0,
-        "201": 48.355499,
-        "202": 27.347922,
-        "203": 6.817476,
-        "204": 1.597108,
-        "205": 0.333989,
-        "206": 0.168166,
-        "207": 0.423585,
+        "201": 48.059968,
+        "202": 27.209656,
+        "203": 6.876542,
+        "204": 1.613558,
+        "205": 0.337429,
+        "206": 0.169898,
+        "207": 0.427948,
         "208": 0.0,
         "209": 0.0,
         "210": 0.0,
         "211": 0.0,
         "212": 0.0,
         "213": 0.0,
-        "301": 45.137679,
-        "302": 26.498642,
-        "303": 19.695601,
-        "304": 7.191631,
-        "305": 3.570963,
-        "306": 0.952731,
+        "301": 43.554212,
+        "302": 25.567827,
+        "303": 18.979624,
+        "304": 6.691535,
+        "305": 3.32142,
+        "306": 0.886154,
         "307": 0.0,
         "308": 0.0,
-        "401": 33.179941,
-        "402": 14.729226,
-        "403": 4.38243,
-        "404": 1.764526,
+        "401": 34.556598,
+        "402": 15.36286,
+        "403": 4.711893,
+        "404": 2.037213,
         "405": 0.0
       }
+    }
+  },
+  "variant_fractional_seats": {
+    "note": "JEG-1335: the fixture's league at the default seat sigma (0.75 PPG): flex seats, and with no league loaded the bench seats, are shared near the cutoff; the pipeline runs once per whole allocation and every value is weight-averaged. Written by tools/worked_example_fractional_seats.py from pipelines/value_reference.py.",
+    "setting_change": {
+      "seat_sigma": null
+    },
+    "expected": {
+      "allocation_mix": [
+        {
+          "weight": 0.402628,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 0,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.001208,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 2
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.005389,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.019106,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 2
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.57167,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        }
+      ],
+      "allocation_expected": {
+        "QB": {
+          "flex": 0.0,
+          "bench": 1.0,
+          "starters": 2.0,
+          "rostered": 3.0
+        },
+        "RB": {
+          "flex": 0.409225,
+          "bench": 1.001208,
+          "starters": 2.409225,
+          "rostered": 3.410432
+        },
+        "WR": {
+          "flex": 0.993403,
+          "bench": 1.019106,
+          "starters": 2.993403,
+          "rostered": 4.012508
+        },
+        "TE": {
+          "flex": 0.597372,
+          "bench": 0.979687,
+          "starters": 2.597372,
+          "rostered": 3.577059
+        }
+      },
+      "rows_ddf_blended": {
+        "101": 25.746909,
+        "102": 10.46744,
+        "103": 0.923201,
+        "104": 0.0,
+        "201": 58.378108,
+        "202": 26.389111,
+        "203": 7.371601,
+        "204": 0.379027,
+        "205": 0.04923,
+        "206": 0.000555,
+        "207": 0.090933,
+        "208": 0.0,
+        "209": 0.0,
+        "210": 0.0,
+        "211": 0.0,
+        "212": 0.0,
+        "213": 0.0,
+        "301": 53.446214,
+        "302": 23.467555,
+        "303": 12.904033,
+        "304": 2.372189,
+        "305": 0.021963,
+        "306": 0.0,
+        "307": 0.0,
+        "308": 0.0,
+        "401": 40.275313,
+        "402": 15.307453,
+        "403": 2.143789,
+        "404": 0.265375,
+        "405": 0.0
+      },
+      "rows_ddf_tier": {
+        "101": "starter",
+        "102": "starter",
+        "103": "bench",
+        "104": "waiver",
+        "201": "starter",
+        "202": "starter",
+        "203": "bench",
+        "204": "waiver",
+        "205": "waiver",
+        "206": "waiver",
+        "207": "waiver",
+        "208": "waiver",
+        "209": "waiver",
+        "210": "waiver",
+        "211": "waiver",
+        "212": "waiver",
+        "213": "waiver",
+        "301": "starter",
+        "302": "starter",
+        "303": "starter",
+        "304": "bench",
+        "305": "waiver",
+        "306": "waiver",
+        "307": "waiver",
+        "308": "waiver",
+        "401": "starter",
+        "402": "starter",
+        "403": "starter",
+        "404": "bench",
+        "405": "waiver"
+      },
+      "default_ranking": [
+        201,
+        301,
+        401,
+        202,
+        101,
+        302,
+        402,
+        303,
+        102,
+        203,
+        304,
+        403,
+        103,
+        204,
+        404,
+        207,
+        205,
+        305,
+        206,
+        104,
+        208,
+        209,
+        210,
+        211,
+        212,
+        213,
+        306,
+        307,
+        308,
+        405
+      ]
     }
   }
 }

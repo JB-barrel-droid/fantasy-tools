@@ -1,0 +1,52 @@
+--- a/supabase/functions/get-values/index.ts
++++ b/supabase/functions/get-values/index.ts
+@@ -511,6 +511,13 @@
+   return bucket.count <= limit;
+ }
+ 
++// JEG-1061: one structured log line per fresh custom-league compute and per 429, so the soft limiter
++// can be measured (contract: tests/node/jeg_1061_logging_contract.mjs). Settings only: no IP, header,
++// token or player data.
++function logEvent(fields: Record<string, unknown>): void {
++  console.log(JSON.stringify(fields));
++}
++
+ // --- Serve ------------------------------------------------------------------
+ 
+ Deno.serve(async (req: Request) => {
+@@ -524,6 +531,7 @@
+   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+     req.headers.get("cf-connecting-ip") || "unknown";
+   if (!checkRate(ip)) {
++    logEvent({ event: "get_values.rate_limited", limit: "general", max: RATE_LIMIT, window_s: RATE_WINDOW_MS / 1000 });
+     return Response.json(
+       { error: "rate limited", retry_after_seconds: 60 },
+       { status: 429, headers: cors },
+@@ -590,12 +598,17 @@
+     const key = leagueKey(mapped) + (includeCharts ? "|charts" : "");
+     let response = answerCache.get(key);
+     if (!response || Date.now() - response.at > CACHE_TTL_MS) {
++      const settings = { scoring: mapped.scoring, teams: mapped.teams, superflex: mapped.setting.superflex,
++        custom: mapped.custom, charts: includeCharts };
+       if (mapped.custom.length && !checkRate(`compute:${ip}`, COMPUTE_RATE_LIMIT)) {
++        logEvent({ event: "get_values.rate_limited", limit: "compute", max: COMPUTE_RATE_LIMIT,
++          window_s: RATE_WINDOW_MS / 1000, ...settings });
+         return Response.json(
+           { error: "rate limited", retry_after_seconds: 60 },
+           { status: 429, headers: cors },
+         );
+       }
++      const started = performance.now();
+       const input = buildPipelineInput(bundle, mapped);
+       // deno-lint-ignore no-explicit-any
+       const pipeline = (bundle.ValueModel as any).runValuePipeline(input);
+@@ -607,6 +620,9 @@
+       };
+       if (answerCache.size >= ANSWER_CACHE_MAX) answerCache.delete(answerCache.keys().next().value as string);
+       answerCache.set(key, response);
++      if (mapped.custom.length) {
++        logEvent({ event: "get_values.compute", ...settings, ms: Math.round(performance.now() - started) });
++      }
+     }
+ 
+     return Response.json(response.body, {

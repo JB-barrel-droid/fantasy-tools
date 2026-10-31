@@ -19,6 +19,7 @@ name: Preview build
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
     # file is Markdown or under docs/. Tests-only PRs still run it. The docs
     # the build reads (sync_dashboard_artifacts -> build_values_explainer,
@@ -42,7 +43,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  pr-state:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      run_expensive: ${{ steps.gate.outputs.run_expensive }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Cheap draft CI guards
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows
+      - name: Check current PR head and draft state
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate gate
+
   preview-build:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
     runs-on: ubuntu-latest
     # JEG-1169: the default is 6 hours. A normal run is ~45 minutes.
     timeout-minutes: 60
@@ -51,6 +71,11 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -173,17 +198,24 @@ jobs:
   # tests/test_preview_workflow_matches_pages.py). Each shard builds its own dist first,
   # as `make validate` does (reference, then sync).
   preview-shard:
+    needs: pr-state
+    if: needs.pr-state.outputs.run_expensive == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 2
+      - name: Recheck PR state before expensive work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 -m pipelines.ci_pr_gate verify
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -210,18 +242,34 @@ jobs:
       - run: make test-core-shard-${{ matrix.shard }}
 
   # JEG-1170: the required check. Named `preview` so the check name is unchanged; it passes
-  # only when preview-build and every preview-shard job succeeded (a skipped, cancelled or
-  # failed job fails it).
+  # only when the live PR is ready at the same head and all heavy jobs succeeded.
+  # A draft gets a visibly red required check, never a skipped-success check.
+  # JEG-1292: the PR state read is retried (3 reads over ~30 s). If a ready PR still shows
+  # this check red with "PR state verification failed", use Re-run failed jobs, or push,
+  # or toggle draft and back to ready.
   preview:
-    needs: [preview-build, preview-shard]
+    # A manual run on a draft branch must not mint the required PR check.
+    name: ${{ github.event_name == 'workflow_dispatch' && 'preview-manual' || 'preview' }}
+    needs: [pr-state, preview-build, preview-shard]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every build and shard job passed
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Full verification completed at the current PR head
         env:
+          GH_TOKEN: ${{ github.token }}
+          STATE_RESULT: ${{ needs.pr-state.result }}
+          RUN_EXPENSIVE: ${{ needs.pr-state.outputs.run_expensive }}
           BUILD_RESULT: ${{ needs.preview-build.result }}
           SHARD_RESULT: ${{ needs.preview-shard.result }}
         run: |
-          echo "preview-build: $BUILD_RESULT, preview-shard: $SHARD_RESULT"
-          [ "$BUILD_RESULT" = "success" ] && [ "$SHARD_RESULT" = "success" ]
+          echo "state: $STATE_RESULT, build: $BUILD_RESULT, shards: $SHARD_RESULT"
+          if [ "$STATE_RESULT" != "success" ] || [ "$RUN_EXPENSIVE" != "true" ] || \
+             [ "$BUILD_RESULT" != "success" ] || [ "$SHARD_RESULT" != "success" ]; then
+            echo "Full preview verification deferred or incomplete; required preview check cannot pass" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          python3 -m pipelines.ci_pr_gate verify
