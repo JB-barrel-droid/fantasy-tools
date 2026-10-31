@@ -62,6 +62,8 @@ export type FetchAnalysis = (
   league: Record<string, unknown> | undefined,
   week: number | null | undefined,
   includes: string[],
+  /** JEG-1343: a pasted link's own basis and overrides (value-context.ts). */
+  context?: { basis: string | null; ov: string | null } | null,
 ) => Promise<AnalysisResponse>;
 
 export interface AnalysisDeps {

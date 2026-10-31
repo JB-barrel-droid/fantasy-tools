@@ -151,8 +151,33 @@ the fallback, part of the basis, or part of the overrides:
   refusals with ESPN held),
   `tests/test_endpoint_parity.py test_value_context_parity` (page parity in
   Standard, Half PPR and PPR).
-- Not yet: the MCP tools passing a pasted link's context through (JEG-1225
-  slice 4c), and `docs/get-values.openapi.yaml`, which ships with Pages and so
+- The MCP tools (JEG-1343, slice 4c): every pricing tool reads `basis=`, `ov=`
+  and `valuecontext=1` from the pasted link or state block
+  (`mcp/value-context.ts` `linkValueContext`) and sends the link's own text to
+  get-values with each fetch (GET as before without one, a JSON POST with one:
+  `mcp/values-client.ts`). The reply adds a "Values:" line naming the basis and
+  the override count, `structuredContent.value_context`, and the same three
+  parameters on `site_url` and in a block's link, so the site opens on the same
+  values. A refusal above, or a get-values without `value_context` (a build
+  from before JEG-1225) asked for a basis or overrides, is the tool's error with
+  no numbers, never values on our methodology in their place. A bare
+  `valuecontext=1` link (our methodology, no overrides) is priced by any build
+  and keeps the marker on the link back. The tool's `value_context` names the
+  basis by the link's text and leaves out the overrides map (counts only). The
+  site applies a link's values only on Find a trade, league links and key-only
+  Compare links, so on other views (Trade targets, Risers & fallers, values
+  auditing) the "Values:" line says the link opens on the default values and
+  `site_applies_value_context` is false (JEG-1224 S1, S2). An unmarked older
+  link (`basis=`/`ov=` with no `valuecontext=1`) comes back marked: the chat
+  priced the link's values alone, and the marker makes the site open on those
+  same values instead of merging them into the reader's saved ones (JEG-1224
+  O1L). Tools that price nothing (explain) leave their link alone. A trade
+  reply's size budget leaves the "Values:" line and `value_context` out of its
+  measure, like the site link, since they are added after the rows are fitted.
+  Tests:
+  `tests/node/mcp_value_context_check.mjs` (stub get-values, then the real
+  handler on the built `dist/`), and M1-M3 in `tests/jeg-1224/`.
+- Not yet: `docs/get-values.openapi.yaml`, which ships with Pages and so
   should list `basis` and `ov` only once this function is deployed.
 
 ### Custom leagues: computed on demand, stored nowhere (JEG-1031)
