@@ -63,6 +63,11 @@
      "expect": {"newest": null, "default_week": null, "transition": false, "weeks": [], "total": 1, "views": {}}},
     {"name": "no sources",
      "entries": [],
-     "expect": {"newest": null, "default_week": null, "transition": false, "weeks": [], "total": 0, "views": {}}}
+     "expect": {"newest": null, "default_week": null, "transition": false, "weeks": [], "total": 0, "views": {}}},
+    {"name": "JEG-1176: week 8 to 9 at 0%", "counts": {"8": 100}, "expect": {"default_week": 8, "total": 100}},
+    {"name": "JEG-1176: week 8 to 9 at 49%", "counts": {"9": 49, "8": 50, "null": 1}, "expect": {"default_week": 8, "total": 100}},
+    {"name": "JEG-1176: week 8 to 9 at 50%", "counts": {"9": 50, "8": 49, "null": 1}, "expect": {"default_week": 8, "total": 100}},
+    {"name": "JEG-1176: week 8 to 9 at 51%", "counts": {"9": 51, "8": 48, "null": 1}, "expect": {"default_week": 9, "total": 100}},
+    {"name": "JEG-1176: week 8 to 9 at 100%", "counts": {"9": 100}, "expect": {"default_week": 9, "total": 100}}
   ]
 }

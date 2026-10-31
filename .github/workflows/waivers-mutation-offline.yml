@@ -1,0 +1,65 @@
+name: Waivers mutation (offline)
+
+# JEG-1373 (Jeremy, 2026-10-29: option A on the JEG-1279 question). Runs the three offline
+# classes of tests/test_waivers_mutation_specificity.py (JEG-1279, #1144) on every PR:
+#   ClassifierOfflineTests  harness failures (no browser, timeouts, stray page errors) never count as a killed mutant
+#   AnchorOfflineTests      every mutation anchor applies exactly once to the production waivers.js / waivers.css
+#   FixtureOfflineTests     the fixture mirrors test_waivers_render.py's mutation table and its designations are sound
+# They need no browser and no build and take seconds. The Playwright package (not Chromium) is installed so the
+# classifier also covers Playwright's own timeout and launch errors.
+#
+# Non-blocking by design: this is its own workflow, not a `needs` of the required `preview` check, and not
+# part of test-core (the deploy gate for data math in pages.yml / preview.yml, unchanged). A failure shows
+# as a red "waivers-mutation-offline" check on the PR and in its step summary; it does not hold a merge
+# unless someone makes it a required check. Do not add continue-on-error or `|| true`: the check must go
+# red when a mutation check breaks (tests/test_waivers_mutation_offline_workflow.py).
+# The Chromium class (MutationSpecificityRenderTests) still runs nightly in full-suite.yml (make test-unit).
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: waivers-mutation-offline-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  waivers-mutation-offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Playwright package only (no browser)
+        run: python3 -m pip install --quiet playwright==1.49.1
+      - name: Workflow guard
+        run: python3 -m unittest -v tests.test_waivers_mutation_offline_workflow
+      - name: Waivers mutation offline classes
+        run: |
+          set -o pipefail
+          python3 -m unittest -v \
+            tests.test_waivers_mutation_specificity.ClassifierOfflineTests \
+            tests.test_waivers_mutation_specificity.AnchorOfflineTests \
+            tests.test_waivers_mutation_specificity.FixtureOfflineTests 2>&1 | tee "$RUNNER_TEMP/waivers-mutation.log"
+      - name: Summary
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            echo "### Waivers mutation (offline, non-blocking)"
+            if [ -f "$RUNNER_TEMP/waivers-mutation.log" ]; then
+              echo '```'
+              if ! grep -E '^(Ran |OK|FAILED|ERROR:|FAIL:)' "$RUNNER_TEMP/waivers-mutation.log"; then
+                echo "no unittest result lines"
+              fi
+              echo '```'
+            else
+              echo "The mutation classes did not run (an earlier step failed)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
