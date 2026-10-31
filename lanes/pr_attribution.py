@@ -19,21 +19,40 @@ class Attribution:
 
 
 def parse_lane(body: str) -> Attribution:
-    # Examples inside Markdown comments or fenced code are not declarations.
-    body = re.sub(r'<!--.*?-->', '', body, flags=re.S)
+    # Track fences before comments: comment markers in examples are literal.
     lines = []
     fence = None
+    in_comment = False
     for line in body.splitlines():
-        marker = re.match(r'^\s*(`{3,}|~{3,})', line)
-        if marker:
-            char = marker[1][0]
-            if fence is None:
-                fence = char
-            elif fence == char:
+        if fence is not None:
+            closer = re.fullmatch(r' {0,3}([`~]+)[ \t]*', line)
+            if (closer and set(closer[1]) == {fence[0]}
+                    and len(closer[1]) >= fence[1]):
                 fence = None
             continue
-        if fence is None and re.match(r'^Lane:', line):
-            lines.append(line)
+        if not in_comment:
+            opener = re.match(r'^ {0,3}(`{3,}|~{3,})(.*)$', line)
+            if opener and (opener[1][0] != '`' or '`' not in opener[2]):
+                fence = (opener[1][0], len(opener[1]))
+                continue
+        visible = ''
+        while line:
+            if in_comment:
+                end = line.find('-->')
+                if end == -1:
+                    break
+                line = line[end + 3:]
+                in_comment = False
+            else:
+                start = line.find('<!--')
+                if start == -1:
+                    visible += line
+                    break
+                visible += line[:start]
+                line = line[start + 4:]
+                in_comment = True
+        if re.match(r'^ {0,3}Lane:', visible):
+            lines.append(visible)
     if len(lines) != 1:
         raise ValueError('Exactly one visible Lane: line is required.')
     match = re.fullmatch(

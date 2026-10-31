@@ -23,7 +23,7 @@ The builder is who produced the change, regardless of the GitHub login or coordi
 
 The PR lane workflow validates the body and head branch on opening, body edits,
 new commits, reopening and readiness changes. No path filters exempt docs.
-It runs trusted base code, without checking out PR code or using API quota.
+It runs trusted base code, without checking out PR code or using API quota on PR events.
 
 `.github/lane-check.json` enables `warn_only` during the seven-day rollout,
 ending **2026-11-07 at 16:30 UTC** (10:30 AM Central). At that instant the
@@ -31,7 +31,11 @@ same check automatically returns failure for invalid attribution, even while
 `warn_only` remains true. Setting the flag false enforces immediately. Existing
 PRs need the line and a matching branch before their next check after that date.
 If rollout lands later than October 31, the coordinator should move the deadline
-to preserve seven days of warnings. No scheduled job retroactively reruns PRs.
+to preserve seven days of warnings. After the flip, run **PR lane → Run workflow** to recheck all open PRs using
+read-only API access. This manual sweep reports every PR in its own workflow
+run; it does not write PR check statuses. PR events continue to run attribution
+against the trusted base. Enforcement blocks merges only if Jeremy makes
+**PR lane / attribution** a required check in repository settings.
 
 `lanes.pr_attribution.parse_lane` returns builder, model and coordinator;
 `check_prefix` validates the head branch. The retired `lanes/protocol.py` only

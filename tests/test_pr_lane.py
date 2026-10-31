@@ -39,6 +39,65 @@ class TestPRLane(unittest.TestCase):
     def test_comments_and_fenced_examples_do_not_duplicate(self):
         self.assertEqual(parse_lane('~~~\n' + line('Muse') + '\n~~~\n' + line()).builder, 'Codex')
 
+    def test_unclosed_comment_hides_rest(self):
+        with self.assertRaises(ValueError):
+            parse_lane('<!-- unclosed\n' + line())
+        self.assertEqual(parse_lane(line() + '\n<!--\n' + line('Muse')).builder, 'Codex')
+
+    def test_visible_indentation(self):
+        for spaces in range(4):
+            self.assertEqual(parse_lane(' ' * spaces + line()).builder, 'Codex')
+        for indent in ('    ', '     ', '\t'):
+            with self.assertRaises(ValueError):
+                parse_lane(indent + line())
+
+    def test_comment_markers_inside_fences_are_literal(self):
+        for opener, closer in (('```text', '```'), ('~~~~python', '~~~~~')):
+            body = opener + '\n<!--\n' + line('Muse') + '\n' + closer + '\n' + line()
+            self.assertEqual(parse_lane(body).builder, 'Codex')
+
+    def test_only_matching_long_enough_bare_fence_closes(self):
+        for false_closer in ('```', '~~~~', '````python'):
+            body = '````text\n' + false_closer + '\n' + line('Muse') + '\n````\n' + line()
+            self.assertEqual(parse_lane(body).builder, 'Codex')
+
+    def test_comments_outside_fences_hide_fence_markers(self):
+        self.assertEqual(parse_lane('<!--\n```\n-->\n' + line()).builder, 'Codex')
+
+    def test_config_errors_are_clear_even_with_warnings_disabled(self):
+        with tempfile.TemporaryDirectory() as directory:
+            event, config = Path(directory)/'event.json', Path(directory)/'config.json'
+            event.write_text(json.dumps({'pull_request': {'body': line(), 'head': {'ref': 'codex/task'}}}))
+            for values in (
+                {'warn_only': False, 'enforce_after': '2026-11-07T16:30:00'},
+                {'warn_only': True, 'enforce_after': 'invalid'},
+                {'warn_only': 'true', 'enforce_after': '2026-11-07T16:30:00Z'},
+            ):
+                config.write_text(json.dumps(values))
+                output = io.StringIO()
+                with contextlib.redirect_stderr(output):
+                    self.assertEqual(main(['--event', str(event), '--config', str(config)]), 2)
+                self.assertIn('Config error:', output.getvalue())
+            self.assertIn('timezone offset', self._naive_config_error())
+
+    def _naive_config_error(self):
+        with self.assertRaises(ValueError) as caught:
+            is_warn_only({'warn_only': True, 'enforce_after': '2026-11-07T16:30:00'}, datetime.now(timezone.utc))
+        return str(caught.exception)
+
+    def test_open_pr_sweep_checks_every_pr(self):
+        with tempfile.TemporaryDirectory() as directory:
+            prs, config = Path(directory)/'prs.json', Path(directory)/'config.json'
+            prs.write_text(json.dumps([
+                {'number': 1, 'body': None, 'head': {'ref': 'codex/task'}},
+                {'number': 2, 'body': line(), 'head': {'ref': 'codex/task'}},
+            ]))
+            config.write_text(json.dumps({'warn_only': False, 'enforce_after': '2026-11-07T16:30:00Z'}))
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(main(['--open-prs', str(prs), '--config', str(config)]), 1)
+            self.assertIn('Checking PR #2', output.getvalue())
+
     def test_deadline_and_flag(self):
         config = {'warn_only': True, 'enforce_after': '2026-11-07T16:30:00+00:00'}
         self.assertTrue(is_warn_only(config, datetime(2026, 11, 7, 16, 29, tzinfo=timezone.utc)))
