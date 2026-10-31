@@ -19,7 +19,7 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-- JEG-1410: `fe/jeg-1410-manifesto-block` adds draft Manifesto mapping copy; validation underway, Jeremy approves at the draft PR.
+- JEG-1410: `fe/jeg-1410-manifesto-block` draft PR #1253 adds Manifesto mapping copy; pin and 390 px Chrome pass, make validate fails saved-team keyboard selection (empty vs beta); Jeremy copy approval pending.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
