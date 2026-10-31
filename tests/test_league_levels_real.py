@@ -18,7 +18,8 @@ Checks:
     partial roster, a player on two teams, an unmatched paste, an unknown
     or old roster date each fail closed (JS and Python agree on every case);
   * the no-league baseline: today's engine gives the pre-JEG-1188 engine's
-    allocation and every player's DDF Value (stored in the fixture);
+    allocation and every player's DDF Value (stored in the fixture), under
+    the hard seat rule (seat_sigma 0, JEG-1335), as are the pinned counts;
   * JS engine against the spec reference, every leaf, with no league and at
     both levels, on both leagues;
   * the ddf replacement line is the best free agent in the projected-points
@@ -308,9 +309,14 @@ class TestRealLeagues(unittest.TestCase):
                 cls.res[name, level] = (run_spec(doc, extra), run_js(doc, extra))
 
     def test_no_league_baseline_unchanged(self):
+        # JEG-1335: the baseline and the pinned counts were taken under the
+        # hard VP-2.2 seat rule, so they are checked at seat_sigma 0; the
+        # parity and invariant checks run at the default fractional seats.
         for name in LEAGUES:
-            base = load(name)["baseline_no_league"]
-            for engine, res in zip(("spec", "js"), self.res[name, None]):
+            doc = load(name)
+            base = doc["baseline_no_league"]
+            hard = {"seat_sigma": 0}
+            for engine, res in zip(("spec", "js"), (run_spec(doc, hard), run_js(doc, hard))):
                 with self.subTest(league=name, engine=engine):
                     self.assertEqual(json.loads(json.dumps(res["allocation"])), base["allocation"])
                     got = {k: (None if r["ddf_blended"]["value"] is None else round(r["ddf_blended"]["value"], 9))
@@ -339,7 +345,8 @@ class TestRealLeagues(unittest.TestCase):
             ("charlotte", "ddf"): PINNED["cha_ddf"], ("charlotte", "market"): PINNED["cha_market"],
         }
         for (name, level), counts in want.items():
-            alloc = self.res[name, level][0]["allocation"]
+            doc = load(name)
+            alloc = run_spec(doc, {**level_extra(doc, level), "seat_sigma": 0})["allocation"]
             with self.subTest(league=name, level=level):
                 self.assertEqual({p: (alloc[p]["bench"], alloc[p]["held"], alloc[p]["reserve"]) for p in POS}, counts)
 

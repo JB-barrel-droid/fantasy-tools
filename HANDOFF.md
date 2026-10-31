@@ -19,20 +19,30 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### Waiver board slice 1 (JEG-1415, child of JEG-1196, Claude, 2026-10-31 UTC): draft PR, not merged
+### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
-- Branch `claude/JEG-1196-waiver-board-pipeline`. New `pipelines/build_waiver_board.py` (offline builder),
-  `pipelines/lib/waiver_board.py` (schema `waiver-board` 0.1.0 and validator), `docs/waiver-board-contract.md`,
-  fixtures `tests/fixtures/waiver_board/`, tests `tests/test_build_waiver_board.py` (in test-unit-modules).
-- Reads a weekly-inputs 1.x artifact and DDF Value from `value_reference.py` (Adjusted `ddf_value`, read-only) or a saved
-  snapshot. Value lane and This week lane never blend; disabled sources null what they feed, with the reason.
-  No UI, no publication, no new value math.
-- Review corrections done in JEG-1426 (served week from the reference's prior pair, validator re-derives the enable
-  rules and row consistency, missing status or bye legs handled, 84 tests including a read-back against get-values).
-  JEG-1427 refreshed the weekly-inputs producer golden's player_aliases hash (stale on main since #1211).
-- Next: delta review of the corrections, take the PR out of draft, green CI, merge gate. Later slices are JEG-1416 (rostered % and kickoff on the contract),
-  JEG-1417 (sections and verdicts; the ADD/PASS rule goes to Jeremy first), JEG-1418 (swaps), JEG-1419 (build in
-  `make sync`), JEG-1420 (the view).
+- Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
+  fractional flex everywhere, fractional bench only with no league loaded, sigma 0.75 PPG (`seat_sigma`; 0 is the
+  old hard rule). Python reference, spec reference and engine (value-model.js) all run once per whole allocation of
+  the seat mix and weight-average (methodology VP-2.2 g). Engine equals Python on 30 live settings (1e-13).
+- Tests: `test_fractional_seats_stability` (test-core shard 2; no other player moves more than 1.0 on a 1 PPG
+  fringe change; hard rule fails it), `test_fractional_seats_engine`, `test_fractional_seats_worked_example`. The
+  worked example fixture is pinned to `seat_sigma: 0`; its new `variant_fractional_seats` block pins 0.75.
+- Value change: merge needs Jeremy's OK by PR number after the before/after (JEG-1333's table is this build's:
+  the reference reproduces the prototype exactly); deploying get-values and mcp needs a separate yes.
+- Review fix (2026-10-31): each source's per-player records now blend too (0 where a player is off the work list,
+  slices restated at the blended rate, moved/unpaid budgets blended), so the page's fixed-pie guard holds; before,
+  it threw and CI's settings render timed out. `test_fractional_seats_pie` (test-unit-modules) covers it.
+- Rank guard fix (2026-10-31): Indexed is native x the blended factor for every player a chart prices, so it
+  keeps the chart's order (CI's rank guard failed at 14 settings). DDF values unchanged; only low-end Indexed
+  entries move. Also in `test_fractional_seats_pie`.
+- Math inspector fix (2026-10-31): value above waivers is restated at the blended display factor, so
+  vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
+- Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
+  values-explainer) run in CI or on the Mac.
+- CI: test-core now has five shards. Shard 1 passed its 30-minute job limit under the seat mix (seeded hold build
+  774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
+  `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
 
 ### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
 
