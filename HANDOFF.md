@@ -11,15 +11,21 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
-PSpice (Jeremy's own direct Codex) is the default successor for the whole
-Duet coordinator role, per Jeremy's 2026-10-31 request. Read the takeover
-checklist in [docs/cutover-runbook.md](https://github.com/JB-barrel-droid/fantasy-tools/blob/codex/JEG-1445-cutover-runbook/docs/cutover-runbook.md), delivered in
-PR #1245; until that PR lands, read its current branch on GitHub. Dots and
-Muse remain alternates. Current review tiers and the usage-crunch Codex
-light/standard exception are in `AGENTS.md`. Who reviews high-risk work and
-merges after a full Claude cutover remains Jeremy's decision; no replacement
-merge authority is granted here. Older Codex pause/Claude-only lane notes
-below are historical and do not override the current rules.
+PSpice (Jeremy's own direct Codex, default) and Muse are the two named
+successors for the whole Duet coordinator role. ChatGPT Dots remains an
+alternate. Read [docs/cutover-runbook.md](https://github.com/JB-barrel-droid/fantasy-tools/blob/codex/JEG-1445-cutover-runbook/docs/cutover-runbook.md)
+in PR #1245 until it lands. JEG-1444 decision 11 (Jeremy, 2026-10-31 12:42
+UTC, "A") specifies independent exact-head Codex review while Claude is out,
+and merge by the acting successor after review/green CI and approval gates.
+High-risk merges and all deploys retain Jeremy's specific-yes requirement.
+Muse uses the GitHub API as jkb-bur-bot; every post starts `Written by Muse.`,
+includes `<!-- author: muse -->` and uses recommend wording. A Muse comment
+never counts as Jeremy's approval, even though Linear displays his name.
+Muse has no Mac route or push wake: its proposed codex-mac label handoff is
+pending, and JEG-1449 researches access. No label or watcher is created here.
+PSpice's dry-run cycle precedes Muse's; both are plans, not completed checks.
+When Claude returns, normal AGENTS review routing resumes. Older lane notes
+below do not override these rules.
 
 ---
 

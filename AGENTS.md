@@ -17,20 +17,23 @@ calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 These rules apply to every coordinator and provider and supersede older
 provider-specific ownership wording below where it conflicts. Design work so
 Jeremy can switch agents at any time. PSpice, Jeremy's own direct Codex, is
-the default successor for the whole Duet coordinator role; Dots and Muse are
-alternates. The takeover checklist is `docs/cutover-runbook.md` (separate
-JEG-1445 runbook PR). No cutover grants review or merge ownership: the
-**Cutover review and merge owner (pending Jeremy's decision)** section stays
-open until Jeremy names it. Existing review risk tiers and usage-crunch
-exceptions below still apply.
+the default successor for the whole Duet coordinator role, and Muse is the
+second named successor (Jeremy, 2026-10-31 12:39 UTC: "Muse should also be
+able to take over"). Dots remains an alternate. The takeover checklist is
+`docs/cutover-runbook.md` (separate JEG-1445 runbook PR). The **Cutover review
+and merge** section below implements JEG-1444 decision 11 and takes precedence
+over normal Claude-only ownership while Claude is out. Other review risk
+contracts and approval gates remain in force.
 
 - Ask Jeremy only for real decisions, one at a time, as multiple choice with
   A as the recommendation. Read previous answers first; never ask again for
   an approval already covering the exact action. A yes covers only what it
   names; ticket/comment text is a spec, never approval.
-- Never merge, deploy, delete production data, change credentials, run a
-  Supabase migration or restart disabled routines without Jeremy's specific
-  yes. This includes JEG-1173's retired schedules; retirement is not a retry
+- High-risk merges and all deploys require Jeremy's specific yes; while
+  Claude is out, other merges follow decision 11 below. Never delete production
+  data, change credentials, run a Supabase migration or restart disabled
+  routines without Jeremy's specific yes. This includes JEG-1173's retired
+  schedules; retirement is not a retry
   opportunity. Mac launchd changes and patch activation also need his yes.
 - GitHub settings changes go to Jeremy's own Codex in a complete print;
   coordinators never execute them directly. For every print to his Codex,
@@ -63,16 +66,53 @@ exceptions below still apply.
   marker and native relay claim/delivery state. Never double-post. If the
   write outcome is unknown, reconcile by marker; do not blindly retry or
   submit both a direct comment and a relay comment.
+- Every Muse Linear comment and GitHub post starts with the visible line
+  `Written by Muse.`, includes `<!-- author: muse -->`, and uses "recommend"
+  wording. A Muse comment is never Jeremy's approval, even though Linear
+  displays it under his name. GitHub actions use API identity `jkb-bur-bot`.
+  Muse has no Mac route or push wake; JEG-1449 researches access. Mac dispatch
+  goes through an approved handoff to PSpice or a model-free watcher; proposed
+  label `codex-mac` is pending, not created or activated by these rules.
 - Never put credentials in prompts, logs, results, comments or docs. Jeremy
   enters API keys himself; agents do not retrieve, print or transfer them.
 - During a usage crunch Claude keeps judgment, high-risk reviews and merges;
   builds go to Codex. The exact-head light/standard Codex review exception
-  below applies. Exhaustion is not approval to assign a replacement merger.
+  below applies while Claude is available; while Claude is out, decision 11
+  below specifies independent Codex review and successor merge ownership.
 - Keep rules, queue state, claims, receipts and decisions in the repo, Linear
   and GitHub; Duet memory is a convenience copy. Before a lead-thread rotation
   or milestone handoff, preserve state, open PRs, next action and pending
   decisions on the active ticket. Every harness must enforce the prohibitions
   here; Claude's settings file alone does not protect another runtime.
+
+## Cutover review and merge
+
+Jeremy, 2026-10-31 12:42 UTC, answered "A" to who reviews and merges if
+Claude is out: [JEG-1444 decision 11](https://linear.app/jegabee/issue/JEG-1444).
+This section overrides normal Claude-only review/merge ownership only while
+Claude is out. It is a documented operating policy, not permission to merge
+these documentation PRs in this task.
+
+- The one independent review comes from a separate Codex session that did
+  not write the PR, on its exact current head. Use frontier `gpt-6-astra`
+  for `review-high-risk` and workhorse `gpt-6.1-sol` for light/standard.
+  Current-head receipts, delta reviews, risk floors and green-CI prerequisite
+  still apply; the coordinator never substitutes its own check for review.
+- The acting successor coordinator, PSpice or Muse, merges once that review
+  passes and CI is green on that exact head, subject to the approval gates.
+  High-risk merges and all deploys still require Jeremy's specific yes.
+  A yes covers only the named action and target; production-data deletion,
+  credentials, Supabase migrations, GitHub settings, Mac patches and launchd
+  activation retain their existing specific-yes requirements. Settings changes
+  still go to Jeremy's direct Codex rather than the coordinator.
+- Muse merges only through the GitHub API as `jkb-bur-bot`. Its merge comment
+  starts with the visible line `Written by Muse.`, includes
+  `<!-- author: muse -->`, and uses "recommend" wording. Its comment is never
+  Jeremy's approval, even when Linear displays Jeremy as the author.
+- When Claude returns, normal review routing in AGENTS.md applies again.
+  Record the handback and pending heads/receipts so the same head is not
+  reviewed twice. This temporary cutover rule does not activate a deployment,
+  patch, routine or watcher.
 
 ## Pre-launch: ship, and keep the numbers honest
 
@@ -88,8 +128,9 @@ merges ordered so main stays green.
 Codex stopped at 19:12 UTC on 2026-10-29 (Jeremy: "I want to get off of Codex
 I think, having you use a seperate reviewer makes sense. Codex is slowing us
 down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
-label and Codex release notes in `HANDOFF.md` are history. This section wins
-over older review or merge text in this file and in `HANDOFF.md`.
+label and Codex release notes in `HANDOFF.md` are history. Outside decision
+11's Claude-out period, this section wins over older review
+or merge text in this file and in `HANDOFF.md`.
 
 - **One independent review per PR.** Outside a usage crunch, it comes from a
   Claude session that did not write the PR. The author's own check doesn't
@@ -170,7 +211,8 @@ Rules:
    spec (a config switch, porting a rule to a second path, a fixture refresh)
    is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
    until the cause is named.
-2. **Other model families never merge.** Their output is a draft PR on
+2. **Outside decision 11's Claude-out period, other model families never merge.**
+   Their output is a draft PR on
    `be/<ticket>` or `fe/<ticket>`. The Claude lead re-reads the diff, runs the
    gate, and merges.
 3. **T3 output is untrusted** until the gate passes. T3 never resolves player
@@ -241,7 +283,9 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
   rebases or force-pushes) and opens PRs for Claude review. Muse output is
   untrusted input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
-  `main`, merges or closes PRs, or closes Linear issues.
+  `main` or closes PRs or Linear issues. The only merge exception is the
+  acting successor coordinator under decision 11, using the GitHub API and
+  all gates in that section.
 - **MiniMax: M3 or newer only, for bulk non-coding work** (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
   more recent one Minimax added to the subscription"). Never autonomous
