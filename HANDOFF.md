@@ -19,6 +19,12 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1368 FantasyCalc Week 8 divergence (2026-10-30)
+
+- Branch `claude/JEG-1368`: accepted genuine source opinion; no parser, mapping or math changes.
+- Evidence: `docs/research/JEG-1368/README.md`; original report/input mismatch explicitly recorded.
+- Targeted Python tests and three-scoring Node trace; independent Claude review and CI remain before merge.
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
