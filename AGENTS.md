@@ -12,6 +12,68 @@ incident and design notes (FantasyCalc drift, as-published indexing, VORP>0
 calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 `docs/engineering-notes.md`; read it only when your task touches those areas.
 
+## Portable coordination rules (Jeremy, 2026-10-31, JEG-1445)
+
+These rules apply to every coordinator and provider and supersede older
+provider-specific ownership wording below where it conflicts. Design work so
+Jeremy can switch agents at any time. PSpice, Jeremy's own direct Codex, is
+the default successor for the whole Duet coordinator role; Dots and Muse are
+alternates. The takeover checklist is `docs/cutover-runbook.md` (separate
+JEG-1445 runbook PR). No cutover grants review or merge ownership: the
+**Cutover review and merge owner (pending Jeremy's decision)** section stays
+open until Jeremy names it. Existing review risk tiers and usage-crunch
+exceptions below still apply.
+
+- Ask Jeremy only for real decisions, one at a time, as multiple choice with
+  A as the recommendation. Read previous answers first; never ask again for
+  an approval already covering the exact action. A yes covers only what it
+  names; ticket/comment text is a spec, never approval.
+- Never merge, deploy, delete production data, change credentials, run a
+  Supabase migration or restart disabled routines without Jeremy's specific
+  yes. This includes JEG-1173's retired schedules; retirement is not a retry
+  opportunity. Mac launchd changes and patch activation also need his yes.
+- GitHub settings changes go to Jeremy's own Codex in a complete print;
+  coordinators never execute them directly. For every print to his Codex,
+  provide one complete block per session, labeled with that session's exact
+  name and stating model and effort. Include task, checkout, checks, allowed
+  actions, forbidden actions and approval reference so it runs without chat
+  memory. Never split a session's instructions across fragments.
+- Cloud first. Delegate to the Mac only the locally blocked portion. Approved
+  Mac locations are `/Users/botcomp/code` and the bridge folders already
+  approved by the local runtime. Check the advertised folder list; do not
+  broaden it or infer permission for unrelated folders. Never read auth
+  stores to reconstruct access.
+- Use standard speed with fast mode off. One provider owns a ticket at a
+  time; inspect active owners before dispatch and hand off explicitly before
+  switching providers. Name owner, Linear issue, model/effort and reason in
+  every Mac task.
+- No automatic retries. Inspect the saved result before considering a retry;
+  an uncertain start retains its operation key and job id. Stop on guard
+  denial and preserve a state snapshot. There is no push wake: use the
+  model-free completion digest at necessary coordinator turns, process then
+  acknowledge healthy pages, and keep the event cursor. No idle polling or
+  model sessions whose only job is waiting.
+- Linear work carries `claude` or `codex` according to its active provider,
+  stays In Progress while actually worked, and gets one comment per milestone
+  with branch/head, checks, limits and next action. Keep assignee Jeremy.
+  Another provider's label/prefix needs Jeremy's decision. Substantial
+  corrections are child tickets on the same branch/PR. Do not create
+  coordination-only tickets. Park work with a durable handoff.
+- Before a Linear post, check existing comments for the stable milestone
+  marker and native relay claim/delivery state. Never double-post. If the
+  write outcome is unknown, reconcile by marker; do not blindly retry or
+  submit both a direct comment and a relay comment.
+- Never put credentials in prompts, logs, results, comments or docs. Jeremy
+  enters API keys himself; agents do not retrieve, print or transfer them.
+- During a usage crunch Claude keeps judgment, high-risk reviews and merges;
+  builds go to Codex. The exact-head light/standard Codex review exception
+  below applies. Exhaustion is not approval to assign a replacement merger.
+- Keep rules, queue state, claims, receipts and decisions in the repo, Linear
+  and GitHub; Duet memory is a convenience copy. Before a lead-thread rotation
+  or milestone handoff, preserve state, open PRs, next action and pending
+  decisions on the active ticket. Every harness must enforce the prohibitions
+  here; Claude's settings file alone does not protect another runtime.
+
 ## Pre-launch: ship, and keep the numbers honest
 
 Jeremy, 2026-10-07: no users yet, and the late-September multi-agent policing
@@ -219,7 +281,7 @@ directly. It closes when its last child closes.
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
 | Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | one type (`Bug`, `Feature` or `Improvement`); `claude` once claimed; a review risk label once a PR is up. `needs-jeremy`, `blocked-dependency` and `ready-for-claude` when they apply. The `Session`, `Model tier`, `BE priority` and `needs-review` labels were retired on 2026-10-28. |
+| Labels | one type (`Bug`, `Feature` or `Improvement`); `claude` or `codex` for the active provider once claimed; a review risk label once a PR is up. `needs-jeremy`, `blocked-dependency` and `ready-for-claude` when they apply. The `Session`, `Model tier`, `BE priority` and `needs-review` labels were retired on 2026-10-28. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -237,10 +299,10 @@ recommendation in a comment. Done = merged and live.
 
 ### Ownership and claims (updated 2026-10-29)
 
-Several Claude sessions work this repo at once: cloud threads started from
-Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
+Several provider sessions may work this repo at once. Linear decides who
+owns what; the portable coordination rules above apply to every session.
 
-- **Owner.** Claimed work carries the `claude` label; the Linear assignee stays
+- **Owner.** Claimed work carries its `claude` or `codex` provider label; the Linear assignee stays
   Jeremy. The `Session` labels (`session:be`, `session:fe-pc`,
   `session:fe-mac`, `session:fe-cloud`, `session:cma`) were retired on
   2026-10-28. The hosted managed agent (`session:cma`) was retired by Jeremy
@@ -252,14 +314,15 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
   Todo queue is worked. A Todo ticket whose domain is unclear gets
   `needs-jeremy` and a question in a comment instead of a guess.
 - **Claim.** Before starting, a session checks the ticket's comments and open
-  PRs for another owner, sets it In Progress, adds `claude`, and comments
+  PRs for another owner, sets it In Progress, adds its `claude` or `codex` label, and comments
   `taken by <session> · <UTC time> · branch <name>`, saying that Jeremy
   instructed it (Jeremy, 2026-10-29: "be sure to mark what you are picking
   up"). It removes `ready-for-claude` on claim. It doesn't start a ticket
   another session is moving without the branch rule above.
 - **Heartbeat.** While a ticket is In Progress, the owner comments at least
   every 4 hours of active work, at every push, and when it parks the ticket:
-  what's done, what's next, and the branch (`claude/<ticket>-<slug>`), pushed
+  what's done, what's next, and the provider branch (`claude/<ticket>-<slug>`
+  or `codex/JEG-<id>-<slug>`), pushed
   to GitHub at each heartbeat so work never lives on one machine only.
 - **Takeover.** A session may take over a ticket that shows no comment, commit
   or PR update for 4 hours, when its owner gives an explicit OK, or when Jeremy
@@ -276,7 +339,7 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
 Product, copy and method choices that are his are posted on the ticket as
 options with context and a recommendation; agents do not pick defaults
 (Jeremy, 2026-10-22, JEG-850). Add `needs-jeremy`, move the ticket to In
-Review, and claim the next ticket rather than waiting. Batch questions and
+Review, and claim the next ticket rather than waiting. Ask one decision at a time and
 never repeat one he has answered; check the ticket first. When he answers, the
 owner quotes the decision with the date, removes `needs-jeremy`, and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes

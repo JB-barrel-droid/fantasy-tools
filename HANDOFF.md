@@ -11,9 +11,15 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
-Since 2026-10-29 19:12 UTC Codex is out and Claude sessions review and merge:
-see "Review and merge protocol" in `AGENTS.md` (JEG-1218). Codex lane notes
-below are history, including any "Codex reviews and merges" line.
+PSpice (Jeremy's own direct Codex) is the default successor for the whole
+Duet coordinator role, per Jeremy's 2026-10-31 request. Read the takeover
+checklist in [docs/cutover-runbook.md](https://github.com/JB-barrel-droid/fantasy-tools/blob/codex/JEG-1445-cutover-runbook/docs/cutover-runbook.md), delivered in
+PR #1245; until that PR lands, read its current branch on GitHub. Dots and
+Muse remain alternates. Current review tiers and the usage-crunch Codex
+light/standard exception are in `AGENTS.md`. Who reviews high-risk work and
+merges after a full Claude cutover remains Jeremy's decision; no replacement
+merge authority is granted here. Older Codex pause/Claude-only lane notes
+below are historical and do not override the current rules.
 
 ---
 
