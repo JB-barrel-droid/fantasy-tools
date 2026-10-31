@@ -56,7 +56,8 @@
   }
   let sequence = 0;
   // Returns a DOM container with the familiar four-column table and an accessible bench expander.
-  function renderTable(impact, shape, valueKey, caption) {
+  // options.benchLabel(rows, hidden): the toggle's words (JEG-1260); without it the label stays "Show bench (N)".
+  function renderTable(impact, shape, valueKey, caption, options) {
     const rows = buildRows(impact.before, impact.after, shape);
     const label = caption || "Best starting lineup";
     const benchId = `v2-lineup-bench-${++sequence}`;
@@ -69,12 +70,13 @@
     const benchBody = node("tbody", {id: benchId, class: "v2-lineup-bench-rows"}, ...rows.bench.map(row => cells(row, valueKey)));
     benchBody.hidden = true;
     const table = node("table", {class: "v2-find-lineup v2-lineup-comparison"}, node("caption", {text: label}), head, body, benchBody);
+    const benchLabel = (options && options.benchLabel) || ((count, hidden) => `${hidden ? "Show" : "Hide"} bench (${count})`);
     const toggle = node("button", {type: "button", class: "v2-btn v2-lineup-bench-toggle", "aria-expanded": "false", "aria-controls": benchId,
-      text: `Show bench (${rows.bench.length})`});
+      text: benchLabel(rows.bench.length, true)});
     toggle.addEventListener("click", () => {
       benchBody.hidden = !benchBody.hidden;
       toggle.setAttribute("aria-expanded", String(!benchBody.hidden));
-      toggle.textContent = `${benchBody.hidden ? "Show" : "Hide"} bench (${rows.bench.length})`;
+      toggle.textContent = benchLabel(rows.bench.length, benchBody.hidden);
     });
     return node("div", {class: "v2-find-table-wrap v2-lineup-comparison-wrap"}, table, toggle);
   }
