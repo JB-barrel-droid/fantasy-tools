@@ -1,9 +1,9 @@
 # Coordinator takeover runbook: PSpice and Muse
 
 Scope: JEG-1445 items 1 and 2 only; the ticket-pickup dry run waits for review.
-PSpice is Jeremy's own direct Codex and the default successor for the whole
+PSpice is the default successor for the whole
 Duet coordinator role. Muse is the second named successor (Jeremy, 12:39:
-"Muse should also be able to take over"). ChatGPT Dots remains an alternate.
+"Muse should also be able to take over").
 Jeremy asked:
 "Ensure PSpice will be able to take over at any time" and "Take your role,
 should it needed; is what I mean." This is a procedure and gap inventory,
@@ -12,6 +12,10 @@ Baseline inspected: `origin/main` at `76ee1c41`, 2026-10-31 UTC.
 Sources: [JEG-1445](https://linear.app/jegabee/issue/JEG-1445),
 [JEG-1444, Cutover readiness](https://linear.app/jegabee/issue/JEG-1444), and
 [JEG-1440](https://linear.app/jegabee/issue/JEG-1440), read through Linear.
+
+## Names
+
+PSpice: Jeremy's personal agent on the Dots platform. It is the same seat earlier notes call Jeremy's direct Codex; the two names mean one agent.
 
 ## Trigger and durable state
 
@@ -369,16 +373,16 @@ in this ticket. If the bridge is down, continue cloud read checks, pause build
 dispatch and mark in-flight jobs unknown. Never resubmit automatically.
 Restarts and patch activation need Jeremy's named yes.
 
-## Named successors and alternate (capability facts)
+## Named successors (capability facts)
 
-- PSpice (default): Jeremy's own direct Codex takes the whole coordinator role
-  described above, under decision 11 during cutover. This Mac session has repo shell access plus Linear and Mac bridge
-  tools. Access in another Codex environment must be checked there.
-- ChatGPT Dots: per the charter, OpenAI's always-on agent on GPT-6 Astra,
-  with its own cloud computer, browser and plugins; works with Codex in ChatGPT
-  Space. No documented API; allowance undisclosed. It would coordinate through
-  Linear, GitHub and its own connectors. This is the charter's description,
-  not an independently tested integration or a claim of Mac access.
+- PSpice (default): Jeremy's personal agent on the Dots platform, the same
+  seat earlier notes call Jeremy's direct Codex, takes the whole coordinator
+  role above under decision 11 during cutover. The charter describes the Dots
+  platform as using GPT-6 Astra, with a cloud computer, browser, plugins and
+  Codex in ChatGPT Space; no documented API, allowance undisclosed. Those are
+  platform facts, not a separate alternate agent or a verified Mac route.
+  This Mac session has repo shell, Linear and bridge tools; verify access
+  in PSpice's actual environment rather than assuming grants transfer.
 - Muse (second successor): Linear read/comment under Jeremy's name, GitHub API
   as `jkb-bur-bot`, no push wake and no route to the Mac. Uses the duty handoffs
   above and decision 11; marking is mandatory. JEG-1449 researches Mac access.
