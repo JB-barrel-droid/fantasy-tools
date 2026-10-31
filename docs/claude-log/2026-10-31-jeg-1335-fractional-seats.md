@@ -1,0 +1,58 @@
+## 2026-10-31 - Fractional flex and bench seats in the engine (JEG-1335)
+
+Contract: build option A of the JEG-1333 before/after (Jeremy, 2026-10-30 23:41 UTC, "Letter A."): fractional flex everywhere, fractional bench only when no league is loaded, sigma 0.75 PPG (JEG-1286 "Go with B"). Value math change: needs his yes by PR number before merge, and a separate yes to deploy get-values and mcp.
+
+### What changed
+- `pipelines/value_reference.py`: `allocation_mix` (seat shares from `lib/fractional_seats.py`, JEG-1334), `allocate` takes fixed flex and bench counts, `run_pipeline` runs once per whole allocation and blends (`blend_values`, `_blend_runs`). New output fields `allocation_mix` and `allocation_expected`; `allocation`, `slot_fill` and the fill sets are the heaviest allocation's. `League.seat_sigma` (None = 0.75, 0 = the hard rule).
+- `pipelines/spec_reference/value_pipeline.py`: the same, written against the spec (`Setting.seat_sigma`, `allocation_mix`, `blend`, `assign_tiers`, `default_ranking`).
+- `app/trade-value-chart/assets/value-model.js`: its own copy of the seat functions (the page, the edge functions and the headless check load only this file), `vpAllocationMix`, the per-allocation run and `vpBlendRuns`. `setting.seat_sigma`. `ValueModel.seatFunctions` exposes the copy for its parity test.
+- `pipelines/lib/roster_convention.py`: `vorp_bench_discount` split out of `vorp_bench_allocate` (same numbers) so the soft bench uses the same discount.
+- `docs/methodology.md` VP-2.2 g, `docs/decisions.md` JEG-1286 entry.
+
+### Tests
+- New `tests/test_fractional_seats_stability.py` (test-core, shard 2): for the 12 settings plus USO and Charlotte, each fringe flex and bench player's first projection source moved by -1 and +1 PPG with the allocation free; no other player moves more than 1.0 DDF Value. Passes (worst 0.59, standard/14). Its mutation test runs the hard rule (sigma 0) on Charlotte and requires the bound to break (3.76). On main the test errors (no `SEAT_SIGMA`); the hard-rule numbers per setting, measured with the same script: 13 of 14 settings over 1.0 (Charlotte 3.76, half PPR/8 2.72, USO 2.43; only standard/8 under, 0.39).
+- New `tests/test_fractional_seats_engine.py` (test-unit-modules): the engine's seat copy equals the Python helper on 200 random leagues (soft select and decomposition to 1e-12, the whole mix weights to 1e-12 and counts exact). A mutated bench sigma in the engine turns it red.
+- New `tests/test_fractional_seats_worked_example.py` and `tools/worked_example_fractional_seats.py`: the worked example's `variant_fractional_seats` block, reproduced by the reference, the spec reference and the engine.
+- Changed because the rule changed (Jeremy's answer), not to go green: the worked example fixture now says `seat_sigma: 0`, so its hand-checked hard-rule numbers stand; the test league builders pass `seat_sigma` through; `tests/test_fractional_seats.py` captures the allocate calls at sigma 0; `tests/test_league_levels_real.py` checks its frozen pre-JEG-1188 baseline and pinned counts at sigma 0 (its engine-vs-spec parity and invariants run at the default); `tests/test_waiver_band_line.py` holds the whole seat mix (weights included) when it holds the slots, and counts only a change of whole allocations as a slot flip.
+- Found by the league-levels sweep and fixed in all three: after blending, a source position's estimated count and `extended` flag come from the blended estimates (the union over allocations), not the heaviest allocation.
+- 41 suites that touch the pipeline, run on this branch and on main: same results except `test_league_levels_real` (fixed above). The rest that fail, fail identically on main because the session has no Chromium.
+- Engine against the Python reference on live inputs, 30 settings (grid with and without superflex, USO and Charlotte with no league, loaded and market): largest value difference 1e-13, allocations and tiers identical.
+- Python reference against the approved JEG-1333 prototype numbers (half PPR, USO and Charlotte, loaded and no league): identical, so the JEG-1333 before/after (`/mnt/project-files/ddf/jeg1333-fractional-flex-before-after.md`) is the before/after of this build.
+
+### Review fix: each source's pie under the blend
+- The independent review and CI found it: `players` sat in the held set, so each source's per-player records (values, slices) came whole from the heaviest allocation while budgets and rates were averaged. The page's fixed-pie guard failed on every source, `curve-widget.js` init threw before marking the engine ready, and CI's settings render timed out in `make sync` (reproduced on the Mac: "Curve regression guard failed: fixedPieIndexed").
+- Fixed in all three implementations: the per-player records blend (a player off the work list counts 0), slices are restated at the blended rate, moved and unpaid budgets blend with 0 where absent, and the work order is the heaviest allocation's with the rest after it. Rows take their estimate and reason labels from the heaviest allocation (the union could say both "estimated" and "below rosterable depth"). The page's check now subtracts the unpaid amount instead of zeroing the group, which is the same at one allocation.
+- New `tests/test_fractional_seats_pie.py` (test-unit-modules): the page's arithmetic on the worked example at the default and at 0, plus the Python and spec references. Fails on c0c535c (every source at the default), passes now. The page's check on live engine runs, 18 settings (grid, USO and Charlotte with no league, loaded and market): every source within 1e-11. Engine against Python on the 30 live settings still within 1e-13. Row values are unchanged by this fix.
+- Speedups: the seat bisection stops once its bracket stops moving, and the blend returns early when every allocation agrees (same results). `tests/test_waiver_band_line.py` makes the unperturbed run once per setting instead of once per case.
+
+### Values explainer (Codex review on ef6d859, P1)
+- The "How values work" narrative (`app/values-explainer/template.html`) still said slots are filled once. It now says flex seats are shared near the cutoff, the bench too with no league loaded, superflex stays whole, the pipeline runs per allocation and averages, and counts, tiers and labels come from the heaviest allocation. At each setting it reads the number of allocations, the heaviest weight and the expected flex counts from the engine (`valuePipelineDiagnostics` now carries `allocationMix`, `allocationExpected` and `seatSigma`; the builder passes them through).
+- `app/values-explainer/reviewed.json` records the logic-file hashes as reviewed, written the way `make values-explainer MARK_REVIEWED=1` writes it; the page build itself needs Chromium and runs in CI's `make sync`.
+
+### Rank guard fix (CI preview shard 4 on ef6d859)
+- CI's rank guard (`tests/test_rank_guard.py`, the page's `indexedOrder` check) failed at 14 settings: averaging the rows gave a player priced by a chart in only some allocations (estimated there, or on its work list there) a part Indexed value, so he could sit below a player the chart ranks lower (standard/8, CBS: an estimate at 4.99 indexed 2.55, below one at 4.17 indexed 3.82). The row blend had done this since the first head; the browser checks never ran while the PR was a draft.
+- Fixed in all three implementations (`vpReindexBlended`, `_reindex_blended`, `reindex_blended`): after the blend each chart's Indexed value is native times the blended factor (the weight-average of the allocations' factors, unchanged) for every player the blended chart prices. Methodology VP-2.2 g and the explainer's allocation step say so.
+- `tests/test_fractional_seats_pie.py` now also checks, in the engine, the Python reference and the spec reference, that Indexed is native x factor for every priced player and has 0 inversions. Fails on 7a7e76a (charts c2, c4, c5 at the default sigma in all three), passes now.
+- Effect on live data (engine, 30 settings, against 7a7e76a): DDF Value in all three versions, Adjusted, VORP and tiers are unchanged everywhere, so the JEG-1333 before/after stands. Only Indexed moves, for 8 to 35 low-end chart entries per setting (0 at the loaded and market leagues), by up to 7.4; each now shows its own value on the chart's scale instead of a part of it. Indexed inversions over priced players: 0 on all 30. Engine against Python including Indexed: within 1e-13.
+
+### Math inspector rebuild (CI preview shard 2 on f9f14e4)
+- `tests/test_math_inspector` failed at all three settings on the projections' VORP vs waivers columns: the inspector rebuilds them as value above waivers x the source's display factor, and after the blend the per-player value above waivers was an average over the allocations that list the player while the factor and the display VORP were averaged with 0, so the rebuild missed by 1e-4 to 4e-3 (run on the Mac, CI's log cuts the message). The second review had flagged it as cosmetic.
+- Fixed in all three: after the blend, value above waivers is restated as display VORP / the blended display factor. `test_fractional_seats_pie` checks vorp x factor = display VORP in all three; it fails before the fix and passes now. Every row value (DDF Value, Adjusted, VORP vs waivers, Indexed, tiers) is unchanged against f9f14e4 on the 30 live settings; only the per-player value-above-waivers intermediate moves.
+
+### Claimed, not confirmed
+- value_check compare, the rank guard, the 12-combo sweep, make validate and `make values-explainer MARK_REVIEWED=1` need Chromium, which the cloud session can't download; they run in CI or on the Mac.
+- Engine run time per setting goes from about 0.06 s to about 0.35 s (one run per allocation, 3 to 12 allocations). Not measured on the page or the edge functions.
+- `tests/test_basis_overrides.py` fails 20 tests on main as well (it runs in no make target); not this change's.
+
+## Shard 1 time limit (fifth test-core shard)
+
+preview-shard (1) was cancelled at its 30-minute job limit on f9f14e4 and 781a450. Per-suite times
+from the CI logs, main (run 41160429632) vs this PR (run 41163184229): test_seeded_hold_build 342s
+to 774s, test_v2_desktop_menu_render 329s to 570s; test_view_invariants (182s on main) was still
+running when the job was cancelled. Shard 1 is split: the desktop menu render, view invariants and
+the suites after them move to a new test-core-shard-5, and the preview and pages matrices list
+1 to 5. No test is skipped or changed; the mutation strings in test_validate_shards and
+test_preview_workflow_matches_pages follow the new matrix. No value changes.
+
+Verified (check named): tests.test_validate_shards and tests.test_preview_workflow_matches_pages pass.
+Claimed, not confirmed: both new shards finish under 30 minutes on CI (estimate about 20 each).
