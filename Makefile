@@ -294,6 +294,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
+	# JEG-1415: offline waiver-board builder and schema (slice 1 of JEG-1196).
+	python3 -m unittest tests.test_build_waiver_board
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations

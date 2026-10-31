@@ -1,0 +1,430 @@
+{
+  "board_week": 8,
+  "built_at": "2026-10-30T12:00:00Z",
+  "inputs": {
+    "values": {
+      "name": "values_half_ppr_12.json",
+      "sha256": "2e80f61f3dde6722dbebe6f6c676d85fbefe67ce7b6a27232f157eb96936b363"
+    },
+    "weekly_inputs": {
+      "name": "expected_wk8.json",
+      "sha256": "c3906beb683ebc4b7bb6fdc404be72f4077a5e0674e9586aadcd524bdb5f75d8"
+    }
+  },
+  "players": [
+    {
+      "name": "Di Delta",
+      "player_key": 104,
+      "position": "QB",
+      "team": "CCC",
+      "this_week": {
+        "bye_week": 12,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "player not in this input",
+          "points": "conflicting duplicate rows at the same snapshot",
+          "practice_participation": "player not in this input",
+          "status": "player not in this input"
+        },
+        "on_bye": false,
+        "points": null,
+        "practice_participation": null,
+        "status": null
+      },
+      "value": {
+        "change": 0.0,
+        "ddf_value": 22.0,
+        "missing_reason": {},
+        "prior_ddf_value": 22.0
+      }
+    },
+    {
+      "name": "Ann Alpha",
+      "player_key": 101,
+      "position": "WR",
+      "team": "AAA",
+      "this_week": {
+        "bye_week": 10,
+        "injury_status": "Questionable",
+        "missing_reason": {},
+        "on_bye": false,
+        "points": 12.0,
+        "practice_participation": "Limited",
+        "status": "Active"
+      },
+      "value": {
+        "change": 4.25,
+        "ddf_value": 14.25,
+        "missing_reason": {},
+        "prior_ddf_value": 10.0
+      }
+    },
+    {
+      "name": "Gus Golf",
+      "player_key": 110,
+      "position": "WR",
+      "team": "DDD",
+      "this_week": {
+        "bye_week": null,
+        "injury_status": null,
+        "missing_reason": {
+          "bye_week": "not in the weekly inputs",
+          "injury_status": "not in the weekly inputs",
+          "on_bye": "not in the weekly inputs",
+          "points": "not in the weekly inputs",
+          "practice_participation": "not in the weekly inputs",
+          "status": "not in the weekly inputs"
+        },
+        "on_bye": null,
+        "points": null,
+        "practice_participation": null,
+        "status": null
+      },
+      "value": {
+        "change": -0.5,
+        "ddf_value": 9.0,
+        "missing_reason": {},
+        "prior_ddf_value": 9.5
+      }
+    },
+    {
+      "name": "Cy Charlie",
+      "player_key": 103,
+      "position": "TE",
+      "team": "AAA",
+      "this_week": {
+        "bye_week": 10,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "player not in this input",
+          "practice_participation": "player not in this input",
+          "status": "player not in this input"
+        },
+        "on_bye": false,
+        "points": 7.1,
+        "practice_participation": null,
+        "status": null
+      },
+      "value": {
+        "change": -0.5,
+        "ddf_value": 6.5,
+        "missing_reason": {},
+        "prior_ddf_value": 7.0
+      }
+    },
+    {
+      "name": "Fay Foxtrot",
+      "player_key": 106,
+      "position": "WR",
+      "team": "BBB",
+      "this_week": {
+        "bye_week": 8,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "not set in the Sleeper record",
+          "points": "player not in this input",
+          "practice_participation": "not set in the Sleeper record"
+        },
+        "on_bye": true,
+        "points": null,
+        "practice_participation": null,
+        "status": "Active"
+      },
+      "value": {
+        "change": 3.25,
+        "ddf_value": 3.25,
+        "missing_reason": {},
+        "prior_ddf_value": 0.0
+      }
+    },
+    {
+      "name": "Ben Bravo",
+      "player_key": 102,
+      "position": "RB",
+      "team": "BBB",
+      "this_week": {
+        "bye_week": 8,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "not set in the Sleeper record",
+          "practice_participation": "not set in the Sleeper record"
+        },
+        "on_bye": true,
+        "points": 0.0,
+        "practice_participation": null,
+        "status": "Active"
+      },
+      "value": {
+        "change": null,
+        "ddf_value": 0.0,
+        "missing_reason": {
+          "change": "no DDF Value in week 7",
+          "prior_ddf_value": "no DDF Value in week 7"
+        },
+        "prior_ddf_value": null
+      }
+    },
+    {
+      "name": "Ed Echo",
+      "player_key": 105,
+      "position": "RB",
+      "team": "CCC",
+      "this_week": {
+        "bye_week": 12,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "player not in this input",
+          "points": "blank in the ESPN weekly file",
+          "practice_participation": "player not in this input",
+          "status": "player not in this input"
+        },
+        "on_bye": false,
+        "points": null,
+        "practice_participation": null,
+        "status": null
+      },
+      "value": {
+        "change": null,
+        "ddf_value": null,
+        "missing_reason": {
+          "change": "not priced by DDF Value at this setting",
+          "ddf_value": "not priced by DDF Value at this setting",
+          "prior_ddf_value": "no DDF Value in week 7"
+        },
+        "prior_ddf_value": null
+      }
+    },
+    {
+      "name": "Hal Hotel",
+      "player_key": 108,
+      "position": "TE",
+      "team": "CCC",
+      "this_week": {
+        "bye_week": 12,
+        "injury_status": null,
+        "missing_reason": {
+          "injury_status": "two sleeper ids for one player_key",
+          "points": "player not in this input",
+          "practice_participation": "two sleeper ids for one player_key",
+          "status": "two sleeper ids for one player_key"
+        },
+        "on_bye": false,
+        "points": null,
+        "practice_participation": null,
+        "status": null
+      },
+      "value": {
+        "change": null,
+        "ddf_value": null,
+        "missing_reason": {
+          "change": "not priced by DDF Value at this setting",
+          "ddf_value": "not priced by DDF Value at this setting",
+          "prior_ddf_value": "no DDF Value in week 7"
+        },
+        "prior_ddf_value": null
+      }
+    },
+    {
+      "name": "Ivy India",
+      "player_key": 109,
+      "position": "QB",
+      "team": "ZZZ",
+      "this_week": {
+        "bye_week": null,
+        "injury_status": null,
+        "missing_reason": {
+          "bye_week": "team ZZZ not in bye table",
+          "injury_status": "not set in the Sleeper record",
+          "on_bye": "team ZZZ not in bye table",
+          "points": "player not in this input",
+          "practice_participation": "not set in the Sleeper record"
+        },
+        "on_bye": null,
+        "points": null,
+        "practice_participation": null,
+        "status": "Active"
+      },
+      "value": {
+        "change": null,
+        "ddf_value": null,
+        "missing_reason": {
+          "change": "not priced by DDF Value at this setting",
+          "ddf_value": "not priced by DDF Value at this setting",
+          "prior_ddf_value": "no DDF Value in week 7"
+        },
+        "prior_ddf_value": null
+      }
+    }
+  ],
+  "points_leg": "experts.espn_weekly",
+  "producer": "pipelines/build_waiver_board.py",
+  "schema": "waiver-board",
+  "schema_version": "0.1.0",
+  "season": 2026,
+  "sections": {
+    "available": false,
+    "missing_reason": "sections and ADD, PASS, HOLD and DROP verdicts are not built yet (JEG-1417); they need rostered % (JEG-1416) and a rule Jeremy picks"
+  },
+  "setting": {
+    "scoring": "half_ppr",
+    "superflex": 0,
+    "teams": 12
+  },
+  "sources": {
+    "bye": {
+      "availability": "partial",
+      "content_season": 2026,
+      "content_vintage": null,
+      "content_week": null,
+      "disabled_reason": null,
+      "enabled": true,
+      "feeds": [
+        "bye_week",
+        "on_bye"
+      ],
+      "freshness": "unknown",
+      "label": "modeled",
+      "lane": "week",
+      "source": "nfl_byes"
+    },
+    "experts.ecr_weekly": {
+      "availability": "unavailable",
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "disabled_reason": "no weekly ECR producer yet (JEG-1195 slice S3b)",
+      "enabled": false,
+      "feeds": [],
+      "freshness": null,
+      "label": "unavailable",
+      "lane": "week",
+      "source": "fantasypros_ecr"
+    },
+    "kickoff": {
+      "availability": "unavailable",
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "disabled_reason": "not in the weekly-input contract 1.0.0 yet (JEG-1416)",
+      "enabled": false,
+      "feeds": [],
+      "freshness": null,
+      "label": "unavailable",
+      "lane": "week",
+      "source": null
+    },
+    "points": {
+      "availability": "partial",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "disabled_reason": null,
+      "enabled": true,
+      "feeds": [
+        "points"
+      ],
+      "freshness": "current",
+      "label": "published",
+      "lane": "week",
+      "source": "espn"
+    },
+    "rostered_pct": {
+      "availability": "unavailable",
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "disabled_reason": "not in the weekly-input contract 1.0.0 yet (JEG-1416)",
+      "enabled": false,
+      "feeds": [],
+      "freshness": null,
+      "label": "unavailable",
+      "lane": "week",
+      "source": null
+    },
+    "status": {
+      "availability": "partial",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "disabled_reason": null,
+      "enabled": true,
+      "feeds": [
+        "status",
+        "injury_status",
+        "practice_participation"
+      ],
+      "freshness": "current",
+      "label": "published",
+      "lane": "week",
+      "source": "sleeper"
+    },
+    "values": {
+      "availability": "complete",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 8,
+      "disabled_reason": null,
+      "enabled": true,
+      "feeds": [
+        "ddf_value"
+      ],
+      "freshness": "current",
+      "label": "published",
+      "lane": "value",
+      "source": "fixture"
+    },
+    "values_prior": {
+      "availability": "complete",
+      "content_season": 2026,
+      "content_vintage": "2026-10-28",
+      "content_week": 7,
+      "disabled_reason": null,
+      "enabled": true,
+      "feeds": [
+        "prior_ddf_value",
+        "change"
+      ],
+      "freshness": "current",
+      "label": "published",
+      "lane": "value",
+      "source": "fixture"
+    },
+    "vegas": {
+      "availability": "unavailable",
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "disabled_reason": "no Vegas producer yet (JEG-1195 slice S3)",
+      "enabled": false,
+      "feeds": [],
+      "freshness": null,
+      "label": "unavailable",
+      "lane": "week",
+      "source": "propline"
+    }
+  },
+  "swaps": {
+    "available": false,
+    "missing_reason": "roster-matched swaps are not built yet (JEG-1418)"
+  },
+  "unresolved": [
+    {
+      "name": "Nobody Known",
+      "position": "RB",
+      "team": null,
+      "unresolved_reason": "unresolved: name: unmatched"
+    },
+    {
+      "name": "Unresolved espn_player_key 999",
+      "position": "WR",
+      "team": "AAA",
+      "unresolved_reason": "player_key 999 not in players snapshot"
+    },
+    {
+      "name": "Unresolved espn_row 12",
+      "position": "WR",
+      "team": "CCC",
+      "unresolved_reason": "espn row has no player_key"
+    }
+  ]
+}

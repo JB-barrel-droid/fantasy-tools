@@ -19,6 +19,18 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Waiver board slice 1 (JEG-1415, child of JEG-1196, Claude, 2026-10-31 UTC): draft PR, not merged
+
+- Branch `claude/JEG-1196-waiver-board-pipeline`. New `pipelines/build_waiver_board.py` (offline builder),
+  `pipelines/lib/waiver_board.py` (schema `waiver-board` 0.1.0 and validator), `docs/waiver-board-contract.md`,
+  fixtures `tests/fixtures/waiver_board/`, tests `tests/test_build_waiver_board.py` (in test-unit-modules).
+- Reads a weekly-inputs 1.x artifact and DDF Value from `value_reference.py` (Adjusted `ddf_value`, read-only) or a saved
+  snapshot. Value lane and This week lane never blend; disabled sources null what they feed, with the reason.
+  No UI, no publication, no new value math.
+- Next: independent review, green CI, merge gate. Later slices are JEG-1416 (rostered % and kickoff on the contract),
+  JEG-1417 (sections and verdicts; the ADD/PASS rule goes to Jeremy first), JEG-1418 (swaps), JEG-1419 (build in
+  `make sync`), JEG-1420 (the view).
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
