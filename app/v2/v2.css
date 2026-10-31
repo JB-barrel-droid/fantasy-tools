@@ -1961,8 +1961,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
   .v2-table td.player .v2-nm, .v2-ttable td.player .v2-nm { display: block; max-width: 148px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 }
 
-/* ===== JEG-953 hamburger navigation (phones) =====================================================================
-   Phone = under 768 px wide, or a landscape phone (up to 932 px wide and 500 px tall, e.g. 844x390). There the tab
+/* ===== JEG-953 hamburger navigation (phones) ==============================================================   Phone = under 768 px wide, or a landscape phone (up to 932 px wide and 500 px tall, e.g. 844x390). There the tab
    row collapses into a menu opened by a 44x44 button. Desktop and tablet keep the tab row. Keep this block last: it
    overrides the older short-label and wrap rules above with higher specificity. */
 /* JEG-1106: the button and the grouped menu are the navigation at every width. The top bar keeps the button, the
@@ -2155,8 +2154,7 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 .v2-find-list li.v2-find-group[data-find-fit="natural"] .v2-find-fit b { color: var(--v2-action-strong); }
 .v2-find-list li.v2-find-group[data-find-fit="force"] .v2-find-fit b { color: var(--v2-older); }
 
-/* ===== Season-value notice in the top bar ===========================================================================
-   A slim row under the tab row. On desktop it takes the 18 px the nav row gives up (46 + 18 = the old 64 px), so the
+/* ===== Season-value notice in the top bar ====================================================================   A slim row under the tab row. On desktop it takes the 18 px the nav row gives up (46 + 18 = the old 64 px), so the
    header is the same height shown or dismissed. The full list opens as an overlay under the bar, so it adds no height.
    On a phone it is one truncated line with 44 px More and Dismiss buttons. */
 .v2-nav { position: relative; }
@@ -2609,6 +2607,8 @@ body.v2-expand-open .v2-tip { z-index: 59; }   /* the hover card shows over the 
 :root[data-design="fieldnotes"] .v2-find-import > summary::-webkit-details-marker { display: none; }
 :root[data-design="fieldnotes"] .v2-find-import > summary::after { content: "+"; margin-left: auto; font-size: 22px; font-weight: 400; }
 :root[data-design="fieldnotes"] .v2-find-import[open] > summary::after { content: "\2212"; }
+/* JEG-892 path B: Sleeper injury status chip beside the bye on player rows (same look as the Waivers tag). */
+.v2-inj-chip { display: inline-block; margin-left: 6px; padding: 0 5px; border: 1px solid var(--v2-older); border-radius: 4px; font-size: 11px; font-weight: 700; color: var(--v2-older); }
 /* JEG-1137 slice 2a end */
 /* JEG-1137 slice 2b: Fieldnotes navigation, Home and the phone league entry (opt-in, same flag). Source: prototype.html
    topbar, bottomnav, home() and the phone paste(). Markup: shell.html #v2FnPrimary and #v2Home, league.js #v2LgPhoneEntry.
