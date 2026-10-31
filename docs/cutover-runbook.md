@@ -37,8 +37,7 @@ description, a historical handoff or a planned action.
    recent commits, Linear comments and open PRs before editing. Use an isolated
    approved worktree; leave other owners' dirty files alone.
 2. Confirm the work was started by Jeremy or an authorized coordinator's
-   label/state action. A spec is never an approval. For this ticket the
-   coordinator already posted the claim: do not post a second claim.
+   label/state action. A spec is never an approval.
 3. Read Todo tickets by Linear priority, then oldest first. Backlog is not
    the queue. The `ready-for-claude` Backlog exception and `claude` owner label
    need a neutral replacement decision (Open below); do not silently apply
@@ -54,9 +53,9 @@ description, a historical handoff or a planned action.
 5. For an authorized new claim, set In Progress and record `taken by
    <session/provider> · <UTC time> · branch <name>` plus the instruction source.
    Keep assignee Jeremy. State the model tier in the brief; Session, Model
-   tier and BE priority label groups are retired. Use the branch and ownership
-   exception explicitly assigned for non-Claude work; unresolved label policy
-   goes to Jeremy rather than impersonating a Claude session.
+   tier and BE priority label groups are retired. JEG-1445 uses
+   `codex/JEG-xxxx-…` branches. Any other provider's branch prefix or ownership
+   label is Jeremy's call; do not impersonate a Claude session.
 6. At least every four active hours, every push and when parking, preserve
    what is done, next action and backup branch on Linear. Push validated work
    with an explicit `branch:branch` refspec; never bare push, main push,
@@ -168,6 +167,8 @@ resubmit automatically. Restarts and bridge activation need Jeremy's named yes.
 - Resolve neutral claim labels, queue exception and branch conventions against
   the Claude-only wording. This ticket's explicit Codex assignment is narrow,
   not a rewrite of `AGENTS.md` or permission for unrelated tickets.
+- JEG-1445 uses `codex/JEG-xxxx-…` branches; any other provider's branch
+  prefix or ownership label is Jeremy's call.
 - JEG-1440 must publish and verify the reproducible bridge entry/restore path.
 - After review, separately authorize/run JEG-1445 item 3: one small Todo pickup
   from Linear alone, recording each obstruction. No dry-run success claimed.
@@ -195,6 +196,7 @@ the inherited merge restriction noted below. No inventoried source is edited.
 - `AGENTS.md:199`: claim procedure requires adding `claude` and removing `ready-for-claude`.
 - `AGENTS.md:206`: heartbeat backup-branch convention assumes `claude/<ticket>-<slug>`.
 - `AGENTS.md:240`: merge protocol executor is explicitly the Claude merge session.
+- `AGENTS.md:297`: Mac-local `~/Projects/"fantasy tools"/Claude outputs/` is the only permitted access within that project folder; its player-news raw inputs are not recoverable from the repo alone.
 - `AGENTS.md:344`: legacy claude.ai artifact and daily republish task remain pending live verification; independent access/control is not documented here.
 - `CLAUDE.md:8`: user-level Linear/Usage Discipline instructions assumed available outside the repo.
 - `CLAUDE.md:11`: delegation names Claude `deep-worker`/Opus and `worker`/Sonnet tools.
