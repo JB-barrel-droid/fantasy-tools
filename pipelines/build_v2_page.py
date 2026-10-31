@@ -32,6 +32,7 @@ RESEARCH_DIR = APP_V2 / "research"
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
 NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
+PLAYER_STATUS = ROOT / "data" / "inputs" / "player_status.json"
 
 # The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
 # defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
@@ -359,18 +360,22 @@ def nfl_byes_js(path: Path = NFL_BYES) -> str:
     return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
 
 
-def player_status_js(path: Path = PLAYERS) -> str:
-    """window.TradeValueStatus: when the injury status on players.json rows was pulled from Sleeper (JEG-1312).
+def player_status_js(path: Path = PLAYER_STATUS) -> str:
+    """Dated daily display status; never re-date or fall back to the baked injury_status.
 
-    The rows' injury_status comes from the Sleeper identity base the bake read, and the bake records that base's
-    pulled_at in meta.universe.nfl_active.identity_base_pulled_at, so this is the date of the status the page actually
-    ships (not today's Supabase snapshot). A missing file or date gives as_of null: the Waivers tab then shows no
-    status, never an undated one."""
-    as_of = None
+    Rows join only by their existing Sleeper id. This payload cannot alter
+    players.json, the roster universe or any value input. The reader's clock
+    hides an old snapshot on each render, independently of the deploy time.
+    """
+    from pull_player_status import check_snapshot
+
+    data = {"source": "Sleeper", "as_of": None, "by_sleeper_id": {}}
     if path.exists():
-        meta = json.loads(path.read_text(encoding="utf-8")).get("meta") or {}
-        as_of = ((meta.get("universe") or {}).get("nfl_active") or {}).get("identity_base_pulled_at")
-    data = {"source": "Sleeper", "as_of": as_of if isinstance(as_of, str) and as_of else None}
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        problems = check_snapshot(snapshot)
+        if problems:
+            raise ValueError("Invalid player status snapshot: " + "; ".join(problems))
+        data = {k: snapshot[k] for k in ("source", "as_of", "by_sleeper_id")}
     return "window.TradeValueStatus = " + json.dumps(data, separators=(",", ":")) + ";\n"
 
 
