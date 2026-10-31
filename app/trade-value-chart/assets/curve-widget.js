@@ -530,7 +530,7 @@
   }
 
   // A published chart's saved 12-team native values at this scoring. With a
-  // superflex slot on the roster, the publisher's own superflex / 2-QB values
+  // superflex slot or 2+ QB slots on the roster (JEG-1365), the publisher's own superflex / 2-QB values
   // (saved as `native_superflex`, same units) replace its 1-QB values where it
   // publishes them (VP-0 "Superflex"). Where it publishes none, the 1-QB
   // values go through the league math unchanged (JEG332-SUPERFLEX-FLEX).
@@ -541,7 +541,7 @@
       if (canonicalByKey.has(playerKey) && Number.isFinite(value)) native.set(playerKey, value);
     });
     take(savedPublishedRow(key, "native"));
-    if (native.size && ValueModel.superflexCount(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
+    if (native.size && ValueModel.usesSuperflexValues(rosterShape)) take(savedPublishedRow(key, "native_superflex"));
     return native;
   }
 
@@ -3633,7 +3633,9 @@
       const funded = {...result.budgets};
       (src.unfundedMoved || []).forEach(move => { funded[move.to] += move.amount; funded[move.from] -= move.amount; });
       const unpaid = (src.unfundedGroups || []).reduce((sum, g) => sum + g.amount, 0);
-      (src.unfundedGroups || []).forEach(g => { funded[g.group] = 0; });
+      // The unpaid amount, not the whole budget: with the seat mix (JEG-1335) a
+      // group can be unpaid in only some allocations. At one allocation the two agree.
+      (src.unfundedGroups || []).forEach(g => { funded[g.group] -= g.amount; });
       const groups = {};
       Object.keys(funded).forEach(g => { groups[g] = {total: 0, budget: funded[g]}; });
       let total = 0, vorpTotal = 0;
@@ -4115,7 +4117,7 @@
       // whose values a superflex slot uses (the publisher's own, VP-0).
       publishedDerivation:Object.fromEntries([...AS_PUBLISHED_KEYS].map(key => [key, {
         mode: onSavedSetup() ? "saved" : "derived",
-        superflex: ValueModel.superflexCount(rosterShape)
+        superflex: ValueModel.usesSuperflexValues(rosterShape)
           ? (publishesSuperflex(key) ? "publisher superflex values" : "derived from 1-QB values") : null}]))};
     window.TradeValueCurveDiagnostics = Object.freeze(diagnostics);
     const failed = Object.entries(diagnostics).filter(([key, value]) => ["sourceMapCoverage", "sourceToggles", "noAggregate", "stableDomain", "validValues", "distinctSourcePeaks", "valuesAboveCollapseFloor", "dynamicAxisCoversData", "sharedPlayerAxis", "rosterTransitions", "fixedPieIndexed", "defaultGroupedSources", "adjustableBenchShare", "tieredDdfValues"].includes(key) && value !== true);

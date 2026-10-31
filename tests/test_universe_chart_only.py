@@ -177,6 +177,63 @@ class FixtureKeysTest(unittest.TestCase):
         self.assertTrue(set(before.items()) <= set(fixture["player_keys"].items()))
 
 
+    def _committed_with(self, tmp, drop_keys):
+        """Write the committed fixture and a players.json holding every
+        fixture key except ``drop_keys`` (players merged away and deleted)."""
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        keys = sorted({k for k in fixture["player_keys"].values() if isinstance(k, int)})
+        fixture_path = Path(tmp) / "comparison-sources-data.json"
+        fixture_path.write_text(json.dumps(fixture, indent=2) + "\n", encoding="utf-8")
+        slug_of = {k: s for s, k in fixture["player_keys"].items()}
+        players_path = Path(tmp) / "players.json"
+        players_path.write_text(json.dumps({"players": [
+            {"player_key": k, "name": fixture.get("display", {}).get(slug_of[k], slug_of[k])}
+            for k in keys if k not in drop_keys]}), encoding="utf-8")
+        return fixture_path, players_path, [(slug_of[k], k) for k in sorted(drop_keys)]
+
+    def test_merged_away_players_leave_player_keys_so_validate_passes(self):
+        # JEG-1391: JEG-1351 merged 4653, 4655 and 4660 into 2785, 437 and
+        # 4363 and deleted them; their slugs stayed and every chain run
+        # failed build_reference_data's orphan check.
+        import build_reference_data
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        merged = {k for k in fixture["player_keys"].values() if isinstance(k, int)}
+        merged = set(sorted(merged)[:3])  # any three keys stand in for the merged rows
+        fixture_path, players_path, gone = self._committed_with(tmp, merged)
+        removed = []
+        sync_universe_keys.sync_files(players_path, fixture_path, removed)
+        self.assertEqual(sorted(gone), sorted(removed))
+        after = json.loads(fixture_path.read_text(encoding="utf-8"))
+        for slug, key in gone:
+            self.assertNotIn(slug, after["player_keys"])
+            self.assertNotIn(slug, after.get("display", {}))
+            self.assertNotIn(slug, after.get("teams", {}))
+        players = json.loads(players_path.read_text(encoding="utf-8"))["players"]
+        build_reference_data.validate_comparison(
+            after, {p["player_key"] for p in players})
+
+    def test_prune_keeps_every_slug_when_players_json_is_short(self):
+        fixture = json.loads(FIXTURE.read_text(encoding="utf-8"))
+        before = dict(fixture["player_keys"])
+        keys = sorted({k for k in before.values() if isinstance(k, int)})
+        self.assertEqual([], sync_universe_keys.prune(fixture, []))
+        half = [{"player_key": k} for k in keys[: len(keys) // 2]]
+        self.assertEqual([], sync_universe_keys.prune(fixture, half))
+        self.assertEqual(before, fixture["player_keys"])
+
+    def test_prune_leaves_present_players_and_non_int_entries(self):
+        fixture = {"player_keys": {"a": 1, "b": 2, "legacy": "x"},
+                   "display": {"a": "A", "b": "B"}, "teams": {"b": "MIA"}}
+        fixture["player_keys"].update({f"p{i}": 100 + i for i in range(60)})
+        players = [{"player_key": 1}] + [{"player_key": 100 + i} for i in range(60)]
+        self.assertEqual([("b", 2)], sync_universe_keys.prune(fixture, players))
+        self.assertEqual(1, fixture["player_keys"]["a"])
+        self.assertEqual("x", fixture["player_keys"]["legacy"])
+        self.assertEqual({"a": "A"}, fixture["display"])
+        self.assertEqual({}, fixture["teams"])
+
 class CommittedUniverseTest(unittest.TestCase):
     """Data check (fails until the chain re-bakes with the expanded universe):
     every player the served week's published charts price has a players.json

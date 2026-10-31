@@ -76,6 +76,7 @@
     {"jobname": "weekly-fantasypros-daily-check", "check_id": "weekly_fantasypros_pull"}
   ],
   "unmonitored_workflows": {
+    "source-lateness.yml": "hourly GitHub-scheduled watchdog for the pg_cron-driven probes and ingests (JEG-1200); it alerts through its own source-late GitHub issue, and a missed hour only delays a signal",
     "full-suite.yml": "informational nightly full test suite (JEG-1169); gates nothing, a missed night only delays a signal",
     "edge-drift-check.yml": "informational daily read-only check that deployed mcp/get-values match main (JEG-1049); gates nothing, a red run in Actions is the signal, a missed day only delays it",
     "espn-history-probe.yml": "manual one-off probe (JEG-521 G4 d); no schedule, nothing to miss",
@@ -85,6 +86,7 @@
     "v2-render-test.yml": "pull_request/manual merge-time render test (JEG-618); no schedule, nothing to miss",
     "jeg1265-values-fieldnotes.yml": "pull_request/manual check of the isolated Values Fieldnotes component and its screenshots (JEG-1265); no schedule, nothing to miss",
     "jeg1140-settings-render.yml": "pull_request/manual render check of the isolated Settings components (JEG-1140); no schedule, nothing to miss",
+    "waivers-mutation-offline.yml": "pull_request/manual non-blocking check of the Waivers mutation offline classes (JEG-1373); no schedule, nothing to miss",
     "record-pages-deploy.yml": "event-driven recorder for pages.yml (workflow_run); it is the evidence for check site_deploy, not a pipeline",
     "divergence-issues.yml": "push (when dist/modules/source-divergence.json changes) and manual; opens Linear sub-issues for flagged source-weeks (JEG-610); no schedule, nothing to miss",
     "loader-dry-run.yml": "push/manual dry run of the loader; no schedule",

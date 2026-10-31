@@ -86,11 +86,14 @@ def captured():
             _calls.append((league, copy.deepcopy(order), dict(score), copy.deepcopy(out), kw))
             return out
 
-        VR.allocate = patched
+        # JEG-1335: the pipeline now runs the mix; sigma 0 makes it call
+        # allocate once per allocation, today's hard rule, as before.
+        VR.allocate, sigma = patched, VR.SEAT_SIGMA
+        VR.SEAT_SIGMA = 0.0
         try:
             _setting(inp, name).result()
         finally:
-            VR.allocate = orig
+            VR.allocate, VR.SEAT_SIGMA = orig, sigma
         _CAPTURED[name] = calls
     return _CAPTURED
 

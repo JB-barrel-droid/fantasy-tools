@@ -96,6 +96,9 @@ CASES = {
     "lose-two-of-four": ([player(1, 70, 70, 70, 70, 70, 70, 70)], [player(2, 50, 50, 50, 50, 50, 80, 80)], False),
     # N13: every source agrees you win -> propose Yes, accept Unlikely (consistent, no contradiction).
     "all-agree-win": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 70, 70, 70, 70)], False),
+    # JEG-1125 option A: every chart moves +0.8, inside its 1.5-point even band, so each chart calls it even: the
+    # other manager breaks even on all 4 (Likely) and no chart backs the Yes (capped Low). Before A: Unlikely, High.
+    "charts-inside-band": ([player(1, 50, 50, 50, 50, 50, 50, 50)], [player(2, 70, 70, 70, 50.8, 50.8, 50.8, 50.8)], False),
 }
 
 HARNESS = """
@@ -126,8 +129,9 @@ def level_for(share: float) -> str:
     return "High" if share >= 0.75 else "Medium" if share >= 0.6 else "Low"
 
 
-def sign(net: float) -> int:
-    return 0 if abs(net) < 0.05 else (1 if net > 0 else -1)
+def sign(net: float, give: float, receive: float) -> int:
+    """JEG-1125 option A (Jeremy, 2026-10-29): one even band, max(1, 3% of the average side), per series."""
+    return 0 if abs(net) < max(1.0, 0.03 * (give + receive) / 2) else (1 if net > 0 else -1)
 
 
 def expected(case, charts=CHARTS) -> dict:
@@ -143,6 +147,9 @@ def expected(case, charts=CHARTS) -> dict:
         if any(v is None for v in values):
             return None
         return sum(p["values"][key] for p in receive) - sum(p["values"][key] for p in give)
+
+    def key_sign(key):
+        return sign(net(key), sum(p["values"][key] for p in give), sum(p["values"][key] for p in receive))
 
     def traded(key):
         vals = [p["values"].get(key) for p in give + receive]
@@ -202,7 +209,7 @@ def expected(case, charts=CHARTS) -> dict:
 
         if answer in ("Yes", "No"):
             want_sign = 1 if answer == "Yes" else -1
-            agreeing = sum(1 for n in complete_charts if sign(n) == want_sign)
+            agreeing = sum(1 for k in CHARTS if net(k) is not None and key_sign(k) == want_sign)
             # JEG-950 (Jeremy 2026-10-25): 3+ keep the level, 2 cap at Medium, 0 or 1 cap at Low.
             cap = "High" if agreeing >= 3 else "Medium" if agreeing == 2 else "Low"
             level = LEVELS[min(LEVELS.index(level), LEVELS.index(cap))]
@@ -211,10 +218,11 @@ def expected(case, charts=CHARTS) -> dict:
 
     # Line 2: charts on which the other manager wins or breaks even (unchanged).
     nets = [n for n in (net(k) for k in CHARTS) if n is not None]
+    signs = [key_sign(k) for k in CHARTS if net(k) is not None]
     if not nets:
         result["accept"] = {"answer": None, "confidence": None}
     else:
-        yes = sum(1 for n in nets if sign(n) <= 0)
+        yes = sum(1 for s in signs if s <= 0)
         no = len(nets) - yes
         share = yes / len(nets)
         answer = "Likely" if share >= 2 / 3 else "Unlikely" if share <= 1 / 3 else "Toss-up"
@@ -255,6 +263,7 @@ ANCHORS = {
     "even-no-support": {"propose": ("Unclear", "Low"), "accept": ("Likely", "Low")},
     # N13: every source agrees -> Yes (not contradictory with Unlikely accept).
     "all-agree-win": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
+    "charts-inside-band": {"propose": ("Yes", "Low"), "accept": ("Likely", "High")},
     # JEG-950: three-of-four has one chart (cbs) against; two-of-four has two against.
     "three-of-four": {"propose": ("Yes", "High"), "accept": ("Unlikely", "High")},
     "two-of-four": {"propose": ("Yes", "Medium"), "accept": ("Toss-up", "Low")},
@@ -303,7 +312,7 @@ MUTATIONS = {
         ""
     ),
     # Other manager wins flipped on accept line.
-    "other manager wins flipped": ("signOf(row.net) <= 0).length", "signOf(row.net) >= 0).length"),
+    "other manager wins flipped": ("rowSign(row) <= 0).length", "rowSign(row) >= 0).length"),
     # High threshold lowered on accept.
     "High threshold lowered": ("share >= 0.75 ? \"High\"", "share >= 0.5 ? \"High\""),
     # JEG-950: the 3-chart requirement for High removed or loosened must be caught.

@@ -68,6 +68,8 @@ def soft_select(items, n):
     hi = max(float(s) for _, s, _ in items) + 50.0 * gmax + 1.0
     for _ in range(_BISECT):
         tau = 0.5 * (lo + hi)
+        if tau <= lo or tau >= hi:
+            break   # the interval can't shrink further: later steps change nothing
         tot = 0.0
         for _p, s, g in items:
             tot += phi((float(s) - tau) / float(g))

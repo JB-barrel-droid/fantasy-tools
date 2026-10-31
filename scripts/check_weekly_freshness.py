@@ -12,6 +12,14 @@ Staleness rules (see runbooks/weekly-dashboard-freshness.md):
 - CRITICAL: no current run; published week != expected week (from Wednesday);
   newest run older than 8 days (loader dead).
 - WARNING: signal_count == 0 on the current run; bundle_built_at older than 8 days.
+
+Trade-chart sources (JEG-1180): each source in the chain status
+(`source_weeks` in output/comparison-chain-status.json, or $DDF_CHAIN_STATUS)
+is judged by its OWN served week with the shared rule in
+pipelines/week_state.py: lagging is normal Tuesday through Thursday morning;
+still on week N after Thursday 12:00 CT of week N+1 is stale. Stale prints a
+warning annotation and never changes the exit code. See
+docs/week-transition-runbook.md.
 """
 import datetime as dt
 import os
@@ -28,6 +36,10 @@ import sbclient  # noqa: E402
 # BUMP the season there every August (runbook).
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "pipelines"))
 import nfl_week  # noqa: E402
+import week_state  # noqa: E402
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+CHAIN_STATUS = os.path.join(REPO, "output", "comparison-chain-status.json")
 
 SEASON = nfl_week.SEASON
 RUN_MAX_AGE_DAYS = 8
@@ -53,6 +65,39 @@ def expected_week(today):
     return {raw}
 
 
+def source_week_report(now, path=None):
+    """[(source, status)] for every source in the chain status, each judged
+    by its own served week at `now` (week_state.source_week_status). An
+    absent or unreadable status file yields []: this report never fails."""
+    import json
+    path = path or os.environ.get("DDF_CHAIN_STATUS") or CHAIN_STATUS
+    try:
+        with open(path, encoding="utf-8") as fh:
+            weeks = json.load(fh).get("source_weeks") or {}
+    except (OSError, ValueError, AttributeError):
+        return []
+    if not isinstance(weeks, dict):
+        return []
+    annotated = week_state.annotate_source_weeks(weeks, now)
+    return [(source, annotated[source]) for source in sorted(annotated)]
+
+
+def report_source_weeks(now, path=None):
+    """Print each source's served week and state; stale sources get a
+    warning annotation. Returns the stale source names. Never a breach."""
+    stale = []
+    for source, st in source_week_report(now, path):
+        line = (f"source {source}: serves Week {st['served_week']} "
+                f"(calendar Week {st['expected_week']}) -> {st['state']}")
+        if st["state"] == "stale":
+            stale.append(source)
+            annotate("warning", f"{line}; still behind after Thursday 12:00 CT "
+                                f"({st['stale_after']}). Warning only (docs/week-transition-runbook.md)")
+        else:
+            print(f"INFO: {line}")
+    return stale
+
+
 def main():
     breaches = []
     warnings = []
@@ -65,7 +110,12 @@ def main():
         annotate("error", f"status view returned {len(rows)} rows, expected exactly 1")
         return 1
     s = rows[0]
-    today = dt.datetime.now(dt.timezone.utc).date()
+    # One New York calendar (JEG-1177): the UTC date ran a day ahead each
+    # evening Eastern. The instant is read here so tests freeze it.
+    now = dt.datetime.now(dt.timezone.utc)
+    today = nfl_week.today_ny(now)
+    # JEG-1180: per-source week states, warning only (exit code unchanged).
+    report_source_weeks(now)
 
     if not s.get("has_current"):
         breaches.append("no current weekly run (has_current=false)")

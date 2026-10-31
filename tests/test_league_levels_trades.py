@@ -46,9 +46,12 @@ VARIANTS = {"ddf": ("ddf", "ddf"), "market": ("market", "market"), "page": ("ddf
 # JEG-1047 / JEG-1249 integration (Jeremy, 2026-10-29: "A, 7-player average"): a projection's waiver line
 # is the 7-player band around the line row, which moved the counts from (99, 9, 16) / (112, 9, 8) /
 # (317, 44, 25) for USO and (136, 15, 24) / (97, 12, 21) / (720, 65, 104) for Charlotte.
+# JEG-1125 (Jeremy, 2026-10-29: option A): "even" is now one band, max(1 point, 3% of the average side), for the DDF
+# edge and every chart, not 0.0 as shown, which moved the counts from (100, 8, 20) / (109, 9, 6) / (308, 42, 21)
+# for USO and (135, 15, 24) / (107, 13, 23) / (711, 65, 102) for Charlotte.
 PINNED = {
-    ("uso", "ddf"): (100, 8, 20), ("uso", "market"): (109, 9, 6), ("uso", "page"): (308, 42, 21),
-    ("charlotte", "ddf"): (135, 15, 24), ("charlotte", "market"): (107, 13, 23), ("charlotte", "page"): (711, 65, 102),
+    ("uso", "ddf"): (106, 6, 24), ("uso", "market"): (97, 8, 14), ("uso", "page"): (352, 40, 33),
+    ("charlotte", "ddf"): (76, 6, 11), ("charlotte", "market"): (74, 8, 13), ("charlotte", "page"): (672, 49, 89),
 }
 
 

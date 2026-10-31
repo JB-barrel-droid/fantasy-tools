@@ -1075,6 +1075,21 @@ Build: JEG-1333. The seat-share helper is JEG-1334. The engine and reference
 wiring is JEG-1335, after #1077 (JEG-1244) and #1105 (JEG-1188). Reverse:
 σ = 0 in the helper reproduces today's allocation exactly.
 
+Jeremy, 2026-10-30 23:41 UTC (voice call, relayed): "Letter A." on JEG-1333's
+before/after: fractional flex everywhere, fractional bench only when no
+league is loaded (a loaded league's bench comes from its rosters). Built in
+JEG-1335 (`docs/methodology.md` VP-2.2 g).
+
 ## JEG-1310: CBS rest of season stays as it has been
 
 Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.
+
+## JEG-1444: Usage crunch offload, and Codex reviews in a crunch
+
+Jeremy, 2026-10-31 10:38 UTC: "We are on pace to run out of usage 4 days early. I want as much offloaded to other tools as possible during usage crunches". A crunch is any week the Claude pool is on pace to run out before its reset. In a crunch Claude keeps judging, the required reviews it alone may give, merging, and steps nothing else can do; build, fixes, docs and checks go to Codex, and read-only investigations go to Muse (charter JEG-1444, decision 10).
+
+Jeremy, 2026-10-31 10:42 UTC, "A": during a crunch, Codex gives the one independent review on `review-light` and `review-standard` PRs; `review-high-risk` PRs keep a Claude reviewer (rule in `AGENTS.md`, review and merge protocol). Not taken: B, a Claude reviewer on every PR. Merges, deploys, production deletes and credentials still need his yes as before.
+
+## Sources are judged for private consumption for now
+
+Jeremy, 2026-10-31 10:35 UTC: "We will act as though the site is for private consumption for now". Source terms are judged against private use until he says the site's status changed: a ban on automated collection still rules a source out, a ban on redistribution alone doesn't. On JEG-612 this makes 4for4 viable (a puller needs its own ticket and his go); PFF, RotoWire and Establish The Run stay out.

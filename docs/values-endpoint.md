@@ -226,6 +226,14 @@ No other secrets are needed. URL: `https://<PROJECT_REF>.supabase.co/functions/v
   pinned by `tests/node/get_values_rate_limit_check.mjs`. Accepted as is:
   the function stores nothing, so abuse costs CPU only (about 0.3 s per
   fresh league).
+- Measurement (JEG-1344, part of JEG-1061): each fresh custom compute (a
+  custom league or a share link's value context, on an answer-cache miss) logs
+  one JSON line `{"event":"get_values.compute", scoring, teams, superflex,
+  custom, charts, week, ms}`, and each 429 logs `{"event":
+  "get_values.rate_limited", limit: "general"|"compute", max, window_s, ...}`
+  (the compute one adds the settings). Settings only: no IP, header, token or
+  player data. Read them in the Supabase function logs. Contract:
+  `tests/node/jeg_1061_logging_contract.mjs`.
 - Cold start fetches about 3.7 MB plus the history index (about 13 KB); a week
   document (about 70 KB) is fetched only when the week priced needs a saved
   copy. First call is slow, results cached 5 minutes per league and week.
