@@ -35,6 +35,11 @@ over older review or merge text in this file and in `HANDOFF.md`.
   head it passed. If the head changes after that, the new commits get a delta
   review only. A Codex pass on a PR's exact current head, made before the
   handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
+  During a usage crunch (any week the Claude pool is on pace to run out
+  before its reset; JEG-1444 decision 10), a Codex review on the exact
+  current head of a `review-light` or `review-standard` PR counts as its one
+  review. `review-high-risk` PRs still need a Claude reviewer (Jeremy's pick
+  A, 2026-10-31 10:42 UTC).
   Label the risk: `review-light` (docs, copy), `review-standard` (features,
   UX, tests) or `review-high-risk` (value math, identity, persistence, shared
   context). Changes to this file, `CLAUDE.md` or permissions are never
