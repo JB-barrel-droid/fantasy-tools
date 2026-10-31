@@ -16,7 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 HARNESS = ROOT / "tests" / "manager_recs_harness.cjs"
-MODULES = ["manager-recs.js", "manager-profiles.js", "workspace.js"]
+MODULES = ["manager-recs.js", "manager-profiles.js", "workspace.js", "roster-provenance-transitions.js"]
 
 REQUIRED = [
     "test_draft_curve_positional", "test_unmarked_manager_uses_market", "test_blend_strong_counts_double",
