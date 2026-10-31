@@ -9,6 +9,7 @@ Contract: research only. Hold every chart observation fixed, change only project
 - `ledger.py check --jobs 1` reproduces the `--jobs 6` ledger byte for byte.
 - `tests/test_projection_influence.py`: 18 tests pass; mutation runs (guard off, fill-in or weights not frozen) fail the guard and residual tests.
 - No engine, spec, reference, config, Makefile, workflow, Supabase or published-output change.
+- Two later commits on #1146 recorded Jeremy's 2026-10-29 rulings in the memo (decision A; weekly data never blends with ROS projections; `sigma_weekly` is a past-seasons statistic, not a blend). Memo and guard comment only; ledger outputs unchanged, 18 tests pass.
 
 ### Claimed, not confirmed
 - Scope is the default league and lineup only, no week view.
