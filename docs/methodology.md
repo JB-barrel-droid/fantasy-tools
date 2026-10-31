@@ -286,6 +286,44 @@ chart DDF Value").
      order (superflex and flex by its own natives, the superseded OC-4 rule),
      there is no rosterable set and nothing is estimated (VP-2.4 is skipped),
      and VP-7.2 runs a–e on blended DDF Value.
+   - g. **Fractional seats (JEG-1335; Jeremy, 2026-10-29 "Go with B" on
+     JEG-1286, 2026-10-30 "Letter A" on JEG-1333).** Flex seats (c) are
+     shared by the players near the cutoff: each candidate holds
+     `Φ((m − τ) / σ)` of a seat, with `τ` set so the shares fill the `T x F`
+     seats and `σ` = 0.75 PPG (`seat_sigma`; 0 is the hard rule above). With
+     no league loaded and the VORP bench rule, bench seats are shared the
+     same way on the bench rule's discounted points (σ scaled by the
+     discount). A loaded league (d2) keeps its bench from the rosters, and
+     the D'Hondt bench (d) is unchanged. Superflex (b) keeps
+     the hard rule. The fractional counts become a weighted mix of whole
+     allocations (systematic rounding; entries under 0.001 dropped and the
+     rest renormalized). The pipeline runs once per allocation and every
+     number is weight-averaged; counts and labels come from the heaviest
+     allocation, and tiers and the default ranking are recomputed on the
+     blended values. A row's estimate and reason labels are the heaviest
+     allocation's. Each source's per-player records keep its pie: a player
+     off the source's work list in one allocation counts 0 there, each
+     slice is restated at the blended rate (Σ w·rate·slice / blended rate,
+     so rate × slice is the player's value; value above waivers likewise
+     at the blended display factor), a budget moved to the other
+     role or unpaid in some allocations is the weight-average with 0 where it
+     was not, and the work order is the heaviest allocation's with the
+     players listed only in others after it (`tests/test_fractional_seats_pie.py`).
+     Indexed (VP-6.4) stays one factor per chart: the factor is the
+     weight-average of the allocations' factors, and every player the
+     blended chart prices is his native times it, so Indexed keeps the
+     chart's own order (an average of the rows would give a player priced in
+     only some allocations a part value, below players the chart ranks
+     lower; `tests/test_rank_guard.py`).
+     The output carries `allocation_mix` (weight, allocation)
+     and `allocation_expected` (the weighted counts); `allocation`,
+     `slot_fill` and the fill sets are the heaviest allocation's. The
+     degenerate week (f) keeps the hard rule. Effect: a 1 PPG change in one
+     source for one fringe player moves no other player by more than 1.0
+     DDF Value on the 12-setting grid and the USO and Charlotte shapes
+     (`tests/test_fractional_seats_stability.py`; worst 0.59, against 3.76
+     under the hard rule). The worked example below keeps `seat_sigma` 0;
+     its `variant_fractional_seats` block pins the same league at 0.75.
 3. **Waiver line `w_p`**, read from the work list (the listed players plus,
    for a chart, its estimated players at `p`, in sort order):
    - If the work list is longer than `N_p`: for a chart, `w_p` = the value at
