@@ -18,10 +18,32 @@
       "alias_source": "local_file",
       "aliases": {
         "name": "player_aliases.json",
-        "sha256": "61c7600a9539857b603932ac2ef83c5e7fb80acc07f841a8df724f549085b994"
+        "sha256": "2a48034daf434a9b28e2f92dbd084465b06651af051dfb6e7e51dd3e24c8541c"
       }
     },
     "position_out_of_scope": 0,
+    "roster": {
+      "after_as_of": 0,
+      "bad_row": 0,
+      "conflict": 0,
+      "duplicate": 0,
+      "later_content_week": 0,
+      "older_snapshot": 0,
+      "read": 0,
+      "wrong_season": 0,
+      "wrong_week": 0
+    },
+    "slate": {
+      "after_as_of": 0,
+      "bad_row": 0,
+      "conflict": 0,
+      "duplicate": 0,
+      "later_content_week": 0,
+      "older_snapshot": 0,
+      "read": 0,
+      "wrong_season": 0,
+      "wrong_week": 0
+    },
     "status": {
       "after_as_of": 1,
       "bad_row": 0,
@@ -100,6 +122,36 @@
       "source": "espn",
       "units": "fantasy_points"
     },
+    "roster": {
+      "availability": "unavailable",
+      "captured_at": null,
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "freshness": null,
+      "horizon": "week",
+      "kind": "roster",
+      "label": "unavailable",
+      "missing_reason": "input not supplied",
+      "scoring": null,
+      "source": "espn",
+      "units": "roster"
+    },
+    "slate": {
+      "availability": "unavailable",
+      "captured_at": null,
+      "content_season": null,
+      "content_vintage": null,
+      "content_week": null,
+      "freshness": null,
+      "horizon": "week",
+      "kind": "slate",
+      "label": "unavailable",
+      "missing_reason": "input not supplied",
+      "scoring": null,
+      "source": "nfl_schedule",
+      "units": "kickoff"
+    },
     "status": {
       "availability": "partial",
       "captured_at": "2026-10-28T13:10:05Z",
@@ -165,6 +217,19 @@
             "standard": 10.5
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "provenance": "complete",
           "values": {
@@ -218,6 +283,19 @@
             "half_ppr": 0.0,
             "ppr": 0.0,
             "standard": 0.0
+          }
+        },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
           }
         },
         "status": {
@@ -282,6 +360,19 @@
             "half_ppr": 7.1,
             "ppr": null,
             "standard": 6.2
+          }
+        },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
           }
         },
         "status": {
@@ -352,6 +443,19 @@
             "standard": null
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "missing_reason": {
             "depth_chart_order": "player not in this input",
@@ -418,6 +522,19 @@
             "half_ppr": null,
             "ppr": null,
             "standard": null
+          }
+        },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
           }
         },
         "status": {
@@ -488,6 +605,19 @@
             "standard": null
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "missing_reason": {
             "injury_body_part": "not set in the Sleeper record",
@@ -551,6 +681,19 @@
             "half_ppr": null,
             "ppr": null,
             "standard": null
+          }
+        },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
           }
         },
         "status": {
@@ -624,6 +767,19 @@
             "standard": null
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "missing_reason": {
             "injury_body_part": "not set in the Sleeper record",
@@ -692,6 +848,19 @@
             "standard": null
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "missing_reason": {
             "depth_chart_order": "not set in the Sleeper record",
@@ -750,6 +919,19 @@
             "half_ppr": 3.5,
             "ppr": 4.0,
             "standard": 3.0
+          }
+        },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
           }
         },
         "status": {
@@ -816,6 +998,19 @@
             "standard": 2.0
           }
         },
+        "roster": {
+          "provenance": "missing",
+          "values": {
+            "adds_trend": null,
+            "rostered_pct": null
+          }
+        },
+        "slate": {
+          "provenance": "missing",
+          "values": {
+            "kickoff_at": null
+          }
+        },
         "status": {
           "missing_reason": {
             "depth_chart_order": "player not in this input",
@@ -859,6 +1054,6 @@
   ],
   "producer": "pipelines/build_weekly_inputs.py",
   "schema": "weekly-inputs",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "season": 2026
 }

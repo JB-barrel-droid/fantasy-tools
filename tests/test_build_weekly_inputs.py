@@ -563,7 +563,7 @@ class RosterAndSlate(ProducerCase):
         roster = self.roster_file([
             {"player_key": 101, "team": "AAA", "rostered_pct": 84.2, "adds_trend": 6.4},
             {"player_key": 101, "team": "AAA", "rostered_pct": 50.0, "adds_trend": 6.4}])
-        games = self.GAMES + [{"home_team": "AAA", "away_team": "DDD",
+        games = self.GAMES + [{"home_team": "AAA", "away_team": "EEE",
                                "kickoff_at": "2026-11-01T20:00:00Z"}]
         doc = self.build(espn_roster=roster, slate=self.slate_file(games))
         cell = self.row(doc, 101)["legs"]["roster"]
