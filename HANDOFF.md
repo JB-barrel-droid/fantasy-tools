@@ -27,7 +27,10 @@ below are history, including any "Codex reviews and merges" line.
 - Reads a weekly-inputs 1.x artifact and DDF Value from `value_reference.py` (Adjusted `ddf_value`, read-only) or a saved
   snapshot. Value lane and This week lane never blend; disabled sources null what they feed, with the reason.
   No UI, no publication, no new value math.
-- Next: independent review, green CI, merge gate. Later slices are JEG-1416 (rostered % and kickoff on the contract),
+- Review corrections done in JEG-1426 (served week from the reference's prior pair, validator re-derives the enable
+  rules and row consistency, missing status or bye legs handled, 84 tests including a read-back against get-values).
+  JEG-1427 refreshed the weekly-inputs producer golden's player_aliases hash (stale on main since #1211).
+- Next: delta review of the corrections, take the PR out of draft, green CI, merge gate. Later slices are JEG-1416 (rostered % and kickoff on the contract),
   JEG-1417 (sections and verdicts; the ADD/PASS rule goes to Jeremy first), JEG-1418 (swaps), JEG-1419 (build in
   `make sync`), JEG-1420 (the view).
 

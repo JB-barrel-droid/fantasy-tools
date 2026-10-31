@@ -24,3 +24,37 @@ main chat, 2026-10-31 00:03 UTC ("We can't launch more items in the cloud?").
 - No new value math: the builder reads DDF Value and the prior-week pair from `pipelines/value_reference.py` and only
   subtracts them for Change (the same pair the site's risers and fallers use). Nothing user-visible yet.
 - The engine and the reference agree (value_check's job, not re-run here).
+
+### Review corrections (JEG-1426) and a stale producer golden (JEG-1427)
+
+The independent review of head 16b8701 asked for changes. Each finding, acknowledged and fixed on the same branch:
+
+1. Served week: `--from-reference` now takes the content week from the reference's prior pair (`currentWeek`,
+   `priorWeek`), falling back to the charts' reference week without history; it no longer uses the build day's
+   calendar week. Test: built on 2026-11-06 the snapshot is still week 8 and DDF Value stays enabled.
+2. The validator re-derives the enable rules (season, later week, current weekly legs, DDF Value current or one week
+   behind, prior only with DDF Value, freshness null exactly when unavailable, stale or previous-season never
+   published, only the five board sources enabled, feeds match).
+3. A weekly file with no status or bye leg gives an unavailable, disabled source instead of a KeyError.
+4. Row checks: change = DDF Value minus prior, change needs both sides, on_bye consistent and boolean, bye_week range,
+   field types, non-empty reasons, a disabled source's own reason, and header types (inputs, built_at, producer,
+   superflex).
+5. Tests: 84 now (was 39). Priced 0.0 above unpriced with a lower key, stale and one-week-behind status, unknown-age
+   points, stale values label, a week-9 bye board, 28 validator negatives, read-back against get-values' own pipeline,
+   off-week build day.
+6. `inputs.values.sha256` hashes the exact bytes `--values-out` writes.
+
+JEG-1427: `tests.test_build_weekly_inputs` failed three tests on main because #1211 changed
+`data/inputs/player_aliases.json` and the producer golden still pinned the old hash. Only that hash line changed; the
+board golden, which records the weekly file's hash, was regenerated with it.
+
+#### Verified (check named)
+- `python3 -m unittest tests.test_build_waiver_board tests.test_timestamps tests.test_build_weekly_inputs`: all pass.
+- On the old builder and validator (HEAD's files, new tests), 29 of the new tests fail; on the new files all pass.
+- `FromReference.test_matches_get_values_at_12_team_half_ppr`: snapshot week 8 and prior week 7 match get-values'
+  week view and prior pair; all 741 current and 738 prior DDF Values agree to 1e-6 (max difference about 3e-14).
+
+#### Claimed, not confirmed
+- Full CI (preview, v2-render) runs only once the PR leaves draft.
+- Pre-existing on main, not touched here: tests.test_weekly_inputs_contract pins a freshness word that
+  check_reference_freshness.py no longer has (filed JEG-1428; nightly full suite only).

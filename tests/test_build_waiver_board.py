@@ -116,6 +116,28 @@ class HandWorkedRows(unittest.TestCase):
         self.assertIsNone(ivy["on_bye"])
         self.assertTrue(ivy["missing_reason"]["on_bye"])
 
+    def test_priced_zero_sorts_ahead_of_unpriced_with_a_lower_key(self):
+        # Missing is not zero: a priced 0.0 with key 200 sorts above unpriced 105, 108, 109.
+        v = values()
+        v["players"]["200"] = {"name": "Zed Zero", "position": "WR", "team": "NYJ", "ddf_value": 0.0}
+        order = [r["player_key"] for r in build(v=v)["players"]]
+        self.assertEqual(order, [104, 101, 110, 103, 106, 102, 200, 105, 108, 109])
+
+    def test_on_bye_follows_the_board_week(self):
+        # A week-9 board: Fay's bye 8 is past, a player whose bye is 9 is on bye.
+        w = weekly()
+        w["content_week"] = 9
+        for leg_id in ("experts.espn_weekly", "status"):
+            w["legs"][leg_id]["content_week"] = 9
+        ann = next(r for r in w["players"] if r["player_key"] == 101)
+        ann["legs"]["bye"]["values"]["bye_week"] = 9
+        b = build(w=w)
+        self.assertEqual(wb.validate(b), [])
+        r = rows(b)
+        self.assertEqual((r[101]["this_week"]["bye_week"], r[101]["this_week"]["on_bye"]), (9, True))
+        self.assertEqual((r[106]["this_week"]["bye_week"], r[106]["this_week"]["on_bye"]), (8, False))
+        self.assertEqual(b["sources"]["values"]["freshness"], "one_week_behind")
+
     def test_value_only_row_has_no_weekly_fields(self):
         gus = self.rows[110]
         self.assertEqual(gus["value"]["ddf_value"], 9.0)
@@ -221,6 +243,7 @@ class DisabledSources(unittest.TestCase):
         v["content_week"], v["prior"]["week"] = 6, 5
         b = build(v=v)
         self.assertEqual(b["sources"]["values"]["freshness"], "stale")
+        self.assertEqual(b["sources"]["values"]["label"], "stale")
         self.assert_disabled(b, "values", ["ddf_value"], "stale (content week 6, board week 8)")
 
     def test_values_one_week_behind_still_price(self):
@@ -245,6 +268,61 @@ class DisabledSources(unittest.TestCase):
         v = values()
         v["prior"] = {"available": False, "week": None, "values": {}, "missing_reason": "no history"}
         self.assert_disabled(build(v=v), "values_prior", ["prior_ddf_value", "change"], "no history")
+
+
+    def test_stale_status_leg(self):
+        w = weekly()
+        w["legs"]["status"].update(content_week=6, freshness="stale", label="stale")
+        self.assert_disabled(build(w=w), "status", bwb.STATUS_FIELDS, "status is stale (content week 6, board week 8)")
+
+    def test_status_one_week_behind_is_not_this_weeks(self):
+        w = weekly()
+        w["legs"]["status"].update(content_week=7, freshness="one_week_behind")
+        self.assert_disabled(build(w=w), "status", bwb.STATUS_FIELDS, "status is one week behind")
+
+    def test_points_of_unknown_age(self):
+        w = weekly()
+        w["legs"]["experts.espn_weekly"].update(content_week=None, freshness="unknown", label="modeled")
+        self.assert_disabled(build(w=w), "points", ["points"], "of unknown age (content week unknown, board week 8)")
+
+    def test_weekly_inputs_without_status_or_bye_legs(self):
+        # The weekly-input contract allows a file without these legs; the board declares them unavailable.
+        w = weekly()
+        del w["legs"]["status"], w["legs"]["bye"]
+        for r in w["players"]:
+            r["legs"].pop("status", None)
+            r["legs"].pop("bye", None)
+        b = build(w=w)
+        self.assertEqual(b["sources"]["status"]["availability"], "unavailable")
+        self.assertIsNone(b["sources"]["status"]["freshness"])
+        self.assert_disabled(b, "status", bwb.STATUS_FIELDS, "the status leg is not in the weekly inputs")
+        self.assert_disabled(b, "bye", ["bye_week", "on_bye"], "the bye leg is not in the weekly inputs")
+        self.assertTrue(b["sources"]["points"]["enabled"])
+        with tempfile.TemporaryDirectory() as tmp:
+            src, out = Path(tmp) / "weekly.json", Path(tmp) / "board.json"
+            src.write_text(json.dumps(w), encoding="utf-8")
+            p = run_cli("--weekly-inputs", str(src), "--scoring", "half_ppr", "--teams", "12",
+                        "--built-at", BUILT_AT, "--values", str(VALUES), "--out", str(out))
+            self.assertNotIn("Traceback", p.stderr)
+            if p.returncode == 0:
+                self.assertEqual(wb.validate_file(out), [])
+            else:   # only a contract refusal is acceptable, never a crash
+                self.assertIn("weekly-input contract", p.stderr)
+
+    def test_values_from_a_later_season(self):
+        v = values()
+        v["season"] = 2027
+        b = build(v=v)
+        self.assertEqual(b["sources"]["values"]["label"], "stale")
+        self.assert_disabled(b, "values", ["ddf_value"], "season 2027 data; the board is season 2026")
+
+    def test_values_input_pricing_nobody(self):
+        v = values()
+        v["players"] = {}
+        b = build(v=v)
+        self.assertEqual(b["sources"]["values"]["availability"], "unavailable")
+        self.assertIsNone(b["sources"]["values"]["freshness"])
+        self.assert_disabled(b, "values", ["ddf_value"], "prices no player")
 
 
 class LanesNeverBlend(unittest.TestCase):
@@ -276,6 +354,18 @@ class Refusals(unittest.TestCase):
     def test_values_for_another_setting(self):
         with self.assertRaisesRegex(wb.BoardError, "values are for setting"):
             bwb.build_board(weekly(), values(), dict(SETTING, teams=10), BUILT_AT)
+
+    def test_values_keys_and_setting_written_one_way(self):
+        v = values()
+        v["players"]["0101"] = v["players"].pop("101")
+        with self.assertRaisesRegex(wb.BoardError, "integer player_key"):
+            build(v=v)
+        v = values()
+        v["setting"]["superflex"] = False
+        with self.assertRaisesRegex(wb.BoardError, "values are for setting"):
+            build(v=v)
+        with self.assertRaisesRegex(wb.BoardError, "superflex 0 or 1"):
+            bwb.build_board(weekly(), values(), dict(SETTING, superflex=True), BUILT_AT)
 
     def test_malformed_values(self):
         v = values()
@@ -358,6 +448,118 @@ class ValidatorCatches(unittest.TestCase):
             b["players"][-1]["player_key"] = None
         self.assertTrue(any("unresolved rows go in" in p for p in self.problems(edit)))
 
+    def assert_caught(self, edit, needle):
+        problems = self.problems(edit)
+        self.assertTrue(any(needle in p for p in problems), problems)
+
+    # The enable rule, re-derived: a hand-edited board cannot turn old or foreign data on.
+    def test_enabled_stale_values(self):
+        self.assert_caught(lambda b: b["sources"]["values"].update(freshness="stale", label="stale"),
+                           "enabled only when current or one week behind")
+
+    def test_enabled_values_from_another_season(self):
+        self.assert_caught(lambda b: b["sources"]["values"].update(content_season=2025, label="previous-season"),
+                           "enabled with season 2025 content")
+
+    def test_enabled_values_for_a_later_week(self):
+        self.assert_caught(lambda b: b["sources"]["values"].update(content_week=9), "enabled with week 9 content")
+
+    def test_enabled_points_one_week_behind(self):
+        self.assert_caught(lambda b: b["sources"]["points"].update(freshness="one_week_behind", content_week=7),
+                           "enabled only when current")
+
+    def test_enabled_prior_without_values(self):
+        def edit(b):
+            b["sources"]["values"].update(enabled=False, disabled_reason="off")
+            for r in b["players"]:
+                r["value"]["ddf_value"] = None
+                r["value"]["missing_reason"]["ddf_value"] = "off"
+        self.assert_caught(edit, "enabled only with DDF Value")
+
+    def test_stale_labelled_published(self):
+        self.assert_caught(lambda b: b["sources"]["vegas"].update(availability="complete", freshness="stale",
+                                                                  label="published"),
+                           "stale content is labelled stale")
+
+    def test_previous_season_labelled_published(self):
+        self.assert_caught(lambda b: b["sources"]["bye"].update(content_season=2025, label="published"),
+                           "is not published")
+
+    def test_freshness_null_on_a_source_with_data(self):
+        self.assert_caught(lambda b: b["sources"]["status"].update(freshness=None), "null exactly when")
+
+    def test_listed_leg_turned_on(self):
+        self.assert_caught(lambda b: b["sources"]["vegas"].update(enabled=True, disabled_reason=None),
+                           "only values, values_prior, points, status, bye can be enabled")
+
+    def test_unavailable_source_enabled(self):
+        self.assert_caught(lambda b: b["sources"]["rostered_pct"].update(enabled=True, disabled_reason=None),
+                           "an unavailable source cannot be enabled")
+
+    def test_empty_disabled_reason(self):
+        self.assert_caught(lambda b: b["sources"]["vegas"].update(disabled_reason=" "), "not a non-empty string")
+
+    def test_feeds_not_matching_the_source(self):
+        self.assert_caught(lambda b: b["sources"]["status"].update(feeds=["status"]),
+                           "status feeds status, injury_status, practice_participation")
+
+    # Rows, internally consistent.
+    def test_change_not_ddf_minus_prior(self):
+        self.assert_caught(lambda b: rows(b)[101]["value"].update(change=5.0), "is not DDF Value minus")
+
+    def test_change_with_a_missing_side(self):
+        def edit(b):
+            ed = rows(b)[105]["value"]
+            ed["change"] = 1.0
+            del ed["missing_reason"]["change"]
+        self.assert_caught(edit, "a change needs both")
+
+    def test_on_bye_disagreeing_with_bye_week(self):
+        self.assert_caught(lambda b: rows(b)[101]["this_week"].update(on_bye=True), "disagrees with bye_week 10")
+
+    def test_on_bye_not_a_boolean(self):
+        self.assert_caught(lambda b: rows(b)[106]["this_week"].update(on_bye=1), "on_bye: not a boolean")
+
+    def test_bye_week_out_of_range(self):
+        self.assert_caught(lambda b: rows(b)[101]["this_week"].update(bye_week=20), "bye_week: not a week")
+
+    def test_status_not_a_string(self):
+        self.assert_caught(lambda b: rows(b)[101]["this_week"].update(injury_status=3), "not a string")
+
+    def test_points_not_finite(self):
+        self.assert_caught(lambda b: rows(b)[101]["this_week"].update(points=float("inf")), "not a finite number")
+
+    def test_reason_on_a_field_the_lane_does_not_have(self):
+        self.assert_caught(lambda b: rows(b)[101]["value"]["missing_reason"].update(points="x"),
+                           "not a field of this lane")
+
+    def test_empty_reason(self):
+        self.assert_caught(lambda b: rows(b)[104]["this_week"]["missing_reason"].update(points=""),
+                           "not a non-empty string")
+
+    def test_disabled_source_field_with_another_reason(self):
+        def edit(b):
+            b["sources"]["status"].update(enabled=False, disabled_reason="off")
+            for r in b["players"]:
+                for f in bwb.STATUS_FIELDS:
+                    r["this_week"][f] = None
+                    r["this_week"]["missing_reason"][f] = "off"
+            rows(b)[101]["this_week"]["missing_reason"]["status"] = "something else"
+        self.assert_caught(edit, "not source status's disabled reason")
+
+    # The header.
+    def test_inputs_not_an_object(self):
+        self.assert_caught(lambda b: b.update(inputs=[]), "$.inputs: not an object")
+
+    def test_built_at_without_a_zone(self):
+        self.assert_caught(lambda b: b.update(built_at="2026-10-30T12:00:00"), "$.built_at")
+
+    def test_empty_producer(self):
+        self.assert_caught(lambda b: b.update(producer=""), "$.producer")
+
+    def test_superflex_true_is_not_one(self):
+        self.assert_caught(lambda b: b["setting"].update(superflex=True), "superflex: not 0 or 1")
+
     def test_other_major_version(self):
         self.assertTrue(any("schema_version" in p for p in self.problems(lambda b: b.update(schema_version="1.0.0"))))
 
@@ -374,6 +576,36 @@ class FromReference(unittest.TestCase):
         cls.ref = ref
         cls.today = date(2026, 10, 30)
         cls.snap = bwb.values_from_reference(SETTING, cls.today)
+        sys.path.insert(0, str(ROOT))
+        from tests.test_connector_analyses import run_edge
+        cls.edge = run_edge(("half_ppr", 12, 0))   # get-values' own pipeline.ts, the engine's twin
+
+    def test_matches_get_values_at_12_team_half_ppr(self):
+        # An independent read-back: get-values (TypeScript) serves the same week and the same prior pair.
+        edge_prior = self.edge["prior"]
+        self.assertTrue(edge_prior["available"], edge_prior["reason"])
+        self.assertEqual(self.snap["content_week"], self.edge["week"]["week"])
+        self.assertEqual(self.snap["content_week"], edge_prior["current_week"])
+        self.assertEqual(self.snap["prior"]["week"], edge_prior["prior_week"])
+        pair = edge_prior["series"]["ddf_value"]
+        got_now = {k: p["ddf_value"] for k, p in self.snap["players"].items()}
+        for got, want in ((got_now, pair["current_values"]), (self.snap["prior"]["values"], pair["values"])):
+            self.assertEqual(set(got), set(want))
+            self.assertGreater(len(got), 500)
+            for k in got:
+                self.assertAlmostEqual(got[k], want[k], places=6, msg=k)
+
+    def test_week_is_the_served_week_not_the_build_day(self):
+        # Built a week after the history's newest week: still the week the reference priced.
+        later = bwb.values_from_reference(SETTING, date(2026, 11, 6))
+        self.assertEqual((later["content_week"], later["prior"]["week"]),
+                         (self.snap["content_week"], self.snap["prior"]["week"]))
+        b = bwb.build_board(weekly(), later, SETTING, BUILT_AT)
+        self.assertTrue(b["sources"]["values"]["enabled"], b["sources"]["values"]["disabled_reason"])
+        self.assertEqual(b["sources"]["values"]["freshness"], "current")
+        with tempfile.TemporaryDirectory() as tmp:
+            nohist = bwb.values_from_reference(SETTING, date(2026, 11, 6), history=Path(tmp))
+        self.assertEqual(nohist["content_week"], self.snap["content_week"])   # the charts' week, not week 9
 
     def test_values_are_the_references_adjusted_ddf_value(self):
         ref = self.ref
@@ -417,6 +649,8 @@ class FromReference(unittest.TestCase):
             self.assertEqual(p.returncode, 0, p.stderr)
             self.assertEqual(wb.validate_file(out), [])
             snap = json.loads(vout.read_text(encoding="utf-8"))
+            board = json.loads(out.read_text(encoding="utf-8"))
+            self.assertEqual(board["inputs"]["values"]["sha256"], bwb._sha256(vout.read_bytes()))
             self.assertEqual(snap["setting"], {"scoring": "ppr", "teams": 10, "superflex": 1})
             # The saved snapshot rebuilds the same board.
             p2 = run_cli("--weekly-inputs", str(WEEKLY), "--scoring", "ppr", "--teams", "10", "--superflex", "1",

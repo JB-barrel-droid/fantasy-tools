@@ -89,6 +89,11 @@ def _finite(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
+def _canonical_key(key) -> bool:
+    """A player_key written the one way: "101", never "0101" or "+101"."""
+    return isinstance(key, str) and key.isdigit() and str(int(key)) == key
+
+
 # ------------------------------------------------------------------ inputs
 
 def load_weekly(text: str) -> dict:
@@ -105,8 +110,10 @@ def check_values(snap: dict, setting: dict) -> dict:
     """A values snapshot, checked; BoardError on a malformed one or another setting."""
     if not isinstance(snap, dict) or snap.get("kind") != VALUES_KIND or snap.get("version") != VALUES_VERSION:
         raise wb.BoardError(f"values input is not a {VALUES_KIND} v{VALUES_VERSION} snapshot")
-    if snap.get("setting") != setting:
-        raise wb.BoardError(f"values are for setting {snap.get('setting')}, the board is for {setting}")
+    vset = snap.get("setting")
+    if (not isinstance(vset, dict) or set(vset) != set(wb.SETTING_KEYS)
+            or any(isinstance(v, bool) for v in vset.values()) or vset != setting):
+        raise wb.BoardError(f"values are for setting {vset}, the board is for {setting}")
     for k in ("season", "content_week"):
         if not isinstance(snap.get(k), int) or isinstance(snap.get(k), bool):
             raise wb.BoardError(f"values input has no integer {k}")
@@ -116,16 +123,17 @@ def check_values(snap: dict, setting: dict) -> dict:
     if not isinstance(players, dict):
         raise wb.BoardError("values input has no players object")
     for key, p in players.items():
-        if not key.isdigit() or not isinstance(p, dict) or not _finite(p.get("ddf_value")):
-            raise wb.BoardError(f"values input row {key!r} needs a numeric player_key and a finite ddf_value")
+        if not _canonical_key(key) or not isinstance(p, dict) or not _finite(p.get("ddf_value")):
+            raise wb.BoardError(f"values input row {key!r} needs an integer player_key and a finite ddf_value")
     prior = snap.get("prior")
     if not isinstance(prior, dict) or not isinstance(prior.get("available"), bool):
         raise wb.BoardError("values input has no prior block")
     if prior["available"]:
-        if not isinstance(prior.get("values"), dict) or not isinstance(prior.get("week"), int):
+        if (not isinstance(prior.get("values"), dict) or not isinstance(prior.get("week"), int)
+                or isinstance(prior.get("week"), bool)):
             raise wb.BoardError("values input prior is available but has no week or values")
         for key, v in prior["values"].items():
-            if not key.isdigit() or not _finite(v):
+            if not _canonical_key(key) or not _finite(v):
                 raise wb.BoardError(f"values input prior row {key!r} is not a finite number")
     elif not prior.get("missing_reason"):
         raise wb.BoardError("values input prior is unavailable with no reason")
@@ -142,8 +150,10 @@ def values_from_reference(setting: dict, today: date, fixture: Path | None = Non
     history = Path(history or ref.HISTORY)
     inp = ref.Inputs.load(fixture, players, today=today)
     hist = ref.History(history)
-    week = ref.freshness(inp)["current_week"]
-    out = ref.compute(inp, setting, hist=hist, divergence_exclusions=ref.load_divergence_exclusions(week=week))
+    fresh = ref.freshness(inp)
+    # Divergence exclusions are keyed by the calendar week, as value_reference.main loads them.
+    out = ref.compute(inp, setting, hist=hist,
+                      divergence_exclusions=ref.load_divergence_exclusions(week=fresh["current_week"]))
     team_of = {}
     pl_doc = json.loads(players.read_text(encoding="utf-8"))
     for p in pl_doc.get("players") or []:
@@ -159,12 +169,18 @@ def values_from_reference(setting: dict, today: date, fixture: Path | None = Non
         rows[str(key)] = {"name": info["name"], "position": info["pos"], "team": team_of.get(key),
                           "ddf_value": v}
     pr = (out.get("prior") or {}).get("adj", {}).get(ref.COMPOSITE_KEY) or {}
+    # The week the reference priced, not the build day's calendar week: with a matching history it is
+    # the served week of its prior pair (the page's week view); without one, the newest week the
+    # weekly charts serve (capped at the calendar week), else the calendar week.
     if pr.get("available"):
+        week = pr["currentWeek"]
         prior = {"available": True, "week": pr["priorWeek"], "missing_reason": None,
                  "values": {str(int(k)): v for k, v in pr["values"].items() if _finite(v)}}
     else:
+        week = fresh["reference_week"] if fresh["reference_week"] is not None else fresh["current_week"]
         prior = {"available": False, "week": None, "values": {},
-                 "missing_reason": f"the reference has no week {week - 1} history at {history.name}/"}
+                 "missing_reason": (f"the reference has no week {week - 1} DDF Value at this setting (it needs "
+                                    f"the week history `make sync` writes, from the same build, in {history.name}/)")}
     return {
         "kind": VALUES_KIND, "version": VALUES_VERSION, "source": "value_reference",
         "source_version": ref.VERSION, "view": "adj", "series": ref.COMPOSITE_KEY,
@@ -205,16 +221,29 @@ def _weekly_source(leg_id: str, leg: dict, season: int, board_week: int, aged: b
                 leg["content_season"], leg["content_week"], leg["content_vintage"], reason, feeds)
 
 
+def _prior_freshness(prior: dict, vfresh: str | None, vseason: int, season: int, board_week: int) -> str | None:
+    """The prior pair is as fresh as the DDF Value it is paired with (its content week is the week
+    before); with no current side, its own week's age."""
+    if not prior["available"]:
+        return None
+    if vfresh is not None:
+        return vfresh
+    return wic.freshness_for_weeks(board_week, prior["week"]) if vseason == season else "stale"
+
+
 def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) -> dict:
     season, board_week = weekly["season"], weekly["content_week"]
     legs = weekly["legs"]
     out = {}
     # Value lane: rest-of-season DDF Value. One week behind is still a fair ROS price; stale is not.
     vweek = values["content_week"]
-    vfresh = wic.freshness_for_weeks(board_week, vweek)
+    vavail = "complete" if values["players"] else "unavailable"
+    # Freshness compares weeks within one season; across seasons a price is stale (the contract's rule).
+    vfresh = (None if vavail == "unavailable" else
+              wic.freshness_for_weeks(board_week, vweek) if values["season"] == season else "stale")
     if values["season"] != season:
         vreason = f"DDF Value is season {values['season']} data; the board is season {season}"
-        vlabel = "previous-season" if values["season"] < season else "unavailable"
+        vlabel = "previous-season" if values["season"] < season else values["label"]
     elif vweek > board_week:
         vreason = f"DDF Value is for week {vweek}, later than the board week {board_week}"
         vlabel = values["label"]
@@ -226,7 +255,8 @@ def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) ->
         vlabel = "unavailable"
     else:
         vreason, vlabel = None, values["label"]
-    vavail = "complete" if values["players"] else "unavailable"
+    if vlabel == "published" and vfresh == "stale":
+        vlabel = "stale"
     out["values"] = _src("value", values["source"], vavail, vfresh, vlabel, values["season"], vweek,
                          values.get("content_vintage"), vreason, ["ddf_value"])
     prior = values["prior"]
@@ -239,8 +269,9 @@ def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) ->
     else:
         preason = None
     out["values_prior"] = _src("value", values["source"], "complete" if prior["available"] else "unavailable",
-                               vfresh if prior["available"] else None,
-                               vlabel if prior["available"] else "unavailable",
+                               _prior_freshness(prior, vfresh, values["season"], season, board_week),
+                               ("unavailable" if not prior["available"] else
+                                vlabel if vlabel != "unavailable" else values["label"]),
                                values["season"], prior.get("week"), values.get("content_vintage"),
                                preason, ["prior_ddf_value", "change"])
     # This-week lane: weekly-input legs.
@@ -252,8 +283,12 @@ def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) ->
     scoring_gap = (None if setting["scoring"] in (pleg.get("scoring") or [])
                    else f"{points_leg} has no {setting['scoring']} points")
     out["points"] = _weekly_source(points_leg, pleg, season, board_week, True, ["points"], scoring_gap)
-    out["status"] = _weekly_source("status", legs["status"], season, board_week, True, STATUS_FIELDS)
-    out["bye"] = _weekly_source("bye", legs["bye"], season, board_week, False, ["bye_week", "on_bye"])
+    for sid, aged, feeds in (("status", True, STATUS_FIELDS), ("bye", False, ["bye_week", "on_bye"])):
+        if sid in legs:
+            out[sid] = _weekly_source(sid, legs[sid], season, board_week, aged, feeds)
+        else:   # the contract allows a file without this leg
+            out[sid] = _src("week", None, "unavailable", None, "unavailable", None, None, None,
+                            f"the {sid} leg is not in the weekly inputs", feeds)
     for leg_id in sorted(legs):
         if leg_id in (points_leg, "status", "bye"):
             continue
@@ -355,8 +390,11 @@ def _week_lane(wrow: dict | None, board_week: int, setting: dict, points_leg: st
 def build_board(weekly: dict, values: dict, setting: dict, built_at: str, points_leg: str = DEFAULT_POINTS_LEG,
                 inputs: dict | None = None) -> dict:
     """The waiver-board document. weekly: a validated weekly-inputs doc. values: a checked snapshot."""
-    if setting["scoring"] not in wb.SCORINGS:
-        raise wb.BoardError(f"unknown scoring {setting['scoring']!r}")
+    if (not isinstance(setting, dict) or set(setting) != set(wb.SETTING_KEYS)
+            or setting["scoring"] not in wb.SCORINGS or not wb.is_int(setting["teams"])
+            or setting["superflex"] not in (0, 1) or isinstance(setting["superflex"], bool)):
+        raise wb.BoardError(f"setting {setting!r} needs scoring (standard, half_ppr, ppr), integer teams "
+                            "and superflex 0 or 1")
     major = (wic.parse_version(weekly.get("schema_version")) or (None,))[0]
     if major != 1:
         raise wb.BoardError(f"weekly inputs schema {weekly.get('schema_version')!r} is not 1.x")
@@ -437,16 +475,16 @@ def main(argv=None) -> int:
     setting = {"scoring": a.scoring, "teams": a.teams, "superflex": a.superflex}
     try:
         built = _parse_built_at(a.built_at)
-        wtext = a.weekly_inputs.read_text(encoding="utf-8")
-        weekly = load_weekly(wtext)
+        wbytes = a.weekly_inputs.read_bytes()
+        weekly = load_weekly(wbytes.decode("utf-8"))
         if a.from_reference:
             values = values_from_reference(setting, _new_york_day(built), a.chart_fixture, a.players, a.history)
-            vname, vbytes = "value_reference", json.dumps(values, sort_keys=True).encode()
+            vname, vbytes = "value_reference", dumps(values).encode("utf-8")
         else:
             vbytes = a.values.read_bytes()
             values = json.loads(vbytes)
             vname = a.values.name
-        inputs = {"weekly_inputs": {"name": a.weekly_inputs.name, "sha256": _sha256(wtext.encode("utf-8"))},
+        inputs = {"weekly_inputs": {"name": a.weekly_inputs.name, "sha256": _sha256(wbytes)},
                   "values": {"name": vname, "sha256": _sha256(vbytes)}}
         doc = build_board(weekly, values, setting, a.built_at, a.points_leg, inputs)
     except (OSError, ValueError, wb.BoardError) as exc:
@@ -456,7 +494,7 @@ def main(argv=None) -> int:
     a.out.write_text(dumps(doc), encoding="utf-8")
     if a.values_out:
         a.values_out.parent.mkdir(parents=True, exist_ok=True)
-        a.values_out.write_text(dumps(values), encoding="utf-8")
+        a.values_out.write_bytes(vbytes)   # the bytes inputs.values.sha256 covers
     enabled = sorted(k for k, s in doc["sources"].items() if s["enabled"])
     print(f"wrote {a.out}: {len(doc['players'])} players, {len(doc['unresolved'])} unresolved, "
           f"week {doc['board_week']} {setting['scoring']}/{setting['teams']}/sf{setting['superflex']}, "
