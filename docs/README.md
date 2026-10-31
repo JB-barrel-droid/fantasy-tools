@@ -116,3 +116,5 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 The documentation-store work is tracked under JEG-583 in Linear. The consolidation is JEG-597 to JEG-605; after this pass the open parts are the second-session runbook check (JEG-601), the Google Doc direction and "to build" edits (JEG-602), and the risk-register rows without an owner (JEG-628). The 2026-10-22 docs sync is JEG-874 (`docs/claude-log/2026-10-22-docs-sync.md`).
 
 - [Known baseline reds](baseline-reds/README.md): registry, gate attribution and three-night removal guidance (JEG-1450).
+
+- [Fast gate](ci/fast-gate.md): path mapping, informational rollout, timing estimates and the [30-PR git replay](ci/fast-gate-replay.md) (JEG-1451).

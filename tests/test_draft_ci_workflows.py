@@ -22,11 +22,13 @@ EVENTS = ("opened", "synchronize", "reopened", "ready_for_review", "converted_to
 
 def event(action="opened", draft=True, sha="a" * 40):
     return {"action": action, "pull_request": {
-        "number": 7, "draft": draft, "head": {"sha": sha}}}
+        "number": 7, "draft": draft, "head": {"sha": sha},
+        "base": {"ref": "main", "sha": "c" * 40}}}
 
 
 def live(draft=True, sha="a" * 40, state="open"):
-    return {"number": 7, "draft": draft, "state": state, "head": {"sha": sha}}
+    return {"number": 7, "draft": draft, "state": state, "head": {"sha": sha},
+            "base": {"ref": "main", "sha": "c" * 40}}
 
 
 class PrGateTest(unittest.TestCase):

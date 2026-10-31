@@ -1,0 +1,939 @@
+{
+  "main_sha": "c267aa71ef1d445670516b1858e0f9dfe5a48f93",
+  "source": "git log --first-parent origin/main; git diff --no-renames PR^1 PR",
+  "prs": [
+    {
+      "number": 1248,
+      "sha": "76ee1c418dfe3a005170b64e013d22c6a6120ec5",
+      "title": "Codex reviews light and standard PRs during a usage crunch (JEG-1444) (#1248)",
+      "files": [
+        "AGENTS.md",
+        "docs/claude-log/2026-10-31-usage-crunch-codex-review.md",
+        "docs/decisions.md"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1246,
+      "sha": "fc5fd8cc21c700c3a343c3c32b82515f2c02b464",
+      "title": "Define capability-based review risk tiers (JEG-1435) (#1246)",
+      "files": [
+        "AGENTS.md",
+        "CLAUDE.md"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1242,
+      "sha": "dcf7b4cc0ad815b5f4d074db53aa80ffb03f7c2f",
+      "title": "Fractional flex everywhere, fractional bench with no league loaded (JEG-1335) (#1242)",
+      "files": [
+        ".github/workflows/pages.yml",
+        ".github/workflows/preview.yml",
+        "HANDOFF.md",
+        "Makefile",
+        "app/trade-value-chart/assets/curve-widget.js",
+        "app/trade-value-chart/assets/fractional-seats.js",
+        "app/trade-value-chart/assets/value-model.js",
+        "app/values-explainer/reviewed.json",
+        "app/values-explainer/template.html",
+        "docs/claude-log/2026-10-31-jeg-1335-fractional-seats.md",
+        "docs/decisions.md",
+        "docs/methodology.md",
+        "pipelines/build_values_explainer.py",
+        "pipelines/lib/fractional_seats.py",
+        "pipelines/lib/roster_convention.py",
+        "pipelines/spec_reference/value_pipeline.py",
+        "pipelines/value_reference.py",
+        "tests/fixtures/value_pipeline_worked_example.json",
+        "tests/fractional_seats_engine_harness.cjs",
+        "tests/fractional_seats_pie_harness.cjs",
+        "tests/test_basis_overrides.py",
+        "tests/test_fractional_seats.py",
+        "tests/test_fractional_seats_engine.py",
+        "tests/test_fractional_seats_pie.py",
+        "tests/test_fractional_seats_stability.py",
+        "tests/test_fractional_seats_worked_example.py",
+        "tests/test_league_levels_real.py",
+        "tests/test_preview_workflow_matches_pages.py",
+        "tests/test_validate_shards.py",
+        "tests/test_value_reference_worked_example.py",
+        "tests/test_waiver_band_line.py",
+        "tests/value_pipeline_driver.js",
+        "tools/worked_example_expected_starts.py",
+        "tools/worked_example_fractional_seats.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-values"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1211,
+      "sha": "168aba93f1cf56acdd20e104cac0058194718faf",
+      "title": "Hide the Research tab until the first post publishes (JEG-1371) (#1211)",
+      "files": [
+        "HANDOFF.md",
+        "docs/claude-log/2026-10-30-jeg-1371-hide-research.md",
+        "pipelines/build_v2_page.py",
+        "tests/test_build_v2_page.py",
+        "tests/test_v2_contract_render.py",
+        "tests/test_v2_desktop_menu_render.py",
+        "tests/test_v2_hamburger_nav_render.py",
+        "tests/test_v2_nav_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-values",
+        "fe-targets",
+        "fe-league",
+        "fe-settings"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1231,
+      "sha": "db46ecafe322c69cd60bfb91fb7459e6a7167e91",
+      "title": "read_state names closest players for an unmatched name; regression test for unmatched names (JEG-1376) (#1231)",
+      "files": [
+        "HANDOFF.md",
+        "docs/claude-log/2026-10-30-jeg-1376-unmatched-regression.md",
+        "supabase/functions/mcp/tools.ts",
+        "tests/node/mcp_remote_check.mjs",
+        "tests/node/mcp_unmatched_check.mjs",
+        "tests/test_mcp_remote.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1232,
+      "sha": "7358589cd23d73f19dff179cad4b3222cce2363c",
+      "title": "Run the Waivers mutation offline classes on every PR, non-blocking (JEG-1373) (#1232)",
+      "files": [
+        ".github/workflows/waivers-mutation-offline.yml",
+        "HANDOFF.md",
+        "Makefile",
+        "config/monitoring_coverage.json",
+        "docs/claude-log/2026-10-30-jeg-1373-waivers-mutation-per-pr.md",
+        "tests/test_waivers_mutation_offline_workflow.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-finder",
+        "fe-waivers",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1227,
+      "sha": "31e53bec37e685ef208fed757aa795c36880ce59",
+      "title": "Keep league settings from an import or share link on reload; redraw player lines when the league rosters switch flips (part of JEG-1389) (#1227)",
+      "files": [
+        ".github/workflows/v2-render-test.yml",
+        "HANDOFF.md",
+        "app/v2/league.js",
+        "app/v2/v2.js",
+        "docs/claude-log/2026-10-30-jeg1389-bench-switch.md",
+        "docs/claude-log/2026-10-30-jeg1389-settings-saved.md",
+        "docs/risk-register.md",
+        "tests/test_jeg1389_link_settings_reload_render.py",
+        "tests/test_jeg1389_switch_redraw_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1192,
+      "sha": "8ec37b45d946b1218f677eadc3f10bce010d7921",
+      "title": "Merge three duplicate Sleeper player rows, path A (JEG-1351) (#1192)",
+      "files": [
+        "data/inputs/player_aliases.json",
+        "docs/claude-log/2026-10-29-jeg-1351-merge-duplicates.md",
+        "docs/research/JEG-1202/coverage_matrix.csv",
+        "docs/research/JEG-1202/summary.json",
+        "pipelines/sync_sleeper_players.py",
+        "supabase/migrations/jeg1351_merge_sleeper_duplicate_players.sql",
+        "supabase/migrations/jeg1351_sleeper_aliases.sql",
+        "supabase/migrations/jeg438_alias_table_curated.sql",
+        "tests/fixtures/JEG-1202/platform_observations.json",
+        "tests/fixtures/JEG-1202/resolver_cases.json",
+        "tests/test_jeg1351_sleeper_duplicates.py",
+        "tests/test_nfl_universe.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1228,
+      "sha": "eb9a75dab5d8618f44946e7b538a46db81741f69",
+      "title": "Record the JEG-1385 merge and deploy (part of JEG-1385) (#1228)",
+      "files": [
+        "HANDOFF.md",
+        "docs/claude-log/2026-10-30-jeg-1385-deploy.md",
+        "docs/risk-register.md"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1220,
+      "sha": "374dc8f7249e52b89a595485be16622979d33258",
+      "title": "get-values prices this week on the VP-1.2 included set (JEG-1385) (#1220)",
+      "files": [
+        "HANDOFF.md",
+        "docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md",
+        "docs/risk-register.md",
+        "supabase/functions/get-values/analysis.ts",
+        "supabase/functions/get-values/index.ts",
+        "supabase/functions/get-values/pipeline.ts",
+        "tests/_edge_pipeline_runner.cjs",
+        "tests/fixtures/get_values_pairing_sentinels.json",
+        "tests/test_connector_analyses.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-values",
+        "fe-compare",
+        "fe-finder"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1033,
+      "sha": "a750ca073bdcf042e9ba6706fa1ae58cfca72ee5",
+      "title": "One \"even\" band for Compare and Find a trade, option A (JEG-1125) (#1033)",
+      "files": [
+        "HANDOFF.md",
+        "app/v2/finder.js",
+        "app/v2/trade.js",
+        "docs/claude-log/2026-10-28-jeg-1125-even-band.md",
+        "docs/claude-log/2026-10-30-jeg-1125-before-after.md",
+        "docs/claude-log/2026-10-30-jeg-1125-option-a.md",
+        "supabase/functions/mcp/find-trades.ts",
+        "tests/fixtures/compare_evidence_view/cases.json",
+        "tests/node/connector_fit_check.mjs",
+        "tests/node/rival_edge_band_check.mjs",
+        "tests/test_league_levels_trades.py",
+        "tests/test_trade_bands.py",
+        "tests/test_v2_deal_read.py",
+        "tests/test_v2_deal_read_split.py",
+        "tests/test_v2_finder.py",
+        "tests/test_v2_headlines.py",
+        "tests/test_v2_waterfall.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-compare",
+        "fe-finder"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1222,
+      "sha": "37a35cedbab137c080e44151ff2fafa5a4dbf916",
+      "title": "Comparison chain drops player_keys slugs for players no longer in players.json (JEG-1391) (#1222)",
+      "files": [
+        "docs/claude-log/2026-10-30-jeg1391-prune-merged-player-keys.md",
+        "pipelines/rebuild_comparison_chain.py",
+        "pipelines/sync_universe_keys.py",
+        "tests/test_universe_chart_only.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "pipelines"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1210,
+      "sha": "6078157778afd47a4b62dd7c30138074f13dd776",
+      "title": "get-values logs each fresh custom compute and each 429 (JEG-1344, part of JEG-1061) (#1210)",
+      "files": [
+        "HANDOFF.md",
+        "Makefile",
+        "docs/claude-log/2026-10-30-jeg-1344-get-values-log-lines.md",
+        "docs/values-endpoint.md",
+        "supabase/functions/get-values/index.ts",
+        "tests/fixtures/jeg_1061_logging/expected_failures_before_hook.json"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1187,
+      "sha": "bb0bcf10547566351367de9d87eb8d572a1c9e22",
+      "title": "Refresh players.active from the active NFL universe, dry run until approved (JEG-1354) (#1187)",
+      "files": [
+        ".github/workflows/sleeper-identity-refresh.yml",
+        "HANDOFF.md",
+        "Makefile",
+        "docs/claude-log/2026-10-29-players-active-refresh.md",
+        "docs/claude-log/2026-10-30-players-active-dry-run-test.md",
+        "docs/risk-register.md",
+        "pipelines/sync_players_active.py",
+        "tests/test_sync_players_active.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1216,
+      "sha": "b923c11dec5444138216d1ccdd3dec78f6b410ea",
+      "title": "2QB leagues use the charts' superflex values (JEG-1365) (#1216)",
+      "files": [
+        "HANDOFF.md",
+        "Makefile",
+        "app/trade-value-chart/assets/curve-widget.js",
+        "app/trade-value-chart/assets/value-model.js",
+        "docs/claude-log/2026-10-30-jeg1365-2qb-superflex.md",
+        "docs/methodology.md",
+        "docs/risk-register.md",
+        "pipelines/spec_reference/pipeline_live.py",
+        "pipelines/value_reference.py",
+        "supabase/functions/get-values/pipeline.ts",
+        "supabase/functions/mcp/tools.ts",
+        "tests/_edge_pipeline_runner.cjs",
+        "tests/test_jeg1365_two_qb_superflex_values.py",
+        "tests/test_superflex_publisher_values.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-values",
+        "fe-compare",
+        "fe-finder"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1218,
+      "sha": "44d7f0135417677ce1bd9fa5078a1b61316d0263",
+      "title": "Source week health and lateness alerts on current main (JEG-1180, JEG-1200, part of JEG-1201) (#1218)",
+      "files": [
+        ".github/workflows/source-lateness.yml",
+        "HANDOFF.md",
+        "Makefile",
+        "config/monitoring_coverage.json",
+        "docs/README.md",
+        "docs/claude-log/2026-10-28-jeg1180-first-sync.md",
+        "docs/claude-log/2026-10-28-jeg1200-monitor-failures.md",
+        "docs/claude-log/2026-10-28-source-health-rc.md",
+        "docs/claude-log/2026-10-28-source-lateness.md",
+        "docs/claude-log/2026-10-28-week-stale-flag.md",
+        "docs/claude-log/2026-10-30-source-health-on-main.md",
+        "docs/source-lateness.md",
+        "docs/week-transition-runbook.md",
+        "ops/watchdog/_common.py",
+        "ops/watchdog/ingest_common.py",
+        "pipelines/check_reference_freshness.py",
+        "pipelines/rebuild_comparison_chain.py",
+        "pipelines/source_lateness.py",
+        "pipelines/sync_dashboard_artifacts.py",
+        "pipelines/week_state.py",
+        "runbooks/README.md",
+        "scripts/check_weekly_freshness.py",
+        "tests/fixtures/week_stale_vectors.json",
+        "tests/test_source_health_release.py",
+        "tests/test_source_lateness.py",
+        "tests/test_week_stale.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "pipelines"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1214,
+      "sha": "b5f35fcaf1fb094fd475c77a912a43192a98ab94",
+      "title": "Store each player's ESPN, Sleeper and Yahoo spelling, and let roster paste and the chat match them (JEG-1387, JEG-1388, part of JEG-1202) (#1214)",
+      "files": [
+        "HANDOFF.md",
+        "Makefile",
+        "app/v2/roster-paste.js",
+        "data/inputs/player_platform_spellings.json",
+        "docs/claude-log/2026-10-30-name-alias-list.md",
+        "docs/claude-log/2026-10-30-platform-spellings-rows.md",
+        "pipelines/build_name_aliases.py",
+        "pipelines/build_platform_spellings.py",
+        "supabase/functions/mcp/names.ts",
+        "supabase/migrations/jeg1202_platform_spellings.sql",
+        "tests/node/platform_spellings_matchers_check.mjs",
+        "tests/test_name_aliases.py",
+        "tests/test_platform_spellings.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1124,
+      "sha": "a95a3ded622d554681fe31bf1c6348116e876a0d",
+      "title": "AI chat prices under a share link's basis and overrides: shared link reader + get-values (JEG-1225 slices 4a, 4b) (#1124)",
+      "files": [
+        "Makefile",
+        "app/v2/ddf-value-link.js",
+        "app/v2/overrides.js",
+        "docs/claude-log/2026-10-29-jeg-1225-main-merge.md",
+        "docs/claude-log/2026-10-29-jeg-1225-shared-link-value-context.md",
+        "docs/values-endpoint.md",
+        "pipelines/build_v2_page.py",
+        "supabase/functions/get-values/index.ts",
+        "supabase/functions/get-values/value-context.ts",
+        "tests/_edge_pipeline_runner.cjs",
+        "tests/node/ddf_value_link_check.cjs",
+        "tests/node/get_values_value_context_check.mjs",
+        "tests/test_ddf_value_link.py",
+        "tests/test_endpoint_parity.py",
+        "tests/test_get_values_value_context.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-values",
+        "fe-compare",
+        "fe-finder"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1212,
+      "sha": "8d8c1931bae91874913b68e1633fd84f833910b8",
+      "title": "Retire the legacy local stdio MCP server (JEG-1372) (#1212)",
+      "files": [
+        "HANDOFF.md",
+        "Makefile",
+        "docs/README.md",
+        "docs/claude-log/2026-10-30-retire-local-mcp.md",
+        "docs/values-endpoint.md",
+        "mcp-server/.gitignore",
+        "mcp-server/package-lock.json",
+        "mcp-server/package.json",
+        "mcp-server/src/index.ts",
+        "mcp-server/tsconfig.json",
+        "tests/test_local_mcp_retired.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1213,
+      "sha": "760a1cb973ba029c7474a286ef4fbfadcb91aa77",
+      "title": "Hold only the failing source after a red validate, on current main (JEG-1203, JEG-1204, part of JEG-1201) (#1213)",
+      "files": [
+        ".github/workflows/rebuild-chain.yml",
+        "HANDOFF.md",
+        "Makefile",
+        "docs/claude-log/2026-10-28-hold-tolerance.md",
+        "docs/claude-log/2026-10-28-jeg1204-source-test-matrix.md",
+        "docs/claude-log/2026-10-28-post-validate-isolation.md",
+        "docs/claude-log/2026-10-28-source-isolation-publication.md",
+        "docs/claude-log/2026-10-30-source-isolation-on-main.md",
+        "docs/picks-log.md",
+        "pipelines/isolate_post_validate.py",
+        "pipelines/rebuild_comparison_chain.py",
+        "tests/_dist_server.py",
+        "tests/_hold_scenarios.py",
+        "tests/test_isolate_post_validate.py",
+        "tests/test_post_validate_workflow_wiring.py",
+        "tests/test_rebuild_chain_workflow.py",
+        "tests/test_seeded_hold_build.py",
+        "tests/test_superflex.py",
+        "tests/test_week_history.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1179,
+      "sha": "6a2cca0dd31dbaac7e8f177a8f57851aa4d724b9",
+      "title": "Waivers: keep keyboard focus on screen after roster Clear and Undo (JEG-1316) (#1179)",
+      "files": [
+        "app/v2/waivers.js",
+        "docs/claude-log/2026-10-29-waivers-roster-focus.md",
+        "tests/test_waivers_clear_isolation_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "fe-finder",
+        "fe-waivers",
+        "fe-league"
+      ],
+      "expected_full": false
+    },
+    {
+      "number": 1145,
+      "sha": "661f3d0bccc0d7beb8baae2448d0ca4ae937f78d",
+      "title": "League checks: one list of the league's problems, each linking to its team (JEG-1273) (#1145)",
+      "files": [
+        "Makefile",
+        "app/v2/league.js",
+        "app/v2/v2.css",
+        "docs/claude-log/2026-10-29-jeg-1273-review-fixes.md",
+        "docs/claude-log/2026-10-30-jeg-1273-kicker-seats.md",
+        "tests/test_league_problems_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1092,
+      "sha": "dc3f3d8d59b3572a6ff3b92df3cd2601bbf7aca7",
+      "title": "Find a trade (league-wide): choose which opponents to search (JEG-1231) (#1092)",
+      "files": [
+        ".github/workflows/v2-render-test.yml",
+        "Makefile",
+        "app/v2/league.js",
+        "docs/claude-log/2026-10-29-jeg-1231-league-hookup.md",
+        "pipelines/build_v2_page.py",
+        "tests/test_jeg1231_league_inclusion_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1208,
+      "sha": "b3eb8d9784c7e432f45fa6457b53f3254793c910",
+      "title": "Fieldnotes navigation, Home and phone league entry, behind the flag (part of JEG-1137) (#1208)",
+      "files": [
+        "Makefile",
+        "app/v2/league.js",
+        "app/v2/shell.html",
+        "app/v2/v2.css",
+        "app/v2/v2.js",
+        "docs/claude-log/2026-10-30-jeg-1137-slice-2b.md",
+        "docs/design/fieldnotes-components.md",
+        "tests/test_v2_fieldnotes_league_entry_render.py",
+        "tests/test_v2_fieldnotes_nav_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1105,
+      "sha": "5d33909716c1843aa7131de48d985faa98619d89",
+      "title": "Two bench levels from a loaded league: DDF value and market depth (JEG-1188) (#1105)",
+      "files": [
+        "HANDOFF.md",
+        "Makefile",
+        "app/trade-value-chart/assets/curve-widget.js",
+        "app/trade-value-chart/assets/value-model.js",
+        "app/v2/league.js",
+        "app/v2/v2.css",
+        "app/v2/workspace.js",
+        "docs/claude-log/pr-jeg-1188-two-level-bench.md",
+        "docs/methodology.md",
+        "pipelines/build_v2_page.py",
+        "pipelines/lib/roster_convention.py",
+        "pipelines/spec_reference/pipeline_live.py",
+        "pipelines/spec_reference/value_pipeline.py",
+        "pipelines/value_reference.py",
+        "tests/fixtures/league_levels/charlotte.json",
+        "tests/fixtures/league_levels/raw/charlotte_rosters_2026-10-29.json",
+        "tests/fixtures/league_levels/raw/uso_rosters_2026-10-29.json",
+        "tests/fixtures/league_levels/uso.json",
+        "tests/league_levels_trades.cjs",
+        "tests/test_jeg1231_opponent_inclusion.py",
+        "tests/test_jeg1249_bench_corrections.py",
+        "tests/test_jeg1249_league_site_render.py",
+        "tests/test_jeg1328_share_links.py",
+        "tests/test_league_bench_levels.py",
+        "tests/test_league_levels_real.py",
+        "tests/test_league_levels_trades.py",
+        "tests/test_uso_site_journey_render.py",
+        "tests/test_v2_league_levels_render.py",
+        "tests/test_v2_league_units.py",
+        "tests/test_waiver_band_line.py",
+        "tests/value_pipeline_driver.js",
+        "tools/build_league_level_fixtures.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-compare",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1209,
+      "sha": "f2d505194b93da3a15d295adff4a37803d92631d",
+      "title": "Sleeper identity refresh unblocked: Sunday dry run resolves through the saver (JEG-1386) (#1209)",
+      "files": [
+        "docs/claude-log/2026-10-30-sleeper-refresh-guard.md",
+        "pipelines/capture_projections_only.py",
+        "pipelines/save_cbsros_references.py",
+        "tests/test_player_identity_guard.py",
+        "tests/test_projection_capture_sunday_jeg1377.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "pipelines"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1167,
+      "sha": "74464163df86bfb12ca6ff44335a7e2d73d067d4",
+      "title": "Trade targets in Fieldnotes, behind the flag (part of JEG-1139) (#1167)",
+      "files": [
+        "Makefile",
+        "app/v2/v2.css",
+        "docs/claude-log/2026-10-29-fieldnotes-targets.md",
+        "docs/design/fieldnotes-components.md",
+        "tests/test_v2_fieldnotes_targets_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "fe-values",
+        "fe-compare",
+        "fe-finder",
+        "fe-targets",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1156,
+      "sha": "0fc5eaa414f1c01c50d0d3ccd5e8519e067d8c08",
+      "title": "Connector analyses: risers_fallers, compare_trade by_source, audit_values (JEG-1029) (#1156)",
+      "files": [
+        "Makefile",
+        "app/llm/llms.txt",
+        "app/llm/server-card.json",
+        "app/llm/skill/SKILL.md",
+        "docs/claude-log/2026-10-29-jeg-1029-connector-analyses.md",
+        "docs/claude-log/2026-10-29-jeg-1029-main-merge.md",
+        "docs/claude-log/2026-10-30-jeg-1029-prior-pairing.md",
+        "docs/values-endpoint.md",
+        "supabase/functions/get-values/analysis.ts",
+        "supabase/functions/get-values/index.ts",
+        "supabase/functions/get-values/pipeline.ts",
+        "supabase/functions/mcp/analyses.ts",
+        "supabase/functions/mcp/build.ts",
+        "supabase/functions/mcp/index.ts",
+        "supabase/functions/mcp/state.ts",
+        "supabase/functions/mcp/tools.ts",
+        "tests/_edge_pipeline_runner.cjs",
+        "tests/node/connector_analyses_driver.mjs",
+        "tests/node/connector_inventory_dump.mjs",
+        "tests/node/connector_roundtrip_check.mjs",
+        "tests/node/mcp_remote_check.mjs",
+        "tests/test_connector_analyses.py",
+        "tests/test_connector_analyses_page.py",
+        "tests/test_connector_inventory.py",
+        "tests/test_llm_surfaces.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit",
+        "connector",
+        "fe-values",
+        "fe-compare",
+        "fe-finder",
+        "fe-league"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1184,
+      "sha": "1adb13b21bc78dce37b35ec99b847b6f91c48f14",
+      "title": "Compare a trade in Fieldnotes, behind the flag (part of JEG-1138) (#1184)",
+      "files": [
+        "Makefile",
+        "app/v2/v2.css",
+        "docs/claude-log/2026-10-29-fieldnotes-compare.md",
+        "docs/design/fieldnotes-components.md",
+        "tests/test_v2_fieldnotes_compare_render.py"
+      ],
+      "expected_shards": [
+        "smoke",
+        "validate-base",
+        "core-1",
+        "core-2",
+        "core-3",
+        "core-4",
+        "core-5",
+        "full-unit"
+      ],
+      "expected_full": true
+    },
+    {
+      "number": 1200,
+      "sha": "6b33b67836074bf5a799c278cf7a6893f2a363d2",
+      "title": "Unmatched or ambiguous player names stop compare_trade; finder scans list them (JEG-1124) (#1200)",
+      "files": [
+        "docs/claude-log/2026-10-30-jeg-1124-ambiguous-names.md",
+        "docs/claude-log/2026-10-30-jeg-1124-unmatched-stops.md",
+        "supabase/functions/mcp/names.ts",
+        "supabase/functions/mcp/tools.ts",
+        "tests/node/mcp_remote_check.mjs"
+      ],
+      "expected_shards": [
+        "smoke",
+        "connector"
+      ],
+      "expected_full": false
+    }
+  ],
+  "regressions": [
+    {
+      "original_pr": 1192,
+      "fix_pr": 1222,
+      "required_shards": [
+        "pipelines"
+      ],
+      "evidence": "docs/claude-log/2026-10-30-jeg1391-prune-merged-player-keys.md: duplicate merge left stale slugs in comparison player_keys."
+    },
+    {
+      "original_pr": 1156,
+      "fix_pr": 1220,
+      "required_shards": [
+        "connector"
+      ],
+      "evidence": "docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md: current/prior included-set pairing; JEG-1029 redeploy held for fix."
+    }
+  ],
+  "coverage_followups": [
+    {
+      "original_pr": 1200,
+      "followup_pr": 1231,
+      "note": "JEG-1376 log says #1200 had already fixed both tools; regression coverage and closest-name read_state text, not an escaped compare_trade defect."
+    }
+  ]
+}
