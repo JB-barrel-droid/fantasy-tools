@@ -65,7 +65,14 @@ class MethodologyWorkedExampleTests(unittest.TestCase):
         broken = self.doc.replace("**52.165616**", "**48.511113**", 1)
         self.assertNotEqual(gen.current_block(broken), self.block)
         # A doc without markers is caught (main before JEG-1397).
-        self.assertIsNone(gen.current_block(self.doc.replace(gen.BEGIN, "")))
+        with self.assertRaises(SystemExit):
+            gen.current_block(self.doc.replace(gen.BEGIN, ""))
+        # A second, stale block is caught too, by the check and by splice.
+        doubled = self.doc + "\n" + self.block.replace("**52.165616**", "**48.511113**") + "\n"
+        with self.assertRaises(SystemExit):
+            gen.current_block(doubled)
+        with self.assertRaises(SystemExit):
+            gen.splice(doubled, self.block)
 
     def test_vp25_states_the_midpoint_rule(self):
         vp25 = self.doc[self.doc.index("5. **Starter line `l_p`**"):self.doc.index("6. **Per player**")]

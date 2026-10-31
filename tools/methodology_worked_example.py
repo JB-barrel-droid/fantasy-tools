@@ -461,18 +461,24 @@ def render(fx: dict | None = None) -> str:
     return "\n".join([BEGIN, ""] + body + ["", END])
 
 
+def _span(doc: str) -> tuple[int, int]:
+    """Return (start, end) of the one generated block; exit on missing, duplicate or misordered markers."""
+    nb, ne = doc.count(BEGIN), doc.count(END)
+    a, b = doc.find(BEGIN), doc.find(END)
+    if nb != 1 or ne != 1 or b < a:
+        raise SystemExit(f"{DOC.relative_to(REPO)}: expected exactly one BEGIN and one END "
+                         f"generated worked-example marker, found {nb} and {ne}")
+    return a, b + len(END)
+
+
 def splice(doc: str, block: str) -> str:
-    a, b = doc.find(BEGIN), doc.find(END)
-    if a < 0 or b < 0 or b < a:
-        raise SystemExit(f"{DOC.relative_to(REPO)}: generated worked-example markers not found")
-    return doc[:a] + block + doc[b + len(END):]
+    a, b = _span(doc)
+    return doc[:a] + block + doc[b:]
 
 
-def current_block(doc: str) -> str | None:
-    a, b = doc.find(BEGIN), doc.find(END)
-    if a < 0 or b < 0 or b < a:
-        return None
-    return doc[a:b + len(END)]
+def current_block(doc: str) -> str:
+    a, b = _span(doc)
+    return doc[a:b]
 
 
 def main(argv=None) -> int:
