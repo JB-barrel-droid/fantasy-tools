@@ -597,7 +597,8 @@ chart DDF Value").
 
 1. **Mean points per game** `m_i` as in VP-0.
 2. **Slot fill** = the league allocation of VP-2.2 (`S*_p = S_p`,
-   `N*_p = N_p`). The zones on the curve sit at these counts. With no
+   `N*_p = N_p`); with fractional seats (VP-2.2 g), the heaviest
+   allocation's. The zones on the curve sit at these counts. With no
    projection in `I`, slot fill runs VP-2.2 a–e on blended DDF Value.
 3. **Tier** (`ddfTier`). Within a position, rank by blended DDF Value
    descending, then `m` descending (missing last), then key ascending.
@@ -646,7 +647,7 @@ chart DDF Value").
    PPR, no superflex, default roster, fractional seats on; engine and Python
    reference agree on every tier):
 
-   | Position | Seats (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
+   | Position | Seats, heaviest allocation (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
    | --- | --- | --- | --- | --- |
    | WR | 33 / 68 | #68 Kalif Raymond 0.0327 | #69 De'Zhaun Stribling 0.0327, #70 Dontayvion Wicks 0.027 | #80 |
    | TE | 12 / 20 | #20 Mark Andrews 0.432 | #21 Dalton Schultz 0.098, #22 Tyler Higbee 0.027 | #29 |
