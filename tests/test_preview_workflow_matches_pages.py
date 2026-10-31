@@ -326,7 +326,7 @@ class PreviewMatchesPagesTest(unittest.TestCase):
         self.assertCaught(mutated, "must run make validate-base")
 
     def test_pages_shard_matrix_and_commands_must_match_preview(self):
-        for old, new in (("shard: [1, 2, 3, 4]", "shard: [1, 2, 3]"),
+        for old, new in (("shard: [1, 2, 3, 4, 5]", "shard: [1, 2, 3, 4]"),
                          ("make test-core-shard-${{ matrix.shard }}", "make test-core-shard-1")):
             pages = PAGES.replace(old, new, 1)
             self.assertNotEqual(PAGES, pages)

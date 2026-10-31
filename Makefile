@@ -1,4 +1,4 @@
-.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-all test-unit test-unit-modules test-integration
+.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-core-shard-5 test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -139,12 +139,20 @@ test-unit-modules:
 	python3 -m unittest tests.test_ddf_state
 	# JEG-1334: fractional flex and bench seats helper (option B, JEG-1286).
 	python3 -m unittest tests.test_fractional_seats
+	# JEG-1335: the engine's copy of the seat functions, and the worked example's
+	# fractional-seat variant in the reference, the spec reference and the engine.
+	python3 -m unittest tests.test_fractional_seats_engine
+	python3 -m unittest tests.test_fractional_seats_worked_example
+	# JEG-1335: every source's pie still balances under the seat mix (the page's fixed-pie check).
+	python3 -m unittest tests.test_fractional_seats_pie
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory
 	# JEG-1225: the shared value-context link format (basis=, ov=).
 	python3 -m unittest tests.test_ddf_value_link
 	python3 -m unittest tests.test_league_mapping
+	# JEG-1061: get-values logs each fresh custom compute and each 429 (soft limiter measurement).
+	python3 -m unittest tests.test_jeg_1061_logging_contract
 	# JEG-1179: the week get-values and the MCP tools price (default, explicit, error, transitions).
 	python3 -m unittest tests.test_mcp_week
 	# JEG-1225: get-values prices under a link's basis and overrides.
@@ -165,6 +173,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_universe_chart_only
 	python3 -m unittest tests.test_match_identity_keys
 	python3 -m unittest tests.test_sleeper_identity_layer
+	# JEG-1354: players.active follows the active NFL universe (ids first).
+	python3 -m unittest tests.test_sync_players_active
 	# JEG-1313: platform-spelling audit (JEG-1202), offline. In the full suite, not the deploy gate (an audit).
 	python3 -m unittest tests.test_jeg1202_platform_spellings
 	# JEG-1387: platform spellings as name-table rows (JEG-1202), offline.
@@ -195,6 +205,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1367_api_invoker_migration
 	python3 -m unittest tests.test_weekly_fantasypros_contract
 	python3 -m unittest tests.test_source_probe
+	python3 -m unittest tests.test_source_lateness
 	python3 -m unittest tests.test_source_snapshot_match
 	python3 -m unittest tests.test_rebuild_chain_failclosed
 	python3 -m unittest tests.test_rebuild_chain_per_source_hold
@@ -226,6 +237,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_finder_viable_render
 	python3 -m unittest tests.test_waivers_render
 	python3 -m unittest -v tests.test_waivers_mutation_specificity
+	# JEG-1373: guard for the per-PR, non-blocking offline run of its three offline classes.
+	python3 -m unittest tests.test_waivers_mutation_offline_workflow
 	python3 -m unittest tests.test_waivers_clear_isolation_render
 	python3 -m unittest tests.test_waivers_paste_render
 	python3 -m unittest tests.test_waivers_view_render
@@ -281,6 +294,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_trade_chart_ingest_ci
 	python3 -m unittest tests.test_pull_fantasypros_parse
 	python3 -m unittest tests.test_article_discovery
+	# JEG-1163 / JEG-1164 test PRs, wired here by JEG-1180 (which changed both files).
+	python3 -m unittest tests.test_check_weekly_freshness
+	python3 -m unittest tests.test_watchdog_common_helpers
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
@@ -636,6 +652,8 @@ test-core:
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	# JEG-1152: engine promotion model part-for-part with the reference.
 	python3 -m unittest tests.test_promotion_model_parity
 	python3 -m unittest tests.test_static_export
@@ -652,6 +670,7 @@ test-core:
 	python3 -m unittest tests.test_curve_default_guard
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
@@ -749,6 +768,9 @@ test-core:
 	python3 -m unittest tests.test_week_calendar
 	# JEG-1177: shared defaultWeek vectors (JS + Python) and the New York clock.
 	python3 -m unittest tests.test_week_state
+	# JEG-1180: stale flag (Thursday 12:00 CT) by each source's own week; never fails the chain.
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_two_qb_direction
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_published_league_settings_engine
@@ -789,24 +811,18 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_phone_context_row_render
-	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
-	python3 -m unittest tests.test_view_invariants
-	python3 -m unittest tests.test_launch_front_door
-	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
-	python3 -m unittest tests.test_missing_section_render
-	python3 -m unittest tests.test_lineup_content_week_advance
-	python3 -m unittest tests.test_search_players_universe
-	python3 -m unittest tests.test_published_league_settings_engine
-	python3 -m unittest tests.test_player_tags
 
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
+	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_pipelines_import_standalone
@@ -861,6 +877,8 @@ test-core-shard-3:
 	python3 -m unittest tests.test_view_switch_hidden_defaults
 	python3 -m unittest tests.test_week_calendar
 	python3 -m unittest tests.test_week_state
+	python3 -m unittest tests.test_week_stale
+	python3 -m unittest tests.test_source_health_release
 	python3 -m unittest tests.test_roster_convention
 	python3 -m unittest tests.test_bench_miss_rate
 	python3 -m unittest tests.test_razzball_outlier_guard
@@ -895,6 +913,19 @@ test-core-shard-4:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_waiver_band_line
+
+# JEG-1335: split from shard 1, which passed its 30-minute job limit once the seat mix
+# made the engine-heavy suites (seeded hold build, desktop menu, view invariants) slower.
+test-core-shard-5:
+	python3 -m unittest tests.test_v2_desktop_menu_render
+	python3 -m unittest tests.test_view_invariants
+	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
+	python3 -m unittest tests.test_missing_section_render
+	python3 -m unittest tests.test_lineup_content_week_advance
+	python3 -m unittest tests.test_search_players_universe
+	python3 -m unittest tests.test_published_league_settings_engine
+	python3 -m unittest tests.test_player_tags
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily

@@ -75,6 +75,9 @@ const out = {
     override: result.benchShare.override, fill_in_share: result.benchShare.fillInShare} : null,
   mean_ppg: result.meanPpg,
   allocation: result.allocation,
+  // JEG-1335: the seat mix, when the run blended more than one allocation.
+  ...(result.allocationMix ? {allocation_mix: result.allocationMix,
+    allocation_expected: result.allocationExpected} : {}),
   slot_fill_mean_ppg: result.slotFill,
   fill_sets: Object.fromEntries(Object.entries(result.fillSets).map(([p, ks]) => [p, intKeys(ks)])),
   starter_mix_mean: result.starterMixMean,
