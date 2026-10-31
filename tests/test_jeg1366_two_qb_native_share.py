@@ -133,6 +133,46 @@ class ReferenceWeights(unittest.TestCase):
                                  {k: v["ddf_value"] for k, v in off.items()})
 
 
+class ReferenceBenchShare(unittest.TestCase):
+    """Review of #1236, findings 1 to 3: the fixed bench-share path, the
+    recomputed bench share and the superflex input where the rule is called."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.inp = ref.Inputs.load(today=date.fromisoformat(data_today()))
+
+    def projections(self, res):
+        return [k for k in res["included"] if res["sources"][k]["family"] == "projection"
+                and res["sources"][k]["weights"] is not None]
+
+    def test_fixed_bench_share_rescales_starters_and_bench_separately(self):
+        res = ref.Setting(self.inp, "ppr", 12, qb=2, bench_share_override=0.1).result()
+        w, projs = res["ddf_weights"], self.projections(res)
+        self.assertAlmostEqual(sum(w[f"{p}|bench"] for p in ref.POSITIONS), 0.1, places=9)
+        self.assertAlmostEqual(sum(w.values()), 1.0, places=9)
+        for role, mix, target in (("starter", "starter_mix", 0.9), ("bench", "bench_mix", 0.1)):
+            want = target * sum(res["sources"][k][mix]["QB"] for k in projs) / len(projs)
+            self.assertAlmostEqual(w[f"QB|{role}"], want, places=9)
+
+    def test_computed_bench_share_is_the_reweighted_bench_total(self):
+        res = ref.Setting(self.inp, "ppr", 12, qb=2).result()
+        bench = sum(res["ddf_weights"][f"{p}|bench"] for p in ref.POSITIONS)
+        self.assertAlmostEqual(res["bench_share_applied"], bench, places=12)
+        inc = [k for k in res["included"] if res["sources"][k]["weights"] is not None]
+        before = sum(res["sources"][k]["weights"][f"{p}|bench"] for k in inc for p in ref.POSITIONS) / len(inc)
+        self.assertGreater(abs(res["bench_share_applied"] - before), 1e-4)  # the step moved it
+
+    def test_two_qb_with_a_superflex_slot_keeps_every_sources_share(self):
+        """QB 2 plus a superflex slot is a superflex league: the QB weight is the
+        mean over every included source, not the projections' alone."""
+        res = ref.Setting(self.inp, "ppr", 12, qb=2, superflex=1).result()
+        inc = [k for k in res["included"] if res["sources"][k]["weights"] is not None]
+        every = sum(res["sources"][k]["weights"]["QB|starter"] + res["sources"][k]["weights"]["QB|bench"]
+                    for k in inc) / len(inc)
+        self.assertAlmostEqual(qb_weight(res), every, places=9)
+        self.assertGreater(abs(projection_qb_weight(res) - every), 0.01)
+
+
 class SpecWeights(unittest.TestCase):
     """The spec reference's VP-4 on a small hand-made priced dict."""
 
@@ -167,6 +207,31 @@ class SpecWeights(unittest.TestCase):
         self.assertAlmostEqual(w["QB|starter"], 0.9 * .34 / .91)
 
 
+class SpecWiring(unittest.TestCase):
+    """run_week passes the league's own QB and superflex counts to VP-4."""
+
+    def calls(self, slots_qb, superflex):
+        from unittest import mock
+        from spec_reference import worked_example as we
+        fx = json.loads(we.FIXTURE.read_text(encoding="utf-8"))
+        inp = we.fixture_inputs(fx)
+        s = json.loads(json.dumps(fx["setting"]))
+        s["slots"] = {**s["slots"], "QB": slots_qb}
+        s["superflex"] = superflex
+        with mock.patch.object(spec, "ddf_weights", wraps=spec.ddf_weights) as dw:
+            spec.run_week(spec.Setting.from_fixture(s), inp["pos_of"], inp["sources"], inp["included"],
+                          names=inp["names"])
+        return [c.args[4] if len(c.args) > 4 else c.kwargs.get("two_qb_native", False) for c in dw.call_args_list]
+
+    def test_two_qb_league_takes_the_native_share(self):
+        self.assertTrue(self.calls(2, 0))
+        self.assertTrue(all(self.calls(2, 0)))
+
+    def test_superflex_and_one_qb_do_not(self):
+        self.assertFalse(any(self.calls(2, 1)))
+        self.assertFalse(any(self.calls(1, 0)))
+
+
 class Engine(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -186,6 +251,35 @@ class Engine(unittest.TestCase):
         self.assertGreater(len(edge), 50)
         bad = [k for k in set(edge) | set(want) if abs(edge.get(k, 0) - want.get(k, 0)) > TOL]
         self.assertEqual(bad[:10], [], f"{len(bad)} players differ")
+
+    def edge(self, league, *extra):
+        out = subprocess.run(RUNNER + ["--league", json.dumps(league), "--dist", str(ROOT / "dist"), *extra],
+                             capture_output=True, text=True, timeout=120, env=self.env)
+        self.assertEqual(out.returncode, 0, out.stderr[-800:])
+        return json.loads(out.stdout)
+
+    def assert_weights_match(self, league, res, *extra):
+        got = self.edge(league, "--dump-weights", "1", *extra)
+        for g, v in res["ddf_weights"].items():
+            self.assertAlmostEqual(got["ddf_weights"][g], v, places=9, msg=g)
+        self.assertAlmostEqual(got["bench_share_applied"], res["bench_share_applied"], places=9)
+
+    def test_engine_weights_and_bench_share_equal_the_reference(self):
+        self.assert_weights_match(TWO_QB, ref.Setting(self.inp, "ppr", 12, qb=2).result())
+
+    def test_engine_fixed_bench_share_equals_the_reference(self):
+        setting = ref.Setting(self.inp, "ppr", 12, qb=2, bench_share_override=0.1)
+        self.assert_weights_match(TWO_QB, setting.result(), "--bench-share-override", "0.1")
+        edge = {int(k): v for k, v in self.edge(TWO_QB, "--bench-share-override", "0.1").items()}
+        want = {int(k): v["ddf_value"] for k, v in setting.rows("adj").items()
+                if isinstance(v.get("ddf_value"), (int, float))}
+        self.assertGreater(len(edge), 50)
+        bad = [k for k in set(edge) | set(want) if abs(edge.get(k, 0) - want.get(k, 0)) > TOL]
+        self.assertEqual(bad[:10], [], f"{len(bad)} players differ")
+
+    def test_engine_two_qb_with_superflex_slot_equals_the_reference(self):
+        league = {"scoring": "ppr", "teams": 12, "roster": {"QB": 2, "SUPERFLEX": 1}}
+        self.assert_weights_match(league, ref.Setting(self.inp, "ppr", 12, qb=2, superflex=1).result())
 
 
 if __name__ == "__main__":

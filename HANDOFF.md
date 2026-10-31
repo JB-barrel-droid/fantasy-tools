@@ -26,9 +26,14 @@ below are history, including any "Codex reviews and merges" line.
   mean over the included projections (points above the league's own 2-QB waiver line); RB/WR/TE keep their
   relative shares (methodology VP-4.3a). Same change in `value-model.js`, `value_reference.py` and the spec
   reference. get-values runs the site's `value-model.js`, so the connector follows the next Pages deploy; no edge
-  code changed. 1-QB and superflex settings move 0 values. 12-team: QBs +18 to +21%, RB/WR/TE -8 to -10%.
-- Next: independent review, green CI, then the merge gate merges (Jeremy approved build and merge). No deploy
-  from this branch.
+  code changed. 1-QB and superflex settings move 0 values. 12-team: top 24 QBs +17 to +22%, RB/WR/TE -8 to -10%.
+- Independent review PASS on 566ba1cb (receipt on #1236). Its five non-blocking findings are fixed on the next head:
+  engine/reference tests for the fixed bench-share path, the recomputed bench share and the superflex input
+  (the edge runner gained `--bench-share-override` and `--dump-weights`), the spec `run_week` wiring, the
+  methodology figures, and the mcp `superflex` explanation (`supabase/functions/mcp/tools.ts`, live only after
+  the mcp redeploy in the JEG-1400 bundle, which needs Jeremy's yes).
+- Next: delta review of the new head, ready for review, green CI, then the merge gate merges (Jeremy approved build
+  and merge). No deploy from this branch.
 - Evidence: `docs/claude-log/2026-10-30-jeg1366-2qb-native-share.md`, `tests/test_jeg1366_two_qb_native_share.py`.
 
 ### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)

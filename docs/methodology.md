@@ -408,8 +408,8 @@ chart DDF Value").
    each chart's spread within QB. A superflex league is unchanged (its extra
    seat has an RB/WR/TE fallback), and with no projection in `I` this step
    does nothing. 12-team fixture of 2026-10-30: the QB share goes from 30.5
-   to 32.3% to 36.0 to 38.4%, every QB about +18 to +21%, every RB/WR/TE
-   about -8 to -10% (`ValueModel.usesTwoQbNativeShare`,
+   to 32.3% to 36.0 to 38.4%, the top 24 QBs +17 to +22% (every QB valued
+   above 1 point +17 to +28%), every RB/WR/TE -8 to -10% (`ValueModel.usesTwoQbNativeShare`,
    `value_reference.uses_two_qb_native_share`,
    `spec_reference.value_pipeline.two_qb_native_share`;
    `tests/test_jeg1366_two_qb_native_share.py`).

@@ -11,6 +11,8 @@ Contract: in a league with 2+ dedicated QB slots and no superflex slot, the QB s
 - Reference values equal the before/after posted to JEG-1366 at all 9 settings (max difference 0).
 - Unchanged suites pass: test_spec_reference_value_pipeline, test_value_pipeline_engine, test_two_qb_direction, test_superflex, test_superflex_publisher_values, test_jeg1365_two_qb_superflex_values, test_value_reference_worked_example (0 mismatches), test_endpoint_parity, test_value_check, test_fractional_seats, test_promotion_model_parity. `pipelines/check_rank_guard.py`: 0 inversions.
 
+- Review follow-up (findings 1 to 5 on 566ba1cb): `ReferenceBenchShare` (fixed bench-share path, recomputed `bench_share_applied`, QB 2 plus superflex keeps every source's share), `SpecWiring` (run_week passes the rule on at QB 2 and off with superflex or 1 QB), and three engine cases through the edge runner (weights and bench share at QB 2, the fixed share at 0.1 with values, QB 2 plus superflex). Each of 7 deliberate breaks (JS fixed branch off, JS bsStar recompute removed, JS superflex hard-coded 0, reference fixed branch off, reference bench share recompute removed, reference superflex hard-coded 0, spec passing False) fails the file; all 18 tests pass on the fix. test_mcp_remote, test_mcp_week, test_endpoint_parity, test_jeg1365 pass.
+
 ### Claimed, not confirmed
 - `value_check compare --rerun-engine` and the page at QB 2 need Playwright, which this cloud session lacks; they run in CI.
 - The connector changes once Pages serves the new `value-model.js` (get-values loads it from the site); no edge redeploy is needed for the values, but none was checked live.
