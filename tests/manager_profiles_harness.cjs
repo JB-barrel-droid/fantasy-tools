@@ -222,6 +222,154 @@ check("test_store_other_tab", () => {
   assert.strictEqual(M.get(b.get(), ws, "t2").excluded, true);
 });
 
+// JEG-1318: another tab saves inside this tab's 1-second write delay. Both edits must survive: this tab's pending one
+// (was: dropped, and dirty cleared so nothing was written) and the other tab's (a skip-the-reload fix would overwrite it).
+function pendingPair(seed) {
+  const storage = memoryStorage(seed ? {[M.STORAGE_KEY]: seed} : {});
+  const timers = [];
+  const a = M.createStore({storage, delay: 1000, setTimer: fn => { timers.push(fn); return timers.length; }, clearTimer: () => {}});
+  const b = M.createStore({storage, delay: 0});
+  a.load(); b.load();
+  return {storage, a, b, fire: () => timers[timers.length - 1]()};
+}
+const stored = storage => JSON.parse(storage.getItem(M.STORAGE_KEY));
+
+check("test_store_pending_edit_survives_other_tab", () => {
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair();
+  a.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 2));
+  assert.strictEqual(a.status(), "saving");
+  b.update(x => M.ops.setExcluded(x, ws, "t2", true, 3));   // the other tab's save fires a storage event here
+  const seen = [];
+  a.onChange((_, change) => seen.push(change.reason));
+  a.reloadFromStorage();
+  assert.deepStrictEqual(seen, ["other-tab"]);
+  assert.deepStrictEqual(M.get(a.get(), ws, "t1").tags, ["rookies"], "this tab still shows its pending edit");
+  assert.strictEqual(M.get(a.get(), ws, "t2").excluded, true, "and the other tab's change");
+  assert.strictEqual(a.status(), "saving", "still owes a save");
+  fire();
+  assert.strictEqual(a.status(), "saved");
+  const saved = M.parseStored(storage.getItem(M.STORAGE_KEY)).book;
+  assert.deepStrictEqual(M.get(saved, ws, "t1").tags, ["rookies"], "this tab's edit is written");
+  assert.strictEqual(M.get(saved, ws, "t2").excluded, true, "the other tab's edit is not overwritten");
+  // The merge base moves with each save: an edit this tab already wrote, then undone by the other tab, stays undone.
+  a.update(x => M.ops.setExcluded(x, ws, "t3", true, 4));
+  fire();
+  b.reloadFromStorage();
+  a.update(x => M.ops.setConfidence(x, ws, "t1", "low", 5));
+  b.update(x => M.ops.setExcluded(x, ws, "t3", false, 6));
+  a.reloadFromStorage();
+  fire();
+  const later = M.parseStored(storage.getItem(M.STORAGE_KEY)).book;
+  assert.strictEqual(M.get(later, ws, "t3").excluded, false, "the other tab's undo is kept");
+  assert.strictEqual(M.get(later, ws, "t1").confidence, "low");
+});
+
+check("test_store_pending_edit_merges_same_manager", () => {
+  // Both tabs change the same manager: different fields both survive, ticked boxes combine, and where both tabs set the
+  // same field this tab's pending value (the later edit) wins.
+  const ws = league();
+  const seed = JSON.stringify({v: 1, leagues: {"league-a": {t1: {...M.newProfile("t1", {now: 1}), confidence: "low", tags: ["winNow"]}}}});
+  const {storage, a, b, fire} = pendingPair(seed);
+  a.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 2));
+  a.update(x => M.ops.setConfidence(x, ws, "t1", "high", 2));
+  b.update(x => M.ops.setTag(x, ws, "t1", "picks", true, 3));
+  b.update(x => M.ops.setTag(x, ws, "t1", "winNow", false, 3));
+  b.update(x => M.ops.setAnchor(x, ws, "t1", "draft", "strong", 3));
+  b.update(x => M.ops.setConfidence(x, ws, "t1", "medium", 3));
+  a.reloadFromStorage();
+  fire();
+  const p = M.get(M.parseStored(storage.getItem(M.STORAGE_KEY)).book, ws, "t1");
+  assert.deepStrictEqual(p.tags, ["rookies", "picks"], "each tab's tick kept, the other tab's untick kept");
+  assert.strictEqual(p.anchors.draft, "strong", "the other tab's anchor kept");
+  assert.strictEqual(p.confidence, "high", "same field: this tab's pending value wins");
+  assert.deepStrictEqual(Object.keys(stored(storage).leagues["league-a"]), ["t1"]);
+});
+
+// JEG-1339: a blank manager is never stored, so a first mark or a clear shows up as a missing profile (or league). The
+// merge must read a missing one as the blank profile, not as a whole value that one side wins outright.
+const seedTags = tags => JSON.stringify({v: 1, leagues: {"league-a": {t1: {...M.newProfile("t1", {now: 1}), tags}}}});
+const storedProfile = (storage, ws, id) => M.get(M.parseStored(storage.getItem(M.STORAGE_KEY)).book, ws, id);
+
+check("test_store_merge_first_mark_on_blank_manager", () => {
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair();
+  a.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 2));
+  b.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 3));
+  b.update(x => M.ops.setExcluded(x, ws, "t1", true, 3));
+  a.reloadFromStorage();
+  fire();
+  const p = storedProfile(storage, ws, "t1");
+  assert.strictEqual(p.excluded, true, "the other tab's Won't trade is kept");
+  assert.deepStrictEqual(p.tags, ["rookies"]);
+});
+
+check("test_store_merge_other_tab_clears_league", () => {
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair(JSON.stringify({v: 1, leagues: {"league-a": {t1: {...M.newProfile("t1", {now: 1}), excluded: true}}}}));
+  a.update(x => M.ops.setTag(x, ws, "t2", "picks", true, 2));
+  b.update(x => M.ops.reset(x, ws, "t1"));   // the league's last profile: the league entry goes too
+  a.reloadFromStorage();
+  fire();
+  assert.strictEqual(storedProfile(storage, ws, "t1").excluded, false, "the other tab's reset is kept");
+  assert.deepStrictEqual(Object.keys(stored(storage).leagues["league-a"]), ["t2"]);
+  assert.deepStrictEqual(storedProfile(storage, ws, "t2").tags, ["picks"]);
+});
+
+check("test_store_merge_this_tab_blanks_manager", () => {
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair(seedTags(["winNow"]));
+  a.update(x => M.ops.setTag(x, ws, "t1", "winNow", false, 2));   // now blank, so not stored here
+  b.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 3));
+  a.reloadFromStorage();
+  fire();
+  assert.deepStrictEqual(storedProfile(storage, ws, "t1").tags, ["rookies"], "this tab's untick and the other tab's tick both kept");
+});
+
+check("test_store_merge_other_tab_blanks_manager", () => {
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair(seedTags(["winNow"]));
+  a.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 2));
+  b.update(x => M.ops.setTag(x, ws, "t1", "winNow", false, 3));   // blank in the other tab's save
+  a.reloadFromStorage();
+  fire();
+  assert.deepStrictEqual(storedProfile(storage, ws, "t1").tags, ["rookies"], "the other tab's untick and this tab's tick both kept");
+});
+
+check("test_store_write_merges_unhandled_other_tab_save", () => {
+  // This tab's timer fires before its storage event for the other tab's save is handled: the write still merges.
+  const ws = league();
+  const {storage, a, b, fire} = pendingPair();
+  a.update(x => M.ops.setTag(x, ws, "t1", "rookies", true, 2));
+  b.update(x => M.ops.setExcluded(x, ws, "t2", true, 3));
+  fire();
+  assert.strictEqual(storedProfile(storage, ws, "t2").excluded, true, "the other tab's save is not overwritten");
+  assert.deepStrictEqual(storedProfile(storage, ws, "t1").tags, ["rookies"]);
+  assert.strictEqual(M.get(a.get(), ws, "t2").excluded, true, "this tab shows the merged book");
+  a.reloadFromStorage();
+  b.reloadFromStorage();
+  assert.deepStrictEqual(a.get(), b.get());
+  assert.strictEqual(a.status(), "saved");
+});
+
+check("test_store_reload_without_pending_edit_takes_other_tab", () => {
+  // Nothing pending: the other tab's book is taken as is, including a manager it cleared.
+  const ws = league();
+  const seed = JSON.stringify({v: 1, leagues: {"league-a": {t1: {...M.newProfile("t1", {now: 1}), excluded: true}}}});
+  const {storage, a, b} = pendingPair(seed);
+  b.update(x => M.ops.reset(x, ws, "t1"));
+  a.reloadFromStorage();
+  assert.deepStrictEqual(a.get(), b.get());
+  assert.strictEqual(M.get(a.get(), ws, "t1").excluded, false);
+  // A pending edit that the other tab already saved leaves nothing owed.
+  a.update(x => M.ops.setExcluded(x, ws, "t3", true, 4));
+  b.reloadFromStorage();
+  b.update(x => M.ops.setExcluded(x, ws, "t3", true, 4));
+  a.reloadFromStorage();
+  assert.strictEqual(a.status(), "saved", "no save is claimed as pending once storage already holds the edit");
+  assert.strictEqual(M.get(M.parseStored(storage.getItem(M.STORAGE_KEY)).book, ws, "t3").excluded, true);
+});
+
 check("test_legacy_and_partial_state", () => {
   // An older or hand-edited profile with missing or unknown fields loads with "unknown" in their place.
   const text = JSON.stringify({v: 1, leagues: {"league-a": {t1: {anchors: {draft: "strong", market: "huge", rankings: 0.7}, excluded: "yes", createdAt: 5,
