@@ -26,7 +26,7 @@
     "transformed_at": "2026-10-03T21:04:32.183609+00:00",
     "transformer": "pipelines/transform_batch70_to_comparison.py"
   },
-  "built_at": "2026-10-31T01:37:23.172071+00:00",
+  "built_at": "2026-10-31T03:42:34.131623+00:00",
   "display": {
     "aaron anderson": "Aaron Anderson",
     "aaron jones": "Aaron Jones",
@@ -3413,7 +3413,7 @@
       "name": "CBS",
       "native_unit": "CBS chart points (their ~5\u201347 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-31T01:37:23Z",
+      "promoted_at": "2026-10-31T03:42:34Z",
       "promoted_from_review": "cbs-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-28T12:23:16+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: CBS publishes 1QB-4 / 1QB-6 / 2QB, so the 1QB-4 column is reused for every scoring mode. QBs with '--' in the 1QB columns carry 2QB-only value and are not covered in 1QB.",
@@ -3426,7 +3426,7 @@
         "snapshot_fetched_at": "2026-10-28T12:23:16+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/cbs/week-8/snapshot-manifest.json",
         "source": "cbs",
-        "source_pulled_at": "2026-10-31T01:35:51Z",
+        "source_pulled_at": "2026-10-31T03:41:42Z",
         "source_url": "https://www.cbssports.com/fantasy/football/news/dave-richards-week-8-trade-chart-and-rest-of-season-rankings-bucky-irving-joe-burrow-continue-to-surge/",
         "vintage_kind": "week_designated",
         "week_designated": 8
@@ -42333,7 +42333,7 @@
         "stale": false,
         "vintage": "2026-10-30"
       },
-      "fetched_at": "2026-10-31T01:37:21Z",
+      "fetched_at": "2026-10-31T03:42:32Z",
       "kind": "model projections, valued by our model",
       "lineage": {
         "raw_built_at": "2026-10-31T00:47:57Z",
@@ -42353,16 +42353,7 @@
       "snapshot_id": "sha256:1019140251a4dd622463052629e5ef4931b28c40c5fb60f3a72aef1034a71cb9",
       "update_cadence": "daily (morning pull)",
       "value_provenance": "modeled",
-      "week_designated": "rest of season",
-      "validationHold": {
-        "reason": "fidelity: stored_vs_chart",
-        "week": 8,
-        "root": "espn",
-        "stage": "stored_vs_chart",
-        "identity": "2026-10-30@2026-10-30T23:25:50.949075Z",
-        "since": "2026-10-31T00:40:13.512985Z",
-        "hold_level": "red"
-      }
+      "week_designated": "rest of season"
     },
     "fantasycalc": {
       "claimed_settings": "Redraft, rest-of-season. Scoring x team count x 1-QB/2-QB per pull. FantasyCalc's 2QB setting is their own implementation, not necessarily superflex.",
@@ -44312,7 +44303,7 @@
       "name": "FantasyCalc",
       "native_unit": "FantasyCalc crowd value (their ~2\u201310,500 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-31T01:37:15Z",
+      "promoted_at": "2026-10-31T03:42:28Z",
       "promoted_from_review": "fantasycalc-standard-12-qb1-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-31T00:06:19+00:00; reindex mapping updated.",
       "provenance_note": "Weekly snapshot tied to the NFL week \u2014 pulled once per week, frozen for the week, never a live read. Refresh only with --refresh-fc --fc-week \"Week N\".",
@@ -44352,7 +44343,7 @@
         "snapshot_fetched_at": "2026-10-31T00:06:19+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasycalc/week-8/snapshot-manifest.json",
         "source": "fantasycalc",
-        "source_pulled_at": "2026-10-31T01:35:43Z",
+        "source_pulled_at": "2026-10-31T03:41:39Z",
         "source_url": null,
         "vintage_kind": "week_designated",
         "week_designated": 8
@@ -46313,7 +46304,7 @@
       "name": "FantasyPros",
       "native_unit": "FantasyPros analyst-consensus chart points (~1.0\u201375.1 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-31T01:37:16Z",
+      "promoted_at": "2026-10-31T03:42:29Z",
       "promoted_from_review": "fantasypros-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-30T12:35:51.014799+00:00; reindex mapping updated.",
       "provenance_note": "FantasyPros publishes one base Value column. It is treated as scoring-agnostic and reused across the three scoring combos; values are indexed with one factor per combo to the other charts' range, so its own order is kept (JEG-482).",
@@ -46326,7 +46317,7 @@
         "snapshot_fetched_at": "2026-10-30T12:35:51.014799+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/fantasypros/2026-10-27/snapshot-manifest.json",
         "source": "fantasypros",
-        "source_pulled_at": "2026-10-31T01:35:48Z",
+        "source_pulled_at": "2026-10-31T03:41:41Z",
         "source_url": "https://www.fantasypros.com/2026/09/fantasy-football-trade-value-chart-week-8-2026/",
         "vintage_kind": "week_designated",
         "week_designated": 8
@@ -65419,7 +65410,7 @@
       "name": "USA Today",
       "native_unit": "USA Today chart points (their ~0\u201370 scale)",
       "position_coverage": "QB/RB/WR/TE only \u2014 no K/DST coverage (not covered)",
-      "promoted_at": "2026-10-31T01:37:13Z",
+      "promoted_at": "2026-10-31T03:42:26Z",
       "promoted_from_review": "usatoday-standard-12-section-review.json",
       "promotion_note": "Re-anchored from the retired Monday rail to the fixture ESPN leg. Native values vintage 2026-10-27T00:00:00+00:00; reindex mapping updated.",
       "provenance_note": "RB/WR/TE values are published per scoring column. QB values are IMPLIED: USA Today publishes one QB column set (1QB / 6-pt-TD / Superflex), so the 1QB column is reused for every scoring mode.",
@@ -65432,7 +65423,7 @@
         "snapshot_fetched_at": "2026-10-27T00:00:00+00:00",
         "snapshot_manifest": "/home/runner/work/fantasy-tools/fantasy-tools/data/raw/sources/usatoday/2026-10-27/snapshot-manifest.json",
         "source": "usatoday",
-        "source_pulled_at": "2026-10-31T01:35:45Z",
+        "source_pulled_at": "2026-10-31T03:41:40Z",
         "source_url": "https://www.usatoday.com/story/sports/fantasy/football/2026/10/27/fantasy-trade-value-chart-week-8-ros-rankings/92463985007/",
         "vintage_kind": "week_designated",
         "week_designated": 8
