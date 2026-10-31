@@ -56,6 +56,18 @@ class SharedVectorsTest(unittest.TestCase):
         for level in ("0%", "49%", "50%", "51%", "100%"):
             self.assertIn(level, names)
 
+    def test_november_transition_vectors_include_unknown_denominator(self):
+        """The acceptance replay must exercise 8 -> 9, including unknown inputs."""
+        for level in (0, 49, 50, 51, 100):
+            with self.subTest(level=level):
+                matches = [c for c in cases() if c.get("name") == f"JEG-1176: week 8 to 9 at {level}%"]
+                self.assertEqual(len(matches), 1)
+                case = matches[0]
+                self.assertEqual(case["expect"]["default_week"], 9 if level > 50 else 8)
+                self.assertEqual(len(expand(case)), 100)
+                if level in (49, 50, 51):
+                    self.assertTrue(any(e["week"] is None for e in expand(case)))
+
     def test_python_matches_the_vectors(self):
         for case in cases():
             with self.subTest(case["name"]):
@@ -93,6 +105,21 @@ class SharedVectorsTest(unittest.TestCase):
         bad = [c["name"] for c in cases()
                if checked(at_least_half(expand(c)), c["expect"]) != c["expect"]]
         self.assertTrue(any("50%" in name for name in bad), bad)
+
+
+class SourceProvenanceTest(unittest.TestCase):
+    def test_mixed_sources_keep_their_own_week_and_publication(self):
+        fixture = {"built_at": "build-a", "sources": {
+            "cbs": {"week_designated": "Week 8", "published_at": "2026-10-28", "fetched_at": "2026-11-03"},
+            "espn": {"week_designated": "Week 9", "content_vintage": "2026-11-03"},
+            "unknown": {},
+        }}
+        index = {"fixture_built_at": "build-a", "served": {"cbs": {"week": 8}, "espn": {"week": 9}}}
+        got = week_state.source_weeks(fixture, index)
+        self.assertEqual((got["cbs"]["served_week"], got["cbs"]["published_at"]), (8, "2026-10-28"))
+        self.assertEqual((got["espn"]["served_week"], got["espn"]["published_at"]), (9, "2026-11-03"))
+        self.assertIsNone(got["unknown"]["served_week"])
+        self.assertIsNone(got["unknown"]["published_at"])
 
 
 class NewYorkClockTest(unittest.TestCase):
