@@ -4,7 +4,7 @@ name: Fast gate
 # Existing preview/Pages gates, nightly full suite and daily sweep stay intact.
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft, edited]
   workflow_dispatch:
 
 permissions:

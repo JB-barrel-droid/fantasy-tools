@@ -15,6 +15,8 @@ import subprocess
 import sys
 import time
 
+from pipelines.fast_gate_dependencies import inventory
+
 ROOT = Path(__file__).resolve().parents[1]
 MAPPING = ROOT / "config/fast_gate.json"
 
@@ -62,6 +64,10 @@ def test_owners(config):
                         continue
                     path = "/".join(module.split(".")[:2]) + ".py"
                     owners.setdefault(path, []).append(name)
+            elif command[:3] == ["python3", "-m", "pytest"]:
+                for path in command[3:]:
+                    if path.startswith("tests/") and path.endswith(".py"):
+                        owners.setdefault(path, []).append(name)
     return owners
 
 
@@ -70,12 +76,17 @@ def plan(paths, config=None, force_full=False):
     paths = sorted(set(paths))
     chosen, reasons, paired_tests = {"smoke"}, {}, set()
     owners = test_owners(config)
+    dependencies = inventory()
     full = force_full or not paths
     for path in paths:
         if (not path or PurePosixPath(path).is_absolute()
                 or ".." in PurePosixPath(path).parts or "\\" in path):
             raise ValueError(f"invalid repository path: {path!r}")
-        if matches(path, config["full_paths"]):
+        if (matches(path, config["full_paths"])
+                or path in dependencies["shared_pipelines"]
+                or path in dependencies["test_helpers"]
+                or path in config.get("test_read_paths", ())
+                or path in dependencies["test_read_paths"]):
             reasons[path] = ["full"]
             full = True
         elif path in owners:
@@ -91,6 +102,7 @@ def plan(paths, config=None, force_full=False):
             else:
                 reasons[path] = rule["shards"]
                 chosen.update(rule["shards"])
+                full |= rule.get("full", False)
                 if rule["shards"] == ["pipelines"]:
                     test = ROOT / "tests" / ("test_" + PurePosixPath(path).stem + ".py")
                     if test.is_file():

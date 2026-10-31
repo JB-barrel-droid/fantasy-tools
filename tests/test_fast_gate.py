@@ -26,7 +26,7 @@ class MappingTest(unittest.TestCase):
             self.assertIn(["make", target], commands)
 
     def test_three_sample_prs(self):
-        docs = fast_gate.plan(["docs/ci/fast-gate.md", "README.md"])
+        docs = fast_gate.plan(["docs/claude-log/new-inert-record.md"])
         self.assertTrue(docs["docs_only"])
         self.assertEqual(["smoke"], docs["shards"])
         frontend = fast_gate.plan(["app/v2/waivers.js", "docs/claude-log/change.md"])
@@ -55,9 +55,8 @@ class MappingTest(unittest.TestCase):
         self.assertEqual({"smoke", "connector", "fe-compare", "fe-finder"}, set(fast_gate.plan(
             ["app/v2/trade.js", "app/v2/finder.js"])["shards"]))
 
-    def test_shared_ui_reaches_every_page_and_connector_stays_separate(self):
-        all_pages = {s for s in fast_gate.load_mapping()["shards"] if s.startswith("fe-")}
-        self.assertEqual(all_pages | {"smoke"}, set(fast_gate.plan(["app/v2/v2.js"])["shards"]))
+    def test_shared_ui_runs_full_and_connector_stays_separate(self):
+        self.assertTrue(fast_gate.plan(["app/v2/v2.js"])["full"])
         self.assertEqual({"smoke", "connector"}, set(fast_gate.plan(["supabase/functions/mcp/tools.ts"])["shards"]))
 
     def test_page_modules_loaded_by_the_connector_select_both_consumers(self):
@@ -73,7 +72,11 @@ class MappingTest(unittest.TestCase):
                 self.assertTrue(selected["full"] or "connector" in selected["shards"], path)
 
     def test_pipelines_run_integration_identity_guards_and_paired_test(self):
-        selected = fast_gate.plan(["pipelines/sync_players_active.py"])
+        self.assertTrue(fast_gate.plan(["pipelines/sync_players_active.py"])["full"])
+        # Exercise the isolated CLI-producer path separately from imported modules.
+        data = dict(fast_gate.inventory(), shared_pipelines=set())
+        with mock.patch.object(fast_gate, "inventory", return_value=data):
+            selected = fast_gate.plan(["pipelines/sync_players_active.py"])
         self.assertEqual(["smoke", "pipelines"], selected["shards"])
         self.assertIn("tests.test_sync_players_active", selected["paired_tests"])
         commands = fast_gate.load_mapping()["shards"]["pipelines"]["commands"]
@@ -99,11 +102,11 @@ class MappingTest(unittest.TestCase):
     def test_build_markdown_is_not_docs_only(self):
         selected = fast_gate.plan(["app/llm/skill/SKILL.md"])
         self.assertFalse(selected["docs_only"])
-        self.assertIn("connector", selected["shards"])
+        self.assertTrue(selected["full"])
 
     def test_mapped_tests_select_their_owners_and_unknown_tests_run_full(self):
         self.assertIn("fe-finder", fast_gate.plan(["tests/test_v2_finder.py"])["shards"])
-        self.assertTrue(fast_gate.plan(["tests/test_waivers_mutation_specificity.py"])["full"])
+        self.assertIn("fe-waivers", fast_gate.plan(["tests/test_waivers_mutation_specificity.py"])["shards"])
         self.assertTrue(fast_gate.plan(["tests/test_new_behavior.py"])["full"])
         helper = fast_gate.plan(["tests/node/mcp_unmatched_check.mjs"])
         self.assertEqual({"smoke", "connector"}, set(helper["shards"]))
