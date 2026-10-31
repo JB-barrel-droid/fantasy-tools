@@ -94,6 +94,22 @@ class MainWriterWorkflowTest(unittest.TestCase):
             block = text.split('      - name: '+name+'\n', 1)[1].split('\n      - ', 1)[0]
             self.assertRegex(block, r'(?m)^        if: .*!inputs.dry_run')
 
+    def test_rebuild_branch_token_cannot_write_repository_contents(self):
+        text = (ROOT/'.github/workflows/rebuild-chain.yml').read_text()
+        branch = text.split('  rebuild-branch:\n', 1)[1]
+        self.assertRegex(branch, r'(?m)^      contents: read$')
+        self.assertNotRegex(branch, r'(?m)^      contents: write$')
+
+    def test_dry_modes_do_not_mint_the_app_writer(self):
+        for name in ('espn-weekly-store', 'player-status-history'):
+            text = (ROOT/f'.github/workflows/{name}.yml').read_text()
+            mint = text.split('      - name: Mint main writer token\n', 1)[1].split('\n      - ', 1)[0]
+            self.assertRegex(mint, r"(?m)^        if: .*inputs.mode == 'write'")
+        text = (ROOT/'.github/workflows/espn-supabase-sync.yml').read_text()
+        for name in ('Mint main writer token', 'Commit scraper updates if changed'):
+            block = text.split('      - name: '+name+'\n', 1)[1].split('\n      - ', 1)[0]
+            self.assertRegex(block, r'(?m)^        if: .*!inputs.dry_run')
+
     def test_fidelity_rejects_untrusted_workflow_run_provenance(self):
         text = (ROOT/'.github/workflows/fidelity-pulse.yml').read_text()
         self.assertRegex(text, r'workflow_run:\n    workflows:.*\n    types: \[completed\]\n    branches: \[main\]')

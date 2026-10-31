@@ -524,6 +524,12 @@ jobs:
           BAKE_PLAYERS: ${{ inputs.bake_players || 'false' }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Branch jobs share build steps, but never publish their result.
+          if [ "${GITHUB_REF:-}" != "refs/heads/main" ]; then
+            echo "Branch run: rebuild publication disabled."
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
             # JEG-1364: a push publishes the scratch-worktree commit below, so
@@ -821,7 +827,7 @@ jobs:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
     runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
     permissions:
-      contents: write
+      contents: read
       actions: write
       issues: write
     steps: *writer-steps

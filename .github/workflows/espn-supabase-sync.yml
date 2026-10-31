@@ -135,7 +135,7 @@ jobs:
 
       - name: Mint main writer token
         id: main-writer
-        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && !inputs.dry_run }}
         uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
         with:
           app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
@@ -145,6 +145,7 @@ jobs:
           permission-contents: write
 
       - name: Commit scraper updates if changed
+        if: ${{ !inputs.dry_run }}
         env:
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}

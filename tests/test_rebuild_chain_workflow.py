@@ -113,7 +113,11 @@ def run_script(text, step_name, cwd, env_extra=None):
             timestamps = helper.parent / "lib/timestamps.py"
             timestamps.parent.mkdir(parents=True, exist_ok=True)
             timestamps.write_bytes((ROOT / "pipelines/lib/timestamps.py").read_bytes())
-    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd), **(env_extra or {})}
+    # These legacy scenarios model a main workflow; branch/refusal scenarios
+    # override the protected workflow ref explicitly rather than rely on a
+    # production script treating an absent ref as main.
+    env = {"PATH": "/usr/bin:/bin:/usr/local/bin", "HOME": str(cwd),
+           "GITHUB_REF": "refs/heads/main", **(env_extra or {})}
     return subprocess.run(["bash", "-e", "-c", script], cwd=cwd, env=env,
                           capture_output=True, text=True)
 

@@ -41,3 +41,37 @@ jobs have no access to the environment. The job steps share YAML anchors, so
 tests that previously depended on literal step layout now resolve that anchor
 and retain mutation checks. The old explicit Pages-dispatch assertion was
 replaced because App pushes trigger the existing Pages/render push routes.
+
+### Publication-boundary correction after diagnostic audit
+
+Acknowledged the old-head audit: rebuild-chain's shared commit script named
+main explicitly while its branch job retained Contents write. Added a runtime
+main-ref guard before staging and reduced that branch token to Contents read.
+The guard fails closed when GITHUB_REF is absent. Existing pause/main scenario
+harnesses now supply the main ref explicitly; their assertions are unchanged.
+
+Verified: the new real-script test failed before the correction because its
+throwaway local remote's main moved. Its companion mutation removes the guard
+and proves the same unauthorized main write becomes observable. The scenarios
+also require the branch ref to remain unchanged and reject an absent runtime
+ref. These local remotes do not contact GitHub. CI now runs the concurrent-main
+suite, rather than relying only on workflow text assertions.
+
+Dry/check modes no longer mint the App token in weekly-store, status-history,
+or ESPN sync; ESPN sync also skips its Git publication step in dry mode.
+Verification dispatches are limited to espn-history-probe with dry_run=true:
+that path skips App minting, Git publication and monitoring publication. Other
+workflows' dry inputs can retain existing monitoring side effects and are not
+authorized verification routes. No Supabase behavior was changed.
+
+The original 535edb4 head passed all 13 GitHub checks, including full preview
+and render, with strict reference comparison at zero mismatches. That receipt
+belongs only to the old head. The corrected head needs fresh CI and independent
+Claude Opus/high review. Local full validation's known baseline Finder failure
+and the existing PR #1233 ownership remain unchanged; neither is waived here.
+
+Verified after the correction: all 111 offline security/publication contracts
+passed in 61.929 seconds. Actionlint 1.7.12 passed all eleven workflows. The
+old publication-pause harness initially omitted GITHUB_REF; supplying the main
+ref made that scenario explicit without changing any assertion. All branch,
+missing-ref and guard-removal mutation scenarios passed.
