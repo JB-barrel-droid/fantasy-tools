@@ -1,8 +1,12 @@
-# Cutover readiness
+# PSpice coordinator takeover runbook
 
 Scope: JEG-1445 items 1 and 2 only; the ticket-pickup dry run waits for review.
-This is a procedure and gap inventory, not permission to change the rules.
-Baseline inspected: `origin/main` at `48c61207`, 2026-10-31 UTC.
+PSpice is Jeremy's own direct Codex and the default successor for the whole
+Duet coordinator role. ChatGPT Dots and Muse are alternates. Jeremy asked:
+"Ensure PSpice will be able to take over at any time" and "Take your role,
+should it needed; is what I mean." This is a procedure and gap inventory,
+not permission to change review/merge ownership.
+Baseline inspected: `origin/main` at `76ee1c41`, 2026-10-31 UTC.
 Sources: [JEG-1445](https://linear.app/jegabee/issue/JEG-1445),
 [JEG-1444, Cutover readiness](https://linear.app/jegabee/issue/JEG-1444), and
 [JEG-1440](https://linear.app/jegabee/issue/JEG-1440), read through Linear.
@@ -30,50 +34,110 @@ or artifact exists only there, mark it unavailable on the ticket and ask for
 it to be preserved in Linear or the repo. Do not infer approval from a ticket
 description, a historical handoff or a planned action.
 
-## Resume coordination without Claude
+## Cold-start checklist for PSpice
 
-1. Read `HANDOFF.md`, then `AGENTS.md` and `CLAUDE.md` from current main.
-   `AGENTS.md` wins over stale handoff process notes. Inspect `git status`,
-   recent commits, Linear comments and open PRs before editing. Use an isolated
-   approved worktree; leave other owners' dirty files alone.
-2. Confirm the work was started by Jeremy or an authorized coordinator's
-   label/state action. A spec is never an approval.
-3. Read Todo tickets by Linear priority, then oldest first. Backlog is not
-   the queue. The `ready-for-claude` Backlog exception and `claude` owner label
-   need a neutral replacement decision (Open below); do not silently apply
-   them to a new provider. Work only within an explicitly assigned non-Claude
-   scope until that conflict is settled. Do not work a parent directly.
-4. Check comments, commits, PR updates, `Touches` and hot-file ownership.
-   No two active tickets share a hot file or code path. A takeover requires
-   four hours with no comment/commit/PR update, owner OK, or Jeremy's direction.
-   Record `taking over from <session> · last heartbeat <time> · continuing
-   from <branch>`; the previous owner must not resume. The separate branch
-   rule permits only a normal main merge after 30 minutes without a push or
-   owner OK; it is not permission to edit another owner's work.
-5. For an authorized new claim, set In Progress and record `taken by
-   <session/provider> · <UTC time> · branch <name>` plus the instruction source.
-   Keep assignee Jeremy. State the model tier in the brief; Session, Model
-   tier and BE priority label groups are retired. JEG-1445 uses
-   `codex/JEG-xxxx-…` branches. Any other provider's branch prefix or ownership
-   label is Jeremy's call; do not impersonate a Claude session.
-6. At least every four active hours, every push and when parking, preserve
-   what is done, next action and backup branch on Linear. Push validated work
-   with an explicit `branch:branch` refspec; never bare push, main push,
-   force-push or rebase. Check the branch's upstream and `git config
-   push.default` first; an inherited upstream previously sent work to main.
-7. Run the smallest meaningful check, then the required `make validate` gate.
-   Heavy suites run sequentially on one machine; coordinate before starting.
-   Stage only intended files: builds generate app/dist changes. Keep Verified
-   separate from Claimed in the per-session `docs/claude-log/` entry.
-8. Open a draft PR with the ticket id and risk label. Preserve exact head,
-   check results, limitations and next action. Keep it draft while waiting:
-   at most eight PRs may be ready for review. Review and merge remain blocked
-   on the Claude-only rule until Jeremy names the replacement protocol.
-9. If stopping, leave state, branch, files, commands/results, blockers and next
-   action on the ticket, then return In Progress work to Todo. For a Jeremy
-   decision, use In Review and `needs-jeremy`, with options and a recommendation;
-   quote his answer with date before resuming. Do not mark Done before merged
-   and live. This runbook grants no merge, deploy, deletion or credential change.
+- [ ] Read `HANDOFF.md`, `AGENTS.md`, `CLAUDE.md`, this runbook and the
+  [JEG-1444 charter](https://linear.app/jegabee/issue/JEG-1444) and children.
+  Confirm current commits, dirty files, active owners and approval receipts.
+  State must come from Linear, GitHub and the repo; do not depend on Duet memory.
+- [ ] Read the Jegabee board's In Progress work first, then Todo carrying
+  `claude` or `codex`. Inspect comments, correction children, blockers and
+  linked PRs. Preserve another owner's work. Backlog is not the queue;
+  `ready-for-claude` is not a general non-Claude pickup authorization.
+- [ ] Read open PRs in both repositories:
+  `gh pr list --repo JB-barrel-droid/fantasy-tools --state open` and
+  `gh pr list --repo JB-barrel-droid/agent-bridge --state open`.
+  Read exact heads, draft/risk status, CI and receipts; an old handoff is not
+  evidence that a PR is still pending or live.
+- [ ] At each necessary coordinator turn, use the bridge completion digest
+  as the change gate before opening job results:
+  `get_completion_digest({consumer_id: "<stable PSpice consumer>", scope: "mac_jobs"})`.
+  Inspect cache health; process each healthy page, then
+  `ack_completion_digest({consumer_id: "<same consumer>", scope: "mac_jobs",
+  receipt: "<latest page receipt>"})`. Continue pages as returned; never ack
+  an unprocessed or unhealthy page. Persist the consumer/checkpoint in durable
+  handoff state. If `changed` is false, end completion processing immediately;
+  continue only separately necessary board work. Finished is a worker claim,
+  not independent verification. Inspect saved results for invalid/empty outcomes.
+- [ ] Then read `list_bridge_events` with the saved opaque cursor, process
+  each page and persist `next_cursor` only after processing. It complements
+  the digest for input/failure events. No push wake exists; never run an idle
+  polling loop. Do not start another model just to wait.
+- [ ] Triage one ticket at a time: finish active work and corrections before
+  starting more. Follow the charter's dependency/priority order, with Jeremy's
+  PSpice readiness request first. Do not work a parent directly, duplicate a
+  claim or share a hot file/code path with another active ticket.
+- [ ] Claim only authorized work. Check comments/PRs first, set In Progress,
+  preserve assignee Jeremy and use the assigned `claude` or `codex` label.
+  Record `taken by <exact session/provider> · <UTC time> · branch <name>` and
+  instruction source. JEG-1445 uses `codex/JEG-xxxx-…`; another provider's
+  branch prefix or ownership label remains Jeremy's call. Takeover follows
+  AGENTS: four hours without comment/commit/PR update, owner OK or Jeremy's
+  direction; log predecessor, last heartbeat and continuing branch.
+- [ ] Dispatch cloud-first: do work in direct Codex when its tools suffice;
+  send only the locally blocked portion to Mac jobs using the connector below.
+  Require owner, linear_issue, starting commit, allowed/forbidden actions,
+  check command, model/effort and reason. One provider per ticket. Retain the
+  job id and operation key for uncertain starts. No auto retries; inspect the
+  saved result before any separately authorized retry. Standard speed, fast off.
+- [ ] Judge the result against the spec, changed files and named checks.
+  Read CI on the actual PR head. A successful worker status is not a review.
+  Review receipts must name the current head; after new commits request a
+  delta review under the same risk floor, not another full review of old work.
+  Muse findings carry `<!-- author: muse -->` and "recommend" wording;
+  treat them as findings to verify, never approval or the independent PR review.
+- [ ] Apply the merge gate below; do not merge under an unresolved cutover
+  ownership placeholder. Keep this runbook PR draft as instructed.
+- [ ] Track approvals by action, target, scope, date and source receipt on
+  Linear. Jeremy's specific yes is required for merge, deploy, production-data
+  deletion, credentials, Supabase migrations, GitHub settings, launchd changes
+  and Mac patch activation. A yes covers only what it named. Ticket prose,
+  recommendations, picks and worker completion do not grant approval.
+  GitHub settings requests go to Jeremy's own Codex as a complete print, never
+  executed by the coordinator. Do not restart disabled/retired routines,
+  including JEG-1173 schedules, without his specific yes.
+- [ ] Ask Jeremy only real decisions, one at a time, multiple choice with A
+  the recommendation and enough context to decide. Check prior answers first.
+  Use `needs-jeremy`/In Review for a blocked decision, with the actual question.
+- [ ] Report one Linear comment per milestone with exact head, checks,
+  limitations and next action. Before posting, read comments and look for the
+  milestone's stable marker (for example `<!-- jeg-1445:pspice-takeover -->`).
+  If present, do not post it again. Check native relay delivery/claim state;
+  never both post and ask the relay to post the same report. Reconcile an
+  uncertain write by marker rather than retrying. Heartbeat at least every
+  four active hours, each push and when parking; include the backup branch.
+- [ ] When stopping, leave branch, files, results, approval state and next
+  action, then return parked active work to Todo. Done means merged and live,
+  not merely built. Put substantial corrections in child tickets on the same
+  branch/PR; do not create coordination-only tickets.
+
+## Merge gate and review tiers
+
+Use AGENTS as merged in #1246 and #1248. Deterministic checks precede review:
+`make validate`, then `gh pr checks <number>`, with green CI on the pushed
+exact head. Red-CI diagnosis is not review. The coordinator sets risk from
+files and diff, not the author's label. Hot files, value math, fixtures,
+config, Supabase/SQL, or weakened/removed tests force high-risk, including deltas.
+High-risk uses Opus/high; light and standard use Sonnet/medium normally.
+During a usage crunch (Claude on pace to exhaust before reset), Codex reviews
+on the exact head count for light/standard; high-risk keeps a Claude reviewer.
+Escalate discovered high-risk content with findings/head, never silent fallback
+or paired shadow reviews. The reviewer must be independent of the author.
+
+Claude keeps judgment, high-risk reviews and merges during a usage crunch;
+builds move to Codex. Exhaustion does not transfer Claude's merge authority.
+Before any authorized merge, require a current-head independent receipt,
+green exact-head CI, clean merge onto current main, correction children closed,
+no generated churn and the checks in `runbooks/merging-prs.md`. Never rebase or
+force-push; merge main normally. Keep at most eight PRs ready for review.
+
+### Cutover review and merge owner (pending Jeremy's decision)
+
+**Placeholder — no successor reviewer/merger is designated here.** Jeremy
+must name who performs high-risk review and who merges if Claude is out,
+and approve the cutover clause. PSpice can coordinate the queue, dispatch,
+judge evidence, prepare decisions and report while affected merges remain
+blocked. Existing standing approval is not a non-Claude ownership exception.
 
 ## Mac jobs without Duet
 
@@ -129,24 +193,31 @@ test this procedure. Local shell access alone is not a documented standalone
 bridge dispatch command in this repo. Do not guess HTTP endpoints, launchers,
 config paths or restart commands.
 
-### What JEG-1440 still has to supply
+### Bridge version and recovery state
 
-As read, JEG-1440 is Todo. It owns the private bridge repo, tagged
-`v3.0.0-baseline`, secret scan, approved remote and per-patch versions; a restore
-note listing runtime dependencies, launchd and config names without values;
-and a working pinned-tag test-instance drill with harmless replay and rollback
-without lost or duplicated jobs. That note must provide the reproducible
-installation/entry point needed by a new Mac shell or connector client.
-These are requirements, not claims that the tag, repo or drill exists today.
-No bridge code or configuration is changed here.
+Coordinator-supplied state, 2026-10-31: private repository
+`JB-barrel-droid/agent-bridge` exists with main and tag `v3.0.0-baseline`.
+The completion digest is live from local branch
+`codex/JEG-1422-completion-awareness` at `f3addf9`, not yet on the remote.
+JEG-1447 settlement fix is built on `jeg-1447-settlement-fix` at `6c4eb318`,
+not yet reviewed or live. Do not assume remote main reproduces the live digest,
+or that a built settlement fix has shipped. Before recovery, reconcile the
+running version, local patches, queue/checkpoints and reviewed remote state.
 
-Until recovery is verified, cloud read checks can continue when the Mac or
-bridge is down; build dispatch pauses. Mark in-flight jobs unknown and never
-resubmit automatically. Restarts and bridge activation need Jeremy's named yes.
+JEG-1440 owns reproducible restore documentation and the working pinned-tag
+scratch-instance drill: runtime dependencies, launchd/config names (no values),
+harmless event replay, provider/status checks and rollback without lost or
+repeated queue items. Verify those receipts before claiming recovery works.
+The installed connector is today's entry point; no standalone shell dispatch
+command is specified here. No bridge-owned files or runtime settings change
+in this ticket. If the bridge is down, continue cloud read checks, pause build
+dispatch and mark in-flight jobs unknown. Never resubmit automatically.
+Restarts and patch activation need Jeremy's named yes.
 
-## Candidate coordinators (facts, no ranking)
+## Default successor and alternates (capability facts)
 
-- Codex: this Mac session has repo shell access plus Linear and Mac bridge
+- PSpice (default): Jeremy's own direct Codex takes the whole coordinator role
+  described above, subject to the pending review/merge decision. This Mac session has repo shell access plus Linear and Mac bridge
   tools. Access in another Codex environment must be checked there.
 - ChatGPT Dots: per the charter, OpenAI's always-on agent on GPT-6 Astra,
   with its own cloud computer, browser and plugins; works with Codex in ChatGPT
@@ -159,7 +230,7 @@ resubmit automatically. Restarts and bridge activation need Jeremy's named yes.
 
 ## Open
 
-- Jeremy must name who independently reviews and who merges when Claude is
+- Jeremy must name who reviews high-risk work and who merges when Claude is
   unavailable, and approve a cutover clause. Existing standing merge text does
   not authorize a non-Claude merger. Keep affected PRs draft and blocked.
 - Jeremy must set the Claude weekly-limit shift level and confirm the ledger
@@ -169,59 +240,62 @@ resubmit automatically. Restarts and bridge activation need Jeremy's named yes.
   not a rewrite of `AGENTS.md` or permission for unrelated tickets.
 - JEG-1445 uses `codex/JEG-xxxx-…` branches; any other provider's branch
   prefix or ownership label is Jeremy's call.
-- JEG-1440 must publish and verify the reproducible bridge entry/restore path.
+- Verify JEG-1440 restore/drill receipts and reconcile local live digest code
+  with the remote baseline before any recovery or activation.
 - After review, separately authorize/run JEG-1445 item 3: one small Todo pickup
   from Linear alone, recording each obstruction. No dry-run success claimed.
 
 ## Gap list
 
-Line references are to baseline `48c61207`; one line per dependency or distinct
+Line references are to current-main baseline `76ee1c41`; one line per dependency or distinct
 instruction. Historical author names, `claude/` branch names and log paths alone
 are not dependencies. `runbooks/` was searched in full for Claude/Duet and
 provider-specific tools; its operational commands are provider-neutral, with
 the inherited merge restriction noted below. No inventoried source is edited.
 
-- `AGENTS.md:28`: all review and merging assigned to Claude; Codex lane described as stopped.
-- `AGENTS.md:32`: independent reviewer must be a Claude session other than the author.
-- `AGENTS.md:57`: merge batch executor must be a Claude merge session.
-- `AGENTS.md:89`: ChatGPT/Codex model lane declared inactive.
-- `AGENTS.md:100`: other-family drafts require the Claude lead to run the gate and merge.
-- `AGENTS.md:114`: integration, production QA, schedules and merge/deploy routed to Claude sessions.
-- `AGENTS.md:120`: cheap-run output requires Claude review.
-- `AGENTS.md:124`: Muse PRs require Claude review.
-- `AGENTS.md:166`: ticket label contract requires `claude` and uses `ready-for-claude`.
-- `AGENTS.md:184`: ownership model assumes Claude cloud chat threads and Mac sessions.
-- `AGENTS.md:187`: claimed owner label is `claude`.
-- `AGENTS.md:194`: Backlog queue exception is `ready-for-claude`.
-- `AGENTS.md:199`: claim procedure requires adding `claude` and removing `ready-for-claude`.
-- `AGENTS.md:206`: heartbeat backup-branch convention assumes `claude/<ticket>-<slug>`.
-- `AGENTS.md:240`: merge protocol executor is explicitly the Claude merge session.
-- `AGENTS.md:297`: Mac-local `~/Projects/"fantasy tools"/Claude outputs/` is the only permitted access within that project folder; its player-news raw inputs are not recoverable from the repo alone.
-- `AGENTS.md:344`: legacy claude.ai artifact and daily republish task remain pending live verification; independent access/control is not documented here.
+- `AGENTS.md:28`: historical all-Claude ownership text remains; read the usage-crunch review exception below it.
+- `AGENTS.md:32`: outside a usage crunch independent reviewer must be Claude; crunch permits exact-head Codex light/standard only.
+- `AGENTS.md:69`: merge batch executor must be a Claude merge session.
+- `AGENTS.md:101`: ChatGPT/Codex model lane limited to explicitly authorized bridge builds.
+- `AGENTS.md:112`: other-family drafts require the Claude lead to run the gate and merge.
+- `AGENTS.md:143`: usage-crunch mapping still reserves high-risk review for Claude.
+- `AGENTS.md:168`: integration, production QA, schedules and merge/deploy routed to Claude sessions.
+- `AGENTS.md:173`: cheap-run restrictions retain the Claude merge dependency through rule 2.
+- `AGENTS.md:179`: Muse PRs require Claude review.
+- `AGENTS.md:222`: ticket label contract requires `claude` and uses `ready-for-claude`.
+- `AGENTS.md:240`: ownership model assumes Claude cloud chat threads and Mac sessions.
+- `AGENTS.md:243`: claimed owner label is `claude`.
+- `AGENTS.md:250`: Backlog queue exception is `ready-for-claude`.
+- `AGENTS.md:255`: claim procedure requires adding `claude` and removing `ready-for-claude`.
+- `AGENTS.md:262`: heartbeat backup-branch convention assumes `claude/<ticket>-<slug>`.
+- `AGENTS.md:296`: merge protocol executor is explicitly the Claude merge session.
+- `AGENTS.md:353`: Mac-local `~/Projects/"fantasy tools"/Claude outputs/` is the only permitted access within that project folder; its player-news raw inputs are not recoverable from the repo alone.
+- `AGENTS.md:400`: legacy claude.ai artifact and daily republish task remain pending live verification; independent access/control is not documented here.
 - `CLAUDE.md:8`: user-level Linear/Usage Discipline instructions assumed available outside the repo.
 - `CLAUDE.md:11`: delegation names Claude `deep-worker`/Opus and `worker`/Sonnet tools.
-- `CLAUDE.md:13`: lead-thread rotation assumes Jeremy can start a replacement Claude thread.
-- `CLAUDE.md:16`: direction-question tool is Claude's AskUserQuestion.
-- `CLAUDE.md:18`: permission enforcement lives in Claude settings; another harness cannot assume it inherits those denials.
+- `CLAUDE.md:13`: review subagents use Claude mappings except the explicit usage-crunch exception.
+- `CLAUDE.md:19`: lead-thread rotation assumes Jeremy can start a replacement Claude thread.
+- `CLAUDE.md:22`: direction-question tool is Claude's AskUserQuestion.
+- `CLAUDE.md:24`: permission enforcement lives in Claude settings; another harness cannot assume it inherits those denials.
 - `HANDOFF.md:9`: handoff maintenance assigned to the Claude lead.
 - `HANDOFF.md:14`: Codex stopped; review and merge reserved to Claude.
-- `HANDOFF.md:29`: JEG-1176 explicitly still requires independent Claude review.
-- `HANDOFF.md:131`: before/after original is in Duet project files; ticket summary and later repo evidence must suffice or be reconciled.
-- `HANDOFF.md:168`: #1105 delta reviews assigned to an independent Claude reviewer.
-- `HANDOFF.md:369`: historical rollback copies point into cloud `/mnt/project-files/`; availability outside that environment is unverified.
-- `HANDOFF.md:479`: another historical rollback-copy location needs availability checked before relying on it outside the cloud session.
-- `HANDOFF.md:633`: active routine inventory lives in Jeremy's Claude Duet app.
-- `HANDOFF.md:638`: routine stop action requires main Duet chat or Jeremy's app routines list.
-- `HANDOFF.md:640`: handoff refresh depends on that routine and an unconfirmed main-chat change.
-- `HANDOFF.md:647`: lane work is driven by the main-chat board task; steering/stopping requires Claude in Duet.
-- `HANDOFF.md:652`: dedicated handoff writer is a Duet channel thread.
-- `HANDOFF.md:710`: requirement sources include claude.ai memory and the Duet channel rather than solely durable records.
-- `HANDOFF.md:743`: end-to-end ownership is Claude-only.
-- `HANDOFF.md:753`: lane picks depend on Claude's pick and main Duet chat as source log.
-- `HANDOFF.md:771`: open-question picks and authoritative log still assigned to Claude lanes/main Duet chat.
-- `HANDOFF.md:816`: other model families require Claude T1 review and cannot merge.
-- `HANDOFF.md:839`: ephemeral Claude cloud checkout cannot serve as durable recovery state.
-- `HANDOFF.md:1061`: picks-log source remains in Duet; repo copy can lag.
+- `HANDOFF.md:54`: JEG-1176 explicitly still requires independent Claude review.
+- `HANDOFF.md:156`: before/after original is in Duet project files; ticket summary and later repo evidence must suffice or be reconciled.
+- `HANDOFF.md:193`: #1105 delta reviews assigned to an independent Claude reviewer.
+- `HANDOFF.md:394`: historical rollback copies point into cloud `/mnt/project-files/`; availability outside that environment is unverified.
+- `HANDOFF.md:504`: another historical rollback-copy location needs availability checked before relying on it outside the cloud session.
+- `HANDOFF.md:658`: active routine inventory lives in Jeremy's Claude Duet app.
+- `HANDOFF.md:663`: routine stop action requires main Duet chat or Jeremy's app routines list.
+- `HANDOFF.md:665`: handoff refresh depends on that routine and an unconfirmed main-chat change.
+- `HANDOFF.md:672`: lane work is driven by the main-chat board task; steering/stopping requires Claude in Duet.
+- `HANDOFF.md:677`: dedicated handoff writer is a Duet channel thread.
+- `HANDOFF.md:735`: requirement sources include claude.ai memory and the Duet channel rather than solely durable records.
+- `HANDOFF.md:768`: end-to-end ownership is Claude-only.
+- `HANDOFF.md:778`: lane picks depend on Claude's pick and main Duet chat as source log.
+- `HANDOFF.md:796`: open-question picks and authoritative log still assigned to Claude lanes/main Duet chat.
+- `HANDOFF.md:841`: other model families require Claude T1 review and cannot merge.
+- `HANDOFF.md:864`: ephemeral Claude cloud checkout cannot serve as durable recovery state.
+- `HANDOFF.md:1086`: picks-log source remains in Duet; repo copy can lag.
 - `runbooks/merging-prs.md:3`: inherits AGENTS merge protocol, whose executor is Claude-only despite provider-neutral check commands.
 - `runbooks/heavy-suites-and-hot-files.md:3`: inherits the same restricted merge protocol; its heavy-suite checks themselves work without Claude.
 
@@ -235,5 +309,7 @@ file; the actual indexed file is `heavy-suites-and-hot-files.md`.
 `make validate` was attempted once on the Mac and failed in `sync` because
 Playwright could not find `chromium_headless_shell-1208`. No browser was
 installed and no retry was run. Generated app/dist changes are left unstaged
-in the isolated worktree; this PR contains only the three requested docs.
+in the isolated worktree; only intentional documentation files are committed.
 The gate must pass in CI before review/merge; no passing gate is claimed here.
+Follow-up validation checks local Markdown links, refreshed source references
+and whitespace; the missing browser is checked without installation or retry.
