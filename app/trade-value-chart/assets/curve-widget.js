@@ -3633,7 +3633,9 @@
       const funded = {...result.budgets};
       (src.unfundedMoved || []).forEach(move => { funded[move.to] += move.amount; funded[move.from] -= move.amount; });
       const unpaid = (src.unfundedGroups || []).reduce((sum, g) => sum + g.amount, 0);
-      (src.unfundedGroups || []).forEach(g => { funded[g.group] = 0; });
+      // The unpaid amount, not the whole budget: with the seat mix (JEG-1335) a
+      // group can be unpaid in only some allocations. At one allocation the two agree.
+      (src.unfundedGroups || []).forEach(g => { funded[g.group] -= g.amount; });
       const groups = {};
       Object.keys(funded).forEach(g => { groups[g] = {total: 0, budget: funded[g]}; });
       let total = 0, vorpTotal = 0;
