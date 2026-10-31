@@ -104,7 +104,10 @@ these documentation PRs in this task.
   at 6:00 AM and 4:00 PM US Central time, in the Review and merge protocol
   (JEG-1444 decision 13, timing updated 13:26 UTC), with no merge windows or
   approval asks overnight and with per-batch deploy approval naming
-  PR numbers, isolated high-risk/value-math releases and immediate Urgent work.
+  PR numbers and isolated high-risk/value-math releases. Urgent work ships alone with normal gates and may ask Jeremy outside the
+  6 AM and 4 PM windows, but never during sleeping hours, 10 PM to 6 AM
+  US Central. An urgent ask arising then waits for the 6 AM window
+  (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
   credentials, Supabase migrations, GitHub settings, Mac patches and launchd
@@ -188,7 +191,10 @@ or merge text in this file and in `HANDOFF.md`.
   the independent review or per-head CI gate.
   High-risk and value-math changes ship alone, each as its own release.
   Engine PRs stay one at a time (Hot files below). An Urgent ticket (live
-  numbers wrong or deploy broken) ships on its own at once, with normal gates.
+  numbers wrong or deploy broken) ships on its own with normal gates and may
+  ask Jeremy outside the 6 AM and 4 PM windows, but never during sleeping
+  hours, 10 PM to 6 AM US Central. An urgent ask arising then waits for the
+  6 AM window (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
   If a PR conflicts after an earlier batch member merges, leave it for the
   next batch; do not rebase or repair it mid-window. Afterwards its owner
   merges `origin/main` in normally and obtains the required new-head checks
