@@ -28,8 +28,13 @@ below are history, including any "Codex reviews and merges" line.
   merged implementation passes 108 checks and JEG-1230 passes 319. No golden regeneration needed.
 - Added Standard/Half PPR/PPR coverage and fixed K/DEF exclusion in league-depth sell gaps. The new K test fails
   before the guard (priced instead of S8) and passes after; combined readout wrappers pass (3 tests, 118 + 319 node checks).
-- Required Chrome validation is queued behind existing Mac validation processes with an OS exit-event wait (no polling).
-  Known unrelated keyboard/mobile selected '' vs 'beta' red is owned elsewhere. No edit to `app/v2/v2.js` or `app/v2/shell.html`, no value math, publication or production writes.
+- **Blocked on full validation:** two existing Mac `make validate` jobs (94131, 94417) still occupied the heavy-suite lane.
+  Required Chrome `make validate` did not start. The queued OS exit-event waiter was stopped; no background run or automatic
+  retry remains. Next action, when the lane is free: `CHROMIUM_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' RENDER_TESTS_REQUIRED=1 make validate`.
+  Known unrelated keyboard/mobile selected '' vs 'beta' red is owned elsewhere; record it without fixing it.
+- PR #1174 at implementation head `d848909d` is a draft targeting main. CI preview and v2-render failed their draft
+  deferral checks (`RUN_EXPENSIVE=false`; build/shards/render skipped), not product assertions. No full CI pass claimed.
+  Keep draft; no independent current-head review, merge, deploy or live verification. No edit to `app/v2/v2.js` or `app/v2/shell.html`, no value math, publication or production writes.
 - Historical implementation handoff follows (its merge/next-action suggestions are superseded by this draft-only job):
 
 ### JEG-1323 previous implementation (Claude, 2026-10-30 UTC) (Claude, 2026-10-30 UTC)

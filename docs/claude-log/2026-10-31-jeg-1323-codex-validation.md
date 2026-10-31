@@ -24,8 +24,12 @@ Jeremy explicitly assigned this bridge work; the older Codex pause does not appl
 
 ### Claimed, not confirmed
 
-- Required Chrome `make validate` queued behind two already-running Mac validation jobs.
-  Their suites are not interrupted. Final outcome will be recorded below.
+- Required Chrome `make validate` **not run**: two existing Mac validators occupied the heavy-suite lane.
+  The queued exit-event waiter never launched validation and was stopped; no background validation or retry remains.
+  Do not mark this ticket done until the requested gate runs. No other session's process was interrupted.
+- Exact implementation head `d848909d` draft CI: preview run 41222179150 and v2-render run 41222179323
+  fail at the deferral sentinel (`RUN_EXPENSIVE=false`); their build/shard/render jobs were skipped.
+  This is no product-test result. Logs were read through the GitHub connector after gh hit its API rate limit.
 - Known `test_keyboard_mobile_and_overlap_guard` selected '' vs 'beta' red belongs to another job;
   no test assertion or unrelated product code changed here.
 - No independent new-head review, browser render of the second-half rows, merge, deploy or live claim.
