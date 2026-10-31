@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Offline weekly-input producer (JEG-1228, slice S2 of JEG-1195).
 
-Turns explicit stored weekly inputs into the `weekly-inputs` v1 artifact
+Turns explicit stored weekly inputs into the `weekly-inputs` artifact
 defined by JEG-1227 (`pipelines/lib/weekly_inputs_contract.py`,
 `docs/weekly-inputs-contract.md`):
 
@@ -9,6 +9,16 @@ defined by JEG-1227 (`pipelines/lib/weekly_inputs_contract.py`,
                        data/inputs/espn_weekly_projections_2026.csv)
   status               an export of public.player_status_history rows (JSON list)
   bye                  the bye table (the shape of data/inputs/nfl_byes_2026.json)
+  roster               ESPN rostered % and adds trend (schema 1.1, JEG-1416):
+                       a stored JSON file {season, week, captured_at,
+                       rows[{player_key, team, rostered_pct, adds_trend}]};
+                       adds_trend is the change in rostered percentage points
+                       over the source's reporting window, as stored (this
+                       producer never computes it)
+  slate                kickoff times (schema 1.1, JEG-1416): a stored JSON
+                       file {season, week, captured_at, games[{home_team,
+                       away_team, kickoff_at}]}; each player row carries its
+                       own team's kickoff
   experts.ecr_weekly   no producer yet (S3b): always declared unavailable here
   vegas                no producer yet (S3): always declared unavailable here
 
@@ -40,6 +50,7 @@ Usage:
       --as-of 2026-10-29T02:00:00Z --out /tmp/inputs-wk8.json \\
       --players data/inputs/players_identity_snapshot.json \\
       [--espn-weekly FILE.csv] [--status FILE.json] [--byes FILE.json] \\
+      [--espn-roster FILE.json] [--slate FILE.json] \\
       [--sleeper-base FILE.json] [--aliases FILE.json]
 """
 from __future__ import annotations
@@ -49,6 +60,7 @@ import csv
 import hashlib
 import importlib
 import json
+import math
 import os
 import sys
 from contextlib import contextmanager
@@ -65,17 +77,21 @@ import player_aliases  # noqa: E402 -- no read at import
 SCHEMA = "weekly-inputs"
 CONTRACT_MODULE = "weekly_inputs_contract"  # JEG-1227, pipelines/lib/
 ALIAS_FILE = Path(player_aliases.ALIAS_FILE)  # the one shared list; read locally only
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"
 PRODUCER = "pipelines/build_weekly_inputs.py"
 # CSV column -> contract scoring key (pipelines/lib/scoring.py keys).
 ESPN_SCORING = {"std": "standard", "half_ppr": "half_ppr", "ppr": "ppr"}
 SCORINGS = tuple(ESPN_SCORING.values())
 POSITIONS = ("QB", "RB", "WR", "TE", "K", "DST")
-LEG_IDS = ("bye", "experts.ecr_weekly", "experts.espn_weekly", "status", "vegas")
+LEG_IDS = ("bye", "experts.ecr_weekly", "experts.espn_weekly", "roster", "slate", "status", "vegas")
 # The Sleeper fields public.player_status_history stores, unchanged
 # (pipelines/save_player_status_history.py FIELDS).
 STATUS_FIELDS = ("status", "injury_status", "injury_body_part", "injury_start_date",
                  "practice_participation", "depth_chart_position", "depth_chart_order")
+# Schema 1.1 legs (JEG-1416); field names and ranges are the contract's.
+ROSTER_FIELDS = ("rostered_pct", "adds_trend")
+ROSTER_RANGES = {"rostered_pct": (0.0, 100.0), "adds_trend": (-100.0, 100.0)}
+SLATE_FIELDS = ("kickoff_at",)
 ESPN_REQUIRED = ("season", "week", "player_key", "std", "half_ppr", "ppr", "snapshot_at")
 # Column names only a rest-of-season file carries (the ESPN ROS CSV:
 # ros_half_ppr, weeks_covered, season_block_half_ppr, r_* stat totals).
@@ -431,6 +447,174 @@ def read_byes(path: Path, season: int, week: int):
     return meta, byes
 
 
+def _capture_stamp(raw, as_of: datetime, report, count: int):
+    """A stored file's captured_at -> (datetime | None, usable).
+
+    The capture time is the leg's vintage, like the ESPN snapshot_at and the
+    status fetched_at: after --as-of, or in a later content week than the
+    target, the file is left out entirely, never substituted.
+    """
+    if raw is None:
+        return None, True
+    try:
+        captured = _iso_utc(raw)
+    except (TypeError, ValueError):
+        report["bad_row"] += 1
+        return None, True
+    if captured > as_of:
+        report["after_as_of"] += count
+        return None, False
+    return captured, True
+
+
+def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Identity, report):
+    """The 1.1 roster leg from a stored ESPN roster file (JEG-1416).
+
+    No stored ESPN roster shape existed in the producer, so the shape is
+    defined here and in docs/weekly-inputs-contract.md: an object {season,
+    week, captured_at, rows[{player_key, team, rostered_pct, adds_trend}]}.
+    Rows are keyed by the canonical player_key only; a key the players
+    snapshot does not hold is counted and left out, never resolved by name.
+    """
+    meta = _leg_meta("roster", "espn", "roster", None,
+                     f"no ESPN roster rows for season {season} week {week} on or before --as-of",
+                     [_file_meta(path)])
+    data = json.loads(path.read_text())
+    if isinstance(data, dict):
+        raw = data.get("rows")
+        file_season, file_week, captured_raw = data.get("season"), data.get("week"), data.get("captured_at")
+    elif isinstance(data, list):
+        raw, file_season, file_week, captured_raw = data, None, None, None
+    else:
+        return meta, {}
+    if not isinstance(raw, list):
+        return meta, {}
+    if file_season is not None and _int(file_season) != season:
+        report["wrong_season"] += len(raw)
+        return meta, {}
+    if file_week is not None and _int(file_week) != week:
+        report["wrong_week"] += len(raw)
+        return meta, {}
+    captured, usable = _capture_stamp(captured_raw, as_of, report, len(raw))
+    if not usable:
+        return meta, {}
+    if captured is not None and (content_week_or_none(_ny_day(captured)) or 0) > week:
+        report["later_content_week"] += len(raw)
+        return meta, {}
+    rows = {}
+    for r in raw:
+        report["read"] += 1
+        if not isinstance(r, dict):
+            report["bad_row"] += 1
+            continue
+        if str(r.get("horizon") or "week").lower() != "week":
+            raise InputError(f"{path.name}: horizon {r.get('horizon')!r}; "
+                             "weekly inputs never take ROS data")
+        key = _int(r.get("player_key"))
+        if key is None:
+            report["bad_row"] += 1
+            continue
+        key, why = ident.check_key(key)
+        if key is None:  # not in the players snapshot: counted, never guessed
+            report["bad_row"] += 1
+            continue
+        values, reasons = {}, {}
+        for field in ROSTER_FIELDS:
+            v = r.get(field)
+            lo, hi = ROSTER_RANGES[field]
+            if isinstance(v, (int, float)) and not isinstance(v, bool) \
+                    and math.isfinite(v) and lo <= v <= hi:
+                values[field] = float(v)
+            else:
+                values[field] = None
+                if v is not None:
+                    report["bad_row"] += 1
+                    reasons[field] = "invalid in the ESPN roster file"
+        cell = _cell(values, "not set in the ESPN roster file", reasons)
+        entry = ident.entry(key)
+        info = {"position": entry.get("position"), "team": r.get("team") or entry.get("team"),
+                "name": entry.get("full_name"), "source_ids": {"espn_player_key": key},
+                "resolved_by": "espn_roster.player_key", "unresolved_reason": None}
+        rid = _row_id(key, info)
+        if rid in rows:
+            report["duplicate"] += 1
+            if rows[rid][2]["values"] != values:
+                report["conflict"] += 1
+                rows[rid] = (key, info, _cell(_null_values(ROSTER_FIELDS),
+                                              "conflicting duplicate rows in the ESPN roster file"))
+            continue
+        rows[rid] = (key, info, cell)
+    if not rows:
+        return meta, {}
+    _mark_available(meta, season, week, _ny_day(captured) if captured else None,
+                    _stamp(captured))
+    return meta, rows
+
+
+def read_slate(path: Path, season: int, week: int, as_of: datetime, report):
+    """The 1.1 slate leg from a stored schedule file (JEG-1416).
+
+    Shape (docs/weekly-inputs-contract.md): an object {season, week,
+    captured_at, games[{home_team, away_team, kickoff_at}]}. Returns the leg
+    meta and {team: kickoff} plus {team: reason} for teams whose stored games
+    disagree on the kickoff; a team with no game stays missing per row.
+    """
+    meta = _leg_meta("slate", "nfl_schedule", "kickoff", None,
+                     f"no slate games for season {season} week {week} on or before --as-of",
+                     [_file_meta(path)])
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict) or not isinstance(data.get("games"), list):
+        return meta, None
+    games = data["games"]
+    if _int(data.get("season")) != season:
+        report["wrong_season"] += len(games)
+        return meta, None
+    if _int(data.get("week")) != week:
+        report["wrong_week"] += len(games)
+        return meta, None
+    captured, usable = _capture_stamp(data.get("captured_at"), as_of, report, len(games))
+    if not usable:
+        return meta, None
+    if captured is not None and (content_week_or_none(_ny_day(captured)) or 0) > week:
+        report["later_content_week"] += len(games)
+        return meta, None
+    kickoffs: dict[str, str] = {}
+    conflicts: dict[str, str] = {}
+    for g in games:
+        report["read"] += 1
+        if not isinstance(g, dict):
+            report["bad_row"] += 1
+            continue
+        if str(g.get("horizon") or "week").lower() != "week":
+            raise InputError(f"{path.name}: horizon {g.get('horizon')!r}; "
+                             "weekly inputs never take ROS data")
+        teams = [str(g.get(side) or "").strip().upper() for side in ("home_team", "away_team")]
+        try:
+            kickoff = _stamp(_iso_utc(g.get("kickoff_at")))
+        except (TypeError, ValueError):
+            kickoff = None
+        if not all(teams) or teams[0] == teams[1] or kickoff is None:
+            report["bad_row"] += 1
+            continue
+        for team in teams:
+            if team in conflicts:
+                continue
+            if team not in kickoffs:
+                kickoffs[team] = kickoff
+            elif kickoffs[team] == kickoff:
+                report["duplicate"] += 1
+            else:
+                report["conflict"] += 1
+                del kickoffs[team]
+                conflicts[team] = "conflicting kickoff times in slate file"
+    if not kickoffs and not conflicts:
+        return meta, None
+    _mark_available(meta, season, week, _ny_day(captured) if captured else None,
+                    _stamp(captured))
+    meta["game_week"] = week
+    return meta, {"kickoffs": kickoffs, "conflicts": conflicts}
+
+
 def _row_id(key, info):
     if key is not None:
         return (0, f"{key:012d}")
@@ -444,7 +628,7 @@ def build(args) -> dict:
     as_of = _iso_utc(args.as_of)
     counts = ("read", "wrong_season", "wrong_week", "later_content_week", "after_as_of",
               "older_snapshot", "duplicate", "conflict", "bad_row")
-    report = {leg: {k: 0 for k in counts} for leg in ("experts.espn_weekly", "status")}
+    report = {leg: {k: 0 for k in counts} for leg in ("experts.espn_weekly", "status", "roster", "slate")}
     report.update(unresolved_rows=0, position_out_of_scope=0)
     ident = Identity(args.players, args.sleeper_base, args.aliases)
     report["identity"] = {"aliases": ident.aliases, "alias_source": "local_file"}
@@ -457,6 +641,8 @@ def build(args) -> dict:
                            "no Vegas producer yet (JEG-1195 slice S3)"),
         "status": _leg_meta("status", "sleeper", "status", None, "input not supplied"),
         "bye": _leg_meta("bye", "nfl_byes", "bye_week", None, "input not supplied"),
+        "roster": _leg_meta("roster", "espn", "roster", None, "input not supplied"),
+        "slate": _leg_meta("slate", "nfl_schedule", "kickoff", None, "input not supplied"),
     }
     per_leg: dict[str, dict] = {}
     if args.espn_weekly:
@@ -465,12 +651,19 @@ def build(args) -> dict:
     if args.status:
         legs["status"], per_leg["status"] = read_status(
             args.status, args.season, args.week, as_of, ident, report["status"])
+    if args.espn_roster:
+        legs["roster"], per_leg["roster"] = read_roster(
+            args.espn_roster, args.season, args.week, as_of, ident, report["roster"])
     byes = None
     if args.byes:
         legs["bye"], byes = read_byes(args.byes, args.season, args.week)
+    slate = None
+    if args.slate:
+        legs["slate"], slate = read_slate(
+            args.slate, args.season, args.week, as_of, report["slate"])
 
     merged: dict[tuple, dict] = {}
-    for leg in ("experts.espn_weekly", "status"):
+    for leg in ("experts.espn_weekly", "status", "roster"):
         for rid, (key, info, cell) in per_leg.get(leg, {}).items():
             row = merged.setdefault(rid, {"player_key": key, "infos": {}, "cells": {}})
             row["infos"][leg] = info
@@ -481,25 +674,30 @@ def build(args) -> dict:
         row = merged[rid]
         espn_i = row["infos"].get("experts.espn_weekly") or {}
         stat_i = row["infos"].get("status") or {}
+        rost_i = row["infos"].get("roster") or {}
         key = row["player_key"]
         canon = ident.entry(key) if key is not None else {}
-        position = espn_i.get("position") or stat_i.get("position") or canon.get("position") or None
+        position = espn_i.get("position") or stat_i.get("position") or rost_i.get("position") \
+            or canon.get("position") or None
         if position not in POSITIONS:
             report["position_out_of_scope"] += 1
             continue
-        team = espn_i.get("team") or stat_i.get("team")
-        ids = {**stat_i.get("source_ids", {}), **espn_i.get("source_ids", {})}
-        name = canon.get("full_name") or stat_i.get("name")
+        team = espn_i.get("team") or stat_i.get("team") or rost_i.get("team")
+        ids = {**rost_i.get("source_ids", {}), **stat_i.get("source_ids", {}),
+               **espn_i.get("source_ids", {})}
+        name = canon.get("full_name") or stat_i.get("name") or rost_i.get("name")
         if not name:
             # The contract needs a display string; an unresolved ESPN row has
             # no name in its source, so it says which source row it is.
             name = "Unresolved " + ", ".join(f"{k} {ids[k]}" for k in sorted(ids))
         out = {"player_key": key, "name": name, "position": position, "team": team,
-               "resolved_by": espn_i.get("resolved_by") or stat_i.get("resolved_by"),
+               "resolved_by": espn_i.get("resolved_by") or stat_i.get("resolved_by")
+               or rost_i.get("resolved_by"),
                "source_ids": ids}
         if key is None:
             report["unresolved_rows"] += 1
-            reasons = [i["unresolved_reason"] for i in (espn_i, stat_i) if i.get("unresolved_reason")]
+            reasons = [i["unresolved_reason"] for i in (espn_i, stat_i, rost_i)
+                       if i.get("unresolved_reason")]
             out["unresolved_reason"] = "; ".join(reasons)
         cells = {}
         for leg in LEG_IDS:
@@ -510,6 +708,8 @@ def build(args) -> dict:
                 cells[leg] = {"provenance": "missing", "values": _null_values(keys)}
             elif leg == "bye":
                 cells[leg] = _bye_cell(byes, team)
+            elif leg == "slate":
+                cells[leg] = _slate_cell(slate, team)
             else:
                 cells[leg] = _cell(_null_values(keys), NOT_IN_INPUT)
         out["legs"] = cells
@@ -520,7 +720,7 @@ def build(args) -> dict:
     for leg, meta in legs.items():
         if meta["availability"] == "unavailable":
             continue
-        if leg in ("experts.espn_weekly", "bye"):
+        if leg in ("experts.espn_weekly", "bye", "roster", "slate"):
             gap = any(r["legs"][leg]["provenance"] != "complete" for r in out_rows)
         else:  # status: a field Sleeper leaves unset is not a gap in the leg
             gap = any(r["legs"][leg]["provenance"] == "missing" for r in out_rows)
@@ -544,7 +744,23 @@ def _leg_keys(meta):
         return STATUS_FIELDS
     if meta["units"] == "bye_week":
         return ("bye_week",)
+    if meta["units"] == "roster":
+        return ROSTER_FIELDS
+    if meta["units"] == "kickoff":
+        return SLATE_FIELDS
     return tuple(meta["scoring"])
+
+
+def _slate_cell(slate, team):
+    if not team:
+        return _cell({"kickoff_at": None}, "no team")
+    team = str(team).upper()
+    if team in slate["conflicts"]:
+        return _cell({"kickoff_at": None}, slate["conflicts"][team])
+    kickoff = slate["kickoffs"].get(team)
+    if kickoff is None:
+        return _cell({"kickoff_at": None}, f"team {team} not in slate file")
+    return _cell({"kickoff_at": kickoff})
 
 
 def _bye_cell(byes, team):
@@ -601,6 +817,10 @@ def main(argv=None) -> int:
     p.add_argument("--espn-weekly", type=Path)
     p.add_argument("--status", type=Path)
     p.add_argument("--byes", type=Path)
+    p.add_argument("--espn-roster", type=Path,
+                   help="stored ESPN roster file ({season, week, captured_at, rows}) for the 1.1 roster leg")
+    p.add_argument("--slate", type=Path,
+                   help="stored schedule file ({season, week, captured_at, games}) for the 1.1 slate leg")
     p.add_argument("--sleeper-base", type=Path)
     p.add_argument("--aliases", type=Path, default=ALIAS_FILE,
                    help="local verified alias list (player-aliases-v1); never read from Supabase")

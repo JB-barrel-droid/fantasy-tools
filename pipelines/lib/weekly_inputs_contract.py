@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Weekly-input artifact contract, schema `weekly-inputs` v1 (JEG-1227, S1 of JEG-1195).
 
+Schema 1.1.0 (JEG-1416) adds two optional legs, additively: `roster` (ESPN
+rostered % and adds trend, per player) and `slate` (kickoff time for the
+player's team in the game week). A 1.0.x artifact without them still
+validates; the legs are data fields only and carry no value math.
+
 One producer (JEG-1228, S2 onward) writes `data/weekly/inputs-wk{N}.json`;
 Versus Vegas and later weekly consumers only read it. This module is the one
 definition of that file's shape and the one validator for it. Stdlib plus
@@ -54,8 +59,8 @@ except ImportError:  # pipelines/lib itself on sys.path (flat import, or run as 
     from timestamps import parse_iso_timestamp
 
 SCHEMA_NAME = "weekly-inputs"
-SCHEMA_VERSION = "1.0.0"
-READER_MAJOR, READER_MINOR = 1, 0
+SCHEMA_VERSION = "1.1.0"
+READER_MAJOR, READER_MINOR = 1, 1
 
 HORIZON = "week"
 # Same keys as pipelines/lib/scoring.py SCORING.
@@ -64,7 +69,7 @@ POSITIONS = ("QB", "RB", "WR", "TE", "K", "DST")
 SEASON_RANGE = (2020, 2100)
 WEEK_RANGE = (1, 18)
 
-LEG_KINDS = ("vegas", "expert", "status", "bye")
+LEG_KINDS = ("vegas", "expert", "status", "bye", "roster", "slate")
 AVAILABILITY = ("complete", "partial", "unavailable")
 FRESHNESS = ("current", "one_week_behind", "stale", "unknown")
 AGED_FRESHNESS = ("current", "one_week_behind", "stale")  # freshness that rests on a known content week
@@ -76,17 +81,30 @@ UNITS_BY_KIND = {
     "expert": ("fantasy_points", "rank"),
     "status": ("status",),
     "bye": ("bye_week",),
+    "roster": ("roster",),
+    "slate": ("kickoff",),
 }
 SCORED_UNITS = ("fantasy_points", "rank")
+# Units whose leg availability is checked against the rows (a complete leg has
+# no nulls, a partial leg has at least one). Status is not one: Sleeper leaves
+# fields unset on healthy players, so a status cell can be partial inside a
+# complete leg. Roster and kickoff values are always reported or missing.
+ROW_CHECKED_UNITS = SCORED_UNITS + ("roster", "kickoff")
 # Field names follow the stored Sleeper status history (pipelines/save_player_status_history.py).
 STATUS_FIELDS = ("status", "injury_status", "injury_body_part", "injury_start_date",
                  "practice_participation", "depth_chart_position", "depth_chart_order")
 BYE_FIELDS = ("bye_week",)
+# Roster leg (1.1, ESPN): rostered_pct is a percentage of leagues (0..100);
+# adds_trend is the change in rostered percentage points over the source's
+# reporting window, as stored in the input file (never computed here).
+ROSTER_FIELDS = ("rostered_pct", "adds_trend")
+# Slate leg (1.1): the kickoff of the player's team's game in the game week.
+SLATE_FIELDS = ("kickoff_at",)
 # Provenance per row leg. td-filled is the archived Vegas value (a leg filled
 # from the touchdown market) and is valid on the vegas leg only.
 PROVENANCE = ("complete", "td-filled", "partial", "missing")
 
-LEG_ID_RE = re.compile(r"^(vegas|status|bye|experts\.[a-z][a-z0-9_]*)$")
+LEG_ID_RE = re.compile(r"^(vegas|status|bye|roster|slate|experts\.[a-z][a-z0-9_]*)$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 VERSION_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 ROS_TOKEN_RE = re.compile(r"(^|[._\-])(ros|rest_of_season|restofseason)([._\-]|$)", re.I)
@@ -122,7 +140,7 @@ CODES = {
     "ros.horizon": "A horizon other than \"week\" (rest-of-season data is never allowed).",
     "ros.leg": "A leg id or source names rest-of-season data.",
     "ros.field": "A field name anywhere in the document names rest-of-season data.",
-    "leg.id": "A leg id is not vegas, status, bye or experts.<lower_snake_name>.",
+    "leg.id": "A leg id is not vegas, status, bye, roster, slate or experts.<lower_snake_name>.",
     "leg.none": "The document declares no legs.",
     "leg.kind_mismatch": "A leg's kind does not match its id.",
     "leg.no_reason": "An unavailable leg has no missing_reason.",
@@ -131,7 +149,7 @@ CODES = {
                                "captured_at."),
     "leg.unavailable_has_values": "A row carries a value for a leg declared unavailable.",
     "availability.value": "availability is not complete, partial or unavailable.",
-    "availability.inconsistent": "A points or rank leg is complete but a row has a null, or partial with no null in any row.",
+    "availability.inconsistent": "A leg checked against its rows (points, rank, roster or kickoff) is complete but a row has a null, or partial with no null in any row.",
     "freshness.value": "freshness is not current, one_week_behind, stale, unknown or null.",
     "freshness.inconsistent": "freshness disagrees with the leg's content week, or is set on an unavailable leg.",
     "label.value": "label is not published, previous-season, modeled, stale or unavailable.",
@@ -330,7 +348,7 @@ class _Validator:
             if isinstance(leg_id, str) and ROS_TOKEN_RE.search(leg_id):
                 self.add("ros.leg", path, f"leg id '{leg_id}' names rest-of-season data")
             else:
-                self.add("leg.id", path, f"'{leg_id}' is not vegas, status, bye or experts.<lower_snake_name>")
+                self.add("leg.id", path, f"'{leg_id}' is not vegas, status, bye, roster, slate or experts.<lower_snake_name>")
             return None
         if ROS_TOKEN_RE.search(leg_id):
             self.add("ros.leg", path, f"leg id '{leg_id}' names rest-of-season data")
@@ -543,7 +561,7 @@ class _Validator:
 
         for leg_id in sorted(declared):
             meta = declared[leg_id]
-            if meta["units"] not in SCORED_UNITS or meta["unavailable"] or leg_id not in self.null_counts:
+            if meta["units"] not in ROW_CHECKED_UNITS or meta["unavailable"] or leg_id not in self.null_counts:
                 continue
             nulls = self.null_counts[leg_id]
             if meta["availability"] == "complete" and nulls:
@@ -583,6 +601,10 @@ class _Validator:
             expected_keys = list(STATUS_FIELDS)
         elif units == "bye_week":
             expected_keys = list(BYE_FIELDS)
+        elif units == "roster":
+            expected_keys = list(ROSTER_FIELDS)
+        elif units == "kickoff":
+            expected_keys = list(SLATE_FIELDS)
         else:
             expected_keys = None
         if expected_keys is not None:
@@ -659,6 +681,15 @@ class _Validator:
                 self.add("value.type", path, f"a bye week is a whole number or null, got {v!r}")
             elif not WEEK_RANGE[0] <= v <= WEEK_RANGE[1]:
                 self.add("value.range", path, f"a bye week is in 1..18, got {v}")
+        elif units == "roster":
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                self.add("value.type", path, f"'{key}' is a finite number or null, got {v!r}")
+            elif key == "rostered_pct" and not 0 <= v <= 100:
+                self.add("value.range", path, f"rostered_pct is a percentage in 0..100, got {v}")
+            elif key == "adds_trend" and not -100 <= v <= 100:
+                self.add("value.range", path, f"adds_trend is a change in percentage points in -100..100, got {v}")
+        elif units == "kickoff":
+            self.timestamp(v, path)
         elif units == "status":
             if key == "depth_chart_order":
                 if not self.is_int(v):
@@ -689,7 +720,7 @@ def validate_file(path: str | Path) -> list[Issue]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(description="Validate weekly-input artifacts (schema weekly-inputs v1).")
+    ap = argparse.ArgumentParser(description="Validate weekly-input artifacts (schema weekly-inputs 1.1).")
     ap.add_argument("files", nargs="+")
     ap.add_argument("--json", action="store_true", help="print issues as JSON")
     args = ap.parse_args(argv)

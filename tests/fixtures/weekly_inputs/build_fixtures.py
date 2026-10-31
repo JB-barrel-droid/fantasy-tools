@@ -206,9 +206,83 @@ def v_previous_season(d):
 
 
 def v_additive_minor(d):
-    d["schema_version"] = "1.1.0"
+    d["schema_version"] = "1.2.0"
     d["build_notes"] = "a field added in a later minor version"
     espn(d)["sample_size"] = 4
+    return d
+
+
+def _roster_meta(**over) -> dict:
+    meta = {"kind": "roster", "source": "espn", "horizon": "week", "units": "roster",
+            "scoring": None, "content_season": 2026, "content_week": 8,
+            "content_vintage": "2026-10-28", "captured_at": "2026-10-28T12:00:00Z",
+            "availability": "complete", "freshness": "current", "label": "published"}
+    meta.update(over)
+    return meta
+
+
+def _slate_meta(**over) -> dict:
+    meta = {"kind": "slate", "source": "nfl_schedule", "horizon": "week", "units": "kickoff",
+            "scoring": None, "content_season": 2026, "content_week": 8, "game_week": 8,
+            "content_vintage": "2026-10-28", "captured_at": "2026-10-28T09:00:00Z",
+            "availability": "complete", "freshness": "current", "label": "published"}
+    meta.update(over)
+    return meta
+
+
+_KICKOFFS = ("2026-11-01T17:00:00Z", "2026-11-01T18:00:00Z",
+             "2026-11-01T21:25:00Z", "2026-11-03T01:15:00Z")
+
+
+def v_roster_slate_complete(d):
+    d["schema_version"] = "1.1.0"
+    add_leg(d, "roster", _roster_meta(),
+            [{"provenance": "complete", "values": {"rostered_pct": p, "adds_trend": t}}
+             for p, t in ((84.2, 6.4), (0.0, 0.0), (45.5, -1.5), (98.0, 2.0))])
+    add_leg(d, "slate", _slate_meta(),
+            [{"provenance": "complete", "values": {"kickoff_at": k}} for k in _KICKOFFS])
+    return d
+
+
+def v_roster_slate_partial(d):
+    v_roster_slate_complete(d)
+    d["legs"]["roster"]["availability"] = "partial"
+    c = cell(d, 1, "roster")
+    c["values"]["adds_trend"] = None
+    c["provenance"] = "partial"
+    c["missing_reason"] = {"adds_trend": "not reported by the source"}
+    d["legs"]["slate"]["availability"] = "partial"
+    c = cell(d, 2, "slate")
+    c["values"]["kickoff_at"] = None
+    c["provenance"] = "missing"
+    c["missing_reason"] = {"kickoff_at": "team CCC not in the slate file"}
+    return d
+
+
+def v_roster_slate_stale(d):
+    v_roster_slate_complete(d)
+    d["legs"]["roster"].update(content_week=6, content_vintage="2026-10-13",
+                               captured_at="2026-10-13T12:00:00Z",
+                               freshness="stale", label="stale")
+    d["legs"]["slate"].update(content_week=6, content_vintage="2026-10-13",
+                              captured_at="2026-10-13T09:00:00Z",
+                              freshness="stale", label="stale")
+    return d
+
+
+def v_roster_slate_unavailable(d):
+    d["schema_version"] = "1.1.0"
+    for leg_id, kind, source, units, keys in (
+            ("roster", "roster", "espn", "roster", ["rostered_pct", "adds_trend"]),
+            ("slate", "slate", "nfl_schedule", "kickoff", ["kickoff_at"])):
+        meta = {"kind": kind, "source": source, "horizon": "week", "units": units,
+                "scoring": None, "content_season": None, "content_week": None,
+                "content_vintage": None, "captured_at": None,
+                "availability": "unavailable", "freshness": None, "label": "unavailable",
+                "missing_reason": f"no {leg_id} input for this week"}
+        add_leg(d, leg_id, meta,
+                [{"provenance": "missing", "values": {k: None for k in keys}}
+                 for _ in d["players"]])
     return d
 
 
@@ -218,6 +292,8 @@ VALID: dict[str, Callable] = {
     "unknown_no_provenance": v_unknown_no_provenance, "unavailable": v_unavailable,
     "rank_leg": v_rank_leg, "zero_value": v_zero_value, "unresolved_player": v_unresolved_player,
     "previous_season": v_previous_season, "additive_minor": v_additive_minor,
+    "roster_slate_complete": v_roster_slate_complete, "roster_slate_partial": v_roster_slate_partial,
+    "roster_slate_stale": v_roster_slate_stale, "roster_slate_unavailable": v_roster_slate_unavailable,
 }
 VALID_WARNINGS = {"additive_minor": ["field.unknown", "field.unknown"]}
 
