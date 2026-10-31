@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-30T20:27:48.388544+00:00",
+  "run_at": "2026-10-31T01:37:36.753749+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -12,11 +12,55 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "green",
-  "held": [],
-  "hold_severity": "none",
+  "outcome": "published_with_holds",
+  "held": [
+    "cbsros",
+    "espn",
+    "razzball"
+  ],
+  "hold_severity": "red",
   "list_changes": {},
-  "held_detail": {},
+  "held_detail": {
+    "espn": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "espn",
+        "espn_vorp"
+      ],
+      "sections": [
+        "espn"
+      ],
+      "detail": "1662/1788 chart values equal stored snapshot 2026-10-30 (per game, 2 decimals); 126 chart values differ from the stored snapshot, 0 stored players not on the chart, 0 chart players not stored",
+      "hold_severity": "red",
+      "week": 8
+    },
+    "cbsros": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "cbsros",
+        "cbsros_vorp"
+      ],
+      "sections": [
+        "cbsros"
+      ],
+      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Eli Stowers, Joe Royer); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle",
+      "hold_severity": "amber",
+      "week": 8
+    },
+    "razzball": {
+      "reason": "fidelity: publisher_vs_stored",
+      "held_series": [
+        "razzball",
+        "razzball_vorp"
+      ],
+      "sections": [
+        "razzball"
+      ],
+      "detail": "2028/2028 values match exactly across 3 columns; 2 publisher names do not resolve to a canonical player",
+      "hold_severity": "amber",
+      "week": 8
+    }
+  },
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -165,7 +209,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-30T17:05:25+00:00",
+      "published_at": "2026-10-31T00:06:19+00:00",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -209,5 +253,10 @@
   },
   "stale_sources": [],
   "lagging_sources": [],
-  "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure"
+  "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
+  "fidelity_holds": {
+    "espn": "fidelity: stored_vs_chart",
+    "cbsros": "fidelity: publisher_vs_stored",
+    "razzball": "fidelity: publisher_vs_stored"
+  }
 }
