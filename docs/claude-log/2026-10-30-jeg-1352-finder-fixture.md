@@ -25,6 +25,12 @@ candidate, preserving the real engine, rules, four viewports and negative mutati
   390x844 and 320x640 in PPR; the Natural case also passes at desktop in Standard and Half PPR. All seven mutants
   are caught, and the Natural-headline mutant specifically produces the wrong-headline diagnostic.
 
+- Draft PR: [#1241](https://github.com/JB-barrel-droid/fantasy-tools/pull/1241), branch `claude/JEG-1352`.
+- The requested push shorthand was rejected as a non-fast-forward to inherited `origin/main` (no main update).
+  `git config --get-regexp` confirmed `push.default=upstream` and the initial branch tracking main. The full refspec
+  `git push -u origin refs/heads/claude/JEG-1352:refs/heads/claude/JEG-1352` successfully created the correct branch.
+  No credential or global Git setting was changed.
+
 ### Claimed, not confirmed
 
 - Independent Claude review and CI's full suites are pending. This job does not merge or deploy. F1 is not applicable

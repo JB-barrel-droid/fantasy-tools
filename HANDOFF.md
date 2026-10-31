@@ -29,7 +29,11 @@ below are history, including any "Codex reviews and merges" line.
   must produce the wrong-headline diagnostic. Repaired two stale mutation anchors; stale anchors and exceptions now fail loudly.
 - `CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" python3 -m unittest
   tests.test_v2_finder_eval_render` passes: 4 tests, all four viewports, all three scorings and all seven mutations.
-  Draft PR on this branch is for a separate Claude review and CI. No fit/value/default code changed; no merge or deploy.
+  Draft PR [#1241](https://github.com/JB-barrel-droid/fantasy-tools/pull/1241) awaits a separate Claude review and CI.
+  No fit/value/default code changed; no merge or deploy.
+- Push this branch with `git push -u origin refs/heads/claude/JEG-1352:refs/heads/claude/JEG-1352`. This Mac has
+  `push.default=upstream`: the requested shorthand initially targeted inherited `origin/main` and was rejected.
+  Main was not updated; the explicit source/destination push succeeded.
 
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
