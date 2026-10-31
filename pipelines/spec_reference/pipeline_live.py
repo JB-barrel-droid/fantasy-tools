@@ -152,7 +152,9 @@ def current_natives(data: dict, s: str, scoring: str, teams: int, sf: int, dropp
         put(name, v)
     if sf >= 1:
         # VP-0 ruling: the overlay sets every player it lists, adding players
-        # only it lists; the rest keep their 1-QB native.
+        # only it lists; the rest keep their 1-QB native. A 2+ QB roster takes
+        # the overlay too (JEG-1365); this module runs only the default 1-QB
+        # roster, so `sf` is the whole rule here.
         for name, v in (combo.get("native_superflex") or {}).items():
             put(name, v)
     dropped[s] = dropped.get(s, 0) + miss
@@ -251,9 +253,12 @@ def lineup_config(repo: Path = REPO) -> dict | None:
 
 
 def run_setting(data: dict, scoring: str, teams: int, sf: int, dropped: dict,
-                lineup: dict | None = None) -> dict:
+                lineup: dict | None = None, setting_extra: dict | None = None) -> dict:
+    """setting_extra: Setting fields to override (JEG-1188: league_rostered,
+    league_reserve, bench_level for a loaded league)."""
     setting = vp.Setting(teams=teams, slots=dict(DEFAULT_SLOTS), flex=1, superflex=sf,
-                         bench_per_team=7, bench_share=vp.DEFAULT_BENCH_SHARE)
+                         bench_per_team=7, bench_share=vp.DEFAULT_BENCH_SHARE,
+                         **{k: (tuple(v) if isinstance(v, list) else v) for k, v in (setting_extra or {}).items()})
     current, prior, eligible, excluded = {}, {}, [], []
     hidden = []  # JEG-569/JEG-787: in pipeline for weights/pie, hidden from DDF blend
     for s in SOURCE_ORDER:
