@@ -81,6 +81,17 @@ class ManagersCardRenderTest(unittest.TestCase):
                     self.assertNotIn(second_id, {r["opponentId"] for r in recs}, "won't-trade managers get no ideas")
                     shown = page.evaluate(IDEAS)
                     self.assertEqual([x["id"] for x in shown], [r["id"] for r in recs][:10])
+                    # Draft capital on the real data path: engine rows carry no preseason rank, the canonical players do.
+                    draft = page.evaluate("""(team) => { const T = window.TradeValueTradeIdeas, R = window.TradeValueManagerRecs;
+                      const ranks = T.preseasonRanks(); const curve = R.draftCurve(window.TradeValueCurveControls.getAllRows());
+                      const rows = window.TradeValueLeague.ui.result.rows.filter(r => String(r.opponentId) === team);
+                      const out = T.compute(); const ideas = out.recommendations.concat(out.stretch).filter(r => String(r.opponentId) === team);
+                      return {ranks: ranks ? ranks.size : 0, rows: rows.length, priced: rows.filter(r => Number.isFinite(R.anchorGains(r, curve, ranks).draft)).length,
+                        onDraft: ideas.filter(r => r.basis.some(b => b.anchor === 'draft')).length, pricedIdeas: ideas.filter(r => Number.isFinite(r.gains.draft)).length}; }""", team_id)
+                    self.assertGreater(draft["ranks"], 0, "canonical players carry preseason ranks")
+                    if draft["rows"]:
+                        self.assertGreater(draft["priced"], 0, f"the draft view prices this league's trades: {draft}")
+                    self.assertEqual(draft["onDraft"], draft["pricedIdeas"], f"an idea with a draft number is judged on it: {draft}")
                     if not recs:
                         self.assertTrue(page.locator("#v2MiEmpty").is_visible())
                     else:

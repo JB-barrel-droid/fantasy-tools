@@ -1,5 +1,5 @@
 // Unit checks for manager-aware recommendations (JEG-1217 stage 3). Pure Node, no browser.
-//   node manager_recs_harness.cjs <dir with manager-recs.js, manager-profiles.js and workspace.js>
+//   node manager_recs_harness.cjs <dir with manager-recs.js, manager-profiles.js, workspace.js and opportunities.js>
 // Prints {ran, failures}. tests/test_jeg1217_manager_recs.py runs it on the real modules and on broken copies.
 "use strict";
 const path = require("path");
@@ -9,6 +9,13 @@ const dir = path.resolve(process.argv[2]);
 const R = require(path.join(dir, "manager-recs.js"));
 const M = require(path.join(dir, "manager-profiles.js"));
 const W = require(path.join(dir, "workspace.js"));
+const O = require(path.join(dir, "opportunities.js"));
+// "Our fit" labels exactly as Trade opportunities makes them (opportunities.js ourFitOf), so a renamed label fails here.
+const OURS = {
+  works: O.ourFitOf({natural: {us: {ok: true}}}).label,
+  rosterIssue: O.ourFitOf({natural: {us: {ok: false, value: true, construction: false}}}).label,
+  fails: O.ourFitOf({natural: {us: {ok: false, value: false}}, us: {down: true}}).label
+};
 
 const ran = [];
 const failures = [];
@@ -18,13 +25,13 @@ function check(name, fn) {
 }
 const close = (a, b, msg) => assert.ok(Math.abs(a - b) < 1e-9, `${msg || ""} ${a} != ${b}`);
 
-// A player row as the engine gives it: values in the current view plus the positional preseason rank.
+// A player row: values in the current view plus the positional preseason rank (the canonical players carry it).
 const P = (key, pos, ddf, rank) => ({player_key: key, name: `P${key}`, pos, values: {ddf_value: ddf}, preseason_ecr_rank: rank === undefined ? null : rank});
 // Today's RB values, best first: rank 1 = 40, rank 2 = 30, rank 3 = 20, rank 4 = 10.
 const ALL = [P(1, "RB", 40), P(2, "RB", 30), P(3, "RB", 20), P(4, "RB", 10), P(5, "WR", 25), P(6, "WR", 15)];
 // An opportunities row: give = what you give (they receive), receive = what you get (they send). chartEdge = their market gain.
 function opp(id, opponentId, give, receive, edge, chartEdge, extra) {
-  return {id, opponentId, opponent: opponentId, give, receive, edge, chartEdge, ours: {label: "natural"}, overall: "natural", ...(extra || {})};
+  return {id, opponentId, opponent: opponentId, give, receive, edge, chartEdge, ours: {label: OURS.works}, overall: "natural", ...(extra || {})};
 }
 function league() {
   let ws = W.newWorkspace({id: "lg"});
@@ -114,6 +121,24 @@ check("test_draft_gain_from_ranks", () => {
   assert.strictEqual(rec.band, "likely");
 });
 
+// Engine rows (curve-widget.js) carry no preseason rank; the card passes the canonical players' ranks in by player_key.
+check("test_draft_ranks_from_canonical_players", () => {
+  const book = M.ops.setAnchor(M.emptyBook(), league(), "t1", "draft", "strong", 1);
+  const engine = (key, pos, ddf) => ({player_key: key, name: `P${key}`, pos, values: {ddf_value: ddf}});
+  const rows = () => [opp("x", "t1", [engine(11, "RB", 15)], [engine(12, "RB", 25)], 10, -8)];
+  const bare = run(rows(), book).recommendations;
+  assert.strictEqual(bare.length, 0, "without ranks the draft view has no data and the market view says long shot or worse");
+  const ranks = new Map([[11, 1], [12, 3]]);
+  const out = R.build({rows: rows(), book, ws: league(), allRows: ALL, profiles: M, ranks});
+  const rec = out.recommendations[0];
+  assert.ok(rec, "with the canonical ranks the draft view is used");
+  assert.strictEqual(rec.gains.draft, 20);
+  assert.deepStrictEqual(rec.basis.map(b => b.anchor), ["draft"]);
+  assert.strictEqual(rec.fallback, null);
+  // A rank on the row itself still wins over the map.
+  assert.strictEqual(R.draftValue(P(9, "RB", 5, 2), R.draftCurve(ALL), new Map([[9, 4]])), 30);
+});
+
 check("test_band_boundaries", () => {
   // Share of what they send (DDF Value). Exactly +10% is Likely, exactly -10% Possible, exactly -25% Long shot.
   assert.strictEqual(R.band(4, 40).band, "likely");
@@ -165,11 +190,14 @@ check("test_excluded_and_my_team_left_out", () => {
 check("test_only_your_wins", () => {
   const rows = [
     opp("tiny", "t1", [P(11, "RB", 20)], [P(12, "RB", 20.04)], 0.04, 0),          // shows as 0.0: not a win
-    opp("force", "t1", [P(13, "RB", 20)], [P(14, "RB", 25)], 5, 0, {ours: {label: "force"}}),
-    opp("ok", "t1", [P(15, "RB", 20)], [P(16, "RB", 20.05)], 0.05, 0)
+    opp("fails", "t1", [P(13, "RB", 20)], [P(14, "RB", 25)], 5, 0, {ours: {label: OURS.fails}, overall: "force"}),
+    opp("ok", "t1", [P(15, "RB", 20)], [P(16, "RB", 20.05)], 0.05, 0),
+    // Force only because of their side: still yours to offer.
+    opp("theirForce", "t1", [P(17, "RB", 20)], [P(18, "RB", 21)], 1, 0, {overall: "force"}),
+    opp("rosterIssue", "t1", [P(19, "RB", 20)], [P(20, "RB", 21)], 1, 0, {ours: {label: OURS.rosterIssue}, overall: "force"})
   ];
   const out = run(rows);
-  assert.deepStrictEqual(out.recommendations.map(r => r.id), ["ok"]);
+  assert.deepStrictEqual(out.recommendations.map(r => r.id).sort(), ["ok", "rosterIssue", "theirForce"]);
   assert.strictEqual(out.counts.notWin, 2);
 });
 
@@ -204,8 +232,8 @@ check("test_health_warnings_both_sides", () => {
   const rows = [
     opp("clean", "t1", give(), recv(), 2, 1, {theirs: theirsOk}),
     opp("unjudged", "t1", give(), recv(), 2, 1, {ours: null, theirs: null, overall: null}),
-    opp("theirBad", "t2", give(), recv(), 2, 1, {ours: {label: "partial"}, theirs: {label: "neutral", construction: {ok: false, issues: ["empty starting slot: RB"]}}, overall: "force"}),
-    opp("ourBad", "t2", give(), recv(), 2, 1, {ours: {label: "partial"}, theirs: theirsOk, overall: "force"}),
+    opp("theirBad", "t2", give(), recv(), 2, 1, {theirs: {label: "neutral", construction: {ok: false, issues: ["empty starting slot: RB"]}}, overall: "force"}),
+    opp("ourBad", "t2", give(), recv(), 2, 1, {ours: {label: OURS.rosterIssue}, theirs: theirsOk, overall: "force"}),
     opp("theirPartial", "t3", give(), recv(), 2, 1, {theirs: theirsOk, partial: true}),
     opp("theirNotJudged", "t3", give(), recv(), 2, 1, {theirs: {label: "neutral", construction: null}})
   ];
@@ -214,8 +242,7 @@ check("test_health_warnings_both_sides", () => {
   assert.deepStrictEqual(Object.keys(by).sort(), rows.map(r => r.id).sort(), "no health filter: every row is still an idea");
   assert.deepStrictEqual(by.clean, {ours: [], theirs: []});
   assert.deepStrictEqual(by.unjudged, {ours: ["roster fit not judged"], theirs: ["roster fit not judged"]});
-  assert.deepStrictEqual(by.theirBad.theirs, ["roster construction: empty starting slot: RB"]);
-  assert.deepStrictEqual(by.theirBad.ours, ["roster construction not checked apart from theirs"], "without the full fit, ours is not called healthy");
+  assert.deepStrictEqual(by.theirBad, {ours: [], theirs: ["roster construction: empty starting slot: RB"]});
   assert.deepStrictEqual(by.ourBad, {ours: ["roster construction issue"], theirs: []});
   assert.deepStrictEqual(by.theirPartial, {ours: [], theirs: ["partial roster"]});
   assert.deepStrictEqual(by.theirNotJudged, {ours: [], theirs: ["roster construction not judged"]});
@@ -230,7 +257,8 @@ check("test_health_warnings_both_sides", () => {
   const v = R.view(out.recommendations.find(r => r.id === "theirBad"));
   assert.ok(v.health.startsWith("Roster check:"), v.health);
   assert.ok(v.health.includes("B's side: roster construction: empty starting slot: RB."), v.health);
-  assert.ok(v.health.includes("Your side: roster construction not checked apart from theirs."), v.health);
+  assert.ok(!v.health.includes("Your side"), v.health);
+  assert.ok(R.view(out.recommendations.find(r => r.id === "ourBad")).health.includes("Your side: roster construction issue."));
   assert.strictEqual(R.view(out.recommendations.find(r => r.id === "clean")).health, "");
   // A stretch offer carries its warnings too.
   const long = run([opp("long", "t1", give(), [P(14, "RB", 40)], 20, -6, {ours: null, overall: null})]);
