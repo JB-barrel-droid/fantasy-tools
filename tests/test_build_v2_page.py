@@ -53,6 +53,29 @@ class BuildV2PageTest(unittest.TestCase):
         self.assertIn('get("design")', flag_js)
         self.assertIn('=== "fieldnotes"', flag_js)
 
+    def test_research_nav_hidden_until_a_post_publishes(self):
+        # JEG-1371 (Jeremy, 2026-10-29, audit decision 2: A): with no published post, neither the menu entry nor the
+        # Writing sub-tab for Research is on the page, on /v2/ or at the root. One published post brings both back.
+        shell = (build_v2_page.APP_V2 / "shell.html").read_text(encoding="utf-8")
+        self.assertIn('data-key="writing/research"', shell)
+        self.assertIn('data-writing="research"', shell)
+        post = {"slug": "bench-share", "title": "Bench share", "summary": "How bench share was tested.",
+                "date": "2026-11-01", "body": "<p>Body.</p>"}
+        for at_root in (False, True):
+            empty = build_v2_page.build_v2_html(INDEX, shell, at_root=at_root, posts=[])
+            self.assertNotIn('data-key="writing/research"', empty)
+            self.assertNotIn('data-writing="research"', empty)
+            self.assertNotIn('<span class="v2-tab-full">Research</span>', empty)
+            # The other Writing entries stay, and the Research page still builds so #writing/research resolves.
+            self.assertIn('data-key="writing/how-values"', empty)
+            self.assertIn('data-key="writing/manifesto"', empty)
+            self.assertIn('data-writing="how-values"', empty)
+            self.assertIn('id="v2Research"', empty)
+            published = build_v2_page.build_v2_html(INDEX, shell, at_root=at_root, posts=[post])
+            self.assertEqual(published.count('data-key="writing/research"'), 1)
+            self.assertEqual(published.count('data-writing="research"'), 1)
+            self.assertIn('href="#writing/research/bench-share"', published)
+
     def test_missing_engine_script_fails_closed(self):
         broken = INDEX.replace('<script src="assets/value-model.js?v=x" defer></script>', "")
         with self.assertRaises(SystemExit):

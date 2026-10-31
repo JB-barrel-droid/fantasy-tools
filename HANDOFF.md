@@ -19,6 +19,125 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
+
+- Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
+  fractional flex everywhere, fractional bench only with no league loaded, sigma 0.75 PPG (`seat_sigma`; 0 is the
+  old hard rule). Python reference, spec reference and engine (value-model.js) all run once per whole allocation of
+  the seat mix and weight-average (methodology VP-2.2 g). Engine equals Python on 30 live settings (1e-13).
+- Tests: `test_fractional_seats_stability` (test-core shard 2; no other player moves more than 1.0 on a 1 PPG
+  fringe change; hard rule fails it), `test_fractional_seats_engine`, `test_fractional_seats_worked_example`. The
+  worked example fixture is pinned to `seat_sigma: 0`; its new `variant_fractional_seats` block pins 0.75.
+- Value change: merge needs Jeremy's OK by PR number after the before/after (JEG-1333's table is this build's:
+  the reference reproduces the prototype exactly); deploying get-values and mcp needs a separate yes.
+- Review fix (2026-10-31): each source's per-player records now blend too (0 where a player is off the work list,
+  slices restated at the blended rate, moved/unpaid budgets blended), so the page's fixed-pie guard holds; before,
+  it threw and CI's settings render timed out. `test_fractional_seats_pie` (test-unit-modules) covers it.
+- Rank guard fix (2026-10-31): Indexed is native x the blended factor for every player a chart prices, so it
+  keeps the chart's order (CI's rank guard failed at 14 settings). DDF values unchanged; only low-end Indexed
+  entries move. Also in `test_fractional_seats_pie`.
+- Math inspector fix (2026-10-31): value above waivers is restated at the blended display factor, so
+  vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
+- Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
+  values-explainer) run in CI or on the Mac.
+- CI: test-core now has five shards. Shard 1 passed its 30-minute job limit under the seat mix (seeded hold build
+  774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
+  `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
+
+### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
+
+- Branch `claude/JEG-1176`, base `168aba93`. Test-only additions: explicit shared
+  week 8 -> 9 vectors at 0/49/50/51/100%, unknown inputs in the denominator,
+  and per-source publication/week provenance. No engine, default or calendar changes.
+  New vector completeness test fails on base 168aba93 (5 missing cases), passes
+  with the vectors. Jeremy authorized this Bridge job Oct 30; the old Codex pause above
+  does not apply. Independent Claude review remains required.
+- Read-only live check: chain run `2026-10-30T20:27:48.388544+00:00` green;
+  CBS, CBS ROS, ESPN, FantasyCalc, FantasyPros, Razzball and USA Today all serve week 8.
+  Their chain dates agree with fixture week_state dates; all 12 settings default to 8
+  (Standard/Half PPR/PPR x 8/10/12/14 teams). Season is honestly 2026.
+- Gaps: history entries use `week` and `week_evidence`/`pulled_at`, not explicit
+  `served_week`/`published_at`. Projection entries have content dates only. FantasyCalc
+  served index points to a superseded week-8 fingerprint, different from the ordinary
+  week-8 snapshot; public assets/history/superseded/week-8.json returns 404 (the store
+  intentionally does not serve that directory). Cannot independently equate its current
+  publication date/natives to the ordinary snapshot. Do not call this provenance complete.
+- Targeted combined run: 101 tests, 4 failures and 2 errors. Failures: weekly-input
+  freshness-rule source assertion expects `one_week_behind`; producer golden bytes differ
+  in three tests. Errors: get-values wrapper and history module setup call sync, which
+  needs missing Playwright chromium_headless_shell-1208. Sync generated files were
+  discarded. No heavy suite, browser installation, dispatch or publishing performed.
+  Mixed/corrupted/carry-forward browser sentinels exist in WeekTransitionSentinelTest,
+  but were not executed successfully here. CI must run them; do not infer a pass.
+- Standalone shared-vector/provenance/calendar module passes (11 tests). Direct
+  get_values_week_check.mjs against committed dist fails at line 137: expected week
+  views [8, 7], got [7]. The missing build prevents claiming a current-build connector
+  pass; investigate fixture/hold eligibility in CI. MCP tool week check passed in the
+  combined run.
+- Nov 3-4 acceptance (later job): GET live modules/comparison-chain-status.json,
+  assets/comparison-sources-data.json, assets/history/index.json and week-8/week-9.json
+  under https://jb-barrel-droid.github.io/fantasy-tools/. Record build/run times and each
+  source's week, date, fingerprint and populated values before/after. Check every scoring
+  and league-size setting: >50% eligible league-specific DDF sources on 9 selects 9;
+  ties/unknowns select 8. Inspect both week views: lagging sources absent from week 9,
+  moved sources use saved week-8 values when viewing 8. Check site and connector agree,
+  weekly input horizon remains separate from ROS, no relabelled/carried values, and chain
+  publication recovers from conflicts without manual repair (JEG-1206). Read CI evidence
+  for mixed-source success and corrupted-source failure. Nov 3 flip is 05:00 UTC
+  (midnight New York, after DST); use injected clocks for replay. No manual dispatch or
+  repair is acceptance evidence. JEG-1176 stays open until observed Nov 3-4 acceptance.
+
+
+### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
+
+- Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
+  unmatched name as 0: compare_trade refuses with closest names, read_state gives that list no total.
+  This PR adds `tests/node/mcp_unmatched_check.mjs` (the ticket's "Gibbs" vs "Hubbard, Zzyzx Notaplayer"
+  under standard, half PPR and PPR; fails on 6f3010b, the commit before #1200) and makes read_state's
+  "Could not match" line list each name's closest players, like compare_trade. No value math change.
+- Independent review: approve; its findings fixed in a second commit (closest names reuse the first match
+  and stop after 5 misspelled names, key-only misses get none, ambiguous names list every fit).
+  A pasted state of 160 junk names already takes about 5.4 s of matching on main (5.9 s here); not
+  addressed in this PR.
+- Goes live only with the next mcp deploy, which needs Jeremy's yes. #1219 also edits `mcp/tools.ts`
+  (runTool, not readState); no overlap expected.
+
+### Waivers mutation offline classes on every PR (JEG-1373, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1373`. New workflow `.github/workflows/waivers-mutation-offline.yml` runs the three offline
+  classes of `tests/test_waivers_mutation_specificity.py` (Classifier, Anchor, Fixture; JEG-1279, #1144) on every PR,
+  with the Playwright package but no browser. Non-blocking: its own check, not a `needs` of `preview`, not in test-core
+  (unchanged). It goes red on a broken mutation check; nothing swallows the failure. Guard:
+  `tests/test_waivers_mutation_offline_workflow.py` (also in test-unit-modules). The Chromium class still runs nightly.
+- Next: independent review and green CI, then the merge gate merges. No settings change: it stays non-required.
+
+### get-values VP-1.2 pairing (JEG-1385, Claude, 2026-10-30 UTC): live
+
+- Merged as #1220 (main 374dc8f7) on its reviewed head with green checks, on Jeremy's 19:33 UTC yes
+  ("A", "Yes, send it"). Deployed from that main at about 20:15 UTC: get-values v12 and mcp v18 (were v11
+  and v17). It shipped every edge change merged since v11/v17, not only JEG-1029: also JEG-1225 (#1124),
+  JEG-1365 2QB (#1216), JEG-1387/1388 (#1214), JEG-1344 (#1210), JEG-1125 (#1033) and smaller connector fixes
+  (list in `docs/claude-log/2026-10-30-jeg-1385-deploy.md`).
+- Live check passed: the connector's get_values at ppr/12, half_ppr/10 SF and standard/14 gives the same
+  values as before the deploy (every source is paired today), find_trades answers, the edge drift check
+  on main exited 0 (deployed tool list and get-values charts match main), and the function logs show only
+  200/202 responses. Not called directly: risers_fallers and audit_values (the cloud connector's tool
+  list predates the deploy).
+- mcp v18's `names.ts` holds the accent-stripping regex range as literal combining characters, not
+  `\u0300-\u036f` escapes: same behaviour, different bytes. The next mcp deploy from main fixes it.
+- Evidence and the before/after: `docs/claude-log/2026-10-30-jeg-1385-get-values-pairing.md`; risk row
+  GAP-ENDPOINT-UNPAIRED-SOURCE; sentinels `tests/fixtures/get_values_pairing_sentinels.json`.
+
+### JEG-1344 get-values log lines (Claude, 2026-10-30 UTC)
+
+- PR #1210, branch `claude/project-thread-ni7hqu`, stacked on #1124 (JEG-1225), whose branch already carries the
+  main merge `2027b305`. Merge #1124 first, then #1210.
+- Adds `get_values.compute` and `get_values.rate_limited` JSON log lines; no limiter, cache or value change. Jeremy
+  picked A (Oct 30 17:36 UTC): deploy `get-values` from main once #1124 and #1210 are merged and green, then check
+  the Supabase function logs for both lines and that a sample request's values are unchanged.
+- Deployed 2026-10-30 with JEG-1385 (get-values v12, main 374dc8f7); a `get_values.compute` line shows in the
+  function logs and ppr/12 values were unchanged.
+
 ### players.active refresh, dry-run test (JEG-1362 child of JEG-1354, Claude, 2026-10-30 UTC)
 
 - Fix commit is on `claude/project-thread-h3wq1f`, stacked on #1187's branch `claude/project-thread-ri695e` (the cloud
@@ -26,6 +145,23 @@ below are history, including any "Codex reviews and merges" line.
   review only. `main()` now has tests for dry run, `--write` and the 75% guard. No production write: the write still
   waits on Jeremy's yes and on the live dry-run counts JEG-1354 asks for. Log:
   `docs/claude-log/2026-10-30-players-active-dry-run-test.md`.
+
+### JEG-1125 one shared "even" band, option A (Claude, 2026-10-30 UTC)
+
+- Branch `fe/jeg-1125-even-threshold`, PR #1033. Jeremy picked A on
+  2026-10-29 9:11 PM CT and said yes to building it on 2026-10-30: one even
+  band, max(1 point, 3% of the average side), for Compare's verdict, Compare's
+  Deal read and Find a trade. THIN_MARGIN (5%) is a separate confidence rule and
+  stays. Value math: he sees a before/after (`ddf/jeg-1125-before-after.md` in
+  the Duet project files, summary on the ticket) and approves before any merge.
+  Do not merge or mark #1033 ready without his yes on that before/after.
+- State: Jeremy said ship A (2026-10-30 18:52Z, "A"). #1033 marked ready;
+  Standard, Half PPR and PPR before/after in
+  `docs/claude-log/2026-10-30-jeg-1125-before-after.md` (no surprise), log in
+  `docs/claude-log/2026-10-30-jeg-1125-option-a.md`. Independent review
+  done (one connector min_rival_edge bug, fixed in `7694bb7`).
+  Merged as #1033 (a750ca07). Its find-trades.ts went live in the JEG-1385 mcp deploy (v18, main
+  374dc8f7, 2026-10-30); Jeremy was told it shipped with that deploy.
 
 ### Source isolation on current main (JEG-1203, JEG-1204, part of JEG-1201; Claude, 2026-10-30 UTC)
 
@@ -40,6 +176,17 @@ below are history, including any "Codex reviews and merges" line.
 - Sleeper identity refresh is green again after #1209 (run 41098267164,
   base pulled 2026-10-30 17:22 UTC); players.json picks it up at the next bake.
 - JEG-1205 (#1052) stays on hold for Jeremy.
+
+### JEG-1389 bench switch and lost league settings (correction to #1105; Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1389`, draft PR. Fixes the "Use league rosters" switch not redrawing player lines (`app/v2/league.js`;
+  test `tests/test_jeg1389_switch_redraw_render.py`).
+- The live standard-bench gap was league settings lost on reload: settings from a league import or share link were
+  applied but not saved, so a reload priced at PPR / 2 WR / 7 bench. No value math is wrong. Jeremy picked A
+  (2026-10-30): an import or share link now saves them as the settings form does (`app/v2/v2.js` applyLinkLeague
+  `{save: true}`, called from `league.js`; test `tests/test_jeg1389_link_settings_reload_render.py`). Evidence and the
+  six-player before/after: `docs/claude-log/2026-10-30-jeg1389-bench-switch.md`.
+- Local render tests pin a CBS hold (`_built_dist`, JEG-881): local DDF numbers are not live numbers.
 
 ### JEG-1249 corrections on #1105 (Claude, 2026-10-29 UTC)
 
@@ -71,6 +218,14 @@ below are history, including any "Codex reviews and merges" line.
 - Branch `claude/JEG-1240-uso-site-journey` (#1110), test files only: `tests/fixtures/uso_site_journey/`, `tests/node/uso_site_journey_contract.cjs`, `tests/test_uso_site_journey_contract.py` (Node: harness, continuity, mutation classes), `tests/test_uso_site_journey_render.py` (browser only). Synthetic rosters in USO's roster shape; no USO rosters or notes.
 - On main: 9 harness checks green, 3 mutations each add only their intended code; 3 continuity checks red by design (another device loses basis and sources; no trade-context.js yet). On main merged with #1086 the transfer check passes (same device carried, another device held for sources-changed + rows-changed); state and pair links stay red.
 - Browser journey (stages incl. pair finder, readouts, strict get= guard) has not run: no Chromium here. Wiring is the infrastructure owner's (`be/ci-regression-wiring`); no Makefile, coverage or `KNOWN_RED` hunk on this branch. Evidence: `docs/claude-log/2026-10-29-jeg-1240-uso-site-journey.md`.
+
+### Research tab hidden until a post publishes (JEG-1371, Claude, 2026-10-30 UTC)
+
+- Branch `claude/project-thread-d3joeq`. Build-only: `pipelines/build_v2_page.py` drops the Research menu entry and
+  Writing sub-tab when `app/v2/research/` has no published post; one published post brings both back at the next
+  `make sync`. No edit to `app/v2/v2.js` or `shell.html` (JEG-1263 holds them). `#writing/research` still opens the
+  empty Research page; nothing links to it. Render tests that pin the menu now read the post count.
+- Evidence: `docs/claude-log/2026-10-30-jeg-1371-hide-research.md`.
 
 ### ESPN "Team D/ST" names (JEG-1350, Claude, 2026-10-30 UTC)
 
