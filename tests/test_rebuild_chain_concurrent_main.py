@@ -67,7 +67,8 @@ exec {real} "$@"
 """
 
 
-def scenario(text, main_moves, *, chain="success", mode=None, run_writes=None):
+def scenario(text, main_moves, *, chain="success", mode=None, run_writes=None,
+             workflow_ref="refs/heads/main", runtime_ref=None):
     """Build a baseline, push `main_moves` ({path: content}) to main while this
     run builds, then run this run's sync and commit steps."""
     with tempfile.TemporaryDirectory() as td:
@@ -84,6 +85,10 @@ def scenario(text, main_moves, *, chain="success", mode=None, run_writes=None):
         git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
         git(work, "push", "-q", "-u", "origin", "main")
         base = git(work, "rev-parse", "HEAD")
+        branch = workflow_ref[len("refs/heads/"):]
+        if workflow_ref != "refs/heads/main":
+            git(work, "checkout", "-q", "-b", branch)
+            git(work, "push", "-q", "-u", "origin", f"HEAD:{workflow_ref}")
 
         git(td, "clone", "-q", str(remote), str(other))
         if main_moves:
@@ -115,6 +120,7 @@ def scenario(text, main_moves, *, chain="success", mode=None, run_writes=None):
         env = {"PATH": f"{shim_dir}:{os.path.dirname(sys.executable)}:/usr/bin:/bin:/usr/local/bin",
                "GITHUB_OUTPUT": str(out), "GITHUB_STEP_SUMMARY": str(summary),
                "CHAIN_OUTCOME": chain, "CHAIN_ATTEMPT": "1", "MAX_CHAIN_ATTEMPTS": "3",
+               "GITHUB_REF": workflow_ref if runtime_ref is None else runtime_ref,
                "BAKE_PLAYERS": "false", "SHIM_MODE": mode or "", "SHIM_STATE": str(state),
                "SHIM_OTHER": str(other)}
         if chain == "success":
@@ -139,6 +145,8 @@ def scenario(text, main_moves, *, chain="success", mode=None, run_writes=None):
             "dispatch": dispatch.read_text(encoding="utf-8") if dispatch.exists() else None,
             "outputs": out.read_text(encoding="utf-8") if out.exists() else "",
             "local_fixture": (work / FIXTURE).read_text(encoding="utf-8"),
+            "branch_is_base": (git(verify, "rev-parse", f"origin/{branch}") == base
+                               if workflow_ref != "refs/heads/main" else None),
         }
 
 
@@ -151,6 +159,35 @@ PUBLICATION = "Automated comparison rebuild (GitHub Actions)"
 
 
 class ConcurrentMainTest(unittest.TestCase):
+    def test_branch_rebuild_cannot_publish_to_main_or_its_branch(self):
+        # Execute the real shared script, even if a caller bypasses job gates.
+        # Both refs on this throwaway local remote must stay at their baseline.
+        r = scenario(WORKFLOW, {}, workflow_ref="refs/heads/branch-publication-proof")
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertTrue(r["head_is_moved"], "branch execution changed remote main")
+        self.assertTrue(r["branch_is_base"], "branch verification must not publish")
+        self.assertEqual("OLD", r["file"](FIXTURE))
+        self.assertIn("pushed=false", r["outputs"])
+        self.assertIsNone(r["dispatch"])
+
+    def test_branch_guard_mutation_is_caught_by_the_actual_remote(self):
+        broken, count = re.subn(
+            r'^          if \[ "\$\{GITHUB_REF:-\}" != "refs/heads/main" \]; then\n'
+            r'(?:            .*\n)+?          fi\n', '', WORKFLOW, count=1, flags=re.M)
+        self.assertEqual(count, 1, "mutation must remove the branch publication guard")
+        r = scenario(broken, {}, workflow_ref="refs/heads/branch-publication-proof")
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertFalse(r["head_is_moved"], "mutation did not expose the main-write regression")
+        self.assertEqual("NEW", r["file"](FIXTURE))
+
+    def test_missing_runtime_ref_fails_closed(self):
+        r = scenario(WORKFLOW, {}, workflow_ref="refs/heads/branch-publication-proof",
+                     runtime_ref="")
+        self.assertEqual(0, r["rc"], r["log"])
+        self.assertTrue(r["head_is_moved"], "absent workflow ref enabled a main write")
+        self.assertTrue(r["branch_is_base"])
+        self.assertIn("pushed=false", r["outputs"])
+
     def assertPublishedOnTop(self, r):
         self.assertEqual(0, r["rc"], r["log"])
         self.assertIn("pushed=true", r["outputs"])

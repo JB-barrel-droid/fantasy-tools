@@ -8,9 +8,9 @@ Two things must hold together:
   1. v2-render-test.yml has `on: push: branches: [main]` with a `paths:` filter
      that covers the files the rebuild chain commits for the page, and it keeps
      its pull_request trigger. It stays read-only (cannot loop).
-  2. Chain commits use GITHUB_TOKEN, and GitHub does not fire `push` workflows
-     for those, so rebuild-chain.yml must dispatch v2-render after its push.
-     Without that the push trigger never sees a bot data bake.
+  2. JEG-1441 chain commits use the main-only App token, so GitHub fires the
+     push workflow directly. The App binding must remain and an explicit
+     dispatch must not duplicate the render run.
 
 Parsing is plain text (PyYAML is not on the CI unit-test step). Every rule is
 negative-tested against a mutated copy of the real files.
@@ -62,19 +62,17 @@ def problems(render, chain):
     if not re.search(r"^  pull_request:", on_block(render), re.M):
         out.append("pull_request trigger removed")
     if not re.search(r"^  workflow_dispatch:", on_block(render), re.M):
-        out.append("workflow_dispatch trigger removed (the chain dispatches it)")
+        out.append("workflow_dispatch trigger removed (manual rendering remains supported)")
     if not re.search(r"^permissions:\s*\n\s+contents:\s*read\s*$", render, re.M):
         out.append("v2-render must stay contents: read")
     if re.search(r"git (commit|push)|contents:\s*write", render):
         out.append("v2-render must not commit or push (loop risk)")
-    if not re.search(r"actions/workflows/v2-render-test\.yml/dispatches", chain):
-        out.append("rebuild-chain.yml does not dispatch v2-render-test.yml")
-    else:
-        step = chain.split("Dispatch v2-render after chain push", 1)[1].split("\n      - name:", 1)[0]
-        if "steps.push.outputs.pushed == 'true'" not in step:
-            out.append("dispatch step must only run when the chain pushed")
-        if "continue-on-error: true" not in chain.split("Dispatch v2-render after chain push", 1)[1].split("run:", 1)[0]:
-            out.append("dispatch step must be continue-on-error (a warning, never a hold)")
+    if 'MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}' not in chain:
+        out.append("rebuild-chain.yml must publish with the App token so push triggers run")
+    if 'environment: main-writer' not in chain:
+        out.append("rebuild-chain.yml App token must be gated by main-writer")
+    if re.search(r"actions/workflows/v2-render-test\.yml/dispatches", chain):
+        out.append("explicit v2-render dispatch would duplicate the App push trigger")
     return out
 
 
@@ -106,15 +104,19 @@ class V2RenderDataPushTest(unittest.TestCase):
         broken = RENDER.replace("contents: read", "contents: write")
         self.assertTrue(problems(broken, CHAIN))
 
-    def test_chain_must_dispatch_because_bot_pushes_do_not_cascade(self):
-        broken = CHAIN.replace("v2-render-test.yml/dispatches", "pages.yml/dispatches")
+    def test_chain_app_token_is_required_for_push_cascade(self):
+        broken = CHAIN.replace('MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}', '')
         self.assertNotEqual(broken, CHAIN)
-        self.assertIn("rebuild-chain.yml does not dispatch v2-render-test.yml", problems(RENDER, broken))
+        self.assertIn("rebuild-chain.yml must publish with the App token so push triggers run", problems(RENDER, broken))
 
-    def test_chain_dispatch_must_not_hold_the_refresh(self):
-        i = CHAIN.index("Dispatch v2-render after chain push")
-        broken = CHAIN[:i] + CHAIN[i:].replace("continue-on-error: true", "", 1)
-        self.assertTrue(any("continue-on-error" in p for p in problems(RENDER, broken)))
+    def test_chain_app_token_environment_cannot_be_removed(self):
+        broken = CHAIN.replace('environment: main-writer', '')
+        self.assertNotEqual(broken, CHAIN)
+        self.assertIn("rebuild-chain.yml App token must be gated by main-writer", problems(RENDER, broken))
+
+    def test_duplicate_explicit_render_dispatch_is_caught(self):
+        broken = CHAIN + "\n# actions/workflows/v2-render-test.yml/dispatches\n"
+        self.assertIn("explicit v2-render dispatch would duplicate the App push trigger", problems(RENDER, broken))
 
 
 if __name__ == "__main__":
