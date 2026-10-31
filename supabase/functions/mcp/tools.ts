@@ -63,7 +63,7 @@ export type FetchValues = (
 /** Extended player record with per-chart values (from get-values?include=charts). */
 export interface ChartPlayerValue extends PlayerValue {
   chart_values: Record<string, number | null>;
-  /** Each chart's Indexed value: the market the other team judges by (JEG-1129). */
+  /** Each chart's Indexed value: the Trade chart average the other team judges by (JEG-1129). */
   chart_indexed?: Record<string, number | null>;
   ddf_value_charts: number | null;
   ddf_value_projections: number | null;
@@ -151,7 +151,7 @@ const viabilityProps = {
     },
   },
   min_ddf_edge: { type: "number", default: 0, description: "Minimum DDF value gain for viability (default 0)" },
-  min_market_net: { type: "number", default: 0, description: "Minimum market-value gain for the other team (default 0)" },
+  min_market_net: { type: "number", default: 0, description: "Minimum Trade chart average gain for the other team (default 0)" },
   depth_player_cutoff: { type: "number", default: 0.5, description: "Minimum DDF value for a player to count as depth" },
   dead_weight_cutoff: { type: "number", default: 0.5, description: "Maximum DDF value for a droppable player" },
   min_rb_backups: { type: "integer", default: 1, description: "Minimum healthy RB backups beyond starters" },
@@ -188,7 +188,7 @@ export const TOOLS = [
   {
     name: "get_values",
     description:
-      "Current fantasy football trade values for the user's league settings, from Data Driven Football. DDF Value is the average of the four adjusted trade charts (value above waivers). Returns name, position, value and tier, best first. Values have no fixed maximum.",
+      "Current fantasy football trade values for the user's league settings, from Data Driven Football. DDF Value is the average of the four trade charts' weight-adjusted indexed values (value above waivers). Returns name, position, value and tier, best first. Values have no fixed maximum.",
     inputSchema: {
       type: "object",
       properties: {
@@ -327,7 +327,7 @@ export const TOOLS = [
   {
     name: "risers_fallers",
     description:
-      "Who gained and lost value since last week, as the site's Risers & fallers shows it: one series at a time (DDF Value by default), Week N-1 to the week served now, both priced for the user's league. Also lists where the market (DDF Value) and the projections (DDF Value (projections)) disagree: one moved 2.5 points or more while the other moved 1.0 or less.",
+      "Who gained and lost value since last week, as the site's Risers & fallers shows it: one series at a time (DDF Value by default), Week N-1 to the week served now, both priced for the user's league. Also lists where DDF Value and DDF Value (projections) disagree: one moved 2.5 points or more while the other moved 1.0 or less.",
     inputSchema: {
       type: "object",
       properties: {
@@ -335,7 +335,7 @@ export const TOOLS = [
         series: { type: "string", enum: MOVERS_SERIES, default: "ddf_value", description: "Which series' change to show" },
         position: { type: "string", enum: POSITIONS, default: "all", description: "Filter by position" },
         limit: { type: "integer", minimum: 1, maximum: 25, default: 10, description: "Risers and fallers to show, each" },
-        disagreements: { type: "boolean", default: true, description: "Also list where the market and the projections disagree" },
+        disagreements: { type: "boolean", default: true, description: "Also list where DDF Value and the projections disagree" },
       },
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
@@ -1061,7 +1061,7 @@ async function risersFallersHandler(args: Record<string, unknown>, deps?: Deps, 
       const dl = (x: ReturnType<typeof slimDisagreement>) =>
         `${x.name} (${x.pos}): DDF Value ${fmtNet(x.market_delta)}, projections ${fmtNet(x.projections_delta)}. ${x.read}`;
       text.push(`Market vs projections, Week ${d.priorWeek} → Week ${d.currentWeek} (one moved ${M.MOVE}+ and the other ${M.QUIET.toFixed(1)} or less; ${d.compared} compared):`);
-      text.push(`Market moved (${d.market.length}):`, ...(disagreements.market.length ? disagreements.market.map(dl) : ["  none"]));
+      text.push(`DDF Value moved (${d.market.length}):`, ...(disagreements.market.length ? disagreements.market.map(dl) : ["  none"]));
       text.push(`Projections moved (${d.projections.length}):`, ...(disagreements.projections.length ? disagreements.projections.map(dl) : ["  none"]));
     } else {
       text.push(`Market vs projections: no comparison yet: ${d.reason}.`);
@@ -1148,7 +1148,7 @@ async function auditValuesHandler(args: Record<string, unknown>, deps?: Deps, an
 /**
  * Convert a ChartPlayerValue into the FinderRow format finder.js expects. The chart keys carry each
  * chart's Indexed value, as the site's rows do in the Indexed view, so the finder's chart checks and
- * the viability market (the mean of the chart keys) read the trade charts' Indexed values. The
+ * the viability Trade chart average (the mean of the chart keys) read the trade charts' Indexed values. The
  * Adjusted values (chart_values) average to DDF Value itself, so using them would judge the other
  * team on DDF Value and no trade could ever pass (JEG-1129).
  */
@@ -1513,7 +1513,7 @@ async function findTradesLeagueHandler(
 
 const EXPLANATIONS: Record<string, string> = {
   methodology:
-    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four published trade charts, each adjusted to the user's league (position and bench weighting); the projection sources are an alternate version. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages.",
+    "Values are 'value above waivers': how much more a player is expected to produce than a freely available replacement at the same position, in the user's league (scoring, team count, superflex). The headline value (DDF Value) is the average of the four trade charts' weight-adjusted indexed values; DDF Value (projections) is the alternate version, built the same way from the projection sources. A stale or held source is left out of the average rather than counted as zero. Full method: the site's methodology pages.",
   sources:
     "Projection sources: ESPN, CBS rest-of-season, Razzball. Published trade charts: FantasyCalc, USA Today, FantasyPros, CBS. The get_values response lists which sources are included and excluded for the current week.",
   value_scale:

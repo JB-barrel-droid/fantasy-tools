@@ -2,15 +2,14 @@
 
 This is early evidence: six saved weeks of one season (weeks 2 to 7 of 2026),
 which gives five week-to-week comparisons. The uncertainty is shown with every
-number. All figures were computed on 22 October 2026 with DDF Value built from
-the projections only; an earlier version of DDF Value blended the trade charts
+number. All figures were computed on 22 October 2026 with DDF Value (projections); an earlier version of DDF Value blended the trade charts
 with the projections, and those figures are not used here.
 
 Terms used below:
 
-- **DDF Value** is our own value for a player: the average of the projection
+- **DDF Value (projections)** is the projection-side view: our own value for a player built from the projections only — the average of the projection
   sources' values above waivers (how many points a player adds over the best
-  freely available player at his position), on one common point scale.
+  freely available player at his position), on one common point scale. Every figure in this post uses this view.
 - **Rescaled** means a trade chart converted onto that same point scale, so a
   chart's price and our value can be compared directly.
 - **The gap** is the market's price minus our value for the same player.
