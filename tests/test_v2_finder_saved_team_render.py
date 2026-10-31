@@ -408,10 +408,9 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                 page.evaluate('fx => window.TradeValueFinder.ui.setSides(fx.mine, fx.teams[1].entries)', fx)
                 picker = page.get_by_label('Your saved League team', exact=True)
                 picker.focus()
-                # Native select arrow navigation is inert in headless Chrome on macOS.
-                # Type-ahead still selects by keyboard; cycle the two duplicate names.
-                picker.press('s')
-                picker.press('s')
+                picker.press('Home')
+                picker.press('ArrowDown')
+                picker.press('ArrowDown')
                 picker.press('Tab')
                 self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
                 self.assertEqual(page.evaluate(STATE)['theirs'], fx['teams'][1]['entries'])
@@ -423,7 +422,8 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                     page.locator('#v2FindEdit').click()
                 their_picker = page.get_by_label('Their saved League team', exact=True)
                 their_picker.focus()
-                their_picker.press('s')
+                their_picker.press('Home')
+                their_picker.press('ArrowDown')
                 their_picker.press('Tab')
                 self.assertEqual(page.evaluate(STATE)['theirSelected'], 'alpha')
                 self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
