@@ -49,6 +49,7 @@ jobs:
 
       - name: Check every source
         env:
+          SUPABASE_BYTES_CALLER: source-lateness:check-every-source
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -57,3 +58,13 @@ jobs:
           alert=""
           [ "${{ github.ref }}" = "refs/heads/main" ] && alert="--alert"
           python3 pipelines/source_lateness.py --supabase --out /tmp/source-lateness.json $alert
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

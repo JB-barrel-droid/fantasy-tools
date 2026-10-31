@@ -43,10 +43,13 @@ jobs:
 
       - name: Resolve mode and snapshot date
         id: cfg
+        env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:cfg
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in load/cbsros-write-*) mode=write;; esac
-          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          if [ "$EVENT_MODE" = "write" ]; then mode=write; fi
           date=$(python3 -c "import json; print(json.load(open('data/fixtures/current/comparison-sources-data.json'))['sources']['cbsros']['vintage'])")
           echo "mode=$mode" >> $GITHUB_OUTPUT
           echo "date=$date" >> $GITHUB_OUTPUT
@@ -54,11 +57,14 @@ jobs:
 
       - name: Export snapshot from Supabase
         env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:export-snapshot-from-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/export_cbsros_snapshot.py --date "${{ steps.cfg.outputs.date }}"
 
       - name: Build the 12 CBS ROS legs
+        env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:build-the-12-cbs-ros-legs
         run: |
           snap="data/raw/sources/cbsros/${{ steps.cfg.outputs.date }}/snapshot.json"
           for s in standard half_ppr ppr; do for t in 8 10 12 14; do
@@ -67,6 +73,8 @@ jobs:
           done; done
 
       - name: Verify legs equal the published fixture (fail-closed)
+        env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:verify-legs-equal-the-published-fixture-fail-closed
         run: |
           set -o pipefail
           python3 pipelines/verify_cbsros_legs_vs_fixture.py --date "${{ steps.cfg.outputs.date }}" \
@@ -75,6 +83,7 @@ jobs:
 
       - name: Load with the versioned loader
         env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:load-with-the-versioned-loader
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -87,3 +96,13 @@ jobs:
               || { echo "::error title=loader::$leg failed"; grep -E "REFUSED|Error|error|HTTP" /tmp/load.log | tail -5 | sed "s/^/::warning title=loader-error::/"; exit 1; }
           done < /tmp/verified.txt
           grep -E "wrote via|upserted|rows in slice|DRY RUN" /tmp/load.log | tail -30 | sed "s/^/::notice title=loader::/"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

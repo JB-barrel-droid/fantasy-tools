@@ -61,6 +61,8 @@ jobs:
         id: fp
         if: github.event.inputs.probe_fp == '' && github.event.inputs.dry_run != 'true'
         continue-on-error: true
+        env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:fp
         run: |
           python3 pipelines/source_probe.py probe --sources espn --dry-run --out /tmp/probe-espn.jsonl > /dev/null
           fp=$(head -n 1 /tmp/probe-espn.jsonl | jq -r '.fingerprint // ""')
@@ -71,6 +73,7 @@ jobs:
         # Read-only players-table access: names the identity snapshot misses
         # resolve through lib/canonical_players (JEG-480).
         env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:scrape-espn-projections
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -91,6 +94,7 @@ jobs:
 
       - name: Save to Supabase
         env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:save-to-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
@@ -118,6 +122,8 @@ jobs:
       # JEG-137 R10: record started_at and cron_at for the deadline checker.
       - name: Record workflow run (JEG-137 R10)
         if: always()
+        env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:record-workflow-run-jeg-137-r10
         run: |
           STATUS="success"
           if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
@@ -130,6 +136,8 @@ jobs:
             --output output/comparison-chain-status.json
 
       - name: Commit scraper updates if changed
+        env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:commit-scraper-updates-if-changed
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -180,6 +188,7 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id espn_supabase_sync --owner espn-supabase-sync.yml --outcome "${{ job.status }}"
@@ -193,6 +202,7 @@ jobs:
         id: ack
         if: success() && (github.event.inputs.probe_fp != '' || steps.fp.outputs.fp != '') && github.event.inputs.dry_run != 'true'
         env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:ack
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
@@ -201,5 +211,16 @@ jobs:
       - name: Dispatch the rebuild chain on new content
         if: success() && steps.ack.outputs.new_content == 'true'
         env:
+          SUPABASE_BYTES_CALLER: espn-supabase-sync:dispatch-the-rebuild-chain-on-new-content
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 pipelines/source_probe.py dispatch-chain --reason "source-probe-espn"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

@@ -48,6 +48,8 @@ jobs:
       # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
       # an error for every later step instead of a silent skip.
       - name: Browser for the render tests
+        env:
+          SUPABASE_BYTES_CALLER: bake-players:browser-for-the-render-tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
@@ -65,6 +67,7 @@ jobs:
       - name: Import CBS ROS and Razzball snapshots from Supabase
         id: inputs
         env:
+          SUPABASE_BYTES_CALLER: bake-players:inputs
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -75,6 +78,7 @@ jobs:
 
       - name: Bake players.json
         env:
+          SUPABASE_BYTES_CALLER: bake-players:bake-players-json
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           CBSROS_SNAPSHOT: ${{ steps.inputs.outputs.cbsros_snapshot }}
@@ -112,3 +116,13 @@ jobs:
           if git diff --cached --quiet; then echo "No bake changes."; exit 0; fi
           git commit -m "Bake players.json via GitHub Actions (validate: ${{ steps.validate.outcome }})"
           git push origin "HEAD:$branch"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

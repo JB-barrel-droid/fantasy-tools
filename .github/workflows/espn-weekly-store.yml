@@ -54,12 +54,14 @@ jobs:
       - name: Pull ESPN weekly blocks and save
         id: save
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: espn-weekly-store:save
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           set -o pipefail
           flag="--dry-run"
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          [ "$EVENT_MODE" = "write" ] && flag=""
           rc=0
           {
             python3 pipelines/pull_espn_projections.py --out /tmp/espn_projections.csv \
@@ -77,6 +79,7 @@ jobs:
       - name: Refresh the repo copies from Supabase
         if: github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: espn-weekly-store:refresh-the-repo-copies-from-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -85,6 +88,8 @@ jobs:
 
       - name: Commit the refreshed files
         if: github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_BYTES_CALLER: espn-weekly-store:commit-the-refreshed-files
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -121,6 +126,7 @@ jobs:
         if: always() && github.event.inputs.mode == 'write'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: espn-weekly-store:sunday-backstop-cbs-and-razzball-pre-kickoff-capture-jeg-1377
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -153,6 +159,7 @@ jobs:
       - name: Check projection captures (JEG-944)
         if: always() && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: espn-weekly-store:check-projection-captures-jeg-944
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/check_projection_captures.py --pre-kickoff
@@ -160,6 +167,17 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: espn-weekly-store:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id espn_weekly_store --owner espn-weekly-store.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
