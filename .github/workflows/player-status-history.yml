@@ -43,6 +43,7 @@ jobs:
 
       - name: Pull Sleeper and save the day's status
         env:
+          SUPABASE_BYTES_CALLER: player-status-history:pull-sleeper-and-save-the-day-s-status
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -59,6 +60,8 @@ jobs:
 
       - name: Commit the run summary
         if: github.event.inputs.mode == 'write'
+        env:
+          SUPABASE_BYTES_CALLER: player-status-history:commit-the-run-summary
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -98,12 +101,14 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: player-status-history:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id player_status_history --owner player-status-history.yml --outcome "${{ job.status }}"
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

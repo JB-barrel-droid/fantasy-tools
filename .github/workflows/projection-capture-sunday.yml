@@ -48,6 +48,7 @@ jobs:
       # espn-weekly-store.yml, which also goes red before kickoff if a copy is still missing.
       - name: Pull CBS and Razzball, then capture
         env:
+          SUPABASE_BYTES_CALLER: projection-capture-sunday:pull-cbs-and-razzball-then-capture
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -69,12 +70,14 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: projection-capture-sunday:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id projection_capture_sunday --owner projection-capture-sunday.yml --outcome "${{ job.status }}"
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

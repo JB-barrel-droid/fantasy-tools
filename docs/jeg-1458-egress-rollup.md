@@ -2,9 +2,9 @@
 
 Prepare a measured week from the existing Python shim counter. This is a response-body meter, not a Supabase billing meter. Status: draft implementation, 2026-10-31; review and merge pending.
 
-Each exiting shim process emits its workflow, script basename, optional non-secret `SUPABASE_BYTES_CALLER`, run ID, attempt, job, and step summary filename (or explicit `SUPABASE_BYTES_STEP`). Actions does not expose a native step ID to Python. Never put secrets in either optional label. UTC timestamps and process event IDs allow filtering and duplicate removal. The health build also copies all counter log lines to its summary rather than relying on its 25-line tail.
+Each exiting shim process emits its workflow, script basename, non-secret `SUPABASE_BYTES_CALLER` (set on Python-running steps to the workflow stem and step purpose), run ID, attempt, job, and step summary filename (or explicit `SUPABASE_BYTES_STEP`). Actions does not expose a native step ID to Python. Never put secrets in either optional label. UTC timestamps and process event IDs allow filtering and duplicate removal. The health build also copies all counter log lines to its summary rather than relying on its 25-line tail.
 
-Every workflow job installing the shim uploads `supabase-bytes-<job>-<attempt>` artifacts, retained 14 days. Failed runs are included when available. Abrupt termination can prevent exit counters; missing artifacts, days and callers mean unmeasured, never zero. Existing pre-change summaries lack script/time context and are skipped with an explicit count. New artifacts and summary copies carry identical event IDs and are counted once.
+Every workflow job installing the shim uploads `supabase-bytes-<job>-<attempt>` artifacts, retained 14 days. Matrix jobs also include their matrix key in the artifact name; uploads use `continue-on-error: true` so retention failures do not fail production jobs. Failed runs are included when available. Abrupt termination can prevent exit counters; missing artifacts, days and callers mean unmeasured, never zero. Existing pre-change summaries lack script/time context and are skipped with an explicit count. New artifacts and summary copies carry identical event IDs and are counted once.
 
 Read-only collection and rollup (requires gh authentication with Actions read access):
 

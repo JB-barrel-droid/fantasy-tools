@@ -8,6 +8,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+from urllib.parse import urlencode
 
 COUNTER = re.compile(r'^\[supabase-bytes\] .*? (GET|HEAD|POST|PATCH|DELETE|PUT) (\S+) requests=(\d+) bytes=(\d+) wire=(\d+) context=(\{.*\})$')
 NOTICE = ('Coverage: Python gh_sbclient response bodies only; headers and transport overhead excluded. '
@@ -31,6 +32,10 @@ def parse_summaries(paths, since, until):
                 continue
             method, table, requests, size, wire, context = match.groups()
             ctx = json.loads(context)
+            required = ('at', 'event', 'workflow', 'script', 'caller')
+            if not isinstance(ctx, dict) or any(
+                    key not in ctx or not isinstance(ctx[key], str) for key in required):
+                raise ValueError(f'{path}: counter needs string at/event/workflow/script/caller fields')
             at = datetime.fromisoformat(ctx['at'])
             if at.tzinfo is None:
                 raise ValueError(f'{path}: counter timestamp needs timezone')
@@ -63,8 +68,11 @@ def download(root, repo, since):
     for workflow in sorted(workflows.glob('*.yml')):
         if 'pipelines/gh_sbclient.py' not in workflow.read_text():
             continue
-        endpoint = (f'repos/{repo}/actions/workflows/{workflow.name}/runs?'
-                    f'created=%3E%3D{since.isoformat()}&per_page=100')
+        query = urlencode({
+            'created': '>=' + since.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            'per_page': 100,
+        })
+        endpoint = f'repos/{repo}/actions/workflows/{workflow.name}/runs?{query}'
         result = subprocess.run(['gh', 'api', '--paginate', '--slurp', endpoint],
                                 check=True, capture_output=True, text=True)
         for page in json.loads(result.stdout):

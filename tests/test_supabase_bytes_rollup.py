@@ -5,12 +5,15 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import yaml
+from urllib.parse import parse_qs, urlsplit
 from unittest import mock
 from contextlib import redirect_stdout, redirect_stderr
 from pipelines import gh_sbclient as sb
 from pipelines import rollup_supabase_bytes as rollup
 
-FIXTURE = Path(__file__).parent / 'fixtures/supabase-bytes/recorded-summary.md'
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURE = ROOT / 'tests/fixtures/supabase-bytes/recorded-summary.md'
 
 class RollupTest(unittest.TestCase):
     def test_window_dedup_writes_and_attribution(self):
@@ -58,12 +61,78 @@ class RollupTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 rollup.parse_summaries([path], datetime(2026,10,30,tzinfo=timezone.utc), datetime(2026,11,1,tzinfo=timezone.utc))
 
+    def test_download_query_is_encoded_utc_seconds(self):
+        from datetime import timedelta
+        import subprocess
+        since = datetime(2026, 10, 31, 14, 30, 12, 123456,
+                         tzinfo=timezone(timedelta(hours=2)))
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
+                rollup.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'gh')) as run:
+            with self.assertRaises(subprocess.CalledProcessError):
+                rollup.download(Path(tmp), 'owner/repo', since)
+            endpoint = run.call_args.args[0][-1]
+            query = parse_qs(urlsplit(endpoint).query)
+            self.assertEqual(query, {'created': ['>=2026-10-31T12:30:12Z'], 'per_page': ['100']})
+            self.assertNotIn('+', endpoint)
+            self.assertIn('%3E%3D', endpoint)
+            self.assertIn('%3A', endpoint)
+
+    def test_missing_or_wrong_context_fields_fail_clearly(self):
+        line = next(line for line in FIXTURE.read_text().splitlines()
+                    if line.startswith('[supabase-bytes]') and ' context=' in line)
+        prefix, context = line.split(' context=')
+        for field in ('script', 'caller', 'workflow', 'event', 'at'):
+            for value in (None, 42, []):
+                with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as tmp:
+                    ctx = json.loads(context)
+                    if value is None:
+                        del ctx[field]
+                    else:
+                        ctx[field] = value
+                    path = Path(tmp)/'invalid.md'
+                    path.write_text(prefix + ' context=' + json.dumps(ctx))
+                    with self.assertRaisesRegex(ValueError, 'counter needs string'):
+                        rollup.parse_summaries([path], datetime(2026,10,30,tzinfo=timezone.utc), datetime(2026,11,1,tzinfo=timezone.utc))
+                    with mock.patch('sys.argv', ['rollup', tmp]), redirect_stderr(io.StringIO()) as err:
+                        self.assertEqual(rollup.main(), 1)
+                    self.assertIn('Rollup stopped: ValueError', err.getvalue())
+
     def test_shim_jobs_retain_artifacts(self):
-        for path in Path('.github/workflows').glob('*.yml'):
+        paths = list((ROOT / '.github/workflows').glob('*.yml'))
+        self.assertTrue(paths, 'workflow glob must find the repo regardless of cwd')
+        shim_jobs = 0
+        matrix_jobs = 0
+        for path in paths:
             text = path.read_text()
-            if 'pipelines/gh_sbclient.py' in text:
-                self.assertIn('name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}', text, path)
-        health = Path('.github/workflows/health-artifacts.yml').read_text()
+            if 'pipelines/gh_sbclient.py' not in text:
+                continue
+            for job in yaml.safe_load(text)['jobs'].values():
+                steps = job.get('steps', [])
+                if not any('pipelines/gh_sbclient.py' in step.get('run', '') for step in steps):
+                    continue
+                shim_jobs += 1
+                uploads = [step for step in steps if step.get('name') == 'Retain Supabase byte counters (JEG-1458)']
+                self.assertEqual(len(uploads), 1, path)
+                upload = uploads[0]
+                self.assertIs(upload.get('continue-on-error'), True, path)
+                self.assertEqual(upload.get('if'), 'always()', path)
+                name = upload['with']['name']
+                self.assertIn('${{ github.job }}', name, path)
+                self.assertIn('${{ github.run_attempt }}', name, path)
+                matrix = job.get('strategy', {}).get('matrix', {})
+                if matrix:
+                    matrix_jobs += 1
+                    for key in matrix:
+                        if key not in ('include', 'exclude'):
+                            self.assertIn('${{ matrix.' + key + ' }}', name, path)
+                for step in steps:
+                    if 'python' in step.get('run', ''):
+                        label = step.get('env', {}).get('SUPABASE_BYTES_CALLER', '')
+                        self.assertTrue(label.startswith(path.stem + ':'), (path, step.get('name')))
+                        self.assertRegex(label, r'^[a-z0-9:-]+$')
+        self.assertEqual(shim_jobs, 24)
+        self.assertGreater(matrix_jobs, 0)
+        health = (ROOT / '.github/workflows/health-artifacts.yml').read_text()
         self.assertIn("grep '^\\[supabase-bytes\\]' /tmp/build.log", health)
 
 if __name__ == '__main__':

@@ -57,6 +57,7 @@ jobs:
         id: build
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: health-artifacts:build
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -80,6 +81,8 @@ jobs:
 
       - name: Annotate non-ok import-health sources
         if: always()
+        env:
+          SUPABASE_BYTES_CALLER: health-artifacts:annotate-non-ok-import-health-sources
         run: |
           python3 - <<'PY' || true
           import json
@@ -97,6 +100,8 @@ jobs:
 
       - name: Annotate checkpoint verdicts
         if: always()
+        env:
+          SUPABASE_BYTES_CALLER: health-artifacts:annotate-checkpoint-verdicts
         run: |
           python3 - <<'PY' || true
           import json
@@ -118,6 +123,8 @@ jobs:
       - name: Publish to the monitor (JEG-414)
         id: publish
         if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
+        env:
+          SUPABASE_BYTES_CALLER: health-artifacts:publish
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -173,6 +180,7 @@ jobs:
 
       - name: Watch served artifacts + record observations
         env:
+          SUPABASE_BYTES_CALLER: health-artifacts:watch-served-artifacts-record-observations
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PUBLISHED: ${{ steps.publish.outputs.pushed }}
@@ -210,6 +218,7 @@ jobs:
         id: msummary
         if: always()
         env:
+          SUPABASE_BYTES_CALLER: health-artifacts:msummary
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/build_monitoring_summary.py --out output/monitoring-summary.json
@@ -217,6 +226,8 @@ jobs:
       - name: Publish monitoring summary
         id: publish_summary
         if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
+        env:
+          SUPABASE_BYTES_CALLER: health-artifacts:publish-summary
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -273,6 +284,8 @@ jobs:
       # Supabase (a pg_cron job no check covers, a check with no manifest row).
       - name: Audit monitoring coverage
         if: always() && hashFiles('output/monitoring-summary.json') != ''
+        env:
+          SUPABASE_BYTES_CALLER: health-artifacts:audit-monitoring-coverage
         run: python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
 
       # Real failures only (rebuild chain not publishing, a source stuck,
@@ -282,6 +295,7 @@ jobs:
       - name: Alert on real failures
         if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
         env:
+          SUPABASE_BYTES_CALLER: health-artifacts:alert-on-real-failures
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
         run: python3 pipelines/monitor_alerts.py --summary output/monitoring-summary.json --import-health dist/modules/source-import-health.json
@@ -316,6 +330,7 @@ jobs:
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: health-artifacts:build-and-publish-ops-status
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -367,6 +382,7 @@ jobs:
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

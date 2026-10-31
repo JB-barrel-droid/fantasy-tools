@@ -43,6 +43,8 @@ jobs:
 
       - name: Resolve mode and snapshot date
         id: cfg
+        env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:cfg
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in load/cbsros-write-*) mode=write;; esac
@@ -54,11 +56,14 @@ jobs:
 
       - name: Export snapshot from Supabase
         env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:export-snapshot-from-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/export_cbsros_snapshot.py --date "${{ steps.cfg.outputs.date }}"
 
       - name: Build the 12 CBS ROS legs
+        env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:build-the-12-cbs-ros-legs
         run: |
           snap="data/raw/sources/cbsros/${{ steps.cfg.outputs.date }}/snapshot.json"
           for s in standard half_ppr ppr; do for t in 8 10 12 14; do
@@ -67,6 +72,8 @@ jobs:
           done; done
 
       - name: Verify legs equal the published fixture (fail-closed)
+        env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:verify-legs-equal-the-published-fixture-fail-closed
         run: |
           set -o pipefail
           python3 pipelines/verify_cbsros_legs_vs_fixture.py --date "${{ steps.cfg.outputs.date }}" \
@@ -75,6 +82,7 @@ jobs:
 
       - name: Load with the versioned loader
         env:
+          SUPABASE_BYTES_CALLER: cbsros-consolidation-load:load-with-the-versioned-loader
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -90,6 +98,7 @@ jobs:
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

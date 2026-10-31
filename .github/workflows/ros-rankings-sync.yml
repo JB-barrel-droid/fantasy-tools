@@ -65,6 +65,7 @@ jobs:
       - name: Scrape and save
         id: sync
         env:
+          SUPABASE_BYTES_CALLER: ros-rankings-sync:sync
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           MODE: ${{ steps.cfg.outputs.mode }}
@@ -91,6 +92,7 @@ jobs:
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: ros-rankings-sync:record-the-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OK: ${{ steps.sync.outcome == 'success' }}
@@ -123,6 +125,7 @@ jobs:
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

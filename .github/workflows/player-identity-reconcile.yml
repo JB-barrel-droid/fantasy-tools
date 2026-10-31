@@ -49,6 +49,7 @@ jobs:
 
       - name: Reconcile
         env:
+          SUPABASE_BYTES_CALLER: player-identity-reconcile:reconcile
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -72,6 +73,7 @@ jobs:
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}

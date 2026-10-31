@@ -71,6 +71,8 @@ jobs:
         id: fp
         if: steps.cfg.outputs.mode == 'write' && github.event.inputs.probe_fp == ''
         continue-on-error: true
+        env:
+          SUPABASE_BYTES_CALLER: draftsharks-supabase-sync:fp
         run: |
           python3 pipelines/source_probe.py probe --sources draftsharks --dry-run --out /tmp/probe-draftsharks.jsonl > /dev/null
           fp=$(head -n 1 /tmp/probe-draftsharks.jsonl | jq -r '.fingerprint // ""')
@@ -80,6 +82,7 @@ jobs:
       - name: Scrape and save
         id: sync
         env:
+          SUPABASE_BYTES_CALLER: draftsharks-supabase-sync:sync
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -115,6 +118,7 @@ jobs:
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: draftsharks-supabase-sync:record-the-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OK: ${{ steps.sync.outcome == 'success' }}
@@ -141,6 +145,7 @@ jobs:
         id: ack
         if: success() && (github.event.inputs.probe_fp != '' || steps.fp.outputs.fp != '') && steps.cfg.outputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: draftsharks-supabase-sync:ack
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
@@ -148,6 +153,7 @@ jobs:
 
       - name: Retain Supabase byte counters (JEG-1458)
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
