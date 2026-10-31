@@ -14,3 +14,15 @@ Contract: add model-free attribution without excusing failures; open a draft onl
 - Initial broader check included test_render_sweep_shards: failures in untouched Makefile shard coverage (JEG-1231 modules not in full extra list); not modified here.
 - Recent CI history REST lookup rate-limited. GraphQL #1240 receipts available, heavy jobs skipped; current main has no rollup. Seed scope stays local.
 - Three-night persistence and workflow execution require CI. AGENTS.md reviewer line deferred until #1250 merges.
+
+## Review fixes (JEG-1450)
+
+### Verified (check named)
+- 115 tests pass across baseline_reds, run_suite, draft_ci_workflows, preview_workflow_matches_pages, ci_speedup_workflows, validate_shards and deploy_gate_unconditional.
+- Added malformed-registry/output passthrough, mixed known/non-unittest failure, green exit, signature mismatch, expired entry and context-specific removal coverage.
+- Failed gate exit status is preserved; invalid registry returns 2 only when the gate itself passed.
+- py_compile, bash -n and git diff --check pass. AGENTS.md untouched.
+
+### Claimed, not confirmed
+- make validate remains unrun: prior Chromium headless launch probe showed the executable missing; no browser installation or repeat probe.
+- Workflow execution and actual three-night history still require CI. Conservative enclosing-gate warning deliberately avoids claiming complete attribution from runner summaries alone.
