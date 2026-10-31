@@ -19,41 +19,6 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1323 trade readout second half (Codex Bridge, 2026-10-31 UTC)
-
-- Jeremy assigned this bridge continuation; owner remains Codex, branch `claude/JEG-1323`, existing PR #1174 (keep draft).
-- Dependency #1088 is merged to main (`69500200`, 2026-10-30 08:09 UTC). Fresh worktree
-  `/Users/botcomp/code/wt/jeg-1323-codex` starts at `origin/main` c267aa71; existing branch history preserved by normal merge.
-- Existing golden check fails against current main's adapter at "the readout carries the second-half rows";
-  merged implementation passes 108 checks and JEG-1230 passes 319. No golden regeneration needed.
-- Added Standard/Half PPR/PPR coverage and fixed K/DEF exclusion in league-depth sell gaps. The new K test fails
-  before the guard (priced instead of S8) and passes after; combined readout wrappers pass (3 tests, 118 + 319 node checks).
-- **Blocked on full validation:** two existing Mac `make validate` jobs (94131, 94417) still occupied the heavy-suite lane.
-  Required Chrome `make validate` did not start. The queued OS exit-event waiter was stopped; no background run or automatic
-  retry remains. Next action, when the lane is free: `CHROMIUM_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' RENDER_TESTS_REQUIRED=1 make validate`.
-  Known unrelated keyboard/mobile selected '' vs 'beta' red is owned elsewhere; record it without fixing it.
-- PR #1174 at implementation head `d848909d` is a draft targeting main. CI preview and v2-render failed their draft
-  deferral checks (`RUN_EXPENSIVE=false`; build/shards/render skipped), not product assertions. No full CI pass claimed.
-  Keep draft; no independent current-head review, merge, deploy or live verification. No edit to `app/v2/v2.js` or `app/v2/shell.html`, no value math, publication or production writes.
-- Historical implementation handoff follows (its merge/next-action suggestions are superseded by this draft-only job):
-
-### JEG-1323 previous implementation (Claude, 2026-10-30 UTC) (Claude, 2026-10-30 UTC)
-
-- PR #1174, branch `claude/JEG-1323`, now based on main (#1088 squash-merged 08:09 UTC). Child JEG-1340 (names, not
-  keys) passed re-review. Main was merged in normally; the add/add conflicts from #1088's squash were resolved
-  3-way against #1088's last branch head `08a0b82`, and `tradeFit`'s return keeps both `theirOk` (this PR) and
-  `natural` (JEG-1324).
-- With Natural fit 1a on main, the verdict row also names `yourProjections` and `theirProjections` tests, read from
-  `tradeFit`'s own `natural` (null = not judged = failed). The golden trade's verdict follows main's rule and moves
-  from Natural to Market supported (their DDF Value (projections) falls 7.5). No route is wired, so nothing served
-  changes. Codex's two findings on `6f6d4bd` are fixed in the next commit: a moving player without DDF Value or the
-  Trade chart average now means no verdict (status `incomplete`, reason names who and which series, like Compare's
-  trade.js rule), so the golden verdict is incomplete (tWR3) and the priced checks run on the deal without tWR3; and
-  data labels read the market view's own charts, so a not-ready deal no longer labels priced players "No Trade chart
-  average value". Next: delta review, green full CI, normal merge. If #1033 (JEG-1125 even band) lands
-  first, merge main again and refresh the golden with `--write-golden` after checking the drift is only the count.
-
-
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
