@@ -225,8 +225,25 @@ def research_html(posts: list[dict]) -> str:
         '  </main>\n')
 
 
+# JEG-1371: until the first post publishes, the menu entry and the Writing sub-tab for Research are left out of the
+# page (Jeremy, 2026-10-29, audit decision 2: A). The Research page itself still builds, so #writing/research resolves.
+RESEARCH_NAV = (
+    re.compile(r'^[ \t]*<a class="v2-tab"[^>]*\bdata-key="writing/research"[^>]*>.*?</a>[ \t]*\n', re.M),
+    re.compile(r'^[ \t]*<a class="v2-subtab"[^>]*\bdata-writing="research"[^>]*>.*?</a>[ \t]*\n', re.M),
+)
+
+
+def hide_research_nav(shell_html: str) -> str:
+    """shell.html without its Research nav entries (tests/test_build_v2_page.py pins that the real shell loses both)."""
+    for pattern in RESEARCH_NAV:
+        shell_html = pattern.sub("", shell_html)
+    return shell_html
+
+
 def compose_shell(shell_html: str, posts: list[dict]) -> str:
     """shell.html with the built Research page placed inside #v2App (the only body child the page shows)."""
+    if not posts:
+        shell_html = hide_research_nav(shell_html)
     end = shell_html.rstrip().rfind("</div>")
     if end < 0:
         raise SystemExit("build_v2_page: shell.html has no closing </div> for #v2App")

@@ -1,4 +1,4 @@
-.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-all test-unit test-unit-modules test-integration
+.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-core-shard-5 test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -139,6 +139,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_ddf_state
 	# JEG-1334: fractional flex and bench seats helper (option B, JEG-1286).
 	python3 -m unittest tests.test_fractional_seats
+	# JEG-1335: the engine's copy of the seat functions, and the worked example's
+	# fractional-seat variant in the reference, the spec reference and the engine.
+	python3 -m unittest tests.test_fractional_seats_engine
+	python3 -m unittest tests.test_fractional_seats_worked_example
+	# JEG-1335: every source's pie still balances under the seat mix (the page's fixed-pie check).
+	python3 -m unittest tests.test_fractional_seats_pie
 	# JEG-1030: connector state round trips and the tool/route inventory (node, no network).
 	python3 -m unittest tests.test_connector_roundtrip
 	python3 -m unittest tests.test_connector_inventory
@@ -647,6 +653,8 @@ test-core:
 	# JEG-1057: the engine side of the worked example. It ran in no target, so
 	# #867 regenerated the fixture for the new defaults and this went red unseen.
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	# JEG-1152: engine promotion model part-for-part with the reference.
 	python3 -m unittest tests.test_promotion_model_parity
 	python3 -m unittest tests.test_static_export
@@ -804,21 +812,14 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_phone_context_row_render
-	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
-	python3 -m unittest tests.test_view_invariants
-	python3 -m unittest tests.test_launch_front_door
-	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
-	python3 -m unittest tests.test_missing_section_render
-	python3 -m unittest tests.test_lineup_content_week_advance
-	python3 -m unittest tests.test_search_players_universe
-	python3 -m unittest tests.test_published_league_settings_engine
-	python3 -m unittest tests.test_player_tags
 
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
 	python3 -m unittest tests.test_value_pipeline_engine
+	# JEG-1335: a 1 PPG fringe change moves no other player more than 1.0 DDF Value.
+	python3 -m unittest tests.test_fractional_seats_stability
 	python3 -m unittest tests.test_games_remaining
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
@@ -913,6 +914,19 @@ test-core-shard-4:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_waiver_band_line
+
+# JEG-1335: split from shard 1, which passed its 30-minute job limit once the seat mix
+# made the engine-heavy suites (seeded hold build, desktop menu, view invariants) slower.
+test-core-shard-5:
+	python3 -m unittest tests.test_v2_desktop_menu_render
+	python3 -m unittest tests.test_view_invariants
+	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
+	python3 -m unittest tests.test_missing_section_render
+	python3 -m unittest tests.test_lineup_content_week_advance
+	python3 -m unittest tests.test_search_players_universe
+	python3 -m unittest tests.test_published_league_settings_engine
+	python3 -m unittest tests.test_player_tags
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily
