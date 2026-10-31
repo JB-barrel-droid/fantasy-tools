@@ -32,6 +32,7 @@
   const HORIZON = "ros";   // Trade ideas are priced in rest-of-season DDF Value; weekly values are never mixed in
   const BANDS = ["likely", "possible", "longShot"];
   const finite = n => typeof n === "number" && Number.isFinite(n);
+  const text = s => typeof s === "string" && s.trim() !== "";
   const opps = () => (typeof module !== "undefined" && module.exports ? require("./opportunities.js") : root.TradeValueOpportunities);
   const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || `${one}s`)}`;
   const names = list => list.map(p => p.name).join(" + ");
@@ -49,23 +50,30 @@
   const routeFor = id => (id ? `${ROUTE}${DETAIL}${encodeURIComponent(id)}` : ROUTE);
 
   // ---------- checks: withhold rather than guess ----------
-  // A trade idea the section can show as given: priced, both sides named, a likelihood in one of the existing bands.
+  // A trade idea the section can show as given: priced, both sides and the other manager named, a likelihood in one of the
+  // existing bands, at least one why line, and every source it cites labelled (sources may be absent: "nothing available").
   function usable(rec) {
-    return Boolean(rec && rec.id && Array.isArray(rec.give) && rec.give.length && Array.isArray(rec.receive) && rec.receive.length
-      && rec.give.concat(rec.receive).every(p => p && p.name) && finite(rec.ourGain) && BANDS.includes(rec.band) && rec.likelihood
-      && Array.isArray(rec.why) && (!rec.horizon || rec.horizon === HORIZON));
+    return Boolean(rec && rec.id && text(rec.opponent) && Array.isArray(rec.give) && rec.give.length && Array.isArray(rec.receive)
+      && rec.receive.length && rec.give.concat(rec.receive).every(p => p && p.name) && finite(rec.ourGain) && BANDS.includes(rec.band)
+      && rec.likelihood && Array.isArray(rec.why) && rec.why.length && rec.why.every(text)
+      && (rec.sources == null || (Array.isArray(rec.sources) && rec.sources.every(s => s && text(s.label) && text(s.status))))
+      && (!rec.horizon || rec.horizon === HORIZON));
   }
-  // Why the answer is withheld, or [] when it can be shown.
+  // Why the answer is withheld, or [] when it can be shown. The ideas must be the worked-out output itself (not a Promise)
+  // with a recommendations list; anything else is withheld rather than read as "nothing qualifies".
   function gaps(ctx) {
     const out = (ctx.missing || []).map(m => m.text || String(m.key));
     const horizon = ctx.basis && ctx.basis.horizon;
     if (!horizon) out.push("The values behind these trades are not labelled rest of season or weekly.");
     else if (horizon !== HORIZON) out.push("This section answers rest-of-season trades. Weekly values are not mixed in.");
-    if (!ctx.ideas) out.push("The trade ideas have not been worked out for this league yet.");
-    else {
-      const all = (ctx.ideas.recommendations || []).concat(ctx.ideas.stretch || []);
-      const bad = all.filter(rec => !usable(rec)).length;
-      if (bad) out.push(`${plural(bad, "trade idea is", "trade ideas are")} missing a value, a player or a likelihood.`);
+    const ideas = ctx.ideas;
+    if (!ideas) out.push("The trade ideas have not been worked out for this league yet.");
+    else if (typeof ideas.then === "function") out.push("The trade ideas are still being worked out.");
+    else if (typeof ideas !== "object" || !Array.isArray(ideas.recommendations) || !(ideas.stretch == null || Array.isArray(ideas.stretch))) {
+      out.push("The trade ideas came back in a form this section cannot read.");
+    } else {
+      const bad = ideas.recommendations.concat(ideas.stretch || []).filter(rec => !usable(rec)).length;
+      if (bad) out.push(`${plural(bad, "trade idea is", "trade ideas are")} missing a value, a player, the other manager, a likelihood, a reason or a source label.`);
     }
     return out;
   }
@@ -120,7 +128,7 @@
       vm.reasons = why;
       return vm;
     }
-    const recs = c.ideas.recommendations || [];
+    const recs = c.ideas.recommendations;
     const stretch = c.ideas.stretch || [];
     vm.counts = countsLine(c.ideas.counts);
     vm.stretch = stretch.map((rec, i) => item(rec, i + 1, true));
@@ -264,22 +272,37 @@
 
   // opts: {getContext() -> context, hash() -> current hash (default location.hash)}. Returns {update(), destroy()}.
   // Focus: entering the section moves focus to its title, opening a trade to the trade's heading, and coming back from a
-  // trade to that trade's link, so keyboard and screen reader users keep their place.
+  // trade to that trade's link, so keyboard and screen reader users keep their place. A refresh on the same route keeps
+  // focus on the same link (or the title, if that trade is gone) instead of dropping it to the page.
+  // A context that throws renders the error state, so an earlier answer is never left on screen.
   function mount(container, opts) {
     const o = opts || {};
     const hash = o.hash || (() => root.location.hash);
     container.classList.add("simplified-site");
     let last = null;
+    function focusKey() {
+      const node = typeof document !== "undefined" ? document.activeElement : null;
+      if (!node || node === container || !container.contains(node)) return null;
+      if (node.dataset.detailFor) return `[data-detail-for="${CSS.escape(node.dataset.detailFor)}"]`;
+      if (node.classList.contains("ss-back")) return ".ss-back";
+      return node.id ? `#${CSS.escape(node.id)}` : "#ssTitle";
+    }
     function update(focus) {
       const route = parseRoute(hash());
       if (!route) { last = null; return null; }
-      const vm = render(container, viewModel(o.getContext(), route));
+      const keep = focusKey();
+      let model;
+      try { model = viewModel(o.getContext(), route); } catch (error) {
+        model = viewModel({status: "error", error: String(error && error.message || error)}, route);
+      }
+      const vm = render(container, model);
       const was = last;
       last = route;
       const target = vm.dataset.view === "detail" ? container.querySelector("#ssDetailTitle")
         : was && was.detail ? container.querySelector(`[data-detail-for="${CSS.escape(was.detail)}"]`) || container.querySelector("#ssTitle")
         : focus || !was ? container.querySelector("#ssTitle") : null;
       if (target && (focus || !was || (was.detail || null) !== (route.detail || null))) target.focus();
+      else if (keep) (container.querySelector(keep) || container.querySelector("#ssTitle")).focus();
       return vm;
     }
     const onHash = () => update(false);

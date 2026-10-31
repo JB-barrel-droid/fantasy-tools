@@ -138,6 +138,13 @@ python3 -m unittest tests.test_jeg1172_fantasypros_w8_trace -v
 
 ## Proposed follow-ons (need review and an owner, not done here)
 
+Taken up in JEG-1314 (2026-10-29): items 1 to 3 below. The check labels each
+source-week by its served week (`week_state.source_weeks`) and never counts a
+saved week with the served fingerprint as a prior week; FantasyPros week 8 is
+recorded `accepted`, scoped by `inputs_fingerprint` to the Week 7 article; the
+rebuild chain now commits the report its `make sync` writes (item 3: no CI
+step had committed it, so it moved only on a hand-run sync).
+
 1. Divergence reporter: label each source-week by its served `label_week`, not
    `content_week`. Skip or tag the "also warned in week N" escalation when the
    current and prior inputs share a fingerprint.

@@ -1,7 +1,8 @@
 # A chart estimate that steps in and out at the rostered cutoff (JEG-1336)
 
 Research only, 2026-10-29. No value math, default, ranking or published
-output changed. Jeremy picks the rule; this page lays out the options.
+output changed. Decision: Jeremy picked A, leave as is (2026-10-29; see
+`docs/decisions.md`). This page lays out the options he chose between.
 Figures: [data/jeg1336_fill_in.md](data/jeg1336_fill_in.md). Script:
 `tools/research/jeg1336_fill_in.py` (report: `tools/research/jeg1336_report.py`).
 Side finding of [JEG-1286](jeg1286-flex-flips.md).

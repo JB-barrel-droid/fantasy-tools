@@ -331,7 +331,7 @@ publisher shape disagreement is the product.)
 Moved from a claude.ai artifact into the dashboard (Jeremy, 2026-10-25,
 JEG-1086). `make sync` builds it to `dist/value-logic/index.html` (builder
 `pipelines/build_values_explainer.py`, page template and engine extractor in
-`app/values-explainer/`); How values work links to it. Every number is read
+`app/values-explainer/`); How values work shows it inline in a same-origin frame (JEG-1107: Jeremy, 2026-10-25, "ensure this is part of the main dashboard, not some seperate dashboard"), and the bare `value-logic/` URL redirects into that tab. Every number is read
 from the chart engine at the default setting (12 teams, Full PPR). It needs
 Playwright: skipped with a notice locally, an error where
 `RENDER_TESTS_REQUIRED=1`. Keep it current:

@@ -15,9 +15,10 @@ import socketserver
 import threading
 from pathlib import Path
 
+from tests import _render_env
+
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
-CHROME = Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
 ENGINE_URL = "classic/"
 
@@ -38,10 +39,7 @@ def engine_built() -> bool:
 
 
 def chromium_executable(playwright):
-    for candidate in (Path(playwright.chromium.executable_path), CHROME):
-        if candidate.exists():
-            return str(candidate)
-    return None
+    return _render_env.chromium_executable(playwright)
 
 
 @contextlib.contextmanager

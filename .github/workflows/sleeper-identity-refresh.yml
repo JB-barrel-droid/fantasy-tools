@@ -44,6 +44,7 @@ jobs:
           python3 -m unittest tests.test_player_identity_guard
           python3 -m unittest tests.test_match_identity_keys
           python3 -m unittest tests.test_source_snapshot_match
+          python3 -m unittest tests.test_sync_players_active
 
       - name: Did player content change?
         id: diff
@@ -66,15 +67,39 @@ jobs:
       - name: Commit
         if: steps.diff.outputs.changed == 'yes'
         run: |
+          # JEG-1215: only publication pauses; upstream/downstream work continues.
+          release_guard() {
+            if python3 pipelines/main_write_guard.py --writer sleeper-identity-refresh-1 --phase "$1" --target "${GITHUB_REF_NAME:-main}"; then
+              return 0
+            else
+              rc=$?
+              if [ "$rc" = 75 ]; then exit 0; fi
+              exit "$rc"
+            fi
+          }
+          release_push() {
+            release_guard push
+            git push "$@"
+          }
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/inputs/sleeper_identity_base.json
+          release_guard stage
           git commit -m "Sleeper identity base refresh (JEG-366)"
-          git push origin HEAD:${GITHUB_REF_NAME}
+          release_push origin HEAD:${GITHUB_REF_NAME}
 
       # JEG-502: every active NFL QB/RB/WR/TE needs a players-table row so the
       # bake can give him a players.json row (JEG-438: no made-up keys).
       # Additive inserts only, keyed by metadata.sleeper_id; dry run off main.
+      - name: Retain deferred publication (sleeper-identity-refresh-1)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deferred-sleeper-identity-refresh-1-${{ github.run_attempt }}
+          path: output/release-publications/sleeper-identity-refresh-1/
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Add missing active NFL players to public.players (JEG-502)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -85,6 +110,21 @@ jobs:
           flag=""
           [ "${GITHUB_REF}" = "refs/heads/main" ] && flag="--write"
           PYTHONPATH=/tmp/gh_shim python3 pipelines/sync_sleeper_players.py $flag
+
+      # JEG-1354: players.active was set once by the archived nflverse loader and
+      # never refreshed (false for 857 of 1,517 skill rows on 2026-10-29). This
+      # sets it from the active NFL universe, ids first (pipelines/sync_players_active.py).
+      # Dry run until Jeremy approves the write: it writes only on main and only
+      # while the repository variable PLAYERS_ACTIVE_SYNC is "write".
+      - name: Refresh players.active from the active NFL universe (JEG-1354)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          PLAYERS_ACTIVE_SYNC: ${{ vars.PLAYERS_ACTIVE_SYNC }}
+        run: |
+          flag=""
+          [ "${GITHUB_REF}" = "refs/heads/main" ] && [ "${PLAYERS_ACTIVE_SYNC}" = "write" ] && flag="--write"
+          PYTHONPATH=/tmp/gh_shim python3 pipelines/sync_players_active.py $flag
 
       # Monitoring: record this run in Supabase monitoring.check_observations,
       # red or green. A run that never happens is flagged `missed` by the

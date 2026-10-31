@@ -6,8 +6,8 @@
 
 import { type Deps, finish, prepare } from "./state.ts";
 import { type Finder, type FinderRow, findTradesForPair } from "./find-trades.ts";
-import { type NameMatch, matchName, splitNames } from "./names.ts";
-import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
+import { closestNames, type NameMatch, matchName, splitNames } from "./names.ts";
+import { type BenchShareReadout, type FitContext, type FitFinder, type FitRow, type FitSides, benchWeightsFromReadout, buildFitContext, fitForTrade } from "./fit.ts";
 import {
   type RosterShape,
   type ViabilityConfig,
@@ -19,6 +19,19 @@ import {
   scoreAndRankOffers,
   selectPackage,
 } from "./viability.ts";
+import { askedWeek, type WeekFields, weekProp, withWeek } from "./week.ts";
+import {
+  type AnalysisDeps,
+  type AnalysisResponse,
+  COMPARE_SERIES,
+  fmtNet,
+  inspectionOf,
+  pageRows,
+  priorFor,
+  SERIES_LABELS,
+  slimDisagreement,
+  slimMover,
+} from "./analyses.ts";
 
 export interface PlayerValue {
   player_key: number;
@@ -28,7 +41,9 @@ export interface PlayerValue {
   tier: string;
 }
 
-export interface ValuesResponse {
+// JEG-1179: every answer carries the week it was priced on (WeekFields: week, default_week, weeks,
+// missing_sources); sources_included lists the sources priced on that week.
+export interface ValuesResponse extends WeekFields {
   attribution: string;
   as_of: string | null;
   setting: { scoring: string; teams: number; superflex: number };
@@ -42,6 +57,7 @@ export type FetchValues = (
   teams: number,
   superflex: number,
   league?: Record<string, unknown>,
+  week?: number | null,
 ) => Promise<ValuesResponse>;
 
 /** Extended player record with per-chart values (from get-values?include=charts). */
@@ -65,6 +81,7 @@ export type FetchValuesWithCharts = (
   teams: number,
   superflex: number,
   league?: Record<string, unknown>,
+  week?: number | null,
 ) => Promise<ChartValuesResponse>;
 
 export interface ToolResult {
@@ -86,6 +103,10 @@ const EXPLAIN_TOPICS = [
   "how_to_trade",
 ];
 
+// JEG-1029: the series Risers & fallers offers (movers.js SERIES) and the sources Values auditing shows.
+const MOVERS_SERIES = ["ddf_value", "ddf_value_charts", "ddf_value_projections", "fantasycalc", "usatoday", "fantasypros", "cbs", "cbsros", "razzball", "espn"];
+const AUDIT_SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs", "espn", "cbsros", "razzball"];
+
 const settingsProps = {
   scoring: {
     type: "string",
@@ -103,14 +124,18 @@ const settingsProps = {
     description:
       "Optional: a DDF state pasted from the site (a ```ddf-state block, JSON, or a site link). Supplies the league settings; explicit settings above win.",
   },
+  ...weekProp,
 };
 
+// JEG-1124: a one-letter name fits too many players to be useful; ask for a fuller name.
+const MIN_NAME = 2;
+
 const listProps = {
-  give: { type: "string", description: "Comma-separated names: what you give (Compare a trade)" },
-  get: { type: "string", description: "Comma-separated names: what you get (Compare a trade)" },
-  mine: { type: "string", description: "Comma-separated names: your roster (Find a trade)" },
-  theirs: { type: "string", description: "Comma-separated names: their roster (Find a trade)" },
-  target: { type: "string", description: "One player name (Trade targets)" },
+  give: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: what you give (Compare a trade)" },
+  get: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: what you get (Compare a trade)" },
+  mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your roster (Find a trade)" },
+  theirs: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: their roster (Find a trade)" },
+  target: { type: "string", minLength: MIN_NAME, description: "One player name (Trade targets)" },
 };
 
 // Viability configuration properties, exposed as optional tool arguments.
@@ -182,7 +207,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        names: { type: "string", description: "Comma-separated player names" },
+        names: { type: "string", minLength: MIN_NAME, description: "Comma-separated player names" },
       },
       required: ["names"],
     },
@@ -196,7 +221,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        player_name: { type: "string", description: "Player to trade (or trade for)" },
+        player_name: { type: "string", minLength: MIN_NAME, description: "Player to trade (or trade for)" },
         range_pct: { type: "number", minimum: 1, maximum: 50, default: 15, description: "How close in value, in percent" },
         position: { type: "string", enum: POSITIONS, default: "all", description: "Filter targets by position" },
       },
@@ -207,13 +232,14 @@ export const TOOLS = [
   {
     name: "compare_trade",
     description:
-      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware and has no per-chart breakdown, so point the user to the site link for the full view.",
+      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware. Set by_source for the site's Compare a trade breakdown: the net for DDF Value and each published trade chart (rescaled), and which charts disagree with the DDF Value verdict.",
     inputSchema: {
       type: "object",
       properties: {
         ...settingsProps,
-        side_a: { type: "string", description: "Comma-separated names team A gives up" },
-        side_b: { type: "string", description: "Comma-separated names team B gives up" },
+        side_a: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team A gives up" },
+        side_b: { type: "string", minLength: MIN_NAME, description: "Comma-separated names team B gives up" },
+        by_source: { type: "boolean", default: false, description: "One row per series, as the site's Compare a trade shows it (DDF Value and the four published charts)" },
       },
       required: ["side_a", "side_b"],
     },
@@ -225,7 +251,10 @@ export const TOOLS = [
       "Read a DDF state pasted from the Data Driven Football site (a ```ddf-state block, JSON, or a site link): the league, rosters and trade the person was working on. Resolves names to players, prices them, and reports anything it could not match. Use this first when the user pastes site work.",
     inputSchema: {
       type: "object",
-      properties: { state: { type: "string", description: "The pasted block, JSON or site link" } },
+      properties: {
+        state: { type: "string", description: "The pasted block, JSON or site link (a link's wk= picks the week)" },
+        ...weekProp,
+      },
       required: ["state"],
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
@@ -252,8 +281,8 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        mine: { type: "string", description: "Comma-separated names: your full roster" },
-        theirs: { type: "string", description: "Comma-separated names: their full roster" },
+        mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your full roster" },
+        theirs: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: their full roster" },
         max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades (default 2-for-2)" },
         min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
         limit: { type: "integer", minimum: 1, maximum: 50, default: 10, description: "Maximum trade candidates to return" },
@@ -271,7 +300,7 @@ export const TOOLS = [
       type: "object",
       properties: {
         ...settingsProps,
-        mine: { type: "string", description: "Comma-separated names: your full roster" },
+        mine: { type: "string", minLength: MIN_NAME, description: "Comma-separated names: your full roster" },
         opponents: {
           type: "array",
           description: "Opposing teams: [{name, roster}] where roster is comma-separated names",
@@ -279,7 +308,7 @@ export const TOOLS = [
             type: "object",
             properties: {
               name: { type: "string", description: "Team name" },
-              roster: { type: "string", description: "Comma-separated player names" },
+              roster: { type: "string", minLength: MIN_NAME, description: "Comma-separated player names" },
             },
             required: ["name", "roster"],
           },
@@ -288,10 +317,42 @@ export const TOOLS = [
         },
         max_per_side: { type: "integer", minimum: 1, maximum: 4, default: 2, description: "Maximum players each side trades" },
         min_rival_edge: { type: "number", minimum: 0, default: 0, description: "Minimum average chart-value edge the other team needs (0 = any fair trade)" },
-        limit: { type: "integer", minimum: 1, maximum: 100, default: 25, description: "Maximum trade candidates to return" },
+        limit: { type: "integer", minimum: 1, maximum: 100, default: 10, description: "Maximum trade candidates to return" },
         ...viabilityProps,
       },
       required: ["mine", "opponents"],
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "risers_fallers",
+    description:
+      "Who gained and lost value since last week, as the site's Risers & fallers shows it: one series at a time (DDF Value by default), Week N-1 to the week served now, both priced for the user's league. Also lists where the market (DDF Value) and the projections (DDF Value (projections)) disagree: one moved 2.5 points or more while the other moved 1.0 or less.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        series: { type: "string", enum: MOVERS_SERIES, default: "ddf_value", description: "Which series' change to show" },
+        position: { type: "string", enum: POSITIONS, default: "all", description: "Filter by position" },
+        limit: { type: "integer", minimum: 1, maximum: 25, default: 10, description: "Risers and fallers to show, each" },
+        disagreements: { type: "boolean", default: true, description: "Also list where the market and the projections disagree" },
+      },
+    },
+    annotations: { readOnlyHint: true, openWorldHint: true },
+  },
+  {
+    name: "audit_values",
+    description:
+      "Audit the values for the user's league, as the site's Values auditing tab shows them. view health (default): the Health check's verdicts, each check pass or flag with the reason. view source: one source's build-up (published, indexed, adjusted) with its totals and its top players in its own order.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...settingsProps,
+        view: { type: "string", enum: ["health", "source"], default: "health", description: "Health check or one source's build-up" },
+        source: { type: "string", enum: AUDIT_SOURCES, default: "fantasycalc", description: "The source, for view source" },
+        position: { type: "string", enum: POSITIONS, default: "all", description: "Filter the source view by position" },
+        limit: { type: "integer", minimum: 1, maximum: 50, default: 15, description: "Players to show in the source view" },
+      },
     },
     annotations: { readOnlyHint: true, openWorldHint: true },
   },
@@ -316,6 +377,8 @@ export class ToolUnavailableError extends ToolInputError {}
 export interface FinderDeps {
   finder: Finder | null;
   fetchCharts: FetchValuesWithCharts | null;
+  /** JEG-1029: get-values' analysis blocks and the page modules that read them. */
+  analysis?: AnalysisDeps;
 }
 
 const SCORING_ALIASES: Record<string, string> = {
@@ -442,6 +505,7 @@ function slimOffer(o: {
   checks: Array<{ name: string; passed: boolean }>;
   fit?: string | null;
   fitReason?: string | null;
+  fitSides?: FitSides | null;
 }, withTeam: boolean) {
   const side = (rows: Array<{ name: string; pos: string; ddfValue: number | null }>): SlimPlayer[] =>
     rows.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue }));
@@ -458,6 +522,14 @@ function slimOffer(o: {
     ...(o.temporaryGap ? { temporaryGap: true } : {}),
     // JEG-1115: the fit label the finder shows (Natural / Market supported / Force) and its reason.
     ...(o.fit ? { fit: o.fit, fitReason: o.fitReason ?? null } : {}),
+    // JEG-1329: the other team's side of the same tradeFit call (their Trade chart average net and
+    // starters change) and roster construction for both teams. Your side's numbers are ddfEdge,
+    // lineup and the fit reason; the construction issues are in the fit reason too.
+    ...(o.fit && o.fitSides ? {
+      theirs: { marketNet: round1(o.fitSides.theirs.net), starters: round1(o.fitSides.theirs.starters),
+        constructionOk: o.fitSides.theirs.construction.ok },
+      yours: { constructionOk: o.fitSides.yours.construction.ok },
+    } : {}),
   };
 }
 
@@ -467,9 +539,58 @@ function tradeLine(index: number, o: ReturnType<typeof slimOffer>, team?: string
   const vs = team ? ` vs ${team}` : "";
   const edge = o.ddfEdge >= 0 ? `+${o.ddfEdge.toFixed(1)}` : o.ddfEdge.toFixed(1);
   const lineup = o.lineup >= 0 ? `+${o.lineup.toFixed(1)}` : o.lineup.toFixed(1);
-  const line = `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup} | ${tag}`;
+  // JEG-1329: their starters change on the Trade chart average (their net is in the fit reason).
+  const theirs = o.theirs ? ` | their starters ${o.theirs.starters >= 0 ? "+" : ""}${o.theirs.starters.toFixed(1)}` : "";
+  const line = `${index + 1}.${vs} give ${side(o.userGives)} → get ${side(o.userGets)} | edge ${edge} | lineup ${lineup}${theirs} | ${tag}`;
   // JEG-1115: the finder's fit label and one-line reason (fitText opens with the label).
   return o.fit ? `${line}${o.fitReason ? `\n   ${o.fitReason}` : ` | ${o.fit}`}` : line;
+}
+
+// JEG-1123: the text lists the top rows only, so a long result is not sent twice;
+// structuredContent carries every row once and the site link opens the full list.
+const TEXT_ROWS = 5;
+
+function tradeLines<T extends ReturnType<typeof slimOffer>>(rows: T[], team?: (o: T) => string): string[] {
+  const lines = rows.slice(0, TEXT_ROWS).map((o, i) => tradeLine(i, o, team?.(o)));
+  const more = rows.length - TEXT_ROWS;
+  if (more > 0) lines.push(`${more} more in the structured result and on the site (link below).`);
+  return lines;
+}
+
+// JEG-1115: fit reasons must fit inside the existing JEG-1123 reply budgets. Limits are
+// upper bounds (Jeremy, Oct 26); keep a ranked prefix and the entire selected package.
+const bytes = (result: ToolResult) => new TextEncoder().encode(JSON.stringify(result)).length;
+// JEG-1329 (pick B, 2026-10-29): the site link does not count against the reply budget. It opens the
+// full list on the site, and a league link grows with every team it carries, so counting it would cost
+// trade rows. Measured as the reply with the link left out of the text and site_url.
+const budgetBytes = (result: ToolResult) => {
+  const url = result.structuredContent?.site_url;
+  if (typeof url !== "string" || !url) return bytes(result);
+  return bytes({ ...result, content: result.content.map((c) => ({ ...c, text: c.text.split(url).join("") })),
+    structuredContent: { ...result.structuredContent, site_url: "" } });
+};
+const tradeBudget = (name: string, limit: number) => name === "find_trades"
+  ? (limit <= 10 ? 6700 : 17000) : (limit <= 10 ? 8000 : 11500);
+const SIZE_ERROR = "This trade reply is too large to show with complete fit reasons. Try fewer opponents or shorter roster/team names.";
+
+function boundedTrades<T>(rows: T[], name: string, limit: number,
+  render: (shown: T[], shortened: boolean) => ToolResult): ToolResult {
+  // Leave room for #1024's week metadata/text. rpc.ts checks the exact final result after
+  // every decorator, so an oversized envelope is an honest error, never a silent overflow.
+  const budget = tradeBudget(name, limit) - 512;
+  for (let count = rows.length; count >= Math.min(1, rows.length); count--) {
+    const result = render(rows.slice(0, count), count < rows.length);
+    if (budgetBytes(result) < budget) return result;
+  }
+  throw new ToolInputError(SIZE_ERROR);
+}
+
+/** Final wire guard, after state links and optional week metadata have been attached. */
+export function checkTradeReplySize(name: string, result: ToolResult): void {
+  if ((name === "find_trades" || name === "find_trades_league") && !result.isError &&
+    budgetBytes(result) >= tradeBudget(name, Number(result.structuredContent?.limit) || 10)) {
+    throw new ToolInputError(SIZE_ERROR);
+  }
 }
 
 function foundLine(total: number, shown: number, limit: number, viableOnly: boolean): string {
@@ -484,6 +605,21 @@ interface ResolvedNames<T extends PlayerValue> {
   unmatched: string[];
   ambiguous: Array<{ input: string; suggestions: string[] }>;
   notes: string[];
+}
+
+/** JEG-1124: one trimmed name, rejected when it is too short to pick out one player. */
+function checkName(name: string, field: string): string {
+  if (name.length < MIN_NAME) {
+    throw new ToolInputError(
+      `${field}: name too short (${JSON.stringify(name)}). Use a fuller player name, at least ${MIN_NAME} characters.`,
+    );
+  }
+  return name;
+}
+
+/** A comma-separated name list, each name checked by checkName. */
+function playerNames(raw: unknown, field: string): string[] {
+  return splitNames(raw).map((n) => checkName(n, field));
 }
 
 function resolveNames<T extends PlayerValue>(players: T[], names: string[]): ResolvedNames<T> {
@@ -515,6 +651,41 @@ function resolveNames<T extends PlayerValue>(players: T[], names: string[]): Res
   return { matched, unmatched, ambiguous, notes };
 }
 
+/** "2 not found" plus, when any, "1 fits more than one player (left out; ask which)". */
+function missed<T extends PlayerValue>(res: ResolvedNames<T>): string {
+  const parts = [`${res.unmatched.length} not found`];
+  if (res.ambiguous.length) parts.push(`${res.ambiguous.length} fit${res.ambiguous.length === 1 ? "s" : ""} more than one player (left out; ask which)`);
+  return parts.join(", ");
+}
+
+/** Only set when a roster had an ambiguous name, so the usual reply stays the same size. */
+function ambiguousOf<T extends PlayerValue>(res: ResolvedNames<T>): { ambiguous?: Array<{ input: string; suggestions: string[] }> } {
+  return res.ambiguous.length ? { ambiguous: res.ambiguous } : {};
+}
+
+/**
+ * JEG-1124: a name that fits several players, or (Jeremy 2026-10-30, "Letter A.") matches no
+ * player, stops a compare so the model asks which one. A not-found name lists its closest names.
+ */
+function stopOnUnresolved<T extends PlayerValue>(players: T[], ...sides: Array<ResolvedNames<T>>): void {
+  const hits = sides.flatMap((side) => side.ambiguous);
+  const missing = sides.flatMap((side) => side.unmatched);
+  if (!hits.length && !missing.length) return;
+  const parts: string[] = [];
+  if (hits.length) {
+    const each = hits.map((h) => `"${h.input}" could be ${h.suggestions.join(", ")}`);
+    parts.push(`More than one player fits: ${each.join("; ")}.`);
+  }
+  if (missing.length) {
+    const each = missing.map((input) => {
+      const near = closestNames(players, input, matchName(players, input)).map((p) => p.name);
+      return `"${input}" matches no player${near.length ? `; closest: ${near.join(", ")}` : ""}`;
+    });
+    parts.push(`${each.join(". ")}.`);
+  }
+  throw new ToolInputError(`${parts.join(" ")} Ask the user which player they meant, then call again with the full name.`);
+}
+
 function emptyRoster<T extends PlayerValue>(side: string, res: ResolvedNames<T>): string {
   if (res.notes.length) return `No players matched on ${side}. ${res.notes.join(" ")}`;
   return `No players matched on ${side}. Check the spelling.`;
@@ -536,6 +707,7 @@ function parseOpponents(raw: unknown): Array<{ name: string; roster: string }> {
     if (typeof row.roster !== "string") {
       throw new ToolInputError(`opponents[${i}].roster must be a comma-separated string of names.`);
     }
+    playerNames(row.roster, `opponents[${i}].roster`);
     return { name, roster: row.roster };
   });
 }
@@ -544,7 +716,44 @@ function ok(text: string, structured: Record<string, unknown>): ToolResult {
   return { content: [{ type: "text", text }], structuredContent: structured };
 }
 
+// JEG-1179: every tool prices the week get-values picks (the site's default) or the week asked for
+// (`week`, or `wk=` in a pasted site link). The fetchers carry it; the result gets the week fields.
 export async function runTool(
+  name: string,
+  args: Record<string, unknown>,
+  fetchValues: FetchValues,
+  deps?: Deps,
+  finderDeps?: FinderDeps,
+): Promise<ToolResult> {
+  const week = askedWeek(args);
+  if (Number.isNaN(week)) {
+    throw new ToolInputError(`invalid week: ${args.week}. Give a whole number from 1 to 22, or leave it out for the default week.`);
+  }
+  let priced: ValuesResponse | null = null;
+  const weekValues: FetchValues = async (scoring, teams, superflex, league) =>
+    (priced = await fetchValues(scoring, teams, superflex, league, week));
+  const charts = finderDeps?.fetchCharts;
+  const analysis = finderDeps?.analysis?.fetchAnalysis;
+  const weekDeps: FinderDeps | undefined = finderDeps && {
+    ...finderDeps,
+    fetchCharts: charts
+      ? async (scoring, teams, superflex, league) => (priced = await charts(scoring, teams, superflex, league, week))
+      : null,
+    ...(finderDeps.analysis ? {
+      analysis: {
+        ...finderDeps.analysis,
+        fetchAnalysis: analysis
+          ? async (scoring, teams, superflex, league, _week, includes) =>
+            (priced = await analysis(scoring, teams, superflex, league, week, includes))
+          : null,
+      },
+    } : {}),
+  };
+  const result = await runPricedTool(name, args, weekValues, deps, weekDeps);
+  return withWeek(result, priced, week);
+}
+
+async function runPricedTool(
   name: string,
   args: Record<string, unknown>,
   fetchValues: FetchValues,
@@ -555,6 +764,8 @@ export async function runTool(
   if (name === "make_state") return await makeState(args, fetchValues, deps);
   if (name === "find_trades") return await findTradesHandler(args, fetchValues, deps, finderDeps);
   if (name === "find_trades_league") return await findTradesLeagueHandler(args, fetchValues, deps, finderDeps);
+  if (name === "risers_fallers") return await risersFallersHandler(args, deps, finderDeps?.analysis);
+  if (name === "audit_values") return await auditValuesHandler(args, deps, finderDeps?.analysis);
   const prepared = prepare(args, deps);
   args = prepared.args;
   if (name === "explain") {
@@ -584,7 +795,7 @@ export async function runTool(
   }
 
   if (name === "get_player_value") {
-    const names = splitNames(args.names);
+    const names = playerNames(args.names, "names");
     if (!names.length) throw new ToolInputError("names is required");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const results = names.map((input) => {
@@ -612,6 +823,7 @@ export async function runTool(
     const pct = parseBounded(args.range_pct, "range_pct", 15, 1, 50);
     const query = String(args.player_name ?? "").trim();
     if (!query) throw new ToolInputError("player_name is required");
+    checkName(query, "player_name");
     const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
     const hit = matchName(data.players, query);
     if (hit.match === "ambiguous" || !hit.player) {
@@ -643,13 +855,18 @@ export async function runTool(
   }
 
   if (name === "compare_trade") {
-    const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-    const side = (raw: unknown) => resolveNames(data.players, splitNames(raw));
-    let a = side(args.side_a);
-    let b = side(args.side_b);
-    if (!splitNames(args.side_a).length || !splitNames(args.side_b).length) {
+    const namesA = playerNames(args.side_a, "side_a");
+    const namesB = playerNames(args.side_b, "side_b");
+    if (!namesA.length || !namesB.length) {
       throw new ToolInputError("side_a and side_b each need at least one name");
     }
+    const bySource = parseBool(args.by_source, "by_source", false);
+    const data: AnalysisResponse = bySource
+      ? await analysisData(finderDeps?.analysis, "trade", s, ["series"])
+      : await fetchValues(s.scoring, s.teams, s.superflex, s.league);
+    let a = resolveNames(data.players, namesA);
+    let b = resolveNames(data.players, namesB);
+    stopOnUnresolved(data.players, a, b);
     // The same player on both sides stays on team A, matching the site.
     const giveKeys = new Set(a.matched.map((p) => p.player_key));
     const shared = b.matched.filter((p) => giveKeys.has(p.player_key));
@@ -664,11 +881,20 @@ export async function runTool(
       const why = [...a.notes, ...b.notes].filter(Boolean).join(" ");
       throw new ToolInputError(why || "side_a and side_b each need at least one matched player");
     }
+    // Every name matched (stopOnUnresolved), so the link carries keys only (JEG-1124).
+    const work = {
+      give: a.matched.map((p) => entry(p.name, p)),
+      get: b.matched.map((p) => entry(p.name, p)),
+    };
+    if (bySource) {
+      return finish(compareBySource(data, s, a, b, finderDeps!.analysis!.modules!.trade), {
+        prepared, deps, settings: s, view: "compare", work,
+      });
+    }
     const sum = (rows: PlayerValue[]) => round1(rows.reduce((t, p) => t + p.value, 0));
     const sumA = sum(a.matched);
     const sumB = sum(b.matched);
     const diff = round1(sumA - sumB);
-    const notFound = [...a.unmatched, ...b.unmatched];
     const verdict = Math.abs(diff) < 2
       ? "roughly even"
       : diff > 0
@@ -687,36 +913,234 @@ export async function runTool(
       `Verdict (DDF Value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
       "The site's Compare a trade shows the per-chart breakdown for this trade; open the link below.",
       ...(notes.length ? [notes.join("\n")] : []),
-      ...(notFound.length ? [`Warning: not found, left out of the total: ${notFound.join(", ")}`] : []),
     ].join("\n");
-    const pack = (rows: PlayerValue[], missed: string[]) => ({
+    // Every name matched (stopOnUnresolved), so not_found stays empty; kept for the reply's shape.
+    const pack = (rows: PlayerValue[]) => ({
       total: sum(rows),
       players: rows.map((p) => ({ name: p.name, pos: p.pos, value: p.value })),
-      not_found: missed,
+      not_found: [] as string[],
     });
     // The site's Compare a trade reads "give" as what the person gives up: team A is the person.
     return finish(
       ok(text, {
         as_of: data.as_of,
         setting: data.setting,
-        side_a: pack(a.matched, a.unmatched),
-        side_b: pack(b.matched, b.unmatched),
+        side_a: pack(a.matched),
+        side_b: pack(b.matched),
         difference: diff,
         verdict,
         method: "sum_of_ddf_values",
-        not_found: notFound,
+        not_found: [],
       }),
-      {
-        prepared, deps, settings: s, view: "compare",
-        work: {
-          give: a.matched.map((p) => entry(p.name, p)).concat(a.unmatched.map((n) => entry(n, null))),
-          get: b.matched.map((p) => entry(p.name, p)).concat(b.unmatched.map((n) => entry(n, null))),
-        },
-      },
+      { prepared, deps, settings: s, view: "compare", work },
     );
   }
 
   throw new ToolInputError(`unknown tool: ${name}`);
+}
+
+// ---------- JEG-1029: risers_fallers, compare_trade by_source, audit_values ----------
+// get-values prices; the page's own modules (movers.js, trade.js, audit-pie.js, audit-source.js) read
+// what it returns exactly as the page reads its engine. See analyses.ts.
+
+type Settings = ReturnType<typeof settings>;
+const MODULE_FOR = { risers: "movers", trade: "trade", health: "auditPie", source: "auditSource" } as const;
+
+async function analysisData(
+  analysis: AnalysisDeps | undefined, use: keyof typeof MODULE_FOR, s: Settings, includes: string[],
+): Promise<AnalysisResponse> {
+  const module = analysis?.modules?.[MODULE_FOR[use]];
+  if (!analysis?.fetchAnalysis || !module) {
+    throw new ToolUnavailableError("This analysis is unavailable right now (the site's module could not be loaded). Open the site link instead.");
+  }
+  return await analysis.fetchAnalysis(s.scoring, s.teams, s.superflex, s.league, null, includes);
+}
+
+const seriesName = (key: string) => SERIES_LABELS[key] ?? key;
+
+function compareBySource(
+  data: AnalysisResponse, s: Settings, a: ResolvedNames<PlayerValue>, b: ResolvedNames<PlayerValue>,
+  // deno-lint-ignore no-explicit-any
+  trade: any,
+): ToolResult {
+  const rowsByKey = new Map(pageRows(data).map((row) => [row.player_key, row]));
+  // A player get-values has no row for comes in with no values, so every series reads it as missing.
+  const rowsOf = (list: PlayerValue[]) => list.map((p) => rowsByKey.get(p.player_key) ?? { player_key: p.player_key, name: p.name, pos: p.pos, values: {} });
+  const giveRows = rowsOf(a.matched);
+  const getRows = rowsOf(b.matched);
+  const { rows } = trade.compareTrade(giveRows, getRows, COMPARE_SERIES);
+  const verdict = trade.tradeVerdict(rows, "ddf_value");
+  // deno-lint-ignore no-explicit-any
+  const slim = rows.map((r: any) => ({
+    series: r.key, label: seriesName(r.key),
+    give: r.give === null ? null : round1(r.give), get: r.receive === null ? null : round1(r.receive),
+    net: r.net === null ? null : round1(r.net),
+    // deno-lint-ignore no-explicit-any
+    missing: r.missing.map((m: any) => ({ name: m.row.name, side: m.side === "give" ? "a" : "b" })),
+  }));
+  const names = (keys: string[]) => keys.map(seriesName).join(", ");
+  const verdictText = verdict.kind === "win"
+    ? `team A comes out ahead on DDF Value by ${fmtNet(verdict.net)}`
+    : verdict.kind === "lose"
+    ? `team A comes out behind on DDF Value by ${fmtNet(verdict.net)}`
+    : verdict.kind === "even"
+    ? "even on DDF Value"
+    : "DDF Value cannot be read: a player has no DDF Value";
+  const against = verdict.againstKeys?.length ? `Pointing the other way: ${names(verdict.againstKeys)}.` : null;
+  const agree = verdict.kind && verdict.kind !== "incomplete" && verdict.others
+    ? `${verdict.agreeKeys.length} of ${verdict.others} complete chart rows agree.` : null;
+  const incomplete = verdict.incompleteKeys?.length ? `Not read (a player is missing there): ${names(verdict.incompleteKeys)}.` : null;
+  const notFound = [...a.unmatched, ...b.unmatched];
+  const notes = [...new Set([...a.notes, ...b.notes])];
+  const text = [
+    ...header(data, s),
+    "",
+    `Team A gives up: ${a.matched.map((p) => p.name).join(", ")}`,
+    `Team B gives up: ${b.matched.map((p) => p.name).join(", ")}`,
+    "Series | Team A gives | Team A gets | Net for team A",
+    // deno-lint-ignore no-explicit-any
+    ...slim.map((r: any) => r.net === null
+      ? `${r.label} | — | — | — (no value: ${r.missing.map((m: { name: string }) => m.name).join(", ")})`
+      : `${r.label} | ${r.give.toFixed(1)} | ${r.get.toFixed(1)} | ${fmtNet(r.net)}`),
+    "",
+    `Verdict (DDF Value, one series decides; not lineup-aware): ${verdictText}.`,
+    ...[agree, against, incomplete].filter(Boolean) as string[],
+    ...(notes.length ? [notes.join("\n")] : []),
+    ...(notFound.length ? [`Warning: not found, left out: ${notFound.join(", ")}`] : []),
+  ].join("\n");
+  return ok(text, {
+    as_of: data.as_of, setting: data.setting, method: "compare_trade_by_series", rows: slim,
+    verdict: { kind: verdict.kind, series: "ddf_value", net: verdict.net === null || verdict.net === undefined ? null : round1(verdict.net),
+      agree: verdict.agreeKeys ?? [], against: verdict.againstKeys ?? [], incomplete: verdict.incompleteKeys ?? [] },
+    not_found: notFound,
+  });
+}
+
+async function risersFallersHandler(args: Record<string, unknown>, deps?: Deps, analysis?: AnalysisDeps): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  args = prepared.args;
+  const s = settings(args);
+  const series = String(args.series ?? "ddf_value");
+  if (!MOVERS_SERIES.includes(series)) {
+    throw new ToolInputError(`invalid series: ${series}. Must be one of: ${MOVERS_SERIES.join(", ")}`);
+  }
+  const pos = position(args);
+  const limit = parseBounded(args.limit, "limit", 10, 1, 25);
+  const withDisagreements = parseBool(args.disagreements, "disagreements", true);
+  const data = await analysisData(analysis, "risers", s, ["series", "prior"]);
+  const M = analysis!.modules!.movers;
+  const rows = pageRows(data).filter((r) => pos === "all" || r.pos === pos);
+  const v = M.buildMovers(rows, series, priorFor(data, series));
+  const label = seriesName(series);
+  const risers = v.risers.slice(0, limit).map(slimMover);
+  const fallers = v.fallers.slice(0, limit).map(slimMover);
+  const line = (m: ReturnType<typeof slimMover>) => `${m.name} (${m.pos}): ${m.before.toFixed(1)} → ${m.now.toFixed(1)} (${fmtNet(m.delta)})`;
+  const text: string[] = [...header(data, s), ""];
+  if (v.available) {
+    text.push(`${label}: Week ${v.priorWeek} → Week ${v.currentWeek}, both priced for this league.`);
+    text.push(`Risers (${v.risers.length}):`, ...(risers.length ? risers.map(line) : ["  none"]));
+    text.push(`Fallers (${v.fallers.length}):`, ...(fallers.length ? fallers.map(line) : ["  none"]));
+    const counts = [`${v.compared} compared`];
+    if (v.unchanged) counts.push(`${v.unchanged} unchanged (0.0)`);
+    if (v.noPrior) counts.push(`${v.noPrior} not priced in Week ${v.priorWeek}, so no change`);
+    if (v.noCurrent) counts.push(`${v.noCurrent} without a Week ${v.currentWeek} value`);
+    text.push(`Players: ${counts.join(", ")}. Missing history is no change, never a zero change.`);
+  } else {
+    text.push(`No change to show for ${label}: ${v.reason}.`);
+  }
+  // deno-lint-ignore no-explicit-any
+  let disagreements: any = null;
+  if (withDisagreements) {
+    const d = M.buildDisagreements(rows, priorFor(data, "ddf_value_charts"), priorFor(data, "ddf_value_projections"));
+    disagreements = d.available
+      ? { available: true, compared: d.compared, market: d.market.slice(0, limit).map(slimDisagreement),
+        projections: d.projections.slice(0, limit).map(slimDisagreement), market_total: d.market.length, projections_total: d.projections.length }
+      : { available: false, reason: d.reason };
+    text.push("");
+    if (d.available) {
+      const dl = (x: ReturnType<typeof slimDisagreement>) =>
+        `${x.name} (${x.pos}): DDF Value ${fmtNet(x.market_delta)}, projections ${fmtNet(x.projections_delta)}. ${x.read}`;
+      text.push(`Market vs projections, Week ${d.priorWeek} → Week ${d.currentWeek} (one moved ${M.MOVE}+ and the other ${M.QUIET.toFixed(1)} or less; ${d.compared} compared):`);
+      text.push(`Market moved (${d.market.length}):`, ...(disagreements.market.length ? disagreements.market.map(dl) : ["  none"]));
+      text.push(`Projections moved (${d.projections.length}):`, ...(disagreements.projections.length ? disagreements.projections.map(dl) : ["  none"]));
+    } else {
+      text.push(`Market vs projections: no comparison yet: ${d.reason}.`);
+    }
+  }
+  return finish(ok(text.join("\n"), {
+    as_of: data.as_of, setting: data.setting, series, position: pos, available: v.available,
+    reason: v.available ? null : v.reason, current_week: v.currentWeek ?? null, prior_week: v.priorWeek ?? null,
+    risers, fallers, counts: { compared: v.compared, unchanged: v.unchanged, no_prior: v.noPrior, no_current: v.noCurrent,
+      risers: v.risers.length, fallers: v.fallers.length },
+    disagreements,
+  }), { prepared, deps, settings: s, view: "risers" });
+}
+
+async function auditValuesHandler(args: Record<string, unknown>, deps?: Deps, analysis?: AnalysisDeps): Promise<ToolResult> {
+  const prepared = prepare(args, deps);
+  args = prepared.args;
+  const s = settings(args);
+  const viewName = String(args.view ?? "health");
+  if (viewName !== "health" && viewName !== "source") throw new ToolInputError(`invalid view: ${viewName}. Must be health or source`);
+  const data = await analysisData(analysis, viewName, s, ["audit"]);
+  const inspection = inspectionOf(data);
+  const text: string[] = [...header(data, s), ""];
+  if (viewName === "health") {
+    const P = analysis!.modules!.auditPie;
+    const model = P.extract(inspection);
+    if (!model) {
+      text.push("Health check: no pipeline data available.");
+      return finish(ok(text.join("\n"), { as_of: data.as_of, setting: data.setting, view: "health", available: false, checks: [] }),
+        { prepared, deps, settings: s, view: "audit" });
+    }
+    P.computeFlags(model);
+    const checks = P.computeChecks(model);
+    // deno-lint-ignore no-explicit-any
+    const slim = checks.map((c: any) => ({ id: c.id, label: c.name, status: c.status, detail: c.reason ?? null, sources: c.sources ?? [] }));
+    // deno-lint-ignore no-explicit-any
+    const flagged = slim.filter((c: any) => c.status === "flag");
+    text.push(`Health check: ${flagged.length ? `${flagged.length} of ${slim.length} checks flagged` : "nothing flagged"}. Value pie ${round1(model.pie)} points, ${model.rows.length} sources.`);
+    // deno-lint-ignore no-explicit-any
+    text.push(...slim.map((c: any) => `${c.status.toUpperCase()} | ${c.label}${c.detail ? ` | ${c.detail}` : ""}`));
+    return finish(ok(text.join("\n"), {
+      as_of: data.as_of, setting: data.setting, view: "health", available: true, pie: round1(model.pie), sources: model.rows.length, checks: slim,
+    }), { prepared, deps, settings: s, view: "audit" });
+  }
+  const source = String(args.source ?? "fantasycalc");
+  if (!AUDIT_SOURCES.includes(source)) throw new ToolInputError(`invalid source: ${source}. Must be one of: ${AUDIT_SOURCES.join(", ")}`);
+  const pos = position(args);
+  const limit = parseBounded(args.limit, "limit", 15, 1, 50);
+  const m = analysis!.modules!.auditSource.build(inspection, source, pos === "all" ? "ALL" : pos);
+  const val = (v: number | null) => v === null ? "—" : v.toFixed(1);
+  // A stage with no points has no total: null, never 0 (the page draws nothing for it).
+  const total = (stage: string) => m.stages[stage].exists ? round1(m.totals[stage]) : null;
+  const totals = { published: total("published"), indexed: total("indexed"), adjusted: total("adjusted") };
+  if (!m.hasData) {
+    // The page's line for a source with no values (audit-source.js render), and nothing else.
+    text.push(`${m.label} has no values at these league settings${m.status ? ` (${m.status})` : ""}.`);
+    return finish(ok(text.join("\n"), {
+      as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: false, status: m.status || null,
+      shown: 0, estimated: 0, totals, rows: [],
+    }), { prepared, deps, settings: s, view: "audit" });
+  }
+  // deno-lint-ignore no-explicit-any
+  const rows = m.rows.slice(0, limit).map((r: any) => ({
+    rank: r.rank, player_key: Number(r.key), name: r.name, pos: r.pos, role: r.role, estimated: r.estimated,
+    published: r.published === null ? null : round1(r.published), indexed: r.indexed === null ? null : round1(r.indexed),
+    adjusted: r.adjusted === null ? null : round1(r.adjusted),
+  }));
+  text.push(`${m.label} build-up (${m.family}${m.position === "ALL" ? "" : `, ${m.position}`}): ${m.shown} players, ${m.estimatedCount} filled in.` +
+    (m.status ? ` Status: ${m.status}.` : ""));
+  text.push(`Totals: published ${val(totals.published)} (${m.stages.published.unit}), indexed ${m.stages.indexed.exists ? val(totals.indexed) : "— (" + (m.stages.indexed.reason || "no indexed values") + ")"}, adjusted ${val(totals.adjusted)}.`);
+  text.push("Rank | Player | Pos | Role | Published | Indexed | Adjusted");
+  // deno-lint-ignore no-explicit-any
+  text.push(...rows.map((r: any) => `${r.rank} | ${r.name}${r.estimated ? " (filled in)" : ""} | ${r.pos} | ${r.role} | ${val(r.published)} | ${val(r.indexed)} | ${val(r.adjusted)}`));
+  return finish(ok(text.join("\n"), {
+    as_of: data.as_of, setting: data.setting, view: "source", source, position: pos, available: m.hasData, status: m.status || null,
+    shown: m.shown, estimated: m.estimatedCount,
+    totals,
+    rows,
+  }), { prepared, deps, settings: s, view: "audit" });
 }
 
 // ---------- find_trades tool ----------
@@ -757,8 +1181,8 @@ async function findTradesHandler(
   const a = prepared.args;
   const s = settings(a);
 
-  const mineNames = splitNames(a.mine);
-  const theirNames = splitNames(a.theirs);
+  const mineNames = playerNames(a.mine, "mine");
+  const theirNames = playerNames(a.theirs, "theirs");
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
   if (!theirNames.length) throw new ToolInputError("theirs is required: comma-separated roster names");
   if (!finderDeps?.finder) {
@@ -830,39 +1254,42 @@ async function findTradesHandler(
   const nameNotes = [...mineRes.notes, ...theirRes.notes];
   if (shared.length) nameNotes.push(`On both rosters, kept on yours only: ${shared.map((p) => p.name).join(", ")}.`);
 
-  const lines: string[] = [
-    ...header(data, s),
-    "",
-    foundLine(result.total, trades.length, limit, viableOnly),
-    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found; searched ${result.mine.searched} of ${result.mine.of} priced.`,
-    `Their roster: ${theirMatched.length} matched, ${theirRes.unmatched.length} not found; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
-  ];
-  if (nameNotes.length) lines.push(...nameNotes);
-  lines.push("");
-  trades.forEach((o, i) => lines.push(tradeLine(i, o)));
-  if (!trades.length) lines.push(viableOnly
-    ? "No viable trades found. Try without viable_only to see all candidates."
-    : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
+  return boundedTrades(trades, "find_trades", limit, (trades, shortened) => {
+    const lines: string[] = [
+      ...header(data, s),
+      "",
+      foundLine(result.total, trades.length, limit, viableOnly),
+      `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}; searched ${result.mine.searched} of ${result.mine.of} priced.`,
+      `Their roster: ${theirMatched.length} matched, ${missed(theirRes)}; searched ${result.theirs.searched} of ${result.theirs.of} priced.`,
+    ];
+    if (shortened) lines.push("Fewer candidates shown to keep this reply compact; every returned trade keeps its full fit reason.");
+    if (nameNotes.length) lines.push(...nameNotes);
+    lines.push("");
+    lines.push(...tradeLines(trades));
+    if (!trades.length) lines.push(viableOnly
+      ? "No viable trades found. Try without viable_only to see all candidates."
+      : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
 
-  const structured = {
-    as_of: data.as_of,
-    setting: data.setting,
-    trades,
-    total: result.total,
-    shown: trades.length,
-    limit,
-    viableCount: trades.filter((o) => o.viable).length,
-    mine: { ...result.mine, unmatched: mineRes.unmatched },
-    theirs: { ...result.theirs, unmatched: theirRes.unmatched },
-  };
+    const structured = {
+      as_of: data.as_of,
+      setting: data.setting,
+      trades,
+      total: result.total,
+      shown: trades.length,
+      limit,
+      viableCount: trades.filter((o) => o.viable).length,
+      mine: { ...result.mine, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
+      theirs: { ...result.theirs, unmatched: theirRes.unmatched, ...ambiguousOf(theirRes) },
+    };
 
-  const work = {
-    mine: mineNames.map((n) => entry(n, findPlayer(data.players, n))),
-    theirs: theirNames.map((n) => entry(n, findPlayer(data.players, n))),
-  };
+    const work = {
+      mine: mineNames.map((n) => entry(n, findPlayer(data.players, n))),
+      theirs: theirNames.map((n) => entry(n, findPlayer(data.players, n))),
+    };
 
-  return finish(ok(lines.join("\n"), structured), {
-    prepared, deps, settings: s, view: "finder", work,
+    return finish(ok(lines.join("\n"), structured), {
+      prepared, deps, settings: s, view: "finder", work,
+    });
   });
 }
 
@@ -890,16 +1317,16 @@ function withFit<T extends ScoredOffer>(
   mineRows: FinderRow[],
   theirRows: FinderRow[],
   rowByKey: Map<number, FinderRow>,
-): T & { fit: string | null; fitReason: string | null } {
-  if (!ctx) return { ...o, fit: null, fitReason: null };
+): T & { fit: string | null; fitReason: string | null; fitSides: FitSides | null } {
+  if (!ctx) return { ...o, fit: null, fitReason: null, fitSides: null };
   const rows = (side: Array<{ player_key: number }>) =>
     side.map((p) => rowByKey.get(p.player_key)).filter((r): r is FinderRow => !!r) as unknown as FitRow[];
   const give = rows(o.userGives);
   const receive = rows(o.userGets);
-  if (give.length !== o.userGives.length || receive.length !== o.userGets.length) return { ...o, fit: null, fitReason: null };
+  if (give.length !== o.userGives.length || receive.length !== o.userGets.length) return { ...o, fit: null, fitReason: null, fitSides: null };
   const fit = fitForTrade(finder as unknown as FitFinder, mineRows as unknown as FitRow[], theirRows as unknown as FitRow[],
     give, receive, ctx);
-  return { ...o, fit: fit.fit, fitReason: fit.fit_reason };
+  return { ...o, fit: fit.fit, fitReason: fit.fit_reason, fitSides: fit.sides ?? null };
 }
 
 /** Minimal ViabilityRow from a trade candidate player summary. */
@@ -919,7 +1346,7 @@ async function findTradesLeagueHandler(
   const a = prepared.args;
   const s = settings(a);
 
-  const mineNames = splitNames(a.mine);
+  const mineNames = playerNames(a.mine, "mine");
   if (!mineNames.length) throw new ToolInputError("mine is required: comma-separated roster names");
 
   const opponents = parseOpponents(a.opponents);
@@ -943,26 +1370,37 @@ async function findTradesLeagueHandler(
   const viableOnly = parseBool(a.viable_only, "viable_only", false);
   const maxPerSide = parseBounded(a.max_per_side, "max_per_side", 2, 1, 4);
   const minRivalEdge = parseNonNegative(a.min_rival_edge, "min_rival_edge", 0);
-  const limit = parseBounded(a.limit, "limit", 25, 1, 100);
+  const limit = parseBounded(a.limit, "limit", 10, 1, 100);
 
   const allOffers: TradeOfferInput[] = [];
-  const theirRowsByTeam = new Map<string, FinderRow[]>();
+  const opponentsById = new Map<string, { name: string; index: number; rows: FinderRow[] }>();
   const allRowsByKey = new Map<number, FinderRow>();
-  const perOpponent: Array<{ name: string; tradesFound: number; unmatchedNames: string[] }> = [];
+  const perOpponent: Array<{
+    name: string;
+    opponent_index: number;
+    tradesFound: number;
+    unmatchedNames: string[];
+    ambiguous?: Array<{ input: string; suggestions: string[] }>;
+  }> = [];
   const nameNotes = [...mineRes.notes];
+  // JEG-1329: every opponent's matched roster, in input order, for the site link (even teams with no trade).
+  const leagueTeams: Array<{ name: string; keys: string[] }> = [];
 
   // Run each opponent pair sequentially (edge function memory).
-  for (const opp of opponents) {
+  for (const [index, opp] of opponents.entries()) {
+    const opponentId = String(index);
     const oppNames = splitNames(opp.roster);
     if (!oppNames.length) {
-      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: [] });
+      leagueTeams.push({ name: opp.name, keys: [] });
+      perOpponent.push({ name: opp.name, opponent_index: index, tradesFound: 0, unmatchedNames: [] });
       continue;
     }
     const oppRes = resolveNames(chartPlayers, oppNames);
+    leagueTeams.push({ name: opp.name, keys: oppRes.matched.filter((p) => !mineKeys.has(p.player_key)).map((p) => String(p.player_key)) });
     nameNotes.push(...oppRes.notes.map((note) => `${opp.name}: ${note}`));
     const theirMatched = oppRes.matched.filter((p) => !mineKeys.has(p.player_key));
     if (!theirMatched.length) {
-      perOpponent.push({ name: opp.name, tradesFound: 0, unmatchedNames: oppRes.unmatched });
+      perOpponent.push({ name: opp.name, opponent_index: index, tradesFound: 0, unmatchedNames: oppRes.unmatched, ...ambiguousOf(oppRes) });
       continue;
     }
 
@@ -970,7 +1408,7 @@ async function findTradesLeagueHandler(
     const rowByKey = new Map<number, FinderRow>();
     for (const r of mineRows) rowByKey.set(r.player_key, r);
     for (const r of theirRows) rowByKey.set(r.player_key, r);
-    theirRowsByTeam.set(opp.name, theirRows);
+    opponentsById.set(opponentId, { name: opp.name, index, rows: theirRows });
     for (const [k, r] of rowByKey) allRowsByKey.set(k, r);
 
     const pairResult = findTradesForPair(finderDeps.finder, mineRows, theirRows, {
@@ -982,7 +1420,7 @@ async function findTradesLeagueHandler(
     });
 
     const pairOffers: TradeOfferInput[] = pairResult.trades.map((t) => ({
-      team: opp.name,
+      team: opponentId,
       userGives: t.give.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
       userGets: t.receive.map((p) => rowByKey.get(p.player_key) ?? toViabilityRow(p)),
       userRoster: mineRows,
@@ -992,8 +1430,10 @@ async function findTradesLeagueHandler(
     allOffers.push(...pairOffers);
     perOpponent.push({
       name: opp.name,
+      opponent_index: index,
       tradesFound: pairResult.trades.length,
       unmatchedNames: oppRes.unmatched,
+      ...ambiguousOf(oppRes),
     });
   }
 
@@ -1007,58 +1447,67 @@ async function findTradesLeagueHandler(
   // JEG-1115: the fit label the finder shows, judged only for the trades returned.
   const finder = finderDeps.finder;
   const fitCtx = fitContextFor(finder, data, shape);
-  const fitted = (o: ScoredOffer) =>
-    withFit(o, finder, fitCtx, mineRows, theirRowsByTeam.get(o.team) ?? [], allRowsByKey);
-  const shownTrades = scored.slice(0, limit).map((o) => slimOffer(fitted(o), true));
+  const fitted = (o: ScoredOffer) => {
+    const opponent = opponentsById.get(o.team)!;
+    return { ...slimOffer(withFit({ ...o, team: opponent.name }, finder, fitCtx,
+      mineRows, opponent.rows, allRowsByKey), true), opponent_index: opponent.index };
+  };
+  const shownTrades = scored.slice(0, limit).map(fitted);
   const viableCount = scored.filter((o) => o.viable).length;
-  const packageOffers = pkg.offers.map((o) => slimOffer(fitted(o), true));
+  const packageOffers = pkg.offers.map(fitted);
 
-  const lines: string[] = [
-    ...header(data, s),
-    "",
-    `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}${shownTrades.length < limit && scored.length > shownTrades.length ? ` of limit ${limit}` : ""}.`,
-    `Your roster: ${mineRes.matched.length} matched, ${mineRes.unmatched.length} not found.`,
-  ];
-  if (nameNotes.length) lines.push(...nameNotes);
-  lines.push("");
-
-  if (packageOffers.length > 0) {
-    lines.push(`Package: ${packageOffers.length} trade${packageOffers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}.`);
-    packageOffers.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
+  return boundedTrades(shownTrades, "find_trades_league", limit, (shownTrades, shortened) => {
+    const lines: string[] = [
+      ...header(data, s),
+      "",
+      `League scan: ${opponents.length} opponent${opponents.length === 1 ? "" : "s"}, ${scored.length} candidate${scored.length === 1 ? "" : "s"} (${viableCount} viable), showing ${shownTrades.length}${shownTrades.length < limit && scored.length > shownTrades.length ? ` of limit ${limit}` : ""}.`,
+      `Your roster: ${mineRes.matched.length} matched, ${missed(mineRes)}.`,
+    ];
+    if (shortened) lines.push("Fewer candidates shown to keep this reply compact; the selected package and full fit reasons are preserved.");
+    if (nameNotes.length) lines.push(...nameNotes);
     lines.push("");
-  }
 
-  lines.push(shownTrades.length ? "Candidates:" : "");
-  shownTrades.forEach((o, i) => lines.push(tradeLine(i, o, o.team)));
-  if (!shownTrades.length) lines.push(viableOnly
-    ? "No viable trades found across the league."
-    : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
+    if (packageOffers.length > 0) {
+      lines.push(`Package: ${packageOffers.length} trade${packageOffers.length === 1 ? "" : "s"}, total edge +${pkg.totalDdfEdge.toFixed(1)}.`);
+      lines.push(...tradeLines(packageOffers, (o) => o.team as string));
+      lines.push("");
+    }
 
-  const structured = {
-    as_of: data.as_of,
-    setting: data.setting,
-    package: {
-      offers: packageOffers,
-      totalDdfEdge: round1(pkg.totalDdfEdge),
-      lineup: pkg.userLineupAfter.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue })),
-    },
-    trades: shownTrades,
-    total: scored.length,
-    shown: shownTrades.length,
-    limit,
-    viableCount,
-    perOpponent,
-    mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched },
-  };
+    lines.push(shownTrades.length ? "Candidates:" : "");
+    lines.push(...tradeLines(shownTrades, (o) => o.team as string));
+    if (!shownTrades.length) lines.push(viableOnly
+      ? "No viable trades found across the league."
+      : "No trades found where you gain DDF Value and the charts say the rival breaks even.");
 
-  const entry = (input: string, p: PlayerValue | null) =>
-    p ? { key: String(p.player_key), name: p.name } : { name: input };
-  const work = {
-    mine: mineNames.map((n: string) => entry(n, findPlayer(data.players, n))),
-  };
+    const structured = {
+      as_of: data.as_of,
+      setting: data.setting,
+      package: {
+        offers: packageOffers,
+        totalDdfEdge: round1(pkg.totalDdfEdge),
+        lineup: pkg.userLineupAfter.map((p) => ({ name: p.name, pos: p.pos, value: p.ddfValue })),
+      },
+      trades: shownTrades,
+      total: scored.length,
+      shown: shownTrades.length,
+      limit,
+      viableCount,
+      perOpponent,
+      mine: { matched: mineRes.matched.length, unmatched: mineRes.unmatched, ...ambiguousOf(mineRes) },
+    };
 
-  return finish(ok(lines.join("\n"), structured), {
-    prepared, deps, settings: s, view: "finder", work,
+    const entry = (input: string, p: PlayerValue | null) =>
+      p ? { key: String(p.player_key), name: p.name } : { name: input };
+    const work = {
+      mine: mineNames.map((n: string) => entry(n, findPlayer(data.players, n))),
+    };
+    // JEG-1329: the site link opens the league finder with every team, yours first, not only yours.
+    const teams = [{ name: "My team", keys: mineRes.matched.map((p) => String(p.player_key)) }]
+      .concat(leagueTeams);
+
+    return finish(ok(lines.join("\n"), structured), {
+      prepared, deps, settings: s, view: "finder", work, teams,
+    });
   });
 }
 
@@ -1072,7 +1521,7 @@ const EXPLANATIONS: Record<string, string> = {
   scoring_formats:
     "standard = no points per reception, half_ppr = 0.5, ppr = 1.0. PPR lifts high-target receivers and pass-catching backs; standard favors rushers and touchdown-dependent players.",
   superflex:
-    "Superflex adds a slot that takes a QB, which sharply raises QB values and shifts replacement levels. Charts that publish their own superflex values use them.",
+    "Superflex adds a slot that takes a QB, which sharply raises QB values and shifts replacement levels. Charts that publish their own superflex values use them, in a superflex league and in a league that starts 2 QBs (a pasted DDF state or site link whose roster has 2 QB slots). The 2-QB league keeps its own starter and waiver counts; only those charts' values change.",
   tiers:
     "Tier is where a player sits in the league: starter (fills a starting lineup slot), bench (worth rostering as depth) or waiver (replacement level, freely available). It is not a quality band, so two players in the same tier can have very different values; compare values, not tiers.",
   how_to_trade:
@@ -1090,12 +1539,40 @@ function explain(topic: string): ToolResult {
 type Entry = { key?: string; name?: string };
 const WORK_LISTS = ["give", "get", "mine", "theirs"];
 
-function resolveEntry(players: PlayerValue[], e: Entry): { input: string; player: PlayerValue | null; note: string } {
+interface ResolvedEntry {
+  input: string;
+  player: PlayerValue | null;
+  note: string;
+  /** The name match, kept so a miss can list its closest names without matching again; null for a key-only entry. */
+  hit: NameMatch<PlayerValue> | null;
+}
+
+function resolveEntry(players: PlayerValue[], e: Entry): ResolvedEntry {
   const byKey = e.key !== undefined ? players.find((p) => String(p.player_key) === e.key) ?? null : null;
-  if (byKey) return { input: e.name ?? e.key ?? "", player: byKey, note: "" };
-  if (!e.name) return { input: e.key ?? "", player: null, note: `${e.key ?? ""}: NOT FOUND` };
+  if (byKey) return { input: e.name ?? e.key ?? "", player: byKey, note: "", hit: null };
+  if (!e.name) return { input: e.key ?? "", player: null, note: `${e.key ?? ""}: NOT FOUND`, hit: null };
   const hit = matchName(players, e.name);
-  return { input: e.name, player: hit.match === "ambiguous" ? null : hit.player, note: hit.note };
+  return { input: e.name, player: hit.match === "ambiguous" ? null : hit.player, note: hit.note, hit };
+}
+
+/** JEG-1376: closest names are worked out for this many misspelled names at most; the rest are only named. */
+const MAX_CLOSEST_MISSES = 5;
+
+/**
+ * JEG-1376: the "Could not match" entries for read_state. An ambiguous name lists every player it
+ * fits, as compare_trade does; a misspelled name lists its closest names (for the first
+ * MAX_CLOSEST_MISSES only, since each one scans every player); a key-only entry is only named.
+ */
+function missLabels(players: PlayerValue[], misses: ResolvedEntry[]): string[] {
+  let scanned = 0;
+  return misses.map((miss) => {
+    if (!miss.hit) return miss.input;
+    if (miss.hit.match === "ambiguous") return `${miss.input} (could be ${miss.hit.suggestions.map((p) => p.name).join(", ")})`;
+    if (scanned >= MAX_CLOSEST_MISSES) return miss.input;
+    scanned++;
+    const near = closestNames(players, miss.input, miss.hit).map((p) => p.name);
+    return near.length ? `${miss.input} (closest: ${near.join(", ")})` : miss.input;
+  });
 }
 
 function inferView(work: Record<string, unknown>): string {
@@ -1115,30 +1592,38 @@ async function readState(args: Record<string, unknown>, fetchValues: FetchValues
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
   const work = (prepared.state.work ?? {}) as Record<string, unknown>;
 
-  const lists: Record<string, Array<{ input: string; player: PlayerValue | null }>> = {};
+  const lists: Record<string, Array<{ input: string; player: PlayerValue | null; note: string }>> = {};
   const resolvedWork: Record<string, unknown> = {};
   const unmatched: string[] = [];
+  const misses: ResolvedEntry[] = [];
   const lines: string[] = [...header(data, s), ""];
   for (const name of WORK_LISTS) {
     const list = work[name] as Entry[] | undefined;
     if (!list?.length) continue;
     const rows = list.map((e) => resolveEntry(data.players, e));
-    lists[name] = rows;
+    lists[name] = rows.map(({ input, player, note }) => ({ input, player, note }));
     resolvedWork[name] = rows.map((r, i) => r.player ? { key: String(r.player.player_key), name: r.player.name } : list[i]);
-    rows.filter((r) => !r.player).forEach((r) => unmatched.push(r.input));
+    rows.filter((r) => !r.player).forEach((r) => { unmatched.push(r.input); misses.push(r); });
+    // JEG-1124 (Jeremy 2026-10-30, "Letter A."): a name that matches no player gives no total.
+    const missing = rows.filter((r) => !r.player).length;
     const total = Math.round(rows.reduce((t, r) => t + (r.player?.value ?? 0), 0) * 10) / 10;
-    lines.push(`${name} (total ${total.toFixed(1)}):`);
+    lines.push(missing
+      ? `${name} (no total: ${missing} name${missing === 1 ? "" : "s"} not matched):`
+      : `${name} (total ${total.toFixed(1)}):`);
     lines.push(...rows.map((r) => r.player ? `  ${r.player.name} (${r.player.pos}): ${r.player.value}` : `  ${r.note || `${r.input}: NOT FOUND`}`));
   }
   if (work.target) {
     const r = resolveEntry(data.players, work.target as Entry);
-    lists.target = [r];
+    lists.target = [{ input: r.input, player: r.player, note: r.note }];
     resolvedWork.target = r.player ? { key: String(r.player.player_key), name: r.player.name } : work.target;
-    if (!r.player) unmatched.push(r.input);
+    if (!r.player) { unmatched.push(r.input); misses.push(r); }
     lines.push(`target: ${r.player ? `${r.player.name} (${r.player.pos}): ${r.player.value}` : (r.note || `${r.input}: NOT FOUND`)}`);
   }
   if (!Object.keys(lists).length) lines.push("The state carries league settings only, no players.");
-  if (unmatched.length) lines.push("", `Could not match: ${unmatched.join(", ")}. Ask the user to check the spelling.`);
+  // JEG-1376: name each unmatched player with its closest names, the way compare_trade does.
+  if (misses.length) {
+    lines.push("", `Could not match: ${missLabels(data.players, misses).join("; ")}. Ask the user which player they meant (or to check the spelling).`);
+  }
 
   const view = typeof work.view === "string" ? work.view : inferView(work);
   return finish(
@@ -1153,7 +1638,7 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
   const a = prepared.args;
   const s = settings(a);
   const data = await fetchValues(s.scoring, s.teams, s.superflex, s.league);
-  const names = (v: unknown) => splitNames(v);
+  const names = (v: unknown, field: string) => playerNames(v, field);
   const work: Record<string, unknown> = {};
   const unmatched: string[] = [];
   const toEntry = (input: string) => {
@@ -1165,10 +1650,10 @@ async function makeState(args: Record<string, unknown>, fetchValues: FetchValues
     return { key: String(hit.player.player_key), name: hit.player.name };
   };
   for (const name of WORK_LISTS) {
-    const list = names(a[name]);
+    const list = names(a[name], name);
     if (list.length) work[name] = list.map(toEntry);
   }
-  if (String(a.target ?? "").trim()) work.target = toEntry(String(a.target).trim());
+  if (String(a.target ?? "").trim()) work.target = toEntry(checkName(String(a.target).trim(), "target"));
   if (!Object.keys(work).length && !prepared.state) {
     throw new ToolInputError("Give at least one of give, get, mine, theirs or target, or a pasted state.");
   }
