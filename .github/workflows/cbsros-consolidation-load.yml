@@ -44,11 +44,12 @@ jobs:
       - name: Resolve mode and snapshot date
         id: cfg
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
           SUPABASE_BYTES_CALLER: cbsros-consolidation-load:cfg
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in load/cbsros-write-*) mode=write;; esac
-          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          if [ "$EVENT_MODE" = "write" ]; then mode=write; fi
           date=$(python3 -c "import json; print(json.load(open('data/fixtures/current/comparison-sources-data.json'))['sources']['cbsros']['vintage'])")
           echo "mode=$mode" >> $GITHUB_OUTPUT
           echo "date=$date" >> $GITHUB_OUTPUT

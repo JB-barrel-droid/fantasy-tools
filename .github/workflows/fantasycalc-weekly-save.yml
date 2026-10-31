@@ -56,11 +56,12 @@ jobs:
       - name: Resolve mode
         id: cfg
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
           SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:cfg
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in fcsave/write-*) mode=write;; esac
-          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          if [ "$EVENT_MODE" = "write" ]; then mode=write; fi
           # Content week (flips Tuesday): the calendar the import-health gate and
           # the rebuild chain use. The saver's own default (_common.nfl_week)
           # flips Thursday, so the week is always passed explicitly.

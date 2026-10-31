@@ -97,6 +97,17 @@ class RollupTest(unittest.TestCase):
                         self.assertEqual(rollup.main(), 1)
                     self.assertIn('Rollup stopped: ValueError', err.getvalue())
 
+    def test_shim_workflows_pass_event_inputs_through_env(self):
+        import re
+        paths = list((ROOT / '.github/workflows').glob('*.yml'))
+        self.assertTrue(paths)
+        for path in paths:
+            if 'pipelines/gh_sbclient.py' not in path.read_text():
+                continue
+            for job in yaml.safe_load(path.read_text())['jobs'].values():
+                for step in job.get('steps', []):
+                    self.assertIsNone(re.search(r'\$\{\{\s*github\.event\.inputs', step.get('run', '')), (path, step.get('name')))
+
     def test_shim_jobs_retain_artifacts(self):
         paths = list((ROOT / '.github/workflows').glob('*.yml'))
         self.assertTrue(paths, 'workflow glob must find the repo regardless of cwd')

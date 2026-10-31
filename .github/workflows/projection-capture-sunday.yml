@@ -48,13 +48,14 @@ jobs:
       # espn-weekly-store.yml, which also goes red before kickoff if a copy is still missing.
       - name: Pull CBS and Razzball, then capture
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
           SUPABASE_BYTES_CALLER: projection-capture-sunday:pull-cbs-and-razzball-then-capture
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           set -o pipefail
           flag="--dry-run"
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          [ "$EVENT_MODE" = "write" ] && flag=""
           attempt=1
           until python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot &&
                 python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball &&

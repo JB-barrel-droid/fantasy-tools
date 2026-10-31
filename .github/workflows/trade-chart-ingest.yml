@@ -80,21 +80,26 @@ jobs:
 
       - name: Resolve mode
         id: cfg
+        env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          EVENT_SOURCE: ${{ github.event.inputs.source }}
+          EVENT_WEEK: ${{ github.event.inputs.week }}
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in ingest/write-*) mode=write;; esac
-          [ "${{ github.event.inputs.mode }}" = "write" ] && mode=write
-          want="${{ github.event.inputs.source }}"
+          [ "$EVENT_MODE" = "write" ] && mode=write
+          want="$EVENT_SOURCE"
           run=true
           if [ -n "$want" ] && [ "$want" != "both" ] && [ "$want" != "${{ matrix.source }}" ]; then run=false; fi
           echo "mode=$mode" >> $GITHUB_OUTPUT
           echo "run=$run" >> $GITHUB_OUTPUT
-          echo "::notice title=ingest ${{ matrix.source }}::mode=$mode run=$run week=${{ github.event.inputs.week }}"
+          echo "::notice title=ingest ${{ matrix.source }}::mode=$mode run=$run week=$EVENT_WEEK"
 
       - name: Ingest
         id: ingest
         if: steps.cfg.outputs.run == 'true'
         env:
+          EVENT_WEEK: ${{ github.event.inputs.week }}
           SUPABASE_BYTES_CALLER: trade-chart-ingest:ingest
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -106,15 +111,15 @@ jobs:
           INPUT_URL: ${{ github.event.inputs.url }}
           INPUT_SOURCE: ${{ github.event.inputs.source }}
         run: |
-          args=""
-          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args="--dry-run"
-          [ -n "${{ github.event.inputs.week }}" ] && args="$args --week ${{ github.event.inputs.week }}"
+          args=()
+          [ "${{ steps.cfg.outputs.mode }}" = "write" ] || args+=(--dry-run)
+          [ -n "$EVENT_WEEK" ] && args+=(--week "$EVENT_WEEK")
           if [ -n "$INPUT_URL" ]; then
             # One article belongs to one source: refuse a url with source=both.
             if [ "$INPUT_SOURCE" != "${{ matrix.source }}" ]; then
               echo "::error::url input needs source=cbs, usatoday or fantasypros (got '$INPUT_SOURCE')"; exit 1
             fi
-            args="$args --url $INPUT_URL"
+            args+=(--url "$INPUT_URL")
           fi
           # Actions logs can't be downloaded through every proxy, so the
           # outcome is surfaced as check-run annotations (readable via
@@ -124,9 +129,9 @@ jobs:
           if [ "${{ matrix.source }}" = fantasypros ]; then
             # Saver inputs (CSV + fetch log) go to a scratch goal dir.
             export FANTASY_GOAL_DIR="$RUNNER_TEMP/fpgoal"
-            python3 ops/watchdog/pull_fantasypros.py --save $args > /tmp/ingest.log 2>&1 || rc=$?
+            python3 ops/watchdog/pull_fantasypros.py --save "${args[@]}" > /tmp/ingest.log 2>&1 || rc=$?
           else
-            python3 ops/watchdog/ingest_${{ matrix.source }}.py $args > /tmp/ingest.log 2>&1 || rc=$?
+            python3 ops/watchdog/ingest_${{ matrix.source }}.py "${args[@]}" > /tmp/ingest.log 2>&1 || rc=$?
           fi
           cat /tmp/ingest.log
           level=notice; [ "$rc" = 0 ] || level=error

@@ -53,10 +53,12 @@ jobs:
 
       - name: Resolve mode
         id: cfg
+        env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in draftsharks/write-*) mode=write;; esac
-          [ "${{ github.event.inputs.mode }}" = "write" ] && mode=write
+          [ "$EVENT_MODE" = "write" ] && mode=write
           echo "mode=$mode" >> $GITHUB_OUTPUT
           echo "::notice title=draftsharks::mode=$mode"
 

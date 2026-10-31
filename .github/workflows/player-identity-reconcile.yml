@@ -49,12 +49,13 @@ jobs:
 
       - name: Reconcile
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
           SUPABASE_BYTES_CALLER: player-identity-reconcile:reconcile
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           flag=""
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag="--write"
+          [ "$EVENT_MODE" = "write" ] && flag="--write"
           rc=0
           python3 pipelines/reconcile_player_identity.py $flag > /tmp/reconcile.log 2>&1 || rc=$?
           cat /tmp/reconcile.log
