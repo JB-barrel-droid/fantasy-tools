@@ -73,7 +73,7 @@ class SelectionTests(unittest.TestCase):
     def test_user_marker_does_not_authorize_close(self):
         comment = self.warning(15)
         comment['user'] = {'login':'untrusted', 'type':'User'}
-        self.assertEqual(self.choose([comment])['action'], 'warn')
+        self.assertIsNone(self.choose([comment]))
 
 if __name__ == '__main__':
     unittest.main()
