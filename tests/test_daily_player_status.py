@@ -105,14 +105,14 @@ assert.equal(W.statusOf({...row,sleeper_id:'3',team:'LA'},fresh),'IR');
 assert.equal(W.injuryNote([], {starters:[row]}, {pos:'WR'}, fresh),null);
 assert.equal(JSON.stringify(row),before);
 assert(fresh.label.includes('Oct 30, 13:10 UTC'));
-assert(W.statusFreshness(daily,now+30*hour).shown);
-assert(!W.statusFreshness(daily,now+30*hour+1).shown);
+assert(W.statusFreshness(daily,now+(5*24+23)*hour).shown);
+assert(!W.statusFreshness(daily,now+6*24*hour+60000).shown);
 assert(!W.statusFreshness(daily,now-1).shown);
 assert(!W.statusFreshness({...daily,as_of:null},now).shown);
 const sun = {...daily,as_of:'2026-11-01T16:30:00Z'};
-assert(W.statusFreshness(sun,Date.parse(sun.as_of)+4*hour).shown);
-assert(!W.statusFreshness(sun,Date.parse(sun.as_of)+4*hour+1).shown);
-assert.equal(W.statusOf(row,W.statusFreshness(daily,now+31*hour)),null);
+assert(W.statusFreshness(sun,Date.parse('2026-11-01T21:05:00Z')).shown);
+assert(W.statusFreshness(sun,Date.parse(sun.as_of)+6*24*hour).shown);
+assert.equal(W.statusOf(row,W.statusFreshness(daily,now+6*24*hour+60000)),null);
 """
         subprocess.run(["node", "-e", script], cwd=ROOT, check=True, capture_output=True, text=True)
 
@@ -122,6 +122,22 @@ assert.equal(W.statusOf(row,W.statusFreshness(daily,now+31*hour)),null);
         workflow = (ROOT / ".github/workflows/player-status-history.yml").read_text()
         steps = workflow.split("      - ")
         status = next(s for s in steps if "id: status\n" in s)
+        history = next(s for s in steps if "id: history\n" in s)
+        install = next(s for s in steps if s.startswith("name: Install standalone"))
+        self.assertIn("if: ${{ !cancelled() }}", history)
+        self.assertIn("if: ${{ !cancelled() }}", install)
+        script = history.split("        run: |\n", 1)[1]
+        script = "\n".join(line[10:] for line in script.splitlines())
+        with tempfile.TemporaryDirectory() as tmp:
+            cache = Path(tmp) / "shared.json"
+            for exists in (False, True):
+                if exists:
+                    cache.write_text("{}")
+                run_script = script.replace("/tmp/sleeper-status-raw.json", str(cache)).replace("${{ github.event.inputs.mode }}", "dry")
+                stub = 'python3() { printf "%s\\n" "$@" > "' + tmp + '/args"; }; export GITHUB_STEP_SUMMARY="' + tmp + '/summary";\n'
+                subprocess.run(["bash", "-c", stub + run_script], check=True, capture_output=True)
+                args = (Path(tmp) / "args").read_text()
+                self.assertEqual("--from-file" in args, exists)
         publish = next(s for s in steps if "id: publish\n" in s)
         self.assertIn("pull_player_status.py", status)
         self.assertNotIn("SUPABASE", str(status))

@@ -16,7 +16,7 @@
 //
 // Injury status comes from the daily Sleeper id map (window.TradeValueStatus, player-status.js, JEG-1363), under
 // the Waivers tab's own rule (TradeValueWaivers.statusFreshness / statusOf): shown only when dated and at most
-// 30 hours old (4 on Sunday, America/Chicago). A stale or undated copy shows no chip on any row and says why on the bye's hover. A
+// 6 days old (the shared Waivers rule, including Sunday). A stale or undated copy shows no chip on any row and says why on the bye's hover. A
 // chip only for a player on an NFL team; no chip means no status in the source, never "healthy".
 (function (root) {
   "use strict";

@@ -18,8 +18,8 @@
   const NET_FLOOR = 0.05;            // a change that shows as 0.0 is no change (same floor as finder.js)
   const OUT_STATUS = ["Out", "Doubtful", "IR", "PUP"];
   // JEG-1363: daily display status is separate from the identity/value bake (window.TradeValueStatus).
-  // The old dated-row API retains its 6-day rule for compatibility. The built
-  // daily id map uses 30 hours (4 on Sunday), checked again on every render.
+  // Both dated rows and the daily id map use the Waivers six-day rule
+  // (JEG-892 / JEG-1401), checked again on every render.
   const STATUS_MAX_AGE_DAYS = 6;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const statusDay = ms => new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"}).format(new Date(ms));
@@ -32,15 +32,11 @@
     const ageDays = Math.max(0, (nowMs - at) / DAY_MS);
     const day = statusDay(at);
     const daily = status.by_sleeper_id;
-    // The existing daily 13:10 UTC + Sunday 16:30 UTC refresh: 30 hours on
-    // ordinary days, 4 hours on Sunday (America/Chicago). No clock-future copy.
-    const sunday = new Intl.DateTimeFormat("en-US", {weekday: "short", timeZone: "America/Chicago"}).format(new Date(nowMs)) === "Sun";
-    const maxAgeDays = daily ? (sunday ? 4 : 30) / 24 : STATUS_MAX_AGE_DAYS;
-    if (at > nowMs || ageDays > maxAgeDays) {
+    // Future-dated and undated observations are never shown.
+    if (at > nowMs || ageDays > STATUS_MAX_AGE_DAYS) {
       const old = Math.floor(ageDays);
       return {shown: false, asOf: status.as_of, ageDays, label: null,
-        text: daily ? `Injury status is not shown: the Sleeper copy from ${status.as_of} is outside the ${sunday ? 4 : 30}-hour freshness window.`
-          : `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
+        text: `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
     }
     const dated = daily ? `${day}, ${new Date(at).toISOString().slice(11, 16)} UTC` : day;
     return {shown: true, asOf: status.as_of, ageDays, bySleeperId: daily,

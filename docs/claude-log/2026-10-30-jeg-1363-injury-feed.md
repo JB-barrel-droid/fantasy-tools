@@ -92,3 +92,25 @@ only; no deployment, database writes/migrations, settings or secret changes.
   the existing scheduler to run. Neither was triggered in this session.
 - Independent Claude review remains required before merge; this session
   neither merges nor deploys.
+
+## Review corrections — JEG-1401 / JEG-1402
+
+### Verified
+- Restored the shared six-day Waivers rule for the daily map, superseding
+  this entry's earlier 30-hour/Sunday-four-hour policy. Regression cases show
+  Sunday's 16:30 UTC copy at 21:05 UTC and a 5-day-23-hour copy; six days plus
+  one minute is hidden. Future/undated copies and missing-status suppression
+  remain covered.
+- History setup and collection run unless cancelled; a missing shared file
+  omits --from-file so the saver performs its own pull. A shell-stub test
+  exercises both cache branches without database access. The no-rebase push
+  has an explanatory comment preserving the repository's no-rebase rule.
+- Requested unit modules (waivers_status, player_flags, daily_player_status,
+  timestamps): 30 tests pass. Both updated regressions reject the prior head.
+  actionlint passes for player-status-history.yml.
+- tests.test_v2_contract_render: six tests pass with RENDER_TESTS_REQUIRED=1
+  and installed Chrome. Locked v2.js/shell.html and value math are unchanged.
+
+### Claimed, not confirmed
+- Production scheduling/history writes remain untested; no Supabase writes,
+  merge, deploy or credential changes were performed.

@@ -183,7 +183,7 @@ class StatusChipTest(unittest.TestCase):
         self.assertEqual(out[0]["chip"]["title"], "Questionable: Sleeper status as of Oct 30, 22:44 UTC")
         self.assertIsNone(out[1]["chip"])
         self.assertIsNone(out[2]["chip"])
-        out = run(STATUS_NODES, {**payload, "now": now + 31 * 3600 * 1000}, self.path)
+        out = run(STATUS_NODES, {**payload, "now": now + (6 * 24 * 60 + 1) * 60 * 1000}, self.path)
         self.assertTrue(all(x["chip"] is None for x in out))
 
     def test_fresh_copy_shows_a_dated_chip_only_for_team_players_with_a_status(self):

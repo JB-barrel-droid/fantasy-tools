@@ -2,7 +2,7 @@
 
 Historically the rows' injury_status came from the Sleeper identity bake. When that refresh stopped, the tab could
 not print "Your Rex RunOne is Out" from the Oct 9 copy. These cases preserve that older dated-row API's contract;
-JEG-1363's built page uses the daily id map and stricter expiry (tests.test_daily_player_status).
+JEG-1363's built page uses the daily id map and shared six-day expiry (tests.test_daily_player_status).
 
   * statusFreshness(window.TradeValueStatus, now): shown only when the copy has a date and is at most
     STATUS_MAX_AGE_DAYS (6) old, with "Sleeper status as of <day>"; otherwise hidden, with the date and age said;
@@ -141,7 +141,7 @@ class TestWaiversStatus(unittest.TestCase):
     def test_checks_fail_on_broken_builds(self):
         source = WAIVERS_JS.read_text(encoding="utf-8")
         breaks = {
-            "no age limit": ("if (at > nowMs || ageDays > maxAgeDays) {", "if (false) {"),
+            "no age limit": ("if (at > nowMs || ageDays > STATUS_MAX_AGE_DAYS) {", "if (false) {"),
             # injuryNote now uses statusOf too; removing its redundant early
             # guard is harmless. Break the positive control instead.
             "fresh note omitted": ("const hurt = lineup.starters.find", "const hurt = [].find"),
