@@ -15,6 +15,8 @@ Contract: in a league with 2+ dedicated QB slots and no superflex slot, the QB s
 
 - Delta review PASS on 6f7d117d (receipt on #1236). Its two leftovers fixed next: the spec computed-share test now pins the recomputed bench share (fails with the recompute removed), and the connector copy says QBs are "usually" worth more than in superflex (8-team PPR is the one fixture setting where they are not).
 
+- Codex review on 88f59086 (P1): the values explainer's "DDF weights = the average" step now states the 2-QB exception (both the expected-starts and fixed bench-share versions, `app/values-explainer/template.html`). `reviewed.json` was left as on main: on origin/main all five logic files already differ from its hashes (earlier merges), so marking them reviewed here would also sign off changes this PR did not check, and the builder needs Playwright, which this session lacks.
+
 ### Claimed, not confirmed
 - `value_check compare --rerun-engine` and the page at QB 2 need Playwright, which this cloud session lacks; they run in CI.
 - The connector changes once Pages serves the new `value-model.js` (get-values loads it from the site); no edge redeploy is needed for the values, but none was checked live.
