@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-10-31T05:02:16.696759+00:00",
+  "run_at": "2026-10-31T16:53:08.114967+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -14,25 +14,20 @@
   "success": true,
   "outcome": "published_with_holds",
   "held": [
-    "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper"
+    ]
+  },
   "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; WR: 1 players listed with another position in the cell (kept as WR",
-      "hold_severity": "amber",
-      "week": 8
-    },
     "razzball": {
       "reason": "fidelity: publisher_vs_stored",
       "held_series": [
@@ -62,10 +57,17 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 62 -> 63: dropped none; added marshawn lloyd",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 74: dropped cooper kupp; added darius cooper"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -97,7 +99,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-30 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-31 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -146,7 +148,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-30",
+      "content_vintage": "2026-10-31",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -173,7 +175,7 @@
     "cbsros": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-30",
+      "published_at": "2026-10-31",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -195,7 +197,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-31T00:06:19+00:00",
+      "published_at": "2026-10-31T14:05:26+00:00",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -241,7 +243,6 @@
   "lagging_sources": [],
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
   "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
   }
 }
