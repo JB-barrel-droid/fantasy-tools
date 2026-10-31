@@ -1,0 +1,12 @@
+[
+  {
+    "test_id": "tests.test_v2_advanced_render.AdvancedRenderTest.test_readout_advanced_and_links",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "7358589cd23d73f19dff179cad4b3222cce2363c",
+    "ticket": "JEG-1394",
+    "reason": "Advanced handlers retain an orphaned draft.adv object; v2BenchSlider is null. Main reproduction recorded on JEG-1394; fix is pending in draft PR #1240. CI scope is not confirmed.",
+    "signature": "Cannot set properties of null (setting 'value')"
+  }
+]

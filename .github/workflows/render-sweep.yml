@@ -25,6 +25,11 @@ concurrency:
   group: render-sweep
   cancel-in-progress: false
 
+# JEG-1450: wrap make without changing gate commands or exit statuses.
+env:
+  BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
+  BASELINE_RED_CONTEXT: "daily sweep"
+
 jobs:
   render-sweep:
     name: Render sweep shard ${{ matrix.shard }} of 3
