@@ -29,21 +29,28 @@ down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
 label and Codex release notes in `HANDOFF.md` are history. This section wins
 over older review or merge text in this file and in `HANDOFF.md`.
 
-- **One independent review per PR.** It comes from a Claude session that did
-  not write the PR. The author's own check doesn't count, and nobody reviews
-  the same head twice (Jeremy, 2026-10-28). The review receipt names the exact
-  head it passed. If the head changes after that, the new commits get a delta
-  review only. A Codex pass on a PR's exact current head, made before the
-  handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
+- **One independent review per PR.** Outside a usage crunch, it comes from a
+  Claude session that did not write the PR. The author's own check doesn't
+  count, and nobody reviews the same head twice (Jeremy, 2026-10-28). Changes to this file, `CLAUDE.md`
+  or permissions are never `review-exempt`. Review capability and effort are
+  selected by risk under the policy below; review and merge ownership stays
+  as specified here. A Codex pass on a PR's exact current head, made before
+  the handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
   During a usage crunch (any week the Claude pool is on pace to run out
   before its reset; JEG-1444 decision 10), a Codex review on the exact
   current head of a `review-light` or `review-standard` PR counts as its one
   review. `review-high-risk` PRs still need a Claude reviewer (Jeremy's pick
   A, 2026-10-31 10:42 UTC).
-  Label the risk: `review-light` (docs, copy), `review-standard` (features,
-  UX, tests) or `review-high-risk` (value math, identity, persistence, shared
-  context). Changes to this file, `CLAUDE.md` or permissions are never
-  `review-exempt`.
+- **Checks before review (JEG-1435 / JEG-1444).** Run deterministic checks
+  (`make validate`, then `gh pr checks <number>`) first. No review job starts
+  until the fix head is pushed and the PR's CI is green on that exact head.
+  A job diagnosing a red CI run is diagnosis, not a review, and is not subject
+  to this green-CI prerequisite.
+- **Current-head receipt.** The review receipt names its exact head. A review
+  counts and can pass a PR only if that head equals the PR head at merge.
+  Discard an older-head review and log it as waste. After a push, review the
+  new commits as a delta against the previously reviewed head, applying the
+  same CI and risk gates, and issue a receipt for the new head.
 - **Corrections.** A substantial review finding becomes one child ticket with
   the same owner, branch and PR. The owner acknowledges each finding and
   returns a corrected head with a test that fails before and passes after. A
@@ -87,11 +94,11 @@ current model in the lane.
 
 | Tier | Claude subscription | ChatGPT subscription | OpenRouter / MiniMax | Use for |
 | -- | -- | -- | -- | -- |
-| **T1 deep** | Opus / Fable, high effort (`deep-worker`) | top GPT / Codex, high reasoning | not allowed | Engine and value math, methodology, any bug with unknown root cause, design, final review of T2/T3 output, every merge and deploy |
+| **T1 deep** | Opus / Fable, high effort (`deep-worker`) | top GPT / Codex, high reasoning | not allowed | Engine and value math, methodology, any bug with unknown root cause, design, high-risk review, every merge and deploy |
 | **T2 build** | Sonnet (`worker`) | Codex, medium | a strong open model (checked per task) | Implementation against a written spec: pullers, pipeline stages, migrations, FE built to a contract line, tests. Escalate to T1 after 2 failed gate runs |
-| **T3 light** | Haiku | small GPT | cheap OpenRouter models (e.g. DeepSeek); **MiniMax M3 only** (Jeremy 2026-10-09: 2.5 is out) | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
+| **T3 light** | Haiku | small GPT | cheap OpenRouter models for deterministically checked bounded tasks; MiniMax excluded from autonomous coding | Copy edits, doc moves, research sweeps, scraping and capture, triage, repo hygiene, first drafts |
 
-The ChatGPT/Codex column is inactive since Codex stopped on 2026-10-29
+The ChatGPT/Codex column applies to explicitly authorized bridge build work
 (review and merge protocol above).
 
 Rules:
@@ -108,21 +115,64 @@ Rules:
    identity, edits fixtures, or touches `config/` values.
 4. A ticket that says T2 but needs a judgement call on the numbers is really
    T1: say so in its brief.
-5. Reviews of T2/T3 work are T1, and are a different model from the author
-   where possible.
+5. Reviews of T2/T3 work follow the review risk tiers below, not the author's
+   implementation tier. The reviewer is independent of the author; use a
+   different model where possible within the required capability.
+
+### Review risk tiers (JEG-1435, charter JEG-1444 decision 9)
+
+The coordinator, never the PR author, sets the risk label before review.
+Choose the capability by risk, independently of the implementation tier or
+provider. A cutover changes the current model mapping below, not these tier
+contracts; existing reviewer ownership, approval, merge and deploy controls
+remain in force.
+
+| Tier | Required capability |
+| --- | --- |
+| `review-high-risk` | Deep reasoning about value math, identity, persistence, shared context and test integrity; trace cross-language invariants and consequential failures. |
+| `review-standard` | Independently verify feature, UX and test behavior against the spec, including failure paths. |
+| `review-light` | Independently check bounded docs and copy changes for accuracy and consistency. |
+| delta | Review only changes since the previous reviewed head while checking their interaction with it; inherit the PR's risk floor. Small deltas may use standard capability only when no high-risk trigger applies. |
+
+Current model mapping (change this table when provider capability changes):
+
+| Work | Model / effort |
+| --- | --- |
+| `review-high-risk`, value math and design | Opus / high |
+| `review-light`, `review-standard`, small delta reviews without high-risk triggers | Sonnet / medium |
+| During a usage crunch: `review-light`, `review-standard`, small delta reviews without high-risk triggers | Codex on the exact current head; `review-high-risk` keeps Claude |
+
+**Deterministic high-risk floor.** Before dispatch, inspect the PR's changed
+file list and diff, not a model's classification. Force `review-high-risk`
+for any hot file in **Hot files and merging** below, value-math logic files
+(the existing `LOGIC_FILES` list in `pipelines/build_values_explainer.py`,
+referenced under **Values explainer**), or any path matching these existing
+repo globs (recursive): `tests/fixtures/**`, `config/**`, `supabase/**`, or
+`sql/**` (including `sql/migrations/**`).
+Also force it for any diff that removes or weakens test assertions or skips
+tests, regardless of the label or whether the diff claims to preserve values.
+These checks override a light or standard label and apply to deltas too.
+
+A light or standard reviewer that discovers high-risk content stops and hands
+its findings and head to the high-risk tier. That handoff is the one review,
+not a second review. Do not run paired standard/high-risk shadow reviews.
+Log the provider, model and reason for escalation; do not silently fall back.
+Use corrections and reopens within 7 days as the escaped-defect guardrail.
 
 ### Routing
 
 | Work type | Route |
 | --- | --- |
 | PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
-| Review, integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
+| Review | Claude sessions, capability selected by review risk tier above; during a usage crunch, Codex may review `review-light` and `review-standard` PRs |
+| Integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
 
-- **Cheap runs.** DeepSeek through OpenRouter, and MiniMax M3 until the plan
-  ends about 2026-10-31, do tests, CSS, copy and small features (Jeremy,
-  2026-10-26, in chat). This lifts "MiniMax is not used" (JEG-584, closed
-  2026-10-12) for that window only. Rules 2 and 3 apply: draft PR, Claude review.
+- **Cheap runs (JEG-1435).** Cheap models are limited to bounded tasks
+  whose errors a deterministic check catches, such as extraction,
+  classification or summarization with checkable outputs. MiniMax stays out
+  of autonomous coding. This supersedes the earlier temporary cheap-coding
+  window; rules 2 and 3 still apply.
 - **Muse (Roman)** works here only as a last resort when Jeremy asks (the
   `muse` label was retired on 2026-10-27; see `HANDOFF.md` "Working with
   Muse"). It works on `muse/jeg-<id>-<slug>` branches, merges main in (never
@@ -130,13 +180,14 @@ Rules:
   untrusted input until it passes the repo pipeline. Muse never
   resolves player identity, edits fixtures, triages `review_rows`, pushes to
   `main`, merges or closes PRs, or closes Linear issues.
-- **MiniMax: M3 or newer only, for the managed agent's bulk work** (Jeremy,
+- **MiniMax: M3 or newer only, for bulk non-coding work** (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
-  more recent one Minimax added to the subscription"). Earlier rule (2026-10-09:
-  "I only want to use M3 if we use it. 2.5 stinks.") still holds: never M2.5,
-  never value math, output untrusted until the gate passes. The lanes/outbox
-  dispatch protocol was archived 2026-10-07 (`archive/2026-10-07/lanes/`).
-  `lanes/protocol.py` and `lanes/plan_status.py` stay only for existing tests.
+  more recent one Minimax added to the subscription"). Never autonomous
+  coding, never value math; output is untrusted until the gate passes.
+  The earlier rule (2026-10-09: "I only want to use M3 if we use it. 2.5
+  stinks.") still holds: never M2.5. The lanes/outbox dispatch protocol was
+  archived 2026-10-07 (`archive/2026-10-07/lanes/`); `lanes/protocol.py` and
+  `lanes/plan_status.py` stay only for existing tests.
 - **Supabase first** for schedules, checks and orchestration (pg_cron, Edge
   Functions, the `monitoring` schema). GitHub Actions does the site build,
   deploy and repo tests; pg_cron schedules any job that must run in Actions.
