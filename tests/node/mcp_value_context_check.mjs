@@ -15,7 +15,7 @@ import {
   valueContextLine, valueContextRefusal,
 } from "../../supabase/functions/mcp/value-context.ts";
 import { readValuesResponse, requestValuesWith } from "../../supabase/functions/mcp/values-client.ts";
-import { ToolInputError } from "../../supabase/functions/mcp/tools.ts";
+import { checkTradeReplySize, ToolInputError } from "../../supabase/functions/mcp/tools.ts";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const dist = resolve(process.argv[2] || join(ROOT, "dist"));
@@ -41,6 +41,11 @@ assert.equal(askedValueContext({}), null);
 // Pasted with punctuation, escaped ampersands, or beside another URL (review of #1219).
 assert.equal(linkValueContext(`[open](${ORIGIN}/#compare-trade?give=1&basis=fantasycalc)`).basis, "fantasycalc", "a markdown link's )");
 assert.equal(linkValueContext(`See ${ORIGIN}/#compare-trade?give=1&ov=1%3A58.`).ov, "1:58", "a sentence's full stop");
+const MARKED = `${ORIGIN}/#find-trade?mine=1&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`;
+for (const [pasted, label] of [[`[${MARKED}](${MARKED})`, "markdown [url](url)"], [`<${MARKED}|the link>`, "Slack <url|text>"],
+  [`"${MARKED}"`, "quoted"]]) {
+  assert.deepEqual(linkValueContext(pasted), { basis: "blend:espn.60_razzball.40", ov: "202:+5", complete: true }, label);
+}
 assert.equal(linkValueContext(`${ORIGIN}/#compare-trade?give=1&amp;valuecontext=1&amp;ov=1%3A58`).ov, "1:58", "&amp;");
 assert.equal(linkValueContext(`https://other.test/x?ov=9:1 then ${ORIGIN}/#find-trade?mine=1&valuecontext=1&ov=1%3A58`).ov,
   "1:58", "the site's marked query wins over another URL's ov=");
@@ -167,6 +172,22 @@ assert.ok(!r.result.isError, `2,000 overrides: ${text(r)}`);
 assert.equal(r.result.structuredContent.value_context.overrides_not_priced_count, 2000);
 assert.equal(r.result.structuredContent.value_context.overrides_not_priced.length, 25);
 assert.match(text(r), /2000 overrides for players with no value this week left out/);
+
+// The value context is added after a trade reply's rows are trimmed to its budget, so it never turns a reply that
+// fit into "too large" (review of #1219): the final size check leaves it out like the site link.
+const fitted = { content: [{ type: "text", text: `Settings: ppr, 12 teams\n${"x".repeat(6000)}` }],
+  structuredContent: { limit: 10, site_url: `${ORIGIN}/#find-trade?mine=1` } };
+checkTradeReplySize("find_trades", fitted);
+const withContextLine = { ...fitted, content: [{ type: "text", text: fitted.content[0].text.replace("Settings: ppr, 12 teams",
+  `Settings: ppr, 12 teams\nValues: priced under the link's basis a blend of espn 60%, razzball 40%, ${"y".repeat(400)}.`) }],
+  structuredContent: { ...fitted.structuredContent, value_context: { basis: "blend:espn.60_razzball.40",
+    overrides_not_priced: Array.from({ length: 25 }, (_, i) => 100000 + i), overrides_not_priced_count: 900 } } };
+checkTradeReplySize("find_trades", withContextLine);
+assert.throws(() => checkTradeReplySize("find_trades", { ...fitted, content: [{ type: "text", text: "z".repeat(7000) }] }),
+  /too large/, "the budget itself still holds");
+// A tool that prices nothing (explain) gets no value context on its link.
+r = await call("explain", { topic: "methodology", state: LINK });
+assert.ok(!/valuecontext=/.test(JSON.stringify(r.result)), "explain's link is left alone");
 
 // The league finder and the analyses send it too.
 r = await call("find_trades_league", { mine: "Bijan Robinson, Josh Allen",

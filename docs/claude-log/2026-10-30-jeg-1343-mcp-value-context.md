@@ -28,6 +28,15 @@ Independent review (before ready), fixed in the second commit:
 - The chart cache is bounded like the values cache, since its key now carries link text.
 - Tests now cover find_trades_league, risers_fallers, audit_values and compare_trade by_source too.
 
+Current-head review (5afa2de, after the 6 PM CT main merge), fixed in the next commit:
+- A link pasted as markdown `[url](url)` or Slack `<url|text>` ran its last value into the next URL and was
+  refused; a value now stops at brackets, pipes and quotes.
+- The value context could push a trimmed find_trades reply over its budget; the final size check leaves the
+  "Values:" line and `value_context` out, like the site link.
+- explain's bare site link no longer picks up the link's parameters.
+- Decided and documented: an unmarked older link comes back marked, so the site opens on the values the chat
+  priced rather than merging them into the reader's own (JEG-1224 O1L).
+
 Left alone, noted:
 - The site's `#trade-targets` path (DDFAssist) still doesn't apply a link's value context (S2 in the
   JEG-1224 README). A site gap, not this ticket.

@@ -167,7 +167,14 @@ the fallback, part of the basis, or part of the overrides:
   site applies a link's values only on Find a trade, league links and key-only
   Compare links, so on other views (Trade targets, Risers & fallers, values
   auditing) the "Values:" line says the link opens on the default values and
-  `site_applies_value_context` is false (JEG-1224 S1, S2). Tests:
+  `site_applies_value_context` is false (JEG-1224 S1, S2). An unmarked older
+  link (`basis=`/`ov=` with no `valuecontext=1`) comes back marked: the chat
+  priced the link's values alone, and the marker makes the site open on those
+  same values instead of merging them into the reader's saved ones (JEG-1224
+  O1L). Tools that price nothing (explain) leave their link alone. A trade
+  reply's size budget leaves the "Values:" line and `value_context` out of its
+  measure, like the site link, since they are added after the rows are fitted.
+  Tests:
   `tests/node/mcp_value_context_check.mjs` (stub get-values, then the real
   handler on the built `dist/`), and M1-M3 in `tests/jeg-1224/`.
 - Not yet: `docs/get-values.openapi.yaml`, which ships with Pages and so

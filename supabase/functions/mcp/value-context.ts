@@ -36,10 +36,11 @@ export function linkValueContext(text: unknown): (ValueContextText & { complete:
   // A link pasted from a page or a mail can come with its ampersands escaped.
   const src = String(text ?? "").replace(/&amp;/gi, "&");
   let first: (ValueContextText & { complete: boolean }) | null = null;
-  for (const m of src.matchAll(/[?#&]((?:[A-Za-z0-9_]+=[^\s&#]*&?)+)/g)) {
-    // Punctuation the link was pasted with: a markdown link's ")", a sentence's "." and the like. No basis or
-    // ov value ends in one (sources, whole numbers, base64url).
-    const query = m[1].replace(/[).,;:!?\]>'"]+$/, "");
+  // A value stops at the brackets, pipes and quotes a link is pasted in (markdown [text](url), [url](url), Slack
+  // <url|text>); none of them is in a basis or ov value (sources, numbers, ":+-,._", base64url).
+  for (const m of src.matchAll(/[?#&]((?:[A-Za-z0-9_]+=[^\s&#\[\]()<>|"']*&?)+)/g)) {
+    // A sentence's punctuation after the link ("...ov=1%3A58.").
+    const query = m[1].replace(/[.,;:!?]+$/, "");
     let params: URLSearchParams;
     try {
       params = new URLSearchParams(query);

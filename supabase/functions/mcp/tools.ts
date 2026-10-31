@@ -576,10 +576,16 @@ const bytes = (result: ToolResult) => new TextEncoder().encode(JSON.stringify(re
 // full list on the site, and a league link grows with every team it carries, so counting it would cost
 // trade rows. Measured as the reply with the link left out of the text and site_url.
 const budgetBytes = (result: ToolResult) => {
-  const url = result.structuredContent?.site_url;
-  if (typeof url !== "string" || !url) return bytes(result);
-  return bytes({ ...result, content: result.content.map((c) => ({ ...c, text: c.text.split(url).join("") })),
-    structuredContent: { ...result.structuredContent, site_url: "" } });
+  // JEG-1343: a pasted link's value context (its "Values:" line and value_context) is added after the rows are
+  // trimmed to fit, so it is left out of the measure like the site link, and never turns trimmed rows into an error.
+  const { value_context: _valueContext, ...structured } = result.structuredContent ?? {};
+  const url = structured.site_url;
+  const strip = (text: string) => {
+    const kept = text.split("\n").filter((line) => !line.startsWith("Values: ")).join("\n");
+    return typeof url === "string" && url ? kept.split(url).join("") : kept;
+  };
+  return bytes({ ...result, content: result.content.map((c) => ({ ...c, text: strip(c.text) })),
+    structuredContent: typeof url === "string" && url ? { ...structured, site_url: "" } : structured });
 };
 const tradeBudget = (name: string, limit: number) => name === "find_trades"
   ? (limit <= 10 ? 6700 : 17000) : (limit <= 10 ? 8000 : 11500);
@@ -772,7 +778,8 @@ export async function runTool(
     } : {}),
   };
   const result = await runPricedTool(name, args, weekValues, deps, weekDeps);
-  const valued = withValueContext(result, (priced as ValuesResponse | null)?.value_context, context);
+  // Nothing priced (explain): no values were asked for, so the link context isn't added to its link.
+  const valued = priced ? withValueContext(result, (priced as ValuesResponse | null)?.value_context, context) : result;
   return withWeek(valued, priced, week);
 }
 
