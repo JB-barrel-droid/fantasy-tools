@@ -84,7 +84,7 @@ WEEK_STATE = {}  # the default week view the page resolved (JEG-1177; getWeekSta
 FIXTURE_ASSET = "assets/comparison-sources-data.json"
 
 
-def _fixture_today():
+def _fixture_today(fixture=None):
     """A date in the content week of the served data.  Tests pin
     window.TRADE_VALUE_TODAY to this so the page's content-week clock matches
     the data it serves -- otherwise the real clock (or a built_at that lands
@@ -96,7 +96,8 @@ def _fixture_today():
     the data's own week so the page never claims a newer week than exists."""
     from nfl_week import content_week_start, section_content_week, content_week
     from datetime import date as _date
-    fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
+    if fixture is None:
+        fixture = json.loads((DIST / FIXTURE_ASSET).read_text(encoding="utf-8"))
     built_at = fixture["built_at"][:10]
     # The data's content week is the max content week of the fixture's source
     # sections (what the page would label each source).
@@ -804,7 +805,8 @@ def collect(overrides=None):
             page = browser.new_page(viewport={"width": 1440, "height": 1000})
             # Pin the content-week clock to the fixture's own week so the
             # page never sees a newer week than the data it serves (JEG-787).
-            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(_fixture_today())};")
+            today = _fixture_today(json.loads(fixture_override) if fixture_override else None)
+            page.add_init_script(f"window.TRADE_VALUE_TODAY = {json.dumps(today)};")
             errors = []
             page.on("pageerror", lambda e: errors.append(str(e)))
             page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
@@ -1170,6 +1172,16 @@ class FixtureTodayPinTest(unittest.TestCase):
                              f"got week {pin_week}")
         finally:
             fixture_path.write_text(original)
+
+    def test_override_fixture_controls_the_pin_without_rewriting_dist(self):
+        from nfl_week import content_week, content_week_start
+        from datetime import date as _date
+        fixture_path = DIST / FIXTURE_ASSET
+        original = fixture_path.read_bytes()
+        fixture = {"built_at": content_week_start(8).isoformat() + "T00:00:00Z",
+                   "sources": {"fantasycalc": {"week_designated": "Week 6"}}}
+        self.assertEqual(content_week(_date.fromisoformat(_fixture_today(fixture))), 6)
+        self.assertEqual(fixture_path.read_bytes(), original)
 
 
 if __name__ == "__main__":
