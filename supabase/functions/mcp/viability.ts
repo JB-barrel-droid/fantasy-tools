@@ -9,7 +9,7 @@
 //
 // Value lenses (Jeremy, 2026-10-26 and 2026-10-28; JEG-1129): the user's side
 // is judged on DDF Value ("ddf_value", the mean of the charts' weight-adjusted
-// Indexed values); the other team's side on market value, the mean of the
+// Indexed values); the other team's side on the Trade chart average, the mean of the
 // trade charts' Indexed values (the site's "chart_avg" in the Indexed view).
 // The chart keys must therefore carry Indexed values: get-values sends them as
 // chart_indexed. Never ddf_value_charts, which equals DDF Value since JEG-1073.
@@ -57,15 +57,15 @@ export interface Guardrail {
 export interface ViabilityConfig {
   /** DDF value key for the user's side. Default "ddf_value". */
   ddfKey: string;
-  /** Chart keys for the other team's market view. Default all 4. */
+  /** Chart keys for the other team's Trade chart average view. Default all 4. */
   chartKeys: string[];
   /** Minimum DDF edge (receive - give) for the user. Default 0 (any gain). */
   minDdfEdge: number;
-  /** Minimum market-value net for the other team (receive - give). Default 0 (break even). */
+  /** Minimum Trade chart average net for the other team (receive - give). Default 0 (break even). */
   minMarketNet: number;
   /** Minimum DDF lineup improvement (starter value after - before). Default 0. */
   minUserLineupGain: number;
-  /** Minimum market lineup improvement for the other team. Default 0. */
+  /** Minimum Trade chart average lineup improvement for the other team. Default 0. */
   minTheirLineupGain: number;
   /** (Removed: per-position weaker threshold replaced by total lineup check.
    *  Kept as unused field for config compat; ignored by checks.) */
@@ -138,9 +138,9 @@ export interface ViabilityResult {
   ddfEdge: number;
   /** User's starting lineup change on DDF value. */
   userLineupDelta: number;
-  /** Other team's market-value net (receive - give). */
+  /** Other team's Trade chart average net (receive - give). */
   theirMarketNet: number;
-  /** Other team's starting lineup change on market value. */
+  /** Other team's starting lineup change on the Trade chart average. */
   theirLineupDelta: number;
 
   // --- per-position starters for the other team, before/after ---
@@ -328,7 +328,7 @@ export function runViabilityChecks(
   const userLineupAfter = lineupStarterValue(userAfter, shape, ddf);
   const userLineupDelta = userLineupAfter - userLineupBefore;
 
-  // Their lineup on market value: attach each player's Indexed chart mean.
+  // Their lineup on the Trade chart average: attach each player's Indexed chart mean.
   const withMarket = (rows: ViabilityRow[]): ViabilityRow[] =>
     rows.map((r) => ({
       ...r,
@@ -353,14 +353,14 @@ export function runViabilityChecks(
       : `You ${ddfEdge >= 0 ? "only gain" : "lose"} ${ddfEdge.toFixed(1)} DDF Value`,
   });
 
-  // 2. Perceived fairness: other team receives >= what it sends on market value.
+  // 2. Perceived fairness: other team receives >= what it sends on the Trade chart average.
   const fairnessPass = theirMarketNet >= cfg.minMarketNet;
   checks.push({
     name: "perceived_fairness",
     passed: fairnessPass,
     detail: fairnessPass
-      ? `They gain ${theirMarketNet.toFixed(1)} on market value`
-      : `Looks lopsided to them (${theirMarketNet.toFixed(1)} market value)`,
+      ? `They gain ${theirMarketNet.toFixed(1)} on the Trade chart average`
+      : `Looks lopsided to them (${theirMarketNet.toFixed(1)} on the Trade chart average)`,
   });
 
   // 3. User's starting lineup improves on DDF value (strictly > 0; Jeremy 2026-10-24).
@@ -373,21 +373,21 @@ export function runViabilityChecks(
       : `Your lineup ${userLineupDelta >= 0 ? "doesn't improve" : "gets weaker by " + Math.abs(userLineupDelta).toFixed(1)}`,
   });
 
-  // 4. Other team's starting lineup improves on market value (strictly > 0; Jeremy 2026-10-24).
+  // 4. Other team's starting lineup improves on the Trade chart average (strictly > 0; Jeremy 2026-10-24).
   const theirLineupPass = theirLineupDelta > cfg.minTheirLineupGain;
   checks.push({
     name: "their_lineup_improves",
     passed: theirLineupPass,
     detail: theirLineupPass
-      ? `Their lineup improves by ${theirLineupDelta.toFixed(1)} on market value`
-      : `Doesn't improve their lineup (${theirLineupDelta.toFixed(1)} market value)`,
+      ? `Their lineup improves by ${theirLineupDelta.toFixed(1)} on the Trade chart average`
+      : `Doesn't improve their lineup (${theirLineupDelta.toFixed(1)} on the Trade chart average)`,
   });
 
-  // 5. Position protection: their resulting starting lineup total market value
+  // 5. Position protection: their resulting starting lineup total Trade chart average
   //    must not decrease. Empty slots are filled at replacement level (0), so a
   //    real hole shows up as a value loss. Per-position before/after is display
   //    only, not a pass/fail gate. (Jeremy 2026-10-24: dropped per-position 15%
-  //    weaker test; focus on total starting lineup market value.)
+  //    weaker test; focus on total starting lineup Trade chart average.)
 
   // Build their position before/after for every position (display only)
   const theirPosBefore: Record<string, { starters: string[]; value: number }> = {};
@@ -399,7 +399,7 @@ export function runViabilityChecks(
     theirPosAfter[pos] = { starters: after.starters.map((r) => r.name), value: after.value };
   }
 
-  // Total starting lineup market value check
+  // Total starting lineup Trade chart average check
   const theirPickedAfter = pickStarters(theirAfterM, shape, "_market");
   const emptySlots = Object.entries(theirPickedAfter.empty);
   let posProtectionPass: boolean;
@@ -414,10 +414,10 @@ export function runViabilityChecks(
     // Their total starting lineup value drops
     posProtectionPass = false;
     const drop = theirLineupBeforeM - theirLineupAfterM;
-    posProtectionDetail = `Their starting lineup drops ${drop.toFixed(1)} market value`;
+    posProtectionDetail = `Their starting lineup drops ${drop.toFixed(1)} on the Trade chart average`;
   } else {
     posProtectionPass = true;
-    posProtectionDetail = "Their starting lineup holds or improves on market value";
+    posProtectionDetail = "Their starting lineup holds or improves on the Trade chart average";
   }
 
   checks.push({

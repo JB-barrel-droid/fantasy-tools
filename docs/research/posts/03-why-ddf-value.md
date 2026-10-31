@@ -8,13 +8,13 @@ Copy rules: for trades others will accept; no title abbreviations.
 ## Abstract
 
 Every player on this tool has one number that matters most: the DDF Value. It
-is the equal-weight average of every included source's Adjusted value for that
+is the average of the four trade charts' weight-adjusted indexed values for that
 player. It does not favor any single source, it uses each source's own ranking
-order, and it exists in three versions so you can see what the trade charts say
+order, and it exists in two views so you can see what the trade charts say
 separately from what the projections say.
 
 This post explains what goes into DDF Value, why it is built the way it is,
-and what the three versions tell you.
+and what the two views tell you.
 
 > Evidence: `docs/methodology.md` sections VP-3 through VP-6.
 > Engine: `app/trade-value-chart/assets/value-model.js`, `runValuePipeline`.
@@ -23,13 +23,11 @@ and what the three versions tell you.
 ## What DDF Value is
 
 DDF Value is one number per player, the same in every tab and view on the
-site. It is the equal-weight mean of the Adjusted values from the sources
-that are included this week.
+site. It is the average of the four trade charts' weight-adjusted indexed values.
 
-- **Equal weight.** Every source counts once. There are up to four trade
-  charts (CBS, FantasyCalc, FantasyPros, USA Today) and three projections
-  (ESPN, CBS rest of season, Razzball) -- seven sources at full strength.
-  None is weighted more heavily than any other.
+- **Equal weight.** Each of the four trade charts counts once in DDF Value.
+  The projection sources form the separate DDF Value (projections) view.
+  Within each view, none is weighted more heavily than any other.
 - **Adjusted values only.** The Adjusted value is what a source's own
   ranking implies at your league settings, after rescaling to a common pie.
   It is not the raw published number, and it is not the Indexed value
@@ -70,19 +68,18 @@ Every source goes through the same pipeline:
 
 The result: every source's Adjusted values are on the same scale, use the
 same league settings, and preserve that source's own ranking order within
-each position. The equal-weight average across sources is DDF Value.
+each position. The average of the four trade charts' weight-adjusted indexed values is DDF Value.
 
-## Three versions
+## Two views
 
-DDF Value comes in three versions:
+DDF Value comes in two views:
 
 | Version | What it averages | When to use it |
 |---|---|---|
-| DDF Value (blended) | All included sources | The default. One number that weighs trade-market consensus and projection-based value equally. |
-| DDF Value (trade charts) | The four trade charts only | What the trade market says a player is worth, independent of projections. Use this when evaluating trades others will accept. |
+| DDF Value | The four trade charts | The default. The average of the four trade charts' weight-adjusted indexed values. |
 | DDF Value (projections) | The three projections only | What the production projections say, independent of market pricing. Use this when the market might be wrong about a player. |
 
-All three are available in Customize.
+Both views are available in Customize.
 
 ## Why equal weights
 
@@ -128,7 +125,7 @@ Equal weights were chosen deliberately:
 | Claim | Source |
 |---|---|
 | Equal-weight mean of Adjusted | `docs/methodology.md` VP-6.3 |
-| Three versions | `docs/methodology.md` VP-6.3, JEG-497 |
+| Two views | `docs/methodology.md` VP-6.3, JEG-497 |
 | DDF weights are the average of source mixes | `docs/methodology.md` VP-4 |
 | Fixed pie at 28 per slot | `docs/methodology.md` VP-5.1 |
 | Bench share normalization at 15% default | `docs/methodology.md` VP-3.4 (OC-2); measured share: ES-5, post 1 |

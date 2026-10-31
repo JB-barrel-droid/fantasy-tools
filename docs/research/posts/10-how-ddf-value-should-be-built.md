@@ -5,8 +5,7 @@ using our reference implementation of the value engine.
 
 Terms used below:
 
-- **DDF Value** is our own value for a player: the average of the projection
-  sources' Adjusted values.
+- **DDF Value (projections)** is the projection-side view: our own value for a player, the average of the projection sources' weight-adjusted indexed values.
 - **Value above waivers** is how many points a player adds over the best freely
   available player at his position.
 - **Adjusted value** is a source's value above waivers after it has been put on
@@ -16,7 +15,7 @@ Terms used below:
 
 ## Abstract
 
-DDF Value is the equal-weight average of the projection sources' Adjusted
+DDF Value (projections) is the equal-weight average of the projection sources' weight-adjusted indexed
 values (defined above). This post asks whether that average can be improved -- whether some
 sources are more accurate than others, and whether weighting or adjusting them
 would produce a better fundamental estimate. The answer, on the data we have
@@ -32,13 +31,13 @@ rigorous comparison. This post lays out what we have, what we need, the
 evaluation protocol, and the candidate aggregators we should test once the data
 exists.
 
-## What DDF Value does today
+## What DDF Value (projections) does today
 
-DDF Value is the equal-weight mean of the Adjusted values from
-the three projection sources: ESPN, CBS rest of season, and Razzball. Each
+DDF Value (projections) is the equal-weight mean of the weight-adjusted indexed values from
+the three projection sources. Each
 source's raw projections go through the same pipeline (value above waivers,
 expected starts, fixed pie, DDF weights) and come out on a common scale. The
-mean of those three numbers is DDF Value.
+mean of those three numbers is DDF Value (projections).
 
 Equal weights were chosen for good reasons (see post 3): no single source is
 consistently better across positions and seasons, the blend is robust to one
