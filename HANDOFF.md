@@ -19,28 +19,6 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): v21 live, both checks passed
-
-- Fresh authorization: Jeremy said "yes" at 12:38 PM CT to the 12:37 question:
-  redeploy mcp only from main after fixing the verifier, both live checks, automatic
-  rollback on either failure. No other functions, migrations, data or credential changes.
-- First confirmed v20 verify_jwt false matches the recorded v18 setting. Captured
-  v20 source in `/Users/botcomp/code/wt/ops-JEG-1400-v20-rollback` before deploy.
-- Re-fetched origin/main: still c267aa71; both fixes present. Deployed only mcp
-  from detached main with explicit project-ref iskiybsimubiujwuchsl and no-verify-jwt:
-  production now ACTIVE **v21**, verify_jwt false. **No rollback this run**.
-- Check A PASSED: ppr/12, Jonathan Taylor for Amon-Ra St. Brown, max_per_side 1;
-  public response returns that trade at min_rival_edge 0 and zero trades at 0.5.
-  Verifier reads only public trades/userGives/userGets fields. Fresh get-values
-  indexed chart data: rival-ok nets +0.5, +1.2, -0.6; first two are inside even
-  bands 1.0 and 1.56. Correct rival average 0.2; buggy absolute average 0.7667.
-- v20 already carried the fixed calculation (restored v18 source), so it cannot
-  be a buggy baseline. Same verifier passed against v20 and rejected a local
-  Math.abs(net) mutation through the real handleRpc public-response path.
-- Check B PASSED on v21: pasted Gibbs / Hubbard + Zzyzx Notaplayer gives no get
-  total and names Zzyzx Notaplayer with closest Tylan Wallace, Kenneth Walker III,
-  Josh Palmer. JEG-1400 can be Done. #1261 remains a docs-only draft; no merge.
-
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
