@@ -1,0 +1,239 @@
+{
+ "rows": 741,
+ "included": [
+  "usatoday",
+  "fantasycalc",
+  "fantasypros",
+  "cbs",
+  "espn",
+  "cbsros",
+  "razzball"
+ ],
+ "excluded": {
+  "cbsros": "held: fidelity: publisher_vs_stored",
+  "razzball": "held: fidelity: publisher_vs_stored"
+ },
+ "hidden": [],
+ "rostered": 168,
+ "chart_row_status": {
+  "usatoday": {
+   "listed": 270,
+   "zero_below_depth": 471
+  },
+  "fantasycalc": {
+   "zero_below_depth": 530,
+   "listed": 199,
+   "estimated": 12
+  },
+  "fantasypros": {
+   "zero_below_depth": 543,
+   "listed": 178,
+   "estimated": 20
+  },
+  "cbs": {
+   "zero_below_depth": 567,
+   "listed": 123,
+   "estimated": 51
+  }
+ },
+ "chart_row_status_rostered": {
+  "usatoday": {
+   "listed": 168
+  },
+  "fantasycalc": {
+   "listed": 162,
+   "estimated": 6
+  },
+  "fantasypros": {
+   "listed": 152,
+   "estimated": 14,
+   "zero_below_depth": 2
+  },
+  "cbs": {
+   "zero_below_depth": 10,
+   "listed": 123,
+   "estimated": 35
+  }
+ },
+ "ddf_input_count": {
+  "blended": {
+   "4": 741
+  },
+  "projections": {
+   "0": 2,
+   "1": 202,
+   "2": 214,
+   "3": 323
+  }
+ },
+ "ddf_input_count_rostered": {
+  "blended": {
+   "4": 168
+  },
+  "projections": {
+   "1": 2,
+   "2": 8,
+   "3": 158
+  }
+ },
+ "low_confidence": {
+  "blended": 0,
+  "projections": 202
+ },
+ "low_confidence_rostered": {
+  "blended": 0,
+  "projections": 2
+ },
+ "no_value": {
+  "blended": 0,
+  "projections": 2
+ },
+ "ddf_value_zero": 545,
+ "examples": {
+  "proj_gap": {
+   "player": "Jonah Coleman (RB)",
+   "adjusted": {
+    "espn": 3.39738761001633,
+    "cbsros": 12.658095999074733,
+    "razzball": null
+   },
+   "reasons": {
+    "espn": null,
+    "cbsros": null,
+    "razzball": "razzball doesn't project this player"
+   },
+   "ddf_projections": {
+    "value": 8.027741804545531,
+    "count": 2,
+    "low_confidence": false,
+    "sources": [
+     "espn",
+     "cbsros"
+    ],
+    "reason": null
+   }
+  },
+  "est": {
+   "player": "Dalton Kincaid (TE)",
+   "chart": "cbs",
+   "path": "peers",
+   "reason": null,
+   "adjusted": {
+    "usatoday": 6.629138795238874,
+    "fantasycalc": 3.956446146292814,
+    "fantasypros": 10.546117756309947,
+    "cbs": 3.459983916481896,
+    "espn": 0.681265978377064,
+    "cbsros": 1.7109686414713312,
+    "razzball": 5.585762129170884
+   },
+   "ddf": {
+    "value": 6.147921653580883,
+    "count": 4,
+    "low_confidence": false,
+    "sources": [
+     "usatoday",
+     "fantasycalc",
+     "fantasypros",
+     "cbs"
+    ],
+    "reason": null
+   }
+  },
+  "zero": {
+   "player": "Emmett Johnson (RB)",
+   "status": {
+    "usatoday": "listed",
+    "fantasycalc": "listed",
+    "fantasypros": "listed",
+    "cbs": "zero_below_depth"
+   },
+   "adjusted": {
+    "usatoday": 0.2430632434057527,
+    "fantasycalc": 0.04267202898232494,
+    "fantasypros": 3.980322732249743,
+    "cbs": 0.0,
+    "espn": 0.027687708357011905,
+    "cbsros": 0.0,
+    "razzball": 0.0
+   },
+   "ddf": {
+    "value": 1.0665145011594552,
+    "count": 4,
+    "low_confidence": false,
+    "sources": [
+     "usatoday",
+     "fantasycalc",
+     "fantasypros",
+     "cbs"
+    ],
+    "reason": null
+   },
+   "ddf_projections": {
+    "value": 0.009229236119003968,
+    "count": 3,
+    "low_confidence": false,
+    "sources": [
+     "espn",
+     "cbsros",
+     "razzball"
+    ],
+    "reason": null
+   },
+   "tier": "bench"
+  },
+  "one_projections": {
+   "player": "Malachi Fields (WR)",
+   "ddf_projections": {
+    "value": 0.9285821903227899,
+    "count": 1,
+    "low_confidence": true,
+    "sources": [
+     "espn"
+    ],
+    "reason": "Only one source prices this player"
+   },
+   "ddf": {
+    "value": 0.213448958098016,
+    "count": 4,
+    "low_confidence": false,
+    "sources": [
+     "usatoday",
+     "fantasycalc",
+     "fantasypros",
+     "cbs"
+    ],
+    "reason": null
+   },
+   "tier": "bench",
+   "reasons": {
+    "espn": null,
+    "cbsros": "cbsros doesn't project this player",
+    "razzball": "razzball doesn't project this player"
+   }
+  }
+ },
+ "by_scoring": {
+  "standard": {
+   "rostered": 168,
+   "rostered_one_source": 0,
+   "rostered_chart_cells_estimated": 82,
+   "rostered_chart_cells_zero_below_depth": 14,
+   "rostered_chart_cells": 672
+  },
+  "half_ppr": {
+   "rostered": 168,
+   "rostered_one_source": 0,
+   "rostered_chart_cells_estimated": 63,
+   "rostered_chart_cells_zero_below_depth": 15,
+   "rostered_chart_cells": 672
+  },
+  "ppr": {
+   "rostered": 168,
+   "rostered_one_source": 0,
+   "rostered_chart_cells_estimated": 55,
+   "rostered_chart_cells_zero_below_depth": 12,
+   "rostered_chart_cells": 672
+  }
+ }
+}
