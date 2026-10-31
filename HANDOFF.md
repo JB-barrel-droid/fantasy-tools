@@ -36,6 +36,8 @@ below are history, including any "Codex reviews and merges" line.
 - Rank guard fix (2026-10-31): Indexed is native x the blended factor for every player a chart prices, so it
   keeps the chart's order (CI's rank guard failed at 14 settings). DDF values unchanged; only low-end Indexed
   entries move. Also in `test_fractional_seats_pie`.
+- Math inspector fix (2026-10-31): value above waivers is restated at the blended display factor, so
+  vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
 - Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
   values-explainer) run in CI or on the Mac.
 

@@ -539,6 +539,11 @@ def _blend_source_players(mix: list, runs: list, out: dict) -> None:
                     continue
                 part = sum(w * vr[g] * v[field] for w, v, vr in recs if _finite(v.get(field)) and _finite(vr.get(g)))
                 pl[field] = part / tot / rate
+            # Value above waivers is restated at the blended display factor,
+            # so vorp x factor is the blended display VORP, as for one run.
+            f = src.get("vorp_display_factor")
+            if _finite(pl.get("vorp")) and _finite(pl.get("vorp_display")) and _finite(f) and f > 0:
+                pl["vorp"] = pl["vorp_display"] / f
 
 
 def _reindex_blended(out: dict) -> None:

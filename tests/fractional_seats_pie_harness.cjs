@@ -23,7 +23,7 @@ Object.entries(result.sources).forEach(([key, src]) => {
   (src.unfundedGroups || []).forEach(g => { funded[g.group] -= g.amount; });
   const groups = {};
   Object.keys(funded).forEach(g => { groups[g] = {total: 0, budget: funded[g]}; });
-  let total = 0, vorpTotal = 0, sliceGap = 0, rowGap = 0;
+  let total = 0, vorpTotal = 0, sliceGap = 0, rowGap = 0, vorpGap = 0;
   Object.entries(src.players).forEach(([k, p]) => {
     total += p.adjusted;
     vorpTotal += p.vorpDisplay;
@@ -32,11 +32,13 @@ Object.entries(result.sources).forEach(([key, src]) => {
     groups[`${p.pos}|bench`].total += b * share;
     groups[`${p.pos}|starter`].total += s * share;
     sliceGap = Math.max(sliceGap, Math.abs(b + s - p.adjusted));
+    // The math inspector rebuilds VORP vs waivers as vorp x the source's factor.
+    if (Number.isFinite(p.vorp)) vorpGap = Math.max(vorpGap, Math.abs(p.vorp * src.vorpFactor - p.vorpDisplay));
     const ra = (result.rows[k].adjusted || {})[key];
     if (ra !== null && ra !== undefined) rowGap = Math.max(rowGap, Math.abs(ra - p.adjusted));
   });
   checks.push({source: key, total, target: pie - unpaid, vorpTotal, pie,
-    groupGap: Math.max(...Object.values(groups).map(g => Math.abs(g.total - g.budget))), sliceGap, rowGap});
+    groupGap: Math.max(...Object.values(groups).map(g => Math.abs(g.total - g.budget))), sliceGap, rowGap, vorpGap});
 });
 const indexed = Object.entries(result.indexed || {}).filter(([, ix]) => ix.factor !== null)
   .map(([key, ix]) => ({source: key, gap: Math.abs(ix.nativeTotal * ix.factor - ix.ddfTotal)}));

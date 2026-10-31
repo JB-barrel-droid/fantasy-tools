@@ -2214,6 +2214,11 @@
           recs.forEach(function (x) { if (vpFinite(x[1][f]) && vpFinite(x[2][g])) part += x[0] * x[2][g] * x[1][f]; });
           pl[f] = part / tot / rate;
         });
+        // Value above waivers is restated at the blended display factor, so
+        // vorp x factor is the blended display VORP, as for a single run.
+        if (vpFinite(pl.vorp) && vpFinite(pl.vorpDisplay) && vpFinite(o.vorpFactor) && o.vorpFactor > 0) {
+          pl.vorp = pl.vorpDisplay / o.vorpFactor;
+        }
       });
     });
   }

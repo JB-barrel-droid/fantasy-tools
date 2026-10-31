@@ -293,7 +293,8 @@ chart DDF Value").
      allocation's. Each source's per-player records keep its pie: a player
      off the source's work list in one allocation counts 0 there, each
      slice is restated at the blended rate (Σ w·rate·slice / blended rate,
-     so rate × slice is the player's value), a budget moved to the other
+     so rate × slice is the player's value; value above waivers likewise
+     at the blended display factor), a budget moved to the other
      role or unpaid in some allocations is the weight-average with 0 where it
      was not, and the work order is the heaviest allocation's with the
      players listed only in others after it (`tests/test_fractional_seats_pie.py`).

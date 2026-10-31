@@ -1315,6 +1315,11 @@ def blend_source_players(mix: list, runs: list, out: dict) -> None:
                     continue
                 part = sum(w * vr[g] * v[field] for w, v, vr in recs if _is_num(v.get(field)) and _is_num(vr.get(g)))
                 pl[field] = part / tot / rate
+            # Value above waivers is restated at the blended display factor,
+            # so vorp x factor is the blended display VORP, as for one run.
+            f = src.get("vorp_display_factor")
+            if _is_num(pl.get("vorp")) and _is_num(pl.get("vorp_display")) and _is_num(f) and f > 0:
+                pl["vorp"] = pl["vorp_display"] / f
 
 
 def _blend_weeks(mix: list, runs: list, m: dict, pos_of: dict) -> dict:

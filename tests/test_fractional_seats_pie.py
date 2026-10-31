@@ -15,7 +15,8 @@ at the default sigma and at sigma 0:
 
 - engine (value-model.js): each source sums to the pie less what is unpaid,
   its display VORP sums to the pie, each role group sums to its funded budget,
-  rate x slice is the player's value, the source's record equals the row's
+  rate x slice is the player's value, value above waivers x the source's
+  factor is the display VORP (the math inspector's rebuild), the source's record equals the row's
   value, and no row is both estimated and below rosterable depth for one
   source;
 - all three: each chart's Indexed value is native x its factor for every
@@ -63,7 +64,8 @@ def _engine(sigma):
 
 
 def _python_gaps(res: dict, bench_key: str, starter_key: str) -> list:
-    """[(source, |sum - pie|, worst |rate x slice - value|)] for a Python result."""
+    """[(source, |sum - pie|, worst of |rate x slice - value| and
+    |vorp x factor - display VORP|)] for a Python result."""
     out = []
     pie = res.get("pie")
     for key, src in res["sources"].items():
@@ -74,6 +76,9 @@ def _python_gaps(res: dict, bench_key: str, starter_key: str) -> list:
         total = sum(p["adjusted"] for p in players.values())
         gap = max(abs(rates[f"{p['pos']}|bench"] * p[bench_key] + rates[f"{p['pos']}|starter"] * p[starter_key]
                       - p["adjusted"]) for p in players.values())
+        f = src.get("vorp_display_factor")
+        if f is not None:
+            gap = max(gap, max(abs(p["vorp"] * f - p["vorp_display"]) for p in players.values()))
         unpaid = src.get("unfunded_groups") or []
         out.append((key, abs(total - pie) if not unpaid else 0.0, gap))
     return out
@@ -115,6 +120,7 @@ class FractionalSeatPie(unittest.TestCase):
                 self.assertLessEqual(c["groupGap"], TOL)
                 self.assertLessEqual(c["sliceGap"], TOL)
                 self.assertLessEqual(c["rowGap"], TOL)
+                self.assertLessEqual(c["vorpGap"], TOL)
         for ix in got["indexed"]:
             self.assertLessEqual(ix["gap"], TOL, ix)
         self.assertTrue(got["order"])
