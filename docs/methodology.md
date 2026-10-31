@@ -574,35 +574,46 @@ chart DDF Value").
    league's starter and roster seats; it does not say whether his DDF Value
    is above 0. Two cases follow, both expected:
    - *Positive-valued waiver.* A player ranked below `N*_p` can keep a small
-     positive DDF Value and is still waiver. DDF Value blends each source's
-     own VORP vs waivers (VP-5), and each source draws its waiver line in its
-     own order, so a player one publisher rosters can rank below the blended
-     roster seats. The player tag is Drop (or Stash on a high start
-     probability), never Hold.
+     positive DDF Value and is still waiver. DDF Value averages each
+     source's Adjusted value, which is that source's value above its own
+     waiver line (VP-2.3, VP-5), and each source draws that line in its own
+     order. With no league loaded, a chart's line is its first player past
+     the rostered count and a projection's is the mean of the 7 players
+     around that seat (JEG-1047), so the players just past the seat who
+     project above that mean stay positive in the projections too. A player one source rosters can
+     therefore rank below the blended roster seats. The player tag is Drop,
+     or Stash when his start probability is at least 0.25
+     (`STASH_START_PROBABILITY`), never Hold.
    - *Zero inside the seats.* A player ranked within `N*_p` whose DDF Value
      is exactly 0 is waiver, not bench, so no starter or bench player is
      ever at 0. This only happens when a position has fewer positive values
      than roster seats.
 
-   Making the tier follow positive value instead (option B) would add up to
-   29 bench players per league and move curve zones and Drop tags; it is a
-   method change only Jeremy can authorize. `tests/test_tiers_follow_seats.py`
-   pins both cases in the engine and both references.
+   The seats are the allocation the page prices with, so with league
+   rosters loaded (VP-2.2 d2) they are the league's own counts and the same
+   two cases apply to them.
 
-   *Current example* (data of 2026-10-28, content week 9, 12 teams, Full
-   PPR, no superflex; engine and Python reference agree on every tier):
+   Making the tier follow positive value instead (option B) would move every
+   positive-valued waiver to bench (12 to 28 players per league on the data
+   below) and move curve zones and Drop tags; it is a method change only
+   Jeremy can authorize. `tests/test_tiers_follow_seats.py` pins both cases
+   in the engine and both references.
+
+   *Current example* (data of 2026-10-30, values for week 8, 12 teams, Full
+   PPR, no superflex, default roster; engine and Python reference agree on
+   every tier):
 
    | Position | Seats (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
    | --- | --- | --- | --- | --- |
-   | WR | 32 / 65 | #65 Brian Thomas Jr. 0.062 | #66 Demario Douglas 0.054, #67 Kalif Raymond 0.020 | #77 |
-   | TE | 12 / 22 | #22 Pat Freiermuth 0.115 | #23 Tyler Higbee 0.109 | #28 |
-   | RB | 28 / 61 | #61 MarShawn Lloyd 0.013 | #62 Jacory Croskey-Merritt 0.008 | #71 |
-   | QB | 12 / 20 | #20 Kirk Cousins 0.027 | #21 Bo Nix 0.021 | #24 |
+   | WR | 32 / 65 | #65 Demario Douglas 0.048 | #66 Brian Thomas Jr. 0.031, #67 Kalif Raymond 0.021 | #78 |
+   | TE | 12 / 22 | #22 Pat Freiermuth 0.067 | #23 Tyler Higbee 0.051, #24 Colby Parkinson 0.039 | #27 |
+   | RB | 28 / 61 | #61 MarShawn Lloyd 0.018 | #62 Ty Johnson 0.012, #63 Kendre Miller 0.011 | #70 |
+   | QB | 12 / 20 | #20 Kirk Cousins 0.045 | #21 Aaron Rodgers 0.042 | #25 |
 
-   Across the 12 combos (3 scorings x 8/10/12/14 teams) that day, 11 to 28
-   players per league were positive-valued waivers (largest 0.620, TE T.J.
-   Hockenson in Standard 10 teams), and no position had a zero inside its
-   seats, so every 0 was waiver by rank as well. Full table:
+   Across the 12 combos (3 scorings x 8/10/12/14 teams) on that data, 12 to
+   28 players per league were positive-valued waivers (largest 0.622, TE
+   T.J. Hockenson in Standard 10 teams), and no position had a zero inside
+   its seats, so every 0 was waiver by rank as well. Full table:
    `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
 4. **Default ranking, lock and curve**: blended `ddf_value`, descending, then
    key ascending; nulls last. The other two versions can be chosen like any

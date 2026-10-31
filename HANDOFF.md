@@ -19,6 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075 current with main, waiting on the merge gate
+
+- Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats", `tests/test_tiers_follow_seats.py`);
+  no value, tier, zone or Drop change. Main merged in normally (#939 first, as agreed). Claims rechecked against today's
+  engine: tier rule and tags unchanged; the example table, the 12-combo counts (12 to 28 positive-valued waivers, max
+  0.622) and the waiver-line wording (JEG-1047 projection band) were refreshed. Sweep in
+  `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
+- `app/values-explainer/reviewed.json` is left as main has it: all five of its hashes are already stale on main, so the
+  re-mark belongs with a full narrative re-review (JEG-1395/JEG-1396 touch the explainer), not this PR.
+- Next: exact-head CI green, then the merge gate merges.
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an
