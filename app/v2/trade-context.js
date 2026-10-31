@@ -545,7 +545,19 @@
     // still matches). Any other workspace: link rosters with no IDs, so the reader's own teams are never substituted.
     const ws = isObject(h.ws) ? h.ws : null;
     const sameWorkspace = Boolean(ws && transfer.workspaceId && ws.id === transfer.workspaceId);
-    const team = t => (sameWorkspace ? workingTeam(ws, t.id, t.roster) : rosterTeam(t.roster, "link"));
+    // On another workspace (another device, or the same league saved under other IDs) a carried roster is shown as the
+    // reader's saved team only when exactly one of the reader's teams has exactly the same players; never by name.
+    const exact = t => {
+      if (!ws || !Array.isArray(ws.teams)) return null;
+      const want = rosterKeys(cleanEntries(t.roster)).join(",");
+      const hits = want ? ws.teams.filter(s => isObject(s) && rosterKeys(cleanEntries(s.entries)).join(",") === want) : [];
+      return hits.length === 1 ? hits[0] : null;
+    };
+    const team = t => {
+      if (sameWorkspace) return workingTeam(ws, t.id, t.roster);
+      const hit = exact(t);
+      return hit ? workingTeam(ws, hit.id, t.roster) : rosterTeam(t.roster, "link");
+    };
     const context = createContext({route: h.route, common: mineCommon, commonProvenance: h.commonProvenance,
       provenance: sameWorkspace ? (PROVENANCE.includes(h.provenance) ? h.provenance : "local") : "link",
       // The receiving page's own pricing, now validated equal to the trade's in every compared part.
@@ -556,8 +568,32 @@
     return deepFreeze({status: "ok", context, carried: transfer, reasons: []});
   }
 
+  // ---------- page adapters (browser engine shapes, no DOM) ----------
+  // The engine's getSourceInfo() list as sources: available only when loaded and present in this build's data; version is
+  // the source's week label plus its stale flag, compared only.
+  function sourcesFromEngine(info) {
+    const out = {};
+    (Array.isArray(info) ? info : []).forEach(item => {
+      if (!isObject(item) || !SOURCE_KEY.test(String(item.key))) return;
+      const week = item.week === undefined || item.week === null || item.week === "" ? null : String(item.week);
+      const version = [week, item.stale ? "stale" : null].filter(Boolean).join(" ") || null;
+      out[item.key] = {available: item.available === true && !item.unavailable, held: Boolean(item.paused), version};
+    });
+    return out;
+  }
+  // This page's modeled bench pricing (every page on main today): the engine's rows, allocation and bench readout, the
+  // same objects league.js mathContext() prices with. keys: pricingKeys() of the trade. null without an engine.
+  function modeledPricing(engine, keys) {
+    if (!engine || typeof engine.getAllRows !== "function") return null;
+    const adjust = typeof engine.getAdjustmentWeights === "function" ? engine.getAdjustmentWeights() : null;
+    const readout = typeof engine.getBenchShareReadout === "function" ? engine.getBenchShareReadout() : null;
+    return {mode: "modeled", levels: {modeled: levelIdentity("modeled", {rows: engine.getAllRows(),
+      allocation: adjust ? adjust.allocation : null, weights: readout, keys})}};
+  }
+
   return {VERSION, ROUTES, CAPABILITIES, ROUTE_DISCREPANCIES, normalizeCommon, commonFromPage, leagueFromQuery, resolveCommon,
     savedTeam, rosterTeam, workingTeam, normalizeDeal, unresolvedDeal, routeControls, createContext, withChanges, selectTeam, beginVisit, maySave,
     cacheParts, cacheKey, commonKey, dealPartner, fromPair, fromLeague, fromCompare, stable,
-    LEVELS, pricingKeys, levelIdentity, normalizePricing, TRANSFER_VERSION, toTransfer, encodeTransfer, decodeTransfer, receive};
+    LEVELS, pricingKeys, levelIdentity, normalizePricing, TRANSFER_VERSION, toTransfer, encodeTransfer, decodeTransfer, receive,
+    sourcesFromEngine, modeledPricing};
 });

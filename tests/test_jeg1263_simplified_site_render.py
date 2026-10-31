@@ -225,6 +225,27 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         self.assertEqual(page.locator(".ss-detail, .ss-offer").count(), 0, "a deep link cannot open a withheld answer")
         page.context.close()
 
+    def test_refresh_keeps_focus_and_never_leaves_a_stale_answer(self):
+        """JEG-1301: a refresh that re-renders keeps focus on the same link (or the title when that trade is gone), and a
+        context that throws or comes back malformed replaces the old answer instead of leaving it on screen."""
+        second = FIXTURE["ideas"]["recommendations"][1]
+        page = self.open(state("answer"), 390)
+        page.focus(f'.ss-more [data-detail-for="{second["id"]}"]')
+        page.evaluate("window.__ssHandle.update(false)")
+        self.assertEqual(page.evaluate("document.activeElement.dataset.detailFor || document.activeElement.tagName"), second["id"],
+                         "a refresh keeps focus on the same trade's link")
+        page.evaluate("([id]) => { window.__SS_CTX.ideas.recommendations = window.__SS_CTX.ideas.recommendations.filter(r => r.id !== id);"
+                      " window.__ssHandle.update(false); }", [second["id"]])
+        self.assertEqual(page.evaluate("document.activeElement.id"), "ssTitle", "focus goes to the title when the focused trade is gone")
+        page.evaluate("window.__SS_CTX = {...window.__SS_CTX, ideas: {recommendations: 'oops'}}; window.__ssHandle.update(false)")
+        self.assertEqual(page.get_attribute("#v2Simplified", "data-state"), "incomplete", "a malformed ideas object withholds")
+        self.assertEqual(page.locator(".ss-offer, .ss-more").count(), 0, "the old answer is not left on screen")
+        page.evaluate("Object.defineProperty(window, '__SS_CTX', {get() { throw new Error('synthetic adapter failure'); }, configurable: true});"
+                      " window.__ssHandle.update(false)")
+        self.assertEqual(page.get_attribute("#v2Simplified", "data-state"), "error", "a throwing context shows the error state")
+        self.assertEqual(page.locator(".ss-offer, .ss-more").count(), 0)
+        page.context.close()
+
     def test_activate_reads_live_context_once_mounted(self):
         """The dashboard's one call: activate() mounts once on the live adapter, withholds while a gate is closed, and
         re-reads on later calls without writing the workspace."""

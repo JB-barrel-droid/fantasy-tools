@@ -113,6 +113,20 @@ def receipt_problems(r: dict) -> list[str]:
     return out
 
 
+def has_value_summary(c: dict) -> bool:
+    """True when the receipt itself carries the value-impact summary: the mean absolute
+    deviation, per-position statistics and the largest deviations with their values.
+    A count or a flag saying they existed in the report is not enough."""
+    positions, examples = c.get("by_position"), c.get("examples")
+    return (c.get("mad") is not None
+            and isinstance(positions, dict) and bool(positions)
+            and all(isinstance(p, dict) and all(p.get(k) is not None for k in ("n", "bias", "mad"))
+                    for p in positions.values())
+            and isinstance(examples, list) and bool(examples)
+            and all(isinstance(e, dict) and all(e.get(k) is not None for k in ("player_key", "value", "consensus"))
+                    for e in examples))
+
+
 def capture(r: dict, source: str) -> dict:
     """One source in one receipt: its problems, notes and the facts the matrix shows."""
     rep = r.get("report") or {}
@@ -160,9 +174,7 @@ def capture(r: dict, source: str) -> dict:
         problems.append("source_date_missing")
     if not meta.get("scoring_basis"):
         problems.append("scoring_basis_missing")
-    value_impact = ("summary" if combos and all(c.get("mad") is not None and c.get("by_position")
-                                                  and c.get("examples") for c in combos.values())
-                    else "missing")
+    value_impact = "summary" if combos and all(has_value_summary(c) for c in combos.values()) else "missing"
     status_counts = {}
     for c in combos.values():
         status_counts[c.get("status")] = status_counts.get(c.get("status"), 0) + 1

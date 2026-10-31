@@ -70,9 +70,66 @@ least 4.5:1, control edges and focus at least 3:1.
 - `tests/test_v2_tokens.py`: role values in all three modes, contrast in both themes, flag scoping, unchanged default token values, the self-hosted font with its license, and mutation checks.
 - `tests/test_v2_fieldnotes_league_entry_render.py`: the JEG-1137 done-when, checked at 390 and 1280 px with the flag on. A new visitor pastes the Yahoo whole-league fixture and sees the team count and each team's matched players, presses a team's star, and gets the same teams, rosters and marked team back after a reload. At each step it checks for no sideways scroll, 44 px targets, text contrast, the paste box's 3:1 edge, and a keyboard focus ring. It also checks that the unflagged league section's computed styles are unchanged, and runs a guard that fails without this slice.
 
+- `tests/test_v2_fieldnotes_nav_render.py` (slice 2b), at 390 and 1280 px with the flag on: the landing page is Home; the primary navigation shows Home, Values, Buy & sell, Check a trade and More, marks the one on show, and on a phone is one row fixed at the foot; each destination opens its page and keeps the flag; More opens the full page list above the bar, and Escape closes it with focus back on More; on a phone, league entry starts with "Set up your league on desktop." and the paste box follows. It checks 44 px targets, text contrast and the bar's focus ring. Without the flag, `#home` lands on the value chart, the bar and phone entry never show, and the nav's and league entry's computed styles are unchanged. A guard fails without the slice 2b CSS.
+
+## Slice 2b: navigation, Home and the phone league entry
+
+- **Primary navigation** (`shell.html` `#v2FnPrimary`, `nav[aria-label="Primary"]`): four links and a More button (`.v2-fn-go`). v2.js unhides it under the flag and sets `aria-current="page"` on the link whose `data-fn-key` is the view on show. On a wide screen it sits in the top bar; at the site's phone breakpoint (JEG-953) it is a light bar fixed at the foot. The menu button and the page name are hidden under the flag.
+- **More** opens the existing full page list (`#v2Tabs`, the same `setNav`), as a panel under the top bar on a wide screen and as a sheet above the bar on a phone. Escape and a tap outside close it; focus returns to whichever button opened it. A section added to `#v2Tabs` (for example JEG-1263's "Simplified site" group) is reachable from More with no extra wiring. Don't add a sixth item to the bar.
+- **Home** (`#home`, `<main id="v2Home">`) is a route only under the flag, and the flagged landing page. Without the flag `#home` is unknown and lands on the value chart. It holds the hero and the three ways in from the prototype. The value-curve peek belongs to JEG-1265 and the AI-assistant panel to JEG-1266; until they land, "Use DDF in your AI assistant" links the existing connect guide.
+- **Phone league entry** (`league.js` `#v2LgPhoneEntry`): built only under the flag and shown only at phone widths, above the league card. The paste box stays below it, so a phone can still paste.
+- **Links keep the flag.** On the `/v2/` copy, a `v2/#view` link would load the page again without `?design=fieldnotes`, so under the flag v2.js keeps such links on the page (as the root page's shim already does).
+
+## Compare a trade (JEG-1138)
+
+The `v2.css` block between `/* JEG-1138: Compare a trade in Fieldnotes` and `/* JEG-1138 end */` puts Compare into
+Fieldnotes under the same flag. It's presentation only: the markup, copy, numbers and verdict rules stay with `v2.js` and
+`trade.js`, and no verdict cutoff is added.
+
+**Reusable for other pages (JEG-1139 adds its selectors to these lists):**
+- Kicker: the 12 px, 750, all-caps label above an answer or a value (the verdict eyebrow, "Deal read").
+- Value view: muted 12 px column heads, rows on `--ddf-line`, tabular figures.
+- Expandable detail: the Fieldnotes disclosure on an existing `<details>` (rule above, ink label, 44 px summary, plus and
+  minus at the end), and row toggles ("Show players") whose own box is the 44 px target.
+
+**Compare only:**
+- The verdict card is the prototype's result card: card radius, 24 px padding (16 on phone), and the heading in the
+  display face at 28 px (24 on phone). The left edge keeps its meaning (win `--v2-action`, lose `--v2-negative`,
+  incomplete `--v2-older`), and a verdict with no side (even, none) takes `--ddf-ink`. The phone verdict bar follows the
+  same rule.
+- "Copy link to this trade" is a 44 px target at every width, not only on touch screens.
+- The sides: kicker headings, the search box on the control edge at 44 px, totals in tabular figures.
+
+**Evidence:** `tests/test_v2_fieldnotes_compare_render.py`. At 390 and 1280 px it opens each verdict branch (none, win,
+lose, even, incomplete) as a trade link. For each, it checks that Compare's text is identical to the unflagged page's,
+the display face, the edge colour, no sideways scroll, 44 px targets and text contrast. It also drives Tab and Enter
+on "Every pairing", on a row's "Show players" and on "Copy link", and checks the phone verdict bar. The unflagged page's
+computed styles are unchanged, and a guard fails without the block.
+
+## Trade targets (JEG-1139)
+
+Trade targets reuses JEG-1138's value view and expandable detail: the shared selector lists in the JEG-1138 block also
+name `#v2Targets` (the targets and weight tables, and "How to use it"). Its own layout is the `v2.css` block between
+`/* JEG-1139: Trade targets in Fieldnotes` and `/* JEG-1139 end */`. Presentation only: target signals, QB treatment,
+thresholds, copy and numbers stay with `targets.js` and `v2.js`.
+
+- The two checks and the sell and buy list headings are in the display face at 22 px (20 on phone).
+- The search box and position choice sit on the control edge at 44 px, and the DDF Value and Compare against pickers
+  keep their tint with the control radius.
+- Lists use 24 px card padding (16 on phone). Player names are at body size, 650. The gap is the row's value, at 650
+  and 20 px on the phone cards.
+- The chart links inside an opened row are 44 px targets without moving the line.
+
+**Evidence:** `tests/test_v2_fieldnotes_targets_render.py`. At 390 and 1280 px it checks that the text is identical to
+the unflagged page's, with the lists closed and with the sell list opened. It checks the display-face headings, no
+sideways scroll, 44 px targets and text contrast. By keyboard it drives Show more and Show top 5, a weight group's
+toggle and "How to use it". At 1280 it drives a row's per-chart toggle by keyboard; at 390 a tap on a card opens the
+player. The unflagged page's computed styles are unchanged without either block. A guard fails without the JEG-1139
+block (headings), and without the JEG-1138 shared lists ("How to use it" under 44 px).
+
 ## Boundary and what's next
 
-- **JEG-1137 owns:** the tokens, type, controls and flag above; league entry in Fieldnotes; and later the shell and navigation (slice 2b: the Fieldnotes phone bar, a Home route, and the phone "Set up your league on desktop" entry). Slice 2b touches `shell.html`, `v2.js` (a hot file) and `league.js`. Codex sequences it against JEG-1130, JEG-1263, JEG-1140 and JEG-1259.
+- **JEG-1137 owns:** the tokens, type, controls and flag above; league entry in Fieldnotes; and the shell and navigation (slice 2b, below). The Claude release owner sequences `v2.js` turns on the ticket.
 - **JEG-1137 does not own:** the Values page (JEG-1265), the AI panel (JEG-1266), Settings (JEG-1140), Compare and the value-view components (JEG-1138), or Trade targets (JEG-1139). Those lanes consume this contract.
 - **Default-site defects this slice fixes only under the flag** (JEG-1281): the paste boxes' edge is 1.3:1, and the "Your league" heading drifts away from its arrow.
 - **Seen with the flag on, outside league entry** (for the table owners, JEG-1281 and JEG-1232; not fixed here): on Find a trade: league-wide, the team summary has eleven info disclosures 16 to 18 px tall and 32 px sort buttons, and the opportunities table has a 30 px text filter. Its checkboxes are fine, because their labels are 44 px.

@@ -393,7 +393,7 @@ class OneQbReaders(unittest.TestCase):
 # superflex), and without the slot it is unchanged. Broken state: a widget
 # that ignores native_superflex (the overlay line removed).
 APP = ROOT / "app" / "trade-value-chart"
-OVERLAY_LINE = ('    if (native.size && ValueModel.superflexCount(rosterShape)) '
+OVERLAY_LINE = ('    if (native.size && ValueModel.usesSuperflexValues(rosterShape)) '
                 'take(savedPublishedRow(key, "native_superflex"));\n')
 PAGE_SOURCES = ("fantasycalc", "cbs", "fantasypros", "usatoday")
 SET_AND_READ = """([n, keys]) => { const c = window.TradeValueCurveControls;
