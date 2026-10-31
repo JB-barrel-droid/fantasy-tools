@@ -172,12 +172,32 @@ branches only and are not live. Do not dispatch work to either lane yet.
 
 ### Merge gate
 
-- **PSpice:** while Claude is out, apply decision 11's independent review,
-  exact-head green CI and approval checks before an otherwise authorized merge.
-- **Muse:** apply the identical gate, obtain the independent Codex receipt
-  through PSpice if needed, and merge only via GitHub API as `jkb-bur-bot`,
-  with the Muse-marked merge comment. If that API action is unavailable, hand
-  off without claiming a merge. Neither successor merges these PRs in this task.
+[JEG-1444 decision 13](https://linear.app/jegabee/issue/JEG-1444), Jeremy
+2026-10-31 13:16 UTC ("Add it to the charter"), applies to both successors.
+
+- **PSpice:** while Claude is out, run one low-risk release window about once
+  a day on the existing overnight merge run: at most 7 PRs of the same risk,
+  each on its own reviewed head with green CI on that head. Group CI, review,
+  branch integration, merge-gate wake-ups and deploy checks by release;
+  never waive per-head evidence. Ask for the per-batch deploy yes naming the
+  PR numbers in one multiple-choice question, A recommended. High-risk and
+  value-math changes ship alone; engine PRs stay one at a time. Urgent work
+  (live numbers wrong or deploy broken) ships alone at once with normal gates.
+- **Muse:** run that same window and gate, obtaining the independent Codex
+  receipt through PSpice if needed. Merge the batch only through GitHub API
+  as `jkb-bur-bot`, with visible Muse attribution, `<!-- author: muse -->` and
+  recommend wording in merge comments. Ask Jeremy for the per-batch deploy
+  yes in one multiple-choice question, A recommended, naming the PR numbers;
+  a Muse comment is never his yes. If the API is unavailable, hand off without
+  claiming a merge. Neither successor merges these PRs in this task.
+
+For either successor, a PR conflicting after an earlier member merges waits
+for the next batch: no mid-window rebase or repair. Afterwards its owner merges
+`origin/main` normally, then obtains new-head CI and delta review. After the
+batch, one CI run and one deploy check on main. If main goes red at any point,
+stop the batch and diagnose; reverts use the normal gate. Deploys retain the
+per-batch specific-yes requirement; the routine-data-refresh exception stays
+unchanged. The daily cadence and cap of 7 are defaults Jeremy can change.
 
 ### Approvals
 
@@ -242,6 +262,9 @@ these documentation PRs in this task.
   still apply; the coordinator never substitutes its own check for review.
 - The acting successor coordinator, PSpice or Muse, merges once that review
   passes and CI is green on that exact head, subject to the approval gates.
+  The acting successor runs the same batch window in the Review and merge
+  protocol (JEG-1444 decision 13), including per-batch deploy approval naming
+  PR numbers, isolated high-risk/value-math releases and immediate Urgent work.
   High-risk merges and all deploys still require Jeremy's specific yes.
   A yes covers only the named action and target; production-data deletion,
   credentials, Supabase migrations, GitHub settings, Mac patches and launchd
