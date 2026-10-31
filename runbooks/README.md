@@ -6,6 +6,7 @@ Run every Python command with the Python 3.12 virtualenv first on PATH (`export 
 
 | Runbook | Job |
 |---|---|
+| [../docs/efficiency-scorecard/README.md](../docs/efficiency-scorecard/README.md) | Model-free daily PR/stage/usage scorecard and small Mac capacity samples through Nov 13 (JEG-1464); schedule command provided, not installed. |
 | [main-write-pause.md](main-write-pause.md) | Pause only main publication, retain output, expire and restore (JEG-1215). |
 | [weekly-refresh.md](weekly-refresh.md) | Confirm the week's producers ran and the chain published. |
 | [../docs/week-transition-runbook.md](../docs/week-transition-runbook.md) | Week N to N+1: lagging is normal Tuesday to Thursday morning; stale (still on N after Thursday 12:00 CT) is a warning and when to step in (JEG-1180). |

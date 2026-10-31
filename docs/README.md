@@ -83,6 +83,10 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 ## Operations, process and agents
 
+The [efficiency scorecard](efficiency-scorecard/README.md) (JEG-1464) documents
+the model-free daily collector, counting method, disk floor and coordinator
+run step; [first readout](efficiency-scorecard/first-readout.md) covers Oct 30–31.
+
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
 | [picks-log.md](picks-log.md) | Record | - | - | Copy of the Claude lanes' picks log (choices made for Jeremy, each reversible; nothing merges on a pick alone). Source of truth is his main-chat log until lanes write here. |
