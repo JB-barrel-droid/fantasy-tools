@@ -1,0 +1,418 @@
+{
+  "version": 1,
+  "full_shards": [
+    "smoke",
+    "validate-base",
+    "core-1",
+    "core-2",
+    "core-3",
+    "core-4",
+    "core-5",
+    "full-unit"
+  ],
+  "full_paths": [
+    ".github/**",
+    "Makefile",
+    "pipelines/fast_gate.py",
+    "pipelines/fast_gate_history.py",
+    "config/**",
+    "*requirements*.txt",
+    "pyproject.toml",
+    "pytest.ini",
+    "tests/test_fast_gate.py",
+    "tests/fast_gate_history.json",
+    "tests/_*.py",
+    "tests/fixtures/**",
+    "tests/rendered_gate/**",
+    "app/trade-value-chart/**",
+    "pipelines/value*.py",
+    "pipelines/spec_reference/**",
+    "pipelines/lib/**",
+    "pipelines/*vorp*.py",
+    "pipelines/*value*.py",
+    "pipelines/*roster*.py",
+    "supabase/functions/get-values/pipeline.ts",
+    "docs/methodology.md",
+    "docs/math-review-agenda.md",
+    "docs/feature-contract.md",
+    "docs/manifesto-mirror.md",
+    "docs/use-ddf-in-claude-chatgpt.md",
+    "supabase/functions/get-values/**",
+    "pipelines/bake_players.py",
+    "pipelines/derive_lineup_parameters.py",
+    "tools/**",
+    "pipelines/expected_starts*",
+    "pipelines/score_lineup*"
+  ],
+  "docs_paths": [
+    "*.md",
+    "docs/**",
+    "runbooks/**"
+  ],
+  "rules": [
+    {
+      "paths": [
+        "tests/node/connector_roundtrip_check.mjs",
+        "tests/node/connector_inventory_dump.mjs",
+        "tests/node/mcp_remote_check.mjs",
+        "tests/node/mcp_unmatched_check.mjs",
+        "tests/node/mcp_superflex_link_check.mjs",
+        "tests/node/connector_fit_check.mjs",
+        "tests/node/batch_trade_check.mjs",
+        "tests/node/connector_both_sides_check.mjs",
+        "tests/node/connector_analyses_driver.mjs",
+        "tests/node/get_values_value_context_check.mjs"
+      ],
+      "shards": [
+        "connector"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/values-fieldnotes.*",
+        "app/v2/movers.js",
+        "app/v2/source-views.js",
+        "app/v2/namesearch.js",
+        "app/values-explainer/**"
+      ],
+      "shards": [
+        "fe-values"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/trade.js",
+        "app/v2/trade-readout.js",
+        "app/v2/compare-evidence-view.*"
+      ],
+      "shards": [
+        "fe-compare"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/finder.js",
+        "app/v2/opponent-inclusion.*",
+        "app/v2/discovery-controls.js"
+      ],
+      "shards": [
+        "fe-finder"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/targets.js",
+        "app/v2/target-answer-card.*"
+      ],
+      "shards": [
+        "fe-targets"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/waivers.*"
+      ],
+      "shards": [
+        "fe-waivers"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/league.js",
+        "app/v2/lineup-comparison.js",
+        "app/v2/league-status.*",
+        "app/v2/roster-*.js",
+        "app/v2/team-summary.js"
+      ],
+      "shards": [
+        "fe-league"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/settings-fieldnotes.*"
+      ],
+      "shards": [
+        "fe-settings"
+      ]
+    },
+    {
+      "paths": [
+        "app/v2/**",
+        "pipelines/build_v2_page.py"
+      ],
+      "shards": [
+        "fe-values",
+        "fe-compare",
+        "fe-finder",
+        "fe-targets",
+        "fe-waivers",
+        "fe-league",
+        "fe-settings"
+      ]
+    },
+    {
+      "paths": [
+        "app/llm/**",
+        "supabase/functions/mcp/**",
+        "supabase/functions/get-values/**"
+      ],
+      "shards": [
+        "connector"
+      ]
+    },
+    {
+      "paths": [
+        "pipelines/**",
+        "scripts/**"
+      ],
+      "shards": [
+        "pipelines"
+      ]
+    }
+  ],
+  "shards": {
+    "smoke": {
+      "build": false,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_fast_gate",
+          "tests.test_baseline_reds",
+          "tests.test_validate_shards",
+          "tests.test_workflow_script_paths",
+          "tests.test_ci_speedup_workflows"
+        ]
+      ]
+    },
+    "pipelines": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-integration"
+        ],
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_cbsros_bake_identity",
+          "tests.test_player_alias_table",
+          "tests.test_bake_on_change",
+          "tests.test_trade_chart_ingest_ci",
+          "tests.test_player_identity_guard",
+          "tests.test_universe_chart_only",
+          "tests.test_pipelines_import_standalone",
+          "tests.test_week_state",
+          "tests.test_source_lateness"
+        ]
+      ]
+    },
+    "connector": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_connector_roundtrip",
+          "tests.test_connector_inventory",
+          "tests.test_mcp_remote",
+          "tests.test_connector_analyses",
+          "tests.test_get_values_value_context",
+          "tests.test_connector_analyses_page",
+          "tests.test_llm_surfaces"
+        ]
+      ]
+    },
+    "fe-values": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_jeg1265_values_fieldnotes",
+          "tests.test_v2_movers",
+          "tests.test_v2_copy_names",
+          "tests.test_v2_group_weight",
+          "tests.test_v2_values_math_tip_render"
+        ]
+      ]
+    },
+    "fe-compare": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_v2_compare",
+          "tests.test_v2_deal_read",
+          "tests.test_v2_deal_read_split",
+          "tests.test_v2_headlines",
+          "tests.test_compare_evidence_view_contract",
+          "tests.test_v2_compare_empty_side_render"
+        ]
+      ]
+    },
+    "fe-finder": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_v2_finder",
+          "tests.test_v2_finder_fit",
+          "tests.test_v2_finder_guardrails",
+          "tests.test_v2_finder_triview_display",
+          "tests.test_v2_finder_import",
+          "tests.test_v2_finder_saved_team",
+          "tests.test_v2_finder_saved_team_render"
+        ]
+      ]
+    },
+    "fe-targets": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_v2_targets",
+          "tests.test_v2_targets_thin_render",
+          "tests.test_v2_fieldnotes_targets_render"
+        ]
+      ]
+    },
+    "fe-waivers": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_waivers_math",
+          "tests.test_waivers_status",
+          "tests.test_waivers_views",
+          "tests.test_waivers_clear_isolation_render",
+          "tests.test_waivers_mutation_specificity.ClassifierOfflineTests",
+          "tests.test_waivers_mutation_specificity.AnchorOfflineTests",
+          "tests.test_waivers_mutation_specificity.FixtureOfflineTests"
+        ]
+      ]
+    },
+    "fe-league": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_jeg1216_lineup",
+          "tests.test_jeg1231_opponent_inclusion",
+          "tests.test_jeg1328_share_links",
+          "tests.test_roster_paste_mutation_proof",
+          "tests.test_roster_provenance_transitions",
+          "tests.test_league_problems_render"
+        ]
+      ]
+    },
+    "fe-settings": {
+      "build": true,
+      "commands": [
+        [
+          "python3",
+          "-m",
+          "unittest",
+          "tests.test_build_v2_page",
+          "tests.test_v2_phone_layout_render",
+          "tests.test_v2_hamburger_nav_render",
+          "tests.test_v2_desktop_menu_render"
+        ]
+      ]
+    },
+    "core-1": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-core-shard-1"
+        ]
+      ]
+    },
+    "core-2": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-core-shard-2"
+        ]
+      ]
+    },
+    "core-3": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-core-shard-3"
+        ]
+      ]
+    },
+    "core-4": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-core-shard-4"
+        ]
+      ]
+    },
+    "core-5": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-core-shard-5"
+        ]
+      ]
+    },
+    "validate-base": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "validate-base"
+        ]
+      ]
+    },
+    "full-unit": {
+      "build": true,
+      "commands": [
+        [
+          "make",
+          "test-unit"
+        ]
+      ]
+    }
+  },
+  "dependencies": [
+    {
+      "paths": [
+        "app/v2/finder.js",
+        "app/v2/trade.js",
+        "app/v2/movers.js",
+        "app/v2/audit-pie.js",
+        "app/v2/audit-source.js",
+        "app/v2/ddf-state.js",
+        "app/v2/ddf-value-link.js"
+      ],
+      "shards": [
+        "connector"
+      ]
+    }
+  ]
+}

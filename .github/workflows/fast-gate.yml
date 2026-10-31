@@ -1,0 +1,130 @@
+name: Fast gate
+
+# JEG-1451: informational until Jeremy enables the check in branch protection.
+# Existing preview/Pages gates, nightly full suite and daily sweep stay intact.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: fast-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  BASELINE_RED_CONTEXT: CI
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      matrix: ${{ steps.map.outputs.matrix }}
+      has_shards: ${{ steps.map.outputs.has_shards }}
+      run_expensive: ${{ steps.state.outputs.run_expensive }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Always-on smoke (including docs and drafts)
+        run: python3 -m pipelines.fast_gate run --shard smoke
+      - name: Map paths from git (no changed-files API)
+        id: map
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            python3 -m pipelines.fast_gate plan --base "$BASE_SHA" --head "$HEAD_SHA" --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          else
+            python3 -m pipelines.fast_gate plan --full --github-output "$GITHUB_OUTPUT" --summary "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Defer heavy work for draft or stale PRs
+        id: state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate gate
+
+  shard:
+    needs: plan
+    if: needs.plan.outputs.run_expensive == 'true' && needs.plan.outputs.has_shards == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.timeout }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 2
+          persist-credentials: false
+      - name: Recheck PR before heavy work
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 -m pipelines.ci_pr_gate verify
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Cache Playwright browsers
+        if: matrix.build
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ms-playwright-${{ runner.os }}-1.49.1
+      - name: Browser and test dependencies
+        if: matrix.build
+        run: |
+          python3 -m pip install --quiet playwright==1.49.1 pytest
+          python3 -m playwright install --with-deps chromium
+          npm ci --prefix tests/rendered_gate
+          echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+      - name: Build test surfaces
+        if: matrix.build
+        run: |
+          make reference
+          make sync
+      - name: Run selected shard (baseline attribution preserves failures)
+        env:
+          SHARD: ${{ matrix.shard }}
+          EXTRA_TESTS: ${{ toJSON(matrix.extra_tests) }}
+        run: python3 -m pipelines.fast_gate run --shard "$SHARD" --extra-tests "$EXTRA_TESTS"
+
+  fast-gate:
+    name: fast-gate
+    needs: [plan, shard]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Selected checks completed at the current head
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PLAN_RESULT: ${{ needs.plan.result }}
+          SHARD_RESULT: ${{ needs.shard.result }}
+          HAS_SHARDS: ${{ needs.plan.outputs.has_shards }}
+          RUN_EXPENSIVE: ${{ needs.plan.outputs.run_expensive }}
+        run: |
+          if [ "$PLAN_RESULT" != "success" ]; then exit 1; fi
+          if [ "$RUN_EXPENSIVE" != "true" ]; then
+            echo "Heavy fast-gate checks deferred; this draft/stale head cannot pass." >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          if [ "$HAS_SHARDS" != "true" ] && [ "$HAS_SHARDS" != "false" ]; then exit 1; fi
+          if [ "$HAS_SHARDS" = "true" ] && [ "$SHARD_RESULT" != "success" ]; then exit 1; fi
+          if [ "$HAS_SHARDS" = "false" ] && [ "$SHARD_RESULT" != "skipped" ]; then exit 1; fi
+          python3 -m pipelines.ci_pr_gate verify
