@@ -19,7 +19,7 @@ is specific to Claude Code; put shared rules in `AGENTS.md`.
 - **Rotate the lead thread at about 200k context** (or at each milestone).
   First write the handoff as a comment on the active Linear ticket (state, open
   PRs, next step, decisions pending), then tell Jeremy to start a new thread.
-- **Direction questions** may use AskUserQuestion, batched into one ask; the
+- **Direction questions** may use AskUserQuestion, one decision at a time; the
   multiple-choice rule in `AGENTS.md` still applies.
 - **Permissions** are in `.claude/settings.json`: force-push, `reset --hard`,
   `clean -fdx` and `supabase db reset` are denied; migrations, function
