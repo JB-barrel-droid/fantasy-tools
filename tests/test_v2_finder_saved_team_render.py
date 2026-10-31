@@ -1,6 +1,7 @@
 """JEG-1219: saved-team selection never writes a working copy into League."""
 from __future__ import annotations
 
+import sys
 import unittest
 
 from tests import _render_env
@@ -36,15 +37,17 @@ def keyboard_pick(picker, steps, value):
     JEG-1263: Chrome on macOS opens a native popup on ArrowDown for a closed select
     instead of changing its value, and Playwright cannot drive that popup, so the
     keys leave the value alone (Linux and Windows change it). The page is not at
-    fault: its change handler runs the same either way. When the keys did not move
-    the value, make the same choice with select_option, which
-    fires the same input and change events. Linux CI still takes the pure keyboard path.
+    fault: its change handler runs the same either way. Only on macOS, when the
+    arrows leave the Home option selected, make the same choice with select_option,
+    which fires the same input and change events. A wrong option is never repaired;
+    Linux and Windows always take the pure keyboard path.
     """
     picker.focus()
     picker.press('Home')
+    home_value = picker.input_value()
     for _ in range(steps):
         picker.press('ArrowDown')
-    if picker.input_value() != value:
+    if sys.platform == 'darwin' and picker.input_value() == home_value:
         picker.select_option(value)
     picker.press('Tab')
 

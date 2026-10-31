@@ -16,8 +16,8 @@ ROOT = Path(__file__).resolve().parent.parent
 KNOWN_RED = {
     "test_v2_source_links_render": "JEG-983",
     "test_v2_writing_subtabs_order_render": "JEG-983",
-    # 3 of 18 tests fail on main (2026-10-30): the journey no longer reaches Compare for both picks. Fix, then wire it.
-    "test_uso_site_journey_render": "JEG-1263",
+    # Red since first browser execution: discovery/Compare context (JEG-1403, related JEG-1259). Fix, then wire it.
+    "test_uso_site_journey_render": "JEG-1403",
 }
 
 

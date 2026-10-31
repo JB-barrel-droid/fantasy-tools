@@ -940,6 +940,8 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
+	# JEG-1389: settings reload regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
 	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
 	# JEG-1199: each projection's path from the publisher's number to the published value.
@@ -969,6 +971,8 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_jeg1265_values_fieldnotes_render
 
 test-render-sweep-2:
+	# JEG-1389: settings switch redraw regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_chart_fullscreen_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_advanced_render
@@ -1032,6 +1036,8 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_finder_teams_render
 
 test-render-extra:
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
