@@ -30,7 +30,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
 sys.path.insert(0, str(ROOT / "pipelines" / "lib"))
 import identity_queue  # noqa: E402
-import save_razzball_references as base  # noqa: E402 -- shared resolver glue and Supabase hooks
+import pg_direct  # noqa: E402 -- direct Postgres hooks, login from Keychain (REST sbclient is unavailable on the Mac)
+import save_razzball_references as base  # noqa: E402 -- shared resolver glue
 from nfl_week import current_nfl_week  # noqa: E402
 
 SOURCE = "fantasysharks"
@@ -38,9 +39,9 @@ TABLE = "fantasysharks_projections"
 SNAPSHOT_COLUMN = "fantasysharks_snapshot_date"
 CONFLICT = f"player_key,{SNAPSHOT_COLUMN}"
 
-fetch_players: Callable[[], list[dict[str, Any]]] = base._default_fetch_players
-upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = base._default_upsert
-count_rows: Callable[[str, str], int] = base._default_count
+fetch_players: Callable[[], list[dict[str, Any]]] = pg_direct.fetch_players
+upsert_rows: Callable[[str, list[dict[str, Any]], str], None] = pg_direct.upsert_rows
+count_rows: Callable[[str, str], int] = pg_direct.count_rows
 
 
 def latest_snapshot() -> Path:
@@ -96,6 +97,16 @@ def build_rows(snapshot_path: Path) -> tuple[list[dict[str, Any]], list[dict[str
             "scoring": "all", "season": season, "week": week, "source_content_date": vintage,
             "_run_id": f"{SOURCE}-save-{vintage}", "_writer_identity": "save_fantasysharks_references.py",
         })
+    by_key: dict[Any, list[dict[str, Any]]] = {}
+    for r in clean:
+        by_key.setdefault(r["player_key"], []).append(r)
+    dupes = {k for k, v in by_key.items() if len(v) > 1}
+    if dupes:  # two source rows for one player: save neither, never pick one
+        for r in clean:
+            if r["player_key"] in dupes:
+                review.append({"reason": "duplicate_player_key", "player_name": r.get("player_norm"),
+                               "player_norm": r.get("player_norm"), "pos": r.get("pos"), "player_key": r["player_key"]})
+        clean = [r for r in clean if r["player_key"] not in dupes]
     return clean, review, vintage
 
 
@@ -106,8 +117,9 @@ def main() -> None:
     args = parser.parse_args()
     clean, review, vintage = build_rows(args.snapshot or latest_snapshot())
     print(f"{SOURCE} {vintage}: {len(clean)} clean rows, {len(review)} review rows")
-    for r in review[:10]:
-        print(f"  review: {r.get('reason')}: {r.get('player_name')}")
+    for r in review:
+        extra = f" (player_key {r['player_key']})" if r.get("player_key") is not None else ""
+        print(f"  REVIEW, NOT SAVED: {r.get('reason')}: {r.get('player_name')} [{r.get('pos')}]{extra}")
     if args.dry_run:
         print(f"[dry-run] would upsert {len(clean)} rows into {TABLE}")
         return
