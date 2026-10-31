@@ -22,8 +22,9 @@ Output: <out-dir>/snapshot.json
 Identity (player_key) is resolved later by the saver against public.players via
 lib/canonical_players; this puller only normalizes the name (fail closed there).
 
-DATING: the page carries no player-chart timestamp (only pick rows have one), so
-the vintage is the run date and `fingerprint` (sha256 of the sorted
+DATING: the page carries no verified player-chart change timestamp, so
+the vintage is the fetch date, not the publisher's chart date. `fingerprint`
+(sha256 of the sorted
 (id, redraft half-PPR ds value) pairs) is what decides whether the chart moved.
 
 Fail closed (non-zero exit, no snapshot written), named on the
@@ -61,7 +62,7 @@ SCORINGS = {"NoPpr": "no_ppr", "HalfPpr": "half_ppr", "OnePpr": "one_ppr", "TePr
 LEAGUES = {"Redraft": "redraft", "Dynasty": "dynasty"}
 REQUIRED_COLUMNS = ("dsValueRedraftHalfPpr", "marketValueRedraftHalfPpr", "dsValueDynastyHalfPpr")
 SCHEMA = "draftsharks_trade_value_v1"
-_PLAYERS_ANCHOR = '"players":[{"id":'
+_PLAYERS_ANCHOR = re.compile(r'"players"\s*:\s*\[')
 
 
 class PullError(RuntimeError):
@@ -99,11 +100,11 @@ def fetch(url: str = URL) -> str:
 def extract_players(body: str) -> list[dict]:
     if len(body) < MIN_BODY:
         raise PullError(f"body is {len(body)} bytes (< {MIN_BODY})", "SOURCE_BLOCKED")
-    i = body.find(_PLAYERS_ANCHOR)
-    if i < 0:
+    match = _PLAYERS_ANCHOR.search(body)
+    if match is None:
         raise PullError("no embedded players array on the page")
     try:
-        players, _ = json.JSONDecoder().raw_decode(body[i + len('"players":'):])
+        players, _ = json.JSONDecoder().raw_decode(body[match.end() - 1:])
     except json.JSONDecodeError as e:
         raise PullError(f"players array did not parse: {e}")
     if not isinstance(players, list) or not players:
@@ -117,17 +118,24 @@ def _num(v):
 
 def build_snapshot(players: list[dict], now: datetime | None = None) -> dict:
     now = now or datetime.now(timezone.utc)
-    missing = [c for c in REQUIRED_COLUMNS if c not in players[0]]
-    if missing:
-        raise PullError(f"required columns gone: {missing}")
     cols = format_columns()
     rows, dropped = [], {"non_skill_position": 0, "unpriced": 0}
+    seen_ids = set()
     for p in players:
+        if not isinstance(p, dict):
+            raise PullError("players array contains a non-object row")
         pos = p.get("fantasy_position")
         if pos not in POSITIONS:
             dropped["non_skill_position"] += 1
             continue
-        name = f"{p.get('first_name', '')} {p.get('last_name', '')}".strip()
+        missing = [c for c in REQUIRED_COLUMNS if c not in p]
+        if missing:
+            raise PullError(f"required columns gone for player {p.get('id')}: {missing}")
+        name = f"{p.get('first_name') or ''} {p.get('last_name') or ''}".strip()
+        pid = p.get("id")
+        if not name or not isinstance(pid, int) or isinstance(pid, bool) or pid in seen_ids:
+            raise PullError(f"missing name/id or duplicate id for player {pid!r}")
+        seen_ids.add(pid)
         ds, market = {}, {}
         for fmt, (dc, mc) in cols.items():
             dv, mv = _num(p.get(dc)), _num(p.get(mc))
@@ -154,7 +162,9 @@ def build_snapshot(players: list[dict], now: datetime | None = None) -> dict:
     return {
         "schema": SCHEMA, "source": "draftsharks", "source_url": URL,
         "fetched_at": now.isoformat(timespec="seconds"),
-        "vintage_date": now.date().isoformat(), "fingerprint": fingerprint,
+        "vintage_date": now.date().isoformat(),
+        "vintage_basis": "fetch_date_not_publisher_chart_date",
+        "fingerprint": fingerprint,
         "rows": rows, "row_count": len(rows), "dropped": dropped,
     }
 

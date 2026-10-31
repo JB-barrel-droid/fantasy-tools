@@ -155,7 +155,8 @@ def trim_pipeline(vp: dict, full: bool = True) -> dict:
                                        "estimates": {pk: trim_estimate(e) for pk, e in (pp.get("estimates") or {}).items()}}
         sources[k] = row
     return {f: vp.get(f) for f in ("version", "pie", "benchShare", "benchShareApplied", "included", "excluded",
-                                   "degenerate", "ddfWeights", "allocation")} | {"sources": sources}
+                                   "degenerate", "ddfWeights", "allocation", "allocationMix",
+                                   "allocationExpected", "seatSigma")} | {"sources": sources}
 
 
 def trim(raw: dict) -> dict:

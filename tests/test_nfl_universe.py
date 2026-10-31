@@ -244,6 +244,26 @@ class InsertMissingPlayersTest(unittest.TestCase):
         self.assertEqual([], out["insert"])
         self.assertEqual("950", out["skipped"][0]["sleeper_id"])
 
+    def test_sleeper_id_the_idmap_ties_to_an_existing_row_is_not_inserted_again(self):
+        # JEG-1351: Sleeper 11068 "Mitch Tinsley" is 4363 "Mitchell Tinsley"
+        # (same gsis, idmap status matched). The name doesn't resolve and the
+        # row carries no sleeper_id, so the refresh used to add a second row.
+        # Synthetic names, so the committed alias list can't resolve them.
+        rows = REGISTRY_ROWS + [{"player_key": 4363, "full_name": "Freddie Rookieson", "position": "WR",
+                                 "active": False}]
+        out = sync_sleeper_players.plan(BASE, Registry(rows), set(), {}, {"950": 4363})
+        self.assertEqual([], out["insert"])
+        skipped = {s["sleeper_id"]: s["reason"] for s in out["skipped"]}
+        self.assertIn("player_key 4363", skipped["950"])
+        # an idmap key the table doesn't hold is no reason to skip
+        out = sync_sleeper_players.plan(BASE, Registry(REGISTRY_ROWS), set(), {}, {"950": 4363})
+        self.assertEqual(["Fresh Rookie"], [r["full_name"] for r in out["insert"]])
+
+    def test_committed_idmap_ties_the_three_jeg1351_sleeper_ids(self):
+        keys = sync_sleeper_players.load_idmap_keys()
+        self.assertEqual({"5347": 2785, "6665": 437, "11068": 4363},
+                         {sid: keys.get(sid) for sid in ("5347", "6665", "11068")})
+
 
 class PulseWithoutCountTest(unittest.TestCase):
     def test_a_bake_without_the_count_is_amber_not_silent(self):
