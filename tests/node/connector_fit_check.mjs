@@ -58,6 +58,8 @@ function makeRows(players) {
     const values = { ddf_value: ddf };
     const market = 0.62 + 0.76 * unit(p.key, "m");
     CH.forEach((k) => { values[k] = Math.round(ddf * market * (0.9 + 0.2 * unit(p.key, k)) * 10) / 10; });
+    // JEG-1324: engine rows carry DDF Value (projections); Natural fit 1a reads it on both sides (same draw as fit_diagnostic.cjs).
+    values.ddf_value_projections = Math.round(ddf * (0.8 + 0.4 * unit(p.key, "p")) * 10) / 10;
     map.set(String(p.key), { player_key: String(p.key), name: p.name, pos: p.pos, team: p.team || "", values });
   });
   return map;
@@ -106,11 +108,24 @@ for (const opp of teams.slice(1)) {
 }
 assert.ok(compared > 0, "the fixture league produced trades to judge");
 assert.equal(counts.Natural + counts["Market supported"] + counts.Force, compared, "every trade got a label");
-assert.ok(counts.Natural > 0 && counts["Market supported"] > 0 && counts.Force > 0,
-  `the rule separates trades on the fixture: ${JSON.stringify(counts)}`);
+// JEG-1125 (option A): the separation check moved to the diagnostic's rows below. With the shared even band
+// the top F.LIMIT trades per opponent hold no Natural trade on this fixture (main had 1 of 189), while the
+// full set the diagnostic checks still holds every label.
 
-// The same set tests/node/fit_diagnostic.cjs counts: the connector's label for each of its
-// rows equals the label the diagnostic reports (its overall fit), row for row.
+// The set tests/node/fit_diagnostic.cjs counts: the connector's label for each of its rows equals
+// the label the diagnostic reports (its overall fit), row for row. Since #1072, runAll keeps every
+// qualified candidate rather than each opponent's top F.LIMIT, so its rows are a superset of the
+// trades judged in (a): every one of those is among them (JEG-1030), and every row is checked.
+const tradeId = (oppId, give, receive) => [oppId, give.map((r) => String(r.player_key)).sort().join("+"),
+  receive.map((r) => String(r.player_key)).sort().join("+")].join("|");
+const judged = new Set();
+for (const opp of teams.slice(1)) {
+  const theirs = opp.entries.map((e) => rows.get(e.key)).filter(Boolean);
+  const res = F.findTrades(mine, theirs, { chartKeys: CH, maxSize: 2, limit: F.LIMIT,
+    sanity: { shape: SHAPE, mine, theirs, keepMine: true, keepTheirs: true } });
+  res.trades.forEach((t) => judged.add(tradeId(opp.id, t.give, t.receive)));
+}
+assert.equal(judged.size, compared, "the trades judged in (a) are distinct");
 {
   const entries = (t) => t.players.map((p) => ({ key: String(p.key), name: p.name, pos: p.pos, team: p.team || "" }));
   const oppTeams = fixture.teams.map((t, i) => ({ id: `t${i}`, name: t.name, isMine: i === 0, entries: entries(t) }));
@@ -118,12 +133,21 @@ assert.ok(counts.Natural > 0 && counts["Market supported"] > 0 && counts.Force >
     chartKeys: CH.slice(), maxSize: 2, keepMine: true, keepTheirs: true };
   const out = await O.runAll(oppTeams[0], oppTeams.slice(1), ctx,
     { cache: O.createCache(), yieldFn: () => Promise.resolve(), budgetMs: 0 });
-  assert.equal(out.rows.length, compared, "the diagnostic's rows are the same trades");
+  const rowIds = new Set(out.rows.map((row) => tradeId(row.opponentId, row.give, row.receive)));
+  assert.equal(rowIds.size, out.rows.length, "the diagnostic's rows are distinct trades");
+  const missing = [...judged].filter((id) => !rowIds.has(id));
+  assert.deepEqual(missing, [], "every trade judged in (a) is one of the diagnostic's rows");
+  assert.ok(out.rows.length >= compared, `the diagnostic keeps at least the judged trades: ${out.rows.length} < ${compared}`);
   const rosterOf = new Map(oppTeams.map((t) => [t.id, t.entries.map((e) => rows.get(e.key)).filter(Boolean)]));
+  const rowCounts = { Natural: 0, "Market supported": 0, Force: 0 };
   for (const row of out.rows) {
     const got = fitForTrade(F, mine, rosterOf.get(row.opponentId), row.give, row.receive, fitCtx);
     assert.equal(got.fit, FIT_LABELS[row.overall], `fit_diagnostic row parity — ${row.id}`);
+    if (got.fit in rowCounts) rowCounts[got.fit] += 1;
   }
+  // Parity above is shown on every label: the rule separates trades on the fixture.
+  assert.ok(rowCounts.Natural > 0 && rowCounts["Market supported"] > 0 && rowCounts.Force > 0,
+    `the rule separates trades on the fixture: ${JSON.stringify(rowCounts)}`);
 }
 
 // ---------------------------------------------------------------------------
