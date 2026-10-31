@@ -501,6 +501,9 @@ test-unit-modules:
 	python3 -m unittest tests.test_roster_provenance_transitions
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
+	# JEG-1217: manager profiles (capture, exclusion, identity, persistence, import/export), the Trade ideas math, and their mutation proofs.
+	python3 -m unittest tests.test_jeg1217_manager_profiles
+	python3 -m unittest tests.test_jeg1217_manager_recs
 	python3 -m unittest tests.test_jeg1230_trade_readout
 	# JEG-1262: pure multi-trade package uniqueness and roster-application helper.
 	python3 -m unittest tests.test_jeg1183_package_constraints
@@ -961,6 +964,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_topbar_notice_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
+	python3 -m unittest tests.test_jeg1217_managers_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
 	python3 -m unittest tests.test_v2_find_split_render
 
@@ -1075,6 +1079,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_shared_roster_render
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
+	python3 -m unittest tests.test_jeg1217_managers_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
