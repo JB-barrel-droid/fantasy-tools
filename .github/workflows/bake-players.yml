@@ -112,3 +112,12 @@ jobs:
           if git diff --cached --quiet; then echo "No bake changes."; exit 0; fi
           git commit -m "Bake players.json via GitHub Actions (validate: ${{ steps.validate.outcome }})"
           git push origin "HEAD:$branch"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

@@ -73,6 +73,8 @@ jobs:
           python3 pipelines/build_pipeline_checkpoints.py >> /tmp/build.log 2>&1 || { echo "build_pipeline_checkpoints exit $?" >> /tmp/build.rc; }
           test -s output/source-import-health.json || echo "source-import-health.json missing" >> /tmp/build.rc
           test -s output/pipeline-checkpoints.json || echo "pipeline-checkpoints.json missing" >> /tmp/build.rc
+          # Preserve every counter line, including imports outside the log tail.
+          { echo '### Supabase counters from build log'; echo '```text'; grep '^\[supabase-bytes\]' /tmp/build.log || true; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           tail -25 /tmp/build.log
           if [ -s /tmp/build.rc ]; then sed "s/^/::error title=producer::/" /tmp/build.rc; tail -8 /tmp/build.log | sed "s/^/::warning title=producer-log::/"; exit 1; fi
 
@@ -360,5 +362,14 @@ jobs:
         with:
           name: deferred-health-artifacts-3-${{ github.run_attempt }}
           path: output/release-publications/health-artifacts-3/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
           if-no-files-found: ignore
           retention-days: 14

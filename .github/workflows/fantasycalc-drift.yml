@@ -111,3 +111,12 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             --status "$STATUS" \
             --output output/comparison-chain-status.json
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

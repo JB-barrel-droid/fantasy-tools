@@ -145,3 +145,12 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PROBE_FP: ${{ github.event.inputs.probe_fp || steps.fp.outputs.fp }}
         run: python3 pipelines/source_probe.py ack --supabase --source fantasysharks --fingerprint "$PROBE_FP"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

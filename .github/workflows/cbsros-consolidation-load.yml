@@ -87,3 +87,12 @@ jobs:
               || { echo "::error title=loader::$leg failed"; grep -E "REFUSED|Error|error|HTTP" /tmp/load.log | tail -5 | sed "s/^/::warning title=loader-error::/"; exit 1; }
           done < /tmp/verified.txt
           grep -E "wrote via|upserted|rows in slice|DRY RUN" /tmp/load.log | tail -30 | sed "s/^/::notice title=loader::/"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
