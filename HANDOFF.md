@@ -11,9 +11,9 @@ Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 project if your usage runs out." Update it before any large or risky change
 and after each milestone; commit and push it with the relevant code.
 
-PSpice (Jeremy's own direct Codex, default) and Muse are the two named
-successors for the whole Duet coordinator role. ChatGPT Dots remains an
-alternate. Read [docs/cutover-runbook.md](https://github.com/JB-barrel-droid/fantasy-tools/blob/codex/JEG-1445-cutover-runbook/docs/cutover-runbook.md)
+PSpice (Jeremy's personal agent on the Dots platform, default) and Muse are
+the two named successors for the whole Duet coordinator role. PSpice is the
+same seat earlier notes call Jeremy's direct Codex. Read [docs/cutover-runbook.md](https://github.com/JB-barrel-droid/fantasy-tools/blob/codex/JEG-1445-cutover-runbook/docs/cutover-runbook.md)
 in PR #1245 until it lands. JEG-1444 decision 11 (Jeremy, 2026-10-31 12:42
 UTC, "A") specifies independent exact-head Codex review while Claude is out,
 and merge by the acting successor after review/green CI and approval gates.

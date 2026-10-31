@@ -16,10 +16,11 @@ calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 
 These rules apply to every coordinator and provider and supersede older
 provider-specific ownership wording below where it conflicts. Design work so
-Jeremy can switch agents at any time. PSpice, Jeremy's own direct Codex, is
+Jeremy can switch agents at any time. PSpice, Jeremy's personal agent on the Dots platform (the same seat earlier
+notes call Jeremy's direct Codex), is
 the default successor for the whole Duet coordinator role, and Muse is the
 second named successor (Jeremy, 2026-10-31 12:39 UTC: "Muse should also be
-able to take over"). Dots remains an alternate. The takeover checklist is
+able to take over"). The takeover checklist is
 `docs/cutover-runbook.md` (separate JEG-1445 runbook PR). The **Cutover review
 and merge** section below implements JEG-1444 decision 11 and takes precedence
 over normal Claude-only ownership while Claude is out. Other review risk
