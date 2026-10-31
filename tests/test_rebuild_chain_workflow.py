@@ -524,9 +524,12 @@ class RebuildChainWorkflowTest(unittest.TestCase):
         # import-health step fails the job: the refreshed workflow-health
         # file never reaches the monitor. This is the exact 2026-10-06
         # failure mode (stale card, false failing-streak badge).
-        mutated = WORKFLOW.replace(
-            "        if: always()\n        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}",
-            "        env:\n          CHAIN_OUTCOME: ${{ steps.chain.outcome }}", 1)
+        commit = find_step(WORKFLOW, COMMIT)
+        self.assertIsNotNone(commit)
+        # Mutate this step's condition independently of env field ordering.
+        changed = commit.replace("        if: always()\n", "", 1)
+        self.assertNotEqual(changed, commit, "premise: the commit condition was removed")
+        mutated = WORKFLOW.replace(commit, changed, 1)
         self.assertCaught(mutated, "must publish even when an earlier step failed")
 
     def test_red_health_reaches_the_monitor_copy(self):

@@ -33,12 +33,13 @@ on:
   workflow_run:
     workflows: ["Rebuild comparison chain"]
     types: [completed]
+    branches: [main]
   push:
     branches: ["pulse/**"]
 
 permissions:
-  contents: write  # publish dist/modules/fidelity-pulse.json to main
-  actions: write   # dispatch pages.yml (GITHUB_TOKEN pushes don't trigger it)
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
+  actions: write   # dispatch trusted rebuild/source refresh workflows
   issues: write    # ops-alert issues
 
 concurrency:
@@ -47,14 +48,17 @@ concurrency:
 
 jobs:
   pulse:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' && github.event.workflow_run.head_repository.full_name == github.repository))
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
     timeout-minutes: 40
-    env:
-      IS_MAIN: ${{ github.event_name != 'push' }}
-    steps:
+    env: &writer-env
+      IS_MAIN: ${{ github.ref == 'refs/heads/main' }}
+    steps: &writer-steps
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event_name == 'push' && github.ref || 'refs/heads/main' }}
+          ref: ${{ github.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -103,6 +107,17 @@ jobs:
           PY
           { echo "## Fidelity pulse"; echo '```'; cat /tmp/pulse.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Publish to the status page
         id: publish
         # A run limited to some sources must not replace the status page's
@@ -110,6 +125,17 @@ jobs:
         # 1-source file and test_published_surfaces failed main's validate
         # ("fidelity-pulse: sources=1 < 7") until the next full run.
         if: env.IS_MAIN == 'true' && (github.event_name != 'workflow_dispatch' || inputs.sources == '')
+        env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -123,6 +149,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
             git push "$@"
           }
           cp output/fidelity-pulse.json dist/modules/fidelity-pulse.json
@@ -150,23 +177,6 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Trigger Pages deploy
-        if: steps.publish.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          code=$(curl -s -o /tmp/d.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
-          [ "$code" = "204" ]
-
-      # JEG-520: a red holds its source, applied by the rebuild chain
-      # (pipelines/fidelity_hold.py reads the pulse just published). When a hold
-      # starts, ends or changes stage, run the chain now rather than at its next
-      # scheduled run. The chain's own completion re-runs this pulse, which sees
-      # the same holds (holds_changed false), so this cannot loop.
       - name: Rebuild the chain when a hold starts or ends
         if: steps.publish.outputs.pushed == 'true'
         env:
@@ -226,3 +236,14 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id fidelity_pulse --owner fidelity-pulse.yml --outcome "${{ job.status }}"
+
+  pulse-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 40
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+    env: *writer-env
+    steps: *writer-steps

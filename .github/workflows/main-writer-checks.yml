@@ -1,0 +1,64 @@
+name: Main writer security contracts
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/**"
+      - ".github/scripts/main-writer-credential.py"
+      - "pipelines/main_write_guard.py"
+      - "tests/test_main_writer*.py"
+      - "tests/test_main_write_guard.py"
+      - "tests/test_rebuild_chain*.py"
+      - "tests/test_v2_render_runs_on_data_push.py"
+      - "tests/test_deploy_gate_unconditional.py"
+      - "tests/test_espn_ci_workflow.py"
+      - "tests/test_no_failopen_workflows.py"
+      - "tests/test_workflow_dispatch_permissions.py"
+
+permissions:
+  contents: read
+
+jobs:
+  security-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Offline publication and credential contracts
+        run: >-
+          python3 -m unittest -f -v
+          tests.test_main_writer_credentials
+          tests.test_main_writer_workflows
+          tests.test_main_write_guard
+          tests.test_rebuild_chain_workflow
+          tests.test_rebuild_chain_consolidation_nonblocking
+          tests.test_v2_render_runs_on_data_push
+          tests.test_deploy_gate_unconditional
+          tests.test_espn_ci_workflow
+          tests.test_no_failopen_workflows
+          tests.test_workflow_dispatch_permissions
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache: false
+      - name: Lint migrated workflows with pinned actionlint
+        run: >-
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          -shellcheck= -pyflakes=
+          .github/workflows/main-writer-checks.yml
+          .github/workflows/espn-supabase-sync.yml
+          .github/workflows/espn-history-probe.yml
+          .github/workflows/espn-weekly-store.yml
+          .github/workflows/player-status-history.yml
+          .github/workflows/player-trace-rebuild.yml
+          .github/workflows/rebuild-chain.yml
+          .github/workflows/source-vintage-check.yml
+          .github/workflows/sleeper-identity-refresh.yml
+          .github/workflows/health-artifacts.yml
+          .github/workflows/fidelity-pulse.yml

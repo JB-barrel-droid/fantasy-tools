@@ -7,7 +7,9 @@ name: Rebuild comparison chain
 #   SUPABASE_URL          e.g. https://iskiybsimubiujwuchsl.supabase.co
 #   SUPABASE_SERVICE_KEY  the Supabase service_role key
 #
-# The GITHUB_TOKEN is automatic; no setup needed.
+# Main publication also requires MAIN_WRITER_APP_ID and
+# MAIN_WRITER_APP_PRIVATE_KEY in the main-only main-writer environment.
+# The default GITHUB_TOKEN handles API dispatches and issue reporting only.
 
 on:
   # JEG-76: no fixed schedule. The hourly source-vintage-check.yml dispatches
@@ -62,23 +64,26 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: write  # needed to commit and push the rebuilt fixture
-  actions: write  # needed to dispatch pages.yml via API (JEG-274)
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
+  actions: write  # source/chain dispatches, including deferred chain handoff
   issues: write  # JEG-1194: open/close the one chain-stuck issue
 
 jobs:
   rebuild:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
-    steps:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    steps: &writer-steps
       - uses: actions/checkout@v4
         with:
           # Build on the branch tip at job start, not the dispatch-time SHA
           # (github.sha): a run that waited in the concurrency queue would
           # otherwise rebuild on the tree from before the previous run's push
           # and conflict with it (run 37802134747, 2026-10-08).
-          ref: ${{ github.ref }}
           # Full history so the promote step's git-revision stamping works.
           fetch-depth: 0
+          ref: ${{ github.ref }}
+          persist-credentials: false
 
       # JEG-137 R10: capture the run start time as early as possible so the
       # scheduler-slip measurement (started_at - cron_at) reflects when the
@@ -478,6 +483,17 @@ jobs:
             --out dist/modules/github-actions.json \
             || { echo "WARNING: GitHub Actions status refresh failed (likely API rate limit); keeping the last committed artifact." >&2; git checkout -- dist/modules/github-actions.json; }
 
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Commit and push if changed
         id: push
         # A failed "Run import health check" step fails the job before the
@@ -491,6 +507,16 @@ jobs:
         # promote data.
         if: always()
         env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
           BAKE_OUTCOME: ${{ steps.bake.outcome }}
           CHAIN_ATTEMPT: ${{ inputs.attempt || '1' }}
@@ -512,6 +538,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
             git push "$@"
           }
           git config user.name "github-actions[bot]"
@@ -683,13 +710,8 @@ jobs:
             esac
           fi
 
-      # JEG-274: GitHub's no-cascade rule means pushes made with GITHUB_TOKEN
-      # do not trigger `push`-event workflows, so the Pages deploy ("Deploy
-      # dashboard", on: push: branches: [main]) never fires for chain commits.
-      # Explicitly dispatch the deploy workflow via workflow_dispatch, which IS
-      # honored when triggered via GITHUB_TOKEN (the documented exception).
-      # This only fires for chain commits (always GITHUB_TOKEN-originated), so
-      # it cannot double-fire on PAT pushes — those never run this workflow.
+      # JEG-1441: App-authenticated main pushes trigger Pages and the
+      # data-filtered v2-render workflow directly. Do not dispatch duplicates.
       - name: Retain deferred publication (rebuild-chain-1)
         if: always()
         uses: actions/upload-artifact@v4
@@ -698,53 +720,6 @@ jobs:
           path: output/release-publications/rebuild-chain-1/
           if-no-files-found: ignore
           retention-days: 14
-
-      - name: Trigger Pages deploy after chain push (JEG-274)
-        # !cancelled(): once the fixture is on main it is deployed, whatever
-        # an earlier non-publishing step (e.g. the consolidation write) did.
-        if: ${{ !cancelled() && steps.push.outputs.pushed == 'true' }}
-        run: |
-          # Dispatch via API directly (not gh CLI) for better error visibility.
-          # JEG-274: gh workflow run exits 1 with GITHUB_TOKEN; curl gives us
-          # the actual HTTP status and response body for debugging.
-          for attempt in 1 2 3; do
-            HTTP_CODE=$(curl -s -o /tmp/dispatch_resp.json -w "%{http_code}" \
-              -X POST \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-              -d '{"ref":"main"}')
-            echo "Dispatch attempt $attempt: HTTP $HTTP_CODE"
-            cat /tmp/dispatch_resp.json
-            if [ "$HTTP_CODE" = "204" ]; then
-              echo "Pages deploy dispatched successfully"
-              exit 0
-            fi
-            echo "Dispatch attempt $attempt failed (HTTP $HTTP_CODE); retrying in 20s..."
-            sleep 20
-          done
-          echo "::error::Pages dispatch failed 3 times (last HTTP $HTTP_CODE)"
-          exit 1
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # JEG-1118: same no-cascade rule as above, so the v2-render push trigger
-      # never sees chain commits. Dispatch it (GITHUB_TOKEN may dispatch). It is a
-      # post-push warning: continue-on-error, so a failed dispatch can never turn
-      # a published data refresh red or hold the next one.
-      - name: Dispatch v2-render after chain push (JEG-1118)
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.push.outputs.pushed == 'true' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          code=$(curl -s -o /tmp/v2r.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/v2-render-test.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "v2-render dispatch HTTP $code"; cat /tmp/v2r.json || true
-          [ "$code" = "204" ]
 
       - name: Value check summary (JEG-479)
         if: always()
@@ -841,3 +816,12 @@ jobs:
         run: |
           python3 pipelines/record_monitor_check.py --check-id rebuild_chain --owner rebuild-chain.yml --outcome "${{ job.status }}"
           python3 pipelines/record_chain_holds.py --owner rebuild-chain.yml --chain-outcome "$CHAIN_OUTCOME"
+
+  rebuild-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+      actions: write
+      issues: write
+    steps: *writer-steps

@@ -8,13 +8,18 @@ on:
 
 permissions:
   actions: write
-  contents: write # JEG-205: record the dispatched pipelines code hash
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
 
 jobs:
   check:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
-    steps:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    steps: &writer-steps
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -82,6 +87,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Record pipelines code hash
         # JEG-205: persist the dispatched hash as the loop guard -- exactly one
         # dispatch per code change. Records ONLY after the dispatch step ran
@@ -89,6 +105,17 @@ jobs:
         # next hourly run retries the same code change instead of silently
         # consuming the trigger.
         if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
+        env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -102,6 +129,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:-refs/heads/main}"; fi
             git push "$@"
           }
           python3 - <<'EOF'
@@ -141,3 +169,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id source_vintage_check --owner source-vintage-check.yml --outcome "${{ job.status }}"
+
+  check-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      actions: write
+      contents: write
+    steps: *writer-steps
