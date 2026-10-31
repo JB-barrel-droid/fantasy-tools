@@ -19,22 +19,29 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): blocked before deployment
+### JEG-1400 mcp deploy (Codex Bridge, 2026-10-31): rolled back, verification incomplete
 
-- Jeremy authorized only `mcp` on `iskiybsimubiujwuchsl` at 12:13 PM CT Oct 31
-  (pick A), plus restoring its previous source if deployment or either live check fails.
-- Isolated ops checkout pinned to fetched `origin/main` `c267aa71`. Confirmed
-  `find-trades.ts` uses `Math.max(0, -c.net!)` and `tools.ts` names unmatched players
-  with closest matches (#1231). Production metadata reports active mcp **v18**,
-  JWT verification disabled; v18 is the recorded rollback point.
-- Supabase CLI 2.122.0 invoked through npx. The pre-deploy rollback-source download
-  failed with `AccessTokenRequiredError`: local CLI authentication is absent.
-  No deployment attempted, no rollback needed, no credential changes or data writes.
-- Local `rival_edge_band_check.mjs` and `mcp_unmatched_check.mjs` both passed.
-  Live checks A (min_rival_edge 0.5) and B (pasted Zzyzx Notaplayer state) were not run.
-- Next: an operator must establish CLI authentication separately, then resume with
-  a fresh metadata/source capture before the single-function deploy and both live checks.
-  No automatic retry. JEG-1400 remains open. This branch is documentation only.
+- Jeremy's 12:13 PM CT approval covered only mcp on iskiybsimubiujwuchsl and rollback.
+  After Jeremy installed/authenticated CLI 2.122.0, re-fetched main: still c267aa71;
+  both requested fixes remain present. Downloaded active v18 source successfully into
+  `/Users/botcomp/code/wt/ops-JEG-1400-rollback` before deployment.
+- Deployed mcp only from detached origin/main c267aa71: active v19, verify_jwt false.
+- Check B PASSED on v19: read_state with Gibbs / Hubbard and Zzyzx Notaplayer
+  returned `get (no total: 1 name not matched)` and `Could not match: Zzyzx Notaplayer
+  (closest: Tylan Wallace, Kenneth Walker III, Josh Palmer)`.
+- Check A INCOMPLETE: the live baseline (min_rival_edge 0) returned Jonathan Taylor
+  for Amon-Ra St. Brown, but the verifier assumed returned trades had a charts field;
+  that field is omitted by the public response. It threw before calling min_rival_edge
+  0.5. This is a verifier error, not evidence of a product defect. Live get-values
+  indexed chart data identifies a discriminating case: rival-ok nets +0.5, +1.2,
+  -0.6; corrected average rival edge 0.2, old absolute calculation 0.7667.
+- Per the failure/rollback instruction, restored saved v18 source immediately with
+  a single mcp-only deploy: Supabase now reports active **v20** (v18 source), JWT
+  verification false. No retry of deployment or check A; no other function, migration,
+  credential or data changes. JEG-1400 remains open; #1261 remains a docs-only draft.
+- Next authorized run must fix the verifier to use the fetched indexed chart data,
+  then check baseline presence and exclusion at min_rival_edge 0.5; do not assume
+  public find_trades exposes per-chart nets. No further deploy attempted in this run.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
