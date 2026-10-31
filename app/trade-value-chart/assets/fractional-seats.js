@@ -74,6 +74,7 @@
     var lo = smin - 50 * gmax - 1, hi = smax + 50 * gmax + 1, tau, tot;
     for (var it = 0; it < BISECT; it += 1) {
       tau = 0.5 * (lo + hi);
+      if (tau <= lo || tau >= hi) break;  // the interval can't shrink further
       tot = 0;
       for (i = 0; i < items.length; i += 1) tot += phi((+items[i][1] - tau) / (+items[i][2]));
       if (tot > n) lo = tau; else hi = tau;
