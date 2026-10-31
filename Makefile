@@ -1,4 +1,4 @@
-.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-all test-unit test-unit-modules test-integration
+.PHONY: help value-check-compare values-explainer source-import source-match source-reference comparison-section comparison-reindex comparison-review comparison-promote coverage-triage comparison-merge naming reference sync guard-harness test validate serve preview-local deploy-status supabase-import import-health plan-status test-core validate-base test-core-shard-1 test-core-shard-2 test-core-shard-3 test-core-shard-4 test-core-shard-5 test-all test-unit test-unit-modules test-integration
 
 TODAY ?= $(shell date +%F)
 PORT ?= 8000
@@ -809,17 +809,8 @@ test-core-shard-1:
 	python3 -m unittest tests.test_v2_movers
 	python3 -m unittest tests.test_v2_phone_layout_render
 	python3 -m unittest tests.test_v2_phone_context_row_render
-	python3 -m unittest tests.test_v2_desktop_menu_render
 	python3 -m unittest tests.test_v2_phone_trade_rows_render
-	python3 -m unittest tests.test_view_invariants
-	python3 -m unittest tests.test_launch_front_door
-	python3 -m unittest tests.test_launch_copy_guard
 	python3 -m unittest tests.test_week_history
-	python3 -m unittest tests.test_missing_section_render
-	python3 -m unittest tests.test_lineup_content_week_advance
-	python3 -m unittest tests.test_search_players_universe
-	python3 -m unittest tests.test_published_league_settings_engine
-	python3 -m unittest tests.test_player_tags
 
 test-core-shard-2:
 	python3 -m unittest tests.test_spec_reference_value_pipeline
@@ -920,6 +911,19 @@ test-core-shard-4:
 	python3 -m unittest tests.test_short_chart_waiver
 	python3 -m unittest tests.test_roster_convention_parity
 	python3 -m unittest tests.test_waiver_band_line
+
+# JEG-1335: split from shard 1, which passed its 30-minute job limit once the seat mix
+# made the engine-heavy suites (seeded hold build, desktop menu, view invariants) slower.
+test-core-shard-5:
+	python3 -m unittest tests.test_v2_desktop_menu_render
+	python3 -m unittest tests.test_view_invariants
+	python3 -m unittest tests.test_launch_front_door
+	python3 -m unittest tests.test_launch_copy_guard
+	python3 -m unittest tests.test_missing_section_render
+	python3 -m unittest tests.test_lineup_content_week_advance
+	python3 -m unittest tests.test_search_players_universe
+	python3 -m unittest tests.test_published_league_settings_engine
+	python3 -m unittest tests.test_player_tags
 
 # Daily render sweep (JEG-976): the green headless render modules that are in neither test-core nor
 # test-unit-modules (about 25 min together). Run by .github/workflows/render-sweep.yml, dispatched daily

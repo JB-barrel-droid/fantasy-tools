@@ -40,6 +40,9 @@ below are history, including any "Codex reviews and merges" line.
   vorp x factor = display VORP again (the inspector's rebuild); row values unchanged.
 - Engine run time per setting about 6x (0.06 s to 0.35 s). Chromium checks (value_check, rank guard, sweep,
   values-explainer) run in CI or on the Mac.
+- CI: test-core now has five shards. Shard 1 passed its 30-minute job limit under the seat mix (seeded hold build
+  774s, desktop menu render 570s), so the desktop menu render, view invariants and the suites after them run as
+  `test-core-shard-5`; preview.yml and pages.yml list shards 1 to 5. Jeremy said A to merging #1242 once green.
 
 ### JEG-1176 pre-transition check (Codex Bridge, 2026-10-30)
 

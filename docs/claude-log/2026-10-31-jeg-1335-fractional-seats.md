@@ -43,3 +43,16 @@ Contract: build option A of the JEG-1333 before/after (Jeremy, 2026-10-30 23:41 
 - value_check compare, the rank guard, the 12-combo sweep, make validate and `make values-explainer MARK_REVIEWED=1` need Chromium, which the cloud session can't download; they run in CI or on the Mac.
 - Engine run time per setting goes from about 0.06 s to about 0.35 s (one run per allocation, 3 to 12 allocations). Not measured on the page or the edge functions.
 - `tests/test_basis_overrides.py` fails 20 tests on main as well (it runs in no make target); not this change's.
+
+## Shard 1 time limit (fifth test-core shard)
+
+preview-shard (1) was cancelled at its 30-minute job limit on f9f14e4 and 781a450. Per-suite times
+from the CI logs, main (run 41160429632) vs this PR (run 41163184229): test_seeded_hold_build 342s
+to 774s, test_v2_desktop_menu_render 329s to 570s; test_view_invariants (182s on main) was still
+running when the job was cancelled. Shard 1 is split: the desktop menu render, view invariants and
+the suites after them move to a new test-core-shard-5, and the preview and pages matrices list
+1 to 5. No test is skipped or changed; the mutation strings in test_validate_shards and
+test_preview_workflow_matches_pages follow the new matrix. No value changes.
+
+Verified (check named): tests.test_validate_shards and tests.test_preview_workflow_matches_pages pass.
+Claimed, not confirmed: both new shards finish under 30 minutes on CI (estimate about 20 each).
