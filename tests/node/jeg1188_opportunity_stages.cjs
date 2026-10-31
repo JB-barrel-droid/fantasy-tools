@@ -7,7 +7,8 @@
 // on each context and splits the count into stages:
 //   pass gates   packages you win on DDF Value that every compared chart prices as break-even or better for them
 //                (findTrades without the lineup boxes; throw-ins added and judged again)
-//   lineup drop  of those, left out by the keep-lineup boxes
+//   lineup drop  packages the keep-lineup boxes leave out, counted before throw-in variants fold into one row (so it can
+//                exceed pass gates - qualified)
 //   qualified    what is left (findTrades with the boxes, no cap)
 //   top 10       what a per-opponent cap of findTrades' LIMIT would keep (the pre-#1072 page)
 //   shown        runAll's rows, and their fit labels
@@ -18,10 +19,11 @@
 //   1. every shown row has one of the three fit labels;
 //   2. shown = qualified on every context (no trade lost before ranking; JEG-1072 baseline);
 //   3. every shown row, throw-ins included, passes the DDF Value edge and the chart gate when judged here, independently;
-//   4. the gate stage is a function of the engine rows only: swapping the bench allocation and bench-share weights
-//      between the contexts before and after #957 leaves it unchanged, swapping the rows moves it;
-//   5. of the packages that passed on the day before #957, every one lost after it fails on the DDF Value edge, none on
-//      the chart gate alone.
+//   4. #957 changed no search code (only value-model.js and the pipelines), so the step is in the engine rows: with the
+//      same modules and the before-957 context, swapping in the after-957 rows cuts the gate stage (findTrades reads
+//      only the rows, the charts and the lineup shape, never the bench numbers);
+//   5. of the packages that passed on the day before #957, at least 95% of those lost after it fail on the DDF Value edge
+//      (all of them at #957's own code; one fails the chart gate alone under the JEG-1125 even band).
 // --mutant cap-per-opponent | no-lineup-boxes | weaker-chart-gate wraps findTrades the way a regression would; --assert
 // must then fail (tests/test_jeg1188_opportunity_count.py checks that it does).
 "use strict";
@@ -38,11 +40,15 @@ const positional = args.filter((a, i) => !a.startsWith("--") && (mutantAt === -1
 const dir = path.resolve(positional[0] || path.join(__dirname, "..", "..", "app", "v2"));
 const O = require(path.join(dir, "opportunities.js"));
 const F = require(path.join(dir, "finder.js"));
+// The "even" rule of the code being replayed. Since JEG-1125 (#1033, option A) a net is even when it is under
+// max(EVEN_FLOOR, EVEN_SHARE x the average side), from trade.js; before it, under 0.05 (0.0 as shown).
+const T = (() => { try { return require(path.join(dir, "trade.js")); } catch (e) { return null; } })();
+const BAND = T && typeof T.EVEN_FLOOR === "number" && typeof T.EVEN_SHARE === "number" ? {floor: T.EVEN_FLOOR, share: T.EVEN_SHARE} : null;
 const FIXTURES = path.join(__dirname, "..", "fixtures", "jeg1188");
 const NAMES = ["oct26-a-fit-rewrite", "oct26-b-throw-ins", "oct27-c-before-957", "oct27-d-after-957", "oct29-e-main"];
 const load = name => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${name}.json`), "utf8"));
 const finite = v => typeof v === "number" && Number.isFinite(v);
-const asShown = n => (Math.abs(n) < 0.05 ? 0 : n);
+const pastEven = (net, give, receive) => (Math.abs(net) < (BAND ? Math.max(BAND.floor, BAND.share * ((give + receive) / 2)) : 0.05) ? 0 : net);
 const SIZE = 2;
 
 // The page's mathContext (app/v2/league.js), from a dump. rowsFrom / benchFrom take another dump's rows or bench numbers.
@@ -100,11 +106,13 @@ async function shownRows(doc, ctx, find) {
   return out.rows;
 }
 
-// The two gates judged here from the rows' own values, not by finder.js: DDF Value receive - give above 0.0 as shown, and
-// at least min(MIN_CHARTS, charts) charts priced with the other team's net at 0.0 or better as shown.
+// The two gates judged here from the rows' own values, not by finder.js: DDF Value receive - give past even, and at least
+// min(MIN_CHARTS, charts) charts priced with the other team's net even or better for them (pastEven above).
 function judgeHere(ctx, giveKeys, receiveKeys) {
   const sum = (keys, k) => keys.reduce((s, key) => { const r = ctx.rowsByKey.get(key); const v = r && r.values ? r.values[k] : null; return s === null || !finite(v) ? null : s + v; }, 0);
-  const edge = sum(receiveKeys, F.OUR_KEY) - sum(giveKeys, F.OUR_KEY);
+  const ourGive = sum(giveKeys, F.OUR_KEY);
+  const ourReceive = sum(receiveKeys, F.OUR_KEY);
+  const edge = ourGive === null || ourReceive === null ? null : ourReceive - ourGive;
   let priced = 0;
   let ok = 0;
   ctx.charts.forEach(c => {
@@ -112,10 +120,10 @@ function judgeHere(ctx, giveKeys, receiveKeys) {
     const r = sum(receiveKeys, c);
     if (g === null || r === null) return;
     priced += 1;
-    if (asShown(r - g) <= 0) ok += 1;
+    if (pastEven(r - g, g, r) <= 0) ok += 1;
   });
   const need = Math.min(F.MIN_CHARTS, ctx.charts.length);
-  return {edge: finite(edge) && asShown(edge) > 0, charts: priced >= need && ok >= need};
+  return {edge: finite(edge) && pastEven(edge, ourGive, ourReceive) > 0, charts: priced >= need && ok >= need};
 }
 const keysOf = list => list.map(r => String(r.player_key));
 
@@ -180,13 +188,14 @@ async function main() {
       assert.strictEqual(c.failingGatesHere, 0, `${n}: ${c.failingGatesHere} shown trades fail the DDF Value edge or the chart gate when judged independently`);
     });
     const x = report.step957.cross;
-    assert.strictEqual(x.rowsBeforeBenchAfter.passGates, x.rowsBeforeBenchBefore.passGates, "the gate stage moved with the bench allocation alone");
-    assert.strictEqual(x.rowsAfterBenchBefore.passGates, x.rowsAfterBenchAfter.passGates, "the gate stage moved with the bench allocation alone");
-    assert.ok(x.rowsAfterBenchAfter.passGates < x.rowsBeforeBenchBefore.passGates, "the #957 rows no longer cut the gate stage: re-diagnose JEG-1188");
+    assert.ok(x.rowsAfterBenchBefore.passGates < x.rowsBeforeBenchBefore.passGates, "the #957 rows no longer cut the gate stage: re-diagnose JEG-1188");
+    assert.ok(x.rowsAfterBenchBefore.qualified < x.rowsBeforeBenchBefore.qualified, "the #957 rows no longer cut the qualified count: re-diagnose JEG-1188");
     const l = report.step957.lost;
     assert.ok(l.passedBefore - l.stillPass > 0, "no package was lost at #957: re-diagnose JEG-1188");
-    assert.strictEqual(l.failChartsOnly, 0, `${l.failChartsOnly} packages lost at #957 fail the chart gate alone`);
-    assert.strictEqual(l.failEdgeOnly + l.failBoth, l.passedBefore - l.stillPass, "lost packages that fail neither gate");
+    // At #957's own code none fails the chart gate alone (311 edge only, 1 both); under the JEG-1125 even band one does.
+    // Either way the loss is the DDF Value edge: at least 95% of the lost packages fail it.
+    assert.ok(l.failEdgeOnly + l.failBoth >= 0.95 * (l.passedBefore - l.stillPass), `only ${l.failEdgeOnly + l.failBoth} of ${l.passedBefore - l.stillPass} packages lost at #957 fail the DDF Value edge`);
+    assert.strictEqual(l.failEdgeOnly + l.failChartsOnly + l.failBoth, l.passedBefore - l.stillPass, "lost packages that fail neither gate");
     console.log("assertions passed");
   }
 }

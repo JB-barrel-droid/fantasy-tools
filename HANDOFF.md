@@ -19,6 +19,14 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1188 opportunity-count explanation (PR #1102, cloud Claude, 2026-10-31 UTC): ready for the merge gate
+
+- Branch `claude/JEG-1188-opportunity-count-cause`, main merged in. Diagnosis only: the 89 -> 34 drop is #957's
+  engine values (JEG-1121), not the search; the fix shipped as #1105. No search, fit, value or default change.
+- Independent review found the check failing on main since #1033 (JEG-1125 even band): its judge still used 0.05.
+  Fixed to follow the replayed modules' band; bench-swap asserts that could not fail dropped; doc updated.
+- Next: green CI, then the merge gate merges. After that JEG-1188 can close once the live check from #1105 passes.
+
 ### JEG-1376 unmatched names in the connector (Claude, 2026-10-30 UTC): PR up, not deployed
 
 - Branch `claude/JEG-1376`. #1200 (JEG-1124) already stopped compare_trade and read_state from scoring an

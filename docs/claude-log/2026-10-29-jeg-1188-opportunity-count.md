@@ -17,16 +17,19 @@ regression; leave a deterministic check. Diagnostic only: no search, fit, value 
   | `33e138e5` (main) | 10-27 17:36 | 34 (7 / 0 / 27) | the JEG-1096 log's 34; nothing since #957 moved it |
   | `ff35152` (main today) | 10-29 | 59 (9 / 18 / 32) | later data; #1072 shows all qualified trades (53 -> 59); JEG-1187 relabels Force as Market supported |
 
-- The step to 34 is #957 and it is the engine's values, not the search. With the same search code, the bench allocation
-  and bench-share weights swapped between the contexts before and after #957 leave the count unchanged; the engine rows
-  swapped move it (pass gates 389 -> 112, qualified 151 -> 34). Of the 389 packages that passed the gates before #957,
-  77 still pass, 311 fail only the DDF Value edge (you no longer win on DDF Value), 1 fails both, 0 fail the chart gate
-  alone. #957 moved DDF Value for 185 of 738 rows (by position, mean change: WR -2.5, RB +2.2, TE +2.3, QB +1.2) and
-  the compared charts' values for 98. Team 0 holds 4 WRs (-10.5 together) and 5 RBs (+8.6).
+- The step to 34 is #957 and it is the engine's values, not the search. #957 changed no `app/v2` code (only
+  `value-model.js` and the pipelines), so the search code is the same on both sides; with that code and the
+  before-957 context, swapping in the after-957 engine rows moves pass gates 389 -> 112 and qualified 151 -> 34.
+  (`finder.js` reads only the rows, the charts and the lineup shape; the bench allocation and weights do not enter the
+  gates.) Of the 389 packages that passed the gates before #957, 77 still pass, 311 fail only the DDF Value edge (you
+  no longer win on DDF Value), 1 fails both, 0 fail the chart gate alone. These are at #957's own code (modules dir
+  pointed at that day's `app/v2`). In the full page dump (738 rows; the fixtures keep only the 248 rostered ones)
+  #957 moved DDF Value for 185 rows (by position, mean change: WR -2.5, RB +2.2, TE +2.3, QB +1.2) and the compared
+  charts' values for 98. Team 0 holds 4 WRs (-10.5 together) and 5 RBs (+8.6).
 - So the drop is the intended consequence of an approved value change (JEG-1121, Jeremy's approval cited in
   `docs/claude-log/2026-10-26-jeg1121-vorp-bench.md`), not a regression in candidate enumeration, fit, viability or the
   lineup boxes. Whether DDF Value after JEG-1121 prices WRs right is a value question and is not answered here.
-- Stage counts with current main's modules on each frozen context (`node tests/node/jeg1188_opportunity_stages.cjs`):
+- Stage counts with main's modules at `ff35152` (2026-10-29) on each frozen context (`node tests/node/jeg1188_opportunity_stages.cjs`):
 
   | Context | Page | Pass gates | Lineup boxes drop | Qualified | Top 10 per opponent | Shown | Nat | Mkt | Force |
   |---|---|---|---|---|---|---|---|---|---|
@@ -37,6 +40,32 @@ regression; leave a deterministic check. Diagnostic only: no search, fit, value 
   | oct29-e-main | 59 | 158 | 135 | 59 | 53 | 59 | 9 | 18 | 32 |
 
   The historical 89 / 66 / 100 were capped at 10 per opponent (the bug #1072 fixed); today's code shows all qualified.
+  "Lineup boxes drop" counts packages before throw-in variants fold into one row, so it can exceed pass gates minus
+  qualified. The fixtures' `teams` is the engine state's 12, not the league's 20; it feeds only the bench depth,
+  which the gates never read.
+
+### Update 2026-10-31: after JEG-1125's even band
+- #1033 (JEG-1125, Jeremy's option A) changed `finder.js`: a net is even when it is under max(1 point, 3% of the
+  average side), for the DDF Value edge and each chart's rival check, not under 0.05 as before. The check's
+  independent judge now applies the band of the modules it replays (`EVEN_FLOOR` / `EVEN_SHARE` from their
+  `trade.js`; 0.05 for a checkout older than #1033). No search, fit, value or default change here.
+- Stage counts with main at `168aba93` (2026-10-30, merged into this branch):
+
+  | Context | Page | Pass gates | Lineup boxes drop | Qualified | Top 10 per opponent | Shown | Nat | Mkt | Force |
+  |---|---|---|---|---|---|---|---|---|---|
+  | oct26-a-fit-rewrite | 89 | 251 | 232 | 78 | 50 | 78 | 0 | 26 | 52 |
+  | oct26-b-throw-ins | 66 | 274 | 273 | 68 | 52 | 68 | 0 | 18 | 50 |
+  | oct27-c-before-957 | 100 | 400 | 325 | 151 | 89 | 151 | 0 | 106 | 45 |
+  | oct27-d-after-957 | 34 | 117 | 123 | 28 | 28 | 28 | 0 | 0 | 28 |
+  | oct29-e-main | 59 | 161 | 147 | 62 | 53 | 62 | 2 | 3 | 57 |
+
+- Re-judged with today's band, the #957 step still is the DDF Value edge: of 400 packages, 64 still pass, 329 fail
+  only the edge, 6 fail both, 1 fails the chart gate alone. The check now asserts that at least 95% of the lost
+  packages fail the edge (all of them at #957's own code), instead of none failing the chart gate alone.
+- The old bench-swap equality assertions are dropped: they could not fail, since the gates never read the bench
+  numbers. The #957 cross is now rows swapped under the same code.
+- The fixtures' revisions `bb61662592` and `8b5c4f04ba` are commits on #945's branch (`fe/JEG-1108-fit`), which
+  merged into main on 2026-10-26 at 21:33 UTC; they may not survive that branch's deletion.
 
 ### Verified (check named)
 - `tools/jeg1188/dump_context.py` (new; built dist served as the render tests serve it, CBS held, page clock pinned to
@@ -46,8 +75,9 @@ regression; leave a deterministic check. Diagnostic only: no search, fit, value 
   (`node tests/node/jeg1188_opportunity_stages.cjs <that worktree>/app/v2 --json`, `matchesPage` true for all five).
 - 2x2 crosses (rows x code) at the two data steps: `bb61662592` rows with `8b5c4f04ba` code 77, the reverse 76;
   `8b5c4f04ba` rows with `e696bf25` code 66, `e696bf25` rows with `8b5c4f04ba` code 100 (data only).
-- `node tests/node/jeg1188_opportunity_stages.cjs --assert` on this branch: assertions pass. With `--mutant
-  cap-per-opponent`, `no-lineup-boxes` or `weaker-chart-gate` it fails.
+- `node tests/node/jeg1188_opportunity_stages.cjs --assert` on this branch: assertions pass (2026-10-31, with main
+  merged in; also with `ff35152`'s `app/v2`). With `--mutant cap-per-opponent` or `no-lineup-boxes` it fails on
+  shown vs qualified; with `weaker-chart-gate` the independent judge finds shown rows that fail the gates.
 - `python3 -m unittest tests.test_jeg1188_opportunity_count`: 7 tests pass (wired into `test-unit-modules`).
 - The league fixture (`tests/fixtures/league/fixture-20team.json`) is byte-identical at every revision above.
 

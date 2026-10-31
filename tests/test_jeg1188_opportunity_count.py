@@ -46,13 +46,14 @@ class OpportunityStages(unittest.TestCase):
     def test_the_957_step_is_the_engine_rows(self):
         step = self.report["step957"]
         cross = step["cross"]
-        # Same rows, other bench numbers: no change. Other rows: the drop.
-        self.assertEqual(cross["rowsBeforeBenchAfter"]["qualified"], cross["rowsBeforeBenchBefore"]["qualified"])
-        self.assertEqual(cross["rowsAfterBenchBefore"]["qualified"], cross["rowsAfterBenchAfter"]["qualified"])
-        self.assertLess(cross["rowsAfterBenchAfter"]["passGates"], cross["rowsBeforeBenchBefore"]["passGates"])
+        # #957 changed no search code. Same modules, same before-957 context, the after-957 engine rows: the drop.
+        self.assertLess(cross["rowsAfterBenchBefore"]["passGates"], cross["rowsBeforeBenchBefore"]["passGates"])
+        self.assertLess(cross["rowsAfterBenchBefore"]["qualified"], cross["rowsBeforeBenchBefore"]["qualified"])
         lost = step["lost"]
-        self.assertGreater(lost["passedBefore"] - lost["stillPass"], 0)
-        self.assertEqual(lost["failChartsOnly"], 0)
+        gone = lost["passedBefore"] - lost["stillPass"]
+        self.assertGreater(gone, 0)
+        # The loss is the DDF Value edge, not the chart gate (all of it at #957's own code, 95%+ under the JEG-1125 band).
+        self.assertGreaterEqual(lost["failEdgeOnly"] + lost["failBoth"], 0.95 * gone)
 
     def test_nothing_is_lost_before_ranking(self):
         # JEG-1072 baseline on real engine values: every qualified trade is shown. The before-957 context has four
@@ -74,7 +75,7 @@ class OpportunityStages(unittest.TestCase):
 
     def test_a_weaker_chart_gate_is_caught_by_the_independent_judge(self):
         # More trades shown is not a fix: the shown rows must still pass the gates when judged outside finder.js.
-        self.assertNotEqual(run("--assert", "--mutant", "weaker-chart-gate").returncode, 0)
+        # (--assert fails it earlier, on shown vs qualified, so its exit code says nothing about the judge.)
         proc = run("--json", "--mutant", "weaker-chart-gate")
         self.assertEqual(proc.returncode, 0, proc.stderr[-1500:])
         contexts = json.loads(proc.stdout)["contexts"]
