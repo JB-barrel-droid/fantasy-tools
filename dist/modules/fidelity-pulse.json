@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-10-31T12:40:14.894459Z",
- "run_id": "736a9166-ced5-4dc9-b5b4-722b0065f5fa",
+ "checked_at": "2026-10-31T13:50:16.710109Z",
+ "run_id": "19eb994d-d713-49a4-9c82-4c83d1063d5d",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -45,7 +45,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-31@2026-10-31T04:45:30.828568Z",
    "measured_site": null,
-   "since": "2026-10-31T12:40:14.894459Z",
+   "since": "2026-10-31T13:50:16.710109Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -57,7 +57,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-31@2026-10-31T11:18:33.885296Z",
    "measured_site": null,
-   "since": "2026-10-31T12:40:14.894459Z",
+   "since": "2026-10-31T13:50:16.710109Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -275,17 +275,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "31/1176 values match exactly across 6 columns; 1145 of 1176 values moved since the save at 2026-10-31T07:05:30.678972Z (largest 350%; 7 outside the max(25%, 50) band: Bryce Young, C.J. Stroud, Malik Willis, Tyler Shough); 5 players entered or left the bottom of the list since the save (churn)",
+     "summary": "42/1176 values match exactly across 6 columns; 1134 of 1176 values moved since the save at 2026-10-31T07:05:30.678972Z (largest 350%; 9 outside the max(25%, 50) band: C.J. Stroud, Malik Willis, Tyler Shough); 4 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 198,
       "stored_players": 198,
       "compared": 1176,
-      "matched": 31,
-      "mismatched": 1145,
+      "matched": 42,
+      "mismatched": 1134,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 5,
+      "list_churn": 4,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -304,21 +304,21 @@
       "full|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 193,
+       "mismatched": 187,
        "missing": 2,
        "extra": 2
       },
       "half|1": {
        "left": 198,
        "right": 198,
-       "mismatched": 190,
+       "mismatched": 191,
        "missing": 2,
        "extra": 2
       },
       "half|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 193,
+       "mismatched": 187,
        "missing": 2,
        "extra": 2
       },
@@ -350,6 +350,16 @@
       },
       {
        "type": "value_mismatch",
+       "grain": "half|1",
+       "player_key": 4158,
+       "name": "C.J. Stroud",
+       "pos": "QB",
+       "left": "841",
+       "right": 529.0,
+       "delta": -312.0
+      },
+      {
+       "type": "value_mismatch",
        "grain": "std|1",
        "player_key": 4158,
        "name": "C.J. Stroud",
@@ -360,6 +370,26 @@
       },
       {
        "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 1311,
+       "name": "Joe Burrow",
+       "pos": "QB",
+       "left": "8071",
+       "right": 7777.0,
+       "delta": -294.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 1311,
+       "name": "Joe Burrow",
+       "pos": "QB",
+       "left": "8077",
+       "right": 7783.0,
+       "delta": -294.0
+      },
+      {
+       "type": "value_mismatch",
        "grain": "std|2",
        "player_key": 1311,
        "name": "Joe Burrow",
@@ -367,16 +397,6 @@
        "left": "7981",
        "right": 7690.0,
        "delta": -291.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 4158,
-       "name": "C.J. Stroud",
-       "pos": "QB",
-       "left": "817",
-       "right": 529.0,
-       "delta": -288.0
       },
       {
        "type": "value_mismatch",
@@ -397,26 +417,6 @@
        "left": "6040",
        "right": 6325.0,
        "delta": 285.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 560,
-       "name": "Derrick Henry",
-       "pos": "RB",
-       "left": "5124",
-       "right": 5404.0,
-       "delta": 280.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 3965,
-       "name": "Bryce Young",
-       "pos": "QB",
-       "left": "562",
-       "right": 840.0,
-       "delta": 278.0
       }
      ],
      "outside_universe": [],
@@ -507,8 +507,8 @@
       "position_counts": {
        "week_compared": 7,
        "publisher": {
-        "QB": 33,
-        "RB": 62,
+        "QB": 32,
+        "RB": 63,
         "WR": 74,
         "TE": 29
        },
@@ -559,6 +559,17 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "half|1",
+     "player_key": 4158,
+     "name": "C.J. Stroud",
+     "pos": "QB",
+     "left": "841",
+     "right": 529.0,
+     "delta": -312.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "std|1",
      "player_key": 4158,
      "name": "C.J. Stroud",
@@ -570,6 +581,28 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "left": "8071",
+     "right": 7777.0,
+     "delta": -294.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 1311,
+     "name": "Joe Burrow",
+     "pos": "QB",
+     "left": "8077",
+     "right": 7783.0,
+     "delta": -294.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "std|2",
      "player_key": 1311,
      "name": "Joe Burrow",
@@ -577,17 +610,6 @@
      "left": "7981",
      "right": 7690.0,
      "delta": -291.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 4158,
-     "name": "C.J. Stroud",
-     "pos": "QB",
-     "left": "817",
-     "right": 529.0,
-     "delta": -288.0
     },
     {
      "stage": "publisher_vs_stored",
@@ -610,28 +632,6 @@
      "left": "6040",
      "right": 6325.0,
      "delta": 285.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 560,
-     "name": "Derrick Henry",
-     "pos": "RB",
-     "left": "5124",
-     "right": 5404.0,
-     "delta": 280.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 3965,
-     "name": "Bryce Young",
-     "pos": "QB",
-     "left": "562",
-     "right": 840.0,
-     "delta": 278.0
     }
    ],
    "held": null,
@@ -2058,7 +2058,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-31@2026-10-31T04:45:30.828568Z",
     "measured_site": null,
-    "since": "2026-10-31T12:40:14.894459Z",
+    "since": "2026-10-31T13:50:16.710109Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2126,7 +2126,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-31@2026-10-31T11:18:33.885296Z",
     "measured_site": null,
-    "since": "2026-10-31T12:40:14.894459Z",
+    "since": "2026-10-31T13:50:16.710109Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2164,5 +2164,5 @@
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
  "resyncs": {},
- "holds_changed": true
+ "holds_changed": false
 }
