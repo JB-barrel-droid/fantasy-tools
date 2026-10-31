@@ -18,7 +18,8 @@
     ],
     "superflex": 0,
     "bench_per_team": 2,
-    "bench_share": 0.15
+    "bench_share": 0.15,
+    "seat_sigma": 0
   },
   "constants": {
     "BENCH_MIX_12": {
@@ -9320,6 +9321,243 @@
         "404": 2.037213,
         "405": 0.0
       }
+    }
+  },
+  "variant_fractional_seats": {
+    "note": "JEG-1335: the fixture's league at the default seat sigma (0.75 PPG): flex seats, and with no league loaded the bench seats, are shared near the cutoff; the pipeline runs once per whole allocation and every value is weight-averaged. Written by tools/worked_example_fractional_seats.py from pipelines/value_reference.py.",
+    "setting_change": {
+      "seat_sigma": null
+    },
+    "expected": {
+      "allocation_mix": [
+        {
+          "weight": 0.402628,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 0,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.001208,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 2
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.005389,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 1,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 0,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        },
+        {
+          "weight": 0.019106,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 2
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 0
+            }
+          }
+        },
+        {
+          "weight": 0.57167,
+          "allocation": {
+            "QB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "RB": {
+              "flex": 0,
+              "bench": 1
+            },
+            "WR": {
+              "flex": 1,
+              "bench": 1
+            },
+            "TE": {
+              "flex": 1,
+              "bench": 1
+            }
+          }
+        }
+      ],
+      "allocation_expected": {
+        "QB": {
+          "flex": 0.0,
+          "bench": 1.0,
+          "starters": 2.0,
+          "rostered": 3.0
+        },
+        "RB": {
+          "flex": 0.409225,
+          "bench": 1.001208,
+          "starters": 2.409225,
+          "rostered": 3.410432
+        },
+        "WR": {
+          "flex": 0.993403,
+          "bench": 1.019106,
+          "starters": 2.993403,
+          "rostered": 4.012508
+        },
+        "TE": {
+          "flex": 0.597372,
+          "bench": 0.979687,
+          "starters": 2.597372,
+          "rostered": 3.577059
+        }
+      },
+      "rows_ddf_blended": {
+        "101": 25.746909,
+        "102": 10.46744,
+        "103": 0.923201,
+        "104": 0.0,
+        "201": 58.378108,
+        "202": 26.389111,
+        "203": 7.371601,
+        "204": 0.379027,
+        "205": 0.04923,
+        "206": 0.000555,
+        "207": 0.090933,
+        "208": 0.0,
+        "209": 0.0,
+        "210": 0.0,
+        "211": 0.0,
+        "212": 0.0,
+        "213": 0.0,
+        "301": 53.446214,
+        "302": 23.467555,
+        "303": 12.904033,
+        "304": 2.372189,
+        "305": 0.021963,
+        "306": 0.0,
+        "307": 0.0,
+        "308": 0.0,
+        "401": 40.275313,
+        "402": 15.307453,
+        "403": 2.143789,
+        "404": 0.265375,
+        "405": 0.0
+      },
+      "rows_ddf_tier": {
+        "101": "starter",
+        "102": "starter",
+        "103": "bench",
+        "104": "waiver",
+        "201": "starter",
+        "202": "starter",
+        "203": "bench",
+        "204": "waiver",
+        "205": "waiver",
+        "206": "waiver",
+        "207": "waiver",
+        "208": "waiver",
+        "209": "waiver",
+        "210": "waiver",
+        "211": "waiver",
+        "212": "waiver",
+        "213": "waiver",
+        "301": "starter",
+        "302": "starter",
+        "303": "starter",
+        "304": "bench",
+        "305": "waiver",
+        "306": "waiver",
+        "307": "waiver",
+        "308": "waiver",
+        "401": "starter",
+        "402": "starter",
+        "403": "starter",
+        "404": "bench",
+        "405": "waiver"
+      },
+      "default_ranking": [
+        201,
+        301,
+        401,
+        202,
+        101,
+        302,
+        402,
+        303,
+        102,
+        203,
+        304,
+        403,
+        103,
+        204,
+        404,
+        207,
+        205,
+        305,
+        206,
+        104,
+        208,
+        209,
+        210,
+        211,
+        212,
+        213,
+        306,
+        307,
+        308,
+        405
+      ]
     }
   }
 }
