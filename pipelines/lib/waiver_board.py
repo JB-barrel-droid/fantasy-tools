@@ -240,8 +240,8 @@ def _source(sid: str, src: dict, sources: dict, doc: dict, p: str, add, header_o
         add(f"{p}.label: bad value")
     if (src["freshness"] is None) != (src["availability"] == "unavailable"):
         add(f"{p}.freshness: null exactly when the source is unavailable (unknown when its age is unknown)")
-    if src["availability"] == "unavailable" and src["label"] != "unavailable":
-        add(f"{p}.label: an unavailable source is labelled unavailable")
+    if (src["availability"] == "unavailable") != (src["label"] == "unavailable"):
+        add(f"{p}.label: labelled unavailable exactly when the source is unavailable")
     if src["freshness"] == "stale" and src["label"] == "published":
         add(f"{p}.label: stale content is labelled stale, not published")
     for k in ("content_season", "content_week"):
@@ -253,6 +253,13 @@ def _source(sid: str, src: dict, sources: dict, doc: dict, p: str, add, header_o
     season = doc["season"]
     if header_ok and _int(src["content_season"]) and src["content_season"] < season and src["label"] == "published":
         add(f"{p}.label: season {src['content_season']} content on a season {season} board is not published")
+    if header_ok and src["label"] == "previous-season" and not (_int(src["content_season"])
+                                                               and src["content_season"] < season):
+        add(f"{p}.label: previous-season is only for content from a season before {season}")
+    if header_ok and sid in ("values", "values_prior") and src["availability"] != "unavailable":
+        want = _value_freshness(sid, src, sources, doc)
+        if want is not None and src["freshness"] != want:
+            add(f"{p}.freshness: {src['freshness']} disagrees with its weeks (expected {want})")
     for k in ("source", "content_vintage"):
         if src[k] is not None and not isinstance(src[k], str):
             add(f"{p}.{k}: not a string or null")
@@ -302,6 +309,29 @@ def _source(sid: str, src: dict, sources: dict, doc: dict, p: str, add, header_o
             add(f"{p}: the prior DDF Value is enabled only with DDF Value")
         elif not (_int(vals.get("content_week")) and src["content_week"] == vals["content_week"] - 1):
             add(f"{p}.content_week: the prior DDF Value is the week before DDF Value's week")
+
+
+def freshness_for_weeks(board_week: int, week: int | None) -> str:
+    """The weekly contract's rule (weekly_inputs_contract.freshness_for_weeks): 0 behind current,
+    1 behind one_week_behind, else stale."""
+    if week is None:
+        return "unknown"
+    behind = board_week - week
+    return "current" if behind <= 0 else "one_week_behind" if behind == 1 else "stale"
+
+
+def _value_freshness(sid: str, src: dict, sources: dict, doc: dict) -> str | None:
+    """What a value source's freshness must be. DDF Value: its own week against the board week (another
+    season is stale). The prior pair: that of the DDF Value it pairs with, or its own week's with none."""
+    if sid == "values_prior":
+        vals = sources.get("values")
+        if isinstance(vals, dict) and vals.get("availability") not in (None, "unavailable"):
+            return vals.get("freshness")
+    if not _int(src["content_season"]) or not _int(src["content_week"]):
+        return None
+    if src["content_season"] != doc["season"]:
+        return "stale"
+    return freshness_for_weeks(doc["board_week"], src["content_week"])
 
 
 def _lane(lane: Any, fields: dict, sources: dict, path: str, add) -> None:

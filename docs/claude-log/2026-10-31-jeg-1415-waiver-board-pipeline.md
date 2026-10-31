@@ -58,3 +58,14 @@ board golden, which records the weekly file's hash, was regenerated with it.
 - Full CI (preview, v2-render) runs only once the PR leaves draft.
 - Pre-existing on main, not touched here: tests.test_weekly_inputs_contract pins a freshness word that
   check_reference_freshness.py no longer has (filed JEG-1428; nightly full suite only).
+
+### Delta review of ff05912: changes needed, fixed
+- Medium: the validator took DDF Value's claimed freshness on trust (week 3 on a week-8 board passed as current). It now
+  re-derives it from the weeks (the prior pair takes DDF Value's), with a test pinning the rule to the contract's.
+- Snapshot labels: a snapshot may carry only published, modeled or stale; the board derives unavailable and
+  previous-season, and the validator checks both directions. Empty snapshots from another season or week now build
+  valid boards instead of refusing.
+- A snapshot with no `source` is refused cleanly (was a KeyError traceback).
+- Tests for the four rules the reviewer could delete unnoticed, and the missing-legs CLI test now requires exit 0.
+- Verified: 147 tests across test_build_waiver_board, test_build_weekly_inputs, test_timestamps pass; 8 of the new
+  checks fail on ff05912's files.

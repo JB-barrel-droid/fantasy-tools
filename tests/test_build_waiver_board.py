@@ -303,11 +303,8 @@ class DisabledSources(unittest.TestCase):
             src.write_text(json.dumps(w), encoding="utf-8")
             p = run_cli("--weekly-inputs", str(src), "--scoring", "half_ppr", "--teams", "12",
                         "--built-at", BUILT_AT, "--values", str(VALUES), "--out", str(out))
-            self.assertNotIn("Traceback", p.stderr)
-            if p.returncode == 0:
-                self.assertEqual(wb.validate_file(out), [])
-            else:   # only a contract refusal is acceptable, never a crash
-                self.assertIn("weekly-input contract", p.stderr)
+            self.assertEqual(p.returncode, 0, p.stderr)   # the contract accepts the file; so does the board
+            self.assertEqual(wb.validate_file(out), [])
 
     def test_values_from_a_later_season(self):
         v = values()
@@ -315,6 +312,17 @@ class DisabledSources(unittest.TestCase):
         b = build(v=v)
         self.assertEqual(b["sources"]["values"]["label"], "stale")
         self.assert_disabled(b, "values", ["ddf_value"], "season 2027 data; the board is season 2026")
+
+    def test_empty_snapshots_still_build_honest_boards(self):
+        for season, week, prior_week in ((2025, 8, 7), (2026, 9, 8), (2026, 8, 5)):
+            with self.subTest(season=season, week=week, prior_week=prior_week):
+                v = values()
+                v["season"], v["content_week"], v["prior"]["week"] = season, week, prior_week
+                v["players"] = {}
+                b = build(v=v)
+                self.assertEqual(wb.validate(b), [])
+                self.assertEqual(b["sources"]["values"]["label"], "unavailable")
+                self.assertFalse(b["sources"]["values_prior"]["enabled"])
 
     def test_values_input_pricing_nobody(self):
         v = values()
@@ -354,6 +362,17 @@ class Refusals(unittest.TestCase):
     def test_values_for_another_setting(self):
         with self.assertRaisesRegex(wb.BoardError, "values are for setting"):
             bwb.build_board(weekly(), values(), dict(SETTING, teams=10), BUILT_AT)
+
+    def test_snapshot_label_and_source(self):
+        for label in ("unavailable", "previous-season"):
+            v = values()
+            v["label"] = label
+            with self.assertRaisesRegex(wb.BoardError, "label must be one of"):
+                build(v=v)
+        v = values()
+        del v["source"]
+        with self.assertRaisesRegex(wb.BoardError, "has no source"):
+            build(v=v)
 
     def test_values_keys_and_setting_written_one_way(self):
         v = values()
@@ -463,6 +482,47 @@ class ValidatorCatches(unittest.TestCase):
 
     def test_enabled_values_for_a_later_week(self):
         self.assert_caught(lambda b: b["sources"]["values"].update(content_week=9), "enabled with week 9 content")
+
+    def test_values_freshness_that_its_weeks_contradict(self):
+        def edit(b):
+            b["sources"]["values"]["content_week"] = 3
+            b["sources"]["values_prior"]["content_week"] = 2
+        self.assert_caught(edit, "freshness: current disagrees with its weeks (expected stale)")
+        self.assert_caught(lambda b: b["sources"]["values"].update(freshness="one_week_behind"),
+                           "disagrees with its weeks (expected current)")
+
+    def test_validator_freshness_rule_is_the_contracts(self):
+        import weekly_inputs_contract as wic
+        for wk in (None, 1, 6, 7, 8, 9):
+            self.assertEqual(wb.freshness_for_weeks(8, wk), wic.freshness_for_weeks(8, wk), wk)
+
+    def test_prior_not_the_week_before(self):
+        self.assert_caught(lambda b: b["sources"]["values_prior"].update(content_week=6),
+                           "the prior DDF Value is the week before")
+
+    def test_change_dropped_although_both_sides_are_there(self):
+        def edit(b):
+            ann = rows(b)[101]["value"]
+            ann["change"] = None
+            ann["missing_reason"]["change"] = "dropped"
+        self.assert_caught(edit, "change: missing although")
+
+    def test_on_bye_missing_while_bye_week_is_there(self):
+        def edit(b):
+            ann = rows(b)[101]["this_week"]
+            ann["on_bye"] = None
+            ann["missing_reason"]["on_bye"] = "dropped"
+        self.assert_caught(edit, "on_bye: present exactly when bye_week is")
+
+    def test_unavailable_label_both_ways(self):
+        self.assert_caught(lambda b: b["sources"]["rostered_pct"].update(label="published"),
+                           "labelled unavailable exactly when")
+        self.assert_caught(lambda b: b["sources"]["status"].update(label="unavailable"),
+                           "labelled unavailable exactly when")
+
+    def test_previous_season_label_on_this_seasons_content(self):
+        self.assert_caught(lambda b: b["sources"]["values"].update(label="previous-season"),
+                           "previous-season is only for content from a season before 2026")
 
     def test_enabled_points_one_week_behind(self):
         self.assert_caught(lambda b: b["sources"]["points"].update(freshness="one_week_behind", content_week=7),

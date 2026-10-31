@@ -55,8 +55,12 @@ source must be this season's and not for a later week; points and status must be
 `current` and for the board week; DDF Value current or one week behind; the prior
 the week before DDF Value's week and only with DDF Value on; nothing but these
 five sources may be enabled. Freshness is null exactly when a source is
-unavailable, an unavailable source is labelled unavailable, and stale or
-previous-season content is never labelled `published`. Feeds must be the source's
+unavailable, and a value source's freshness must be what its weeks give (the
+weekly contract's rule; the prior pair takes DDF Value's). A source is labelled
+unavailable exactly when it is unavailable, previous-season only for an earlier
+season, and stale or previous-season content is never labelled `published`. A
+values snapshot may carry only `published`, `modeled` or `stale`; the board
+derives `unavailable` and `previous-season` itself. Feeds must be the source's
 own fields.
 
 ## Rows

@@ -72,6 +72,7 @@ PRODUCER = "pipelines/build_waiver_board.py"
 DEFAULT_POINTS_LEG = "experts.espn_weekly"
 VALUES_KIND, VALUES_VERSION = "ddf-values", 1
 NOT_PRICED_POS = ("K", "DST")
+SNAPSHOT_LABELS = ("published", "modeled", "stale")
 STATUS_FIELDS = ("status", "injury_status", "practice_participation")
 FRESHNESS_WORDS = {"current": "current", "one_week_behind": "one week behind", "stale": "stale",
                    "unknown": "of unknown age"}
@@ -117,8 +118,13 @@ def check_values(snap: dict, setting: dict) -> dict:
     for k in ("season", "content_week"):
         if not isinstance(snap.get(k), int) or isinstance(snap.get(k), bool):
             raise wb.BoardError(f"values input has no integer {k}")
-    if snap.get("label") not in wb.LABELS:
-        raise wb.BoardError("values input has no valid label")
+    if snap.get("label") not in SNAPSHOT_LABELS:
+        # unavailable and previous-season are the board's to derive from the players and seasons.
+        raise wb.BoardError(f"values input label must be one of {', '.join(SNAPSHOT_LABELS)}")
+    if not isinstance(snap.get("source"), str) or not snap["source"]:
+        raise wb.BoardError("values input has no source")
+    if snap.get("content_vintage") is not None and not isinstance(snap["content_vintage"], str):
+        raise wb.BoardError("values input content_vintage is not a string or null")
     players = snap.get("players")
     if not isinstance(players, dict):
         raise wb.BoardError("values input has no players object")
@@ -221,6 +227,17 @@ def _weekly_source(leg_id: str, leg: dict, season: int, board_week: int, aged: b
                 leg["content_season"], leg["content_week"], leg["content_vintage"], reason, feeds)
 
 
+def _value_label(avail: str, fresh: str | None, vseason: int, season: int, snap_label: str) -> str:
+    """A value source's label, from what the board knows rather than what the snapshot says."""
+    if avail == "unavailable":
+        return "unavailable"
+    if vseason < season:
+        return "previous-season"
+    if fresh == "stale":
+        return "stale"
+    return snap_label
+
+
 def _prior_freshness(prior: dict, vfresh: str | None, vseason: int, season: int, board_week: int) -> str | None:
     """The prior pair is as fresh as the DDF Value it is paired with (its content week is the week
     before); with no current side, its own week's age."""
@@ -243,20 +260,15 @@ def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) ->
               wic.freshness_for_weeks(board_week, vweek) if values["season"] == season else "stale")
     if values["season"] != season:
         vreason = f"DDF Value is season {values['season']} data; the board is season {season}"
-        vlabel = "previous-season" if values["season"] < season else values["label"]
     elif vweek > board_week:
         vreason = f"DDF Value is for week {vweek}, later than the board week {board_week}"
-        vlabel = values["label"]
     elif vfresh == "stale":
         vreason = f"DDF Value is stale (content week {vweek}, board week {board_week})"
-        vlabel = "stale"
     elif not values["players"]:
         vreason = "the DDF Value input prices no player at this setting"
-        vlabel = "unavailable"
     else:
-        vreason, vlabel = None, values["label"]
-    if vlabel == "published" and vfresh == "stale":
-        vlabel = "stale"
+        vreason = None
+    vlabel = _value_label(vavail, vfresh, values["season"], season, values["label"])
     out["values"] = _src("value", values["source"], vavail, vfresh, vlabel, values["season"], vweek,
                          values.get("content_vintage"), vreason, ["ddf_value"])
     prior = values["prior"]
@@ -268,10 +280,10 @@ def build_sources(weekly: dict, values: dict, setting: dict, points_leg: str) ->
         preason = f"the prior DDF Value is week {prior['week']}, not week {vweek - 1}"
     else:
         preason = None
-    out["values_prior"] = _src("value", values["source"], "complete" if prior["available"] else "unavailable",
-                               _prior_freshness(prior, vfresh, values["season"], season, board_week),
-                               ("unavailable" if not prior["available"] else
-                                vlabel if vlabel != "unavailable" else values["label"]),
+    pavail = "complete" if prior["available"] else "unavailable"
+    pfresh = _prior_freshness(prior, vfresh, values["season"], season, board_week)
+    out["values_prior"] = _src("value", values["source"], pavail, pfresh,
+                               _value_label(pavail, pfresh, values["season"], season, values["label"]),
                                values["season"], prior.get("week"), values.get("content_vintage"),
                                preason, ["prior_ddf_value", "change"])
     # This-week lane: weekly-input legs.
