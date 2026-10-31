@@ -620,40 +620,44 @@ chart DDF Value").
      around that seat (JEG-1047), so the players just past the seat who
      project above that mean stay positive in the projections too. A player
      one source rosters can therefore rank past the blended roster seats.
-     The player tag is Drop, or Stash when his start probability is at least
-     0.25 (`STASH_START_PROBABILITY`), never Hold.
+     Fractional seats (VP-2.2 g) add a third reason: a player inside the
+     seats in a lighter allocation of the mix keeps part of that value in
+     the blend. The player tag is Drop, or Stash when his start probability
+     is at least 0.25 (`STASH_START_PROBABILITY`), never Hold.
    - *Zero inside the seats.* A player ranked within `N*_p` whose DDF Value
      is exactly 0 is waiver, not bench, so no starter or bench player is
      ever at 0. This only happens when a position has fewer positive values
      than roster seats.
 
-   The seats are the allocation the page prices with (VP-7.2). With league
-   rosters loaded (VP-2.2 d2), the league's rosters set the rostered counts,
-   so the same two cases apply to them.
+   The seats are the allocation the page prices with (VP-7.2): with
+   fractional seats, the heaviest allocation's whole counts, applied to the
+   blended values. With league rosters loaded (VP-2.2 d2), the league's
+   rosters set the rostered counts, so the same two cases apply to them.
 
    Making the tier follow positive value instead (option B) would move every
    positive-valued waiver to bench, turning its Drop tag into Hold, so the
-   bench tier would hold more players than the roster seats (12 to 28 more
+   bench tier would hold more players than the roster seats (16 to 30 more
    per league on the data below). Curve zones, the tier counts on the curve
    and the tier groups in trade targets would move with it. It is a method
    change only Jeremy can authorize. `tests/test_tiers_follow_seats.py` pins
    both cases in the engine and both references.
 
-   *Current example* (data of 2026-10-30, values for week 8, 12 teams, Full
-   PPR, no superflex, default roster; engine and Python reference agree on
-   every tier):
+   *Current example* (data of 2026-10-31, values for week 8, 12 teams, Full
+   PPR, no superflex, default roster, fractional seats on; engine and Python
+   reference agree on every tier):
 
    | Position | Seats (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
    | --- | --- | --- | --- | --- |
-   | WR | 32 / 65 | #65 Demario Douglas 0.048 | #66 Brian Thomas Jr. 0.031, #67 Kalif Raymond 0.021 | #78 |
-   | TE | 12 / 22 | #22 Pat Freiermuth 0.067 | #23 Tyler Higbee 0.051, #24 Colby Parkinson 0.039 | #27 |
-   | RB | 28 / 61 | #61 MarShawn Lloyd 0.018 | #62 Ty Johnson 0.012, #63 Kendre Miller 0.011 | #70 |
-   | QB | 12 / 20 | #20 Kirk Cousins 0.045 | #21 Aaron Rodgers 0.042 | #25 |
+   | WR | 33 / 68 | #68 Kalif Raymond 0.0327 | #69 De'Zhaun Stribling 0.0327, #70 Dontayvion Wicks 0.027 | #80 |
+   | TE | 12 / 20 | #20 Mark Andrews 0.432 | #21 Dalton Schultz 0.098, #22 Tyler Higbee 0.027 | #29 |
+   | RB | 27 / 60 | #60 Jeremy McNichols 0.017 | #61 MarShawn Lloyd 0.014, #62 Ty Johnson 0.013 | #69 |
+   | QB | 12 / 20 | #20 Aaron Rodgers 0.042 | #21 Deshaun Watson 0.018 | #24 |
 
-   Across the 12 combos (3 scorings x 8/10/12/14 teams) on that data, every
-   league had positive-valued waivers (largest 0.622, TE T.J. Hockenson in
-   Standard 10 teams), and no position had a zero inside its seats, so
-   every 0 was waiver by rank as well. Full table:
+   The WR line falls between two players a hair apart: the seat, not the
+   value, decides. Across the 12 combos (3 scorings x 8/10/12/14 teams) on
+   that data, every league had positive-valued waivers (largest 0.847, TE
+   Hunter Henry in Half PPR 10 teams), and no position had a zero inside
+   its seats, so every 0 was waiver by rank as well. Full table:
    `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
 4. **Default ranking, lock and curve**: blended `ddf_value`, descending, then
    key ascending; nulls last. The other two versions can be chosen like any
