@@ -132,3 +132,21 @@ class DriftTest(unittest.TestCase):
             self.assertIn('https://linear.app/old', calls[1][1]['i']['description'])
             ticket({'missing': ['x']}, api)
             self.assertEqual(len(calls), 3)  # second run queries but makes no mutation
+
+
+    def test_migration_floor_rejects_partial_inventory_without_notifying(self):
+        expected = __import__('json').loads((checker.ROOT/'config/expected-cron.json').read_text())
+        live = {'cron': expected, 'migrations': [{'name': 'one_visible_migration'}]}
+        with patch.object(checker, 'read_live', return_value=live), patch.object(checker, 'ticket') as notify:
+            with contextlib.redirect_stderr(io.StringIO()) as err:
+                self.assertEqual(checker.main(['--notify']), 2)
+            notify.assert_not_called()
+            self.assertEqual(err.getvalue(),
+                'Could not compare or notify (exit 2). Verify read-only access, inventory permissions and Linear configuration; no database error details logged.\n')
+
+    def test_migration_floor_accepts_exactly_half(self):
+        live = {'cron': [self.job], 'migrations': [{'name': 'a'}, {'name': 'b'}]}
+        self.assertEqual(compare([self.job], {'a', 'b', 'c', 'd'}, live)
+                         ['migrations_in_repo_not_applied'], ['c', 'd'])
+        with self.assertRaises(ValueError):
+            compare([self.job], {'a', 'b', 'c', 'd', 'e'}, live)

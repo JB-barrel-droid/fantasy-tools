@@ -40,8 +40,10 @@ names; dispatch payload changes are outside this check. Active state is checked.
 Unrecognized commands use a `raw:` MD5 fingerprint, including the retention
 DELETE job. This is a change detector, not a security checksum; raw commands
 are never returned from the query or logged. Whitespace changes to raw commands
-are reported. An empty migration inventory or fewer than half the expected cron
-jobs (currently fewer than 12) exits 2 before notifying Linear. This floor is a
+are reported. An empty migration inventory, fewer than half the repo migration count, or
+fewer than half the expected cron jobs (currently fewer than 12) exits 2
+before notifying Linear. The migration floor is evaluated before alias/ignore
+filtering. This floor is a
 visibility guard, not a substitute for the owner-count verification above.
 
 Applied migrations match by recorded name (or version when name is absent).

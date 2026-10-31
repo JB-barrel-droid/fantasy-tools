@@ -80,7 +80,9 @@ def keyed(rows):
 
 def compare(expected, repo_migrations, live, rules=None):
     rules = rules if rules is not None else migration_rules()
-    if not live["migrations"] or not live["cron"] or len(live["cron"]) * 2 < len(expected):
+    if (not live["migrations"] or not live["cron"]
+            or len(live["cron"]) * 2 < len(expected)
+            or len(live["migrations"]) * 2 < len(repo_migrations)):
         raise ValueError("Incomplete cloud inventory")
     repo_migrations = {canonical_migration(n, rules) for n in repo_migrations} - {None}
     actual = keyed(live['cron'])
