@@ -19,7 +19,7 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-- JEG-1411: `be/jeg-1411-glossary-sweep` copy sweep; guard and connector checks pass, validate blocked by missing Chromium; posts 04–06 stay with #1076, F6/F18 await Jeremy; no deploy.
+- JEG-1411 / draft #1252: `be/jeg-1411-glossary-sweep`; F8/F9 regenerated with Chrome, guard + connector checks pass; validate hits known keyboard red (`selected` empty vs `beta`), outside PR; posts 04–06/#1076 and 02/#982 untouched, F6/F18 await Jeremy; no deploy.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
