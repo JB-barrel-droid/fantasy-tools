@@ -25,8 +25,8 @@ on:
     branches: ["health/**"]
 
 permissions:
-  contents: write  # publish the health artifacts to main (JEG-414)
-  actions: write   # dispatch pages.yml; GITHUB_TOKEN pushes don't trigger it (JEG-274)
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
+  actions: read    # read workflow status; App pushes trigger Pages directly.
   issues: write    # ops-alert issues (pipelines/monitor_alerts.py, GAP-ALERT-CHANNEL)
 
 concurrency:
@@ -35,14 +35,17 @@ concurrency:
 
 jobs:
   produce-and-watch:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
-    steps:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    steps: &writer-steps
       - uses: actions/checkout@v4
         with:
           # Branch tip at job start, not the dispatch-time SHA: a run queued
           # behind another in the group must not publish onto a stale tree
           # (same fix as rebuild-chain.yml, 2026-10-08).
           ref: ${{ github.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -113,9 +116,31 @@ jobs:
 
       # Publish only a successfully produced pair; a broken build never
       # replaces the served artifacts (the watcher then reports them aging).
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Publish to the monitor (JEG-414)
         id: publish
         if: steps.build.outcome == 'success' && github.ref == 'refs/heads/main'
+        env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -129,6 +154,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           cp output/source-import-health.json dist/modules/source-import-health.json
@@ -156,18 +182,6 @@ jobs:
           path: output/release-publications/health-artifacts-1/
           if-no-files-found: ignore
           retention-days: 14
-
-      - name: Trigger Pages deploy (JEG-274)
-        if: steps.publish.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          code=$(curl -s -o /tmp/d.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"; cat /tmp/d.json || true
-          [ "$code" = "204" ]
 
       - name: Watch served artifacts + record observations
         env:
@@ -215,6 +229,17 @@ jobs:
       - name: Publish monitoring summary
         id: publish_summary
         if: always() && github.ref == 'refs/heads/main' && hashFiles('output/monitoring-summary.json') != ''
+        env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -228,6 +253,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           cp output/monitoring-summary.json dist/modules/monitoring-summary.json
@@ -255,20 +281,8 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
-      - name: Trigger Pages deploy for the monitoring summary
-        if: steps.publish_summary.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          code=$(curl -s -o /tmp/d2.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"; cat /tmp/d2.json || true
-          [ "$code" = "204" ]
-
-      # Drift between config/monitoring_coverage.json and what is live in
-      # Supabase (a pg_cron job no check covers, a check with no manifest row).
+      # Drift between config/monitoring_coverage.json and live monitoring:
+      # a cron job with no covered check, or a check with no manifest row.
       - name: Audit monitoring coverage
         if: always() && hashFiles('output/monitoring-summary.json') != ''
         run: python3 pipelines/audit_monitoring_coverage.py output/monitoring-summary.json
@@ -314,6 +328,16 @@ jobs:
         if: always() && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -330,6 +354,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           git pull --rebase --autostash origin main || true
@@ -348,12 +373,7 @@ jobs:
             sleep 10
           done
           [ "$pushed" = true ] || { echo "::error::could not push ops status after 3 attempts"; exit 1; }
-          code=$(curl -s -o /tmp/d3.json -w "%{http_code}" -X POST \
-            -H "Authorization: Bearer $GITHUB_TOKEN" -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
-            -d '{"ref":"main"}')
-          echo "pages dispatch HTTP $code"
-          [ "$code" = "204" ]
+          # Pages is triggered once by the App-authenticated main push.
       - name: Retain deferred publication (health-artifacts-3)
         if: always()
         uses: actions/upload-artifact@v4
@@ -362,3 +382,12 @@ jobs:
           path: output/release-publications/health-artifacts-3/
           if-no-files-found: ignore
           retention-days: 14
+
+  produce-and-watch-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+    steps: *writer-steps
