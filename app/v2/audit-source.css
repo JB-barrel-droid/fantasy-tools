@@ -57,6 +57,13 @@
 .as-row-est { font-style: italic; background: var(--v2-hover); }
 .as-badge { font-style: normal; font-size: 12px; padding: 1px 6px; border: 1px solid var(--v2-index-border); border-radius: 999px; background: var(--v2-index-bg); color: var(--v2-index-ink); }
 .as-foot { margin-top: 6px; }
+.as-projection .as-meta { margin-top: 10px; }
+.as-projection .as-select { max-width: 100%; min-width: 0; }
+.as-path { margin: 12px 0; padding-left: 24px; display: grid; gap: 12px; }
+.as-path-step { min-width: 0; }
+.as-path-step h4 { margin: 0; font-size: 15px; }
+.as-metrics { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; overflow-wrap: anywhere; }
+.as-metrics strong { font-variant-numeric: tabular-nums; }
 .as-more { margin-top: 8px; }
 @media (max-width: 767px) {
   .as-seg { flex: 1 1 auto; }

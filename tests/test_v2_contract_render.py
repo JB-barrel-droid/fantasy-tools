@@ -1704,10 +1704,10 @@ def gl25(S):
 def tt10(S):
     w = S["tabs"]["targets"]["weight"]
     errors = []
-    for heading in ("1. Potential mispricing", "2. Potential positional weight inflation"):
+    for heading in ("1. Potential mispricing", "2. Positions the market overpays for"):   # JEG-1130: PMM doc 3.2
         if heading not in w["h2"]:
             errors.append(f"missing numbered heading {heading!r}: {w['h2']}")
-    for name in ("potential mispricing", "potential positional weight inflation"):
+    for name in ("potential mispricing", "the positions the market overpays for"):   # JEG-1130: PMM glossary retires "positional weight inflation"
         if name not in w["sub"]:
             errors.append(f"the subtitle does not name {name!r}")
     return errors
@@ -1742,10 +1742,12 @@ def rs01(S):
     # JEG-1106: the menu lists the three Writing sections as entries of the "Our approach" group (all routes are Writing
     # routes: none is a view of its own), where the old top bar had one Writing tab.
     labels = [t["label"] for t in S["tabs"]["targets"]["tabs"] if t["view"] == "writing"]
-    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", "Research", "Manifesto"]:
+    # JEG-1371: Research is listed (menu and Writing sub-tabs) only once a post is published.
+    research = bool(build_v2_page.load_posts())
+    if any(v in views for v in ("manifesto", "how", "research")) or labels != ["Methodology", *(["Research"] if research else []), "Manifesto"]:
         errors.append(f"Methodology, Research and Manifesto should be the Writing entries of the Our approach group, not views of their own: {views} {labels}")
     sections = S["tabs"]["manifesto"]["sections"]
-    want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values"), ("research", "#writing/research")]
+    want = [("manifesto", "#writing/manifesto"), ("how-values", "#writing/how-values")] + ([("research", "#writing/research")] if research else [])
     if [(x["slug"], x["href"]) for x in sections] != want:
         errors.append(f"Writing sections should be Manifesto, How values work, Research in that order: {sections}")
     return errors
@@ -1796,9 +1798,10 @@ def tt05_partial(S):
 
 
 PAGES = ("#player-values", "#trade-targets", "#risers-fallers", "#compare-trade")
-# JEG-850 (Jeremy, 2026-10-22): the Chart lines tab's groups, in the plain copy of the review (customize-ux-review.md 2.3).
-GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published trade charts", "proj": "Projection-based values",
-                  "vorp": "Raw value above waivers (advanced)"}
+# JEG-1212 (Jeremy, 2026-10-28): source categories supersede the old combined chart label.
+# The Doc mirror remains a historical pending contract; this partial guards the approved current UI.
+GROUPS_SHIPPED = {"ddf": "DDF Value", "pub": "Published charts", "observed": "Observed-trade estimates", "proj": "Projection-based values",
+                  "vorp": "Value above waivers (advanced)"}   # JEG-1130: PMM glossary retires "Raw value above waivers"
 
 
 def gl07_partial(S):
@@ -1846,9 +1849,9 @@ def gl21_partial(S):
             errors.append(f"{tab}: 'as published' x{c['text']['asPublished']} / 'indexed' x{c['text']['indexed']} in visible text")
         pub = next((g for g in c["groups"] if g["id"] == "pub"), None)
         meta = (pub or {}).get("meta", "")
-        if not pub or pub["title"] != "Published trade charts":
-            errors.append(f"{tab}: the chart group is not named 'Published trade charts'")
-        elif not re.search(r"adjusted to your league's scale", meta):
+        if not pub or pub["title"] != "Published charts":
+            errors.append(f"{tab}: the chart group is not named 'Published charts'")
+        elif not re.search(r"rescaled to your league's scale", meta):
             errors.append(f"{tab}: the chart group's meaning line is {meta!r}")
     return errors
 
@@ -1953,7 +1956,7 @@ def tt08(S):
 def rf02(S):
     d = S["tabs"]["risers"]["disagree"]
     errors = []
-    if d["h2"] != "Where DDF Value and the projections disagree" or d["heads"] != ["DDF Value moved, projections didn't", "Projections moved, DDF Value didn't"]:
+    if d["h2"] != "Mixed signals" or d["heads"] != ["The charts moved first", "The projections moved first"]:   # JEG-1130: PMM doc 3.2
         errors.append(f"disagreement section headings {d['h2']!r} {d['heads']}")
     if d["meta"].startswith("No comparison yet") and d["n"]:
         errors.append(f"no comparison but {d['n']} players listed")
@@ -2328,8 +2331,8 @@ class ContractRenderTest(unittest.TestCase):
         # Group 4 (shipped lines the Doc still marks "to build"): ⓘ hover dropped, the chart group back to
         # "as published", Edit league demoted, Customize without Reset, the removed Compare headline lines back.
         broken_js = cut(js, "openTimer = setTimeout(() => { if (!popOpenForButton()) showInfo(true); }, 200);", "void 0;")
-        broken_js = cut(broken_js, '{id: "pub", title: "Published trade charts"',
-                        '{id: "pub", title: "Trade charts (as published)"')
+        broken_js = cut(broken_js, '{id: "pub", title: "Published charts", note:',
+                        '{id: "pub", title: "Trade charts (as published)", note:')
         broken_js = cut(broken_js, 'reset.textContent = "Reset to default";', 'reset.textContent = "Back";')
         broken_shell = cut(shell, 'class="v2-btn v2-btn-primary v2-btn-sm" id="v2EditLeague"', 'class="v2-btn v2-btn-adjust v2-btn-sm" id="v2EditLeague"')
         # JEG-1112: the propose / accept lines put back into the verdict card (the pre-JEG-1112 markup).

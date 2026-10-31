@@ -31,6 +31,7 @@ RESEARCH_DIR = APP_V2 / "research"
 # Sleeper /players/nfl, refreshed twice a week by .github/workflows/sleeper-identity-refresh.yml.
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
 NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
+PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
 
 # The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
 # defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
@@ -224,8 +225,25 @@ def research_html(posts: list[dict]) -> str:
         '  </main>\n')
 
 
+# JEG-1371: until the first post publishes, the menu entry and the Writing sub-tab for Research are left out of the
+# page (Jeremy, 2026-10-29, audit decision 2: A). The Research page itself still builds, so #writing/research resolves.
+RESEARCH_NAV = (
+    re.compile(r'^[ \t]*<a class="v2-tab"[^>]*\bdata-key="writing/research"[^>]*>.*?</a>[ \t]*\n', re.M),
+    re.compile(r'^[ \t]*<a class="v2-subtab"[^>]*\bdata-writing="research"[^>]*>.*?</a>[ \t]*\n', re.M),
+)
+
+
+def hide_research_nav(shell_html: str) -> str:
+    """shell.html without its Research nav entries (tests/test_build_v2_page.py pins that the real shell loses both)."""
+    for pattern in RESEARCH_NAV:
+        shell_html = pattern.sub("", shell_html)
+    return shell_html
+
+
 def compose_shell(shell_html: str, posts: list[dict]) -> str:
     """shell.html with the built Research page placed inside #v2App (the only body child the page shows)."""
+    if not posts:
+        shell_html = hide_research_nav(shell_html)
     end = shell_html.rstrip().rfind("</div>")
     if end < 0:
         raise SystemExit("build_v2_page: shell.html has no closing </div> for #v2App")
@@ -251,6 +269,9 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
         '  <link rel="stylesheet" href="v2/waivers.css">\n'
         '  <link rel="stylesheet" href="v2/overrides.css">\n'
+        '  <link rel="stylesheet" href="v2/opponent-inclusion.css">\n'
+        # JEG-1137: ?design=fieldnotes opts into the Fieldnotes layer; synchronous so it applies before first paint.
+        '  <script src="v2/design-flag.js"></script>\n'
         + FETCH_SHARE_SHIM
         + (ROOT_LINK_SHIM if at_root else "")
     )
@@ -267,28 +288,36 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
     line_end = html.index("</script>", last_at) + len("</script>")
     v2_scripts = ('\n  <script src="assets/player-tags.js" defer></script>'
                   '\n  <script src="v2/namesearch.js" defer></script>'
+                  '\n  <script src="v2/source-views.js" defer></script>'
                   '\n  <script src="v2/targets.js" defer></script>'
                   '\n  <script src="v2/trade.js" defer></script>'
                   '\n  <script src="v2/movers.js" defer></script>'
                   '\n  <script src="v2/kdef-names.js" defer></script>'
                   '\n  <script src="v2/roster-paste.js" defer></script>'
+                  '\n  <script src="v2/roster-provenance-transitions.js" defer></script>'
                   '\n  <script src="v2/workspace.js" defer></script>'
                   '\n  <script src="v2/table-sort.js" defer></script>'
                   '\n  <script src="v2/team-summary.js" defer></script>'
                   '\n  <script src="v2/opportunities.js" defer></script>'
                   '\n  <script src="v2/finder.js" defer></script>'
                   '\n  <script src="v2/lineup-comparison.js" defer></script>'
+                  '\n  <script src="v2/opponent-inclusion.js" defer></script>'
+                  '\n  <script src="v2/trade-readout.js" defer></script>'
                   '\n  <script src="v2/league.js" defer></script>'
                   '\n  <script src="v2/nfl-byes.js" defer></script>'
+                  '\n  <script src="v2/player-flags.js" defer></script>'
+                  '\n  <script src="v2/player-status.js" defer></script>'
                   '\n  <script src="v2/waivers.js" defer></script>'
                   '\n  <script src="v2/modules.js" defer></script>'
                   '\n  <script src="v2/audit-core.js" defer></script>'
                   '\n  <script src="v2/audit-pie.js" defer></script>'
                   '\n  <script src="v2/audit-source.js" defer></script>'
+                  '\n  <script src="v2/ddf-value-link.js" defer></script>'
                   '\n  <script src="v2/overrides.js" defer></script>'
                   '\n  <script src="v2/inputs-status.js" defer></script>'
                   '\n  <script src="v2/name-format.js" defer></script>'
                   '\n  <script src="v2/ddf-state.js" defer></script>'
+                  '\n  <script src="v2/trade-context.js" defer></script>'
                   '\n  <script src="v2/ddf-assist.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
@@ -330,6 +359,21 @@ def nfl_byes_js(path: Path = NFL_BYES) -> str:
     return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
 
 
+def player_status_js(path: Path = PLAYERS) -> str:
+    """window.TradeValueStatus: when the injury status on players.json rows was pulled from Sleeper (JEG-1312).
+
+    The rows' injury_status comes from the Sleeper identity base the bake read, and the bake records that base's
+    pulled_at in meta.universe.nfl_active.identity_base_pulled_at, so this is the date of the status the page actually
+    ships (not today's Supabase snapshot). A missing file or date gives as_of null: the Waivers tab then shows no
+    status, never an undated one."""
+    as_of = None
+    if path.exists():
+        meta = json.loads(path.read_text(encoding="utf-8")).get("meta") or {}
+        as_of = ((meta.get("universe") or {}).get("nfl_active") or {}).get("identity_base_pulled_at")
+    data = {"source": "Sleeper", "as_of": as_of if isinstance(as_of, str) and as_of else None}
+    return "window.TradeValueStatus = " + json.dumps(data, separators=(",", ":")) + ";\n"
+
+
 def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path = RESEARCH_DIR) -> Path:
     """Write dist/index.html (root) and dist/v2/index.html; return the /v2/ page."""
     index_html = engine_page.read_text(encoding="utf-8")
@@ -341,9 +385,14 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (dist / "index.html").write_text(build_v2_html(index_html, shell_html, at_root=True, posts=posts), encoding="utf-8")
     (out_dir / "kdef-names.js").write_text(kdef_names_js(), encoding="utf-8")
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
-    for name in ("v2.css", "namesearch.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "ddf-assist.js", "waivers.js", "waivers.css", "v2.js"):
+    (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
+    for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "opponent-inclusion.js", "opponent-inclusion.css", "trade-readout.js", "league.js", "modules.js",
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
+    # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.
+    (out_dir / "fonts").mkdir(exist_ok=True)
+    for name in ("fraunces.woff2", "FONT-LICENSE.txt"):
+        shutil.copy2(APP_V2 / "fonts" / name, out_dir / "fonts" / name)
     return out_dir / "index.html"
 
 

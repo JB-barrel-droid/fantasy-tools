@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-10-28T23:27:36.858896+00:00",
+  "run_at": "2026-10-30T20:27:48.388544+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -12,41 +12,11 @@
   },
   "failed": [],
   "success": true,
-  "outcome": "published_with_holds",
-  "held": [
-    "cbsros",
-    "razzball"
-  ],
-  "hold_severity": "amber",
+  "outcome": "green",
+  "held": [],
+  "hold_severity": "none",
   "list_changes": {},
-  "held_detail": {
-    "cbsros": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "cbsros",
-        "cbsros_vorp"
-      ],
-      "sections": [
-        "cbsros"
-      ],
-      "detail": "1092/1092 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Dallen Bentley, Grant Calcaterra, Joe Royer, Kylen Granson); parse notes: RB: 2 players listed with another posit",
-      "hold_severity": "amber",
-      "week": 8
-    },
-    "razzball": {
-      "reason": "fidelity: publisher_vs_stored",
-      "held_series": [
-        "razzball",
-        "razzball_vorp"
-      ],
-      "sections": [
-        "razzball"
-      ],
-      "detail": "2028/2028 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player",
-      "hold_severity": "amber",
-      "week": 8
-    }
-  },
+  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -80,7 +50,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7128 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7152 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -97,7 +67,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-28 -> 12 DDF legs -> section; review passed (4392 values)",
+      "detail": "snapshot 2026-10-30 -> 12 DDF legs -> section; review passed (4392 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -105,7 +75,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-27 -> 12 DDF legs -> section; review passed (7692 values)",
+      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (7716 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -134,7 +104,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-10-28",
+      "content_vintage": "2026-10-30",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -146,13 +116,13 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-10-28",
+      "content_vintage": "2026-10-30",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-10-27",
+      "content_vintage": "2026-10-29",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -163,47 +133,81 @@
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-10-28T12:23:16+00:00",
-      "basis": "section_label"
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "cbsros": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28",
-      "basis": "section_label"
+      "published_at": "2026-10-30",
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "espn": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28",
-      "basis": "section_label"
+      "published_at": "2026-10-30",
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-28T17:05:27+00:00",
-      "basis": "section_label"
+      "published_at": "2026-10-30T17:05:25+00:00",
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "fantasypros": {
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-10-27",
-      "basis": "section_label"
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "razzball": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-27",
-      "basis": "section_label"
+      "published_at": "2026-10-29",
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     },
     "usatoday": {
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-10-27",
-      "basis": "section_label"
+      "basis": "section_label",
+      "expected_week": 8,
+      "weeks_behind": 0,
+      "state": "current",
+      "stale": false,
+      "stale_after": null
     }
   },
-  "fidelity_holds": {
-    "cbsros": "fidelity: publisher_vs_stored",
-    "razzball": "fidelity: publisher_vs_stored"
-  }
+  "stale_sources": [],
+  "lagging_sources": [],
+  "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure"
 }
