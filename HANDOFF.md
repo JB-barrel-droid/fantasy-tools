@@ -19,6 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
+
+- Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",
+  `tests/test_tiers_follow_seats.py`); no value, tier, zone or Drop change. After the release merge of pinned main
+  09fb625d (JEG-1465), VP-7.3 was rechecked again: it now covers fractional seats (JEG-1335: tiers use the heaviest
+  allocation's counts on the blended values) and the example and 12-combo counts are re-run on 2026-10-31 data.
+  Sweep in `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
+- `app/values-explainer/reviewed.json` is left as main has it (its hashes are already stale on main; the re-mark
+  belongs with the explainer fixes, JEG-1395/JEG-1396).
+- Next: exact-head CI green, then the merge gate merges.
+
 ### PR #1236 main integration (JEG-1366, Codex Bridge, 2026-10-31)
 
 - Jeremy authorized a normal main-to-PR merge, focused checks and push when clear. PR stays ready;
