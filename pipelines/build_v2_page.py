@@ -269,6 +269,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
         '  <link rel="stylesheet" href="v2/audit-source.css">\n'
         '  <link rel="stylesheet" href="v2/waivers.css">\n'
         '  <link rel="stylesheet" href="v2/overrides.css">\n'
+        '  <link rel="stylesheet" href="v2/ai-connection-panel.css">\n'
         '  <link rel="stylesheet" href="v2/opponent-inclusion.css">\n'
         # JEG-1137: ?design=fieldnotes opts into the Fieldnotes layer; synchronous so it applies before first paint.
         '  <script src="v2/design-flag.js"></script>\n'
@@ -319,6 +320,7 @@ def build_v2_html(index_html: str, shell_html: str, at_root: bool = False, posts
                   '\n  <script src="v2/ddf-state.js" defer></script>'
                   '\n  <script src="v2/trade-context.js" defer></script>'
                   '\n  <script src="v2/ddf-assist.js" defer></script>'
+                  '\n  <script src="v2/ai-connection-panel.js" defer></script>'
                   '\n  <script src="v2/v2.js" defer></script>')
     html = html[:line_end] + v2_scripts + html[line_end:]
     return html
@@ -387,7 +389,7 @@ def build(dist: Path = DIST, engine_page: Path = ENGINE_PAGE, research_dir: Path
     (out_dir / "nfl-byes.js").write_text(nfl_byes_js(), encoding="utf-8")
     (out_dir / "player-status.js").write_text(player_status_js(), encoding="utf-8")
     for name in ("v2.css", "namesearch.js", "source-views.js", "targets.js", "trade.js", "movers.js", "roster-paste.js", "roster-provenance-transitions.js", "workspace.js", "table-sort.js", "team-summary.js", "opportunities.js", "finder.js", "lineup-comparison.js", "opponent-inclusion.js", "opponent-inclusion.css", "trade-readout.js", "league.js", "modules.js",
-                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
+                 "audit-core.js", "audit-pie.js", "audit-source.js", "audit-pie.css", "audit-source.css", "ddf-value-link.js", "overrides.js", "overrides.css", "inputs-status.js", "name-format.js", "ddf-state.js", "trade-context.js", "ddf-assist.js", "ai-connection-panel.js", "ai-connection-panel.css", "waivers.js", "waivers.css", "player-flags.js", "design-flag.js", "v2.js"):
         shutil.copy2(APP_V2 / name, out_dir / name)
     # JEG-1137: self-hosted Fraunces (SIL OFL 1.1, license kept beside it), read by v2.css as fonts/fraunces.woff2.
     (out_dir / "fonts").mkdir(exist_ok=True)
