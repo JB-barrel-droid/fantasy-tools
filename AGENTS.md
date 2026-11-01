@@ -159,6 +159,67 @@ not a second review. Do not run paired standard/high-risk shadow reviews.
 Log the provider, model and reason for escalation; do not silently fall back.
 Use corrections and reopens within 7 days as the escaped-defect guardrail.
 
+### Review queue ownership (JEG-1456)
+
+Linear is the review queue. HANDOFF and session notes link to the procedure;
+they do not keep a second list of pending PRs. Claude retains review ownership
+under charter decision 10, including during a usage crunch; reviewer capability
+and the permitted independent Codex review follow the risk policy above.
+
+| PR family | Named review owner | Named backup |
+| --- | --- | --- |
+| engine/value math | Claude (Duet coordinator) | PSpice |
+| pipelines | Claude (Duet coordinator) | PSpice |
+| front end | Claude (Duet coordinator) | PSpice |
+| connector/get-values | Claude (Duet coordinator) | PSpice |
+| docs and rules | Claude (Duet coordinator) | PSpice |
+| bridge | Claude (Duet coordinator) | PSpice |
+
+Backups activate only under the [cutover runbook](docs/cutover-runbook.md),
+charter decision 11: PSpice first, then Muse. A separate Codex session that
+**did not write the PR** performs the independent review. Naming a backup
+here does not activate cutover or authorize a merge. Rules-file edits are
+never review-exempt. The deterministic high-risk floor still applies.
+
+At the **6 AM and 4 PM America/Chicago** batch windows, the coordinator runs
+`python3 scripts/review_queue.py --issues /tmp/review-issues.json --prs /tmp/review-prs.json`.
+This is a manual read-only report, not an installed schedule or merge gate.
+During a window, follow JEG-1465 `merge-gate:window-lock-rule`: only the merge
+gate writes to batch branches until its results are posted.
+
+Input contract (no new credentials or transferred connector grants):
+
+1. Through the existing native Linear connection, export all Jegabee **In
+   Review** issues, paging to completion. Fetch full descriptions with
+   `get_issue` (list results can truncate them). Also fetch the full issues
+   named by open non-draft PR titles/branches; include linked issues even
+   when their state has drifted. For body-only links, include every reference
+   and resolve any ambiguity before review.
+2. Write a temporary JSON object `{"issues": [...], "hasNextPage": false}`
+   after combining pages. Each issue needs `id` (JEG identifier), `status`
+   (state name), `description`, `labels` (names), and `createdAt` (ISO timezone).
+   This is a disposable snapshot, never a committed queue or authority.
+3. Export GitHub with `gh pr list --repo JB-barrel-droid/fantasy-tools --state open --limit 1000 --json number,title,body,headRefName,createdAt,isDraft > /tmp/review-prs.json`.
+   If the result hits the limit, page GitHub before reporting. For the bridge
+   family, run separately against `JB-barrel-droid/agent-bridge` with its
+   corresponding Linear issues; PR numbers are repository-local.
+4. The coordinator records two exact field lines in each ticket description:
+   `Review family: docs and rules` (one of the six table names) and
+   `Review tier: review-standard` (one risk label above). Existing unstructured
+   routing notes require coordinator reconciliation; the script flags missing
+   structured notes rather than inferring approval from prose. Only the
+   coordinator sets risk after inspecting files/diff; a matching label/note
+   does not certify the high-risk floor or review readiness.
+
+The report shows every In Review issue and every non-draft PR, including
+unlinked PRs and multiple PRs per ticket, with owner, creation age, label,
+routing tier and mismatches. Creation age is a fallback, **not** time spent
+In Review. Missing/ambiguous fields remain visible. Exit 0 means the report
+ran (flags are advisory); exit 2 means invalid/incomplete input. Re-read live
+Linear/GitHub before acting. Do not change workspace states/labels or install
+automation as part of this procedure's implementation; propose such changes
+on JEG-1456 for Jeremy instead.
+
 ### Routing
 
 | Work type | Route |
