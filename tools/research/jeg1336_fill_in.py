@@ -328,7 +328,10 @@ def today_cell(args):
 # ---------------------------------------------------------------------------
 
 def sweep_cell(args):
-    repo, cell = args
+    """args: (repo, cell[, only_keys[, options]]); the last two narrow the
+    sweep (tests/test_jeg1336_fill_in.py)."""
+    repo, cell, only_keys, opts = (tuple(args) + (None, None))[:4]
+    opts = tuple(opts or OPTIONS)
     setup(repo)
     inp = VR.Inputs.load()
     _, a_made, a_res, _ = run(inp, cell)
@@ -341,7 +344,9 @@ def sweep_cell(args):
         order = sorted((i for i in m if inp.players.get(i, {}).get("pos") == p), key=lambda i: (-m[i], i))
         n = a_res["allocation"][p]["rostered"] + 1
         keys.update(order[max(0, n - BAND):min(len(order), n + BAND)])
-    base_runs = {o: run(inp, cell, o, hold) for o in OPTIONS}
+    if only_keys is not None:
+        keys &= set(only_keys)
+    base_runs = {o: run(inp, cell, o, hold) for o in opts}
     base = {o: r[0] for o, r in base_runs.items()}
     base_fill = fill_members(base_runs["A"][3])   # before any projection is perturbed
     cases = []
@@ -356,7 +361,7 @@ def sweep_cell(args):
                 try:
                     c = {"key": k, "name": F.name(inp, k), "pos": inp.players[k]["pos"], "src": src,
                          "delta": delta, "options": {}}
-                    for o in OPTIONS:
+                    for o in opts:
                         vals, _, _, fill = run(inp, cell, o, hold)
                         w, who = worst(base[o], vals, skip=k)
                         c["options"][o] = {"ddf": w, "who": F.name(inp, who) if who else None,
