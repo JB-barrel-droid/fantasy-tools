@@ -19,15 +19,6 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### Waiver board pipeline, slice 1 (JEG-1415 under JEG-1196, Claude, 2026-10-31 UTC): in review, not merged
-
-- PR #1239, branch `claude/JEG-1196-waiver-board-pipeline`. Offline builder `pipelines/build_waiver_board.py`, schema and
-  validator `pipelines/lib/waiver_board.py`, contract `docs/waiver-board-contract.md`, tests
-  `tests/test_build_waiver_board.py`. No UI, no new value math. Later slices are JEG-1416 to JEG-1420.
-- Corrections on the same branch: JEG-1426 (first reviews), JEG-1427 (producer golden), JEG-1470 (Codex review:
-  snapshot must be view `adj`, series `ddf_value`; validator reports a missing lane field instead of raising).
-- Next: CI green on the current head, then the merge gate. Do not merge from a worker session.
-
 ### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
 - Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",

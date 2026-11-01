@@ -69,3 +69,17 @@ board golden, which records the weekly file's hash, was regenerated with it.
 - Tests for the four rules the reviewer could delete unnoticed, and the missing-legs CLI test now requires exit 0.
 - Verified: 147 tests across test_build_waiver_board, test_build_weekly_inputs, test_timestamps pass; 8 of the new
   checks fail on ff05912's files.
+
+### Codex review of 10fab82: two P2 findings, fixed (JEG-1470)
+- A `--values` snapshot with another `view` or `series` was enabled as Adjusted DDF Value. `check_values` now refuses
+  anything but view `adj`, series `ddf_value`; the reference path raises if value_reference renames its composite.
+- The validator raised `KeyError` when a lane lost a field (`value.change`, `this_week.bye_week`, `on_bye`). `_lane`
+  now reports whether the lane's shape is whole, and the cross-field row checks run only then.
+- Verified: tests.test_build_waiver_board and tests.test_build_weekly_inputs pass; the fixture board is unchanged.
+
+### Handoff (kept here; PRs do not edit HANDOFF.md)
+- PR #1239, branch `claude/JEG-1196-waiver-board-pipeline`. Offline builder `pipelines/build_waiver_board.py`, schema
+  and validator `pipelines/lib/waiver_board.py`, contract `docs/waiver-board-contract.md`, tests
+  `tests/test_build_waiver_board.py`. No UI, no new value math. Later slices are JEG-1416 to JEG-1420.
+- Corrections on this branch: JEG-1426 (first reviews), JEG-1427 (producer golden), JEG-1470 (Codex review).
+- Next: the merge gate. Do not merge from a worker session.
