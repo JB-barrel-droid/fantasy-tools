@@ -1,24 +1,38 @@
 {
-  "run_at": "2026-10-31T19:47:18.609219+00:00",
+  "run_at": "2026-11-01T00:58:11.706690+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3",
+    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none)",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
     "cbsros": "promoted 1/1",
     "razzball": "promoted 1/1"
   },
-  "failed": [],
-  "success": true,
-  "outcome": "published_with_holds",
+  "failed": [
+    "post_rebuild_validation"
+  ],
+  "success": false,
+  "outcome": "failed",
   "held": [
     "cbsros",
     "razzball"
   ],
   "hold_severity": "amber",
-  "list_changes": {},
+  "list_changes": {
+    "fantasycalc": [
+      "fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+      "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none",
+      "fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+      "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+      "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none"
+    ]
+  },
   "held_detail": {
     "cbsros": {
       "reason": "fidelity: publisher_vs_stored",
@@ -29,7 +43,7 @@
       "sections": [
         "cbsros"
       ],
-      "detail": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 2 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Joe Royer); parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Ky",
+      "detail": "1098/1098 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; parse notes: RB: 2 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)', 'Michael Burton (FB)']; WR: 1 players listed with another position in the cell (kept as WR",
       "hold_severity": "amber",
       "week": 8
     },
@@ -62,10 +76,20 @@
       "source": "fantasycalc",
       "status": "ok",
       "stage": "complete",
-      "detail": "promoted 3/3",
+      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson | fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none",
       "promoted": 3,
       "sections": 3,
-      "list_change_warnings": []
+      "list_change_warnings": [
+        "fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+        "fantasycalc-full-12-qb1-section full_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none",
+        "fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+        "fantasycalc-half-12-qb1-section half_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 33: dropped none; added fernando mendoza",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 64: dropped none; added roschon johnson",
+        "fantasycalc-standard-12-qb1-section standard_12_qb1/WR list 74 -> 72: dropped malachi fields, travis hunter; added none"
+      ]
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -80,7 +104,7 @@
       "source": "espn",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7152 values)",
+      "detail": "snapshot None -> 12 DDF legs -> section; review passed (7176 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -105,7 +129,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (7716 values)",
+      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (7704 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -154,7 +178,7 @@
     "razzball": {
       "content_vintage": "2026-10-29",
       "content_week": 8,
-      "health_status": "ok",
+      "health_status": "warn",
       "lagging_one_week": false
     }
   },
@@ -195,7 +219,7 @@
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-10-31T14:05:26+00:00",
+      "published_at": "2026-10-31T20:14:47+00:00",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -243,5 +267,20 @@
   "fidelity_holds": {
     "cbsros": "fidelity: publisher_vs_stored",
     "razzball": "fidelity: publisher_vs_stored"
+  },
+  "post_rebuild_validation": {
+    "status": "failed",
+    "command": "make validate",
+    "failed_tests": [
+      "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one"
+    ],
+    "assertions": [
+      "AssertionError: {'standard/12': (1.2266194618105137, '1273 cbsros -1 moved 3884', 28)} != {}"
+    ],
+    "make_targets": [
+      "Makefile:657: test-core"
+    ],
+    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one; AssertionError: {'standard/12': (1.2266194618105137, '1273 cbsros -1 moved 3884', 28)} != {}",
+    "recorded_at": "2026-11-01T01:05:37.583312+00:00"
   }
 }
