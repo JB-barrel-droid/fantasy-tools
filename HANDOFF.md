@@ -6,20 +6,10 @@ specifics) still apply and win on conflict about repo process; this file adds
 the live state, Jeremy's requirements and what only lived in chat. GitHub and
 Linear hold the state, never a chat thread.
 
-Originally maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
+Maintained by the Claude lead session at Jeremy's request (2026-10-27 CT):
 "Please maintain a takeover handoff in GitHub so Codex can continue this
-project if your usage runs out."
-
-**Header rule (JEG-1466, Jeremy, 2026-10-31: "Ok, so set up best practices
-then").** PRs stop editing this file; handoff notes go on the Linear ticket.
-Merge `origin/main` into the branch just before review and again before merge,
-with no rebase or force-push; `python3 pipelines/pr_freshness_gate.py <PR>`
-must pass. Skip re-review only when the PR's own diff has the same patch-id
-outside identified merge-only files (record the evidence on Linear).
-The Oct 29 standing OK is limited by JEG-1444 decision 13: Jeremy, Oct 31,
-"One set of approvals at 6 am, one at 4 pm." Merge only in his 6 AM or 4 PM
-Central window, on his yes; nothing sits on an auto-merge path. This header
-supersedes older process notes below.
+project if your usage runs out." Update it before any large or risky change
+and after each milestone; commit and push it with the relevant code.
 
 Since 2026-10-29 19:12 UTC Codex is out and Claude sessions review and merge:
 see "Review and merge protocol" in `AGENTS.md` (JEG-1218). Codex lane notes
