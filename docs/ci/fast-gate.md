@@ -62,12 +62,12 @@ Current page test entry counts (some shared checks appear in several shards):
 
 | Shard | Test entry files |
 | --- | --- |
-| fe-values | 33 |
-| fe-compare | 42 |
-| fe-finder | 107 |
+| fe-values | 34 |
+| fe-compare | 43 |
+| fe-finder | 109 |
 | fe-targets | 26 |
-| fe-waivers | 14 |
-| fe-league | 92 |
+| fe-waivers | 15 |
+| fe-league | 94 |
 | fe-settings | 7 |
 
 ## Git planning and base retargeting
