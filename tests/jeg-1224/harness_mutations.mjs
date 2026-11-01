@@ -31,13 +31,15 @@ const FINDER = `${ORIGIN}/#find-trade?mine=101,303&theirs=202,404&${LEAGUE}&v=1`
 
 // Each mutation: what it breaks, the cases to run, and the answer each case must give
 // ("pass", "fail" for an unmet contract, "error" for a harness error) plus the exit code.
+// JEG-1343: M1-M3 are recorded as passing since the MCP tools honor the link's value context, so a
+// mutation that breaks them now differs from the record (exit 1) and the exact positive control keeps it (exit 0).
 const MUTATIONS = [
   // ----- finding 1: O1/O2 exercise the writer; legacy guards keep unmarked behaviour -----
   { id: "W1", finding: 1, label: "approved writer fix: tradeHash adds valuecontext=1 (D2: A); reader unchanged",
     env: () => ({ v2Src: edit(shipped.v2Src, "parts.push(...leagueLinkParts());", "parts.push(...leagueLinkParts()); parts.push(\"valuecontext=1\");", "W1") }),
     ids: ["O1", "O2", "O1L", "O2L"], expect: { O1: "pass", O2: "pass", O1L: "pass", O2L: "pass" } },
   { id: "W2", finding: 1, label: "unapproved legacy policy change: reader treats every link as complete",
-    env: () => ({ overridesSrc: edit(shipped.overridesSrc, 'const complete = params.get("valuecontext") === "1";', "const complete = true;", "W2") }),
+    env: () => ({ linkSrc: edit(shipped.linkSrc, 'const complete = get("valuecontext") === "1";', "const complete = true;", "W2") }),
     ids: ["O1L", "O2L"], expect: { O1L: "fail", O2L: "fail" } },
   { id: "W3", finding: 1, label: "writer marks the link but drops the sender's override",
     env: () => ({ v2Src: edit(edit(shipped.v2Src, "parts.push(...leagueLinkParts());", "parts.push(...leagueLinkParts()); parts.push(\"valuecontext=1\");", "W3"),
@@ -49,7 +51,7 @@ const MUTATIONS = [
 
   // ----- finding 2: setup and precondition failures fail the default run -----
   { id: "E1", finding: 2, label: "precondition breaks: sender's Overrides module loses the single basis in shareParams",
-    env: () => ({ overridesSrc: edit(shipped.overridesSrc, "if (info.mode === \"single\") out.basis = info.source;", "if (false) out.basis = info.source;", "E1") }),
+    env: () => ({ linkSrc: edit(shipped.linkSrc, "if (rec.mode === \"single\") return rec.source ? String(rec.source) : null;", "if (rec.mode === \"single\") return null;", "E1") }),
     ids: ["L1", "O1"], expect: { L1: "error", O1: "error" }, exit: 2 },
   { id: "E2", finding: 2, label: "module fails to load: overrides.js throws on evaluation",
     env: () => ({ overridesSrc: `throw new Error("boom");\n${shipped.overridesSrc}` }),
@@ -65,32 +67,32 @@ const MUTATIONS = [
     ], expect: { X1: "error", X2: "error", X3: "error" }, exit: 2 },
   { id: "E5", finding: 2, label: "control: the call under test throws or errors, which stays an unmet contract",
     env: () => ({ mcpCall: async (rpc, name, args) => { if (name === "read_state") throw new Error("edge function crashed"); return rpc(name, args); } }),
-    ids: ["M1", "M2"], expect: { M1: "fail", M2: "fail" }, exit: 0 },
+    ids: ["M1", "M2"], expect: { M1: "fail", M2: "fail" }, exit: 1 },
   { id: "E6", finding: 2, label: "control: a JSON-RPC error answer is an unmet contract, not a harness error",
     env: () => ({ mcpCall: async () => ({ jsonrpc: "2.0", id: 1, error: { code: -32000, message: "bad state" } }) }),
-    ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
 
   // ----- finding 3: M2 checks every value exactly -----
   { id: "V1", finding: 3, label: "marker-only site_url (valuecontext=1, basis and ov lost)",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V2", finding: 3, label: "basis only: ov dropped",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V3", finding: 3, label: "ov only: basis dropped",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V4", finding: 3, label: "basis and ov without the marker",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V5", finding: 3, label: "changed value: adjustment +4 instead of +5",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B4`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B4`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V6", finding: 3, label: "changed value: absolute 5 instead of a +5 adjustment",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V7", finding: 3, label: "changed weights: espn 50 / razzball 50",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.50_razzball.50&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.50_razzball.50&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V8", finding: 3, label: "extra override the sender did not set",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5,101%3A58`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5,101%3A58`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V9", finding: 3, label: "wrong marker value: valuecontext=true",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=true&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 0 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=true&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "fail" }, exit: 1 },
   { id: "V10", finding: 3, label: "positive control: a complete exact site_url (as a fixed MCP writer returns) passes",
-    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "pass" }, exit: 1 },
+    env: () => ({ mcpCall: siteUrl(`${FINDER}&valuecontext=1&basis=blend%3Aespn.60_razzball.40&ov=202%3A%2B5`) }), ids: ["M2"], expect: { M2: "pass" }, exit: 0 },
 ];
 
 const report = [];
