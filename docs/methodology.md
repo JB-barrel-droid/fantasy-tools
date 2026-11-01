@@ -16,7 +16,7 @@ Last checked against code at `origin/main` a66f3f40 (after PR 499 JEG-536, PR 53
 | Step | Spec | Engine | Python reference | Roster convention used today |
 | --- | --- | --- | --- | --- |
 | Inputs and included set | VP-0, VP-1 | `runValuePipeline`, "VP-1 included set" | `Inputs`, `Setting`, `run_pipeline` | Reader's selection of sources; no roster. |
-| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **Flex-filled bench seats (MR-28 / JEG-969, on by default since 2026-10-23):** bench-seat D'Hondt weights count superflex+flex starters alongside dedicated starters (matching `allocate_league` in the ES model); set `flex_bench_seats=false` / `setting.flex_bench_seats = false` to disable. In canonical ppr/12/1QB this changes QB bench seats from ~15 to ~4, shifting weight to RB/WR. **Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):** the market_bench 2-QB data (bps 0.28) already reflects supply-capped QB benches from FFC draft data; applying flex-filled weights on top double-counts the effect and inverts the 2-QB direction gate (JEG-702). In 2-QB/superflex, bench allocation uses dedicated starters only. **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = for a chart, the value of the first player past the rostered count; for a projection, the mean of the 7 players around that seat (JEG-1047); on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
+| Value above waivers, per source | VP-2 | `runValuePipeline`, "VP-2 / VP-3 per source"; fill-in `estimateFor` | `_source_lines`, `_estimate` | The user's roster. Starters by dedicated slot, then superflex, then flex by mean projected points (`vpAllocate`, `allocate`). (Historical: bench seats are now filled per VP-2.2d and the starter line is the midpoint of VP-2.5; the notes below describe the code as of a66f3f40.) **Browser engine, as of a66f3f40:** bench seats by D'Hondt over `BENCH_MIX_12` with the user's teams times bench (`vpBenchSeats`); starter line = the value of the first non-starter, floored at the waiver line. **Python reference, since PR 557 (JEG-560):** bench seats and the starter line come from the roster convention module (`pipelines/lib/roster_convention.py`: market-bench ratios, D'Hondt; starter line = midpoint of the last starter and first non-starter). **Flex-filled bench seats (MR-28 / JEG-969, on by default since 2026-10-23):** bench-seat D'Hondt weights count superflex+flex starters alongside dedicated starters (matching `allocate_league` in the ES model); set `flex_bench_seats=false` / `setting.flex_bench_seats = false` to disable. In canonical ppr/12/1QB this changes QB bench seats from ~15 to ~4, shifting weight to RB/WR. **Skipped in 2-QB / superflex rosters (Jeremy, 2026-10-23, option A):** the market_bench 2-QB data (bps 0.28) already reflects supply-capped QB benches from FFC draft data; applying flex-filled weights on top double-counts the effect and inverts the 2-QB direction gate (JEG-702). In 2-QB/superflex, bench allocation uses dedicated starters only. **The two disagree**, so `value_check compare` reports disagree on every source until the engine is migrated (risk register `GAP-VALUECHECK-REFERENCE-AHEAD`). Waiver line (both) = for a chart, the value of the first player past the rostered count; for a projection, the mean of the 7 players around that seat (JEG-1047); on a short list after fill-in, the last listed value. Jeremy's 2026-10-12 decision for short lists is "estimate from other charts"; neither implementation does that yet (parity test, JEG-559). |
 | Expected starts (what share of value reaches a lineup) | ES-0 to ES-14 | `esPositionParts`, `resolveLineupParameters`, `esChartSigma`, `esApplyPromotionModel` | `_expected_start_parts`, `resolve_lineup`, `chart_sigma`, `_apply_promotion_model` | Same allocation as above; parameters (missed-game rates, byes, sigma) from `config/lineup_parameters.json`. Replaces the 15% slices of VP-2.6 (decision `es-value-001`, live since PR 499). The bench share is a readout (`bench_share_readout`), not an input; one override, off by default. **Promotion/demotion model (JEG-969): switched off since JEG-1142 (Jeremy, 2026-10-27).** No role-change adjustment applies to any player: no promotion bonus for bench players, no demotion penalty for marginal starters. The starter/bench weighting (expected starts, bench share) is unchanged. A master switch, `PROMOTION_MODEL_ENABLED = false` in `value-model.js`, `value_reference.py` and `spec_reference/value_pipeline.py`, overrides every `promotion_model` flag. The model code and `config/promotion_rates.json` are kept, dormant, for the JEG-1144 research; when on, it adjusted the lineup share for persistent role-change probability (bench promotion bonus by depth and weeks remaining; starter demotion penalty). |
 | Source weights and DDF weights | VP-3, VP-4 | "VP-4 DDF weights" | `_mixes`, `ddf_weights` | Each source's eight group totals (position x starter or bench) give its mix (VP-3); the DDF weights are the average of the included sources' mixes (VP-4). |
 | Fixed pie, rates, Adjusted | VP-5 | "VP-5 budgets, rates, Adjusted" | `_price` | One pie per league setting; each source's Adjusted sums to it (VP-5.6). |
@@ -205,9 +205,20 @@ chart DDF Value").
      projected-points order at RB/WR/TE. Take the `T x F` best, in the same
      order (`m` descending, position order, `player_key` ascending). `fx_p` =
      the number taken at `p`.
-   - d. Bench: `b_p` = D'Hondt apportionment of `round_half_up(T x B)` seats
-     over `BENCH_MIX_12`. Each seat goes to the position with the largest
-     `weight / (seats + 1)`, with ties going to position order.
+   - d. Bench (JEG-1121, `vorp_bench_allocate` in
+     `pipelines/lib/roster_convention.py`, the engine's `vpAllocate`): the
+     `T x B` seats are filled one at a time in one pass across positions. At
+     each seat the candidate at `p` is the next non-starter in the
+     projected-points order (`k` = the bench seats `p` already holds), scored
+     `max(0, m) x c_p^(1 + floor(k / t1_p))`, where `c_p = (S_p / T) x (bye +
+     miss_p)`, `bye = 1/17`, `miss_p` = QB 0.12, RB 0.14, WR 0.11, TE 0.15,
+     and `t1_p = max(1, round(2 x c_p x T))`. The highest score takes the
+     seat, ties to position order. A seat stays empty only when no candidate
+     with positive points is left. Seat counts never depend on DDF Value.
+     (Before JEG-1121 the seats were a D'Hondt apportionment, first over
+     `BENCH_MIX_12`, then over the market bench ratios of JEG-560/561; that
+     path stays behind `flex_bench_seats = false` for older fixtures, and the
+     D'Hondt seats still set the chart-sigma band `N'` of ES-15.3.)
    - d2. **A loaded league (JEG-1188, Jeremy 2026-10-29: "we focus on vorp,
      let other managers make stupid decisions and capitalize").** When the
      setting carries the league's rostered players (`league_rostered`, and
@@ -385,18 +396,28 @@ chart DDF Value").
      estimate, at a position the chart prices, is 0 on that chart in every
      view (VP-6.2). Players below rosterable depth therefore stay at or near 0
      for every source.
-5. **Starter line `l_p`** = the work-list value at 0-based index `S_p` (the
-   first non-starter) if it exists, else `w_p`. Then `l_p = max(l_p, w_p)`.
+5. **Starter line `l_p`** (roster convention rule 3, JEG-560 in the
+   references, JEG-630 in the engine) = the midpoint of the last starter and
+   the first non-starter on the work list, `(x[S_p - 1] + x[S_p]) / 2` at
+   0-based indexes. With exactly `S_p` players on the work list it is the
+   last starter's value; with `S_p = 0` or fewer than `S_p` players it is
+   `w_p`. Then `l_p = max(l_p, w_p)` (`starter_line` in
+   `pipelines/lib/roster_convention.py`; the engine's per-source step in
+   `runValuePipeline`). Before JEG-560 it was the value of the first
+   non-starter.
 6. **Per player** on the work list, listed or estimated:
    - value above waivers `v_i = max(0, x_i - w_p)`;
    - bench slice `bsl_i = max(0, min(x_i, l_p) - w_p)`, the part of his
      surplus that any rostered player at `p` provides;
-   - starter slice `ssl_i = max(0, x_i - l_p)`, the premium over the first
-     non-starter;
+   - starter slice `ssl_i = max(0, x_i - l_p)`, the premium over the
+     starter line;
    - `v_i = bsl_i + ssl_i` exactly.
    - Display role: starter if rank `<= S_p`, bench if `<= N_p`, else waiver.
      The role is shown but does not price (OC-3: the slice only decides which
      group a player's value counts in).
+   - These slices apply only without lineup parameters (the worked example's
+     legacy mode). With them, the expected-starts parts of ES-5 replace the
+     slices; that is how the page prices players.
 
 ### VP-3 Per-source implied weights (8 groups)
 
@@ -830,65 +851,87 @@ above left a choice. Each was settled here, and the text above now states it:
 
 ### Worked example (tests/fixtures/value_pipeline_worked_example.json)
 
-**Setting.** 2 teams, QB1 RB1 WR1 TE1 FLEX1, no superflex, bench 2 per team,
-bench share 0.15. Pie = 28 x 2 x 5 = **280**.
+Every number below is generated: `python3 tools/methodology_worked_example.py`
+runs the fixture through the spec reference (`pipelines/spec_reference`) and
+writes this block; `tests/test_methodology_worked_example.py` fails when the
+block and the generator differ (JEG-1397; before it the text still showed the
+old D'Hondt bench, the first-non-starter starter line and the old fill sets).
+The engine and the Python reference reproduce the same fixture to 1e-6 (VP-12),
+so the numbers hold for all three. The players and sources are synthetic: a
+hand-sized 2-team league, not published, previous-season or modeled player
+data. Two modes are shown: the **legacy slices mode** (no lineup parameters,
+the VP-2.6 slices) and the **current expected-starts mode** (ES-5 parts,
+live since PR 499; the page loads `config/lineup_parameters.json`).
 
-**Sources.** Projections `p1` and `p2` and charts `c1`, `c2`, `c4`, `c5` are
-included. `c3` is held; its natives are exactly 10 x `c1`. RB Juliet (a
-rookie) is projected only by `p1` (8.5) and listed by no chart.
+<!-- BEGIN generated worked example: python3 tools/methodology_worked_example.py (JEG-1397). Do not edit by hand. -->
 
-**League allocation (by projected points).**
+**Legacy slices mode** (no lineup parameters: the fixture's `expected` block). This is the VP-2.6 rule that ES-5 replaced on the live site; the fixture keeps it as the clean-room check of VP-2 to VP-7.
 
-- Bench seats: `round(2 x 2) = 4`, D'Hondt over `BENCH_MIX_12` in the order
-  WR, RB, WR, RB: RB 2, WR 2.
-- Flex candidates by `m`: WR November 11.0, TE Uniform 10.2, RB Foxtrot 9.8.
-  The two flex slots go to **WR and TE**. By `c1`'s own values (the
-  superseded rule) they would go to WR November (40) and **RB Foxtrot (35)**,
-  not TE Uniform (6) (`expected.flex_contrast`).
-- Every source: QB 2/2, RB 2 starters/4 rostered, WR 3/5, TE 3/3.
-- Fill sets (first `N_p + 1` by `m`): QB Alpha, Bravo, Charlie; RB Delta,
-  Echo, Foxtrot, Juliet, Golf; WR Lima to Quebec; TE Sierra to Victor.
+**Setting.** 2 teams, QB1 RB1 WR1 TE1 FLEX1 (RB/WR/TE), no superflex, bench 2 per team, bench share 0.15. Pie = 28 x 2 x 5 = **280**.
 
-**Fill-in estimates.**
+**Sources.** Projections `p1`, `p2` and charts `c1`, `c2`, `c4`, `c5` are included. `c3` is held; its natives are exactly 10 x `c1`. RB Juliet (rookie) is listed by no chart and projected only by `p1` (8.5).
+
+**League allocation (by projected points, VP-2.2).**
+
+| Position | Dedicated | Superflex | Flex | Bench | Starters `S_p` | Rostered `N_p` |
+| --- | --- | --- | --- | --- | --- | --- |
+| QB | 2 | 0 | 0 | 1 | 2 | 3 |
+| RB | 2 | 0 | 0 | 1 | 2 | 3 |
+| WR | 2 | 0 | 1 | 1 | 3 | 4 |
+| TE | 2 | 0 | 1 | 1 | 3 | 4 |
+
+- Bench (VP-2.2d): 4 seats, one at a time, each to the highest `max(0, m) x c_p^(1 + floor(k / t1_p))`, with `c_p` QB 0.178824, RB 0.198824, WR 0.253235, TE 0.313235 and `t1_p` QB 1, RB 1, WR 1, TE 1. In order: WR Oscar (m 9, score 2.279118), QB Charlie (m 12.5, score 2.235294), RB Foxtrot (m 9.8, score 1.948471), TE Victor (m 3, score 0.939706).
+- Flex candidates by `m`: WR November 11, TE Uniform 10.2, RB Foxtrot 9.8. The 2 flex slots go to **WR** and **TE**. By `c1`'s own values (the superseded rule, `expected.flex_contrast`) they would go to 1 RB and 1 WR.
+- Fill sets (first `N_p + 1` by `m`): QB Alpha, QB Bravo, QB Charlie, QB Delta; RB Delta, RB Echo, RB Foxtrot, RB Juliet (rookie); WR Lima, WR Mike, WR November, WR Oscar, WR Papa; TE Sierra, TE Tango, TE Uniform, TE Victor, TE Whiskey.
+
+**Fill-in estimates (VP-2.4).**
 
 | Chart | Player | Path | Detail | Raw | Shown |
 | --- | --- | --- | --- | --- | --- |
-| c2 | WR Quebec | peers c1, c4 (median of 2) | ratios 0.956311, 0.947115 on 5 shared | 9.038975 | 9.038975 (its WR waiver line) |
-| c5 | WR Papa | peers c1, c2, c4 (median of 3) | estimates 14.072917, 12.518919, 15.0 | 14.072917 | 14.072917 |
-| c5 | WR Quebec | peers c1, c4 | estimates 9.046875, 10.0 | 9.523438 | 9.523438 (waiver line) |
-| c5 | TE Victor | peers c1, c2, c4 | estimates 4.463768, 2.961538, 5.202703 | 4.463768 | 4.463768 (waiver line) |
-| c5 | RB Golf | peers c1, c2 | ratio 186/185 on 3 shared, both | 17.594595 | 17.594595 (waiver line) |
-| c4 | RB Golf | peers c1 (fit on the last 10 of 11 shared: `145.5 / 130.5`), c2 | 22.298851, 15.692308 | 18.995579 | **2** (capped at c4's lowest listed RB) |
-| c5 | RB Juliet | curve on Delta, Echo, Foxtrot: `native = -46.824297 + 7.810356 x m` | m = 8.5 | 19.563731 | 19.563731 |
-| c1, c2, c3, c4 | RB Juliet | curve | | 26.26 / 32.30 / 262.61 / 34.42 | capped: 1 / 3 / 10 / 2 |
+| c1 | RB Juliet (rookie) | curve on 10 listed RBs | `native = -2.118176 + 3.338767 x m`, m = 8.5 | 26.261345 | 1 (capped at c1's lowest listed RB) |
+| c2 | RB Juliet (rookie) | curve on 6 listed RBs | `native = -15.210476 + 5.589292 x m`, m = 8.5 | 32.298509 | 3 (capped at c2's lowest listed RB) |
+| c2 | TE Whiskey | peers c1, c4 (median of 2) | c1 81 / 73 on 4 shared x 2 = 2.219178; c4 81 / 79 on 4 shared x 1 = 1.025316 | 1.622247 | 1.622247 (sets c2's TE waiver line) |
+| c3 | RB Juliet (rookie) | curve on 10 listed RBs | `native = -21.181762 + 33.387672 x m`, m = 8.5 | 262.613448 | 10 (capped at c3's lowest listed RB) |
+| c4 | RB Juliet (rookie) | curve on 10 listed RBs | `native = -3.495564 + 4.461202 x m`, m = 8.5 | 34.424657 | 2 (capped at c4's lowest listed RB) |
+| c5 | QB Delta | peers c1, c2, c4 (median of 3) | c1 76 / 80 on 3 shared x 8 = 7.6; c2 76 / 62 on 3 shared x 6 = 7.354839; c4 76 / 75 on 3 shared x 7 = 7.093333 | 7.354839 | 7.354839 (sets c5's QB waiver line) |
+| c5 | RB Juliet (rookie) | curve on 3 listed RBs | `native = -46.824297 + 7.810356 x m`, m = 8.5 | 19.563731 | 19.563731 (sets c5's RB waiver line) |
+| c5 | WR Papa | peers c1, c2, c4 (median of 3) | c1 193 / 192 on 4 shared x 14 = 14.072917; c2 193 / 185 on 4 shared x 12 = 12.518919; c4 193 / 193 on 4 shared x 15 = 15 | 14.072917 | 14.072917 (sets c5's WR waiver line) |
+| c5 | TE Victor | peers c1, c2, c4 (median of 3) | c1 77 / 69 on 3 shared x 4 = 4.463768; c2 77 / 78 on 3 shared x 3 = 2.961538; c4 77 / 74 on 3 shared x 5 = 5.202703 | 4.463768 | 4.463768 |
+| c5 | TE Whiskey | peers c1, c4 (median of 2) | c1 77 / 69 on 3 shared x 2 = 2.231884; c4 77 / 74 on 3 shared x 1 = 1.040541 | 1.636212 | 1.636212 (sets c5's TE waiver line) |
 
-Below rosterable depth: `c2` does not list RB Hotel and `c5` does not list QB
-Delta; both are 0 on that chart in every view.
+Below rosterable depth (a priced position, neither listed nor estimated, so 0 on that chart in every view): `c2` RB: RB Hotel, RB Alder, RB Birch, RB Cedar, RB Dogwood, RB Elm; `c2` WR: WR Quebec, WR Romeo, WR Sycamore; `c4` RB: RB Golf; `c4` WR: WR Sycamore; `c5` RB: RB Golf, RB Hotel, RB India, RB Kilo, RB Alder, RB Birch, RB Cedar, RB Dogwood, RB Elm; `c5` WR: WR Quebec, WR Romeo, WR Sycamore.
 
-**DDF weights (bench 15%).** Starter mix mean QB 0.146323, RB 0.263452, WR
-0.313098, TE 0.277128; bench mix mean RB 0.509118, WR 0.490882. So
-`W` = QB starter 0.124374, RB starter 0.223934, RB bench 0.076368, WR starter
-0.266133, WR bench 0.073632, TE starter 0.235558 (bench 0.15 exactly). QB and
-TE have no bench seats, so their bench groups are 0.
+**DDF weights (bench share 0.15, VP-4).** Starter mix mean QB 0.136817, RB 0.244977, WR 0.326836, TE 0.291369; bench mix mean QB 0.107115, RB 0.414984, WR 0.411308, TE 0.066594. So `W` = QB starter 0.116295, QB bench 0.016067, RB starter 0.208231, RB bench 0.062248, WR starter 0.277811, WR bench 0.061696, TE starter 0.247664, TE bench 0.009989 (the bench groups sum to 0.15; bench share applied 0.15).
 
-**Hand-check one value.** `p1`, RB Delta: native 18; starter line 10 (RB
-Foxtrot, index 2), waiver line 7 (RB Golf, index 4). Bench slice 3, starter
-slice 8. `p1`'s RB groups are 10.5 bench and 12 starter, so the rates are
-`280 x 0.076368 / 10.5 = 2.036472` and `280 x 0.223934 / 12 = 5.225123`, and
-`A = 3 x 2.036472 + 8 x 5.225123 =` **47.910397**. Across the six included
-sources RB Delta's blended DDF Value is **48.511113** (charts 50.223260,
-projections 45.086821).
+**Hand-check one value (legacy slices).** `p1`, RB Delta: native 18. `S_RB` = 2, `N_RB` = 3. Starter line 12 = the midpoint of RB Echo (14, index 1, the last starter) and RB Foxtrot (10, index 2, the first non-starter) (VP-2.5). Waiver line 9.357143 = the mean of the 7 values at indexes 0 to 6 (18, 14, 10, 8.5, 7, 5, 3), the projection band of VP-2.3. Bench slice `min(18, 12) - 9.357143` = 2.642857, starter slice `18 - 12` = 6 (VP-2.6). `p1`'s RB groups are 5.928571 bench and 8 starter, so the rates are `280 x 0.062248 / 5.928571 = 2.939886` and `280 x 0.208231 / 8 = 7.288068`, and `A = 2.642857 x 2.939886 + 6 x 7.288068` = **51.498107** (VP-5). Its **DDF Value** is **52.165616**: the equal-weight mean of the Adjusted values of the 4 included charts (c1 51.900746, c2 54.740253, c4 48.55011, c5 53.471352; VP-6.3). Its DDF Value (projections) is 48.084613, the mean over the 2 included projections (p1 51.498107, p2 44.671118). `c3` is held: shown (51.900746 Adjusted), never counted.
 
 **What else it pins.**
 
 | Case | Player | Result |
 | --- | --- | --- |
-| Estimated value counts in DDF | RB Juliet | blended 0.785708 over 5 sources (c5's estimate gives 0.873833 Adjusted); projections 3.054707, low confidence (`p2` is null) |
-| Capped ratio estimate | RB Golf on c4 | estimated 2, Adjusted 0; blended 1.297383 |
-| Indexed basis excludes estimates | c5 | `f = 276.236057 / 532 = 0.519241` over its 13 listed players; RB Juliet's estimate shows 10.158285 Indexed |
-| Held source shown, never counts | c3 | Adjusted and Indexed identical to c1's (the curve estimate scales by 10, and so does the cap) |
-| Tiers | slot fill = the allocation | TE Uniform (DDF 9.048407) is a starter by the flex; RB Juliet (rank 5 of RB) is waiver |
-| Bench share slider 0.10 | `variant_bench_share_0_10` | weights and blended DDF |
+| Estimated value counts in DDF | RB Juliet (rookie) | estimated on c1, c2, c3, c4, c5; DDF Value 0 over 4 charts: every estimate is at or below its chart's RB waiver line (c1 1 against 20, c2 3 against 15, c3 10 against 200, c4 2 against 10, c5 19.563731 against 19.563731), so each of the 4 Adjusted values is 0; DDF Value (projections) 0 from p1, low confidence (`p2` is null) |
+| Indexed basis excludes estimates | c5 | `f = 279.540879 / 532 = 0.525453` over its 13 listed players; RB Juliet (rookie)'s estimate shows 10.279817 Indexed |
+| Held source shown, never counts | c3 | Adjusted and Indexed identical to c1's on every row (to 1e-9); in no DDF Value |
+| Tiers | slot fill = the allocation | TE Uniform (DDF Value 2.826873) is in the starter tier by the flex; RB Juliet (rookie) (rank 7 of RB) is in the waiver tier |
+| Bench share slider 0.1 | `variant_bench_share_0_10` | bench groups sum to 0.1; RB Delta's DDF Value 52.581486 |
+
+**Current rule: expected starts (ES-0 to ES-15; the fixture's `variant_expected_starts`).** Same players and sources; bench 5 per team, so that WR gets a second depth band. Lineup parameters are round illustrative numbers for a hand-sized league, not the measured `config/lineup_parameters.json`: bye 0.08, projection confidence 1.5, and QB `m` 0.11, `sigma` 0.18, floor 0.7; RB `m` 0.15, `sigma` 0.28, floor 0.85; WR `m` 0.12, `sigma` 0.3, floor 1; TE `m` 0.15, `sigma` 0.35, floor 0.65. The bench share is computed (no override).
+
+| Position | Dedicated | Superflex | Flex | Bench | Starters `S_p` | Rostered `N_p` |
+| --- | --- | --- | --- | --- | --- | --- |
+| QB | 2 | 0 | 0 | 2 | 2 | 4 |
+| RB | 2 | 0 | 0 | 3 | 2 | 5 |
+| WR | 2 | 0 | 1 | 3 | 3 | 6 |
+| TE | 2 | 0 | 1 | 2 | 3 | 5 |
+
+- Bench (VP-2.2d): 10 seats, one at a time, each to the highest `max(0, m) x c_p^(1 + floor(k / t1_p))`, with `c_p` QB 0.178824, RB 0.198824, WR 0.253235, TE 0.313235 and `t1_p` QB 1, RB 1, WR 1, TE 1. In order: WR Oscar (m 9, score 2.279118), QB Charlie (m 12.5, score 2.235294), RB Foxtrot (m 9.8, score 1.948471), TE Victor (m 3, score 0.939706), WR Papa (m 6.5, score 0.416833), RB Juliet (rookie) (m 8.5, score 0.336012), QB Delta (m 9, score 0.287801), TE Whiskey (m 1.5, score 0.147175), WR Quebec (m 4.5, score 0.073078), RB Golf (m 7.5, score 0.058947).
+- Chart `sigma` (ES-6, before the projection-confidence scale): QB 0.129523, RB 0.137303, WR 0.086132, TE 0.230478.
+
+**Hand-check one value (expected starts).** `p1`, RB Delta: native 18. `S_RB` = 2, `N_RB` = 5. Starter line 12 = the midpoint of RB Echo (14, index 1, the last starter) and RB Foxtrot (10, index 2, the first non-starter) (VP-2.5). Waiver line 5.328571 = the mean of the 7 values at indexes 2 to 8 (10, 8.5, 7, 5, 3, 2, 1.8), the projection band of VP-2.3. Value above waivers `v` = 12.671429. `avail = (1 - 0.08) x (1 - 0.15)` = 0.782; `n_RB` = 1 starter per team (`S_RB / T` = 2 / 2), out-probability `q` = 0.218; bands: depth 1 `(7, 12]` fill 0.218; depth 2 `(5.328571, 7]` fill 0 (ES-3, ES-4). `s(x) = max(0.28 x 18, 0.85)` = 5.04, so `P(X > 12)` = 0.88307. Start-worthy part `0.782 x 12.671429 x 0.88307` = 8.750395; fill-in part `0.782 x 12.671429 x 0.022322` = 0.221191 (ES-5; the last factor is `sum_k fill_k x P(band k)`). Lineup share 0.708017. The rates are `280 x 0.024555 / 1.611818 = 4.265656` and `280 x 0.274336 / 14.513596 = 5.292552`, so `A = 0.221191 x 4.265656 + 8.750395 x 5.292552` = **47.255443**. Its **DDF Value** is **49.922804**: the equal-weight mean of the Adjusted values of the 4 included charts (c1 49.258878, c2 52.255844, c4 46.490198, c5 51.686294; VP-6.3). Its DDF Value (projections) is 45.184341, the mean over the 2 included projections (p1 47.255443, p2 43.11324). `c3` is held: shown (49.258878 Adjusted), never counted.
+
+**Bench share, computed.** The bench groups' DDF weights sum to 0.065749 (the pie paid on fill-in parts, ES-5); the readout by position is QB 0.030068, RB 0.070571, WR 0.07177, TE 0.028136, overall 0.056447. With the reader's override at 0.1 (`variant_expected_starts_override`) the bench groups sum to 0.1 and RB Delta's DDF Value is 48.059968.
+
+<!-- END generated worked example -->
 
 ### Expected-starts value (JEG-521, 2026-10-09): the proposed answer to OC-2 and OC-3
 
@@ -975,8 +1018,8 @@ change to them is a value change and is reviewed as one.
   JEG-525 item d). Whether `m_RB` should weight recent seasons more is MR-25;
   the bench tier moves by at most 0.15 points across the candidates.
 
-**ES-2 Roster.** VP-2.2 unchanged: dedicated, greedy flex (OC-4 A), D'Hondt
-bench, `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
+**ES-2 Roster.** VP-2.2 unchanged: dedicated, greedy flex (OC-4 A), the
+greedy bench fill of VP-2.2d (JEG-1121), `S_p` and `N_p` per source. `n_p = max(1, round(S_p / T))` is the
 starters per team at `p`, flex winners included.
 
 - **Roster decision (JEG-563, 2026-10-16; supersedes the JEG-521 constraint).**
@@ -984,20 +1027,21 @@ starters per team at `p`, flex winners included.
   `DEFAULT_ROSTER`, `REF_SLOTS` and the spec reference. Bench seats are the
   roster convention (JEG-561): D'Hondt over teams x 7 on dedicated slots x
   market backups-per-starter (`config/market_bench.json`), not the old
-  `BENCH_MIX_12` mix. The older WR 3 / BENCH 6 default no longer applies.
+  `BENCH_MIX_12` mix. JEG-1121 has since replaced that D'Hondt with the greedy
+  fill of VP-2.2d; the roster shape is unchanged. The older WR 3 / BENCH 6 default no longer applies.
   `reindex_comparison_section.py` loads a roster shape and never uses it.
 
 **ES-3 Lines and depth edges** (per source and position, own units, on the
 work list of VP-2.4).
 
 1. `w_p` and `l_p` as VP-2.3 and VP-2.5: the waiver line is the value at
-   0-based index `N_p` (for a projection, the 7-player band of VP-2.3), the starter line the value at index `S_p` (the first
-   non-starter), floored at `w_p`.
+   0-based index `N_p` (for a projection, the 7-player band of VP-2.3), the starter line the midpoint of the last
+   starter and the first non-starter (VP-2.5), floored at `w_p`.
 2. Depth edges: `e_0 = l_p`; for `k >= 1`, `e_k` = the value at index
    `S_p + k x T` (the first player at depth `k + 1`) while that index exists and
    its value is above `w_p`. The last band runs down to `w_p`. Depth `k` is the
    band `(e_k, e_(k-1)]`: open below, closed above, so the first non-starter
-   (whose value is `l_p`) is at depth 1, not start-worthy.
+   (whose value is at or below `l_p`) is at depth 1, not start-worthy.
 
 **ES-4 Lineup share of a level** at position `p`, league setting `L`.
 
@@ -1715,6 +1759,10 @@ Configuration selection never changes source vintage or acquisition/processing
 timestamps. Coverage is independent of freshness and validation status.
 
 ## Publisher Flex Allocation
+
+> **Superseded for bench seats and the starter line**: bench seats are now
+> filled greedily per VP-2.2d (JEG-1121) and the starter line is the
+> midpoint of VP-2.5. The D'Hondt notes below are history.
 
 > **Superseded (JEG-508, OC-4)**: flex is now filled greedily, best remaining
 > by the source's own values, with no preliminary waiver line (VP-2.2c). The
