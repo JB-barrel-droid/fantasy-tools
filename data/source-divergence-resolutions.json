@@ -73,6 +73,14 @@
       "decided": "2026-10-29",
       "inputs_fingerprint": "sha256:848f4664cff56fe463035c1763c050a1bb2ae35fee22d8e33ab313867db9c4d3",
       "note": "Week label mix-up, not a week 8 reading. The divergence:fantasypros:w8 investigate flag (report generated 2026-10-27, e2c191c) ran when content_week had flipped to 8 while FantasyPros was still served as its Week 7 article (content 2026-10-20); its 178 natives equal frozen week 7 (this fingerprint), so 'also warned in week 7' compared the Week 7 chart with itself. That week 7 reading is already accepted (JEG-796). On the real Week 8 article (content 2026-10-27) FantasyPros is ok, 41.5-44.7%. JEG-1314 labels each source-week by its served week, so these inputs now report as week 7. Scoped by inputs_fingerprint so it never marks the real Week 8 article reviewed. Diagnosis: docs/research/JEG-1172/README.md."
+    },
+    {
+      "source": "fantasycalc",
+      "week": 8,
+      "resolution": "accepted",
+      "issue": "JEG-1368",
+      "decided": "2026-10-30",
+      "note": "Genuine source opinion, continuing JEG-830. Rolling redraft API, 12 teams, numQbs=1, ppr=0/0.5/1; parser reads value, not combinedValue or redraftValue. Week 8 is request-asserted, not an article date: saved pulls 2026-10-29T21:12:51Z and 2026-10-30T17:05:25Z. Alert report: standard/half/full 45.3/45.3/43.6%; fixture beside that report reconstructs 48.3/46.5/44.2% (report/input timing mismatch, not claimed identical evidence). Later report 48.8/47.1/45.9%, bias +0.60/+0.49/+0.52; within historical roughly 38-52%. Five QB/RB/WR/TE samples across all three scorings preserve native times one factor in stored Indexed and current display engine. Stored ESPN-anchor factor differs from browser blended-basis factor by design; no computation or defaults changed. Evidence and limitation: docs/research/JEG-1368/README.md."
     }
   ]
 }
