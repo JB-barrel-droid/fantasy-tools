@@ -220,6 +220,7 @@ test-unit-modules:
 	# JEG-1140: Settings in the Fieldnotes design, isolated components (node checks, then the browser).
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
+	python3 -m unittest tests.test_jeg1140_explainer_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_fieldnotes_nav_render
 	python3 -m unittest tests.test_v2_fieldnotes_compare_render
@@ -301,6 +302,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
+	# JEG-1415: offline waiver-board builder and schema (slice 1 of JEG-1196).
+	python3 -m unittest tests.test_build_waiver_board
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -353,10 +356,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
+	# JEG-1397: docs/methodology.md's worked example is generated from the fixture (tools/methodology_worked_example.py).
+	python3 -m unittest tests.test_methodology_worked_example
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
 	# JEG-1130: the approved PMM glossary on the copy outside and inside v2.js (static, no browser).
-	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy
+	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy tests.test_jeg1130_settings_copy
 	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_source_freshness
 	python3 -m unittest tests.test_freshness_display_render
