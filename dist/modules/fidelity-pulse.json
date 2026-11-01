@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-11-01T06:40:16.886911Z",
- "run_id": "b8e0eb56-6a82-4c84-9d22-1a8c40ba1085",
+ "checked_at": "2026-11-01T09:40:17.349103Z",
+ "run_id": "5650ad6b-dd62-43dc-9a8f-4f71ee3b375e",
  "overall": "red",
  "site": {
   "url": "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fcwk8_2026-11-01t0305_v1",
    "measured_site": "2026-10-31T14:05:26+00:00",
-   "since": "2026-11-01T06:40:16.886911Z",
+   "since": "2026-11-01T09:40:17.349103Z",
    "summary": "1188/1188 chart values equal stored bake fcwk8_2026-10-31t1405_v1; newer stored bake fcwk8_2026-11-01t0305_v1 (week 8, saved 2026-11-01T03:05:46.172208Z) is not on the chart yet: 1158 values changed, 18 added, 18 dropped"
   },
   "cbsros": {
@@ -69,7 +69,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-11-01@2026-11-01T04:45:31.190247Z",
    "measured_site": null,
-   "since": "2026-11-01T06:40:16.886911Z",
+   "since": "2026-11-01T09:40:17.349103Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -81,7 +81,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-10-31@2026-10-31T11:18:33.885296Z",
    "measured_site": null,
-   "since": "2026-11-01T06:40:16.886911Z",
+   "since": "2026-11-01T09:40:17.349103Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -299,17 +299,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "30/1173 values match exactly across 6 columns; 1143 of 1173 values moved since the save at 2026-11-01T03:05:46.172208Z (largest 133%; 3 outside the max(25%, 50) band: Bo Nix, Justin Herbert, Kirk Cousins); 7 players entered or left the bottom of the list since the save (churn)",
+     "summary": "24/1169 values match exactly across 6 columns; 1145 of 1169 values moved since the save at 2026-11-01T03:05:46.172208Z (largest 100%; 12 outside the max(25%, 50) band: Bo Nix, Deshaun Watson, Geno Smith, J.J. McCarthy, Justin Herbert, Kirk Cousins); 8 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 200,
+      "publisher_players": 199,
       "stored_players": 198,
-      "compared": 1173,
-      "matched": 30,
-      "mismatched": 1143,
+      "compared": 1169,
+      "matched": 24,
+      "mismatched": 1145,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 7,
+      "list_churn": 8,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -322,8 +322,8 @@
        "left": 198,
        "right": 198,
        "mismatched": 191,
-       "missing": 2,
-       "extra": 2
+       "missing": 3,
+       "extra": 3
       },
       "full|2": {
        "left": 198,
@@ -342,26 +342,66 @@
       "half|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 188,
-       "missing": 2,
-       "extra": 2
+       "mismatched": 191,
+       "missing": 3,
+       "extra": 3
       },
       "std|1": {
        "left": 198,
        "right": 198,
        "mismatched": 191,
-       "missing": 2,
-       "extra": 2
+       "missing": 3,
+       "extra": 3
       },
       "std|2": {
        "left": 198,
        "right": 198,
-       "mismatched": 191,
-       "missing": 3,
-       "extra": 3
+       "mismatched": 190,
+       "missing": 4,
+       "extra": 4
       }
      },
      "examples": [
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 1743,
+       "name": "J.J. McCarthy",
+       "pos": "QB",
+       "left": "803",
+       "right": 1278.0,
+       "delta": 475.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "1950",
+       "right": 1612.0,
+       "delta": -338.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 4203,
+       "name": "Deshaun Watson",
+       "pos": "QB",
+       "left": "772",
+       "right": 446.0,
+       "delta": -326.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|1",
+       "player_key": 1370,
+       "name": "Puka Nacua",
+       "pos": "WR",
+       "left": "8450",
+       "right": 8721.0,
+       "delta": 271.0
+      },
       {
        "type": "value_mismatch",
        "grain": "full|2",
@@ -384,63 +424,23 @@
       },
       {
        "type": "value_mismatch",
-       "grain": "std|2",
+       "grain": "half|2",
        "player_key": 1370,
        "name": "Puka Nacua",
        "pos": "WR",
-       "left": "8389",
-       "right": 8653.0,
-       "delta": 264.0
+       "left": "8480",
+       "right": 8747.0,
+       "delta": 267.0
       },
       {
        "type": "value_mismatch",
-       "grain": "half|2",
-       "player_key": 327,
-       "name": "Baker Mayfield",
-       "pos": "QB",
-       "left": "1449",
-       "right": 1686.0,
-       "delta": 237.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 1063,
-       "name": "Kyren Williams",
-       "pos": "RB",
-       "left": "6036",
-       "right": 5814.0,
-       "delta": -222.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 1666,
-       "name": "Bo Nix",
-       "pos": "QB",
-       "left": "2537",
-       "right": 2319.0,
-       "delta": -218.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|2",
-       "player_key": 1666,
-       "name": "Bo Nix",
-       "pos": "QB",
-       "left": "2508",
-       "right": 2293.0,
-       "delta": -215.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|2",
-       "player_key": 2608,
-       "name": "Geno Smith",
-       "pos": "QB",
-       "left": "1252",
-       "right": 1043.0,
-       "delta": -209.0
+       "grain": "std|1",
+       "player_key": 1370,
+       "name": "Puka Nacua",
+       "pos": "WR",
+       "left": "8302",
+       "right": 8568.0,
+       "delta": 266.0
       }
      ],
      "outside_universe": [],
@@ -580,6 +580,50 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 1743,
+     "name": "J.J. McCarthy",
+     "pos": "QB",
+     "left": "803",
+     "right": 1278.0,
+     "delta": 475.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "1950",
+     "right": 1612.0,
+     "delta": -338.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 4203,
+     "name": "Deshaun Watson",
+     "pos": "QB",
+     "left": "772",
+     "right": 446.0,
+     "delta": -326.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|1",
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "left": "8450",
+     "right": 8721.0,
+     "delta": 271.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
      "grain": "full|2",
      "player_key": 1370,
      "name": "Puka Nacua",
@@ -602,68 +646,24 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "std|2",
+     "grain": "half|2",
      "player_key": 1370,
      "name": "Puka Nacua",
      "pos": "WR",
-     "left": "8389",
-     "right": 8653.0,
-     "delta": 264.0
+     "left": "8480",
+     "right": 8747.0,
+     "delta": 267.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "half|2",
-     "player_key": 327,
-     "name": "Baker Mayfield",
-     "pos": "QB",
-     "left": "1449",
-     "right": 1686.0,
-     "delta": 237.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 1063,
-     "name": "Kyren Williams",
-     "pos": "RB",
-     "left": "6036",
-     "right": 5814.0,
-     "delta": -222.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 1666,
-     "name": "Bo Nix",
-     "pos": "QB",
-     "left": "2537",
-     "right": 2319.0,
-     "delta": -218.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|2",
-     "player_key": 1666,
-     "name": "Bo Nix",
-     "pos": "QB",
-     "left": "2508",
-     "right": 2293.0,
-     "delta": -215.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|2",
-     "player_key": 2608,
-     "name": "Geno Smith",
-     "pos": "QB",
-     "left": "1252",
-     "right": 1043.0,
-     "delta": -209.0
+     "grain": "std|1",
+     "player_key": 1370,
+     "name": "Puka Nacua",
+     "pos": "WR",
+     "left": "8302",
+     "right": 8568.0,
+     "delta": 266.0
     }
    ],
    "held": null,
@@ -676,7 +676,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fcwk8_2026-11-01t0305_v1",
     "measured_site": "2026-10-31T14:05:26+00:00",
-    "since": "2026-11-01T06:40:16.886911Z",
+    "since": "2026-11-01T09:40:17.349103Z",
     "summary": "1188/1188 chart values equal stored bake fcwk8_2026-10-31t1405_v1; newer stored bake fcwk8_2026-11-01t0305_v1 (week 8, saved 2026-11-01T03:05:46.172208Z) is not on the chart yet: 1158 values changed, 18 added, 18 dropped"
    }
   },
@@ -2205,7 +2205,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-11-01@2026-11-01T04:45:31.190247Z",
     "measured_site": null,
-    "since": "2026-11-01T06:40:16.886911Z",
+    "since": "2026-11-01T09:40:17.349103Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2273,7 +2273,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-10-31@2026-10-31T11:18:33.885296Z",
     "measured_site": null,
-    "since": "2026-11-01T06:40:16.886911Z",
+    "since": "2026-11-01T09:40:17.349103Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
