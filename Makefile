@@ -272,6 +272,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_expand_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
+	python3 -m unittest tests.test_tiers_follow_seats
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
 	python3 -m unittest tests.test_review_coverage_live_verify
