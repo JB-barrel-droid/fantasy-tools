@@ -1,15 +1,18 @@
-"""Fail closed before PR promotion/merge. REST only; no retries.
+"""Fail closed before PR promotion/merge. REST evidence plus optional local Git.
 
 Exit 0: fresh and green; 1: refused; 2: API/input evidence unavailable.
 --informational reports the verdict without failing the workflow, excluding
 only that workflow's own running check. Never use that mode for promotion.
 The #1255 registry attributes failures; it does not waive red check statuses.
+Bot catch-up policy is in pr_freshness_config.json; both flags default off.
+There is no environment override. Enabling either needs Jeremy's standing yes.
 """
 
 import argparse
 import base64
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -17,6 +20,7 @@ import sys
 REPO = "JB-barrel-droid/fantasy-tools"
 REGISTRY = "docs/baseline-reds/registry.json"
 SHA = re.compile(r"[0-9a-f]{40}")
+CONFIG = Path(__file__).with_name("pr_freshness_config.json")
 
 
 class EvidenceError(ValueError):
@@ -25,6 +29,94 @@ class EvidenceError(ValueError):
 
 class NotFound(EvidenceError):
     pass
+
+
+def load_config(path=CONFIG):
+    config = json.loads(path.read_text(encoding="utf-8"))
+    for flag in ("allow_bot_only_behind", "allow_bot_data_inputs"):
+        if type(config[flag]) is not bool:
+            raise EvidenceError("invalid bot catch-up flag")
+    for group in ("status_only", "data_inputs"):
+        paths = config[group]
+        if not isinstance(paths, list) or any(
+            not isinstance(p, str) or not p or p.startswith("/")
+            or any(part in ("", ".", "..") for part in p.split("/"))
+            or re.search(r"[\x00-\x1f\\]", p)
+            or ("*" in p and (not p.endswith("/**") or "*" in p[:-3]))
+            or "?" in p or "[" in p for p in paths
+        ):
+            raise EvidenceError("invalid bot catch-up paths")
+    authors = config["bot_authors"]
+    if not isinstance(authors, list) or not authors or any(
+        not isinstance(a, dict) or not isinstance(a.get("name"), str)
+        or not a["name"] or not isinstance(a.get("email"), str) or not a["email"]
+        for a in authors
+    ):
+        raise EvidenceError("invalid bot author identities")
+    return config
+
+
+class LocalGit:
+    """Use only existing local objects/refs; do not fetch or touch the worktree."""
+
+    def __init__(self, root=None):
+        self.root = root or Path(__file__).resolve().parents[1]
+
+    def run(self, *args):
+        result = subprocess.run(
+            ["git", "--no-replace-objects", "-C", str(self.root), *args],
+            env=dict(os.environ, GIT_NO_LAZY_FETCH="1"), text=True,
+            capture_output=True, timeout=30, check=False,
+        )
+        if result.returncode:
+            raise EvidenceError("local Git evidence unavailable or merge-tree conflicted")
+        return result.stdout
+
+    def main_sha(self):
+        return sha(self.run("rev-parse", "--verify", "refs/remotes/origin/main^{commit}").strip())
+
+
+def allowed_path(path, patterns):
+    return any(path == p or (p.endswith("/**") and path.startswith(p[:-2]))
+               for p in patterns)
+
+
+def bot_only_behind(git, head, main, behind, config):
+    """Return a refusal or the exact skipped commits; inspect every intermediate write."""
+    if git.main_sha() != main:
+        return [], "local origin/main differs from observed main; fetch before gating"
+    bases = git.run("merge-base", "--all", head, main).splitlines()
+    if len(bases) != 1:
+        return [], "bot-only-behind requires one unambiguous merge base"
+    base = sha(bases[0])
+    commits = [sha(c) for c in git.run("rev-list", "--reverse", f"{base}..{main}").splitlines()]
+    if not commits or len(commits) != behind:
+        return [], "local behind history disagrees with REST compare"
+    changed = set(git.run("diff", "--name-only", "--no-renames", "-z", base, head).split("\0")) - {""}
+    patterns = list(config["status_only"])
+    if config["allow_bot_data_inputs"]:
+        patterns.extend(config["data_inputs"])
+    identities = {(a["name"], a["email"]) for a in config["bot_authors"]}
+    for commit in commits:
+        identity = git.run("show", "-s", "--format=%an%x00%ae", commit).rstrip("\n").split("\0")
+        if tuple(identity) not in identities:
+            return [], f"bot-only-behind refused: non-bot author at {commit}"
+        # -m checks merge commits against every parent; --no-renames exposes
+        # both sides of a rename. Never hide a transient write or a deletion.
+        paths = set(git.run("diff-tree", "--no-commit-id", "--root", "-r", "-m",
+                            "--name-only", "--no-renames", "-z", commit).split("\0")) - {""}
+        if paths & changed:
+            return [], f"bot-only-behind refused: PR file overlap at {commit}"
+        if any(not allowed_path(p, patterns) for p in paths):
+            return [], f"bot-only-behind refused: path outside enabled allowlists at {commit}"
+    try:
+        # This writes Git tree objects only, not an index/worktree or a merge commit.
+        git.run("merge-tree", "--write-tree", head, main)
+    except EvidenceError:
+        return [], "bot-only-behind refused: merge-tree not clean or evidence unavailable"
+    if git.main_sha() != main:
+        return [], "local origin/main moved during bot-only verification"
+    return commits, None
 
 
 class Rest:
@@ -129,7 +221,8 @@ def own_information_check(check, repo, run_id):
                 check.get("details_url") or "") is not None)
 
 
-def evaluate(api, number=None, group_head=None, informational_run=None):
+def evaluate(api, number=None, group_head=None, informational_run=None, config=None, local_git=None):
+    config = load_config() if config is None else config
     main = sha(api.get("commits/main")["sha"])
     pull = api.get(f"pulls/{number}") if number is not None else None
     if pull is not None and (pull["state"] != "open" or pull["base"]["ref"] != "main"
@@ -140,8 +233,13 @@ def evaluate(api, number=None, group_head=None, informational_run=None):
     behind = comparison["behind_by"]
     if type(behind) is not int or behind < 0:
         raise EvidenceError("compare behind_by unavailable")
+    skipped = []
     if behind:
-        return 1, f"head is behind main by {behind} commit(s); merge origin/main first"
+        if not config["allow_bot_only_behind"]:
+            return 1, f"head is behind main by {behind} commit(s); merge origin/main first"
+        skipped, refusal = bot_only_behind(local_git or LocalGit(), head, main, behind, config)
+        if refusal:
+            return 1, refusal
     entries = registry(api, main)
     checks, states = check_runs(api, head), statuses(api, head)
     considered = 0
@@ -173,7 +271,10 @@ def evaluate(api, number=None, group_head=None, informational_run=None):
         current = api.get(f"pulls/{number}")
         if current["state"] != "open" or sha(current["head"]["sha"]) != head:
             return 1, "PR closed or head moved during verification"
-    return 0, f"{head[:12]} contains current main; all {considered} checks/statuses accepted"
+    if skipped:
+        return 0, (f"bot-only-behind: {head[:12]}; all {considered} checks/statuses accepted; "
+                   f"skipped bot commits: {','.join(skipped)}")
+    return 0, f"fresh: {head[:12]} contains current main; all {considered} checks/statuses accepted"
 
 
 def main(argv=None, api=None, environ=None):

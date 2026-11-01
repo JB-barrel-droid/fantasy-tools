@@ -45,6 +45,50 @@ review. PRs stop editing `HANDOFF.md`; handoff notes go on the Linear ticket.
 - Comment on the ticket: PR number, head sha, "bot report matched head", "v2-render green", what the lead checked and what is not yet verified (live site after deploy).
 - Published output changed: wait for Deploy dashboard, then `runbooks/verify-live.md`.
 
+## Bot-only catch-up (off until Jeremy approves)
+
+Jeremy, 2026-11-01: "Queue up the work next that speeds up efficiency from in
+progress to merged". These are options for his 4 PM Central window, **not an
+approved standing exception**. Both checked-in flags in
+`pipelines/pr_freshness_config.json` remain `false`; no environment override.
+
+- **A: status-only bot writes need no catch-up or re-CI.** Approve
+  `allow_bot_only_behind: true`, keeping `allow_bot_data_inputs: false`.
+  Only the exact `status_only` paths qualify. This is the narrower option.
+- **B: all bot writes need none.** Approve both flags. Both `status_only`
+  and `data_inputs` paths from the ten writer workflows qualify. This includes
+  player/source inputs, lineup parameters and the ESPN scraper source file;
+  existing head CI has not tested those later changes. Unknown paths still fail.
+
+Either option still requires green checks on the exact current PR head using
+the existing lookup, an allowed author **name and email** on every main-side
+commit since the merge base, no intersection with the PR's changed files, and
+a clean local `git merge-tree --write-tree`. Fetch `origin/main` and the PR
+head first: its local main SHA must equal REST's observed current main, and
+missing objects or ambiguous history fail closed. The gate never fetches or
+merges. It prints `fresh` or `bot-only-behind`, with every skipped commit SHA.
+It does not re-CI or waive checks, review, merge-window approval or deploy rules.
+
+The ten main-writer workflows explicitly set Git's author to
+`github-actions[bot]`, using `github-actions[bot]@users.noreply.github.com`,
+or (sleeper identity) `41898282+github-actions[bot]@users.noreply.github.com`.
+The App authenticates the push; the workflows do not define a separate App
+author login, so the policy invents none. Author metadata is the requested
+local evidence, not cryptographic proof of the pushing identity.
+
+The config inventories the `git add` paths in `espn-supabase-sync`,
+`espn-history-probe`, `espn-weekly-store`, `player-status-history`,
+`player-trace-rebuild`, `rebuild-chain`, `source-vintage-check`,
+`sleeper-identity-refresh`, `health-artifacts`, and `fidelity-pulse`.
+`status_only` contains ops, monitoring and Actions reports plus the history
+probe and player-status job summaries. Health/chain files consumed by the build
+are conservatively in `data_inputs`: `sync_dashboard_artifacts.import_health_source`
+reads source-import-health, `build_pipeline_checkpoints` reads chain status,
+and rendered tests consume pipeline checkpoints. Fidelity pulse, player trace,
+ESPN stores, fixtures, history, source snapshots and the remaining staged
+build inputs also stay in that second list. `/**` means descendants of that
+exact directory; there are no repository-wide wildcards.
+
 ## When the preview log is unreadable until the run ends
 
 The preview job takes 54 to 67 minutes (completed runs on 2026-10-22: #815 54 min, #817 65 min, #809 67 min), and GitHub does not serve the step log while the job runs, so a `make validate` failure is invisible until the end. While waiting:

@@ -1,0 +1,47 @@
+{
+  "allow_bot_only_behind": false,
+  "allow_bot_data_inputs": false,
+  "bot_authors": [
+    {
+      "name": "github-actions[bot]",
+      "email": "github-actions[bot]@users.noreply.github.com"
+    },
+    {
+      "name": "github-actions[bot]",
+      "email": "41898282+github-actions[bot]@users.noreply.github.com"
+    }
+  ],
+  "status_only": [
+    "dist/modules/github-actions.json",
+    "dist/modules/monitoring-summary.json",
+    "dist/modules/ops-status.json",
+    "output/espn-history-probe.json",
+    "output/player-status-history.json"
+  ],
+  "data_inputs": [
+    ".github/source-vintage-state.json",
+    "config/lineup_parameters.json",
+    "data/ddf-two-tier/**",
+    "data/fixtures/current/comparison-sources-data.json",
+    "data/fixtures/current/players.json",
+    "data/fixtures/current/players.naming-manifest.json",
+    "data/history/**",
+    "data/inputs/espn_projections.csv",
+    "data/inputs/espn_weekly_projections_2026.csv",
+    "data/inputs/sleeper_identity_base.json",
+    "data/inputs/weekly_actuals_2024_2026.csv",
+    "dist/modules/comparison-chain-status.json",
+    "dist/modules/comparison-sources-data.json",
+    "dist/modules/fidelity-pulse.json",
+    "dist/modules/input-lineage.json",
+    "dist/modules/pipeline-checkpoints.json",
+    "dist/modules/player-trace.json",
+    "dist/modules/source-divergence.json",
+    "dist/modules/source-import-health.json",
+    "dist/modules/value-check.json",
+    "output/comparison-chain-status.json",
+    "output/espn-weekly-store.json",
+    "output/source-import-health.json",
+    "pipelines/pull_espn_projections.py"
+  ]
+}

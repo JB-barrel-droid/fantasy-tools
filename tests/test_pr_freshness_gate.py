@@ -4,6 +4,8 @@ import base64
 import copy
 import io
 import json
+from pathlib import Path
+import tempfile
 from contextlib import redirect_stdout
 from types import SimpleNamespace
 import unittest
@@ -200,6 +202,168 @@ class PromotionTest(unittest.TestCase):
         never = Mock()
         self.assertEqual(0, pr_promotion.main(["merge-gate", "7"], green, never))
         never.assert_not_called()
+
+
+class BotOnlyBehindTest(unittest.TestCase):
+    """Real local histories, fake REST checks: the standing exception stays opt-in."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.git = gate.LocalGit(self.root)
+        self.git.run("init", "-q", "-b", "main")
+        self.git.run("config", "user.name", "Test worker")
+        self.git.run("config", "user.email", "worker@example.invalid")
+        self.write("feature.txt", "base\n")
+        self.git.run("add", ".")
+        self.git.run("commit", "-qm", "base")
+        self.base = self.git.run("rev-parse", "HEAD").strip()
+        self.config = gate.load_config()
+        self.config["allow_bot_only_behind"] = True
+
+    def write(self, path, content):
+        target = self.root / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content)
+
+    def history(self, pr_path="feature.txt", writes=None):
+        self.git.run("switch", "-qc", "pr")
+        self.write(pr_path, "PR change\n")
+        self.git.run("add", ".")
+        self.git.run("commit", "-qm", "PR")
+        self.head = self.git.run("rev-parse", "HEAD").strip()
+        self.git.run("switch", "-q", "main")
+        self.skipped = []
+        for path, identity in writes or [("dist/modules/ops-status.json", 0)]:
+            author = (self.config["bot_authors"][identity] if isinstance(identity, int)
+                      else identity)
+            self.git.run("config", "user.name", author["name"])
+            self.git.run("config", "user.email", author["email"])
+            self.write(path, f"bot change {len(self.skipped)}\n")
+            self.git.run("add", ".")
+            self.git.run("commit", "-qm", "main write")
+            self.skipped.append(self.git.run("rev-parse", "HEAD").strip())
+        self.main = self.skipped[-1]
+        self.git.run("update-ref", "refs/remotes/origin/main", self.main)
+        self.git.run("switch", "-q", "pr")
+        self.red = False
+
+    def api(self):
+        history = self
+
+        class BotRest:
+            repo = gate.REPO
+
+            def get(self, path):
+                if path == "commits/main":
+                    return {"sha": history.main}
+                if path == "pulls/7":
+                    return {"state": "open", "head": {"sha": history.head},
+                            "base": {"ref": "main", "repo": {"full_name": self.repo}}}
+                if path == f"compare/main...{history.head}":
+                    return {"behind_by": len(history.skipped)}
+                if path == f"contents/{gate.REGISTRY}?ref={history.main}":
+                    raise gate.NotFound("absent")
+                if path == f"commits/{history.head}/check-runs?filter=latest&per_page=100&page=1":
+                    return {"total_count": 1, "check_runs": [check(
+                        "failure" if history.red else "success", head_sha=history.head)]}
+                if path == f"commits/{history.head}/status?per_page=100&page=1":
+                    return {"sha": history.head, "total_count": 0, "statuses": []}
+                raise AssertionError(f"unexpected REST path: {path}")
+
+        return BotRest()
+
+    def verdict(self):
+        return gate.evaluate(self.api(), number=7, config=self.config, local_git=self.git)
+
+    def test_flag_off_behind_still_refused_and_checked_in_defaults_stay_off(self):
+        self.history()
+        defaults = gate.load_config()
+        self.assertFalse(defaults["allow_bot_only_behind"])
+        self.assertFalse(defaults["allow_bot_data_inputs"])
+        self.config = defaults
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_status_only_bot_history_passes_and_names_all_skipped_commits(self):
+        self.history(writes=[("dist/modules/ops-status.json", 0),
+                             ("dist/modules/monitoring-summary.json", 1)])
+        rc, reason = self.verdict()
+        self.assertEqual(0, rc)
+        self.assertIn("bot-only-behind:", reason)
+        for commit in self.skipped:
+            self.assertIn(commit, reason)
+        self.assertEqual(self.head, self.git.run("rev-parse", "HEAD").strip())
+        self.assertEqual("", self.git.run("status", "--porcelain"))
+
+    def test_data_input_with_only_first_flag_refused(self):
+        self.history(writes=[("data/inputs/espn_projections.csv", 0)])
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_data_input_needs_both_flags(self):
+        self.history(writes=[("data/inputs/espn_projections.csv", 0)])
+        self.config["allow_bot_data_inputs"] = True
+        self.assertEqual(0, self.verdict()[0])
+        self.config["allow_bot_only_behind"] = False
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_non_bot_commit_anywhere_in_main_history_refused(self):
+        self.history(writes=[("dist/modules/ops-status.json", {
+            "name": "Human", "email": "human@example.invalid"}),
+            ("dist/modules/monitoring-summary.json", 0)])
+        rc, reason = self.verdict()
+        self.assertEqual(1, rc)
+        self.assertIn("non-bot author", reason)
+
+    def test_bot_name_with_unrecognized_email_refused(self):
+        self.history(writes=[("dist/modules/ops-status.json", {
+            "name": "github-actions[bot]", "email": "other@example.invalid"})])
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_bot_commit_touching_pr_file_refused(self):
+        self.history(pr_path="dist/modules/ops-status.json")
+        rc, reason = self.verdict()
+        self.assertEqual(1, rc)
+        self.assertIn("PR file overlap", reason)
+
+    def test_directory_file_merge_conflict_despite_disjoint_paths_refused(self):
+        self.history(pr_path="dist/modules/ops-status.json/nested")
+        rc, reason = self.verdict()
+        self.assertEqual(1, rc)
+        self.assertIn("merge-tree not clean", reason)
+
+    def test_exact_current_head_not_green_refused(self):
+        self.history()
+        self.red = True
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_unlisted_path_refused_even_with_data_flag(self):
+        self.history(writes=[("pipelines/other_code.py", 0)])
+        self.config["allow_bot_data_inputs"] = True
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_stale_local_main_cannot_substitute_for_rest_main(self):
+        self.history()
+        self.git.run("update-ref", "refs/remotes/origin/main", self.base)
+        rc, reason = self.verdict()
+        self.assertEqual(1, rc)
+        self.assertIn("differs from observed main", reason)
+
+    def test_every_commit_inspected_not_just_net_changed_paths(self):
+        self.history(writes=[("unlisted.txt", 0), ("dist/modules/ops-status.json", 0)])
+        self.git.run("switch", "-q", "main")
+        self.git.run("rm", "-q", "unlisted.txt")
+        self.git.run("commit", "-qm", "undo unlisted write")
+        self.main = self.git.run("rev-parse", "HEAD").strip()
+        self.skipped.append(self.main)
+        self.git.run("update-ref", "refs/remotes/origin/main", self.main)
+        self.git.run("switch", "-q", "pr")
+        self.assertEqual(1, self.verdict()[0])
+
+    def test_fresh_success_names_fresh_rule(self):
+        rc, reason = gate.evaluate(FakeRest(), number=7)
+        self.assertEqual(0, rc)
+        self.assertTrue(reason.startswith("fresh:"))
 
 
 if __name__ == "__main__":
