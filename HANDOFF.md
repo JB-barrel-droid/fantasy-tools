@@ -30,6 +30,27 @@ below are history, including any "Codex reviews and merges" line.
   belongs with the explainer fixes, JEG-1395/JEG-1396).
 - Next: exact-head CI green, then the merge gate merges.
 
+### make validate baseline (JEG-1263 / #1233, resumed 2026-11-01 UTC): full gate passed
+
+- Remote branch `claude/JEG-1263-validate-baseline`; local branch `claude/JEG-1263-1233-landing`, isolated worktree
+  `/Users/botcomp/code/wt/jeg1263-1233-landing`. Jeremy prioritized this lane Oct 31 at 12:19 PM CT. Claude writer
+  and reviewer are idle; the open Desktop JEG1263 session is idle on #1217. Normal merge of main `fe1faaf4` complete; intervening PR preparation commits preserved.
+- Main's coverage/shard checks fail (8 of 10); corrected wiring passes all 10, including the two newly unwired
+  JEG-1389 modules. Adopted #1240's keyboard type-ahead repair in place of the fallback; all assertions preserved.
+  The existing USO journey known-red entry now names its owner JEG-1403 (related JEG-1259); no test removed.
+- Jeremy assigned this job the heavy-suite lane first. Fresh unchanged-main Finder reproduction fails
+  `test_keyboard_mobile_and_overlap_guard` with `'' != 'beta'`; application/config/data match main `fe1faaf4`.
+  DejaVu Sans was absent (fc-list unavailable, system font inventory had no match). Installed user-level via
+  `HOMEBREW_NO_AUTO_UPDATE=1 brew install --cask font-dejavu`; fonts now live in `~/Library/Fonts`, no sudo or test edit.
+- Full `CHROMIUM_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' RENDER_TESTS_REQUIRED=1 make validate`
+  passed, exit 0: all 11 saved-team unit/render tests, all three fallback-font tests, core and integration checks;
+  strict engine/reference comparison agrees on 1,234,507 values with zero mismatches. No assertions weakened.
+- Separate contract-render and the two newly wired JEG-1389 modules also pass: 8 tests in 606.483s, including
+  broken-build guards. Next: push and mark ready; exact-head CI and independent delta review remain required.
+  No merge. #1240 drops its duplicate Finder change; #1259 untouched. Temporary worktree/logs are cleaned on exit.
+  Window rule: finish all writes before 10:45 UTC; the six named 6 AM batch branches remain untouched.
+  Durable evidence: `docs/claude-log/2026-10-31-validate-baseline-takeover.md` and
+  `docs/claude-log/2026-11-01-validate-required-render.md` (temporary raw logs are removed after summarizing).
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):

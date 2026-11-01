@@ -1,7 +1,6 @@
 """JEG-1219: saved-team selection never writes a working copy into League."""
 from __future__ import annotations
 
-import sys
 import unittest
 
 from tests import _render_env
@@ -29,27 +28,6 @@ STATE = """() => ({mine: window.TradeValueFinder.ui.getMine(), theirs: window.Tr
   teams: window.TradeValueWorkspace.store.get().teams, marked: window.TradeValueWorkspace.store.get().myTeamId,
   selected: document.getElementById('v2FindSavedTeam').value,
   theirSelected: document.getElementById('v2FindTheirSavedTeam').value})"""
-
-
-def keyboard_pick(picker, steps, value):
-    """Home, then `steps` ArrowDowns, then Tab: the keyboard path to a saved team.
-
-    JEG-1263: Chrome on macOS opens a native popup on ArrowDown for a closed select
-    instead of changing its value, and Playwright cannot drive that popup, so the
-    keys leave the value alone (Linux and Windows change it). The page is not at
-    fault: its change handler runs the same either way. Only on macOS, when the
-    arrows leave the Home option selected, make the same choice with select_option,
-    which fires the same input and change events. A wrong option is never repaired;
-    Linux and Windows always take the pure keyboard path.
-    """
-    picker.focus()
-    picker.press('Home')
-    home_value = picker.input_value()
-    for _ in range(steps):
-        picker.press('ArrowDown')
-    if sys.platform == 'darwin' and picker.input_value() == home_value:
-        picker.select_option(value)
-    picker.press('Tab')
 
 
 class FinderSavedTeamRenderTest(unittest.TestCase):
@@ -429,7 +407,12 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                 fx = page.evaluate(SEED)
                 page.evaluate('fx => window.TradeValueFinder.ui.setSides(fx.mine, fx.teams[1].entries)', fx)
                 picker = page.get_by_label('Your saved League team', exact=True)
-                keyboard_pick(picker, 2, 'beta')
+                picker.focus()
+                # Native select arrow navigation is inert in headless Chrome on macOS.
+                # Type-ahead still selects by keyboard; cycle the two duplicate names.
+                picker.press('s')
+                picker.press('s')
+                picker.press('Tab')
                 self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
                 self.assertEqual(page.evaluate(STATE)['theirs'], fx['teams'][1]['entries'])
                 self.assertGreaterEqual(picker.bounding_box()['height'], 44)
@@ -439,7 +422,9 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                 if page.locator('#v2FindInput').is_hidden():
                     page.locator('#v2FindEdit').click()
                 their_picker = page.get_by_label('Their saved League team', exact=True)
-                keyboard_pick(their_picker, 1, 'alpha')
+                their_picker.focus()
+                their_picker.press('s')
+                their_picker.press('Tab')
                 self.assertEqual(page.evaluate(STATE)['theirSelected'], 'alpha')
                 self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
                 self.assertGreaterEqual(their_picker.bounding_box()['height'], 44)
