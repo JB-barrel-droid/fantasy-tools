@@ -58,6 +58,20 @@ def problems(text):
             errors.append('every push step must use the ephemeral credential helper')
         if 'set -- origin "HEAD:${GITHUB_REF:?}"' not in block:
             errors.append('bare publication must have an explicit workflow-ref destination')
+    # Shared YAML steps execute in the branch job too. An explicit main
+    # refspec needs its own workflow-ref gate, irrespective of token scope.
+    for block in step_blocks(main):
+        if re.search(r"(?:git push|release_push)\s+origin\s+[^\n]*:(?:refs/heads/)?main(?:[\"'\s;]|$)", block):
+            condition = next((line for line in block.splitlines()
+                              if line.startswith('        if:')), '')
+            direct_gate = "github.ref == 'refs/heads/main'" in condition
+            # Fidelity uses a shared env anchor for the same main-ref test.
+            shared_env_gate = (
+                "env.IS_MAIN == 'true'" in condition
+                and "IS_MAIN: ${{ github.ref == 'refs/heads/main' }}" in header
+                and 'env: &writer-env' in header and 'env: *writer-env' in branch)
+            if not (direct_gate or shared_env_gate):
+                errors.append('explicit main destination requires a main-only step')
     return errors
 
 
@@ -150,6 +164,40 @@ class MainWriterWorkflowTest(unittest.TestCase):
         for name in ('Mint main writer token', 'Commit scraper updates if changed'):
             block = text.split('      - name: '+name+'\n', 1)[1].split('\n      - ', 1)[0]
             self.assertRegex(block, r'(?m)^        if: .*!inputs.dry_run')
+
+    def test_shared_main_destination_is_gated_even_with_read_only_branch_token(self):
+        text = (ROOT/'.github/workflows/rebuild-chain.yml').read_text()
+        self.assertIn('release_push origin "$publication:refs/heads/main"', text)
+        self.assertEqual(problems(text), [])
+        # Mutate the publication step only, leaving job gates, the runtime
+        # shell guard, and the read-only branch permission intact.
+        before, block = text.split('      - name: Commit and push if changed', 1)
+        step, after = block.split('      - name:', 1)
+        broken = before + '      - name: Commit and push if changed' + step.replace(
+            " && github.ref == 'refs/heads/main'", '', 1) + '      - name:' + after
+        self.assertNotEqual(text, broken)
+        for push in ('release_push origin "$publication:refs/heads/main"',
+                     'git push origin HEAD:main'):
+            with self.subTest(push=push):
+                mutation = broken.replace('release_push origin "$publication:refs/heads/main"', push)
+                self.assertIn('explicit main destination requires a main-only step', problems(mutation))
+
+    def test_shared_main_env_gate_requires_the_actual_ref_boundary(self):
+        text = (ROOT/'.github/workflows/fidelity-pulse.yml').read_text()
+        self.assertEqual(problems(text), [])
+        for old, new in (
+                ("IS_MAIN: ${{ github.ref == 'refs/heads/main' }}", 'IS_MAIN: true'),
+                ('env: *writer-env', ''),
+                ("if: env.IS_MAIN == 'true' &&", "if: true &&")):
+            with self.subTest(boundary=old):
+                self.assertIn(old, text)
+                broken = text.replace(old, new, 1)
+                self.assertIn('explicit main destination requires a main-only step', problems(broken))
+
+    def test_espn_sync_dry_run_skips_monitoring_write(self):
+        text = (ROOT/'.github/workflows/espn-supabase-sync.yml').read_text()
+        block = text.split('      - name: Record monitored check\n', 1)[1].split('\n      - ', 1)[0]
+        self.assertRegex(block, r'(?m)^        if: .*github.event.inputs.dry_run != \'true\'')
 
     def test_fidelity_rejects_untrusted_workflow_run_provenance(self):
         text = (ROOT/'.github/workflows/fidelity-pulse.yml').read_text()

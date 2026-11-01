@@ -176,7 +176,8 @@ class NonBlockingConsolidationTest(unittest.TestCase):
         broken = self.mutate("        id: consolidate\n        if: steps.chain.outcome == 'success'\n"
                              "        continue-on-error: true\n",
                              "        id: consolidate\n        if: steps.chain.outcome == 'success'\n")
-        broken = broken.replace("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
+        self.assertIn("        if: always() && github.ref == 'refs/heads/main'\n        env:\n          MAIN_WRITER_TOKEN:", broken)
+        broken = broken.replace("        if: always() && github.ref == 'refs/heads/main'\n        env:\n          MAIN_WRITER_TOKEN:",
                                 "        env:\n          MAIN_WRITER_TOKEN:", 1)
         self.assertIn("a failed consolidation write skips publication", guard_problems(broken))
 
@@ -208,7 +209,7 @@ class NonBlockingConsolidationTest(unittest.TestCase):
         self.assertIn("a failed consolidation write is not recorded", guard_problems(broken))
 
     def test_publication_gated_on_the_write_is_caught(self):
-        broken = self.mutate("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
+        broken = self.mutate("        if: always() && github.ref == 'refs/heads/main'\n        env:\n          MAIN_WRITER_TOKEN:",
                              "        if: ${{ steps.consolidate.outcome == 'success' }}\n        env:\n          MAIN_WRITER_TOKEN:")
         problems = guard_problems(broken)
         self.assertIn("a failed consolidation write skips publication", problems)
