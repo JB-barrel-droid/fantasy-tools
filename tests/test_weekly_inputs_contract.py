@@ -48,6 +48,45 @@ def expected():
     return json.loads((FIXTURES / "expected.json").read_text())
 
 
+KICKOFFS = {9000101: "2026-11-01T17:00:00Z", 9000102: "2026-11-01T18:00:00Z",
+            9000103: "2026-11-01T21:25:00Z", 9000104: "2026-11-03T01:15:00Z"}
+
+
+def with_1_1_legs(doc):
+    """The base artifact at schema 1.1.0 with the roster and slate legs added (JEG-1416)."""
+    doc["schema_version"] = "1.1.0"
+    doc["legs"]["roster"] = {
+        "kind": "roster", "source": "espn", "horizon": "week", "units": "roster",
+        "scoring": None, "content_season": 2026, "content_week": 8,
+        "content_vintage": "2026-10-28", "captured_at": "2026-10-28T12:00:00Z",
+        "availability": "complete", "freshness": "current", "label": "published",
+    }
+    doc["legs"]["slate"] = {
+        "kind": "slate", "source": "nfl_schedule", "horizon": "week", "units": "kickoff",
+        "scoring": None, "content_season": 2026, "content_week": 8, "game_week": 8,
+        "content_vintage": "2026-10-28", "captured_at": "2026-10-28T09:00:00Z",
+        "availability": "complete", "freshness": "current", "label": "published",
+    }
+    for row, pct, trend in zip(doc["players"], (84.2, 0.0, 45.5, 98.0), (6.4, 0.0, -1.5, 2.0)):
+        row["legs"]["roster"] = {"provenance": "complete",
+                                 "values": {"rostered_pct": pct, "adds_trend": trend}}
+        row["legs"]["slate"] = {"provenance": "complete",
+                                "values": {"kickoff_at": KICKOFFS[row["player_key"]]}}
+    return doc
+
+
+def unavailable_1_1_leg(doc, leg_id, kind, source, units, reason, keys):
+    doc["legs"][leg_id] = {
+        "kind": kind, "source": source, "horizon": "week", "units": units, "scoring": None,
+        "content_season": None, "content_week": None, "content_vintage": None,
+        "captured_at": None, "availability": "unavailable", "freshness": None,
+        "label": "unavailable", "missing_reason": reason,
+    }
+    for row in doc["players"]:
+        row["legs"][leg_id] = {"provenance": "missing", "values": {k: None for k in keys}}
+    return doc
+
+
 class FixtureFilesTest(unittest.TestCase):
     def test_committed_fixtures_match_the_builder(self):
         built = build_fixtures.build()
@@ -68,6 +107,8 @@ class FixtureFilesTest(unittest.TestCase):
                     "invalid/duplicate_key.json", "invalid/unresolved_no_reason.json",
                     "invalid/wrong_week_current.json", "invalid/future_season.json",
                     "invalid/last_season_as_current.json", "invalid/rank_as_points.json",
+                    "valid/roster_slate_complete.json", "valid/roster_slate_partial.json",
+                    "valid/roster_slate_stale.json", "valid/roster_slate_unavailable.json",
                     "invalid/points_units_on_status.json", "invalid/ros_horizon.json",
                     "invalid/ros_leg_id.json", "invalid/ros_field.json",
                     "valid/unknown_no_provenance.json", "invalid/current_null_provenance.json",
@@ -230,8 +271,104 @@ class VersionTest(unittest.TestCase):
         self.assertEqual(codes(valid) + codes(valid, "warning"), [])
 
     def test_current_version_constant(self):
-        self.assertEqual(wic.SCHEMA_VERSION, "1.0.0")
+        self.assertEqual(wic.SCHEMA_VERSION, "1.1.0")
         self.assertEqual(wic.parse_version(wic.SCHEMA_VERSION)[:2], (wic.READER_MAJOR, wic.READER_MINOR))
+
+
+class RosterSlateContractTest(unittest.TestCase):
+    """JEG-1416: the 1.1 roster and slate legs, and 1.0 artifacts under the 1.1 reader."""
+
+    def test_1_0_artifacts_still_validate_under_the_1_1_reader(self):
+        # The new legs are optional and additive: a 1.0.x artifact without them
+        # is valid, never an error (a compatibility warning would be allowed).
+        for version in ("1.0.0", "1.0.7"):
+            with self.subTest(version=version):
+                doc = build_fixtures.base()
+                doc["schema_version"] = version
+                self.assertEqual(codes(wic.validate(doc)), [])
+                self.assertTrue(wic.is_valid(wic.validate(doc)))
+        self.assertEqual(codes(wic.validate_file(FIXTURES / "valid/complete.json")), [])
+
+    def test_1_1_artifact_with_both_legs_validates(self):
+        issues = wic.validate(with_1_1_legs(build_fixtures.base()))
+        self.assertEqual(codes(issues), [], "\n".join(map(str, issues)))
+        self.assertEqual(codes(issues, "warning"), [])
+
+    def test_partial_legs_validate(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        roster = doc["players"][1]["legs"]["roster"]
+        roster["values"]["adds_trend"] = None
+        roster["provenance"] = "partial"
+        roster["missing_reason"] = {"adds_trend": "not reported by the source"}
+        doc["legs"]["roster"]["availability"] = "partial"
+        slate = doc["players"][2]["legs"]["slate"]
+        slate["values"]["kickoff_at"] = None
+        slate["provenance"] = "missing"
+        slate["missing_reason"] = {"kickoff_at": "team CCC not in the slate file"}
+        doc["legs"]["slate"]["availability"] = "partial"
+        self.assertEqual(codes(wic.validate(doc)), [])
+
+    def test_stale_legs_validate(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        for leg_id, captured in (("roster", "2026-10-13T12:00:00Z"), ("slate", "2026-10-13T09:00:00Z")):
+            doc["legs"][leg_id].update(content_week=6, content_vintage="2026-10-13",
+                                       captured_at=captured, freshness="stale", label="stale")
+        self.assertEqual(codes(wic.validate(doc)), [])
+
+    def test_unavailable_legs_validate_and_stay_missing(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        unavailable_1_1_leg(doc, "roster", "roster", "espn", "roster",
+                            "no ESPN roster file for this week", ["rostered_pct", "adds_trend"])
+        unavailable_1_1_leg(doc, "slate", "slate", "nfl_schedule", "kickoff",
+                            "no slate file for this week", ["kickoff_at"])
+        self.assertEqual(codes(wic.validate(doc)), [])
+        for row in doc["players"]:
+            self.assertEqual(set(row["legs"]["roster"]["values"].values()), {None})
+            self.assertIsNone(row["legs"]["slate"]["values"]["kickoff_at"])
+
+    def test_complete_leg_with_a_null_is_inconsistent(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        roster = doc["players"][0]["legs"]["roster"]
+        roster["values"]["rostered_pct"] = None
+        roster["provenance"] = "partial"
+        roster["missing_reason"] = {"rostered_pct": "not reported by the source"}
+        self.assertEqual(codes(wic.validate(doc)), ["availability.inconsistent"])
+
+    def test_partial_leg_with_no_nulls_is_inconsistent(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        doc["legs"]["slate"]["availability"] = "partial"
+        self.assertEqual(codes(wic.validate(doc)), ["availability.inconsistent"])
+
+    def test_roster_value_types_and_ranges(self):
+        for field, value, code in (("rostered_pct", 100.1, "value.range"),
+                                   ("rostered_pct", -0.1, "value.range"),
+                                   ("adds_trend", 100.1, "value.range"),
+                                   ("adds_trend", -100.1, "value.range"),
+                                   ("rostered_pct", "high", "value.type"),
+                                   ("rostered_pct", True, "value.type"),
+                                   ("adds_trend", "up", "value.type")):
+            with self.subTest(field=field, value=value):
+                doc = with_1_1_legs(build_fixtures.base())
+                doc["players"][0]["legs"]["roster"]["values"][field] = value
+                self.assertEqual(codes(wic.validate(doc)), [code])
+
+    def test_roster_bounds_and_zero_are_values(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        doc["players"][0]["legs"]["roster"]["values"].update(rostered_pct=100, adds_trend=-100)
+        doc["players"][1]["legs"]["roster"]["values"].update(rostered_pct=0, adds_trend=0)
+        self.assertEqual(codes(wic.validate(doc)), [])
+
+    def test_kickoff_must_be_a_timestamp_with_a_utc_offset(self):
+        for bad in ("2026-11-01", "2026-11-01T17:00:00", "Sunday 1pm"):
+            with self.subTest(kickoff_at=bad):
+                doc = with_1_1_legs(build_fixtures.base())
+                doc["players"][0]["legs"]["slate"]["values"]["kickoff_at"] = bad
+                self.assertEqual(codes(wic.validate(doc)), ["timestamp.format"])
+
+    def test_new_leg_kinds_must_match_their_ids(self):
+        doc = with_1_1_legs(build_fixtures.base())
+        doc["legs"]["roster"]["kind"] = "expert"
+        self.assertEqual(codes(wic.validate(doc)), ["leg.kind_mismatch"])
 
 
 class RemainingCodesTest(unittest.TestCase):

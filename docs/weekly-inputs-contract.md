@@ -1,4 +1,4 @@
-# Weekly-input contract (`weekly-inputs` v1)
+# Weekly-input contract (`weekly-inputs` 1.1)
 
 The shape of the one weekly-input artifact, `data/weekly/inputs-wk{N}.json`,
 that the weekly producer (JEG-1228, S2 onward) writes and Versus Vegas and
@@ -7,8 +7,9 @@ readiness packet in PR #1083 (`docs/research/jeg-1195-weekly-inputs-readiness.md
 section 5). The validator, `pipelines/lib/weekly_inputs_contract.py`, is the
 one definition; this page explains it.
 
-Status: Maintained, owner JEG-1227, verified 2026-10-29. Local only: nothing
-here is applied to Supabase, and no producer, feed, schedule or page reads it yet.
+Status: Maintained, owner JEG-1227; schema 1.1.0 added by JEG-1416 (roster
+and slate legs), verified 2026-10-31. Local only: nothing here is applied to
+Supabase, and no producer, feed, schedule or page reads it yet.
 
 ## Check a file
 
@@ -48,8 +49,8 @@ assert is_valid(issues)       # no errors (warnings allowed)
   review point (an absent leg could not be encoded consistently when both
   lived in one enum):
   - `availability`: `complete` / `partial` / `unavailable`: does the leg have
-    data. For points and rank legs it must agree with the rows (a complete leg
-    has no nulls; a partial leg has at least one).
+    data. For points, rank, roster and kickoff legs it must agree with the
+    rows (a complete leg has no nulls; a partial leg has at least one).
   - `freshness`: `current` / `one_week_behind` / `stale` / `unknown`, the
     vocabulary and rule of `pipelines/check_reference_freshness.py` (0 weeks
     behind the artifact's content week is current, 1 is one week behind, 2 or
@@ -71,7 +72,10 @@ assert is_valid(issues)       # no errors (warnings allowed)
   numbers), `rank` (whole numbers from 1), `status` (`status`, `injury_status`,
   `injury_body_part`, `practice_participation`, `depth_chart_position` as
   strings, `injury_start_date` as an ISO date, `depth_chart_order` a whole
-  number from 1; the names of the stored Sleeper status history), `bye_week` (1 to 18). Nothing here turns a rank into points
+  number from 1; the names of the stored Sleeper status history), `bye_week` (1 to 18),
+  `roster` (1.1: `rostered_pct`, a percentage in 0..100, and `adds_trend`, the
+  change in rostered percentage points in -100..100, both finite numbers),
+  `kickoff` (1.1: `kickoff_at`, an ISO timestamp with a UTC offset). Nothing here turns a rank into points
   or compares two legs.
 - **Scoring formats** are `standard`, `half_ppr`, `ppr` (the keys of
   `pipelines/lib/scoring.py`). A points or rank leg lists the formats it
@@ -82,16 +86,17 @@ assert is_valid(issues)       # no errors (warnings allowed)
 
 ## Shape
 
-Top level: `schema` (`"weekly-inputs"`), `schema_version` (semver, `"1.0.0"`),
+Top level: `schema` (`"weekly-inputs"`), `schema_version` (semver, `"1.1.0"`),
 `horizon` (`"week"`), `season`, `content_week` (the Tuesday-flip week of
 `pipelines/nfl_week.py`), `built_at` (UTC timestamp), `producer`, `legs`,
 `players`, and an optional `input_report` (the producer's read and drop counts,
 free-form object).
 
-`legs` declares each leg once, keyed by leg id: `vegas`, `status`, `bye`, or
+`legs` declares each leg once, keyed by leg id: `vegas`, `status`, `bye`,
+`roster`, `slate` (the last two added in 1.1), or
 `experts.<name>` for any weekly expert source (`experts.espn_weekly`,
 `experts.ecr_weekly`, later ones). Each leg has `kind` (vegas / expert /
-status / bye, matching the id), `source`, `horizon`, `units`, `scoring`,
+status / bye / roster / slate, matching the id), `source`, `horizon`, `units`, `scoring`,
 `content_season`, `content_week`, optional `game_week` (Thursday flip, slate
 fields only), `content_vintage` (ISO date), `captured_at` (UTC timestamp),
 `availability`, `freshness`, `label`, `missing_reason` (required when
@@ -188,17 +193,72 @@ Full examples: `tests/fixtures/weekly_inputs/valid/complete.json` (every leg
 current), `valid/partial.json`, `valid/stale.json`, `valid/unknown.json`,
 `valid/unknown_no_provenance.json`,
 `valid/unavailable.json`, `valid/rank_leg.json`, `valid/zero_value.json`,
-`valid/unresolved_player.json`, `valid/previous_season.json`. The players and
+`valid/unresolved_player.json`, `valid/previous_season.json`, and the 1.1
+cases `valid/roster_slate_complete.json`, `valid/roster_slate_partial.json`,
+`valid/roster_slate_stale.json`, `valid/roster_slate_unavailable.json`. The players and
 numbers in them are synthetic.
 
 Out of scope here: which expert legs a comparison reads (a named, versioned
 setting owned by the compute slice, S4), any comparison or rank-to-points math,
 and the waiver board (JEG-1196 takes no weekly data for now).
 
+## Schema 1.1: roster and slate legs (JEG-1416)
+
+1.1 is additive only. Two new optional legs; a 1.0.x artifact without them
+still validates under the 1.1 reader, and no 1.0 leg changed shape. Both legs
+are data fields only: no value math, verdicts, thresholds or ordering rules
+read them here.
+
+- **`roster`** (kind `roster`, source `espn`, units `roster`, scoring `null`):
+  per player, `rostered_pct` (the share of ESPN leagues rostering the player,
+  0..100) and `adds_trend` (the change in rostered percentage points over the
+  source's reporting window, -100..100). The trend is stored in the input
+  file as reported; the producer never computes it from two snapshots.
+- **`slate`** (kind `slate`, source `nfl_schedule`, units `kickoff`, scoring
+  `null`, leg meta carries `game_week`): per player, `kickoff_at`, the kickoff
+  of his team's game in the game week. A team with no game that week (a bye)
+  has `kickoff_at: null` with the reason `team {team} not in slate file`.
+
+Both legs carry the same availability and freshness semantics as the 1.0
+legs: the file's `captured_at` is the content vintage (never pull time
+invented at build), 0 weeks behind is `current`, 1 is `one_week_behind`, 2 or
+more is `stale`; no capture stamp means freshness `unknown` and label
+`modeled`; a missing or empty input leaves the leg `unavailable` and every
+value `null` with the leg's reason. Conflicting duplicate rows (two roster
+rows for one player, two kickoffs for one team) stay `null` with a
+"conflicting" reason, counted in `input_report`.
+
+### Stored input shapes (producer, `--espn-roster` / `--slate`)
+
+The producer reads stored local files only, by explicit path, like every
+other leg. No stored ESPN roster shape existed in the producer, so 1.1
+defines one; the slate shape mirrors the bye table's season/week object:
+
+```json
+{"season": 2026, "week": 8, "captured_at": "2026-10-28T12:00:00Z",
+ "rows": [{"player_key": 101, "team": "AAA", "rostered_pct": 84.2, "adds_trend": 6.4}]}
+```
+
+```json
+{"season": 2026, "week": 8, "captured_at": "2026-10-28T09:00:00Z",
+ "games": [{"home_team": "AAA", "away_team": "CCC", "kickoff_at": "2026-11-01T17:00:00Z"}]}
+```
+
+Roster rows are keyed by the canonical `player_key` only (the contract's
+existing identity handling); a key the players snapshot does not hold is
+counted in `input_report.roster.bad_row` and left out, never resolved by
+name. A roster row can be a player's only input: the row then takes its name
+and position from the players snapshot and its team from the roster file. A
+file for another season or week, captured after `--as-of`, or captured in a
+later content week is left out whole (counted, never substituted).
+
 ## Versions
 
-A reader accepts any `1.x.y`; another major, or a version that is not
-MAJOR.MINOR.PATCH, is refused. Adding an optional field is a minor bump. A field
+The current version is `1.1.0`. A reader accepts any `1.x.y`; another major,
+or a version that is not MAJOR.MINOR.PATCH, is refused. Adding an optional
+field or an optional leg is a minor bump (1.1 added the `roster` and `slate`
+legs this way; 1.0.x artifacts keep validating, the absent legs are simply
+not there, never an error). A field
 the reader does not know is an error when the document's minor is one the
 reader knows (a producer typo) and a warning when the document is newer, so a
 1.0 reader keeps reading 1.1 files. Newer minors never relax the rules above. A
@@ -229,14 +289,14 @@ exercises every code.
 | `ros.horizon` | A horizon other than "week" (rest-of-season data is never allowed). |
 | `ros.leg` | A leg id or source names rest-of-season data. |
 | `ros.field` | A field name anywhere in the document names rest-of-season data. |
-| `leg.id` | A leg id is not vegas, status, bye or experts.<lower_snake_name>. |
+| `leg.id` | A leg id is not vegas, status, bye, roster, slate or experts.<lower_snake_name>. |
 | `leg.none` | The document declares no legs. |
 | `leg.kind_mismatch` | A leg's kind does not match its id. |
 | `leg.no_reason` | An unavailable leg has no missing_reason. |
 | `leg.provenance_unknown` | A leg with data that claims current, one_week_behind or stale freshness, or a published label, has a null content_season, content_week, content_vintage or captured_at. |
 | `leg.unavailable_has_values` | A row carries a value for a leg declared unavailable. |
 | `availability.value` | availability is not complete, partial or unavailable. |
-| `availability.inconsistent` | A points or rank leg is complete but a row has a null, or partial with no null in any row. |
+| `availability.inconsistent` | A leg checked against its rows (points, rank, roster or kickoff) is complete but a row has a null, or partial with no null in any row. |
 | `freshness.value` | freshness is not current, one_week_behind, stale, unknown or null. |
 | `freshness.inconsistent` | freshness disagrees with the leg's content week, or is set on an unavailable leg. |
 | `label.value` | label is not published, previous-season, modeled, stale or unavailable. |

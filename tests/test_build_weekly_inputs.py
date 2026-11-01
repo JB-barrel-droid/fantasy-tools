@@ -75,11 +75,13 @@ def _args(out, **over):
     base = {"season": 2026, "week": 8, "as_of": AS_OF, "out": out,
             "espn_weekly": FX / "espn_weekly.csv", "status": FX / "status.json",
             "byes": FX / "byes.json", "players": FX / "players.json",
-            "sleeper_base": FX / "sleeper_base.json", "aliases": None}
+            "sleeper_base": FX / "sleeper_base.json", "aliases": None,
+            "espn_roster": None, "slate": None}
     base.update(over)
     argv = ["--season", str(base["season"]), "--week", str(base["week"]),
             "--as-of", base["as_of"], "--out", str(base["out"])]
-    for flag in ("espn_weekly", "status", "byes", "players", "sleeper_base", "aliases"):
+    for flag in ("espn_weekly", "status", "byes", "players", "sleeper_base", "aliases",
+                 "espn_roster", "slate"):
         if base[flag] is not None:
             argv += ["--" + flag.replace("_", "-"), str(base[flag])]
     return argv
@@ -391,6 +393,203 @@ class Freshness(ProducerCase):
         doc = self.build(espn_weekly=espn, status=None)
         self.assertEqual(doc["legs"]["experts.espn_weekly"]["availability"], "unavailable")
         self.assertEqual(doc["players"], [])
+
+
+class RosterAndSlate(ProducerCase):
+    """JEG-1416: weekly-inputs 1.1 roster (ESPN) and slate (kickoff) legs.
+
+    Both legs read explicit stored local files only, like every other leg.
+    The stored shapes are defined in docs/weekly-inputs-contract.md (1.1):
+    the roster file is {season, week, captured_at, rows[{player_key, team,
+    rostered_pct, adds_trend}]}; the slate file is {season, week, captured_at,
+    games[{home_team, away_team, kickoff_at}]}.
+    """
+
+    GAMES = [{"home_team": "AAA", "away_team": "CCC", "kickoff_at": "2026-11-01T17:00:00Z"},
+             {"home_team": "BBB", "away_team": "DDD", "kickoff_at": "2026-11-01T21:25:00Z"}]
+
+    def roster_file(self, rows, captured_at="2026-10-28T12:00:00Z", season=2026, week=8):
+        doc = {"season": season, "week": week, "rows": rows}
+        if captured_at is not None:
+            doc["captured_at"] = captured_at
+        return self.write("espn_roster.json", json.dumps(doc))
+
+    def slate_file(self, games, captured_at="2026-10-28T09:00:00Z", season=2026, week=8):
+        doc = {"season": season, "week": week, "games": games}
+        if captured_at is not None:
+            doc["captured_at"] = captured_at
+        return self.write("slate.json", json.dumps(doc))
+
+    def full(self, **over):
+        over.setdefault("espn_roster", self.roster_file([
+            {"player_key": 101, "team": "AAA", "rostered_pct": 84.2, "adds_trend": 6.4},
+            {"player_key": 102, "team": "BBB", "rostered_pct": 0.0, "adds_trend": 0.0},
+            {"player_key": 103, "team": "AAA", "rostered_pct": 45.5, "adds_trend": None}]))
+        over.setdefault("slate", self.slate_file(self.GAMES))
+        return self.build(**over)
+
+    def test_producer_writes_schema_1_1_0(self):
+        doc = self.build()
+        self.assertEqual(doc["schema_version"], "1.1.0")
+        self.assertEqual(bwi.SCHEMA_VERSION, "1.1.0")
+        for leg in ("roster", "slate"):
+            self.assertEqual(doc["legs"][leg]["availability"], "unavailable")
+
+    def test_committed_fixtures_build_both_legs(self):
+        doc = self.build(espn_roster=FX / "espn_roster.json", slate=FX / "slate.json")
+        self.assertEqual(doc["schema_version"], "1.1.0")
+        self.assertEqual(self.row(doc, 101)["legs"]["roster"]["values"],
+                         {"rostered_pct": 84.2, "adds_trend": 6.4})
+        self.assertEqual(self.row(doc, 101)["legs"]["slate"]["values"],
+                         {"kickoff_at": "2026-11-01T17:00:00Z"})
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_roster_and_slate_values_land(self):
+        doc = self.full()
+        roster = self.row(doc, 101)["legs"]["roster"]
+        self.assertEqual(roster["values"], {"rostered_pct": 84.2, "adds_trend": 6.4})
+        self.assertEqual(roster["provenance"], "complete")
+        self.assertEqual(self.row(doc, 101)["legs"]["slate"]["values"],
+                         {"kickoff_at": "2026-11-01T17:00:00Z"})
+        self.assertEqual(self.row(doc, 103)["legs"]["slate"]["values"],
+                         {"kickoff_at": "2026-11-01T17:00:00Z"})  # CCC is the away team
+        meta = doc["legs"]["roster"]
+        self.assertEqual((meta["kind"], meta["source"], meta["units"], meta["scoring"]),
+                         ("roster", "espn", "roster", None))
+        self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
+                         ("partial", "current", "published"))
+        slate_meta = doc["legs"]["slate"]
+        self.assertEqual((slate_meta["kind"], slate_meta["units"], slate_meta["game_week"]),
+                         ("slate", "kickoff", 8))
+        self.assertEqual(slate_meta["availability"], "partial")  # team ZZZ has no game
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_roster_zero_is_a_value_not_missing(self):
+        cell = self.row(self.full(), 102)["legs"]["roster"]
+        self.assertEqual(cell["values"], {"rostered_pct": 0.0, "adds_trend": 0.0})
+        self.assertEqual(cell["provenance"], "complete")
+        self.assertNotIn("missing_reason", cell)
+
+    def test_partial_roster_row_keeps_null_with_reason(self):
+        doc = self.full()
+        cell = self.row(doc, 103)["legs"]["roster"]
+        self.assertEqual(cell["values"], {"rostered_pct": 45.5, "adds_trend": None})
+        self.assertEqual(cell["provenance"], "partial")
+        self.assertEqual(cell["missing_reason"], {"adds_trend": "not set in the ESPN roster file"})
+        absent = self.row(doc, 104)["legs"]["roster"]
+        self.assertEqual(absent["provenance"], "missing")
+        self.assertEqual(absent["missing_reason"]["rostered_pct"], "player not in this input")
+
+    def test_team_without_a_game_has_no_kickoff(self):
+        cell = self.row(self.full(), 109)["legs"]["slate"]
+        self.assertEqual(cell, {"provenance": "missing", "values": {"kickoff_at": None},
+                                "missing_reason": {"kickoff_at": "team ZZZ not in slate file"}})
+
+    def test_roster_leg_can_supply_the_player_universe(self):
+        roster = self.roster_file([{"player_key": 101, "team": "AAA",
+                                    "rostered_pct": 84.2, "adds_trend": 6.4}])
+        doc = self.build(espn_weekly=None, status=None, byes=None,
+                         espn_roster=roster, slate=self.slate_file(self.GAMES))
+        self.assertEqual([r["player_key"] for r in doc["players"]], [101])
+        row = doc["players"][0]
+        self.assertEqual((row["name"], row["position"], row["team"]), ("Ann Alpha", "WR", "AAA"))
+        self.assertEqual(row["resolved_by"], "espn_roster.player_key")
+        self.assertEqual(row["legs"]["roster"]["provenance"], "complete")
+        self.assertEqual(row["legs"]["slate"]["values"], {"kickoff_at": "2026-11-01T17:00:00Z"})
+        self.assertEqual(doc["legs"]["roster"]["availability"], "complete")
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_stale_captures_are_used_but_labelled_stale(self):
+        roster = self.roster_file([{"player_key": 101, "team": "AAA",
+                                    "rostered_pct": 84.2, "adds_trend": 6.4}],
+                                  captured_at="2026-10-13T12:00:00Z")
+        slate = self.slate_file(self.GAMES, captured_at="2026-10-13T09:00:00Z")
+        doc = self.build(espn_roster=roster, slate=slate)
+        for leg in ("roster", "slate"):
+            meta = doc["legs"][leg]
+            self.assertEqual((meta["freshness"], meta["label"], meta["content_week"]),
+                             ("stale", "stale", 6), leg)
+        self.assertEqual(self.row(doc, 101)["legs"]["roster"]["values"]["rostered_pct"], 84.2)
+        self.assertEqual(self.row(doc, 101)["legs"]["slate"]["values"]["kickoff_at"],
+                         "2026-11-01T17:00:00Z")
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_missing_inputs_leave_both_legs_unavailable_and_null(self):
+        doc = self.build()
+        for leg in ("roster", "slate"):
+            meta = doc["legs"][leg]
+            self.assertEqual((meta["availability"], meta["freshness"], meta["label"]),
+                             ("unavailable", None, "unavailable"))
+            self.assertEqual(meta["missing_reason"], "input not supplied")
+        for r in doc["players"]:
+            self.assertEqual(r["legs"]["roster"], {"provenance": "missing", "values": {
+                "rostered_pct": None, "adds_trend": None}})
+            self.assertEqual(r["legs"]["slate"], {"provenance": "missing",
+                                                  "values": {"kickoff_at": None}})
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_empty_files_are_unavailable_not_invented(self):
+        doc = self.build(espn_roster=self.roster_file([]), slate=self.slate_file([]))
+        for leg in ("roster", "slate"):
+            self.assertEqual(doc["legs"][leg]["availability"], "unavailable")
+        self.assertFalse(any(v is not None for r in doc["players"]
+                             for v in r["legs"]["roster"]["values"].values()))
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_roster_without_a_capture_time_is_unknown_not_published(self):
+        roster = self.roster_file([{"player_key": 101, "team": "AAA",
+                                    "rostered_pct": 84.2, "adds_trend": 6.4}], captured_at=None)
+        doc = self.build(espn_roster=roster)
+        meta = doc["legs"]["roster"]
+        self.assertEqual((meta["freshness"], meta["label"]), ("unknown", "modeled"))
+        self.assertIsNone(meta["captured_at"])
+        self.assertIsNone(meta["content_week"])
+        self.assertEqual(self.row(doc, 101)["legs"]["roster"]["values"]["rostered_pct"], 84.2)
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_wrong_week_files_are_left_out(self):
+        roster = self.roster_file([{"player_key": 101, "team": "AAA",
+                                    "rostered_pct": 84.2, "adds_trend": 6.4}], week=7)
+        slate = self.slate_file(self.GAMES, week=7)
+        doc = self.build(espn_roster=roster, slate=slate)
+        self.assertEqual(doc["legs"]["roster"]["availability"], "unavailable")
+        self.assertEqual(doc["legs"]["slate"]["availability"], "unavailable")
+        self.assertEqual(doc["input_report"]["roster"]["wrong_week"], 1)
+        self.assertEqual(doc["input_report"]["slate"]["wrong_week"], 2)
+        self.assertIsNone(self.row(doc, 101)["legs"]["roster"]["values"]["rostered_pct"])
+        self.assertIsNone(self.row(doc, 101)["legs"]["slate"]["values"]["kickoff_at"])
+
+    def test_conflicting_duplicates_stay_null(self):
+        roster = self.roster_file([
+            {"player_key": 101, "team": "AAA", "rostered_pct": 84.2, "adds_trend": 6.4},
+            {"player_key": 101, "team": "AAA", "rostered_pct": 50.0, "adds_trend": 6.4}])
+        games = self.GAMES + [{"home_team": "AAA", "away_team": "EEE",
+                               "kickoff_at": "2026-11-01T20:00:00Z"}]
+        doc = self.build(espn_roster=roster, slate=self.slate_file(games))
+        cell = self.row(doc, 101)["legs"]["roster"]
+        self.assertEqual(set(cell["values"].values()), {None})
+        self.assertIn("conflicting", cell["missing_reason"]["rostered_pct"])
+        self.assertEqual(doc["input_report"]["roster"]["conflict"], 1)
+        slate_cell = self.row(doc, 101)["legs"]["slate"]
+        self.assertIsNone(slate_cell["values"]["kickoff_at"])
+        self.assertEqual(slate_cell["missing_reason"],
+                         {"kickoff_at": "conflicting kickoff times in slate file"})
+        self.assertEqual(doc["input_report"]["slate"]["conflict"], 1)
+        self.assertEqual(bwi.validate(doc), [])
+
+    def test_unknown_roster_key_is_counted_and_left_out(self):
+        roster = self.roster_file([{"player_key": 999, "team": "AAA",
+                                    "rostered_pct": 10.0, "adds_trend": 1.0}])
+        doc = self.build(espn_roster=roster)
+        self.assertEqual(doc["input_report"]["roster"]["bad_row"], 1)
+        self.assertFalse(any(r["player_key"] == 999 for r in doc["players"]))
+        self.assertEqual(doc["legs"]["roster"]["availability"], "unavailable")
+
+    def test_roster_run_is_byte_stable_on_rerun(self):
+        self.full()
+        first = self.out.read_bytes()
+        self.full()
+        self.assertEqual(self.out.read_bytes(), first)
 
 
 class EmptyAndMissingInputs(ProducerCase):
