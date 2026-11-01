@@ -19,6 +19,8 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+- JEG-1411 / draft #1252: `be/jeg-1411-glossary-sweep`; F6 mean-based post 07 rerun and F18 Indexed applied, focused 9 tests pass; post 04 stays with #1076. Full validate deferred for #1233; historical fixture diagnostic is red (14.3009), no live parity claimed; no deploy.
+
 ### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
 - Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",

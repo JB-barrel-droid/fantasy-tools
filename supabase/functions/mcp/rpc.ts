@@ -22,7 +22,7 @@ const INSTRUCTIONS =
   "If the user pastes a ```ddf-state block or a site link, call read_state first and continue from that work. " +
   "When the user wants to carry your work to the site (a trade, rosters, a player to target), call make_state and give them the block or link. " +
   "If a result says the pasted league has settings these tools do not apply, tell the user the numbers may differ from the site and point them to the link. " +
-  "DDF Value is the average of the four adjusted trade charts. If a name comes back ambiguous or not found, ask which player was meant instead of guessing.";
+  "DDF Value is the average of the four trade charts' weight-adjusted indexed values. If a name comes back ambiguous or not found, ask which player was meant instead of guessing.";
 
 // deno-lint-ignore no-explicit-any
 type Json = any;

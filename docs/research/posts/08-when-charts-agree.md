@@ -1,18 +1,17 @@
 # When do the trade charts agree, and does agreement mean anything?
 
 Every number below was computed on 22 October 2026 by re-running our value
-engine on six saved weeks of chart history. DDF Value here is built from the
-projections only; an earlier version of DDF Value blended the trade charts with
+engine on six saved weeks of chart history. DDF Value (projections) is used here; an earlier version of DDF Value blended the trade charts with
 the projections, and none of the blended figures are used in this post.
 
 Terms used below:
 
-- **DDF Value** is our own value for a player: the average of the projection
+- **DDF Value (projections)** is the projection-side view: our own value for a player built from the projections only — the average of the projection
   sources' values above waivers (how many points a player adds over the best
-  freely available player at his position), on one common point scale.
-- **DDF Projections** is the same calculation shown on its own, so you can see
+  freely available player at his position), on one common point scale. Every figure in this post uses this view.
+- **DDF Value (projections)** is the same calculation shown on its own, so you can see
   the projection side of the answer.
-- **Rescaled** means a trade chart converted onto that same point scale, so a
+- **Indexed** means a trade chart converted onto that same point scale, so a
   chart's price and our value can be compared directly.
 
 ---
@@ -45,11 +44,11 @@ against outcomes.
 
 The rules behind the labels:
 
-- **Should you propose or accept?** "Yes" when DDF Value and DDF Projections
+- **Should you propose or accept?** "Yes" when DDF Value and DDF Value (projections)
   both say you win and the DDF Value margin is at least 5% of the value traded;
   "No" when both say you lose by the same margin; otherwise "Unclear". The 5%
   margin is a starting choice, not something derived from data. Confidence is
-  "High" when the DDF Projections margin is also 5% or more, "Medium" when
+  "High" when the DDF Value (projections) margin is also 5% or more, "Medium" when
   projections agree but by less, and "Low" for "Unclear"; a DDF Value built from
   one source lowers it one level. Now that DDF Value is built from the
   projections only, the two inputs are the same number, so the answer is a
@@ -61,10 +60,10 @@ The rules behind the labels:
   third or less, "Toss-up" in between. Confidence is "High" when 75% or more of
   the charts sit on the answer's side, "Medium" at 60%, else "Low"; fewer than
   three charts caps it at Medium; a margin under 5% forces Low.
-- **Deal read.** DDF Value against the plain mean of the chart results, each
+- **Deal read.** DDF Value against the Trade chart average, each
   called win, even or lose at a threshold of 3% of the average side total (at
   least 1 point). That gives nine cells. One of them is a split: our value says
-  yes and the market says no ("DDF Value likes it. The market doesn't."). It is
+  yes and the trade charts say no ("DDF Value likes it. The market doesn't."). It is
   a trade where you gain on our numbers while the trade charts, taken together,
   say you lose. It needs three complete charts.
 - **Find a trade** lists a package when DDF Value says you win and at least 3 of
@@ -178,7 +177,7 @@ movement.
 
 ### Is "High confidence" with few charts agreeing justified?
 
-The level is set by the DDF Projections margin, so it ignores the chart count.
+The level is set by the DDF Value (projections) margin, so it ignores the chart count.
 The next week shows what that costs. Here "answer changes" means the propose
 answer is not the same label next week. With DDF Value from projections only,
 "Yes, High" changes 31.4% of the time overall: 39.1% with no chart agreeing and
@@ -194,14 +193,14 @@ separates a verdict likely to survive from one that is not.
 
 What this means for you: treat a "Yes, High" as firm when at least three of the
 four charts agree with it. When none do, it is a split between our value and
-the market, not a settled answer.
+the trade charts, not a settled answer.
 
-### The split: DDF Value says yes, the market says no
+### The split: DDF Value says yes, the trade charts say no
 
 The "DDF Value likes it. The market doesn't." cell is exactly the trade with no chart on your side:
-our value says you win and the market says you lose. It is the least stable kind
+our value says you win and the trade charts say you lose. It is the least stable kind
 of "Yes", for the reason above. It is also the trade where our value and the
-market most disagree, which is where the opportunity is if our value is right
+trade charts most disagree, which is where the opportunity is if our value is right
 and the cost if it is not. The label describes the disagreement; it is not a
 promise that the other manager will accept.
 
@@ -242,7 +241,7 @@ one-third cuts, so every non-unanimous trade is "Likely" or "Unlikely" at
 2. "Will they accept?" is the most stable line on the page. "Toss-up" means the
    charts are split, and a different answer next week is likely.
 3. A "DDF Value likes it. The market doesn't." trade is a disagreement between
-   our numbers and the market's. It can be a real edge, but it is the least
+   our numbers and the trade charts'. It can be a real edge, but it is the least
    settled kind of "Yes".
 
 Acceptance itself stays untested: we do not record proposals or their outcomes.

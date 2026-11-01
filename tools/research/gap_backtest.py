@@ -5,7 +5,7 @@ One command, no network, standard library plus numpy:
 
     python3 tools/research/gap_backtest.py
 
-Writes every figure the post quotes to docs/research/data/:
+Writes every figure the post quotes to docs/research/data/jeg1411-mean/:
     gap_backtest.json   every number, keyed by test
     gap_backtest.csv    one row per player-week-setting with the signal and outcomes
     gap_backtest.md     the tables as the post shows them
@@ -16,10 +16,10 @@ What it does
    Python value reference (pipelines/value_reference.py, the engine's reference
    implementation) at the reader's league settings. Each week runs on its own
    saved sources (every source with that week saved is included; no holds),
-   with the current players.json as the player universe. The current week
-   (7) is also checked against the reference's live run as a self-test.
-2. Rebuilds the Trade targets signal exactly as app/v2/targets.js does
-   (marketConsensus, rankEquivalents, buildTargets): consensus = median of the
+   with the current players.json as the player universe. The latest saved week
+   is compared with the checkout fixture as a diagnostic, not a live check.
+2. Studies the Trade targets signal with Jeremy's approved research mean
+   (marketConsensus, rankEquivalents, buildTargets): Trade chart average = mean of the
    indexed charts that price the player (a finite 0 counts, null does not),
    gap = consensus - ours, eligible with 2+ charts, consensus > 0 and a strict
    majority of charts on the consensus side; Sell needs ours >= SELL_FLOOR (5);
@@ -36,12 +36,13 @@ What it does
    before, i.e. plain regression to the mean), a rank regression of the
    outcome on gap and placebo together, and within-position correlations.
 
-Our value is reported two ways: DDF Value as the live engine blends it today
-(charts and projections; PR #814 unmerged on 2026-10-22) and DDF Value from
-projections only (what PR #814 makes the default).
+Our value is reported as DDF Value and DDF Value (projections). Saved 2026
+inputs are modeled with the checked-out reference engine; this is not a live
+site reproduction. Only this research signal changes from median to mean.
 """
 from __future__ import annotations
 
+import argparse
 import csv
 import json
 import math
@@ -61,7 +62,7 @@ import value_reference as ref  # noqa: E402
 
 HISTORY = REPO / "data" / "history"
 ACTUALS = REPO / "data" / "inputs" / "weekly_actuals_2024_2026.csv"
-OUT_DIR = REPO / "docs" / "research" / "data"
+OUT_DIR = REPO / "docs" / "research" / "data" / "jeg1411-mean"
 SEASON = 2026
 WEEKS = [2, 3, 4, 5, 6, 7]
 
@@ -78,6 +79,7 @@ N_BOOT = 1000          # cluster bootstrap draws for the default setting
 N_BOOT_SWEEP = 200     # the 11 other settings get a coarser interval
 N_PERM = 1000
 SEED = 20261022
+AGGREGATION = "mean"  # Jeremy, 2026-10-31 (JEG-1411); research post 07 only.
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +117,7 @@ def espn_zero_in_week(doc: dict, scoring: str) -> set:
 
 
 # ---------------------------------------------------------------------------
-# 2. The signal as app/v2/targets.js computes it
+# 2. The research signal (site rules plus the approved mean aggregation)
 # ---------------------------------------------------------------------------
 
 def finite(v) -> bool:
@@ -123,12 +125,12 @@ def finite(v) -> bool:
 
 
 def market_consensus(ours: float, cells: dict) -> dict:
-    """targets.js marketConsensus (lines 95-117)."""
+    """Research-only Trade chart average; median mode reproduces the old signal."""
     priced = [k for k in cells if finite(cells[k])]
     if not priced:
         return {"value": None, "of": 0, "gap": None, "side": None, "eligible": False, "agree": 0}
     values = [cells[k] for k in priced]
-    value = ref.median(values)
+    value = statistics.fmean(values) if AGGREGATION == "mean" else ref.median(values)
     gap = value - ours
     side = "sell" if gap > 0 else "buy" if gap < 0 else None
     agree = sum(1 for v in values if (v > ours if side == "sell" else v < ours)) if side else 0
@@ -139,7 +141,7 @@ def market_consensus(ours: float, cells: dict) -> dict:
 
 def build_signal(priced: dict, ours_key: str, charts: list, espn_zero: set) -> dict:
     """{player_key: row} with the gap, side, rankGap and the list membership a
-    reader of Trade targets would see that week at that setting."""
+    research signal at that week and setting."""
     res = priced["result"]
     charts = [c for c in charts if c in priced["sources"]]
     players = {}
@@ -513,8 +515,8 @@ def list_summary(panel: dict, ours: str) -> dict:
 
 def self_test(inp, docs: dict) -> dict:
     """The served week re-priced from its snapshot against the reference's live
-    run at the default setting, with the chain's holds applied. Proves the
-    snapshots reproduce what the site shows."""
+    fixture run at the default setting, with the fixture holds applied.
+    A mismatch is reported, never treated as a live-site reproduction."""
     s = ref.Setting(inp, DEFAULT["scoring"], DEFAULT["teams"], 0)
     st = s.state()
     live = s.result()
@@ -586,13 +588,13 @@ def fmt(v, nd=2):
 def markdown(report: dict) -> str:
     L = []
     meta = report["meta"]
-    L.append(f"# Gap backtest figures (JEG-882)\n")
+    L.append(f"# Gap backtest figures (JEG-882 / JEG-1411)\n\nAggregation: {meta['aggregation']}; modeled saved 2026 inputs.\n")
     L.append(f"Generated {meta['generated_at']} by `tools/research/gap_backtest.py` at {meta['git_head']}; "
              f"reference {meta['reference_version']}; weeks {meta['weeks']}; live build {meta['live_build_tag']}.\n")
     st = report["self_test"]
-    L.append(f"Self-test: week {st['served_week']} snapshot vs the reference's live run: {st['values_compared']} values, "
+    L.append(f"Fixture consistency check (not a live check): week {st['served_week']} snapshot vs the reference's fixture run: {st['values_compared']} values, "
              f"max abs diff {st['max_abs_diff']:.4f}, within 0.05: {st['within_value_check_tolerance']} "
-             f"(hidden in live run: {st['hidden_in_live_run']}; held sources read from the served version: "
+             f"(hidden in fixture run: {st['hidden_in_live_run']}; held sources read from the served version: "
              f"{st['held_sources_swapped_to_served_version']}; with the raw snapshot instead the DDF Value max diff is "
              f"{st['raw_snapshot_max_abs_diff_ddf_value']:.2f}).\n")
     for ours in OURS:
@@ -672,7 +674,7 @@ def markdown(report: dict) -> str:
                 if s:
                     L.append(f"\n{side} listed: n={s['n']}, mean residual {s['mean_residual']:+.2f}, beats projection {fmt(s['beats_projection'])}.")
             L.append("\nPer position: " + ", ".join(f"{p} {fmt(v['rho'])} (n={v['n']})" for p, v in a["per_position"].items()) + "\n")
-    L.append("\n## All 12 settings, our value = DDF Value (blend): Spearman gap vs next-week change in consensus\n")
+    L.append("\n## All 12 settings, our value = DDF Value: Spearman gap vs next-week change in consensus\n")
     L.append("| Scoring | Teams | n | rho | 95% CI | rho (ours changes) | sell listed hit | buy listed hit |")
     L.append("|---|---|---|---|---|---|---|---|")
     for s in report["settings_sweep"]:
@@ -683,12 +685,196 @@ def markdown(report: dict) -> str:
         sc = r["spearman_gap_vs_d_consensus"]; so = r["spearman_gap_vs_d_ours"]
         L.append(f"| {s['scoring']} | {s['teams']} | {sc['n']} | {sc['rho']:+.2f} | [{sc['ci95'][0]:+.2f}, {sc['ci95'][1]:+.2f}] | {so['rho']:+.2f} | "
                  f"{fmt(r['sell_listed']['consensus_moves_toward_ours'])} | {fmt(r['buy_listed']['consensus_moves_toward_ours'])} |")
-    return "\n".join(L) + "\n"
+    return ("\n".join(L) + "\n").replace("consensus", "Trade chart average")
 
 
 # ---------------------------------------------------------------------------
 
+def post_markdown(report: dict) -> str:
+    """Render the studied projection view directly from the mean rerun evidence."""
+    if report['meta']['aggregation'] != 'mean':
+        raise ValueError('Post 07 requires mean-based figures')
+    m = report['meta']; d = report['default']['proj']; h = d['horizon_1']
+    h2 = d['horizon_2']; a = d['actuals']; b = h['buy_listed']; p = h['placebo']
+    rr = p['rank_regression_d_consensus_on_gap_and_placebo']
+    return f'''# Does the Trade chart average gap predict anything?
+
+This is early evidence from saved 2026 content weeks {min(m['weeks'])} to {max(m['weeks'])}.
+These figures are **mean-based**, rerun on {m['generated_at']} with the
+reference engine at commit `{m['git_head']}`. Jeremy approved the research
+aggregation change on 31 October 2026 (JEG-1411). The earlier October 22
+figures used a different aggregation and are superseded here.
+
+Terms used below:
+
+- **DDF Value (projections)** is the projection-side view: the average of the
+  projection sources' weight-adjusted indexed values. Every result below uses
+  this view as our value.
+- **Indexed** is a chart's value on the common scale, before position and
+  bench weighting.
+- **Trade chart average (mean)** is the arithmetic mean of the available
+  Indexed trade-chart values for a player. A real zero counts; a missing chart
+  does not.
+- **The gap** is the Trade chart average minus DDF Value (projections).
+  A positive gap is the Sell side; a negative gap is the Buy side.
+
+## Data and method
+
+The chart inputs are saved as-published 2026 weekly snapshots, then modeled
+through the checked-out reference engine. These are historical inputs, not
+fresh current-week prices. The player universe has {m['players_universe']} players
+from this checkout. The actuals file contains 2026 weeks
+{min(m['actual_weeks'])} to {max(m['actual_weeks'])}; each outcome uses only the next
+two calendar weeks from the signal week, skipping a missing game row rather
+than counting it as zero. Older reports used earlier player and actuals files,
+so their sample sizes need not match this rerun.
+
+The headline setting is Full PPR, 12 teams, one quarterback and the standard
+roster. Each saved week uses the sources recorded for that content week, with
+no holds. Indexed chart prices and DDF Value (projections) use the same league
+scale. A gap can therefore reflect a price disagreement at those settings.
+
+The research signal requires at least two charts, a positive Trade chart
+average, and a strict majority of charts on the same side of our value.
+A Sell requires our value of at least 5. A Buy requires the position
+rank-equivalent gap to be at most -2. Players zeroed by the saved ESPN
+projection or given estimated chart prices are excluded from the lists.
+This is the research mean variant of the signal; it does not change the site
+or engine's calculations.
+
+We compare each gap with the next change in the Trade chart average and in our
+value, then check gap persistence. A placebo control uses the chart average's
+own previous move. Correlations are Spearman rank correlations. Intervals are
+95 percent cluster bootstraps by player, with 1,000 draws at the headline
+setting. Results are associations, not evidence that an actual offer was accepted.
+
+## Results
+
+The next-week panel has {h['n']} player-weeks and {h['players']} players,
+covering signal weeks {h['weeks']}. Figures below show correlations and their
+95 percent intervals unless specified otherwise.
+
+| Test | Mean-based result |
+|---|---|
+| Gap vs next change in Trade chart average | {fmt(h['spearman_gap_vs_d_consensus'])} |
+| Gap vs next change in our value | {fmt(h['spearman_gap_vs_d_ours'])} |
+| Gap vs next change in gap | {fmt(h['spearman_gap_vs_d_gap'])} |
+| Placebo vs next change in Trade chart average | {fmt(p['spearman_placebo_vs_d_consensus'])} |
+| Gap on the same rows as the placebo | {fmt(p['spearman_gap_vs_d_consensus_same_rows'])} |
+| Rank regression, gap and placebo together | gap t={rr['gap']['t']:+.1f}, placebo t={rr['placebo']['t']:+.1f} (n={rr['n']}) |
+
+The Buy list has {b['n']} player-weeks and {b['players']} players. Its share
+with a rising Trade chart average next week is {fmt(b['consensus_moves_toward_ours'])},
+against the all-player base rate of {fmt(h['base_rate']['consensus_up'])}.
+The intervals matter: a Buy label is not a promise that the price will rise.
+
+| Persistence test | Mean-based result |
+|---|---|
+| Gap vs gap one week later | {fmt(h['persistence']['spearman_gap_vs_gap_later'])} |
+| Gap vs gap two weeks later | {fmt(h2['persistence']['spearman_gap_vs_gap_later'])} |
+| Gaps changing sign next week | {fmt(h['persistence']['share_sign_flips'])} |
+| Buy targets still listed next week | {fmt(b['still_listed_later'])} |
+
+The realised-points panel has {a['n']} player-weeks and {a['players']} players,
+using signal weeks {a['weeks']}. The gap's correlation with actual points per
+game minus the saved ESPN projection is {fmt(a['spearman_gap_vs_residual'])}.
+The projection's correlation with actual points is
+{fmt(a['spearman_projection_vs_actual'])}.
+A price gap and a forecast of fantasy production answer different questions.
+
+## Limits and interpretation
+
+- The history covers one season and only a few weekly transitions. It cannot
+  establish a stable effect across seasons.
+- This is a modeled rerun with the current checkout's player list and
+  reference engine. Players absent from that list are absent from every week.
+- Chart values come from published snapshots; Indexed values, gaps, list
+  memberships and statistics are modeled. Actuals are observed game results.
+- A chart dropping a player can produce a large move. The mean of two to four
+  charts remains sensitive to outliers and changes in which charts price him.
+- No actual proposed or accepted trades are recorded. A price move is a proxy,
+  not a measured trade outcome.
+- The historical snapshot consistency diagnostic has maximum difference
+  {report['self_test']['max_abs_diff']:.4f} against the checkout's current fixture;
+  it {'passes' if report['self_test']['within_value_check_tolerance'] else 'does not pass'} the 0.05 tolerance. It is not proof of historical live-site
+  parity, and no live site was checked for this rerun.
+
+For a manager, use the gap as a description of disagreement between the chart
+average and the projection view. Read it alongside the uncertainty and roster
+context, rather than as an instruction to buy or sell.
+
+## Evidence
+
+- Reproduction: `python3 tools/research/gap_backtest.py --output-dir docs/research/data/jeg1411-mean --post docs/research/posts/07-does-the-gap-predict.md`.
+- [Mean rerun tables](../data/jeg1411-mean/gap_backtest.md),
+  [full statistics](../data/jeg1411-mean/gap_backtest.json) and
+  [player-week rows](../data/jeg1411-mean/gap_backtest.csv).
+- [Before/after comparison](../data/jeg1411-mean/before-after.md) separates
+  the old published figures from a median baseline on the same current inputs.
+- The underlying script also runs Standard, Half PPR and PPR at each supported
+  team count. Its settings appendix is explicitly the DDF Value chart view;
+  the headline study above is DDF Value (projections).
+'''
+
+
+def comparison_markdown(previous: dict, baseline: dict, report: dict) -> str:
+    """Separate input/engine drift from the research aggregation change."""
+    if baseline['meta']['aggregation'] != 'median' or report['meta']['aggregation'] != 'mean':
+        raise ValueError('Comparison requires a median baseline and mean rerun')
+    for key in ['git_head', 'weeks', 'actual_weeks', 'players_universe', 'fixture_built_at', 'constants']:
+        if baseline['meta'][key] != report['meta'][key]:
+            raise ValueError(f'Comparison inputs differ: {key}')
+    metrics = [
+        ('Next-week player-weeks', 'horizon_1.n'),
+        ('Next-week players', 'horizon_1.players'),
+        ('Gap vs next Trade chart average change', 'horizon_1.spearman_gap_vs_d_consensus'),
+        ('Gap vs next own-value change', 'horizon_1.spearman_gap_vs_d_ours'),
+        ('Gap vs next gap change', 'horizon_1.spearman_gap_vs_d_gap'),
+        ('Placebo vs next chart change', 'horizon_1.placebo.spearman_placebo_vs_d_consensus'),
+        ('Gap vs next chart change, placebo rows', 'horizon_1.placebo.spearman_gap_vs_d_consensus_same_rows'),
+        ('Partial gap t', 'horizon_1.placebo.rank_regression_d_consensus_on_gap_and_placebo.gap.t'),
+        ('Partial placebo t', 'horizon_1.placebo.rank_regression_d_consensus_on_gap_and_placebo.placebo.t'),
+        ('Buy player-weeks', 'horizon_1.buy_listed.n'),
+        ('Buy players', 'horizon_1.buy_listed.players'),
+        ('Buy chart price rises', 'horizon_1.buy_listed.consensus_moves_toward_ours'),
+        ('Base chart price rises', 'horizon_1.base_rate.consensus_up'),
+        ('One-week persistence', 'horizon_1.persistence.spearman_gap_vs_gap_later'),
+        ('Two-week persistence', 'horizon_2.persistence.spearman_gap_vs_gap_later'),
+        ('Gap sign flips', 'horizon_1.persistence.share_sign_flips'),
+        ('Buy still listed', 'horizon_1.buy_listed.still_listed_later'),
+        ('Actuals player-weeks', 'actuals.n'), ('Actuals players', 'actuals.players'),
+        ('Gap vs actual residual', 'actuals.spearman_gap_vs_residual'),
+        ('Projection vs actual', 'actuals.spearman_projection_vs_actual'),
+    ]
+    def get(r, path):
+        v = r['default']['proj']
+        for k in path.split('.'):
+            v = v[k]
+        return fmt(v)
+    lines = ['# Post 07 before / after (JEG-1411)', '',
+             'The October 22 report is historical evidence, not the same input set.',
+             'The median baseline and mean rerun use the same checked-out engine,',
+             'saved 2026 inputs, players, actuals and random seed. Only their research',
+             'chart aggregation differs. The mean can admit more players when a',
+             'positive chart value raises the mean above zero while the middle value is zero.', '',
+             '| Metric | October 22 median report | Current-input median | Current-input mean |',
+             '|---|---|---|---|']
+    lines += [f'| {label} | {get(previous, path)} | {get(baseline, path)} | {get(report, path)} |'
+              for label, path in metrics]
+    return '\n'.join(lines) + '\n'
+
+
 def main() -> int:
+    global AGGREGATION, OUT_DIR
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--aggregation', choices=['mean', 'median'], default='mean',
+                        help='median is retained only for same-input before/after comparisons')
+    parser.add_argument('--output-dir', type=Path, default=OUT_DIR)
+    parser.add_argument('--post', type=Path, help='render post 07 from a mean report')
+    parser.add_argument('--median-baseline', type=Path, help='same-input median JSON for comparison')
+    parser.add_argument('--previous-report', type=Path, default=REPO / 'docs/research/data/gap_backtest.json')
+    args = parser.parse_args()
+    AGGREGATION, OUT_DIR = args.aggregation, args.output_dir
     rng = np.random.default_rng(SEED)
     inp = ref.Inputs.load(ref.FIXTURE, ref.PLAYERS)
     docs = {w: load_week(w) for w in WEEKS if (HISTORY / f"week-{w}.json").exists()}
@@ -697,10 +883,11 @@ def main() -> int:
     meta = {"generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%MZ"), "git_head": git_head(),
             "reference_version": ref.VERSION, "pipeline_version": ref.PIPELINE_VERSION,
             "weeks": sorted(docs), "actual_weeks": actual_weeks,
-            "live_build_tag": "tv-20261022-1627-fee76c6 (read from the live site 2026-10-22; PR #814 unmerged)",
+            "aggregation": AGGREGATION,
+            "live_build_tag": "unavailable: offline modeled rerun, no live check",
             "players_universe": len(inp.players), "fixture_built_at": inp.fixture.get("built_at"),
-            "ours_labels": {"blend": "DDF Value as blended live (charts and projections)",
-                            "proj": "DDF Value from projections only (PR #814 default)"},
+            "ours_labels": {"blend": "DDF Value",
+                            "proj": "DDF Value (projections)"},
             "constants": {"SELL_FLOOR": SELL_FLOOR, "BUY_RANK_MARGIN": BUY_RANK_MARGIN, "MIN_CHARTS": MIN_CHARTS,
                           "N_BOOT": N_BOOT, "SEED": SEED},
             "sources_by_week": {w: sorted(k for k in ref.SOURCES if (d.get("sources") or {}).get(k)) for w, d in docs.items()}}
@@ -714,7 +901,7 @@ def main() -> int:
             rows = pairs(panel, ours, h)
             d[f"horizon_{h}"] = test_horizon(rows, rng)
             for r in rows:
-                csv_rows.append({"setting": "ppr/12", "ours": ours, **{k: v for k, v in r.items()}})
+                csv_rows.append({"setting": "ppr/12", "view": ours, **{k: v for k, v in r.items()}})
         arows = actual_rows(panel, ours, actuals, DEFAULT["scoring"])
         d["actuals"] = test_actuals(arows, rng)
         report["default"][ours] = d
@@ -731,10 +918,18 @@ def main() -> int:
     (OUT_DIR / "gap_backtest.json").write_text(json.dumps(report, indent=1, default=float), encoding="utf-8")
     if csv_rows:
         with (OUT_DIR / "gap_backtest.csv").open("w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(csv_rows[0].keys()))
+            w = csv.DictWriter(fh, fieldnames=list(csv_rows[0].keys()), lineterminator="\n")
             w.writeheader()
             w.writerows(csv_rows)
     (OUT_DIR / "gap_backtest.md").write_text(markdown(report), encoding="utf-8")
+    if args.median_baseline:
+        before = json.loads(args.previous_report.read_text())
+        baseline = json.loads(args.median_baseline.read_text())
+        (OUT_DIR / 'before-after.md').write_text(comparison_markdown(before, baseline, report), encoding='utf-8')
+    if args.post:
+        if AGGREGATION != 'mean':
+            raise ValueError('Post 07 must be mean-based')
+        args.post.write_text(post_markdown(report), encoding='utf-8')
     print(f"wrote {OUT_DIR}/gap_backtest.{{json,csv,md}}; weeks {sorted(docs)}; self-test max diff "
           f"{report['self_test']['max_abs_diff']}")
     return 0
