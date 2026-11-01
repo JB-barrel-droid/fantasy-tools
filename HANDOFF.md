@@ -19,19 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### make validate baseline (JEG-1263 / #1233, Codex takeover, 2026-10-31 UTC): validation blocked
+### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
-- Remote branch `claude/JEG-1263-validate-baseline`; local branch `codex/JEG-1263-1233-landing`, isolated worktree
-  `/Users/botcomp/code/wt/jeg1263-1233-landing`. Jeremy prioritized this lane Oct 31 at 12:19 PM CT. Claude writer
-  and reviewer are idle; the open Desktop JEG1263 session is idle on #1217. Normal merge of main `c267aa71` complete.
-- Main's coverage/shard checks fail (8 of 10); corrected wiring passes all 10, including the two newly unwired
-  JEG-1389 modules. Finder fallback is limited to macOS with an unchanged Home option; all assertions preserved.
-  The existing USO journey known-red entry now names its owner JEG-1403 (related JEG-1259); no test removed.
-- Next: after JEG-1394 and JEG-1411 release their active heavy gates, run Finder before/after, the newly wired
-  modules, contract render and `RENDER_TESTS_REQUIRED=1 make validate` sequentially. Prior required-render run lacked
-  DejaVu Sans; verify the dependency. No current full-gate pass is claimed. Keep draft until green CI, then current-head
-  delta review; do not merge. Logs: `docs/claude-log/2026-10-30-validate-baseline.md` and
-  `docs/claude-log/2026-10-31-validate-baseline-takeover.md`. #1240 and #1259 remain their owners' work.
+- Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",
+  `tests/test_tiers_follow_seats.py`); no value, tier, zone or Drop change. After the release merge of pinned main
+  09fb625d (JEG-1465), VP-7.3 was rechecked again: it now covers fractional seats (JEG-1335: tiers use the heaviest
+  allocation's counts on the blended values) and the example and 12-combo counts are re-run on 2026-10-31 data.
+  Sweep in `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
+- `app/values-explainer/reviewed.json` is left as main has it (its hashes are already stale on main; the re-mark
+  belongs with the explainer fixes, JEG-1395/JEG-1396).
+- Next: exact-head CI green, then the merge gate merges.
+
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):
