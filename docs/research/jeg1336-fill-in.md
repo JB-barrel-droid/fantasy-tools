@@ -129,6 +129,13 @@ that guess is about 0, so the mix stays smooth.
   reading it, not run.
 - The history replays today's code on each bake's fixture, not what the site
   published at the time.
+- The figures were run at `3ac740cd`, before fractional seats (JEG-1335,
+  #1242) made the allocation a weighted mix of vertices. The script now keeps
+  and holds the fill set per vertex, so a rerun on later code compares like
+  with like (an identical bake gives a step of 0 under every option). The
+  sweep's "Fill set changed" count now takes its baseline from the
+  unperturbed run. A rerun of the sweep at `3ac740cd` with that fix gave
+  identical figures.
 - A history step is measured with the allocation held to the earlier bake, so
   it leaves out flex and bench flips (JEG-1286). Players with no projection in
   the earlier bake (back from injury, new) follow today's rule in both runs.

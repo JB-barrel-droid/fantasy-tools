@@ -64,7 +64,10 @@ OPTIONS = ("A", "B", "C", "D", "BD")
 NAMED = ("Chris Brooks", "Raheim Sanders", "CJ Donaldson", "DJ Herman")
 
 VR = None
-CTX = {"opt": "A", "held": None, "shares": {}, "fill_out": None, "capped": []}
+# fill_out: what the fill hook used at each allocation vertex, in call order
+# (run_pipeline calls it once per vertex of allocation_mix since JEG-1335);
+# vi: the vertex the next call is for.
+CTX = {"opt": "A", "held": None, "shares": {}, "fill_out": [], "vi": 0, "capped": []}
 
 FILL_LINE = 'fill_sets = {} if degenerate else {p: order_m[p][:alloc[p]["rostered"] + 1] for p in POSITIONS}'
 FILL_HOOK = "fill_sets = _J1336_FILL(order_m, alloc, degenerate, sources, inc, pos_of, m)"
@@ -140,10 +143,17 @@ def fill_listed(order_m, alloc, sources, inc, pos_of):
 
 
 def fill_hook(order_m, alloc, degenerate, sources, inc, pos_of, m):
+    vi = CTX["vi"]
+    CTX["vi"] += 1
     if degenerate:
-        CTX["fill_out"], CTX["shares"] = {}, {}
+        CTX["fill_out"].append({"fill": {}, "shares": {}, "m": []})
+        CTX["shares"] = {}
         return {}
     opt, held = CTX["opt"], CTX["held"]
+    if held is not None:
+        # The earlier bake's fill set at the same vertex (the allocations are
+        # replayed in the same order, so the vertices line up).
+        held = held[min(vi, len(held) - 1)]
     if opt in ("B", "BD"):
         shares = fill_shares(order_m, alloc, m)
         fs = {p: list(shares[p]) for p in VR.POSITIONS}
@@ -153,9 +163,9 @@ def fill_hook(order_m, alloc, degenerate, sources, inc, pos_of, m):
     else:
         shares = {}
         fs = fill_today(order_m, alloc)
-    CTX["fill_out"] = {"fill": {p: list(v) for p, v in fs.items()},
-                       "shares": {p: dict(v) for p, v in shares.items()},
-                       "m": sorted(m)}
+    CTX["fill_out"].append({"fill": {p: list(v) for p, v in fs.items()},
+                            "shares": {p: dict(v) for p, v in shares.items()},
+                            "m": sorted(m)})
     if held is not None:
         # The earlier bake's fill set for every player projected in both
         # bakes; a player with no projection in the earlier bake (back from
@@ -201,8 +211,9 @@ def est_hook(src, p, est, own_order_p, m, pos_of):
 
 def run(inp, cell, opt="A", alloc_fn=None, held=None):
     """One Setting run under option `opt`. Returns (values, allocations,
-    result, fill) where fill is what the fill hook used (for holding it)."""
-    CTX.update({"opt": opt, "held": held, "capped": []})
+    result, fill) where fill is the list of what the fill hook used at each
+    allocation vertex (for holding it)."""
+    CTX.update({"opt": opt, "held": held, "capped": [], "fill_out": [], "vi": 0})
     try:
         vals, made, res = F.run(inp, cell, alloc_fn)
     finally:
@@ -330,7 +341,9 @@ def sweep_cell(args):
         order = sorted((i for i in m if inp.players.get(i, {}).get("pos") == p), key=lambda i: (-m[i], i))
         n = a_res["allocation"][p]["rostered"] + 1
         keys.update(order[max(0, n - BAND):min(len(order), n + BAND)])
-    base = {o: run(inp, cell, o, hold)[0] for o in OPTIONS}
+    base_runs = {o: run(inp, cell, o, hold) for o in OPTIONS}
+    base = {o: r[0] for o, r in base_runs.items()}
+    base_fill = fill_members(base_runs["A"][3])   # before any projection is perturbed
     cases = []
     for k in sorted(keys):
         for src in VR.PROJECTIONS:
@@ -350,21 +363,20 @@ def sweep_cell(args):
                                            "before": base[o][who]["ddf"] if who else None,
                                            "after": vals[who]["ddf"] if who else None}
                         if o == "A":
-                            c["fill_changed"] = ({p: set(v) for p, v in fill["fill"].items()}
-                                                 != {p: set(v) for p, v in base_fill_a(inp, cell, hold).items()})
+                            c["fill_changed"] = fill_members(fill) != base_fill
                 finally:
                     rec[cell["scoring"]] = old
                 cases.append(c)
     return {"cell": cell["name"], "cases": cases}
 
 
-_BASE_FILL = {}
+def fill_members(fill):
+    """Per-vertex fill-set membership, comparable between runs."""
+    return [{p: set(v) for p, v in f["fill"].items()} for f in fill]
 
 
-def base_fill_a(inp, cell, hold):
-    if cell["name"] not in _BASE_FILL:
-        _BASE_FILL[cell["name"]] = run(inp, cell, "A", hold)[3]["fill"]
-    return _BASE_FILL[cell["name"]]
+def fill_union(fill, p):
+    return set().union(*(set(f["fill"].get(p, [])) for f in fill))
 
 
 # ---------------------------------------------------------------------------
@@ -408,8 +420,15 @@ def history_cell(args):
             hold = F.replay(prev["made"])
             ch = {}
             for p in VR.POSITIONS:
-                before, after = set(prev["fill"]["A"]["fill"][p]), set(a_fill["fill"][p])
-                ins, outs = sorted(after - before), sorted(before - after)
+                # Entered or left the fill set at any vertex (one vertex
+                # before JEG-1335's fractional seats).
+                pv, cv = prev["fill"]["A"], a_fill
+                if len(pv) == len(cv):
+                    pairs = [(set(b["fill"].get(p, [])), set(a["fill"].get(p, []))) for b, a in zip(pv, cv)]
+                else:
+                    pairs = [(fill_union(pv, p), fill_union(cv, p))]
+                ins = sorted(set().union(*(a - b for b, a in pairs)))
+                outs = sorted(set().union(*(b - a for b, a in pairs)))
                 ch[p] = {"in": [F.name(inp, i) for i in ins], "out": [F.name(inp, i) for i in outs],
                          "in_unlisted": [F.name(inp, i) for i in ins if len(listed_by(a_res, i)) < 4],
                          "in_listed_by_none": [F.name(inp, i) for i in ins if not listed_by(a_res, i)],
