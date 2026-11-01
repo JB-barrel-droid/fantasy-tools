@@ -51,6 +51,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [modular-pipeline.md](modular-pipeline.md) | Maintained | unknown | unknown | Modular pipeline stages and their contracts. |
 | [pipeline-rules.md](pipeline-rules.md) | Maintained | unknown | unknown | Standing rules for every pipeline stage. |
 | [weekly-inputs-contract.md](weekly-inputs-contract.md) | Maintained | JEG-1227 | 2026-10-29 | Weekly-input artifact contract (`weekly-inputs` v1): fields, availability vs freshness, missing vs zero, weekly-only rule, versions and every validation code; validator `pipelines/lib/weekly_inputs_contract.py` (JEG-1227). |
+| [waiver-board-contract.md](waiver-board-contract.md) | Maintained | JEG-1415 | 2026-10-31 | Waiver-board artifact contract (`waiver-board` v0.1): the Value and This week lanes, when each source is disabled, missing vs zero; builder `pipelines/build_waiver_board.py`, validator `pipelines/lib/waiver_board.py` (JEG-1196). |
 | [MODULES.md](MODULES.md) | Maintained | unknown | unknown | One instruction, one lane module rules. |
 | [planning/](planning/) | Record | - | - | Consolidation layer scope, its Codex review, and the JEG-302 monitor cleanup scope. |
 | [contract/](contract/) | Maintained | JEG-327 | unknown | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
