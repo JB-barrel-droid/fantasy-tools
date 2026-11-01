@@ -356,6 +356,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
+	# JEG-1397: docs/methodology.md's worked example is generated from the fixture (tools/methodology_worked_example.py).
+	python3 -m unittest tests.test_methodology_worked_example
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
 	# JEG-1130: the approved PMM glossary on the copy outside and inside v2.js (static, no browser).
