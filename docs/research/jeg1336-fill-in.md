@@ -33,7 +33,7 @@ them and more than 1.0 in 56, worst 1.73 (AJ Dillon, standard/14, October
 28). It is concentrated in the 12- and 14-team settings (83 of the 98) and
 at RB (80 of the 98).
 
-**Recommendation: option D.** A curve-path estimate can't be worth more on a
+**Recommendation: option D (research recommendation; Jeremy chose A, leave as is, on 2026-10-29).** A curve-path estimate can't be worth more on a
 chart than a player the projections rank above him. The players no chart
 lists drop to about 0 (where the other three charts already have them), real-
 update steps over 1.0 go from 56 to 1, and every other player moves by 0.3
@@ -46,7 +46,7 @@ or less.
 | A | Leave as is | 56 (98), worst 1.73 | 23, worst 1.74 | none |
 | B | Weight each estimate by the player's share of a fill-set place (σ 0.75 PPG, as JEG-1333) | 9 (40), worst 1.53 | 1 | Sanders 1.38 to 0.22; TEs shift too (Kincaid USO 5.48 to 5.02) |
 | C | Estimate every projected player some chart lists, at any depth; never estimate a player no chart lists | 17 (47), worst 1.78 (listing changes) | 1 | stars move up to 1.2 (Gibbs USO 88.65 to 89.85), 30 to 119 players per setting move over 0.1 |
-| **D (pick)** | **Order cap: a curve-path estimate is never worth more on a chart than any player the projections rank above him** | **1 (23), worst 1.13** | **0** | **players no chart lists drop to about 0 (Bigsby standard/14 1.95 to 0); everyone else 0.3 or less** |
+| **D (recommended)** | **Order cap: a curve-path estimate is never worth more on a chart than any player the projections rank above him** | **1 (23), worst 1.13** | **0** | **players no chart lists drop to about 0 (Bigsby standard/14 1.95 to 0); everyone else 0.3 or less** |
 | B+D | Both (BD in the figures) | 0 (3), worst 0.70 | 1 | as D, plus B's TE shifts (up to 0.6) |
 
 Sweep: ±0.5 and ±1 PPG to one projection for each player within 3 places of
