@@ -20,7 +20,7 @@ on:
         default: "dry"
 
 permissions:
-  contents: write
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
   actions: write  # dispatch the validated Pages build after the status commit
 
 concurrency:
@@ -29,9 +29,14 @@ concurrency:
 
 jobs:
   save:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
-    steps:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    steps: &writer-steps
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -71,11 +76,32 @@ jobs:
           { echo "## Player status history"; echo '```'; tail -40 /tmp/status.log; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           exit $rc
 
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && inputs.mode == 'write' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Commit dated page status and the successful history summary
         id: publish
         if: ${{ !cancelled() && github.event.inputs.mode == 'write' && steps.status.outcome == 'success' }}
         env:
           HISTORY_OUTCOME: ${{ steps.history.outcome }}
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -89,6 +115,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           git config user.name "github-actions[bot]"
@@ -137,3 +164,10 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id player_status_history --owner player-status-history.yml --outcome "${{ job.status }}"
+
+  save-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+    steps: *writer-steps

@@ -658,7 +658,7 @@
       if (!q || !engine() || !root.TradeValueNameSearch) return;
       const onList = stores.mine.get().concat(stores.cands.get());
       const hits = root.TradeValueNameSearch.search(rowsAll().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = onList.some(p => p.key === key || (F.isNotEvaluated(p) && F.isNotEvaluated(row) && p.pos === row.pos && F.normName(p.name) === F.normName(row.name)));
@@ -926,7 +926,7 @@
     const list = sortedResults(c.out.results);
     const cards = el("ol", {class: "v2-wv-cards", "aria-label": "Waiver candidates as cards"}, ...list.map(r => cardFor(r, c.out.roster)));
     const kids = [el("div", {class: "v2-find-table-wrap v2-wv-tablewrap"}, resultsTable(list, c.out.roster)), cards,
-      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in the view you decide by (DDF Value unless you pick another); the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
+      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in the view you decide by (DDF Value unless you pick another); the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price that player). A dash means no value, never zero."})];
     if (c.out.combos.length) {
       const sum = `Show ${plural(c.out.combos.length, "combo")}`;
       const det = el("details", {class: "v2-wv-combos", id: "v2WaiversCombos"}, el("summary", {text: sum}),

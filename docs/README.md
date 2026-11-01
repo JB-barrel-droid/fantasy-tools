@@ -28,6 +28,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [decisions/drafts/fantasypros-half12-drift.md](decisions/drafts/fantasypros-half12-drift.md) | Record | - | - | Draft decision on FantasyPros half-PPR 12-team drift. |
 | [risk-register.md](risk-register.md) | Maintained | JEG-598 | 2026-10-22 | Open and fixed correctness risks, one row per GAP id, with a ticket index (JEG-598, 2026-10-12). |
 | [research/](research/) | Record | - | - | Evidence behind opinionated choices: bench rule research, the roster convention audit, the QB bench-share artifact, research post 1 facts (JEG-604). |
+| [research/projection-influence-ledger/](research/projection-influence-ledger/) | Record | JEG-1280 | 2026-10-29 | Offline ledger splitting each chart DDF Value move from projection inputs into lineup, bench, fill-in and position-weight stages (816 pairs, default league only). |
 | [feature-contract.md](feature-contract.md) | Maintained | unknown | unknown | Front-end feature contract with numbered IDs (GL-xx etc.); mirror of the Google Doc. |
 | [contract/feature-contract-id-map.md](contract/feature-contract-id-map.md) | Maintained | JEG-602 | 2026-10-22 | Maps every contract ID to its check or ticket, lists the Doc edits that need Jeremy's Drive (JEG-602), and the lines the Doc needs for the 2026-10-22 merges with the tests that pin them (JEG-874). |
 | [kdst-group-contract.md](kdst-group-contract.md) | Record | - | - | K/DST group definitions, units and source availability (JEG-211). |
@@ -50,6 +51,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 | [modular-pipeline.md](modular-pipeline.md) | Maintained | unknown | unknown | Modular pipeline stages and their contracts. |
 | [pipeline-rules.md](pipeline-rules.md) | Maintained | unknown | unknown | Standing rules for every pipeline stage. |
 | [weekly-inputs-contract.md](weekly-inputs-contract.md) | Maintained | JEG-1227 | 2026-10-29 | Weekly-input artifact contract (`weekly-inputs` v1): fields, availability vs freshness, missing vs zero, weekly-only rule, versions and every validation code; validator `pipelines/lib/weekly_inputs_contract.py` (JEG-1227). |
+| [waiver-board-contract.md](waiver-board-contract.md) | Maintained | JEG-1415 | 2026-10-31 | Waiver-board artifact contract (`waiver-board` v0.1): the Value and This week lanes, when each source is disabled, missing vs zero; builder `pipelines/build_waiver_board.py`, validator `pipelines/lib/waiver_board.py` (JEG-1196). |
 | [MODULES.md](MODULES.md) | Maintained | unknown | unknown | One instruction, one lane module rules. |
 | [planning/](planning/) | Record | - | - | Consolidation layer scope, its Codex review, and the JEG-302 monitor cleanup scope. |
 | [contract/](contract/) | Maintained | JEG-327 | unknown | Front-end read contract v1, FE dependency inventory, v3 backend requirements (JEG-327). |
@@ -85,6 +87,7 @@ The durable docs live here as Markdown in GitHub (JEG-596 decision, Jeremy, 2026
 
 | Doc | Status | Owner | Verified | What it is |
 |---|---|---|---|---|
+| [cutover-runbook.md](cutover-runbook.md) | Proposal | JEG-1445 | 2026-10-31 | PSpice/Muse full coordinator takeover checklist, installed Mac bridge/digest entry, recovery state, decision 11 merge gate and Claude/Duet gap inventory; dry run pending review. |
 | [picks-log.md](picks-log.md) | Record | - | - | Copy of the Claude lanes' picks log (choices made for Jeremy, each reversible; nothing merges on a pick alone). Source of truth is his main-chat log until lanes write here. |
 | [review-context.md](review-context.md) | Maintained | JEG-1211 | 2026-10-29 | Selective PR reading, concise briefs, and keeping review evidence without memo streams. |
 | [preview-deploys.md](preview-deploys.md) | Maintained | unknown | unknown | Preview deploy design and phase 1 status. |
