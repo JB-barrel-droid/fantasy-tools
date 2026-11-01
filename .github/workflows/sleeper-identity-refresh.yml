@@ -17,7 +17,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read  # JEG-1441: main writes use the environment-scoped App.
 
 concurrency:
   group: sleeper-identity-refresh-${{ github.ref }}
@@ -25,9 +25,14 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
-    steps:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    steps: &writer-steps
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -70,10 +75,31 @@ jobs:
           echo "changed=$changed" >> $GITHUB_OUTPUT
           python3 -c "import json; m=json.load(open('data/inputs/sleeper_identity_base.json'))['meta']; print('::notice title=sleeper-identity::' + json.dumps(m) + ' changed=$changed')"
 
+      - name: Mint main writer token
+        id: main-writer
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
       - name: Commit
         if: steps.diff.outputs.changed == 'yes'
         env:
           SUPABASE_BYTES_CALLER: sleeper-identity-refresh:commit
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          BRANCH_WRITER_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
         run: |
           # JEG-1215: only publication pauses; upstream/downstream work continues.
           release_guard() {
@@ -87,6 +113,7 @@ jobs:
           }
           release_push() {
             release_guard push
+            if [ "$#" -eq 0 ]; then set -- origin "HEAD:${GITHUB_REF:?}"; fi
             git push "$@"
           }
           git config user.name "github-actions[bot]"
@@ -156,3 +183,10 @@ jobs:
           path: ${{ runner.temp }}/supabase-bytes/*.md
           if-no-files-found: ignore
           retention-days: 14
+
+  refresh-branch:
+    if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
+    runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
+    permissions:
+      contents: write
+    steps: *writer-steps
