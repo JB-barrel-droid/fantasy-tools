@@ -205,3 +205,5 @@ appeal-band or value change.
   change. The fixed "Saved on this device." sentence left the card intro.
 - Anchor summary: "None of the usual anchors." only when all four are marked
   doesn't care; otherwise "Doesn't care about X; the rest not set." (59c00401).
+- 10-28 10:17 AM | Connector review fix | JEG-1115 | Fit reasons exceed the old reply budgets | truncate reasons / raise caps / return a bounded ranked prefix | bounded prefix, full reasons and complete package; concise error if irreducible | Jeremy's limits are upper bounds; preserve counts and package totals; reserve 512 bytes for week decoration and check exact final UTF-8 result | be/jeg-1115-fit-review-fixes | no
+- 10-28 10:17 AM | Connector review fix | JEG-1115 | Two opponents can have the same display name | reject duplicates / use display name / use input identity | stable input index through fit and package selection, expose opponent_index | same-name teams are valid inputs; the roster and one-offer-per-opponent rule must follow identity | be/jeg-1115-fit-review-fixes | no
