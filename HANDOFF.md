@@ -19,6 +19,8 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+JEG-1456: review queue stays in Linear; see [family owners and read-only report](AGENTS.md#review-queue-ownership-jeg-1456). Branch `claude/JEG-1456` is outside the 4 PM batch; five focused tests pass. `make validate` blocked by missing Playwright chromium_headless_shell-1208; generated app/dist outputs remain unstaged in its isolated worktree. Next: green CI, independent Claude review, Jeremy merge approval.
+
 ### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
 - Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",

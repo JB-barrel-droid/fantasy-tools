@@ -241,6 +241,11 @@ unchanged. The two-window cadence and cap of 7 are defaults Jeremy can change.
 
 ## Merge gate and review tiers
 
+Recover the review queue from Linear using the [family owners and read-only
+queue report](../AGENTS.md#review-queue-ownership-jeg-1456); do not reconstruct
+pending reviews from session memory. Run the report at the 6 AM/4 PM Central
+windows before dispatching reviews.
+
 Use AGENTS as merged in #1246 and #1248. Deterministic checks precede review:
 `make validate`, then `gh pr checks <number>`, with green CI on the pushed
 exact head. Red-CI diagnosis is not review. The coordinator sets risk from
