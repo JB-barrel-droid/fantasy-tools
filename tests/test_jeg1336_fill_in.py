@@ -53,8 +53,11 @@ class HeldFillPerVertex(unittest.TestCase):
     def test_last_vertex_everywhere_is_caught(self):
         # The old behaviour: one fill set (the last vertex's) for every vertex.
         members = J.fill_members(self.fill)
-        if all(x == members[-1] for x in members):
-            self.skipTest("every vertex has the same fill set today; the old behaviour can't differ")
+        # Fail closed: if every vertex shares one fill set, this test can no
+        # longer tell the fix from the old behaviour, and that must show.
+        self.assertFalse(all(x == members[-1] for x in members),
+                         f"missing coverage: every {CELL} vertex has the same fill set, "
+                         "so the last-vertex-everywhere regression can't be detected")
         free = J.run(self.inp, self.cell, "A", self.hold)[0]
         held = J.run(self.inp, self.cell, "A", self.hold, held=[self.fill[-1]])[0]
         self.assertGreater(J.worst(held, free)[0], 0.0)
@@ -93,8 +96,10 @@ class SweepBaselineUnperturbed(unittest.TestCase):
                     break
             if key is not None:
                 break
-        if key is None:
-            self.skipTest(f"no player near a {CELL} cutoff moves the fill set on his first sweep case today")
+        # Fail closed: without such a player the cached-baseline regression
+        # can't be detected, and that must show.
+        self.assertIsNotNone(key, f"missing coverage: no player near a {CELL} cutoff moves the "
+                                  "fill set on the first sweep case")
         cases = J.sweep_cell((str(REPO), cell, [key], ("A",)))["cases"]
         self.assertTrue(cases)
         # The old cached baseline was this very case's fill set, so it read False.
