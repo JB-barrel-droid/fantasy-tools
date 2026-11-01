@@ -6,11 +6,9 @@ name: Divergence issues
 # Settings > Security & access > Personal API keys, added in GitHub under
 # Settings > Secrets and variables > Actions). Without it the step only prints
 # what it would open.
+# JEG-1441: Jeremy approved manual-only on 2026-10-31. This deliberately
+# removes automatic issue creation for human main pushes as well as App pushes.
 on:
-  push:
-    branches: [main]
-    paths:
-      - dist/modules/source-divergence.json
   workflow_dispatch:
 
 permissions:
@@ -30,4 +28,4 @@ jobs:
       - name: Open sub-issues for unresolved flags
         env:
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
-        run: python3 pipelines/open_divergence_issues.py
+        run: python3 pipelines/open_divergence_issues.py --report dist/modules/source-divergence.json
