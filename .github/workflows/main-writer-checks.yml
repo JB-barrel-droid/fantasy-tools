@@ -6,8 +6,10 @@ on:
       - ".github/workflows/**"
       - ".github/scripts/main-writer-credential.py"
       - "pipelines/main_write_guard.py"
+      - "pipelines/main_write_switch.py"
       - "tests/test_main_writer*.py"
       - "tests/test_main_write_guard.py"
+      - "tests/test_main_write_switch.py"
       - "tests/test_open_divergence_issues.py"
       - "tests/test_rebuild_chain*.py"
       - "tests/test_v2_render_runs_on_data_push.py"
@@ -31,12 +33,15 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Install PyYAML for the switch workflow structure test
+        run: python3 -m pip install pyyaml==6.0.2
       - name: Offline publication and credential contracts
         run: >-
           python3 -m unittest -f -v
           tests.test_main_writer_credentials
           tests.test_main_writer_workflows
           tests.test_main_write_guard
+          tests.test_main_write_switch
           tests.test_open_divergence_issues
           tests.test_rebuild_chain_workflow
           tests.test_rebuild_chain_concurrent_main
@@ -55,6 +60,7 @@ jobs:
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           -shellcheck= -pyflakes=
           .github/workflows/main-writer-checks.yml
+          .github/workflows/main-write-pause-switch.yml
           .github/workflows/divergence-issues.yml
           .github/workflows/espn-supabase-sync.yml
           .github/workflows/espn-history-probe.yml
