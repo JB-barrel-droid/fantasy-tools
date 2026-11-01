@@ -531,7 +531,8 @@ class RebuildChainWorkflowTest(unittest.TestCase):
         commit = find_step(WORKFLOW, COMMIT)
         self.assertIsNotNone(commit)
         # Mutate this step's condition independently of env field ordering.
-        changed = commit.replace("        if: always()\n", "", 1)
+        changed = re.sub(r"(?m)^        if: always\(\)(?: && github.ref == 'refs/heads/main')?\n",
+                         "", commit, count=1)
         self.assertNotEqual(changed, commit, "premise: the commit condition was removed")
         mutated = WORKFLOW.replace(commit, changed, 1)
         self.assertCaught(mutated, "must publish even when an earlier step failed")

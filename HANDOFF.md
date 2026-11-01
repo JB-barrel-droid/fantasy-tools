@@ -19,6 +19,30 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### JEG-1441 publication follow-up (Codex, 2026-11-01 UTC)
+
+- PR #1259 already merged as `c7ab7562` on Oct 31; its original
+  `codex/JEG-1441-main-writer` remote branch is deleted. This small follow-up
+  uses Jeremy's requested `claude/JEG-1441`, based on main `fe1faaf4`.
+- Shared rebuild publication now has a step-level main-ref gate in addition
+  to the existing runtime refusal and read-only branch token. The workflow
+  contract rejects an ungated explicit main destination, including both
+  `release_push ...:refs/heads/main` and `git push ...:main` spellings.
+- ESPN sync's monitoring publication skips `dry_run=true`; its App mint and
+  scraper publication were already gated by #1259. No refresh was dispatched.
+- Both new regressions fail on unchanged main. All 116 focused offline tests
+  pass, as do actionlint on both edited workflows and git diff --check.
+  Existing branch/main runtime
+  tests use throwaway local remotes; no production write is a test fixture.
+- Leave the follow-up draft for green exact-head CI and independent Claude
+  high-risk review. No merge/deploy/ruleset/environment/credential changes
+  authorized by this correction. Finder repair stays with #1233 (still open).
+- The Nov 1 batch branches (#1089, #1181, #1226, #1229, #1236, #1238) are
+  untouched. Push before 10:45 UTC, then respect the JEG-1465 window lock.
+- No value logic, scoring support, source labels, season or generated data
+  changed. Original dirty checkouts remain untouched.
+
+
 ### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
 - Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",

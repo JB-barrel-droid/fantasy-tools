@@ -505,7 +505,7 @@ jobs:
         # when an earlier step failed. The failure branch below stages ONLY
         # status/health files, never the fixture, so a red gate can never
         # promote data.
-        if: always()
+        if: always() && github.ref == 'refs/heads/main'
         env:
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
