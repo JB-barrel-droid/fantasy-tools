@@ -543,6 +543,10 @@ def main() -> int:
     from build_inspector_page import build as build_inspector_page
     build_inspector_page(DIST)
 
+    # JEG-1419: build boards before optional browser-dependent outputs.
+    from build_site_waiver_boards import main as build_site_waiver_boards
+    build_site_waiver_boards([])
+
     # DDF Value Logic (JEG-1086, JEG-1107): the values explainer, shown inside
     # Writing > How values work (a frame of this page; opened alone it redirects there). It reads the engine headless from the dist/ built above,
     # so it needs Playwright; without a browser it is skipped locally and a
