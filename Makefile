@@ -949,6 +949,8 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
+	# JEG-1389: settings reload regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
 	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
 	# JEG-1199: each projection's path from the publisher's number to the published value.
@@ -972,8 +974,14 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
 	python3 -m unittest tests.test_v2_find_split_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_interactive_trades_release_render
+	python3 -m unittest tests.test_jeg1263_simplified_site_render
+	python3 -m unittest tests.test_jeg1265_values_fieldnotes_render
 
 test-render-sweep-2:
+	# JEG-1389: settings switch redraw regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_chart_fullscreen_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_advanced_render
@@ -994,6 +1002,10 @@ test-render-sweep-2:
 	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
 	python3 -m unittest tests.test_v2_league_status_render
 	python3 -m unittest tests.test_v2_league_parsed_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_jeg1266_ai_connection_panel_render
+	python3 -m unittest tests.test_target_answer_card_render
+	python3 -m unittest tests.test_v2_finder_guardrails_render
 
 test-render-sweep-3:
 	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page). First in the
@@ -1029,8 +1041,12 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_jeg1231_league_inclusion_render
 	# JEG-1275: selected-package composition preview at 1280/390/320.
 	python3 -m unittest tests.test_package_composition_preview_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_v2_finder_teams_render
 
 test-render-extra:
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
@@ -1103,6 +1119,17 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_status_render
 	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page).
 	python3 -m unittest tests.test_compare_evidence_view_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_interactive_trades_release_render
+	python3 -m unittest tests.test_jeg1263_simplified_site_render
+	python3 -m unittest tests.test_jeg1265_values_fieldnotes_render
+	python3 -m unittest tests.test_jeg1266_ai_connection_panel_render
+	python3 -m unittest tests.test_target_answer_card_render
+	python3 -m unittest tests.test_v2_finder_guardrails_render
+	python3 -m unittest tests.test_v2_finder_teams_render
+	# JEG-1231 modules were in shard 3 but not in this list (tests.test_render_sweep_shards).
+	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
+	python3 -m unittest tests.test_jeg1231_league_inclusion_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
