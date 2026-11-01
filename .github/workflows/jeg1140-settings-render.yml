@@ -20,6 +20,8 @@ on:
       - "Makefile"
       - "tests/settings_fieldnotes_logic.cjs"
       - "tests/test_jeg1140_settings_fieldnotes*.py"
+      - "tests/test_jeg1140_explainer_fieldnotes_render.py"
+      - "app/values-explainer/template.html"
       - "tests/fixtures/settings-fieldnotes/**"
       - ".github/workflows/jeg1140-settings-render.yml"
   workflow_dispatch:
@@ -57,6 +59,7 @@ jobs:
       - run: python3 -m unittest -v tests.test_jeg1140_settings_fieldnotes_render
         env:
           SETTINGS_FIELDNOTES_SHOTS: ${{ runner.temp }}/settings-shots
+      - run: python3 -m unittest -v tests.test_jeg1140_explainer_fieldnotes_render
       - name: Screenshots
         if: always()
         uses: actions/upload-artifact@v4
