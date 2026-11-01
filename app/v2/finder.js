@@ -2102,7 +2102,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       // JEG-861: the page's one name matcher (reversed names, suffixes, typos), never a plain "contains". JEG-995: priced
       // players first, so on a tie they come before a defense or kicker.
       const hits = window.TradeValueNameSearch.search(engine().getAllRows().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = alreadyOnRoster(row, onRosters);
