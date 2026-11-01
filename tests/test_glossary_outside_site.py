@@ -2,7 +2,7 @@
 
 GLOSSARY_REF=origin/main checks the same guard against the unpatched source.
 Posts 04–06 belong to open PR #1076; post 02 belongs to #982.
-F6's median name and F18's rescaling name remain deliberately unguarded.
+F6 mean and F18 Indexed were settled by Jeremy on 2026-10-31.
 """
 import os
 from pathlib import Path
@@ -23,11 +23,22 @@ def read(path):
 
 
 class GlossaryOutsideSiteTest(unittest.TestCase):
+    def test_post07_signal_uses_mean(self):
+        path = ROOT / 'tools/research/gap_backtest.py'
+        namespace = {'__name__': 'post07_guard', '__file__': str(path)}
+        exec(compile(read(path), str(path), 'exec'), namespace)
+        signal = namespace['market_consensus'](10, {'a': 0, 'b': 6, 'c': 30, 'missing': None})
+        self.assertEqual(signal['value'], 12)  # Median would be 6; a real zero counts.
+        self.assertEqual(signal['gap'], 2)
+        self.assertEqual(signal['of'], 3)
+        self.assertIsNone(namespace['market_consensus'](10, {'missing': None})['value'])
+
     def test_settled_glossary(self):
         paths = list((ROOT / 'supabase/functions/mcp').glob('*.ts'))
         paths += list((ROOT / 'app/llm').rglob('*.txt'))
         paths += [ROOT / p for p in ['app/llm/server-card.json', 'app/llm/skill/SKILL.md',
-                  'docs/use-ddf-in-claude-chatgpt.md', 'docs/values-endpoint.md']]
+                  'docs/use-ddf-in-claude-chatgpt.md', 'docs/values-endpoint.md',
+                  'dist/llms.txt', 'dist/ddf-skill/SKILL.md']]
         paths += [p for p in (ROOT / 'docs/research').rglob('*.md')
                   if p.parent.name == 'posts' and p.name not in SKIPPED]
         forbidden = [r'market[- ]value\b', r'the market \(DDF Value\)',
@@ -36,7 +47,10 @@ class GlossaryOutsideSiteTest(unittest.TestCase):
                      r'DDF Value\*{0,2} is (?:our own value for a player: )?the (?:equal-weight )?(?:average|mean) of the projection',
                      r'equal-weight average of every included source',
                      r'DDF Value \(blended\)', r'DDF Projections',
-                     r'plain mean of the chart results']
+                     r'plain mean of the chart results', r'\(rescaled\)|\*\*Rescaled\*\*|chart.s Rescaled',
+                     r'Market consensus', r'Market vs projections',
+                     r'the market says no', r'our value and the\s+market most disagree',
+                     r'preserves the publisher.s scale', r'the publisher.s original scale']
         for p in paths:
             text = read(p)
             # Generic investing analogy, not the four-chart mean.
@@ -50,6 +64,10 @@ class GlossaryOutsideSiteTest(unittest.TestCase):
                     self.assertIn('FantasyCalc', sentence, str(p))
                 if re.search(r'DDF Value(?:\*\*)? is (?:our one number|the average)', sentence):
                     self.assertNotRegex(sentence, r'ESPN|CBS|Razzball|FantasyCalc|FantasyPros|USA Today')
+        post = read(ROOT / 'docs/research/posts/07-does-the-gap-predict.md')
+        self.assertIn('Trade chart average (mean)', post)
+        self.assertIn('mean-based', post)
+        self.assertNotIn('median of', post)
         definition = "the average of the four trade charts' weight-adjusted indexed values"
         for name in ['app/llm/llms.txt', 'app/llm/skill/SKILL.md',
                      'supabase/functions/mcp/rpc.ts', 'supabase/functions/mcp/tools.ts']:

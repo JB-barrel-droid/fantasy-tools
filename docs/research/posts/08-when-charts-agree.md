@@ -11,7 +11,7 @@ Terms used below:
   freely available player at his position), on one common point scale. Every figure in this post uses this view.
 - **DDF Value (projections)** is the same calculation shown on its own, so you can see
   the projection side of the answer.
-- **Rescaled** means a trade chart converted onto that same point scale, so a
+- **Indexed** means a trade chart converted onto that same point scale, so a
   chart's price and our value can be compared directly.
 
 ---
@@ -195,12 +195,12 @@ What this means for you: treat a "Yes, High" as firm when at least three of the
 four charts agree with it. When none do, it is a split between our value and
 the trade charts, not a settled answer.
 
-### The split: DDF Value says yes, the market says no
+### The split: DDF Value says yes, the trade charts say no
 
 The "DDF Value likes it. The market doesn't." cell is exactly the trade with no chart on your side:
 our value says you win and the trade charts say you lose. It is the least stable kind
 of "Yes", for the reason above. It is also the trade where our value and the
-market most disagree, which is where the opportunity is if our value is right
+trade charts most disagree, which is where the opportunity is if our value is right
 and the cost if it is not. The label describes the disagreement; it is not a
 promise that the other manager will accept.
 

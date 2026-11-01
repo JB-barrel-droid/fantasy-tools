@@ -241,7 +241,7 @@ that needs a URL instead of a local process.
   served-week pair, Week N−1 → N, risers and fallers with before, now and Δ,
   and the DDF Value vs projections disagreements with the page's read; links to
   `#risers-fallers`. `compare_trade` with `by_source: true`: the page's default
-  Compare a trade rows (DDF Value and the four published charts, rescaled) and
+  Compare a trade rows (DDF Value and the four published charts, Indexed) and
   the DDF Value verdict with the charts that agree or point the other way;
   without it the reply is unchanged. `audit_values` (`view` health or source,
   `source`, `position`, `limit`): the Health check's verdict rows, or one

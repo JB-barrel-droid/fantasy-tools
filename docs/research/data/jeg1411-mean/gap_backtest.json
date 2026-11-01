@@ -1,0 +1,3046 @@
+{
+ "schema": "gap-backtest/1",
+ "meta": {
+  "generated_at": "2026-11-01T20:01Z",
+  "git_head": "88f51c1f",
+  "reference_version": "value-reference-002/2",
+  "pipeline_version": "value-pipeline/2",
+  "weeks": [
+   2,
+   3,
+   4,
+   5,
+   6,
+   7
+  ],
+  "actual_weeks": [
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8
+  ],
+  "aggregation": "mean",
+  "live_build_tag": "unavailable: offline modeled rerun, no live check",
+  "players_universe": 1161,
+  "fixture_built_at": "2026-10-31T19:47:05.121144+00:00",
+  "ours_labels": {
+   "blend": "DDF Value",
+   "proj": "DDF Value (projections)"
+  },
+  "constants": {
+   "SELL_FLOOR": 5.0,
+   "BUY_RANK_MARGIN": 2.0,
+   "MIN_CHARTS": 2,
+   "N_BOOT": 1000,
+   "SEED": 20261022
+  },
+  "sources_by_week": {
+   "2": [
+    "cbs",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "usatoday"
+   ],
+   "3": [
+    "cbs",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+   ],
+   "4": [
+    "cbs",
+    "cbsros",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+   ],
+   "5": [
+    "cbs",
+    "cbsros",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+   ],
+   "6": [
+    "cbs",
+    "cbsros",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+   ],
+   "7": [
+    "cbs",
+    "cbsros",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+   ]
+  }
+ },
+ "self_test": {
+  "served_week": 7,
+  "hidden_in_live_run": [],
+  "live_included": [
+   "usatoday",
+   "fantasycalc",
+   "fantasypros",
+   "cbs",
+   "espn",
+   "cbsros",
+   "razzball"
+  ],
+  "held_sources_swapped_to_served_version": [],
+  "raw_snapshot_max_abs_diff_ddf_value": 8.244225015901453,
+  "values_compared": 3690,
+  "max_abs_diff": 14.300903396107142,
+  "within_value_check_tolerance": false
+ },
+ "default": {
+  "blend": {
+   "lists": {
+    "2": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn"
+     ],
+     "compared": 361,
+     "with_consensus": 361,
+     "priced_by_charts": 245,
+     "ours_above_zero": 192,
+     "buy_listed": 0,
+     "sell_listed": 25,
+     "buy_eligible": 47,
+     "sell_eligible": 118,
+     "flagged": 51,
+     "median_gap": 0.14613072349405257,
+     "mean_abs_gap": 1.707409033057898
+    },
+    "3": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "razzball"
+     ],
+     "compared": 513,
+     "with_consensus": 513,
+     "priced_by_charts": 250,
+     "ours_above_zero": 192,
+     "buy_listed": 0,
+     "sell_listed": 30,
+     "buy_eligible": 48,
+     "sell_eligible": 127,
+     "flagged": 59,
+     "median_gap": 0.0,
+     "mean_abs_gap": 1.2647066522666135
+    },
+    "4": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 707,
+     "with_consensus": 707,
+     "priced_by_charts": 254,
+     "ours_above_zero": 194,
+     "buy_listed": 0,
+     "sell_listed": 22,
+     "buy_eligible": 46,
+     "sell_eligible": 123,
+     "flagged": 61,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.8411113198442732
+    },
+    "5": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 731,
+     "with_consensus": 731,
+     "priced_by_charts": 264,
+     "ours_above_zero": 197,
+     "buy_listed": 0,
+     "sell_listed": 29,
+     "buy_eligible": 49,
+     "sell_eligible": 131,
+     "flagged": 268,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.8535102098867632
+    },
+    "6": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 736,
+     "with_consensus": 736,
+     "priced_by_charts": 264,
+     "ours_above_zero": 202,
+     "buy_listed": 0,
+     "sell_listed": 29,
+     "buy_eligible": 45,
+     "sell_eligible": 135,
+     "flagged": 289,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.889613996001163
+    },
+    "7": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 738,
+     "with_consensus": 738,
+     "priced_by_charts": 271,
+     "ours_above_zero": 198,
+     "buy_listed": 0,
+     "sell_listed": 24,
+     "buy_eligible": 46,
+     "sell_eligible": 124,
+     "flagged": 275,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.9282123152184403
+    }
+   },
+   "horizon_1": {
+    "n": 1274,
+    "players": 295,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.021865657104706577,
+     "ci95": [
+      -0.09326398226405919,
+      0.053460795957991594
+     ],
+     "n": 1274,
+     "players": 295,
+     "p_two_sided": 0.46353646353646355
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": -0.0181053230049292,
+     "ci95": [
+      -0.09829781053893671,
+      0.06206585694015277
+     ],
+     "n": 1274,
+     "players": 295,
+     "p_two_sided": 0.5284715284715285
+    },
+    "spearman_gap_vs_d_gap": {
+     "rho": -0.11945193624509613,
+     "ci95": [
+      -0.1814299274959753,
+      -0.06248994378063494
+     ],
+     "n": 1274,
+     "players": 295,
+     "p_two_sided": 0.000999000999000999
+    },
+    "quintiles_d_consensus": [
+     {
+      "bucket": 1,
+      "signal_lo": -16.791173017862107,
+      "signal_hi": -0.47126245840652087,
+      "n": 255,
+      "mean_outcome": -0.20466955998556288,
+      "median_outcome": -0.25840922538943545,
+      "share_positive": 0.4549019607843137
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -0.47126245840652087,
+      "signal_hi": 0.3521366479025866,
+      "n": 255,
+      "mean_outcome": 0.006338429376890926,
+      "median_outcome": -0.007232783076865867,
+      "share_positive": 0.32941176470588235
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.3521366479025866,
+      "signal_hi": 1.30834252388062,
+      "n": 254,
+      "mean_outcome": 0.14256397154680456,
+      "median_outcome": -0.011460068333422058,
+      "share_positive": 0.47244094488188976
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 1.30834252388062,
+      "signal_hi": 2.6639565524438398,
+      "n": 255,
+      "mean_outcome": 0.11963372659285722,
+      "median_outcome": -0.1657098916947688,
+      "share_positive": 0.4470588235294118
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.6639565524438398,
+      "signal_hi": 5.1683556153096495,
+      "n": 255,
+      "mean_outcome": -0.1427211200694652,
+      "median_outcome": -0.12532642383148307,
+      "share_positive": 0.43137254901960786
+     }
+    ],
+    "quintiles_d_ours": [
+     {
+      "bucket": 1,
+      "signal_lo": -16.791173017862107,
+      "signal_hi": -0.47126245840652087,
+      "n": 255,
+      "mean_outcome": -0.1722873255116723,
+      "median_outcome": -0.0851614412858428,
+      "share_positive": 0.49019607843137253
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -0.47126245840652087,
+      "signal_hi": 0.3521366479025866,
+      "n": 255,
+      "mean_outcome": -0.1071700796592551,
+      "median_outcome": 0.0,
+      "share_positive": 0.1450980392156863
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.3521366479025866,
+      "signal_hi": 1.30834252388062,
+      "n": 254,
+      "mean_outcome": 0.01751249297141261,
+      "median_outcome": 0.0,
+      "share_positive": 0.38188976377952755
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 1.30834252388062,
+      "signal_hi": 2.6639565524438398,
+      "n": 255,
+      "mean_outcome": 0.24333004259284077,
+      "median_outcome": -0.010670293794371795,
+      "share_positive": 0.47058823529411764
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.6639565524438398,
+      "signal_hi": 5.1683556153096495,
+      "n": 255,
+      "mean_outcome": 0.13443447163871688,
+      "median_outcome": -0.08980691352273618,
+      "share_positive": 0.43529411764705883
+     }
+    ],
+    "per_week": {
+     "2": {
+      "n": 244,
+      "rho_d_consensus": -0.050040076498933994,
+      "rho_d_ours": -0.03618600205180877
+     },
+     "3": {
+      "n": 248,
+      "rho_d_consensus": -0.1153011662213825,
+      "rho_d_ours": -0.002024467208903425
+     },
+     "4": {
+      "n": 254,
+      "rho_d_consensus": 0.09956110124944662,
+      "rho_d_ours": 0.04900986221073957
+     },
+     "5": {
+      "n": 264,
+      "rho_d_consensus": -0.0468550436959129,
+      "rho_d_ours": -0.10936196058545743
+     },
+     "6": {
+      "n": 264,
+      "rho_d_consensus": 0.032576569369873694,
+      "rho_d_ours": -0.006746622223021319
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 170,
+      "rho_d_consensus": 0.1315319276262358,
+      "rho_d_ours": 0.13037061595895424
+     },
+     "RB": {
+      "n": 385,
+      "rho_d_consensus": 0.016824323177977867,
+      "rho_d_ours": 0.018104928159738097
+     },
+     "WR": {
+      "n": 531,
+      "rho_d_consensus": -0.060851396744775334,
+      "rho_d_ours": -0.05890479845249434
+     },
+     "TE": {
+      "n": 188,
+      "rho_d_consensus": -0.1518989514831055,
+      "rho_d_ours": -0.07949705950042671
+     }
+    },
+    "spearman_position_demeaned": {
+     "rho": -0.024907797486571057,
+     "ci95": [
+      -0.09397232465629642,
+      0.04559578213055921
+     ],
+     "n": 1274,
+     "players": 295,
+     "p_two_sided": 0.3786213786213786
+    },
+    "placebo": {
+     "n": 1021,
+     "spearman_placebo_vs_d_consensus": {
+      "rho": 0.20168259240010197,
+      "ci95": [
+       0.1310484204546787,
+       0.26867159634947746
+      ],
+      "n": 1021,
+      "players": 287,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_d_consensus_same_rows": {
+      "rho": -0.011500348324676495,
+      "ci95": [
+       -0.08569359346050127,
+       0.06254778988490572
+      ],
+      "n": 1021,
+      "players": 287,
+      "p_two_sided": 0.7252747252747253
+     },
+     "spearman_gap_vs_placebo": -0.027827221128420815,
+     "rank_regression_d_consensus_on_gap_and_placebo": {
+      "gap": {
+       "beta": -0.00589279116276792,
+       "se": 0.0307100067332063,
+       "t": -0.19188504952023108
+      },
+      "placebo": {
+       "beta": 0.20151816998841346,
+       "se": 0.030709178137690113,
+       "t": 6.5621479378207574
+      },
+      "n": 1021
+     }
+    },
+    "base_rate": {
+     "consensus_up": {
+      "rate": 0.42700156985871274,
+      "ci95": [
+       0.3942014598670745,
+       0.45728123360813927
+      ],
+      "n": 1274,
+      "players": 295
+     },
+     "consensus_down": {
+      "rate": 0.5729984301412873,
+      "ci95": [
+       0.5402960788435649,
+       0.6036992757089944
+      ],
+      "n": 1274,
+      "players": 295
+     },
+     "mean_d_consensus": -0.015895192204755108,
+     "mean_d_ours": 0.023168356377707634
+    },
+    "sell_listed": {
+     "n": 135,
+     "players": 63,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5185185185185185,
+      "ci95": [
+       0.43163254012174873,
+       0.5971223021582733
+      ],
+      "n": 135,
+      "players": 63
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5185185185185185,
+      "ci95": [
+       0.43356060606060604,
+       0.6
+      ],
+      "n": 135,
+      "players": 63
+     },
+     "gap_closes": {
+      "rate": 0.5259259259259259,
+      "ci95": [
+       0.4603174603174603,
+       0.5955921464330413
+      ],
+      "n": 135,
+      "players": 63
+     },
+     "mean_d_consensus": -0.17045972142374038,
+     "mean_d_ours": 0.10035637165928088,
+     "mean_gap": 2.068912864289319,
+     "still_listed_later": {
+      "rate": 0.5555555555555556,
+      "ci95": [
+       0.4594136509390747,
+       0.6467458187074128
+      ],
+      "n": 135,
+      "players": 63
+     },
+     "flipped_side_later": {
+      "rate": 0.08888888888888889,
+      "ci95": [
+       0.046029135338345864,
+       0.1459896125772038
+      ],
+      "n": 135,
+      "players": 63
+     }
+    },
+    "sell_eligible": {
+     "n": 634,
+     "players": 184,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5362776025236593,
+      "ci95": [
+       0.49019384009311484,
+       0.5786104582384424
+      ],
+      "n": 634,
+      "players": 184
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.444794952681388,
+      "ci95": [
+       0.4018684421764807,
+       0.4913986965935644
+      ],
+      "n": 634,
+      "players": 184
+     },
+     "gap_closes": {
+      "rate": 0.5725552050473186,
+      "ci95": [
+       0.5363810324367089,
+       0.6090097402597402
+      ],
+      "n": 634,
+      "players": 184
+     },
+     "mean_d_consensus": 0.0613561950800156,
+     "mean_d_ours": 0.18182066861534094,
+     "mean_gap": 2.3320352476245807,
+     "still_listed_later": {
+      "rate": 0.1529968454258675,
+      "ci95": [
+       0.1069069530936119,
+       0.2000228310502283
+      ],
+      "n": 634,
+      "players": 184
+     },
+     "flipped_side_later": {
+      "rate": 0.01892744479495268,
+      "ci95": [
+       0.009302325581395349,
+       0.030778688524590158
+      ],
+      "n": 634,
+      "players": 184
+     }
+    },
+    "buy_listed": {
+     "n": 0
+    },
+    "buy_eligible": {
+     "n": 234,
+     "players": 59,
+     "consensus_moves_toward_ours": {
+      "rate": 0.4658119658119658,
+      "ci95": [
+       0.38960373642750695,
+       0.535572356690147
+      ],
+      "n": 234,
+      "players": 59
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.49572649572649574,
+      "ci95": [
+       0.4169788091969801,
+       0.5774151557415155
+      ],
+      "n": 234,
+      "players": 59
+     },
+     "gap_closes": {
+      "rate": 0.4444444444444444,
+      "ci95": [
+       0.38426432581766334,
+       0.5108272784484238
+      ],
+      "n": 234,
+      "players": 59
+     },
+     "mean_d_consensus": -0.16436564930308636,
+     "mean_d_ours": -0.12822308816136224,
+     "mean_gap": -6.036157417390868,
+     "still_listed_later": {
+      "rate": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n": 234,
+      "players": 59
+     },
+     "flipped_side_later": {
+      "rate": 0.04700854700854701,
+      "ci95": [
+       0.022121457253128533,
+       0.07758719099354433
+      ],
+      "n": 234,
+      "players": 59
+     }
+    },
+    "persistence": {
+     "spearman_gap_vs_gap_later": {
+      "rho": 0.9098111671654814,
+      "ci95": [
+       0.886641769838719,
+       0.9273268439285008
+      ],
+      "n": 1274,
+      "players": 295,
+      "p_two_sided": 0.000999000999000999
+     },
+     "share_gap_shrinks": {
+      "rate": 0.5580847723704867,
+      "ci95": [
+       0.5321856320352883,
+       0.5830720726162355
+      ],
+      "n": 1274,
+      "players": 295
+     },
+     "share_sign_flips": {
+      "rate": 0.030612244897959183,
+      "ci95": [
+       0.019900138372905555,
+       0.04186567219098643
+      ],
+      "n": 1274,
+      "players": 295
+     },
+     "d_gap_from_consensus_share": 0.4823637915124499
+    }
+   },
+   "horizon_2": {
+    "n": 1011,
+    "players": 289,
+    "weeks": [
+     2,
+     3,
+     4,
+     5
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": 0.012390457258552812,
+     "ci95": [
+      -0.0789653710962135,
+      0.10322500708149757
+     ],
+     "n": 1011,
+     "players": 289,
+     "p_two_sided": 0.6823176823176823
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.04897374749919397,
+     "ci95": [
+      -0.055771107932417775,
+      0.1406306854736211
+     ],
+     "n": 1011,
+     "players": 289,
+     "p_two_sided": 0.13186813186813187
+    },
+    "spearman_gap_vs_d_gap": {
+     "rho": -0.21141828968910967,
+     "ci95": [
+      -0.2938705288237599,
+      -0.134433929026637
+     ],
+     "n": 1011,
+     "players": 289,
+     "p_two_sided": 0.000999000999000999
+    },
+    "quintiles_d_consensus": [
+     {
+      "bucket": 1,
+      "signal_lo": -16.791173017862107,
+      "signal_hi": -0.48495282382743454,
+      "n": 202,
+      "mean_outcome": -0.6566655565002895,
+      "median_outcome": -0.7361088020185349,
+      "share_positive": 0.4207920792079208
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -0.48495282382743454,
+      "signal_hi": 0.3303428221063539,
+      "n": 202,
+      "mean_outcome": 0.058301302797916225,
+      "median_outcome": -0.008921283104708591,
+      "share_positive": 0.32673267326732675
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.3303428221063539,
+      "signal_hi": 1.2812847881555347,
+      "n": 203,
+      "mean_outcome": 0.3741699012031791,
+      "median_outcome": -0.015049677091222902,
+      "share_positive": 0.49261083743842365
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 1.2812847881555347,
+      "signal_hi": 2.68711338185694,
+      "n": 201,
+      "mean_outcome": 0.17823508525214518,
+      "median_outcome": -0.13802183962896675,
+      "share_positive": 0.4527363184079602
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.68711338185694,
+      "signal_hi": 5.1683556153096495,
+      "n": 203,
+      "mean_outcome": -0.1731457666097507,
+      "median_outcome": -0.3191308236593162,
+      "share_positive": 0.4433497536945813
+     }
+    ],
+    "quintiles_d_ours": [
+     {
+      "bucket": 1,
+      "signal_lo": -16.791173017862107,
+      "signal_hi": -0.48495282382743454,
+      "n": 202,
+      "mean_outcome": -0.7785370333250412,
+      "median_outcome": -0.7127533372248696,
+      "share_positive": 0.4504950495049505
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -0.48495282382743454,
+      "signal_hi": 0.3303428221063539,
+      "n": 202,
+      "mean_outcome": -0.1422865274228938,
+      "median_outcome": 0.0,
+      "share_positive": 0.22277227722772278
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.3303428221063539,
+      "signal_hi": 1.2812847881555347,
+      "n": 203,
+      "mean_outcome": 0.1754363132598623,
+      "median_outcome": 0.0,
+      "share_positive": 0.39408866995073893
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 1.2812847881555347,
+      "signal_hi": 2.68711338185694,
+      "n": 201,
+      "mean_outcome": 0.47875412818622404,
+      "median_outcome": -0.010251582302948752,
+      "share_positive": 0.46766169154228854
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.68711338185694,
+      "signal_hi": 5.1683556153096495,
+      "n": 203,
+      "mean_outcome": 0.41651483311294174,
+      "median_outcome": -0.030522953540090964,
+      "share_positive": 0.4876847290640394
+     }
+    ],
+    "per_week": {
+     "2": {
+      "n": 243,
+      "rho_d_consensus": -0.02109686292824893,
+      "rho_d_ours": 0.09345921828016567
+     },
+     "3": {
+      "n": 250,
+      "rho_d_consensus": -0.00973192135937943,
+      "rho_d_ours": 0.07203678922087445
+     },
+     "4": {
+      "n": 254,
+      "rho_d_consensus": 0.05674779063821163,
+      "rho_d_ours": 0.0314315160552037
+     },
+     "5": {
+      "n": 264,
+      "rho_d_consensus": 0.030573119797834242,
+      "rho_d_ours": -0.01349906766796005
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 135,
+      "rho_d_consensus": 0.22608525997463663,
+      "rho_d_ours": 0.1908411464764581
+     },
+     "RB": {
+      "n": 306,
+      "rho_d_consensus": 0.06936526343226322,
+      "rho_d_ours": 0.118887108171299
+     },
+     "WR": {
+      "n": 420,
+      "rho_d_consensus": -0.01713114396949753,
+      "rho_d_ours": 0.023175225326053525
+     },
+     "TE": {
+      "n": 150,
+      "rho_d_consensus": -0.21498454845813456,
+      "rho_d_ours": -0.15027884729058566
+     }
+    },
+    "spearman_position_demeaned": {
+     "rho": 0.014993929940655808,
+     "ci95": [
+      -0.07428994626760597,
+      0.10370047984598386
+     ],
+     "n": 1011,
+     "players": 289,
+     "p_two_sided": 0.6463536463536463
+    },
+    "placebo": {
+     "n": 759,
+     "spearman_placebo_vs_d_consensus": {
+      "rho": 0.15733656819311495,
+      "ci95": [
+       0.07174573746084424,
+       0.23467196250828024
+      ],
+      "n": 759,
+      "players": 281,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_d_consensus_same_rows": {
+      "rho": 0.026190011067840715,
+      "ci95": [
+       -0.07447500294204938,
+       0.12729763142329178
+      ],
+      "n": 759,
+      "players": 281,
+      "p_two_sided": 0.4785214785214785
+     },
+     "spearman_gap_vs_placebo": -0.03164059123323618,
+     "rank_regression_d_consensus_on_gap_and_placebo": {
+      "gap": {
+       "beta": 0.031201481251125526,
+       "se": 0.035919055884820646,
+       "t": 0.8686609512003136
+      },
+      "placebo": {
+       "beta": 0.15832467746218498,
+       "se": 0.035916951102951206,
+       "t": 4.4080767604234605
+      },
+      "n": 759
+     }
+    },
+    "base_rate": {
+     "consensus_up": {
+      "rate": 0.42729970326409494,
+      "ci95": [
+       0.38871852143762514,
+       0.46766329721798156
+      ],
+      "n": 1011,
+      "players": 289
+     },
+     "consensus_down": {
+      "rate": 0.5727002967359051,
+      "ci95": [
+       0.5344484131681649,
+       0.6104046576202505
+      ],
+      "n": 1011,
+      "players": 289
+     },
+     "mean_d_consensus": -0.04375512145374112,
+     "mean_d_ours": 0.030058657970353474
+    },
+    "sell_listed": {
+     "n": 105,
+     "players": 55,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5047619047619047,
+      "ci95": [
+       0.39814590075512407,
+       0.6096365914786966
+      ],
+      "n": 105,
+      "players": 55
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5238095238095238,
+      "ci95": [
+       0.42718446601941745,
+       0.625
+      ],
+      "n": 105,
+      "players": 55
+     },
+     "gap_closes": {
+      "rate": 0.5523809523809524,
+      "ci95": [
+       0.4599795918367347,
+       0.6481606606606607
+      ],
+      "n": 105,
+      "players": 55
+     },
+     "mean_d_consensus": -0.13855875207394147,
+     "mean_d_ours": 0.35059437979693153,
+     "mean_gap": 2.0812754128643904,
+     "still_listed_later": {
+      "rate": 0.47619047619047616,
+      "ci95": [
+       0.3618571428571429,
+       0.5739961117002473
+      ],
+      "n": 105,
+      "players": 55
+     },
+     "flipped_side_later": {
+      "rate": 0.14285714285714285,
+      "ci95": [
+       0.07405708460754332,
+       0.22224702380952377
+      ],
+      "n": 105,
+      "players": 55
+     }
+    },
+    "sell_eligible": {
+     "n": 498,
+     "players": 172,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5281124497991968,
+      "ci95": [
+       0.47504233956329767,
+       0.5835279153835855
+      ],
+      "n": 498,
+      "players": 172
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.46987951807228917,
+      "ci95": [
+       0.4135767896205778,
+       0.5317058788492465
+      ],
+      "n": 498,
+      "players": 172
+     },
+     "gap_closes": {
+      "rate": 0.6164658634538153,
+      "ci95": [
+       0.5720009435373924,
+       0.6613845031397045
+      ],
+      "n": 498,
+      "players": 172
+     },
+     "mean_d_consensus": 0.19091031059107988,
+     "mean_d_ours": 0.48287201970985,
+     "mean_gap": 2.3471338123022396,
+     "still_listed_later": {
+      "rate": 0.14859437751004015,
+      "ci95": [
+       0.10358222283280671,
+       0.19919713377378173
+      ],
+      "n": 498,
+      "players": 172
+     },
+     "flipped_side_later": {
+      "rate": 0.03614457831325301,
+      "ci95": [
+       0.017783073703789818,
+       0.058577405857740586
+      ],
+      "n": 498,
+      "players": 172
+     }
+    },
+    "buy_listed": {
+     "n": 0
+    },
+    "buy_eligible": {
+     "n": 189,
+     "players": 58,
+     "consensus_moves_toward_ours": {
+      "rate": 0.42328042328042326,
+      "ci95": [
+       0.3316062176165803,
+       0.5102067115505996
+      ],
+      "n": 189,
+      "players": 58
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5502645502645502,
+      "ci95": [
+       0.45831117021276596,
+       0.6363636363636364
+      ],
+      "n": 189,
+      "players": 58
+     },
+     "gap_closes": {
+      "rate": 0.48148148148148145,
+      "ci95": [
+       0.4040973166989898,
+       0.5661507936507937
+      ],
+      "n": 189,
+      "players": 58
+     },
+     "mean_d_consensus": -0.6645950025617194,
+     "mean_d_ours": -0.7837306161833956,
+     "mean_gap": -5.9250578318144695,
+     "still_listed_later": {
+      "rate": 0.0,
+      "ci95": [
+       0.0,
+       0.0
+      ],
+      "n": 189,
+      "players": 58
+     },
+     "flipped_side_later": {
+      "rate": 0.07936507936507936,
+      "ci95": [
+       0.03626475615618824,
+       0.13336021505376341
+      ],
+      "n": 189,
+      "players": 58
+     }
+    },
+    "persistence": {
+     "spearman_gap_vs_gap_later": {
+      "rho": 0.8183383094499938,
+      "ci95": [
+       0.7710638849417645,
+       0.8569060350942719
+      ],
+      "n": 1011,
+      "players": 289,
+      "p_two_sided": 0.000999000999000999
+     },
+     "share_gap_shrinks": {
+      "rate": 0.5776458951533135,
+      "ci95": [
+       0.5418621671478986,
+       0.6127182472691162
+      ],
+      "n": 1011,
+      "players": 289
+     },
+     "share_sign_flips": {
+      "rate": 0.05341246290801187,
+      "ci95": [
+       0.03542923326966255,
+       0.07324624695032525
+      ],
+      "n": 1011,
+      "players": 289
+     },
+     "d_gap_from_consensus_share": 0.479409419809968
+    }
+   },
+   "actuals": {
+    "n": 1299,
+    "players": 283,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "spearman_gap_vs_residual": {
+     "rho": -0.020845408709537196,
+     "ci95": [
+      -0.08889377095901628,
+      0.05214573001010486
+     ],
+     "n": 1299,
+     "players": 283,
+     "p_two_sided": 0.47052947052947053
+    },
+    "quintiles_residual": [
+     {
+      "bucket": 1,
+      "signal_lo": -17.470238532859376,
+      "signal_hi": -1.34920746207054,
+      "n": 260,
+      "mean_outcome": 0.27812808076923073,
+      "median_outcome": 0.2531820000000007,
+      "share_positive": 0.5192307692307693
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -1.34920746207054,
+      "signal_hi": 0.3654933195669621,
+      "n": 260,
+      "mean_outcome": 1.362895823076923,
+      "median_outcome": 1.0262499999999999,
+      "share_positive": 0.5846153846153846
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.3654933195669621,
+      "signal_hi": 1.3216797900211839,
+      "n": 259,
+      "mean_outcome": 0.20076100772200778,
+      "median_outcome": 0.0,
+      "share_positive": 0.4980694980694981
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 1.3216797900211839,
+      "signal_hi": 2.6420158716595883,
+      "n": 260,
+      "mean_outcome": 0.33808813076923083,
+      "median_outcome": -0.17833349999999992,
+      "share_positive": 0.4807692307692308
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.6420158716595883,
+      "signal_hi": 5.1683556153096495,
+      "n": 260,
+      "mean_outcome": 0.4995867769230769,
+      "median_outcome": 0.0804545000000001,
+      "share_positive": 0.5153846153846153
+     }
+    ],
+    "mean_residual_all": 0.5361499553502694,
+    "spearman_projection_vs_actual": 0.6305785191574605,
+    "sell_listed": {
+     "n": 136,
+     "mean_residual": -0.4708289779411763,
+     "beats_projection": {
+      "rate": 0.4485294117647059,
+      "ci95": [
+       0.35652057245080504,
+       0.5328947368421053
+      ],
+      "n": 136,
+      "players": 64
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 185,
+      "rho": -0.08352227148435014
+     },
+     "RB": {
+      "n": 375,
+      "rho": 0.07113625632283302
+     },
+     "WR": {
+      "n": 530,
+      "rho": -0.05225727979730918
+     },
+     "TE": {
+      "n": 209,
+      "rho": -0.08497045420051035
+     }
+    }
+   }
+  },
+  "proj": {
+   "lists": {
+    "2": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn"
+     ],
+     "compared": 350,
+     "with_consensus": 350,
+     "priced_by_charts": 235,
+     "ours_above_zero": 174,
+     "buy_listed": 24,
+     "sell_listed": 29,
+     "buy_eligible": 56,
+     "sell_eligible": 107,
+     "flagged": 51,
+     "median_gap": 0.0,
+     "mean_abs_gap": 1.7777421693057882
+    },
+    "3": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "razzball"
+     ],
+     "compared": 513,
+     "with_consensus": 513,
+     "priced_by_charts": 250,
+     "ours_above_zero": 196,
+     "buy_listed": 27,
+     "sell_listed": 32,
+     "buy_eligible": 64,
+     "sell_eligible": 100,
+     "flagged": 59,
+     "median_gap": 0.0,
+     "mean_abs_gap": 1.2757453143859194
+    },
+    "4": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 706,
+     "with_consensus": 706,
+     "priced_by_charts": 253,
+     "ours_above_zero": 207,
+     "buy_listed": 25,
+     "sell_listed": 28,
+     "buy_eligible": 62,
+     "sell_eligible": 99,
+     "flagged": 61,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.890637613774212
+    },
+    "5": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 729,
+     "with_consensus": 729,
+     "priced_by_charts": 262,
+     "ours_above_zero": 213,
+     "buy_listed": 25,
+     "sell_listed": 31,
+     "buy_eligible": 63,
+     "sell_eligible": 105,
+     "flagged": 268,
+     "median_gap": 0.0,
+     "mean_abs_gap": 1.008889011467573
+    },
+    "6": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 734,
+     "with_consensus": 734,
+     "priced_by_charts": 262,
+     "ours_above_zero": 221,
+     "buy_listed": 21,
+     "sell_listed": 31,
+     "buy_eligible": 64,
+     "sell_eligible": 110,
+     "flagged": 289,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.9253871921743337
+    },
+    "7": {
+     "sources": [
+      "usatoday",
+      "fantasycalc",
+      "fantasypros",
+      "cbs",
+      "espn",
+      "cbsros",
+      "razzball"
+     ],
+     "compared": 736,
+     "with_consensus": 736,
+     "priced_by_charts": 269,
+     "ours_above_zero": 211,
+     "buy_listed": 28,
+     "sell_listed": 24,
+     "buy_eligible": 71,
+     "sell_eligible": 95,
+     "flagged": 275,
+     "median_gap": 0.0,
+     "mean_abs_gap": 0.8848491444697345
+    }
+   },
+   "horizon_1": {
+    "n": 1259,
+    "players": 292,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.1923526995251216,
+     "ci95": [
+      -0.25535078041908976,
+      -0.1302714122424409
+     ],
+     "n": 1259,
+     "players": 292,
+     "p_two_sided": 0.000999000999000999
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.19068429365206999,
+     "ci95": [
+      0.1260165775562959,
+      0.25245409660389395
+     ],
+     "n": 1259,
+     "players": 292,
+     "p_two_sided": 0.000999000999000999
+    },
+    "spearman_gap_vs_d_gap": {
+     "rho": -0.33946664229186657,
+     "ci95": [
+      -0.38760644856301746,
+      -0.2922375153940356
+     ],
+     "n": 1259,
+     "players": 292,
+     "p_two_sided": 0.000999000999000999
+    },
+    "quintiles_d_consensus": [
+     {
+      "bucket": 1,
+      "signal_lo": -24.845588860541405,
+      "signal_hi": -1.939540287114884,
+      "n": 252,
+      "mean_outcome": 0.43475716200174125,
+      "median_outcome": 0.23169022688902174,
+      "share_positive": 0.5833333333333334
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -1.939540287114884,
+      "signal_hi": 0.14613072349405257,
+      "n": 247,
+      "mean_outcome": -0.026118815086672603,
+      "median_outcome": -0.0051012603269012385,
+      "share_positive": 0.3765182186234818
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.14613072349405257,
+      "signal_hi": 0.6798364338121106,
+      "n": 256,
+      "mean_outcome": 0.15082062388063264,
+      "median_outcome": -0.007973240365131473,
+      "share_positive": 0.39453125
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 0.6798364338121106,
+      "signal_hi": 2.605578685157405,
+      "n": 252,
+      "mean_outcome": -0.009611036474019318,
+      "median_outcome": -0.10043542980341708,
+      "share_positive": 0.42857142857142855
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.605578685157405,
+      "signal_hi": 15.895480161915403,
+      "n": 252,
+      "mean_outcome": -0.6278777605467935,
+      "median_outcome": -0.547419787893265,
+      "share_positive": 0.3611111111111111
+     }
+    ],
+    "quintiles_d_ours": [
+     {
+      "bucket": 1,
+      "signal_lo": -24.845588860541405,
+      "signal_hi": -1.939540287114884,
+      "n": 252,
+      "mean_outcome": -1.4317809304053448,
+      "median_outcome": -1.1774645304888658,
+      "share_positive": 0.35714285714285715
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -1.939540287114884,
+      "signal_hi": 0.14613072349405257,
+      "n": 247,
+      "mean_outcome": 0.09226275570122844,
+      "median_outcome": 0.0,
+      "share_positive": 0.3481781376518219
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.14613072349405257,
+      "signal_hi": 0.6798364338121106,
+      "n": 256,
+      "mean_outcome": 0.1301468339201291,
+      "median_outcome": 0.0,
+      "share_positive": 0.3125
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 0.6798364338121106,
+      "signal_hi": 2.605578685157405,
+      "n": 252,
+      "mean_outcome": 0.36734635482280403,
+      "median_outcome": 0.0,
+      "share_positive": 0.4880952380952381
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.605578685157405,
+      "signal_hi": 15.895480161915403,
+      "n": 252,
+      "mean_outcome": 0.8922193985140825,
+      "median_outcome": 0.08150464580336561,
+      "share_positive": 0.5476190476190477
+     }
+    ],
+    "per_week": {
+     "2": {
+      "n": 235,
+      "rho_d_consensus": -0.07632776337618072,
+      "rho_d_ours": 0.28994909701882277
+     },
+     "3": {
+      "n": 247,
+      "rho_d_consensus": -0.10619765235176953,
+      "rho_d_ours": 0.27200702656825
+     },
+     "4": {
+      "n": 253,
+      "rho_d_consensus": -0.0782688531415799,
+      "rho_d_ours": 0.11019628077906296
+     },
+     "5": {
+      "n": 262,
+      "rho_d_consensus": -0.44717818386306457,
+      "rho_d_ours": 0.11171990272460247
+     },
+     "6": {
+      "n": 262,
+      "rho_d_consensus": -0.2267166066220319,
+      "rho_d_ours": 0.15320106601636477
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 169,
+      "rho_d_consensus": -0.009713589577842973,
+      "rho_d_ours": 0.23804952739699672
+     },
+     "RB": {
+      "n": 377,
+      "rho_d_consensus": -0.19332040016128266,
+      "rho_d_ours": 0.21766768391639071
+     },
+     "WR": {
+      "n": 525,
+      "rho_d_consensus": -0.21677033753665928,
+      "rho_d_ours": 0.17100353826234396
+     },
+     "TE": {
+      "n": 188,
+      "rho_d_consensus": -0.31365566762513764,
+      "rho_d_ours": 0.15537424112603274
+     }
+    },
+    "spearman_position_demeaned": {
+     "rho": -0.20346031916748364,
+     "ci95": [
+      -0.265512810343368,
+      -0.1389329444958309
+     ],
+     "n": 1259,
+     "players": 292,
+     "p_two_sided": 0.000999000999000999
+    },
+    "placebo": {
+     "n": 1011,
+     "spearman_placebo_vs_d_consensus": {
+      "rho": 0.20385045185513279,
+      "ci95": [
+       0.13637049870194212,
+       0.2699838439075434
+      ],
+      "n": 1011,
+      "players": 284,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_d_consensus_same_rows": {
+      "rho": -0.21548036417484234,
+      "ci95": [
+       -0.2832837706972715,
+       -0.13971236422352173
+      ],
+      "n": 1011,
+      "players": 284,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_placebo": -0.04394675116032402,
+     "rank_regression_d_consensus_on_gap_and_placebo": {
+      "gap": {
+       "beta": -0.20692412191838983,
+       "se": 0.030169939153741093,
+       "t": -6.858619132903724
+      },
+      "placebo": {
+       "beta": 0.19475648284258923,
+       "se": 0.0301694778157246,
+       "t": 6.455414443437282
+      },
+      "n": 1011
+     }
+    },
+    "base_rate": {
+     "consensus_up": {
+      "rate": 0.4289118347895155,
+      "ci95": [
+       0.39594373856025544,
+       0.4602089709592733
+      ],
+      "n": 1259,
+      "players": 292
+     },
+     "consensus_down": {
+      "rate": 0.5710881652104846,
+      "ci95": [
+       0.5381495557892098,
+       0.6040815890432744
+      ],
+      "n": 1259,
+      "players": 292
+     },
+     "mean_d_consensus": -0.015035456423965232,
+     "mean_d_ours": 0.010093936076652073
+    },
+    "sell_listed": {
+     "n": 151,
+     "players": 66,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5695364238410596,
+      "ci95": [
+       0.48361682022206476,
+       0.6483003088008235
+      ],
+      "n": 151,
+      "players": 66
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.4900662251655629,
+      "ci95": [
+       0.4220681427006728,
+       0.5629255666449025
+      ],
+      "n": 151,
+      "players": 66
+     },
+     "gap_closes": {
+      "rate": 0.4966887417218543,
+      "ci95": [
+       0.42857142857142855,
+       0.5636394142769982
+      ],
+      "n": 151,
+      "players": 66
+     },
+     "mean_d_consensus": -0.5145292579085781,
+     "mean_d_ours": 0.6312118623625947,
+     "mean_gap": 3.6358476211433026,
+     "still_listed_later": {
+      "rate": 0.6158940397350994,
+      "ci95": [
+       0.5116279069767442,
+       0.7090023994093761
+      ],
+      "n": 151,
+      "players": 66
+     },
+     "flipped_side_later": {
+      "rate": 0.2119205298013245,
+      "ci95": [
+       0.14814266929651546,
+       0.29371657754010694
+      ],
+      "n": 151,
+      "players": 66
+     }
+    },
+    "sell_eligible": {
+     "n": 520,
+     "players": 188,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5865384615384616,
+      "ci95": [
+       0.5394710940737671,
+       0.6318931610920728
+      ],
+      "n": 520,
+      "players": 188
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5,
+      "ci95": [
+       0.46007321338799556,
+       0.5392421703455449
+      ],
+      "n": 520,
+      "players": 188
+     },
+     "gap_closes": {
+      "rate": 0.5923076923076923,
+      "ci95": [
+       0.5576542266979537,
+       0.6280871695821277
+      ],
+      "n": 520,
+      "players": 188
+     },
+     "mean_d_consensus": -0.22185846485513758,
+     "mean_d_ours": 0.5782291912258433,
+     "mean_gap": 2.9494905004981957,
+     "still_listed_later": {
+      "rate": 0.2076923076923077,
+      "ci95": [
+       0.15102777125520409,
+       0.27149471088047444
+      ],
+      "n": 520,
+      "players": 188
+     },
+     "flipped_side_later": {
+      "rate": 0.13846153846153847,
+      "ci95": [
+       0.10895041287604673,
+       0.1733102920224882
+      ],
+      "n": 520,
+      "players": 188
+     }
+    },
+    "buy_listed": {
+     "n": 122,
+     "players": 61,
+     "consensus_moves_toward_ours": {
+      "rate": 0.6557377049180327,
+      "ci95": [
+       0.5585529279279279,
+       0.739148108872393
+      ],
+      "n": 122,
+      "players": 61
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.6147540983606558,
+      "ci95": [
+       0.5277189265536724,
+       0.7017586032388664
+      ],
+      "n": 122,
+      "players": 61
+     },
+     "gap_closes": {
+      "rate": 0.6721311475409836,
+      "ci95": [
+       0.5983589043015273,
+       0.75
+      ],
+      "n": 122,
+      "players": 61
+     },
+     "mean_d_consensus": 0.7447546423952155,
+     "mean_d_ours": -1.3833374954333986,
+     "mean_gap": -6.760577865416345,
+     "still_listed_later": {
+      "rate": 0.5081967213114754,
+      "ci95": [
+       0.38833465425004954,
+       0.595623902546093
+      ],
+      "n": 122,
+      "players": 61
+     },
+     "flipped_side_later": {
+      "rate": 0.16393442622950818,
+      "ci95": [
+       0.09166507633587785,
+       0.24561403508771928
+      ],
+      "n": 122,
+      "players": 61
+     }
+    },
+    "buy_eligible": {
+     "n": 308,
+     "players": 123,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5714285714285714,
+      "ci95": [
+       0.5135886203423968,
+       0.6346864279139821
+      ],
+      "n": 308,
+      "players": 123
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.6363636363636364,
+      "ci95": [
+       0.5778426480372587,
+       0.6918092347835951
+      ],
+      "n": 308,
+      "players": 123
+     },
+     "gap_closes": {
+      "rate": 0.5746753246753247,
+      "ci95": [
+       0.5268055268924988,
+       0.626584388185654
+      ],
+      "n": 308,
+      "players": 123
+     },
+     "mean_d_consensus": 0.3965599639583428,
+     "mean_d_ours": -1.0116697601632036,
+     "mean_gap": -4.754944049675757,
+     "still_listed_later": {
+      "rate": 0.2824675324675325,
+      "ci95": [
+       0.21499878108239884,
+       0.34694697814817244
+      ],
+      "n": 308,
+      "players": 123
+     },
+     "flipped_side_later": {
+      "rate": 0.24675324675324675,
+      "ci95": [
+       0.19656699889258028,
+       0.301092246745897
+      ],
+      "n": 308,
+      "players": 123
+     }
+    },
+    "persistence": {
+     "spearman_gap_vs_gap_later": {
+      "rho": 0.6643667899056859,
+      "ci95": [
+       0.6092828362620926,
+       0.7155162546001793
+      ],
+      "n": 1259,
+      "players": 292,
+      "p_two_sided": 0.000999000999000999
+     },
+     "share_gap_shrinks": {
+      "rate": 0.5663224781572677,
+      "ci95": [
+       0.5430611329460013,
+       0.5884979476823989
+      ],
+      "n": 1259,
+      "players": 292
+     },
+     "share_sign_flips": {
+      "rate": 0.17474185861795075,
+      "ci95": [
+       0.1485841219555372,
+       0.20174081237911026
+      ],
+      "n": 1259,
+      "players": 292
+     },
+     "d_gap_from_consensus_share": 0.3973486729582667
+    }
+   },
+   "horizon_2": {
+    "n": 997,
+    "players": 286,
+    "weeks": [
+     2,
+     3,
+     4,
+     5
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.17220489764456326,
+     "ci95": [
+      -0.2504877848386303,
+      -0.08762738616129548
+     ],
+     "n": 997,
+     "players": 286,
+     "p_two_sided": 0.000999000999000999
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.18657251306642283,
+     "ci95": [
+      0.09107791945750927,
+      0.2721947707935738
+     ],
+     "n": 997,
+     "players": 286,
+     "p_two_sided": 0.000999000999000999
+    },
+    "spearman_gap_vs_d_gap": {
+     "rho": -0.40150615287309177,
+     "ci95": [
+      -0.4692396597715614,
+      -0.33052797760543473
+     ],
+     "n": 997,
+     "players": 286,
+     "p_two_sided": 0.000999000999000999
+    },
+    "quintiles_d_consensus": [
+     {
+      "bucket": 1,
+      "signal_lo": -24.845588860541405,
+      "signal_hi": -1.8884454547550005,
+      "n": 200,
+      "mean_outcome": 0.4132695508698244,
+      "median_outcome": 0.37422966589552153,
+      "share_positive": 0.54
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -1.8884454547550005,
+      "signal_hi": 0.14613072349405257,
+      "n": 190,
+      "mean_outcome": 0.16239585422096303,
+      "median_outcome": -0.008921283104708591,
+      "share_positive": 0.4473684210526316
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.14613072349405257,
+      "signal_hi": 0.6523214663396972,
+      "n": 208,
+      "mean_outcome": 0.27872347057332403,
+      "median_outcome": -0.0160094066531484,
+      "share_positive": 0.36538461538461536
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 0.6523214663396972,
+      "signal_hi": 2.679159144058936,
+      "n": 199,
+      "mean_outcome": 0.08758765041993175,
+      "median_outcome": -0.15650089679811252,
+      "share_positive": 0.4371859296482412
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.679159144058936,
+      "signal_hi": 15.895480161915403,
+      "n": 200,
+      "mean_outcome": -1.099921017093675,
+      "median_outcome": -1.0527361822988741,
+      "share_positive": 0.37
+     }
+    ],
+    "quintiles_d_ours": [
+     {
+      "bucket": 1,
+      "signal_lo": -24.845588860541405,
+      "signal_hi": -1.8884454547550005,
+      "n": 200,
+      "mean_outcome": -1.774994122224208,
+      "median_outcome": -1.87872952217143,
+      "share_positive": 0.39
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -1.8884454547550005,
+      "signal_hi": 0.14613072349405257,
+      "n": 190,
+      "mean_outcome": 0.011031432765849714,
+      "median_outcome": 0.0,
+      "share_positive": 0.3894736842105263
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.14613072349405257,
+      "signal_hi": 0.6523214663396972,
+      "n": 208,
+      "mean_outcome": 0.2500005239666202,
+      "median_outcome": 0.0,
+      "share_positive": 0.3701923076923077
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 0.6523214663396972,
+      "signal_hi": 2.679159144058936,
+      "n": 199,
+      "mean_outcome": 0.5871012064531794,
+      "median_outcome": 0.00035681068028703953,
+      "share_positive": 0.5025125628140703
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.679159144058936,
+      "signal_hi": 15.895480161915403,
+      "n": 200,
+      "mean_outcome": 1.248282949670143,
+      "median_outcome": 0.4841317590545011,
+      "share_positive": 0.595
+     }
+    ],
+    "per_week": {
+     "2": {
+      "n": 232,
+      "rho_d_consensus": -0.07719547971165489,
+      "rho_d_ours": 0.26190587714558533
+     },
+     "3": {
+      "n": 250,
+      "rho_d_consensus": -0.11059050073292857,
+      "rho_d_ours": 0.188982006533807
+     },
+     "4": {
+      "n": 253,
+      "rho_d_consensus": -0.17460674402141205,
+      "rho_d_ours": 0.16442634130928904
+     },
+     "5": {
+      "n": 262,
+      "rho_d_consensus": -0.3162073468650714,
+      "rho_d_ours": 0.13737138385440992
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 134,
+      "rho_d_consensus": -0.022915497699472563,
+      "rho_d_ours": 0.24723055554424941
+     },
+     "RB": {
+      "n": 298,
+      "rho_d_consensus": -0.1771837027313559,
+      "rho_d_ours": 0.18916374734545321
+     },
+     "WR": {
+      "n": 415,
+      "rho_d_consensus": -0.18435861264036962,
+      "rho_d_ours": 0.19123476715742968
+     },
+     "TE": {
+      "n": 150,
+      "rho_d_consensus": -0.28945321278030833,
+      "rho_d_ours": 0.11048032265293119
+     }
+    },
+    "spearman_position_demeaned": {
+     "rho": -0.17327390558369912,
+     "ci95": [
+      -0.25268947927089613,
+      -0.09183606503668151
+     ],
+     "n": 997,
+     "players": 286,
+     "p_two_sided": 0.000999000999000999
+    },
+    "placebo": {
+     "n": 752,
+     "spearman_placebo_vs_d_consensus": {
+      "rho": 0.16232549794896362,
+      "ci95": [
+       0.07765707503344747,
+       0.25336324473607746
+      ],
+      "n": 752,
+      "players": 281,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_d_consensus_same_rows": {
+      "rho": -0.1991160557692554,
+      "ci95": [
+       -0.2892223600506282,
+       -0.10883189224791685
+      ],
+      "n": 752,
+      "players": 281,
+      "p_two_sided": 0.000999000999000999
+     },
+     "spearman_gap_vs_placebo": -0.01084935488361859,
+     "rank_regression_d_consensus_on_gap_and_placebo": {
+      "gap": {
+       "beta": -0.19738676917999726,
+       "se": 0.03532962172288534,
+       "t": -5.587004885821824
+      },
+      "placebo": {
+       "beta": 0.16018504859653884,
+       "se": 0.035328296473513564,
+       "t": 4.534185471315699
+      },
+      "n": 752
+     }
+    },
+    "base_rate": {
+     "consensus_up": {
+      "rate": 0.4312938816449348,
+      "ci95": [
+       0.38984687054097455,
+       0.47384520334573177
+      ],
+      "n": 997,
+      "players": 286
+     },
+     "consensus_down": {
+      "rate": 0.5687061183550652,
+      "ci95": [
+       0.530161495552728,
+       0.607424411040843
+      ],
+      "n": 997,
+      "players": 286
+     },
+     "mean_d_consensus": -0.031164149077200946,
+     "mean_d_ours": 0.06578433980334819
+    },
+    "sell_listed": {
+     "n": 120,
+     "players": 60,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5916666666666667,
+      "ci95": [
+       0.4868857832988268,
+       0.689125162260026
+      ],
+      "n": 120,
+      "players": 60
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.525,
+      "ci95": [
+       0.42012898182528824,
+       0.6271431573049446
+      ],
+      "n": 120,
+      "players": 60
+     },
+     "gap_closes": {
+      "rate": 0.525,
+      "ci95": [
+       0.436504329004329,
+       0.600040650406504
+      ],
+      "n": 120,
+      "players": 60
+     },
+     "mean_d_consensus": -0.755613173754297,
+     "mean_d_ours": 1.5301116850950303,
+     "mean_gap": 3.801677755413199,
+     "still_listed_later": {
+      "rate": 0.5333333333333333,
+      "ci95": [
+       0.41346153846153844,
+       0.6484765625
+      ],
+      "n": 120,
+      "players": 60
+     },
+     "flipped_side_later": {
+      "rate": 0.2916666666666667,
+      "ci95": [
+       0.20145522388059703,
+       0.40209434289179585
+      ],
+      "n": 120,
+      "players": 60
+     }
+    },
+    "sell_eligible": {
+     "n": 410,
+     "players": 177,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5853658536585366,
+      "ci95": [
+       0.5313828931276418,
+       0.6414244609557109
+      ],
+      "n": 410,
+      "players": 177
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5414634146341464,
+      "ci95": [
+       0.48394297334717895,
+       0.59675935828877
+      ],
+      "n": 410,
+      "players": 177
+     },
+     "gap_closes": {
+      "rate": 0.6121951219512195,
+      "ci95": [
+       0.5647520419678121,
+       0.664163188961576
+      ],
+      "n": 410,
+      "players": 177
+     },
+     "mean_d_consensus": -0.36875085780358424,
+     "mean_d_ours": 0.922745373732023,
+     "mean_gap": 3.021587672137526,
+     "still_listed_later": {
+      "rate": 0.1878048780487805,
+      "ci95": [
+       0.13012002089992622,
+       0.2494210213776722
+      ],
+      "n": 410,
+      "players": 177
+     },
+     "flipped_side_later": {
+      "rate": 0.16829268292682928,
+      "ci95": [
+       0.12731042855202393,
+       0.21266092108806894
+      ],
+      "n": 410,
+      "players": 177
+     }
+    },
+    "buy_listed": {
+     "n": 99,
+     "players": 54,
+     "consensus_moves_toward_ours": {
+      "rate": 0.6565656565656566,
+      "ci95": [
+       0.5535670943134535,
+       0.7604784149484535
+      ],
+      "n": 99,
+      "players": 54
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.5555555555555556,
+      "ci95": [
+       0.4456494834266035,
+       0.6782281731474687
+      ],
+      "n": 99,
+      "players": 54
+     },
+     "gap_closes": {
+      "rate": 0.6464646464646465,
+      "ci95": [
+       0.5504472477064221,
+       0.7411863846662261
+      ],
+      "n": 99,
+      "players": 54
+     },
+     "mean_d_consensus": 0.9038105946931636,
+     "mean_d_ours": -1.7269711834115682,
+     "mean_gap": -6.534703900792033,
+     "still_listed_later": {
+      "rate": 0.43434343434343436,
+      "ci95": [
+       0.3146067415730337,
+       0.5535908385093168
+      ],
+      "n": 99,
+      "players": 54
+     },
+     "flipped_side_later": {
+      "rate": 0.26262626262626265,
+      "ci95": [
+       0.16996052631578948,
+       0.35957342565978573
+      ],
+      "n": 99,
+      "players": 54
+     }
+    },
+    "buy_eligible": {
+     "n": 243,
+     "players": 115,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5761316872427984,
+      "ci95": [
+       0.49415993613096254,
+       0.6497943037974683
+      ],
+      "n": 243,
+      "players": 115
+     },
+     "ours_moves_toward_consensus": {
+      "rate": 0.6090534979423868,
+      "ci95": [
+       0.5372405178287532,
+       0.6742332830568125
+      ],
+      "n": 243,
+      "players": 115
+     },
+     "gap_closes": {
+      "rate": 0.5637860082304527,
+      "ci95": [
+       0.4935021645021645,
+       0.6282258064516129
+      ],
+      "n": 243,
+      "players": 115
+     },
+     "mean_d_consensus": 0.4832655337611184,
+     "mean_d_ours": -1.5719080104747245,
+     "mean_gap": -4.6714735064563,
+     "still_listed_later": {
+      "rate": 0.24691358024691357,
+      "ci95": [
+       0.17599914163090127,
+       0.32827571583165155
+      ],
+      "n": 243,
+      "players": 115
+     },
+     "flipped_side_later": {
+      "rate": 0.3374485596707819,
+      "ci95": [
+       0.2671441232810132,
+       0.4135169798695143
+      ],
+      "n": 243,
+      "players": 115
+     }
+    },
+    "persistence": {
+     "spearman_gap_vs_gap_later": {
+      "rho": 0.5381813409741513,
+      "ci95": [
+       0.4635963486274033,
+       0.6090744570802589
+      ],
+      "n": 997,
+      "players": 286,
+      "p_two_sided": 0.000999000999000999
+     },
+     "share_gap_shrinks": {
+      "rate": 0.5576730190571715,
+      "ci95": [
+       0.523424776176521,
+       0.592289530186464
+      ],
+      "n": 997,
+      "players": 286
+     },
+     "share_sign_flips": {
+      "rate": 0.21664994984954863,
+      "ci95": [
+       0.18291213811314314,
+       0.24852071245993426
+      ],
+      "n": 997,
+      "players": 286
+     },
+     "d_gap_from_consensus_share": 0.43261883013895197
+    }
+   },
+   "actuals": {
+    "n": 1299,
+    "players": 283,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6,
+     7
+    ],
+    "spearman_gap_vs_residual": {
+     "rho": -0.05388442081080996,
+     "ci95": [
+      -0.11845100494044296,
+      0.012544819944921771
+     ],
+     "n": 1299,
+     "players": 283,
+     "p_two_sided": 0.06393606393606394
+    },
+    "quintiles_residual": [
+     {
+      "bucket": 1,
+      "signal_lo": -24.845588860541405,
+      "signal_hi": -2.1376510766115064,
+      "n": 260,
+      "mean_outcome": 0.9423151384615385,
+      "median_outcome": 1.0028789999999992,
+      "share_positive": 0.5653846153846154
+     },
+     {
+      "bucket": 2,
+      "signal_lo": -2.1376510766115064,
+      "signal_hi": 0.14613072349405257,
+      "n": 259,
+      "mean_outcome": 0.5551457799227799,
+      "median_outcome": 0.7999999999999998,
+      "share_positive": 0.5444015444015444
+     },
+     {
+      "bucket": 3,
+      "signal_lo": 0.14613072349405257,
+      "signal_hi": 0.7523984098406137,
+      "n": 260,
+      "mean_outcome": 0.7919624115384614,
+      "median_outcome": 0.16500000000000015,
+      "share_positive": 0.5192307692307693
+     },
+     {
+      "bucket": 4,
+      "signal_lo": 0.7523984098406137,
+      "signal_hi": 2.605578685157405,
+      "n": 260,
+      "mean_outcome": 0.4638880884615385,
+      "median_outcome": -0.1349999999999998,
+      "share_positive": 0.48846153846153845
+     },
+     {
+      "bucket": 5,
+      "signal_lo": 2.605578685157405,
+      "signal_hi": 15.895480161915403,
+      "n": 260,
+      "mean_outcome": -0.07248858076923066,
+      "median_outcome": -0.4550000000000003,
+      "share_positive": 0.4807692307692308
+     }
+    ],
+    "mean_residual_all": 0.5361499553502694,
+    "spearman_projection_vs_actual": 0.6305785191574605,
+    "sell_listed": {
+     "n": 150,
+     "mean_residual": -0.20661119999999997,
+     "beats_projection": {
+      "rate": 0.44,
+      "ci95": [
+       0.33112354418817086,
+       0.5362489057484681
+      ],
+      "n": 150,
+      "players": 62
+     }
+    },
+    "buy_listed": {
+     "n": 135,
+     "mean_residual": 1.0395656444444445,
+     "beats_projection": {
+      "rate": 0.5407407407407407,
+      "ci95": [
+       0.46028493364558937,
+       0.625044014084507
+      ],
+      "n": 135,
+      "players": 65
+     }
+    },
+    "per_position": {
+     "QB": {
+      "n": 185,
+      "rho": -0.08453057339116857
+     },
+     "RB": {
+      "n": 375,
+      "rho": 0.03237507520808404
+     },
+     "WR": {
+      "n": 530,
+      "rho": -0.0879399799649781
+     },
+     "TE": {
+      "n": 209,
+      "rho": -0.10822460325376983
+     }
+    }
+   }
+  }
+ },
+ "settings_sweep": [
+  {
+   "scoring": "standard",
+   "teams": 8,
+   "h1": {
+    "n": 1263,
+    "players": 292,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.03842134575543026,
+     "ci95": [
+      -0.1166190450213066,
+      0.03291737086343151
+     ],
+     "n": 1263,
+     "players": 292
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.08452879694040728,
+     "ci95": [
+      -0.0016905451470769725,
+      0.15796797663295326
+     ],
+     "n": 1263,
+     "players": 292
+    },
+    "sell_listed": {
+     "n": 82,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5121951219512195,
+      "ci95": [
+       0.39419454225352113,
+       0.6185819139399372
+      ],
+      "n": 82,
+      "players": 40
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "standard",
+   "teams": 10,
+   "h1": {
+    "n": 1282,
+    "players": 297,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.03696424468648669,
+     "ci95": [
+      -0.12015434918187562,
+      0.04214144669461908
+     ],
+     "n": 1282,
+     "players": 297
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.04667790105759513,
+     "ci95": [
+      -0.026130455076447158,
+      0.13409492076851515
+     ],
+     "n": 1282,
+     "players": 297
+    },
+    "sell_listed": {
+     "n": 132,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5,
+      "ci95": [
+       0.39674728158980127,
+       0.5952825159914712
+      ],
+      "n": 132,
+      "players": 45
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "standard",
+   "teams": 12,
+   "h1": {
+    "n": 1300,
+    "players": 303,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.039527584723026886,
+     "ci95": [
+      -0.11920069234394437,
+      0.036731954016697606
+     ],
+     "n": 1300,
+     "players": 303
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.010411767197628074,
+     "ci95": [
+      -0.06361045003981346,
+      0.09364584895573562
+     ],
+     "n": 1300,
+     "players": 303
+    },
+    "sell_listed": {
+     "n": 167,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5089820359281437,
+      "ci95": [
+       0.4361279201965746,
+       0.603838819751104
+      ],
+      "n": 167,
+      "players": 55
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "standard",
+   "teams": 14,
+   "h1": {
+    "n": 1322,
+    "players": 308,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.04932512677514597,
+     "ci95": [
+      -0.1170260519949653,
+      0.01683327516008191
+     ],
+     "n": 1322,
+     "players": 308
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": -0.048141464868279,
+     "ci95": [
+      -0.11935335064660435,
+      0.027945628377970676
+     ],
+     "n": 1322,
+     "players": 308
+    },
+    "sell_listed": {
+     "n": 178,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5112359550561798,
+      "ci95": [
+       0.4485,
+       0.5849239028458251
+      ],
+      "n": 178,
+      "players": 61
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "half_ppr",
+   "teams": 8,
+   "h1": {
+    "n": 1257,
+    "players": 292,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.04694298289252239,
+     "ci95": [
+      -0.11483822801159806,
+      0.024131410271844674
+     ],
+     "n": 1257,
+     "players": 292
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.09389195781848066,
+     "ci95": [
+      0.030475588701292255,
+      0.16608062971046636
+     ],
+     "n": 1257,
+     "players": 292
+    },
+    "sell_listed": {
+     "n": 89,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5617977528089888,
+      "ci95": [
+       0.45675925925925925,
+       0.6547907066052228
+      ],
+      "n": 89,
+      "players": 39
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "half_ppr",
+   "teams": 10,
+   "h1": {
+    "n": 1261,
+    "players": 293,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.03053561192319081,
+     "ci95": [
+      -0.11463883362977396,
+      0.04018060640766944
+     ],
+     "n": 1261,
+     "players": 293
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.0688140790249519,
+     "ci95": [
+      -0.023112712395404855,
+      0.13465057189320473
+     ],
+     "n": 1261,
+     "players": 293
+    },
+    "sell_listed": {
+     "n": 134,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5074626865671642,
+      "ci95": [
+       0.4190044994375703,
+       0.5820438831270213
+      ],
+      "n": 134,
+      "players": 53
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "half_ppr",
+   "teams": 12,
+   "h1": {
+    "n": 1283,
+    "players": 297,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.02360911296710668,
+     "ci95": [
+      -0.0932996818881915,
+      0.03336257804448439
+     ],
+     "n": 1283,
+     "players": 297
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.013051193165208442,
+     "ci95": [
+      -0.06884972963172492,
+      0.09315062373167864
+     ],
+     "n": 1283,
+     "players": 297
+    },
+    "sell_listed": {
+     "n": 159,
+     "consensus_moves_toward_ours": {
+      "rate": 0.48427672955974843,
+      "ci95": [
+       0.3893744337058291,
+       0.5593326937426714
+      ],
+      "n": 159,
+      "players": 66
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "half_ppr",
+   "teams": 14,
+   "h1": {
+    "n": 1308,
+    "players": 304,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.02655830013672936,
+     "ci95": [
+      -0.1083640090017473,
+      0.0427173301421862
+     ],
+     "n": 1308,
+     "players": 304
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": -0.0113709109628986,
+     "ci95": [
+      -0.07996294247043162,
+      0.059542943519124564
+     ],
+     "n": 1308,
+     "players": 304
+    },
+    "sell_listed": {
+     "n": 135,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5111111111111111,
+      "ci95": [
+       0.4338327370304115,
+       0.5887307414540203
+      ],
+      "n": 135,
+      "players": 61
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "ppr",
+   "teams": 8,
+   "h1": {
+    "n": 1253,
+    "players": 290,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.05240926621668307,
+     "ci95": [
+      -0.11384369796694432,
+      0.006136695812059294
+     ],
+     "n": 1253,
+     "players": 290
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.08329820215334648,
+     "ci95": [
+      0.022730618427520596,
+      0.15688357438796774
+     ],
+     "n": 1253,
+     "players": 290
+    },
+    "sell_listed": {
+     "n": 88,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5681818181818182,
+      "ci95": [
+       0.4427574798619102,
+       0.6987951807228916
+      ],
+      "n": 88,
+      "players": 41
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "ppr",
+   "teams": 10,
+   "h1": {
+    "n": 1258,
+    "players": 292,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.0279584239618524,
+     "ci95": [
+      -0.09653123070896191,
+      0.03503986855858512
+     ],
+     "n": 1258,
+     "players": 292
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.10352442228860322,
+     "ci95": [
+      0.04701105555140661,
+      0.1811071354245961
+     ],
+     "n": 1258,
+     "players": 292
+    },
+    "sell_listed": {
+     "n": 129,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5038759689922481,
+      "ci95": [
+       0.426557239057239,
+       0.5878643303261624
+      ],
+      "n": 129,
+      "players": 55
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "ppr",
+   "teams": 12,
+   "h1": {
+    "n": 1274,
+    "players": 295,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.021865657104706577,
+     "ci95": [
+      -0.08584068829401219,
+      0.054511053140763065
+     ],
+     "n": 1274,
+     "players": 295
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": -0.0181053230049292,
+     "ci95": [
+      -0.08465922719295178,
+      0.04938942442458129
+     ],
+     "n": 1274,
+     "players": 295
+    },
+    "sell_listed": {
+     "n": 135,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5185185185185185,
+      "ci95": [
+       0.43260851063829786,
+       0.6032804232804233
+      ],
+      "n": 135,
+      "players": 63
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  },
+  {
+   "scoring": "ppr",
+   "teams": 14,
+   "h1": {
+    "n": 1293,
+    "players": 299,
+    "weeks": [
+     2,
+     3,
+     4,
+     5,
+     6
+    ],
+    "spearman_gap_vs_d_consensus": {
+     "rho": -0.013028943013245255,
+     "ci95": [
+      -0.08479333890504916,
+      0.05307981740564401
+     ],
+     "n": 1293,
+     "players": 299
+    },
+    "spearman_gap_vs_d_ours": {
+     "rho": 0.022781307555236906,
+     "ci95": [
+      -0.04690277940373053,
+      0.09635946519251652
+     ],
+     "n": 1293,
+     "players": 299
+    },
+    "sell_listed": {
+     "n": 115,
+     "consensus_moves_toward_ours": {
+      "rate": 0.5304347826086957,
+      "ci95": [
+       0.45817934782608694,
+       0.6155
+      ],
+      "n": 115,
+      "players": 65
+     }
+    },
+    "buy_listed": {
+     "n": 0,
+     "consensus_moves_toward_ours": null
+    }
+   }
+  }
+ ]
+}

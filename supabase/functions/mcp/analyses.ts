@@ -90,10 +90,10 @@ export const SERIES_LABELS: Record<string, string> = {
   ddf_value: "DDF Value",
   ddf_value_charts: "DDF Value (charts)",
   ddf_value_projections: "DDF Value (projections)",
-  fantasycalc: "FantasyCalc chart (rescaled)",
-  usatoday: "USA Today chart (rescaled)",
-  fantasypros: "FantasyPros chart (rescaled)",
-  cbs: "CBS Sports chart (rescaled)",
+  fantasycalc: "FantasyCalc chart (Indexed)",
+  usatoday: "USA Today chart (Indexed)",
+  fantasypros: "FantasyPros chart (Indexed)",
+  cbs: "CBS Sports chart (Indexed)",
   espn: "ESPN · Our value",
   cbsros: "CBS rest of season · Our value",
   razzball: "Razzball · Our value",
@@ -121,7 +121,7 @@ export function inspectionOf(data: AnalysisResponse): Any {
 }
 
 // The page's default Compare a trade series (v2.js pageDefault("compare")): DDF Value, then each
-// published chart's rescaled (Indexed) series, in the engine's source order.
+// published chart's Indexed series, in the engine's source order.
 export const COMPARE_SERIES = ["ddf_value", "fantasycalc", "usatoday", "fantasypros", "cbs"];
 
 const r1 = (n: number) => Math.round(n * 10) / 10;

@@ -31,7 +31,7 @@ site. It is the average of the four trade charts' weight-adjusted indexed values
 - **Adjusted values only.** The Adjusted value is what a source's own
   ranking implies at your league settings, after rescaling to a common pie.
   It is not the raw published number, and it is not the Indexed value
-  (which preserves the publisher's scale). DDF Value always reads from
+  (the chart's value on the common scale, before position and bench weighting). DDF Value always reads from
   Adjusted.
 - **One number per player.** DDF Value does not change between tabs. The
   "Trade charts (as published)" tab shows each chart's Indexed values; the
@@ -100,9 +100,9 @@ Equal weights were chosen deliberately:
 
 ## What DDF Value does not do
 
-- It does not use Indexed values (the publisher's original scale).
-  Indexed is for showing what a chart looks like in its own units;
-  DDF Value works in the common Adjusted scale.
+- It does not use Indexed values directly (the charts' values on the common
+  scale, before weighting). DDF Value averages the weight-adjusted indexed
+  values in the common Adjusted scale.
 - It does not leave out a source for being "too different." If a source
   disagrees with the others, that disagreement shows up in the spread,
   not in an exclusion.

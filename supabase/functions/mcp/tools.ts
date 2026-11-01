@@ -232,7 +232,7 @@ export const TOOLS = [
   {
     name: "compare_trade",
     description:
-      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware. Set by_source for the site's Compare a trade breakdown: the net for DDF Value and each published trade chart (rescaled), and which charts disagree with the DDF Value verdict.",
+      "Compare two sides of a trade by the sum of their DDF Values. Pass comma-separated player names for each side (a comma before Jr, Sr, II, III, IV or V stays with the name). Side A is what team A gives up. This is a DDF Value sum: it is not lineup-aware. Set by_source for the site's Compare a trade breakdown: the net for DDF Value and each published trade chart (Indexed), and which charts disagree with the DDF Value verdict.",
     inputSchema: {
       type: "object",
       properties: {
@@ -1060,11 +1060,11 @@ async function risersFallersHandler(args: Record<string, unknown>, deps?: Deps, 
     if (d.available) {
       const dl = (x: ReturnType<typeof slimDisagreement>) =>
         `${x.name} (${x.pos}): DDF Value ${fmtNet(x.market_delta)}, projections ${fmtNet(x.projections_delta)}. ${x.read}`;
-      text.push(`Market vs projections, Week ${d.priorWeek} → Week ${d.currentWeek} (one moved ${M.MOVE}+ and the other ${M.QUIET.toFixed(1)} or less; ${d.compared} compared):`);
+      text.push(`DDF Value vs projections, Week ${d.priorWeek} → Week ${d.currentWeek} (one moved ${M.MOVE}+ and the other ${M.QUIET.toFixed(1)} or less; ${d.compared} compared):`);
       text.push(`DDF Value moved (${d.market.length}):`, ...(disagreements.market.length ? disagreements.market.map(dl) : ["  none"]));
       text.push(`Projections moved (${d.projections.length}):`, ...(disagreements.projections.length ? disagreements.projections.map(dl) : ["  none"]));
     } else {
-      text.push(`Market vs projections: no comparison yet: ${d.reason}.`);
+      text.push(`DDF Value vs projections: no comparison yet: ${d.reason}.`);
     }
   }
   return finish(ok(text.join("\n"), {
