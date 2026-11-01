@@ -597,7 +597,8 @@ chart DDF Value").
 
 1. **Mean points per game** `m_i` as in VP-0.
 2. **Slot fill** = the league allocation of VP-2.2 (`S*_p = S_p`,
-   `N*_p = N_p`). The zones on the curve sit at these counts. With no
+   `N*_p = N_p`); with fractional seats (VP-2.2 g), the heaviest
+   allocation's. The zones on the curve sit at these counts. With no
    projection in `I`, slot fill runs VP-2.2 a–e on blended DDF Value.
 3. **Tier** (`ddfTier`). Within a position, rank by blended DDF Value
    descending, then `m` descending (missing last), then key ascending.
@@ -606,6 +607,59 @@ chart DDF Value").
    - Rank `<= N*_p`: bench.
    - Otherwise waiver.
    - No DDF Value: no tier.
+
+   **Tiers follow seats, not the sign of the value** (JEG-1128, Jeremy's
+   logged pick A, 2026-10-28). The tier says where a player ranks against the
+   league's starter and roster seats; it does not say whether his DDF Value
+   is above 0. Two cases follow, both expected:
+   - *Positive-valued waiver.* A player whose rank is past `N*_p` can keep a
+     small positive DDF Value and is still waiver. DDF Value averages each
+     source's Adjusted value, which is scaled from that source's value above
+     its own waiver line (VP-2.3, VP-5), and each source draws that line in
+     its own order. With no league loaded, a chart's line is its first player
+     past the rostered count and a projection's is the mean of the 7 players
+     around that seat (JEG-1047), so the players just past the seat who
+     project above that mean stay positive in the projections too. A player
+     one source rosters can therefore rank past the blended roster seats.
+     Fractional seats (VP-2.2 g) add a third reason: a player inside the
+     seats in a lighter allocation of the mix keeps part of that value in
+     the blend. The player tag is Drop, or Stash when his start probability
+     is at least 0.25 (`STASH_START_PROBABILITY`), never Hold.
+   - *Zero inside the seats.* A player ranked within `N*_p` whose DDF Value
+     is exactly 0 is waiver, not bench, so no starter or bench player is
+     ever at 0. This only happens when a position has fewer positive values
+     than roster seats.
+
+   The seats are the allocation the page prices with (VP-7.2): with
+   fractional seats, the heaviest allocation's whole counts, applied to the
+   blended values. With league rosters loaded (VP-2.2 d2), the league's
+   rosters set the rostered counts, so the same two cases apply to them.
+
+   Making the tier follow positive value instead (option B) would move every
+   positive-valued waiver to bench, turning its Drop tag into Hold, so the
+   bench tier would hold more players than the roster seats (16 to 30 more
+   per league on the data below). Curve zones, the tier counts on the curve
+   and the tier groups in trade targets would move with it. It is a method
+   change only Jeremy can authorize. `tests/test_tiers_follow_seats.py` pins
+   both cases in the engine and both references.
+
+   *Current example* (data of 2026-10-31, values for week 8, 12 teams, Full
+   PPR, no superflex, default roster, fractional seats on; engine and Python
+   reference agree on every tier):
+
+   | Position | Seats, heaviest allocation (starters / rostered) | Last bench player | First waivers, still positive | First 0 |
+   | --- | --- | --- | --- | --- |
+   | WR | 33 / 68 | #68 Kalif Raymond 0.0327 | #69 De'Zhaun Stribling 0.0327, #70 Dontayvion Wicks 0.027 | #80 |
+   | TE | 12 / 20 | #20 Mark Andrews 0.432 | #21 Dalton Schultz 0.098, #22 Tyler Higbee 0.027 | #29 |
+   | RB | 27 / 60 | #60 Jeremy McNichols 0.017 | #61 MarShawn Lloyd 0.014, #62 Ty Johnson 0.013 | #69 |
+   | QB | 12 / 20 | #20 Aaron Rodgers 0.042 | #21 Deshaun Watson 0.018 | #24 |
+
+   The WR line falls between two players a hair apart: the seat, not the
+   value, decides. Across the 12 combos (3 scorings x 8/10/12/14 teams) on
+   that data, every league had positive-valued waivers (largest 0.847, TE
+   Hunter Henry in Half PPR 10 teams), and no position had a zero inside
+   its seats, so every 0 was waiver by rank as well. Full table:
+   `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
 4. **Default ranking, lock and curve**: blended `ddf_value`, descending, then
    key ascending; nulls last. The other two versions can be chosen like any
    series.
