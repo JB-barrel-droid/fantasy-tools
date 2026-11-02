@@ -59,6 +59,7 @@ jobs:
     timeout-minutes: ${{ matrix.timeout }}
     strategy:
       fail-fast: false
+      max-parallel: 12
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
@@ -85,7 +86,7 @@ jobs:
       - name: Browser and test dependencies
         if: matrix.build
         run: |
-          python3 -m pip install --quiet playwright==1.49.1 pytest
+          python3 -m pip install --quiet playwright==1.49.1 pytest PyYAML
           python3 -m playwright install --with-deps chromium
           npm ci --prefix tests/rendered_gate
           echo "RENDER_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
@@ -97,8 +98,9 @@ jobs:
       - name: Run selected shard (baseline attribution preserves failures)
         env:
           SHARD: ${{ matrix.shard }}
+          BATCH: ${{ matrix.batch }}
           EXTRA_TESTS: ${{ toJSON(matrix.extra_tests) }}
-        run: python3 -m pipelines.fast_gate run --shard "$SHARD" --extra-tests "$EXTRA_TESTS"
+        run: python3 -m pipelines.fast_gate run --shard "$SHARD" --batch "$BATCH" --extra-tests "$EXTRA_TESTS"
 
   fast-gate:
     name: fast-gate

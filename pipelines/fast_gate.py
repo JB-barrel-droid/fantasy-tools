@@ -142,10 +142,54 @@ def changed_paths(base, head="HEAD", root=ROOT):
     return [os.fsdecode(p) for p in data.split(b"\0") if p]
 
 
-def run_shard(name, config=None, extra_tests=()):
+def command_batches(name, config):
+    """Bound each Python batch; full means all executable Python test entries.
+
+    Render modules get isolated jobs because page suites have very different
+    costs. Ordinary tests are grouped by eight. No test is dropped on timeout.
+    """
+    commands = config["shards"][name]["commands"]
+    if name == "full-unit":
+        commands = [["python3", "-m", "pytest", "-q", "-p", "no:cacheprovider",
+                     *sorted(str(p.relative_to(ROOT)) for p in (ROOT / "tests").glob("test_*.py"))]]
+    batches = []
+    for command in commands:
+        if command[:3] == ["python3", "-m", "pytest"]:
+            files = [a for a in command[3:] if a.startswith("tests/") and a.endswith(".py")]
+            prefix = command[:len(command) - len(files)]
+            ordinary = [f for f in files if "render" not in f]
+            for i in range(0, len(ordinary), 8):
+                batches.append([prefix + ordinary[i:i + 8]])
+            batches.extend([prefix + [f]] for f in files if "render" in f)
+        else:
+            batches.append([command])
+    if name == "full-unit":
+        batches.extend([cmd] for cmd in inventory()["node_commands"].values())
+    return batches
+
+
+def execution_matrix(result, config):
+    rows = []
+    # Full Python coverage subsumes page Python commands, but retain their Node
+    # commands and the validate/core targets as independent coverage.
+    for name in result["shards"]:
+        if name == "smoke":
+            continue
+        for index, commands in enumerate(command_batches(name, config)):
+            if result["full"] and name.startswith("fe-") and commands[0][:3] == ["python3", "-m", "pytest"]:
+                continue
+            rows.append({"shard": name, "batch": index, "build": config["shards"][name]["build"],
+                         "extra_tests": result["paired_tests"] if name == "pipelines" else [], "timeout": 45})
+    if len(rows) > 256:
+        raise ValueError("fast gate exceeds GitHub's 256-job matrix limit")
+    return {"include": rows}
+
+
+def run_shard(name, config=None, extra_tests=(), batch=None):
     config = load_mapping() if config is None else config
     shard = config["shards"][name]
-    commands = list(shard["commands"])
+    commands = ([cmd for group in command_batches(name, config) for cmd in group]
+                if batch is None else command_batches(name, config)[batch])
     if extra_tests:
         if name != "pipelines" or any(not re.fullmatch(r"tests\.test_[A-Za-z0-9_]+", t)
                                       or not (ROOT / (t.replace(".", "/") + ".py")).is_file()
@@ -182,20 +226,18 @@ def main(argv=None):
     choose.add_argument("--summary", type=Path)
     run = sub.add_parser("run")
     run.add_argument("--shard", required=True)
+    run.add_argument("--batch", type=int)
     run.add_argument("--extra-tests", default="[]", help="JSON array of paired pipeline test modules")
     args = parser.parse_args(argv)
     config = load_mapping()
     if args.action == "run":
-        return run_shard(args.shard, config, json.loads(args.extra_tests))
+        return run_shard(args.shard, config, json.loads(args.extra_tests), args.batch)
     paths = json.loads(args.paths_file.read_text()) if args.paths_file else (
         changed_paths(args.base, args.head) if not args.full else [])
     result = plan(paths, config, args.full)
     print(json.dumps(result, indent=2))
     if args.github_output:
-        matrix = {"include": [{"shard": s, "build": config["shards"][s]["build"],
-                               "extra_tests": result["paired_tests"] if s == "pipelines" else [],
-                               "timeout": 120 if s == "full-unit" else 30 if result["full"] else 15}
-                              for s in result["shards"] if s != "smoke"]}
+        matrix = execution_matrix(result, config)
         with args.github_output.open("a") as output:
             output.write(f"matrix={json.dumps(matrix, separators=(',', ':'))}\n")
             output.write(f"has_shards={'true' if matrix['include'] else 'false'}\n")

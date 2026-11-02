@@ -25,6 +25,43 @@ class MappingTest(unittest.TestCase):
         for target in ["validate-base", "test-unit", *shard_targets((ROOT / "Makefile").read_text())]:
             self.assertIn(["make", target], commands)
 
+    # Independent review: #1099 (Customize/Names), #909 (mobile),
+    # #905 (malformed edge-function source), #1227 (settings persistence).
+    def test_review_regressions_and_full_consumers_are_executable(self):
+        config = fast_gate.load_mapping()
+        sentinels = ["tests/test_v2_customize_cleanup_render.py", "tests/test_v2_names_render.py",
+                     "tests/test_v2_mobile_phase1_render.py", "tests/test_edge_functions_parse.py",
+                     "tests/test_jeg1389_link_settings_reload_render.py"]
+        for changed in ["tests/_dist_server.py", "app/trade-value-chart/assets/value-model.js",
+                        *sentinels]:
+            selected = fast_gate.plan([changed])
+            matrix = fast_gate.execution_matrix(selected, config)
+            commands = [cmd for row in matrix["include"]
+                        for cmd in fast_gate.command_batches(row["shard"], config)[row["batch"]]]
+            executed = {arg for cmd in commands for arg in cmd}
+            required = sentinels if selected["full"] else [changed]
+            for sentinel in required:
+                self.assertIn(sentinel, executed, changed)
+
+    def test_full_batches_cover_every_python_entry_without_monolithic_unit_job(self):
+        config = fast_gate.load_mapping()
+        batches = fast_gate.command_batches("full-unit", config)
+        executed = [arg for group in batches for cmd in group for arg in cmd
+                    if arg.startswith("tests/test_") and arg.endswith(".py")]
+        self.assertEqual(set(str(p.relative_to(ROOT)) for p in (ROOT / "tests").glob("test_*.py")), set(executed))
+        self.assertEqual(len(executed), len(set(executed)))
+        matrix = fast_gate.execution_matrix(fast_gate.plan([], config), config)
+        self.assertLessEqual(len(matrix["include"]), 256)
+        for group in batches:
+            for cmd in group:
+                files = [a for a in cmd if a.endswith(".py")]
+                self.assertLessEqual(len(files), 8)
+                if any("render" in f for f in files):
+                    self.assertEqual(1, len(files))
+        workflow = (ROOT / ".github/workflows/fast-gate.yml").read_text()
+        self.assertIn("pytest PyYAML", workflow)
+        self.assertIn('--batch "$BATCH"', workflow)
+
     def test_three_sample_prs(self):
         docs = fast_gate.plan(["docs/claude-log/new-inert-record.md"])
         self.assertTrue(docs["docs_only"])

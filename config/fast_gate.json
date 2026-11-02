@@ -231,6 +231,15 @@
           "tests.test_get_values_value_context",
           "tests.test_connector_analyses_page",
           "tests.test_llm_surfaces"
+        ],
+        [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "-p",
+          "no:cacheprovider",
+          "tests/test_edge_functions_parse.py"
         ]
       ]
     },
@@ -285,6 +294,17 @@
         [
           "node",
           "tests/node/source_views_check.mjs"
+        ],
+        [
+          "python3",
+          "-m",
+          "pytest",
+          "-q",
+          "-p",
+          "no:cacheprovider",
+          "tests/test_v2_customize_cleanup_render.py",
+          "tests/test_v2_names_render.py",
+          "tests/test_v2_mobile_phase1_render.py"
         ]
       ]
     },
