@@ -144,3 +144,6 @@ manual finalizers deliberately have different names (pinned by
 `tests.test_draft_ci_workflows`). No bypass or test weakening applied.
 `make validate` interrupted after discovering another active heavy validation
 on this Mac; not a pass. Generated build changes excluded from the commit.
+
+Corrected preview/pages parity: reverted this PR's incidental clock-export
+lint edit so rendered gate steps match production again. No assertion changed.
