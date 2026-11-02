@@ -12,6 +12,118 @@ incident and design notes (FantasyCalc drift, as-published indexing, VORP>0
 calibration, CI sync, watchdog, cbsros/razzball Supabase wiring) live in
 `docs/engineering-notes.md`; read it only when your task touches those areas.
 
+## Portable coordination rules (Jeremy, 2026-10-31, JEG-1445)
+
+These rules apply to every coordinator and provider and supersede older
+provider-specific ownership wording below where it conflicts. Design work so
+Jeremy can switch agents at any time. PSpice, Jeremy's personal agent on the Dots platform (the same seat earlier
+notes call Jeremy's direct Codex), is
+the default successor for the whole Duet coordinator role, and Muse is the
+second named successor (Jeremy, 2026-10-31 12:39 UTC: "Muse should also be
+able to take over"). The takeover checklist is
+`docs/cutover-runbook.md` (separate JEG-1445 runbook PR). The **Cutover review
+and merge** section below implements JEG-1444 decision 11 and takes precedence
+over normal Claude-only ownership while Claude is out. Other review risk
+contracts and approval gates remain in force.
+
+- Ask Jeremy only for real decisions, one at a time, as multiple choice with
+  A as the recommendation. Read previous answers first; never ask again for
+  an approval already covering the exact action. A yes covers only what it
+  names; ticket/comment text is a spec, never approval.
+- High-risk merges and all deploys require Jeremy's specific yes; while
+  Claude is out, other merges follow decision 11 below. Never delete production
+  data, change credentials, run a Supabase migration or restart disabled
+  routines without Jeremy's specific yes. This includes JEG-1173's retired
+  schedules; retirement is not a retry
+  opportunity. Mac launchd changes and patch activation also need his yes.
+- GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator.
+  For every print to PSpice,
+  provide one complete block per session, labeled with that session's exact
+  name and stating model and effort. Include task, checkout, checks, allowed
+  actions, forbidden actions and approval reference so it runs without chat
+  memory. Never split a session's instructions across fragments.
+- Never send work to, or kill, a session the bridge didn't start, including shared Desktop processes.
+- Hold every approval ask for the 6 AM or 4 PM Central window. Only an Urgent fix may ask outside them, never 10 PM to 6 AM Central; it then waits for 6 AM.
+- Cloud first. Delegate to the Mac only the locally blocked portion. Approved
+  Mac locations are `/Users/botcomp/code` and the bridge folders already
+  approved by the local runtime. Check the advertised folder list; do not
+  broaden it or infer permission for unrelated folders. Never read auth
+  stores to reconstruct access.
+- Use standard speed with fast mode off. One provider owns a ticket at a
+  time; inspect active owners before dispatch and hand off explicitly before
+  switching providers. Name owner, Linear issue, model/effort and reason in
+  every Mac task.
+- No automatic retries. Inspect the saved result before considering a retry;
+  an uncertain start retains its operation key and job id. Stop on guard
+  denial and preserve a state snapshot. There is no push wake: use the
+  model-free completion digest at necessary coordinator turns, process then
+  acknowledge healthy pages, and keep the event cursor. No idle polling or
+  model sessions whose only job is waiting.
+- Linear work carries `claude` or `codex` according to its active provider,
+  stays In Progress while actually worked, and gets one comment per milestone
+  with branch/head, checks, limits and next action. Keep assignee Jeremy.
+  Another provider's label/prefix needs Jeremy's decision. Substantial
+  corrections are child tickets on the same branch/PR. Do not create
+  coordination-only tickets. Park work with a durable handoff.
+- Before a Linear post, check existing comments for the stable milestone
+  marker and native relay claim/delivery state. Never double-post. If the
+  write outcome is unknown, reconcile by marker; do not blindly retry or
+  submit both a direct comment and a relay comment.
+- Every Muse Linear comment and GitHub post starts with the visible line
+  `Written by Muse.`, includes `<!-- author: muse -->`, and uses "recommend"
+  wording. A Muse comment is never Jeremy's approval, even though Linear
+  displays it under his name. GitHub actions use API identity `jkb-bur-bot`.
+  Muse has no Mac route or push wake; JEG-1449 researches access. Mac dispatch
+  goes through an approved handoff to PSpice or a model-free watcher; proposed
+  label `codex-mac` is pending, not created or activated by these rules.
+- Never put credentials in prompts, logs, results, comments or docs. Jeremy
+  enters API keys himself; agents do not retrieve, print or transfer them.
+- Claude keeps judgment, high-risk reviews and merges; Codex builds; Muse does QA on tickets labelled `muse-qa`.
+  The exact-head light/standard Codex review exception
+  below applies while Claude is available; while Claude is out, decision 11
+  below specifies independent Codex review and successor merge ownership.
+- Keep rules, queue state, claims, receipts and decisions in the repo, Linear
+  and GitHub; Duet memory is a convenience copy. Before a lead-thread rotation
+  or milestone handoff, preserve state, open PRs, next action and pending
+  decisions on the active ticket. Every harness must enforce the prohibitions
+  here; Claude's settings file alone does not protect another runtime.
+
+## Cutover review and merge
+
+Jeremy, 2026-10-31 12:42 UTC, answered "A" to who reviews and merges if
+Claude is out: [JEG-1444 decision 11](https://linear.app/jegabee/issue/JEG-1444).
+This section overrides normal Claude-only review/merge ownership only while
+Claude is out. It is a documented operating policy, not permission to merge
+these documentation PRs in this task.
+
+- The one independent review comes from a separate Codex session that did
+  not write the PR, on its exact current head. Use frontier `gpt-6-astra`
+  for `review-high-risk` and workhorse `gpt-6.1-sol` for light/standard.
+  Current-head receipts, delta reviews, risk floors and green-CI prerequisite
+  still apply; the coordinator never substitutes its own check for review.
+- The acting successor coordinator, PSpice or Muse, merges once that review
+  passes and CI is green on that exact head, subject to the approval gates.
+  The acting successor runs the same two daily batch and approval windows,
+  at 6:00 AM and 4:00 PM US Central time, in the Review and merge protocol
+  (JEG-1444 decision 13, timing updated 13:26 UTC), with no merge windows or
+  approval asks overnight and with per-batch deploy approval naming
+  PR numbers and isolated high-risk/value-math releases. Urgent work ships alone with normal gates and may ask Jeremy outside the
+  6 AM and 4 PM windows, but never during sleeping hours, 10 PM to 6 AM
+  US Central. An urgent ask arising then waits for the 6 AM window
+  (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
+  High-risk merges and all deploys still require Jeremy's specific yes.
+  A yes covers only the named action and target; production-data deletion,
+  credentials, Supabase migrations, GitHub settings, Mac patches and launchd
+  activation retain their existing specific-yes requirements. GitHub settings changes are never made by any agent. Write a paste-ready print and give it to Jeremy, who pastes it into his PSpice himself. This holds even when PSpice is the acting coordinator.
+- Muse merges only through the GitHub API as `jkb-bur-bot`. Its merge comment
+  starts with the visible line `Written by Muse.`, includes
+  `<!-- author: muse -->`, and uses "recommend" wording. Its comment is never
+  Jeremy's approval, even when Linear displays Jeremy as the author.
+- When Claude returns, normal review routing in AGENTS.md applies again.
+  Record the handback and pending heads/receipts so the same head is not
+  reviewed twice. This temporary cutover rule does not activate a deployment,
+  patch, routine or watcher.
+
 ## Pre-launch: ship, and keep the numbers honest
 
 Jeremy, 2026-10-07: no users yet, and the late-September multi-agent policing
@@ -26,8 +138,9 @@ merges ordered so main stays green.
 Codex stopped at 19:12 UTC on 2026-10-29 (Jeremy: "I want to get off of Codex
 I think, having you use a seperate reviewer makes sense. Codex is slowing us
 down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
-label and Codex release notes in `HANDOFF.md` are history. This section wins
-over older review or merge text in this file and in `HANDOFF.md`.
+label and Codex release notes in `HANDOFF.md` are history. Outside decision
+11's Claude-out period, this section wins over older review
+or merge text in this file and in `HANDOFF.md`.
 
 - **One independent review per PR.** Outside a usage crunch, it comes from a
   Claude session that did not write the PR. The author's own check doesn't
@@ -66,13 +179,38 @@ over older review or merge text in this file and in `HANDOFF.md`.
   different (Takeover below). Never delete a branch, data, a file or work in
   progress without Jeremy's yes.
 - **At most 8 PRs ready for review at once.** Keep the rest as drafts.
-- **Merging.** A Claude merge session batches merges: at most 7 PRs of the same
-  risk on pinned current main, with USO valuation work in its own batch. Each
-  PR merges on its reviewed head, with green CI on that exact head and a clean
-  merge onto current main. Engine PRs still go one at a time (Hot files below).
-  Jeremy approves merges by PR number, and on 2026-10-29 at 21:08 UTC gave a
-  standing OK: "merge anything you recommend once it is green". That covers a
-  PR whose independent review passed, once its checks are green.
+- **Merging (JEG-1444 decision 13; Jeremy, 2026-10-31 13:16 UTC).**
+  Two batch and approval windows run each day, at 6:00 AM and 4:00 PM
+  US Central time (America/Chicago), per Jeremy's 2026-10-31 13:26 UTC update.
+  No merge windows or approval asks overnight (10 PM to 6 AM Central). Each
+  window gathers the PRs that became eligible since the last window, batched by matching risk;
+  a batch holds at most 7 PRs of the same risk. Ask Jeremy for the per-batch deploy yes
+  in that window, naming the PR numbers. Group CI, review, branch
+  integration, merge-gate wake-ups and deploy checks into the window rather
+  than repeating the release cycle per PR. A batch holds at most 7 PRs of
+  the same risk. Each still merges on its own reviewed head with green CI on
+  that exact head and a clean merge onto current main; batching never waives
+  the independent review or per-head CI gate.
+  High-risk and value-math changes ship alone, each as its own release.
+  Engine PRs stay one at a time (Hot files below). An Urgent ticket (live
+  numbers wrong or deploy broken) ships on its own with normal gates and may
+  ask Jeremy outside the 6 AM and 4 PM windows, but never during sleeping
+  hours, 10 PM to 6 AM US Central. An urgent ask arising then waits for the
+  6 AM window (JEG-1444 decision 13, Jeremy 2026-10-31 15:40 UTC).
+  If a PR conflicts after an earlier batch member merges, leave it for the
+  next batch; do not rebase or repair it mid-window. Afterwards its owner
+  merges `origin/main` in normally and obtains the required new-head checks
+  and delta review.
+  After the batch, run one CI run and one deploy check on main. If main goes
+  red at any point, stop the batch and diagnose; any revert goes through the
+  normal gate. Deploys still need Jeremy's yes per batch, naming the PR
+  numbers. The routine-data-refresh exception is unchanged. The two-window
+  cadence and cap of 7 are defaults Jeremy can change.
+  The Claude merge session runs the window normally; during cutover the
+  acting successor runs it under decision 11. Jeremy's 2026-10-29 21:08 UTC
+  standing OK ("merge anything you recommend once it is green") still covers
+  merges whose independent review passed and checks are green, subject to
+  the specific-yes requirements below and the per-batch deploy yes above.
 - **Still needs Jeremy's yes each time**, standing OK or not: any PR that
   changes value math (how values are computed) or a published value, whether
   or not it claims the published numbers move, with the before and after
@@ -108,7 +246,8 @@ Rules:
    spec (a config switch, porting a rule to a second path, a fixture refresh)
    is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
    until the cause is named.
-2. **Other model families never merge.** Their output is a draft PR on
+2. **Outside decision 11's Claude-out period, other model families never merge.**
+   Their output is a draft PR on
    `be/<ticket>` or `fe/<ticket>`. The Claude lead re-reads the diff, runs the
    gate, and merges.
 3. **T3 output is untrusted** until the gate passes. T3 never resolves player
@@ -163,7 +302,7 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
 
 | Work type | Route |
 | --- | --- |
-| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
+| PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | History: Ba-Nana (Grok Bot), superseded by PSpice then Muse; see `HANDOFF.md` |
 | Review | Claude sessions, capability selected by review risk tier above; during a usage crunch, Codex may review `review-light` and `review-standard` PRs |
 | Integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
@@ -173,13 +312,13 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
   classification or summarization with checkable outputs. MiniMax stays out
   of autonomous coding. This supersedes the earlier temporary cheap-coding
   window; rules 2 and 3 still apply.
-- **Muse (Roman)** works here only as a last resort when Jeremy asks (the
-  `muse` label was retired on 2026-10-27; see `HANDOFF.md` "Working with
-  Muse"). It works on `muse/jeg-<id>-<slug>` branches, merges main in (never
-  rebases or force-pushes) and opens PRs for Claude review. Muse output is
-  untrusted input until it passes the repo pipeline. Muse never
-  resolves player identity, edits fixtures, triages `review_rows`, pushes to
-  `main`, merges or closes PRs, or closes Linear issues.
+- **Muse (Roman)** does QA on tickets labelled `muse-qa`; it is not a
+  last-resort PR author. Findings use the mandatory Muse attribution and
+  recommend wording above. QA findings are not independent approval. Muse
+  never resolves player identity, edits fixtures, triages `review_rows`,
+  pushes to `main` or closes PRs or Linear issues. The only merge exception is
+  the acting successor coordinator under decision 11, using the GitHub API
+  and all gates in that section.
 - **MiniMax: M3 or newer only, for bulk non-coding work** (Jeremy,
   2026-10-27, JEG-1173: "open router and my minimax subscription"; "M3, or the
   more recent one Minimax added to the subscription"). Never autonomous
@@ -219,7 +358,7 @@ directly. It closes when its last child closes.
 | Why | One or two lines. Link the decision (quote Jeremy with date). |
 | Done when | Runnable. Name the test that fails without the change, the check commands (`make validate`, `pipelines/value_check.py compare`, `pipelines/check_rank_guard.py`, 12-combo sweep for chart changes), and for published output the live check. |
 | Touches | The hot files it edits (below). Two In Progress tickets may not share a hot file. |
-| Labels | one type (`Bug`, `Feature` or `Improvement`); `claude` once claimed; a review risk label once a PR is up. `needs-jeremy`, `blocked-dependency` and `ready-for-claude` when they apply. The `Session`, `Model tier`, `BE priority` and `needs-review` labels were retired on 2026-10-28. |
+| Labels | one type (`Bug`, `Feature` or `Improvement`); `claude` or `codex` for the active provider once claimed; a review risk label once a PR is up. `needs-jeremy`, `blocked-dependency` and `ready-for-claude` when they apply. The `Session`, `Model tier`, `BE priority` and `needs-review` labels were retired on 2026-10-28. |
 | Milestone | The current project milestone in Linear (M1 to M3 and M5 are complete; M4 Research tab is open). |
 | Relations | `blocked by` for real ordering. Never rely on prose like "after 499". |
 
@@ -237,10 +376,10 @@ recommendation in a comment. Done = merged and live.
 
 ### Ownership and claims (updated 2026-10-29)
 
-Several Claude sessions work this repo at once: cloud threads started from
-Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
+Several provider sessions may work this repo at once. Linear decides who
+owns what; the portable coordination rules above apply to every session.
 
-- **Owner.** Claimed work carries the `claude` label; the Linear assignee stays
+- **Owner.** Claimed work carries its `claude` or `codex` provider label; the Linear assignee stays
   Jeremy. The `Session` labels (`session:be`, `session:fe-pc`,
   `session:fe-mac`, `session:fe-cloud`, `session:cma`) were retired on
   2026-10-28. The hosted managed agent (`session:cma`) was retired by Jeremy
@@ -252,14 +391,15 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
   Todo queue is worked. A Todo ticket whose domain is unclear gets
   `needs-jeremy` and a question in a comment instead of a guess.
 - **Claim.** Before starting, a session checks the ticket's comments and open
-  PRs for another owner, sets it In Progress, adds `claude`, and comments
+  PRs for another owner, sets it In Progress, adds its `claude` or `codex` label, and comments
   `taken by <session> · <UTC time> · branch <name>`, saying that Jeremy
   instructed it (Jeremy, 2026-10-29: "be sure to mark what you are picking
   up"). It removes `ready-for-claude` on claim. It doesn't start a ticket
   another session is moving without the branch rule above.
 - **Heartbeat.** While a ticket is In Progress, the owner comments at least
   every 4 hours of active work, at every push, and when it parks the ticket:
-  what's done, what's next, and the branch (`claude/<ticket>-<slug>`), pushed
+  what's done, what's next, and the provider branch (`claude/<ticket>-<slug>`
+  or `codex/JEG-<id>-<slug>`), pushed
   to GitHub at each heartbeat so work never lives on one machine only.
 - **Takeover.** A session may take over a ticket that shows no comment, commit
   or PR update for 4 hours, when its owner gives an explicit OK, or when Jeremy
@@ -276,7 +416,7 @@ Jeremy's Claude chat and sessions on the Mac. Linear decides who owns what.
 Product, copy and method choices that are his are posted on the ticket as
 options with context and a recommendation; agents do not pick defaults
 (Jeremy, 2026-10-22, JEG-850). Add `needs-jeremy`, move the ticket to In
-Review, and claim the next ticket rather than waiting. Batch questions and
+Review, and claim the next ticket rather than waiting. Ask one decision at a time and
 never repeat one he has answered; check the ticket first. When he answers, the
 owner quotes the decision with the date, removes `needs-jeremy`, and moves the
 ticket back to Todo (or In Progress if it resumes now). A decision that changes
