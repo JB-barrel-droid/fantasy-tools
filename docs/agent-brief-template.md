@@ -58,9 +58,8 @@ Done when (runnable; paste each command's exit code and last ~20 lines in the ha
 - Gate: `make sync`, then `make validate` must exit 0. Run it a second time
   with Python playwright unimportable, because CI has none. Guard browser
   imports with `try/except ImportError -> unittest.SkipTest`.
-- Headless browser: use system Chrome
-  (`CHROMIUM_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"`);
-  Playwright's bundled Chromium isn't installed.
+- Headless browser: leave CHROMIUM_PATH unset to use Playwright’s installed
+  chrome-headless-shell. Set it only for an explicit browser override.
 - Before committing, `git checkout --` the data/app/dist churn that `make sync`
   produces. Commit only intended files.
 
