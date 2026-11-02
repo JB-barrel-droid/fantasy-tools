@@ -27,7 +27,7 @@ ORIGINAL_BG = "rgb(255, 255, 255)"  # the panel before Fieldnotes (light); the f
 ROUTE = "v2/{flag}#writing/how-values"
 FRAME = """async () => {
   const f = document.getElementById('v2ValueLogicFrame');
-  f.scrollIntoView(); f.removeAttribute('loading'); if (!f.src) f.src = f.dataset.src;
+  f.scrollIntoView();
   for (let i = 0; i < 300 && !(f.contentDocument && f.contentDocument.querySelector('nav.index a') && f.contentDocument.querySelector('.seg button')); i++) await new Promise(r => setTimeout(r, 100));
   const d = f.contentDocument, w = f.contentWindow, root = d.documentElement, p = getComputedStyle(document.documentElement);
   const bg = el => getComputedStyle(el).backgroundColor, panel = d.querySelector('.panel');
@@ -59,15 +59,19 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
     def tearDownClass(cls):
         cls._cm.__exit__(None, None, None)
 
-    def open(self, flag, width, scheme="light"):
+    def open(self, flag, width, scheme="light", init_script=None):
         ctx = self.browser.new_context(viewport={"width": width, "height": 900}, color_scheme=scheme)
         ctx.add_init_script(_render_env.pin_data_week_script())
+        if init_script:
+            ctx.add_init_script(init_script)
         page = ctx.new_page()
         self.errors = []
         page.on("pageerror", lambda e: self.errors.append(str(e)))
         page.route(lambda u: not u.startswith("http://127.0.0.1"), lambda route: route.abort())
         page.goto(self.base + flag + "#writing/how-values", wait_until="domcontentloaded")
-        page.wait_for_selector("#v2ValueLogicFrame", state="attached", timeout=60000)
+        # applyRoute reveals #v2How only after the engine is ready. A loaded
+        # document inside a hidden frame cannot take focus (outline is 0px).
+        page.wait_for_selector("#v2ValueLogicFrame", state="visible", timeout=60000)
         return page
 
     def test_frame_mirrors_the_tokens_in_both_themes_and_widths(self):
@@ -117,6 +121,29 @@ class ExplainerFieldnotesRenderTest(unittest.TestCase):
           const a = d.querySelector('nav.index a'); a.focus(); return getComputedStyle(a).outlineWidth; }""")
         self.assertEqual(width, "3px")
         page.context.close()
+
+    def test_focus_ring_with_delayed_engine(self):
+        # The frame can load while #v2How is still hidden waiting for the engine.
+        # Merely finding its link is insufficient: focus() then does nothing.
+        page = self.open("?design=fieldnotes", 1280, init_script="""(() => {
+          const fetch = window.fetch;
+          window.fetch = async (...args) => {
+            if (String(args[0]).includes('comparison-sources-data.json'))
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            return fetch(...args);
+          };
+        })();""")
+        try:
+            _frame(page)
+            result = page.evaluate("""() => {
+              const d = document.getElementById('v2ValueLogicFrame').contentDocument;
+              const a = d.querySelector('nav.index a'); a.focus();
+              return {focused: d.activeElement === a, width: getComputedStyle(a).outlineWidth};
+            }""")
+            self.assertTrue(result["focused"], result)
+            self.assertEqual(result["width"], "3px")
+        finally:
+            page.context.close()
 
     def test_default_frame_is_unchanged(self):
         page = self.open("", 1280)
