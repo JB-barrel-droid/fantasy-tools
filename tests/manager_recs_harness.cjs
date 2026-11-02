@@ -306,6 +306,16 @@ check("test_legacy_note_in_why", () => {
   assert.ok(rec.why.includes("Your note: loves rookies"), rec.why.join(" | "));
   assert.strictEqual(rec.theirGain, plain.theirGain, "a kept note never changes a number");
   assert.strictEqual(rec.band, plain.band);
+  // Earlier users could leave a note without selecting an Other preferences strength.
+  for (const subjective of [undefined, "unknown", "none", "some", "strong"]) {
+    const saved = M.parseStored(JSON.stringify({v: 1, leagues: {lg: {t1: {
+      anchors: {subjective}, note: "kept note without a strength"
+    }}}})).book;
+    const idea = R.build({rows: [row], book: saved, ws, allRows: ALL, profiles: M}).recommendations[0];
+    assert.ok(idea.why.includes("Your note: kept note without a strength"), `note missing at ${subjective}`);
+    assert.strictEqual(idea.theirGain, plain.theirGain);
+    assert.strictEqual(idea.band, plain.band);
+  }
 });
 
 process.stdout.write(JSON.stringify({ran, failures}));

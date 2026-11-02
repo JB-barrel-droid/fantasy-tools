@@ -114,7 +114,8 @@
     if (profile.anchors.names === "some" || profile.anchors.names === "strong") lines.push("You said they like big names; weigh the names in this deal yourself.");
     if (profile.tags.length) lines.push(`You ticked that they ${tagWords(profile.tags)}; weigh that yourself.`);
     // Kept from an earlier build (manager-profiles.js): the same words it showed, never a number.
-    if (profile.anchors.subjective === "some" || profile.anchors.subjective === "strong") lines.push(profile.note ? `Your note: ${profile.note}` : "You marked other leanings; weigh those yourself.");
+    if (profile.note) lines.push(`Your note: ${profile.note}`);
+    else if (profile.anchors.subjective === "some" || profile.anchors.subjective === "strong") lines.push("You marked other leanings; weigh those yourself.");
     if (b === "longShot") {
       const best = a.basis.slice().sort((x, y) => y.gain - x.gain)[0];
       lines.push(best && best.gain < 0 ? "They lose on every view you marked, so this needs them to value these players more than any of those views do."

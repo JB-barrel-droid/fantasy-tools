@@ -80,7 +80,7 @@ MUTATIONS = [
     ("warnings not shown", "health: sides.length ? `Roster check: ${sides.join(\" \")}` : \"\",", "health: \"\",", "test_health_warnings_both_sides"),
     ("opponent name not in the view", "opponent: rec.opponent, likelihood:", "opponent: rec.opponentId, likelihood:", "test_view_shows_every_displayed_field"),
     ("gain not in the view", "gain: `You gain ${gainText(rec.ourGain)}`,", "gain: \"You gain\",", "test_view_shows_every_displayed_field"),
-    ("earlier note not explained", "lines.push(profile.note ? `Your note: ${profile.note}`", "lines.push(false ? `Your note: ${profile.note}`", "test_legacy_note_in_why"),
+    ("earlier note not explained", 'if (profile.note) lines.push(`Your note: ${profile.note}`);', 'if (false) lines.push(`Your note: ${profile.note}`);', "test_legacy_note_in_why"),
     ("rows edited in place", "(opts.rows || []).forEach(row => {", "(opts.rows || []).forEach(row => { row.edge = row.edge;  row.give.forEach(p => { p.values.ddf_value += 0; p.recommended = true; });", "test_values_untouched"),
 ]
 
