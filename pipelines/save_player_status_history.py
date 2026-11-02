@@ -98,6 +98,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--summary", type=Path, default=SUMMARY)
+    ap.add_argument("--from-file", type=Path, help="reuse this run's keyless Sleeper pull instead of requesting it twice")
     a = ap.parse_args(argv)
     from pull_sleeper_identity import pull_sleeper  # noqa: PLC0415
     try:
@@ -107,7 +108,7 @@ def main(argv=None) -> int:
 
     now = datetime.now(timezone.utc)
     snapshot_date = now.astimezone(ZoneInfo("America/Chicago")).date().isoformat()
-    sleeper = pull_sleeper()
+    sleeper = json.loads(a.from_file.read_text(encoding="utf-8")) if a.from_file else pull_sleeper()
     players = sb.get_all("players", "?select=id,player_key,full_name,position,active,metadata")
     index = PlayerIndex(players, json.load(open(SLEEPER_BASE)))
     rows, how = build_rows(sleeper, index, snapshot_date, now.isoformat(timespec="seconds"))

@@ -1,15 +1,15 @@
 """Waivers tab: an old Sleeper injury status never reads as current (JEG-1312).
 
-The rows' injury_status comes from the Sleeper identity base the bake read. When that refresh stops (JEG-1238: no
-successful run from Oct 15, so the live page shipped the Oct 9 copy), the tab must not print "Your Rex RunOne is Out"
-or an Out tag from the old copy. The rule in app/v2/waivers.js:
+Historically the rows' injury_status came from the Sleeper identity bake. When that refresh stopped, the tab could
+not print "Your Rex RunOne is Out" from the Oct 9 copy. These cases preserve that older dated-row API's contract;
+JEG-1363's built page uses the daily id map and shared six-day expiry (tests.test_daily_player_status).
 
   * statusFreshness(window.TradeValueStatus, now): shown only when the copy has a date and is at most
     STATUS_MAX_AGE_DAYS (6) old, with "Sleeper status as of <day>"; otherwise hidden, with the date and age said;
   * statusOf(row, freshness): the status a row may show, null when hidden or when the player has no status;
   * injuryNote / evaluateCandidate: no "Your X is Out" when the copy is hidden or the context has no status;
-  * build_v2_page.player_status_js: the date is meta.universe.nfl_active.identity_base_pulled_at from players.json
-    (the base the bake used), null when the file or the field is missing.
+  * build_v2_page.player_status_js: only a validated daily snapshot supplies the page's date and id map. A missing
+    file gives no date/statuses; identity-bake metadata is rejected, never mistaken for current daily status.
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks on copies of waivers.js with one rule broken.
 """
@@ -141,9 +141,11 @@ class TestWaiversStatus(unittest.TestCase):
     def test_checks_fail_on_broken_builds(self):
         source = WAIVERS_JS.read_text(encoding="utf-8")
         breaks = {
-            "no age limit": ("if (ageDays > STATUS_MAX_AGE_DAYS) {", "if (false) {"),
-            "note ignores freshness": ("if (!freshness || !freshness.shown) return null;", ""),
-            "row ignores freshness": ("(freshness && freshness.shown && row", "(row"),
+            "no age limit": ("if (at > nowMs || ageDays > STATUS_MAX_AGE_DAYS) {", "if (false) {"),
+            # injuryNote now uses statusOf too; removing its redundant early
+            # guard is harmless. Break the positive control instead.
+            "fresh note omitted": ("const hurt = lineup.starters.find", "const hurt = [].find"),
+            "row ignores freshness": ("if (!freshness || !freshness.shown || !row) return null;", "if (!row) return null;"),
             "undated copy shown": ("if (!Number.isFinite(at) || !finite(nowMs)) {", "if (false) {"),
         }
         with tempfile.TemporaryDirectory() as tmp:
@@ -170,14 +172,16 @@ class TestPlayerStatusJs(unittest.TestCase):
         self.assertTrue(text.startswith(prefix) and text.endswith(";\n"), text)
         return json.loads(text[len(prefix):-2])
 
-    def test_date_is_the_identity_base_the_bake_used(self):
+    def test_legacy_bake_is_not_mistaken_for_daily_status(self):
         meta = {"meta": {"as_of": "2026-10-29", "universe": {"nfl_active": {"identity_base_pulled_at": PULLED}}}}
-        self.assertEqual(self._js(meta), {"source": "Sleeper", "as_of": PULLED})
+        with self.assertRaisesRegex(ValueError, "Invalid player status snapshot"):
+            self._js(meta)
 
     def test_missing_file_or_date_gives_no_date(self):
         self.assertIsNone(self._js(None)["as_of"])
-        self.assertIsNone(self._js({"meta": {"as_of": "2026-10-29"}})["as_of"])
-        self.assertIsNone(self._js({"meta": {"universe": {"nfl_active": {"identity_base_pulled_at": ""}}}})["as_of"])
+        for payload in ({"meta": {"as_of": "2026-10-29"}}, {"as_of": ""}):
+            with self.assertRaises(ValueError):
+                self._js(payload)
 
     def test_page_loads_the_status_before_the_tab(self):
         src = (ROOT / "pipelines" / "build_v2_page.py").read_text(encoding="utf-8")
