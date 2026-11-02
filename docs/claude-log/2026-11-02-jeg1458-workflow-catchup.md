@@ -32,3 +32,26 @@ reported offline test failures, and hand the pushed head to independent review.
   This session performs no review of its own changes.
 - Seven full days of production counters and byte/wire totals remain pending
   after an authorized PR merge. No production collection was started here.
+
+### Release-batch catch-up (2026-11-02)
+
+- Jeremy explicitly authorized this main-to-branch merge for the 6 AM batch.
+  Main pin: `fdae242b1dd3ae134207f9e2314baafabe51f2a4` (12 commits ahead).
+- One conflict, player-status-history: retained main's Bash flags array,
+  shared-response reuse, history/publication outcomes and guarded publication;
+  retained the branch's EVENT_MODE binding and counter labels. Other five
+  overlapping workflows merged cleanly with the repository override intact.
+- Main introduced an additional Python status step. The existing counter
+  inventory test caught its missing caller label. Added attribution metadata;
+  the daily-status test incorrectly prohibited the metadata along with database
+  access. It now permits only that exact label and continues rejecting every
+  other SUPABASE reference in the page-status step. No assertion is skipped.
+- Verified: six-workflow actionlint (`-shellcheck= -pyflakes=`); programmatic
+  equality of all pre-merge counter upload steps; 128/129 focused tests passed
+  initially, with the inventory failure repaired. All 23 rollup, timestamp and
+  daily-status tests pass after the repair; the other 106 tests passed earlier.
+- GitHub API initially rate-limited rerun inspection. Browser fallback was
+  unavailable. No run was retried by this job and no landscape test changed.
+- Full validation and exact-head CI are recorded in the final ticket report.
+  Independent review of the catch-up delta is required after push. The earlier
+  receipt covers only `557b2d9c3a38cb40a1b6dc34f5b2fc0ab04fe39f`.

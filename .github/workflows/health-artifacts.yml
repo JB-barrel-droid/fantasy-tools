@@ -33,6 +33,10 @@ concurrency:
   group: health-artifacts
   cancel-in-progress: false
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   produce-and-watch:
     if: github.ref == 'refs/heads/main'

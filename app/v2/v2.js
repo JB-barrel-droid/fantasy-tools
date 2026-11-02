@@ -380,7 +380,7 @@
   // stale or partial value can be read as current; say why and offer a retry.
   function showFailure(reason) {
     setStatus("");
-    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research", "v2Home"].forEach(id => { if ($(id)) $(id).hidden = true; });
+    ["v2Main", "v2Targets", "v2Risers", "v2Compare", "v2FindTrade", "v2FindLeague", "v2Waivers", "v2How", "v2Audit", "v2Research", "v2Home", "v2Simplified"].forEach(id => { if ($(id)) $(id).hidden = true; });
     const card = $("v2State").querySelector(".v2-state");
     card.dataset.state = "failed";
     $("v2State").hidden = false;
@@ -7128,6 +7128,7 @@
     : base === "#find-league" ? "league"
     : base === "#waivers" ? "waivers"
     : base === "#value-overrides" ? "overrides"
+    : (base === "#simplified-site" || base.startsWith("#simplified-site/")) ? "simplified"   // JEG-1263
     : (base === "#writing" || base.startsWith("#writing/")) ? "writing"
     : (base === "#values-auditing" || base.startsWith("#values-auditing/")) ? "audit"
     : base === "#player-values" ? "values" : null);
@@ -7135,7 +7136,7 @@
 
   // JEG-898: the page title names the view (and Writing / Values auditing section), plus the modal dialog when one is open.
   const BASE_TITLE = document.title;
-  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides", home: "Home"};
+  const VIEW_TITLES = {values: "Player values", targets: "Trade targets", risers: "Risers & fallers", compare: "Compare a trade", find: "Find a trade: your team", league: "Find a trade: league-wide", waivers: "Waivers", overrides: "Overrides", home: "Home", simplified: "Simplified site"};
   const WRITING_TITLES = {"manifesto": "Manifesto", "how-values": "How values work", "research": "Research"};
   function syncTitle() {
     const v = currentView();
@@ -7167,11 +7168,12 @@
     $("v2Audit").hidden = v !== "audit";
     if ($("v2Overrides")) $("v2Overrides").hidden = v !== "overrides";   // JEG-1035
     $("v2Home").hidden = v !== "home";   // JEG-1137 slice 2b (Fieldnotes only)
+    if ($("v2Simplified")) $("v2Simplified").hidden = v !== "simplified";   // JEG-1263
     applyStatic();
     // Context row hides on writing-only pages (manifesto, research) — handled by applyStatic().
     // JEG-498: every page with values has its own Customize. The finders read fixed sources (DDF Value and the trade
     // charts), so they, Waivers, Overrides and Values auditing show no "On the chart" basis and no Customize.
-    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides" || v === "home";
+    const noShowing = v === "audit" || v === "find" || v === "league" || v === "waivers" || v === "overrides" || v === "home" || v === "simplified";
     $("v2EditSources").hidden = noShowing;
     document.querySelector(".v2-ctx-basis").classList.toggle("is-off", noShowing);
     // JEG-1106: the menu has one entry per page, and Writing / Values auditing list their sections, so the entry
@@ -7302,6 +7304,7 @@
     else if (currentView() === "audit") renderAudit();
     else if (currentView() === "waivers") { collect(); renderHeader(); if (window.TradeValueWaivers && window.TradeValueWaivers.activate) window.TradeValueWaivers.activate(); }   // JEG-1022
     else if (currentView() === "overrides") { collect(); renderHeader(); if (window.DDFOverrides) window.DDFOverrides.render(); }   // JEG-1035
+    else if (currentView() === "simplified") { collect(); renderHeader(); if (window.TradeValueSimplifiedSite) window.TradeValueSimplifiedSite.activate($("v2Simplified")); }   // JEG-1263
     else if (currentView() === "writing" || currentView() === "find" || currentView() === "league" || currentView() === "home") { collect(); renderHeader(); }   // text only; the nav freshness still updates
     else refreshValues();
   }

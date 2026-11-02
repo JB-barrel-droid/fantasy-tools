@@ -68,6 +68,10 @@ permissions:
   actions: write  # source/chain dispatches, including deferred chain handoff
   issues: write  # JEG-1194: open/close the one chain-stuck issue
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   rebuild:
     if: github.ref == 'refs/heads/main'
