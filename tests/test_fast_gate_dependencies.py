@@ -12,6 +12,17 @@ from tests.test_draft_ci_workflows import event, live
 
 
 class DependencyCoverageTest(unittest.TestCase):
+    def test_shared_helper_keeps_its_page_shards_when_promoted_to_full(self):
+        path = "tests/test_connector_analyses.py"
+        config = fast_gate.load_mapping()
+        owners = fast_gate.test_owners(config)[path]
+        with mock.patch.object(fast_gate, "inventory", return_value={
+            "shared_pipelines": set(), "test_helpers": {path}, "test_read_paths": []
+        }):
+            selected = fast_gate.plan([path], config)
+        self.assertTrue(selected["full"])
+        self.assertTrue(set(owners).issubset(selected["shards"]))
+
     def test_every_test_naming_a_mapped_page_is_in_its_shard(self):
         config = fast_gate.load_mapping()
         self.assertEqual({}, deps.coverage_gaps(config))

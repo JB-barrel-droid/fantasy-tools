@@ -89,6 +89,9 @@ def plan(paths, config=None, force_full=False):
                 or path in dependencies["test_read_paths"]):
             reasons[path] = ["full"]
             full = True
+            # Shared test helpers still own page checks outside full-unit.
+            # Promoting a test to full coverage must retain those consumers.
+            chosen.update(owners.get(path, ()))
         elif path in owners:
             reasons[path] = owners[path]
             chosen.update(owners[path])

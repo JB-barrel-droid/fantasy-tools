@@ -46,3 +46,19 @@ excluded make validate and requested no settings changes, merge or deploy.
 - make validate and contract renders were not rerun, per Jeremy's instruction.
   The earlier unrelated finder keyboard red remains recorded on this PR.
 - Independent review of the correction head remains pending. No merge/deploy.
+
+### 2026-11-02 Mac continuation
+
+- The overnight head passed all five dependency tests. Catch-up was permitted
+  by the conflicting PR base: merged main 5381de25 and stacked base 7abf5a65
+  with merge commits. No value math, HANDOFF or Supabase changes authored.
+- New main readers required nine page-command additions to the manifest.
+- Reproduced the replay failure for #1220: imported test helpers selected full
+  but lost their owned page shards, including daily-only renders. Retain owners
+  on promotion to full; existing replay assertions remain unchanged. Added a
+  focused regression for this promotion.
+- Verified: focused promotion regression passed. Full focused suite and local
+  make validate results are recorded in the ticket on completion. Initial
+  validation stopped for an absent default Playwright browser; configured the
+  installed Chrome executable for the subsequent validation.
+- Claimed, not confirmed: independent Claude review and CI timing remain pending.
