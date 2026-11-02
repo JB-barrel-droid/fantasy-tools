@@ -75,7 +75,7 @@ jobs:
       - name: Observe registered tests for tonight
         if: always() && github.ref == 'refs/heads/main'
         run: |
-          mapfile -t tests < <(python3 -c 'import json; print("\n".join(e["test_id"] for e in json.load(open("docs/baseline-reds/registry.json"))))')
+          mapfile -t tests < <(python3 -m pipelines.baseline_reds --list-observe-targets)
           if [ "${#tests[@]}" -gt 0 ]; then
             python3 -m pipelines.baseline_reds --context nightly --history .baseline-history/nights.json --night "$(date -u +%F)" -- python3 -m unittest "${tests[@]}"
           fi

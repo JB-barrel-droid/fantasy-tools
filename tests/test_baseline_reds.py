@@ -114,3 +114,29 @@ run_suite: failed: node harness.mjs
                     changed = f"ERROR: {method} ({owner})\nAssertionError: different failure\n"
                     self.assertIn('new red; failure signature mismatch',
                                   report(entries, results(changed), 'local', {}, log=changed))
+
+    def test_nightly_fixture_targets_load_and_attribute_without_loader_crash(self):
+        from pipelines.baseline_reds import observe_targets, load_registry, REGISTRY
+        for target in observe_targets(load_registry(REGISTRY)):
+            self.assertNotIn(target.rsplit('.', 1)[-1], ('setUpModule', 'setUpClass'))
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / 'probe_mod.py').write_text('import unittest\ndef setUpModule(): raise RuntimeError("fixture sentinel")\nclass Probe(unittest.TestCase):\n def test_probe(self): pass\n')
+            (root / 'probe_class.py').write_text('import unittest\nclass Probe(unittest.TestCase):\n @classmethod\n def setUpClass(cls): raise RuntimeError("fixture sentinel")\n def test_probe(self): pass\n')
+            entries = [dict(test_id=test, where=['nightly'], ticket='JEG-1450', first_seen_main_sha='abc', reason='probe', signature='fixture sentinel') for test in ('probe_mod.setUpModule', 'probe_class.Probe.setUpClass')]
+            registry = root / 'registry.json'
+            registry.write_text(json.dumps(entries))
+            env = dict(os.environ, PYTHONPATH=str(root))
+            base = [sys.executable, '-m', 'pipelines.baseline_reds', '--registry', str(registry)]
+            listed = subprocess.run(base + ['--list-observe-targets'], env=env, text=True, capture_output=True)
+            self.assertEqual(listed.returncode, 0, listed.stderr)
+            self.assertEqual(listed.stdout.splitlines(), ['probe_mod', 'probe_class.Probe'])
+            history = root / 'history.json'
+            proc = subprocess.run(base + ['--context', 'nightly', '--history', str(history), '--night', '2026-11-02', '--', sys.executable, '-m', 'unittest', *listed.stdout.splitlines()], env=env, text=True, capture_output=True)
+            raw = subprocess.run([sys.executable, '-m', 'unittest', *listed.stdout.splitlines()], env=env, capture_output=True)
+            self.assertNotEqual(raw.returncode, 0)
+            self.assertEqual(proc.returncode, raw.returncode, proc.stdout + proc.stderr)
+            self.assertNotIn('not a test', proc.stdout)
+            for entry in entries:
+                self.assertIn('`' + entry['test_id'] + '`: known baseline red (JEG-1450)', proc.stdout)
+                self.assertEqual(json.loads(history.read_text())[entry['test_id']]['nightly']['2026-11-02'], 'red')

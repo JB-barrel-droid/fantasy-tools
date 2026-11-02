@@ -14,6 +14,18 @@ CONTEXTS = {"local", "CI", "nightly", "daily sweep"}
 REGISTRY = ROOT / "docs/baseline-reds/registry.json"
 
 
+def observe_targets(entries):
+    """Fixture error IDs are result labels; load their owning test scope."""
+    targets = []
+    for entry in entries:
+        test = entry['test_id']
+        owner, _, method = test.rpartition('.')
+        target = owner if method in ('setUpModule', 'tearDownModule', 'setUpClass', 'tearDownClass') else test
+        if target not in targets:
+            targets.append(target)
+    return targets
+
+
 def results(log):
     found = {}
     for line in log.splitlines():
@@ -144,10 +156,14 @@ def main():
     parser.add_argument('--registry', type=Path, default=REGISTRY)
     parser.add_argument('--context', choices=['local', 'CI', 'nightly', 'daily sweep'], default='local')
     parser.add_argument('--history', type=Path)
+    parser.add_argument('--list-observe-targets', action='store_true')
     parser.add_argument('--night', help='UTC YYYY-MM-DD; nightly main runs only')
     parser.add_argument('command', nargs=argparse.REMAINDER)
     args = parser.parse_args()
     command = args.command[1:] if args.command[:1] == ['--'] else args.command
+    if args.list_observe_targets:
+        print('\n'.join(observe_targets(load_registry(args.registry))))
+        return 0
     if not command:
         parser.error('provide a gate command after --')
     registry_error = None
