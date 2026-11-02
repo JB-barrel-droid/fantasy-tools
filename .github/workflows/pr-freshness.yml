@@ -1,0 +1,45 @@
+name: PR freshness
+
+# Informational only. Do not add this check to required checks. The gate CLI
+# remains fail-closed when invoked directly before promotion or merge.
+on:
+  pull_request:
+    types: [ready_for_review, synchronize, opened, reopened]
+  merge_group:
+
+permissions:
+  contents: read
+  checks: read
+  statuses: read
+  pull-requests: read
+
+concurrency:
+  group: pr-freshness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  freshness:
+    name: PR freshness (informational)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Exercise the proposed code with a read-only token. This snapshot is
+      # never promotion/merge authorization; those use the reviewed CLI.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Freshness and promotion regressions
+        run: python3 -m unittest tests.test_pr_freshness_gate
+      - name: Report current freshness and check state
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GROUP_HEAD: ${{ github.event.merge_group.head_sha }}
+        run: |
+          set -o pipefail
+          if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+            python3 pipelines/pr_freshness_gate.py --merge-group "$GROUP_HEAD" --repo "$GITHUB_REPOSITORY" --informational | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            python3 pipelines/pr_freshness_gate.py "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --informational | tee -a "$GITHUB_STEP_SUMMARY"
+          fi

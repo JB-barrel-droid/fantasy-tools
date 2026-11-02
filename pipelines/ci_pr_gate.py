@@ -10,6 +10,7 @@ stays red until someone re-runs it. Reads are retried a bounded number of times
 
 import json
 import os
+import re
 import sys
 import time
 from http.client import HTTPException
@@ -77,7 +78,7 @@ def live_pull(fetch, repo, snapshot, token):
 
 def decide(event_name, event, live=None):
     """Return (run_expensive, reason); unknown/stale PR state never passes."""
-    if event_name in ("push", "workflow_dispatch"):
+    if event_name in ("push", "workflow_dispatch", "merge_group"):
         return True, f"{event_name}: full verification required"
     if event_name != "pull_request":
         raise ValueError(f"unsupported event: {event_name}")
@@ -98,7 +99,15 @@ def decide(event_name, event, live=None):
     if live["draft"] != snapshot["draft"]:
         return False, "PR draft state changed since this event; full verification cannot pass"
     if live["draft"]:
-        return False, "Full verification deferred while this PR is a draft; mark it ready for review"
+        head = live.get("head", {}).get("sha", "")
+        grant = f"full-ci:{head}"
+        labels = live.get("labels") or []
+        if (re.fullmatch(r"[0-9a-f]{40}", head)
+                and isinstance(labels, list)
+                and any(isinstance(label, dict) and label.get("name") == grant
+                        for label in labels)):
+            return True, f"Draft head {head} has an exact-head full-CI grant"
+        return False, "Full verification deferred: draft head needs its exact full-ci:<SHA> label"
     return True, "Current ready PR head: full verification required"
 
 

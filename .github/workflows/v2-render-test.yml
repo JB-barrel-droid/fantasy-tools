@@ -15,6 +15,7 @@ name: v2 render test
 # chain therefore dispatches this workflow, like pages.yml (JEG-274), in its
 # "Dispatch v2-render" step. The `push` trigger covers human/PAT/merge pushes.
 on:
+  merge_group:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
@@ -57,7 +58,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Cheap draft CI guards
-        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_ci_speedup_workflows
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_draft_full_ci tests.test_ci_speedup_workflows
       - name: Check current PR head and draft state
         id: gate
         env:
