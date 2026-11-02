@@ -96,3 +96,21 @@ run_suite: failed: node harness.mjs
             self.assertNotIn('can remove', report([entry], {'a.b': 'green'}, 'nightly', history, day))
         self.assertEqual(history, {})
         self.assertIn('new red; registered for local only', report([entry], {'a.b': 'red'}, 'CI', {}))
+
+    def test_checked_in_seeds_attribute_only_recorded_environments_and_signatures(self):
+        from pipelines.baseline_reds import REGISTRY, load_registry
+        entries = load_registry(REGISTRY)
+        self.assertEqual(len(entries), len({e['test_id'] for e in entries}))
+        for entry in entries:
+            test = entry['test_id']
+            owner, method = test.rsplit('.', 1)
+            signature = entry.get('signature', 'recorded failure')
+            log = f"ERROR: {method} ({owner})\n{signature}\n"
+            with self.subTest(test=test):
+                self.assertIn('known baseline red (' + entry['ticket'] + ')',
+                              report(entries, results(log), 'local', {}, log=log))
+                self.assertIn('new red', report(entries, results(log), 'CI', {}, log=log))
+                if 'signature' in entry:
+                    changed = f"ERROR: {method} ({owner})\nAssertionError: different failure\n"
+                    self.assertIn('new red; failure signature mismatch',
+                                  report(entries, results(changed), 'local', {}, log=changed))

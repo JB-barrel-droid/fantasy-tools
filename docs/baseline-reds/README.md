@@ -41,8 +41,7 @@ finder search. It is not seeded pending confirmed ownership and a main SHA.
 GitHub REST run-history lookup was rate-limited; GraphQL check receipts were
 available. Do not broaden a seed's environments on that evidence.
 
-The reviewer rule above will also be added to AGENTS.md after PR #1250 merges;
-this PR intentionally leaves that file untouched.
+The reviewer rule is also recorded in AGENTS.md.
 
 Optional `signature` is a substring of that test's own failure traceback
 (exception type or message); every captured failure for the ID must match.
@@ -59,3 +58,11 @@ unattributed even when their unittest failures are known. Only a direct plain
 unittest invocation with complete matching failure counts can claim all
 failures are known. Other commands, including pytest and node, require reading
 the original output.
+
+Seed additions (2026-11-02): JEG-1403 comments identify the three journey
+methods at main c267aa71. JEG-1424's Mac report records test_tables market-sort
+failures with main 951f95df integrated; the signature limits that attribution
+to the opportunities failure. HANDOFF's Oct 30 JEG-1176 report at 168aba93
+records missing chromium_headless_shell-1208 during week-history setup.
+JEG-1450 owns that environment attribution row pending a dedicated environment
+ticket. All are local-only observations; none excuse CI or nightly reds.
