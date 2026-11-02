@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-02T00:11:58.482563+00:00",
+  "run_at": "2026-11-02T00:43:38.643810+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -18,7 +18,7 @@
   "held": [
     "razzball"
   ],
-  "hold_severity": "amber",
+  "hold_severity": "red",
   "list_changes": {
     "fantasycalc": [
       "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 64: dropped none; added jonathon brooks",
@@ -31,7 +31,7 @@
   },
   "held_detail": {
     "razzball": {
-      "reason": "fidelity: publisher_vs_stored",
+      "reason": "fidelity: freshness",
       "held_series": [
         "razzball",
         "razzball_vorp"
@@ -39,8 +39,8 @@
       "sections": [
         "razzball"
       ],
-      "detail": "2028/2028 values match exactly across 3 columns; 2 publisher names do not resolve to a canonical player",
-      "hold_severity": "amber",
+      "detail": "chart shows snapshot 2026-10-29 (4 d old); publisher's own update date 2026-10-29",
+      "hold_severity": "red",
       "week": 8
     }
   },
@@ -245,7 +245,7 @@
   "lagging_sources": [],
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
   "fidelity_holds": {
-    "razzball": "fidelity: publisher_vs_stored"
+    "razzball": "fidelity: freshness"
   },
   "post_rebuild_validation": {
     "status": "failed",
@@ -260,6 +260,6 @@
       "Makefile:663: test-core"
     ],
     "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one; AssertionError: {'standard/12': (1.1006058500311555, '1273[91 chars] 28)} != {}",
-    "recorded_at": "2026-11-02T00:19:24.328446+00:00"
+    "recorded_at": "2026-11-02T00:51:07.195854+00:00"
   }
 }
