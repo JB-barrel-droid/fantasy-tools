@@ -11,10 +11,12 @@ tests/test_week_selector_render.py.
 from __future__ import annotations
 
 import json
+import runpy
 import shutil
 import subprocess
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 HARNESS = ROOT / "tests" / "source_freshness_harness.js"
@@ -28,6 +30,9 @@ CASES = [
     ("week 8 Thu 12:01 CDT", {"week": 8, "now": "2026-10-29T17:01:00Z"}, True),
     ("week 8 Thu 22:00 CDT (Fri UTC)", {"week": 8, "now": "2026-10-30T03:00:00Z"}, True),
     ("week 8 the next Tuesday", {"week": 8, "now": "2026-11-03T15:00:00Z"}, True),
+    ("week 9 Thu 11:59 CST", {"week": 9, "now": "2026-11-05T17:59:00Z"}, False),
+    ("week 9 Thu 12:00 CST exactly", {"week": 9, "now": "2026-11-05T18:00:00Z"}, False),
+    ("week 9 Thu 12:01 CST", {"week": 9, "now": "2026-11-05T18:01:00Z"}, True),
     ("week 10 Thu 11:30 CST (12:30 CDT)", {"week": 10, "now": "2026-11-12T17:30:00Z"}, False),
     ("week 10 Thu 12:00 CST exactly", {"week": 10, "now": "2026-11-12T18:00:00Z"}, False),
     ("week 10 Thu 12:01 CST", {"week": 10, "now": "2026-11-12T18:01:00Z"}, True),
@@ -62,6 +67,27 @@ def run(mutations=None):
 
 @unittest.skipUnless(shutil.which("node"), "node is not installed")
 class StaleDeadlineTest(unittest.TestCase):
+    def test_render_clocks_keep_central_hours_across_dst(self):
+        read_text = Path.read_text
+        index = ROOT / "dist" / "assets" / "history" / "index.json"
+        for week, thursday, hours in (
+            (8, "2026-10-29", (16, 17, 18)),
+            (9, "2026-11-05", (17, 18, 19)),
+        ):
+            def served_week(path, *args, **kwargs):
+                if path == index:
+                    return json.dumps({"served": {"espn": {"week": week}}})
+                return read_text(path, *args, **kwargs)
+
+            with self.subTest(week=week), mock.patch.object(Path, "read_text", served_week):
+                clocks = runpy.run_path(str(ROOT / "tests" / "test_week_selector_render.py"))
+                self.assertEqual(clocks["NEWER"], week)
+                self.assertEqual(clocks["THURSDAY"], thursday)
+                self.assertEqual(
+                    tuple(clocks[name] for name in ("BEFORE_NOON", "AT_NOON", "AFTER_NOON")),
+                    tuple(f"{thursday}T{hour:02d}:00:00Z" for hour in hours),
+                )
+
     def test_thursday_noon_central_boundary(self):
         results = run()
         for (label, _, expected), got in zip(CASES, results):
