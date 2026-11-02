@@ -18,9 +18,8 @@ decisions):
   A real zero is a number with no reason; a zero carrying a reason is a
   zero-fill and is rejected.
 * Availability (does the leg have data) and freshness (how old its content is)
-  are separate fields. Freshness uses the existing vocabulary of
-  pipelines/check_reference_freshness.py (current / one_week_behind / stale /
-  unknown) and the same rule: 0 weeks behind is current, 1 is one week behind,
+  are separate fields. Freshness is authoritative here (current /
+  one_week_behind / stale / unknown): 0 weeks behind is current, 1 is one week behind,
   2 or more is stale.
 * Units are fixed per leg. A rank leg holds whole-number ranks, a points leg
   holds fantasy points; nothing here converts one into the other.
@@ -187,7 +186,7 @@ def leg_kind_for_id(leg_id: str) -> str:
 
 
 def freshness_for_weeks(artifact_week: int, leg_week: int | None) -> str:
-    """The check_reference_freshness rule: 0 behind current, 1 behind one_week_behind, else stale."""
+    """The weekly-input contract rule: 0 behind current, 1 behind one_week_behind, else stale."""
     if leg_week is None:
         return "unknown"
     behind = artifact_week - leg_week
