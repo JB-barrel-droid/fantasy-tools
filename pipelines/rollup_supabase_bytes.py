@@ -10,6 +10,11 @@ import subprocess
 import sys
 from urllib.parse import urlencode
 
+try:
+    from .lib.timestamps import parse_iso_timestamp
+except ImportError:  # Direct script invocation.
+    from lib.timestamps import parse_iso_timestamp
+
 COUNTER = re.compile(r'^\[supabase-bytes\] .*? (GET|HEAD|POST|PATCH|DELETE|PUT) (\S+) requests=(\d+) bytes=(\d+) wire=(\d+) context=(\{.*\})$')
 NOTICE = ('Coverage: Python gh_sbclient response bodies only; headers and transport overhead excluded. '
           'get-values and site traffic are NOT COVERED and must not be read as zero. '
@@ -36,7 +41,7 @@ def parse_summaries(paths, since, until):
             if not isinstance(ctx, dict) or any(
                     key not in ctx or not isinstance(ctx[key], str) for key in required):
                 raise ValueError(f'{path}: counter needs string at/event/workflow/script/caller fields')
-            at = datetime.fromisoformat(ctx['at'])
+            at = parse_iso_timestamp(ctx['at'])
             if at.tzinfo is None:
                 raise ValueError(f'{path}: counter timestamp needs timezone')
             key = (ctx['event'], method, table)
@@ -110,7 +115,7 @@ def main():
     args = parser.parse_args()
     if args.days < 1:
         parser.error('--days must be positive')
-    until = datetime.fromisoformat(args.until) if args.until else datetime.now(timezone.utc)
+    until = parse_iso_timestamp(args.until) if args.until else datetime.now(timezone.utc)
     if until.tzinfo is None:
         parser.error('--until needs a timezone')
     since = until - timedelta(days=args.days)
