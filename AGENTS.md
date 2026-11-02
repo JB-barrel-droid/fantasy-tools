@@ -78,10 +78,10 @@ contracts and approval gates remain in force.
   label `codex-mac` is pending, not created or activated by these rules.
 - Never put credentials in prompts, logs, results, comments or docs. Jeremy
   enters API keys himself; agents do not retrieve, print or transfer them.
-- Claude keeps judgment, high-risk reviews and merges; Codex builds; Muse does QA on tickets labelled `muse-qa`.
-  The exact-head light/standard Codex review exception
-  below applies while Claude is available; while Claude is out, decision 11
-  below specifies independent Codex review and successor merge ownership.
+- Claude keeps judgment and normal merge ownership; Codex builds; Muse does QA on tickets labelled `muse-qa`.
+  Independent Claude or Codex reviews count at any risk level under the
+  review protocol below. While Claude is out, decision 11 below specifies
+  independent Codex review and successor merge ownership.
 - Keep rules, queue state, claims, receipts and decisions in the repo, Linear
   and GitHub; Duet memory is a convenience copy. Before a lead-thread rotation
   or milestone handoff, preserve state, open PRs, next action and pending
@@ -135,25 +135,19 @@ merges ordered so main stays green.
 
 ## Review and merge protocol (Jeremy, 2026-10-29)
 
-Codex stopped at 19:12 UTC on 2026-10-29 (Jeremy: "I want to get off of Codex
-I think, having you use a seperate reviewer makes sense. Codex is slowing us
-down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
-label and Codex release notes in `HANDOFF.md` are history. Outside decision
-11's Claude-out period, this section wins over older review
+Jeremy, 2026-11-01 at 10:02 PM CT (JEG-1444): "They don't have to be opus reviewed, they can just be codex reviewed".
+Independent Claude or Codex reviews count for merge at any risk level,
+including high-risk and value-math PRs; no usage-crunch condition applies.
+Outside decision 11's Claude-out period, Claude sessions retain merge
+ownership. This section wins over older review
 or merge text in this file and in `HANDOFF.md`.
 
-- **One independent review per PR.** Outside a usage crunch, it comes from a
-  Claude session that did not write the PR. The author's own check doesn't
-  count, and nobody reviews the same head twice (Jeremy, 2026-10-28). Changes to this file, `CLAUDE.md`
-  or permissions are never `review-exempt`. Review capability and effort are
-  selected by risk under the policy below; review and merge ownership stays
-  as specified here. A Codex pass on a PR's exact current head, made before
-  the handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
-  During a usage crunch (any week the Claude pool is on pace to run out
-  before its reset; JEG-1444 decision 10), a Codex review on the exact
-  current head of a `review-light` or `review-standard` PR counts as its one
-  review. `review-high-risk` PRs still need a Claude reviewer (Jeremy's pick
-  A, 2026-10-31 10:42 UTC).
+- **One independent review per PR.** The reviewer must be a different
+  job/session from the author, whether Claude or Codex. The author's own
+  check doesn't count, and nobody reviews the same head twice (Jeremy,
+  2026-10-28). Post reviews as a GitHub **COMMENT** review, never **APPROVE**.
+  Changes to this file, `CLAUDE.md` or permissions are never `review-exempt`.
+  Review capability and effort are selected by risk under the policy below.
 - **Checks before review (JEG-1435 / JEG-1444).** Run deterministic checks
   (`make validate`, then `gh pr checks <number>`) first. No review job starts
   until the fix head is pushed and the PR's CI is green on that exact head.
@@ -191,7 +185,8 @@ or merge text in this file and in `HANDOFF.md`.
   the same risk. Each still merges on its own reviewed head with green CI on
   that exact head and a clean merge onto current main; batching never waives
   the independent review or per-head CI gate.
-  High-risk and value-math changes ship alone, each as its own release.
+  High-risk and value-math changes ship alone, each as its own release,
+  with a value before/after on the ticket.
   Engine PRs stay one at a time (Hot files below). An Urgent ticket (live
   numbers wrong or deploy broken) ships on its own with normal gates and may
   ask Jeremy outside the 6 AM and 4 PM windows, but never during sleeping
@@ -244,7 +239,7 @@ Rules:
 1. **Designing or deriving value math is T1.** Anything that decides a
    published value, a curve, a tier, or a waiver line. Executing an approved
    spec (a config switch, porting a rule to a second path, a fixture refresh)
-   is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
+   is T2 with a risk-appropriate independent Claude or Codex review at merge. A bug whose root cause is unknown is T1
    until the cause is named.
 2. **Outside decision 11's Claude-out period, other model families never merge.**
    Their output is a draft PR on
@@ -255,8 +250,8 @@ Rules:
 4. A ticket that says T2 but needs a judgement call on the numbers is really
    T1: say so in its brief.
 5. Reviews of T2/T3 work follow the review risk tiers below, not the author's
-   implementation tier. The reviewer is independent of the author; use a
-   different model where possible within the required capability.
+   implementation tier. The reviewer must be a different job/session from the author; an
+   independent Codex review counts for merge at any risk level.
 
 ### Review risk tiers (JEG-1435, charter JEG-1444 decision 9)
 
@@ -277,9 +272,8 @@ Current model mapping (change this table when provider capability changes):
 
 | Work | Model / effort |
 | --- | --- |
-| `review-high-risk`, value math and design | Opus / high |
-| `review-light`, `review-standard`, small delta reviews without high-risk triggers | Sonnet / medium |
-| During a usage crunch: `review-light`, `review-standard`, small delta reviews without high-risk triggers | Codex on the exact current head; `review-high-risk` keeps Claude |
+| `review-high-risk`, value math and design | Opus or Codex / high |
+| `review-light`, `review-standard`, small delta reviews without high-risk triggers | Sonnet or Codex / medium |
 
 **Deterministic high-risk floor.** Before dispatch, inspect the PR's changed
 file list and diff, not a model's classification. Force `review-high-risk`
@@ -303,7 +297,7 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
 | Work type | Route |
 | --- | --- |
 | PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | History: Ba-Nana (Grok Bot), superseded by PSpice then Muse; see `HANDOFF.md` |
-| Review | Claude sessions, capability selected by review risk tier above; during a usage crunch, Codex may review `review-light` and `review-standard` PRs |
+| Review | Independent Claude or Codex job/session at any risk level, with capability selected by review risk tier above |
 | Integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
 
@@ -554,6 +548,12 @@ Playwright: skipped with a notice locally, an error where
 - The old artifact (https://claude.ai/artifact/RALxprAWirGvjw8uwZwbfW) and its
   daily republish task stay until the dashboard page is verified live, then
   retire (Jeremy, 2026-10-25).
+
+## Design and working principles
+
+Cut taglines, helper text and secondary labels. If a screen needs them to make sense, fix the layout.
+
+Make the best decision that will elevate all three: the user experience (UX), developer experience (DX), and agent experience (AX) always, without breaking anything.
 
 ## Working efficiently (JEG-524)
 
