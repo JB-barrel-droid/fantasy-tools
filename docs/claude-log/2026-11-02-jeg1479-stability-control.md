@@ -69,3 +69,36 @@ bound and 1.0 PPG perturbation; no push, merge, deploy or production changes.
   Automatic approval review rejected creating an implementation ticket:
   external organizational commitment lacked exact trusted user authority.
   No ticket creation or ownership mutation occurred; parent must handle it.
+
+---
+
+## 2026-11-02 - Main #1247 integration checkpoint
+
+Contract: integrate actual main after #1247's functional test changes, preserving
+the previously reviewed feature and shared canonical fix. Prepare the next head
+while the coordinator verifies main's deployment; no PR merge or deployment here.
+
+### Verified (check named)
+
+- Fetched actual main at `1df5f4c20032a794918637f72cb796673b95e93d` and
+  merged it normally into the existing branch as `5f331cff9d421afbafb9b243f737b9856ffe5321`.
+  Git reported no conflicts. Existing work and all incoming logs were retained.
+- `git diff --exit-code fce8f521 HEAD -- tests/test_fractional_seats_stability.py
+  tests/test_launch_front_door.py` passed: both feature tests and the shared
+  canonical correction are byte-identical to the preceding green head.
+- Destination-identity, required-runtime focused checks passed: 128 tests in
+  1.847 seconds, no skips. Modules: `test_build_weekly_inputs`,
+  `test_weekly_inputs_contract`, `test_week_state`, `test_week_stale_deadline`,
+  `test_no_real_clock`, `test_org_cutover`, plus both fixed fractional crossing
+  controls. These exercise producer determinism, weekly/DST boundaries,
+  repository cutover and the preserved hard/fractional control pair.
+- No broad local validation was repeated. No separate continuity repair,
+  production math change, force push, deletion or manual CI cancellation.
+
+### Claimed, not confirmed
+
+- The integrated final head requires fresh CI; preceding-head green checks
+  are inherited evidence only. Later operational-status-only main drift is
+  covered only by Jeremy's current-batch option A, not functional changes.
+- The coordinator owns deployment recovery, the final-main comparison,
+  independent current-head receipt, merge and serial live verification.
