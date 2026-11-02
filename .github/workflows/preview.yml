@@ -18,6 +18,8 @@ name: Preview build
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
 on:
+  merge_group:
+    types: [checks_requested]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
@@ -46,6 +48,7 @@ concurrency:
 env:
   BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
   BASELINE_RED_CONTEXT: "CI"
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
   pr-state:

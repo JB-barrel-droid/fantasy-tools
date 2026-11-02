@@ -3330,7 +3330,7 @@
             notes.push(now.benchShareOverride === null ? "The bench-share override was cleared for this league."
               : `The bench-share override was held to ${(now.benchShareOverride * 100).toFixed(1)}% for this league.`);
           }
-          draft.adv = now;
+          Object.assign(draft.adv, now); // Keep the object captured by the existing Advanced control handlers.
         }
         if (JSON.stringify([draft.roster, draft.adv]) === was) return;   // nothing moved: leave the controls (and focus) alone
         const held = document.activeElement;

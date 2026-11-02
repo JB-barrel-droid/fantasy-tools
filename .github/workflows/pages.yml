@@ -25,6 +25,7 @@ concurrency:
 env:
   BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
   BASELINE_RED_CONTEXT: "CI"
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
   # JEG-1170: validate-base and the exhaustive test-core matrix together run

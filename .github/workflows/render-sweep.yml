@@ -29,6 +29,7 @@ concurrency:
 env:
   BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
   BASELINE_RED_CONTEXT: "daily sweep"
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
   render-sweep:

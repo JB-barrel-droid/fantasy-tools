@@ -32,6 +32,7 @@ RESEARCH_DIR = APP_V2 / "research"
 SLEEPER_BASE = ROOT / "data" / "inputs" / "sleeper_identity_base.json"
 NFL_BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
+PLAYER_STATUS = ROOT / "data" / "inputs" / "player_status.json"
 
 # The 32 team defenses (name, team code as roster-paste.js writes it: Jacksonville is JAC). The engine prices no
 # defense (JEG-988), so Find a trade offers these by name as unpriced "Not evaluated" entries (JEG-995).
@@ -46,7 +47,8 @@ DEFENSES = [
     ("Seattle Seahawks", "SEA"), ("Tampa Bay Buccaneers", "TB"), ("Tennessee Titans", "TEN"), ("Washington Commanders", "WAS"),
 ]
 
-SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
+sys.path.insert(0, str(ROOT / "pipelines"))
+from lib.repository import SITE_URL
 # The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
 # serves it (JEG-453); /classic/ in dist/ is a redirect to the root.
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
@@ -143,6 +145,7 @@ def head_for_v2(html: str, at_root: bool) -> str:
     html = _set_meta(html, "property", "og:title", OG_TITLE)
     html = _set_meta(html, "property", "og:description", OG_DESCRIPTION)
     html = _set_meta(html, "property", "og:url", SITE_URL)
+    html = _set_meta(html, "property", "og:image", SITE_URL + "icon.jpg")
     # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
     html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
     html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
@@ -359,18 +362,22 @@ def nfl_byes_js(path: Path = NFL_BYES) -> str:
     return "window.TradeValueByes = " + json.dumps({"season": season, "byes": byes}, separators=(",", ":")) + ";\n"
 
 
-def player_status_js(path: Path = PLAYERS) -> str:
-    """window.TradeValueStatus: when the injury status on players.json rows was pulled from Sleeper (JEG-1312).
+def player_status_js(path: Path = PLAYER_STATUS) -> str:
+    """Dated daily display status; never re-date or fall back to the baked injury_status.
 
-    The rows' injury_status comes from the Sleeper identity base the bake read, and the bake records that base's
-    pulled_at in meta.universe.nfl_active.identity_base_pulled_at, so this is the date of the status the page actually
-    ships (not today's Supabase snapshot). A missing file or date gives as_of null: the Waivers tab then shows no
-    status, never an undated one."""
-    as_of = None
+    Rows join only by their existing Sleeper id. This payload cannot alter
+    players.json, the roster universe or any value input. The reader's clock
+    hides an old snapshot on each render, independently of the deploy time.
+    """
+    from pull_player_status import check_snapshot
+
+    data = {"source": "Sleeper", "as_of": None, "by_sleeper_id": {}}
     if path.exists():
-        meta = json.loads(path.read_text(encoding="utf-8")).get("meta") or {}
-        as_of = ((meta.get("universe") or {}).get("nfl_active") or {}).get("identity_base_pulled_at")
-    data = {"source": "Sleeper", "as_of": as_of if isinstance(as_of, str) and as_of else None}
+        snapshot = json.loads(path.read_text(encoding="utf-8"))
+        problems = check_snapshot(snapshot)
+        if problems:
+            raise ValueError("Invalid player status snapshot: " + "; ".join(problems))
+        data = {k: snapshot[k] for k in ("source", "as_of", "by_sleeper_id")}
     return "window.TradeValueStatus = " + json.dumps(data, separators=(",", ":")) + ";\n"
 
 

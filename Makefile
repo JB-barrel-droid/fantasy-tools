@@ -712,6 +712,7 @@ test-core:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -870,6 +871,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
@@ -1158,4 +1160,4 @@ preview-local: sync
 	python3 -m http.server $(PORT) --directory dist
 
 deploy-status:
-	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
+	gh run list --repo "$$(python3 -c 'from pipelines.lib.repository import REPOSITORY; print(REPOSITORY)')" --workflow "Deploy dashboard" --limit 5

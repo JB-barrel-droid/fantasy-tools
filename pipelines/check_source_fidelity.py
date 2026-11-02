@@ -35,10 +35,11 @@ from pathlib import Path as _Path  # noqa: E402
 # import order (tests import this module as pipelines.X without pipelines/ on sys.path).
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
+from lib.repository import SITE_URL
 
 REPO = Path(__file__).resolve().parent.parent
 FIXTURE = REPO / "data" / "fixtures" / "current" / "comparison-sources-data.json"
-PAGES_URL = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json"
+PAGES_URL = SITE_URL + "assets/comparison-sources-data.json"
 
 # The 4 as-published sources that go through VORP translation
 SOURCES = ["fantasycalc", "usatoday", "fantasypros", "cbs"]
