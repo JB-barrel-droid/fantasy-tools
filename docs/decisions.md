@@ -1084,6 +1084,16 @@ JEG-1335 (`docs/methodology.md` VP-2.2 g).
 
 Jeremy, 2026-10-29 (multiple choice, on JEG-1310): "Leave as is", then "CBS logic should follow what it has been." CBS rest-of-season handling is unchanged: CBS's printed points are used as published, at equal weight in DDF Value (projections). Not the recommended option, which was to rescore CBS from its own stat line. Don't propose rescoring or reweighting CBS again. The research (CBS QBs about 2.5 ppg high from 6-point passing TDs, RBs about 1.1 low, player gaps such as Jalen Coker are CBS's own view) is in `docs/research/JEG-1310/README.md`. No divergence resolution was recorded, so the CBS warn can recur.
 
+## JEG-1336: the chart fill-in estimate stays as it is (option A)
+
+Jeremy, 2026-10-29 6:14 PM CT (23:14 UTC), on JEG-1336: "Leave as is"
+(option A). The VP-2.4e curve estimate for players no chart lists is
+unchanged, so a fringe RB can still step between about 0 and 1.4 to 1.95 when
+he enters or leaves the fill set. Not taken: B (weight each estimate by seat
+share), C (estimate every listed player, never an unlisted one), D (recommended:
+cap a chart's straight-line guess below any player projected above him), B+D.
+Research: `docs/research/jeg1336-fill-in.md`. Nothing to build.
+
 ## JEG-1444: Usage crunch offload, and Codex reviews in a crunch
 
 Jeremy, 2026-10-31 10:38 UTC: "We are on pace to run out of usage 4 days early. I want as much offloaded to other tools as possible during usage crunches". A crunch is any week the Claude pool is on pace to run out before its reset. In a crunch Claude keeps judging, the required reviews it alone may give, merging, and steps nothing else can do; build, fixes, docs and checks go to Codex, and read-only investigations go to Muse (charter JEG-1444, decision 10).
