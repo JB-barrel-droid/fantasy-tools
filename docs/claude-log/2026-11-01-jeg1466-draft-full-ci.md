@@ -37,3 +37,10 @@ it's still a draft, then promote." Keep both bot freshness exceptions false.
 - Main at preparation is `5381de25a6d6b8356eb799c077d48f5fab9e00dc`, already
   merged into the branch. Recheck ancestry before promotion; no extra catch-up
   needed at preparation. Branch writes stop by Nov 2 5:45 AM CT.
+
+### Catch-up (Mac job, 2026-11-02 UTC)
+
+- Merged `origin/main` ef526efd into the branch by merge commit 82741c8a (no file
+  overlap; 88 focused tests passed). That head was pushed without a grant, so its
+  draft `preview`/`v2-render` stayed deferred-red as designed. This log commit is
+  the single final head, granted with its exact `full-ci:<SHA>` label before push.
