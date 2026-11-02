@@ -10,6 +10,7 @@
 //   node tests/_edge_pipeline_runner.cjs \
 //     --scoring ppr --teams 12 --superflex 0 --dist dist/
 //     [--bench 6] [--league '<normalized DDF league JSON>'] [--week 8]
+//     [--bench-share-override 0.1] [--dump-weights 1]
 //     [--history-index <index.json in place of dist's>] [--with-week 1]
 //     [--basis <basis= text>] [--ov <ov= text>]
 //   JEG-1225: --basis and --ov are a share link's value context, read by app/v2/ddf-value-link.js and applied by
@@ -143,10 +144,18 @@ if (args["dump-natives"]) {
 // --bench overrides bench_per_team (the negative test's deliberately wrong value).
 const setting = { ...built.setting };
 if (benchOverride !== null) setting.bench_per_team = benchOverride;
+// JEG-1366: --bench-share-override S sets the reader's bench-share override (ES-14), the fixed-share path.
+if (args["bench-share-override"] !== undefined) setting.bench_share_override = Number(args["bench-share-override"]);
 const input = { ...built, setting, basisConfig: basisConfigOf(context) };
 
 // --- Run pipeline -----------------------------------------------------------
 const pipeline = ValueModel.runValuePipeline(input);
+
+// JEG-1366: --dump-weights prints the DDF weights (VP-4) and the bench share they were built with, and stops.
+if (args["dump-weights"]) {
+  process.stdout.write(JSON.stringify({ ddf_weights: pipeline.ddfWeights, bench_share_applied: pipeline.benchShareApplied }));
+  process.exit(0);
+}
 
 // --- Output DDF blended values (after the caller's overrides) -----------------
 const own = applyOverrides(ValueModel, pipeline, context);
