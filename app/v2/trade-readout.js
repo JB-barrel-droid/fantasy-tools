@@ -300,7 +300,9 @@
     }
     const charts = (input.chartKeys || []).slice();
     if (!w.market) return {...unavailable("unavailable", STRINGS.tooFewCharts(charts.length)), basis: "viability"};
-    const combo = F.evaluateCombo(w.giveRows, w.receiveRows, {ourKey: out.ourKey, chartKeys: charts, minCharts: Math.min(F.MIN_CHARTS, charts.length)});
+    // S8: K/DEF stay in the physical trade, but never participate in a value sum.
+    const evaluated = rows => rows.filter(row => !F.isNotEvaluated(row));
+    const combo = F.evaluateCombo(evaluated(w.giveRows), evaluated(w.receiveRows), {ourKey: out.ourKey, chartKeys: charts, minCharts: Math.min(F.MIN_CHARTS, charts.length)});
     const chartsLine = `${combo.rivalOkCount} of ${combo.pricedCharts} charts have them winning or even.`;
     const fit = verdict && verdict.fit;
     const viability = fit ? F.viabilityLabel(fit, w.sides.mine.roster, w.sides.theirs.roster, w.sides.mine.leaving, w.sides.mine.arriving,
@@ -343,8 +345,11 @@
     const rows = F.withChartAverage(moving.map(m => m.row), w.market);
     // The gap is marketGaps' number (every non-zero gap at floor 0); a lean is named only above team-summary.js's
     // NOISE_FLOOR, the rule the league page uses to list a player as under or overvalued (Q13 A).
-    const all = TS.marketGaps(rows, 0);
-    const listed = TS.marketGaps(rows, TS.NOISE_FLOOR);
+    // marketGaps reads F.OUR_KEY. Adapt its input to the selected basis, just as the displayed ddf below does;
+    // keep the chart average and original engine rows untouched.
+    const gapRows = rows.map(row => ({...row, values: {...row.values, [F.OUR_KEY]: row.values && row.values[out.ourKey]}}));
+    const all = TS.marketGaps(gapRows, 0);
+    const listed = TS.marketGaps(gapRows, TS.NOISE_FLOOR);
     const byKey = new Map(all.under.concat(all.over).map(item => [item.key, item]));
     const lean = new Map(listed.under.map(item => [item.key, "ddf-higher"]).concat(listed.over.map(item => [item.key, "market-higher"])));
     const players = moving.map(({key, side, row}, i) => {
@@ -416,8 +421,9 @@
     const teams = known(c.teams) && finite(Number(c.teams)) && Number(c.teams) > 0 ? Number(c.teams) : null;
     const week = known(c.week) && finite(Number(c.week)) && Number(c.week) > 0 ? Number(c.week) : null;
     if (teams !== null) parts.push(`${teams} teams`); else missing.push("teams");
-    const sf = known(c.superflex) ? Boolean(c.superflex) : input.shape ? Number(shape.SUPERFLEX) > 0 : null;
-    if (sf === null) missing.push("superflex"); else parts.push(sf ? "Superflex" : "1QB");
+    const sf = known(c.superflex) ? Boolean(c.superflex) : known(shape.SUPERFLEX) ? Number(shape.SUPERFLEX) > 0 : null;
+    const qb = known(shape.QB) && finite(Number(shape.QB)) && Number(shape.QB) > 0 ? Number(shape.QB) : null;
+    if (sf === null) missing.push("superflex"); else parts.push(sf ? "Superflex" : qb !== null ? `${qb}QB` : "No superflex");
     const mode = c.basis && c.basis.mode;
     if (mode === "default") parts.push("DDF Value basis"); else if (mode === "single" || mode === "blend") parts.push("Your basis, not ours");
     else missing.push("basis");

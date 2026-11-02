@@ -9,6 +9,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class TradeReadoutRowsTest(unittest.TestCase):
+    def test_review_regressions(self):
+        result = subprocess.run(["node", "--test", str(ROOT / "tests/node/jeg1323_review_regressions.cjs")],
+                                capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+
     def test_rows_golden_and_named_cases(self):
         result = subprocess.run(["node", str(ROOT / "tests/node/jeg1323_trade_readout_rows_check.cjs")],
                                 capture_output=True, text=True, check=False)
