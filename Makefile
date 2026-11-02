@@ -525,6 +525,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_name_search
 	# JEG-1231: opponent inclusion state, the league search adapter and their mutation proofs.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion
+	# JEG-1263: Simplified site view model, route contract and mutation proofs.
+	python3 -m unittest tests.test_jeg1263_simplified_site
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
 	python3 -m pytest -q -p no:cacheprovider tests/test_player_status_history_ids.py
 	python3 -m pytest -q -p no:cacheprovider tests/test_pull_dynasty_daddy.py
@@ -712,6 +714,7 @@ test-core:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -870,6 +873,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
@@ -1042,6 +1046,7 @@ test-render-sweep-3:
 	# JEG-1231: opponent inclusion control (private preview): keyboard, names, counts, phone width.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
 	python3 -m unittest tests.test_jeg1231_league_inclusion_render
+	# JEG-1263: Simplified site states, routes and focus at 1280/390/320.
 	# JEG-1275: selected-package composition preview at 1280/390/320.
 	python3 -m unittest tests.test_package_composition_preview_render
 	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).

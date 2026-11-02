@@ -21,6 +21,7 @@ on:
 
 permissions:
   contents: read  # JEG-1441: main writes use the environment-scoped App.
+  actions: write  # dispatch the validated Pages build after the status commit
 
 concurrency:
   group: player-status-history
@@ -40,21 +41,34 @@ jobs:
         with:
           python-version: "3.12"
 
+      # JEG-1363: display status must not wait for identity tests, a value bake
+      # or the database history write. Same free/keyless source and scheduler.
+      - name: Pull dated status for the page (no database access)
+        id: status
+        run: |
+          python3 -m unittest tests.test_daily_player_status
+          python3 pipelines/pull_player_status.py --raw-out /tmp/sleeper-status-raw.json
+
       - name: Install standalone Supabase client
+        if: ${{ !cancelled() }}
         run: |
           mkdir -p /tmp/gh_shim
           cp pipelines/gh_sbclient.py /tmp/gh_shim/sbclient.py
-          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> $GITHUB_ENV
+          echo "PYTHONPATH=/tmp/gh_shim:$PYTHONPATH" >> "$GITHUB_ENV"
 
       - name: Pull Sleeper and save the day's status
+        id: history
+        if: ${{ !cancelled() }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
-          flag="--dry-run"
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          flags=(--dry-run)
+          [ "${{ github.event.inputs.mode }}" = "write" ] && flags=()
+          # Display checks can fail before the shared response is written.
+          [ ! -f /tmp/sleeper-status-raw.json ] || flags+=(--from-file /tmp/sleeper-status-raw.json)
           rc=0
-          python3 pipelines/save_player_status_history.py $flag > /tmp/status.log 2>&1 || rc=$?
+          python3 pipelines/save_player_status_history.py "${flags[@]}" > /tmp/status.log 2>&1 || rc=$?
           cat /tmp/status.log
           level=notice; [ "$rc" = 0 ] || level=error
           tail -40 /tmp/status.log | tr '\n' ' ' | cut -c1-3000 | sed "s/^/::$level title=player status history rc=$rc::/"
@@ -73,9 +87,11 @@ jobs:
           repositories: ${{ github.event.repository.name }}
           permission-contents: write
 
-      - name: Commit the run summary
-        if: github.event.inputs.mode == 'write'
+      - name: Commit dated page status and the successful history summary
+        id: publish
+        if: ${{ !cancelled() && github.event.inputs.mode == 'write' && steps.status.outcome == 'success' }}
         env:
+          HISTORY_OUTCOME: ${{ steps.history.outcome }}
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -104,15 +120,34 @@ jobs:
           }
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add -f output/player-status-history.json  # output/ is gitignored
+          git add data/inputs/player_status.json
+          if [ "$HISTORY_OUTCOME" = "success" ]; then
+            git add -f output/player-status-history.json  # output/ is gitignored
+          fi
           if git diff --cached --quiet; then
             echo "No changes to commit."
           else
             release_guard stage
-            git commit -m "Player status history: daily snapshot (JEG-521 G4, GitHub Actions)"
-            git pull --rebase --autostash origin main
-            release_push
+            git commit -m "Dated Sleeper display status and history (JEG-1363)"
+            # Preserve the repository no-rebase rule; integrate concurrent publications with a merge.
+            git pull --no-rebase origin "${GITHUB_REF_NAME}"
+            release_push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # A GITHUB_TOKEN push does not trigger pages.yml's push event. Deploy
+      # only after publication to main; branch/dry runs never dispatch Pages.
+      - name: Request validated Pages build for the new status
+        if: ${{ !cancelled() && github.ref == 'refs/heads/main' && steps.publish.outputs.pushed == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl --fail --silent --show-error --output /tmp/status-deploy.json \
+            -X POST -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/workflows/pages.yml/dispatches" \
+            -d '{"ref":"main"}'
 
       - name: Retain deferred publication (player-status-history-1)
         if: always()

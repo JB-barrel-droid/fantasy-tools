@@ -1,11 +1,14 @@
-"""Bye week on player rows in Compare, Find a trade and Trade targets (JEG-892, path A: byes only).
+"""Bye week and injury status on player rows in Compare, Find a trade and Trade targets (JEG-892, path B).
 
 The rule lives in app/v2/player-flags.js:
 
   * teamCode: roster feeds write JAC, LAR, WSH and LVR; the bye table uses JAX, LA, WAS and LV;
   * byeOf: a team the table has gets its bye, marked done / this week / ahead against the calendar week when one is
     known; a free agent or an unknown team gets null, never a guessed week;
-  * node: the " · Bye 11" span on a row's sub-line, with the schedule named on hover.
+  * node: the " · Bye 11" span on a row's sub-line, with the schedule named on hover;
+  * statusChip / node (path B): a Sleeper status chip only for a player on an NFL team, only when the copy is dated
+    and fresh under the Waivers tab's rule (TradeValueWaivers.statusFreshness, JEG-1312), with the date on hover. A
+    stale or undated copy shows no chip and says why on hover; no status never reads as healthy.
 
 Coverage (the ticket's Done when): the bye table has all 32 teams, and every players.json row on an NFL team gets a
 bye through the same function the page uses, so a missing team fails here, not on the live page.
@@ -15,21 +18,30 @@ Discrimination: test_checks_fail_on_broken_copies runs the checks on copies of p
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 FLAGS_JS = ROOT / "app" / "v2" / "player-flags.js"
 BYES = ROOT / "data" / "inputs" / "nfl_byes_2026.json"
 PLAYERS = ROOT / "data" / "fixtures" / "current" / "players.json"
+WAIVERS_JS = ROOT / "app" / "v2" / "waivers.js"
+DAY = 24 * 60 * 60 * 1000
+PULLED = "2026-10-09T18:46:05+00:00"
+PULLED_MS = int(datetime.fromisoformat(PULLED).timestamp() * 1000)
 
 PRELUDE = """
 const fs = require('fs');
 const input = JSON.parse(fs.readFileSync(0, 'utf8'));
 const made = [];
-globalThis.document = {createElement: tag => { const n = {tag, dataset: {}, title: '', textContent: ''}; made.push(n); return n; }};
+globalThis.document = {createElement: tag => { const n = {tag, dataset: {}, title: '', textContent: '', attrs: {}, children: [],
+  setAttribute(k, v) { this.attrs[k] = v; }, appendChild(c) { this.children.push(c); }}; made.push(n); return n; }};
+if (input.waivers) globalThis.TradeValueWaivers = require(process.argv[2].replace(/player-flags\\.js$/, 'waivers.js'));
+globalThis.TradeValueStatus = input.status;
 globalThis.TradeValueByes = input.table;
 globalThis.TradeValueProductData = input.week === undefined ? undefined
   : {getSourceFreshness: () => { if (input.week === 'throws') throw new Error('not ready'); return {current_content_week: input.week}; }};
@@ -44,6 +56,16 @@ return {
   byes: input.cases.map(c => P.byeOf(c.team, input.table.byes, c.week)),
   texts: input.cases.map(c => P.byeText(P.byeOf(c.team, input.table.byes, c.week))),
 };
+"""
+
+STATUS_NODES = """
+const realNow = Date.now;
+Date.now = () => input.now;
+const out = input.rows.map(r => { const n = P.node(r); if (!n) return null;
+  const chip = n.children[0] || null;
+  return {text: n.textContent, title: n.title, chip: chip ? {text: chip.textContent, status: chip.dataset.status, title: chip.title, label: chip.attrs['aria-label']} : null}; });
+Date.now = realNow;
+return out;
 """
 
 NODES = """
@@ -135,6 +157,62 @@ class PlayerFlagsTest(unittest.TestCase):
             self.assertTrue((Path(tmp) / "v2" / "player-flags.js").exists())
 
 
+class StatusChipTest(unittest.TestCase):
+    path = FLAGS_JS
+    rows = [{"name": "Hurt Starter", "team": "JAC", "injury_status": "Questionable"},
+            {"name": "Healthy Starter", "team": "CIN", "injury_status": None},
+            {"name": "Active Starter", "team": "CIN", "injury_status": "Active"},
+            {"name": "Free Agent Out", "team": "", "injury_status": "Out"},
+            {"name": "Long Out", "team": "LAR", "injury_status": "IR"}]
+
+    def nodes(self, status, now, waivers=True):
+        return run(STATUS_NODES, {"table": table(), "rows": self.rows, "status": status, "now": now, "waivers": waivers}, self.path)
+
+    def test_daily_id_map_shows_its_own_dated_status_and_never_old_row_status(self):
+        at = "2026-10-30T22:44:16+00:00"
+        now = int(datetime.fromisoformat(at).timestamp() * 1000)
+        rows = [{"sleeper_id": "4034", "team": "SF", "pos": "RB", "injury_status": "Out"},
+                {"sleeper_id": "4892", "team": "TB", "pos": "QB", "injury_status": "Out"},
+                {"sleeper_id": "unknown", "team": "TB", "pos": "QB", "injury_status": "Out"}]
+        status = {"source": "Sleeper", "as_of": at, "by_sleeper_id": {
+            "4034": {"team": "SF", "pos": "RB", "injury_status": "Questionable"},
+            "4892": {"team": "TB", "pos": "QB", "injury_status": None}}}
+        payload = {"table": table(), "rows": rows, "status": status, "now": now, "waivers": True}
+        out = run(STATUS_NODES, payload, self.path)
+        self.assertEqual(out[0]["chip"]["text"], "Q")
+        self.assertEqual(out[0]["chip"]["title"], "Questionable: Sleeper status as of Oct 30, 22:44 UTC")
+        self.assertIsNone(out[1]["chip"])
+        self.assertIsNone(out[2]["chip"])
+        out = run(STATUS_NODES, {**payload, "now": now + (6 * 24 * 60 + 1) * 60 * 1000}, self.path)
+        self.assertTrue(all(x["chip"] is None for x in out))
+
+    def test_fresh_copy_shows_a_dated_chip_only_for_team_players_with_a_status(self):
+        out = self.nodes({"source": "Sleeper", "as_of": PULLED}, PULLED_MS + DAY)
+        self.assertEqual(out[0]["chip"], {"text": "Q", "status": "Questionable", "title": "Questionable: Sleeper status as of Oct 9",
+                                          "label": "Questionable: Sleeper status as of Oct 9"})
+        self.assertEqual(out[4]["chip"]["text"], "IR")
+        self.assertIsNone(out[1]["chip"])           # no status in the source: no chip, never "healthy"
+        self.assertIsNone(out[2]["chip"])           # Active is not a status to flag
+        self.assertIsNone(out[3])                   # a free agent: no bye and no chip
+        self.assertEqual(out[0]["title"], "Bye week: 2026 NFL schedule (published, fixed for the season).")
+
+    def test_stale_or_undated_copy_shows_no_chip_and_says_why(self):
+        stale = self.nodes({"source": "Sleeper", "as_of": PULLED}, PULLED_MS + 20 * DAY)
+        self.assertTrue(all(n is None or n["chip"] is None for n in stale))
+        self.assertIn("Injury status is not shown: the latest Sleeper status is from Oct 9, 20 days old.", stale[0]["title"])
+        self.assertEqual(stale[0]["text"], " · Bye 7")
+        undated = self.nodes({"source": "Sleeper", "as_of": None}, PULLED_MS + DAY)
+        self.assertTrue(all(n is None or n["chip"] is None for n in undated))
+        self.assertIn("has no date", undated[0]["title"])
+        missing = self.nodes(None, PULLED_MS + DAY)
+        self.assertTrue(all(n is None or n["chip"] is None for n in missing))
+
+    def test_no_waivers_rule_loaded_shows_no_chip(self):
+        out = self.nodes({"source": "Sleeper", "as_of": PULLED}, PULLED_MS + DAY, waivers=False)
+        self.assertTrue(all(n is None or n["chip"] is None for n in out))
+        self.assertEqual(out[0]["text"], " · Bye 7")
+
+
 class BrokenCopies(unittest.TestCase):
     def test_checks_fail_on_broken_copies(self):
         source = FLAGS_JS.read_text(encoding="utf-8")
@@ -143,7 +221,12 @@ class BrokenCopies(unittest.TestCase):
             "guesses a bye": ("if (!code || !byes || !Number.isInteger(byes[code])) return null;",
                               "if (!byes) return null; if (!Number.isInteger(byes[code])) return {team: code, week: 1, state: \"ahead\"};"),
             "ignores the week": ('const state = !Number.isInteger(week) ? "ahead"', 'const state = true ? "ahead"'),
-            "no provenance": ("span.title = sourceText(table.season);", 'span.title = "";'),
+            "no provenance": ("notes.push(sourceText(table.season));", "notes.push('');"),
+            "ignores staleness": ("const status = W.statusOf(row, freshness);",
+                                  "const status = row.injury_status && !['Active', 'Inactive'].includes(row.injury_status) ? row.injury_status : null;"),
+            "chip for free agents": ("if (!row || !teamCode(row.team) || !W || !W.statusOf) return null;", "if (!row || !W || !W.statusOf) return null;"),
+            "no date on hover": ("title: `${status}: ${freshness.label}`", "title: status"),
+            "silent when stale": ("if (freshness && !freshness.shown && teamCode(row.team)) notes.push(freshness.text);", ""),
         }
         with tempfile.TemporaryDirectory() as tmp:
             for name, (old, new) in breaks.items():
@@ -151,9 +234,12 @@ class BrokenCopies(unittest.TestCase):
                 broken = Path(tmp) / f"{name.replace(' ', '-')}" / "player-flags.js"
                 broken.parent.mkdir()
                 broken.write_text(source.replace(old, new), encoding="utf-8")
+                shutil.copy2(WAIVERS_JS, broken.parent / "waivers.js")
+                shutil.copy2(ROOT / "app" / "v2" / "finder.js", broken.parent / "finder.js")
                 suite = unittest.TestSuite()
-                case = type("Broken", (PlayerFlagsTest,), {"path": broken})
-                suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(case))
+                for base in (PlayerFlagsTest, StatusChipTest):
+                    case = type("Broken", (base,), {"path": broken})
+                    suite.addTests(unittest.defaultTestLoader.loadTestsFromTestCase(case))
                 result = unittest.TestResult()
                 suite.run(result)
                 self.assertFalse(result.wasSuccessful(), f"checks passed on a broken copy: {name}")
