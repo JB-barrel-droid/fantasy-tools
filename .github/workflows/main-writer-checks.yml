@@ -5,6 +5,21 @@ on:
     paths:
       - ".github/workflows/**"
       - ".github/scripts/main-writer-credential.py"
+      - "pipelines/lib/repository.py"
+      - "pipelines/build_llm_surfaces.py"
+      - "pipelines/sync_dashboard_artifacts.py"
+      - "pipelines/build_*status.py"
+      - "pipelines/build_pipeline_checkpoints.py"
+      - "pipelines/production_verify.py"
+      - "pipelines/fidelity_pulse.py"
+      - "pipelines/check_source_fidelity.py"
+      - "pipelines/health_artifacts_watch.py"
+      - "pipelines/monitor_alerts.py"
+      - "modules/dashboard.html"
+      - "verify_live.py"
+      - "Makefile"
+      - "tests/test_org_cutover.py"
+      - "tests/test_llm_surfaces.py"
       - "pipelines/main_write_guard.py"
       - "tests/test_main_writer*.py"
       - "tests/test_main_write_guard.py"
@@ -18,6 +33,10 @@ on:
 
 permissions:
   contents: read
+
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
   security-contracts:
@@ -35,6 +54,8 @@ jobs:
         run: >-
           python3 -m unittest -f -v
           tests.test_main_writer_credentials
+          tests.test_org_cutover
+          tests.test_llm_surfaces
           tests.test_main_writer_workflows
           tests.test_main_write_guard
           tests.test_open_divergence_issues
