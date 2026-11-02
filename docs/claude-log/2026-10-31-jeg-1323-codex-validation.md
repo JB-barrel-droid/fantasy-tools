@@ -33,3 +33,22 @@ Jeremy explicitly assigned this bridge work; the older Codex pause does not appl
 - Known `test_keyboard_mobile_and_overlap_guard` selected '' vs 'beta' red belongs to another job;
   no test assertion or unrelated product code changed here.
 - No independent new-head review, browser render of the second-half rows, merge, deploy or live claim.
+
+### Mac continuation, 2026-11-02 UTC (JEG-1323)
+
+Verified:
+- Fast-forwarded local branch to pushed f70f7213, then merged main
+  5381de25a6d6b8356eb799c077d48f5fab9e00dc normally to obtain merged #1233.
+  Catch-up was required for the keyboard validation fix, not bot-write lag.
+- Post-merge readout wrappers: 3 tests pass, including Standard/Half PPR/PPR.
+- Neither app/v2/v2.js nor app/v2/shell.html changed during the merge.
+  HANDOFF.md has no PR diff against main; no handoff edits authored.
+
+Pending / external blockers:
+- Full required Chrome make validate not started: existing make validate PIDs
+  35468, 36261, 36775 occupy the Mac heavy lane. No retry or waiter started.
+- PR remains draft, so preview/v2-render draft deferral failures are expected;
+  no new-head full CI pass claimed. GitHub CLI log retrieval hit an API rate limit.
+- Independent current-head high-risk Claude review remains pending; author did
+  not review this work. Next owner runs the full gate when the heavy lane is free,
+  promotes the draft to run substantive CI, then requests independent review.
