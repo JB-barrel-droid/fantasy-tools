@@ -349,6 +349,17 @@ review and merge protocol above):
 - **`make sync` is the single publish path** and stamps the build tag. `dist/`
   is generated: edit sources or fixtures, then run sync. Do not re-add
   `dist/static`, `dist/server`, `space.json` or `deploy.sh`.
+- **Never pause or kill bridge processes** (Jeremy, 2026-11-02, JEG-1476). On
+  2026-11-01 a Codex chat asked to stop a flashing Chrome icon sent SIGSTOP to
+  the bridge's Codex app-server and two Claude workers, and Codex froze for 23
+  minutes. Never send SIGSTOP, SIGTSTP, SIGTERM, SIGKILL or any other signal
+  to, and never suspend, renice or kill, a process whose parent chain includes
+  `server-v2.mjs`, `bridge-gateway.mjs`, `claude-code-mcp`, a
+  `codex app-server --stdio` started by the bridge, or a launchd job labelled
+  `com.jeremy.*bridge*`, or any of their child test processes (make, pytest,
+  unittest, Chrome or Chromium launched by them). If one of them is causing a
+  problem (CPU, memory, a flashing browser), report its PID, its command and
+  the ticket it is working on, and ask Jeremy. Never act on it yourself.
 - **Do not touch `~/Projects/"fantasy tools"`** on the user's machine beyond the
   `Claude outputs/` folder. It holds `data/raw` (33MB, gitignored), the only
   copy of the player-news pipeline's inputs.
