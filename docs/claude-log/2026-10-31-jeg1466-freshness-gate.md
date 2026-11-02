@@ -128,3 +128,13 @@ backups). It dispatches jobs; callers must require the gate at both boundaries.
 - External call-site activation requires the owning operator to add the reported
   one-line calls. New in-repo entry points cannot intercept ad hoc `gh pr` calls.
 - `make validate` intentionally not run, per the job instruction.
+
+### Nov 1 continuation: strict policy and promotion
+
+Jeremy's Nov 1 8:19 PM CT answer A keeps both exception flags disabled.
+Merged main `5381de25` for promotion with a merge commit. Removed the entire
+HANDOFF.md diff against main; handoff state goes on JEG-1466. The historical
+option letters in the bot-only note are not Jeremy's current answer letters.
+Installed missing local Playwright Chromium. Focused freshness/draft tests:
+46 passed. Full validation and exact-head remote CI are recorded on the ticket.
+No independent review performed by the author; no merge or deploy.

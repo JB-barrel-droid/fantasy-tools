@@ -45,12 +45,19 @@ review. PRs stop editing `HANDOFF.md`; handoff notes go on the Linear ticket.
 - Comment on the ticket: PR number, head sha, "bot report matched head", "v2-render green", what the lead checked and what is not yet verified (live site after deploy).
 - Published output changed: wait for Deploy dashboard, then `runbooks/verify-live.md`.
 
-## Bot-only catch-up (off until Jeremy approves)
+## Bot-only catch-up (disabled by Jeremy)
 
-Jeremy, 2026-11-01: "Queue up the work next that speeds up efficiency from in
-progress to merged". These are options for his 4 PM Central window, **not an
-approved standing exception**. Both checked-in flags in
+Jeremy, Nov 1, 2026, 8:19 PM CT: keep the bot-only freshness exception off
+(answer A in the current decision). Both checked-in flags in
 `pipelines/pr_freshness_config.json` remain `false`; no environment override.
+Strict current-main ancestry applies at promotion and merge. The historical
+options below are unapproved proposals; their letters do not identify the
+Nov 1 decision.
+
+For a draft that needs green CI before promotion, dispatch `preview.yml` and
+`v2-render-test.yml` on the pinned branch head. Their existing manual paths
+run full verification without changing draft protections. Wait for exact-head
+checks, then use `python3 -m pipelines.pr_promotion ready-for-review <PR>`.
 
 - **A: status-only bot writes need no catch-up or re-CI.** Approve
   `allow_bot_only_behind: true`, keeping `allow_bot_data_inputs: false`.
