@@ -54,7 +54,7 @@ EXPECT = """() => {
 
 OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg-opp')].map(tr => {
   const cell = k => ((tr.querySelector(`[data-cell="${k}"]`) || {}).textContent || '');
-  const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
+  const num = s => { const m = s.match(/[-+\\u2212]?\\d+(\\.\\d+)?/); return m ? Number(m[0].replace('\\u2212', '-')) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
   return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
     capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: num(cell('rank')), rankText: cell('rank')}; })"""
@@ -484,6 +484,9 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "a missing piece is printed as null": ({"league.js": league.replace("].filter(Boolean));\n  }\n\n  // The finder runs", "]);\n  }\n\n  // The finder runs", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
             "settings change loses the teams": ({"league.js": league.replace('store.replace(ws, "settings");', 'store.replace(W.newWorkspace(), "settings");', 1)}, {"settings"}),
+            # JEG-1424: the scoring switch must reach the math. A context frozen at its first build keeps the Full PPR values, so the
+            # second and third scorings repeat the first result. (Resetting the pairing cache alone cannot fail: its key covers scoring.)
+            "math context frozen at its first build": ({"league.js": league.replace("  function mathContext() {\n    const C = engine();", "  let frozenCtx = null;\n  function mathContext() { return frozenCtx || (frozenCtx = freshMathContext()); }\n  function freshMathContext() {\n    const C = engine();", 1)}, {"settings"}),
             "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible.slice(0, 5);", 1)}, {"twenty"}),
         }
         for name, (overrides, only) in broken.items():
