@@ -26,7 +26,7 @@
   "use strict";
 
   const NAME = "ai-connection-panel";
-  const GUIDE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/connect/";   // same href as the footer's Connect the tool
+  const GUIDE_URL = "connect/";   // same href as the footer's Connect the tool
 
   // The copy pack, verbatim by string ID (JEG-1223 / JEG-1252). Change these only with the pack.
   const COPY = Object.freeze({
