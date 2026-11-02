@@ -6,7 +6,6 @@ from pathlib import Path
 import tempfile
 import unittest
 import yaml
-from urllib.parse import parse_qs, urlsplit
 from unittest import mock
 from contextlib import redirect_stdout, redirect_stderr
 from pipelines import gh_sbclient as sb
@@ -61,21 +60,37 @@ class RollupTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 rollup.parse_summaries([path], datetime(2026,10,30,tzinfo=timezone.utc), datetime(2026,11,1,tzinfo=timezone.utc))
 
-    def test_download_query_is_encoded_utc_seconds(self):
-        from datetime import timedelta
+    def test_download_includes_recent_artifacts_from_old_runs(self):
         import subprocess
-        since = datetime(2026, 10, 31, 14, 30, 12, 123456,
-                         tzinfo=timezone(timedelta(hours=2)))
+        import zipfile
+        since = datetime(2026, 10, 30, tzinfo=timezone.utc)
+        archive = io.BytesIO()
+        line = next(line for line in FIXTURE.read_text().splitlines()
+                    if line.startswith('[supabase-bytes]') and ' context=' in line)
+        with zipfile.ZipFile(archive, 'w') as zf:
+            zf.writestr('counter.md', line + '\n')
+        def artifact(id, name, created, expired=False):
+            return dict(id=id, name=name, created_at=created, expired=expired,
+                        workflow_run={'id': 1, 'created_at': '2026-01-01T00:00:00Z'})
+        pages = [dict(artifacts=[artifact(10, 'supabase-bytes-job-2', '2026-10-30T01:00:00Z'),
+                                 artifact(11, 'other', '2026-10-30T01:00:00Z')]),
+                 dict(artifacts=[artifact(12, 'supabase-bytes-job-1', '2026-10-29T23:59:59Z'),
+                                 artifact(13, 'supabase-bytes-job-3', '2026-10-31T00:00:00Z', True)])]
+        def github(args, **kwargs):
+            endpoint = args[-1]
+            if endpoint == 'repos/owner/repo/actions/artifacts?per_page=100':
+                return subprocess.CompletedProcess(args, 0, json.dumps(pages))
+            if endpoint == 'repos/owner/repo/actions/artifacts/10/zip':
+                return subprocess.CompletedProcess(args, 0, archive.getvalue())
+            self.fail(f'Unexpected API call: {endpoint}')
         with tempfile.TemporaryDirectory() as tmp, mock.patch.object(
-                rollup.subprocess, 'run', side_effect=subprocess.CalledProcessError(1, 'gh')) as run:
-            with self.assertRaises(subprocess.CalledProcessError):
-                rollup.download(Path(tmp), 'owner/repo', since)
-            endpoint = run.call_args.args[0][-1]
-            query = parse_qs(urlsplit(endpoint).query)
-            self.assertEqual(query, {'created': ['>=2026-10-31T12:30:12Z'], 'per_page': ['100']})
-            self.assertNotIn('+', endpoint)
-            self.assertIn('%3E%3D', endpoint)
-            self.assertIn('%3A', endpoint)
+                rollup.subprocess, 'run', side_effect=github) as run, redirect_stderr(io.StringIO()):
+            rollup.download(Path(tmp), 'owner/repo', since)
+            rows, _ = rollup.parse_summaries(Path(tmp).rglob('*.md'), since,
+                                            datetime(2026, 11, 1, tzinfo=timezone.utc))
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(run.call_count, 2)
+            self.assertIn('--paginate', run.call_args_list[0].args[0])
 
     def test_missing_or_wrong_context_fields_fail_clearly(self):
         line = next(line for line in FIXTURE.read_text().splitlines()

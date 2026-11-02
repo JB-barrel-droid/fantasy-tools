@@ -8,7 +8,6 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from urllib.parse import urlencode
 
 try:
     from .lib.timestamps import parse_iso_timestamp
@@ -69,41 +68,31 @@ def aggregate(rows, reads_only=False):
 
 def download(root, repo, since):
     """Read-only GitHub operations; any error (including quota) stops immediately."""
-    workflows = Path(__file__).resolve().parents[1] / '.github/workflows'
-    for workflow in sorted(workflows.glob('*.yml')):
-        if 'pipelines/gh_sbclient.py' not in workflow.read_text():
-            continue
-        query = urlencode({
-            'created': '>=' + since.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
-            'per_page': 100,
-        })
-        endpoint = f'repos/{repo}/actions/workflows/{workflow.name}/runs?{query}'
-        result = subprocess.run(['gh', 'api', '--paginate', '--slurp', endpoint],
-                                check=True, capture_output=True, text=True)
-        for page in json.loads(result.stdout):
-            for run in page['workflow_runs']:
-                # Include failed runs: their counters matter too.
-                artifacts = subprocess.run(
-                    ['gh', 'api', '--paginate', '--slurp', f'repos/{repo}/actions/runs/{run["id"]}/artifacts?per_page=100'],
-                    check=True, capture_output=True, text=True)
-                for batch in json.loads(artifacts.stdout):
-                    for artifact in batch['artifacts']:
-                        if not artifact['name'].startswith('supabase-bytes-'):
-                            continue
-                        if artifact['expired']:
-                            print(f'WARNING: expired counter artifact {artifact["id"]}', file=sys.stderr)
-                            continue
-                        # Download by artifact ID, retaining all run attempts.
-                        archive = subprocess.run(['gh', 'api', f'repos/{repo}/actions/artifacts/{artifact["id"]}/zip'],
-                                                 check=True, capture_output=True)
-                        import io
-                        import zipfile
-                        target = root / str(artifact['id'])
-                        target.mkdir(parents=True, exist_ok=True)
-                        with zipfile.ZipFile(io.BytesIO(archive.stdout)) as zf:
-                            for name in zf.namelist():
-                                if name.endswith('.md'):
-                                    (target / Path(name).name).write_bytes(zf.read(name))
+    # Run creation time excludes reruns and boundary-spanning runs. Discover
+    # repository artifacts instead, then filter counter emission times at parse.
+    endpoint = f'repos/{repo}/actions/artifacts?per_page=100'
+    result = subprocess.run(['gh', 'api', '--paginate', '--slurp', endpoint],
+                            check=True, capture_output=True, text=True)
+    for batch in json.loads(result.stdout):
+        for artifact in batch['artifacts']:
+            if not artifact['name'].startswith('supabase-bytes-'):
+                continue
+            if parse_iso_timestamp(artifact['created_at']) < since:
+                continue
+            if artifact['expired']:
+                print(f'WARNING: expired counter artifact {artifact["id"]}', file=sys.stderr)
+                continue
+            # Artifact IDs retain observations from previous run attempts too.
+            archive = subprocess.run(['gh', 'api', f'repos/{repo}/actions/artifacts/{artifact["id"]}/zip'],
+                                     check=True, capture_output=True)
+            import io
+            import zipfile
+            target = root / str(artifact['id'])
+            target.mkdir(parents=True, exist_ok=True)
+            with zipfile.ZipFile(io.BytesIO(archive.stdout)) as zf:
+                for name in zf.namelist():
+                    if name.endswith('.md'):
+                        (target / Path(name).name).write_bytes(zf.read(name))
 
 
 def main():
@@ -111,7 +100,7 @@ def main():
     parser.add_argument('directory', type=Path, help='exported summaries or extracted counter artifacts')
     parser.add_argument('--days', type=int, default=7)
     parser.add_argument('--until', help='exclusive ISO timestamp; default now (UTC)')
-    parser.add_argument('--download', metavar='OWNER/REPO', help='download shim workflows counter artifacts with gh (read only)')
+    parser.add_argument('--download', metavar='OWNER/REPO', help='download retained counter artifacts with gh (read only)')
     args = parser.parse_args()
     if args.days < 1:
         parser.error('--days must be positive')

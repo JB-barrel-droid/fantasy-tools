@@ -12,7 +12,7 @@ Read-only collection and rollup (requires gh authentication with Actions read ac
 python3 pipelines/rollup_supabase_bytes.py output/egress-week --days 7 --download JB-barrel-droid/fantasy-tools
 ```
 
-This discovers the checked-out workflows using the shim, paginates runs/artifacts and downloads only counter artifacts, including previous run attempts. It stops on the first API failure, including rate limiting; no retry loops. Use a fresh output directory per collection. The first real collection can wait for quota. No importers or write-capable measurement jobs should be launched.
+This paginates repository artifact metadata and downloads only counter artifacts created at or after the window start, including previous run attempts and runs originally created before the window. Counter emission timestamps determine inclusion in the final report. It stops on the first API failure, including rate limiting; no retry loops. Use a fresh output directory per collection. The first real collection can wait for quota. No importers or write-capable measurement jobs should be launched.
 
 For already exported step summaries or downloaded/extracted artifacts, place `.md` files below a directory and omit `--download`. A reproducible offline example:
 
