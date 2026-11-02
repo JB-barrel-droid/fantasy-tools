@@ -45,3 +45,19 @@ still ships `paused:false`, and the switch workflow was not dispatched.
   checked. Other App pushes to main already do.
 - `espn-supabase-sync` and `espn-history-probe` are classed as daily on the
   ticket's word; their schedules were not re-checked.
+
+## Mac integration, 2026-11-02 UTC
+
+Jeremy requested completion for the Nov 2 6 AM CT window. Merged origin/main
+951f95df0ad4059701b4b18574b1e4dfdba4a877 normally; no conflict, force push,
+HANDOFF edit, value-math edit, production dispatch, pause or Supabase operation.
+
+Verified: 86 focused tests passed (guard, switch, writer workflows and
+credentials, draft CI, rebuild-chain). actionlint passed for both changed
+workflow files with shellcheck/pyflakes disabled as in CI.
+
+Not confirmed: full make validate stopped in sync because installed Playwright
+cannot find chromium_headless_shell-1208. No automatic retry. Generated tracked
+output restored; untracked build output remains local and is excluded.
+CI must establish the full gate on the pushed head; independent review remains
+required. No review of this work was performed by its author.
