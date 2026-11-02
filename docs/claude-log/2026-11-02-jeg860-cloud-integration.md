@@ -20,10 +20,36 @@ and hand the exact head to the independent reviewer and parent merge owner.
   `AGENTS.md`, merge runbook and per-PR log format. Shared field-notes lookup
   is unavailable: Linear `get_agent_context` returned tool not found.
 
+- Full serial `RENDER_TESTS_REQUIRED=1 CHROMIUM_PATH=/usr/bin/chromium
+  make validate` passed at merge head `91c4cf05f635521f8c2e228a4358e5260a048cce`.
+  Strict engine/reference comparison agreed on 1,234,507 values with zero
+  source mismatches. All core and hermetic integration tests passed.
+- `tests.test_main_write_guard`, `tests.test_main_write_switch` and
+  `tests.test_rebuild_chain_consolidation_nonblocking`: 45/45 passed.
+  Both inline parity regressions fail against unchanged pinned main,
+  establishing the negative proof independently in this cloud session.
+- Actionlint 1.7.12 (`-shellcheck=`) and whitespace checks passed.
+- Restored only this run's 19 tracked generated files; retained untracked
+  build outputs. No generated-data patch is included.
+- Reused shared identity-test fix `be2cb8cd19fce2cfa09101dd5b299c85b266c907`
+  via cherry-pick `f3994048`. Read-only reproduction under the destination
+  identity found three old-owner canonical expectations fail while the
+  builder correctly emits `datadrivenfootball.github.io`. The reused fix
+  preserves exact assertions and adds explicit default/former/destination
+  literal identity cases. No production logic changes in this follow-up.
+- Before final publication, main `a5de009a` differs from tested base
+  `6408b9b8` only in five operational status JSON files. Per Jeremy's
+  2026-11-02 22:09 UTC option A approval, no status-only integration/restart.
+  Parent will recheck actual main and preserve those changes at merge.
+
+- Final focused command under `DDF_GITHUB_REPOSITORY=datadrivenfootball/fantasy-tools`,
+  explicit Chromium and required renders: 17/17 passed on `f3994048` (identity
+  and front-door build assertions, ESPN zero badge, full v2 contract including
+  broken-build checks). No production code changed after full validation.
+
 ### Claimed, not confirmed
 
-- Full required validation, exact-head CI and independent high-risk delta
-  review remain pending. Parent remains sole merge owner; no deploy or
+- Exact-head CI and independent high-risk delta review remain pending. Parent remains sole merge owner; no deploy or
   Supabase operation is authorized in this build session.
 - The first successful chain after release still must verify committed
   inline-player/fixture parity. This session does not dispatch that chain.
