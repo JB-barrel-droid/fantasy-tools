@@ -23,6 +23,18 @@ def environment(ref='refs/heads/main', **extra):
 
 
 class WriterCredentialTests(unittest.TestCase):
+    def test_cutover_allows_each_slug_but_rejects_cross_repo_requests(self):
+        slugs = (REPO, 'datadrivenfootball/fantasy-tools')
+        for slug in slugs:
+            request = {**REQUEST, 'path': slug + '.git'}
+            self.assertEqual(module.credential(request, environment(GITHUB_REPOSITORY=slug))['username'], 'x-access-token')
+            other = next(s for s in slugs if s != slug)
+            with self.assertRaises(ValueError):
+                module.credential(request, environment(GITHUB_REPOSITORY=other))
+        for slug in ('other/fantasy-tools', 'datadrivenfootball/other'):
+            with self.assertRaises(ValueError):
+                module.credential({**REQUEST, 'path': slug}, environment(GITHUB_REPOSITORY=slug))
+
     def test_main_selects_only_app_token(self):
         self.assertEqual(module.credential(REQUEST, environment())['password'], 'synthetic-main-password')
 

@@ -46,7 +46,8 @@ DEFENSES = [
     ("Seattle Seahawks", "SEA"), ("Tampa Bay Buccaneers", "TB"), ("Tennessee Titans", "TEN"), ("Washington Commanders", "WAS"),
 ]
 
-SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
+sys.path.insert(0, str(ROOT / "pipelines"))
+from lib.repository import SITE_URL
 # The engine page sync_dashboard_artifacts writes. Outside dist/, so Pages never
 # serves it (JEG-453); /classic/ in dist/ is a redirect to the root.
 ENGINE_PAGE = ROOT / "build" / "engine" / "index.html"
@@ -143,6 +144,7 @@ def head_for_v2(html: str, at_root: bool) -> str:
     html = _set_meta(html, "property", "og:title", OG_TITLE)
     html = _set_meta(html, "property", "og:description", OG_DESCRIPTION)
     html = _set_meta(html, "property", "og:url", SITE_URL)
+    html = _set_meta(html, "property", "og:image", SITE_URL + "icon.jpg")
     # v2 has a dark theme: let form controls follow it, and use the v2 nav colour for the browser bar.
     html = html.replace('<meta name="color-scheme" content="light" />', '<meta name="color-scheme" content="light dark" />', 1)
     html = html.replace('<meta name="theme-color" content="#17364c" />', '<meta name="theme-color" content="#142B25" />', 1)
