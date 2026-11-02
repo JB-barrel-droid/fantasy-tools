@@ -75,7 +75,7 @@ def _args(out, **over):
     base = {"season": 2026, "week": 8, "as_of": AS_OF, "out": out,
             "espn_weekly": FX / "espn_weekly.csv", "status": FX / "status.json",
             "byes": FX / "byes.json", "players": FX / "players.json",
-            "sleeper_base": FX / "sleeper_base.json", "aliases": None}
+            "sleeper_base": FX / "sleeper_base.json", "aliases": FX / "player_aliases.json"}
     base.update(over)
     argv = ["--season", str(base["season"]), "--week", str(base["week"]),
             "--as-of", base["as_of"], "--out", str(base["out"])]
@@ -125,6 +125,12 @@ class GoldenAndDeterminism(ProducerCase):
     def test_fixture_run_matches_committed_golden_bytes(self):
         self.build()
         self.assertEqual(self.out.read_text(), (FX / "expected_wk8.json").read_text())
+
+    def test_fixture_build_does_not_read_the_global_alias_file(self):
+        # Global alias maintenance must not change this hermetic producer replay.
+        expected = self.build()
+        with mock.patch.object(bwi, "ALIAS_FILE", self.dir / "missing-global-aliases.json"):
+            self.assertEqual(self.build(), expected)
 
     def test_repeat_run_is_byte_stable_and_ignores_the_wall_clock(self):
         self.build()
@@ -627,8 +633,8 @@ class OfflineIdentity(ProducerCase):
         doc = self.build()
         ident = doc["input_report"]["identity"]
         self.assertEqual(ident["alias_source"], "local_file")
-        self.assertEqual(ident["aliases"]["name"], bwi.ALIAS_FILE.name)
-        alt = self.write("aliases.json", json.dumps({"schema": "player-aliases-v1", "aliases": []}))
+        self.assertEqual(ident["aliases"]["name"], "player_aliases.json")
+        alt = self.write("aliases.json", json.dumps({"schema": "player-aliases-v1", "aliases": []}, indent=2))
         doc2 = self.build(aliases=alt)
         self.assertNotEqual(doc2["input_report"]["identity"]["aliases"]["sha256"],
                             ident["aliases"]["sha256"])
