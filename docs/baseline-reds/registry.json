@@ -1,0 +1,59 @@
+[
+  {
+    "test_id": "tests.test_v2_advanced_render.AdvancedRenderTest.test_readout_advanced_and_links",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "7358589cd23d73f19dff179cad4b3222cce2363c",
+    "ticket": "JEG-1394",
+    "reason": "Advanced handlers retain an orphaned draft.adv object; v2BenchSlider is null. Main reproduction recorded on JEG-1394; fix is pending in draft PR #1240. CI scope is not confirmed.",
+    "signature": "Cannot set properties of null (setting 'value')"
+  },
+  {
+    "test_id": "tests.test_uso_site_journey_render.UsoSiteJourneyRenderTest.test_journey_keeps_the_trade_context",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "c267aa71ef1d445670516b1858e0f9dfe5a48f93",
+    "ticket": "JEG-1403",
+    "reason": "Three journey reds recorded on JEG-1403 Oct 31: finder chart-count gate blocks discovery; unequal-package Compare context also depends on JEG-1259. CI execution unconfirmed."
+  },
+  {
+    "test_id": "tests.test_uso_site_journey_render.UsoSiteJourneyRenderTest.test_guard_fails_on_a_link_without_get",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "c267aa71ef1d445670516b1858e0f9dfe5a48f93",
+    "ticket": "JEG-1403",
+    "reason": "Three journey reds recorded on JEG-1403 Oct 31: finder chart-count gate blocks discovery; unequal-package Compare context also depends on JEG-1259. CI execution unconfirmed."
+  },
+  {
+    "test_id": "tests.test_uso_site_journey_render.UsoSiteJourneyRenderTest.test_unequal_deal_keeps_its_package",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "c267aa71ef1d445670516b1858e0f9dfe5a48f93",
+    "ticket": "JEG-1403",
+    "reason": "Three journey reds recorded on JEG-1403 Oct 31: finder chart-count gate blocks discovery; unequal-package Compare context also depends on JEG-1259. CI execution unconfirmed."
+  },
+  {
+    "test_id": "tests.test_v2_league_tables_render.LeagueTablesRenderTest.test_tables",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "951f95df0ad4059701b4b18574b1e4dfdba4a877",
+    "ticket": "JEG-1424",
+    "reason": "Mac reproduction reported on JEG-1424 Nov 2: unrelated opportunities market sort checks fail; settings checks pass. JEG-1424 records this evidence, not a settings regression.",
+    "signature": "[opps] market"
+  },
+  {
+    "test_id": "tests.test_week_history.setUpModule",
+    "where": [
+      "local"
+    ],
+    "first_seen_main_sha": "168aba93",
+    "ticket": "JEG-1450",
+    "reason": "Local setup error recorded in HANDOFF JEG-1176 Oct 30: sync cannot launch missing Playwright chromium_headless_shell-1208. JEG-1450 tracks attribution of this environment prerequisite; install the browser rather than excuse CI.",
+    "signature": "Executable doesn't exist"
+  }
+]

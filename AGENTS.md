@@ -429,3 +429,5 @@ commits; commit and push validated slices promptly; if a slice can't be
 committed yet, leave a handoff (Linear comment or doc) with state, changed
 files, commands run, failures and the next action. Don't leave decisions only
 in chat.
+
+Before calling a red a regression, check `docs/baseline-reds/registry.json` and run `python3 -m pipelines.baseline_reds --context local -- <gate>`; attribution never waives a failed gate.

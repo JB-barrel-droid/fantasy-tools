@@ -23,6 +23,11 @@ concurrency:
   group: full-suite
   cancel-in-progress: true
 
+# JEG-1450: wrap make without changing gate commands or exit statuses.
+env:
+  BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
+  BASELINE_RED_CONTEXT: "nightly"
+
 jobs:
   full-suite:
     name: Full test suite (informational, non-blocking)
@@ -56,7 +61,27 @@ jobs:
       - name: Build
         run: |
           make sync
+      - name: Restore baseline night history
+        if: github.ref == 'refs/heads/main'
+        uses: actions/cache/restore@v4
+        with:
+          path: .baseline-history
+          key: baseline-nights-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: baseline-nights-
       - name: make test-unit
         run: |
           python3 -m pip install --quiet pytest
           make test-unit
+      - name: Observe registered tests for tonight
+        if: always() && github.ref == 'refs/heads/main'
+        run: |
+          mapfile -t tests < <(python3 -m pipelines.baseline_reds --list-observe-targets)
+          if [ "${#tests[@]}" -gt 0 ]; then
+            python3 -m pipelines.baseline_reds --context nightly --history .baseline-history/nights.json --night "$(date -u +%F)" -- python3 -m unittest "${tests[@]}"
+          fi
+      - name: Save baseline night history
+        if: always() && github.ref == 'refs/heads/main'
+        uses: actions/cache/save@v4
+        with:
+          path: .baseline-history
+          key: baseline-nights-${{ github.run_id }}-${{ github.run_attempt }}
