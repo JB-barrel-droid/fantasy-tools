@@ -509,6 +509,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields
 	python3 -m unittest tests.test_jeg1216_lineup
 	python3 -m unittest tests.test_jeg1230_trade_readout
+	python3 -m unittest tests.test_jeg1323_trade_readout_rows
 	# JEG-1262: pure multi-trade package uniqueness and roster-application helper.
 	python3 -m unittest tests.test_jeg1183_package_constraints
 	# JEG-1229: shared trade preferences and the immutable TradeContext (pure module, adapter fixture).
@@ -975,6 +976,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
+	python3 -m unittest tests.test_jeg1323_trade_readout_render
 	python3 -m unittest tests.test_v2_find_split_render
 	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
 	python3 -m unittest tests.test_interactive_trades_release_render
@@ -1103,6 +1105,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
+	python3 -m unittest tests.test_jeg1323_trade_readout_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
