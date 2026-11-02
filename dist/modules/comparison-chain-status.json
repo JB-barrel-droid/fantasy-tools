@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-02T03:22:15.137237+00:00",
+  "run_at": "2026-11-02T03:38:05.054836+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -107,7 +107,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-01 -> 12 DDF legs -> section; review passed (4404 values)",
+      "detail": "snapshot 2026-11-02 -> 12 DDF legs -> section; review passed (4404 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -156,7 +156,7 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-11-01",
+      "content_vintage": "2026-11-02",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -183,7 +183,7 @@
     "cbsros": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-11-01",
+      "published_at": "2026-11-02",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -260,12 +260,12 @@
       "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one"
     ],
     "assertions": [
-      "AssertionError: {'standard/12': (1.1006058500311555, '1273[91 chars] 28)} != {}"
+      "AssertionError: {'standard/12': (1.114570885664614, '2609 [90 chars] 28)} != {}"
     ],
     "make_targets": [
       "Makefile:663: test-core"
     ],
-    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one; AssertionError: {'standard/12': (1.1006058500311555, '1273[91 chars] 28)} != {}",
-    "recorded_at": "2026-11-02T03:29:56.287609+00:00"
+    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one; AssertionError: {'standard/12': (1.114570885664614, '2609 [90 chars] 28)} != {}",
+    "recorded_at": "2026-11-02T03:45:27.137714+00:00"
   }
 }
