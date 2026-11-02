@@ -141,7 +141,8 @@ class RollupTest(unittest.TestCase):
                         label = step.get('env', {}).get('SUPABASE_BYTES_CALLER', '')
                         self.assertTrue(label.startswith(path.stem + ':'), (path, step.get('name')))
                         self.assertRegex(label, r'^[a-z0-9:-]+$')
-        self.assertEqual(shim_jobs, 24)
+        # Main-writer isolation adds nine branch jobs sharing anchored steps.
+        self.assertEqual(shim_jobs, 33)
         self.assertGreater(matrix_jobs, 0)
         health = (ROOT / '.github/workflows/health-artifacts.yml').read_text()
         self.assertIn("grep '^\\[supabase-bytes\\]' /tmp/build.log", health)
