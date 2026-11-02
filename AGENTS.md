@@ -549,6 +549,12 @@ Playwright: skipped with a notice locally, an error where
   daily republish task stay until the dashboard page is verified live, then
   retire (Jeremy, 2026-10-25).
 
+## Design and working principles
+
+Cut taglines, helper text and secondary labels. If a screen needs them to make sense, fix the layout.
+
+Make the best decision that will elevate all three: the user experience (UX), developer experience (DX), and agent experience (AX) always, without breaking anything.
+
 ## Working efficiently (JEG-524)
 
 - **Wait on CI and deploys with one blocking command:** `gh pr checks <n>

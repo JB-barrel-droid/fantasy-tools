@@ -43,3 +43,21 @@ its cutover ownership, release windows, approval gates and risk floors.
 - No merge, deploy, live-site verification or independent delta review was
   performed by this correction session. New-head CI and the independent
   delta review remain coordinator-owned release gates.
+
+### User-requested addition (2026-11-02 17:41 UTC)
+
+Contract: add Jeremy's two supplied design/working-principle sentences verbatim
+in project `AGENTS.md`, on this same owned branch and PR. No global agent file
+is involved.
+
+Verified (check named):
+- A one-off exact-text check confirmed each supplied sentence appears once
+  as a complete line, and removing only the new section reproduces the
+  previous committed `AGENTS.md` byte for byte.
+- `git diff --cached --check` passed for this follow-up. No existing policy
+  content was deleted or rewritten by the user-requested addition.
+
+Claimed, not confirmed:
+- Full local validation remains in progress. The earlier green GitHub check
+  belongs to `c3f0fc2775cc5d6f82c720026b62ac430d1e3857`, not this follow-up;
+  new-head CI and independent delta review are still required.
