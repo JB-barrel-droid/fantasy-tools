@@ -54,10 +54,11 @@ Strict current-main ancestry applies at promotion and merge. The historical
 options below are unapproved proposals; their letters do not identify the
 Nov 1 decision.
 
-For a draft that needs green CI before promotion, dispatch `preview.yml` and
-`v2-render-test.yml` on the pinned branch head. Their existing manual paths
-run full verification without changing draft protections. Wait for exact-head
-checks, then use `python3 -m pipelines.pr_promotion ready-for-review <PR>`.
+Promotion currently has a policy conflict: draft PR workflows defer expensive
+jobs and leave required finalizers red; manual dispatch deliberately uses
+`preview-manual` and `v2-render-manual` and cannot satisfy those required checks.
+The all-checks-green promotion gate therefore refuses a draft. Resolve the
+pre-promotion CI policy with Jeremy before promoting; do not waive red checks.
 
 - **A: status-only bot writes need no catch-up or re-CI.** Approve
   `allow_bot_only_behind: true`, keeping `allow_bot_data_inputs: false`.

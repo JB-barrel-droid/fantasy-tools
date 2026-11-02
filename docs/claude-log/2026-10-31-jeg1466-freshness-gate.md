@@ -138,3 +138,9 @@ option letters in the bot-only note are not Jeremy's current answer letters.
 Installed missing local Playwright Chromium. Focused freshness/draft tests:
 46 passed. Full validation and exact-head remote CI are recorded on the ticket.
 No independent review performed by the author; no merge or deploy.
+
+Promotion blocked: existing draft CI intentionally leaves required checks red;
+manual finalizers deliberately have different names (pinned by
+`tests.test_draft_ci_workflows`). No bypass or test weakening applied.
+`make validate` interrupted after discovering another active heavy validation
+on this Mac; not a pass. Generated build changes excluded from the commit.
