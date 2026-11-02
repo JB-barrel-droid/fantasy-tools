@@ -51,11 +51,18 @@ assert is_valid(issues)       # no errors (warnings allowed)
     data. For points and rank legs it must agree with the rows (a complete leg
     has no nulls; a partial leg has at least one).
   - `freshness`: `current` / `one_week_behind` / `stale` / `unknown`, the
-    vocabulary and rule of `pipelines/check_reference_freshness.py` (0 weeks
+    authoritative vocabulary and week-distance rule of
+    `pipelines/lib/weekly_inputs_contract.py:freshness_for_weeks` (0 weeks
     behind the artifact's content week is current, 1 is one week behind, 2 or
     more is stale, no stamped week is unknown). Content vintage, never pull time
     (`docs/pipeline-rules.md` section 5). `null` exactly when the leg is
     unavailable.
+    The health check `pipelines/check_reference_freshness.py` instead uses
+    `pipelines/week_state.py:source_week_status`: its `lagging` state becomes
+    `stale` at Thursday 12:00 CT. Before that cutoff the rules agree after
+    mapping `lagging` to `one_week_behind`; the contract does not use that clock
+    cutoff. The behavioral pin in `RulesPinnedToRepoTest` checks both the
+    agreement and this intentional difference.
   - Provenance backs the claim. A leg with data whose freshness is `current`,
     `one_week_behind` or `stale`, or whose label is `published`, has non-null
     `content_season`, `content_week`, `content_vintage` and `captured_at`. When
