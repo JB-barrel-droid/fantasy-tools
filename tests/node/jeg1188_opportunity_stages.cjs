@@ -5,8 +5,9 @@
 // five revisions, all on the 20-team fixture league with team 0 as you: the page's own count at that revision and the
 // engine rows the search ran on. This replays the real opportunities.runAll / findTrades / tradeFit from the modules dir
 // on each context and splits the count into stages:
-//   pass gates   packages you win on DDF Value that every compared chart prices as break-even or better for them
-//                (findTrades without the lineup boxes; throw-ins added and judged again)
+//   pass gates   packages you win on DDF Value that enough compared charts price as break-even or better for them
+//                (the replayed code's own gate: 1 since JEG-1403, min(3, charts) before; findTrades without the lineup
+//                boxes; throw-ins added and judged again)
 //   lineup drop  packages the keep-lineup boxes leave out, counted before throw-in variants fold into one row (so it can
 //                exceed pass gates - qualified)
 //   qualified    what is left (findTrades with the boxes, no cap)
@@ -50,6 +51,7 @@ const load = name => JSON.parse(fs.readFileSync(path.join(FIXTURES, `${name}.jso
 const finite = v => typeof v === "number" && Number.isFinite(v);
 const pastEven = (net, give, receive) => (Math.abs(net) < (BAND ? Math.max(BAND.floor, BAND.share * ((give + receive) / 2)) : 0.05) ? 0 : net);
 const SIZE = 2;
+const GATE = typeof F.SEARCH_MIN_CHARTS === "number" ? F.SEARCH_MIN_CHARTS : F.MIN_CHARTS;
 
 // The page's mathContext (app/v2/league.js), from a dump. rowsFrom / benchFrom take another dump's rows or bench numbers.
 function contextOf(base, rowsFrom, benchFrom) {
@@ -69,7 +71,8 @@ function mutantFind(name) {
   if (!name) return null;
   if (name === "cap-per-opponent") return (m, t, o) => { const r = F.findTrades(m, t, o); return {...r, trades: r.trades.slice(0, F.LIMIT)}; };
   if (name === "no-lineup-boxes") return (m, t, o) => F.findTrades(m, t, {...o, sanity: null});
-  if (name === "weaker-chart-gate") return (m, t, o) => F.findTrades(m, t, {...o, minCharts: Math.max(1, Math.min(F.MIN_CHARTS, o.chartKeys.length) - 1)});
+  // No chart needed (a negative minimum): weaker than any gate the finder has had.
+  if (name === "weaker-chart-gate") return (m, t, o) => F.findTrades(m, t, {...o, minCharts: -1});
   throw new Error(`unknown mutant ${name}`);
 }
 
@@ -107,7 +110,8 @@ async function shownRows(doc, ctx, find) {
 }
 
 // The two gates judged here from the rows' own values, not by finder.js: DDF Value receive - give past even, and at least
-// min(MIN_CHARTS, charts) charts priced with the other team's net even or better for them (pastEven above).
+// min(GATE, charts) charts priced with the other team's net even or better for them (pastEven above). GATE is the
+// replayed code's search gate: SEARCH_MIN_CHARTS (1) since JEG-1403, MIN_CHARTS (3) before it.
 function judgeHere(ctx, giveKeys, receiveKeys) {
   const sum = (keys, k) => keys.reduce((s, key) => { const r = ctx.rowsByKey.get(key); const v = r && r.values ? r.values[k] : null; return s === null || !finite(v) ? null : s + v; }, 0);
   const ourGive = sum(giveKeys, F.OUR_KEY);
@@ -122,7 +126,7 @@ function judgeHere(ctx, giveKeys, receiveKeys) {
     priced += 1;
     if (pastEven(r - g, g, r) <= 0) ok += 1;
   });
-  const need = Math.min(F.MIN_CHARTS, ctx.charts.length);
+  const need = Math.min(GATE, ctx.charts.length);
   return {edge: finite(edge) && pastEven(edge, ourGive, ourReceive) > 0, charts: priced >= need && ok >= need};
 }
 const keysOf = list => list.map(r => String(r.player_key));

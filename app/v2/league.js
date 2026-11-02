@@ -1769,7 +1769,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least one trade chart says the other manager breaks even or wins (Min charts fair asks for more). Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {class: "v2-lg-inclusion", id: "v2LgOppsInclusion", hidden: true}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {

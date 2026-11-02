@@ -5,7 +5,8 @@ Two rosters are typed in with the card's own player search (top players by DDF V
 a trade can clear), then "Find trades" runs. Checks, against the engine's own rows:
 
   * every listed trade has DDF Value edge > 0 (sum of what you receive - sum of what you give, from
-    getAllRows), at least 3 of 4 trade charts at net <= 0 for you, and the edge shown is that sum;
+    getAllRows), at least one available trade chart at net <= 0 for you (JEG-1403; 3 of 4 before), and the edge
+    shown is that sum;
   * the list is ranked (scores never rise down the list) and has at most 10 rows;
   * "Open in Compare a trade" opens the same players on the two sides of Compare a trade;
   * a player cannot be added to both rosters; Remove empties a roster and clears the result;
@@ -85,7 +86,7 @@ READ = """() => {
   // JEG-819: only count charts the engine says are available (same set the finder now uses).
   const available = new Set((C.getSourceInfo ? C.getSourceInfo() : []).filter(i => i.available).map(i => i.key));
   const chartKeys = ['usatoday', 'fantasycalc', 'fantasypros', 'cbs'].filter(k => available.has(k));
-  const minCharts = Math.min(3, chartKeys.length);
+  const minCharts = Math.min(1, chartKeys.length);   // JEG-1403: the search's default gate is one chart
   const items = [...document.querySelectorAll('#v2FindList li')].map(li => {
     const text = li.querySelector('b').textContent;
     const [give, get] = text.replace('You give ', '').split('; you receive ').map(s => s.split(' + '));
