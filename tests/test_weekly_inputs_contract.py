@@ -26,6 +26,7 @@ import subprocess
 import sys
 import unittest
 from contextlib import redirect_stdout
+from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -38,6 +39,8 @@ sys.path.insert(0, str(FIXTURES))
 from lib import weekly_inputs_contract as wic  # noqa: E402
 from lib.scoring import SCORING  # noqa: E402
 import build_fixtures  # noqa: E402
+from nfl_week import content_week_start  # noqa: E402
+from week_state import source_week_status, stale_after  # noqa: E402
 
 
 def codes(issues, severity="error"):
@@ -283,15 +286,29 @@ class RulesPinnedToRepoTest(unittest.TestCase):
         self.assertEqual(set(wic.SCORINGS), set(SCORING))
 
     def test_freshness_rule_matches_check_reference_freshness(self):
-        # pipelines/check_reference_freshness.py make_source_week_item: 0 behind current,
-        # 1 behind one_week_behind, 2+ stale, unknown week unknown.
-        self.assertEqual(wic.freshness_for_weeks(8, 8), "current")
+        # The contract owns week-distance labels; the health check now uses
+        # week_state's clock-dependent rule. Before Thursday's cutoff the
+        # rules agree, with lagging spelled one_week_behind in the contract.
+        cases = ((8, "current"), (7, "one_week_behind"),
+                 (6, "stale"), (None, "unknown"))
+        for leg_week, expected in cases:
+            with self.subTest(leg_week=leg_week):
+                self.assertEqual(wic.freshness_for_weeks(8, leg_week), expected)
+        self.assertEqual(set(wic.FRESHNESS), {expected for _, expected in cases})
+        for artifact_week in range(1, 19):
+            now = datetime.combine(content_week_start(artifact_week),
+                                   datetime.min.time(), tzinfo=timezone.utc).replace(hour=16)
+            for leg_week in (None, *range(1, 19)):
+                with self.subTest(artifact_week=artifact_week, leg_week=leg_week):
+                    state = source_week_status(leg_week, now=now)["state"]
+                    expected = "one_week_behind" if state == "lagging" else state
+                    self.assertEqual(wic.freshness_for_weeks(artifact_week, leg_week), expected)
+
+    def test_health_cutoff_does_not_change_contract_week_distance(self):
+        # This intentional difference must survive the re-pin: health becomes
+        # stale at Thursday noon CT, while an artifact stays one week behind.
+        self.assertEqual(source_week_status(7, now=stale_after(8))["state"], "stale")
         self.assertEqual(wic.freshness_for_weeks(8, 7), "one_week_behind")
-        self.assertEqual(wic.freshness_for_weeks(8, 6), "stale")
-        self.assertEqual(wic.freshness_for_weeks(8, None), "unknown")
-        src = (ROOT / "pipelines" / "check_reference_freshness.py").read_text()
-        for word in wic.FRESHNESS:
-            self.assertIn(f'"{word}"', src)
 
     def test_stdlib_and_repo_timestamps_only(self):
         tree = ast.parse(MODULE.read_text())
