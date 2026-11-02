@@ -25,14 +25,14 @@ ROOT = Path(__file__).resolve().parents[1]
 CSS = ROOT / "app" / "v2" / "v2.css"
 JS = ROOT / "app" / "v2" / "v2.js"
 SIZES = ((1366, 768), (1000, 700))
-GROUPS = ["Trade", "Players", "Auditing", "Our approach", "Settings"]
+GROUPS = ["Trade", "Simplified site", "Players", "Auditing", "Our approach", "Settings"]   # JEG-1263
 sys.path.insert(0, str(ROOT / "pipelines"))
 import build_v2_page  # noqa: E402
 
 # JEG-1371: the Research entry is in the menu only once a post is published. Without one, its routes still open the
 # (empty) Research page, and no menu entry is current.
 HAS_RESEARCH = bool(build_v2_page.load_posts())
-ENTRIES = 14 if HAS_RESEARCH else 13
+ENTRIES = 15 if HAS_RESEARCH else 14   # JEG-1263: the Simplified site entry
 RESEARCH_LINK = ("writing/research", "Research") if HAS_RESEARCH else (None, "")
 # hash -> (entry that is current, name shown beside the button)
 DEEP_LINKS = {
