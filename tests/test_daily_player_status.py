@@ -140,7 +140,10 @@ assert.equal(W.statusOf(row,W.statusFreshness(daily,now+6*24*hour+60000)),null);
                 self.assertEqual("--from-file" in args, exists)
         publish = next(s for s in steps if "id: publish\n" in s)
         self.assertIn("pull_player_status.py", status)
-        self.assertNotIn("SUPABASE", str(status))
+        # Counter attribution is metadata, not database access or a credential.
+        counter_label = "          SUPABASE_BYTES_CALLER: player-status-history:pull-dated-status-for-the-page\n"
+        self.assertIn(counter_label, status)
+        self.assertNotIn("SUPABASE", status.replace(counter_label, ""))
         self.assertIn("!cancelled()", publish)
         self.assertIn("steps.status.outcome == 'success'", publish)
         self.assertIn("data/inputs/player_status.json", publish)
