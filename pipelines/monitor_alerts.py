@@ -60,6 +60,7 @@ from pathlib import Path as _Path  # noqa: E402
 # import order (tests import this module as pipelines.X without pipelines/ on sys.path).
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
+from lib.repository import SITE_URL
 from pathlib import Path
 
 LABEL = "ops-alert"
@@ -184,7 +185,7 @@ def identity_unmatched_alerts(summary):
 
 
 PULSE_PREFIX = "fidelity-"
-STATUS_PAGE = "https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html#fidelity"
+STATUS_PAGE = SITE_URL + "modules/status.html#fidelity"
 
 
 def pulse_alerts(pulse):

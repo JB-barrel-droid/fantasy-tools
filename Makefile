@@ -1157,4 +1157,4 @@ preview-local: sync
 	python3 -m http.server $(PORT) --directory dist
 
 deploy-status:
-	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
+	gh run list --repo "$$(python3 -c 'from pipelines.lib.repository import REPOSITORY; print(REPOSITORY)')" --workflow "Deploy dashboard" --limit 5

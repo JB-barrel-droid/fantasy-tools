@@ -85,6 +85,7 @@ from pathlib import Path as _Path  # noqa: E402
 # import order (tests import this module as pipelines.X without pipelines/ on sys.path).
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
+from lib.repository import SITE_URL as SITE
 from decimal import ROUND_HALF_DOWN, ROUND_HALF_UP, Decimal, InvalidOperation
 from html.parser import HTMLParser
 from pathlib import Path
@@ -98,11 +99,10 @@ for _p in (ROOT / "pipelines", ROOT / "pipelines" / "lib"):
 SCHEMA = "fidelity-pulse/1"
 CHECK_NAME = "fidelity_pulse"
 SEASON = 2026
-SITE = "https://jb-barrel-droid.github.io/fantasy-tools/"
 SITE_FIXTURE = SITE + "assets/comparison-sources-data.json"
 VALUE_CHECK_PATHS = ("output/value-check.json", "dist/modules/value-check.json")
 VALUE_CHECK_URL = SITE + "modules/value-check.json"
-UA = "DataDrivenFootball-fidelity-pulse/1.0 (+https://jb-barrel-droid.github.io/fantasy-tools/modules/status.html)"
+UA = f"DataDrivenFootball-fidelity-pulse/1.0 (+{SITE}modules/status.html)"
 HOST_GAP_S = 1.0           # politeness: at least this long between two requests to one host
 
 GRACE_HOURS = 24           # a publisher revision after the save is 'update available' (amber) this long, then stale (red)

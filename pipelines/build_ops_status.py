@@ -49,10 +49,7 @@ from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "pipelines"))
-
-REPO = "JB-barrel-droid/fantasy-tools"
-SITE = "https://jb-barrel-droid.github.io/fantasy-tools/"
+from lib.repository import REPOSITORY as REPO, SITE_URL as SITE
 SCHEMA = "ddf-ops-status-v1"
 ALERT_LABEL = "ops-alert"
 ALERT_KEY = re.compile(r"<!--\s*ops-alert-key:\s*([^\s]+)\s*-->")

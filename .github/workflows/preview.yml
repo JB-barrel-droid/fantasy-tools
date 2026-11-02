@@ -18,6 +18,8 @@ name: Preview build
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
 on:
+  merge_group:
+    types: [checks_requested]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
@@ -41,6 +43,10 @@ permissions:
 concurrency:
   group: preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
+
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
   pr-state:

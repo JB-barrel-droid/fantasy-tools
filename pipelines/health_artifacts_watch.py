@@ -75,10 +75,11 @@ from pathlib import Path as _Path  # noqa: E402
 # import order (tests import this module as pipelines.X without pipelines/ on sys.path).
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
+from lib.repository import SITE_URL
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-BASE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/modules/"
+BASE_URL = SITE_URL + "modules/"
 MAX_AGE_MINUTES = 720  # twice the 6-hour heartbeat (BH-8); pg_cron health-artifacts-live, 2026-10-08
 OWNER = "health-artifacts.yml"
 

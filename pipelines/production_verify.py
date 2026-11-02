@@ -30,7 +30,8 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO = "JB-barrel-droid/fantasy-tools"
+sys.path.insert(0, str(ROOT / "pipelines"))
+from lib.repository import REPOSITORY as REPO
 
 # Workflow registry: maps workflow file name to its verification config.
 # Add new workflows here (one line each).

@@ -20,11 +20,12 @@ import zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "pipelines"))
+from lib.repository import SITE_URL
 SRC = ROOT / "app" / "llm"
 OPENAPI = ROOT / "docs" / "get-values.openapi.yaml"
 GUIDE = ROOT / "docs" / "use-ddf-in-claude-chatgpt.md"
 
-SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # The public remote MCP function (JEG-1012). DDF_MCP_URL overrides it for a new project or domain.
 DEFAULT_MCP_URL = "https://iskiybsimubiujwuchsl.supabase.co/functions/v1/mcp"
 
