@@ -54,7 +54,7 @@ EXPECT = """() => {
 
 OPP_ROWS = """() => [...document.querySelectorAll('#v2LgOppsTable tbody tr.v2-lg-opp')].map(tr => {
   const cell = k => ((tr.querySelector(`[data-cell="${k}"]`) || {}).textContent || '');
-  const num = s => { const m = s.match(/[-+]?\\d+(\\.\\d+)?/); return m ? Number(m[0]) : null; };
+  const num = s => { const m = s.match(/[-+\\u2212]?\\d+(\\.\\d+)?/); return m ? Number(m[0].replace('\\u2212', '-')) : null; };
   const fair = cell('fair').match(/(\\d)\\/(\\d) fair/);
   return {id: tr.dataset.oppId, overall: tr.dataset.overall, cells: tr.children.length, opponent: tr.children[0].textContent.replace(' (partial roster)', ''), trade: tr.children[1].textContent.replace('Hide both teams', '').replace('Both teams', '').replace('Details', '').replace('Hide details', ''),
     capture: num(cell('capture')), market: num(cell('market')), fair: fair ? Number(fair[1]) : null, proj: cell('proj'), rank: num(cell('rank')), rankText: cell('rank')}; })"""
@@ -375,6 +375,27 @@ def check_settings(browser, base, overrides, errors):
         errors.append("[settings] a settings change lost a team, a name, a roster or my team")
     if "Reprocessing 4 teams" not in page.inner_text("#v2LgLive") and "Reprocessing 4 teams" not in page.inner_text("#v2LgNotice"):
         errors.append("[settings] the reprocess is not announced")
+    # JEG-1424: three scorings give three different top gains, and going back to Full PPR restores the first result exactly.
+    def top_gains():
+        return [(r["id"], r["capture"]) for r in page.evaluate(OPP_ROWS)][:3]
+
+    def switch(scoring):
+        page.click("#v2EditLeague")
+        page.click(f'#v2Popover [aria-label="Scoring"] button[data-value="{scoring}"]')
+        page.wait_for_timeout(900)
+        page.click('#v2Popover [data-done="league"]')
+        page.wait_for_function("() => document.getElementById('v2LgNotice').textContent.includes('League settings updated')", timeout=10000)
+        wait_opps(page)
+        return top_gains()
+
+    first_full = [(r["id"], r["capture"]) for r in before_opp][:3]
+    gains = {"Standard": top_gains(), "Half PPR": switch("half_ppr")}
+    gains["Full PPR"] = switch("ppr")
+    for a, b in (("Standard", "Half PPR"), ("Standard", "Full PPR"), ("Half PPR", "Full PPR")):
+        if gains[a] == gains[b]:
+            errors.append(f"[settings] the top gains are the same under {a} and {b} scoring: {gains[a]}")
+    if gains["Full PPR"] != first_full:
+        errors.append(f"[settings] back on Full PPR the top gains are {gains['Full PPR']}, not the first Full PPR result {first_full}")
     page.context.close()
 
 
@@ -463,6 +484,9 @@ class LeagueTablesRenderTest(unittest.TestCase):
             "a missing piece is printed as null": ({"league.js": league.replace("].filter(Boolean));\n  }\n\n  // The finder runs", "]);\n  }\n\n  // The finder runs", 1)}, {"opps"}),
             "settings change ignored": ({"league.js": league.replace('document.addEventListener("ddf:league-settings-changed", onSettingsChanged);', '', 1)}, {"settings"}),
             "settings change loses the teams": ({"league.js": league.replace('store.replace(ws, "settings");', 'store.replace(W.newWorkspace(), "settings");', 1)}, {"settings"}),
+            # JEG-1424: the scoring switch must reach the math. A context frozen at its first build keeps the Full PPR values, so the
+            # second and third scorings repeat the first result. (Resetting the pairing cache alone cannot fail: its key covers scoring.)
+            "math context frozen at its first build": ({"league.js": league.replace("  function mathContext() {\n    const C = engine();", "  let frozenCtx = null;\n  function mathContext() { return frozenCtx || (frozenCtx = freshMathContext()); }\n  function freshMathContext() {\n    const C = engine();", 1)}, {"settings"}),
             "opponents silently dropped": ({"opportunities.js": opps.replace("const run = eligible.slice(0, MAX_OPPONENTS);", "const run = eligible.slice(0, 5);", 1)}, {"twenty"}),
         }
         for name, (overrides, only) in broken.items():
