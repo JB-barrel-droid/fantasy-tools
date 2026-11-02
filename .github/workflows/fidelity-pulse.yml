@@ -89,6 +89,7 @@ jobs:
       - name: Run the fidelity pulse
         id: pulse
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:pulse
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           SOURCES: ${{ github.event.inputs.sources }}
@@ -126,6 +127,7 @@ jobs:
         # ("fidelity-pulse: sources=1 < 7") until the next full run.
         if: env.IS_MAIN == 'true' && (github.event_name != 'workflow_dispatch' || inputs.sources == '')
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:publish
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -180,6 +182,7 @@ jobs:
       - name: Rebuild the chain when a hold starts or ends
         if: steps.publish.outputs.pushed == 'true'
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:rebuild-the-chain-when-a-hold-starts-or-ends
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if python3 -c 'import json,sys; sys.exit(0 if json.load(open("output/fidelity-pulse.json")).get("holds_changed") else 1)'; then
@@ -197,6 +200,7 @@ jobs:
       - name: Re-sync sources whose publisher changed since the save
         if: env.IS_MAIN == 'true' && hashFiles('output/fidelity-pulse.json') != ''
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:re-sync-sources-whose-publisher-changed-since-the-save
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python3 pipelines/fidelity_pulse.py --resync-dispatches output/fidelity-pulse.json > /tmp/resyncs.txt
@@ -214,6 +218,7 @@ jobs:
       - name: Alert on red sources
         if: always() && env.IS_MAIN == 'true' && hashFiles('output/fidelity-pulse.json') != ''
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:alert-on-red-sources
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           ALERT_WEBHOOK_URL: ${{ secrets.ALERT_WEBHOOK_URL }}
         run: python3 pipelines/monitor_alerts.py --pulse output/fidelity-pulse.json
@@ -233,9 +238,20 @@ jobs:
       - name: Record monitored check
         if: always() && env.IS_MAIN == 'true' && (github.event_name == 'workflow_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: fidelity-pulse:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id fidelity_pulse --owner fidelity-pulse.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   pulse-branch:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')

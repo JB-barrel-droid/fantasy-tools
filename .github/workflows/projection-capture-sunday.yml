@@ -48,12 +48,14 @@ jobs:
       # espn-weekly-store.yml, which also goes red before kickoff if a copy is still missing.
       - name: Pull CBS and Razzball, then capture
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: projection-capture-sunday:pull-cbs-and-razzball-then-capture
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           set -o pipefail
           flag="--dry-run"
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag=""
+          [ "$EVENT_MODE" = "write" ] && flag=""
           attempt=1
           until python3 pipelines/pull_cbs_ros_projections.py --date "$(date -u +%F)" --out-dir /tmp/cbsros_snapshot &&
                 python3 pipelines/pull_razzball_ros.py --out-dir /tmp/razzball &&
@@ -69,6 +71,17 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: projection-capture-sunday:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id projection_capture_sunday --owner projection-capture-sunday.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

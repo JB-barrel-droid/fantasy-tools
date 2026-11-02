@@ -98,6 +98,8 @@ jobs:
       # 2026-10-08). RENDER_TESTS_REQUIRED=1 makes a missing browser or build
       # an error for every later step instead of a silent skip.
       - name: Browser for the render tests
+        env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:browser-for-the-render-tests
         run: |
           python3 -m pip install --quiet playwright==1.49.1
           python3 -m playwright install --with-deps chromium
@@ -113,10 +115,13 @@ jobs:
 
       - name: Determine NFL week
         id: week
+        env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:week
         run: echo "nfl_week=$(python3 pipelines/nfl_week.py)" >> $GITHUB_OUTPUT
 
       - name: Import fresh snapshots from Supabase
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:import-fresh-snapshots-from-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -150,6 +155,7 @@ jobs:
       - name: Decide whether to bake players.json
         id: decide
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:decide
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -183,6 +189,7 @@ jobs:
         if: steps.decide.outputs.bake == 'true'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:bake
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ESPN_CSV: ${{ steps.decide.outputs.espn_csv }}
@@ -209,6 +216,7 @@ jobs:
 
       - name: Run import health check
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:run-import-health-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         # Copy the health artifact to the monitor even when the gate is RED.
@@ -243,6 +251,7 @@ jobs:
         id: history
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:history
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/build_week_history.py --supabase
@@ -267,6 +276,7 @@ jobs:
         # (JEG-8). The job is failed explicitly by the last step.
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:chain
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           BAKE_OUTCOME: ${{ steps.bake.outcome }}
@@ -369,6 +379,7 @@ jobs:
         if: steps.chain.outcome == 'success'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:capture-week-history-after-promotion
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -393,6 +404,8 @@ jobs:
       # not committed, so a local run compares against stale legs.
       - name: Check input lineage (warning only)
         if: steps.chain.outcome == 'success'
+        env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:check-input-lineage-warning-only
         run: |
           python3 pipelines/check_input_lineage.py \
             || echo "::warning title=input-lineage::derived section(s) lag their input; see dist/modules/input-lineage.json"
@@ -410,6 +423,7 @@ jobs:
         if: steps.chain.outcome == 'success'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:consolidate
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -420,6 +434,7 @@ jobs:
       - name: Record consolidated_values check
         if: always() && steps.consolidate.outcome != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:record-consolidated-values-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id consolidated_values_write --owner rebuild-chain.yml --outcome "${{ steps.consolidate.outcome }}"
@@ -438,6 +453,7 @@ jobs:
         if: steps.chain.outcome == 'success'
         continue-on-error: true
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:valuestore
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/load_value_check.py --report output/value-check.json
@@ -445,6 +461,7 @@ jobs:
       - name: Record value check checks
         if: always() && steps.valuestore.outcome != 'skipped' && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:record-value-check-checks
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -478,6 +495,8 @@ jobs:
         # last valid bytes and the Commit step's git add pathspec still
         # matches.
         if: always()
+        env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:refresh-github-actions-status-jeg-109
         run: |
           python3 pipelines/build_github_actions_status.py \
             --out dist/modules/github-actions.json \
@@ -507,6 +526,7 @@ jobs:
         # promote data.
         if: always()
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:push
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -780,6 +800,7 @@ jobs:
       - name: Alert when the board stops publishing (JEG-1194)
         if: always() && github.ref == 'refs/heads/main'
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:alert-when-the-board-stops-publishing-jeg-1194
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 pipelines/chain_stuck_alert.py --chain-outcome "${{ steps.chain.outcome }}" --published "${{ steps.push.outputs.pushed }}"
 
@@ -795,6 +816,7 @@ jobs:
       - name: Record workflow run (JEG-137 R10)
         if: always()
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:record-workflow-run-jeg-137-r10
           CHAIN_OUTCOME_FOR_RECORD: ${{ steps.chain.outcome }}
         run: |
           STATUS="success"
@@ -816,12 +838,23 @@ jobs:
         # checks: rebuild_chain_source_held (amber) and
         # rebuild_chain_source_held_stale (red, held two or more weeks).
         env:
+          SUPABASE_BYTES_CALLER: rebuild-chain:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           CHAIN_OUTCOME: ${{ steps.chain.outcome }}
         run: |
           python3 pipelines/record_monitor_check.py --check-id rebuild_chain --owner rebuild-chain.yml --outcome "${{ job.status }}"
           python3 pipelines/record_chain_holds.py --owner rebuild-chain.yml --chain-outcome "$CHAIN_OUTCOME"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   rebuild-branch:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')

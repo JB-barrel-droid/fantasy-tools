@@ -53,6 +53,13 @@ def render(script, ctx):
     return re.sub(r"\$\{\{\s*([^}]+?)\s*\}\}", sub, script)
 
 
+def step_env(text, name, ctx):
+    """Render the step's declared environment as Actions does (no secrets)."""
+    header = find_step(text, name).split("        run:", 1)[0]
+    return {key: render(value, ctx) for key, value in
+            re.findall(r"^          ([A-Z][A-Z0-9_]*): (.*)$", header, re.M)}
+
+
 def ingest_argv(text, ref_name, inputs=None, source="cbs"):
     """Run the real Resolve-mode then Ingest scripts; return the argv the
     ingest script was invoked with (None if it was not invoked)."""
@@ -62,7 +69,7 @@ def ingest_argv(text, ref_name, inputs=None, source="cbs"):
         out = td / "out.txt"
         out.write_text("")
         ctx = {"matrix.source": source}
-        for k in ("mode", "source", "week"):
+        for k in ("mode", "source", "week", "url"):
             ctx[f"github.event.inputs.{k}"] = inputs.get(k, "")
         bash = usable_bash()
         if bash is None:
@@ -75,7 +82,8 @@ def ingest_argv(text, ref_name, inputs=None, source="cbs"):
             env["SYSTEMROOT"] = os.environ["SYSTEMROOT"]
         prelude = 'export PATH="$PWD/bin:/usr/bin:/bin" FAKE_ARGV="$PWD/argv"\n'
         cfg = script_of(find_step(text, "Resolve mode"))
-        r = subprocess.run([bash, "-e", "-c", prelude + render(cfg, ctx)], cwd=td, env=env,
+        r = subprocess.run([bash, "-e", "-c", prelude + render(cfg, ctx)], cwd=td,
+                           env={**env, **step_env(text, "Resolve mode", ctx)},
                            capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         outs = dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split() if "=" in line)
@@ -85,12 +93,13 @@ def ingest_argv(text, ref_name, inputs=None, source="cbs"):
         (td / "bin").mkdir()
         fake = td / "bin" / "python3"
         # write_bytes keeps LF endings on any OS and Python (write_text(newline=) is 3.10+ only).
-        fake.write_bytes(b'#!/bin/bash\necho "$@" > "$FAKE_ARGV"\necho "[fake] ok"\n')
+        fake.write_bytes(b'#!/bin/bash\nprintf "%s\\n" "$@" > "$FAKE_ARGV"\necho "[fake] ok"\n')
         fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
         r = subprocess.run([bash, "-e", "-c", prelude + render(script_of(find_step(text, "Ingest")), ctx)],
-                           cwd=td, env=env, capture_output=True, text=True)
+                           cwd=td, env={**env, **step_env(text, "Ingest", ctx)},
+                           capture_output=True, text=True)
         assert r.returncode == 0, r.stderr + r.stdout
-        return (td / "argv").read_text(encoding="utf-8").split()
+        return (td / "argv").read_text(encoding="utf-8").splitlines()
 
 
 DRY_TRIGGERS = [
@@ -122,9 +131,16 @@ class WorkflowTest(unittest.TestCase):
         self.assertTrue(any("schedule" in p for p in static_problems(mutated)))
 
     def test_dropping_the_dry_run_flag_is_caught(self):
-        mutated = WORKFLOW.replace('|| args="--dry-run"', '|| args=""', 1)
+        mutated = WORKFLOW.replace('|| args+=(--dry-run)', '|| args+=()', 1)
         self.assertNotEqual(WORKFLOW, mutated)
         self.assertNotIn("--dry-run", ingest_argv(mutated, "ingest/dry-7"))
+
+    def test_url_is_one_literal_argument(self):
+        url = 'https://example.invalid/article?label=two words&literal=$(false)'
+        for source in ("cbs", "usatoday", "fantasypros"):
+            with self.subTest(source=source):
+                argv = ingest_argv(WORKFLOW, "main", {"source": source, "url": url}, source)
+                self.assertEqual(argv[argv.index("--url") + 1:], [url])
 
     def test_write_by_default_is_caught(self):
         mutated = WORKFLOW.replace("mode=dry\n", "mode=write\n", 1)

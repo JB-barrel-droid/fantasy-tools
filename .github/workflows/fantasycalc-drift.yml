@@ -59,6 +59,7 @@ jobs:
       - name: Import current FantasyCalc data from Supabase
         id: snap
         env:
+          SUPABASE_BYTES_CALLER: fantasycalc-drift:snap
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -80,6 +81,8 @@ jobs:
 
       - name: Compare live FantasyCalc against Supabase
         id: drift
+        env:
+          SUPABASE_BYTES_CALLER: fantasycalc-drift:drift
         run: |
           set +e
           python3 pipelines/check_fantasycalc_drift.py --snapshot "${{ steps.snap.outputs.path }}" | tee /tmp/drift.log
@@ -101,6 +104,8 @@ jobs:
       # JEG-137 R10: record started_at and cron_at for the deadline checker.
       - name: Record workflow run (JEG-137 R10)
         if: always()
+        env:
+          SUPABASE_BYTES_CALLER: fantasycalc-drift:record-workflow-run-jeg-137-r10
         run: |
           STATUS="success"
           if [ "${{ job.status }}" = "failure" ]; then STATUS="failure"; fi
@@ -111,3 +116,13 @@ jobs:
             --run-id "$GITHUB_RUN_ID" \
             --status "$STATUS" \
             --output output/comparison-chain-status.json
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14

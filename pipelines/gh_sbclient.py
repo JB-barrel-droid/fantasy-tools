@@ -10,10 +10,14 @@ Drop this on PYTHONPATH as sbclient.py when running outside Muse.
 """
 
 import atexit
+from datetime import datetime, timezone
 import gzip
 import json
 import os
 import sys
+import tempfile
+import uuid
+from pathlib import Path
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,7 +28,7 @@ import urllib.request
 _BYTES = {}
 # JEG-793: on-wire (possibly gzip-compressed) bytes for the same keys. _BYTES
 # stays the decoded body size so lines are comparable with the earlier audit;
-# the wire size is what the egress bill sees.
+# wire counts response bodies only, excluding headers and transport overhead.
 _WIRE = {}
 
 
@@ -62,33 +66,55 @@ def _ranked():
 
 
 def bytes_summary_lines():
-    """One compact line per (method, table), largest first."""
-    who = os.environ.get("GITHUB_WORKFLOW") or os.path.basename(sys.argv[0] or "python")
+    """Counts plus explicit, allowlisted attribution; caller must be non-secret."""
+    who = os.environ.get("GITHUB_WORKFLOW") or "local"
+    context = {
+        "workflow": who,
+        "script": os.path.basename(sys.argv[0] or "python"),
+        "caller": os.environ.get("SUPABASE_BYTES_CALLER", ""),
+        "run_id": os.environ.get("GITHUB_RUN_ID", ""),
+        "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+        "job": os.environ.get("GITHUB_JOB", ""),
+        # Actions exposes the summary filename, but no native step-id variable.
+        "step": os.environ.get("SUPABASE_BYTES_STEP") or
+                os.path.basename(os.environ.get("GITHUB_STEP_SUMMARY", "")),
+        "at": datetime.now(timezone.utc).isoformat(),
+        "event": uuid.uuid4().hex,
+    }
     return [f"[supabase-bytes] {who} {m} {t} requests={n} bytes={b}"
-            f" wire={_WIRE.get((m, t), b)}"
+            f" wire={_WIRE.get((m, t), b)} context=" + json.dumps(context, ensure_ascii=True)
             for (m, t), (n, b) in _ranked()]
 
 
 def _emit_bytes_summary():
     if not _BYTES or not bytes_summary_enabled():
         return
-    for line in bytes_summary_lines():
+    lines = bytes_summary_lines()
+    for line in lines:
         print(line, file=sys.stderr)
+    who = os.environ.get("GITHUB_WORKFLOW") or "run"
+    total = sum(b for _, b in _BYTES.values())
+    wire_total = sum(_WIRE.get(k, v[1]) for k, v in _BYTES.items())
+    md = [f"#### Supabase response bytes ({who}, decoded total {total:,}, "
+          f"on-wire total {wire_total:,})", "",
+          "| method | table | requests | bytes | wire |", "|---|---|---:|---:|---:|"]
+    for (m, t), (n, b) in _ranked():
+        md.append(f"| {m} | {t} | {n} | {b:,} | {_WIRE.get((m, t), b):,} |")
+    md += ["", "```text", *lines, "```", ""]
     step = os.environ.get("GITHUB_STEP_SUMMARY")
     if step:
-        who = os.environ.get("GITHUB_WORKFLOW") or "run"
-        total = sum(b for _, b in _BYTES.values())
-        wire_total = sum(_WIRE.get(k, v[1]) for k, v in _BYTES.items())
-        md = [f"#### Supabase response bytes ({who}, decoded total {total:,}, "
-              f"on-wire total {wire_total:,})", "",
-              "| method | table | requests | bytes | wire |", "|---|---|---:|---:|---:|"]
-        for (m, t), (n, b) in _ranked():
-            md.append(f"| {m} | {t} | {n} | {b:,} | {_WIRE.get((m, t), b):,} |")
         try:
             with open(step, "a", encoding="utf-8") as fh:
-                fh.write("\n".join(md) + "\n\n")
+                fh.write("\n".join(md) + "\n")
         except OSError:
             pass
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        try:
+            directory = Path(os.environ.get("RUNNER_TEMP") or tempfile.gettempdir()) / "supabase-bytes"
+            directory.mkdir(exist_ok=True)
+            (directory / (uuid.uuid4().hex + ".md")).write_text("\n".join(md), encoding="utf-8")
+        except OSError as exc:
+            print(f"[supabase-bytes-warning] artifact unavailable: {exc.__class__.__name__}", file=sys.stderr)
 
 
 atexit.register(_emit_bytes_summary)

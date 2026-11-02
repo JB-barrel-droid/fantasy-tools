@@ -49,11 +49,13 @@ jobs:
 
       - name: Reconcile
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: player-identity-reconcile:reconcile
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           flag=""
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flag="--write"
+          [ "$EVENT_MODE" = "write" ] && flag="--write"
           rc=0
           python3 pipelines/reconcile_player_identity.py $flag > /tmp/reconcile.log 2>&1 || rc=$?
           cat /tmp/reconcile.log
@@ -67,5 +69,15 @@ jobs:
         with:
           name: player-identity-reconcile
           path: output/player-identity-reconcile.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
           if-no-files-found: ignore
           retention-days: 14

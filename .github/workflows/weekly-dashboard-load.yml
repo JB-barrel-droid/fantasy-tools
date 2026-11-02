@@ -38,6 +38,7 @@ jobs:
 
       - name: Load weekly bundle to Supabase
         env:
+          SUPABASE_BYTES_CALLER: weekly-dashboard-load:load-weekly-bundle-to-supabase
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -55,6 +56,17 @@ jobs:
         # dashboard is announced rather than silently green. Read-only.
         if: always()
         env:
+          SUPABASE_BYTES_CALLER: weekly-dashboard-load:freshness-sla-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/check_weekly_freshness.py
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
