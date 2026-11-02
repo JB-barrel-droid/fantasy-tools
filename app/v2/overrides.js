@@ -350,7 +350,7 @@
     if (n) parts.push(`${n} player override${n === 1 ? "" : "s"}`);
     if (!parts.length) return "";
     let text = `Overrides active: ${parts.join(" + ")}`;
-    if (info && info.fellBackToDefault) text += ". None of those sources is available this week, so our methodology is used";
+    if (info && info.fellBackToDefault) text += ". None of those sources is available this week, so the default DDF Value is used";
     return text;
   }
   function syncBar() {
@@ -364,13 +364,13 @@
       // "Overrides active: ..." line stays in the DOM as visually-hidden text (so screen readers and
       // inner_text still read it) and as the tooltip.
       line.push(el("a", {id: "v2OverrideBadge", class: "v2-ov-badge", href: "v2/#value-overrides", role: "status", "aria-live": "polite",
-          title: `${text}. Your basis and player values replace our methodology on every tab. Open Overrides to change them.`},
+          title: `${text}. Your basis and player values replace the default DDF Value on every tab. Open Overrides to change them.`},
           [el("span", {class: "v2-ov-badge-short", "aria-hidden": "true", text: "Overrides on"}),
            el("span", {class: "v2-sr", text})]),
         el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvResetAll", text: "Reset",
-          "aria-label": "Reset to our methodology: clear the custom basis and every player override", onclick: resetAll}));
+          "aria-label": "Reset to the default DDF Value: clear the custom basis and every player override", onclick: resetAll}));
     } else if (S.undo) {
-      line.push(el("span", {class: "v2-ov-bar-msg", role: "status", "aria-live": "polite", text: "Back to our methodology."}),
+      line.push(el("span", {class: "v2-ov-bar-msg", role: "status", "aria-live": "polite", text: "Back to the default DDF Value."}),
         el("button", {type: "button", class: "v2-btn v2-btn-quiet v2-ov-reset", id: "v2OvUndo", text: "Undo", onclick: undoReset}));
     }
     bar.replaceChildren(...line);
@@ -381,7 +381,7 @@
       notes.push(el("div", {class: "v2-ov-banner", id: "v2OvLinkBanner", role: "region", "aria-label": "Shared link settings"}, [
         el("div", {class: "v2-wrap v2-ov-banner-in"}, [
           el("span", {text: S.linkNote}),
-          el("button", {type: "button", class: "v2-btn v2-btn-primary", id: "v2OvUseOurs", text: "Use our methodology", onclick: useOurs}),
+          el("button", {type: "button", class: "v2-btn v2-btn-primary", id: "v2OvUseOurs", text: "Use the default DDF Value", onclick: useOurs}),
           el("button", {type: "button", class: "v2-btn v2-btn-quiet", id: "v2OvKeepLink", text: "Keep these settings",
             onclick: () => { S.linkNote = null; saveLinkState(S.linkExtra || {}); syncBar(); }})])]));
     }
@@ -399,7 +399,7 @@
   const syncBadge = syncBar;
 
   // ---------- the basis picker ----------
-  const PRESETS = [{id: "default", text: "Our methodology"}]
+  const PRESETS = [{id: "default", text: "Default DDF Value"}]
     .concat(SINGLE_ORDER.map(key => ({id: `single:${key}`, text: labelOf(key), key})))
     .concat([{id: "blend", text: "Custom blend"}]);
   const presetId = () => (S.mode === "single" ? `single:${S.single}` : S.mode);
@@ -434,12 +434,12 @@
     const info = basisInfo();
     box.replaceChildren(el("p", {id: "v2OvSummaryText", tabindex: "-1", text: summaryText()}));
     if (S.mode !== "default" && info && info.isDefault) {
-      box.append(el("p", {class: "v2-meta", text: "These weights are the same as our methodology, so no value changes. Change a weight or add a source to move away from it."}));
+      box.append(el("p", {class: "v2-meta", text: "These weights are the same as the default DDF Value, so no value changes. Change a weight or add a source to move away from it."}));
     } else if (S.mode !== "default") {
       const label = info ? info.label : "your basis";
-      box.append(el("p", {class: "v2-meta", text: `You are not using our methodology. Rescaled trade charts follow this basis (shown as “Rescaled (to ${label})”). The trade chart average, the market side, does not change.`}));
+      box.append(el("p", {class: "v2-meta", text: `You are not using the default DDF Value. Rescaled trade charts follow this basis (shown as “Rescaled (to ${label})”). The trade chart average, the market side, does not change.`}));
       if (info && info.fellBackToDefault) {
-        box.append(el("p", {class: "v2-ov-warn", role: "alert", text: "None of the sources you chose is available this week, so our methodology is used until one returns."}));
+        box.append(el("p", {class: "v2-ov-warn", role: "alert", text: "None of the sources you chose is available this week, so the default DDF Value is used until one returns."}));
       }
     }
   }
@@ -566,7 +566,7 @@
     };
     box.append(
       el("div", {class: "v2-card-head"}, [el("h2", {id: "v2OvBasisTitle", text: "Value basis"})]),
-      el("p", {class: "v2-meta", text: "What “our value” means on every tab. The default is our methodology: the four trade charts, adjusted to your league, equal weight. Pick one source, or blend any sources with your own weights. It applies right away; your player values below stay."}),
+      el("p", {class: "v2-meta", text: "What DDF Value means on every tab. The default DDF Value is rooted in the trade charts, then adjusted for position weight and your league's rosters, equal weight. Pick one source, or blend any sources with your own weights. It applies right away; your player values below stay."}),
       group,
       el("div", {id: "v2OvBlend", class: "v2-ov-blend", hidden: true}),
       el("div", {id: "v2OvSummary", class: "v2-ov-summary", role: "status", "aria-live": "polite"}),
@@ -715,7 +715,7 @@
     }
     const parts = [];
     const info = basisInfo();
-    if (basis) parts.push(info && info.isDefault ? "our methodology" : `a custom basis (${info ? info.label : "see Overrides"})`);
+    if (basis) parts.push(info && info.isDefault ? "the default DDF Value" : `a custom basis (${info ? info.label : "see Overrides"})`);
     if (overrides) parts.push(`${Object.keys(overrides).length} player override${Object.keys(overrides).length === 1 ? "" : "s"}`);
     S.linkNote = `This link uses ${parts.join(" and ")}. They apply for this visit only.`;
     S.linkExtra = {basis: basis || null, values: overrides || null, replace: complete};
@@ -1017,7 +1017,7 @@
         ? `Adjustment to ${row.name}'s DDF Value` : `Your value for ${row.name}`);
       helpText.textContent = S.draftType === "adjustment"
         ? `An adjustment adds to (or takes off) the DDF Value of ${fmt(base)}. The result is capped between 0 and 100.`
-        : "Drag the line on the graph (or the slider) to set his value. It applies when you let go, on every tab.";
+        : "Drag the line on the graph (or the slider) to set this player's value. It applies when you let go, on every tab.";
     }
     function switchType(kind) {
       if (kind === S.draftType) return;
@@ -1054,7 +1054,7 @@
           onclick: () => { S.values = {}; S.names = {}; push("overrides"); render(); }}) : null])]));
     if (S.importNote) box.append(el("p", {class: "v2-meta", id: "v2OvImportNote", role: "status", text: S.importNote}));
     if (!keys.length) {
-      box.append(el("p", {class: "v2-meta", text: "None yet. Pick a player above and drag his value; every tab then uses your value in place of DDF Value."}));
+      box.append(el("p", {class: "v2-meta", text: "None yet. Pick a player above and drag this player's value; every tab then uses your value in place of DDF Value."}));
       return;
     }
     const tbl = el("table", {class: "v2-table v2-ov-table", "aria-labelledby": "v2OvListTitle"});

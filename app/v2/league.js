@@ -390,7 +390,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -1011,7 +1011,7 @@
     const shape = ctx.shape || {};
     const teams = ws.teams.length;
     const seats = Number(shape.BENCH) || 0;
-    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what this player adds over the best available free agent at that position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
     const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
       el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
       el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),
@@ -1255,7 +1255,7 @@
     const columns = el("details", {id: "v2LgFields", class: "v2-lg-field-options", open: Boolean(UI.fieldsOpen)}, el("summary", {text: "Add team summary columns"}),
       el("p", {class: "v2-meta", text: "Current team summary before the trade. Values and ranks follow the summary's ranking basis."}));
     columns.addEventListener("toggle", () => { UI.fieldsOpen = columns.open; });
-    [["mine", "Our team"], ["theirs", "Their team"]].forEach(([side, label]) => {
+    [["mine", "Your team"], ["theirs", "Their team"]].forEach(([side, label]) => {
       const group = el("fieldset", {}, el("legend", {text: label}));
       fields.forEach(field => {
         const key = `${side}:${field.id}`;
@@ -1274,7 +1274,7 @@
       filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), control));
       return control;
     };
-    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Our team"]]);
+    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Your team"]]);
     const field = select("v2LgSummaryFilterField", "Summary field", fields.map(f => [f.id, f.label]));
     const op = select("v2LgSummaryFilterOp", "Condition", []);
     const value = el("input", {id: "v2LgSummaryFilterValue", type: "text", "aria-label": "Summary filter value"});
@@ -1303,7 +1303,7 @@
       const f = fields.find(f => f.id === rule.field);
       if (!f) return;
       const words = {gte: "at least", lte: "at most", eq: "equals", contains: "contains", notContains: "does not contain", missing: "missing", present: "has a value"};
-      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Our" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
+      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Your" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
         button("Remove", {class: "v2-link", "aria-label": `Remove ${f.label} filter`}, () => save({summaryFilters: rules.filter((_, i) => i !== index)}))));
     });
     return el("div", {class: "v2-lg-summary-controls"}, columns, filters);
@@ -1386,7 +1386,7 @@
     const fields = T.summaryFields(basis);
     const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
     const optional = ["mine", "theirs"].flatMap(side => fields.filter(f => selected.has(`${side}:${f.id}`)).map(f => ({...f, side, field: f,
-      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Our" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
+      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Your" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
     const cols = O.OPP_COLUMNS.concat(optional);
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
@@ -1446,7 +1446,7 @@
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgOppsReset", hidden: S.sameState(state, O.OPP_DEFAULT)}, () => onSort(O.OPP_DEFAULT));
     const two = {rowspan: "2"};
     const thead = el("thead", {},
-      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Our team fit", two),
+      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Your team fit", two),
         plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two), ...optional.map(c => sortTh(c.id, cols, state, onSort, two))),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
     const colspan = OPP_COLSPAN + optional.length;
@@ -1494,11 +1494,11 @@
     // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
     const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
-      // JEG-1232: one line per table column, in the table's order (value first), so Our fit and Their fit each get a line.
+      // JEG-1232: one line per table column, in the table's order (value first), so Your fit and Their fit each get a line.
       el("p", {"data-line": "trade"}, ...tradeNodes(r, ctx)),
       el("p", {"data-line": "capture"}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
-      el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
+      el("p", {"data-line": "ours"}, `Your fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
       el("p", {"data-line": "market"}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       compareLink(r, ctx),

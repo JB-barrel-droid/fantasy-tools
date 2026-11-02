@@ -5,7 +5,7 @@ items are checks 1-10 below; each is scored 0 or 1 from the DOM and the engine
 read back, and every one must score 1.
 
   1  Overrides is in the nav.
-  2  The basis picker shows every preset and "Our methodology" is selected on a fresh visit.
+  2  The basis picker shows every preset and "Default DDF Value" is selected on a fresh visit.
   3  Choosing FantasyCalc changes DDF Value on Player values (and the table header says Rescaled (to FantasyCalc)).
   4  Choosing Custom blend shows a weight slider for all seven sources.
   5  Moving a slider changes the engine's DDF Value live (no Save button).
@@ -23,7 +23,7 @@ changes), is the indicator visible (yes, "FantasyCalc only"), click Reset all
 Also: the Customize dialog has no DDF blend tab and points to Overrides; a saved
 DDF blend choice (ddf.v2.selection.inputs) and a v1 overrides record migrate to
 the v2 record with a one-time notice; a share link carries the basis and the
-player overrides, the recipient gets a banner whose "Use our methodology" is one
+player overrides, the recipient gets a banner whose "Use the default DDF Value" is one
 click and nothing is saved for them; a link too long for the budget drops the
 overrides and says why; Export and Import round-trip; radiogroup keyboard
 behaviour and names; phone width has no sideways scroll; Compare still fits at
@@ -129,8 +129,8 @@ def rubric(session) -> dict:
     score[1] = int(page.locator('a.v2-tab[data-view="overrides"]').count() == 1)
     # 2. presets and default selection
     presets = page.eval_on_selector_all("#v2OvPresets [role=radio]", "els => els.map(e => [e.textContent, e.getAttribute('aria-checked')])")
-    want = ["Our methodology", "FantasyCalc", "USA Today", "FantasyPros", "CBS trade chart", "ESPN", "CBS rest of season", "Razzball", "Custom blend"]
-    score[2] = int([n for n, _ in presets] == want and dict(presets)["Our methodology"] == "true" and sum(c == "true" for _, c in presets) == 1)
+    want = ["Default DDF Value", "FantasyCalc", "USA Today", "FantasyPros", "CBS trade chart", "ESPN", "CBS rest of season", "Razzball", "Custom blend"]
+    score[2] = int([n for n, _ in presets] == want and dict(presets)["Default DDF Value"] == "true" and sum(c == "true" for _, c in presets) == 1)
     # 9 (before). Trade targets on our methodology
     session.open("#trade-targets")
     ours_order = order()
@@ -198,7 +198,7 @@ class RubricTest(unittest.TestCase):
             page = s.open("#value-overrides")
             # Task script, first screen: the basis, the count, then one click.
             first = page.inner_text("#v2Overrides")
-            self.assertIn("Our methodology", first)
+            self.assertIn("Default DDF Value", first)   # JEG-1130: PMM glossary retires "our methodology"
             self.assertIn("Your player overrides (0)", first)
             self.assertTrue(page.locator("#v2OvBar").is_hidden() or page.inner_text("#v2OvBar").strip() == "")
             star = top_player(page)

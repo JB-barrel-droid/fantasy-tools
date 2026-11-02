@@ -1,0 +1,37 @@
+-- DRAFT ONLY — NOT APPLIED. Requires Jeremy approval at cutover.
+-- Confirm the org name before applying; planned slug below.
+-- No token value is read or changed by this prep task.
+BEGIN;
+create or replace function public.dispatch_gha_workflow(workflow_file text, inputs jsonb default '{}'::jsonb)
+ returns bigint
+ language plpgsql
+ security definer
+ set search_path to 'public', 'pg_temp'
+as $function$
+declare
+  req_id bigint;
+  repo text := 'datadrivenfootball/fantasy-tools';
+  token text := (select decrypted_secret from vault.decrypted_secrets where name = 'github_dispatch_token' limit 1);
+begin
+  if token is null then
+    raise exception 'github_dispatch_token not found in vault';
+  end if;
+  select net.http_post(
+    url := format('https://api.github.com/repos/%s/actions/workflows/%s/dispatches', repo, workflow_file),
+    headers := jsonb_build_object(
+      'Authorization', 'Bearer ' || token,
+      'Accept', 'application/vnd.github+json',
+      'Content-Type', 'application/json'),
+    body := jsonb_build_object('ref', 'main', 'inputs', inputs)
+  ) into req_id;
+  -- pg_net is async: cron reports "succeeded" once the request is queued, even
+  -- when GitHub answers 404/422. Keep the request id so the real HTTP outcome
+  -- can be joined back to the workflow (monitoring.v_dispatch_outcomes).
+  insert into monitoring.dispatch_log (req_id, workflow_file) values (req_id, workflow_file)
+  on conflict do nothing;
+  return req_id;
+end;
+$function$;
+revoke execute on function public.dispatch_gha_workflow(text, jsonb) from public, anon, authenticated;
+
+COMMIT;

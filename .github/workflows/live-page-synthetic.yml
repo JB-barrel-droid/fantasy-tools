@@ -30,6 +30,10 @@ permissions:
   contents: read
   actions: read
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   live-gate:
     runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
@@ -94,7 +98,7 @@ jobs:
           if [ -n "${{ github.event.inputs.url }}" ]; then
             echo "url=${{ github.event.inputs.url }}" >> $GITHUB_OUTPUT
           else
-            echo "url=https://jb-barrel-droid.github.io/fantasy-tools/" >> $GITHUB_OUTPUT
+            echo "url=$(python3 -m pipelines.lib.repository)" >> $GITHUB_OUTPUT
           fi
 
       - name: Run live page synthetic gate
