@@ -752,8 +752,19 @@ def price_source(s: str, family: str, natives: dict, pos_of: dict, alloc: dict,
 
 # ---------------------------------------------------------------- VP-4
 
-def ddf_weights(priced: dict, included: list, bs: float | None, position_shares: dict | None) -> tuple:
-    """VP-4; bs None = ES-15.1 (mean of the 8-group source weights, renormalized)."""
+def two_qb_native_share(slots: dict, superflex: int) -> bool:
+    """JEG-1366 (Jeremy 2026-10-30, pick A): 2+ dedicated QB slots and no
+    superflex slot = the QB share of the pie comes from the league's own
+    points above the 2-QB replacement level (the projections in I)."""
+    return int(superflex or 0) == 0 and int(slots.get("QB", 1) or 0) >= 2
+
+
+def ddf_weights(priced: dict, included: list, bs: float | None, position_shares: dict | None,
+                two_qb_native: bool = False) -> tuple:
+    """VP-4; bs None = ES-15.1 (mean of the 8-group source weights, renormalized).
+    two_qb_native (JEG-1366): the QB groups are the mean over the included
+    projections and RB/WR/TE keep their relative shares of the rest (with a
+    fixed bs, starters and bench separately, so the bench share stays bs)."""
     S_raw, B_raw = {}, {}
     for p in POSITIONS:
         s_vals, b_vals = [], []
@@ -792,6 +803,26 @@ def ddf_weights(priced: dict, included: list, bs: float | None, position_shares:
         for p in POSITIONS:
             W[f"{p}|starter"] = (1 - bs_star) * S_raw[p] / s_sum if s_sum else 0.0
             W[f"{p}|bench"] = bs_star * B_raw[p] / b_sum if b_sum else 0.0
+    projs = [s for s in included if two_qb_native and priced.get(s) and priced[s]["family"] == PROJECTION
+             and priced[s]["has_weights"] and priced[s]["positions"]["QB"]["method"] != "no_players"]
+    if projs and bs is None:
+        q = {r: fsum_in_order(priced[s]["weights"][f"QB|{r}"] for s in projs) / len(projs)
+             for r in ("starter", "bench")}
+        rest = fsum_in_order(W[g] for g in GROUP_KEYS if not g.startswith("QB|"))
+        scale = (1.0 - q["starter"] - q["bench"]) / rest if rest > 0 else 0.0
+        for g in GROUP_KEYS:
+            W[g] = q[g.split("|")[1]] if g.startswith("QB|") else W[g] * scale
+        bs_star = fsum_in_order(W[f"{p}|bench"] for p in POSITIONS)
+    elif projs:
+        for role, mix, target in (("starter", "starter_mix", 1.0 - bs_star), ("bench", "bench_mix", bs_star)):
+            vals = [priced[s][mix]["QB"] for s in projs if priced[s][mix] is not None]
+            if not vals:
+                continue
+            q = target * fsum_in_order(vals) / len(vals)
+            rest = fsum_in_order(W[f"{p}|{role}"] for p in POSITIONS if p != "QB")
+            scale = (target - q) / rest if rest > 0 else 0.0
+            for p in POSITIONS:
+                W[f"{p}|{role}"] = q if p == "QB" else W[f"{p}|{role}"] * scale
     if position_shares:
         for p in POSITIONS:
             tot = W[f"{p}|starter"] + W[f"{p}|bench"]
@@ -1062,7 +1093,8 @@ def run_week(setting: Setting, pos_of: dict, sources: dict, included: list,
                                  league_rostered=setting.league_rostered)
         priced[s]["status"] = "included" if s in inc else sources[s].get("status", "excluded")
         priced[s]["allocation"] = a
-    S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares)
+    S_raw, B_raw, bs_star, W = ddf_weights(priced, inc, bs, setting.position_shares,
+                                           two_qb_native_share(setting.slots, setting.superflex))
     for s in sources:
         adjust_source(priced[s], pie, W)
 

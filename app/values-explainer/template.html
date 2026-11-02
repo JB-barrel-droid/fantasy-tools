@@ -15,14 +15,27 @@
     return;
   }
   root.classList.add("embed");
+  // Fieldnotes (JEG-1140): the dashboard's ?design=fieldnotes flag is on its <html>. A frame has no access to the
+  // parent's custom properties, so read the resolved token values (light or dark) from the parent and mirror them as
+  // --fn-* here; the Fieldnotes rules below map this page's own variables onto them. Without the flag nothing is set.
+  var FN = ["canvas", "surface", "subtle", "line", "control", "ink", "muted", "action", "good-ink", "bad-ink", "warn-ink", "focus"];
   function theme() {
     try {
-      var t = window.parent.document.documentElement.dataset.theme;
-      if (t) root.dataset.theme = t; else delete root.dataset.theme;
+      var p = window.parent.document.documentElement;
+      if (p.dataset.theme) root.dataset.theme = p.dataset.theme; else delete root.dataset.theme;
+      if (p.dataset.design === "fieldnotes") {
+        var cs = window.parent.getComputedStyle(p);
+        FN.forEach(function (k) { root.style.setProperty("--fn-" + k, cs.getPropertyValue("--ddf-" + k).trim()); });
+        root.dataset.design = "fieldnotes";
+      } else {
+        FN.forEach(function (k) { root.style.removeProperty("--fn-" + k); });
+        delete root.dataset.design;
+      }
     } catch (e) { /* cross-origin: keep prefers-color-scheme */ }
   }
   theme();
-  try { new MutationObserver(theme).observe(window.parent.document.documentElement, {attributes: true, attributeFilter: ["data-theme"]}); } catch (e) {}
+  try { new MutationObserver(theme).observe(window.parent.document.documentElement, {attributes: true, attributeFilter: ["data-theme", "data-design"]}); } catch (e) {}
+  try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { setTimeout(theme, 0); }); } catch (e) {}
   // Measure the content (.wrap), not root.scrollHeight or the body: this page has no doctype, so in quirks
   // mode the body stretches to the frame and scrollHeight never drops below it. A wider frame (shorter
   // content) would otherwise keep the old, taller height.
@@ -215,6 +228,43 @@ html.embed header.top .eyebrow, html.embed header.top h1 { display: none; }
 html.embed header.top { padding-top: 0; }
 html.embed nav.index { position: static; margin-inline: 0; padding-inline: 0; background: transparent; }
 html.embed section.sec { scroll-margin-top: 12px; }
+
+/* Fieldnotes (JEG-1140): framed under ?design=fieldnotes only. Colors come from the dashboard's tokens (mirrored as
+   --fn-* by the script above); radii, edges, the 44 px press target and the focus ring follow the foundation contract
+   (docs/design/fieldnotes-components.md). Fraunces is declared once, in the dashboard, so the frame names the face
+   and falls back to Georgia; it does not load a font. No value, number or copy changes. */
+html[data-design="fieldnotes"]:root {
+  /* :root raises the specificity above the dashboard-theme rules at the top of this sheet */
+  --bg: var(--fn-canvas); --panel: var(--fn-surface); --ink: var(--fn-ink); --ink-2: var(--fn-muted); --ink-3: var(--fn-muted);
+  --rule: var(--fn-line); --rule-2: var(--fn-subtle); --accent: var(--fn-action); --accent-soft: var(--fn-subtle);
+  --warn: var(--fn-warn-ink); --warn-bg: var(--fn-subtle); --good: var(--fn-good-ink); --good-bg: var(--fn-subtle);
+  --bad: var(--fn-bad-ink); --bad-bg: var(--fn-subtle);
+  --font-display: Fraunces, Georgia, serif; --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+html[data-design="fieldnotes"] body { font-size: 16px; line-height: 1.5; }
+html[data-design="fieldnotes"] h1, html[data-design="fieldnotes"] h2, html[data-design="fieldnotes"] h3 { font-weight: 600; letter-spacing: 0; }
+html[data-design="fieldnotes"] .eyebrow { font-family: var(--font-body); font-weight: 600; font-size: 12px; letter-spacing: 0.06em; }
+html[data-design="fieldnotes"] header.top { border-bottom: 1px solid var(--rule); }
+html[data-design="fieldnotes"] footer.prov { border-top: 1px solid var(--rule); }
+html[data-design="fieldnotes"] :focus-visible { outline: 3px solid var(--fn-focus); outline-offset: 3px; }
+html[data-design="fieldnotes"] .panel, html[data-design="fieldnotes"] .tablewrap { border-radius: 16px; }
+html[data-design="fieldnotes"] .obs .item, html[data-design="fieldnotes"] .banner, html[data-design="fieldnotes"] .tip { border-radius: 9px; }
+html[data-design="fieldnotes"] .obs .item.check { border-left-color: var(--warn); }
+html[data-design="fieldnotes"] .formula, html[data-design="fieldnotes"] .trace .step { border-radius: 9px; }
+html[data-design="fieldnotes"] thead th { font-family: var(--font-body); font-size: 12px; }
+html[data-design="fieldnotes"] tr.groupline td { font-family: var(--font-body); }
+html[data-design="fieldnotes"] nav.index a { display: inline-flex; align-items: center; min-height: 44px; }
+html[data-design="fieldnotes"] nav.index { font-family: var(--font-body); font-size: 14px; }
+html[data-design="fieldnotes"] .seg { border-color: var(--fn-control); border-radius: 9px; }
+html[data-design="fieldnotes"] .seg button { min-height: 44px; padding-inline: 14px; border-right-color: var(--fn-control); }
+html[data-design="fieldnotes"] .seg button[aria-pressed="true"], html[data-design="fieldnotes"] .srcnav button[aria-selected="true"] { background: var(--fn-action); color: var(--fn-canvas); border-color: var(--fn-action); box-shadow: none; }
+html[data-design="fieldnotes"] .srcnav button { min-height: 44px; border-color: var(--fn-control); border-radius: 9px; }
+html[data-design="fieldnotes"] .toggle { min-height: 44px; border-color: var(--fn-control); }
+html[data-design="fieldnotes"] .toggle[aria-pressed="false"] { opacity: 1; background: var(--fn-subtle); color: var(--fn-muted); }
+html[data-design="fieldnotes"] select, html[data-design="fieldnotes"] input[type="search"] { min-height: 44px; border-color: var(--fn-control); border-radius: 9px; }
+html[data-design="fieldnotes"] details.fold summary { min-height: 44px; display: flex; align-items: center; color: var(--ink); }
+html[data-design="fieldnotes"] .recipe li::before { border-color: var(--fn-action); color: var(--fn-action); }
+html[data-design="fieldnotes"].embed { --font-display: Fraunces, Georgia, serif; --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
 </style>
 
 <div class="wrap">
@@ -498,10 +548,10 @@ const isEst = (k, pk) => !!SRC[k]?.[pk]?.[1];
     ["Fill in what a chart doesn't list", `A chart that lists some players at a position gets an <i>estimate</i> for each rosterable player it skips (the first rostered + 1 by projected points; ${POS.map(p => `${p} ${D.fillSets?.[p] ?? "—"}`).join(", ")}). The estimate scales the other charts' values on the 10 lowest players they share (median over those charts), or else fits the chart's own values against projected points. It is capped at the chart's lowest listed player at that position, so the chart's order is kept. Estimated values are shown, marked, and counted. Projections are not filled in.`],
     ...(ES ? [
     ["Each source's own weights", `Sum the parts into eight groups (position × starter/bench; bench = the fill-in parts). Each group's share of the source's total is its own weight. The bench share is not set: it comes out of the parts.`, `source weight[group] = group total ÷ source total`],
-    ["DDF weights = the average", `Average each group's weight over the included sources that price that position (hidden ones too), then renormalize to 1. The bench share applied is the bench groups' total: <b>${pct(BS, 1)}</b> at this setting. One weight set per setting and week, shared by all three DDF Value versions.`, `W[group] = mean source weight[group] ÷ Σ\nbench share = Σ W[pos, bench]`],
+    ["DDF weights = the average", `Average each group's weight over the included sources that price that position (hidden ones too), then renormalize to 1. <b>2-QB league, no superflex slot</b> (JEG-1366): the two QB groups instead take the included <i>projections'</i> mean QB weight (the league's own points above its 2-QB waiver line) and RB/WR/TE keep their relative shares of the rest. The bench share applied is the bench groups' total: <b>${pct(BS, 1)}</b> at this setting. One weight set per setting and week, shared by all three DDF Value versions.`, `W[group] = mean source weight[group] ÷ Σ\nbench share = Σ W[pos, bench]`],
     ] : [
     ["Each source's own weights", `Sum the slices into eight groups (position × starter/bench). The starter groups give the source's <i>starter mix</i>, the bench groups its <i>bench mix</i>. Bench is normalized to the bench share (${pct(BS, 0)}).`, `source weight[pos, starter] = (1 − ${BS}) × starter mix[pos]\nsource weight[pos, bench]   = ${BS} × bench mix[pos]`],
-    ["DDF weights = the average", `Average the mixes over the included sources (hidden ones too), then put bench back at ${pct(BS, 0)}. One weight set per setting and week, shared by all three DDF Value versions.`, `W[pos, starter] = (1 − ${BS}) × mean starter mix[pos] ÷ Σ\nW[pos, bench]   = ${BS} × mean bench mix[pos] ÷ Σ`],
+    ["DDF weights = the average", `Average the mixes over the included sources (hidden ones too), then put bench back at ${pct(BS, 0)}. <b>2-QB league, no superflex slot</b> (JEG-1366): the two QB groups instead take the included <i>projections'</i> mean QB weight (the league's own points above its 2-QB waiver line) and RB/WR/TE keep their relative shares of the rest, starters and bench rescaled separately. One weight set per setting and week, shared by all three DDF Value versions.`, `W[pos, starter] = (1 − ${BS}) × mean starter mix[pos] ÷ Σ\nW[pos, bench]   = ${BS} × mean bench mix[pos] ÷ Σ`],
     ]),
     ["Fixed league pie, paid on the DDF weights", `Pie = 28 per starting slot = 28 × ${S.teams} teams × ${POS.reduce((s, p) => s + (R[p] || 0), 0) + (R.FLEX || 0) + (R.SUPERFLEX || 0)} starters = <b>${fmt(PIE, 0)}</b>. It depends on neither scoring nor bench size. Each group's budget is pie × W; each source pays its group's budget out in proportion to its ${ES ? "parts" : "slices"}. So every source spends exactly the pie, split exactly by the DDF weights, while keeping its own player order.`, `Adjusted = (budget[pos, bench] ÷ group total[pos, bench]) × ${ES ? "fill-in part" : "bench slice"}\n         + (budget[pos, starter] ÷ group total[pos, starter]) × ${ES ? "start-worthy part" : "starter slice"}`],
     ["Value above waivers (display)", `One factor per source puts its total value above waivers on the pie, keeping the source's own weighting.`, `Value above waivers = v × ${fmt(PIE, 0)} ÷ source's total value above waivers`],
