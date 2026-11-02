@@ -31,6 +31,7 @@ import os
 import re
 import shutil
 import socketserver
+import subprocess
 import sys
 import threading
 import unittest
@@ -51,7 +52,7 @@ def setUpModule():
 
 APP = ROOT / "app" / "trade-value-chart"
 DIST = ROOT / "dist"
-SITE = "https://jb-barrel-droid.github.io/fantasy-tools/"
+SITE = build_v2_page.SITE_URL
 BRAND_TITLE = "<title>Trade Value · Data Driven Football</title>"
 # v2 carries the brand alone (Jeremy, 2026-10-08); the classic dashboard keeps BRAND_TITLE.
 V2_TITLE = "Data Driven Football"
@@ -81,6 +82,23 @@ def health_box_hidden(html: str) -> bool:
 def chart_build_in_footer(html: str) -> bool:
     footer = re.search(r"<footer\b.*?</footer>", html, re.S)
     return bool(footer) and 'id="asOfDate"' in footer.group(0) and 'id="buildStamp"' in footer.group(0)
+
+
+class FrontDoorIdentityTests(unittest.TestCase):
+    def test_site_matches_configured_repository_identity(self):
+        cases = (
+            ("", "https://jb-barrel-droid.github.io/fantasy-tools/"),
+            ("JB-barrel-droid/fantasy-tools", "https://jb-barrel-droid.github.io/fantasy-tools/"),
+            ("datadrivenfootball/fantasy-tools", "https://datadrivenfootball.github.io/fantasy-tools/"),
+        )
+        for repository, expected in cases:
+            with self.subTest(repository=repository):
+                result = subprocess.run(
+                    [sys.executable, "-c", "from tests.test_launch_front_door import SITE; print(SITE)"],
+                    cwd=ROOT, env={**os.environ, "DDF_GITHUB_REPOSITORY": repository},
+                    capture_output=True, text=True, check=True,
+                )
+                self.assertEqual(expected, result.stdout.strip())
 
 
 class FrontDoorBuildTests(unittest.TestCase):
