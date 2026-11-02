@@ -18,14 +18,20 @@ MAIN, HEAD = "a" * 40, "b" * 40
 
 def check(conclusion="success", **changes):
     return {"name": "test", "status": "completed", "conclusion": conclusion,
-            "head_sha": HEAD, **changes}
+            "head_sha": HEAD, "app": {"slug": "github-actions"}, **changes}
+
+
+def full_ci(head=HEAD):
+    # Literal policy names: don't generate evidence from the implementation's
+    # required set, which could hide an accidentally removed requirement.
+    return [check(name="preview", head_sha=head), check(name="v2-render", head_sha=head)]
 
 
 class FakeRest:
     repo = gate.REPO
 
     def __init__(self, checks=None, states=None, behind=0):
-        self.checks = [check()] if checks is None else checks
+        self.checks = full_ci() if checks is None else checks
         self.states = [] if states is None else states
         self.behind = behind
         self.calls = []
@@ -68,6 +74,42 @@ class FreshnessTest(unittest.TestCase):
         self.assertEqual(1, len(output.getvalue().splitlines()))
         return rc, output.getvalue()
 
+    def test_green_subset_never_authorizes_missing_required_checks(self):
+        # Reviewer's reproduction: a quick green check registers before the
+        # full preview/render workflows. Informational success isn't CI proof.
+        for name in ("security-contracts", "PR freshness (informational)",
+                     "preview", "v2-render"):
+            with self.subTest(name=name):
+                rc, reason = gate.evaluate(FakeRest(checks=[check(name=name)]), number=7)
+                self.assertEqual(1, rc)
+                self.assertIn("missing required checks", reason)
+
+    def test_required_checks_must_each_register_and_succeed(self):
+        api = FakeRest(checks=[check(name="preview")])
+        self.assertEqual(1, self.verdict(api)[0])
+        api.checks.append(check(name="v2-render", status="queued", conclusion=None))
+        self.assertEqual(1, self.verdict(api)[0])
+        api.checks[-1] = check(name="v2-render")
+        self.assertEqual(0, self.verdict(api)[0])
+
+    def test_required_checks_cannot_be_neutral_skipped_or_from_another_app(self):
+        for name in ("preview", "v2-render"):
+            for conclusion in ("neutral", "skipped", "failure"):
+                with self.subTest(name=name, conclusion=conclusion):
+                    rows = [row for row in full_ci() if row["name"] != name]
+                    rows.append(check(name=name, conclusion=conclusion, output={
+                        "summary": "skipped-by-path: documentation-only"}))
+                    self.assertEqual(1, self.verdict(FakeRest(checks=rows))[0])
+            rows = [row for row in full_ci() if row["name"] != name]
+            rows.append(check(name=name, app={"slug": "another-app"}))
+            self.assertEqual(1, self.verdict(FakeRest(checks=rows))[0])
+
+    def test_commit_statuses_and_manual_checks_cannot_substitute_for_required_jobs(self):
+        api = FakeRest(checks=[check(name="preview-manual"), check(name="v2-render-manual")],
+                       states=[{"context": "preview", "state": "success"},
+                               {"context": "v2-render", "state": "success"}])
+        self.assertEqual(1, self.verdict(api)[0])
+
     def test_behind_refused(self):
         rc, text = self.verdict(FakeRest(behind=1))
         self.assertEqual(1, rc)
@@ -82,7 +124,7 @@ class FreshnessTest(unittest.TestCase):
 
     def test_green_checks_and_statuses_accepted(self):
         self.assertEqual(0, self.verdict(FakeRest(
-            checks=[check(), check("neutral"), check("skipped", output={
+            checks=full_ci() + [check(), check("neutral"), check("skipped", output={
                 "summary": "skipped-by-path: documentation-only"})],
             states=[{"state": "success"}]))[0])
 
@@ -152,6 +194,8 @@ class FreshnessTest(unittest.TestCase):
         api = FakeRest()
         self.assertEqual(0, self.verdict(api, ["--merge-group", HEAD])[0])
         self.assertNotIn("pulls/7", api.calls)
+        self.assertEqual(1, self.verdict(FakeRest(checks=[check(name="preview")]),
+                                        ["--merge-group", HEAD])[0])
 
     def test_information_only_excludes_exact_self_run_and_never_authorizes_promotion(self):
         own = check(status="in_progress", name="PR freshness (informational)",
@@ -160,7 +204,7 @@ class FreshnessTest(unittest.TestCase):
         env = {"GITHUB_ACTIONS": "true", "GITHUB_RUN_ID": "42",
                "GITHUB_WORKFLOW": "PR freshness", "GITHUB_REPOSITORY": gate.REPO}
         args = ["7", "--informational"]
-        self.assertIn("PASS:", self.verdict(FakeRest(checks=[check(), own]), args, environ=env)[1])
+        self.assertIn("PASS:", self.verdict(FakeRest(checks=full_ci() + [own]), args, environ=env)[1])
         self.assertEqual(1, self.verdict(FakeRest(checks=[check(), own]))[0])
         other = {**own, "details_url": own["details_url"].replace("runs/42", "runs/43")}
         self.assertIn("REFUSED:", self.verdict(FakeRest(checks=[check(), other]), args, environ=env)[1])
@@ -179,6 +223,15 @@ class FreshnessTest(unittest.TestCase):
 
 
 class PromotionTest(unittest.TestCase):
+    def test_green_subset_blocks_both_promotion_entry_points(self):
+        for action in ("ready-for-review", "merge-gate"):
+            with self.subTest(action=action):
+                execute = Mock()
+                self.assertEqual(1, pr_promotion.main(
+                    [action, "7"], gate=lambda _: gate.evaluate(FakeRest(
+                        checks=[check(name="security-contracts")]), number=7)[0], execute=execute))
+                execute.assert_not_called()
+
     def test_refused_gate_never_promotes(self):
         for action in ("ready-for-review", "merge-gate"):
             execute = Mock()
@@ -266,8 +319,10 @@ class BotOnlyBehindTest(unittest.TestCase):
                 if path == f"contents/{gate.REGISTRY}?ref={history.main}":
                     raise gate.NotFound("absent")
                 if path == f"commits/{history.head}/check-runs?filter=latest&per_page=100&page=1":
-                    return {"total_count": 1, "check_runs": [check(
-                        "failure" if history.red else "success", head_sha=history.head)]}
+                    rows = full_ci(history.head)
+                    if history.red:
+                        rows[0]["conclusion"] = "failure"
+                    return {"total_count": len(rows), "check_runs": rows}
                 if path == f"commits/{history.head}/status?per_page=100&page=1":
                     return {"sha": history.head, "total_count": 0, "statuses": []}
                 raise AssertionError(f"unexpected REST path: {path}")

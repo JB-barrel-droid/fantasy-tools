@@ -21,6 +21,10 @@ REPO = "JB-barrel-droid/fantasy-tools"
 REGISTRY = "docs/baseline-reds/registry.json"
 SHA = re.compile(r"[0-9a-f]{40}")
 CONFIG = Path(__file__).with_name("pr_freshness_config.json")
+# Reviewed repository policy (runbooks/merging-prs.md), independent of which
+# workflows have registered so far. No caller/config override or absent-by-path
+# exemption: the full-CI finalizers must actually succeed before promotion.
+REQUIRED_CHECKS = frozenset({"preview", "v2-render"})
 
 
 class EvidenceError(ValueError):
@@ -243,6 +247,7 @@ def evaluate(api, number=None, group_head=None, informational_run=None, config=N
     entries = registry(api, main)
     checks, states = check_runs(api, head), statuses(api, head)
     considered = 0
+    passed_required = set()
     for check in checks:
         if sha(check["head_sha"]) != head:
             raise EvidenceError("check run is for another head")
@@ -252,6 +257,11 @@ def evaluate(api, number=None, group_head=None, informational_run=None, config=N
         if check["status"] != "completed":
             return 1, "head has a pending check run"
         conclusion = check.get("conclusion")
+        if check.get("name") in REQUIRED_CHECKS:
+            if (conclusion != "success"
+                    or check.get("app", {}).get("slug") != "github-actions"):
+                return 1, "required check must succeed in GitHub Actions: " + check["name"]
+            passed_required.add(check["name"])
         if conclusion in ("success", "neutral"):
             continue
         if conclusion == "skipped" and path_skip(check):
@@ -264,6 +274,9 @@ def evaluate(api, number=None, group_head=None, informational_run=None, config=N
             return 1, "head has a pending or failing commit status"
     if not considered:
         return 1, "head has no completed check/status evidence"
+    missing = REQUIRED_CHECKS - passed_required
+    if missing:
+        return 1, "head is missing required checks: " + ", ".join(sorted(missing))
     # Detect concurrent head/base movement. This is a new observation, not a retry.
     if sha(api.get("commits/main")["sha"]) != main:
         return 1, "main moved during verification"

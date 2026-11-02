@@ -29,6 +29,8 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+      - name: Freshness and promotion regressions
+        run: python3 -m unittest tests.test_pr_freshness_gate
       - name: Report current freshness and check state
         env:
           GH_TOKEN: ${{ github.token }}

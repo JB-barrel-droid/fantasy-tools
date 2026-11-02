@@ -15,6 +15,13 @@ and `python3 -m pipelines.pr_promotion merge-gate <PR>` at the final merge
 boundary. The informational workflow is a snapshot, never this authorization.
 Generic skipped checks, pending checks and missing evidence fail closed;
 `skipped` needs an explicit `skipped-by-path` receipt in the check output.
+The reviewed required-check policy in `pr_freshness_gate.py` always requires
+`preview` and `v2-render` to register on the exact head and finish with
+`success` from GitHub Actions. A green subset, informational success, manual
+checks, commit statuses, neutral results and path skips cannot replace either
+finalizer. There is no absent-by-path exemption for these required checks;
+docs-only PRs with no finalizer evidence remain refused. Keep this policy in
+sync when changing required check names or adding requirements.
 The #1255 registry is read only from main when present; it attributes known
 test failures and never waives a red status. Draft-deferred red CI still
 refuses promotion; resolve that evidence rather than bypassing the gate.
