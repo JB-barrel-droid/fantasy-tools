@@ -7,7 +7,7 @@ FULL = smoke, validate-base, core-1, core-2, core-3, core-4, core-5, full-unit. 
 | #1248 | `76ee1c41` | FULL |
 | #1246 | `fc5fd8cc` | FULL |
 | #1242 | `dcf7b4cc` | FULL + fe-values |
-| #1211 | `168aba93` | FULL + fe-values, fe-targets, fe-league, fe-settings |
+| #1211 | `168aba93` | FULL + fe-values, fe-compare, fe-targets, fe-league, fe-settings |
 | #1231 | `db46ecaf` | FULL + connector, fe-finder, fe-league |
 | #1232 | `7358589c` | FULL + fe-finder, fe-waivers, fe-league |
 | #1227 | `31e53bec` | FULL + fe-finder, fe-league |
@@ -32,7 +32,7 @@ FULL = smoke, validate-base, core-1, core-2, core-3, core-4, core-5, full-unit. 
 | #1209 | `f2d50519` | FULL + pipelines |
 | #1167 | `74464163` | FULL + fe-values, fe-compare, fe-finder, fe-targets, fe-league |
 | #1156 | `0fc5eaa4` | FULL + connector, fe-values, fe-compare, fe-finder, fe-league |
-| #1184 | `1adb13b2` | FULL |
+| #1184 | `1adb13b2` | FULL + fe-values, fe-compare, fe-finder, fe-targets, fe-league |
 | #1200 | `6b33b678` | smoke, connector |
 
 Known follow-up audit (documented links; not proof that no other regression exists):

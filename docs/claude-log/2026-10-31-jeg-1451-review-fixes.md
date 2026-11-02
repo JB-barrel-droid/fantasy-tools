@@ -62,3 +62,14 @@ excluded make validate and requested no settings changes, merge or deploy.
   validation stopped for an absent default Playwright browser; configured the
   installed Chrome executable for the subsequent validation.
 - Claimed, not confirmed: independent Claude review and CI timing remain pending.
+
+- Two pinned replay expectations now include additional page shards (#1211
+  and #1184), required by retaining helper owners. Verified that every old
+  shard remains selected; no assertions or product fixtures were weakened.
+- Sample planning: inert session record -> smoke (8.589s cold inventory);
+  app/v2/waivers.js -> smoke + fe-waivers (<0.001s warm); engine asset -> smoke
+  + validate-base + core-1..5 + full-unit (<0.001s warm). These measure planning,
+  not execution; expanded render timing remains unverified.
+- Local make validate was stopped when other active heavy suites were found
+  on this Mac and CI renders started. No automatic retry; CI owns heavy checks.
+  Generated tracked app/dist changes were restored to the clean starting state.
