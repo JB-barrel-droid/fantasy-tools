@@ -31,6 +31,17 @@ recorded in `docs/decisions.md`; the math-review agenda item is marked supersede
   Main `951f95df`: 18 run, 3 failed, all at `[league page] [not-discoverable] ... (5 found)`. Branch: 18 run,
   2 failed. `test_guard_fails_on_a_link_without_get` now passes. The other two get past discovery and fail later,
   on Compare (below).
+- `make validate` on the branch (pre-merge head `4d29f5cb`, local Chrome): exit 0. `value_check compare --strict`
+  agrees: 1,234,507 values, 0 mismatches on every source, so no value moved. The DejaVu Sans phone-font guard passed
+  on this run. A first validate run stopped on a 600 s timeout inside `_render_env.ensure_built()` (a sync that
+  normally takes 23 s), unrelated to this change; the re-run was clean.
+- Two count pins moved because the rule changed. Both were already off on main before this change, and both
+  comments record main's own numbers. `tests/test_league_levels_trades.py` `PINNED` (main: (114, 6, 22) for USO
+  ddf, ...; branch: (3579, 310, 651), ...) and the `tests/fixtures/finder_search_golden.json` search signature
+  (main: 2-for-2 15 trades / 9 groups; branch: 155 / 29).
+- Already red on main and unchanged in kind on the branch, not touched here: `tests.test_v2_finder_groups`
+  ("the throw-in is not named on the kept trade"), `tests.test_uso_site_journey_contract` (2 failures,
+  `basis-changed` on another device), and `tests/node/trade_context_check.cjs` (JEG-1240 envelope TypeError).
 
 ### Not fixed here: the league to Compare carry
 - With JSN discoverable, `test_journey_keeps_the_trade_context` and `test_unequal_deal_keeps_its_package` reach
