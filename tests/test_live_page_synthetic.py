@@ -42,12 +42,8 @@ LIVE_MJS = GATE_DIR / "live.mjs"
 
 
 def _chromium():
-    for candidate in (os.environ.get("CHROMIUM_PATH"),
-                      "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-                      shutil.which("chromium")):
-        if candidate and Path(candidate).exists():
-            return candidate
-    return None
+    from tests._render_env import chromium_executable
+    return chromium_executable()
 
 
 def _build_tag(dist: Path) -> str:
@@ -58,7 +54,7 @@ def _build_tag(dist: Path) -> str:
 def _run_live(dist: Path) -> dict:
     with tempfile.TemporaryDirectory() as tmp, _pages_server(dist) as base:
         out = Path(tmp) / "report.json"
-        env = dict(os.environ, CHROMIUM_PATH=_chromium())
+        env = dict(os.environ, CHROMIUM_PATH=_chromium() or "")
         subprocess.run(["node", str(LIVE_MJS), "--url", base, "--expected-build", _build_tag(dist),
                         "--out", str(out)], env=env, capture_output=True, timeout=300)
         return json.loads(out.read_text(encoding="utf-8"))

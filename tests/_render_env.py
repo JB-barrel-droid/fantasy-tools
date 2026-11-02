@@ -17,7 +17,6 @@ Two problems this fixes (2026-10-08, tests-hygiene):
 from __future__ import annotations
 
 import os
-import shutil
 import subprocess
 import sys
 import unittest
@@ -65,26 +64,37 @@ def ensure_built() -> None:
     _built = True
 
 
+def _registered_headless_shell():
+    """Ask the active Python Playwright driver for its platform/revision path."""
+    try:
+        from playwright._impl._driver import compute_driver_executable
+        node, cli = compute_driver_executable()
+        registry = Path(cli).parent / "lib/server/registry/index.js"
+        result = subprocess.run(
+            [str(node), "-e",
+             "console.log(require(process.argv[1]).registry.findExecutable('chromium-headless-shell').executablePath())",
+             str(registry)], capture_output=True, text=True, check=True, timeout=10,
+        )
+        return Path(result.stdout.strip()) if result.stdout.strip() else None
+    except (ImportError, OSError, subprocess.SubprocessError):
+        return None
+
+
 def chromium_executable(playwright=None):
-    """First browser that exists: $CHROMIUM_PATH, Playwright's bundled
-    Chromium, local Chrome, or a chromium/chrome on PATH. None lets Playwright
-    use its own default."""
-    candidates = []
+    """Explicit override, installed headless shell, or Playwright's default.
+
+    Never discover desktop Chrome, full Chromium, or a browser on PATH.
+    The optional argument is retained for existing render harness callers.
+    """
     env = os.environ.get("CHROMIUM_PATH")
     if env:
-        candidates.append(Path(env))
-    if playwright is not None:
-        try:
-            candidates.append(Path(playwright.chromium.executable_path))
-        except Exception:
-            pass
-    candidates.append(Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"))
-    for name in ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable"):
-        found = shutil.which(name)
-        if found:
-            candidates.append(Path(found))
-    for candidate in candidates:
-        if candidate.exists():
+        return env
+    registered = _registered_headless_shell()
+    if registered is not None and registered.is_file():
+        return str(registered)
+    cache = Path.home() / "Library/Caches/ms-playwright"
+    for candidate in sorted(cache.glob("chromium_headless_shell-*/chrome-headless-shell-*/chrome-headless-shell"), reverse=True):
+        if candidate.is_file():
             return str(candidate)
     return None
 
