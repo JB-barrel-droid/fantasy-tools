@@ -693,8 +693,10 @@ test("the JEG-1240 journey diff finds no loss between the league envelope and th
     const partner = T.dealPartner(context);
     const rowsByKey = new Map(LEVEL_ROWS.market(context.teams.mine.roster.concat(partner.roster))
       .map(r => [r.player_key, {...r, values: {...r.values, usatoday: r.values.fantasycalc, fantasypros: r.values.fantasycalc, cbs: r.values.fantasycalc}}]));
-    return J.envelope(F, {settings: context.common.league, basis: context.common.valuation.basis, level: context.pricing && context.pricing.mode,
-      charts: ["usatoday", "fantasycalc", "fantasypros", "cbs"], market: ["usatoday", "fantasycalc", "fantasypros", "cbs"], shape: SHAPE, rowsByKey},
+    // The journey helper takes an optional readout module, then {state, rowsByKey}.
+    return J.envelope(F, null, {state: {settings: context.common.league, basis: context.common.valuation.basis,
+      level: context.pricing && context.pricing.mode,
+      sources: Object.fromEntries(["usatoday", "fantasycalc", "fantasypros", "cbs"].map(k => [k, {status: "available"}]))}, rowsByKey},
     {mine: {id: context.teams.mine.id || context.origin && context.origin.mineId, entries: context.teams.mine.roster},
       theirs: {id: partner.id || context.origin && context.origin.theirId, entries: partner.roster}}, context.deal.give, context.deal.get);
   };
