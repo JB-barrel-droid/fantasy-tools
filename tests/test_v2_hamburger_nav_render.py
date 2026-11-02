@@ -35,7 +35,7 @@ import build_v2_page  # noqa: E402
 
 # JEG-1371: the Research entry is in the menu only once a post is published.
 RESEARCH = ["Research"] if build_v2_page.load_posts() else []
-LABELS = ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", *RESEARCH, "Manifesto", "Customize", "Overrides"]
+LABELS = ["Value chart", "Compare a trade", "Find a trade: your team", "Find a trade: league-wide", "Simplified site", "Risers and fallers", "Waivers", "Trade targets", "Value pie", "Source build-up", "Methodology", *RESEARCH, "Manifesto", "Customize", "Overrides"]
 
 
 def setUpModule():
