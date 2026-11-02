@@ -23,24 +23,18 @@ merges ordered so main stays green.
 
 ## Review and merge protocol (Jeremy, 2026-10-29)
 
-Codex stopped at 19:12 UTC on 2026-10-29 (Jeremy: "I want to get off of Codex
-I think, having you use a seperate reviewer makes sense. Codex is slowing us
-down."). Claude sessions now do all review and merging (JEG-1218). The `codex`
-label and Codex release notes in `HANDOFF.md` are history. This section wins
-over older review or merge text in this file and in `HANDOFF.md`.
+Jeremy, 2026-11-01 at 10:02 PM CT (JEG-1444): "They don't have to be opus reviewed, they can just be codex reviewed".
+Independent Claude or Codex reviews count for merge at any risk level,
+including high-risk and value-math PRs; no usage-crunch condition applies.
+Claude sessions retain merge ownership. This section wins over older review
+or merge text in this file and in `HANDOFF.md`.
 
-- **One independent review per PR.** Outside a usage crunch, it comes from a
-  Claude session that did not write the PR. The author's own check doesn't
-  count, and nobody reviews the same head twice (Jeremy, 2026-10-28). Changes to this file, `CLAUDE.md`
-  or permissions are never `review-exempt`. Review capability and effort are
-  selected by risk under the policy below; review and merge ownership stays
-  as specified here. A Codex pass on a PR's exact current head, made before
-  the handover, counts as that PR's one review (Jeremy's pick A, 20:10 UTC).
-  During a usage crunch (any week the Claude pool is on pace to run out
-  before its reset; JEG-1444 decision 10), a Codex review on the exact
-  current head of a `review-light` or `review-standard` PR counts as its one
-  review. `review-high-risk` PRs still need a Claude reviewer (Jeremy's pick
-  A, 2026-10-31 10:42 UTC).
+- **One independent review per PR.** The reviewer must be a different
+  job/session from the author, whether Claude or Codex. The author's own
+  check doesn't count, and nobody reviews the same head twice (Jeremy,
+  2026-10-28). Post reviews as a GitHub **COMMENT** review, never **APPROVE**.
+  Changes to this file, `CLAUDE.md` or permissions are never `review-exempt`.
+  Review capability and effort are selected by risk under the policy below.
 - **Checks before review (JEG-1435 / JEG-1444).** Run deterministic checks
   (`make validate`, then `gh pr checks <number>`) first. No review job starts
   until the fix head is pushed and the PR's CI is green on that exact head.
@@ -69,7 +63,8 @@ over older review or merge text in this file and in `HANDOFF.md`.
 - **Merging.** A Claude merge session batches merges: at most 7 PRs of the same
   risk on pinned current main, with USO valuation work in its own batch. Each
   PR merges on its reviewed head, with green CI on that exact head and a clean
-  merge onto current main. Engine PRs still go one at a time (Hot files below).
+  merge onto current main. High-risk and value-math PRs still merge alone, with a value before/after
+  on the ticket. Engine PRs still go one at a time (Hot files below).
   Jeremy approves merges by PR number, and on 2026-10-29 at 21:08 UTC gave a
   standing OK: "merge anything you recommend once it is green". That covers a
   PR whose independent review passed, once its checks are green.
@@ -106,7 +101,7 @@ Rules:
 1. **Designing or deriving value math is T1.** Anything that decides a
    published value, a curve, a tier, or a waiver line. Executing an approved
    spec (a config switch, porting a rule to a second path, a fixture refresh)
-   is T2 with a T1 review at merge. A bug whose root cause is unknown is T1
+   is T2 with a risk-appropriate independent Claude or Codex review at merge. A bug whose root cause is unknown is T1
    until the cause is named.
 2. **Other model families never merge.** Their output is a draft PR on
    `be/<ticket>` or `fe/<ticket>`. The Claude lead re-reads the diff, runs the
@@ -116,8 +111,8 @@ Rules:
 4. A ticket that says T2 but needs a judgement call on the numbers is really
    T1: say so in its brief.
 5. Reviews of T2/T3 work follow the review risk tiers below, not the author's
-   implementation tier. The reviewer is independent of the author; use a
-   different model where possible within the required capability.
+   implementation tier. The reviewer must be a different job/session from the author; an
+   independent Codex review counts for merge at any risk level.
 
 ### Review risk tiers (JEG-1435, charter JEG-1444 decision 9)
 
@@ -138,9 +133,8 @@ Current model mapping (change this table when provider capability changes):
 
 | Work | Model / effort |
 | --- | --- |
-| `review-high-risk`, value math and design | Opus / high |
-| `review-light`, `review-standard`, small delta reviews without high-risk triggers | Sonnet / medium |
-| During a usage crunch: `review-light`, `review-standard`, small delta reviews without high-risk triggers | Codex on the exact current head; `review-high-risk` keeps Claude |
+| `review-high-risk`, value math and design | Opus or Codex / high |
+| `review-light`, `review-standard`, small delta reviews without high-risk triggers | Sonnet or Codex / medium |
 
 **Deterministic high-risk floor.** Before dispatch, inspect the PR's changed
 file list and diff, not a model's classification. Force `review-high-risk`
@@ -164,7 +158,7 @@ Use corrections and reopens within 7 days as the escaped-defect guardrail.
 | Work type | Route |
 | --- | --- |
 | PM: Linear tickets and routing, headless coding runs (one per ticket), questions to Jeremy | Ba-Nana (Grok Bot), Jeremy 2026-10-26; see `HANDOFF.md` |
-| Review | Claude sessions, capability selected by review risk tier above; during a usage crunch, Codex may review `review-light` and `review-standard` PRs |
+| Review | Independent Claude or Codex job/session at any risk level, with capability selected by review risk tier above |
 | Integration, merge/push/deploy, production QA, scheduled jobs | Claude sessions, T1, under the review and merge protocol above (Jeremy 2026-10-06, ops-ownership-001; 2026-10-29, JEG-1218) |
 | Methodology, values, copy, destructive prod actions, outward-facing changes | Jeremy (except routine data refreshes on green gates, which change inputs, not value math) |
 
