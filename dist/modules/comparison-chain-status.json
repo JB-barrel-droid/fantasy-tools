@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-02T06:11:57.197156+00:00",
+  "run_at": "2026-11-02T12:13:32.583095+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -103,7 +103,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (7716 values)",
+      "detail": "snapshot 2026-10-29 -> 12 DDF legs -> section; review passed (7704 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -132,7 +132,7 @@
       "lagging_one_week": false
     },
     "espn": {
-      "content_vintage": "2026-11-01",
+      "content_vintage": "2026-11-02",
       "content_week": 8,
       "health_status": "ok",
       "lagging_one_week": false
@@ -182,7 +182,7 @@
     "espn": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-11-01",
+      "published_at": "2026-11-02",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -245,15 +245,19 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one"
+      "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_fringe_player_moves_no_one_more_than_tolerance",
+      "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free"
     ],
     "assertions": [
-      "AssertionError: {'standard/12': (1.135526154890303, '2609 [90 chars] 28)} != {}"
+      "Exception occurred during processing of request from ('127.0.0.1', 37428)",
+      "BrokenPipeError: [Errno 32] Broken pipe",
+      "AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.476'[39 chars]149'] != []",
+      "AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.476'[39 chars]153'] != []"
     ],
     "make_targets": [
-      "Makefile:663: test-core"
+      "Makefile:798: test-core"
     ],
-    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_no_other_player_moves_more_than_one; AssertionError: {'standard/12': (1.135526154890303, '2609 [90 chars] 28)} != {}",
-    "recorded_at": "2026-11-02T06:16:48.015340+00:00"
+    "detail": "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_fringe_player_moves_no_one_more_than_tolerance; FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free; Exception occurred during processing of request from ('127.0.0.1', 37428); BrokenPipeError: [Errno 32] Broken pipe; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.476'[39 chars]149'] != []; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.476'[39 chars]153'] != []",
+    "recorded_at": "2026-11-02T13:48:10.584474+00:00"
   }
 }

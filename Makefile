@@ -114,12 +114,13 @@ guard-harness:
 # The node harnesses pin their own playwright-core, whose bundled Chromium build
 # often is not the one installed. Use $CHROMIUM_PATH, else the first browser the
 # Python render tests would use (tests/_render_env.py), else Playwright's default.
-NODE_CHROMIUM = $(or $(CHROMIUM_PATH),$(shell python3 -c "from playwright.sync_api import sync_playwright; from tests import _render_env as e; p = sync_playwright().start(); print(e.chromium_executable(p) or ''); p.stop()" 2>/dev/null))
+NODE_CHROMIUM = $(or $(CHROMIUM_PATH),$(shell python3 -c "from tests import _render_env as e; print(e.chromium_executable() or '')" 2>/dev/null))
 
 test-unit:
 	python3 tests/run_suite.py test-unit-modules
 
 test-unit-modules:
+	python3 -m unittest tests.test_chromium_resolver
 	python3 -m unittest tests.test_run_suite
 	# JEG-1275: selected-package composition preview view model (node, no browser).
 	python3 -m unittest tests.test_package_composition_preview_contract
@@ -524,6 +525,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_name_search
 	# JEG-1231: opponent inclusion state, the league search adapter and their mutation proofs.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion
+	# JEG-1263: Simplified site view model, route contract and mutation proofs.
+	python3 -m unittest tests.test_jeg1263_simplified_site
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
 	python3 -m pytest -q -p no:cacheprovider tests/test_player_status_history_ids.py
 	python3 -m pytest -q -p no:cacheprovider tests/test_pull_dynasty_daddy.py
@@ -711,6 +714,7 @@ test-core:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -869,6 +873,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
@@ -1041,6 +1046,7 @@ test-render-sweep-3:
 	# JEG-1231: opponent inclusion control (private preview): keyboard, names, counts, phone width.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
 	python3 -m unittest tests.test_jeg1231_league_inclusion_render
+	# JEG-1263: Simplified site states, routes and focus at 1280/390/320.
 	# JEG-1275: selected-package composition preview at 1280/390/320.
 	python3 -m unittest tests.test_package_composition_preview_render
 	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
