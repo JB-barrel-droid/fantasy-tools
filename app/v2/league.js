@@ -1601,6 +1601,8 @@
   // settings can now match, every number is recomputed from the engine, the saved settings snapshot follows.
   function onSettingsChanged(event) {
     if (!UI.ready || !engine()) return;
+    // A carried trade applies its settings for this visit; it must not rewrite the reader's saved league.
+    if (event && event.detail && event.detail.persist === false) { refreshAll("settings"); return; }
     const ctx = mathContext();
     if (!ctx) return;
     const notes = [];
