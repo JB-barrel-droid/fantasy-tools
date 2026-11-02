@@ -4,15 +4,16 @@ A trade is listed only when, in the engine's own values:
 
   * DDF Value says you win: receive - give clears the one even band, max(1, 3% of the average side)
     (JEG-1125 option A, Jeremy 2026-10-29; before that, > 0 as shown, i.e. at least 0.05);
-  * at least min(3, available charts) of the available trade charts say the rival breaks even or wins
-    (the chart's net for you is inside that chart's band or below); only charts the engine marks available are
-    counted (JEG-819);
+  * at least one of the available trade charts says the rival breaks even or wins (the chart's net for you is
+    inside that chart's band or below; JEG-1403, Jeremy: "I'd still want to see for even one trade chart and then we
+    can use filters"; it was min(3, available charts) before); only charts the engine marks available are counted
+    (JEG-819). MIN_CHARTS stays 3: it gates the Trade chart average and the trade calculator, not this search;
   * a chart that does not price every player in the package is left out of the count, never read as 0;
   * a player with no DDF Value is never searched (not counted as 0);
   * the default is up to 2-for-2; a larger maximum finds larger packages; simpler trades rank first on a tie.
 
 Discrimination: test_checks_fail_on_broken_builds runs the same checks against mutated copies of
-finder.js (rival test inverted, 2-of-4 instead of 3, missing chart read as 0, DDF edge not required,
+finder.js (rival test inverted, no chart needed, back to 3 of 4, missing chart read as 0, DDF edge not required,
 default size 3, no simplicity weight) and requires each to fail.
 """
 from __future__ import annotations
@@ -83,18 +84,29 @@ def check(finder_js: Path) -> list[str]:
     # Past the band (+1.5 for you on every chart) the rival loses: not listed.
     if run(finder_js, mine, [row("t1", 25, 21.5)])["total"] != 0:
         errors.append("charts past their even band count as the rival breaking even")
-    # 3 of 4 charts accept: listed. 2 of 4: not.
-    if run(finder_js, mine, [row("t1", 25, [18, 18, 18, 30])])["total"] != 1:
-        errors.append("3 of 4 charts accepting is not enough to list")
-    if run(finder_js, mine, [row("t1", 25, [18, 18, 30, 30])])["total"] != 0:
-        errors.append("2 of 4 charts accepting is listed")
+    # JEG-1403: 1 of 4 charts accepting is enough to list (2 and 3 of 4 too). 0 of 4: not.
+    for charts in ([18, 30, 30, 30], [18, 18, 30, 30], [18, 18, 18, 30]):
+        r = run(finder_js, mine, [row("t1", 25, charts)])
+        if r["total"] != 1:
+            errors.append(f"{4 - charts.count(30)} of 4 charts accepting is not enough to list")
+        elif r["trades"][0]["ok"] != 4 - charts.count(30) or r["trades"][0]["priced"] != 4:
+            errors.append(f"charts {charts}: counted {r['trades'][0]['ok']} of {r['trades'][0]['priced']}")
+    if run(finder_js, mine, [row("t1", 25, [30, 30, 30, 30])])["total"] != 0:
+        errors.append("0 of 4 charts accepting is listed")
     # A chart that does not price the package is left out of the count, not read as 0.
     r = run(finder_js, mine, [row("t1", 25, [18, 18, 18, None])])
     if pairs(r) != [(["m1"], ["t1"])] or r["trades"][0]["priced"] != 3:
         errors.append(f"a missing chart is not left out of the count: {r}")
-    # With only two priced charts, 3 cannot be reached.
-    if run(finder_js, mine, [row("t1", 25, [18, 18, None, None])])["total"] != 0:
-        errors.append("two priced charts cleared a 3-chart test")
+    # One priced chart that accepts is enough; one priced chart that rejects, or no priced chart, is not.
+    if run(finder_js, mine, [row("t1", 25, [18, None, None, None])])["total"] != 1:
+        errors.append("one priced chart accepting is not enough to list")
+    if run(finder_js, mine, [row("t1", 25, [30, None, None, None])])["total"] != 0:
+        errors.append("one priced chart rejecting is listed")
+    if run(finder_js, mine, [row("t1", 25, None)])["total"] != 0:
+        errors.append("a package no chart prices is listed")
+    # A caller can still ask for more (opts.minCharts): with 3 required, 2 accepting charts are not enough.
+    if run(finder_js, mine, [row("t1", 25, [18, 18, 30, 30])], {"minCharts": 3})["total"] != 0:
+        errors.append("an explicit minCharts of 3 was not applied")
     # A chart missing on MY side is not read as 0 either (0 would make their package look like a gift).
     r = run(finder_js, [row("m1", 20, [None, 20, 20, 20])], [row("t1", 25, [18, 18, 18, 18])])
     if r["trades"] and r["trades"][0]["priced"] != 3:
@@ -115,8 +127,7 @@ def check(finder_js: Path) -> list[str]:
     ranked = pairs(run(finder_js, mine2, theirs2))
     if not ranked or len(ranked[0][0]) + len(ranked[0][1]) != 2:
         errors.append(f"a 1-for-1 is not first: {ranked}")
-    # JEG-819: when only 2 chart keys are passed (simulating 2 available charts), the minCharts adapts
-    # to min(3, 2) = 2, so a trade accepted on both available charts is listed.
+    # JEG-819: when only 2 chart keys are passed (simulating 2 available charts), a trade accepted on both is listed.
     r = run(finder_js, mine, [row("t1", 25, 18)], {"chartKeys": ["usatoday", "fantasypros"]})
     if r["total"] != 1:
         errors.append(f"a trade accepted on 2 of 2 available charts is not listed: {r}")
@@ -129,8 +140,8 @@ def check(finder_js: Path) -> list[str]:
         errors.append(f"a held chart changed the count: {r}")
     elif [c["key"] for c in r["trades"][0]["charts"]] != avail:
         errors.append(f"a held chart is listed in charts: {r['trades'][0]['charts']}")
-    # Only the held chart accepts: 2 of 3 available accept -> NOT listed (the held chart cannot make up the third).
-    if run(finder_js, mine, [row("t1", 25, [18, 18, 30, 18])], {"chartKeys": avail})["total"] != 0:
+    # Only the held chart accepts: 0 of 3 available accept -> NOT listed (the held chart cannot make up the one).
+    if run(finder_js, mine, [row("t1", 25, [30, 30, 30, 18])], {"chartKeys": avail})["total"] != 0:
         errors.append("a held chart's acceptance was counted toward the minimum")
     return errors
 
@@ -140,7 +151,8 @@ MUTANTS = {
     "rival test back on 0.0 as shown": ("const rivalOk = pointsPastEven(net, g, r) <= 0;", "const rivalOk = Math.abs(net) < 0.05 || net < 0;"),
     "edge back on 0.0 as shown": [("pointsPastEven(edge, give[0], get[0]) > 0", "edge >= 0.05"),
                                   ("if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0)", "if (mid0 - give.sums[0] >= 0.05)")],
-    "2 of 4 is enough": ("const MIN_CHARTS = 3;", "const MIN_CHARTS = 2;"),
+    "no chart needed": ("const SEARCH_MIN_CHARTS = 1;", "const SEARCH_MIN_CHARTS = -1;"),
+    "back to 3 of 4": ("Math.min(SEARCH_MIN_CHARTS, chartKeys.length)", "Math.min(MIN_CHARTS, chartKeys.length)"),
     "missing chart read as 0": ("if (!finite(v)) return null; total += v;", "total += finite(v) ? v : 0;"),
     "DDF edge not required": [("if (!judged.passes.edge || !judged.passes.charts) continue;", "if (!judged.passes.charts) continue;"),
                               ("if (pointsPastEven(mid0 - give.sums[0], give.sums[0], mid0) > 0)", "if (true)")],
@@ -150,9 +162,36 @@ MUTANTS = {
 }
 
 
+CALCULATOR = """
+const F = require(process.argv[1]);
+const T = require(process.argv[2]);
+const mine = [{player_key: "m1", name: "m1", values: {ddf_value: 20, ddf_value_projections: 20, usatoday: 20, fantasycalc: 20, fantasypros: 20, cbs: 20}}];
+const theirs = [{player_key: "t1", name: "t1", values: {ddf_value: 25, ddf_value_projections: 25, usatoday: 18, fantasycalc: 30, fantasypros: 30, cbs: 30}}];
+const found = F.findTrades(mine, theirs, {});
+const read = keys => { const m = T.dealRead(mine, theirs, keys).market; return {tooFew: Boolean(m.tooFew), chartCount: m.chartCount, minCharts: m.minCharts || null}; };
+console.log(JSON.stringify({MIN_CHARTS: F.MIN_CHARTS, SEARCH_MIN_CHARTS: F.SEARCH_MIN_CHARTS, MIN_DEAL_CHARTS: T.MIN_DEAL_CHARTS,
+  found: found.total, ok: found.trades.length ? found.trades[0].rivalOkCount : null,
+  two: read(["usatoday", "fantasycalc"]), three: read(["usatoday", "fantasycalc", "fantasypros"])}));
+"""
+
+
 class FinderTests(unittest.TestCase):
     def test_finder_rules(self):
         self.assertEqual(check(FINDER_JS), [])
+
+    def test_the_calculator_keeps_its_three_chart_gate(self):
+        # JEG-1403 lowers only the search's default (SEARCH_MIN_CHARTS). The shared MIN_CHARTS and Compare's
+        # MIN_DEAL_CHARTS stay 3: the package the finder now lists on 1 of 4 charts still gets no market read from
+        # two charts, and does get one from three.
+        if not shutil.which("node"):
+            self.skipTest("node is not installed")
+        out = subprocess.run(["node", "-e", CALCULATOR, str(FINDER_JS), str(FINDER_JS.with_name("trade.js"))],
+                             check=True, capture_output=True, text=True)
+        got = json.loads(out.stdout)
+        self.assertEqual((got["MIN_CHARTS"], got["SEARCH_MIN_CHARTS"], got["MIN_DEAL_CHARTS"]), (3, 1, 3))
+        self.assertEqual((got["found"], got["ok"]), (1, 1))
+        self.assertEqual(got["two"], {"tooFew": True, "chartCount": 2, "minCharts": 3})
+        self.assertEqual(got["three"], {"tooFew": False, "chartCount": 3, "minCharts": None})
 
     def test_checks_fail_on_broken_builds(self):
         source = FINDER_JS.read_text(encoding="utf-8")

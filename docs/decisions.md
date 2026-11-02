@@ -1103,3 +1103,7 @@ Jeremy, 2026-10-31 10:42 UTC, "A": during a crunch, Codex gives the one independ
 ## Sources are judged for private consumption for now
 
 Jeremy, 2026-10-31 10:35 UTC: "We will act as though the site is for private consumption for now". Source terms are judged against private use until he says the site's status changed: a ban on automated collection still rules a source out, a ban on redistribution alone doesn't. On JEG-612 this makes 4for4 viable (a puller needs its own ticket and his go); PFF, RotoWire and Establish The Run stay out.
+
+## JEG-1403: the trade finder lists a trade when one chart has the other side even
+
+Jeremy, on JEG-1403: "I'd still want to see for even one trade chart and then we can use filters". The finder's search (pair finder, league page, and the MCP find-trades tool, which loads the published `finder.js`) lists a package you win on DDF Value when at least one available trade chart prices it as even or better for the other team (`SEARCH_MIN_CHARTS` = 1 in `app/v2/finder.js`). It was 3 of 4 (`MIN_CHARTS`). Narrowing is the filters' job, such as the league page's Min charts fair. `MIN_CHARTS` stays 3 for the Trade chart average, and Compare's `MIN_DEAL_CHARTS` stays 3. This is a gate change, not a value change: no chart value, DDF Value or projection moves. Why: after the 2026-10-30 rebuild, no JSN package on the USO journey league passed the 3-chart gate.

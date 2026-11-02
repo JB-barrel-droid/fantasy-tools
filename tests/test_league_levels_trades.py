@@ -49,9 +49,13 @@ VARIANTS = {"ddf": ("ddf", "ddf"), "market": ("market", "market"), "page": ("ddf
 # JEG-1125 (Jeremy, 2026-10-29: option A): "even" is now one band, max(1 point, 3% of the average side), for the DDF
 # edge and every chart, not 0.0 as shown, which moved the counts from (100, 8, 20) / (109, 9, 6) / (308, 42, 21)
 # for USO and (135, 15, 24) / (107, 13, 23) / (711, 65, 102) for Charlotte.
+# JEG-1403 (Jeremy: "I'd still want to see for even one trade chart and then we can use filters"): the search lists a
+# trade when one chart has the other side even, not 3 of 4. Main at 951f95df had already moved off the pins below, before
+# this change, to (114, 6, 22) / (112, 5, 9) / (356, 40, 28) for USO and (72, 5, 9) / (80, 9, 15) / (596, 46, 78) for
+# Charlotte; the one-chart gate takes those to the counts pinned here.
 PINNED = {
-    ("uso", "ddf"): (106, 6, 24), ("uso", "market"): (97, 8, 14), ("uso", "page"): (352, 40, 33),
-    ("charlotte", "ddf"): (76, 6, 11), ("charlotte", "market"): (74, 8, 13), ("charlotte", "page"): (672, 49, 89),
+    ("uso", "ddf"): (3579, 310, 651), ("uso", "market"): (3736, 329, 536), ("uso", "page"): (3188, 370, 392),
+    ("charlotte", "ddf"): (2997, 190, 460), ("charlotte", "market"): (3121, 269, 547), ("charlotte", "page"): (3488, 255, 551),
 }
 
 
