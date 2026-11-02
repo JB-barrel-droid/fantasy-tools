@@ -19,24 +19,16 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
-### JEG-1394: Advanced settings and Mac finder gate (Codex Bridge, updated 2026-10-31)
+### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
-- Draft PR #1240, branch `claude/JEG-1394-advanced-render`; current main `c267aa71`
-  merged normally. The Advanced draft-reference fix remains unchanged.
-- Clean detached-main worktree reproduced `test_keyboard_mobile_and_overlap_guard`
-  at `tests/test_v2_finder_saved_team_render.py:415`: selected `''`, expected `beta`.
-  The keyboard setup at lines 411-414 used Home/ArrowDown. Event tracing and a
-  standalone native select confirm those keys do not change selection in local
-  headless Mac Chrome; letter type-ahead does. Test setup now uses type-ahead,
-  retaining all selection, overlap, roster-preservation and phone assertions.
-- Focused Chrome test passed all three widths; all 11 saved-team finder tests
-  also passed inside the full `make validate` rerun. The gate then failed with
-  three errors at `tests/test_v2_phone_fallback_font_render.py:76`: local Chrome
-  cannot resolve DejaVu Sans (the canvas text-width probe matches monospace). This environment
-  dependency needs a separate follow-up; no font-test assertion was weakened,
-  no font installation or unchanged retry attempted. Full gate is not green.
-- No value math, scoring, season labels or `shell.html` edits. No merge or
-  deployment authorized. The v2.js lock is released with this handoff.
+- Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",
+  `tests/test_tiers_follow_seats.py`); no value, tier, zone or Drop change. After the release merge of pinned main
+  09fb625d (JEG-1465), VP-7.3 was rechecked again: it now covers fractional seats (JEG-1335: tiers use the heaviest
+  allocation's counts on the blended values) and the example and 12-combo counts are re-run on 2026-10-31 data.
+  Sweep in `docs/claude-log/2026-10-29-jeg-1128-seat-tiers.md`.
+- `app/values-explainer/reviewed.json` is left as main has it (its hashes are already stale on main; the re-mark
+  belongs with the explainer fixes, JEG-1395/JEG-1396).
+- Next: exact-head CI green, then the merge gate merges.
 
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 

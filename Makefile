@@ -272,6 +272,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_expand_render
 	python3 -m unittest tests.test_espn_zero_badge_render
 	python3 -m unittest tests.test_per_source_rescale
+	python3 -m unittest tests.test_tiers_follow_seats
 	python3 -m unittest tests.test_verify_cbsros_legs
 	python3 -m unittest tests.test_review_live_verify_combo
 	python3 -m unittest tests.test_review_coverage_live_verify
@@ -511,6 +512,8 @@ test-unit-modules:
 	# JEG-1320: one stored record for the finders' discovery controls (pure module; no route reads it yet).
 	python3 -m unittest tests.test_jeg1320_discovery_controls
 	node tests/node/fit_diagnostic.cjs --assert
+	# JEG-1188: league-wide opportunity stages on frozen engine contexts from five revisions.
+	python3 -m unittest tests.test_jeg1188_opportunity_count
 	python3 -m unittest tests.test_v2_group_weight
 	python3 -m unittest tests.test_v2_name_search
 	# JEG-1231: opponent inclusion state, the league search adapter and their mutation proofs.
