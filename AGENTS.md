@@ -360,6 +360,9 @@ review and merge protocol above):
   unittest, Chrome or Chromium launched by them). If one of them is causing a
   problem (CPU, memory, a flashing browser), report its PID, its command and
   the ticket it is working on, and ask Jeremy. Never act on it yourself.
+  The rule is about agents acting on running processes. Test code may still
+  stop the fixture processes that the same test run started for itself, and
+  nothing else.
 - **Do not touch `~/Projects/"fantasy tools"`** on the user's machine beyond the
   `Claude outputs/` folder. It holds `data/raw` (33MB, gitignored), the only
   copy of the player-news pipeline's inputs.

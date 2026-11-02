@@ -6,6 +6,10 @@ Ticket: JEG-1476 (child of JEG-1444). Session: charter thread, cloud.
 - `AGENTS.md`, Standing constraints: new rule that no agent signals, suspends,
   renices or kills a bridge process or its child test processes. An agent
   reports the PID, command and ticket and asks Jeremy instead.
+- Follow-up commit: one sentence saying test code may still stop the fixture
+  processes its own test run started. Two Codex jobs read the first wording as
+  forbidding the bridge test suite's own fixture cleanup and stopped before
+  running it (JEG-1422, JEG-1471, 03:16 UTC).
 
 ## Why
 On 2026-11-01 at 7:58 PM CT, a Codex Desktop chat asked to stop a flashing
