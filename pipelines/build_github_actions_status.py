@@ -52,7 +52,8 @@ from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPO = "JB-barrel-droid/fantasy-tools"
+sys.path.insert(0, str(ROOT / "pipelines"))
+from lib.repository import REPOSITORY as REPO
 
 # A failing streak this long or longer is a deploy-blocking alert. JEG-113
 # was a 5-run outage on "Rebuild comparison chain"; the threshold of 3
