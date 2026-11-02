@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-02T23:02:52.135025+00:00",
+  "run_at": "2026-11-02T23:28:07.846744+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -87,7 +87,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-02 -> 12 DDF legs -> section; review passed (6732 values)",
+      "detail": "snapshot 2026-11-02 -> 12 DDF legs -> section; review passed (6744 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -229,12 +229,12 @@
       "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound"
     ],
     "assertions": [
-      "AssertionError: 0.19353845598261543 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.19353845598261543)"
+      "AssertionError: 0.1930875340299485 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.1930875340299485)"
     ],
     "make_targets": [
       "Makefile:666: test-core"
     ],
-    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound; AssertionError: 0.19353845598261543 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.19353845598261543)",
-    "recorded_at": "2026-11-02T23:09:59.477510+00:00"
+    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound; AssertionError: 0.1930875340299485 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.1930875340299485)",
+    "recorded_at": "2026-11-02T23:35:26.593091+00:00"
   }
 }
