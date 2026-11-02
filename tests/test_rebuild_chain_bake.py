@@ -40,6 +40,7 @@ UPLOAD = "Upload saved ESPN CSV for the anchor bake"
 CSV = "data/inputs/espn_projections.csv"
 PLAYERS = "data/fixtures/current/players.json"
 MANIFEST = "data/fixtures/current/players.naming-manifest.json"
+INDEX = "app/trade-value-chart/index.html"
 BAKED = (CSV, PLAYERS, MANIFEST)
 FIXTURE = "data/fixtures/current/comparison-sources-data.json"
 
@@ -103,7 +104,8 @@ def run_bake_scenario(text, chain_outcome, bake_outcome):
         git(td, "init", "-q", "--bare", "-b", "main", str(remote))
         git(td, "clone", "-q", str(remote), str(work))
         git(work, "checkout", "-q", "-b", "main")
-        for rel, content in {**BASELINE, **{b: "OLD-ANCHOR" for b in BAKED}}.items():
+        for rel, content in {**BASELINE, **{b: "OLD-ANCHOR" for b in BAKED},
+                             INDEX: "OLD-INLINE-PLAYERS"}.items():
             write(work, rel, content)
         git(work, "add", "-A")
         git(work, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "baseline")
@@ -124,6 +126,14 @@ def run_bake_scenario(text, chain_outcome, bake_outcome):
                "GITHUB_OUTPUT": str(td / "gh_out.txt")}
         rcs = {}
         for step in steps:
+            if step == SYNC_OK:
+                # The chain's make validate has synced the restored or freshly
+                # baked players into the engine template before publication.
+                anchor = (work / PLAYERS).read_text(encoding="utf-8")
+                write(work, INDEX, f"INLINE:{anchor}")
+            elif step == PUBLISH_RED:
+                # A failed validation can also leave generated HTML on disk.
+                write(work, INDEX, "PARTIAL-INLINE-PLAYERS")
             if find_step(text, step) is None:
                 rcs[step] = None
                 continue
@@ -132,7 +142,8 @@ def run_bake_scenario(text, chain_outcome, bake_outcome):
         git(td, "clone", "-q", str(remote), str(verify))
         changed = set(git(verify, "diff", "--name-only", base, "HEAD").splitlines())
         return {"changed": changed,
-                "remote": {rel: (verify / rel).read_text(encoding="utf-8") for rel in BAKED},
+                "remote": {rel: (verify / rel).read_text(encoding="utf-8")
+                           for rel in (*BAKED, INDEX)},
                 "rcs": rcs}
 
 
@@ -158,6 +169,25 @@ def behaviour_problems(text):
 
 
 class RebuildChainBakeTest(unittest.TestCase):
+    def test_green_chain_publishes_synced_inline_players_with_bake(self):
+        result = run_bake_scenario(WORKFLOW, "success", "success")
+        self.assertEqual(0, result["rcs"][COMMIT])
+        self.assertEqual("NEW-ANCHOR", result["remote"][PLAYERS])
+        self.assertEqual(f"INLINE:{result['remote'][PLAYERS]}", result["remote"][INDEX])
+
+    def test_red_chain_never_publishes_partial_inline_players(self):
+        result = run_bake_scenario(WORKFLOW, "failure", "success")
+        self.assertEqual(0, result["rcs"][COMMIT])
+        self.assertEqual("OLD-ANCHOR", result["remote"][PLAYERS])
+        self.assertEqual("OLD-INLINE-PLAYERS", result["remote"][INDEX])
+        self.assertNotIn(INDEX, result["changed"])
+
+    def test_failed_bake_publishes_only_restored_players_in_html(self):
+        result = run_bake_scenario(WORKFLOW, "success", "failure")
+        self.assertEqual(0, result["rcs"][COMMIT])
+        self.assertEqual("OLD-ANCHOR", result["remote"][PLAYERS])
+        self.assertEqual(f"INLINE:{result['remote'][PLAYERS]}", result["remote"][INDEX])
+
     def test_real_workflow_static_rules(self):
         self.assertEqual([], static_problems(WORKFLOW))
 
