@@ -41,9 +41,13 @@ jobs:
         run: cp data/inputs/sleeper_identity_base.json /tmp/previous_base.json || echo '{}' > /tmp/previous_base.json
 
       - name: Pull Sleeper (fail-closed on partial pull)
+        env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:pull-sleeper-fail-closed-on-partial-pull
         run: python3 pipelines/pull_sleeper_identity.py
 
       - name: Identity tests against the new base
+        env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:identity-tests-against-the-new-base
         run: |
           python3 -m unittest tests.test_sleeper_identity_layer
           python3 -m unittest tests.test_player_identity_guard
@@ -53,6 +57,8 @@ jobs:
 
       - name: Did player content change?
         id: diff
+        env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:diff
         run: |
           changed=$(python3 - <<'EOF'
           import json
@@ -83,6 +89,7 @@ jobs:
       - name: Commit
         if: steps.diff.outputs.changed == 'yes'
         env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:commit
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -130,6 +137,7 @@ jobs:
 
       - name: Add missing active NFL players to public.players (JEG-502)
         env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:add-missing-active-nfl-players-to-public-players-jeg-502
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -146,6 +154,7 @@ jobs:
       # while the repository variable PLAYERS_ACTIVE_SYNC is "write".
       - name: Refresh players.active from the active NFL universe (JEG-1354)
         env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:refresh-players-active-from-the-active-nfl-universe-jeg-1354
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PLAYERS_ACTIVE_SYNC: ${{ vars.PLAYERS_ACTIVE_SYNC }}
@@ -160,9 +169,20 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: sleeper-identity-refresh:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id sleeper_identity_refresh --owner sleeper-identity-refresh.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   refresh-branch:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')
