@@ -14,6 +14,45 @@ from pipelines.ci_pr_gate import run
 ROOT = Path(__file__).resolve().parents[1]
 
 class OrgCutoverTests(unittest.TestCase):
+    def test_values_cors_allows_pages_and_rejects_unowned_domains(self):
+        # Execute the endpoint's actual CORS function, isolated from its value
+        # computation and network reads. Node only needs these two TS annotations removed.
+        script = r'''
+const fs = require('node:fs');
+const source = fs.readFileSync(process.argv[1], 'utf8');
+const start = source.indexOf('const ALLOWED_ORIGINS =');
+const end = source.indexOf('// --- Rate limiting', start);
+if (start < 0 || end < 0) throw new Error('CORS section not found');
+const code = source.slice(start, end)
+  .replace('function corsHeaders(req: Request): Record<string, string>', 'function corsHeaders(req)')
+  .replace('const headers: Record<string, string>', 'const headers');
+const corsHeaders = new Function(code + '\nreturn corsHeaders;')();
+const origins = JSON.parse(process.argv[2]);
+console.log(JSON.stringify(origins.map(origin =>
+  corsHeaders({headers: {get: () => origin}}))));
+'''
+        allowed = [
+            'https://datadrivenfootball.github.io',
+            'https://jb-barrel-droid.github.io',
+            'http://localhost:3000', 'http://localhost:5173',
+            'http://127.0.0.1:3000', 'http://127.0.0.1:5173',
+        ]
+        denied = [
+            'https://datadrivenfootball.com', 'https://unrelated.github.io',
+            'https://datadrivenfootball.github.io.evil.example',
+            'http://datadrivenfootball.github.io', '',
+        ]
+        result = subprocess.run(
+            ['node', '-e', script, str(ROOT / 'supabase/functions/get-values/index.ts'),
+             json.dumps(allowed + denied)], capture_output=True, text=True, check=True,
+        )
+        for origin, headers in zip(allowed + denied, json.loads(result.stdout), strict=True):
+            with self.subTest(origin=origin):
+                self.assertEqual(headers.get('Access-Control-Allow-Origin'),
+                                 origin if origin in allowed else None)
+                self.assertEqual(headers['Access-Control-Allow-Methods'], 'GET, POST, OPTIONS')
+                self.assertEqual(headers['Access-Control-Allow-Headers'], 'Content-Type')
+
     def run_with_repository(self, code, slug):
         result = subprocess.run([sys.executable, "-c", code], cwd=ROOT,
             env={**os.environ, "DDF_GITHUB_REPOSITORY": slug},
