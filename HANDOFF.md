@@ -19,6 +19,17 @@ below are history, including any "Codex reviews and merges" line.
 
 ## Resume here
 
+### Finder lists trades one chart calls even (JEG-1403, Claude, 2026-11-01 UTC): draft PR #1277
+
+- Branch `claude/JEG-1403-finder-one-chart`. Jeremy's ruling: "I'd still want to see for even one trade chart and then
+  we can use filters". `SEARCH_MIN_CHARTS = 1` is `findTrades`' default only; `MIN_CHARTS` and `MIN_DEAL_CHARTS` stay 3.
+  Gate change only: `value_check compare` shows 0 mismatches, and `make validate` is green.
+- USO journey league page: main 5 trades / 0 send JSN; branch 1,594 / 44. Journey render: main 3 of 18 red, branch
+  2 of 18 red. The two left are Compare context losses the old gate hid: the league row's link carries only
+  give=/get=, and no page builds a `tc=` transfer on the league route. Proposed child ticket; may need `app/v2/v2.js`.
+- Open: the MCP find-trades description still says "3 of 4" (`supabase/functions/mcp/tools.ts`); it needs its own
+  change and an edge deploy. Next: CI on the PR head, then a high-risk review (fixture and count re-pins).
+
 ### JEG-1128 seat-tier docs (Claude, 2026-10-31 UTC): PR #1075, waiting on the merge gate
 
 - Branch `claude/JEG-1128-seat-tiers-docs`. Docs and a pin test only (VP-7.3 "tiers follow seats",
