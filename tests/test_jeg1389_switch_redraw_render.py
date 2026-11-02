@@ -70,6 +70,18 @@ MOVE_JSN = """slot => {
   return W.store.get().teams.flatMap(t => t.entries).find(e => e.key === '3247').slot;
 }"""
 
+# A slow v2.js boot: the engine has rows (getAllRows, what league.js reads) a while before v2.js sees them (getRows, what its
+# waitForEngine polls) and restores the saved league settings. Under load the two pollers land in either order.
+LATE_V2_BOOT = """(() => {
+  let real;
+  Object.defineProperty(window, 'TradeValueCurveControls', {configurable: true, get: () => real, set: v => {
+    real = v;
+    if (!v || typeof v.getRows !== 'function') return;
+    const getRows = v.getRows, until = Date.now() + 2000;
+    v.getRows = function () { return Date.now() < until ? [] : getRows.apply(this, arguments); };
+  }});
+})();"""
+
 
 def setUpModule():
     _render_env.ensure_built()
@@ -88,7 +100,14 @@ class SwitchRedrawTest(unittest.TestCase):
             with self.subTest(scoring=scoring):
                 self.check_scoring(scoring)
 
-    def check_scoring(self, scoring):
+    def test_reload_with_late_v2_boot_draws_restored_settings(self):
+        # The intermittent Half PPR failure in review: the league page drew its lines at the default settings before v2.js
+        # restored the saved ones, and the restore did not redraw them.
+        for scoring in SCORINGS:
+            with self.subTest(scoring=scoring):
+                self.check_scoring(scoring, late_boot=True)
+
+    def check_scoring(self, scoring, late_boot=False):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base, errors=self.problems, tag="[jeg1389] ")
             page.evaluate("query => window.TradeValueV2.applyLinkLeague(new URLSearchParams(query), {save: true})",
@@ -113,10 +132,15 @@ class SwitchRedrawTest(unittest.TestCase):
             self.assertGreater(len(moved), 10, "the two levels drew the same lines; the check proves nothing")
 
             page.wait_for_timeout(1500)
+            if late_boot:
+                page.context.add_init_script(LATE_V2_BOOT)
             page.reload(wait_until="networkidle")
-            page.wait_for_function("() => window.TradeValueLeague && window.TradeValueLeague.ui.ready", timeout=60000)
+            page.wait_for_function("() => window.TradeValueLeague && window.TradeValueLeague.ui.ready && window.TradeValueV2", timeout=60000)
             settle(page)
+            self.assertEqual(page.evaluate("() => window.TradeValueCurveControls.getState().scoring"), scoring,
+                             "a reload lost the saved scoring")
             reloaded = self.read(page)
+            self.assertEqual(reloaded["drawn"], reloaded["standard"], "after a reload, the lines are not drawn at the restored settings")
             self.assertEqual(reloaded["drawn"], off["drawn"], "a reload with the switch off draws other values than the flip")
             self.assertEqual(reloaded["totals"], off["totals"], "a reload changes team totals with the switch off")
             self.assertFalse(page.locator("#v2LgUseLeague").is_checked(), "the saved off choice was lost")

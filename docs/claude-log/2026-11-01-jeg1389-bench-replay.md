@@ -117,3 +117,47 @@ F1 is not applicable: no Cyrus runtime workflow or F1 harness changes.
 Next turn: existing coordinator reads exact-head CI and obtains independent
 Claude review of the draft. JEG-1389 stays In Progress while work remains.
 No merge, deploy, Supabase access, credentials access or HANDOFF.md edit.
+
+## 2026-11-02 - JEG-1389: review failure at 21459f95, league page drew before settings restore
+
+### Finding
+
+The independent review of `21459f95` failed `tests/test_jeg1389_switch_redraw_render.py`
+(Half PPR): after a reload with league rosters off, chips read 21.2 / 16.7 / 61.9
+where the flip had drawn 22.5 / 22.3 / 72.3. Four sequential local runs of the module
+passed, so the failure depends on timing.
+
+Cause: two independent boot pollers. `league.js` `start()` draws its first lines as soon
+as the engine has rows (every 250 ms, `getAllRows`). `v2.js` `start()` polls the engine on
+its own (every 120 ms, `getRows`) and only then restores the saved league settings
+(`restoreLeagueSettings`: scoring, teams, roster). The restore recomputes the engine but
+fires no event that redraws the league page's lines, so when the league poller wins,
+every line stays at the page defaults (PPR, 2 WR, 7 bench) while the engine itself holds
+the restored settings. JEG-1379 had already named this race for share links
+(`readShareHashWhenReady`), but not for the first draw.
+
+Fix (`app/v2/league.js`, `ready()`): the first draw also waits for `window.TradeValueV2`,
+which `v2.js` sets after the restore. No engine, value-math, config or reference change.
+Displayed values now equal the engine's values at the restored settings, which the
+approved math already produced; no published number moves.
+
+### Verified (check named)
+
+- New `SwitchRedrawTest.test_reload_with_late_v2_boot_draws_restored_settings` delays
+  `getRows` by 2 s on reload to force the losing order. Before the fix it failed under all
+  three scorings at the new "after a reload, the lines are not drawn at the restored
+  settings" check, with the reviewer's exact Half PPR chips (21.2 vs 22.5, 16.7 vs 22.3,
+  61.9 vs 72.3); stale chips were identical across scorings (defaults), while the engine
+  held the saved scoring. After the fix it passes. The existing test gained the same two
+  checks (saved scoring after reload; drawn lines equal the engine's standard bench after
+  reload); no assertion was removed or loosened.
+- After the fix, sequentially on the Mac with `RENDER_TESTS_REQUIRED=1`:
+  `tests.test_jeg1389_switch_redraw_render` (2 tests, 3 scorings each),
+  `tests.test_jeg1389_link_settings_reload_render`, `tests.test_jeg1249_league_site_render`,
+  `tests.test_v2_league_tables_render`, `tests.test_league_problems_render`,
+  `tests.test_jeg1263_simplified_site`, `tests.test_v2_copy_names`: all OK.
+
+### Claimed, not confirmed
+
+Another session's `make validate` was running on the Mac, so the full gate relies on CI.
+No value-check, rank-guard or 12-combo sweep: no value path changed.
