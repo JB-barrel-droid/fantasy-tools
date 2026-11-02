@@ -250,5 +250,99 @@ class TradeIdeasRedrawTest(unittest.TestCase):
                     context.close()
 
 
+class ManagerPricingContextTest(unittest.TestCase):
+    def test_draft_and_mixed_anchors_follow_opportunity_pricing(self):
+        from tests.test_v2_league_levels_render import league, SEED
+
+        fx, _, _ = league("uso")
+        limited_seed = SEED.replace("W.store.replace(ws, 'replace');",
+                                    "ws = W.ops.setUi(ws, {maxSize: 1}); W.store.replace(ws, 'replace');")
+        with browser_on_build() as (browser, base):
+            errors = []
+            page = open_page(browser, base, errors=errors)
+            total_ideas = 0
+            curves = set()
+            # The second setting changes both team count and superflex; all teams still have whole-roster provenance.
+            for teams, sf in ((12, 0), (10, 1)):
+                page.evaluate(limited_seed, [fx["league"]["teams"][:teams], fx["mine"]])
+                page.evaluate("""() => { const M = window.TradeValueManagerProfiles, ws = window.TradeValueWorkspace.store.get();
+                  M.store.update(b => { ws.teams.filter(t => t.id !== ws.myTeamId).forEach((t, i) => {
+                    b = M.ops.setAnchor(b, ws, t.id, 'draft', 'strong');
+                    if (i % 2) {
+                      b = M.ops.setAnchor(b, ws, t.id, 'market', 'some');
+                      b = M.ops.setAnchor(b, ws, t.id, 'rankings', 'some');
+                    }
+                  }); return b; }); }""")
+                for scoring in ("standard", "half_ppr", "ppr"):
+                    page.evaluate("""query => {
+                      window.TradeValueV2.applyLinkLeague(new URLSearchParams(query));
+                    }""", f"scoring={scoring}&teams={teams}&roster=QB1.RB2.WR2.TE1.FLEX1.SF{sf}.BN7")
+                    for use_rosters in (True, False):
+                        with self.subTest(teams=teams, superflex=sf, scoring=scoring, league_rosters=use_rosters):
+                            page.evaluate("window.__previousPricingResult = window.TradeValueLeague.ui.result")
+                            page.locator("#v2LgUseLeague").set_checked(use_rosters)
+                            # Explicit refresh also covers an already-selected toggle after a settings change.
+                            page.evaluate("window.TradeValueLeague.refresh()")
+                            page.wait_for_function("""() => {
+                              const u = window.TradeValueLeague.ui;
+                              return u.result && u.result !== window.__previousPricingResult && !u.running && !u.timer;
+                            }""", timeout=120000)
+                            wait_opps(page, timeout=120000)
+                            got = page.evaluate(PRICING_CONTEXT_CHECK, use_rosters)
+                            self.assertTrue(got["qualified"], got)
+                            self.assertEqual(got["settings"], [scoring, teams, sf])
+                            self.assertEqual(got["curveDifferences"], [], got)
+                            self.assertEqual(got["recommendationDifferences"], [], got)
+                            self.assertEqual(got["valueDifferences"], [], got)
+                            total_ideas += got["ideas"]
+                            curves.add(got["curveSignature"])
+                            # Redraw is automatic after settings/toggle changes; the DOM includes stretches and sources.
+                            page.wait_for_function("""() => {
+                              const T = window.TradeValueTradeIdeas, R = window.TradeValueManagerRecs, out = T.compute();
+                              const expected = out.recommendations.slice(0,10).concat(out.stretch).map(R.view);
+                              const shown = [...document.querySelectorAll('#v2MiList li.v2-mi-item, #v2MiStretch li.v2-mi-item')];
+                              return shown.length === expected.length && shown.every((li,i) => {
+                                const v = expected[i];
+                                return li.dataset.tradeId === v.id && li.dataset.band === v.band
+                                  && li.querySelector('.v2-mi-gain').textContent === v.gain
+                                  && li.querySelector('.v2-mi-sources').textContent === v.sources;
+                              });
+                            }""", timeout=10000)
+            self.assertGreater(total_ideas, 0, "the checks must exercise priced recommendations")
+            self.assertGreater(len(curves), 3, "settings/toggle changes must actually reprice the curve")
+            self.assertEqual(errors, [])
+
+
+PRICING_CONTEXT_CHECK = """useRosters => {
+  const C = window.TradeValueCurveControls, L = window.TradeValueLeague, T = window.TradeValueTradeIdeas;
+  const R = window.TradeValueManagerRecs, M = window.TradeValueManagerProfiles, W = window.TradeValueWorkspace;
+  const ws = W.store.get(), entries = ws.teams.flatMap(t => t.entries);
+  const rostered = [...new Set(entries.map(e => e.key))];
+  const reserve = [...new Set(entries.filter(e => ['IR','TAXI'].includes(e.slot)).map(e => e.key))];
+  // Independently ask the engine for the selected context, not the new result handoff.
+  const allRows = useRosters ? C.getLeagueLevel({rostered, reserve, level: 'ddf'}).rows : C.getAllRows();
+  let received = null;
+  const build = R.build;
+  let actual;
+  try { R.build = opts => { received = opts.allRows; return build(opts); }; actual = T.compute(); }
+  finally { R.build = build; }
+  const curve = R.draftCurve(allRows), supplied = R.draftCurve(received);
+  const curveDifferences = Object.keys(curve).filter(p => JSON.stringify(curve[p]) !== JSON.stringify(supplied[p]));
+  const expected = R.build({rows: L.ui.result.rows, book: M.store.get(), ws, allRows, profiles: M,
+    fullFit: window.TradeValueOpportunities.fullFit, ranks: T.preseasonRanks()});
+  const flat = out => out.recommendations.concat(out.stretch);
+  const summarize = out => flat(out).map(r => [r.id, r.ourGain, r.theirGain, r.share, r.band, r.basis, r.sources]);
+  const recommendationDifferences = JSON.stringify(summarize(actual)) === JSON.stringify(summarize(expected)) ? [] : ['appeal, order, band or provenance'];
+  const byKey = new Map(allRows.map(r => [String(r.player_key), r]));
+  const valueDifferences = L.ui.result.rows.filter(r => r.give.concat(r.receive).some(p =>
+    p.values.ddf_value !== byKey.get(String(p.player_key))?.values.ddf_value)).map(r => r.id);
+  return {qualified: document.getElementById('v2LgUseLeague').dataset.ready === 'true'
+      || !document.getElementById('v2LgUseLeague').disabled,
+    settings: [C.getState().scoring, C.getState().teams, C.getRosterShape().SUPERFLEX],
+    ideas: flat(actual).length, curveDifferences, recommendationDifferences, valueDifferences,
+    curveSignature: JSON.stringify(Object.values(curve).map(v => v.slice(0,5)))};
+}"""
+
+
 if __name__ == "__main__":
     unittest.main()

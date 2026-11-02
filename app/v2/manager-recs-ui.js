@@ -50,10 +50,9 @@
 
   function compute() {
     const L = root.TradeValueLeague;
-    const C = root.TradeValueCurveControls;
     const result = L && L.ui && L.ui.result;
-    if (!result || !C || !C.getAllRows) return null;
-    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: C.getAllRows(), profiles: M, fullFit, ranks: preseasonRanks()});
+    if (!result || !result.pricingRows) return null;
+    return R.build({rows: result.rows, book: M.store.get(), ws: W.store.get(), allRows: result.pricingRows, profiles: M, fullFit, ranks: preseasonRanks()});
   }
 
   // v is R.view(rec): every shown string comes from there, so the redraw check below sees all of it.
