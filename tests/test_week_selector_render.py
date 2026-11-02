@@ -58,7 +58,8 @@ SCENARIOS = {
     "57%": {"lagging": ("espn", "razzball", "cbs"), "on_newer": 4},
     "100%": {"lagging": (), "on_newer": 7},
 }
-NAMES = {"espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball", "cbs": "CBS Sports"}
+NAMES = {"espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball", "cbs": "CBS Sports",
+         "fantasycalc": "FantasyCalc", "usatoday": "USA Today", "fantasypros": "FantasyPros"}
 THURSDAY = (datetime.date(2026, 10, 22) + datetime.timedelta(days=7 * (NEWER - 7))).isoformat()  # Thursday of content week NEWER (week 7 = 2026-10-22)
 BEFORE_NOON = f"{THURSDAY}T16:00:00Z"   # 11:00 CDT
 AT_NOON = f"{THURSDAY}T17:00:00Z"       # 12:00 CDT exactly: not yet after noon
@@ -90,6 +91,16 @@ def served_dist(overrides: dict):
 
     The source data is always served hold-free unless a caller overrides it."""
     overrides = {"assets/comparison-sources-data.json": hold_free_sources(), **overrides}
+    if "assets/history/index.json" in overrides:
+        # The synthetic served-week index and the source's own label must agree.
+        # This harness exercises routing/labels; numeric saved-week fidelity is
+        # independently checked by WeekTransitionSentinelTest.
+        detail = json.loads(overrides["assets/comparison-sources-data.json"])
+        index = json.loads(overrides["assets/history/index.json"])
+        for key, rec in index["served"].items():
+            if key in detail["sources"] and isinstance(rec.get("week"), int):
+                detail["sources"][key]["week_designated"] = f"Week {rec['week']}"
+        overrides["assets/comparison-sources-data.json"] = json.dumps(detail)
     if not (DIST / "index.html").exists():
         raise _render_env.unavailable("dist/index.html is not built")
     with tempfile.TemporaryDirectory() as tmp:
@@ -148,6 +159,7 @@ PROBE = """() => {
     priced: Object.keys((ddf && ddf.current) || {}).length,
     overflow: document.documentElement.scrollWidth - window.innerWidth,
     engineWeek: c.getWeekState().week,
+    missing: c.getWeekState().views[String(c.getWeekState().week)].missing_sources,
     link: v2.leagueQuery(),
   };
 }"""
@@ -197,10 +209,14 @@ def sync_playwright():
     return sp()
 
 
-def check_scenario(browser, base, label, spec, width, height, errors, now=None):
-    tag = f"{label} @{width}"
+def check_scenario(browser, base, label, spec, width, height, errors, now=None, scoring="ppr"):
+    tag = f"{label} {scoring} @{width}"
     page_errors = []
     page = open_page(browser, base, width, height, now=now, errors=page_errors)
+    page.evaluate("scoring => window.TradeValueCurveControls.setScoring(scoring)", scoring)
+    page.wait_for_timeout(300)
+    if page.evaluate("() => window.TradeValueCurveControls.getState().scoring") != scoring:
+        errors.append(f"{tag}: requested scoring was not applied")
     s = page.evaluate(PROBE)
     lagging = set(spec["lagging"])
     newer_default = 2 * spec["on_newer"] > 7
@@ -230,10 +246,14 @@ def check_scenario(browser, base, label, spec, width, height, errors, now=None):
         pick_week(page, NEWER)
         page.wait_for_timeout(300)
         newer = page.evaluate(PROBE)
+        if set(newer["missing"]) != lagging:
+            errors.append(f"{tag}: engine missing sources {newer['missing']}, expected {sorted(lagging)}")
+        if now == AFTER_NOON and not newer["stale"]:
+            errors.append(f"{tag}: lagging source has no stale badge after the deadline")
         for source in lagging:
             if NAMES[source] not in newer["note"]:
                 errors.append(f"{tag}: Week {NEWER} note does not name {NAMES[source]}: {newer['note']!r}")
-        if "not yet published" not in newer["note"] or "not carried over" not in newer["note"]:
+        if ("not yet published" not in newer["note"] and "after Thursday 12:00 CT" not in newer["note"]) or "not carried over" not in newer["note"]:
             errors.append(f"{tag}: Week {NEWER} note: {newer['note']!r}")
         if newer["priced"] < 50:
             errors.append(f"{tag}: Week {NEWER} view priced only {newer['priced']} players (blank values)")
@@ -241,6 +261,11 @@ def check_scenario(browser, base, label, spec, width, height, errors, now=None):
         pick_week(page, OLDER)
         page.wait_for_timeout(300)
         older = page.evaluate(PROBE)
+        if older["missing"]:
+            errors.append(f"{tag}: saved older view is missing {older['missing']}")
+        for key, got in page.evaluate(CONTRIBUTED).items():
+            if got["week"] != OLDER:
+                errors.append(f"{tag}: older view labels {key} as Week {got['week']}")
         if older["engineWeek"] != OLDER or older["priced"] < 50:
             errors.append(f"{tag}: Week {OLDER} view: week {older['engineWeek']}, priced {older['priced']}")
         if any(NAMES[s_] in older["note"] and "not yet published" in older["note"] for s_ in lagging):
@@ -420,7 +445,31 @@ def link_round_trip() -> list[str]:
     return errors
 
 
+def each_source_transition_checks() -> list[str]:
+    """Every source can be last to publish, under every scoring setting.
+
+    Check both week views, populated values, missing-source names and the
+    warning after the deadline using only local saved history and an injected clock.
+    """
+    errors: list[str] = []
+    with sync_playwright() as playwright:
+        browser = launch(playwright)
+        try:
+            for source in SOURCES:
+                spec = {"lagging": (source,), "on_newer": 6}
+                with served_dist({"assets/history/index.json": transition_index((source,))}) as (base, _):
+                    for scoring in ("standard", "half_ppr", "ppr"):
+                        check_scenario(browser, base, source, spec, 1366, 768, errors,
+                                       now=AFTER_NOON, scoring=scoring)
+        finally:
+            browser.close()
+    return errors
+
+
 class WeekSelectorRenderTest(unittest.TestCase):
+    def test_each_source_transitions_under_every_scoring(self):
+        self.assertEqual(each_source_transition_checks(), [])
+
     def test_coverage_scenarios_phone_and_desktop(self):
         self.assertEqual(run_checks(), [])
 
