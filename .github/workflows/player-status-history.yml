@@ -45,6 +45,8 @@ jobs:
       # or the database history write. Same free/keyless source and scheduler.
       - name: Pull dated status for the page (no database access)
         id: status
+        env:
+          SUPABASE_BYTES_CALLER: player-status-history:pull-dated-status-for-the-page
         run: |
           python3 -m unittest tests.test_daily_player_status
           python3 pipelines/pull_player_status.py --raw-out /tmp/sleeper-status-raw.json
@@ -60,11 +62,13 @@ jobs:
         id: history
         if: ${{ !cancelled() }}
         env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: player-status-history:pull-sleeper-and-save-the-day-s-status
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           flags=(--dry-run)
-          [ "${{ github.event.inputs.mode }}" = "write" ] && flags=()
+          [ "$EVENT_MODE" = "write" ] && flags=()
           # Display checks can fail before the shared response is written.
           [ ! -f /tmp/sleeper-status-raw.json ] || flags+=(--from-file /tmp/sleeper-status-raw.json)
           rc=0
@@ -91,6 +95,7 @@ jobs:
         id: publish
         if: ${{ !cancelled() && github.event.inputs.mode == 'write' && steps.status.outcome == 'success' }}
         env:
+          SUPABASE_BYTES_CALLER: player-status-history:commit-the-run-summary
           HISTORY_OUTCOME: ${{ steps.history.outcome }}
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
@@ -161,9 +166,20 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && github.event.inputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: player-status-history:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id player_status_history --owner player-status-history.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   save-branch:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')

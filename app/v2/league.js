@@ -1840,8 +1840,10 @@
     root.addEventListener("hashchange", readShareHash);
     const phoneLayout = root.matchMedia("(max-width: 767px)");
     if (phoneLayout.addEventListener) phoneLayout.addEventListener("change", () => { if (UI.selectedOpp) renderOpps(); });
+    // JEG-1389: the engine can have rows before v2.js has restored the saved league settings (scoring, teams, roster), and that
+    // restore does not redraw this page. Drawing first left every line at the default settings, so wait for v2.js too.
     const ready = () => {
-      const ctx = mathContext();
+      const ctx = root.TradeValueV2 ? mathContext() : null;
       if (!ctx) return false;
       UI.ready = true;
       refreshAll("load");
