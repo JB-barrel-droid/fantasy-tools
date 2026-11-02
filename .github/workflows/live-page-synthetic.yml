@@ -90,11 +90,13 @@ jobs:
 
       - name: Determine URL to test
         id: url-to-test
+        env:
+          DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
         run: |
           if [ -n "${{ github.event.inputs.url }}" ]; then
             echo "url=${{ github.event.inputs.url }}" >> $GITHUB_OUTPUT
           else
-            echo "url=https://jb-barrel-droid.github.io/fantasy-tools/" >> $GITHUB_OUTPUT
+            echo "url=$(python3 -m pipelines.lib.repository)" >> $GITHUB_OUTPUT
           fi
 
       - name: Run live page synthetic gate

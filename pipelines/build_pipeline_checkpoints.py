@@ -30,6 +30,7 @@ from pathlib import Path as _Path  # noqa: E402
 # `lib` lives in pipelines/; make it importable whatever the CWD, checkout path or
 # import order (tests import this module as pipelines.X without pipelines/ on sys.path).
 _sys.path.insert(0, str(_Path(__file__).resolve().parent))
+from lib.repository import REPOSITORY, SITE_URL
 from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
@@ -682,7 +683,7 @@ def build_checkpoints():
     try:
         import urllib.request
         req = urllib.request.Request(
-            "https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/pages.yml/runs?per_page=5",
+            f"https://api.github.com/repos/{REPOSITORY}/actions/workflows/pages.yml/runs?per_page=5",
             headers={"Accept": "application/vnd.github.v3+json", "User-Agent": "fantasy-tools-monitor"}
         )
         with urllib.request.urlopen(req, timeout=10) as resp:
@@ -704,7 +705,7 @@ def build_checkpoints():
     try:
         import urllib.request as _c10_urllib
         _c10_js_req = _c10_urllib.Request(
-            "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-dashboard.js",
+            f"{SITE_URL}assets/comparison-dashboard.js",
             headers={"User-Agent": "fantasy-tools-monitor"})
         with _c10_urllib.urlopen(_c10_js_req, timeout=15) as _c10_js_resp:
             _c10_js_text = _c10_js_resp.read().decode()
@@ -927,7 +928,7 @@ def build_checkpoints():
         try:
             # Fetch live production JSON (WITHOUT cache-buster - we want to see what real users see,
             # including CDN-cached versions. If the CDN is serving stale "Week 2" labels, the monitor must catch it.)
-            live_url = "https://jb-barrel-droid.github.io/fantasy-tools/assets/comparison-sources-data.json"
+            live_url = f"{SITE_URL}assets/comparison-sources-data.json"
             req = urllib.request.Request(live_url, headers={"User-Agent": "fantasy-tools-monitor"})
             with urllib.request.urlopen(req, timeout=15) as resp:
                 live_bytes = resp.read()

@@ -8,7 +8,9 @@ The GitHub environment policy, not this source code, protects the App key.
 import os
 import sys
 
-REPOSITORY = "JB-barrel-droid/fantasy-tools"
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipelines"))
+from lib.repository import WRITER_REPOSITORIES
 
 
 def credential(request, environment):
@@ -18,8 +20,8 @@ def credential(request, environment):
         path = path[:-4]
     if (request.get("protocol") != "https"
             or request.get("host", "").lower() != "github.com"
-            or path.lower() != REPOSITORY.lower()
-            or environment.get("GITHUB_REPOSITORY", "").lower() != REPOSITORY.lower()):
+            or path.lower() not in WRITER_REPOSITORIES
+            or environment.get("GITHUB_REPOSITORY", "").lower() != path.lower()):
         raise ValueError("Credential destination is outside the writer repository")
     ref = environment.get("GITHUB_REF", "")
     if ref == "refs/heads/main":

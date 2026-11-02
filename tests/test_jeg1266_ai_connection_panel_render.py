@@ -27,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 APP = ROOT / "app" / "v2"
 FIXTURE = json.loads((ROOT / "tests" / "fixtures" / "ai-connection-panel" / "synthetic-states.json").read_text(encoding="utf-8"))
 WIDTHS = (1280, 390, 320)
-GUIDE = "https://jb-barrel-droid.github.io/fantasy-tools/connect/"
+GUIDE = "connect/"
 
 PAGE = """<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
