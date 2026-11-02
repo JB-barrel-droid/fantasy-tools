@@ -976,6 +976,7 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
+	python3 -m unittest tests.test_jeg1323_trade_readout_render
 	python3 -m unittest tests.test_v2_find_split_render
 	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
 	python3 -m unittest tests.test_interactive_trades_release_render
@@ -1104,6 +1105,7 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_oppanel_render
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
+	python3 -m unittest tests.test_jeg1323_trade_readout_render
 	python3 -m unittest tests.test_v2_league_tables_render
 	python3 -m unittest tests.test_jeg1213_acceptance_render
 	python3 -m unittest tests.test_v2_league_parsed_render
