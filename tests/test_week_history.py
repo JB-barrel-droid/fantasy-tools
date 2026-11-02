@@ -1103,7 +1103,8 @@ class WeekTransitionSentinelTest(unittest.TestCase):
         import value_check as vc
         overrides = transition_overrides()
         settings = [{"scoring": "ppr", "teams": 12, "superflex": 0},
-                    {"scoring": "half_ppr", "teams": 10, "superflex": 1}]
+                    {"scoring": "half_ppr", "teams": 10, "superflex": 1},
+                    {"scoring": "standard", "teams": 12, "superflex": 0}]
         today = _date.fromisoformat(_fixture_today())
         engine = vc.run_engine(settings, today, overrides={k: v.encode("utf-8") for k, v in overrides.items()})
         with tempfile.TemporaryDirectory() as tmp:

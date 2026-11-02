@@ -53,3 +53,38 @@ and hand the exact head to the independent reviewer and parent merge owner.
   Supabase operation is authorized in this build session.
 - The first successful chain after release still must verify committed
   inline-player/fixture parity. This session does not dispatch that chain.
+
+
+### PR #1247 functional-main integration follow-up
+
+#### Verified (check named)
+
+- On parent instruction, merged functional main
+  `1df5f4c20032a794918637f72cb796673b95e93d` into previously green head
+  `581d27a622928f3017783646868e7848b0d521a8` normally, once. No conflicts;
+  the shared canonical repair already on this branch reconciled cleanly.
+- Focused integration: 110/110 passed under the destination repository
+  identity with required renders and explicit Chromium. Command modules:
+  `tests.test_build_weekly_inputs`, `tests.test_weekly_inputs_contract`,
+  `tests.test_week_stale_deadline`, plus `FrontDoorIdentityTests` and
+  `FrontDoorBuildTests` from `tests.test_launch_front_door`. Also ran all five
+  JEG-860 publication/failure/race regressions by exact method: green bake,
+  red validation, restored failed bake, no-bake publication and newer-main
+  template regeneration. No assertions or workflow behavior edited.
+- Targeted rendered/engine integration: 2/2 passed:
+
+  ```text
+  python3 -m unittest tests.test_week_selector_render.WeekSelectorRenderTest.test_stale_badge_after_thursday_noon_central tests.test_week_history.WeekTransitionSentinelTest.test_engine_and_python_reference_agree_in_the_transition
+  ```
+
+- Restored only this run's tracked generated churn from the merge index,
+  preserving incoming main status JSON and all untracked build outputs.
+- No duplicate broad local suite: previous full-gate evidence above remains
+  historical; fresh exact-head CI will verify the new integrated head.
+
+#### Claimed, not confirmed
+
+- Fresh exact-head CI and independent high-risk delta review remain pending.
+  Parent handles Deploy dashboard `41544712795` recovery and remains sole
+  merge/release owner. No deployment, production chain dispatch, Supabase,
+  credential/access change, force push, deletion or job cancellation here.
