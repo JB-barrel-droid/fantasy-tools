@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-02T13:50:19.347550+00:00",
+  "run_at": "2026-11-02T15:25:07.966294+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -249,15 +249,13 @@
       "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free"
     ],
     "assertions": [
-      "Exception occurred during processing of request from ('127.0.0.1', 41112)",
-      "BrokenPipeError: [Errno 32] Broken pipe",
       "AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]141'] != []",
       "AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]146'] != []"
     ],
     "make_targets": [
       "Makefile:799: test-core"
     ],
-    "detail": "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_fringe_player_moves_no_one_more_than_tolerance; FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free; Exception occurred during processing of request from ('127.0.0.1', 41112); BrokenPipeError: [Errno 32] Broken pipe; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]141'] != []; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]146'] != []",
-    "recorded_at": "2026-11-02T15:22:04.376769+00:00"
+    "detail": "FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_fringe_player_moves_no_one_more_than_tolerance; FAIL tests.test_waiver_band_line.OnePlayerPerturbationTest.test_only_slot_flips_break_the_bar_with_slots_free; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]141'] != []; AssertionError: Lists differ: ['standard/8 razzball TE 1970 +1.0: 1.474'[39 chars]146'] != []",
+    "recorded_at": "2026-11-02T16:58:26.258932+00:00"
   }
 }
