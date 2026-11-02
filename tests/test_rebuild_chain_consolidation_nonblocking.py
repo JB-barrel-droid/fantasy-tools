@@ -170,26 +170,32 @@ class NonBlockingConsolidationTest(unittest.TestCase):
         self.assertIn(old, self.text)
         return self.text.replace(old, new, 1)
 
+    def mutate_step_field(self, text, name, field, value):
+        """Change exactly one named step field, independent of its env entries."""
+        pattern = (r"(      - name: " + re.escape(name) + r"\n"
+                   r"(?:(?!^      - |^  [A-Za-z0-9_-]+:).)*?)"
+                   r"^        " + re.escape(field) + r": [^\n]*\n")
+        replacement = "" if value is None else f"        {field}: {value}\n"
+        changed, count = re.subn(pattern, lambda m: m[1] + replacement,
+                                 text, count=1, flags=re.DOTALL | re.MULTILINE)
+        self.assertEqual(count, 1, (name, field))
+        self.assertNotEqual(changed, text)
+        return changed
+
     def test_run_37641559947_shape_is_caught(self):
         # The live broken state: no continue-on-error on the write, and the
         # publication on its implicit success().
-        broken = self.mutate("        id: consolidate\n        if: steps.chain.outcome == 'success'\n"
-                             "        continue-on-error: true\n",
-                             "        id: consolidate\n        if: steps.chain.outcome == 'success'\n")
-        broken = broken.replace("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
-                                "        env:\n          MAIN_WRITER_TOKEN:", 1)
+        broken = self.mutate_step_field(self.text, CONSOLIDATE, "continue-on-error", None)
+        broken = self.mutate_step_field(broken, PUBLISH, "if", None)
         self.assertIn("a failed consolidation write skips publication", guard_problems(broken))
 
     def test_either_safeguard_alone_keeps_publication_running(self):
         # Defence in depth: dropping only one of continue-on-error / always()
         # still reaches publication, which triggers Pages through the App push.
-        no_coe = self.mutate("        continue-on-error: true\n        env:\n          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n"
-                             "          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}\n        run: |\n"
-                             "          # Build consolidation rows",
-                             "        env:\n          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}\n"
-                             "          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}\n        run: |\n"
-                             "          # Build consolidation rows")
+        no_coe = self.mutate_step_field(self.text, CONSOLIDATE, "continue-on-error", None)
         self.assertTrue(simulate(no_coe, FAILED_WRITE)[0][PUBLISH])
+        no_always = self.mutate_step_field(self.text, PUBLISH, "if", None)
+        self.assertTrue(simulate(no_always, FAILED_WRITE)[0][PUBLISH])
 
     def test_record_from_job_status_is_caught(self):
         # continue-on-error keeps job.status green: recording it would hide the red.
@@ -202,14 +208,12 @@ class NonBlockingConsolidationTest(unittest.TestCase):
         self.assertIn("the record step must run if: always() (an earlier failure must still be recorded)",
                       guard_problems(broken))
         # and without continue-on-error it is actually skipped on a failed write
-        broken = broken.replace("        id: consolidate\n        if: steps.chain.outcome == 'success'\n"
-                                "        continue-on-error: true\n",
-                                "        id: consolidate\n        if: steps.chain.outcome == 'success'\n", 1)
+        broken = self.mutate_step_field(broken, CONSOLIDATE, "continue-on-error", None)
         self.assertIn("a failed consolidation write is not recorded", guard_problems(broken))
 
     def test_publication_gated_on_the_write_is_caught(self):
-        broken = self.mutate("        if: always()\n        env:\n          MAIN_WRITER_TOKEN:",
-                             "        if: ${{ steps.consolidate.outcome == 'success' }}\n        env:\n          MAIN_WRITER_TOKEN:")
+        broken = self.mutate_step_field(self.text, PUBLISH, "if",
+                                        "${{ steps.consolidate.outcome == 'success' }}")
         problems = guard_problems(broken)
         self.assertIn("a failed consolidation write skips publication", problems)
         self.assertIn("publication depends on the consolidation step", problems)

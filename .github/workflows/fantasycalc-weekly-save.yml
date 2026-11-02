@@ -55,10 +55,13 @@ jobs:
 
       - name: Resolve mode
         id: cfg
+        env:
+          EVENT_MODE: ${{ github.event.inputs.mode }}
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:cfg
         run: |
           mode=dry
           case "${GITHUB_REF_NAME}" in fcsave/write-*) mode=write;; esac
-          if [ "${{ github.event.inputs.mode }}" = "write" ]; then mode=write; fi
+          if [ "$EVENT_MODE" = "write" ]; then mode=write; fi
           # Content week (flips Tuesday): the calendar the import-health gate and
           # the rebuild chain use. The saver's own default (_common.nfl_week)
           # flips Thursday, so the week is always passed explicitly.
@@ -68,11 +71,14 @@ jobs:
           echo "::notice title=fc-save::mode=$mode week=$week"
 
       - name: Pull FantasyCalc 12-team lists (fail-closed)
+        env:
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:pull-fantasycalc-12-team-lists-fail-closed
         run: python3 pipelines/pull_fantasycalc_12team.py --cache-dir /tmp/fc_cache --week ${{ steps.cfg.outputs.week }}
 
       - name: Save to source_trade_values
         id: save
         env:
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:save
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -93,6 +99,7 @@ jobs:
       - name: Record the monitored check
         if: always() && steps.cfg.outputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:record-the-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           OK: ${{ steps.save.outcome == 'success' }}
@@ -118,6 +125,7 @@ jobs:
         id: ack
         if: success() && github.event.inputs.probe_fp != '' && steps.cfg.outputs.mode == 'write'
         env:
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:ack
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           PROBE_FP: ${{ github.event.inputs.probe_fp }}
@@ -126,5 +134,16 @@ jobs:
       - name: Dispatch the rebuild chain on new content
         if: success() && steps.ack.outputs.new_content == 'true'
         env:
+          SUPABASE_BYTES_CALLER: fantasycalc-weekly-save:dispatch-the-rebuild-chain-on-new-content
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python3 pipelines/source_probe.py dispatch-chain --reason "source-probe-fantasycalc"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
