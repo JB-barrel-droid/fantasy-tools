@@ -102,6 +102,8 @@ jobs:
       - run: python3 -m unittest tests.test_v2_finder_guardrails_render
       - run: python3 -m unittest tests.test_interactive_trades_release_render
       - run: python3 -m unittest tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render
+      # JEG-1217: Managers card (profiles, exclusions, reload) and its unit/mutation checks.
+      - run: python3 -m unittest tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render
       # JEG-890 / JEG-1246: the Find a trade team value summary (thin-chart weeks and players with no DDF Value).
       - run: python3 -m unittest tests.test_v2_finder_teams tests.test_v2_finder_teams_render
       # JEG-1056: the Compare 1366x768 fit guard (JEG-917/JEG-932) lives here, not in the deploy gate. Its
