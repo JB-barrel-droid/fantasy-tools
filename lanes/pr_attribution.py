@@ -7,7 +7,7 @@ from dataclasses import dataclass
 import re
 
 LANE_PREFIXES = {
-    'Claude': 'claude/', 'Codex': 'codex/', 'OpenCode': 'opencode/',
+    'Mac Claude': 'mac-claude/', 'cloud Claude': 'claude/', 'Codex': 'codex/', 'OpenCode': 'opencode/',
     'Pi': 'pi/', 'Muse': 'muse/', 'Console worker': 'console/',
 }
 
@@ -56,7 +56,7 @@ def parse_lane(body: str) -> Attribution:
     if len(lines) != 1:
         raise ValueError('Exactly one visible Lane: line is required.')
     match = re.fullmatch(
-        r'Lane: built by (Claude|Codex|OpenCode|Pi|Muse|Console worker) '
+        r'Lane: built by (Mac Claude|cloud Claude|Codex|OpenCode|Pi|Muse|Console worker) '
         r'\(([^();\n]+)\); coordinated by ([^;\n]+); review ([^;\n]+)\.',
         lines[0].strip(),
     )

@@ -25,13 +25,34 @@ def is_warn_only(config, now):
     return config['warn_only'] and now < deadline
 
 
+def is_grandfathered(pr, config):
+    """Opening time is immutable: old PRs stay warning-only after rollout."""
+    cutoff = config.get('grandfather_before')
+    created = pr.get('created_at')
+    if not cutoff or not created:
+        return False
+    try:
+        opened = datetime.fromisoformat(created.replace('Z', '+00:00'))
+        boundary = datetime.fromisoformat(cutoff.replace('Z', '+00:00'))
+        if opened.utcoffset() is None or boundary.utcoffset() is None:
+            raise ValueError('timestamps must include a timezone')
+        return opened < boundary
+    except (TypeError, ValueError):
+        return False
+
+
 def check_pr(pr, config, warn_only):
+    grandfathered = is_grandfathered(pr, config)
+    warn_only = warn_only or grandfathered
     try:
         check_prefix(parse_lane(pr.get('body') or ''), pr['head']['ref'])
     except ValueError as exc:
         level = 'warning' if warn_only else 'error'
         print(f'::{level}::Lane attribution invalid: {exc}')
-        print(f"Warn-only expires {config['enforce_after']}.")
+        if grandfathered:
+            print('Existing PR grandfathered: attribution remains warning-only.')
+        elif warn_only:
+            print(f"Warn-only expires {config['enforce_after']}.")
         return 0 if warn_only else 1
     print('Lane attribution and branch prefix match.')
     return 0

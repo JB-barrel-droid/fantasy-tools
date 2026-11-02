@@ -118,3 +118,35 @@ class TestPRLane(unittest.TestCase):
                 config.write_text(json.dumps({'warn_only': warning, 'enforce_after': '2099-01-01T00:00:00+00:00'}))
                 with contextlib.redirect_stdout(io.StringIO()):
                     self.assertEqual(main(['--event', str(event), '--config', str(config)]), expected)
+
+
+class TestExistingPRRollout(unittest.TestCase):
+    def test_old_pr_warns_new_pr_fails_in_event_and_sweep(self):
+        with tempfile.TemporaryDirectory() as directory:
+            source, config = Path(directory)/'prs.json', Path(directory)/'config.json'
+            config.write_text(json.dumps({
+                'warn_only': False, 'enforce_after': '2026-11-02T03:56:10Z',
+                'grandfather_before': '2026-11-02T03:56:10Z',
+            }))
+            for created, expected in (
+                ('2026-11-02T03:56:09Z', 0),
+                ('2026-11-02T03:56:10Z', 1),
+                ('2026-11-03T00:00:00Z', 1), (None, 1), ('invalid', 1),
+                ('2026-11-01T00:00:00', 1),
+            ):
+                pr = {'number': 1, 'created_at': created, 'body': None,
+                      'head': {'ref': 'be/old-branch'}}
+                for option, payload in (('--event', {'pull_request': pr}),
+                                        ('--open-prs', [pr])):
+                    with self.subTest(created=created, option=option):
+                        source.write_text(json.dumps(payload))
+                        output = io.StringIO()
+                        with contextlib.redirect_stdout(output):
+                            self.assertEqual(main([option, str(source), '--config', str(config)]), expected)
+                        self.assertIn('::warning::' if expected == 0 else '::error::', output.getvalue())
+
+    def test_claude_lanes_cannot_use_each_others_prefix(self):
+        for builder, wrong in (('Mac Claude', 'claude/task'),
+                               ('cloud Claude', 'mac-claude/task')):
+            with self.subTest(builder=builder), self.assertRaises(ValueError):
+                check_prefix(parse_lane(line(builder)), wrong)
