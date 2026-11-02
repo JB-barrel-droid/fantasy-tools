@@ -54,11 +54,33 @@ Strict current-main ancestry applies at promotion and merge. The historical
 options below are unapproved proposals; their letters do not identify the
 Nov 1 decision.
 
-Promotion currently has a policy conflict: draft PR workflows defer expensive
-jobs and leave required finalizers red; manual dispatch deliberately uses
-`preview-manual` and `v2-render-manual` and cannot satisfy those required checks.
-The all-checks-green promotion gate therefore refuses a draft. Resolve the
-pre-promotion CI policy with Jeremy before promoting; do not waive red checks.
+Jeremy, Nov 1, 2026, 8:29 PM CT: "Let the full required checks run while it's
+still a draft, then promote." Grant full CI to exactly one draft commit by
+adding the label `full-ci:<full-40-character-head-SHA>` **before pushing that
+commit**. After committing the final changes (and merging main if needed):
+
+```sh
+git rev-parse HEAD
+gh label create full-ci:<full-head-SHA> --color 0E8A16 --description 'Full draft CI for one exact head'
+gh pr edit <PR> --add-label full-ci:<full-head-SHA>
+git push origin <PR-branch>
+```
+
+The push's ordinary PR workflows run the existing full build, every shard and
+render tests, and keep the required `preview` and `v2-render` names. Each gate,
+heavy job and finalizer rechecks the live head and grant. A stale event, closed
+PR, removed grant or new head without its own grant cannot pass. A generic
+`ready-for-full-ci` label does not authorize anything. Old SHA labels cannot
+approve later commits. No assertions, build steps or finalizers are relaxed.
+
+Grant before pushing so the first runs on the new SHA perform full CI: separate
+workflow_dispatch runs leave old draft-deferred checks on that SHA visible to
+the strict freshness gate. Ordinary manual runs retain `*-manual` names.
+The label alone triggers no workflow, promotion, review or merge. There is no
+automatic retry. If full CI fails, diagnose and fix it, then grant the corrected
+commit before pushing it. Require all exact-head checks green and the strict
+freshness gate before `python3 -m pipelines.pr_promotion ready-for-review <PR>`,
+then request an independent review. Both bot exception flags remain false.
 
 - **A: status-only bot writes need no catch-up or re-CI.** Approve
   `allow_bot_only_behind: true`, keeping `allow_bot_data_inputs: false`.
