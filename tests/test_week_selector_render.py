@@ -31,6 +31,7 @@ import threading
 import datetime
 import unittest
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 DIST = ROOT / "dist"
@@ -61,9 +62,17 @@ SCENARIOS = {
 NAMES = {"espn": "ESPN", "cbsros": "CBS rest of season", "razzball": "Razzball", "cbs": "CBS Sports",
          "fantasycalc": "FantasyCalc", "usatoday": "USA Today", "fantasypros": "FantasyPros"}
 THURSDAY = (datetime.date(2026, 10, 22) + datetime.timedelta(days=7 * (NEWER - 7))).isoformat()  # Thursday of content week NEWER (week 7 = 2026-10-22)
-BEFORE_NOON = f"{THURSDAY}T16:00:00Z"   # 11:00 CDT
-AT_NOON = f"{THURSDAY}T17:00:00Z"       # 12:00 CDT exactly: not yet after noon
-AFTER_NOON = f"{THURSDAY}T18:00:00Z"    # 13:00 CDT
+
+
+def _thursday_at(hour: int) -> str:
+    central = datetime.datetime.combine(datetime.date.fromisoformat(THURSDAY),
+                                        datetime.time(hour), tzinfo=ZoneInfo("America/Chicago"))
+    return central.astimezone(datetime.timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+BEFORE_NOON = _thursday_at(11)
+AT_NOON = _thursday_at(12)       # Exactly noon remains before the strict "past noon" boundary.
+AFTER_NOON = _thursday_at(13)
 
 
 def setUpModule():
