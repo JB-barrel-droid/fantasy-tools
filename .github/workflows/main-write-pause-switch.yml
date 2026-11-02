@@ -1,0 +1,106 @@
+name: Main write pause switch
+
+# JEG-1472: switch the scoped release-window pause on or off. It pauses only the
+# frequent bot writers (fidelity pulse, comparison rebuild and chain status,
+# health artifacts with ops and monitoring, source-vintage hash) for at most 120
+# minutes; the daily and weekly snapshots keep publishing. See
+# runbooks/main-write-pause.md, "Scoped release-window pause (JEG-1472)".
+#
+# Manual only. The control is built and checked with the guard's own validator
+# (pipelines/main_write_switch.py) before anything is written or any token is
+# minted, because an invalid control holds every writer with no end time. The
+# only file written is .github/main-write-pause.json.
+#
+# This workflow is deliberately NOT behind the pause guard: it must be able to
+# run while a pause is on, to switch it off or repair it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "on pauses the frequent writers; off restores them"
+        required: true
+        type: choice
+        options: ["on", "off"]
+      minutes:
+        description: "Pause length in minutes (1 to 120); ignored for off"
+        required: false
+        default: "90"
+      reason:
+        description: "Release owner and window (required, one line)"
+        required: true
+
+permissions:
+  contents: read  # Main writes use the environment-scoped App, as other writers do.
+
+concurrency:
+  group: main-write-pause-switch
+  cancel-in-progress: false
+
+jobs:
+  switch:
+    if: github.ref == 'refs/heads/main'
+    environment: main-writer
+    runs-on: ubuntu-latest  # Isolate App credentials from shared runners.
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Build and validate the control
+        env:
+          SWITCH_ACTION: ${{ inputs.action }}
+          SWITCH_MINUTES: ${{ inputs.minutes }}
+          SWITCH_REASON: ${{ inputs.reason }}
+        run: |
+          python3 pipelines/main_write_switch.py \
+            --action "$SWITCH_ACTION" --minutes "$SWITCH_MINUTES" --reason "$SWITCH_REASON"
+
+      - name: Mint main writer token
+        id: main-writer
+        uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2, pinned
+        with:
+          app-id: ${{ secrets.MAIN_WRITER_APP_ID }}
+          private-key: ${{ secrets.MAIN_WRITER_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: write
+
+      - name: Commit and push the control
+        env:
+          MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
+          SWITCH_ACTION: ${{ inputs.action }}
+          GIT_TERMINAL_PROMPT: '0'
+          GIT_CONFIG_COUNT: '3'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!python3 -B "$GITHUB_WORKSPACE/.github/scripts/main-writer-credential.py"'
+          GIT_CONFIG_KEY_2: credential.useHttpPath
+          GIT_CONFIG_VALUE_2: 'true'
+        run: |
+          control=.github/main-write-pause.json
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$control"
+          if git diff --cached --quiet; then
+            echo "Control already reads this way; nothing to publish" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          git commit -m "Main write pause switch: ${SWITCH_ACTION} (JEG-1472)"
+          for attempt in 1 2 3 4 5; do
+            if git pull --rebase origin main \
+              && [ "$(git diff --name-only origin/main HEAD)" = "$control" ] \
+              && git push origin "HEAD:${GITHUB_REF:?}"; then
+              { echo "### Main write pause switch: ${SWITCH_ACTION}"; echo '```'; cat "$control"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            sleep 10
+          done
+          echo "::error::could not publish the pause control after 5 attempts"; exit 1
