@@ -83,7 +83,7 @@ def decide(event_name, event, live=None):
         raise ValueError(f"unsupported event: {event_name}")
     snapshot = event.get("pull_request") or {}
     if event.get("action") not in ("opened", "synchronize", "reopened",
-                                   "ready_for_review", "converted_to_draft"):
+                                   "ready_for_review", "converted_to_draft", "edited"):
         raise ValueError("unexpected pull_request action")
     if not snapshot.get("number") or live is None:
         raise ValueError("PR number or live PR state is unavailable")
@@ -93,6 +93,10 @@ def decide(event_name, event, live=None):
         return False, "PR is no longer open; full verification cannot pass"
     if live.get("head", {}).get("sha") != snapshot.get("head", {}).get("sha"):
         return False, "PR head moved since this event; full verification cannot pass"
+    for field in ("ref", "sha"):
+        expected = snapshot.get("base", {}).get(field)
+        if not expected or live.get("base", {}).get(field) != expected:
+            return False, f"PR base {field} changed or is unavailable; re-plan for the current base"
     if not isinstance(live.get("draft"), bool) or not isinstance(snapshot.get("draft"), bool):
         raise ValueError("PR draft state is unavailable")
     if live["draft"] != snapshot["draft"]:
