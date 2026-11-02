@@ -75,3 +75,23 @@ Next turn: once the heavy-test lane is available, run the full gate, obtain
 green exact-head CI and an independent delta review. Keep JEG-1468 In Progress;
 later org transfer, queue/settings changes, and edge changes need separate
 authorization. No product question blocks this correction.
+
+### From Mac follow-through (2026-11-02)
+
+Verified: exact-head failed CI logs were read once; both aggregates failed only
+because draft policy set RUN_EXPENSIVE=false and skipped build/shards/render.
+Using the canonical repo .venv (Playwright 1.63.0), with RENDER_TESTS_REQUIRED=1:
+- 140 tests passed: org cutover, main-writer contracts, CI/draft/preview/shard
+  guards, AI connection panel unit/render and full v2 contract render (490s).
+- 247 related pipeline/output/probe/v2-builder tests passed.
+- actionlint passed all 14 changed workflows; git diff --check passed.
+- Promotion catch-up merged origin/main 992c8525 normally, without conflicts;
+  its weekly-input-contract tests passed (36 tests). No org-prep code changed.
+- GitHub reviewThreads returned an empty list before promotion.
+Generated tracked test output was preserved at /tmp/jeg1468-mac-render-generated
+and restored to the branch versions; existing untracked outputs were retained.
+
+Claimed, not confirmed: full make validate is left to preview CI; local checks
+cover this PR's touched behavior. Full CI and independent Opus delta receipt
+must cover the final pushed head before Ready for Release. No merge to main,
+deploy, settings, transfer, credentials, Supabase or HANDOFF edits authorized.
