@@ -13,6 +13,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 
 from check_reference_freshness import build_report
+from lib.repository import REPOSITORY, SITE_URL
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -25,6 +26,11 @@ DIST = ROOT / "dist"
 REFERENCE_FRESHNESS = ROOT / "output" / "reference-freshness.json"
 RUNTIME_IMPORT_HEALTH = ROOT / "output" / "source-import-health.json"
 FIXTURE_IMPORT_HEALTH = FIXTURES / "source-import-health.json"
+
+
+def module_dashboard_html(html: str) -> str:
+    """Fill the monitor's live links from the same identity as the site build."""
+    return html.replace("{{DDF_SITE_URL}}", SITE_URL).replace("{{DDF_GITHUB_REPOSITORY}}", REPOSITORY)
 
 
 def read_json(path: Path) -> dict:
@@ -151,7 +157,6 @@ def replace_inline_methodology(index_html: str, payload: dict) -> str:
     return index_html[:start] + baked + index_html[end:]
 
 
-SITE_URL = "https://jb-barrel-droid.github.io/fantasy-tools/"
 # Launch 2026-10-08 (Jeremy): the v2 page is the front door at the site root.
 # JEG-453 (2026-10-08): the old chart dashboard is no longer published. Its page
 # is still built, as the engine page v2 runs hidden: build_v2_page and
@@ -464,7 +469,9 @@ def main() -> int:
     # modules/; generating them here is what keeps the monitor honest.
     dist_modules = DIST / "modules"
     dist_modules.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(MODULES / "dashboard.html", dist_modules / "dashboard.html")
+    (dist_modules / "dashboard.html").write_text(
+        module_dashboard_html((MODULES / "dashboard.html").read_text(encoding="utf-8")),
+        encoding="utf-8")
     # The consolidation watcher is a modules/ page too — copy it on every sync
     # (JEG-328, 2026-10-03: dist/modules/consolidation.html silently served a
     # stale copy because only dashboard.html was synced here).

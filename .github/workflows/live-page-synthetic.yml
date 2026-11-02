@@ -30,6 +30,10 @@ permissions:
   contents: read
   actions: read
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   live-gate:
     runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
@@ -90,8 +94,6 @@ jobs:
 
       - name: Determine URL to test
         id: url-to-test
-        env:
-          DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
         run: |
           if [ -n "${{ github.event.inputs.url }}" ]; then
             echo "url=${{ github.event.inputs.url }}" >> $GITHUB_OUTPUT

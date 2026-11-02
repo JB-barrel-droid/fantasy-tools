@@ -25,6 +25,10 @@ concurrency:
   group: render-sweep
   cancel-in-progress: false
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   render-sweep:
     name: Render sweep shard ${{ matrix.shard }} of 3

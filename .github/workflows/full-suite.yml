@@ -23,6 +23,10 @@ concurrency:
   group: full-suite
   cancel-in-progress: true
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   full-suite:
     name: Full test suite (informational, non-blocking)

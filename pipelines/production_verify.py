@@ -31,7 +31,7 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "pipelines"))
-from lib.repository import REPOSITORY as REPO, SITE_URL as SITE
+from lib.repository import REPOSITORY as REPO
 
 # Workflow registry: maps workflow file name to its verification config.
 # Add new workflows here (one line each).

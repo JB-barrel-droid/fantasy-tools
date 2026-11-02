@@ -28,6 +28,10 @@ concurrency:
   group: waivers-mutation-offline-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# Shared build/probe identity; an unset or empty variable retains the old slug.
+env:
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   waivers-mutation-offline:
     runs-on: ubuntu-latest

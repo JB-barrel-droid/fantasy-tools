@@ -49,9 +49,6 @@ from lib.timestamps import parse_iso_timestamp  # noqa: E402
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "pipelines"))
-
-sys.path.insert(0, str(ROOT / "pipelines"))
 from lib.repository import REPOSITORY as REPO, SITE_URL as SITE
 SCHEMA = "ddf-ops-status-v1"
 ALERT_LABEL = "ops-alert"
