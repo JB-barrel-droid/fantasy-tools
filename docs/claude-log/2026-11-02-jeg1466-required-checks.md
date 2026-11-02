@@ -45,3 +45,22 @@ full required CI runs while draft; promotion follows green exact-head checks.
   on the ticket/PR after push. No independent review pass is claimed here.
 - No merge, deploy, Supabase, credential, settings, force-push or HANDOFF.md
   edit. Both bot freshness exception flags remain false.
+
+### Promotion catch-up after green draft CI
+
+- Draft head `58a134023eb86e759b89e4854b4a184c5a4cc8c9` passed every check:
+  preview run 41394386280 (build, all five shards and finalizer), render run
+  41394386271 (full render job and finalizer), security, offline waivers and
+  informational freshness. Preview's `make validate-base` and rendered-gate
+  steps both report success. No retry or rerun was requested.
+- At the promotion boundary main had advanced to `59c8dcd0` and GitHub
+  reported conflicts. Normal main integration found only three conflicts:
+  the already-added `merge_group` keys in preview, render and waivers versus
+  main's explicit `types: [checks_requested]`. Retained main's explicit type
+  in all three; the full-draft grant policy and every heavy job stay intact.
+- After integration, the original seven focused modules plus
+  `tests.test_org_cutover` passed: 140 tests with `RENDER_TESTS_REQUIRED=1`
+  and the repo `.venv`. Actionlint passed the four affected workflows;
+  `git diff --check` passed. This was a new integration check, not a retry.
+- The resulting merge SHA needs its own exact-head grant and full draft CI
+  before promotion. `last_rebase` and final CI evidence go on Linear.

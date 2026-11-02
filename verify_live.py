@@ -11,8 +11,8 @@ Exit 0 = live matches expected. Exit 1 = mismatch or fetch failure.
 import re
 import sys
 import urllib.request
+from pipelines.lib.repository import SITE_URL as BASE
 
-BASE = "https://jb-barrel-droid.github.io/fantasy-tools/"
 
 # Markers that must be present in the deployed files for the current fix set.
 HTML_MARKERS = [
