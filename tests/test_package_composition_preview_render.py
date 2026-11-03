@@ -245,5 +245,57 @@ class PackageCompositionPreviewRenderTest(unittest.TestCase):
                 page.context.close()
 
 
+    def test_package_panel_build_and_invalidation(self):
+        for width in (390, 1280):
+            with self.subTest(width=width):
+                page = self.chromium.new_page(viewport={"width": width, "height": 900})
+                errors = []
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                page.add_init_script(STORAGE_SPY)
+                page.goto("about:blank")
+                page.set_content('<h1>Synthetic package panel</h1><div id="pcpBox"></div>')
+                for name in ("v2.css", "package-composition-preview.css", "trade-package-panel.css"):
+                    page.add_style_tag(path=str(APP / name))
+                for name in ("trade.js", "finder.js", "opportunities.js", "trade-package-constraints.js",
+                             "trade-package-search.js", "package-composition-preview.js", "trade-package-panel.js"):
+                    page.add_script_tag(path=str(APP / name))
+                page.add_script_tag(path=str(ROOT / "tests" / "jeg1183_package_cases.js"))
+                page.evaluate("""() => {
+                  const c = PackageSearchCases.makeCase();
+                  window.__panelInput = c;
+                  window.__panelBefore = JSON.stringify([c.league, c.candidates, [...c.ctx.rowsByKey]]);
+                  window.__panel = TradeValuePackagePanel.mount(document.getElementById('pcpBox'));
+                  window.__snapshot = {status: 'ready', ...c};
+                  __panel.update(__snapshot);
+                }""")
+                self.assertEqual(page.locator(".pcp-trade").count(), 0, "search waits for a user action")
+                page.get_by_role("button", name="Build package", exact=True).focus()
+                page.keyboard.press("Enter")
+                self.assertEqual(page.get_attribute("#pcpBox", "data-package-size"), "3")
+                self.assertEqual(page.locator(".pcp-trade").count(), 3)
+                self.assertEqual(page.locator('.pcp-lineup-side[data-side="after"] [data-rows="starters"] tbody tr').evaluate_all(
+                    "rs => rs.map(r => r.dataset.key)"), ["a-qb", "a-rb", "c-w", "d-t"])
+                page.evaluate("__panel.update(__snapshot)")
+                self.assertEqual(page.locator(".pcp-trade").count(), 3, "same result preserves the package")
+                self.open_all_toggles(page)
+                self.assert_layout(page, f"package panel@{width}")
+                self.assertGreaterEqual(page.get_by_role("button", name="Build package", exact=True).bounding_box()["height"], 44)
+                page.evaluate("__panel.update({status:'pending'})")
+                self.assertTrue(page.get_by_role("button", name="Build package", exact=True).is_disabled())
+                self.assertEqual(page.locator(".pcp-lineup-table").count(), 0, "no stale lineup during a new search")
+                self.assertEqual(page.locator(".pcp-trade").count(), 0)
+                page.evaluate("__panel.update({...__snapshot, candidates: []})")
+                page.get_by_role("button", name="Build package", exact=True).click()
+                self.assertIn("No viable package", page.inner_text(".package-panel-status"))
+                page.evaluate("__panel.update({...__snapshot, ctx: null})")
+                page.get_by_role("button", name="Build package", exact=True).click()
+                self.assertEqual(page.get_attribute("#pcpBox", "data-state"), "unavailable")
+                self.assertEqual(page.locator(".pcp-lineup-table").count(), 0)
+                self.assertTrue(page.evaluate("__panelBefore === JSON.stringify([__panelInput.league, __panelInput.candidates, [...__panelInput.ctx.rowsByKey]])"))
+                self.assertEqual(page.evaluate("window.__pcpWrites"), [])
+                self.assertEqual(errors, [])
+                page.context.close()
+
+
 if __name__ == "__main__":
     unittest.main()

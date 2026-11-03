@@ -25,7 +25,9 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import sys
 import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -355,6 +357,22 @@ if (test === 'three') {
   league.teams[0].entries.push({key: 'x:DEF:NYJ', pos: 'DEF', name: 'Synthetic defense'});
   const r = S.selectPackage(league, candidates, ctx);
   assert.ok(r.league.teams[0].entries.some(e => e.key === 'x:DEF:NYJ'));
+} else if (test === 'panel_lineups') {
+  const Panel = require(process.argv[3] + '/trade-package-panel.js');
+  const {league, candidates, ctx} = makeCase();
+  ctx.shape.FLEX = 1; ctx.shape.SUPERFLEX = 1;
+  league.teams.forEach(t => t.entries.forEach(e => { e.slot = 'RB'; }));
+  const r = S.selectPackage(league, candidates, ctx);
+  const unchanged = JSON.stringify([league, r.league]);
+  const supplied = Panel.lineups(league, r.league, ctx);
+  for (const [which, l] of [['before', league], ['after', r.league]]) {
+    const expected = F.pickStarters(l.teams[0].entries.map(e => ctx.rowsByKey.get(e.key)), ctx.shape, F.OUR_KEY);
+    assert.deepEqual(supplied[which].starters.map(p => p.key), expected.starters.map(p => p.player_key));
+    assert.deepEqual(supplied[which].starters.map(p => p.slot), ['QB', 'RB', 'WR', 'TE', 'FLEX', 'SUPERFLEX']);
+  }
+  assert.equal(JSON.stringify([league, r.league]), unchanged);
+  ctx.shape.RB = 20;
+  assert.ok(Panel.lineups(league, r.league, ctx).after.starters.some(p => p.key === null && p.slot === 'RB'));
 } else if (test === 'guardrails') {
   const {league, candidates, ctx} = makeCase();
   ctx.guardrails = {minDdfEdge: 10};
@@ -380,7 +398,7 @@ class GreedyPackageSearchTest(unittest.TestCase):
                                str(REPO / "app" / "v2"), name], capture_output=True, text=True, timeout=30)
 
     def test_greedy_selection_and_roster_invariants(self):
-        for name in ("three", "slot", "rerank", "ties", "newly_viable", "arrival", "conflicts", "unavailable", "pricing", "guardrails"):
+        for name in ("three", "slot", "rerank", "ties", "newly_viable", "arrival", "conflicts", "unavailable", "pricing", "guardrails", "panel_lineups"):
             with self.subTest(case=name):
                 result = self.check_case(name)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -389,6 +407,61 @@ class GreedyPackageSearchTest(unittest.TestCase):
         result = self.check_case("three", MODULE)  # The pre-change preview has no selector.
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("selectPackage is not a function", result.stderr)
+
+    def test_coordinator_patch_applies_and_builds_the_panel_assets(self):
+        """Apply only to temporary copies; shared owners retain their source files."""
+        patch = REPO / "docs" / "integration" / "jeg1183-package-panel.patch"
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp)
+            for name in ("app/v2/league.js", "pipelines/build_v2_page.py"):
+                out = target / name
+                out.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / name, out)
+            result = subprocess.run(["git", "apply", str(patch)], cwd=target, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            league = (target / "app/v2/league.js").read_text(encoding="utf-8")
+            self.assertIn('candidates: result.rows, ctx,', league)
+            self.assertIn('UI.running || UI.timer ? {status: "pending"}', league)
+            self.assertIn('TradePackageConstraints.applyPackage(ws, []).league', league)
+            # Keep the real builder's root selectors, while executing the patched temporary source.
+            source = (target / "pipelines/build_v2_page.py").read_text(encoding="utf-8")
+            builder = types.ModuleType("jeg1183_patched_builder")
+            builder.__file__ = str(REPO / "pipelines" / "build_v2_page.py")
+            sys.path.insert(0, str(REPO / "pipelines"))
+            exec(compile(source, builder.__file__, "exec"), builder.__dict__)
+            from tests.test_build_v2_page import INDEX
+            engine = target / "synthetic-engine.html"
+            engine.write_text(INDEX, encoding="utf-8")
+            built = builder.build(dist=target / "dist", engine_page=engine)
+            html = built.read_text(encoding="utf-8")
+            self.assertLess(html.index('src="v2/finder.js"'), html.index('src="v2/trade-package-search.js"'))
+            self.assertLess(html.index('src="v2/trade-package-panel.js"'), html.index('src="v2/league.js"'))
+            for name in ("trade-package-search.js", "trade-package-panel.js", "trade-package-panel.css",
+                         "trade-package-constraints.js", "package-composition-preview.js", "package-composition-preview.css"):
+                self.assertEqual((built.parent / name).read_bytes(), (REPO / "app" / "v2" / name).read_bytes())
+                self.assertIn(f'v2/{name}', html)
+
+    def test_final_lineup_mutation_is_caught(self):
+        panel = REPO / "app" / "v2" / "trade-package-panel.js"
+        source = panel.read_text(encoding="utf-8")
+        anchor = "after: side(after)"
+        self.assertEqual(source.count(anchor), 1)
+        with tempfile.TemporaryDirectory() as tmp:
+            mutant = Path(tmp) / "panel.js"
+            mutant.write_text(source.replace(anchor, "after: side(before)").replace(
+                'require("./', f'require("{REPO}/app/v2/'), encoding="utf-8")
+            check = r"""
+const assert = require('node:assert/strict');
+const Panel = require(process.argv[1]);
+const c = require(process.argv[2]).makeCase();
+const selected = require(process.argv[3]).selectPackage(c.league, c.candidates, c.ctx);
+const actual = Panel.lineups(c.league, selected.league, c.ctx).after.starters.map(r => r.key);
+assert.deepEqual(actual, ['a-qb', 'a-rb', 'c-w', 'd-t']);
+"""
+            result = subprocess.run(["node", "-e", check, str(mutant), str(SEARCH_CASES), str(SEARCH)],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("AssertionError", result.stderr)
 
     def test_greedy_mutations_are_caught(self):
         source = SEARCH.read_text(encoding="utf-8")

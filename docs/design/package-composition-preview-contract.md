@@ -97,3 +97,30 @@ counterparties, refreshed fit ranking, stable ties, cumulative slot/backup const
 immutability, missing values and sequential final rosters. Browser checks use the real helper and starter picker,
 then render the selected package and changed final starters at 390 and 1280 px. This is isolated harness evidence,
 not a live-site check. Earlier Makefile-wiring limits above are historical; PR 1161 supplied that wiring.
+
+## On-demand panel and coordinator integration (2026-11-03)
+
+`trade-package-panel.js` and `.css` add `TradeValuePackagePanel.mount(container)` / `mountBefore(target)`.
+The returned controller accepts `update(snapshot)`. A completed snapshot is
+`{status: "ready", league, candidates, ctx, capped?}` with the complete result and exact context described above.
+The panel waits for **Build package**, computes the selection, and supplies the real `pickStarters` lineup adapter
+to the existing preview. Stored roster slots never determine the lineup; FLEX and SUPERFLEX retain their actual
+slot labels, and empty slots remain empty. The panel reports raw DDF gain across selected trades, separately from
+the lineup. It explicitly describes greedy selection's limit and the unvalued K/DEF scope.
+
+`update({status: "pending"})` immediately clears the old package and final lineup and disables Build package.
+Each new completed snapshot also clears the previous selection. Reusing the identical completed snapshot preserves
+the result and disclosure focus, so table filters/sorts do not destroy the user's package. No league roster is saved
+or changed by building a package.
+
+The shared-route owners retain `league.js` (#1084), `finder.js` (#1174), `v2.js` / shell (#1290), and the page builder
+(#1084 / #1225). The unapplied `docs/integration/jeg1183-package-panel.patch` changes only league.js and the builder:
+it loads/copies the assets, mounts the panel, retains the exact completed result context and roster copy, and clears
+stale output when a new search is scheduled. It uses `result.rows` before any presentation filters, folds or pagination.
+The patch applies cleanly to the recovery main integrated by this branch. The Node suite applies it to temporary
+copies and verifies the builder's emitted script order and copied asset bytes; it never edits an owner's source.
+
+Panel browser tests at 390/1280 px cover keyboard building, three distinct counterparties, the changed final starters,
+same-snapshot preservation, pending invalidation, empty/unavailable results, touch size, overflow and unchanged inputs.
+The full production-route test and live checks remain the coordinator's gate after applying the patch. This PR can
+run full ready CI for its isolated component before that shared integration; it does not close JEG-1183 by itself.
