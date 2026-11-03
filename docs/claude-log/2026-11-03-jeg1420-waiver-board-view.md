@@ -74,3 +74,63 @@ against the written contract, with no valuation or verdict decisions.
 - Validation regenerates app/dist/history artifacts. Those outputs are excluded
   from the PR; only the new renderer, CSS, harness/test, log and test registration
   are authored changes.
+
+### Continuation - terminal results and inherited source-link readiness
+
+- The existing sequential core continuation reached a terminal failure, not a
+  parked running state: 74 recipes passed, then
+  `tests.test_v2_phone_source_links_render.PhoneSourceLinksTest.test_source_links_have_44px_targets`
+  found zero visible links at 320/375/414px. Exit 1 was captured in
+  `/tmp/jeg-1420-core-terminal-observation.json`; the baseline wrapper called it
+  a new, unattributed red. The original full `make validate` had separately
+  stopped on a 20-second Razzball harness timeout; that exact case and this
+  renderer's complete suite subsequently passed together (13 tests).
+- Only the 42 previously unattempted core recipes were then run, sequentially,
+  through the unchanged Makefile recipes and baseline wrapper. All 42 passed;
+  terminal receipt `/tmp/jeg-1420-core-tail-terminal-observation.json`, full log
+  `/tmp/jeg-1420-core-tail.log`. No duplicate broad run was launched and the
+  earlier failures were not waived or removed from their logs.
+- The source-link failure reproduced with the original assertion on untouched
+  pinned main `ad0cfc3a40ed3cdbb6d3291e4bb1c735d5bd6dfc` in a detached checkout:
+  one test, exit 1, the same zero-link results at all three widths. Receipt:
+  `/tmp/jeg-1420-source-links-base-result.json`. This PR's renderer is not loaded
+  by that existing Targets test, and its app scripts/styles/builder are unchanged.
+- A read-only 375px probe found 44 source anchors in the DOM but zero visible
+  links at the fixed 1.2-second measurement. After eight more seconds, 32 were
+  visible, none were undersized, and horizontal overflow was zero. Metadata
+  returned HTTP 200 and no page errors occurred. Evidence:
+  `/tmp/jeg-1420-source-links-diagnostic.json`.
+- The small validation repair replaces that fixed sleep with a bounded wait
+  for the existing minimum of four visible links. It waits for visibility,
+  not for 44px size. All three assertion calls, `_errors`, and the test methods
+  (including the old-CSS negative control) are unchanged by AST comparison:
+  `/tmp/jeg-1420-source-link-assertion-proof.json`. No registry exemption,
+  assertion removal, timeout increase in the app, or test skip was introduced.
+- Applied-source verification:
+  `CHROMIUM_PATH=/usr/bin/chromium RENDER_TESTS_REQUIRED=1 python3 -m unittest -v tests.test_v2_phone_source_links_render`
+  through `pipelines.baseline_reds --context local`: both tests pass, no skips,
+  206.392s, captured exit 0. Actual test-file SHA-256 is
+  `c5ca0766619ef9fb3e845435b6886a49489fd369e576c28689a02513cd784576`.
+  Log and receipt: `/tmp/jeg-1420-source-link-repair-actual.log` and
+  `/tmp/jeg-1420-source-link-repair-actual-result.json`.
+- The previously unreached strict parity and integration targets also completed:
+  `make value-check-compare test-integration` through the baseline wrapper,
+  rendering required, exit 0. Engine/reference verdict is **agree** for
+  1,234,507 values across 25 settings, with no page errors. Eight integration
+  modules passed all 170 tests. Evidence: `output/value-check.json` and
+  `/tmp/jeg-1420-parity-integration.log`.
+
+Validation was completed in explicit phases after the first failures; this is
+not a claim that a fresh, uninterrupted `make validate` passed after the repair.
+No application, valuation, producer, bench or contract source was changed by
+this continuation. The only code delta is the existing phone-test readiness
+repair; the standalone renderer remains byte-identical to `f3efacfd`.
+
+Full required CI, a current-head independent review receipt, Jeremy's copy/layout
+approval and the separately coordinated dashboard hookup remain open gates.
+The publication interface in draft #1264 is `/data/weekly/waiver-boards.json`:
+select `boards[].setting` by scoring/teams/superflex and load `boards[].file`
+before calling the renderer; the manifest is not a board. JEG-1417 still needs
+before/after comparisons and Jeremy's threshold pick. JEG-1418's opt-in local
+0.2 swap artifacts need a coordinated versioned reader update; this reader
+continues to accept 0.1.x only. No denied external write was retried.
