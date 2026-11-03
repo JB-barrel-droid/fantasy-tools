@@ -114,12 +114,14 @@ guard-harness:
 # The node harnesses pin their own playwright-core, whose bundled Chromium build
 # often is not the one installed. Use $CHROMIUM_PATH, else the first browser the
 # Python render tests would use (tests/_render_env.py), else Playwright's default.
-NODE_CHROMIUM = $(or $(CHROMIUM_PATH),$(shell python3 -c "from playwright.sync_api import sync_playwright; from tests import _render_env as e; p = sync_playwright().start(); print(e.chromium_executable(p) or ''); p.stop()" 2>/dev/null))
+NODE_CHROMIUM = $(or $(CHROMIUM_PATH),$(shell python3 -c "from tests import _render_env as e; print(e.chromium_executable() or '')" 2>/dev/null))
 
 test-unit:
 	python3 tests/run_suite.py test-unit-modules
 
 test-unit-modules:
+	python3 -m unittest tests.test_baseline_reds
+	python3 -m unittest tests.test_chromium_resolver
 	python3 -m unittest tests.test_run_suite
 	# JEG-1275: selected-package composition preview view model (node, no browser).
 	python3 -m unittest tests.test_package_composition_preview_contract
@@ -220,6 +222,7 @@ test-unit-modules:
 	# JEG-1140: Settings in the Fieldnotes design, isolated components (node checks, then the browser).
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes
 	python3 -m unittest tests.test_jeg1140_settings_fieldnotes_render
+	python3 -m unittest tests.test_jeg1140_explainer_fieldnotes_render
 	python3 -m unittest tests.test_v2_fieldnotes_league_entry_render
 	python3 -m unittest tests.test_v2_fieldnotes_nav_render
 	python3 -m unittest tests.test_v2_fieldnotes_compare_render
@@ -301,6 +304,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_razzball_sync_ci
 	python3 -m unittest tests.test_espn_weekly_store
 	python3 -m unittest tests.test_build_weekly_inputs
+	# JEG-1415: offline waiver-board builder and schema (slice 1 of JEG-1196).
+	python3 -m unittest tests.test_build_waiver_board
 	python3 -m unittest tests.test_load_nflverse_history
 	python3 -m unittest tests.test_dashboard_fleet_counts_sections
 	python3 -m unittest tests.test_dashboard_loader_declarations
@@ -353,10 +358,12 @@ test-unit-modules:
 	python3 -m unittest tests.test_lock_revert_notice_render
 	python3 -m unittest tests.test_source_curves_distinct
 	python3 -m unittest tests.test_methodology_consistency
+	# JEG-1397: docs/methodology.md's worked example is generated from the fixture (tools/methodology_worked_example.py).
+	python3 -m unittest tests.test_methodology_worked_example
 	python3 -m unittest tests.test_player_scenario_matrix
 	python3 -m unittest tests.test_public_copy_no_vorp
 	# JEG-1130: the approved PMM glossary on the copy outside and inside v2.js (static, no browser).
-	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy
+	python3 -m unittest tests.test_jeg1130_copy_glossary tests.test_jeg1130_v2_copy tests.test_jeg1130_settings_copy
 	python3 -m unittest tests.test_product_data_wiring
 	python3 -m unittest tests.test_source_freshness
 	python3 -m unittest tests.test_freshness_display_render
@@ -471,6 +478,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_projection_captures
 	python3 -m unittest tests.test_projection_capture_sunday_jeg1377
 	python3 -m unittest tests.test_divergence_evidence
+	python3 -m unittest tests.test_jeg1336_fill_in
 	python3 -m unittest tests.test_pull_cbs_ros_positions
 	python3 -m unittest tests.test_pull_keeptradecut
 	python3 -m unittest tests.test_razzball_chain_hold
@@ -518,6 +526,8 @@ test-unit-modules:
 	python3 -m unittest tests.test_v2_name_search
 	# JEG-1231: opponent inclusion state, the league search adapter and their mutation proofs.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion
+	# JEG-1263: Simplified site view model, route contract and mutation proofs.
+	python3 -m unittest tests.test_jeg1263_simplified_site
 	# pytest-style modules (unittest finds no tests in them); preview.yml installs pytest.
 	python3 -m pytest -q -p no:cacheprovider tests/test_player_status_history_ids.py
 	python3 -m pytest -q -p no:cacheprovider tests/test_pull_dynasty_daddy.py
@@ -672,6 +682,7 @@ test-core:
 	python3 -m unittest tests.test_superflex
 	python3 -m unittest tests.test_superflex_publisher_values
 	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
+	python3 -m unittest tests.test_jeg1366_two_qb_native_share
 	python3 -m unittest tests.test_cbsros_bake_identity
 	python3 -m unittest tests.test_suffix_identity
 	python3 -m unittest tests.test_player_aliases
@@ -704,6 +715,7 @@ test-core:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_waivers_views
 	python3 -m unittest tests.test_v2_copy_names
@@ -824,6 +836,7 @@ test-core-shard-2:
 	python3 -m unittest tests.test_comparison_source_integrity
 	python3 -m unittest tests.test_superflex_publisher_values
 	python3 -m unittest tests.test_jeg1365_two_qb_superflex_values
+	python3 -m unittest tests.test_jeg1366_two_qb_native_share
 	python3 -m unittest tests.test_one_name_resolver
 	python3 -m unittest tests.test_razzball_refresh
 	python3 -m unittest tests.test_pipelines_import_standalone
@@ -861,6 +874,7 @@ test-core-shard-3:
 	python3 -m unittest tests.test_waivers_math
 	# JEG-1312: an old Sleeper injury status is hidden on Waivers, never shown as current.
 	python3 -m unittest tests.test_waivers_status
+	python3 -m unittest tests.test_daily_player_status
 	python3 -m unittest tests.test_player_flags
 	python3 -m unittest tests.test_v2_finder_projection_noise
 	node tests/test_v2_name_format.js
@@ -943,6 +957,8 @@ test-render-sweep:
 # be added to one shard. Balanced by the per-module times of run 40287913420 (about 25 minutes each;
 # modules that run had not reached, at 80 s assumed, are spread by that guess).
 test-render-sweep-1:
+	# JEG-1389: settings reload regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
 	python3 -m unittest tests.test_v2_paste_only_render
 	python3 -m unittest tests.test_v2_audit_source_render
 	# JEG-1199: each projection's path from the publisher's number to the published value.
@@ -966,8 +982,14 @@ test-render-sweep-1:
 	python3 -m unittest tests.test_jeg1216_lineup_render
 	python3 -m unittest tests.test_jeg1230_trade_readout_render
 	python3 -m unittest tests.test_v2_find_split_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_interactive_trades_release_render
+	python3 -m unittest tests.test_jeg1263_simplified_site_render
+	python3 -m unittest tests.test_jeg1265_values_fieldnotes_render
 
 test-render-sweep-2:
+	# JEG-1389: settings switch redraw regression, previously missing from all run lists.
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_chart_fullscreen_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_advanced_render
@@ -988,6 +1010,10 @@ test-render-sweep-2:
 	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
 	python3 -m unittest tests.test_v2_league_status_render
 	python3 -m unittest tests.test_v2_league_parsed_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_jeg1266_ai_connection_panel_render
+	python3 -m unittest tests.test_target_answer_card_render
+	python3 -m unittest tests.test_v2_finder_guardrails_render
 
 test-render-sweep-3:
 	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page). First in the
@@ -1021,10 +1047,16 @@ test-render-sweep-3:
 	# JEG-1231: opponent inclusion control (private preview): keyboard, names, counts, phone width.
 	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
 	python3 -m unittest tests.test_jeg1231_league_inclusion_render
+	# JEG-1263: Simplified site states, routes and focus at 1280/390/320.
 	# JEG-1275: selected-package composition preview at 1280/390/320.
 	python3 -m unittest tests.test_package_composition_preview_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_v2_finder_teams_render
 
 test-render-extra:
+	python3 -m unittest tests.test_uso_site_journey_render
+	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
+	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
 	python3 -m unittest tests.test_v2_chart_fit_render
 	python3 -m unittest tests.test_v2_a11y_batch2_render
@@ -1097,6 +1129,17 @@ test-render-extra:
 	python3 -m unittest tests.test_v2_league_status_render
 	# JEG-1271 / JEG-1319: isolated Compare evidence view at 320/390/1280 (not loaded by the page).
 	python3 -m unittest tests.test_compare_evidence_view_render
+	# JEG-1263: render modules from other tickets that were in no run list; each passed alone on 2026-10-30 (Mac, Chrome).
+	python3 -m unittest tests.test_interactive_trades_release_render
+	python3 -m unittest tests.test_jeg1263_simplified_site_render
+	python3 -m unittest tests.test_jeg1265_values_fieldnotes_render
+	python3 -m unittest tests.test_jeg1266_ai_connection_panel_render
+	python3 -m unittest tests.test_target_answer_card_render
+	python3 -m unittest tests.test_v2_finder_guardrails_render
+	python3 -m unittest tests.test_v2_finder_teams_render
+	# JEG-1231 modules were in shard 3 but not in this list (tests.test_render_sweep_shards).
+	python3 -m unittest tests.test_jeg1231_opponent_inclusion_render
+	python3 -m unittest tests.test_jeg1231_league_inclusion_render
 
 # Contract QA report (JEG-491): runs every live contract check, writes docs/qa-report.md, exits non-zero on a failing line.
 qa-report:
@@ -1122,4 +1165,4 @@ preview-local: sync
 	python3 -m http.server $(PORT) --directory dist
 
 deploy-status:
-	gh run list --repo JB-barrel-droid/fantasy-tools --workflow "Deploy dashboard" --limit 5
+	gh run list --repo "$$(python3 -c 'from pipelines.lib.repository import REPOSITORY; print(REPOSITORY)')" --workflow "Deploy dashboard" --limit 5
