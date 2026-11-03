@@ -1,4 +1,4 @@
-/* JEG-1418: pure local adapter for validated waiver-board 0.1.x artifacts.
+/* JEG-1418: pure local adapter for validated waiver-board 0.1.x / 0.2.x artifacts.
  * No storage, fetch, pricing, UI activation or board-schema mutation. Node callers
  * require this module; browser callers must load finder.js and waivers.js first.
  *
@@ -30,8 +30,8 @@
   }
 
   function rowsFromBoard(board) {
-    if (!board || board.schema !== "waiver-board" || !/^0\.1\.\d+$/.test(board.schema_version)
-        || !Array.isArray(board.players)) throw new TypeError("expected a validated waiver-board 0.1.x artifact");
+    if (!board || board.schema !== "waiver-board" || !/^0\.[12]\.\d+$/.test(board.schema_version)
+        || !Array.isArray(board.players)) throw new TypeError("expected a validated waiver-board 0.1.x or 0.2.x artifact");
     const seen = new Set();
     return board.players.map(p => {
       if (!Number.isSafeInteger(p.player_key) || seen.has(String(p.player_key))
@@ -104,7 +104,25 @@
     return {available: true, missing_reason: null, swaps, unresolvedWireKeys};
   }
 
-  const api = {rowsFromBoard, applyWireOverrides, buildSwapPlan};
+  // JSON boundary for the optional offline builder. Python validates the request
+  // shape; retain these checks for direct JS callers. No default gain policy.
+  function buildSwapBlock(board, request) {
+    const policy = request && request.gain_policy;
+    if (!policy || !finite(policy.minimum) || !["gt", "gte"].includes(policy.comparison)) {
+      throw new TypeError("explicit gain_policy minimum and comparison are required");
+    }
+    const values = board.sources && board.sources.values;
+    const plan = values && !values.enabled
+      ? unavailable(values.disabled_reason)
+      : buildSwapPlan(board, {rosterKeys: request.roster_keys, wireKeys: request.wire_keys,
+        wireOverrides: request.wire_overrides, context: request.context,
+        acceptGain: gain => policy.comparison === "gt" ? gain > policy.minimum : gain >= policy.minimum});
+    return {available: plan.available, missing_reason: plan.missing_reason, request,
+      rows: plan.swaps.map(s => ({add: s.add.player_key, drop: s.drop ? s.drop.player_key : null, gain: s.gain})),
+      unresolved_wire_keys: (plan.unresolvedWireKeys || []).map(Number)};
+  }
+
+  const api = {rowsFromBoard, applyWireOverrides, buildSwapPlan, buildSwapBlock};
   if (node) module.exports = api;
   else root.TradeValueWaiverBoardSwaps = api;
 })(typeof window !== "undefined" ? window : globalThis);
