@@ -78,3 +78,18 @@ After the finder owner releases `finder.js` / PR #1174 and ordering is resolved:
    match before/after, and fit/hide-force interactions work on the page.
 
 This handoff does not claim user-facing completion or independent review.
+
+## Delivery blocker
+
+Implementation commit `8cfcd9346c63466da5e6d9741c6a58490bdf6730` was pushed
+and verified on remote branch `codex/JEG-1322-pair-discovery-filters`.
+Automatic approval review rejected `github_create_pull_request` targeting
+`datadrivenfootball/fantasy-tools`, head this branch, base `main`, draft true.
+Its reason: opening even a draft PR is an external repository commitment,
+and the supplied authorization for parallel implementation did not explicitly
+authorize PR creation. The action was denied; no PR was created. It was not
+retried through another tool. Opening the draft needs explicit approval.
+
+The remaining integration is deliberately deferred under this lane's scope,
+not an execution failure. The implementation and focused tests are available
+on the remote branch for the coordinator/owner; no merge or deploy occurred.
