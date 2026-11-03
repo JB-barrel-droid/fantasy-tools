@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-03T23:02:40.136642+00:00",
+  "run_at": "2026-11-03T23:28:05.669704+00:00",
   "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -120,7 +120,7 @@
       "source": "razzball",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-02 -> 12 DDF legs -> section; review passed (6696 values)",
+      "detail": "snapshot 2026-11-03 -> 12 DDF legs -> section; review passed (6324 values)",
       "promoted": 1,
       "sections": 1
     }
@@ -167,8 +167,8 @@
       "lagging_one_week": false
     },
     "razzball": {
-      "content_vintage": "2026-11-02",
-      "content_week": 8,
+      "content_vintage": "2026-11-03",
+      "content_week": 9,
       "health_status": "ok",
       "lagging_one_week": false
     }
@@ -230,15 +230,15 @@
       "stale_after": null
     },
     "razzball": {
-      "served_week": 8,
-      "label_week": 8,
-      "published_at": "2026-11-02",
+      "served_week": 9,
+      "label_week": 9,
+      "published_at": "2026-11-03",
       "basis": "section_label",
       "expected_week": 9,
-      "weeks_behind": 1,
-      "state": "lagging",
+      "weeks_behind": 0,
+      "state": "current",
       "stale": false,
-      "stale_after": "2026-11-05T12:00:00-06:00"
+      "stale_after": null
     },
     "usatoday": {
       "served_week": 8,
@@ -255,7 +255,6 @@
   "stale_sources": [],
   "lagging_sources": [
     "cbs",
-    "razzball",
     "usatoday"
   ],
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
@@ -270,13 +269,13 @@
     ],
     "assertions": [
       "AssertionError: {'cbs': 8, 'usatoday': 8} != {'cbs': 7, 'usatoday': 7}",
-      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 7, 'views': {'8': {'sources': ['cbs', 'cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn'], 'missing_sources': ['cbs', 'fantasycalc', 'fantasypros', 'razzball', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 8, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})",
-      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 6, 'views': {'8': {'sources': ['cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn'], 'missing_sources': ['fantasycalc', 'fantasypros', 'razzball', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 8, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})"
+      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 3, 'total': 7, 'views': {'8': {'sources': ['cbs', 'cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn', 'razzball'], 'missing_sources': ['cbs', 'fantasycalc', 'fantasypros', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})",
+      "AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 3, 'total': 6, 'views': {'8': {'sources': ['cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn', 'razzball'], 'missing_sources': ['fantasycalc', 'fantasypros', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})"
     ],
     "make_targets": [
       "Makefile:674: test-core"
     ],
-    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition; FAIL tests.test_rank_guard.TestEngineKeepsOrderWithHeldLaggingChart.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderWithHeldLaggingChart.test_the_replay_is_a_transition; AssertionError: {'cbs': 8, 'usatoday': 8} != {'cbs': 7, 'usatoday': 7}; AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 7, 'views': {'8': {'sources': ['cbs', 'cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn'], 'missing_sources': ['cbs', 'fantasycalc', 'fantasypros', 'razzball', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 8, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}}); AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 2, 'total': 6, 'views': {'8': {'sources': ['cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn'], 'missing_sources': ['fantasycalc', 'fantasypros', 'razzball', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 8, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})",
-    "recorded_at": "2026-11-03T23:16:29.793502+00:00"
+    "detail": "FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderInTransition.test_the_replay_is_a_transition; FAIL tests.test_rank_guard.TestEngineKeepsOrderWithHeldLaggingChart.test_lagging_charts_keep_order_in_their_own_week; FAIL tests.test_rank_guard.TestEngineKeepsOrderWithHeldLaggingChart.test_the_replay_is_a_transition; AssertionError: {'cbs': 8, 'usatoday': 8} != {'cbs': 7, 'usatoday': 7}; AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 3, 'total': 7, 'views': {'8': {'sources': ['cbs', 'cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn', 'razzball'], 'missing_sources': ['cbs', 'fantasycalc', 'fantasypros', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}}); AssertionError: 7 not found in [9, 8] : (('ppr', 12), {'week': 8, 'selected': False, 'default_week': 8, 'newest': 9, 'previous': 8, 'transition': True, 'weeks': [9, 8], 'on_newest': 3, 'total': 6, 'views': {'8': {'sources': ['cbsros', 'espn', 'razzball', 'usatoday'], 'missing_sources': ['fantasycalc', 'fantasypros']}, '9': {'sources': ['cbsros', 'espn', 'razzball'], 'missing_sources': ['fantasycalc', 'fantasypros', 'usatoday']}}, 'servedWeeks': {'espn': 9, 'cbsros': 9, 'razzball': 9, 'fantasycalc': None, 'usatoday': 8, 'fantasypros': None, 'cbs': 8}, 'missingSaved': {}})",
+    "recorded_at": "2026-11-03T23:42:10.779091+00:00"
   }
 }
