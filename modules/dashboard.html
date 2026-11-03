@@ -358,7 +358,7 @@ function sysEvaluate(p, nowMs){
   <h2><span class="view-tag view-tag-legacy">[Legacy]</span> Trade dashboard QA — rendered output health</h2>
   <div class="desc">
     QA findings from rendered production testing of the <b>live trade value dashboard</b>
-    (https://jb-barrel-droid.github.io/fantasy-tools/).
+    ({{DDF_SITE_URL}}).
     Each error includes its <b>root cause</b> and the <b>line of reasoning</b> that becomes a monitoring criterion.
     QA runs repeatedly until zero errors remain.
   </div>
@@ -1201,7 +1201,7 @@ async function main(){
   // C9: Live deployment check via GitHub Actions API
   const deployInfo = document.getElementById("deployInfo");
   try{
-    const wfResp = await fetch("https://api.github.com/repos/JB-barrel-droid/fantasy-tools/actions/workflows/rebuild-chain.yml/runs?per_page=1", {cache:"no-store"});
+    const wfResp = await fetch("https://api.github.com/repos/{{DDF_GITHUB_REPOSITORY}}/actions/workflows/rebuild-chain.yml/runs?per_page=1", {cache:"no-store"});
     if(wfResp.ok){
       const wfData = await wfResp.json();
       const run = wfData.workflow_runs && wfData.workflow_runs[0];
@@ -1285,7 +1285,7 @@ async function main(){
   const qaDataLiteral = {
     round: 1,
     date: "2026-09-30",
-    target: "https://jb-barrel-droid.github.io/fantasy-tools/",
+    target: "{{DDF_SITE_URL}}",
     errors: [
       {
         id: "QA-001",

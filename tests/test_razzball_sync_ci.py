@@ -226,6 +226,12 @@ def render(script, ctx):
     return re.sub(r"\$\{\{\s*([^}]+?)\s*\}\}", lambda m: ctx.get(m.group(1).strip(), ""), script)
 
 
+def step_env(text, name, ctx):
+    header = find_step(text, name).split("        run:", 1)[0]
+    return {key: render(value, ctx) for key, value in
+            re.findall(r"^          ([A-Z][A-Z0-9_]*): (.*)$", header, re.M)}
+
+
 def python_calls(text, ref_name, inputs=None):
     inputs = inputs or {}
     with tempfile.TemporaryDirectory() as td:
@@ -240,12 +246,14 @@ def python_calls(text, ref_name, inputs=None):
         env = {"PATH": f"{td / 'bin'}:/usr/bin:/bin", "HOME": str(td),
                "GITHUB_REF_NAME": ref_name, "GITHUB_OUTPUT": str(out)}
         r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Resolve mode")), ctx)],
-                           cwd=td, env=env, capture_output=True, text=True)
+                           cwd=td, env={**env, **step_env(text, "Resolve mode", ctx)},
+                           capture_output=True, text=True)
         assert r.returncode == 0, r.stderr
         outs = dict(line.split("=", 1) for line in out.read_text(encoding="utf-8").split() if "=" in line)
         ctx["steps.cfg.outputs.mode"] = outs["mode"]
         r = subprocess.run(["bash", "-e", "-c", render(script_of(find_step(text, "Scrape and save")), ctx)],
-                           cwd=td, env=env, capture_output=True, text=True)
+                           cwd=td, env={**env, **step_env(text, "Scrape and save", ctx)},
+                           capture_output=True, text=True)
         assert r.returncode == 0, r.stderr + r.stdout
         return [line.split() for line in (td / "calls").read_text(encoding="utf-8").splitlines()]
 

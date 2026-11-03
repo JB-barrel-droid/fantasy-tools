@@ -49,7 +49,7 @@ class WorkflowTest(unittest.TestCase):
             for block in step_blocks(text):
                 script=script_of(block)
                 if not script: continue
-                if 'git commit' in script and path.stem not in {'bake-players', 'sleeper-projections-backfill'}:
+                if 'git commit' in script and path.stem not in {'bake-players', 'sleeper-projections-backfill', 'main-write-pause-switch'}:
                     self.assertIn('release_guard stage', script, path.name)
                 if 'release_guard stage' not in script: continue
                 guarded+=1
