@@ -177,3 +177,42 @@ does not merge or deploy.
   necessary. The main-red exception does not waive either gate.
 - The live site has not been checked here. The coordinator owns serial merge,
   main/deployment recovery and live verification before any other release.
+
+---
+
+## 2026-11-03 - Reuse reviewed journey readiness correction
+
+Contract: parent matched #1287's journey failure to the independently reviewed
+boot-readiness correction in #1174 at `427c34053bf4dc393435f5056fa3b28b0b3c8a9a`.
+Reuse exactly that correction; no new fix, timeout increase or assertion waiver.
+
+### Verified (check named)
+
+- On head `5bc447ac`, render run `41639625863`, journey job `125929600826`,
+  failed the unequal subcase of `LeagueSiteTest.test_league_to_compare_journey`:
+  no Details button for `164,2807|3942,1483` (24 tests, one failure).
+- Compared the actual file to the reviewed head: the only differences are
+  `settle()` requiring `ui.ready` before idle and a late-boot test reusing the
+  complete existing journey. The source commit is
+  `7e3abb6b65e3396579ceffe1111a421565f68187`; its test is unchanged at the
+  reviewed head. It applied cleanly as normal cherry-pick `9f575740`, with
+  original provenance and `2026-11-03-jeg1323-journey-readiness.md` retained.
+- `git diff --exit-code 427c3405 -- tests/test_jeg1249_league_site_render.py`
+  passed. The adopted test file is byte-identical to the reviewed correction,
+  SHA256 `9dbff9b8a88ac1e75aa87908b260cab1ebd28efdbb4d31186c830384a25d1bda`.
+- In a separate validation worktree on the integrated source plus that exact
+  file, required-browser focused checks passed 4/4, no skips, in 162.849s:
+  ordinary and delayed-boot league-to-Compare journeys, plus both deterministic
+  stability controls. Both journeys retained equal/unequal IDs, exact values,
+  workspace assertions, league-roster holds and original timeouts. Destination
+  identity and Chromium configured, production write credentials unset.
+- `git diff --exit-code 5bc447ac HEAD -- tests/test_fractional_seats_stability.py`
+  passed. The reviewed stability fix, live gate and 1.0 bound remain unchanged.
+  `git diff --check` passed. No application code or fixture change was added.
+
+### Claimed, not confirmed
+
+- Fresh final-head CI and parent-owned integration review remain required.
+  No workflow was manually cancelled or retried. No broad local suite repeated.
+- Parent retains the authorized bootstrap merge and recovery verification;
+  this session performs no merge to main or deployment.
