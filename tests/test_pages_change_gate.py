@@ -8,6 +8,8 @@ import tempfile
 import unittest
 from unittest.mock import patch
 from pipelines import pages_change_gate as gate
+from pipelines import release_batch
+from tests.test_release_batch import sample, D
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -62,7 +64,7 @@ class PagesChangeTest(unittest.TestCase):
         event = {'before': self.anchor, 'after': head, 'ref': 'refs/heads/main', 'forced': False}
         event.update(kwargs.pop('event', {}))
         return gate.classify(kwargs.pop('event_name', 'push'), event, head,
-                             kwargs.pop('anchor', self.anchor), self.git)[0]
+                             kwargs.pop('anchor', self.anchor), self.git, kwargs.pop('validate_control', gate.control_history))[0]
 
     def test_exact_status_only_records_no_publication(self):
         for name in sorted(gate.STATUS_FILES):
@@ -108,6 +110,57 @@ class PagesChangeTest(unittest.TestCase):
         self.assertEqual(self.classify(), 'full')
         with self.assertRaises(subprocess.CalledProcessError):
             self.classify(anchor='f' * 40)
+
+    def test_verified_registry_only_reservation_does_not_publish(self):
+        empty = {'version': 1, 'batches': []}
+        self.anchor = self.commit(gate.CONTROL, json.dumps(empty))
+        self.commit(gate.CONTROL, json.dumps(sample()))
+        self.assertEqual(self.classify(), 'control-only')
+
+    def test_acceptance_then_next_reservation_needs_no_extra_publication(self):
+        import copy
+        active = sample()
+        self.anchor = self.commit(gate.CONTROL, json.dumps(active))
+        accepted = copy.deepcopy(active)
+        accepted['batches'][0].update(state='accepted', acceptance={'published_sha': D, 'publication_run': 1, 'live_run': 2})
+        self.commit(gate.CONTROL, json.dumps(accepted))
+        next_doc = copy.deepcopy(accepted)
+        next_batch = copy.deepcopy(active['batches'][0]); next_batch.update(id='train-2', integration_pr=21)
+        next_batch['members'][0]['pr'] = 11
+        next_doc['batches'].append(next_batch)
+        self.commit(gate.CONTROL, json.dumps(next_doc))
+        with patch.object(release_batch, 'acceptance') as receipt:
+            self.assertEqual(self.classify(), 'control-only')
+            self.assertEqual(receipt.call_count, 2)
+        with patch.object(release_batch, 'acceptance', side_effect=ValueError('missing live receipt')):
+            with self.assertRaisesRegex(ValueError, 'live receipt'): self.classify()
+
+    def test_control_exemption_rejects_unknown_mixed_initial_or_invalid_transitions(self):
+        self.commit(gate.CONTROL, json.dumps(sample()))
+        # Installing a registry has no trusted previous registry: full path only.
+        with self.assertRaises(subprocess.CalledProcessError): self.classify()
+        empty = {'version': 1, 'batches': []}
+        self.anchor = self.commit(gate.CONTROL, json.dumps(empty))
+        self.commit(gate.CONTROL, json.dumps(sample()))
+        self.commit('app/main.js', 'changed')
+        self.assertEqual(self.classify(), 'full')
+        self.git('reset', '--hard', self.anchor)
+        self.commit(gate.CONTROL, json.dumps({'version': 99, 'batches': []}))
+        with self.assertRaises(ValueError): self.classify()
+        self.git('reset', '--hard', self.anchor)
+        p = self.root / gate.CONTROL; p.write_text(json.dumps(sample()))
+        status = self.root / 'dist/modules/ops-status.json'; status.parent.mkdir(parents=True, exist_ok=True); status.write_text('{}')
+        self.git('add', gate.CONTROL, 'dist/modules/ops-status.json'); self.git('commit', '-qm', 'mixed control commit')
+        with self.assertRaisesRegex(ValueError, 'other changes'): self.classify()
+
+    def test_control_history_cannot_hide_intermediate_unknown_changes(self):
+        self.anchor = self.commit(gate.CONTROL, json.dumps({'version': 1, 'batches': []}))
+        self.commit('app/main.js', 'intermediate app')
+        self.commit('app/main.js', 'app')
+        self.commit(gate.CONTROL, json.dumps(sample()))
+        with self.assertRaisesRegex(ValueError, 'intermediate'): self.classify()
+        with self.assertRaisesRegex(ValueError, 'first-parent'):
+            gate.control_history('a' * 40, 'b' * 40, lambda *args: b'c' * 40)
 
     def test_main_falls_back_to_full_on_api_git_or_json_failure(self):
         for error in (ValueError('range'), OSError('fetch'), KeyError('response')):

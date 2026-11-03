@@ -110,6 +110,54 @@ class BatchTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'ownership changed'): gate.transition(self.doc, changed)
         with self.assertRaises(ValueError): gate.transition(self.doc, {'version': 1, 'batches': []})
 
+    def test_stale_head_recovery_requires_green_reviewed_current_heads(self):
+        corrected = copy.deepcopy(self.doc); corrected['batches'][0]['members'][0]['head'] = D
+        self.prs['pulls/10']['head']['sha'] = D
+        gate.transition(self.doc, corrected, self.prs.__getitem__)
+        self.mock_ci.assert_called_with(10, D, self.prs.__getitem__)
+        self.mock_review.assert_called_with(10, D, {'author-10'}, 'review-standard', self.prs.__getitem__)
+        for evidence in (self.mock_ci, self.mock_review):
+            evidence.side_effect = ValueError('failed gate')
+            with self.assertRaises(ValueError): gate.transition(self.doc, corrected, self.prs.__getitem__)
+            evidence.side_effect = None
+        self.prs['pulls/10']['head']['sha'] = B
+        with self.assertRaisesRegex(ValueError, 'stale recovery'): gate.transition(self.doc, corrected, self.prs.__getitem__)
+        self.doc = corrected
+        with self.assertRaisesRegex(ValueError, 'membership'): self.run_gate()
+
+    def test_withdrawal_preserves_history_and_never_bypasses_a_merged_batch_receipt(self):
+        withdrawn = copy.deepcopy(self.doc)
+        withdrawn['batches'][0].update(state='withdrawn', recovery={'reason': 'member needs more work; branches and PRs retained'})
+        self.prs['pulls/20']['merged'] = False
+        gate.transition(self.doc, withdrawn, self.prs.__getitem__)
+        gate.ordinary(withdrawn, 10)
+        following = copy.deepcopy(withdrawn); next_batch = copy.deepcopy(sample()['batches'][0])
+        next_batch.update(id='train-2', integration_pr=21); following['batches'].append(next_batch)
+        gate.transition(withdrawn, following, self.prs.__getitem__)
+        self.assertEqual(following['batches'][0], withdrawn['batches'][0])
+        self.prs['pulls/20']['merged'] = True
+        with self.assertRaisesRegex(ValueError, 'publication/live acceptance'): gate.transition(self.doc, withdrawn, self.prs.__getitem__)
+        withdrawn['batches'][0]['recovery']['reason'] = ''
+        with self.assertRaisesRegex(ValueError, 'reason'): gate.registry(withdrawn)
+
+    def test_synchronized_reserved_member_keeps_ci_usable_while_ordinary_merge_blocks(self):
+        import contextlib
+        import sys
+        def run_git(*args):
+            if args[0] == 'show': return json.dumps(self.doc)
+            return A
+        def api(path):
+            if path.startswith('pulls/10/files'): return []
+            if path == 'git/ref/heads/main': return {'object': {'sha': A}}
+            raise AssertionError(path)
+        output = io.StringIO()
+        with patch.object(sys, 'argv', ['release_batch.py', '--check-ownership', '10', '--main', A]), \
+             patch.object(gate, 'git', side_effect=run_git), patch.object(gate, 'api', side_effect=api), \
+             patch.object(gate, 'items', return_value=[]), contextlib.redirect_stdout(output):
+            self.assertEqual(gate.main(), 0)
+        self.assertIn('individual merge preflight remains blocked', output.getvalue())
+        with self.assertRaises(ValueError): gate.ordinary(self.doc, 10)
+
 
 class EvidenceTest(unittest.TestCase):
     def ci_api(self, path):

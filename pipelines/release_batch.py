@@ -62,18 +62,21 @@ def registry(doc):
         require(isinstance(ident, str) and re.fullmatch(r'[a-zA-Z0-9_-]+', ident), 'invalid batch id')
         require(ident not in ids, 'duplicate batch id')
         ids.add(ident)
-        require(batch['state'] in ('active', 'accepted'), 'unknown batch state')
+        require(batch['state'] in ('active', 'accepted', 'withdrawn'), 'unknown batch state')
         require(isinstance(batch.get('owner'), str) and batch['owner'].strip(), 'missing owner session')
         number = batch['integration_pr']
         require(type(number) is int and number > 0 and number not in integrations, 'duplicate/invalid integration PR')
         integrations.add(number)
         rows = batch['members']
         require(isinstance(rows, list) and 1 <= len(rows) <= 7, 'batch must contain 1..7 members')
-        risks = set()
+        risks, local_members = set(), set()
         for member in rows:
             pr = member['pr']
-            require(type(pr) is int and pr > 0 and pr not in members, 'duplicate/invalid membership')
-            members.add(pr)
+            require(type(pr) is int and pr > 0 and pr not in local_members, 'duplicate/invalid membership')
+            local_members.add(pr)
+            if batch['state'] != 'withdrawn':
+                require(pr not in members, 'duplicate/invalid membership')
+                members.add(pr)
             require(isinstance(member['head'], str) and SHA.fullmatch(member['head']), 'invalid member head')
             require(member['risk'] in RISKS, 'invalid risk')
             require(isinstance(member.get('owner'), str) and member['owner'].strip(), 'missing member owner')
@@ -82,6 +85,9 @@ def registry(doc):
         require('review-high-risk' not in risks or len(rows) == 1, 'high-risk/value work must ship isolated')
         if batch['state'] == 'active':
             active.append(batch)
+        elif batch['state'] == 'withdrawn':
+            require(isinstance(batch.get('recovery', {}).get('reason'), str)
+                    and batch['recovery']['reason'].strip(), 'withdrawal needs a recovery reason')
         else:
             receipt = batch['acceptance']
             require(SHA.fullmatch(receipt['published_sha']) and type(receipt['publication_run']) is int
@@ -96,7 +102,7 @@ def registry(doc):
 def ordinary(doc, pr):
     active = registry(doc)
     require(active is None, f"individual merge blocked by active batch {active['id']}" if active else '')
-    require(all(pr not in [m['pr'] for m in b['members']] for b in doc['batches']),
+    require(all(pr not in [m['pr'] for m in b['members']] for b in doc['batches'] if b['state'] == 'accepted'),
             'batch member is an integration record; do not merge it separately')
 
 
@@ -200,8 +206,9 @@ def preflight(doc, manifest, main, head, get=api, run_git=git):
     require(active is not None and manifest['batch_id'] == active['id'], 'no matching active reservation')
     require(SHA.fullmatch(main) and SHA.fullmatch(head) and manifest['main_sha'] == main, 'stale pinned main')
     require(manifest['members'] == active['members'], 'manifest does not match exclusive membership')
-    if len(doc['batches']) > 1:
-        acceptance(doc['batches'][-2], get)
+    previous = [b for b in doc['batches'] if b['state'] == 'accepted']
+    if previous:
+        acceptance(previous[-1], get)
     run_git('merge-base', '--is-ancestor', main, head)
     owners = {active['owner'], *(m['owner'] for m in active['members'])}
     for m in active['members']:
@@ -220,21 +227,39 @@ def preflight(doc, manifest, main, head, get=api, run_git=git):
 
 
 def transition(old, new, get=api):
-    """Only append a reservation, or accept the unchanged active batch."""
+    """Preserve history; reserve, re-pin verified heads, accept, or withdraw unmerged work."""
     current = registry(old)
     following = registry(new)
     before, after = old['batches'], new['batches']
     if current is None:
         require(len(after) == len(before) + 1 and after[:-1] == before and following,
                 'registry history must be preserved; append one active reservation')
-        if before:
-            acceptance(before[-1], get)
-    else:
-        require(len(after) == len(before) and after[:-1] == before[:-1]
-                and following is None and after[-1]['state'] == 'accepted', 'active membership is immutable')
-        require({k: v for k, v in current.items() if k not in ('state', 'acceptance')}
-                == {k: v for k, v in after[-1].items() if k not in ('state', 'acceptance')}, 'active ownership changed')
-        acceptance(after[-1], get)
+        accepted = [b for b in before if b['state'] == 'accepted']
+        if accepted:
+            acceptance(accepted[-1], get)
+        return
+    require(len(after) == len(before) and after[:-1] == before[:-1], 'active membership/history is immutable')
+    latest = after[-1]
+    stable = lambda b: {k: v for k, v in b.items() if k not in ('state', 'acceptance', 'recovery', 'members')}
+    require(stable(current) == stable(latest), 'active ownership changed')
+    if latest['state'] == 'active':
+        without_head = lambda rows: [{k: v for k, v in m.items() if k != 'head'} for m in rows]
+        require(without_head(current['members']) == without_head(latest['members']), 'active membership changed')
+        require(current['members'] != latest['members'], 'no head correction')
+        for member in latest['members']:
+            pr = get(f"pulls/{member['pr']}")
+            require(pr['state'] == 'open' and not pr['merged'] and pr['head']['sha'] == member['head'], 'stale recovery head')
+            risk_floor(pr, member['risk'], get)
+            check_ci(member['pr'], member['head'], get)
+            review(member['pr'], member['head'], {member['owner']}, member['risk'], get)
+        return
+    require(latest['members'] == current['members'], 'active ownership changed')
+    if latest['state'] == 'withdrawn':
+        pr = get(f"pulls/{current['integration_pr']}")
+        require(pr['merged'] is False, 'merged batch cannot withdraw; publication/live acceptance still required')
+        return
+    require(latest['state'] == 'accepted', 'invalid completion state')
+    acceptance(latest, get)
 
 
 def main():
@@ -255,8 +280,13 @@ def main():
         if args.check_ownership:
             # Combined CI must run before review, so this gate checks ownership
             # only. Full preflight below still requires CI/review before merge.
-            claimed = [m['pr'] for b in doc['batches'] for m in b['members']]
-            require(args.check_ownership not in claimed, 'reserved batch member cannot merge individually')
+            claims = [b['id'] for b in doc['batches'] if b['state'] != 'withdrawn'
+                      and any(m['pr'] == args.check_ownership for m in b['members'])]
+            # A valid reservation is not a failed application check. Keep source
+            # CI usable after synchronize; --pr still blocks every individual
+            # merge during the reservation and --batch pins the actual heads.
+            if claims:
+                print('Reserved member of ' + claims[0] + '; individual merge preflight remains blocked.')
             changed = items(f'pulls/{args.check_ownership}/files')
             if any(f['filename'] == REGISTRY for f in changed):
                 require([f['filename'] for f in changed] == [REGISTRY] and changed[0]['status'] == 'modified',
@@ -272,8 +302,9 @@ def main():
                 transition(doc, json.loads(base64.b64decode(candidate['content'])))
             else:
                 ordinary(doc, args.pr)
-                if doc['batches']:
-                    acceptance(doc['batches'][-1])
+                accepted = [b for b in doc['batches'] if b['state'] == 'accepted']
+                if accepted:
+                    acceptance(accepted[-1])
         else:
             require(active and active['id'] == args.batch and args.head and SHA.fullmatch(args.head), 'unknown batch/head')
             git('fetch', '--no-tags', 'origin', f"pull/{active['integration_pr']}/head")

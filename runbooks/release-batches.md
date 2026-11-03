@@ -11,8 +11,10 @@ review, approval, provider and value-math gates still apply.
 
 `pipelines/release_batch.py` is a read-only executable preflight. The registry
 `.github/release-batches.json` on fetched main owns each member exclusively.
-The PR `batch-ownership` check rejects reserved member PRs and validates registry
-transitions using main's code. The merge runbook requires the same preflight
+The PR `batch-ownership` check validates exclusive reservations and registry
+transitions using main's code. It reports a reserved member as owned, without
+making that member's application CI unusable on synchronize; the ordinary merge
+preflight still rejects it. The merge runbook requires the same preflight
 immediately before each merge; it freezes individual merges during an active
 batch, rejects stale main/member/integration heads and missing CI/review evidence,
 and blocks progression without publication/live acceptance. These commands do
@@ -21,7 +23,9 @@ not merge, deploy, schedule, cancel or retry anything.
 No GitHub ruleset/settings change is included. A PR check is not automatically a
 required branch-protection check; an operator bypassing the runbook or an outside
 API merge is not prevented by repository code. Existing external merge agents
-must invoke this preflight before their merge call. In particular, do not claim
+must invoke this preflight before their merge call. The installation PR uses the
+previous merge gates until main contains this registry/tool; its ownership job
+explicitly reports that one bootstrap condition. In particular, do not claim
 that an unchanged saved monitoring/merge automation has been rewired by this PR.
 Do not run an ordinary merge loop alongside a batch: that abandoned train #1196.
 
@@ -45,7 +49,7 @@ Do not run an ordinary merge loop alongside a batch: that abandoned train #1196.
    transition review and CI remain required. Before the authorized registry
    merge run `python3 pipelines/release_batch.py --pr <registry-PR> --main <current-main-SHA>`.
    No next reservation may replace, abandon or silently rewrite the active one.
-   Unexpected heads/conflicts require release-owner resolution, not retries or
+   Unexpected heads/conflicts require the recovery path below, not retries or
    merging members independently. Main must contain the reservation before
    claiming exclusive ownership is active.
 3. Use the existing [main-write switch](main-write-pause.md) for the approved
@@ -97,6 +101,33 @@ Do not run an ordinary merge loop alongside a batch: that abandoned train #1196.
    not provide an atomic compare-and-merge transaction. Publish once through
    the existing full Pages workflow. Do not add a second publication route.
 
+## Recover stale or failed members without deleting work
+
+An ordinary member synchronize retains usable application CI. Reservation status
+is a separate ownership fact, not an application failure. The existing build,
+render, artifact and independent-review requirements are unchanged; stale pins
+still fail full batch preflight.
+
+For a corrected member, push its fix on its existing branch, obtain green
+exact-head CI and its independent current-head review, then propose a registry-only
+PR changing **only member head pins**. Batch id, owner, integration PR, member PRs,
+risk and source owners must remain identical. Preflight verifies every corrected
+current head's CI, artifacts and review before allowing that control transition.
+Bring the new main and corrected members into the integration branch normally,
+update its manifest, then obtain fresh combined CI and delta review. An old
+combined head fails after the main registry correction; no old approval survives.
+
+If the batch cannot proceed, propose a registry-only PR changing the active entry
+to `withdrawn` with `"recovery":{"reason":"<why work is being deferred>"}`.
+All ownership/membership/history remains. Preflight verifies the integration PR
+is **not merged**. It never cancels runs, closes/deletes PRs or branches, deletes
+artifacts, merges a failed member or fabricates publication/live acceptance.
+Its member work can then enter a new reservation or the ordinary gated path.
+A merged batch cannot withdraw: publication and exact-live acceptance remain
+mandatory, even when a member is now stale or red. The latest actual accepted
+release is still reverified before a following batch; withdrawn work is not a
+release and does not replace that receipt.
+
 ## Accept before the next batch
 
 Wait for successful Pages publication of the integration merge SHA and a later
@@ -133,7 +164,23 @@ Manual/daily dispatch always takes that full path. The served health pair
 path: `health_artifacts_watch.py --await-published` requires their actual live
 arrival. Exempting those files would break that existing fail-closed contract.
 
-A verified status-only run uploads a classification receipt and summary, with
+The only additional control exemption is `.github/release-batches.json`.
+For that file, the classifier walks every main first-parent commit since actual
+publication and validates each registry transition with the same preflight
+logic. Every transition commit must change only that one control file; mixed,
+malformed, unverified, initial-install and missing-history cases use full gates.
+An acceptance followed by the next reservation is validated as two transitions,
+so the control commits themselves do not add two application publications per
+batch. The combined application is published once. Existing pause-switch on/off,
+manual/daily, health arrival and real data changes still use their full path and
+can add deployments; this change does not claim exactly one total Pages run or
+publication per window. It removes the two new registry-control publications and
+coalesces N member application releases into one combined application release. Status-only
+commits between transitions remain checked; no broad workflow exemption exists.
+The Pages token adds only read access for Actions and PR acceptance evidence;
+there is no GitHub settings or security configuration activation in this task.
+
+A verified status/control-only run uploads a classification receipt and summary, with
 no build, shard, browser install or Pages artifact/publication. The deploy
 monitor records no new `site_deploy` success for this no-publication result.
 Producer workflow artifacts, committed main records, monitor observations and

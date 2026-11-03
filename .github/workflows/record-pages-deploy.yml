@@ -21,7 +21,7 @@ jobs:
     runs-on: ${{ vars.DATA_RUNNER || 'ubuntu-latest' }}
     steps:
       - uses: actions/checkout@v4
-      - name: Distinguish publication from status-only success
+      - name: Distinguish publication from status/control-only success
         id: publication
         env:
           GH_TOKEN: ${{ github.token }}
@@ -41,7 +41,7 @@ jobs:
               out.write('record=' + ('false' if noop else 'true') + '\n')
           if noop:
               with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as out:
-                  out.write('Status-only run: no publication; site_deploy observation unchanged. Live status remains at last publication.\n')
+                  out.write('Status/control-only run: no publication; site_deploy observation unchanged. Live status remains at last publication.\n')
           PYCODE
       - name: Record monitored check
         if: steps.publication.outputs.record == 'true'

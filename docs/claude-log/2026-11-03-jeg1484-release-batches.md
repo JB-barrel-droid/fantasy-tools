@@ -15,7 +15,8 @@ The main registry provides exclusive ownership; source membership cannot take th
 ordinary preflight path. Combined release evidence pins main/source/combined heads,
 requires actual complete CI and build artifacts plus independent review attestations,
 and verifies prior publication/live artifact acceptance. The PR ownership check is
-wired. External merge callers must invoke the preflight; GitHub branch protection
+wired and reports reserved members without poisoning their application CI; the
+ordinary preflight remains the individual-merge block. External merge callers must invoke the preflight; GitHub branch protection
 and saved external automation prompts are unchanged. No stronger enforcement claim
 is made.
 
@@ -50,3 +51,26 @@ must be retained when #1262 integrates its separate changes to that test file.
 No freshness/promotion runtime files changed. Cheap draft guards and focused
 batch/Pages/CI-speedup tests pass after correction. Full local validation continues
 in its original single run; no duplicate broad gate was started.
+
+Parent checkpoint corrections: validated registry-only control commits now use
+no-publication classification. The classifier validates every first-parent
+transition since actual publication, including acceptance followed by the next
+reservation, so routine control PRs do not add two application deployments per
+batch. Mixed/unverified control history still runs full gates. Pages requires
+read-only Actions/PR evidence permissions; no settings changes are performed.
+
+Recovery: an immutable member list may have its heads corrected through a
+registry-only PR only after actual green CI/artifacts and independent exact-head
+review. The combined head must then catch up and get fresh gates/review. A
+non-destructive withdrawal retains the whole record and all branches/PRs and is
+allowed only while the integration PR is unmerged. Published batches cannot
+withdraw or bypass publication/live acceptance. The source ownership check
+reports reservations as valid, so synchronize can produce green application CI;
+ordinary merge preflight still rejects all members during an active batch.
+
+178 focused tests pass after these changes, including registry-only publication
+savings, mixed/malformed/missed control history, stale-head recovery gates,
+withdrawal of unmerged work, refusal to withdraw merged work and synchronize CI
+without individual merge authorization. The original full validation continues;
+these final release-tool changes are covered by the focused suite rather than a
+duplicate broad suite.
