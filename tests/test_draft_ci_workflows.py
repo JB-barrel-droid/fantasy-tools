@@ -261,14 +261,18 @@ class WorkflowTest(unittest.TestCase):
                             self.assertIn("deferred or incomplete", (Path(tmp) / "summary").read_text())
                 self.assertIn("exit 1", body)
 
-    def test_pages_production_validation_is_unconditional(self):
+    def test_pages_full_route_validation_is_independent_of_pr_draft_state(self):
         text = (ROOT / ".github/workflows/pages.yml").read_text()
         for name in ("build", "validate-shard"):
             body = job(text, name) or ""
             self.assertTrue(body, name)
             self.assertNotIn("run_expensive", body)
             self.assertNotIn("pr-state", body)
-            self.assertNotIn("    if:", body)
+            self.assertEqual(re.findall(r"^    needs: (.*)$", body, re.M), ['classify'])
+            self.assertEqual(re.findall(r"^    if: (.*)$", body, re.M),
+                             ["needs.classify.outputs.mode == 'full'"])
+            from tests.test_pages_change_gate import workflow_problems
+            self.assertEqual(workflow_problems(text), [])
 
 
 if __name__ == "__main__":

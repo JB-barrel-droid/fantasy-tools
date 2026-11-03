@@ -39,3 +39,14 @@ inventory. These are event/manual checks without schedules or production writes;
 no monitoring checks or assertions were removed.
 
 No merge, deployment, branch deletion, settings, Supabase or credential change.
+
+Draft PR: https://github.com/datadrivenfootball/fantasy-tools/pull/1303.
+Initial exact-head ownership and waiver-mutation checks passed. CI's cheap guards
+found one additional legacy expectation in tests/test_draft_ci_workflows.py
+that forbade all Pages job conditions. The correction pins the exact classifier
+condition/dependency, retains draft-state independence, and invokes the new
+negative-tested publication-boundary guard. This necessary one-test adjustment
+must be retained when #1262 integrates its separate changes to that test file.
+No freshness/promotion runtime files changed. Cheap draft guards and focused
+batch/Pages/CI-speedup tests pass after correction. Full local validation continues
+in its original single run; no duplicate broad gate was started.
