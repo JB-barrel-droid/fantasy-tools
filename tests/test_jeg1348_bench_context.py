@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+CASES = json.loads((ROOT / "tests/fixtures/jeg1348_bench_context.json").read_text())
 TOOL = ROOT / "tools/research/bench-decay-evidence/build_readout_asset.py"
 spec = importlib.util.spec_from_file_location("bench_readout_asset", TOOL)
 asset = importlib.util.module_from_spec(spec)
@@ -19,6 +20,28 @@ def node(script):
 
 
 class BenchContextTest(unittest.TestCase):
+    def test_fixture_counts_are_backed_by_the_committed_schedule(self):
+        byes = json.loads((ROOT / CASES["bye_source"]).read_text())["byes"]
+        self.assertEqual(len(byes), 32)
+        for case in CASES["cases"]:
+            with self.subTest(case=case["name"]):
+                lo, hi = case["window"]
+                self.assertEqual(case["weeks"], max(0, hi - lo + 1))
+                self.assertEqual(case["byes"], sum(lo <= week <= hi for week in byes.values()))
+
+    def test_historical_table_requires_its_fixed_cohort_metadata(self):
+        result = node(r'''
+const fs = require('fs'), vm = require('vm'); global.window = global;
+vm.runInThisContext(fs.readFileSync('app/v2/bench-breakout-evidence.js', 'utf8'));
+vm.runInThisContext(fs.readFileSync('app/v2/bench-context.js', 'utf8'));
+const missing = ['seasons', 'teams', 'basis'].map(key => {
+  const e = JSON.parse(JSON.stringify(TradeValueBenchEvidence)); delete e[key];
+  return TradeValueBenchContext.evidenceRows(e);
+});
+console.log(JSON.stringify(missing));
+''')
+        self.assertEqual(result, [None, None, None], "missing provenance must not become an unlabelled rate table")
+
     def test_shipped_asset_is_only_counted_O3_and_reproducible(self):
         raw = asset.MATRIX.read_bytes()
         self.assertEqual(asset.ASSET.read_text(), asset.output(raw))

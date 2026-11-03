@@ -19,6 +19,8 @@
   function evidenceRows(evidence) {
     if (!evidence || evidence.schema !== "bench-breakout-evidence/1"
         || evidence.evidence !== "historical" || evidence.measureWeek !== 9
+        || evidence.teams !== 12 || evidence.seasons !== "2015–2025"
+        || typeof evidence.basis !== "string" || !evidence.basis.trim()
         || !Array.isArray(evidence.rows)) return null;
     const rows = [];
     for (const pos of POSITIONS) {
