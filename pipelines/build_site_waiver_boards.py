@@ -40,9 +40,11 @@ def publish(root: Path, dist: Path, tag: str, as_of: str) -> dict:
                 raise ValueError('invalid archived board filename')
             (target / name).write_text(text, encoding='utf-8')
     inputs_path = target / f'inputs-wk{week}.json'
+    # Use the producer's shared alias path, relocated only for offline replays.
+    aliases_path = root / weekly.ALIAS_FILE.relative_to(weekly.ROOT)
     args = ['--season', str(nfl_week.SEASON), '--week', str(week), '--as-of', as_of,
             '--players', str(root / 'data/inputs/players_identity_snapshot.json'),
-            '--aliases', str(root / 'data/inputs/player_aliases.json'), '--out', str(inputs_path)]
+            '--aliases', str(aliases_path), '--out', str(inputs_path)]
     for flag, name in [('espn-weekly', f'espn_weekly_projections_{nfl_week.SEASON}.csv'),
                        ('byes', f'nfl_byes_{nfl_week.SEASON}.json'),
                        ('sleeper-base', 'sleeper_identity_base.json')]:
