@@ -237,7 +237,8 @@
   }
   // Find a trade (and anything else listening) re-runs when the values under it change.
   function announce(reason) {
-    try { document.dispatchEvent(new CustomEvent("ddf:league-settings-changed", {detail: {reason, notes: []}})); }
+    // Link values and their reset/restore stay in this visit; committed edits clear S.session before announcing.
+    try { document.dispatchEvent(new CustomEvent("ddf:league-settings-changed", {detail: {reason, persist: !S.session, notes: []}})); }
     catch (error) { console.warn("Overrides listener failed:", error); }
   }
   function push(reason) {

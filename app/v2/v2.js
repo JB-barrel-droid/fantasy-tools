@@ -2940,12 +2940,12 @@
   // JEG-1020: every consumer of the league settings outside v2.js (Find a trade) listens for this event; a handler
   // pushes a short sentence on detail.notes when it changed something the reader should hear about.
   const LEAGUE_EVENT = "ddf:league-settings-changed";
-  function announceLeagueChange(reason) {
-    const detail = {reason, notes: []};
+  function announceLeagueChange(reason, options) {
+    const detail = {reason, persist: !(options && options.persist === false), notes: []};
     try { document.dispatchEvent(new CustomEvent(LEAGUE_EVENT, {detail})); } catch (error) { console.warn("League change listener failed:", error); }
     return detail.notes;
   }
-  function leagueChange(apply) {
+  function leagueChange(apply, options) {
     const before = C.getActiveSources();
     try { apply(); } finally {
       try { refresh(); } catch (error) { console.warn("Refresh after a league change failed:", error); }
@@ -2954,7 +2954,7 @@
     const dropped = before.filter(key => !after.has(key));
     const notes = [];
     if (dropped.length) notes.push(`Removed ${dropped.map(key => sourceMeta(key).short).join(", ")}: not available for this league.`);
-    const others = announceLeagueChange("league");
+    const others = announceLeagueChange("league", options);
     if (notes.length) {
       setStatus(notes.join(" "));
       clearTimeout(statusTimer);
@@ -6421,7 +6421,7 @@
       }
     }
     // JEG-1259: a pending carried trade stays in the address (reload and share keep it), with this visit's deal.
-    if (carriedTrade) parts.push(`tc=${carriedTradeText()}`);
+    if (carriedTrade) parts.push("valuecontext=1", `tc=${carriedTradeText()}`);
     return `#compare-trade${parts.length ? `?${parts.join("&")}` : ""}`;
   }
   let shareDroppedOverrides = false;
@@ -6509,7 +6509,7 @@
         if (scoringChange) C.setScoring(scoring);
         if (teamsChange) C.setTeams(teams);
         rosterChange.forEach(([key, value]) => C.setRosterSpot(key, value));
-      });
+      }, {persist: save});
     }
     // The link's week is read after the league: the setting decides which weeks exist.
     if (wkChange) { C.setWeek(linkWeek, false); rememberWeek(); refresh(); }
@@ -6522,8 +6522,8 @@
     // Shares last: a league change resets them to that league's defaults. A rejected set keeps them.
     if (sharesGiven) { C.setPositionWeights(shares, false); refresh(); }
     // JEG-1020: Find a trade reads the link's settings too. JEG-1380: a week-only link moves its results to that week.
-    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link");
-    else if (wkChange) announceLeagueChange("week");
+    if (weeksChange || advChange || sharesGiven) announceLeagueChange("link", {persist: save});
+    else if (wkChange) announceLeagueChange("week", {persist: save});
     if (save) saveLeagueSettings();   // announces the inputs itself
     else announceInputs();
     const earlier = $("v2Status").hidden ? "" : ` ${$("v2Status").textContent}`;

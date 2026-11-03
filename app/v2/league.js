@@ -173,10 +173,27 @@
   // here, opening the trade there would change its values and gains, so the handoff is held, and says so, until Compare can
   // carry this page's pricing (JEG-1229). With the standard bench on both pages the link opens the same trade at the same
   // values.
-  const compareLink = (r, ctx) => (ctx && ctx.levels
-    ? el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
-      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."})
-    : el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
+  function compareLink(r, ctx) {
+    if (ctx && ctx.levels) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
+      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."});
+    const link = el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"});
+    // JEG-1403: Compare already receives TradeContext; carry the selected opponent and the exact modeled pricing so
+    // reload and another device keep the same rosters, values and lineup gains instead of choosing a default team.
+    const TC = root.TradeValueTradeContext, C = engine(), ws = store.get(), ov = root.DDFOverrides;
+    const shared = ov.shareLink(link.getAttribute("href") + "&" + leagueQuery());
+    if (shared.dropped) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "value-context-size",
+      text: "Not opened in Compare a trade: your player overrides are too large for a link. Use Export on the Overrides tab to share them as a file."});
+    const deal = {give: r.give.map(p => String(p.player_key)), get: r.receive.map(p => String(p.player_key))};
+    const mine = TC.savedTeam(ws, ws.myTeamId), theirs = TC.savedTeam(ws, r.opponentId);
+    const keys = TC.pricingKeys({mine: mine.roster, theirs: theirs.roster, deal});
+    // Match shareLink's canonical engine basis, including default-equivalent custom blends.
+    const common = TC.commonFromPage({leagueQuery: leagueQuery(), valueContext: {...ov.snapshotContext(), basis: C.getBasis()},
+      sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    const context = TC.createContext({route: "league", workspaceId: ws.id, common, mine, opponents: [theirs], deal,
+      pricing: TC.modeledPricing(C, keys)});
+    link.setAttribute("href", shared.hash + "&tc=" + TC.encodeTransfer(TC.toTransfer(context)));
+    return link;
+  }
   const isK = entry => F.isNotEvaluated(entry);
 
   // ---------- team list ----------
@@ -1586,6 +1603,8 @@
   // settings can now match, every number is recomputed from the engine, the saved settings snapshot follows.
   function onSettingsChanged(event) {
     if (!UI.ready || !engine()) return;
+    // A carried trade applies its settings for this visit; it must not rewrite the reader's saved league.
+    if (event && event.detail && event.detail.persist === false) { refreshAll("settings"); return; }
     const ctx = mathContext();
     if (!ctx) return;
     const notes = [];
@@ -1769,7 +1788,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least one trade chart says the other manager breaks even or wins (Min charts fair asks for more). Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {class: "v2-lg-inclusion", id: "v2LgOppsInclusion", hidden: true}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
