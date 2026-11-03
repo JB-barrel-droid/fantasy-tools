@@ -15,7 +15,8 @@ const players = read("data/fixtures/current/players.json").players
   .map((p) => ({ player_key: p.player_key, name: p.name, pos: p.pos, team: p.team }));
 const priced = new Set(players.map((p) => p.player_key));
 const index = paste.buildIndex(players);
-const result = { checked: 0, paste: {}, mcp: {}, misses: [] };
+const acceptanceNames = new Set(["Mitch Tinsley", "Zonovan Knight", "Kenny Gainwell", "Michael Woods", "Nyheim Miller-Hines"]);
+const result = { checked: 0, paste: {}, mcp: {}, misses: [], acceptance: [] };
 
 for (const r of read("data/inputs/player_platform_spellings.json").rows) {
   if (!priced.has(r.player_key)) continue;
@@ -31,6 +32,10 @@ for (const r of read("data/inputs/player_platform_spellings.json").rows) {
   const mcpOut = mcpKey === r.player_key ? `ok:${m.match}` : mcpKey == null ? m.match : `other:${m.match}`;
   result.paste[pasteOut] = (result.paste[pasteOut] || 0) + 1;
   result.mcp[mcpOut] = (result.mcp[mcpOut] || 0) + 1;
+  if (r.source === "sleeper" && acceptanceNames.has(r.source_player_name)) {
+    result.acceptance.push({ name: r.source_player_name, player_key: r.player_key,
+                             paste_key: pasteKey, mcp_key: mcpKey, mcp_match: m.match });
+  }
   if (pasteOut !== "ok" || !mcpOut.startsWith("ok:")) {
     result.misses.push({ source: r.source, name: r.source_player_name, pos: r.position, player_key: r.player_key,
                          paste: pasteOut, paste_key: pasteKey, mcp: mcpOut, mcp_key: mcpKey });

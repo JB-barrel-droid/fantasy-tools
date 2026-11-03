@@ -4,6 +4,25 @@ Ready bounded phase only (Linear JEG-1202, 2026-10-29). Read-only: no canonical
 table, alias list, resolver, parser, MCP runtime, Supabase or production data
 was changed. This is evidence for the later mapping work, not that work.
 
+## Subsequent matcher acceptance (JEG-1388, 2026-11-03)
+
+Codex reconciled the offline identity/active snapshot pair with the documented
+[JEG-1351 cleanup read-back](https://linear.app/jegabee/issue/JEG-1351#comment-04a290c5-0d4b-48ae-8276-93ab9b5b9979):
+duplicates 4653/4655/4660 are omitted and originals 2785/437/4363 are active.
+All other snapshot identity fields and active flags are preserved. This is a
+bounded evidence reconciliation, not a fresh database pull; the original pull
+date and reconciliation provenance are retained in the active snapshot.
+
+Rebuilt from the committed November 3 Sleeper base, the matrix has 1,611 rows,
+all 1,037 grounded platform spellings resolve, and both matcher alias blocks
+have 19 entries. The roster-paste/chat check passes all 862 spellings whose
+players occur in the October 31 priced fixture, including the original four
+gaps and Nyheim Miller-Hines. Ambiguous names are reported without a match;
+canonical-name collisions and aliases shared by two keys remain held. The
+generated SQL mirror was not applied. See the
+[acceptance correction log](../../claude-log/2026-11-03-roster-name-acceptance.md)
+for commands, scope, and limits. The original audit narrative below is historical.
+
 ## Answer first
 
 - Committed evidence covers platform spellings for very few players. Of 1,614

@@ -92,10 +92,17 @@ class CommittedRows(unittest.TestCase):
         keys = {r["player_key"] for r in _doc()["rows"]}
         self.assertFalse(keys & JEG1351_DUPLICATES)
 
-    def test_ungrounded_paste_spellings_are_not_stored(self):
-        names = {(r["source"], r["source_player_name"]) for r in _doc()["rows"]}
-        for n in (("espn", "Aaron Jones Sr."), ("yahoo", "Aaron Jones Sr."), ("espn", "Kyle Pitts Sr.")):
-            self.assertNotIn(n, names)
+    def test_stored_suffix_spellings_have_independent_ground(self):
+        # The refreshed Sleeper base now supplies these exact id-linked names;
+        # their old ungrounded status must not override that newer evidence.
+        rows = {(r["source"], r["source_player_name"]): r for r in _doc()["rows"]}
+        for source, name, key in (("espn", "Aaron Jones Sr.", 164),
+                                  ("yahoo", "Aaron Jones Sr.", 164),
+                                  ("espn", "Kyle Pitts Sr.", 1970)):
+            row = rows[(source, name)]
+            self.assertEqual(row["player_key"], key)
+            self.assertIn("sleeper_exact", row["ground"].split())
+            self.assertTrue(row["evidence"])
 
 
 class Migration(unittest.TestCase):
@@ -146,30 +153,45 @@ class SharedSpellingsAreHeld(unittest.TestCase):
         self.assertEqual([(r["player_key"], r["source_player_name"]) for r in rows], [(3, "Al Jones")])
         self.assertEqual(sorted(r["player_key"] for r in held), [1, 2])
 
-
-# The stored spellings the page's roster paste or the chat connector can't land
-# on their player (2026-10-30): (source, spelling) -> why. JEG-1388's alias list
-# (pipelines/build_name_aliases.py) cleared Zonovan Knight, Kenny Gainwell and
-# Michael Woods. A fixed gap may leave this list; a new miss fails.
-MATCHER_KNOWN_GAPS = {
-    ("sleeper", "Mitch Tinsley"): ("both pick 4660, the duplicate row JEG-1351 deletes; rerun "
-                                   "build_name_aliases.py once players.json is rebaked without it"),
-}
+    def test_ungrounded_paste_cannot_supply_a_stored_row(self):
+        header = ("player_key,canonical_full_name,position,gsis_id,sleeper_status,sleeper_spelling,"
+                  "sleeper_ids,sleeper_link,sleeper_source,sleeper_resolver,espn_status,espn_spelling,"
+                  "espn_ground,espn_evidence,espn_resolver,yahoo_status,yahoo_spelling,yahoo_ground,"
+                  "yahoo_evidence,yahoo_resolver")
+        # Even a matrix row claiming coverage cannot turn an ungrounded
+        # observation into a stored spelling: independent evidence is required.
+        matrix = header + "\n1,Josh Smith,WR,,missing,,,,,,differs,Josh Smith Jr.,sleeper_exact,test.txt:1,ok,missing,,,,\n"
+        files = {bps.MATRIX: matrix, bps.OBSERVATIONS: json.dumps({"observations": [
+            {"platform": "espn", "spelling": "Josh Smith Jr.", "ground_status": "ungrounded",
+             "player_key": 1, "team": "BUF", "file": "test.txt", "line": 1, "grounds": {}},
+        ]})}
+        with mock.patch.object(bps, "_read", lambda rel: files[rel]):
+            with self.assertRaisesRegex(SystemExit, "no grounded observation"):
+                bps.build()
 
 
 @unittest.skipIf(shutil.which("node") is None, "node not installed")
 class PasteAndChatMatchers(unittest.TestCase):
     """roster-paste.js and mcp/names.ts against every stored spelling of a priced player."""
 
-    def test_only_the_known_gaps_miss(self):
+    def test_every_stored_spelling_reaches_its_priced_player(self):
         out = subprocess.run(["node", "--experimental-strip-types", "--no-warnings",
                               str(ROOT / "tests/node/platform_spellings_matchers_check.mjs")],
                              capture_output=True, text=True, timeout=120, cwd=str(ROOT))
         self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
         result = json.loads(out.stdout.strip().splitlines()[-1])
         self.assertGreater(result["checked"], 500)
-        new = [m for m in result["misses"] if (m["source"], m["name"]) not in MATCHER_KNOWN_GAPS]
-        self.assertEqual(new, [], "a stored platform spelling no longer reaches its player")
+        self.assertEqual(result["misses"], [], "a stored platform spelling no longer reaches its player")
+        # Pin the four original acceptance cases and the post-rebake Nyheim
+        # miss, so dropping a spelling or player from the sweep cannot hide it.
+        expected = {"Mitch Tinsley": 4363, "Zonovan Knight": 868, "Kenny Gainwell": 785,
+                    "Michael Woods": 928, "Nyheim Miller-Hines": 2785}
+        accepted = {r["name"]: r for r in result["acceptance"]}
+        self.assertEqual(accepted.keys(), expected.keys())
+        for name, key in expected.items():
+            self.assertEqual(accepted[name]["paste_key"], key)
+            self.assertEqual(accepted[name]["mcp_key"], key)
+            self.assertEqual(accepted[name]["mcp_match"], "exact")
 
 
 if __name__ == "__main__":
