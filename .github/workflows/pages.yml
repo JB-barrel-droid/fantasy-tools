@@ -21,8 +21,10 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
-# Shared build/probe identity; an unset or empty variable retains the old slug.
+# JEG-1450: wrap make without changing gate commands or exit statuses.
 env:
+  BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
+  BASELINE_RED_CONTEXT: "CI"
   DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
 
 jobs:
