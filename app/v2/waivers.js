@@ -17,9 +17,9 @@
   const MAX_PAIRS = 100;             // the two-for-two search looks at no more than this many candidate pairs
   const NET_FLOOR = 0.05;            // a change that shows as 0.0 is no change (same floor as finder.js)
   const OUT_STATUS = ["Out", "Doubtful", "IR", "PUP"];
-  // JEG-1312: injury status is Sleeper's, as of the identity base the bake used (window.TradeValueStatus, player-status.js).
-  // The refresh runs Tue + Thu, so a healthy copy is at most 5 days old; past STATUS_MAX_AGE_DAYS, or with no date, the tab
-  // shows no status at all (no tag, no "Your X is Out") and says why, so an old status never reads as current.
+  // JEG-1363: daily display status is separate from the identity/value bake (window.TradeValueStatus).
+  // Both dated rows and the daily id map use the Waivers six-day rule
+  // (JEG-892 / JEG-1401), checked again on every render.
   const STATUS_MAX_AGE_DAYS = 6;
   const DAY_MS = 24 * 60 * 60 * 1000;
   const statusDay = ms => new Intl.DateTimeFormat("en-US", {month: "short", day: "numeric", timeZone: "UTC"}).format(new Date(ms));
@@ -31,16 +31,30 @@
     }
     const ageDays = Math.max(0, (nowMs - at) / DAY_MS);
     const day = statusDay(at);
-    if (ageDays > STATUS_MAX_AGE_DAYS) {
+    const daily = status.by_sleeper_id;
+    // Future-dated and undated observations are never shown.
+    if (at > nowMs || ageDays > STATUS_MAX_AGE_DAYS) {
       const old = Math.floor(ageDays);
       return {shown: false, asOf: status.as_of, ageDays, label: null,
         text: `Injury status is not shown: the latest Sleeper status is from ${day}, ${old} day${old === 1 ? "" : "s"} old.`};
     }
-    return {shown: true, asOf: status.as_of, ageDays, label: `Sleeper status as of ${day}`, text: `Injury status: Sleeper, as of ${day}.`};
+    const dated = daily ? `${day}, ${new Date(at).toISOString().slice(11, 16)} UTC` : day;
+    return {shown: true, asOf: status.as_of, ageDays, bySleeperId: daily,
+      label: `Sleeper status as of ${dated}`, text: `Injury status: Sleeper, as of ${dated}.`};
   }
   // The status a row may show: null when the copy is stale or undated, or the player has no status (never "healthy").
-  const statusOf = (row, freshness) => (freshness && freshness.shown && row && row.injury_status && !["Active", "Inactive"].includes(row.injury_status)
-    ? row.injury_status : null);
+  function statusOf(row, freshness) {
+    if (!freshness || !freshness.shown || !row) return null;
+    if (freshness.bySleeperId) {
+      const p = freshness.bySleeperId[String(row.sleeper_id)];
+      const team = t => ({JAC: "JAX", LAR: "LA", WSH: "WAS", LVR: "LV"}[t] || t);
+      if (!p || !row.team || team(p.team) !== team(row.team) || p.pos !== row.pos) return null;
+      return ["Questionable", "Doubtful", "Out", "IR", "PUP", "Sus"].includes(p.injury_status) ? p.injury_status : null;
+    }
+    // Compatibility for older dated callers; the built page always has the
+    // daily id map, even when it is missing/empty. Never mix the two vintages.
+    return row.injury_status && !["Active", "Inactive"].includes(row.injury_status) ? row.injury_status : null;
+  }
 
   // JEG-1081 (PR 6): the view that decides the verdict. ddf = DDF Value (adjusted trade charts, the default), projections = DDF Value
   // (projections), market = Trade chart average, basis = whatever the Overrides basis makes DDF Value (same key as ddf), src:<key> = one source alone.
@@ -174,8 +188,9 @@
   }
   function injuryNote(roster, lineup, candidate, freshness) {
     if (!freshness || !freshness.shown) return null;
-    const hurt = lineup.starters.find(r => r.pos === candidate.pos && OUT_STATUS.includes(r.injury_status));
-    return hurt ? {name: hurt.name, status: hurt.injury_status, text: `Your ${hurt.name} is ${hurt.injury_status}, which adds to the need at ${candidate.pos}.`} : null;
+    const hurt = lineup.starters.find(r => r.pos === candidate.pos && OUT_STATUS.includes(statusOf(r, freshness)));
+    const status = statusOf(hurt, freshness);
+    return hurt ? {name: hurt.name, status, text: `Your ${hurt.name} is ${status}, which adds to the need at ${candidate.pos}.`} : null;
   }
   // ctx: {shape, expected, chartKeys, rosterSize, byes, status (statusFreshness; missing = no status shown)}. roster: rows (engine rows plus unpriced kicker / defense rows),
   // all carrying chart_avg when charts are available. candidate: an engine row, or an unpriced row.
@@ -643,7 +658,7 @@
       if (!q || !engine() || !root.TradeValueNameSearch) return;
       const onList = stores.mine.get().concat(stores.cands.get());
       const hits = root.TradeValueNameSearch.search(rowsAll().concat(notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const added = onList.some(p => p.key === key || (F.isNotEvaluated(p) && F.isNotEvaluated(row) && p.pos === row.pos && F.normName(p.name) === F.normName(row.name)));
@@ -911,7 +926,7 @@
     const list = sortedResults(c.out.results);
     const cards = el("ol", {class: "v2-wv-cards", "aria-label": "Waiver candidates as cards"}, ...list.map(r => cardFor(r, c.out.roster)));
     const kids = [el("div", {class: "v2-find-table-wrap v2-wv-tablewrap"}, resultsTable(list, c.out.roster)), cards,
-      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in the view you decide by (DDF Value unless you pick another); the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price him). A dash means no value, never zero."})];
+      el("p", {class: "v2-meta v2-wv-legend", text: "Starter change and bench change are the swap with the best drop, in the view you decide by (DDF Value unless you pick another); the bench counts at the engine's bench weights, never in full. Value above waivers is projected points per game above the waiver line for the player's position (the engine's own line, averaged over the projection sources that price that player). A dash means no value, never zero."})];
     if (c.out.combos.length) {
       const sum = `Show ${plural(c.out.combos.length, "combo")}`;
       const det = el("details", {class: "v2-wv-combos", id: "v2WaiversCombos"}, el("summary", {text: sum}),

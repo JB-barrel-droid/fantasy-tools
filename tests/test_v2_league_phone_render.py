@@ -12,7 +12,7 @@ At 390, 360 and 320 px with the 4-team fixture in the workspace:
   * every visible text meets WCAG AA contrast in light and dark, on the league cards at 1366 and 390;
   * the headers are keyboard operable: Enter on a sort button sorts, one tab stop per header, aria-sort on exactly one th;
   * a team folds with the keyboard and Escape inside it;
-  * each trade card shows one line per table column in the table's order, value first, so Our fit and Their fit each have a line (JEG-1232).
+  * each trade card shows one line per table column in the table's order, value first, so Your fit and Their fit each have a line (JEG-1232).
 
 Discrimination: test_guard_fails_on_broken_builds serves a build with the cards hidden, the sort selector dead, a 30 px control,
 the low-contrast tint colour back, both fits back on one line, a summary column checkbox without its label, that label under
@@ -192,8 +192,8 @@ def check_card_lines(browser, base, overrides, errors):
         if ids != CARD_ORDER:
             errors.append(f"[390px lines] card {i + 1} line order {ids}, expected {CARD_ORDER}")
         text = dict(lines)
-        if not text.get("ours", "").startswith("Our fit:") or "Their fit" in text.get("ours", ""):
-            errors.append(f"[390px lines] card {i + 1} Our fit line: {text.get('ours')!r}")
+        if not text.get("ours", "").startswith("Your fit:") or "Their fit" in text.get("ours", ""):
+            errors.append(f"[390px lines] card {i + 1} Your fit line: {text.get('ours')!r}")
         if not text.get("theirs", "").startswith("Their fit:"):
             errors.append(f"[390px lines] card {i + 1} Their fit line: {text.get('theirs')!r}")
     page.context.close()
@@ -375,7 +375,7 @@ class LeaguePhoneRenderTest(unittest.TestCase):
             "a 30px control": ({"v2.css": css.replace(".v2-lg-toggle { min-width: 44px; min-height: 44px;", ".v2-lg-toggle { min-width: 30px; min-height: 30px;", 1)}, {"phone"}),
             "low contrast tint": ({"v2.css": css.replace(".v2-lg-sort.is-active { color: var(--v2-action-strong); }", ".v2-lg-sort.is-active { color: #9FD8BE; }", 1)}, {"contrast"}),
             "aria-sort on the button": ({"league.js": league.replace('const th = el("th", {scope: "col", "aria-sort": S.ariaSort(state, id), "data-col": id, ...(attrs || {})});', 'const th = el("th", {scope: "col", "data-col": id, ...(attrs || {})});', 1)}, {"keyboard"}),
-            "both fits on one line again": ({"league.js": league.replace('el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),', 'el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', 1).replace('el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', '', 1)}, {"card-lines"}, "Our fit line"),
+            "both fits on one line again": ({"league.js": league.replace('el("p", {"data-line": "ours"}, `Your fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),', 'el("p", {"data-line": "ours"}, `Your fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"} · Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', 1).replace('el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),', '', 1)}, {"card-lines"}, "Your fit line"),
             "Escape does not fold": ({"league.js": league.replace('if (event.key === "Escape" && !comp.collapsed', 'if (false && !comp.collapsed', 1)}, {"keyboard"}),
             # JEG-1236: the 20 px summary column boxes pass only through their 44 px labels, so each part of that must be load-bearing.
             "a summary column checkbox loses its label": ({"league.js": league.replace('group.append(el("label", {}, input, " ", field.label));', 'group.append(el("span", {}, input, " ", field.label));', 1)}, {"phone"}, "controls under 44px"),

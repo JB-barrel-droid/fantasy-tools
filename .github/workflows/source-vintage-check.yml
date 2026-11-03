@@ -33,6 +33,7 @@ jobs:
       - name: Check source vintage
         id: check
         env:
+          SUPABASE_BYTES_CALLER: source-vintage-check:check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
@@ -85,6 +86,7 @@ jobs:
           # reads the latest data and code); see source_probe.dispatch_chain.
           python3 pipelines/source_probe.py dispatch-chain --reason "source-vintage-check"
         env:
+          SUPABASE_BYTES_CALLER: source-vintage-check:dispatch
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Mint main writer token
@@ -106,6 +108,7 @@ jobs:
         # consuming the trigger.
         if: steps.check.outputs.code_changed == 'True' && steps.dispatch.outcome == 'success'
         env:
+          SUPABASE_BYTES_CALLER: source-vintage-check:record-pipelines-code-hash
           MAIN_WRITER_TOKEN: ${{ steps.main-writer.outputs.token }}
           BRANCH_WRITER_TOKEN: ${{ github.token }}
           GIT_TERMINAL_PROMPT: '0'
@@ -166,9 +169,20 @@ jobs:
       - name: Record monitored check
         if: always() && github.ref == 'refs/heads/main' && (github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
         env:
+          SUPABASE_BYTES_CALLER: source-vintage-check:record-monitored-check
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 pipelines/record_monitor_check.py --check-id source_vintage_check --owner source-vintage-check.yml --outcome "${{ job.status }}"
+
+      - name: Retain Supabase byte counters (JEG-1458)
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: supabase-bytes-${{ github.job }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/supabase-bytes/*.md
+          if-no-files-found: ignore
+          retention-days: 14
 
   check-branch:
     if: github.ref != 'refs/heads/main' && startsWith(github.ref, 'refs/heads/')

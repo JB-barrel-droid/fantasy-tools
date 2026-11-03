@@ -173,10 +173,27 @@
   // here, opening the trade there would change its values and gains, so the handoff is held, and says so, until Compare can
   // carry this page's pricing (JEG-1229). With the standard bench on both pages the link opens the same trade at the same
   // values.
-  const compareLink = (r, ctx) => (ctx && ctx.levels
-    ? el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
-      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."})
-    : el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"}));
+  function compareLink(r, ctx) {
+    if (ctx && ctx.levels) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "league-pricing",
+      text: "Not opened in Compare a trade: it prices with the standard bench, not your league's rosters, so this trade's values would change there. Switch off Use league rosters to open it."});
+    const link = el("a", {class: "v2-link", href: `#compare-trade?give=${r.give.map(p => encodeURIComponent(p.player_key)).join(",")}&get=${r.receive.map(p => encodeURIComponent(p.player_key)).join(",")}`, text: "Open in Compare a trade"});
+    // JEG-1403: Compare already receives TradeContext; carry the selected opponent and the exact modeled pricing so
+    // reload and another device keep the same rosters, values and lineup gains instead of choosing a default team.
+    const TC = root.TradeValueTradeContext, C = engine(), ws = store.get(), ov = root.DDFOverrides;
+    const shared = ov.shareLink(link.getAttribute("href") + "&" + leagueQuery());
+    if (shared.dropped) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "value-context-size",
+      text: "Not opened in Compare a trade: your player overrides are too large for a link. Use Export on the Overrides tab to share them as a file."});
+    const deal = {give: r.give.map(p => String(p.player_key)), get: r.receive.map(p => String(p.player_key))};
+    const mine = TC.savedTeam(ws, ws.myTeamId), theirs = TC.savedTeam(ws, r.opponentId);
+    const keys = TC.pricingKeys({mine: mine.roster, theirs: theirs.roster, deal});
+    // Match shareLink's canonical engine basis, including default-equivalent custom blends.
+    const common = TC.commonFromPage({leagueQuery: leagueQuery(), valueContext: {...ov.snapshotContext(), basis: C.getBasis()},
+      sources: TC.sourcesFromEngine(C.getSourceInfo())});
+    const context = TC.createContext({route: "league", workspaceId: ws.id, common, mine, opponents: [theirs], deal,
+      pricing: TC.modeledPricing(C, keys)});
+    link.setAttribute("href", shared.hash + "&tc=" + TC.encodeTransfer(TC.toTransfer(context)));
+    return link;
+  }
   const isK = entry => F.isNotEvaluated(entry);
 
   // ---------- team list ----------
@@ -390,7 +407,7 @@
       if (!q || !C || !root.TradeValueNameSearch) return;
       const ws = store.get();
       const hits = root.TradeValueNameSearch.search(C.getAllRows().concat(F.page.notEvaluatedChoices()), q).slice(0, 8);
-      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or he may not have a value yet.`}));
+      if (!hits.length) results.append(el("li", {class: "is-empty v2-meta", text: `Can't find “${q}”. Check the spelling, or this player may not have a value yet.`}));
       hits.forEach(row => {
         const key = String(row.player_key);
         const holder = ws.teams.find(t => t.entries.some(e => e.key === key
@@ -1011,7 +1028,7 @@
     const shape = ctx.shape || {};
     const teams = ws.teams.length;
     const seats = Number(shape.BENCH) || 0;
-    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what he adds over the best available free agent at his position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
+    const basisNote = el("p", {class: "v2-meta", id: "v2LgLevelsNote", text: "Priced with your league's rosters: DDF Value counts a player only for what this player adds over the best available free agent at that position. The trade charts that judge what other teams accept use the depth your league actually rosters (players in IR or taxi spots are held, not depth). Each team's pasted roster is read as its whole roster, so a player missing from every team counts as a free agent: check the team counts above. Compare a trade and the pair finder keep the standard bench."});
     const counts = el("ul", {class: "v2-meta v2-lg-levels", id: "v2LgLevelCounts"},
       el("li", {id: "v2LgCountSeats", text: `Bench seats in your settings: ${teams * seats} (${seats} per team).`}),
       el("li", {id: "v2LgCountDepth", text: `Active players beyond the starters, league-wide: ${posCounts(ctx.levels.marketCounts)}.`}),
@@ -1255,7 +1272,7 @@
     const columns = el("details", {id: "v2LgFields", class: "v2-lg-field-options", open: Boolean(UI.fieldsOpen)}, el("summary", {text: "Add team summary columns"}),
       el("p", {class: "v2-meta", text: "Current team summary before the trade. Values and ranks follow the summary's ranking basis."}));
     columns.addEventListener("toggle", () => { UI.fieldsOpen = columns.open; });
-    [["mine", "Our team"], ["theirs", "Their team"]].forEach(([side, label]) => {
+    [["mine", "Your team"], ["theirs", "Their team"]].forEach(([side, label]) => {
       const group = el("fieldset", {}, el("legend", {text: label}));
       fields.forEach(field => {
         const key = `${side}:${field.id}`;
@@ -1274,7 +1291,7 @@
       filters.append(el("label", {class: "v2-field"}, el("span", {class: "v2-field-label", text: label}), control));
       return control;
     };
-    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Our team"]]);
+    const side = select("v2LgSummaryFilterSide", "Team", [["theirs", "Their team"], ["mine", "Your team"]]);
     const field = select("v2LgSummaryFilterField", "Summary field", fields.map(f => [f.id, f.label]));
     const op = select("v2LgSummaryFilterOp", "Condition", []);
     const value = el("input", {id: "v2LgSummaryFilterValue", type: "text", "aria-label": "Summary filter value"});
@@ -1303,7 +1320,7 @@
       const f = fields.find(f => f.id === rule.field);
       if (!f) return;
       const words = {gte: "at least", lte: "at most", eq: "equals", contains: "contains", notContains: "does not contain", missing: "missing", present: "has a value"};
-      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Our" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
+      filters.append(el("p", {class: "v2-lg-summary-rule"}, `${rule.side === "mine" ? "Your" : "Their"} team · ${f.label} ${words[rule.op] || rule.op} ${["missing", "present"].includes(rule.op) ? "" : rule.value} `,
         button("Remove", {class: "v2-link", "aria-label": `Remove ${f.label} filter`}, () => save({summaryFilters: rules.filter((_, i) => i !== index)}))));
     });
     return el("div", {class: "v2-lg-summary-controls"}, columns, filters);
@@ -1386,7 +1403,7 @@
     const fields = T.summaryFields(basis);
     const selected = new Set(Array.isArray(ws.ui.summaryColumns) ? ws.ui.summaryColumns : []);
     const optional = ["mine", "theirs"].flatMap(side => fields.filter(f => selected.has(`${side}:${f.id}`)).map(f => ({...f, side, field: f,
-      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Our" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
+      id: `summary:${side}:${f.id}`, label: `${side === "mine" ? "Your" : "Their"} ${f.label}`, get: r => { const t = byTeam.get(side === "mine" ? mine.id : r.opponentId); return t ? f.get(t) : null; }})));
     const cols = O.OPP_COLUMNS.concat(optional);
     const state = savedSort(ws, "opps", cols, O.OPP_DEFAULT);
     const onSort = next => setSort("opps", next, cols);
@@ -1446,7 +1463,7 @@
     const reset = button("Reset sort", {class: "v2-btn", id: "v2LgOppsReset", hidden: S.sameState(state, O.OPP_DEFAULT)}, () => onSort(O.OPP_DEFAULT));
     const two = {rowspan: "2"};
     const thead = el("thead", {},
-      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Our team fit", two),
+      el("tr", {}, sortTh("opponent", cols, state, onSort, two), plainTh("Trade", two), sortTh("capture", cols, state, onSort, two), sortTh("proj", cols, state, onSort, {...two, title: "Projections agree or disagree with the DDF Value assessment of this trade."}), plainTh("Your team fit", two),
         plainTh("Market perception", {colspan: "2", scope: "colgroup"}), plainTh("Their team fit", two), sortTh("overall", cols, state, onSort, two), sortTh("rank", cols, state, onSort, two), ...optional.map(c => sortTh(c.id, cols, state, onSort, two))),
       el("tr", {}, sortTh("market", cols, state, onSort, null, "Edge"), sortTh("fair", cols, state, onSort, null, "Charts fair")));
     const colspan = OPP_COLSPAN + optional.length;
@@ -1494,11 +1511,11 @@
     // The phone cards: the same rows, the fold tucked inside the card of the player it belongs to.
     const oppCard = (r, tail) => el("li", {class: `v2-lg-card${UI.selectedOpp === r.id ? " is-selected" : ""}`, "data-opp-id": r.id, "data-overall": r.overall || "none"},
       el("h4", {}, `#${r.rank} · vs ${r.opponent} · ${r.overall ? O.FIT_WORD[r.overall] : "Not judged"}${r.partial ? " (partial roster)" : ""}`),
-      // JEG-1232: one line per table column, in the table's order (value first), so Our fit and Their fit each get a line.
+      // JEG-1232: one line per table column, in the table's order (value first), so Your fit and Their fit each get a line.
       el("p", {"data-line": "trade"}, ...tradeNodes(r, ctx)),
       el("p", {"data-line": "capture"}, `DDF Value: ${signed(r.edge)} pts${r.edgePct === null ? "" : ` (${signed(r.edgePct)}%)`}`),
       el("p", {"data-line": "proj"}, `${projText(r).word}${r.projEdge === null || r.projEdge === undefined ? "" : `: ${signed(r.projEdge)} points`}`),
-      el("p", {"data-line": "ours"}, `Our fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
+      el("p", {"data-line": "ours"}, `Your fit: ${r.ours ? `${r.ours.label} · ${ourFitDetail(r)}` : "—"}`),
       el("p", {"data-line": "market"}, `Market: ${r.chartEdge === null ? "—" : `${signed(r.chartEdge)} (${r.rivalOkCount}/${r.chartCount} fair)`}`),
       el("p", {"data-line": "theirs"}, `Their fit: ${r.theirs ? r.theirs.detail : "—"}`),
       compareLink(r, ctx),
@@ -1586,6 +1603,8 @@
   // settings can now match, every number is recomputed from the engine, the saved settings snapshot follows.
   function onSettingsChanged(event) {
     if (!UI.ready || !engine()) return;
+    // A carried trade applies its settings for this visit; it must not rewrite the reader's saved league.
+    if (event && event.detail && event.detail.persist === false) { refreshAll("settings"); return; }
     const ctx = mathContext();
     if (!ctx) return;
     const notes = [];
@@ -1769,7 +1788,7 @@
       el("div", {id: "v2LgSummaryBody"}), el("p", {class: "v2-sr", id: "v2LgSummaryCount"}));
     const opps = el("section", {class: "v2-card", id: "v2LgOpps", "aria-labelledby": "v2LgOppsTitle", hidden: true},
       el("div", {class: "v2-card-head"}, el("div", {}, el("h2", {id: "v2LgOppsTitle", text: "Trade opportunities"}),
-        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while the market (at least three of the four trade charts) says the other manager breaks even or wins. Ranked by fit first, then by DDF Value capture."}))),
+        el("p", {class: "v2-meta", text: "Your team against every other team. Each trade is one you win on DDF Value while at least one trade chart says the other manager breaks even or wins (Min charts fair asks for more). Ranked by fit first, then by DDF Value capture."}))),
       el("p", {class: "v2-meta", id: "v2LgOppsStatus", role: "status"}), el("div", {class: "v2-lg-inclusion", id: "v2LgOppsInclusion", hidden: true}), el("div", {id: "v2LgOppsBody"}));
     // JEG-1099: a click anywhere on a row (not on its own buttons and links) picks it; Escape closes the panel.
     opps.addEventListener("click", event => {
@@ -1840,8 +1859,10 @@
     root.addEventListener("hashchange", readShareHash);
     const phoneLayout = root.matchMedia("(max-width: 767px)");
     if (phoneLayout.addEventListener) phoneLayout.addEventListener("change", () => { if (UI.selectedOpp) renderOpps(); });
+    // JEG-1389: the engine can have rows before v2.js has restored the saved league settings (scoring, teams, roster), and that
+    // restore does not redraw this page. Drawing first left every line at the default settings, so wait for v2.js too.
     const ready = () => {
-      const ctx = mathContext();
+      const ctx = root.TradeValueV2 ? mathContext() : null;
       if (!ctx) return false;
       UI.ready = true;
       refreshAll("load");
