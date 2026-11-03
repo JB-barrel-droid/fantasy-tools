@@ -1,6 +1,7 @@
 """JEG-1219: saved-team selection never writes a working copy into League."""
 from __future__ import annotations
 
+import sys
 import unittest
 
 from tests import _render_env
@@ -28,6 +29,17 @@ STATE = """() => ({mine: window.TradeValueFinder.ui.getMine(), theirs: window.Tr
   teams: window.TradeValueWorkspace.store.get().teams, marked: window.TradeValueWorkspace.store.get().myTeamId,
   selected: document.getElementById('v2FindSavedTeam').value,
   theirSelected: document.getElementById('v2FindTheirSavedTeam').value})"""
+# JEG-1475: a closed native select follows the platform's keyboard model (Blink MenuListSelectType). On macOS the
+# arrow keys open the menu, which stays inert in headless Chrome, so type-ahead selects; on Linux and Windows the
+# arrow keys move the selection. Both are real keyboard paths that fire the page's change handler.
+MAC_SELECT = sys.platform == 'darwin'
+MINE_KEYS = ('s', 's') if MAC_SELECT else ('Home', 'ArrowDown', 'ArrowDown')   # Current roster -> alpha -> beta
+THEIR_KEYS = ('s',) if MAC_SELECT else ('Home', 'ArrowDown')   # Current roster -> alpha (beta is the other side's)
+# Failure context only: which element took each key and what the pickers held, so a red run names its cause.
+KEY_LOG = """() => { window.__keyLog = [];
+  for (const type of ['keydown', 'keypress', 'change']) document.addEventListener(type, e => window.__keyLog.push(
+    [type, e.key || '', e.target.id || e.target.tagName, document.getElementById('v2FindSavedTeam').value,
+     document.getElementById('v2FindTheirSavedTeam').value].join(':')), true); }"""
 
 
 class FinderSavedTeamRenderTest(unittest.TestCase):
@@ -406,13 +418,16 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                 page = self.opened(browser, base, width=width)
                 fx = page.evaluate(SEED)
                 page.evaluate('fx => window.TradeValueFinder.ui.setSides(fx.mine, fx.teams[1].entries)', fx)
+                dialogs = []
+                page.on('dialog', lambda dialog: dialogs.append(dialog.message[:80]))
+                page.evaluate(KEY_LOG)
+                keylog = lambda: f"width={width} dialogs={dialogs} keys={page.evaluate('window.__keyLog')}"
                 picker = page.get_by_label('Your saved League team', exact=True)
                 picker.focus()
-                picker.press('Home')
-                picker.press('ArrowDown')
-                picker.press('ArrowDown')
+                for key in MINE_KEYS:
+                    picker.press(key)
                 picker.press('Tab')
-                self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
+                self.assertEqual(page.evaluate(STATE)['selected'], 'beta', keylog())
                 self.assertEqual(page.evaluate(STATE)['theirs'], fx['teams'][1]['entries'])
                 self.assertGreaterEqual(picker.bounding_box()['height'], 44)
                 page.locator('#v2FindGo').click()
@@ -422,10 +437,10 @@ class FinderSavedTeamRenderTest(unittest.TestCase):
                     page.locator('#v2FindEdit').click()
                 their_picker = page.get_by_label('Their saved League team', exact=True)
                 their_picker.focus()
-                their_picker.press('Home')
-                their_picker.press('ArrowDown')
+                for key in THEIR_KEYS:
+                    their_picker.press(key)
                 their_picker.press('Tab')
-                self.assertEqual(page.evaluate(STATE)['theirSelected'], 'alpha')
+                self.assertEqual(page.evaluate(STATE)['theirSelected'], 'alpha', keylog())
                 self.assertEqual(page.evaluate(STATE)['selected'], 'beta')
                 self.assertGreaterEqual(their_picker.bounding_box()['height'], 44)
                 self.assertEqual(page.evaluate(STATE)['teams'], fx['teams'])

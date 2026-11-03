@@ -455,6 +455,25 @@ chart DDF Value").
    `W[p, bench] = bs* x Braw[p] / sum(Braw)` (0 where the denominator is 0).
    The bench groups of `W` therefore sum to exactly `bs` (15% by default) and
    the starter groups to `1 - bs`.
+3a. **2-QB league, no superflex slot** (JEG-1366, Jeremy 2026-10-30, pick A
+   on the before/after on the ticket). When the roster has 2 or more
+   dedicated QB slots and `SF = 0`, at each whole-seat allocation before
+   fractional-seat blending (VP-2.2g), the QB groups of `W` are the mean of
+   `W_s[QB, r]` (expected starts, ES-15.1) or of `sig_s[QB]` / `beta_s[QB]`
+   scaled by `1 - bs*` / `bs*` (fixed bench share) over the projections in
+   `I` only: the league's own points above its 2-QB waiver line, at its own
+   starter line. RB/WR/TE keep their relative weights and are rescaled so `W`
+   still sums to 1 (with a fixed `bs`, starters and bench separately, so the
+   bench total stays `bs*`). The charts' superflex / 2-QB lists still set
+   each chart's spread within QB. A superflex league is unchanged (its extra
+   seat has an RB/WR/TE fallback), and with no projection in `I` this step
+   does nothing. Historical pre-fractional-seat 12-team fixture of 2026-10-30
+   (`seat_sigma = 0`): the QB share goes from 30.5
+   to 32.3% to 36.0 to 38.4%, the top 24 QBs +17 to +22% (every QB valued
+   above 1 point +17 to +28%), every RB/WR/TE -8 to -10% (`ValueModel.usesTwoQbNativeShare`,
+   `value_reference.uses_two_qb_native_share`,
+   `spec_reference.value_pipeline.two_qb_native_share`;
+   `tests/test_jeg1366_two_qb_native_share.py`).
 4. **Reader position shares** (BE-2 / MR-16), when set:
    `W[p, r] = W[p, r] x share_p / (W[p, starter] + W[p, bench])`, skipped
    where that sum is 0. Applied after 3, so with position shares set the

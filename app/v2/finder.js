@@ -11,7 +11,9 @@
 //   * rosters are typed in with player search; the second slice (2026-10-16) adds pasted names. The Sleeper / ESPN
 //     league-ID fetchers were deleted (Jeremy, 2026-10-27, JEG-1131): paste is the only way to load a league;
 //   * default 1-for-1 up to 2-for-2, a toggle raises the maximum players per side;
-//   * "fair to the rival" = at least 3 of the 4 trade charts say the rival breaks even or wins;
+//   * "fair to the rival" = at least one available trade chart says the rival breaks even or wins (SEARCH_MIN_CHARTS;
+//     JEG-1403, Jeremy: "I'd still want to see for even one trade chart and then we can use filters"). It was 3 of 4
+//     until then. MIN_CHARTS (3) is unchanged and still gates the Trade chart average;
 //   * ranking prefers simpler trades.
 // Defaults chosen here, listed in docs/math-review-agenda.md: the simplicity weight (EXTRA_PLAYER_WEIGHT)
 // and the cap on subsets searched per side (MAX_SUBSETS).
@@ -21,6 +23,7 @@
   const OUR_KEY = "ddf_value";
   const CHART_KEYS = ["usatoday", "fantasycalc", "fantasypros", "cbs"];
   const MIN_CHARTS = 3;
+  const SEARCH_MIN_CHARTS = 1;       // the search's default gate: charts that must price the package with the rival even or up
   const MAX_SIZE_CHOICES = [1, 2, 3, 4];
   const MAX_SUBSETS = 6000;          // per side; larger rosters search the top players by DDF Value
   const EXTRA_PLAYER_WEIGHT = 0.1;   // each player beyond a 1-for-1 takes 10% off the ranking score
@@ -170,7 +173,7 @@
     const ourKey = o.ourKey || OUR_KEY;
     const maxSize = Math.max(1, o.maxSize || 2);
     const chartKeys = (o.chartKeys || CHART_KEYS).slice();
-    const minCharts = o.minCharts || Math.min(MIN_CHARTS, chartKeys.length);
+    const minCharts = o.minCharts || Math.min(SEARCH_MIN_CHARTS, chartKeys.length);
     const limit = o.limit || LIMIT;
     const guardrails = activeGuardrails(o.guardrails) ? o.guardrails : null;
     // Optional roster sanity: {shape, mine, theirs (all the side's rows), keepMine, keepTheirs}.
@@ -1086,7 +1089,7 @@
     return {mineId: has(link.mineId) ? link.mineId : null, theirId: has(link.theirId) ? link.theirId : null};
   }
 
-  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
+  const api = {encodeFinderHash, decodeFinderHash, linkTeamsFor, benchBackups, startersAtGivenPositions, givenPositionsLine, viableGroups, viewTip, VIEW_TIPS, fitTip, FIT_TIPS, hasProjections, chipTooltip, deltaLine, fitHeadline, biggestImbalance, teamFit, tradeFit, naturalFit, projectionsHold, PROJ_FLOOR, FIT_VARIANTS, fitText, valueNoise, PROJECTION_KEYS, PROJECTIONS_KEY, tierGroups, tierOrder, benchWeight, FIT_Z, FIT_TIER, expectedDepth, rosterBalance, evalSentence, DEPTH_POS, USABLE_MIN, looksLikePage, isNotEvaluated, NOT_EVALUATED_POS, findTrades, evaluateCombo, collapseThrowIns, groupTrades, coreOf, pickStarters, lineupValue, rosterImpact, rosterConstructionOk, balanceCounts, viabilityLabel, withChartAverage, needLine, teamSummary, SUMMARY_ROWS, MARKET_KEY, lineupIssues, issueText, rosterGaps, matchNames, normName, parsePasted, subsets, subsetCount, OUR_KEY, CHART_KEYS, MIN_CHARTS, SEARCH_MIN_CHARTS, MAX_SIZE_CHOICES, MAX_SUBSETS, EXTRA_PLAYER_WEIGHT, LIMIT};
   // Stable identity comes from League, never the name (duplicate names are valid).
   function savedTeamChoices(workspace) {
     return workspace.teams.map((team, i) => ({id: team.id,
@@ -2170,7 +2173,7 @@ const S = {mine: [], theirs: [], maxSize: 2, keepMine: true, keepTheirs: true,
       note(`Packages of up to ${S.maxSize} are searched among your top ${res.mine.searched} and their top ${res.theirs.searched} players by DDF Value.`);
     }
     if (!res.trades.length) {
-      note(`No slam dunks with this team. No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try another team, or a larger package.`);
+      note(`No slam dunks with this team. No trade found where DDF Value says you win and ${charts.length === 1 ? "the one available chart says" : res.minCharts === 1 ? `any of the ${charts.length} charts says` : `at least ${res.minCharts} of ${charts.length} charts agree`} they break even or win. Try another team, or a larger package.`);
       setHeadline("none", {reason: "no trades were found"});
       return undefined;   // the roster assessment above stays: it is worth reading even when no trade is found
     }

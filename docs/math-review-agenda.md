@@ -1780,7 +1780,8 @@ week-ahead projections from all three sources are stored, re-run
   are searched among the top players by DDF Value per side so the subsets stay
   under 6,000 per side. "Fair to the rival" is at least 3 of 4 trade charts at
   net <= 0 (as shown, so under 0.05 is even), counting only charts that price
-  every player in the package. Should the rival test weight charts by how
+  every player in the package. (Superseded by JEG-1403: at least one available
+  chart, inside its even band; filters narrow it.) Should the rival test weight charts by how
   likely managers are to use them?
 
 ## Decisions 2026-10-16 (Jeremy; decisions.md jeremy-review-2026-10-16)

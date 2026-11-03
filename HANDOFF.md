@@ -30,6 +30,50 @@ below are history, including any "Codex reviews and merges" line.
   belongs with the explainer fixes, JEG-1395/JEG-1396).
 - Next: exact-head CI green, then the merge gate merges.
 
+### PR #1236 main integration (JEG-1366, Codex Bridge, 2026-10-31)
+
+- Jeremy authorized a normal main-to-PR merge, focused checks and push when clear. PR stays ready;
+  no main merge, deploy, Supabase write or Linear status change in this job.
+- Remote branch `claude/JEG-1366`; fresh local branch `codex/JEG-1366-main-merge` in
+  `fantasy-tools-worktrees/jeg-1366-main-merge`. Merge parents: PR `1c830350`, main `c7ab7562`.
+- Cancelled Claude session left unpushed merge `dcd12435`, 19 generated tracked modifications in its merge
+  worktree and 59 staged data refreshes in its old-head worktree. Patches and generated files archived under
+  `/tmp/jeg1366-cancelled-state-archive`; those changes discarded and both stale worktrees removed.
+  The old local merge branch is retained for recovery only; never use it as the PR push source.
+- Only textual conflict: this handoff; both lanes retained. The three value implementations auto-merge;
+  2QB reweighting runs inside each whole-seat allocation before fractional blending. Main's changes remain.
+- **Approved numbers DO move.** On current 2026 week-8/ROS inputs, 12-team QB shares are Standard 43.7607%,
+  Half PPR 40.7900%, PPR 36.7921% (approved: 38.4386%, 38.4355%, 36.0203%). Allen Standard 91.3 -> 101.3;
+  Burrow Half PPR 63.5 -> 67.0; Gibbs PPR 60.7 -> 58.7. Original inputs plus seat_sigma=0 reproduce all nine
+  approved tables exactly at 0.1-point precision; fractional seats and refreshed inputs explain the movement.
+- Focused math: 113 unique tests pass across the completed runs. An initial run had two setup errors from
+  missing Playwright Chromium 1208; affected Node checks passed using verified sync-produced assets without
+  re-running the browser explainer. Expanded 2QB parity covers all 3 scorings x 10/12/14 teams; 1QB and SF
+  are unchanged by the 2QB rule at all 3 scorings. Rank guard: 0 inversions. No heavy validate/render/sweep.
+- Independent normal-CDF/binomial/group-budget arithmetic gives Allen Standard 101.282388, Burrow Half PPR
+  67.010993, Gibbs PPR 58.656006 (12 teams, pie 2688). No value formula changed in this integration.
+- Full evidence and 1,306 named rounded value changes:
+  `docs/claude-log/2026-10-31-jeg1366-main-merge.md` and its linked CSV. Reproducer:
+  `tools/jeg1366_before_after.py`. Next: Claude high-risk delta review and exact-head CI before any main merge;
+  Jeremy must see the new values. Explainer reviewed.json stays unsigned; browser build is unverified here.
+
+### 2QB leagues price the QB share from their own replacement level (JEG-1366, Claude, 2026-10-30 UTC)
+
+- Branch `claude/JEG-1366`. Value math (`review-high-risk`), Jeremy's pick A at 23:36 UTC on the before/after
+  posted to JEG-1366. In a league with 2+ QB slots and no superflex slot the QB groups of the DDF weights are the
+  mean over the included projections (points above the league's own 2-QB waiver line); RB/WR/TE keep their
+  relative shares (methodology VP-4.3a). Same change in `value-model.js`, `value_reference.py` and the spec
+  reference. get-values runs the site's `value-model.js`, so the connector follows the next Pages deploy; no edge
+  code changed. 1-QB and superflex settings move 0 values. 12-team: top 24 QBs +17 to +22%, RB/WR/TE -8 to -10%.
+- Independent review PASS on 566ba1cb (receipt on #1236). Its five non-blocking findings are fixed on the next head:
+  engine/reference tests for the fixed bench-share path, the recomputed bench share and the superflex input
+  (the edge runner gained `--bench-share-override` and `--dump-weights`), the spec `run_week` wiring, the
+  methodology figures, and the mcp `superflex` explanation (`supabase/functions/mcp/tools.ts`, live only after
+  the mcp redeploy in the JEG-1400 bundle, which needs Jeremy's yes).
+- Next: delta review of the new head, ready for review, green CI, then the merge gate merges (Jeremy approved build
+  and merge). No deploy from this branch. This is the original pre-fractional-seat approval; see the integration update above for changed numbers and remaining review.
+- Evidence: `docs/claude-log/2026-10-30-jeg1366-2qb-native-share.md`, `tests/test_jeg1366_two_qb_native_share.py`.
+
 ### Fractional flex and bench seats (JEG-1335, Claude, 2026-10-31 UTC): built, not merged
 
 - Branch `claude/JEG-1335-fractional-seats`. Jeremy's option A on JEG-1333 (2026-10-30 23:41 UTC, "Letter A."):

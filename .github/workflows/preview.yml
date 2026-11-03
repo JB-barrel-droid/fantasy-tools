@@ -18,6 +18,8 @@ name: Preview build
 #     (derived from HEAD's commit time and SHA) matches what production would build.
 
 on:
+  merge_group:
+    types: [checks_requested]
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review, converted_to_draft]
     # JEG-1169: skip docs-only PRs. A PR runs this check unless every changed
@@ -42,6 +44,12 @@ concurrency:
   group: preview-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
+# JEG-1450: wrap make without changing gate commands or exit statuses.
+env:
+  BASH_ENV: ${{ github.workspace }}/pipelines/baseline_gate.sh
+  BASELINE_RED_CONTEXT: "CI"
+  DDF_GITHUB_REPOSITORY: ${{ vars.DDF_GITHUB_REPOSITORY }}
+
 jobs:
   pr-state:
     runs-on: ubuntu-latest
@@ -53,7 +61,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Cheap draft CI guards
-        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows
+        run: python3 -m unittest tests.test_draft_ci_workflows tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows tests.test_baseline_reds
       - name: Check current PR head and draft state
         id: gate
         env:
