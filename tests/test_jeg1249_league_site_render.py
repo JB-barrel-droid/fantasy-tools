@@ -100,7 +100,10 @@ PASTED = {"unresolved": 0, "observedAt": "now", "editedAt": "now", "coverage": "
 
 def settle(page):
     page.wait_for_timeout(400)
-    page.wait_for_function("() => window.TradeValueLeague && !window.TradeValueLeague.ui.running && !window.TradeValueLeague.ui.timer", timeout=600000)
+    # After a navigation the idle flags are also false before the league has booted.
+    # Wait for its ready state before treating an idle search as finished.
+    page.wait_for_function("() => window.TradeValueLeague && window.TradeValueLeague.ui.ready"
+                           " && !window.TradeValueLeague.ui.running && !window.TradeValueLeague.ui.timer", timeout=600000)
     page.wait_for_timeout(200)
 
 
@@ -320,8 +323,15 @@ class LeagueSiteTest(unittest.TestCase):
         self.assertEqual(self.problems, [])
 
     def test_league_to_compare_journey(self):
+        self.check_league_to_compare_journey()
+
+    def test_league_to_compare_journey_waits_for_late_boot(self):
+        from tests.test_jeg1389_switch_redraw_render import LATE_V2_BOOT
+        self.check_league_to_compare_journey(init_script=LATE_V2_BOOT)
+
+    def check_league_to_compare_journey(self, init_script=None):
         with browser_on_build() as (browser, base):
-            page = open_page(browser, base, errors=self.problems, tag="[journey] ")
+            page = open_page(browser, base, errors=self.problems, tag="[journey] ", init_script=init_script)
             settle(page)
             jsn = page.evaluate(JSN)
             self.assertIsNotNone(jsn)
