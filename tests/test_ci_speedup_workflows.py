@@ -25,6 +25,57 @@ PR_FILTERED = ("preview.yml", "v2-render-test.yml")
 BUILD_DOCS = ("docs/methodology.md", "docs/math-review-agenda.md", "docs/use-ddf-in-claude-chatgpt.md", "app/llm/**")
 NPM_VERSION = json.loads((ROOT / "tests/rendered_gate/package.json").read_text(encoding="utf-8"))["dependencies"]["playwright-core"]
 
+# The pre-shard browser gate's complete command inventory, including verbose mutation receipts.
+RENDER_COMMANDS = (
+    "tests.test_v2_contract_render",
+    "tests.test_v2_finder_guardrails_render",
+    "tests.test_interactive_trades_release_render",
+    "tests.test_jeg1213_import tests.test_jeg1213_logic tests.test_jeg1213_summary_fields tests.test_jeg1213_acceptance_render",
+    "tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render",
+    "tests.test_v2_finder_teams tests.test_v2_finder_teams_render",
+    "-v tests.test_v2_waterfall_render",
+    "tests.test_jeg1231_opponent_inclusion tests.test_jeg1231_opponent_inclusion_render tests.test_jeg1231_league_inclusion_render tests.test_jeg1263_simplified_site tests.test_jeg1263_simplified_site_render",
+    "tests.test_week_stale_deadline tests.test_week_selector_render",
+    "tests.test_jeg1380_finder_week_render",
+    "-v tests.test_v2_compare_rosters_render",
+    "tests.test_uso_site_journey_render tests.test_jeg1249_league_site_render",
+    "tests.test_jeg1389_switch_redraw_render tests.test_jeg1389_link_settings_reload_render",
+    "tests.test_jeg1266_ai_connection_panel tests.test_jeg1266_ai_connection_panel_render",
+)
+
+
+def render_schedule_problems(text):
+    body = re.search(r"^  render-tests:\n(.*?)(?=^  [\w-]+:|\Z)", text, re.M | re.S)
+    if not body:
+        return ["missing render-tests job"]
+    body = body.group(1)
+    out = []
+    matrix = re.search(r"^        lane: \[([^\]]+)\]$", body, re.M)
+    lanes = [s.strip() for s in matrix.group(1).split(",")] if matrix else []
+    if sorted(lanes) != ["contract", "journey", "league"]:
+        out.append("incomplete or duplicate render matrix")
+    if "      fail-fast: false" not in body or re.search(r"continue-on-error: true", body):
+        out.append("render failures must stay visible")
+    commands = []
+    used = set()
+    for step in re.split(r"^      - ", body, flags=re.M)[1:]:
+        runs = re.findall(r"(?:^|\n)\s*run: python3 -m unittest ([^\n]+)", step)
+        if runs:
+            route = re.search(r"^if: matrix.lane == '([^']+)'", step)
+            if not route or route.group(1) not in lanes:
+                out.append("test command has no reachable unique lane")
+            else:
+                used.add(route.group(1))
+            commands.extend(runs)
+        for artifact, lane in (("jeg-1231-opponent-inclusion-shots", "league"), ("ai-panel-previews", "journey")):
+            if f"name: {artifact}\n" in step and f"if: always() && matrix.lane == '{lane}'" not in step:
+                out.append(f"artifact {artifact} must have one owner even on failure")
+    if sorted(commands) != sorted(RENDER_COMMANDS):
+        out.append("browser command coverage changed or duplicated")
+    if used != set(lanes):
+        out.append("empty render lane")
+    return out
+
 
 def read(name):
     return (WF / name).read_text(encoding="utf-8")
@@ -104,6 +155,29 @@ def filter_problems(name, text):
 
 
 class CiSpeedupTest(unittest.TestCase):
+    def test_render_matrix_runs_the_complete_gate_once(self):
+        self.assertEqual([], render_schedule_problems(read("v2-render-test.yml")))
+
+    def test_render_matrix_catches_lost_coverage_and_hidden_failures(self):
+        text = read("v2-render-test.yml")
+        for old, new in (
+            ("lane: [contract, league, journey]", "lane: [contract, league]"),
+            ("lane: [contract, league, journey]", "lane: [contract, league, journey, journey]"),
+            ("matrix.lane == 'contract'", "matrix.lane == 'absent'"),
+            ("fail-fast: false", "fail-fast: true"),
+            ("fail-fast: false", "fail-fast: false\n    continue-on-error: true"),
+            ("        run: python3 -m unittest tests.test_v2_contract_render\n", ""),
+            ("        run: python3 -m unittest tests.test_jeg1217_manager_profiles tests.test_jeg1217_manager_recs tests.test_jeg1217_managers_render\n", ""),
+            ("        run: python3 -m unittest tests.test_v2_contract_render\n",
+             "        run: python3 -m unittest tests.test_v2_contract_render\n"
+             "      - if: matrix.lane == 'contract'\n        run: python3 -m unittest tests.test_v2_contract_render\n"),
+            ("if: always() && matrix.lane == 'league'", "if: always()"),
+        ):
+            with self.subTest(mutation=new):
+                broken = text.replace(old, new, 1)
+                self.assertNotEqual(text, broken)
+                self.assertTrue(render_schedule_problems(broken))
+
     def test_real_workflows_cache_and_install_once(self):
         for name in BROWSER_WORKFLOWS:
             self.assertEqual([], browser_problems(name, read(name)))
