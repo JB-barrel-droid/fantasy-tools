@@ -58,7 +58,7 @@
     {id: "observed", title: "Observed-trade estimates", one: "observed-trade estimate", many: "observed-trade estimates",
       note: "Algorithmic estimates from completed fantasy trades. Each series labels its transformation."},
     {id: "vorp", title: "Value above waivers", one: "value-above-waivers series", many: "value-above-waivers series",
-      note: "Advanced: raw points above a replacement-level player, each source on its own scale and shown in its own panel."}
+      note: "Advanced: surplus rescaled to the league pie, keeping each source's own weighting and shown in its own panel."}
   ];
   function seriesGroup(key) {
     if (isDdfKey(key)) return "ddf";
@@ -2161,7 +2161,7 @@
     else big.appendChild(missingNode(missingReason(key, row), "not priced by this source"));
     const unit = document.createElement("p");
     unit.className = "v2-meta";
-    unit.textContent = meta.method === "vorp" ? "Value above waivers, on this source's own scale" : "Trade-value points";
+    unit.textContent = meta.method === "vorp" ? "Value above waivers: surplus rescaled to the league pie" : "Trade-value points";
     main.append(eyebrow, big, unit);
     if (estimatedReason(row, key)) {
       const why = document.createElement("p");
@@ -2308,7 +2308,7 @@
     wrap.appendChild(table);
     const note = document.createElement("p");
     note.className = "v2-meta";
-    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. Value above waivers is each source's own unit and is not comparable to them. Choose sources with Customize.";
+    note.textContent = "Adjusted and rescaled values share the trade-value point scale for your league. Value above waivers is surplus rescaled to the league pie, keeping each source's own weighting rather than the adjusted position weights. Choose sources with Customize.";
     section.append(wrap, note);
     return section;
   }
@@ -2674,7 +2674,7 @@
     {id: "pub", title: "Published charts", note: "Published trade-value opinions, rescaled to your league's scale."},
     {id: "observed", title: "Observed-trade estimates", note: "Estimates derived from completed trades."},
     {id: "proj", title: "Projection-based values", note: "Trade value derived from stat projections."},
-    {id: "vorp", title: "Value above waivers (advanced)", note: "Points above the waiver line, each on its own scale. Shown in a separate panel."}];
+    {id: "vorp", title: "Value above waivers (advanced)", note: "Surplus rescaled to the league pie, keeping each source's own weighting. Shown in a separate panel."}];
   const DDF_ROW_TIPS = {
     ddf_value: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
     ddf_value_charts: "DDF Value: rooted in the trade charts, then adjusted for position weight and your league's rosters.",
@@ -4900,7 +4900,7 @@
         oursSpan,
         document.createTextNode(`; the chart is rescaled to the same point scale. Against one chart: ${scName}. `),
         priorSpan,
-        document.createTextNode("Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+        document.createTextNode("Value above waivers is surplus rescaled to the league pie and is kept out of this gap. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
     } else if (footEl.firstChild && footEl.firstChild.nodeType === 3 && !footEl.firstChild.textContent.startsWith("Gap = market consensus")) {
       // Restore the multi-chart footnote if previously in single-chart mode.
       footEl.textContent = "";
@@ -4909,7 +4909,7 @@
         oursSpan,
         document.createTextNode("; each trade chart is rescaled to the same point scale. A player is listed only when 2 or more charts price him and most of them sit on the same side of our value. "),
         priorSpan,
-        document.createTextNode("Value above waivers is a different unit and is never mixed in. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
+        document.createTextNode("Value above waivers is surplus rescaled to the league pie and is kept out of this gap. Every value is above your league's waiver line, so 0.0 means at or below it: such a player is never a buy target. A missing value shows —, never zero."));
     }
     // Footnote: each compared chart that is still on an earlier week, with its badge.
     const priorNote = priorSpan;
@@ -5505,7 +5505,7 @@
     // JEG-505: the Deal read counts the published value charts: the as-published (rescaled) series.
     const chartKeys = pointKeys.filter(key => sourceMeta(key).method === "indexed" && window.TradeValueTargets.CHART_KEYS.includes(key));
     // JEG-468: one waterfall per row; trade-value rows share one scale, each VORP vs waivers
-    // series keeps its own (those scales are not comparable).
+    // series keeps its source's own weighting on the league pie.
     const falls = keys => (ready ? keys.map(key => TC.waterfall(giveRows, receiveRows, key)) : []);
     const pointFalls = falls(pointKeys);
     const deal = ready ? TC.dealRead(giveRows, receiveRows, chartKeys) : null;
@@ -5618,7 +5618,7 @@
     sum.className = `v2-cbreak-net ${result.net === null ? "" : netLabel(result.net).cls}`;
     sum.textContent = result.net === null
       ? "Receive − give: incomplete. A missing value is never counted as zero."
-      : `Receive − give = ${fmtGap(result.net)} ${sourceMeta(result.key).method === "vorp" ? "value above waivers points" : "trade-value points"}`;
+      : `Receive − give = ${fmtGap(result.net)} ${sourceMeta(result.key).method === "vorp" ? "surplus rescaled to the league pie" : "trade-value points"}`;
     td.append(grid, sum);
     tr.appendChild(td);
     return tr;
@@ -6275,7 +6275,7 @@
     holder.hidden = !compareView.ready || !fall;
     if (fall) {
       $("v2CVerdictFallNote").textContent = "From 0: down by each player you give, up by each you receive, then the result"
-        + (isPoint ? " · same scale as the table below." : " · this series' own scale.");
+        + (isPoint ? " · same scale as the table below." : " · surplus rescaled to the league pie.");
       renderWaterfall(holder, fall, isPoint ? compareView.scale : window.TradeValueTrade.waterfallScale([fall]));
     }
     // Phone: once both sides have a player, the verdict headline stays at the bottom.

@@ -120,5 +120,42 @@ class RescaledCopyTest(unittest.TestCase):
                 all_violations(scripts, shell.replace(old, '<span class="v2-pill is-indexed">Indexed</span>', 1)), [])
 
 
+class AdvancedSurplusCopyTest(unittest.TestCase):
+    """JEG-1398: displayed VORP is pie-scaled surplus, not native points."""
+
+    def test_advanced_captions_name_the_displayed_units(self):
+        v2 = (V2 / "v2.js").read_text(encoding="utf-8")
+        captions = {
+            "Fieldnotes series group": r'note: "(Advanced:[^"]+)"',
+            "player detail unit": r'unit.textContent = meta.method === "vorp" \? "([^"]+)"',
+            "player detail table note": r'note.textContent = "(Adjusted and rescaled values[^"]+)"',
+            "Customize group": r'title: "Value above waivers \(advanced\)", note: "([^"]+)"',
+            "Compare result unit": r'method === "vorp" \? "([^"]+)" : "trade-value points"',
+            "Compare waterfall caption": r'isPoint \? " · same scale as the table below\." : "([^"]+)"',
+        }
+        for surface, pattern in captions.items():
+            with self.subTest(surface=surface):
+                match = re.search(pattern, v2)
+                self.assertIsNotNone(match, surface)
+                self.assertIn("surplus rescaled to the league pie", match.group(1).lower())
+
+    def test_static_panels_name_the_displayed_units(self):
+        shell = (V2 / "shell.html").read_text(encoding="utf-8")
+        for panel in ("v2VorpCard", "v2CVorpCard"):
+            with self.subTest(panel=panel):
+                text = re.search(rf'id="{panel}".*?</section>', shell, re.S).group(0)
+                self.assertIn("Surplus rescaled to the league pie", text)
+                self.assertIn("0 = waiver-level", text)
+        how = re.search(r'<li class="v2-card" data-view-method="vorp">.*?</li>', shell, re.S).group(0)
+        self.assertIn("surplus rescaled to the league pie", how)
+        self.assertIn("source's own weighting", how)
+
+    def test_no_native_scale_claims_remain(self):
+        for name in ("v2.js", "shell.html"):
+            with self.subTest(file=name):
+                text = (V2 / name).read_text(encoding="utf-8")
+                self.assertNotRegex(text, r"raw points above|own scale|own unit|different unit and is never mixed in")
+
+
 if __name__ == "__main__":
     unittest.main()
