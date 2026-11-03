@@ -597,6 +597,21 @@ class RosterAndSlate(ProducerCase):
         self.full()
         self.assertEqual(self.out.read_bytes(), first)
 
+    def test_file_level_ros_horizon_is_refused_without_overwriting_output(self):
+        for leg, flag in (("roster", "espn_roster"), ("slate", "slate")):
+            with self.subTest(leg=leg):
+                path = (self.roster_file([{"player_key": 101, "team": "AAA",
+                                          "rostered_pct": 84.2, "adds_trend": 6.4}])
+                        if leg == "roster" else self.slate_file(self.GAMES))
+                data = json.loads(path.read_text())
+                data["horizon"] = "ros"
+                path.write_text(json.dumps(data))
+                self.out.write_text("previous artifact\n")
+                code, err = _run(_args(self.out, **{flag: path}))
+                self.assertEqual(code, 2, err)
+                self.assertIn("weekly inputs never take ROS data", err)
+                self.assertEqual(self.out.read_text(), "previous artifact\n")
+
 
 class EmptyAndMissingInputs(ProducerCase):
     def test_empty_inputs_write_a_valid_artifact_with_no_rows(self):

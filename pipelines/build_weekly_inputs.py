@@ -481,6 +481,9 @@ def read_roster(path: Path, season: int, week: int, as_of: datetime, ident: Iden
                      [_file_meta(path)])
     data = json.loads(path.read_text())
     if isinstance(data, dict):
+        if str(data.get("horizon", "week")).strip().lower() != "week":
+            raise InputError(f"{path.name}: horizon {data.get('horizon')!r}; "
+                             "weekly inputs never take ROS data")
         raw = data.get("rows")
         file_season, file_week, captured_raw = data.get("season"), data.get("week"), data.get("captured_at")
     elif isinstance(data, list):
@@ -565,6 +568,9 @@ def read_slate(path: Path, season: int, week: int, as_of: datetime, report):
     data = json.loads(path.read_text())
     if not isinstance(data, dict) or not isinstance(data.get("games"), list):
         return meta, None
+    if str(data.get("horizon", "week")).strip().lower() != "week":
+        raise InputError(f"{path.name}: horizon {data.get('horizon')!r}; "
+                         "weekly inputs never take ROS data")
     games = data["games"]
     if _int(data.get("season")) != season:
         report["wrong_season"] += len(games)
