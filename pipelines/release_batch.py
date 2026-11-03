@@ -179,7 +179,8 @@ def acceptance(batch, get=api):
     receipt = batch['acceptance']
     sha = receipt['published_sha']
     publication = get(f"actions/runs/{receipt['publication_run']}")
-    require(publication['path'] == '.github/workflows/pages.yml' and publication['head_sha'] == sha
+    require(publication['path'] == '.github/workflows/pages.yml' and publication['head_branch'] == 'main'
+            and publication['head_sha'] == sha
             and publication['conclusion'] == 'success', 'missing/failed publication')
     jobs = items(f"actions/runs/{publication['id']}/jobs", 'jobs', get)
     require({'build', 'deploy', *(f'validate-shard ({i})' for i in range(1, 6))}
@@ -187,7 +188,8 @@ def acceptance(batch, get=api):
     integration = get(f"pulls/{batch['integration_pr']}")
     require(integration['merged'] and integration['merge_commit_sha'] == sha, 'publication is not the batch merge')
     live = get(f"actions/runs/{receipt['live_run']}")
-    require(live['path'] == '.github/workflows/live-page-synthetic.yml' and live['conclusion'] == 'success'
+    require(live['path'] == '.github/workflows/live-page-synthetic.yml' and live['head_branch'] == 'main'
+            and live['conclusion'] == 'success'
             and live['run_started_at'] > publication['updated_at'], 'missing/failed post-publication live gate')
     artifacts = items(f"actions/runs/{live['id']}/artifacts", 'artifacts', get)
     found = [a for a in artifacts if a['name'] == 'live-page-synthetic-results' and not a['expired'] and a['size_in_bytes'] > 0]

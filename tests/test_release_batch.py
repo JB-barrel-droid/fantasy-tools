@@ -211,9 +211,9 @@ class EvidenceTest(unittest.TestCase):
 
     def publication_api(self, path, raw=False):
         if path == 'actions/runs/1':
-            return {'id': 1, 'path': '.github/workflows/pages.yml', 'head_sha': D, 'conclusion': 'success', 'updated_at': '2026-11-03T19:00:00Z'}
+            return {'id': 1, 'path': '.github/workflows/pages.yml', 'head_branch': 'main', 'head_sha': D, 'conclusion': 'success', 'updated_at': '2026-11-03T19:00:00Z'}
         if path == 'actions/runs/2':
-            return {'id': 2, 'path': '.github/workflows/live-page-synthetic.yml', 'conclusion': 'success', 'run_started_at': '2026-11-03T20:00:00Z'}
+            return {'id': 2, 'path': '.github/workflows/live-page-synthetic.yml', 'head_branch': 'main', 'conclusion': 'success', 'run_started_at': '2026-11-03T20:00:00Z'}
         if path == 'pulls/20': return {'merged': True, 'merge_commit_sha': D}
         if '/jobs?' in path:
             names = ['build', 'deploy'] + [f'validate-shard ({i})' for i in range(1, 6)]
@@ -232,16 +232,18 @@ class EvidenceTest(unittest.TestCase):
         batch = sample()['batches'][0]
         batch.update(state='accepted', acceptance={'published_sha': D, 'publication_run': 1, 'live_run': 2})
         gate.acceptance(batch, self.publication_api)
-        for kind in ('publication-red', 'wrong-sha', 'not-merged', 'noop', 'live-red', 'live-before', 'expired', 'wrong-live', 'missing-passed'):
+        for kind in ('publication-red', 'publication-branch', 'wrong-sha', 'not-merged', 'noop', 'live-red', 'live-branch', 'live-before', 'expired', 'wrong-live', 'missing-passed'):
             def api(path, raw=False):
                 doc = self.publication_api(path, raw)
                 if path == 'actions/runs/1':
                     if kind == 'publication-red': doc['conclusion'] = 'failure'
+                    if kind == 'publication-branch': doc['head_branch'] = 'untrusted-branch'
                     if kind == 'wrong-sha': doc['head_sha'] = C
                 if path == 'pulls/20' and kind == 'not-merged': doc['merged'] = False
                 if '/jobs?' in path and kind == 'noop': doc['jobs'][1]['conclusion'] = 'skipped'
                 if path == 'actions/runs/2':
                     if kind == 'live-red': doc['conclusion'] = 'failure'
+                    if kind == 'live-branch': doc['head_branch'] = 'untrusted-branch'
                     if kind == 'live-before': doc['run_started_at'] = '2026-11-03T18:00:00Z'
                 if '/artifacts?' in path and kind == 'expired': doc['artifacts'][0]['expired'] = True
                 if raw:
