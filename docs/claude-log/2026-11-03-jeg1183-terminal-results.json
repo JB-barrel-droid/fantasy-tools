@@ -1,0 +1,99 @@
+{
+  "recorded_at_utc": "2026-11-03T18:22:08.013053+00:00",
+  "validated_source_head": "43f388e0d75a95fd64a2729305f6ccf4776a0dd9",
+  "pinned_validation_head": "da8a6de41f0e8807d811dafcecf873ee4ca53377",
+  "source_equivalence": {
+    "tracked_code_config_files_checked": 1197,
+    "differences": [],
+    "owned_file_sha256": {
+      "app/v2/trade-package-search.js": "d1df02daa603147060dc6ee99a167931218a469e2d911b480475f797a1d6474d",
+      "app/v2/trade-package-panel.js": "4f4b572ed5cb7a6c102a276ba5d70d9da0d0f276abd0980a6ef42cce212ae7b0",
+      "app/v2/trade-package-panel.css": "dadd83b4221a0ed8bc8b69926681b137ec40661f9250e76b551d356239759276",
+      "tests/jeg1183_package_cases.js": "f2d643ced9c5fa9dff5da2394c0c795434aa72a42516fc4796cf456a92936372",
+      "tests/test_package_composition_preview_contract.py": "77898fe71bd6e166bc8444b545bd909dba1725ba70f1177f182ff7b1bed2dd48",
+      "tests/test_package_composition_preview_render.py": "02a540e4916b6d51c215c206931fa990df949344959fe7000211d92c24d461f2",
+      "docs/integration/jeg1183-package-panel.patch": "7cb838aab50d74cdcad8ec141eeec8b6d800d76007c56fe35c3073fea8cccdb0"
+    }
+  },
+  "full_validation": {
+    "state": "completed_with_clean_terminal_log",
+    "direct_process_exit_code": null,
+    "original_session": 33143,
+    "session_resume_result": "Unknown process id 33143",
+    "required_recipe_commands": {
+      "reference": {
+        "required": 1,
+        "matched": 1
+      },
+      "sync": {
+        "required": 1,
+        "matched": 1
+      },
+      "guard-harness": {
+        "required": 2,
+        "matched": 2
+      },
+      "test-core": {
+        "required": 122,
+        "matched": 122
+      },
+      "value-check-compare": {
+        "required": 1,
+        "matched": 1
+      },
+      "test-integration": {
+        "required": 8,
+        "matched": 8
+      }
+    },
+    "failures": [],
+    "strict_compared_values": 1234507,
+    "final_log_line": "OK",
+    "log_path": "/tmp/jeg1183-panel-validate.log",
+    "log_sha256": "8872ea747290a84e6188ce134c487b6452a2a148c73d57bf7e4f1851670fa711"
+  },
+  "focused_validation": {
+    "state": "completed",
+    "exit_code": 0,
+    "tests": 18,
+    "seconds": 20.784,
+    "original_session": 18434,
+    "session_resume_result": "Unknown process id 18434",
+    "log_path": "/tmp/jeg1183-panel-final-tests.log",
+    "log_sha256": "ae07bb427420aa6d1fe611d8c2599707a2540e1cddd098ee3043ffc2e568210e"
+  },
+  "process_reconciliation": {
+    "make_14583": "no longer present",
+    "followup_53326": "zombie, completed, not running"
+  },
+  "admission": {
+    "pr": 1293,
+    "draft": true,
+    "native_ready_or_draft_transition_events_returned": [],
+    "prior_metadata_update": {
+      "outcome": "denied",
+      "executed": false,
+      "reason": "Trusted user authorization for the exact external metadata commitment was missing."
+    },
+    "prior_ready_transition": {
+      "outcome": "denied",
+      "executed": false,
+      "reason": "Trusted user authorization for the exact external project-status transition was missing."
+    },
+    "attempt_timestamps": "Not retained; no timestamps inferred.",
+    "new_metadata_or_ready_attempts_this_turn": 0
+  },
+  "shared_owner_prs": [
+    1084,
+    1174,
+    1290,
+    1225,
+    1260
+  ],
+  "remaining": [
+    "Trusted authorization for denied PR metadata/ready operations",
+    "Green full CI on exact ready head",
+    "Coordinator shared route integration and route/live checks",
+    "Independent high-risk review"
+  ]
+}
