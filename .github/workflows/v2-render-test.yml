@@ -76,7 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     # JEG-1169: 15 minutes was used up by an 11-minute browser install.
     # JEG-1178: 35 with the week selector render test added (the run was about 13 minutes before it).
-    timeout-minutes: 35
+    # JEG-1403: all 22 journey/workspace tests passed, but the complete job hit 35m during the following reload checks.
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
         with:
