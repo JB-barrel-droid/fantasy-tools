@@ -768,6 +768,7 @@ test-core:
 	python3 -m unittest tests.test_missing_section_render
 	python3 -m unittest tests.test_bench_share_low_pie
 	python3 -m unittest tests.test_bench_share_readout_matches_reference
+	python3 -m unittest tests.test_jeg1348_bench_context tests.test_jeg1348_bench_context_render
 	# JEG-1189: the budget-cut bench total is the same for every source, in every week view.
 	python3 -m unittest tests.test_bench_budget_cut_render
 	python3 -m unittest tests.test_lineup_content_week_advance
@@ -922,6 +923,7 @@ test-core-shard-4:
 	python3 -m unittest tests.test_v2_phone_trade_actions_render
 	python3 -m unittest tests.test_disagreement_units_render
 	python3 -m unittest tests.test_bench_share_readout_matches_reference
+	python3 -m unittest tests.test_jeg1348_bench_context tests.test_jeg1348_bench_context_render
 	python3 -m unittest tests.test_position_weights_setter
 	python3 -m unittest tests.test_row_missing_reasons
 	python3 -m unittest tests.test_two_qb_direction

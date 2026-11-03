@@ -2452,15 +2452,25 @@
       projectionConfidence: d?.projection_confidence ?? 1, benchShareOverride: null, contentWeek: null};
   }
   // ES-14 readout: {QB, RB, WR, TE, overall, override, overrideValue,
-  // fillInShare, method, contentWeek, window}; null before the first build or
+  // fillInShare, method, contentWeek, window, weeksLeft, byesLeft, byeTeams}; null before the first build or
   // with no projection in the included set.
   function benchShareReadout() {
     const r = pipeline?.benchShare;
     if (!r) return null;
     const lineup = pipeline.lineup;
+    // Display-only context from the same resolved window and bye map as the
+    // lineup model. An unknown map is unavailable, never "0 byes".
+    const window = lineup ? [...lineup.window] : null;
+    const weeksLeft = window ? Math.max(0, window[1] - window[0] + 1) : null;
+    const byes = lineupConfig?.byes;
+    const byeWeeks = byes && typeof byes === "object" ? Object.values(byes) : [];
+    const knownByes = byeWeeks.length > 0 && byeWeeks.every(Number.isInteger);
+    const byesLeft = window && knownByes
+      ? byeWeeks.filter(week => window[0] <= week && week <= window[1]).length : null;
     return {QB: r.QB, RB: r.RB, WR: r.WR, TE: r.TE, overall: r.overall, override: r.override,
       overrideValue: r.overrideValue, fillInShare: r.fillInShare, method: r.method,
-      contentWeek: lineup ? lineup.content_week : null, window: lineup ? [...lineup.window] : null,
+      contentWeek: lineup ? lineup.content_week : null, window, weeksLeft, byesLeft,
+      byeTeams: knownByes ? byeWeeks.length : null,
       error: lineupConfigError ? String(lineupConfigError.message || lineupConfigError) : null};
   }
 
