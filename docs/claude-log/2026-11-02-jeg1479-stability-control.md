@@ -136,3 +136,120 @@ The coordinator retains serial merge and release ownership.
 - Later status-only drift uses the existing batch exception. Functional drift,
   independent current-head review and serial release remain the coordinator's
   responsibility.
+
+---
+
+## 2026-11-03 - Authorized main-repair bootstrap preparation
+
+Contract: prepare #1287 first to repair the existing main negative-control
+failure. The coordinator relayed Jeremy's specific "Y" authorizing that one
+bootstrap merge despite existing main red, with recovery verification before
+any other release. PR CI and independent review remain required; this session
+does not merge or deploy.
+
+### Verified (check named)
+
+- Fetched actual main `75d43a5f893a47f4a8806149dd551bcaf22031fd` once and
+  merged normally as `25bef22a1db85160b90fe2656c540150967d1c61`, no conflicts.
+  Preserved #1277's journey/workflow changes, Sleeper identity refresh,
+  weekly inputs, generated traces and operational status updates.
+- `git diff --exit-code 1ab7cadf HEAD -- tests/test_fractional_seats_stability.py`
+  passed. The reviewed deterministic repair is byte-identical; file SHA256
+  `21e31ec94eb220c019d4ec82f2149f369e375bfd757b968615c03b058ac4b0e4`.
+- Current main's committed comparison-chain status still identifies the old
+  negative control failing at `0.6097403935206955 not greater than 1.0`.
+  This is status-artifact evidence, not a replay of unpublished candidate data.
+- Focused local checks through `pipelines.baseline_reds --context local`
+  passed all 121 tests in 181.429 seconds, exit 0, no skips. Modules:
+  `test_fractional_seats_stability` (full unchanged live sweep and both controls),
+  `test_sleeper_identity_layer`, `test_espn_weekly_store`, `test_v2_finder`,
+  `test_v2_finder_search_unchanged`, `test_baseline_reds`,
+  `test_draft_ci_workflows`, `test_preview_workflow_matches_pages`,
+  `test_ci_speedup_workflows`, `test_render_sweep_coverage`.
+  Production write credentials were unset; destination identity and required
+  Chromium configured. No tracked test-generated changes remained.
+- No threshold, production math or separate continuity change. No duplicate
+  broad local suite, force push, deletion, cancellation, merge or deployment.
+
+### Claimed, not confirmed
+
+- Fresh final-head CI and the coordinator's current-head review remain
+  necessary. The main-red exception does not waive either gate.
+- The live site has not been checked here. The coordinator owns serial merge,
+  main/deployment recovery and live verification before any other release.
+
+---
+
+## 2026-11-03 - Reuse reviewed journey readiness correction
+
+Contract: parent matched #1287's journey failure to the independently reviewed
+boot-readiness correction in #1174 at `427c34053bf4dc393435f5056fa3b28b0b3c8a9a`.
+Reuse exactly that correction; no new fix, timeout increase or assertion waiver.
+
+### Verified (check named)
+
+- On head `5bc447ac`, render run `41639625863`, journey job `125929600826`,
+  failed the unequal subcase of `LeagueSiteTest.test_league_to_compare_journey`:
+  no Details button for `164,2807|3942,1483` (24 tests, one failure).
+- Compared the actual file to the reviewed head: the only differences are
+  `settle()` requiring `ui.ready` before idle and a late-boot test reusing the
+  complete existing journey. The source commit is
+  `7e3abb6b65e3396579ceffe1111a421565f68187`; its test is unchanged at the
+  reviewed head. It applied cleanly as normal cherry-pick `9f575740`, with
+  original provenance and `2026-11-03-jeg1323-journey-readiness.md` retained.
+- `git diff --exit-code 427c3405 -- tests/test_jeg1249_league_site_render.py`
+  passed. The adopted test file is byte-identical to the reviewed correction,
+  SHA256 `9dbff9b8a88ac1e75aa87908b260cab1ebd28efdbb4d31186c830384a25d1bda`.
+- In a separate validation worktree on the integrated source plus that exact
+  file, required-browser focused checks passed 4/4, no skips, in 162.849s:
+  ordinary and delayed-boot league-to-Compare journeys, plus both deterministic
+  stability controls. Both journeys retained equal/unequal IDs, exact values,
+  workspace assertions, league-roster holds and original timeouts. Destination
+  identity and Chromium configured, production write credentials unset.
+- `git diff --exit-code 5bc447ac HEAD -- tests/test_fractional_seats_stability.py`
+  passed. The reviewed stability fix, live gate and 1.0 bound remain unchanged.
+  `git diff --check` passed. No application code or fixture change was added.
+
+### Claimed, not confirmed
+
+- Fresh final-head CI and parent-owned integration review remain required.
+  No workflow was manually cancelled or retried. No broad local suite repeated.
+- Parent retains the authorized bootstrap merge and recovery verification;
+  this session performs no merge to main or deployment.
+
+---
+
+## 2026-11-03 - Player-status input integration
+
+Contract: parent found functional player-status input drift before bootstrap.
+Integrate current main once, preserve both qualified test fixes, run focused
+checks and fresh CI. Do not chase later operational status-only commits.
+
+### Verified (check named)
+
+- Fetched actual main `a552c00884287147a099a1279c94b3fdb0d4ca88` once.
+  Incoming changes comprise `data/inputs/player_status.json`,
+  `output/player-status-history.json` and seven operational JSON files.
+  Merged normally as `8ef0bbd3f7e4c745a61000ef2ffbced7c70e97a9`, no conflicts.
+- The status snapshot is now dated 2026-11-03T13:10:15+00:00 and the history
+  summary records 948 rows. All incoming data and operational artifacts retained.
+- `git diff --exit-code cc25702a HEAD -- tests/test_fractional_seats_stability.py
+  tests/test_jeg1249_league_site_render.py` passed: both qualified fixes are
+  byte-identical to the preceding green head.
+- Through `pipelines.baseline_reds --context local`, all 9 tests in
+  `test_daily_player_status` and `test_fractional_seats_stability` passed in
+  165.028s, no skips, exit 0. Includes the unchanged live sweep and 1.0 bound,
+  both deterministic controls, status expiry/value invariance and daily publish
+  behavior. Production write credentials unset; required Chromium configured.
+- All 3 plain test functions in `test_player_status_history_ids` passed using
+  `unittest.FunctionTestCase` adapters (0.121s, exit 0). Pytest is unavailable in
+  this runtime; the existing no-argument functions and assertions ran unchanged.
+- No tracked generated churn. No broad local or browser suite repeated. No
+  application source, math, bound, assertion or timeout change added.
+
+### Claimed, not confirmed
+
+- The integrated head requires new exact-head CI and parent qualification of
+  this delta. Previous-head green checks do not replace those requirements.
+- Parent retains the specifically authorized bootstrap, main/live recovery
+  verification and serial release; no merge, deploy or cancellation here.
