@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 from decimal import Decimal
 import hashlib
+import gzip
 import json
 import tempfile
 import unittest
@@ -238,6 +239,79 @@ class RequestBoundary(unittest.TestCase):
                 req = request()
                 req[field] = value
                 self.assertTrue(swaps.validate_request(req, base.SETTING))
+
+
+class StoredBoardAcceptance(unittest.TestCase):
+    """Pinned real source data; the roster/policy are explicit acceptance inputs."""
+
+    @classmethod
+    def setUpClass(cls):
+        root = base.ROOT / "tests" / "fixtures" / "waiver_board_swaps"
+        cls.default_bytes = gzip.decompress((root / "stored-default.json.gz").read_bytes())
+        cls.opt_bytes = gzip.decompress((root / "stored-opt-in.json.gz").read_bytes())
+        cls.default = json.loads(cls.default_bytes)
+        cls.opt = json.loads(cls.opt_bytes)
+        cls.request = json.loads((root / "request.json").read_bytes())
+        cls.provenance = json.loads((root / "provenance.json").read_bytes())
+
+    def test_real_default_and_opt_in_artifacts_validate_and_preserve_every_lane(self):
+        self.assertEqual(base.wb.validate(self.default), [])
+        self.assertEqual(base.wb.validate(self.opt), [])
+        self.assertEqual(len(self.default["players"]), 741)
+        self.assertEqual(hashlib.sha256(self.default_bytes).hexdigest(), self.provenance["default_board_sha256"])
+        self.assertEqual(hashlib.sha256(self.opt_bytes).hexdigest(), self.provenance["opt_in_board_sha256"])
+        for field in ("players", "sources", "unresolved", "sections", "setting"):
+            self.assertEqual(self.default[field], self.opt[field])
+        self.assertFalse(self.default["swaps"]["available"])
+        self.assertEqual(swaps.evaluate_swaps(self.default, self.request), self.opt["swaps"])
+        rows = {p["player_key"]: p for p in self.default["players"]}
+        for move in self.opt["swaps"]["rows"]:
+            actual = Decimal(str(rows[move["add"]]["value"]["ddf_value"])) - Decimal(str(rows[move["drop"]]["value"]["ddf_value"]))
+            self.assertEqual(move["gain"], float(actual))
+
+    def test_real_boundary_and_repeated_selections_match_the_same_request(self):
+        first = swaps.evaluate_swaps(self.default, self.request)
+        other = copy.deepcopy(self.request)
+        other["wire_overrides"]["remove"] = [1110]
+        changed = swaps.evaluate_swaps(self.default, other)
+        self.assertEqual([(r["add"], r["drop"]) for r in changed["rows"]], [(2730, 786)])
+        self.assertEqual(swaps.evaluate_swaps(self.default, self.request), first)
+        req = copy.deepcopy(self.request)
+        req["roster_keys"] = req["roster_keys"][:7] + [324]
+        req["context"]["shape"]["BENCH"] = 1
+        req["wire_keys"] = [3189]
+        req["gain_policy"] = {"minimum": 53.81534496610199, "comparison": "gt"}
+        rows = {p["player_key"]: p for p in self.default["players"]}
+        exact = Decimal(str(rows[3189]["value"]["ddf_value"])) - Decimal(str(rows[324]["value"]["ddf_value"]))
+        self.assertEqual(exact, Decimal(str(req["gain_policy"]["minimum"])))
+        self.assertEqual(swaps.evaluate_swaps(self.default, req)["rows"], [])
+        req["gain_policy"]["comparison"] = "gte"
+        self.assertEqual(swaps.evaluate_swaps(self.default, req)["rows"], self.provenance["boundary_case"]["gte_expected_rows"])
+
+    def test_missing_value_on_a_real_data_copy_is_not_filled_with_zero(self):
+        board, req = copy.deepcopy(self.default), copy.deepcopy(self.request)
+        player = next(p for p in board["players"] if p["player_key"] == 1110)
+        player["value"]["ddf_value"] = player["value"]["change"] = None
+        player["value"]["missing_reason"]["ddf_value"] = "acceptance negative: current value missing"
+        player["value"]["missing_reason"]["change"] = "acceptance negative: current value missing"
+        board["players"].sort(key=base.wb.sort_key)
+        self.assertEqual(base.wb.validate(board), [])
+        req["wire_keys"] = [1110]
+        block = swaps.evaluate_swaps(board, req)
+        self.assertEqual(block["rows"], [])
+        self.assertIsNone(player["value"]["ddf_value"])
+
+    def test_real_open_slot_and_unknown_roster_are_explicit(self):
+        req = copy.deepcopy(self.request)
+        req["roster_keys"].remove(786)
+        req["wire_keys"] = [1110]
+        self.assertEqual(swaps.evaluate_swaps(self.default, req)["rows"],
+                         [{"add": 1110, "drop": None, "gain": 58.25526367807355}])
+        req["roster_keys"].append(99999999)
+        block = swaps.evaluate_swaps(self.default, req)
+        self.assertFalse(block["available"])
+        self.assertEqual(block["rows"], [])
+        self.assertIn("99999999", block["missing_reason"])
 
 
 if __name__ == "__main__":

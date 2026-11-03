@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const Module = require("node:module");
+const zlib = require("node:zlib");
+const crypto = require("node:crypto");
 const A = require("../app/v2/waiver-board-swaps.js");
 const W = require("../app/v2/waivers.js");
 const F = require("../app/v2/finder.js");
@@ -224,4 +226,75 @@ test("the merged board golden is read without mutation or repricing", () => {
   const rows = A.rowsFromBoard(b);
   assert.equal(rows.length, b.players.length);
   rows.forEach((r, i) => assert.equal(r.values.ddf_value, b.players[i].value.ddf_value));
+});
+
+const storedDir = path.join(__dirname, "fixtures", "waiver_board_swaps");
+const stored = name => JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(storedDir, name))));
+const storedRequest = () => JSON.parse(fs.readFileSync(path.join(storedDir, "request.json"), "utf8"));
+
+test("real stored 741-player board reproduces the renderer handoff without repricing", () => {
+  const board = stored("stored-default.json.gz"), opt = stored("stored-opt-in.json.gz");
+  const provenance = JSON.parse(fs.readFileSync(path.join(storedDir, "provenance.json"), "utf8"));
+  const bytes = zlib.gunzipSync(fs.readFileSync(path.join(storedDir, "stored-default.json.gz")));
+  assert.equal(crypto.createHash("sha256").update(bytes).digest("hex"), provenance.default_board_sha256);
+  assert.equal(board.players.length, 741);
+  assert.equal(board.schema_version, "0.1.0");
+  assert.equal(board.swaps.available, false);
+  assert.equal(opt.schema_version, "0.2.0");
+  assert.deepEqual(opt.players, board.players);
+  assert.deepEqual(opt.sources, board.sources);
+  assert.deepEqual(A.buildSwapBlock(board, storedRequest()), opt.swaps);
+  assert.deepEqual(opt.swaps.rows, provenance.expected_rows);
+  const keys = opt.swaps.rows.flatMap(r => [r.add, r.drop]);
+  assert.equal(new Set(keys).size, keys.length);
+});
+
+test("repeated real-data selections recompute on the supplied roster without retaining used players", () => {
+  const board = stored("stored-default.json.gz"), request = storedRequest();
+  const before = JSON.stringify(board);
+  const first = A.buildSwapBlock(board, request);
+  const other = structuredClone(request);
+  other.wire_overrides.remove = [1110];
+  const changed = A.buildSwapBlock(board, other);
+  assert.deepEqual(changed.rows.map(r => [r.add, r.drop]), [[2730, 786]]);
+  assert.deepEqual(A.buildSwapBlock(board, request), first);
+  const open = structuredClone(request);
+  open.roster_keys = open.roster_keys.filter(key => key !== 786);
+  open.wire_keys = [1110];
+  assert.deepEqual(A.buildSwapBlock(board, open).rows,
+    [{add: 1110, drop: null, gain: 58.25526367807355}]);
+  assert.equal(JSON.stringify(board), before);
+  assert.deepEqual(request.wire_overrides, {add: [], remove: []});
+});
+
+test("real Christian McCaffrey / Mark Andrews decimal boundary is exact", () => {
+  const board = stored("stored-default.json.gz"), request = storedRequest();
+  request.roster_keys = request.roster_keys.slice(0, 7).concat(324);
+  request.context.shape.BENCH = 1;
+  request.wire_keys = [3189];
+  request.gain_policy = {minimum: 53.81534496610199, comparison: "gt"};
+  assert.deepEqual(A.buildSwapBlock(board, request).rows, []);
+  request.gain_policy.comparison = "gte";
+  assert.deepEqual(A.buildSwapBlock(board, request).rows,
+    [{add: 3189, drop: 324, gain: 53.81534496610199}]);
+});
+
+test("real-data negative copies do not invent missing values or positions", () => {
+  const original = stored("stored-default.json.gz"), request = storedRequest();
+  const before = JSON.stringify(original);
+  request.wire_keys = [1110];
+  for (const position of [null, "FB"]) {
+    const board = structuredClone(original);
+    board.players.find(p => p.player_key === 1110).position = position;
+    assert.deepEqual(A.buildSwapBlock(board, request).rows, []);
+  }
+  const missing = structuredClone(original);
+  const player = missing.players.find(p => p.player_key === 1110);
+  player.value.ddf_value = null;
+  assert.deepEqual(A.buildSwapBlock(missing, request).rows, []);
+  assert.equal(player.value.ddf_value, null);
+  const zero = original.players.find(p => p.value.ddf_value === 0);
+  assert.ok(zero);
+  assert.equal(zero.value.missing_reason.ddf_value, undefined);
+  assert.equal(JSON.stringify(original), before);
 });
