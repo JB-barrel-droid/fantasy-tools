@@ -120,6 +120,7 @@ test-unit:
 	python3 tests/run_suite.py test-unit-modules
 
 test-unit-modules:
+	python3 -m unittest tests.test_baseline_reds
 	python3 -m unittest tests.test_chromium_resolver
 	python3 -m unittest tests.test_run_suite
 	# JEG-1275: selected-package composition preview view model (node, no browser).
