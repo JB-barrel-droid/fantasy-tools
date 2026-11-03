@@ -58,3 +58,28 @@ deletion, credentials/access changes or retries of denied Linear writes.
   represented as current-head approval. Merge/deployment remain outside this
   task. Runtime data activation, verified-play compute and shared live-route
   integration are distinct downstream gates, not silently completed here.
+
+### Follow-up main refresh in this preparation session
+
+- Main advanced during the initial draft push to
+  `66f784177afcd3bf1a9e941a8cfd37b7cf66ba0e`, an automated chain-status
+  commit with the message `chain failed; fixture not updated`. Read-only
+  metadata confirms rebuild run 41735589614 completed with failure. This
+  operational result is not repaired or waived by this isolated page lane.
+- The initial integrated draft head
+  `f6b99d68dc58bf60ad0247c5f2709edcef6c4a47` passed its dedicated focused
+  workflow 41737863934. Its required broad aggregators report the expected
+  draft deferral, with expensive jobs skipped, not a full verification pass.
+- Normally merged that newest main as well, producing
+  `225fbbdcb7e7247ce58a34301ceb4081f83011c7` (parents f6b99d68 and
+  66f78417). This adds only the four already-committed chain-status/monitoring
+  artifacts from main; no source or fixture update is invented.
+- Repeated the same focused command after this meaningful base change:
+  all 110 tests passed in 6.202 seconds. Node syntax and diff checks passed.
+  Receipt: `/tmp/jeg1481-release-refresh-focused.log`.
+- The final documentation commit records these results without changing the
+  isolated view, adapter, tests or shared live-route files. Exact final head
+  and focused CI receipt will be in PR #1294 and the handoff. Full suites stay
+  deferred until PR #1174's active release verification finishes and the
+  coordinator rechecks main stability; no duplicate broad dispatch or idle
+  model wait is started.
