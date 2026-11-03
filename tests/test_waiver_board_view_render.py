@@ -1,0 +1,286 @@
+"""Standalone JEG-1420 reader: no site build, shell, roster or live sources.
+
+The HTML fixture reads #1239's unchanged contract golden. Source variants are
+produced and validated by the real offline builder, not invented UI payloads.
+Run: CHROMIUM_PATH=/path/to/headless/chromium RENDER_TESTS_REQUIRED=1
+     python3 -m unittest tests.test_waiver_board_view_render
+"""
+from __future__ import annotations
+
+import functools
+import http.server
+import json
+import subprocess
+import sys
+import threading
+import unittest
+from pathlib import Path
+
+from tests import _render_env
+
+ROOT = Path(__file__).resolve().parents[1]
+JS = ROOT / "app/v2/waiver-board-view.js"
+FIXTURE = "/tests/fixtures/waiver_board_view/standalone.html"
+GOLDEN = ROOT / "tests/fixtures/waiver_board/expected_half_ppr_12.json"
+sys.path.insert(0, str(ROOT / "pipelines"))
+import build_waiver_board as builder  # noqa: E402
+from lib.waiver_board import validate  # noqa: E402
+
+
+def variant(kind):
+    weekly = json.loads((ROOT / "tests/fixtures/weekly_inputs_producer/expected_wk8.json").read_text())
+    values = json.loads((ROOT / "tests/fixtures/waiver_board/values_half_ppr_12.json").read_text())
+    if kind == "stale":
+        weekly["legs"]["experts.espn_weekly"].update(content_week=6, freshness="stale", label="stale")
+    elif kind == "previous-season":
+        values["season"] = 2025
+    elif kind == "modeled":
+        values["label"] = "modeled"
+    elif kind == "one-week-behind":
+        values["content_week"], values["prior"]["week"] = 7, 6
+    elif kind == "unknown":
+        weekly["legs"]["experts.espn_weekly"].update(content_week=None, freshness="unknown", label="modeled")
+    board = builder.build_board(weekly, values, values["setting"], "2026-10-30T12:00:00Z")
+    assert validate(board) == [], validate(board)
+    return board
+
+
+class QuietHandler(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *args):
+        pass
+
+
+class WaiverBoardViewRender(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError as exc:
+            raise _render_env.unavailable(str(exc))
+        cls.playwright = sync_playwright().start()
+        try:
+            cls.browser = cls.playwright.chromium.launch(
+                executable_path=_render_env.chromium_executable(cls.playwright),
+                args=_render_env.HERMETIC_ARGS,
+            )
+        except Exception as exc:
+            cls.playwright.stop()
+            raise _render_env.unavailable(str(exc))
+        cls.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), functools.partial(QuietHandler, directory=str(ROOT)))
+        cls.thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.thread.start()
+        cls.base = f"http://127.0.0.1:{cls.server.server_port}"
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.browser.close()
+        cls.playwright.stop()
+        cls.server.shutdown()
+        cls.server.server_close()
+        cls.thread.join()
+
+    def setUp(self):
+        self.context = self.browser.new_context(viewport={"width": 1366, "height": 900})
+        self.page = self.context.new_page()
+        self.errors = []
+        self.page.on("pageerror", lambda error: self.errors.append(str(error)))
+        self.page.goto(self.base + FIXTURE)
+        self.page.wait_for_selector(".wb-player")
+
+    def tearDown(self):
+        self.context.close()
+        self.assertEqual(self.errors, [])
+
+    def field(self, key, name):
+        return self.page.locator(f'.wb-player[data-player-key="{key}"] [data-field="{name}"]')
+
+    def order(self):
+        return self.page.locator(".wb-player").evaluate_all("rows => rows.map(row => Number(row.dataset.playerKey))")
+
+    def open_sources(self):
+        if not self.page.locator(".wb-sources").evaluate("el => el.open"):
+            self.page.locator(".wb-sources > summary").click()
+
+    def test_desktop_and_mobile_layout_semantics_and_gray_week(self):
+        for width in (1366, 650, 390, 320):
+            with self.subTest(width=width):
+                self.page.set_viewport_size({"width": width, "height": 900})
+                self.page.evaluate("() => renderBoard(fixtureBoard)")
+                self.assertEqual(self.page.get_by_role("heading", name="Week 8 waiver board").count(), 1)
+                self.assertEqual(self.page.get_by_role("table").count(), 1)
+                self.assertEqual(self.page.locator(".wb-player").count(), 9)
+                self.assertEqual(self.page.evaluate("document.documentElement.scrollWidth > innerWidth"), False)
+                self.assertGreater(self.page.locator("caption").bounding_box()["width"], width * 0.7)
+                self.assertLess(self.page.locator("caption").bounding_box()["height"], 90)
+                self.assertEqual(self.page.get_by_role("columnheader", name="This week", exact=True).count(), 1)
+                self.assertNotEqual(self.field(101, "points").evaluate("el => getComputedStyle(el).backgroundColor"), self.field(101, "ddf_value").evaluate("el => getComputedStyle(el).backgroundColor"))
+                if width < 651:
+                    self.assertTrue(self.page.locator('.wb-player[data-player-key="101"] .wb-week-label').is_visible())
+                # Every disclosure target remains usable when expanded on a phone.
+                self.assertEqual(self.page.locator(".wb-sources").evaluate("el => el.open"), width > 650)
+                self.open_sources()
+                self.assertEqual(self.page.locator(".wb-source").count(), 9)
+                self.assertEqual(self.page.evaluate("document.documentElement.scrollWidth > innerWidth"), False)
+                self.assertTrue(self.page.locator("summary:visible").evaluate_all("items => items.every(el => el.getBoundingClientRect().height >= 44)"))
+                self.page.locator(".wb-sources > summary").click()
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.screenshot(path="/tmp/jeg-1420-mobile.png", full_page=True)
+
+    def test_zero_missing_negative_and_prior_change_remain_distinct(self):
+        self.assertEqual(self.field(102, "ddf_value").locator(".wb-field-value").inner_text(), "0")
+        self.assertEqual(self.field(102, "points").locator(".wb-field-value").inner_text(), "0")
+        self.assertEqual(self.field(104, "change").locator(".wb-field-value").inner_text(), "0")
+        self.assertEqual(self.field(101, "change").locator(".wb-field-value").inner_text(), "+4.25")
+        self.assertEqual(self.field(110, "change").locator(".wb-field-value").inner_text(), "-0.5")
+        for key, field, reason in ((102, "change", "no DDF Value in week 7"), (105, "ddf_value", "not priced by DDF Value at this setting"), (104, "points", "conflicting duplicate rows at the same snapshot")):
+            cell = self.field(key, field)
+            self.assertEqual(cell.locator(".wb-field-value").count(), 0)
+            cell.locator("summary").click()
+            self.assertEqual(cell.locator("p").inner_text(), reason)
+        self.assertEqual(self.field(106, "bye_week").locator(".wb-field-value").inner_text(), "This week (8)")
+        self.assertEqual(self.field(101, "status").locator(".wb-field-value").inner_text(), "Active")
+        self.field(101, "status").locator(".wb-status-notes > summary").click()
+        self.assertIn("Questionable", self.field(101, "status").inner_text())
+        self.assertIn("Limited", self.field(101, "status").inner_text())
+
+    def test_weekly_points_status_and_byes_never_change_order_or_values(self):
+        expected = [104, 101, 110, 103, 106, 102, 105, 108, 109]
+        self.assertEqual(self.order(), expected)
+        before = self.page.locator('td:not(.wb-week) .wb-field-value').all_text_contents()
+        self.page.evaluate("""() => {
+            const board = structuredClone(fixtureBoard);
+            board.players.reverse();
+            board.players.forEach((row, i) => {
+                row.this_week.points = i * 10000;
+                row.this_week.status = 'Out';
+                row.this_week.bye_week = 8;
+                row.this_week.on_bye = true;
+            });
+            renderBoard(board);
+        }""")
+        self.assertEqual(self.order(), expected)
+        self.assertEqual(self.page.locator('td:not(.wb-week) .wb-field-value').all_text_contents(), before)
+        self.assertEqual(self.page.locator('thead button, thead a, thead [tabindex]').count(), 0)
+
+    def test_contract_unavailable_sections_swaps_and_unresolved_are_literal(self):
+        board = json.loads(GOLDEN.read_text())
+        for state in ("sections", "swaps"):
+            self.assertEqual(self.page.locator(f".wb-{state} p").inner_text(), board[state]["missing_reason"])
+        self.page.locator(".wb-unresolved > summary").click()
+        self.assertEqual(self.page.locator(".wb-unresolved li").all_text_contents(), [f"{row['name']}: {row['unresolved_reason']}" for row in board["unresolved"]])
+        self.assertEqual(self.page.get_by_text("ADD", exact=True).count(), 0)
+
+    def test_source_disabled_reason_is_keyboard_accessible(self):
+        self.page.set_viewport_size({"width": 390, "height": 844})
+        self.page.evaluate("() => renderBoard(fixtureBoard)")
+        self.page.locator(".wb-sources > summary").focus()
+        self.page.keyboard.press("Enter")
+        source = self.page.locator('[data-source="vegas"]')
+        source.locator("summary").focus()
+        self.page.keyboard.press("Enter")
+        self.assertTrue(source.locator(".wb-disabled-reason").is_visible())
+        self.assertEqual(source.locator(".wb-disabled-reason").inner_text(), "no Vegas producer yet (JEG-1195 slice S3)")
+        self.assertIn("wb-disabled", source.get_attribute("class"))
+        self.page.keyboard.press("Space")
+        self.assertFalse(source.locator(".wb-disabled-reason").is_visible())
+
+    def test_labels_freshness_and_disabled_fields_match_real_contract_variants(self):
+        for kind, key, label, freshness in (("stale", "points", "stale", "stale"), ("previous-season", "values", "previous-season", "stale"), ("modeled", "values", "modeled", "current"), ("one-week-behind", "values", "published", "one week behind"), ("unknown", "points", "modeled", "unknown")):
+            with self.subTest(kind=kind):
+                board = variant(kind)
+                self.page.evaluate("board => renderBoard(board)", board)
+                self.open_sources()
+                source = self.page.locator(f'[data-source="{key}"]')
+                self.assertEqual(source.get_attribute("data-label"), label)
+                self.assertIn(freshness, source.locator("summary").inner_text())
+                if not board["sources"][key]["enabled"]:
+                    source.locator("summary").click()
+                    self.assertEqual(source.locator(".wb-disabled-reason").inner_text(), board["sources"][key]["disabled_reason"])
+                    field = "points" if key == "points" else "ddf_value"
+                    self.assertEqual(self.page.locator(f'[data-field="{field}"] .wb-field-value').count(), 0)
+                    self.field(101, field).locator("summary").click()
+                    self.assertEqual(self.field(101, field).locator("p").inner_text(), board["sources"][key]["disabled_reason"])
+
+    def test_settings_callback_and_read_only_setting(self):
+        self.page.get_by_role("button", name="Edit league settings:").click()
+        self.assertEqual(self.page.evaluate("lastSettings"), {"scoring": "half_ppr", "teams": 12, "superflex": 0})
+        for scoring, label in (("standard", "Standard"), ("ppr", "PPR")):
+            self.page.evaluate("""scoring => {
+                const board = structuredClone(fixtureBoard);
+                board.setting = {scoring, teams: 10, superflex: 1};
+                TradeValueWaiverBoardView.render(document.getElementById('board'), board);
+            }""", scoring)
+            self.assertEqual(self.page.locator(".wb-settings").inner_text(), f"{label} · 10 teams · Superflex")
+            self.assertEqual(self.page.get_by_role("button").count(), 0)
+
+    def test_unsupported_version_clears_old_rows_then_supported_patch_renders(self):
+        for version in ("0.2.0", "1.0.0", "0.10.0", "0.1.0-extra"):
+            self.page.evaluate("version => renderBoard({...fixtureBoard, schema_version: version})", version)
+            self.assertEqual(self.page.get_by_role("alert").count(), 1)
+            self.assertEqual(self.page.locator(".wb-player").count(), 0)
+        self.page.evaluate("() => renderBoard({...fixtureBoard, schema_version: '0.1.9'})")
+        self.assertEqual(self.page.locator(".wb-player").count(), 9)
+
+    def test_empty_board_and_untrusted_text(self):
+        board = json.loads(GOLDEN.read_text())
+        board["players"] = []
+        self.page.evaluate("board => renderBoard(board)", board)
+        self.assertTrue(self.page.get_by_text("No players in this board.").is_visible())
+        board = json.loads(GOLDEN.read_text())
+        board["players"][0]["name"] = '<img src=x onerror="window.injected=true">'
+        board["swaps"]["missing_reason"] = "<script>window.injected=true</script>"
+        self.page.evaluate("board => renderBoard(board)", board)
+        self.assertEqual(self.page.locator(".ddf-waiver-board img, .ddf-waiver-board script").count(), 0)
+        self.assertEqual(self.page.evaluate("window.injected === true"), False)
+        self.assertEqual(self.page.locator(".wb-swaps p").inner_text(), board["swaps"]["missing_reason"])
+
+    def test_repeated_renders_preserve_input_and_have_one_settings_listener(self):
+        self.page.evaluate("""() => {
+            window.beforeBoard = JSON.stringify(fixtureBoard);
+            window.settingsCalls = 0;
+            for (let i = 0; i < 3; i++) TradeValueWaiverBoardView.render(document.getElementById('board'), fixtureBoard, {onSettings: () => settingsCalls++});
+        }""")
+        self.page.get_by_role("button", name="Edit league settings:").click()
+        self.assertEqual(self.page.evaluate("settingsCalls"), 1)
+        self.assertTrue(self.page.evaluate("JSON.stringify(fixtureBoard) === beforeBoard"))
+        self.assertEqual(self.page.locator(".ddf-waiver-board").count(), 1)
+
+    def test_checks_reject_zero_fill_and_weekly_sort_mutations(self):
+        code = JS.read_text()
+        mutations = (
+            ("const value = data[key];", "const value = data[key] == null ? 0 : data[key];", "missing"),
+            ("const av = a.value.ddf_value, bv = b.value.ddf_value;", "const av = a.this_week.points, bv = b.this_week.points;", "sort"),
+        )
+        for old, new, kind in mutations:
+            self.assertIn(old, code)
+            self.page.add_script_tag(content=code.replace(old, new, 1))
+            self.page.evaluate("() => renderBoard(fixtureBoard)")
+            if kind == "missing":
+                self.assertEqual(self.field(105, "ddf_value").locator(".wb-field-value").count(), 1)
+            else:
+                self.assertNotEqual(self.order(), [104, 101, 110, 103, 106, 102, 105, 108, 109])
+        self.page.add_script_tag(content=code)
+        self.page.evaluate("() => renderBoard(fixtureBoard)")
+
+
+class WaiverBoardOrdering(unittest.TestCase):
+    def test_node_copy_order_zero_missing_and_input_immutability(self):
+        script = """
+          const assert = require('node:assert/strict');
+          const {orderedPlayers} = require(process.argv[1]);
+          const rows = [
+            {player_key: 1, value: {ddf_value: null}},
+            {player_key: 8, value: {ddf_value: 0}},
+            {player_key: 4, value: {ddf_value: -2}},
+            {player_key: 3, value: {ddf_value: 6}},
+            {player_key: 2, value: {ddf_value: 6}}
+          ];
+          const before = JSON.stringify(rows);
+          assert.deepEqual(orderedPlayers(rows).map(r => r.player_key), [2,3,8,4,1]);
+          assert.equal(JSON.stringify(rows), before);
+        """
+        subprocess.run(["node", "-e", script, str(JS)], check=True, capture_output=True, text=True)
+
+
+if __name__ == "__main__":
+    unittest.main()
