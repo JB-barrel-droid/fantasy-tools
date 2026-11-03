@@ -169,7 +169,10 @@ class SimplifiedSiteRenderTest(unittest.TestCase):
         # Answer, the two next tries, the stretch offer: opportunities.js fmt / the Trade opportunities capture cell.
         self.assertEqual(gains, ["You gain +4.2 in DDF Value.", "You gain +3.0 in DDF Value.", "You gain +0.1 in DDF Value.", "You gain +6.5 in DDF Value."])
         self.assertEqual(page.inner_text(".ss-offer"), "Offer RB Alpha to Synthetic Team B for WR India.")
-        self.assertEqual(page.locator(".ss-band").all_inner_texts(), ["Likely", "Possible", "Possible", "Long shot"])
+        # JEG-1209's November 3 decision: show existing package evidence, never an acceptance prediction.
+        self.assertEqual(page.locator(".ss-evidence").all_inner_texts(), ["Their trade-chart package +2.1.",
+                         "Their trade-chart package −0.4.", "Their trade-chart package value is unavailable.",
+                         "Their trade-chart package −2.2."])
         self.assertEqual(page.locator(".ss-more .ss-rank").all_inner_texts(), ["2.", "3."])
         page.context.close()
 

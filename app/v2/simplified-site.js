@@ -79,23 +79,29 @@
   }
 
   // ---------- the view model ----------
-  function item(rec, rank, stretch) {
+  function item(rec, rank, stretch, labels) {
     const O = opps();
     const gainText = O.fmt(rec.ourGain);
+    const market = rec.gains && rec.gains.market;
+    const chartBasis = (rec.basis || []).find(x => x.anchor === "market");
+    const theirPackage = finite(market) ? market : chartBasis && chartBasis.gain;
     return {
       id: rec.id, rank, stretch, href: routeFor(rec.id), opponent: rec.opponent,
       give: names(rec.give), receive: names(rec.receive),
-      gainText, gainLine: `You gain ${gainText} in DDF Value.`,
+      gainText, gainLine: `You gain ${gainText} in ${labels.value}.`,
       likelihood: rec.likelihood, band: rec.band,
+      evidence: finite(theirPackage) ? `Their ${labels.market} package ${O.fmt(theirPackage)}.` : `Their ${labels.market} package value is unavailable.`,
+      health: rec.health ? [rec.health.ours && rec.health.ours.length ? `Your roster: ${rec.health.ours.join("; ")}.` : "",
+        rec.health.theirs && rec.health.theirs.length ? `Their roster: ${rec.health.theirs.join("; ")}.` : ""].filter(Boolean) : [],
       offer: `Offer ${names(rec.give)} to ${rec.opponent} for ${names(rec.receive)}.`,
       why: rec.why[0] || "",
       whyAll: rec.why.slice(),
-      fitWord: rec.fit && O.FIT_WORD[rec.fit] ? O.FIT_WORD[rec.fit] : null,
+      fitWord: text(rec.fitLabel) ? rec.fitLabel : rec.fit && O.FIT_WORD[rec.fit] ? O.FIT_WORD[rec.fit] : null,
       sources: (rec.sources || []).map(s => `${s.label} (${s.status})`),
       fallback: rec.fallback || null
     };
   }
-  const APPEAL_NOTE = "How likely is your own read of this manager from the Managers card, not a prediction.";
+  const APPEAL_NOTE = "Package evidence describes their side; it is not a prediction or a starter-fit judgment.";
 
   function countsLine(counts) {
     const c = counts || {};
@@ -114,7 +120,7 @@
     const vm = {name: NAME, state: null, fixture: c.fixture ? {kind: c.fixture.kind, label: c.fixture.label} : null,
       league: c.league ? c.league.name || null : null, basis: c.basis && c.basis.label || null,
       heading: "", text: "", reasons: [], answer: null, more: [], stretch: [], counts: "", detail: null, detailGone: false,
-      appealNote: APPEAL_NOTE};
+      appealNote: APPEAL_NOTE, readout: null, valueLabel: c.basis && c.basis.valueLabel || "DDF Value"};
     const set = (state, heading, text) => Object.assign(vm, {state, heading, text});
     if (c.status === "loading") return set("loading", "Working out your trades", "Reading your league and its trade ideas.");
     if (c.status === "error") return set("error", "Something went wrong", c.error ? `The trade ideas could not be read: ${c.error}` : "The trade ideas could not be read.");
@@ -130,19 +136,20 @@
     }
     const recs = c.ideas.recommendations;
     const stretch = c.ideas.stretch || [];
+    const labels = {value: vm.valueLabel, market: c.basis && c.basis.marketLabel || "trade-chart"};
     vm.counts = countsLine(c.ideas.counts);
-    vm.stretch = stretch.map((rec, i) => item(rec, i + 1, true));
+    vm.stretch = stretch.map((rec, i) => item(rec, i + 1, true, labels));
     if (!recs.length) {
       set("none", "No trade to recommend right now", "None of the trade opportunities is a gain for you that these managers may take.");
     } else {
       set("answer", "Your best trade right now", "");
-      const all = recs.map((rec, i) => item(rec, i + 1, false));
+      const all = recs.map((rec, i) => item(rec, i + 1, false, labels));
       vm.answer = all[0];
       vm.more = all.slice(1);
     }
     if (route && route.detail) {
       const found = [vm.answer].concat(vm.more, vm.stretch).find(x => x && x.id === route.detail);
-      if (found) vm.detail = found;
+      if (found) { vm.detail = found; vm.readout = c.readout || null; }
       else vm.detailGone = true;
     }
     return vm;
@@ -252,7 +259,7 @@
     node.append(...kids.filter(k => k !== null && k !== undefined && k !== false));
     return node;
   }
-  const band = x => el("span", {class: `ss-band is-${x.band}`, text: x.likelihood});
+  const band = x => el("span", {class: "ss-evidence", text: x.evidence});
 
   function card(x) {
     return el("li", {class: "ss-item", "data-trade-id": x.id},
@@ -260,33 +267,44 @@
         el("span", {class: "ss-rank", text: `${x.rank}.`}),
         el("a", {class: "ss-item-link", href: x.href, "data-detail-for": x.id, text: x.offer})),
       el("p", {class: "ss-item-meta"}, el("span", {class: "ss-gain", text: x.gainLine}), " ", band(x)),
+      ...x.health.map(line => el("p", {class: "ss-health", text: line})),
       x.why ? el("p", {class: "ss-why", text: x.why}) : null);
   }
 
   function detailView(vm) {
     const x = vm.detail;
-    return el("section", {class: "ss-detail", "aria-labelledby": "ssDetailTitle"},
+    const detail = el("section", {class: "ss-detail", "aria-labelledby": "ssDetailTitle"},
       el("p", {}, el("a", {class: "ss-back", href: ROUTE, text: "Back to the answer"})),
       el("h2", {id: "ssDetailTitle", tabindex: "-1", text: x.offer}),
       el("dl", {class: "ss-facts"},
         el("dt", {text: "You give"}), el("dd", {text: x.give}),
         el("dt", {text: "You get"}), el("dd", {text: x.receive}),
-        el("dt", {text: "Your gain"}), el("dd", {text: `${x.gainText} in DDF Value`}),
-        el("dt", {text: "They may take it"}), el("dd", {}, band(x), " ", el("span", {class: "ss-note", text: vm.appealNote})),
-        x.fitWord ? el("dt", {text: "Fit"}) : null, x.fitWord ? el("dd", {text: x.fitWord}) : null),
+        el("dt", {text: "Your gain"}), el("dd", {text: `${x.gainText} in ${vm.valueLabel}`}),
+        el("dt", {text: "Their package evidence"}), el("dd", {}, band(x), " ", el("span", {class: "ss-note", text: vm.appealNote})),
+        x.fitWord ? el("dt", {text: "Current engine fit"}) : null, x.fitWord ? el("dd", {text: x.fitWord}) : null),
       el("h3", {text: "Why"}),
+      ...x.health.map(line => el("p", {class: "ss-health", text: line})),
       el("ul", {class: "ss-lines"}, ...x.whyAll.map(line => el("li", {text: line}))),
       el("h3", {text: "Where the numbers come from"}),
       el("ul", {class: "ss-lines ss-provenance"},
         el("li", {text: `Your gain: ${vm.basis || "DDF Value"}.`}),
         el("li", {text: `Their side judged on: ${x.sources.join("; ") || "nothing available"}.`}),
         x.fallback ? el("li", {text: `Uncertain: their side fell back to the trade charts (${x.fallback}).`}) : null,
-        x.stretch ? el("li", {text: "Stretch offer: a long shot by your read of this manager."}) : null));
+        x.stretch ? el("li", {text: "Other package from the same search; inspect their side's evidence."}) : null));
+    if (vm.readout) {
+      [["mine", "Your roster"], ["theirs", `${x.opponent}'s roster`]].forEach(([who, title]) => {
+        detail.append(el("h3", {text: title}));
+        ["ddf", "market", "projections"].forEach(view => detail.append(root.TradeValueReadout.renderSide(vm.readout, who, view)));
+      });
+    }
+    return detail;
   }
 
   function render(container, vm) {
     const kids = [];
     kids.push(el("h1", {id: "ssTitle", tabindex: "-1", text: vm.name}));
+    kids.push(el("nav", {class: "ss-access", "aria-label": "Dashboard access"},
+      el("a", {href: ROUTE, text: "Simplified site"}), el("a", {href: "#find-league", text: "Full dashboard"})));
     if (vm.fixture) {
       kids.push(el("p", {class: "ss-fixture", role: "note", "data-fixture": vm.fixture.kind},
         el("b", {text: vm.fixture.kind === "historical" ? "Historical example. " : "Synthetic example. "}),
@@ -311,22 +329,34 @@
       const a = vm.answer;
       status.append(
         el("p", {class: "ss-offer", text: a.offer}),
-        el("p", {class: "ss-item-meta"}, el("span", {class: "ss-gain", text: a.gainLine}), " ", el("span", {text: "They may take it:"}), " ", band(a)),
+        el("p", {class: "ss-item-meta"}, el("span", {class: "ss-gain", text: a.gainLine}), " ", band(a)),
+        ...a.health.map(line => el("p", {class: "ss-health", text: line})),
         a.why ? el("p", {class: "ss-why", text: a.why}) : null,
         el("p", {class: "ss-note", text: vm.appealNote}),
         el("p", {}, el("a", {class: "ss-item-link", href: a.href, "data-detail-for": a.id, text: "Why this trade, and where the numbers come from"})));
     }
     kids.push(status);
     if (vm.more.length) {
+      const list = el("ol", {class: "ss-list", start: "2"});
+      let shown = 0;
+      const more = el("button", {type: "button", class: "v2-btn", text: "Show 10 more trades"});
+      const append = () => { const next = vm.more.slice(shown, shown + 10); shown += next.length;
+        list.append(...next.map(card)); more.hidden = shown >= vm.more.length; };
+      more.addEventListener("click", append);
+      append();
       kids.push(el("section", {class: "ss-more", "aria-labelledby": "ssMoreTitle"},
-        el("h2", {id: "ssMoreTitle", text: "If they say no, try these next"}),
-        el("ol", {class: "ss-list", start: "2"}, ...vm.more.map(card))));
+        el("h2", {id: "ssMoreTitle", text: "More trades from the same search"}), list, more));
     }
     if (vm.stretch.length) {
+      const list = el("ol", {class: "ss-list"});
+      let shown = 0;
+      const more = el("button", {type: "button", class: "v2-btn", text: "Show 10 more other packages"});
+      const append = () => { const next = vm.stretch.slice(shown, shown + 10); shown += next.length;
+        list.append(...next.map(card)); more.hidden = shown >= vm.stretch.length; };
+      more.addEventListener("click", append);
+      append();
       kids.push(el("section", {class: "ss-stretch", "aria-labelledby": "ssStretchTitle"},
-        el("h2", {id: "ssStretchTitle", text: "Stretch offers"}),
-        el("p", {class: "ss-note", text: "Long shots by your read of the manager. Each one says which belief has to hold."}),
-        el("ol", {class: "ss-list"}, ...vm.stretch.map(card))));
+        el("h2", {id: "ssStretchTitle", text: "Other packages"}), list, more));
     }
     if (vm.counts) kids.push(el("p", {class: "ss-counts", text: vm.counts}));
     container.replaceChildren(...kids);

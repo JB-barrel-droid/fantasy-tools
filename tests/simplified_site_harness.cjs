@@ -93,6 +93,11 @@ const checks = {
       eq(x.fitWord, rec.fit ? O.FIT_WORD[rec.fit] : null, "fit word from opportunities.js");
     });
     eq(shown.map(x => x.gainText), ["+4.2", "+3.0", "+0.1", "+6.5"], "fixture gains as displayed");
+    const labeled = S.viewModel(ctx(c => {c.basis.valueLabel = "DDF Projections"; c.basis.marketLabel = "indexed FantasyCalc";
+      c.ideas.recommendations[0].fitLabel = "Canonical fit label";}), null);
+    eq(labeled.answer.gainLine, "You gain +4.2 in DDF Projections.", "canonical basis label passed through, no new calculation");
+    eq(labeled.answer.evidence, "Their indexed FantasyCalc package +2.1.", "canonical market label passed through");
+    eq(labeled.answer.fitWord, "Canonical fit label", "canonical classifier label is authoritative");
   },
   test_context_not_mutated() {
     // Not frozen, so an in-place change shows in the comparison; two stretch offers, so reordering one shows too.
