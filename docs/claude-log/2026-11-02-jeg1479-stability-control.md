@@ -102,3 +102,37 @@ while the coordinator verifies main's deployment; no PR merge or deployment here
   covered only by Jeremy's current-batch option A, not functional changes.
 - The coordinator owns deployment recovery, the final-main comparison,
   independent current-head receipt, merge and serial live verification.
+
+---
+
+## 2026-11-03 - Main #1255 integration checkpoint
+
+Contract: integrate current functional main once after #1255; preserve the
+reviewed stability repair and prepare fresh CI on the existing ticket branch.
+The coordinator retains serial merge and release ownership.
+
+### Verified (check named)
+
+- Fetched actual main `832a18d90704ffa547ad5aae22e179e28843f3f1`, containing
+  #1255 merge `4c60f8fd0e631f3fb961174f9be8f9f77ab67796`, and merged normally
+  as `55eac0e3efc2ea706c235acfa95e0201bee6cdc5`. No conflicts; all incoming
+  work retained, including baseline attribution and dispatched-code hash.
+- `git diff --exit-code 1bfc656e HEAD -- tests/test_fractional_seats_stability.py`
+  passed: the reviewed feature test file remains byte-identical.
+- Ran `python3 -m pipelines.baseline_reds --context local -- python3 -m
+  unittest tests.test_baseline_reds tests.test_draft_ci_workflows
+  tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows
+  tests.test_fractional_seats_stability` with destination repository identity,
+  Chromium and required rendering configured, production write credentials
+  unset. All 81 tests passed in 48.305 seconds, exit 0, no skips. This includes
+  the unchanged live-input positive gate and both synthetic controls under
+  the newly integrated wrapper, plus failure-preserving attribution checks.
+- No duplicate broad local suite, production math change, continuity repair,
+  force push, deletion, manual job cancellation, deployment or merge to main.
+
+### Claimed, not confirmed
+
+- Fresh final-head CI remains required; earlier green heads do not substitute.
+- Later status-only drift uses the existing batch exception. Functional drift,
+  independent current-head review and serial release remain the coordinator's
+  responsibility.
