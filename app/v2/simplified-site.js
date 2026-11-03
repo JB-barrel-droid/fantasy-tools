@@ -149,31 +149,96 @@
   }
 
   // ---------- the live adapter (read only) ----------
-  // Where the gates plug in: until each lands, its line below stays in `missing` and the live section withholds the answer.
-  //   JEG-1259: the saved league and settings carried through navigation (context).
-  //   JEG-1260: the shared trade readout, truthful on missing players and bench counts (detail).
-  //   JEG-1249: the integrated starter/bench behaviour behind the trade ideas.
-  // Each flag is read from root.TradeValueSimplifiedGates, which the owning ticket sets when its reviewed contract merges.
+  // The three prerequisite contracts have landed. Read their actual APIs and the page's current context, rather than
+  // waiting for globals no owner sets. The ideas provider remains a separate dependency (#1084).
   const GATES = [
-    ["context", "JEG-1259", "Your saved league is not yet carried into this section reliably."],
-    ["readout", "JEG-1260", "The shared trade readout is not yet confirmed for missing players and bench counts."],
-    ["lineup", "JEG-1249", "Starter and bench handling behind the trade ideas is not yet confirmed."]
+    ["context", "JEG-1259", "Your current league settings and saved team could not be read together."],
+    ["readout", "JEG-1260", "The shared trade readout is not available on this page yet."],
+    ["lineup", "JEG-1249", "The current roster shape and starter/bench rules are not available yet."]
   ];
+
+  function liveContracts(r, ws) {
+    const TC = r.TradeValueTradeContext, R = r.TradeValueReadout, C = r.TradeValueCurveControls;
+    const V = r.TradeValueV2, O = r.DDFOverrides, F = r.TradeValueFinder;
+    let context = null;
+    if (TC && TC.fromLeague && TC.commonFromPage && TC.sourcesFromEngine && V && V.leagueQuery && O && O.snapshotContext
+      && C && C.getBasis && C.getSourceInfo) {
+      const common = TC.commonFromPage({leagueQuery: V.leagueQuery(),
+        valueContext: {...O.snapshotContext(), basis: C.getBasis()}, sources: TC.sourcesFromEngine(C.getSourceInfo())});
+      context = TC.fromLeague({common}, ws);
+    }
+    const shape = C && C.getRosterShape ? C.getRosterShape() : null;
+    return {context, shape, contracts: {
+      context: Boolean(context && context.common.league && !context.warnings.length && context.teams.mine
+        && !context.teams.mine.missing && context.teams.mine.matchesSaved),
+      readout: Boolean(R && R.VERSION === 1 && R.inputFromContext && R.build && R.renderSide && F && F.rosterImpact),
+      lineup: Boolean(shape && F && F.pickStarters && r.ValueModel && r.ValueModel.isReserveSlot
+        && r.TradeValueLineupComparison && r.TradeValueLineupComparison.renderTable)
+    }};
+  }
+
+  // #1084 keeps the exact completed search's pricingRows (including DDF/market league levels). Never replace those
+  // with getAllRows(): doing so would silently reprice league-level trades at the standard bench.
+  function readoutFor(r, context, rec, snapshot, shape) {
+    if (!snapshot || !Array.isArray(snapshot.pricingRows)) return null;
+    const TC = r.TradeValueTradeContext, R = r.TradeValueReadout;
+    const opponent = context.teams.opponents.find(t => t.id === rec.opponentId);
+    if (!opponent) return null;
+    const key = p => String(p.player_key);
+    const trade = TC.createContext({route: "league", common: context.common, workspaceId: context.workspaceId,
+      mine: context.teams.mine, opponents: [opponent], deal: {give: rec.give.map(key), get: rec.receive.map(key)}});
+    if (!TC.dealPartner(trade)) return null;
+    const rowsByKey = new Map(snapshot.pricingRows.map(row => [key(row), row]));
+    const env = {rowsByKey, shape, chartKeys: r.TradeValueCurveControls.getSourceInfo().filter(s => s.available)
+      .map(s => s.key).filter(k => r.TradeValueFinder.CHART_KEYS.includes(k))};
+    return R.build(R.inputFromContext(trade, env, {context: TC}),
+      {finder: r.TradeValueFinder, isReserveSlot: r.ValueModel.isReserveSlot});
+  }
+
   function liveContext(r) {
     const W = r.TradeValueWorkspace;
     const ideas = r.TradeValueTradeIdeas;
-    const gates = r.TradeValueSimplifiedGates || {};
     if (!W || !W.store) return {status: "loading"};
     let ws;
     try { ws = W.store.get(); } catch (error) { return {status: "error", error: String(error && error.message || error)}; }
     const mine = ws && ws.myTeamId && (ws.teams || []).find(t => t.id === ws.myTeamId);
     const out = {status: "ready", league: ws && (ws.teams || []).length ? {name: ws.name || "Your league", myTeam: mine ? mine.name : null} : null,
       basis: {horizon: HORIZON, label: "Rest of season, DDF Value"},
-      missing: GATES.filter(([key]) => gates[key] !== true).map(([key, ticket, text]) => ({key, ticket, text})), ideas: null};
-    if (!ideas || !ideas.compute) out.missing.push({key: "ideas", text: "The Trade ideas card is not on this page."});
-    else {
-      try { out.ideas = ideas.compute(); } catch (error) { return {status: "error", error: String(error && error.message || error)}; }
-    }
+      missing: [], ideas: null};
+    if (!mine) return out;
+    try {
+      const state = liveContracts(r, ws), contracts = state.contracts;
+      out.context = state.context;
+      out.contracts = contracts;
+      out.missing = GATES.filter(([key]) => contracts[key] !== true).map(([key, ticket, text]) => ({key, ticket, text}));
+      if (!ideas || typeof ideas.compute !== "function") out.missing.push({key: "ideas", text: "Trade ideas are not available on this page yet."});
+      if (out.missing.length) return out;
+      const ui = r.TradeValueLeague && r.TradeValueLeague.ui;
+      // The old result can remain in ui.result during a new search. Never show it while its context is being rebuilt.
+      if (!ui || !ui.ready || ui.running || ui.timer) return {...out, status: "loading"};
+      const snapshot = ui.result;
+      if (!snapshot || !Array.isArray(snapshot.pricingRows)) {
+        out.missing.push({key: "ideas", text: "The league's priced trade opportunities are not ready yet."});
+        return out;
+      }
+      out.ideas = ideas.compute();
+      if (!out.ideas || typeof out.ideas.then === "function" || ui.result !== snapshot || W.store.get() !== ws) {
+        return {...out, status: "loading", ideas: null};
+      }
+      if (!gaps(out).length) {
+        const detail = parseRoute(r.location && r.location.hash);
+        const all = out.ideas.recommendations.concat(out.ideas.stretch || []);
+        const rec = detail && detail.detail ? all.find(x => x.id === detail.detail) : all[0];
+        if (rec) {
+          out.readout = readoutFor(r, state.context, rec, snapshot, state.shape);
+          const readout = out.readout;
+          if (!readout || !readout.ready || ["mine", "theirs"].some(side => !readout.sides[side].ddf
+            || readout.sides[side].ddf.tradedUnpriced.length)) {
+            out.missing.push({key: "readout", text: "This trade is missing a roster player or a DDF Value; no answer is shown."});
+          }
+        }
+      }
+    } catch (error) { return {status: "error", error: String(error && error.message || error)}; }
     return out;
   }
 
@@ -314,14 +379,29 @@
   // The one call the dashboard makes (v2.js refresh() on this route): mount once on the live adapter, then re-read on each
   // refresh without moving focus (the hashchange listener in mount() handles focus when the route changes).
   let mounted = null;
+  function followLive(handle) {
+    let queued = false;
+    const refresh = () => {
+      if (queued) return;
+      queued = true;
+      queueMicrotask(() => { queued = false; handle.update(false); });
+    };
+    [root.TradeValueWorkspace, root.TradeValueManagerProfiles].forEach(api => {
+      if (api && api.store && api.store.onChange) api.store.onChange(refresh);
+    });
+    root.addEventListener("trade-value-rows-change", refresh);
+    document.addEventListener("ddf:league-settings-changed", refresh);
+    const body = document.getElementById("v2LgOppsBody");
+    if (body) new MutationObserver(refresh).observe(body, {childList: true, subtree: true, attributes: true, attributeFilter: ["aria-busy"]});
+  }
   function activate(container) {
     if (!container) return null;
-    if (!mounted) mounted = mount(container, {getContext: () => liveContext(root)});
+    if (!mounted) { mounted = mount(container, {getContext: () => liveContext(root)}); followLive(mounted); }
     else mounted.update(false);
     return mounted;
   }
 
-  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, gaps, viewModel, countsLine, liveContext, render, mount, activate};
+  const api = {NAME, ROUTE, HORIZON, GATES, parseRoute, routeFor, usable, gaps, viewModel, countsLine, liveContracts, readoutFor, liveContext, render, mount, activate};
   if (typeof module !== "undefined" && module.exports) { module.exports = api; return; }
   root.TradeValueSimplifiedSite = api;
 })(typeof window !== "undefined" ? window : globalThis);
