@@ -22,6 +22,9 @@ ROOT = Path(__file__).resolve().parents[1]
 JS = ROOT / "app/v2/waiver-board-view.js"
 FIXTURE = "/tests/fixtures/waiver_board_view/standalone.html"
 GOLDEN = ROOT / "tests/fixtures/waiver_board/expected_half_ppr_12.json"
+# Saved outputs built and replay-validated on corrected adapter head a7047158.
+# Reading these needs no adapter import, producer change or site build.
+SWAP_BOARDS = ROOT / "tests/fixtures/waiver_board_view/swaps_0_2.json"
 sys.path.insert(0, str(ROOT / "pipelines"))
 import build_waiver_board as builder  # noqa: E402
 from lib.waiver_board import validate  # noqa: E402
@@ -43,6 +46,10 @@ def variant(kind):
     board = builder.build_board(weekly, values, values["setting"], "2026-10-30T12:00:00Z")
     assert validate(board) == [], validate(board)
     return board
+
+
+def swap_board(kind="available"):
+    return json.loads(SWAP_BOARDS.read_text())["cases"][kind]
 
 
 class QuietHandler(http.server.SimpleHTTPRequestHandler):
@@ -221,7 +228,7 @@ class WaiverBoardViewRender(unittest.TestCase):
             self.assertEqual(self.page.locator(".wb-settings").inner_text(), f"{label} · 10 teams · Superflex")
             self.assertEqual(self.page.get_by_role("button").count(), 0)
 
-    def test_unsupported_version_clears_old_rows_then_supported_patch_renders(self):
+    def test_unsupported_or_incomplete_version_clears_old_rows_then_supported_patch_renders(self):
         self.page.evaluate("() => renderBoard(null)")
         self.assertEqual(self.page.get_by_role("alert").count(), 1)
         self.assertEqual(self.page.locator(".wb-player").count(), 0)
@@ -303,6 +310,117 @@ class WaiverBoardViewRender(unittest.TestCase):
         self.assertEqual(self.field(101, "points").locator(".wb-points-source").get_attribute("title"), board["points_leg"])
         # v0.1 supplies provider identifiers, not publisher URLs to guess.
         self.assertEqual(self.page.locator(".ddf-waiver-board a").count(), 0)
+
+    def test_0_2_swaps_display_supplied_order_names_gain_and_policy(self):
+        board = swap_board("two_moves")
+        self.page.evaluate("board => renderBoard(board)", board)
+        self.assertEqual(self.page.locator(".wb-swap").evaluate_all("items => items.map(el => [Number(el.dataset.add), Number(el.dataset.drop)])"), [[112, 111], [110, 106]])
+        self.assertEqual(self.page.locator(".wb-swap-add dd > span").all_text_contents(), ["Arriving RB", "Gus Golf"])
+        self.assertEqual(self.page.locator(".wb-swap-drop dd > span").all_text_contents(), ["Bench TE", "Fay Foxtrot"])
+        self.assertEqual(self.page.locator(".wb-swap-gain dd").all_text_contents(), ["+10", "+5.75"])
+        self.assertEqual(self.page.locator(".wb-swap-policy").inner_text(), "DDF Value gain ≥ 1")
+        self.assertEqual(self.page.locator(".wb-sections p").inner_text(), board["sections"]["missing_reason"])
+        self.assertEqual(self.page.locator(".wb-swap-list").get_by_role("listitem").count(), 2)
+        self.assertEqual(self.page.locator(".wb-unresolved li").count(), 3)
+        self.assertEqual(self.field(102, "points").locator(".wb-field-value").inner_text(), "0")
+
+    def test_0_2_standalone_fixture_urls_and_unknown_selection(self):
+        for kind in ("two_moves", "open_slot", "empty", "disabled_values", "unknown_roster", "unresolved_wire"):
+            with self.subTest(kind=kind):
+                self.page.goto(self.base + FIXTURE + "?swaps=" + kind)
+                self.page.wait_for_selector(".wb-swaps")
+                self.page.wait_for_load_state("networkidle")
+                self.assertEqual(self.page.evaluate("fixtureBoard"), swap_board(kind))
+                self.assertEqual(self.page.locator(".wb-swap").count(), len(swap_board(kind)["swaps"]["rows"]))
+        self.page.goto(self.base + FIXTURE + "?swaps=unknown")
+        self.page.get_by_role("alert").wait_for()
+        self.assertEqual(self.page.get_by_role("alert").inner_text(), "Unknown swap fixture")
+        self.assertEqual(self.page.locator(".wb-player, .wb-swap").count(), 0)
+        self.page.goto(self.base + FIXTURE)
+        self.page.wait_for_selector(".wb-player")
+        self.assertEqual(self.page.evaluate("fixtureBoard.schema_version"), "0.1.0")
+
+    def test_0_2_open_slot_empty_and_unresolved_wire_are_distinct(self):
+        for kind in ("open_slot", "empty", "unresolved_wire"):
+            with self.subTest(kind=kind):
+                board = swap_board(kind)
+                self.page.evaluate("board => renderBoard(board)", board)
+                self.assertEqual(self.page.locator(".wb-swap").count(), len(board["swaps"]["rows"]))
+                if kind == "open_slot":
+                    self.assertEqual(self.page.locator(".wb-swap-drop dd").inner_text(), "Open roster slot")
+                    self.assertEqual(self.page.locator(".wb-swap-gain dd").inner_text(), "+9")
+                elif kind == "empty":
+                    self.assertEqual(self.page.locator(".wb-swaps-empty").inner_text(), "No swaps in this board.")
+                    self.assertEqual(self.page.locator(".wb-swap-policy").inner_text(), "DDF Value gain ≥ 100")
+                    board["swaps"]["request"]["gain_policy"]["comparison"] = "gt"
+                    self.page.evaluate("board => renderBoard(board)", board)
+                    self.assertEqual(self.page.locator(".wb-swap-policy").inner_text(), "DDF Value gain > 100")
+                else:
+                    self.page.locator(".wb-unresolved-wire > summary").focus()
+                    self.page.keyboard.press("Enter")
+                    self.assertEqual(self.page.locator(".wb-unresolved-wire li").inner_text(), "Player key 999")
+                    self.assertTrue(self.page.locator(".wb-unresolved-wire li").is_visible())
+
+    def test_0_2_unavailable_reasons_replace_old_swaps_without_guessing(self):
+        for kind in ("disabled_values", "unknown_roster"):
+            with self.subTest(kind=kind):
+                self.page.evaluate("board => renderBoard(board)", swap_board())
+                self.assertEqual(self.page.locator(".wb-swap").count(), 1)
+                board = swap_board(kind)
+                self.page.evaluate("board => renderBoard(board)", board)
+                self.assertEqual(self.page.locator(".wb-swaps p").inner_text(), board["swaps"]["missing_reason"])
+                self.assertEqual(self.page.locator(".wb-swap, .wb-swap-policy").count(), 0)
+                self.assertEqual(self.page.locator(".wb-sections p").inner_text(), board["sections"]["missing_reason"])
+                if kind == "disabled_values":
+                    self.assertEqual(self.page.locator('[data-field="ddf_value"] .wb-field-value').count(), 0)
+
+    def test_0_2_missing_invalid_and_unsupported_artifacts_clear_old_swaps(self):
+        mutations = (
+            "delete board.swaps", "delete board.swaps.request", "delete board.swaps.request.gain_policy",
+            "board.swaps.request.gain_policy.minimum = null", "board.swaps.request.gain_policy.comparison = 'default'",
+            "board.swaps.request.setting.teams = 10", "delete board.swaps.rows[0].gain",
+            "board.swaps.rows[0].add = 999", "board.swaps.rows[0].drop = 999",
+            "board.swaps.unresolved_wire_keys = null", "board.swaps.available = false",
+            "board.schema_version = '0.3.0'", "board.schema_version = '0.20.0'",
+            "board.sections.available = true", "delete board.sources.values",
+        )
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                board = swap_board()
+                self.page.evaluate("board => renderBoard(board)", board)
+                self.assertEqual(self.page.locator(".wb-swap").count(), 1)
+                self.page.evaluate(f"board => {{ {mutation}; renderBoard(board); }}", board)
+                self.assertEqual(self.page.get_by_role("alert").count(), 1)
+                self.assertEqual(self.page.locator(".wb-swap, .wb-player").count(), 0)
+        board = swap_board()
+        board["schema_version"] = "0.2.9"
+        self.page.evaluate("board => renderBoard(board)", board)
+        self.assertEqual(self.page.locator(".wb-swap").count(), 1)
+
+    def test_0_1_and_0_2_repeated_selection_phone_layout_and_safe_text(self):
+        original = json.loads(GOLDEN.read_text())
+        populated = swap_board("two_moves")
+        self.page.evaluate("window.selectionCount = 0")
+        for width in (1366, 650, 390, 320):
+            for board in (populated, original, swap_board("unknown_roster"), populated):
+                self.page.set_viewport_size({"width": width, "height": 900})
+                self.page.evaluate("""board => {
+                    window.selectionBoard = board; window.selectionBefore = JSON.stringify(board);
+                    TradeValueWaiverBoardView.render(document.getElementById('board'), board, {onSettings: () => selectionCount++});
+                }""", board)
+                before = self.page.evaluate("selectionCount")
+                self.page.get_by_role("button", name="Edit league settings:").click()
+                self.assertEqual(self.page.evaluate("selectionCount"), before + 1)
+                self.assertTrue(self.page.evaluate("JSON.stringify(selectionBoard) === selectionBefore"))
+                self.assertEqual(self.page.locator(".ddf-waiver-board").count(), 1)
+                self.assertFalse(self.page.evaluate("document.documentElement.scrollWidth > innerWidth"))
+                self.assertEqual(self.page.locator(".wb-swap").count(), len(board["swaps"].get("rows", [])))
+        hostile = swap_board()
+        next(row for row in hostile["players"] if row["player_key"] == 110)["name"] = '<img src=x onerror="window.injected=true">'
+        self.page.evaluate("board => renderBoard(board)", hostile)
+        self.assertEqual(self.page.locator(".wb-swap-add dd > span").inner_text(), '<img src=x onerror="window.injected=true">')
+        self.assertEqual(self.page.locator(".wb-swaps img, .wb-swaps script").count(), 0)
+        self.assertFalse(self.page.evaluate("window.injected === true"))
 
     def test_checks_reject_zero_fill_and_weekly_sort_mutations(self):
         code = JS.read_text()

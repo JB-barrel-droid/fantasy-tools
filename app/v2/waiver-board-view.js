@@ -1,4 +1,4 @@
-// JEG-1420: isolated reader for docs/waiver-board-contract.md (0.1.x).
+// JEG-1420: isolated reader for waiver-board 0.1.x and opt-in local 0.2.x swaps.
 // The caller loads/validates the built artifact and owns routing/settings.
 // No engine, roster, network, clock or persistence access in this renderer.
 (function (root) {
@@ -12,17 +12,41 @@
   const SCORINGS = {standard: "Standard", half_ppr: "Half PPR", ppr: "PPR"};
   const words = value => String(value == null ? "unavailable" : value).replace(/_/g, " ");
   const number = value => typeof value === "number" && Number.isFinite(value);
+  const reason = value => typeof value === "string" && !!value.trim();
+  const playerKey = value => Number.isSafeInteger(value) && value >= 0;
+
+  // Shape checks for display only. The caller validates/replays the artifact;
+  // roster decisions, gain calculation and row order belong to its producer.
+  function supportedSwaps(board) {
+    const swaps = board.swaps;
+    if (!swaps) return false;
+    if (/^0\.1\./.test(board.schema_version)) {
+      return swaps.available === false && reason(swaps.missing_reason) &&
+        !Object.hasOwn(swaps, "rows");
+    }
+    const request = swaps.request, policy = request && request.gain_policy;
+    if (typeof swaps.available !== "boolean" || !Array.isArray(swaps.rows) ||
+        !Array.isArray(swaps.unresolved_wire_keys) || !swaps.unresolved_wire_keys.every(playerKey) ||
+        !request || !request.setting ||
+        !["scoring", "teams", "superflex"].every(key => request.setting[key] === board.setting[key]) ||
+        !policy || !number(policy.minimum) || !["gt", "gte"].includes(policy.comparison)) return false;
+    if (!swaps.available) return reason(swaps.missing_reason) && swaps.rows.length === 0;
+    if (swaps.missing_reason !== null || !board.sources.values.enabled) return false;
+    const priced = key => board.players.some(row => row.player_key === key && number(row.value.ddf_value));
+    return swaps.rows.every(row => row && playerKey(row.add) && priced(row.add) &&
+      (row.drop === null || (playerKey(row.drop) && priced(row.drop))) && number(row.gain));
+  }
 
   function supported(board) {
-    return !!(board && board.schema === "waiver-board" && /^0\.1\.\d+$/.test(board.schema_version) &&
+    return !!(board && board.schema === "waiver-board" && /^0\.[12]\.\d+$/.test(board.schema_version) &&
       Number.isInteger(board.board_week) && Number.isInteger(board.season) &&
       board.setting && SCORINGS[board.setting.scoring] && Number.isInteger(board.setting.teams) &&
       [0, 1].includes(board.setting.superflex) && board.sources && Array.isArray(board.players) &&
       Array.isArray(board.unresolved) && board.sections && board.sections.available === false &&
-      typeof board.sections.missing_reason === "string" && board.swaps && board.swaps.available === false &&
-      typeof board.swaps.missing_reason === "string" &&
+      reason(board.sections.missing_reason) &&
       ["values", "values_prior", "points", "status", "bye"].every(key => board.sources[key]) &&
-      board.players.every(row => row && row.value && row.this_week && row.value.missing_reason && row.this_week.missing_reason));
+      board.players.every(row => row && row.value && row.this_week && row.value.missing_reason && row.this_week.missing_reason) &&
+      supportedSwaps(board));
   }
 
   // Work on a copy. Weekly context is deliberately absent from this comparison.
@@ -48,7 +72,7 @@
     view.setAttribute("aria-label", "Waiver board");
     host.replaceChildren(view);
     if (!supported(board)) {
-      const error = make("p", "wb-error", "Waiver board unavailable: expected a waiver-board 0.1.x artifact. Reload a supported built board.");
+      const error = make("p", "wb-error", "Waiver board unavailable: expected a supported waiver-board 0.1.x or 0.2.x artifact. Reload a supported built board.");
       error.setAttribute("role", "alert");
       view.append(error);
       return view;
@@ -166,7 +190,45 @@
     table.append(tbody);
     view.append(table);
     if (!board.players.length) view.append(make("p", "wb-empty", "No players in this board."));
-    view.append(unavailable("Your swaps", board.swaps, "wb-swaps"));
+    const swaps = board.swaps;
+    const swapPanel = swaps.available ? make("section", "wb-swap-panel wb-swaps") : unavailable("Your swaps", swaps, "wb-swaps");
+    if (swaps.available) {
+      swapPanel.append(make("h3", "", "Your swaps"));
+      const policy = swaps.request.gain_policy;
+      swapPanel.append(make("p", "wb-swap-policy", `DDF Value gain ${policy.comparison === "gt" ? ">" : "≥"} ${policy.minimum}`));
+      const list = make("ol", "wb-swap-list");
+      swaps.rows.forEach(swap => {
+        const item = make("li", "wb-swap");
+        item.dataset.add = swap.add;
+        item.dataset.drop = swap.drop == null ? "" : swap.drop;
+        const fields = make("dl");
+        [["Add", swap.add, "add"], ["Drop", swap.drop, "drop"]].forEach(([label, key, field]) => {
+          const group = make("div", `wb-swap-${field}`);
+          const value = make("dd");
+          const player = key === null ? null : board.players.find(row => row.player_key === key);
+          if (player) {
+            value.append(make("span", "", player.name), make("small", "", `${player.position} · ${player.team == null ? "Team unavailable" : player.team}`));
+          } else value.textContent = "Open roster slot";
+          group.append(make("dt", "", label), value);
+          fields.append(group);
+        });
+        const gain = make("div", "wb-swap-gain");
+        gain.append(make("dt", "", "DDF Value gain"), make("dd", "", swap.gain > 0 ? `+${swap.gain}` : String(swap.gain)));
+        fields.append(gain);
+        item.append(fields);
+        list.append(item);
+      });
+      swapPanel.append(swaps.rows.length ? list : make("p", "wb-swaps-empty", "No swaps in this board."));
+    }
+    if (swaps.unresolved_wire_keys && swaps.unresolved_wire_keys.length) {
+      const unresolved = make("details", "wb-unresolved-wire");
+      unresolved.append(make("summary", "", `Unresolved wire players (${swaps.unresolved_wire_keys.length})`));
+      const list = make("ul");
+      swaps.unresolved_wire_keys.forEach(key => list.append(make("li", "", `Player key ${key}`)));
+      unresolved.append(list);
+      swapPanel.append(unresolved);
+    }
+    view.append(swapPanel);
     if (board.unresolved.length) {
       const unresolved = make("details", "wb-unresolved");
       unresolved.append(make("summary", "", `Unresolved players (${board.unresolved.length})`));

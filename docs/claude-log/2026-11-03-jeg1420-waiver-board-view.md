@@ -191,3 +191,79 @@ review and coordinated dashboard manifest/loading/mount/settings integration
 remain required. Shared v2.js/shell, Fieldnotes/Simplified, swap adapter and
 board-builder ownership were untouched. No denied action was retried, and no
 merge, deploy, activation, access change or deletion was attempted.
+
+
+## Backward-compatible Your swaps reader (0.2)
+
+The coordinator explicitly authorized finishing the ticket's existing Your swaps
+scope against corrected adapter PR #1296. Both remote heads were reconciled:
+renderer `979bdedc48cecc545fc94ad0fcb5d3037cae1eca`, adapter
+`a704715880d2dca50ff5d9bc6a4da867d6d20af7`. No adapter or shared-page writer
+was duplicated. Direct messaging to adapter owner thread
+`01a1a1cd-885a-7756-b56a-7d40dd7160d2` returned “agent ... not found”; it did
+not deliver. The coordinator must relay this concrete interface handoff.
+
+The reader now accepts complete `waiver-board` 0.1.x **and 0.2.x artifacts**.
+Its API is unchanged: `TradeValueWaiverBoardView.render(host, board,
+{onSettings})`. Pass the built board, not the publication manifest or the
+adapter's intermediate `buildSwapPlan` result. A 0.2 board supplies
+`swaps: {available, missing_reason, request, rows, unresolved_wire_keys}`;
+`rows` are `{add, drop, gain}` and `request.gain_policy` explicitly supplies
+`minimum` and `comparison`. The host retains full contract validation/replay;
+the reader's guards only check the shape and fields needed for safe display.
+
+- Populated rows join add/drop keys to names/position/team in `board.players`,
+  preserve the producer's sequence and gain without recalculation, show the
+  explicit gt/gte policy, and distinguish a null drop as an open roster slot.
+- An available block with zero rows says “No swaps in this board.” It makes no
+  claim about a verdict or optimal decision. Disabled blocks retain their
+  exact missing reason. Unresolved wire keys are disclosed separately without
+  invented names/reasons. Missing/unsupported input clears stale rows and
+  announces an alert; settings and board references are not mutated.
+- Sections still require the contract's unavailable placeholder. No section
+  thresholds, source URLs, adapter logic or production activation is added.
+  Default standalone loading remains the unchanged 0.1 golden.
+
+`tests/fixtures/waiver_board_view/swaps_0_2.json` contains seven saved **local
+fixture** artifacts produced and replay-validated with the actual corrected
+adapter builder/validator, extracted read-only from a7047158 into
+`/tmp/jeg-1418-contract-a7047158`. Starting from the adapter's existing fixture
+request/values (Ben's DDF Value 10), cases cover a real swap, an open slot
+(BENCH 2), an empty result (explicit fixture policy minimum 100), stale values,
+unknown roster 999, unresolved wire 999 and the adapter's two-move fixture.
+All seven passed that head's validator/replay. This does not rerun its decimal,
+position or single-use decision tests or copy its implementation into this PR.
+The fixture records its source head; no frozen producer fixture was edited.
+
+Verified:
+
+- System Chromium, `RENDER_TESTS_REQUIRED=1`,
+  `python3 -m unittest tests.test_waiver_board_view_render -v`: **20 tests pass,
+  24.748s, no skips** (`/tmp/jeg-1420-swaps-focused.log`). The existing 14 checks
+  remain, plus supplied swap identity/order/gain/policy display, navigable saved
+  fixture URLs, null drop/empty/unresolved distinctions, exact disabled reasons,
+  missing/malformed/unsupported/patch-version handling and repeated 0.1/0.2
+  rendering at 1366/650/390/320px, including safe hostile-name text.
+- Seven acceptance captures use the actual standalone fixture URLs. All assets
+  return 200, with no console/page/request failures or horizontal overflow.
+  Desktop and narrow-phone populated swaps and the unavailable panel were
+  visually inspected. Bundle: `/tmp/jeg-1420-swaps-acceptance/report.json`.
+- A negative control loads the previous 979bdedc reader against the same real
+  0.2 artifact: it refuses it. The new reader renders the provided swap rows.
+- JavaScript syntax and `git diff --check` pass. No broad suite was restarted.
+
+Reproduce the review fixture by serving this repository root with
+`python3 -m http.server 8000` and opening
+`/tests/fixtures/waiver_board_view/standalone.html?swaps=two_moves`.
+Other choices: `available`, `open_slot`, `empty`, `disabled_values`,
+`unknown_roster`, `unresolved_wire`. Omit the query for original 0.1 behavior.
+
+The renderer/adapter 0.2 display gap is closed in this isolated component;
+previous notes limiting this reader to 0.1 are superseded. Shared dashboard
+manifest selection/loading, asset registration, mount, settings/navigation and
+filter integration remain coordinated work. Keep the PR draft while the ready
+cap is full. Full exact-head CI, formal independent current-head review and
+Jeremy's copy/layout approval remain required. Earlier broad receipts are
+reused, not recast as a fresh full pass. Shared v2.js/shell, Fieldnotes/Simplified,
+producer/contract/publication and swap-adapter files remain untouched. No merge,
+deploy, source activation, access change, deletion or denied-operation retry.

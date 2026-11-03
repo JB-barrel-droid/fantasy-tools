@@ -24,9 +24,17 @@
 .ddf-waiver-board .wb-source { border: 1px solid var(--wb-line); border-radius: 8px; padding: 4px 10px; min-width: 0; }
 .ddf-waiver-board .wb-source summary span { display: block; font-size: 12px; }
 .ddf-waiver-board .wb-disabled { color: var(--wb-muted); background: var(--wb-week); }
-.ddf-waiver-board .wb-unavailable { padding: 14px; margin: 16px 0; border: 1px solid var(--wb-line); border-radius: 8px; }
-.ddf-waiver-board .wb-unavailable h3 { font-size: 16px; }
+.ddf-waiver-board .wb-unavailable, .ddf-waiver-board .wb-swap-panel { padding: 14px; margin: 16px 0; border: 1px solid var(--wb-line); border-radius: 8px; }
+.ddf-waiver-board .wb-unavailable h3, .ddf-waiver-board .wb-swap-panel h3 { font-size: 16px; }
 .ddf-waiver-board .wb-unavailable p { color: var(--wb-muted); margin: 0; }
+.ddf-waiver-board .wb-swap-policy, .ddf-waiver-board .wb-swap dt { color: var(--wb-muted); font-size: 13px; }
+.ddf-waiver-board .wb-swap-list { margin: 0; padding-left: 24px; }
+.ddf-waiver-board .wb-swap { padding: 12px 0; border-bottom: 1px solid var(--wb-line); }
+.ddf-waiver-board .wb-swap:last-child { border-bottom: 0; }
+.ddf-waiver-board .wb-swap dl { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin: 0; }
+.ddf-waiver-board .wb-swap dl > div { min-width: 0; }
+.ddf-waiver-board .wb-swap dd { margin: 0; }
+.ddf-waiver-board .wb-swap-gain dd { font-variant-numeric: tabular-nums; }
 .ddf-waiver-board .wb-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .ddf-waiver-board caption { text-align: left; font-size: 18px; font-weight: 650; padding: 8px 0 12px; }
 .ddf-waiver-board th, .ddf-waiver-board td { padding: 12px 10px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--wb-line); }
@@ -57,6 +65,7 @@
   .ddf-waiver-board .wb-field[data-field="ddf_value"] { grid-column: span 2; border-bottom: 1px solid var(--wb-line); }
   .ddf-waiver-board td:not(.wb-week) .wb-field-label { display: block; }
   .ddf-waiver-board .wb-week-label { display: block; font-size: 12px; font-weight: 650; }
+  .ddf-waiver-board .wb-swap dl { grid-template-columns: 1fr; gap: 8px; }
 }
 @media (max-width: 360px) {
   /* Two columns keep availability words readable on the narrowest phones. */
