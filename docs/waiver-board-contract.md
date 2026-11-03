@@ -111,12 +111,22 @@ DDF Value; an open roster slot has no drop and costs zero. Missing DDF Value
 never becomes zero. A disabled values source disables the swap block with its
 source reason. Other weekly fields never affect gain or selection.
 
+Subtraction uses the input numbers' canonical decimal forms, and the explicit
+gt/gte policy compares that decimal difference exactly against its minimum.
+Thus 3.35 minus 3.25 is equal to 0.1: gt excludes it and gte includes it. No
+epsilon or fixed rounding precision is added, and the input DDF Values are not
+changed. The reported gain remains a JSON number. Function callers' unary
+`acceptGain(gain)` callbacks remain supported; the adapter also supplies the
+source add and drop values as optional second and third callback arguments.
+
 `pipelines/waiver_board_swaps.cjs` invokes the same pure adapter as local JS
 callers, `app/v2/waiver-board-swaps.js`, which calls `waivers.js` and finder
 `rosterImpact`/depth rules. The adapter preserves Waivers' best-drop choice and
 ordering, reevaluates after each accepted move, and uses each player at most
 once. A proposed drop must be a priced bench player and cannot worsen a thin
 position. It omits an unsafe move rather than ranking an alternative drop.
+Both additions and priced drops must have an existing supported fantasy
+position (QB, RB, WR or TE); missing or unsupported positions are not eligible.
 
 The validator checks the block and replays that same JS implementation to
 verify the rows, gain, identities, order, availability and depth protection.

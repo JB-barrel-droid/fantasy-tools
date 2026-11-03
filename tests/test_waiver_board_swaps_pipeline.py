@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import copy
+from decimal import Decimal
 import hashlib
 import json
 import tempfile
@@ -61,6 +62,42 @@ class SwapArtifact(unittest.TestCase):
         self.assertEqual(self.build()["swaps"]["rows"], [])
         self.request["gain_policy"]["comparison"] = "gte"
         self.assertEqual(self.build()["swaps"]["rows"][0]["gain"], 5.75)
+
+    def test_decimal_policy_boundaries_match_an_independent_decimal_oracle(self):
+        pairs = [(3.35, 3.25, .1), (3.55, 3.25, .3),
+                 (3.3500000001, 3.25, .1), (3.3499999999, 3.25, .1),
+                 (1e-7, 9e-8, 1e-8)]
+        for arriving, departing, minimum in pairs:
+            exact_gain = Decimal(str(arriving)) - Decimal(str(departing))
+            for comparison in ("gt", "gte"):
+                with self.subTest(arriving=arriving, departing=departing, comparison=comparison):
+                    self.values["players"]["106"]["ddf_value"] = departing
+                    self.values["players"]["110"]["ddf_value"] = arriving
+                    self.request["gain_policy"] = {"minimum": minimum, "comparison": comparison}
+                    board = self.build()
+                    accepted = exact_gain > Decimal(str(minimum)) if comparison == "gt" else exact_gain >= Decimal(str(minimum))
+                    expected = [{"add": 110, "drop": 106, "gain": float(exact_gain)}] if accepted else []
+                    self.assertEqual(board["swaps"]["rows"], expected)
+                    self.assertEqual(base.wb.validate(board), [])
+
+    def test_validator_refuses_a_swap_at_a_strict_decimal_equality_boundary(self):
+        self.values["players"]["106"]["ddf_value"] = 3.25
+        self.values["players"]["110"]["ddf_value"] = 3.35
+        self.request["gain_policy"] = {"minimum": .1, "comparison": "gt"}
+        board = self.build()
+        self.assertEqual(board["swaps"]["rows"], [])
+        board["swaps"]["rows"] = [{"add": 110, "drop": 106, "gain": .1}]
+        self.assertTrue(base.wb.validate(board))
+
+    def test_missing_and_unsupported_candidate_positions_never_produce_swap_rows(self):
+        for position in (None, "FB", "FLEX", "rb"):
+            with self.subTest(position=position):
+                self.values["players"]["110"]["position"] = position
+                board = self.build()
+                self.assertEqual(board["swaps"]["rows"], [])
+                self.assertEqual(base.wb.validate(board), [])
+                board["swaps"]["rows"] = [{"add": 110, "drop": 106, "gain": 5.75}]
+                self.assertTrue(base.wb.validate(board))
 
     def test_overrides_and_unknown_wire_keys_are_serialized(self):
         self.request["wire_overrides"] = {"add": [105, 999], "remove": [110]}

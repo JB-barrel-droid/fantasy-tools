@@ -2,6 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const Module = require("node:module");
 const A = require("../app/v2/waiver-board-swaps.js");
 const W = require("../app/v2/waivers.js");
 const F = require("../app/v2/finder.js");
@@ -16,6 +17,31 @@ const board = () => boardOf([player(1, "QB", 100), player(2, "RB", 90), player(3
   player(8, "RB", 12), player(9, "WR", 10)]);
 const options = extra => ({rosterKeys: [1, 2, 3, 4, 5, 6, 7], wireKeys: [8, 9], context,
   acceptGain: gain => gain > 0, ...extra});
+
+function decimalScenario(add, drop, policy) {
+  const b = board();
+  b.players.find(p => p.player_key === 7).value.ddf_value = drop;
+  b.players[b.players.findIndex(p => p.player_key === 8)] = player(8, "TE", add);
+  const opts = options({wireKeys: [8]});
+  const request = {roster_keys: opts.rosterKeys, wire_keys: opts.wireKeys, wire_overrides: {add: [], remove: []},
+    context: opts.context, gain_policy: policy};
+  return {b, opts, request};
+}
+
+function singleUseScenario(adapter) {
+  // RB 2 wins the initial open slot: weighted gain 1 versus TE 5's 0.5.
+  // Then RB 2 is the cheapest bench drop for TE 5, with raw gain +3.
+  // The used-drop guard is the reason that second move must be rejected.
+  const b = boardOf([player(1, "QB", 10), player(2, "RB", 10), player(3, "WR", 10), player(4, "TE", 10),
+    player(8, "RB", 2), player(9, "TE", 5)]);
+  return adapter.buildSwapPlan(b, options({rosterKeys: [1, 2, 3, 4],
+    context: {...context, shape: {...shape, BENCH: 1}, rosterSize: 5}}));
+}
+
+function assertSingleUse(plan) {
+  const used = plan.swaps.flatMap(s => [s.add.player_key, ...(s.drop ? [s.drop.player_key] : [])]);
+  assert.equal(new Set(used).size, used.length, "a player was used in more than one move");
+}
 
 test("hand-worked sequential swaps use raw DDF gain and distinct players", () => {
   const b = board();
@@ -44,13 +70,69 @@ test("gain policy is explicit and caller supplied", () => {
   assert.deepEqual(out.swaps.map(s => s.gain), [10]);
 });
 
+test("decimal equality respects strict and inclusive caller boundaries", () => {
+  for (const [add, minimum] of [[3.35, .1], [3.55, .3]]) {
+    const {b, opts, request} = decimalScenario(add, 3.25, {minimum, comparison: "gt"});
+    assert.deepEqual(A.buildSwapBlock(b, request).rows, []);
+    assert.deepEqual(A.buildSwapPlan(b, {...opts, acceptGain: gain => gain > minimum}).swaps, []);
+    request.gain_policy.comparison = "gte";
+    assert.deepEqual(A.buildSwapBlock(b, request).rows, [{add: 8, drop: 7, gain: minimum}]);
+    const included = A.buildSwapPlan(b, {...opts, acceptGain: gain => gain >= minimum});
+    assert.equal(included.swaps[0].gain, minimum);
+  }
+});
+
+test("decimal comparison preserves real differences and scientific notation", () => {
+  for (const [add, comparison, count] of [[3.3500000001, "gt", 1], [3.3499999999, "gte", 0]]) {
+    const {b, request} = decimalScenario(add, 3.25, {minimum: .1, comparison});
+    assert.equal(A.buildSwapBlock(b, request).rows.length, count);
+  }
+  const {b, request} = decimalScenario(1e-7, 9e-8, {minimum: 1e-8, comparison: "gt"});
+  assert.deepEqual(A.buildSwapBlock(b, request).rows, []);
+  request.gain_policy.comparison = "gte";
+  assert.deepEqual(A.buildSwapBlock(b, request).rows, [{add: 8, drop: 7, gain: 1e-8}]);
+});
+
+test("only supported fantasy positions can be added, even with an open slot", () => {
+  for (const pos of [null, "FB", "FLEX", "rb", "", "K", "DST"]) {
+    const b = board();
+    b.players.find(p => p.player_key === 8).position = pos;
+    for (const rosterKeys of [[1, 2, 3, 4], [1, 2, 3, 4, 5, 6, 7]]) {
+      assert.deepEqual(A.buildSwapPlan(b, options({rosterKeys, wireKeys: [8]})).swaps, [], String(pos));
+    }
+    assert.deepEqual(A.buildSwapPlan(b, options({wireKeys: [8, 9]})).swaps.map(s => s.add.player_key), [9]);
+  }
+});
+
+test("a priced roster player with unknown position is not a valid bench drop", () => {
+  const b = board();
+  b.players.find(p => p.player_key === 7).position = null;
+  assert.deepEqual(A.buildSwapPlan(b, options({wireKeys: [8]})).swaps, []);
+});
+
 test("an added player cannot be reused as a later drop", () => {
-  const b = boardOf([player(1, "QB", 10), player(2, "RB", 10), player(3, "WR", 10), player(4, "TE", 10),
-    player(8, "RB", 1), player(9, "WR", 2)]);
-  const out = A.buildSwapPlan(b, options({rosterKeys: [1, 2, 3, 4], context: {...context, rosterSize: 5}}));
+  const out = singleUseScenario(A);
   assert.equal(out.swaps.length, 1);
+  assert.equal(out.swaps[0].add.player_key, 8);
   assert.equal(out.swaps[0].drop, null);
   assert.equal(out.swaps[0].gain, out.swaps[0].add.values.ddf_value);
+  assertSingleUse(out);
+});
+
+test("single-use regression detects removal of the used-drop guard", () => {
+  const filename = require.resolve("../app/v2/waiver-board-swaps.js");
+  const source = fs.readFileSync(filename, "utf8");
+  const guard = "used.has(keyOf(drop)) || ";
+  assert.equal(source.split(guard).length - 1, 1, "mutation must remove exactly the drop guard");
+  const mutant = new Module(filename, module);
+  mutant.filename = filename;
+  mutant.paths = Module._nodeModulePaths(path.dirname(filename));
+  mutant._compile(source.replace(guard, ""), filename);
+  const broken = singleUseScenario(mutant.exports);
+  assert.deepEqual(broken.swaps.map(s => [s.add.player_key, s.drop && s.drop.player_key, s.gain]),
+    [[8, null, 2], [9, 8, 3]]);
+  assert.throws(() => assertSingleUse(broken), /used in more than one move/);
+  assertSingleUse(singleUseScenario(A));
 });
 
 test("missing roster keys block; missing wire keys are reported", () => {

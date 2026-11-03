@@ -7,7 +7,8 @@
  *
  * Keys are already resolved player_key identities, never pasted names. The paste
  * resolver and the existing wire-selection policy belong to the caller. Overrides
- * change that supplied wire only. acceptGain(rawDdfGain) is REQUIRED: this adapter
+ * change that supplied wire only. acceptGain(rawDdfGain, addValue, dropValue) is
+ * REQUIRED (unary callbacks remain supported): this adapter
  * does not settle the board's gain-cutoff policy. Selection order is Waivers'
  * orderResults, not a new raw-gain ranking. After each selected move, evaluate
  * again on the resulting roster. Each player participates in at most one move.
@@ -20,6 +21,27 @@
   const finite = n => typeof n === "number" && Number.isFinite(n);
   const keyOf = r => String(r.player_key);
   const unavailable = reason => ({available: false, missing_reason: reason, swaps: []});
+
+  // Subtract the canonical decimal forms of the existing numeric inputs. This
+  // removes binary-subtraction artifacts without rounding values to a chosen
+  // precision or introducing a tolerance at the caller's policy boundary.
+  function decimal(value) {
+    const [mantissa, exponent = "0"] = String(value).split("e");
+    const dot = mantissa.indexOf(".");
+    return {coefficient: BigInt(mantissa.replace(".", "")),
+      exponent: Number(exponent) - (dot < 0 ? 0 : mantissa.length - dot - 1)};
+  }
+  const unitsAt = (value, exponent) => value.coefficient * 10n ** BigInt(value.exponent - exponent);
+  function decimalDifference(left, right) {
+    const a = decimal(left), b = decimal(right);
+    const exponent = Math.min(a.exponent, b.exponent);
+    return {coefficient: unitsAt(a, exponent) - unitsAt(b, exponent), exponent};
+  }
+  function compareDecimals(a, b) {
+    const exponent = Math.min(a.exponent, b.exponent);
+    const delta = unitsAt(a, exponent) - unitsAt(b, exponent);
+    return delta < 0n ? -1 : delta > 0n ? 1 : 0;
+  }
 
   function keys(values, label) {
     if (!Array.isArray(values) || values.some(k =>
@@ -71,7 +93,8 @@
     let roster = mine.map(k => byKey.get(k));
     const balance = F.rosterBalance(roster, ctx.expected, F.OUR_KEY, ctx.shape);
     if (!balance.ready) return unavailable("a complete starting roster is required to protect positional depth");
-    let candidates = wire.filter(k => byKey.has(k)).map(k => byKey.get(k));
+    let candidates = wire.filter(k => byKey.has(k)).map(k => byKey.get(k))
+      .filter(row => F.DEPTH_POS.includes(row.pos));
     const context = {...ctx, view: W.viewFor("ddf"), chartKeys: [],
       rosterSize: ctx.rosterSize === undefined ? W.rosterSizeOf(ctx.shape) : ctx.rosterSize};
     const used = new Set();
@@ -83,15 +106,18 @@
         const drop = result.drop;
         // Reuse Waivers' best drop exactly; never replace its choice with an
         // independently ranked alternative. Only priced bench drops qualify.
-        if (drop && (used.has(keyOf(drop)) || !result.impact.before.bench.includes(drop)
+        if (drop && (used.has(keyOf(drop)) || !F.DEPTH_POS.includes(drop.pos) || !result.impact.before.bench.includes(drop)
             || !finite(drop.values[F.OUR_KEY]))) return null;
         if (!drop && !result.openSlot) return null;
         // teamFit supplies the existing depth bands. Protect a position when a
         // move reduces its usable depth and increases its distance from the band.
         const thins = Object.values(result.fit.depth).some(d => d.after < d.before && d.distAfter > d.distBefore);
         if (thins || result.fit.emptyAfter > result.fit.emptyBefore) return null;
-        const gain = result.ddf - (drop ? drop.values[F.OUR_KEY] : 0);
-        if (!acceptGain(gain)) return null;
+        const dropValue = drop ? drop.values[F.OUR_KEY] : 0;
+        const difference = decimalDifference(result.ddf, dropValue);
+        const gain = Number(`${difference.coefficient}e${difference.exponent}`);
+        if (!finite(gain)) throw new RangeError("swap gain cannot be represented as a finite number");
+        if (!acceptGain(gain, result.ddf, dropValue)) return null;
         return {add: result.candidate, drop, gain, evaluation: result};
       }).find(Boolean);
       if (!eligible) break;
@@ -112,11 +138,15 @@
       throw new TypeError("explicit gain_policy minimum and comparison are required");
     }
     const values = board.sources && board.sources.values;
+    const minimum = decimal(policy.minimum);
     const plan = values && !values.enabled
       ? unavailable(values.disabled_reason)
       : buildSwapPlan(board, {rosterKeys: request.roster_keys, wireKeys: request.wire_keys,
         wireOverrides: request.wire_overrides, context: request.context,
-        acceptGain: gain => policy.comparison === "gt" ? gain > policy.minimum : gain >= policy.minimum});
+        acceptGain: (_gain, addValue, dropValue) => {
+          const comparison = compareDecimals(decimalDifference(addValue, dropValue), minimum);
+          return policy.comparison === "gt" ? comparison > 0 : comparison >= 0;
+        }});
     return {available: plan.available, missing_reason: plan.missing_reason, request,
       rows: plan.swaps.map(s => ({add: s.add.player_key, drop: s.drop ? s.drop.player_key : null, gain: s.gain})),
       unresolved_wire_keys: (plan.unresolvedWireKeys || []).map(Number)};
