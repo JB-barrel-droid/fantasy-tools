@@ -217,6 +217,6 @@ immutability, cancellation, pool-cap disclosure and manager-free Pickups.
 
 Final cancellation is checked again after the complete progress callback and
 before publishing the page, so a superseding selection cannot leak an old result.
-Pinned real candidate verification also enumerates all1440 Flowers-constrained
+Pinned real candidate verification also enumerates all1260 Flowers-constrained
 Jeremy/Nic size2 subset pairs and finds the documented Taylor/Tuten package,
 with exact search-to-Review record equality. Full UI testing stays with its owner.
