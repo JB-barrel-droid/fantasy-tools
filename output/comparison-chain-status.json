@@ -1,5 +1,5 @@
 {
-  "run_at": "2026-11-03T03:12:32.861523+00:00",
+  "run_at": "2026-11-03T03:28:24.169908+00:00",
   "nfl_week": 8,
   "sources": {
     "usatoday": "promoted 3/3",
@@ -91,7 +91,7 @@
       "source": "cbsros",
       "status": "ok",
       "stage": "complete",
-      "detail": "snapshot 2026-11-02 -> 12 DDF legs -> section; review passed (4404 values)",
+      "detail": "snapshot 2026-11-03 -> 12 DDF legs -> section; review passed (4404 values)",
       "promoted": 1,
       "sections": 1
     },
@@ -140,8 +140,8 @@
       "lagging_one_week": false
     },
     "cbsros": {
-      "content_vintage": "2026-11-02",
-      "content_week": 8,
+      "content_vintage": "2026-11-03",
+      "content_week": 9,
       "health_status": "ok",
       "lagging_one_week": false
     },
@@ -165,9 +165,9 @@
       "stale_after": null
     },
     "cbsros": {
-      "served_week": 8,
-      "label_week": 8,
-      "published_at": "2026-11-02",
+      "served_week": 9,
+      "label_week": 9,
+      "published_at": "2026-11-03",
       "basis": "section_label",
       "expected_week": 8,
       "weeks_behind": 0,
@@ -238,15 +238,15 @@
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound"
+      "FAIL tests.test_value_pipeline_engine.TestPromotionModelSwitchedOff.test_python_reference_flag_on_equals_baseline"
     ],
     "assertions": [
-      "AssertionError: 0.18850538720786858 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.18850538720786858)"
+      "AssertionError: 0 not greater than 100 : no rows priced; the comparison would be vacuous"
     ],
     "make_targets": [
-      "Makefile:667: test-core"
+      "Makefile:665: test-core"
     ],
-    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound; AssertionError: 0.18850538720786858 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.18850538720786858)",
-    "recorded_at": "2026-11-03T03:19:38.080708+00:00"
+    "detail": "FAIL tests.test_value_pipeline_engine.TestPromotionModelSwitchedOff.test_python_reference_flag_on_equals_baseline; AssertionError: 0 not greater than 100 : no rows priced; the comparison would be vacuous",
+    "recorded_at": "2026-11-03T03:31:58.655331+00:00"
   }
 }
