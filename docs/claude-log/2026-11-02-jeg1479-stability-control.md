@@ -136,3 +136,44 @@ The coordinator retains serial merge and release ownership.
 - Later status-only drift uses the existing batch exception. Functional drift,
   independent current-head review and serial release remain the coordinator's
   responsibility.
+
+---
+
+## 2026-11-03 - Authorized main-repair bootstrap preparation
+
+Contract: prepare #1287 first to repair the existing main negative-control
+failure. The coordinator relayed Jeremy's specific "Y" authorizing that one
+bootstrap merge despite existing main red, with recovery verification before
+any other release. PR CI and independent review remain required; this session
+does not merge or deploy.
+
+### Verified (check named)
+
+- Fetched actual main `75d43a5f893a47f4a8806149dd551bcaf22031fd` once and
+  merged normally as `25bef22a1db85160b90fe2656c540150967d1c61`, no conflicts.
+  Preserved #1277's journey/workflow changes, Sleeper identity refresh,
+  weekly inputs, generated traces and operational status updates.
+- `git diff --exit-code 1ab7cadf HEAD -- tests/test_fractional_seats_stability.py`
+  passed. The reviewed deterministic repair is byte-identical; file SHA256
+  `21e31ec94eb220c019d4ec82f2149f369e375bfd757b968615c03b058ac4b0e4`.
+- Current main's committed comparison-chain status still identifies the old
+  negative control failing at `0.6097403935206955 not greater than 1.0`.
+  This is status-artifact evidence, not a replay of unpublished candidate data.
+- Focused local checks through `pipelines.baseline_reds --context local`
+  passed all 121 tests in 181.429 seconds, exit 0, no skips. Modules:
+  `test_fractional_seats_stability` (full unchanged live sweep and both controls),
+  `test_sleeper_identity_layer`, `test_espn_weekly_store`, `test_v2_finder`,
+  `test_v2_finder_search_unchanged`, `test_baseline_reds`,
+  `test_draft_ci_workflows`, `test_preview_workflow_matches_pages`,
+  `test_ci_speedup_workflows`, `test_render_sweep_coverage`.
+  Production write credentials were unset; destination identity and required
+  Chromium configured. No tracked test-generated changes remained.
+- No threshold, production math or separate continuity change. No duplicate
+  broad local suite, force push, deletion, cancellation, merge or deployment.
+
+### Claimed, not confirmed
+
+- Fresh final-head CI and the coordinator's current-head review remain
+  necessary. The main-red exception does not waive either gate.
+- The live site has not been checked here. The coordinator owns serial merge,
+  main/deployment recovery and live verification before any other release.
