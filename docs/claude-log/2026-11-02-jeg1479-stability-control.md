@@ -216,3 +216,40 @@ Reuse exactly that correction; no new fix, timeout increase or assertion waiver.
   No workflow was manually cancelled or retried. No broad local suite repeated.
 - Parent retains the authorized bootstrap merge and recovery verification;
   this session performs no merge to main or deployment.
+
+---
+
+## 2026-11-03 - Player-status input integration
+
+Contract: parent found functional player-status input drift before bootstrap.
+Integrate current main once, preserve both qualified test fixes, run focused
+checks and fresh CI. Do not chase later operational status-only commits.
+
+### Verified (check named)
+
+- Fetched actual main `a552c00884287147a099a1279c94b3fdb0d4ca88` once.
+  Incoming changes comprise `data/inputs/player_status.json`,
+  `output/player-status-history.json` and seven operational JSON files.
+  Merged normally as `8ef0bbd3f7e4c745a61000ef2ffbced7c70e97a9`, no conflicts.
+- The status snapshot is now dated 2026-11-03T13:10:15+00:00 and the history
+  summary records 948 rows. All incoming data and operational artifacts retained.
+- `git diff --exit-code cc25702a HEAD -- tests/test_fractional_seats_stability.py
+  tests/test_jeg1249_league_site_render.py` passed: both qualified fixes are
+  byte-identical to the preceding green head.
+- Through `pipelines.baseline_reds --context local`, all 9 tests in
+  `test_daily_player_status` and `test_fractional_seats_stability` passed in
+  165.028s, no skips, exit 0. Includes the unchanged live sweep and 1.0 bound,
+  both deterministic controls, status expiry/value invariance and daily publish
+  behavior. Production write credentials unset; required Chromium configured.
+- All 3 plain test functions in `test_player_status_history_ids` passed using
+  `unittest.FunctionTestCase` adapters (0.121s, exit 0). Pytest is unavailable in
+  this runtime; the existing no-argument functions and assertions ran unchanged.
+- No tracked generated churn. No broad local or browser suite repeated. No
+  application source, math, bound, assertion or timeout change added.
+
+### Claimed, not confirmed
+
+- The integrated head requires new exact-head CI and parent qualification of
+  this delta. Previous-head green checks do not replace those requirements.
+- Parent retains the specifically authorized bootstrap, main/live recovery
+  verification and serial release; no merge, deploy or cancellation here.
