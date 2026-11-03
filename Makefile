@@ -1054,6 +1054,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_finder_teams_render
 
 test-render-extra:
+	python3 -m unittest tests.test_uso_site_journey_render
 	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
 	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
