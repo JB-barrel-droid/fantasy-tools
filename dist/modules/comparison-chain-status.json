@@ -1,9 +1,9 @@
 {
-  "run_at": "2026-11-03T04:03:41.541629+00:00",
-  "nfl_week": 8,
+  "run_at": "2026-11-03T09:02:56.114056+00:00",
+  "nfl_week": 9,
   "sources": {
     "usatoday": "promoted 3/3",
-    "fantasycalc": "promoted 3/3 (WARNING list changed, filled in from other charts: fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-full-12-qb1-section full_12_qb1/TE list 29 -> 30: dropped none; added darren waller | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-half-12-qb1-section half_12_qb1/TE list 29 -> 30: dropped none; added darren waller | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 29 -> 30: dropped none; added darren waller)",
+    "fantasycalc": "HELD at stage 'review' (amber, review hold): kept last promoted section (Week 8); candidate not promoted: fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 191/193 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. derrick henry, justin jefferson, javonte williams); coverage_list:full_12_qb1/QB:warn -- list changed (32 -> 32): dropped: lamar jackson; added: fernando mendoza; coverage_list:full_12_qb1/RB:warn -- list changed (63 -> 65): dropped: none; added: jonathon brooks, justice hill; coverage_list:full_12_qb1/TE:warn -- list changed (29 -> 30): dropped: none; added: darren waller. A hold means a human must review first; the chain will not override it.",
     "fantasypros": "promoted 3/3",
     "espn": "promoted 1/1",
     "cbs": "promoted 3/3",
@@ -15,22 +15,25 @@
   ],
   "success": false,
   "outcome": "failed",
-  "held": [],
-  "hold_severity": "none",
-  "list_changes": {
-    "fantasycalc": [
-      "fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-      "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-      "fantasycalc-full-12-qb1-section full_12_qb1/TE list 29 -> 30: dropped none; added darren waller",
-      "fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-      "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-      "fantasycalc-half-12-qb1-section half_12_qb1/TE list 29 -> 30: dropped none; added darren waller",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-      "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 29 -> 30: dropped none; added darren waller"
-    ]
+  "held": [
+    "fantasycalc"
+  ],
+  "hold_severity": "amber",
+  "list_changes": {},
+  "held_detail": {
+    "fantasycalc": {
+      "reason": "fidelity: stored_vs_chart",
+      "held_series": [
+        "fantasycalc"
+      ],
+      "sections": [
+        "fantasycalc"
+      ],
+      "detail": "1188/1188 chart values equal stored bake fcwk8_2026-10-31t1405_v1; newer stored bake fcwk8_2026-11-03t0305_v1 (week 8, saved 2026-11-03T03:05:32.682201Z) is not on the chart yet: 1143 values changed, 30 added, 30 dropped",
+      "hold_severity": "amber",
+      "week": 9
+    }
   },
-  "held_detail": {},
   "runner": "github-actions",
   "detail": {
     "usatoday": {
@@ -44,22 +47,25 @@
     },
     "fantasycalc": {
       "source": "fantasycalc",
-      "status": "ok",
-      "stage": "complete",
-      "detail": "promoted 3/3; WARNING list changed, filled in from other charts (OC-5): fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-full-12-qb1-section full_12_qb1/TE list 29 -> 30: dropped none; added darren waller | fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-half-12-qb1-section half_12_qb1/TE list 29 -> 30: dropped none; added darren waller | fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza | fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill | fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 29 -> 30: dropped none; added darren waller",
-      "promoted": 3,
+      "status": "held",
+      "stage": "review",
+      "detail": "fantasycalc-full-12-qb1-section: verdict is 'hold', not 'ready' \u2014 refusing to promote. Failing checks: native_drift:full_12_qb1:fail -- 191/193 values moved > 0.05 (live mismatch 19/25 top-25 match (need 80%); e.g. derrick henry, justin jefferson, javonte williams); coverage_list:full_12_qb1/QB:warn -- list changed (32 -> 32): dropped: lamar jackson; added: fernando mendoza; coverage_list:full_12_qb1/RB:warn -- list changed (63 -> 65): dropped: none; added: jonathon brooks, justice hill; coverage_list:full_12_qb1/TE:warn -- list changed (29 -> 30): dropped: none; added: darren waller. A hold means a human must review first; the chain will not override it.",
+      "promoted": 0,
       "sections": 3,
-      "list_change_warnings": [
-        "fantasycalc-full-12-qb1-section full_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-        "fantasycalc-full-12-qb1-section full_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-        "fantasycalc-full-12-qb1-section full_12_qb1/TE list 29 -> 30: dropped none; added darren waller",
-        "fantasycalc-half-12-qb1-section half_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-        "fantasycalc-half-12-qb1-section half_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-        "fantasycalc-half-12-qb1-section half_12_qb1/TE list 29 -> 30: dropped none; added darren waller",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/QB list 32 -> 32: dropped lamar jackson; added fernando mendoza",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/RB list 63 -> 65: dropped none; added jonathon brooks, justice hill",
-        "fantasycalc-standard-12-qb1-section standard_12_qb1/TE list 29 -> 30: dropped none; added darren waller"
-      ]
+      "list_change_warnings": [],
+      "held": true,
+      "held_reason": "review hold",
+      "failed_stage": "review",
+      "rolled_back": 0,
+      "rolled_back_records": [],
+      "kept_section": {
+        "present": true,
+        "week_designated": "Week 8",
+        "content_vintage": "Week 8",
+        "content_week": 8
+      },
+      "weeks_behind": 1,
+      "hold_severity": "amber"
     },
     "fantasypros": {
       "source": "fantasypros",
@@ -112,20 +118,20 @@
     "usatoday": {
       "content_vintage": "2026-10-27",
       "content_week": 8,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "fantasycalc": {
       "content_vintage": "Week 8",
       "content_week": 8,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "fantasypros": {
       "content_vintage": "2026-10-27",
       "content_week": 8,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "espn": {
       "content_vintage": "2026-11-02",
@@ -136,8 +142,8 @@
     "cbs": {
       "content_vintage": "Week 8",
       "content_week": 8,
-      "health_status": "ok",
-      "lagging_one_week": false
+      "health_status": "warning",
+      "lagging_one_week": true
     },
     "cbsros": {
       "content_vintage": "2026-11-03",
@@ -158,18 +164,18 @@
       "label_week": 8,
       "published_at": "2026-10-28T12:23:16+00:00",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     },
     "cbsros": {
       "served_week": 9,
       "label_week": 9,
       "published_at": "2026-11-03",
       "basis": "section_label",
-      "expected_week": 8,
+      "expected_week": 9,
       "weeks_behind": 0,
       "state": "current",
       "stale": false,
@@ -180,73 +186,83 @@
       "label_week": 8,
       "published_at": "2026-11-02",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     },
     "fantasycalc": {
       "served_week": 8,
       "label_week": 8,
-      "published_at": "2026-11-03T03:05:25+00:00",
+      "published_at": "2026-10-31T14:05:26+00:00",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     },
     "fantasypros": {
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-10-27",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     },
     "razzball": {
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-11-02",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     },
     "usatoday": {
       "served_week": 8,
       "label_week": 8,
       "published_at": "2026-10-27",
       "basis": "section_label",
-      "expected_week": 8,
-      "weeks_behind": 0,
-      "state": "current",
+      "expected_week": 9,
+      "weeks_behind": 1,
+      "state": "lagging",
       "stale": false,
-      "stale_after": null
+      "stale_after": "2026-11-05T12:00:00-06:00"
     }
   },
   "stale_sources": [],
-  "lagging_sources": [],
+  "lagging_sources": [
+    "cbs",
+    "espn",
+    "fantasycalc",
+    "fantasypros",
+    "razzball",
+    "usatoday"
+  ],
   "stale_rule": "a source still serving week N after Thursday 12:00 CT of week N+1 is stale (Jeremy, 2026-10-27, JEG-1176); a warning only, never a chain failure",
+  "fidelity_holds": {
+    "fantasycalc": "fidelity: stored_vs_chart"
+  },
   "post_rebuild_validation": {
     "status": "failed",
     "command": "make validate",
     "failed_tests": [
-      "FAIL tests.test_value_pipeline_engine.TestPromotionModelSwitchedOff.test_python_reference_flag_on_equals_baseline"
+      "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound"
     ],
     "assertions": [
-      "AssertionError: 0 not greater than 100 : no rows priced; the comparison would be vacuous"
+      "AssertionError: 0.6153387701386919 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.6153387701386919)"
     ],
     "make_targets": [
-      "Makefile:665: test-core"
+      "Makefile:667: test-core"
     ],
-    "detail": "FAIL tests.test_value_pipeline_engine.TestPromotionModelSwitchedOff.test_python_reference_flag_on_equals_baseline; AssertionError: 0 not greater than 100 : no rows priced; the comparison would be vacuous",
-    "recorded_at": "2026-11-03T04:07:57.986867+00:00"
+    "detail": "FAIL tests.test_fractional_seats_stability.FractionalSeatStability.test_hard_rule_fails_the_bound; AssertionError: 0.6153387701386919 not greater than 1.0 : the hard rule should break the bound on Charlotte (worst 0.6153387701386919)",
+    "recorded_at": "2026-11-03T09:09:42.018933+00:00"
   }
 }
