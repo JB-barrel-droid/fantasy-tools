@@ -13,11 +13,14 @@ is self-contained and makes no network requests. Nothing is wired to `make sync`
 the dashboard shell, `dist`, runtime writers or publication.
 
 The adapter uses the existing weekly-input validator, then selects only
-`experts.ecr_weekly` (`fantasypros`) and `vegas` (`propline`). ESPN and other
+`experts.ecr_weekly` (`fantasypros_ecr` from the producer, or `fantasypros`
+from the shared contract fixtures) and `vegas` (`propline`). ESPN and other
 sources cannot fill either side. Missing values remain null with the producer's
 reason, or an explicit absent-leg / absent-scoring reason. Raw source values,
 content vintage, freshness, provenance, identity and artifact SHA-256 remain
-inspectable. Freshness is the shared contract's content-week classification;
+inspectable. Each player's expandable identity detail shows `player_key`,
+`resolved_by`, and `source_ids` as supplied by the producer; absent identity
+provenance is explicitly unavailable. Freshness is the shared contract's content-week classification;
 it is not a claim that a saved artifact is current today.
 
 Difference is descriptive `Vegas − ECR` fantasy points, only when both cells
@@ -37,6 +40,9 @@ python3 -m unittest tests.test_versus_vegas
 RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_versus_vegas_render
 ```
 
+The adapter suite also runs the real offline producer CLI on its committed
+fixtures, then feeds its output directly to the preview CLI without relabeling
+or mocking. It checks unavailable coverage, unresolved rows and identity fields.
 The browser test uses only a loopback HTTP server and the repo's hermetic
 Playwright setup. Tests create synthetic ECR/PropLine rows from the existing
 committed shared-input fixture; no production data or fixtures are modified.

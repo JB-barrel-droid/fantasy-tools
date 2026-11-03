@@ -5,9 +5,11 @@ on:
     paths:
       - 'app/versus-vegas/**'
       - 'pipelines/build_versus_vegas.py'
+      - 'pipelines/build_weekly_inputs.py'
       - 'pipelines/lib/weekly_inputs_contract.py'
       - 'tests/test_versus_vegas*.py'
       - 'tests/fixtures/weekly_inputs/**'
+      - 'tests/fixtures/weekly_inputs_producer/**'
       - '.github/workflows/versus-vegas-preview-tests.yml'
 
 permissions:

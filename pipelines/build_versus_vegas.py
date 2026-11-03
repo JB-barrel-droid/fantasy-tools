@@ -17,7 +17,10 @@ from lib.weekly_inputs_contract import SCORINGS, errors, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app" / "versus-vegas"
-SOURCES = {"ecr": ("experts.ecr_weekly", "fantasypros"), "vegas": ("vegas", "propline")}
+# The producer uses fantasypros_ecr; the shared contract's older fixtures use
+# fantasypros. Both name weekly ECR on the exact ecr_weekly leg, never a fill.
+SOURCES = {"ecr": ("experts.ecr_weekly", ("fantasypros_ecr", "fantasypros")),
+           "vegas": ("vegas", ("propline",))}
 
 
 def build_view(doc: dict) -> dict:
@@ -31,10 +34,10 @@ def build_view(doc: dict) -> dict:
         raise ValueError("Invalid weekly inputs: " + "; ".join(
             f"{i.path}: {i.code}" for i in errors(issues)))
     legs = {}
-    for side, (leg_id, source) in SOURCES.items():
+    for side, (leg_id, sources) in SOURCES.items():
         meta = doc["legs"].get(leg_id)
-        if meta and meta["source"] != source:
-            raise ValueError(f"{leg_id} must use {source}; got {meta['source']}")
+        if meta and meta["source"] not in sources:
+            raise ValueError(f"{leg_id} must use {' or '.join(sources)}; got {meta['source']}")
         legs[side] = meta
 
     def value_for(player, side, scoring):
@@ -55,6 +58,8 @@ def build_view(doc: dict) -> dict:
     for player in doc["players"]:
         row = {key: player[key] for key in ("player_key", "name", "team", "position")}
         row["unresolved_reason"] = player.get("unresolved_reason")
+        row["resolved_by"] = player.get("resolved_by")
+        row["source_ids"] = player.get("source_ids", {})
         row["scoring"] = {}
         for scoring in SCORINGS:
             cells = {side: value_for(player, side, scoring) for side in SOURCES}

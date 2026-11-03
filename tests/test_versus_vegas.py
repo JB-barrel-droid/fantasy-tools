@@ -4,6 +4,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+import re
 import socket
 import subprocess
 import sys
@@ -136,6 +137,56 @@ class VersusVegas(unittest.TestCase):
         html = render_html(build_view(doc))
         self.assertNotIn('</script><img', html)
         self.assertIn('\\u003c/script>', html)
+
+    def test_player_identity_provenance_is_preserved(self):
+        doc = weekly_fixture()
+        result = build_view(doc)["players"][0]
+        for key in ("player_key", "resolved_by", "source_ids"):
+            self.assertEqual(result[key], doc["players"][0][key])
+
+    def test_producer_cli_output_builds_preview_without_relabeling(self):
+        fixtures = ROOT / "tests" / "fixtures" / "weekly_inputs_producer"
+        with tempfile.TemporaryDirectory() as directory:
+            inputs = Path(directory) / "inputs-wk8.json"
+            preview = Path(directory) / "index.html"
+            command = [sys.executable, "pipelines/build_weekly_inputs.py",
+                       "--season", "2026", "--week", "8", "--as-of", "2026-10-29T02:00:00Z",
+                       "--out", str(inputs)]
+            for flag, filename in (("players", "players.json"), ("sleeper-base", "sleeper_base.json"),
+                                   ("aliases", "player_aliases.json"), ("espn-weekly", "espn_weekly.csv"),
+                                   ("status", "status.json"), ("byes", "byes.json")):
+                command += ["--" + flag, str(fixtures / filename)]
+            producer = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+            self.assertEqual(producer.returncode, 0, producer.stderr)
+            source = json.loads(inputs.read_text())
+            self.assertEqual(source["legs"]["experts.ecr_weekly"]["source"], "fantasypros_ecr")
+            consumer = subprocess.run([sys.executable, "pipelines/build_versus_vegas.py", str(inputs),
+                                       "--out", str(preview)], cwd=ROOT, capture_output=True, text=True)
+            self.assertEqual(consumer.returncode, 0, consumer.stderr)
+            payload = re.search(r'<script id="versus-data" type="application/json">(.*?)</script>',
+                                preview.read_text(), flags=re.DOTALL)
+            self.assertIsNotNone(payload)
+            result = json.loads(payload.group(1))
+            self.assertEqual(result["legs"]["ecr"], source["legs"]["experts.ecr_weekly"])
+            self.assertEqual(len(result["players"]), len(source["players"]))
+            self.assertEqual([row["player_key"] for row in result["players"]],
+                             [row["player_key"] for row in source["players"]])
+            for actual, original in zip(result["players"], source["players"]):
+                self.assertEqual(actual["resolved_by"], original.get("resolved_by"))
+                self.assertEqual(actual["source_ids"], original.get("source_ids", {}))
+                for cell in actual["scoring"].values():
+                    self.assertEqual(cell["coverage"], "missing")
+                    self.assertIsNone(cell["direction"])
+                    self.assertIsNone(cell["difference"])
+                    self.assertIsNone(cell["ecr"]["value"])
+                    self.assertIn("no weekly ECR producer yet", cell["ecr"]["reason"])
+            self.assertTrue(any(row["player_key"] is None for row in result["players"]))
+
+    def test_producer_source_label_also_accepts_populated_weekly_points(self):
+        doc = weekly_fixture()
+        doc["legs"]["experts.ecr_weekly"]["source"] = "fantasypros_ecr"
+        cells = [row["scoring"]["half_ppr"] for row in build_view(doc)["players"]]
+        self.assertEqual([cell["difference"] for cell in cells], [3, -2, 0, 0])
 
     def test_empty_input_and_new_minor_warnings_remain_inspectable(self):
         doc = weekly_fixture()

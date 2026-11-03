@@ -60,6 +60,11 @@ class VersusVegasRender(unittest.TestCase):
         self.assertEqual(page.locator('#players tr').count(), 1)
         self.assertIn('Reception market missing', page.locator('#players').inner_text())
         self.assertEqual(page.locator('#players img').count(), 0)
+        page.locator('#players details summary').click()
+        identity = page.locator('#players .identity').inner_text()
+        for value in ('9000101', 'espn_player_id', '101', 'sleeper_id', 'S9000101'):
+            self.assertIn(value, identity)
+        self.assertEqual(page.locator('#players .identity img').count(), 0)
         self.assertEqual(page.locator('.direction').count(), 0)
         page.select_option('#position', 'WR')
         self.assertIn('keep=yes', page.url)

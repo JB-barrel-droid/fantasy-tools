@@ -73,6 +73,12 @@
         const name = node('td', '');
         name.append(node('span', row.name, 'player-name'), node('span', row.position + ' · ' + (row.team || 'Team unknown'), 'player-meta'));
         if (row.unresolved_reason) name.append(node('span', row.unresolved_reason, 'cell-reason'));
+        const identity = node('details', '', 'identity');
+        identity.append(node('summary', 'Player identity'));
+        identity.append(node('p', 'Player key: ' + (row.player_key === null ? 'Unresolved' : row.player_key)));
+        identity.append(node('p', 'Resolved by: ' + (row.resolved_by || 'Not supplied')));
+        identity.append(node('pre', 'Source IDs: ' + JSON.stringify(row.source_ids, null, 2)));
+        name.append(identity);
         tr.append(name);
         ['ecr', 'vegas'].forEach(side => {
           const source = cell[side], td = node('td', cellText(source));
