@@ -58,6 +58,12 @@
   .ddf-waiver-board td:not(.wb-week) .wb-field-label { display: block; }
   .ddf-waiver-board .wb-week-label { display: block; font-size: 12px; font-weight: 650; }
 }
+@media (max-width: 360px) {
+  /* Two columns keep availability words readable on the narrowest phones. */
+  .ddf-waiver-board .wb-player { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ddf-waiver-board .wb-field[data-field="ddf_value"] { grid-column: span 1; }
+  .ddf-waiver-board .wb-field[data-field="points"] { grid-column: 1 / -1; }
+}
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .ddf-waiver-board { --wb-bg: #17251f; --wb-ink: #e4ece7; --wb-muted: #b3c1b9; --wb-line: #4e6156; --wb-week: #29362f; }
 }

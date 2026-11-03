@@ -84,8 +84,12 @@ class WaiverBoardViewRender(unittest.TestCase):
         self.page = self.context.new_page()
         self.errors = []
         self.page.on("pageerror", lambda error: self.errors.append(str(error)))
+        self.page.on("console", lambda message: self.errors.append(message.text) if message.type == "error" else None)
+        self.page.on("requestfailed", lambda request: self.errors.append(f"{request.url}: {request.failure}"))
+        self.page.on("response", lambda response: self.errors.append(f"HTTP {response.status}: {response.url}") if response.status >= 400 else None)
         self.page.goto(self.base + FIXTURE)
         self.page.wait_for_selector(".wb-player")
+        self.page.wait_for_load_state("networkidle")
 
     def tearDown(self):
         self.context.close()
@@ -122,6 +126,10 @@ class WaiverBoardViewRender(unittest.TestCase):
                 self.assertEqual(self.page.locator(".wb-source").count(), 9)
                 self.assertEqual(self.page.evaluate("document.documentElement.scrollWidth > innerWidth"), False)
                 self.assertTrue(self.page.locator("summary:visible").evaluate_all("items => items.every(el => el.getBoundingClientRect().height >= 44)"))
+                self.assertTrue(self.page.locator(".wb-missing > summary:visible").evaluate_all("""items => items.every(el => {
+                    const range = document.createRange(); range.selectNodeContents(el);
+                    return range.getClientRects().length === 1;
+                })"""), "Availability words must fit without a trailing letter on another line")
                 self.page.locator(".wb-sources > summary").click()
         self.page.set_viewport_size({"width": 390, "height": 844})
         self.page.screenshot(path="/tmp/jeg-1420-mobile.png", full_page=True)
@@ -214,6 +222,9 @@ class WaiverBoardViewRender(unittest.TestCase):
             self.assertEqual(self.page.get_by_role("button").count(), 0)
 
     def test_unsupported_version_clears_old_rows_then_supported_patch_renders(self):
+        self.page.evaluate("() => renderBoard(null)")
+        self.assertEqual(self.page.get_by_role("alert").count(), 1)
+        self.assertEqual(self.page.locator(".wb-player").count(), 0)
         for version in ("0.2.0", "1.0.0", "0.10.0", "0.1.0-extra"):
             self.page.evaluate("version => renderBoard({...fixtureBoard, schema_version: version})", version)
             self.assertEqual(self.page.get_by_role("alert").count(), 1)
@@ -244,6 +255,54 @@ class WaiverBoardViewRender(unittest.TestCase):
         self.assertEqual(self.page.evaluate("settingsCalls"), 1)
         self.assertTrue(self.page.evaluate("JSON.stringify(fixtureBoard) === beforeBoard"))
         self.assertEqual(self.page.locator(".ddf-waiver-board").count(), 1)
+
+    def test_repeated_settings_selection_preserves_host_navigation_and_filter(self):
+        boards = [json.loads(GOLDEN.read_text()), variant("stale"), variant("previous-season")]
+        empty = json.loads(GOLDEN.read_text())
+        empty["players"], empty["unresolved"] = [], []
+        self.assertEqual(validate(empty), [])
+        boards.extend([empty, json.loads(GOLDEN.read_text())])
+        self.page.evaluate("""() => {
+            history.replaceState({tab: 'waivers', filter: 'WR'}, '', '#waivers?position=WR');
+            localStorage.setItem('waiver-host-filter', 'WR');
+            const input = document.createElement('input'); input.id = 'host-filter'; input.value = 'WR';
+            document.body.prepend(input);
+            window.selections = [];
+        }""")
+        for board in boards:
+            self.page.evaluate("""board => {
+                window.selectedBoard = board;
+                TradeValueWaiverBoardView.render(document.getElementById('board'), board, {
+                    onSettings: setting => { selections.push({...setting}); setting.teams = 99; }
+                });
+            }""", board)
+            self.page.get_by_role("button", name="Edit league settings:").click()
+            self.assertEqual(self.page.evaluate("location.hash"), "#waivers?position=WR")
+            self.assertEqual(self.page.evaluate("history.state"), {"tab": "waivers", "filter": "WR"})
+            self.assertEqual(self.page.locator("#host-filter").input_value(), "WR")
+            self.assertEqual(self.page.evaluate("localStorage.getItem('waiver-host-filter')"), "WR")
+            self.assertIn("12 teams", self.page.locator(".wb-settings").inner_text())
+            self.assertEqual(self.page.evaluate("selectedBoard.setting"), board["setting"])
+            self.assertEqual(self.page.locator(".ddf-waiver-board").count(), 1)
+        self.assertEqual(self.page.evaluate("selections"), [board["setting"] for board in boards])
+        self.assertEqual(self.order(), [104, 101, 110, 103, 106, 102, 105, 108, 109])
+
+    def test_source_provenance_and_points_leg_match_stored_artifact(self):
+        board = json.loads(GOLDEN.read_text())
+        self.open_sources()
+        for key, source in board["sources"].items():
+            item = self.page.locator(f'[data-source="{key}"]')
+            item.locator("summary").click()
+            provenance = " · ".join(str(value) for value in (
+                source["source"], source["content_season"],
+                None if source["content_week"] is None else f"week {source['content_week']}",
+                source["content_vintage"],
+            ) if value is not None)
+            if provenance:
+                self.assertEqual(item.locator("p").first.inner_text(), provenance)
+        self.assertEqual(self.field(101, "points").locator(".wb-points-source").get_attribute("title"), board["points_leg"])
+        # v0.1 supplies provider identifiers, not publisher URLs to guess.
+        self.assertEqual(self.page.locator(".ddf-waiver-board a").count(), 0)
 
     def test_checks_reject_zero_fill_and_weekly_sort_mutations(self):
         code = JS.read_text()

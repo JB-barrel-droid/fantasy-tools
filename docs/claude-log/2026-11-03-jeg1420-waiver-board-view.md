@@ -134,3 +134,60 @@ before calling the renderer; the manifest is not a board. JEG-1417 still needs
 before/after comparisons and Jeremy's threshold pick. JEG-1418's opt-in local
 0.2 swap artifacts need a coordinated versioned reader update; this reader
 continues to accept 0.1.x only. No denied external write was retried.
+
+
+## Standalone layout and browser acceptance continuation
+
+Resumed from `32c16c6491e902b7d143a35fba7b62fa6b32bd64`. The remote
+branch matched, PR #1295 remained draft with no review/comment owner transfer,
+JEG-1420 remained In Progress/codex, and no broad validation process was active.
+The recorded completed broad phases above were reused; no heavy suite restarted.
+
+Two directly observed standalone defects were fixed:
+
+- At 320px, the three-column card broke “Unavailable” onto a trailing-letter
+  line. Cards at 360px and below now use two columns, with weekly points across
+  their width. DDF Value/change and the gray weekly lane remain separate.
+- The dedicated HTML fixture requested an absent favicon and emitted a console
+  404. It now declares a data favicon and needs no new asset.
+
+The focused module now checks console errors, failed requests and HTTP errors,
+unbroken availability words at all layout widths, null input replacing old rows,
+exact stored provenance/points-leg disclosure, and repeated settings selection
+through current, stale, missing-value and empty boards. Callback mutation cannot
+change the selected board. Rendering preserves a surrounding host input, history
+state/hash and localStorage filter; navigation/filter controls remain host-owned.
+There are no publisher URL fields in the 0.1 contract, so identifiers and vintage
+are disclosed faithfully without guessed source links. A future source-link UI
+needs contract-supplied URLs or an explicitly coordinated host mapping.
+
+Verified with system Chromium and rendering required:
+
+- `python3 -m unittest tests.test_waiver_board_view_render -v`: **14 passed,
+  40.080s**, no skips. Log: `/tmp/jeg-1420-acceptance-focused.log`.
+- Seven captures: stored golden at 1366/390/320px, real builder/validator stale
+  points and previous-season missing values at 320px, valid empty board at
+  1366px, and null artifact at 320px. All requested HTML/CSS/JS/JSON returned
+  200, with no console/page/request errors or horizontal overflow. The empty
+  and null states removed old rows. These captures use only local fixtures.
+- Old CSS negative control at 320px produces **17 wrapped availability
+  summaries**, proving the added layout assertion detects the original defect.
+- `git diff --check` and `node --check app/v2/waiver-board-view.js` pass.
+
+Screenshot/report bundle: `/tmp/jeg-1420-acceptance/report.json`, with
+`desktop.png`, `phone.png`, `phone-390.png`, `partial-stale-points.png`,
+`missing-values.png`, `empty.png`, and `missing-board.png` beside it. Inspected
+both the original desktop/320px screenshots and corrected phone/stale-source
+screenshots. The renderer JS remains unchanged; only its scoped CSS, dedicated
+fixture, standalone tests and this log change in this continuation.
+
+At the starting head, settings-render/security/waivers-mutation and both state
+checks passed. Preview and v2-render finalizers remained red because expensive
+verification was deferred for the draft; their skipped heavy jobs do not count
+as passing. New-head CI still needs its own receipt. Keep this PR draft while
+the eight-ready cap is full. Focused author acceptance is not independent formal
+review. Exact-head full CI, current-head independent review, Jeremy copy/layout
+review and coordinated dashboard manifest/loading/mount/settings integration
+remain required. Shared v2.js/shell, Fieldnotes/Simplified, swap adapter and
+board-builder ownership were untouched. No denied action was retried, and no
+merge, deploy, activation, access change or deletion was attempted.
