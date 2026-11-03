@@ -57,3 +57,56 @@ slice while that later baseline cannot be downloaded, not design completion.
   remain unfinished. Existing broad suites are not duplicated.
 - Exact-head release CI, independent review, merge and public signoff remain
   required. A draft prerequisite slice is not a finished product.
+
+### Ownership partition and contract hardening
+
+The coordinator now owns the full private UI using its already-readable baseline.
+This lane exclusively owns PR1302's readout/calculation contract, tests and CI;
+no Fieldnotes baseline/UI or Simplified implementation is touched. The earlier
+transfer failure is historical context, not a blocker for this narrowed lane.
+
+Verified: GitHub job126273046901 at361559d7 did not run render tests. Its log
+shows STATE_RESULT=success, RUN_EXPENSIVE=false, RENDER_RESULT=skipped and the
+intentional draft-finalizer exit1. No workflow guard is weakened or bypassed, and
+no ready-for-review transition or broad rerun is performed. The preview pr-state
+job gains a small starter/readout unit step so draft CI can verify this contract.
+
+The display-source regression fails before the hardening fix: setting legacy
+ourKey=cbs changes the measured quantity while its canonical basis label says
+DDF Value. Canonical mode now pins its base DDF series; released unflagged callers
+retain their original parameter. Added tests also cover conflicting source holds,
+ambiguous ownership, explicit FantasyCalc quoting, original source ancestry and
+no fictional manager/roster limit for Waivers. Known pickup sources do not depend
+on unrelated free agents. Canonical summaries retain source coverage metadata.
+
+Checks:60 Node contract assertions; original319-assertion readout harness;32-case
+JS/Python threshold/basis policy matrix;75 focused Python contract/workflow-guard
+tests pass. Numerical fixture starter/package values are unchanged; additive
+metadata is refreshed under the same identified source data. Full release CI,
+independent review and coordinator journey acceptance remain pending.
+
+### Authoritative candidate enumeration
+
+The UI consumer identified the remaining legacy-filter omission. New
+TradeValueOpportunities.runCanonical and canonicalReadout reuse existing
+subset/lineup/scoring primitives but never consume legacy findTrades results.
+The exact four-entry readout judges every bounded package before filters and
+paging. Explicit virtual partners use partnerKind:waivers with no manager
+readout/limit; the UI owner supplies their authoritative/imported entries.
+No free-agent ownership is inferred from partial imports. Legacy callers
+without calculationSettings retain their existing paths.
+
+20 new candidate assertions pass, including legacy-discarded negative-package
+starter gains, projection-basis gains and below-even-band gains. Readout
+assertions are now61, plus the independent32-case policy matrix and unchanged
+legacy readout319. An exploratory command named a nonexistent
+tests.test_v2_opportunities module; its import failed while the other11 tests
+completed. That is a command-selection error, not a passed gate or code defect.
+Correct existing opportunity coverage is tests.test_jeg1213_logic. The final
+focused commands/CI report their own terminal outcomes. No broad suite rerun.
+
+Candidate API publication checks:62 readout assertions,20 candidate assertions
+and32 policy matrix cases pass; existing readout319 remains unchanged. The
+combined focused command including legacy opportunity logic and workflow guards
+passes82 Python tests. The single-source compatible set remains exposed for an
+individual display value while its average/fit state stays unavailable.

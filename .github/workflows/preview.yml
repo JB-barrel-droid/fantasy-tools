@@ -62,6 +62,8 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Cheap draft CI guards
         run: python3 -m unittest tests.test_draft_ci_workflows tests.test_preview_workflow_matches_pages tests.test_ci_speedup_workflows tests.test_baseline_reds
+      - name: Starter readout contract (JEG-1483)
+        run: python3 -m unittest tests.test_jeg1483_starter_contract tests.test_jeg1230_trade_readout
       - name: Check current PR head and draft state
         id: gate
         env:

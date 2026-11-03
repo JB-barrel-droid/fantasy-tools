@@ -9,15 +9,28 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class StarterContract(unittest.TestCase):
+    def test_unfiltered_authoritative_candidate_pipeline(self):
+        run = subprocess.run(["node", "tests/node/jeg1483_candidate_check.cjs"], cwd=ROOT, text=True, capture_output=True, check=True)
+        receipt = json.loads(run.stdout)
+        self.assertTrue(receipt["passed"])
+        self.assertGreaterEqual(receipt["checks"], 20)
+        self.assertTrue(receipt["recovered"]["record"]["natural"])
+
     def test_synthetic_contract_and_legacy_readout(self):
         run = subprocess.run(["node", "tests/node/jeg1483_starter_contract_check.cjs"], cwd=ROOT, text=True, capture_output=True, check=True)
         receipt = json.loads(run.stdout)
         self.assertTrue(receipt["passed"])
-        self.assertGreaterEqual(receipt["checks"], 51)
+        self.assertGreaterEqual(receipt["checks"], 60)
         actual = receipt["canonicalDefault"]
         expected = classify(actual["questions"], actual["settings"])
         self.assertEqual(actual["natural"], expected["natural"])
         self.assertEqual([q["pass"] for q in actual["questions"]], expected["predicates"])
+        for case in receipt["policyCases"]:
+            with self.subTest(policy=case["name"]):
+                oracle = classify(case["questions"], case["settings"])
+                self.assertEqual(case["label"], oracle["label"])
+                self.assertEqual(case["natural"], oracle["natural"])
+                self.assertEqual([q["pass"] for q in case["questions"]], oracle["predicates"])
 
     def test_real_starter_witness_and_intentional_source_difference(self):
         witness = json.loads((ROOT / "tests/fixtures/jeg1483-starter-real-witness.json").read_text())

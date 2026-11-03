@@ -1,6 +1,8 @@
 // JEG-1230: one readout of an explicit trade for Compare, Find a trade and the league finder. It only gathers what
 // finder.js already computes (rosterImpact, withChartAverage, needLine, isNotEvaluated) per available view and says
-// why a view is missing; lineup-comparison.js draws it. No valuation, lineup, fit or ranking rule lives here.
+// why a view is missing; lineup-comparison.js draws it. JEG-1483 adds the explicit
+// private four-entry fit policy, reusing existing lineup/roster/noise functions.
+// Player valuation, lineup selection and ranking algorithms stay in their owners.
 (function (root) {
   "use strict";
   const finite = n => typeof n === "number" && Number.isFinite(n);
@@ -37,14 +39,17 @@
   }
   // Values' range, Build's MKT column and the readout use this same coverage
   // definition. A fallback single publisher value is never called an average.
-  function marketQuote(row, raw, availableKeys = PUBLISHED_CHARTS) {
+  function marketQuote(row, raw, availableKeys = [...PUBLISHED_CHARTS, "fantasycalc"]) {
     const settings = calculationSettings(raw), average = settings.market === "published-average";
     const wanted = average ? PUBLISHED_CHARTS : [settings.market];
     const sources = wanted.filter(k => availableKeys.includes(k) && finite(row?.values?.[k]));
     const values = sources.map(k => row.values[k]), fitAvailable = average ? values.length >= 2 : values.length === 1;
     const mean = values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
     const coverage = {available: sources.length, total: wanted.length, required: average ? 2 : 1, text: `${sources.length} of ${wanted.length}`};
+    const sourceViews = root.DDFSourceViews || (typeof require === "function" ? require("./source-views.js") : null);
+    const ancestry = sourceViews ? sourceViews.read(row, settings.market === "fantasycalc" ? "observed_trade_estimate" : "published_chart_average", availableKeys).inputs.filter(input => wanted.includes(input.key)) : null;
     return {value: mean, average: average && fitAvailable ? mean : null, fitAvailable, sources, coverage,
+      inputs: ancestry,
       status: fitAvailable ? "available" : sources.length ? "individual" : "unknown",
       label: average && !fitAvailable && sources.length ? MARKET_NAMES[sources[0]] : MARKET_NAMES[settings.market],
       aggregation: average && fitAvailable ? "arithmetic mean of complete indexed published charts" : "individual indexed source",
@@ -57,8 +62,11 @@
     // All compared roster values use one compatible source set; no incomplete
     // source contributes a different denominator to one team's starter sum.
     const complete = wanted.filter(k => availableKeys.includes(k) && valued.length && valued.every(r => finite(r.values?.[k])));
-    const probe = {values: Object.fromEntries(complete.map(k => [k, 0]))};
-    return {...marketQuote(probe, settings, complete), chartKeys: complete};
+    const average = settings.market === "published-average", required = average ? 2 : 1;
+    return {fitAvailable: complete.length >= required, chartKeys: complete,
+      coverage: {available: complete.length, total: wanted.length, required, text: `${complete.length} of ${wanted.length}`},
+      label: average && complete.length === 1 ? MARKET_NAMES[complete[0]] : MARKET_NAMES[settings.market],
+      aggregation: average && complete.length >= required ? "arithmetic mean of complete indexed published charts" : "individual indexed source"};
   }
 
   function starterDecision(out, settings, inputs, F, partnerKind) {
@@ -108,7 +116,8 @@
           package: quantity(who, "package total", basis, s?.totalDelta, packageKnown, sources, coverage(packageKnown), "sum received minus sum given")};
       }
     }
-    return {contract: "JEG-1483/1", settings, questions, natural,
+    return {contract: "JEG-1483/1", settings, questions, natural, participants: out.participants,
+      partnerKind: waiver ? "waivers" : "team", deal: {give: out.give.slice(), get: out.receive.slice()},
       label: waiver ? "Pickup" : natural ? "Natural fit" : tested.some(q => q.pass === null) ? "Not judged" : "Other",
       passes: tested.every(q => q.pass === true), failed: tested.filter(q => q.pass === false).map(q => q.id), unknown: tested.filter(q => q.pass === null).map(q => q.id), supporting};
   }
@@ -218,8 +227,10 @@
   function build(input, deps) {
     const F = finder(deps);
     if (!F || !F.rosterImpact) throw new Error("TradeValueFinder is required");
+    const calculations = input.calculationSettings ? calculationSettings(input.calculationSettings) : null;
     const shape = input.shape || null;
-    const ourKey = input.ourKey || F.OUR_KEY;
+    // A released display-series parameter is not a second calculation basis.
+    const ourKey = calculations ? F.OUR_KEY : input.ourKey || F.OUR_KEY;
     const give = (input.give || []).map(String);
     const receive = (input.receive || []).map(String);
     const mine = sideRoster(input.mine, F);
@@ -227,11 +238,12 @@
     const mineByKey = new Map(mine.rows.map(row => [keyOf(row), row]));
     const theirByKey = new Map(theirs.rows.map(row => [keyOf(row), row]));
     const outside = {give: give.filter(key => !mineByKey.has(key)), receive: receive.filter(key => !theirByKey.has(key))};
-    const calculations = input.calculationSettings ? calculationSettings(input.calculationSettings) : null;
     const charts = (input.chartKeys || []).slice();
     const allRows = mine.rows.concat(theirs.rows);
     const allowedCharts = charts.filter(k => !(input.sourceInfo || []).some(s => s.key === k && (!s.available || s.paused || HELD(s))));
-    const plan = calculations ? marketPlan(allRows, calculations, allowedCharts, F) : null;
+    const waiver = calculations && input.partnerKind === "waivers";
+    const marketRows = waiver ? mine.rows.concat(receive.map(k => theirByKey.get(k)).filter(Boolean)) : allRows;
+    const plan = calculations ? marketPlan(marketRows, calculations, allowedCharts, F) : null;
     const market = calculations ? plan.fitAvailable ? plan.chartKeys : null : charts.length >= F.MIN_CHARTS ? charts : null;
     const projectionSources = sourceStatus(input.sourceInfo, F.PROJECTION_KEYS);
     const chartSources = sourceStatus(input.sourceInfo, F.CHART_KEYS);
@@ -249,25 +261,30 @@
         reason: F.hasProjections(allRows) ? null : heldNames(projectionSources).length === F.PROJECTION_KEYS.length
           ? "Projection sources are held this week (data check)." : "No projection values for these rosters."}
     };
-    if (plan) Object.assign(views.market, {label: plan.label, chartKeys: market, coverage: plan.coverage, sources: sourceStatus(input.sourceInfo, calculations.market === "published-average" ? PUBLISHED_CHARTS : [calculations.market]),
+    if (plan) Object.assign(views.market, {label: plan.label, chartKeys: plan.chartKeys, coverage: plan.coverage, sources: sourceStatus(input.sourceInfo, calculations.market === "published-average" ? PUBLISHED_CHARTS : [calculations.market]),
       aggregation: plan.aggregation, reason: plan.fitAvailable ? null : `${plan.coverage.text} complete ${calculations.market === "published-average" ? "published " : ""}sources for these rosters; no average or market fit judgment.`});
-    if (calculations && input.sourceInfo?.length && sourceStatus(input.sourceInfo, F.PROJECTION_KEYS).every(s => !s.available)) {
+    if (calculations && input.sourceInfo?.length && !input.sourceInfo.some(s => F.PROJECTION_KEYS.includes(s.key) && s.available && !s.paused && !HELD(s))) {
       Object.assign(views.projections, {status: "unavailable", reason: "Projection sources are unavailable or held; stale values are not used for judgment."});
     }
     const out = {version: VERSION, shape, ourKey, give, receive, outside, views, contextKey: input.contextKey || null,
       ready: Boolean(shape) && (give.length > 0 || calculations && input.partnerKind === "waivers") && receive.length > 0 && !outside.give.length && !outside.receive.length,
       reason: null, roster: null, sides: {mine: {}, theirs: {}}};
+    if (calculations) out.participants = {mine: input.mine?.id == null ? null : String(input.mine.id), theirs: input.theirs?.id == null ? null : String(input.theirs.id)};
     if (!shape) out.reason = "League roster shape is unavailable.";
     else if ((!give.length && !(calculations && input.partnerKind === "waivers")) || !receive.length) out.reason = "Add a player to both sides to see how each roster changes.";
     else if (outside.give.length || outside.receive.length) out.reason = "This trade includes players outside the selected rosters.";
     if (calculations && (new Set(give).size !== give.length || new Set(receive).size !== receive.length || give.some(k => receive.includes(k)))) {
       out.ready = false; out.reason = "The package contains duplicate or conflicting player identities.";
     }
+    if (calculations && [...mineByKey.keys()].some(key => theirByKey.has(key))) {
+      out.ready = false; out.reason = "A player appears on both selected rosters; resolve ownership before judging fit.";
+    }
     if (!out.ready) {
       if (calculations) out.decision = starterDecision(out, calculations, {chartKeys: charts}, F, input.partnerKind);
       return out;
     }
     out.roster = rosterReadout(F, {mine, theirs}, give, receive, shape, reserveRule(deps));
+    if (waiver) out.roster.theirs = null; // No manager, roster limit, or starting lineup belongs to Waivers.
     // Each view reads the same rows; the market view reads them with the chart average added (finder lineupContext).
     const rowsFor = id => {
       if (id !== "market") return {mine: mine.rows, theirs: theirs.rows};
@@ -287,7 +304,7 @@
       const valued = list => list.some(row => row.values && finite(row.values[view.valueKey]));
       out.sides.mine[id] = valued(rows.mine.concat(receiveRows))
         ? sideReadout(F, rows.mine, giveRows, receiveRows, shape, view.valueKey, mine.notEvaluated, mine.unresolved) : null;
-      out.sides.theirs[id] = valued(rows.theirs.concat(giveRows))
+      out.sides.theirs[id] = !waiver && valued(rows.theirs.concat(giveRows))
         ? sideReadout(F, rows.theirs, receiveRows, giveRows, shape, view.valueKey, theirs.notEvaluated, theirs.unresolved) : null;
     });
     if (calculations) out.decision = starterDecision(out, calculations, decisionInputs, F, input.partnerKind);
@@ -304,7 +321,8 @@
       depth: s.depth,
       notEvaluated: s.notEvaluated, unresolved: s.unresolved, lowConfidence: s.lowConfidence, complete: s.complete,
       before: lineup(s.impact.before), after: lineup(s.impact.after)} : null);
-    const views = Object.fromEntries(Object.entries(readout.views).map(([id, v]) => [id, {status: v.status, reason: v.reason, held: v.held || []}]));
+    const views = Object.fromEntries(Object.entries(readout.views).map(([id, v]) => [id, {status: v.status, reason: v.reason, held: v.held || [],
+      ...(readout.decision ? {label: v.label, valueKey: v.valueKey, ...(v.coverage ? {coverage: v.coverage, chartKeys: v.chartKeys, aggregation: v.aggregation} : {})} : {})}]));
     return {version: readout.version, ready: readout.ready, reason: readout.reason, outside: readout.outside, views, roster: readout.roster,
       ...(readout.decision ? {decision: JSON.parse(JSON.stringify(readout.decision))} : {}),
       mine: Object.fromEntries(Object.entries(readout.sides.mine).map(([id, s]) => [id, side(s)])),
@@ -373,7 +391,7 @@
     const partner = TC && TC.dealPartner ? TC.dealPartner(ctx) : teams.theirs || null;
     const side = team => {
       const entries = (team && team.roster) || [];
-      return {rows: entries.map(entry => e.rowsByKey.get(String(entry.key))).filter(Boolean),
+      return {id: team?.id ?? null, rows: entries.map(entry => e.rowsByKey.get(String(entry.key))).filter(Boolean),
         entries: entries.map(entry => ({key: String(entry.key), name: entry.name, pos: entry.pos, ...(entry.slot ? {slot: entry.slot} : {})}))};
     };
     const sources = (ctx.common && ctx.common.sources) || {};

@@ -764,17 +764,35 @@
           "ddf": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "DDF Value",
+            "valueKey": "ddf_value"
           },
           "market": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "Indexed published-chart average",
+            "valueKey": "chart_avg",
+            "coverage": {
+              "available": 3,
+              "total": 3,
+              "required": 2,
+              "text": "3 of 3"
+            },
+            "chartKeys": [
+              "usatoday",
+              "fantasypros",
+              "cbs"
+            ],
+            "aggregation": "arithmetic mean of complete indexed published charts"
           },
           "projections": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "DDF Value (projections)",
+            "valueKey": "ddf_value_projections"
           }
         },
         "roster": {
@@ -954,6 +972,21 @@
             }
           ],
           "natural": true,
+          "participants": {
+            "mine": null,
+            "theirs": null
+          },
+          "partnerKind": "team",
+          "deal": {
+            "give": [
+              "547",
+              "319"
+            ],
+            "get": [
+              "1381",
+              "4048"
+            ]
+          },
           "label": "Natural fit",
           "passes": true,
           "failed": [],
@@ -2620,17 +2653,34 @@
           "ddf": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "DDF Value",
+            "valueKey": "ddf_value"
           },
           "market": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "Indexed published-chart average",
+            "valueKey": "chart_avg",
+            "coverage": {
+              "available": 2,
+              "total": 3,
+              "required": 2,
+              "text": "2 of 3"
+            },
+            "chartKeys": [
+              "usatoday",
+              "fantasypros"
+            ],
+            "aggregation": "arithmetic mean of complete indexed published charts"
           },
           "projections": {
             "status": "available",
             "reason": null,
-            "held": []
+            "held": [],
+            "label": "DDF Value (projections)",
+            "valueKey": "ddf_value_projections"
           }
         },
         "roster": {
@@ -2808,6 +2858,21 @@
             }
           ],
           "natural": true,
+          "participants": {
+            "mine": null,
+            "theirs": null
+          },
+          "partnerKind": "team",
+          "deal": {
+            "give": [
+              "547",
+              "319"
+            ],
+            "get": [
+              "1381",
+              "4048"
+            ]
+          },
           "label": "Natural fit",
           "passes": true,
           "failed": [],
@@ -3755,8 +3820,8 @@
     }
   ],
   "provenance": {
-    "app/v2/finder.js": "bda02161755c8e99736352c8c6c24a7fd19ea6fa04d5ee0008997a4c0c853578",
-    "app/v2/trade-readout.js": "81a28120e52e9790ad889175b161863888a638c323d63a8ec521dad4991a705f",
+    "app/v2/finder.js": "7590dca8b23ff4045617c8f5e134c800041656042cfd4f8fdd45be2dfe5a2352",
+    "app/v2/trade-readout.js": "e02a3c8e63222663f044f537a1bf8d65b1c73a9825bd2aae99db534eaded18a0",
     "data/fixtures/current/comparison-sources-data.json": "c443a8ff4abf878a5f77c0882bce50d9ca98629999ccf84c8bdffc9ae9f3101f"
   }
 }
