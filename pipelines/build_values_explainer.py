@@ -123,6 +123,59 @@ def r(x, nd=3):
 
 ROLE = {"starter": "s", "bench": "b", "waiver": "w"}
 CHECK_TOL = 0.01  # the page's per-source arithmetic must land on the row values
+RENDER_TOL = 0.051  # final aggregates display one decimal, from 3-decimal exports
+
+
+def check_rendered_page(page, data: dict) -> dict:
+    """Exercise the actual trace for every player/version, including null and zero.
+
+    Expected values and membership come from the engine, not the template's
+    averaging code. Reading the final text catches a wrong rendered divisor or
+    aggregate even when all the per-source cells are individually correct.
+    """
+    return page.evaluate(r"""({players, tolerance}) => {
+      const input = document.getElementById('playerSearch');
+      const off = {}, worst = {}; let checked = 0;
+      for (const [key, p] of Object.entries(players)) {
+        input.value = `${p.n} (${p.p}${p.t ? ', ' + p.t : ''})`;
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        for (const version of ['blended', 'charts', 'projections']) {
+          checked++;
+          const block = document.querySelector(`[data-ddf-version="${version}"]`);
+          const text = block?.querySelector('[data-aggregate-value] .v')?.textContent;
+          const shown = text === '—' ? null : text === undefined ? NaN : Number(text.replaceAll(',', ''));
+          const expected = p.ddf[version]?.[0] ?? null;
+          const divisor = Number(block?.querySelector('[data-aggregate-divisor]')?.textContent.match(/÷ (\d+) =/)?.[1]);
+          const sources = block ? [...block.querySelectorAll('[data-source]')].map(el => el.dataset.source) : [];
+          const delta = expected === null ? (shown === null ? 0 : Infinity)
+            : (shown !== null && Number.isFinite(shown) ? Math.abs(shown - expected) : Infinity);
+          worst[version] = Math.max(worst[version] || 0, delta);
+          if (delta > tolerance || divisor !== (p.ddf[version]?.[1] ?? 0)
+              || JSON.stringify(sources) !== JSON.stringify(p.sources[version] || []))
+            off[`${key}:${version}`] = {shown: Number.isFinite(shown) ? shown : null, expected, divisor, sources};
+        }
+      }
+      return {checked, tolerance, worst, off};
+    }""", {"players": data["players"], "tolerance": RENDER_TOL})
+
+
+def check_rendered(html: str, data: dict) -> dict:
+    from playwright.sync_api import sync_playwright
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch(args=HERMETIC_ARGS, executable_path=os.environ.get("CHROMIUM_PATH") or None)
+        try:
+            page = browser.new_page()
+            page.route("**/*", lambda route: route.abort())
+            errors = []
+            page.on("pageerror", lambda error: errors.append(str(error)))
+            page.set_content(html, wait_until="domcontentloaded")
+            result = check_rendered_page(page, data)
+            if errors:
+                raise ValueError(f"values explainer render errors: {errors}")
+            return result
+        finally:
+            browser.close()
 
 
 def trim_estimate(e: dict) -> dict:
@@ -144,7 +197,7 @@ def trim_estimate(e: dict) -> dict:
 def trim_pipeline(vp: dict, full: bool = True) -> dict:
     sources = {}
     for k, s in (vp.get("sources") or {}).items():
-        row = {f: s.get(f) for f in ("family", "included", "totalVorp", "groups", "weights", "starterMix",
+        row = {f: s.get(f) for f in ("family", "included", "totalVorp", "surplusTotal", "groups", "weights", "starterMix",
                                        "benchMix", "rates", "unfundedGroups", "unfundedMoved",
                                        "vorpFactor", "indexedFactor")}
         if full:
@@ -205,6 +258,7 @@ def trim(raw: dict) -> dict:
             ddf[ver] = [r(b.get("value")), b.get("count"), 1 if b.get("lowConfidence") else 0,
                         r((meta.get("prior") or {}).get(ver))]
         players[pk] = {"n": row.get("name"), "t": meta.get("team"), "p": row.get("pos"), "m": r(row.get("meanPpg")),
+                       "sources": {ver: b.get("sources", []) for ver, b in (row.get("ddfByVersion") or {}).items()},
                        "tier": row.get("tier"), "ddf": ddf, "est": row.get("estimated") or {},
                        "why": row.get("reasons") or {}}
 
@@ -230,7 +284,8 @@ def trim(raw: dict) -> dict:
         "priorAvailable": diag.get("priorAvailable"), "priorReason": diag.get("priorReason"),
         "info": [{f: s.get(f) for f in ("key", "label", "week", "stale", "waiverNote", "included", "excludedReason",
                                          "available", "paused")} for s in raw["info"]],
-        "composite": raw["composite"], "positionWeights": raw["positionWeights"], "zones": raw["zones"],
+        "composite": raw["composite"], "compositeByVersion": raw["compositeByVersion"],
+        "positionWeights": raw["positionWeights"], "zones": raw["zones"],
         "sensitivity": raw["sensitivity"], "restored": raw["restored"],
         "reconstruction": {"tolerance": CHECK_TOL, "worst": {k: r(v, 6) for k, v in worst.items()}, "off": off},
     }
@@ -268,8 +323,18 @@ def main(argv=None) -> int:
         "logic_changed": sorted(f for f, h in hashes.items() if reviewed.get("hashes", {}).get(f) != h),
         "math_review": math_review_items(),
     }
-    blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
-    html = (APP / "template.html").read_text().replace("/*__VALUES_DATA__*/null", blob)
+    template = (APP / "template.html").read_text()
+
+    def render():
+        blob = json.dumps(data, separators=(",", ":")).replace("</", "<\\/")
+        return template.replace("/*__VALUES_DATA__*/null", blob)
+
+    rendered = check_rendered(render(), data)
+    if rendered["off"]:
+        sample = dict(list(rendered["off"].items())[:5])
+        raise ValueError(f"values explainer rendered aggregates differ from engine: {sample}")
+    data["reconstruction"]["rendered"] = rendered
+    html = render()
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(html)
     if args.data_out:
@@ -277,7 +342,8 @@ def main(argv=None) -> int:
         args.data_out.write_text(json.dumps(data, indent=1))
     print(f"values explainer -> {args.out} ({len(html) // 1024} KB, commit {data['meta']['commit']}, "
           f"logic changed since review: {data['meta']['logic_changed'] or 'none'}, "
-          f"off the drawn values: {data['reconstruction']['off'] or 'none'})")
+          f"off the drawn values: {data['reconstruction']['off'] or 'none'}, "
+          f"rendered aggregates checked: {rendered['checked']})")
     return 0
 
 
