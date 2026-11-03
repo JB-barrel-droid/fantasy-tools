@@ -1007,6 +1007,7 @@ test-render-sweep-2:
 	python3 -m unittest tests.test_v2_finder_triview_render
 	python3 -m unittest tests.test_v2_league_live_render
 	python3 -m unittest tests.test_v2_league_shared_roster_render
+	python3 -m unittest tests.test_uso_site_journey_render
 	python3 -m unittest tests.test_v2_optimize_caption_render
 	python3 -m unittest tests.test_v2_inputs_status_render
 	# JEG-1233: loaded-league status header and collapsed summary (preview render; the node check is in test-core).
@@ -1056,6 +1057,7 @@ test-render-sweep-3:
 	python3 -m unittest tests.test_v2_finder_teams_render
 
 test-render-extra:
+	python3 -m unittest tests.test_uso_site_journey_render
 	python3 -m unittest tests.test_jeg1389_link_settings_reload_render
 	python3 -m unittest tests.test_jeg1389_switch_redraw_render
 	python3 -m unittest tests.test_v2_a11y_batch1_render
