@@ -1,7 +1,7 @@
 {
  "schema": "fidelity-pulse/1",
- "checked_at": "2026-11-03T03:40:17.433518Z",
- "run_id": "0929058e-1490-4044-84b2-338922b28b82",
+ "checked_at": "2026-11-03T06:40:22.787788Z",
+ "run_id": "6611b07e-1ae8-439a-8fc7-35271982f00a",
  "overall": "red",
  "site": {
   "url": "https://datadrivenfootball.github.io/fantasy-tools/assets/comparison-sources-data.json",
@@ -33,7 +33,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "fcwk8_2026-11-03t0305_v1",
    "measured_site": "2026-10-31T14:05:26+00:00",
-   "since": "2026-11-03T03:40:17.433518Z",
+   "since": "2026-11-03T06:40:22.787788Z",
    "summary": "1188/1188 chart values equal stored bake fcwk8_2026-10-31t1405_v1; newer stored bake fcwk8_2026-11-03t0305_v1 (week 8, saved 2026-11-03T03:05:32.682201Z) is not on the chart yet: 1143 values changed, 30 added, 30 dropped"
   },
   "espn": {
@@ -43,9 +43,9 @@
    ],
    "hold_level": "amber",
    "reason": "fidelity: stored_vs_chart",
-   "identity": "2026-11-02@2026-11-02T22:01:35.952947Z",
+   "identity": "2026-11-02@2026-11-03T03:41:46.019912Z",
    "measured_site": "2026-10-31",
-   "since": "2026-11-03T03:40:17.433518Z",
+   "since": "2026-11-03T06:40:22.787788Z",
    "summary": "the chart's snapshot 2026-10-31 is no longer stored: the stored set is now 2026-11-02; the chart is behind until the next chain run rebuilds it"
   },
   "cbsros": {
@@ -58,7 +58,7 @@
    "identity": "2026-11-03@2026-11-03T03:25:56.490706Z",
    "measured_site": "2026-10-31",
    "since": "2026-10-31T18:40:15.690272Z",
-   "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Grant Calcaterra, Joe Royer); parse notes: RB: 1 players listed with another posit"
+   "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, E.J. Jenkins, Grant Calcaterra, Tip Reiman); parse notes: RB: 1 players listed with another positi"
   },
   "razzball": {
    "stage": "publisher_vs_stored",
@@ -80,9 +80,9 @@
    ],
    "hold_level": "red",
    "reason": "fidelity: stored_vs_chart",
-   "identity": "2026-11-02@2026-11-02T16:46:01.969015Z",
+   "identity": "2026-11-03@2026-11-03T04:45:31.109115Z",
    "measured_site": null,
-   "since": "2026-11-03T03:40:17.433518Z",
+   "since": "2026-11-03T06:40:22.787788Z",
    "summary": "Draft Sharks is not in the live chart file"
   },
   "fantasysharks": {
@@ -94,7 +94,7 @@
    "reason": "fidelity: stored_vs_chart",
    "identity": "2026-11-01@2026-11-02T12:18:30.374328Z",
    "measured_site": null,
-   "since": "2026-11-03T03:40:17.433518Z",
+   "since": "2026-11-03T06:40:22.787788Z",
    "summary": "Fantasy Sharks is not in the live chart file"
   }
  },
@@ -312,17 +312,17 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "996/1186 values match exactly across 6 columns; 190 of 1186 values moved since the save at 2026-11-03T03:05:32.682201Z (largest 300%; 0 outside the max(25%, 50) band: none); 3 players entered or left the bottom of the list since the save (churn)",
+     "summary": "27/1170 values match exactly across 6 columns; 1143 of 1170 values moved since the save at 2026-11-03T03:05:32.682201Z (largest 800%; 14 outside the max(25%, 50) band: Deshaun Watson, J.J. McCarthy, Justin Herbert, Keenan Allen, Kyler Murray, Sam Darnold, Tyler Allgeier); 6 players entered or left the bottom of the list since the save (churn)",
      "counts": {
-      "publisher_players": 199,
+      "publisher_players": 198,
       "stored_players": 198,
-      "compared": 1186,
-      "matched": 996,
-      "mismatched": 190,
+      "compared": 1170,
+      "matched": 27,
+      "mismatched": 1143,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
-      "list_churn": 3,
+      "list_churn": 6,
       "unresolved_names": 0
      },
      "url": "https://api.fantasycalc.com/values/current (12 teams, 1 and 2 QB, 3 scorings)",
@@ -335,125 +335,125 @@
        "left": 197,
        "right": 198,
        "mismatched": 190,
+       "missing": 2,
+       "extra": 3
+      },
+      "full|2": {
+       "left": 197,
+       "right": 198,
+       "mismatched": 191,
+       "missing": 2,
+       "extra": 3
+      },
+      "half|1": {
+       "left": 195,
+       "right": 198,
+       "mismatched": 189,
+       "missing": 1,
+       "extra": 4
+      },
+      "half|2": {
+       "left": 197,
+       "right": 198,
+       "mismatched": 192,
        "missing": 1,
        "extra": 2
       },
-      "full|2": {
-       "left": 198,
-       "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
-      },
-      "half|1": {
-       "left": 198,
-       "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
-      },
-      "half|2": {
-       "left": 198,
-       "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
-      },
       "std|1": {
-       "left": 198,
+       "left": 196,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 190,
+       "missing": 1,
+       "extra": 3
       },
       "std|2": {
-       "left": 198,
+       "left": 196,
        "right": 198,
-       "mismatched": 0,
-       "missing": 0,
-       "extra": 0
+       "mismatched": 191,
+       "missing": 1,
+       "extra": 3
       }
      },
      "examples": [
       {
        "type": "value_mismatch",
-       "grain": "full|1",
+       "grain": "half|2",
+       "player_key": 2060,
+       "name": "Sam Darnold",
+       "pos": "QB",
+       "left": "2582",
+       "right": 1952.0,
+       "delta": -630.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 3651,
+       "name": "Justin Herbert",
+       "pos": "QB",
+       "left": "2331",
+       "right": 1735.0,
+       "delta": -596.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
+       "player_key": 327,
+       "name": "Baker Mayfield",
+       "pos": "QB",
+       "left": "1663",
+       "right": 2196.0,
+       "delta": 533.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "std|2",
+       "player_key": 327,
+       "name": "Baker Mayfield",
+       "pos": "QB",
+       "left": "1644",
+       "right": 2171.0,
+       "delta": 527.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "half|2",
+       "player_key": 370,
+       "name": "Kyler Murray",
+       "pos": "QB",
+       "left": "1354",
+       "right": 1876.0,
+       "delta": 522.0
+      },
+      {
+       "type": "value_mismatch",
+       "grain": "full|2",
        "player_key": 1381,
        "name": "Zay Flowers",
        "pos": "WR",
-       "left": "5195",
-       "right": 5464.0,
-       "delta": 269.0
+       "left": "4671",
+       "right": 5189.0,
+       "delta": 518.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3892,
-       "name": "Justin Jefferson",
-       "pos": "WR",
-       "left": "5353",
-       "right": 5621.0,
-       "delta": 268.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 807,
-       "name": "Javonte Williams",
-       "pos": "RB",
-       "left": "5277",
-       "right": 5528.0,
-       "delta": 251.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 560,
-       "name": "Derrick Henry",
-       "pos": "RB",
-       "left": "5419",
-       "right": 5644.0,
-       "delta": 225.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
+       "grain": "full|2",
        "player_key": 471,
        "name": "Drake London",
        "pos": "WR",
-       "left": "5028",
-       "right": 5234.0,
-       "delta": 206.0
+       "left": "4413",
+       "right": 4927.0,
+       "delta": 514.0
       },
       {
        "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 4614,
-       "name": "Josh Jacobs",
-       "pos": "RB",
-       "left": "3680",
-       "right": 3854.0,
-       "delta": 174.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 751,
-       "name": "Rhamondre Stevenson",
-       "pos": "RB",
-       "left": "2201",
-       "right": 2374.0,
-       "delta": 173.0
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 1063,
-       "name": "Kyren Williams",
-       "pos": "RB",
-       "left": "5568",
-       "right": 5733.0,
-       "delta": 165.0
+       "grain": "std|2",
+       "player_key": 1381,
+       "name": "Zay Flowers",
+       "pos": "WR",
+       "left": "4589",
+       "right": 5098.0,
+       "delta": 509.0
       }
      ],
      "outside_universe": [],
@@ -536,7 +536,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "content week 9 opened -8 h ago; chart still shows FantasyCalc week 8",
+     "summary": "content week 9 opened -5 h ago; chart still shows FantasyCalc week 8",
      "chart_week": 8,
      "publisher_week": 9
     },
@@ -553,9 +553,9 @@
        "week_compared": 7,
        "publisher": {
         "QB": 32,
-        "RB": 65,
+        "RB": 63,
         "WR": 71,
-        "TE": 30
+        "TE": 29
        },
        "stored": {
         "QB": 32,
@@ -593,90 +593,90 @@
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
+     "grain": "half|2",
+     "player_key": 2060,
+     "name": "Sam Darnold",
+     "pos": "QB",
+     "left": "2582",
+     "right": 1952.0,
+     "delta": -630.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 3651,
+     "name": "Justin Herbert",
+     "pos": "QB",
+     "left": "2331",
+     "right": 1735.0,
+     "delta": -596.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
+     "player_key": 327,
+     "name": "Baker Mayfield",
+     "pos": "QB",
+     "left": "1663",
+     "right": 2196.0,
+     "delta": 533.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "std|2",
+     "player_key": 327,
+     "name": "Baker Mayfield",
+     "pos": "QB",
+     "left": "1644",
+     "right": 2171.0,
+     "delta": 527.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "half|2",
+     "player_key": 370,
+     "name": "Kyler Murray",
+     "pos": "QB",
+     "left": "1354",
+     "right": 1876.0,
+     "delta": 522.0
+    },
+    {
+     "stage": "publisher_vs_stored",
+     "type": "value_mismatch",
+     "grain": "full|2",
      "player_key": 1381,
      "name": "Zay Flowers",
      "pos": "WR",
-     "left": "5195",
-     "right": 5464.0,
-     "delta": 269.0
+     "left": "4671",
+     "right": 5189.0,
+     "delta": 518.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3892,
-     "name": "Justin Jefferson",
-     "pos": "WR",
-     "left": "5353",
-     "right": 5621.0,
-     "delta": 268.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 807,
-     "name": "Javonte Williams",
-     "pos": "RB",
-     "left": "5277",
-     "right": 5528.0,
-     "delta": 251.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 560,
-     "name": "Derrick Henry",
-     "pos": "RB",
-     "left": "5419",
-     "right": 5644.0,
-     "delta": 225.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
+     "grain": "full|2",
      "player_key": 471,
      "name": "Drake London",
      "pos": "WR",
-     "left": "5028",
-     "right": 5234.0,
-     "delta": 206.0
+     "left": "4413",
+     "right": 4927.0,
+     "delta": 514.0
     },
     {
      "stage": "publisher_vs_stored",
      "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 4614,
-     "name": "Josh Jacobs",
-     "pos": "RB",
-     "left": "3680",
-     "right": 3854.0,
-     "delta": 174.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 751,
-     "name": "Rhamondre Stevenson",
-     "pos": "RB",
-     "left": "2201",
-     "right": 2374.0,
-     "delta": 173.0
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 1063,
-     "name": "Kyren Williams",
-     "pos": "RB",
-     "left": "5568",
-     "right": 5733.0,
-     "delta": 165.0
+     "grain": "std|2",
+     "player_key": 1381,
+     "name": "Zay Flowers",
+     "pos": "WR",
+     "left": "4589",
+     "right": 5098.0,
+     "delta": 509.0
     }
    ],
    "held": null,
@@ -689,7 +689,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "fcwk8_2026-11-03t0305_v1",
     "measured_site": "2026-10-31T14:05:26+00:00",
-    "since": "2026-11-03T03:40:17.433518Z",
+    "since": "2026-11-03T06:40:22.787788Z",
     "summary": "1188/1188 chart values equal stored bake fcwk8_2026-10-31t1405_v1; newer stored bake fcwk8_2026-11-03t0305_v1 (week 8, saved 2026-11-03T03:05:32.682201Z) is not on the chart yet: 1143 values changed, 30 added, 30 dropped"
    }
   },
@@ -1142,14 +1142,14 @@
    "stored_bake": "2026-11-02",
    "stages": {
     "publisher_vs_stored": {
-     "status": "amber",
-     "summary": "1576/1794 values match exactly across 3 columns; 218 value mismatches, 0 publisher players not stored, 0 stored players not on the page; update available, ingest pending: the publisher changed since the save (fingerprint 155c51fc5cd7590dc20f513d at the save, bce1606e40b5b7602b0c236d now); re-sync requested (espn-supabase-sync.yml): red only if the mismatch survives it; parse notes: rest-of-season weeks 9-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5, 6, 7, 8]); 367 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
+     "status": "green",
+     "summary": "1794/1794 values match exactly across 3 columns; parse notes: rest-of-season weeks 9-18 (the stored rows' window; weeks with actuals now: [1, 2, 3, 4, 5, 6, 7, 8]); 367 players without 2026 weekly projection blocks skipped: ['Philip Rivers', 'Hendon Hooker', 'Taylen Green', 'Dillon Gabriel', 'Devin Leary']",
      "counts": {
       "publisher_players": 598,
       "stored_players": 598,
       "compared": 1794,
-      "matched": 1576,
-      "mismatched": 218,
+      "matched": 1794,
+      "mismatched": 0,
       "missing_in_stored": 0,
       "extra_in_stored": 0,
       "outside_universe": 0,
@@ -1159,119 +1159,33 @@
      "url": "https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026/segments/0/leaguedefaults/3?scoringPeriodId=0&view=kona_player_info",
      "publisher_vintage": null,
      "stored_snapshot": "2026-11-02",
-     "stored_saved_at": "2026-11-02T22:01:35.952947Z",
+     "stored_saved_at": "2026-11-03T03:41:46.019912Z",
      "grains": {
       "full|1": {
        "left": 598,
        "right": 598,
-       "mismatched": 74,
+       "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "half|1": {
        "left": 598,
        "right": 598,
-       "mismatched": 74,
+       "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "std|1": {
        "left": 598,
        "right": 598,
-       "mismatched": 70,
+       "mismatched": 0,
        "missing": 0,
        "extra": 0
       }
      },
-     "publisher_version": "changed",
-     "resync": {
-      "workflow": "espn-supabase-sync.yml",
-      "fingerprint": "bce1606e40b5b7602b0c236d",
-      "saved_at": "2026-11-02T22:01:35.952947Z",
-      "probe_dispatched_at": null
-     },
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 168.04,
-       "delta": 168.04
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 168.04,
-       "delta": 168.04
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 506,
-       "name": "Lamar Jackson",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 168.04,
-       "delta": 168.04
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 311,
-       "name": "Jacoby Brissett",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 143.92,
-       "delta": 143.92
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 311,
-       "name": "Jacoby Brissett",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 143.92,
-       "delta": 143.92
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 311,
-       "name": "Jacoby Brissett",
-       "pos": "QB",
-       "left": "0.00",
-       "right": 143.92,
-       "delta": 143.92
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 3659,
-       "name": "Kendrick Bourne",
-       "pos": "WR",
-       "left": "0.00",
-       "right": 71.5,
-       "delta": 71.5
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 3659,
-       "name": "Kendrick Bourne",
-       "pos": "WR",
-       "left": "0.00",
-       "right": 56.6,
-       "delta": 56.6
-      }
-     ],
+     "publisher_version": null,
+     "resync": null,
+     "examples": [],
      "outside_universe": [],
      "unresolved": []
     },
@@ -1333,96 +1247,7 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 168.04,
-     "delta": 168.04
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 168.04,
-     "delta": 168.04
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 506,
-     "name": "Lamar Jackson",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 168.04,
-     "delta": 168.04
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 311,
-     "name": "Jacoby Brissett",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 143.92,
-     "delta": 143.92
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 311,
-     "name": "Jacoby Brissett",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 143.92,
-     "delta": 143.92
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 311,
-     "name": "Jacoby Brissett",
-     "pos": "QB",
-     "left": "0.00",
-     "right": 143.92,
-     "delta": 143.92
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 3659,
-     "name": "Kendrick Bourne",
-     "pos": "WR",
-     "left": "0.00",
-     "right": 71.5,
-     "delta": 71.5
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 3659,
-     "name": "Kendrick Bourne",
-     "pos": "WR",
-     "left": "0.00",
-     "right": 56.6,
-     "delta": 56.6
-    }
-   ],
+   "worst_examples": [],
    "held": null,
    "hold": {
     "stage": "stored_vs_chart",
@@ -1431,9 +1256,9 @@
     ],
     "hold_level": "amber",
     "reason": "fidelity: stored_vs_chart",
-    "identity": "2026-11-02@2026-11-02T22:01:35.952947Z",
+    "identity": "2026-11-02@2026-11-03T03:41:46.019912Z",
     "measured_site": "2026-10-31",
-    "since": "2026-11-03T03:40:17.433518Z",
+    "since": "2026-11-03T06:40:22.787788Z",
     "summary": "the chart's snapshot 2026-10-31 is no longer stored: the stored set is now 2026-11-02; the chart is behind until the next chain run rebuilds it"
    }
   },
@@ -1450,7 +1275,7 @@
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Grant Calcaterra, Joe Royer); parse notes: RB: 1 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
+     "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, E.J. Jenkins, Grant Calcaterra, Tip Reiman); parse notes: RB: 1 players listed with another position in the cell (kept as RB): ['Kyle Juszczyk (FB)']; TE: 1 players listed with another position in the cell (kept as TE): ['Connor Heyward (FB)']",
      "counts": {
       "publisher_players": 367,
       "stored_players": 367,
@@ -1796,7 +1621,7 @@
     "identity": "2026-11-03@2026-11-03T03:25:56.490706Z",
     "measured_site": "2026-10-31",
     "since": "2026-10-31T18:40:15.690272Z",
-    "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, Dallen Bentley, Grant Calcaterra, Joe Royer); parse notes: RB: 1 players listed with another posit"
+    "summary": "1095/1095 values match exactly across 3 columns; 1 publisher names do not resolve to a canonical player; 4 players at the page's last listed value swapped in or out (ties at the row cap: Carter Runyon, E.J. Jenkins, Grant Calcaterra, Tip Reiman); parse notes: RB: 1 players listed with another positi"
    }
   },
   {
@@ -1921,7 +1746,7 @@
     },
     "freshness": {
      "status": "amber",
-     "summary": "publisher updated 2026-11-02 (7 h ago); chart shows snapshot 2026-10-29; stored has 2026-11-02",
+     "summary": "publisher updated 2026-11-02 (10 h ago); chart shows snapshot 2026-10-29; stored has 2026-11-02",
      "chart_snapshot": "2026-10-29",
      "publisher_vintage": "2026-11-02"
     },
@@ -2014,133 +1839,55 @@
    "stored_week": null,
    "chart_week": null,
    "content_week": 9,
-   "stored_snapshot": "2026-11-02",
+   "stored_snapshot": "2026-11-03",
    "chart_snapshot": null,
-   "stored_bake": "2026-11-02",
+   "stored_bake": "2026-11-03",
    "stages": {
     "publisher_vs_stored": {
      "status": "amber",
-     "summary": "17/2736 values match exactly across 3 columns; 2719 value mismatches, 1 publisher players not stored, 3 stored players not on the page; daily update, ingest pending: the publisher changed since the save (fingerprint 381ee33189b7177c at the save, cc291fa140afa10f now); 26 publisher names do not resolve to a canonical player; 1 publisher players not stored whose printed values are at most one printed unit (absent means 0): Romeo Doubs",
+     "summary": "2738/2738 values match exactly across 3 columns; 26 publisher names do not resolve to a canonical player",
      "counts": {
       "publisher_players": 914,
       "stored_players": 914,
-      "compared": 2736,
-      "matched": 17,
-      "mismatched": 2719,
-      "missing_in_stored": 1,
-      "extra_in_stored": 3,
+      "compared": 2738,
+      "matched": 2738,
+      "mismatched": 0,
+      "missing_in_stored": 0,
+      "extra_in_stored": 0,
       "outside_universe": 0,
       "list_churn": 0,
       "unresolved_names": 26
      },
      "url": "https://www.draftsharks.com/trade-value-chart",
      "publisher_vintage": null,
-     "stored_snapshot": "2026-11-02",
-     "stored_saved_at": "2026-11-02T16:46:01.969015Z",
+     "stored_snapshot": "2026-11-03",
+     "stored_saved_at": "2026-11-03T04:45:31.109115Z",
      "grains": {
       "full|1": {
        "left": 913,
        "right": 913,
-       "mismatched": 906,
-       "missing": 1,
-       "extra": 1
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
       },
       "half|1": {
        "left": 913,
        "right": 913,
-       "mismatched": 908,
+       "mismatched": 0,
        "missing": 0,
        "extra": 0
       },
       "std|1": {
        "left": 912,
-       "right": 913,
-       "mismatched": 905,
-       "missing": 1,
-       "extra": 2
+       "right": 912,
+       "mismatched": 0,
+       "missing": 0,
+       "extra": 0
       }
      },
-     "publisher_version": "changed",
+     "publisher_version": null,
      "resync": null,
-     "examples": [
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 394,
-       "name": "Gardner Minshew",
-       "pos": "QB",
-       "left": "-70.3",
-       "right": -25.2,
-       "delta": 45.1
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "half|1",
-       "player_key": 394,
-       "name": "Gardner Minshew",
-       "pos": "QB",
-       "left": "-57.9",
-       "right": -18.0,
-       "delta": 39.9
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "full|1",
-       "player_key": 394,
-       "name": "Gardner Minshew",
-       "pos": "QB",
-       "left": "-49.8",
-       "right": -13.5,
-       "delta": 36.3
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 81,
-       "name": "Taylor Heinicke",
-       "pos": "QB",
-       "left": "-122.1",
-       "right": -143.2,
-       "delta": -21.1
-      },
-      {
-       "type": "value_mismatch",
-       "grain": "std|1",
-       "player_key": 84,
-       "name": "Trevor Siemian",
-       "pos": "QB",
-       "left": "-122.1",
-       "right": -143.2,
-       "delta": -21.1
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 4368,
-       "name": "Juwan Johnson",
-       "pos": "TE",
-       "left": null,
-       "right": 1.7
-      },
-      {
-       "type": "missing",
-       "grain": "full|1",
-       "player_key": 28,
-       "name": "Aaron Rodgers",
-       "pos": "QB",
-       "left": "0.3",
-       "right": null
-      },
-      {
-       "type": "extra",
-       "grain": "std|1",
-       "player_key": 1742,
-       "name": "Adonai Mitchell",
-       "pos": "WR",
-       "left": null,
-       "right": 0.1
-      }
-     ],
+     "examples": [],
      "outside_universe": [],
      "unresolved": [
       {
@@ -2275,93 +2022,7 @@
      }
     }
    },
-   "worst_examples": [
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 394,
-     "name": "Gardner Minshew",
-     "pos": "QB",
-     "left": "-70.3",
-     "right": -25.2,
-     "delta": 45.1
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "half|1",
-     "player_key": 394,
-     "name": "Gardner Minshew",
-     "pos": "QB",
-     "left": "-57.9",
-     "right": -18.0,
-     "delta": 39.9
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "full|1",
-     "player_key": 394,
-     "name": "Gardner Minshew",
-     "pos": "QB",
-     "left": "-49.8",
-     "right": -13.5,
-     "delta": 36.3
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 81,
-     "name": "Taylor Heinicke",
-     "pos": "QB",
-     "left": "-122.1",
-     "right": -143.2,
-     "delta": -21.1
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "value_mismatch",
-     "grain": "std|1",
-     "player_key": 84,
-     "name": "Trevor Siemian",
-     "pos": "QB",
-     "left": "-122.1",
-     "right": -143.2,
-     "delta": -21.1
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 4368,
-     "name": "Juwan Johnson",
-     "pos": "TE",
-     "left": null,
-     "right": 1.7
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "missing",
-     "grain": "full|1",
-     "player_key": 28,
-     "name": "Aaron Rodgers",
-     "pos": "QB",
-     "left": "0.3",
-     "right": null
-    },
-    {
-     "stage": "publisher_vs_stored",
-     "type": "extra",
-     "grain": "std|1",
-     "player_key": 1742,
-     "name": "Adonai Mitchell",
-     "pos": "WR",
-     "left": null,
-     "right": 0.1
-    }
-   ],
+   "worst_examples": [],
    "held": null,
    "hold": {
     "stage": "stored_vs_chart",
@@ -2370,9 +2031,9 @@
     ],
     "hold_level": "red",
     "reason": "fidelity: stored_vs_chart",
-    "identity": "2026-11-02@2026-11-02T16:46:01.969015Z",
+    "identity": "2026-11-03@2026-11-03T04:45:31.109115Z",
     "measured_site": null,
-    "since": "2026-11-03T03:40:17.433518Z",
+    "since": "2026-11-03T06:40:22.787788Z",
     "summary": "Draft Sharks is not in the live chart file"
    }
   },
@@ -2440,7 +2101,7 @@
     "reason": "fidelity: stored_vs_chart",
     "identity": "2026-11-01@2026-11-02T12:18:30.374328Z",
     "measured_site": null,
-    "since": "2026-11-03T03:40:17.433518Z",
+    "since": "2026-11-03T06:40:22.787788Z",
     "summary": "Fantasy Sharks is not in the live chart file"
    }
   }
@@ -2477,15 +2138,6 @@
   "draftsharks": "2026-10-16T07:19:25.781124+00:00",
   "fantasysharks": "2026-10-16T07:19:25.781124+00:00"
  },
- "resyncs": {
-  "espn": {
-   "workflow": "espn-supabase-sync.yml",
-   "fingerprint": "bce1606e40b5b7602b0c236d",
-   "saved_at": "2026-11-02T22:01:35.952947Z",
-   "probe_dispatched_at": null,
-   "dispatch": true,
-   "requested_at": "2026-11-03T03:40:17.433518Z"
-  }
- },
- "holds_changed": true
+ "resyncs": {},
+ "holds_changed": false
 }
