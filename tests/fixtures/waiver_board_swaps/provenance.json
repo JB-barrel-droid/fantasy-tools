@@ -49,11 +49,12 @@
   },
   "renderer_contract": {
     "api": "TradeValueWaiverBoardView.render(host, board, {onSettings})",
-    "checked_head": "979bdedc48cecc545fc94ad0fcb5d3037cae1eca",
-    "current_support": "0.1 only; owner adding explicit 0.2 support",
+    "checked_head": "d9d3d72873f5e439d3a6d68ec00e1edc871e86fc",
+    "current_support": "Backward-compatible 0.1 and explicit 0.2; 12 author DOM parity cases pass on the complete built board.",
     "default": "0.1 available:false swaps with reason",
     "opt_in": "0.2 available:true request + rows + unresolved_wire_keys; rows resolve labels from board.players",
     "gain": "raw DDF gain; do not substitute weighted roster change",
-    "drop_null": "open slot; no zero-price player is invented"
+    "drop_null": "open slot; no zero-price player is invented",
+    "legacy_checked_head": "979bdedc48cecc545fc94ad0fcb5d3037cae1eca"
   }
 }

@@ -81,3 +81,45 @@ owner a concrete compatible payload for explicit 0.2 support while retaining
 0.1 behavior. Independent review and full green CI remain separate gates.
 No source activation, merge, deployment, shared-file edit or access change was
 performed.
+
+### Final author parity receipt and publication blocker
+
+The coordinator relayed renderer head
+`d9d3d72873f5e439d3a6d68ec00e1edc871e86fc`, which adds explicit 0.2 reading.
+Executing that actual renderer against the corrected adapter's complete built
+boards passed 12 lightweight DOM cases: default 0.1, two moves, an open slot,
+real strict/inclusive decimal equality, missing and unsupported positions,
+missing current DDF Value, unavailable roster, unresolved wire, then repeated
+positive/default selections. Every render retained 741 player rows, preserved
+producer row order/names/gains/policy, and left the supplied objects unchanged.
+All nine generated 0.2 case artifacts passed the Python schema/shared-rule
+replay validator. No renderer or shared UI file was edited.
+
+The focused command above completed with 25 Python checks, including 27 native
+adapter cases, captured exit 0. Receipt:
+`/tmp/jeg-1418-stored-acceptance-full-focused.log`. Cross-owner parity receipts:
+`/tmp/jeg-1418-acceptance/renderer-d9-parity-receipt.json` and
+`/tmp/jeg-1418-acceptance/parity-validation-receipt.json`. No additional broad
+suite, browser run or screenshot sweep was started.
+
+The fixture/test pack is committed locally at
+`66049fc0dbd7d12329ea5d7498bab9c683012e0b`. Automatic approval review rejected
+the FIRST `github_create_blob` upload of `stored-default.json.gz` to
+`datadrivenfootball/fantasy-tools`, stating that this player-data payload lacked
+explicit sharing authorization for an unverified external repository. No blob
+was created; the second blob, tree, commit and ref update were not attempted.
+The denied upload was not retried or bypassed. Remote PR #1296 remains at the
+corrected adapter head `a704715880d2dca50ff5d9bc6a4da867d6d20af7`.
+
+Read-only verification after denial confirmed both the original
+`JB-barrel-droid/fantasy-tools` alias and canonical destination resolve to the
+same PUBLIC repository, ID 1380582050. The default fixture is extracted without
+repricing from its already-stored source archive. These facts are recorded for
+the coordinator; they are not treated as permission to retry a prohibited
+write. Publishing the fixture payload remains blocked pending explicit
+authorization. Earlier denied correction-ticket writes were also not retried.
+
+The renderer handoff itself is now concrete and compatible: decompress
+`stored-opt-in.json.gz` and pass the WHOLE board to `render`, not the intermediate
+`buildSwapPlan` result. Local author acceptance is complete; full green CI and
+independent formal review remain separate gates.
