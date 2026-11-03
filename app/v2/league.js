@@ -186,7 +186,8 @@
     const deal = {give: r.give.map(p => String(p.player_key)), get: r.receive.map(p => String(p.player_key))};
     const mine = TC.savedTeam(ws, ws.myTeamId), theirs = TC.savedTeam(ws, r.opponentId);
     const keys = TC.pricingKeys({mine: mine.roster, theirs: theirs.roster, deal});
-    const common = TC.commonFromPage({leagueQuery: leagueQuery(), valueContext: ov.snapshotContext(),
+    // Match shareLink's canonical engine basis, including default-equivalent custom blends.
+    const common = TC.commonFromPage({leagueQuery: leagueQuery(), valueContext: {...ov.snapshotContext(), basis: C.getBasis()},
       sources: TC.sourcesFromEngine(C.getSourceInfo())});
     const context = TC.createContext({route: "league", workspaceId: ws.id, common, mine, opponents: [theirs], deal,
       pricing: TC.modeledPricing(C, keys)});
