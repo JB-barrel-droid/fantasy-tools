@@ -100,7 +100,7 @@ This is a private test oracle, not a fresh production claim.
 
 ## Verification and remaining integration
 
-- New Node harness:51 contract assertions, including real pair/league/Compare
+- New Node harness:52 contract assertions, including real pair/league/Compare
   context adapters and encoded TradeContext receive; no fake route-name loop.
 - Python policy oracle independently checks the four comparisons and
   published-average composition. It consumes existing engine starter/roster/

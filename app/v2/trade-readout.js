@@ -99,8 +99,13 @@
       supporting[who] = {};
       for (const id of ["ddf", "projections", "market"]) {
         const s = out.sides[who][id], meta = out.views[id], complete = Boolean(s?.complete);
-        supporting[who][id] = {starters: quantity(who, "starters", id, s?.starterDelta, complete, meta.chartKeys || [meta.valueKey], meta.coverage || null, "existing rosterImpact starter delta"),
-          package: quantity(who, "package total", id, s?.totalDelta, complete, meta.chartKeys || [meta.valueKey], meta.coverage || null, "sum received minus sum given")};
+        const basis = id === "market" ? settings.market : meta.valueKey, sources = meta.chartKeys || [meta.valueKey];
+        const coverage = known => meta.coverage || {available: known ? 1 : 0, total: 1, required: 1, text: `${known ? 1 : 0} of 1`};
+        // A package can be fully priced even when an unrelated roster player
+        // is unresolved. Do not turn that known package evidence into a fit.
+        const packageKnown = Boolean(s && !s.tradedUnpriced.length && finite(s.totalDelta));
+        supporting[who][id] = {starters: quantity(who, "starters", basis, s?.starterDelta, complete, sources, coverage(complete), "existing rosterImpact starter delta"),
+          package: quantity(who, "package total", basis, s?.totalDelta, packageKnown, sources, coverage(packageKnown), "sum received minus sum given")};
       }
     }
     return {contract: "JEG-1483/1", settings, questions, natural,

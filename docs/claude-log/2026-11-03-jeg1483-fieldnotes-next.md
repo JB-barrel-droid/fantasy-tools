@@ -13,7 +13,7 @@ slice while that later baseline cannot be downloaded, not design completion.
   its five changed paths are untouched. This executor has no relevant
   `.agents/skills` content; current checkout AGENTS.md applies.
 - `tests/node/jeg1483_starter_contract_check.cjs` fails before the new API and
-  now passes51 assertions. It verifies coverage0/1/2/3, strict default starter
+  now passes52 assertions. It verifies coverage0/1/2/3, strict default starter
   rules, reversible existing-noise/custom thresholds, no extra projection
   gate, source-display independence, missing/held/zero/duplicate states and
   Pickup's inapplicable manager questions. Actual immutable pair/league/
