@@ -132,6 +132,7 @@ test-unit-modules:
 	python3 -m unittest tests.test_doc_staleness
 	python3 -m unittest tests.test_managed_agents_retired
 	python3 -m unittest tests.test_mcp_remote
+	python3 -m unittest tests.test_connector_even_band
 	# JEG-1372: the local stdio MCP server stays retired; docs point at the hosted connector.
 	python3 -m unittest tests.test_local_mcp_retired
 	# JEG-1256: edge drift checker against a local fake server (offline, no live endpoints).

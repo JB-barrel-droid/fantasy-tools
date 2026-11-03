@@ -33,6 +33,13 @@ import {
   slimMover,
 } from "./analyses.ts";
 
+// JEG-1412: the default comparison reads the site's loaded evenBand below.
+// Standalone callers (without page modules) use the same constants as trade.js;
+// tests/test_connector_even_band.py pins their equality and both paths' boundaries.
+const EVEN_FLOOR = 1;
+const EVEN_SHARE = 0.03;
+const EVEN_RULE = `a gap below the larger of ${EVEN_FLOOR} point or ${EVEN_SHARE * 100}% of the average side total counts as roughly even`;
+
 export interface PlayerValue {
   player_key: number;
   name: string;
@@ -891,11 +898,17 @@ async function runPricedTool(
         prepared, deps, settings: s, view: "compare", work,
       });
     }
-    const sum = (rows: PlayerValue[]) => round1(rows.reduce((t, p) => t + p.value, 0));
+    // Classify before display rounding so rounding the side sums cannot cross the band.
+    // PlayerValue.value itself is still get-values' rounded value (JEG-1409).
+    const sum = (rows: PlayerValue[]) => rows.reduce((t, p) => t + p.value, 0);
     const sumA = sum(a.matched);
     const sumB = sum(b.matched);
     const diff = round1(sumA - sumB);
-    const verdict = Math.abs(diff) < 2
+    const trade = finderDeps?.analysis?.modules?.trade;
+    const band = typeof trade?.evenBand === "function"
+      ? trade.evenBand(sumA, sumB)
+      : Math.max(EVEN_FLOOR, EVEN_SHARE * ((sumA + sumB) / 2));
+    const verdict = Math.abs(sumA - sumB) < band
       ? "roughly even"
       : diff > 0
       ? `team B comes out ahead by ${diff.toFixed(1)} (team A gives up more value)`
@@ -910,13 +923,13 @@ async function runPricedTool(
       `Team B gives up (total ${sumB.toFixed(1)}):`,
       fmt(b.matched),
       "",
-      `Verdict (DDF Value sum, not lineup-aware; a gap under 2 points counts as roughly even, a rule of thumb): ${verdict}.`,
+      `Verdict (DDF Value sum, not lineup-aware; ${EVEN_RULE}): ${verdict}.`,
       "The site's Compare a trade shows the per-chart breakdown for this trade; open the link below.",
       ...(notes.length ? [notes.join("\n")] : []),
     ].join("\n");
     // Every name matched (stopOnUnresolved), so not_found stays empty; kept for the reply's shape.
     const pack = (rows: PlayerValue[]) => ({
-      total: sum(rows),
+      total: round1(sum(rows)),
       players: rows.map((p) => ({ name: p.name, pos: p.pos, value: p.value })),
       not_found: [] as string[],
     });
@@ -1525,7 +1538,7 @@ const EXPLANATIONS: Record<string, string> = {
   tiers:
     "Tier is where a player sits in the league: starter (fills a starting lineup slot), bench (worth rostering as depth) or waiver (replacement level, freely available). It is not a quality band, so two players in the same tier can have very different values; compare values, not tiers.",
   how_to_trade:
-    "1) Use compare_trade on both sides. 2) As a rough guide, a gap under about 2 points is roughly even and 5 or more is meaningful; this is a rule of thumb, not a measured threshold. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh the DDF Value sum. Values update weekly.",
+    `1) Use compare_trade on both sides. 2) The shared Compare rule of thumb is: ${EVEN_RULE}. A gap at or above that band favors the side receiving more DDF Value. 3) Use trade_targets to find similar-value partners. 4) Your own roster needs can outweigh the DDF Value sum. Values update weekly.`,
 };
 
 function explain(topic: string): ToolResult {
