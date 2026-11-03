@@ -258,6 +258,33 @@ class LeagueSiteTest(unittest.TestCase):
             self.assertGreater(t3["provenance"]["editedAt"], t0)
         self.assertEqual(self.problems, [])
 
+    def test_oversized_overrides_hold_compare_handoff(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, errors=self.problems, tag="[large-overrides] ")
+            self.seed(page, PASTED, per={0: {**PASTED, "coverage": "bench_omitted"}})
+            shared = page.evaluate("""() => {
+              const ov = window.DDFOverrides, snapshot = ov.snapshotContext();
+              snapshot.values = Object.fromEntries(Array.from({length: 300}, (_, i) => [String(900000 + i), 1]));
+              ov.restoreContext(snapshot);
+              return ov.shareLink('#compare-trade?give=3247&get=2227');
+            }""")
+            self.assertTrue(shared["dropped"], "the test must exceed the real share-link budget")
+            settle(page)
+            saved = page.evaluate(SAVED)
+            first = page.evaluate("() => window.TradeValueLeague.ui.result.rows[0].id")
+            self.assertTrue(page.evaluate(PICK, [first]))
+            hand = page.evaluate("""() => { const panel = document.querySelector('.v2-lg-detail-body');
+              const a = panel.querySelector('a[href^="#compare-trade"]');
+              const hold = panel.querySelector('[data-hold="value-context-size"]');
+              return {href: a && a.getAttribute('href'), held: hold && hold.textContent};
+            }""")
+            self.assertTrue(hand["href"] is None, "an incomplete override link must not open Compare")
+            self.assertIn("too large for a link", hand["held"] or "")
+            self.assertIn("Export", hand["held"] or "")
+            self.assertEqual(page.evaluate(SAVED), saved)
+            self.assertEqual(page.evaluate("() => Object.keys(window.DDFOverrides.all()).length"), 300)
+        self.assertEqual(self.problems, [])
+
     def test_league_to_compare_journey(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base, errors=self.problems, tag="[journey] ")

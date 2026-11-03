@@ -40,3 +40,9 @@ Claimed, not confirmed at this commit:
 
 - At `2e2cdea8`, preview build, all five validation shards, settings, waiver and security-contract checks passed. The render job completed all 22 USO journey/JEG-1249 tests successfully in 253.482 seconds, then hit its 35-minute job limit during the following JEG-1389 reload checks. GitHub check annotation: "The job has exceeded the maximum execution time of 35m0s". No assertion failure preceded the timeout; this session did not cancel the run.
 - Increased only that browser job's budget from 35 to 45 minutes. Test commands, assertions and required-gate conditions stay intact. Fresh CI on the resulting head is required before the one independent high-risk review starts.
+
+### Oversized override handoff correction (2026-11-03)
+
+- The automated PR review identified a bounded handoff defect: `shareLink()` drops oversized `ov` parameters while the attached TradeContext still contains them. Compare correctly rejects that mismatch, but the league page must not offer the invalid link.
+- Added a browser regression using 300 synthetic override keys and the real link-size budget. It failed on `d61053b3` because the page still emitted a Compare link. The corrected page renders an explicit `value-context-size` hold with Export guidance; it preserves the reader's overrides and saved workspace.
+- The new regression and the existing equal/unequal trade journey passed together: 2 tests in 32.026 seconds. No existing assertion was weakened. Fresh pushed-head CI and an independent high-risk review remain required; the parent retains merge ownership.

@@ -180,6 +180,9 @@
     // JEG-1403: Compare already receives TradeContext; carry the selected opponent and the exact modeled pricing so
     // reload and another device keep the same rosters, values and lineup gains instead of choosing a default team.
     const TC = root.TradeValueTradeContext, C = engine(), ws = store.get(), ov = root.DDFOverrides;
+    const shared = ov.shareLink(link.getAttribute("href") + "&" + leagueQuery());
+    if (shared.dropped) return el("span", {class: "v2-meta v2-lg-compare-held", "data-hold": "value-context-size",
+      text: "Not opened in Compare a trade: your player overrides are too large for a link. Use Export on the Overrides tab to share them as a file."});
     const deal = {give: r.give.map(p => String(p.player_key)), get: r.receive.map(p => String(p.player_key))};
     const mine = TC.savedTeam(ws, ws.myTeamId), theirs = TC.savedTeam(ws, r.opponentId);
     const keys = TC.pricingKeys({mine: mine.roster, theirs: theirs.roster, deal});
@@ -187,8 +190,6 @@
       sources: TC.sourcesFromEngine(C.getSourceInfo())});
     const context = TC.createContext({route: "league", workspaceId: ws.id, common, mine, opponents: [theirs], deal,
       pricing: TC.modeledPricing(C, keys)});
-    const hash = link.getAttribute("href") + "&" + leagueQuery();
-    const shared = ov.shareLink(hash);
     link.setAttribute("href", shared.hash + "&tc=" + TC.encodeTransfer(TC.toTransfer(context)));
     return link;
   }
