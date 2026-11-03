@@ -15,3 +15,20 @@ Contract: make the explainer's contributing sources, player aggregates and surpl
 ### Claimed, not confirmed
 - Independent review, full ready-for-review CI, merge, deployment and live verification remain release gates. Draft CI intentionally skips expensive jobs under the repository policy.
 - JEG-1396 can follow in this same lane after JEG-1395 lands; it was not started or run in parallel.
+
+## 2026-11-03 - P2 optional render dependencies and setup cleanup
+
+Contract: correct review thread `discussion_r4450955324` on PR #1289, on the existing ticket branch. Parent explicitly advanced this narrow correction. Local/remote head and ticket comments reconciled at `2995ab873f9544092b37a923389f4fbc46908885`, with no competing writer. No speculative #1084 integration, template/wording edit, or risk-register resolution.
+
+### Verified (check named)
+- Dependency probing now precedes the build: missing Playwright imports and unavailable Chromium go through `_render_env.unavailable`, which skips only when rendering is optional and raises a hard error when `RENDER_TESTS_REQUIRED=1`.
+- An ExitStack registered with `addClassCleanup` closes the browser before stopping Playwright, including failed class setup. Actual build and bundle-read errors are outside the dependency exception handler and remain errors in either mode.
+- `python3 -m unittest tests.test_values_explainer_arithmetic.ExplainerHarnessSetupTest`: five bounded controls passed. They cover optional/required missing packages and browsers, genuine build failures, missing bundles and successful cleanup. They use simulated dependencies and do not launch browsers or builds.
+- The same controls against the old setup at `2995ab87` fail ten subcases (no unexpected control-run errors), proving discrimination.
+- `CHROMIUM_PATH=/usr/bin/chromium RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_values_explainer_arithmetic tests.test_jeg1140_explainer_fieldnotes_render`: 19 tests passed, no skips. This includes the existing arithmetic/mutation checks and Fieldnotes browser checks. Receipt: `/tmp/jeg1395-p2-affected.log`; discrimination: `/tmp/jeg1395-p2-discrimination.log`.
+- `git diff --check` passed. The shared template, separate JEG-1398 wording patch and risk-register file are unchanged. Generated build output is excluded.
+
+### Claimed, not confirmed
+- Test-integrity **review-high-risk** floor retained: this delta introduces conditional skips by the documented dependency policy. The coordinator must apply that floor before an independent current-head delta review; the author has not downgraded it or claimed independent review.
+- No duplicate full local validation. Full CI on `2995ab87` is the parent receipt, not a receipt for this new delta. New-head CI and independent review remain pending.
+- Serial release remains #1084 before #1289; retain both risk-register entries when that integration is authorized. JEG-1398 wording remains separate and unapplied, and JEG-1396 starts only after #1289 is live. No merge or deployment performed.
