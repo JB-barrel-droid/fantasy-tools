@@ -51,6 +51,13 @@ def partial_fixture():
 
 
 class VersusVegas(unittest.TestCase):
+    def test_imports_as_package_with_isolated_python_path(self):
+        command = [sys.executable, "-I", "-c",
+                   "import sys; sys.path.insert(0, sys.argv[1]); import pipelines.build_versus_vegas",
+                   str(ROOT)]
+        result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_weekly_points_direction_and_real_zero(self):
         doc = weekly_fixture()
         original = copy.deepcopy(doc)

@@ -13,7 +13,10 @@ import hashlib
 import json
 from pathlib import Path
 
-from lib.weekly_inputs_contract import SCORINGS, errors, validate
+if __package__:
+    from .lib.weekly_inputs_contract import SCORINGS, errors, validate
+else:  # Direct CLI execution puts pipelines/ on sys.path.
+    from lib.weekly_inputs_contract import SCORINGS, errors, validate
 
 ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "app" / "versus-vegas"
