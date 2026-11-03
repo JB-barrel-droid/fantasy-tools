@@ -214,3 +214,9 @@ filters, and positive gains below the old even band. It also checks complete
 bounded enumeration, post-judgment paging, exact Review readout parity, target
 constraints, exclusion preservation, missing-source unknowns, snapshot
 immutability, cancellation, pool-cap disclosure and manager-free Pickups.
+
+Final cancellation is checked again after the complete progress callback and
+before publishing the page, so a superseding selection cannot leak an old result.
+Pinned real candidate verification also enumerates all1440 Flowers-constrained
+Jeremy/Nic size2 subset pairs and finds the documented Taylor/Tuten package,
+with exact search-to-Review record equality. Full UI testing stays with its owner.

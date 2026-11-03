@@ -332,6 +332,7 @@
       }
       result.computed++; progress("complete");
     }
+    if (o.isCancelled?.()) return cancel();
     result.rows = kept.slice(offset, offset + limit).map((row, i) => {
       const ranked = {...row, rank: offset + i + 1}; canonicalInputs.set(ranked, canonicalInputs.get(row));
       if (row.record.partnerKind !== "waivers") {

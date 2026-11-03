@@ -110,3 +110,23 @@ and32 policy matrix cases pass; existing readout319 remains unchanged. The
 combined focused command including legacy opportunity logic and workflow guards
 passes82 Python tests. The single-source compatible set remains exposed for an
 individual display value while its average/fit state stays unavailable.
+
+Final publication cancellation check: a regression where the onProgress complete
+callback supersedes the run fails before the fix. The runner now checks the
+latest cancellation predicate immediately before publishing the final page.
+Candidate harness now21 assertions; focused contract/legacy-opportunity run12
+tests passes. The actual133db7b1 draft CI logs confirm the new Starter readout
+contract step passed6 tests. v2-render remains intentionally red because
+RUN_EXPENSIVE=false and RENDER_RESULT=skipped, not a render assertion failure.
+
+Real bounded candidate evidence: the pinned Jeremy/Nic Week8 fixture, buy
+constraint Flowers1381, maxSize2, evaluates every1440 constrained subset pair.
+The exact Taylor547/Tuten319 for Flowers1381/Hubbard4048 package survives and
+its canonicalReadout decision equals its Opportunities record. Counts and timing
+are reported in the author receipt; no later UI journey or production claim.
+
+An optional PR1302 title/body refresh was rejected by automatic approval review
+as an external commitment without specific authorization. It is unexecuted;
+no CLI/comment workaround or third transfer retry occurs. Approval was requested
+for that metadata-only action. Contract code publication remains in the already
+authorized branch scope, and the up-to-date repository API doc is authoritative.
