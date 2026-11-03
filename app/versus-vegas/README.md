@@ -1,0 +1,42 @@
+# Versus Vegas local preview (JEG-1481, part of JEG-1195)
+
+Build from a stored `weekly-inputs` v1 JSON artifact:
+
+```sh
+python3 pipelines/build_versus_vegas.py tests/fixtures/weekly_inputs/valid/unavailable.json --out /tmp/versus-vegas/index.html
+python3 -m http.server 8000 --directory /tmp/versus-vegas
+```
+
+Open `http://localhost:8000`. This example uses synthetic, unavailable inputs;
+the page keeps every player visible and explains missing coverage. The output
+is self-contained and makes no network requests. Nothing is wired to `make sync`,
+the dashboard shell, `dist`, runtime writers or publication.
+
+The adapter uses the existing weekly-input validator, then selects only
+`experts.ecr_weekly` (`fantasypros`) and `vegas` (`propline`). ESPN and other
+sources cannot fill either side. Missing values remain null with the producer's
+reason, or an explicit absent-leg / absent-scoring reason. Raw source values,
+content vintage, freshness, provenance, identity and artifact SHA-256 remain
+inspectable. Freshness is the shared contract's content-week classification;
+it is not a claim that a saved artifact is current today.
+
+Difference is descriptive `Vegas − ECR` fantasy points, only when both cells
+are present, complete, current within the artifact week, and canonically
+identified. Partial and td-filled rows remain unflagged in every scoring. Ranks
+are displayed as ranks; no rank-to-points conversion or inferred positional
+rank is made. Both-values coverage and comparable-points coverage are separate.
+Verified plays remain empty pending the shared compute/play gate (S4). This
+page does not implement pricing or a play recommendation threshold.
+
+Scoring, position, coverage and sort persist in URL query parameters; reload
+and browser back restore them. Unknown parameters are preserved. Defaults show
+all players, including missing, partial and unresolved rows, in Half PPR.
+
+```sh
+python3 -m unittest tests.test_versus_vegas
+RENDER_TESTS_REQUIRED=1 python3 -m unittest tests.test_versus_vegas_render
+```
+
+The browser test uses only a loopback HTTP server and the repo's hermetic
+Playwright setup. Tests create synthetic ECR/PropLine rows from the existing
+committed shared-input fixture; no production data or fixtures are modified.
