@@ -258,6 +258,67 @@ class LeagueSiteTest(unittest.TestCase):
             self.assertGreater(t3["provenance"]["editedAt"], t0)
         self.assertEqual(self.problems, [])
 
+    def test_default_equivalent_blend_keeps_compare_context(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, errors=self.problems, tag="[default-blend] ")
+            self.seed(page, PASTED, per={0: {**PASTED, "coverage": "bench_omitted"}})
+            basis = page.evaluate("""() => {
+              const ov = window.DDFOverrides, snapshot = ov.snapshotContext();
+              const sources = window.TradeValueCurveControls.getBasis().defaults;
+              snapshot.basis = {mode: 'blend', sources, weights: Object.fromEntries(sources.map(k => [k, 25]))};
+              ov.restoreContext(snapshot);
+              return {picker: ov.snapshotContext().basis.mode,
+                engineDefault: window.TradeValueCurveControls.getBasis().isDefault, shared: ov.shareParams().basis};
+            }""")
+            self.assertEqual(basis, {"picker": "blend", "engineDefault": True, "shared": None})
+            settle(page)
+            saved = page.evaluate(SAVED)
+            trade = page.evaluate(ROWS, page.evaluate(JSN))["equal"]
+            self.assertIsNotNone(trade)
+            hand = self.handoff(page, trade["id"])
+            self.assertTrue(hand["href"])
+            self.assertNotIn("&basis=", hand["href"])
+            page.evaluate("h => { location.hash = h; }", hand["href"])
+            for stage in ("open", "reload"):
+                with self.subTest(stage=stage):
+                    if stage == "reload":
+                        page.reload(wait_until="networkidle")
+                    page.wait_for_function("() => document.title.startsWith('Compare a trade') && "
+                                           "document.getElementById('v2CConstruction').dataset.carried", timeout=60000)
+                    carried = page.evaluate("() => ({state: document.getElementById('v2CConstruction').dataset.carried, "
+                                            "reason: document.getElementById('v2CRosterStatus').textContent})")
+                    self.assertEqual(carried["state"], "ok", carried["reason"])
+                    self.open_compare(page, hand["href"], trade)
+                    self.assertEqual(page.evaluate(SAVED), saved)
+        self.assertEqual(self.problems, [])
+
+    def test_oversized_overrides_hold_compare_handoff(self):
+        with browser_on_build() as (browser, base):
+            page = open_page(browser, base, errors=self.problems, tag="[large-overrides] ")
+            self.seed(page, PASTED, per={0: {**PASTED, "coverage": "bench_omitted"}})
+            shared = page.evaluate("""() => {
+              const ov = window.DDFOverrides, snapshot = ov.snapshotContext();
+              snapshot.values = Object.fromEntries(Array.from({length: 300}, (_, i) => [String(900000 + i), 1]));
+              ov.restoreContext(snapshot);
+              return ov.shareLink('#compare-trade?give=3247&get=2227');
+            }""")
+            self.assertTrue(shared["dropped"], "the test must exceed the real share-link budget")
+            settle(page)
+            saved = page.evaluate(SAVED)
+            first = page.evaluate("() => window.TradeValueLeague.ui.result.rows[0].id")
+            self.assertTrue(page.evaluate(PICK, [first]))
+            hand = page.evaluate("""() => { const panel = document.querySelector('.v2-lg-detail-body');
+              const a = panel.querySelector('a[href^="#compare-trade"]');
+              const hold = panel.querySelector('[data-hold="value-context-size"]');
+              return {href: a && a.getAttribute('href'), held: hold && hold.textContent};
+            }""")
+            self.assertTrue(hand["href"] is None, "an incomplete override link must not open Compare")
+            self.assertIn("too large for a link", hand["held"] or "")
+            self.assertIn("Export", hand["held"] or "")
+            self.assertEqual(page.evaluate(SAVED), saved)
+            self.assertEqual(page.evaluate("() => Object.keys(window.DDFOverrides.all()).length"), 300)
+        self.assertEqual(self.problems, [])
+
     def test_league_to_compare_journey(self):
         with browser_on_build() as (browser, base):
             page = open_page(browser, base, errors=self.problems, tag="[journey] ")
